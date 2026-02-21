@@ -23,35 +23,47 @@ export const authOptions: AuthOptions = {
   callbacks: {
     async signIn({ user, account }) {
       if (!user.email) return false
-      const supabase = createAdminClient()
 
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('id, role')
-        .eq('email', user.email)
-        .single()
+      try {
+        const supabase = createAdminClient()
 
-      if (!existingProfile) {
-        const { data: whitelisted } = await supabase
-          .from('admin_whitelist')
-          .select('email')
+        const { data: existingProfile } = await supabase
+          .from('profiles')
+          .select('id, role')
           .eq('email', user.email)
           .single()
 
-        const role = whitelisted ? 'admin' : 'user'
+        if (!existingProfile) {
+          const { data: whitelisted } = await supabase
+            .from('admin_whitelist')
+            .select('email')
+            .eq('email', user.email)
+            .single()
 
-        await supabase.from('profiles').upsert({
-          id: user.id,
-          email: user.email,
-          full_name: user.name,
-          avatar_url: user.image,
-          role,
-          provider: account?.provider,
-        })
+          const role = whitelisted ? 'admin' : 'user'
 
-        user.role = role
-      } else {
-        user.role = existingProfile.role
+          // Naudojame email kaip unikalų identifikatorių, ne NextAuth ID
+          const { data: newProfile } = await supabase
+            .from('profiles')
+            .insert({
+              email: user.email,
+              full_name: user.name,
+              avatar_url: user.image,
+              role,
+              provider: account?.provider,
+            })
+            .select('id')
+            .single()
+
+          user.role = role
+          if (newProfile) user.id = newProfile.id
+        } else {
+          user.role = existingProfile.role
+          user.id = existingProfile.id
+        }
+      } catch (error) {
+        console.error('Supabase error:', error)
+        user.role = 'user'
       }
 
       return true
@@ -64,17 +76,19 @@ export const authOptions: AuthOptions = {
       }
 
       if (trigger === 'update' || (!token.role && token.email)) {
-        const supabase = createAdminClient()
-        const { data } = await supabase
-          .from('profiles')
-          .select('role, id')
-          .eq('email', token.email)
-          .single()
+        try {
+          const supabase = createAdminClient()
+          const { data } = await supabase
+            .from('profiles')
+            .select('role, id')
+            .eq('email', token.email)
+            .single()
 
-        if (data) {
-          token.role = data.role
-          token.id = data.id
-        }
+          if (data) {
+            token.role = data.role
+            token.id = data.id
+          }
+        } catch {}
       }
 
       return token
