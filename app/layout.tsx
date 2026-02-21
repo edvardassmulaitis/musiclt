@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { AuthProvider } from '@/components/AuthProvider'
 
 export const metadata: Metadata = {
   title: 'Music.lt - Lietuviškos muzikos bendruomenė',
@@ -14,7 +15,9 @@ export default function RootLayout({
   return (
     <html lang="lt">
       <body className="bg-gradient-to-br from-black via-slate-900 to-slate-800 min-h-screen text-white">
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   )

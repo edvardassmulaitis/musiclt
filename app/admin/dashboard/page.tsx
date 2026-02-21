@@ -1,12 +1,14 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 
 export default function AdminDashboard() {
+  const { data: session, status } = useSession()
   const router = useRouter()
-  const [mounted, setMounted] = useState(false)
   const [stats, setStats] = useState([
     { label: 'Atlikėjai', value: '0', icon: '🎤', color: 'from-blue-500 to-blue-600' },
     { label: 'Albumai', value: '0', icon: '💿', color: 'from-purple-500 to-purple-600' },
@@ -15,143 +17,129 @@ export default function AdminDashboard() {
   ])
 
   useEffect(() => {
-    setMounted(true)
-    const isLoggedIn = localStorage.getItem('admin_logged_in')
-    if (!isLoggedIn) {
-      router.push('/admin')
+    if (status === 'loading') return
+    if (!session || session.user.role !== 'admin') {
+      router.push('/auth/signin?callbackUrl=/admin/dashboard')
       return
     }
 
-    // Load real counts from localStorage
-    const loadCounts = () => {
-      const artists = JSON.parse(localStorage.getItem('artists') || '[]')
-      const albums = JSON.parse(localStorage.getItem('albums') || '[]')
-      const songs = JSON.parse(localStorage.getItem('songs') || '[]')
-      const news = JSON.parse(localStorage.getItem('news') || '[]')
+    // Load counts (TODO: replace with Supabase queries)
+    const artists = JSON.parse(localStorage.getItem('artists') || '[]')
+    const albums = JSON.parse(localStorage.getItem('albums') || '[]')
+    const songs = JSON.parse(localStorage.getItem('songs') || '[]')
+    const news = JSON.parse(localStorage.getItem('news') || '[]')
 
-      setStats([
-        { label: 'Atlikėjai', value: artists.length.toString(), icon: '🎤', color: 'from-blue-500 to-blue-600' },
-        { label: 'Albumai', value: albums.length.toString(), icon: '💿', color: 'from-purple-500 to-purple-600' },
-        { label: 'Dainos', value: songs.length.toString(), icon: '🎵', color: 'from-green-500 to-green-600' },
-        { label: 'Naujienos', value: news.length.toString(), icon: '📰', color: 'from-orange-500 to-orange-600' },
-      ])
-    }
+    setStats([
+      { label: 'Atlikėjai', value: artists.length.toString(), icon: '🎤', color: 'from-blue-500 to-blue-600' },
+      { label: 'Albumai', value: albums.length.toString(), icon: '💿', color: 'from-purple-500 to-purple-600' },
+      { label: 'Dainos', value: songs.length.toString(), icon: '🎵', color: 'from-green-500 to-green-600' },
+      { label: 'Naujienos', value: news.length.toString(), icon: '📰', color: 'from-orange-500 to-orange-600' },
+    ])
+  }, [session, status, router])
 
-    loadCounts()
-
-    // Refresh counts every 2 seconds to catch updates
-    const interval = setInterval(loadCounts, 2000)
-    return () => clearInterval(interval)
-  }, [router])
-
-  const handleLogout = () => {
-    localStorage.removeItem('admin_logged_in')
-    router.push('/admin')
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-music-blue border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
   }
 
-  if (!mounted) return null
-
-  const menuItems = [
-    { title: 'Atlikėjai', icon: '🎤', href: '/admin/artists', description: 'Pridėti ir valdyti atlikėjus' },
-    { title: 'Albumai', icon: '💿', href: '/admin/albums', description: 'Albumų katalogas' },
-    { title: 'Dainos', icon: '🎵', href: '/admin/songs', description: 'Dainų duomenų bazė' },
-    { title: 'Naujienos', icon: '📰', href: '/admin/news', description: 'Straipsniai ir naujienos' },
-    { title: 'Renginiai', icon: '📅', href: '/admin/events', description: 'Koncertai ir festivaliai' },
-    { title: 'Vartotojai', icon: '👥', href: '/admin/users', description: 'Narių valdymas' },
-    { title: 'Nustatymai', icon: '⚙️', href: '/admin/settings', description: 'API diagnostika ir duomenų eksportas' },
-  ]
+  if (!session) return null
 
   return (
-    <div className="min-h-screen p-8">
-      <div className="max-w-7xl mx-auto">
-        
-        {/* Header */}
-        <div className="flex justify-between items-center mb-12">
-          <div>
-            <h1 className="text-4xl font-black mb-2">
+    <div className="min-h-screen">
+      {/* Top Nav */}
+      <nav className="border-b border-white/10 bg-black/30 backdrop-blur-sm sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Link href="/" className="text-xl font-black">
               <span className="text-music-blue">music</span>
               <span className="text-music-orange">.lt</span>
-              <span className="text-gray-400 text-2xl ml-4">Admin</span>
-            </h1>
-            <p className="text-gray-400">Turinio valdymo sistema</p>
+            </Link>
+            <span className="text-gray-600">/</span>
+            <span className="text-gray-300 text-sm">Admin</span>
           </div>
-          <button
-            onClick={handleLogout}
-            className="px-6 py-2 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition-colors"
-          >
-            Atsijungti
-          </button>
+
+          {/* User menu */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              {session.user.image ? (
+                <Image
+                  src={session.user.image}
+                  alt={session.user.name || ''}
+                  width={32}
+                  height={32}
+                  className="rounded-full"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-music-blue to-music-orange flex items-center justify-center text-xs font-bold">
+                  {session.user.name?.[0]?.toUpperCase() || 'A'}
+                </div>
+              )}
+              <span className="text-sm text-gray-300 hidden sm:block">
+                {session.user.name || session.user.email}
+              </span>
+            </div>
+            <button
+              onClick={() => signOut({ callbackUrl: '/' })}
+              className="text-sm text-gray-400 hover:text-white bg-white/5 px-3 py-1.5 rounded-lg transition-colors"
+            >
+              Atsijungti
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Welcome */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold">
+            Sveiki, {session.user.name?.split(' ')[0] || 'Admin'}! 👋
+          </h1>
+          <p className="text-gray-400 mt-1">music.lt valdymo panelė</p>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-          {stats.map((stat, index) => (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          {stats.map((stat) => (
             <div
-              key={index}
-              className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all"
+              key={stat.label}
+              className="bg-white/5 border border-white/10 rounded-xl p-5 hover:bg-white/8 transition-colors"
             >
-              <div className={`text-4xl mb-4 bg-gradient-to-r ${stat.color} w-16 h-16 rounded-xl flex items-center justify-center`}>
-                {stat.icon}
-              </div>
-              <div className="text-3xl font-black mb-1">{stat.value}</div>
-              <div className="text-sm text-gray-400">{stat.label}</div>
+              <div className="text-3xl mb-2">{stat.icon}</div>
+              <div className="text-2xl font-bold">{stat.value}</div>
+              <div className="text-gray-400 text-sm">{stat.label}</div>
             </div>
           ))}
         </div>
 
-        {/* Menu Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {menuItems.map((item, index) => (
+        {/* Quick actions */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+          {[
+            { href: '/admin/artists/new', icon: '🎤', title: 'Pridėti atlikėją', desc: 'Naujas atlikėjas į katalogą' },
+            { href: '/admin/artists', icon: '📋', title: 'Atlikėjų sąrašas', desc: 'Valdyti esamus atlikėjus' },
+            { href: '/admin/settings', icon: '⚙️', title: 'Nustatymai', desc: 'Svetainės konfigūracija' },
+          ].map((action) => (
             <Link
-              key={index}
-              href={item.href}
-              className="bg-white/5 border border-white/10 rounded-2xl p-8 hover:bg-white/10 hover:border-music-blue hover:scale-105 transition-all cursor-pointer group"
+              key={action.href}
+              href={action.href}
+              className="group bg-white/5 border border-white/10 rounded-xl p-6 hover:bg-white/10 hover:border-white/20 transition-all"
             >
-              <div className="text-5xl mb-4 group-hover:scale-110 transition-transform">
-                {item.icon}
-              </div>
-              <h3 className="text-2xl font-bold mb-2 text-music-blue">
-                {item.title}
+              <div className="text-3xl mb-3">{action.icon}</div>
+              <h3 className="font-semibold group-hover:text-music-blue transition-colors">
+                {action.title}
               </h3>
-              <p className="text-gray-400 text-sm">
-                {item.description}
-              </p>
+              <p className="text-gray-400 text-sm mt-1">{action.desc}</p>
             </Link>
           ))}
         </div>
 
-        {/* Quick Actions */}
-        <div className="mt-12 bg-gradient-to-r from-music-blue/10 to-music-orange/10 border border-music-blue/30 rounded-2xl p-8">
-          <h2 className="text-2xl font-bold mb-4">🚀 Greitos nuorodos</h2>
-          <div className="flex gap-4 flex-wrap">
-            <Link
-              href="/admin/artists/new"
-              className="px-6 py-3 bg-music-blue rounded-lg hover:opacity-90 transition-opacity"
-            >
-              + Naujas atlikėjas
-            </Link>
-            <Link
-              href="/admin/albums/new"
-              className="px-6 py-3 bg-purple-600 rounded-lg hover:opacity-90 transition-opacity"
-            >
-              + Naujas albumas
-            </Link>
-            <Link
-              href="/admin/news/new"
-              className="px-6 py-3 bg-orange-600 rounded-lg hover:opacity-90 transition-opacity"
-            >
-              + Nauja naujiena
-            </Link>
-            <Link
-              href="/"
-              target="_blank"
-              className="px-6 py-3 bg-white/10 border border-white/20 rounded-lg hover:bg-white/20 transition-colors"
-            >
-              👁️ Peržiūrėti svetainę
-            </Link>
-          </div>
+        {/* Admin info */}
+        <div className="bg-white/3 border border-white/5 rounded-xl p-4 text-sm text-gray-500">
+          <strong className="text-gray-400">Prisijungta kaip:</strong> {session.user.email} •{' '}
+          <span className="text-music-orange">⭐ Administratorius</span>
         </div>
-
       </div>
     </div>
   )
