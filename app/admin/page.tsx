@@ -9,12 +9,12 @@ export default function AdminPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
 
-  useEffect(() => {
+ useEffect(() => {
     if (status === 'loading') return
 
     if (session?.user.role === 'admin') {
       router.push('/admin/dashboard')
-    } else if (session && session.user.role !== 'admin') {
+    } else if (session) {
       router.push('/auth/forbidden')
     }
     // Jei neprisijungęs - middleware peradresuos į /auth/signin
