@@ -8,6 +8,9 @@ function SignInContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [loading, setLoading] = useState<string | null>(null)
+  const [email, setEmail] = useState('')
+  const [emailSent, setEmailSent] = useState(false)
+  const [showEmail, setShowEmail] = useState(false)
   const callbackUrl = searchParams.get('callbackUrl') || '/'
 
   useEffect(() => {
@@ -21,8 +24,39 @@ function SignInContent() {
     await signIn(provider, { callbackUrl })
   }
 
+  const handleEmailSignIn = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading('email')
+    const result = await signIn('email', {
+      email,
+      callbackUrl,
+      redirect: false,
+    })
+    setLoading(null)
+    if (result?.ok) setEmailSent(true)
+  }
+
+  if (emailSent) {
+    return (
+      <div className="max-w-md w-full text-center">
+        <div className="text-6xl mb-4">📧</div>
+        <h1 className="text-2xl font-bold mb-3">Patikrinkite el. paštą</h1>
+        <p className="text-gray-400 mb-6">
+          Išsiuntėme prisijungimo nuorodą į <strong className="text-white">{email}</strong>
+        </p>
+        <button
+          onClick={() => { setEmailSent(false); setEmail('') }}
+          className="text-sm text-gray-500 hover:text-white transition-colors"
+        >
+          ← Grįžti
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className="max-w-md w-full">
+      {/* Logo */}
       <div className="text-center mb-10">
         <div className="text-6xl mb-4">🎵</div>
         <h1 className="text-4xl font-black">
@@ -39,6 +73,7 @@ function SignInContent() {
         </p>
 
         <div className="space-y-4">
+          {/* Google */}
           <button
             onClick={() => handleSignIn('google')}
             disabled={loading !== null}
@@ -57,6 +92,7 @@ function SignInContent() {
             Tęsti su Google
           </button>
 
+          {/* Facebook */}
           <button
             onClick={() => handleSignIn('facebook')}
             disabled={loading !== null}
@@ -71,6 +107,57 @@ function SignInContent() {
             )}
             Tęsti su Facebook
           </button>
+
+          {/* Divider */}
+          <div className="flex items-center gap-3 my-2">
+            <div className="flex-1 h-px bg-white/10" />
+            <span className="text-xs text-gray-500">arba</span>
+            <div className="flex-1 h-px bg-white/10" />
+          </div>
+
+          {/* Email */}
+          {!showEmail ? (
+            <button
+              onClick={() => setShowEmail(true)}
+              disabled={loading !== null}
+              className="w-full flex items-center justify-center gap-3 bg-white/5 border border-white/10 text-white font-semibold py-3.5 px-6 rounded-xl hover:bg-white/10 transition-colors disabled:opacity-60"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              Tęsti su el. paštu
+            </button>
+          ) : (
+            <form onSubmit={handleEmailSignIn} className="space-y-3">
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="jusu@elpastas.lt"
+                required
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-music-blue transition-colors text-white placeholder-gray-500"
+              />
+              <button
+                type="submit"
+                disabled={loading !== null || !email}
+                className="w-full bg-gradient-to-r from-music-blue to-music-orange text-white font-semibold py-3 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {loading === 'email' ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Siunčiama...
+                  </span>
+                ) : 'Gauti prisijungimo nuorodą'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowEmail(false)}
+                className="w-full text-sm text-gray-500 hover:text-white transition-colors py-1"
+              >
+                ← Atgal
+              </button>
+            </form>
+          )}
         </div>
 
         <div className="mt-8 pt-6 border-t border-white/10 text-center text-xs text-gray-500">
