@@ -55,3 +55,49 @@ function SignInContent() {
               </svg>
             )}
             Tęsti su Google
+          </button>
+
+          <button
+            onClick={() => handleSignIn('facebook')}
+            disabled={loading !== null}
+            className="w-full flex items-center justify-center gap-3 bg-[#1877F2] text-white font-semibold py-3.5 px-6 rounded-xl hover:bg-[#166FE5] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {loading === 'facebook' ? (
+              <span className="w-5 h-5 border-2 border-blue-300 border-t-white rounded-full animate-spin" />
+            ) : (
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+              </svg>
+            )}
+            Tęsti su Facebook
+          </button>
+        </div>
+
+        <div className="mt-8 pt-6 border-t border-white/10 text-center text-xs text-gray-500">
+          Prisijungdami sutinkate su{' '}
+          <a href="/privatumas" className="text-music-blue hover:underline">
+            privatumo politika
+          </a>
+        </div>
+      </div>
+
+      <p className="text-center text-gray-500 text-sm mt-6">
+        <a href="/" className="hover:text-white transition-colors">
+          ← Grįžti į pradžią
+        </a>
+      </p>
+    </div>
+  )
+}
+
+export default function SignInPage() {
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4">
+      <Suspense fallback={
+        <div className="w-8 h-8 border-2 border-music-blue border-t-transparent rounded-full animate-spin" />
+      }>
+        <SignInContent />
+      </Suspense>
+    </div>
+  )
+}
