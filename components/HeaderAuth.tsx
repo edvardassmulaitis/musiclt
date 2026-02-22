@@ -85,6 +85,27 @@ function AuthModal({ onClose }: { onClose: () => void }) {
   )
 }
 
+function Avatar({ name, email, image }: { name?: string | null, email?: string | null, image?: string | null }) {
+  const initials = name?.[0]?.toUpperCase() || email?.[0]?.toUpperCase() || '?'
+  if (image) {
+    return (
+      <Image
+        src={image}
+        alt={name || ''}
+        width={32}
+        height={32}
+        className="rounded-full ring-2 ring-white/20"
+        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+      />
+    )
+  }
+  return (
+    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-music-blue to-music-orange flex items-center justify-center text-xs font-black text-white select-none">
+      {initials}
+    </div>
+  )
+}
+
 function UserMenu() {
   const { data: session } = useSession()
   const [open, setOpen] = useState(false)
@@ -107,13 +128,7 @@ function UserMenu() {
   return (
     <div ref={ref} className="relative">
       <button onClick={() => setOpen(!open)} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-        {session.user.image ? (
-          <Image src={session.user.image} alt={session.user.name || ''} width={32} height={32} className="rounded-full ring-2 ring-white/20" />
-        ) : (
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-music-blue to-music-orange flex items-center justify-center text-xs font-black text-white">
-            {session.user.name?.[0]?.toUpperCase() || '?'}
-          </div>
-        )}
+        <Avatar name={session.user.name} email={session.user.email} image={session.user.image} />
         <svg className={`w-3 h-3 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
