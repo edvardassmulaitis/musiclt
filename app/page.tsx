@@ -179,9 +179,8 @@ export default function Home() {
           </div>
 
 <div className="ml-auto flex items-center gap-2 flex-shrink-0">
-  <Link href="/auth/signin" className="px-3 py-1.5 text-[13px] text-gray-400 hover:text-white transition-colors">Prisijungti</Link>
-  <Link href="/auth/signin" className="px-4 py-1.5 text-[13px] bg-music-orange hover:bg-orange-500 text-white rounded-full font-bold transition-colors">Registruotis</Link>
-</div>
+            <HeaderAuth />
+          </div>
         </div>
       </header>
 
