@@ -18,7 +18,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     if (status === 'loading') return
-if (!session || session.user?.role !== 'admin') {
+if (!session || (session.user?.role !== 'admin' && session.user?.role !== 'super_admin')) {
       router.push('/auth/signin?callbackUrl=/admin/dashboard')
       return
     }
@@ -35,7 +35,7 @@ if (!session || session.user?.role !== 'admin') {
       { label: 'Dainos', value: songs.length.toString(), icon: '🎵', color: 'from-green-500 to-green-600' },
       { label: 'Naujienos', value: news.length.toString(), icon: '📰', color: 'from-orange-500 to-orange-600' },
     ])
-  }, [session, status, router])
+  }, [status, session?.user?.role])
 
   if (status === 'loading') {
     return (
