@@ -2,9 +2,8 @@
 
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 
 type Profile = {
   id: string
@@ -25,21 +24,22 @@ export default function AdminUsersPage() {
 
   const isSuperAdmin = session?.user?.role === 'super_admin'
 
-  useEffect(() => {
-    if (status === 'loading') return
-    if (!session || (session.user?.role !== 'admin' && session.user?.role !== 'super_admin')) {
-      router.push('/auth/signin')
-      return
-    }
-    fetchUsers()
-  }, [session, status])
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
+    setLoading(true)
     const res = await fetch('/api/admin/users')
     const data = await res.json()
     setUsers(data.users || [])
     setLoading(false)
-  }
+  }, [])
+
+  useEffect(() => {
+    if (status === 'loading') return
+    if (!session || (session.user?.role !== 'admin' && session.user?.role !== 'super_admin')) {
+      router.push('/auth/forbidden')
+      return
+    }
+    fetchUsers()
+  }, [status, session?.user?.role])
 
   const updateRole = async (userId: string, newRole: string) => {
     if (!isSuperAdmin) return
@@ -79,9 +79,7 @@ export default function AdminUsersPage() {
     <div className="min-h-screen">
       <nav className="border-b border-white/10 bg-black/30 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
-          <Link href="/admin/dashboard" className="text-gray-400 hover:text-white transition-colors text-sm">
-            Dashboard
-          </Link>
+          <Link href="/admin/dashboard" className="text-gray-400 hover:text-white transition-colors text-sm">Dashboard</Link>
           <span className="text-gray-600">/</span>
           <span className="text-white text-sm font-medium">Vartotojai</span>
         </div>
@@ -105,9 +103,7 @@ export default function AdminUsersPage() {
                 <th className="text-left px-4 py-3 text-xs text-gray-500 font-medium uppercase tracking-wider">Vartotojas</th>
                 <th className="text-left px-4 py-3 text-xs text-gray-500 font-medium uppercase tracking-wider hidden sm:table-cell">Provider</th>
                 <th className="text-left px-4 py-3 text-xs text-gray-500 font-medium uppercase tracking-wider">Role</th>
-                {isSuperAdmin && (
-                  <th className="text-left px-4 py-3 text-xs text-gray-500 font-medium uppercase tracking-wider">Keisti</th>
-                )}
+                {isSuperAdmin && <th className="text-left px-4 py-3 text-xs text-gray-500 font-medium uppercase tracking-wider">Keisti</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -116,9 +112,10 @@ export default function AdminUsersPage() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       {user.avatar_url ? (
-                        <Image src={user.avatar_url} alt="" width={32} height={32} className="rounded-full" />
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={user.avatar_url} alt="" width={32} height={32} className="w-8 h-8 rounded-full object-cover" referrerPolicy="no-referrer" />
                       ) : (
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-music-blue to-music-orange flex items-center justify-center text-xs font-bold">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-music-blue to-music-orange flex items-center justify-center text-xs font-bold text-white">
                           {user.full_name?.[0] || user.email[0].toUpperCase()}
                         </div>
                       )}
@@ -139,12 +136,8 @@ export default function AdminUsersPage() {
                   {isSuperAdmin && (
                     <td className="px-4 py-3">
                       {user.email !== session?.user?.email ? (
-                        <select
-                          value={user.role}
-                          onChange={(e) => updateRole(user.id, e.target.value)}
-                          disabled={updating === user.id}
-                          className="text-xs bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-white focus:outline-none focus:border-music-blue transition-colors disabled:opacity-50"
-                        >
+                        <select value={user.role} onChange={(e) => updateRole(user.id, e.target.value)} disabled={updating === user.id}
+                          className="text-xs bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-white focus:outline-none disabled:opacity-50">
                           <option value="user">Narys</option>
                           <option value="moderator">Moderatorius</option>
                           <option value="admin">Admin</option>
