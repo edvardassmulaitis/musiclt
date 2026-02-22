@@ -93,7 +93,7 @@ export const authOptions: AuthOptions = {
         role: data.role,
       }
     },
-    async createUser(user) {
+    async createUser(user: { email: string; name?: string | null; image?: string | null }) {
       const supabase = createAdminClient()
       const { data: whitelisted } = await supabase
         .from('admin_whitelist')
