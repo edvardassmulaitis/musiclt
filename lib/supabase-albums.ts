@@ -188,8 +188,10 @@ async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackI
     if (trackId) {
       trackRows.push({
         album_id: albumId, track_id: trackId,
-        sort_order: toInt(t.sort_order) || 1, disc_number: toInt(t.disc_number) || 1,
-        duration: t.duration || null, is_single: t.is_single || false,
+        sort_order: toInt(t.sort_order) || 1,
+        ...(t.disc_number ? { disc_number: toInt(t.disc_number) || 1 } : {}),
+        ...(t.duration ? { duration: t.duration } : {}),
+        ...(t.is_single !== undefined ? { is_single: t.is_single } : {}),
       })
     }
   }
