@@ -159,14 +159,11 @@ export async function deleteArtist(id: number): Promise<void> {
 
 async function syncRelations(id: number, data: ArtistFull) {
   await Promise.all([
-    // Genres
     supabase.from('artist_genres').delete().eq('artist_id', id),
-    // Links
     supabase.from('artist_links').delete().eq('artist_id', id),
-    // Photos
     supabase.from('artist_photos').delete().eq('artist_id', id),
-    // Breaks
     supabase.from('artist_breaks').delete().eq('artist_id', id),
+    supabase.from('artist_related').delete().eq('artist_id', id),
   ])
 
   const inserts: any[] = []
@@ -196,6 +193,12 @@ async function syncRelations(id: number, data: ArtistFull) {
       data.breaks
         .filter(b => b.from)
         .map(b => ({ artist_id: id, year_from: parseInt(b.from), year_until: b.to ? parseInt(b.to) : null }))
+    ).then())
+  }
+
+  if (data.related?.length) {
+    inserts.push(supabase.from('artist_related').insert(
+      data.related.map(r => ({ artist_id: id, related_artist_id: r.id }))
     ).then())
   }
 
