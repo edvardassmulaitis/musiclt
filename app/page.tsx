@@ -1,8 +1,96 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { HeaderAuth } from '@/components/HeaderAuth'
 import Link from 'next/link'
+
+// ── AUTH MODAL ─────────────────────────────────────────────────────────────────
+
+function AuthModal({ onClose }: { onClose: () => void }) {
+  const [tab, setTab] = useState<'in' | 'up'>('in')
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
+      onClick={onClose}>
+      <div className="w-full max-w-sm rounded-2xl overflow-hidden relative"
+        style={{ background: '#0f1520', border: '1px solid rgba(255,255,255,0.1)' }}
+        onClick={e => e.stopPropagation()}>
+        {/* Close */}
+        <button onClick={onClose} className="absolute top-4 right-4 text-[#4a6580] hover:text-white transition-colors text-lg leading-none">✕</button>
+
+        {/* Logo */}
+        <div className="px-8 pt-8 pb-5">
+          <div className="font-black text-2xl mb-1">
+            <span style={{ color: '#f2f4f8' }}>music</span>
+            <span className="text-orange-400">.lt</span>
+          </div>
+          <p className="text-sm" style={{ color: '#4a6580' }}>Prisijunk prie Lietuvos muzikos bendruomenės</p>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex mx-8 mb-6 rounded-xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.07)' }}>
+          {([['in','Prisijungti'],['up','Registruotis']] as const).map(([t, l]) => (
+            <button key={t} onClick={() => setTab(t)}
+              className={`flex-1 py-2.5 text-sm font-bold transition-all ${tab === t ? 'text-white rounded-xl' : ''}`}
+              style={{ background: tab === t ? 'rgba(29,78,216,0.5)' : 'transparent', color: tab === t ? 'white' : '#4a6580' }}>
+              {l}
+            </button>
+          ))}
+        </div>
+
+        <div className="px-8 pb-8 space-y-3">
+          {tab === 'in' ? (
+            <>
+              <input type="email" placeholder="El. paštas" className="w-full h-11 rounded-xl px-4 text-sm focus:outline-none transition-all"
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#c8d8f0' }}
+                onFocus={e => (e.currentTarget.style.borderColor = 'rgba(29,78,216,0.6)')}
+                onBlur={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)')} />
+              <input type="password" placeholder="Slaptažodis" className="w-full h-11 rounded-xl px-4 text-sm focus:outline-none transition-all"
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#c8d8f0' }}
+                onFocus={e => (e.currentTarget.style.borderColor = 'rgba(29,78,216,0.6)')}
+                onBlur={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)')} />
+              <button className="w-full h-11 rounded-xl bg-orange-500 hover:bg-orange-400 text-white font-black text-sm transition-all shadow-md shadow-orange-900/40">
+                Prisijungti
+              </button>
+              <p className="text-center text-[11px]" style={{ color: '#2a3a50' }}>
+                <a href="#" className="hover:text-blue-400 transition-colors">Pamiršai slaptažodį?</a>
+              </p>
+            </>
+          ) : (
+            <>
+              <input type="text" placeholder="Vardas / slapyvardis" className="w-full h-11 rounded-xl px-4 text-sm focus:outline-none transition-all"
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#c8d8f0' }}
+                onFocus={e => (e.currentTarget.style.borderColor = 'rgba(29,78,216,0.6)')}
+                onBlur={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)')} />
+              <input type="email" placeholder="El. paštas" className="w-full h-11 rounded-xl px-4 text-sm focus:outline-none transition-all"
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#c8d8f0' }}
+                onFocus={e => (e.currentTarget.style.borderColor = 'rgba(29,78,216,0.6)')}
+                onBlur={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)')} />
+              <input type="password" placeholder="Slaptažodis" className="w-full h-11 rounded-xl px-4 text-sm focus:outline-none transition-all"
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#c8d8f0' }}
+                onFocus={e => (e.currentTarget.style.borderColor = 'rgba(29,78,216,0.6)')}
+                onBlur={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)')} />
+              <button className="w-full h-11 rounded-xl bg-orange-500 hover:bg-orange-400 text-white font-black text-sm transition-all shadow-md shadow-orange-900/40">
+                Sukurti paskyrą
+              </button>
+            </>
+          )}
+
+          <div className="flex items-center gap-3 py-1">
+            <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.07)' }} />
+            <span className="text-[11px]" style={{ color: '#2a3a50' }}>arba</span>
+            <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.07)' }} />
+          </div>
+
+          <button className="w-full h-11 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2.5"
+            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)', color: '#c8d8f0' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+            Tęsti su Google
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 // ── MOCK DATA ──────────────────────────────────────────────────────────────────
 
@@ -228,17 +316,22 @@ function SecHead({ label, cta }: { label: React.ReactNode; cta?: string }) {
   )
 }
 
-// inline card styles
-const CS = { background: 'rgba(255,255,255,0.028)', border: '1px solid rgba(255,255,255,0.075)' }
-const CH = {
-  onMouseEnter: (e: React.MouseEvent<HTMLElement>) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.15)' },
-  onMouseLeave: (e: React.MouseEvent<HTMLElement>) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.075)' },
-}
+// inline card styles - computed in component based on theme
+// CS and CH are defined inside the component
+
 
 // ── MAIN ───────────────────────────────────────────────────────────────────────
 
 export default function Home() {
   const [lens, setLens] = useState<'lt' | 'world' | 'all'>('lt')
+  const [authOpen, setAuthOpen] = useState(false)
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark')
+  const dk = theme === 'dark'
+  const CS = dk ? { background: 'rgba(255,255,255,0.028)', border: '1px solid rgba(255,255,255,0.075)' } : { background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(0,0,0,0.09)', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }
+  const CH = {
+    onMouseEnter: (e: React.MouseEvent<HTMLElement>) => { (e.currentTarget as HTMLElement).style.borderColor = dk ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.2)' },
+    onMouseLeave: (e: React.MouseEvent<HTMLElement>) => { (e.currentTarget as HTMLElement).style.borderColor = dk ? 'rgba(255,255,255,0.075)' : 'rgba(0,0,0,0.09)' },
+  }
   const [idx, setIdx] = useState(0)
   const [chartTab, setChartTab] = useState<'lt' | 'world'>('lt')
   const [genre, setGenre] = useState('Visi')
@@ -266,15 +359,16 @@ export default function Home() {
   const events = city === 'Visi' ? EVENTS : EVENTS.filter(e => e.city === city)
 
   return (
-    <div className="min-h-screen text-[#f2f4f8]" style={{ background: '#0d1117' }}>
+    <div className="min-h-screen" style={{ background: dk ? '#0d1117' : '#f0f4fa', color: dk ? '#f2f4f8' : '#1a2540', transition: 'background 0.3s, color 0.3s' }}>
+      {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
 
       {/* ━━ HEADER ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <header className="sticky top-0 z-50" style={{ background: 'rgba(13,17,23,0.97)', backdropFilter: 'blur(24px)' }}>
+      <header className="sticky top-0 z-50" style={{ background: dk ? 'rgba(13,17,23,0.97)' : 'rgba(245,248,255,0.97)', backdropFilter: 'blur(24px)', borderBottom: dk ? 'none' : '1px solid rgba(0,0,0,0.08)' }}>
 
         {/* ── Row 1: Logo + Search + Lens + Auth ── */}
         <div className="max-w-[1360px] mx-auto px-5 lg:px-8 h-14 flex items-center gap-6">
           <Link href="/" className="flex-shrink-0">
-            <span className="font-black text-[22px] tracking-tight" style={{ color: '#f2f4f8' }}>music</span>
+            <span className="font-black text-[22px] tracking-tight" style={{ color: dk ? '#f2f4f8' : '#0f1a2e' }}>music</span>
             <span className="font-black text-[22px] tracking-tight text-orange-400">.lt</span>
           </Link>
 
@@ -310,25 +404,32 @@ export default function Home() {
             ))}
           </div>
 
-          {/* Auth — single button, context-aware */}
-          <button className="flex-shrink-0 bg-orange-500 hover:bg-orange-400 text-white font-bold px-5 py-2 rounded-full text-[13px] transition-all shadow-md shadow-orange-900/30 hover:scale-[1.02] whitespace-nowrap">
+          {/* Auth — single button */}
+          <button onClick={() => setAuthOpen(true)} className="flex-shrink-0 bg-orange-500 hover:bg-orange-400 text-white font-bold px-5 py-2 rounded-full text-[13px] transition-all shadow-md shadow-orange-900/30 hover:scale-[1.02] whitespace-nowrap">
             Prisijungti
           </button>
         </div>
 
         {/* ── Row 2: Navigation ── */}
-        <div className="border-t border-white/[0.06]" style={{ background: 'rgba(255,255,255,0.02)' }}>
+        <div style={{ borderTop: dk ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.07)', background: dk ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.025)' }}>
           <div className="max-w-[1360px] mx-auto px-5 lg:px-8 h-9 flex items-center gap-1">
             {NAV.map(n => (
               <a key={n} href="#"
                 className="px-3.5 py-1 text-[12px] font-semibold rounded-md transition-all"
-                style={{ color: '#8aa8cc' }}
-                onMouseEnter={e => { e.currentTarget.style.color = '#e2eaf8'; e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}
-                onMouseLeave={e => { e.currentTarget.style.color = '#8aa8cc'; e.currentTarget.style.background = 'transparent' }}>
+                style={{ color: dk ? '#8aa8cc' : '#4a6080' }}
+                onMouseEnter={e => { e.currentTarget.style.color = dk ? '#e2eaf8' : '#0f1a2e'; e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}
+                onMouseLeave={e => { e.currentTarget.style.color = dk ? '#8aa8cc' : '#4a6080'; e.currentTarget.style.background = 'transparent' }}>
                 {n}
               </a>
             ))}
             <div className="ml-auto flex items-center gap-4">
+              <button onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+                className="flex items-center gap-1.5 text-[11px] font-semibold transition-colors px-2 py-1 rounded-lg"
+                style={{ color: '#4a6580', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
+                onMouseEnter={e => (e.currentTarget.style.color = '#8aa8cc')}
+                onMouseLeave={e => (e.currentTarget.style.color = '#4a6580')}>
+                {dk ? '☀ Šviesus' : '☾ Tamsus'}
+              </button>
               {['Atlikėjams', 'Reklama'].map(l => (
                 <a key={l} href="#" className="text-[11px] font-semibold transition-colors"
                   style={{ color: '#4a6580' }}
