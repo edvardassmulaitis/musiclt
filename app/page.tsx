@@ -98,26 +98,36 @@ const CHARTS_WORLD = [
   { pos: 7, artist: 'SZA', title: 'Saturn', lt: false, trend: 'down' },
 ]
 
+// genre: used for filtering both singles and albums
 const SINGLES = [
-  { artist: 'Monika Liu', title: 'Palauk', lt: true, hue: 280 },
-  { artist: 'Silvester Belt', title: 'Bend The Lie', lt: true, hue: 225 },
-  { artist: 'Dž. Džo', title: 'Vilniaus Vakaras', lt: true, hue: 200 },
-  { artist: 'Andrius Mamontovas', title: 'Laikas', lt: true, hue: 155 },
-  { artist: 'Saulės Kliošas', title: 'Ruduo', lt: true, hue: 320 },
-  { artist: 'Jazzu', title: 'Šviesa', lt: true, hue: 38 },
-  { artist: 'Inculto', title: 'Grįžau', lt: true, hue: 5 },
-  { artist: 'Skamp', title: 'Again', lt: true, hue: 260 },
+  { artist: 'Monika Liu', title: 'Palauk', lt: true, hue: 280, genre: 'Pop' },
+  { artist: 'Silvester Belt', title: 'Bend The Lie', lt: true, hue: 225, genre: 'Pop' },
+  { artist: 'Dž. Džo', title: 'Vilniaus Vakaras', lt: true, hue: 200, genre: 'Hip-hop' },
+  { artist: 'Andrius Mamontovas', title: 'Laikas', lt: true, hue: 155, genre: 'Rokas' },
+  { artist: 'Saulės Kliošas', title: 'Ruduo', lt: true, hue: 320, genre: 'Folk' },
+  { artist: 'Jazzu', title: 'Šviesa', lt: true, hue: 38, genre: 'Jazz' },
+  { artist: 'Inculto', title: 'Grįžau', lt: true, hue: 5, genre: 'Rokas' },
+  { artist: 'Skamp', title: 'Again', lt: true, hue: 260, genre: 'Pop' },
+  { artist: 'Galerija', title: 'Aušra', lt: true, hue: 42, genre: 'Elektronika' },
+  { artist: 'Dainava', title: 'Šaltinis', lt: true, hue: 190, genre: 'Folk' },
+  { artist: 'Foje', title: 'Medžiai', lt: true, hue: 130, genre: 'Rokas' },
+  { artist: 'G&G Sindikatas', title: 'Miestas', lt: true, hue: 25, genre: 'Hip-hop' },
+  { artist: 'Birutė Mar', title: 'Jūra', lt: true, hue: 210, genre: 'Pop' },
+  { artist: 'Sūduviai', title: 'Ąžuolas', lt: true, hue: 95, genre: 'Folk' },
 ]
 
+// status: 'out' = išleista, 'soon' = greitai pasirodys
 const ALBUMS = [
-  { type: 'Albumas', artist: 'Jurga', title: 'Vasaros Naktys', lt: true, hue: 155, tracks: 11 },
-  { type: 'Albumas', artist: 'Galerija', title: 'Naktis', lt: true, hue: 42, tracks: 8 },
-  { type: 'EP', artist: 'Saulės Kliošas', title: 'Rugsėjis', lt: true, hue: 320, tracks: 5 },
-  { type: 'Albumas', artist: 'Dainava', title: 'Tamsoje', lt: true, hue: 260, tracks: 9 },
-  { type: 'Albumas', artist: 'Inculto', title: 'Retro', lt: true, hue: 5, tracks: 13 },
-  { type: 'EP', artist: 'Jazzu', title: 'Šilumos EP', lt: true, hue: 200, tracks: 4 },
-  { type: 'Albumas', artist: 'Skamp', title: 'Sugrįžimas', lt: true, hue: 180, tracks: 12 },
-  { type: 'EP', artist: 'Dž. Džo', title: 'Vilnius Naktį', lt: true, hue: 290, tracks: 6 },
+  { artist: 'Jurga', title: 'Vasaros Naktys', lt: true, hue: 155, tracks: 11, genre: 'Pop', status: 'out', date: 'Saus. 12' },
+  { artist: 'Galerija', title: 'Naktis', lt: true, hue: 42, tracks: 8, genre: 'Elektronika', status: 'out', date: 'Saus. 20' },
+  { artist: 'Dainava', title: 'Tamsoje', lt: true, hue: 260, tracks: 9, genre: 'Folk', status: 'out', date: 'Vas. 1' },
+  { artist: 'Inculto', title: 'Retro', lt: true, hue: 5, tracks: 13, genre: 'Rokas', status: 'out', date: 'Vas. 8' },
+  { artist: 'Skamp', title: 'Sugrįžimas', lt: true, hue: 180, tracks: 12, genre: 'Pop', status: 'out', date: 'Vas. 14' },
+  { artist: 'Foje', title: 'Amžinai', lt: true, hue: 130, tracks: 10, genre: 'Rokas', status: 'out', date: 'Vas. 21' },
+  { artist: 'Silvester Belt', title: 'European Tour', lt: true, hue: 225, tracks: 14, genre: 'Pop', status: 'soon', date: 'Kov. 7' },
+  { artist: 'Monika Liu', title: 'Spalvos', lt: true, hue: 280, tracks: 9, genre: 'Pop', status: 'soon', date: 'Kov. 14' },
+  { artist: 'Andrius Mamontovas', title: 'Akustinis', lt: true, hue: 155, tracks: 11, genre: 'Rokas', status: 'soon', date: 'Kov. 28' },
+  { artist: 'Saulės Kliošas', title: 'Pavasaris', lt: true, hue: 320, tracks: 7, genre: 'Folk', status: 'soon', date: 'Bal. 4' },
 ]
 
 const SOTD = {
@@ -439,70 +449,149 @@ export default function Home() {
       <div className="max-w-[1360px] mx-auto px-5 lg:px-8 py-12 space-y-16">
 
         {/* ━━ NAUJOS DAINOS + NAUJI ALBUMAI ━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-        <section className="space-y-10">
+        <section>
+          <div className="flex flex-col lg:flex-row gap-8">
 
-          {/* ── Naujos dainos ── */}
-          <div>
-            <div className="flex items-center gap-3 mb-5 flex-wrap">
-              <h2 className="text-[19px] font-black tracking-tight flex-shrink-0" style={{ color: '#f2f4f8' }}>Naujos dainos</h2>
-              <div className="flex gap-2 flex-wrap">
-                {GENRES.map(g => <Pill key={g} label={g} active={genre === g} onClick={() => setGenre(g)} />)}
+            {/* ── Left sidebar: genre filter + personalized ── */}
+            <div className="lg:w-36 flex-shrink-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.12em] mb-3" style={{ color: '#2a3a50' }}>Stilius</p>
+              <div className="flex lg:flex-col gap-2 flex-wrap">
+                {/* Personalised filter — shown first, visually distinct */}
+                <button
+                  onClick={() => setGenre('forYou')}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all text-left ${genre === 'forYou' ? 'text-orange-300' : 'text-[#4a6080] hover:text-[#c8d8f0]'}`}
+                  style={{
+                    background: genre === 'forYou' ? 'rgba(249,115,22,0.12)' : 'transparent',
+                    border: genre === 'forYou' ? '1px solid rgba(249,115,22,0.25)' : '1px solid transparent',
+                  }}>
+                  <span>✦</span> Man patinka
+                </button>
+                <div className="hidden lg:block w-full h-px my-1" style={{ background: 'rgba(255,255,255,0.06)' }} />
+                {GENRES.map(g => (
+                  <button key={g}
+                    onClick={() => setGenre(g)}
+                    className={`px-3 py-2 rounded-xl text-xs font-bold transition-all text-left ${genre === g ? 'text-white' : 'text-[#4a6080] hover:text-[#c8d8f0]'}`}
+                    style={{
+                      background: genre === g ? 'rgba(29,78,216,0.25)' : 'transparent',
+                      border: genre === g ? '1px solid rgba(29,78,216,0.3)' : '1px solid transparent',
+                    }}>
+                    {g}
+                  </button>
+                ))}
               </div>
-              <a href="#" className="ml-auto text-sm font-semibold transition-colors hidden sm:block" style={{ color: '#4a6fa5' }}>Visos →</a>
             </div>
-            {/* Horizontal scroll rail */}
-            <div className="flex gap-4 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-              {SINGLES.map((r, i) => (
-                <div key={i} className="group cursor-pointer flex-shrink-0 w-[130px]">
-                  <div className="aspect-square rounded-xl mb-2.5 relative overflow-hidden transition-all duration-300 group-hover:scale-[1.04]"
-                    style={{ background: `hsl(${r.hue},40%,14%)`, boxShadow: `0 10px 28px hsl(${r.hue},40%,6%)` }}>
-                    <div className="absolute inset-0 flex items-center justify-center text-4xl select-none font-black" style={{ color: 'rgba(255,255,255,0.05)' }}>♪</div>
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200"
-                      style={{ background: 'rgba(0,0,0,0.45)' }}>
-                      <PlayCircle sz={8} />
-                    </div>
-                    {r.lt && <span className="absolute top-1.5 left-1.5 text-xs opacity-70">🇱🇹</span>}
-                  </div>
-                  <p className="text-[11px] truncate mb-0.5" style={{ color: '#6a82a0' }}>{r.artist}</p>
-                  <h4 className="text-[13px] font-bold truncate group-hover:text-blue-300 transition-colors" style={{ color: '#e8eefa' }}>{r.title}</h4>
-                </div>
-              ))}
-            </div>
-          </div>
 
-          {/* ── Nauji albumai ── */}
-          <div>
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-[19px] font-black tracking-tight" style={{ color: '#f2f4f8' }}>Nauji albumai</h2>
-              <a href="#" className="text-sm font-semibold transition-colors" style={{ color: '#4a6fa5' }}>Visi →</a>
-            </div>
-            {/* Album rows — wider cards showing cover + info side by side on desktop */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {ALBUMS.filter(a => a.type === 'Albumas').map((r, i) => (
-                <div key={i} className="group cursor-pointer flex items-center gap-3.5 p-3 rounded-xl transition-all" style={CS} {...CH}>
-                  {/* Cover */}
-                  <div className="flex-shrink-0 w-14 h-14 rounded-lg relative overflow-hidden"
-                    style={{ background: `hsl(${r.hue},38%,15%)`, boxShadow: `0 6px 18px hsl(${r.hue},38%,6%)` }}>
-                    <div className="absolute inset-0 flex items-center justify-center text-2xl select-none" style={{ color: 'rgba(255,255,255,0.07)' }}>♪</div>
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200"
-                      style={{ background: 'rgba(0,0,0,0.5)' }}>
-                      <div className="w-7 h-7 rounded-full bg-orange-500 flex items-center justify-center">
-                        <span className="text-white text-xs ml-0.5">▶</span>
+            {/* ── Right: both rows ── */}
+            <div className="flex-1 min-w-0 space-y-10">
+
+              {/* Naujos dainos */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-[19px] font-black tracking-tight" style={{ color: '#f2f4f8' }}>Naujos dainos</h2>
+                  <a href="#" className="text-sm font-semibold transition-colors" style={{ color: '#4a6fa5' }}>Visos →</a>
+                </div>
+                <div className="flex gap-4 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
+                  {SINGLES
+                    .filter(r => genre === 'Visi' || genre === 'forYou' || r.genre === genre)
+                    .map((r, i) => (
+                    <div key={i} className="group cursor-pointer flex-shrink-0 w-[130px]">
+                      <div className="aspect-square rounded-xl mb-2.5 relative overflow-hidden transition-all duration-300 group-hover:scale-[1.04]"
+                        style={{ background: `hsl(${r.hue},40%,14%)`, boxShadow: `0 10px 28px hsl(${r.hue},40%,6%)` }}>
+                        <div className="absolute inset-0 flex items-center justify-center text-4xl select-none font-black" style={{ color: 'rgba(255,255,255,0.05)' }}>♪</div>
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200"
+                          style={{ background: 'rgba(0,0,0,0.45)' }}>
+                          <PlayCircle sz={8} />
+                        </div>
+                        {r.lt && <span className="absolute top-1.5 left-1.5 text-xs opacity-70">🇱🇹</span>}
+                        {genre === 'forYou' && (
+                          <div className="absolute bottom-0 left-0 right-0 h-1 rounded-b-xl" style={{ background: 'rgba(249,115,22,0.6)' }} />
+                        )}
+                      </div>
+                      <p className="text-[11px] truncate mb-0.5" style={{ color: '#6a82a0' }}>{r.artist}</p>
+                      <h4 className="text-[13px] font-bold truncate group-hover:text-blue-300 transition-colors" style={{ color: '#e8eefa' }}>{r.title}</h4>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Nauji albumai — split into out + soon */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-[19px] font-black tracking-tight" style={{ color: '#f2f4f8' }}>Nauji albumai</h2>
+                  <a href="#" className="text-sm font-semibold transition-colors" style={{ color: '#4a6fa5' }}>Visi →</a>
+                </div>
+
+                {/* Recently released */}
+                {(() => {
+                  const outAlbums = ALBUMS.filter(a => a.status === 'out' && (genre === 'Visi' || genre === 'forYou' || a.genre === genre))
+                  if (outAlbums.length === 0) return null
+                  return (
+                    <div className="mb-5">
+                      <p className="text-[10px] font-black uppercase tracking-[0.12em] mb-3" style={{ color: '#2a3a50' }}>Neseniai išleista</p>
+                      <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+                        {outAlbums.map((r, i) => (
+                          <div key={i} className="group cursor-pointer flex-shrink-0 flex items-center gap-3 p-3 rounded-xl transition-all w-[220px]" style={CS} {...CH}>
+                            <div className="flex-shrink-0 w-12 h-12 rounded-lg relative overflow-hidden"
+                              style={{ background: `hsl(${r.hue},38%,15%)`, boxShadow: `0 6px 18px hsl(${r.hue},38%,6%)` }}>
+                              <div className="absolute inset-0 flex items-center justify-center text-xl select-none" style={{ color: 'rgba(255,255,255,0.07)' }}>♪</div>
+                              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
+                                style={{ background: 'rgba(0,0,0,0.5)' }}>
+                                <div className="w-7 h-7 rounded-full bg-orange-500 flex items-center justify-center">
+                                  <span className="text-white text-xs ml-0.5">▶</span>
+                                </div>
+                              </div>
+                              {r.lt && <span className="absolute top-0.5 left-0.5 text-[10px] opacity-70">🇱🇹</span>}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="text-[13px] font-bold truncate group-hover:text-blue-300 transition-colors" style={{ color: '#e8eefa' }}>{r.title}</h4>
+                              <p className="text-[11px] truncate mt-0.5" style={{ color: '#6a82a0' }}>{r.artist}</p>
+                              <p className="text-[10px] mt-1" style={{ color: '#2a3a50' }}>{r.date} · {r.tracks} dainos</p>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                    {r.lt && <span className="absolute top-1 left-1 text-[10px] opacity-70">🇱🇹</span>}
-                  </div>
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-[13px] font-bold truncate group-hover:text-blue-300 transition-colors" style={{ color: '#e8eefa' }}>{r.title}</h4>
-                    <p className="text-[11px] truncate mt-0.5" style={{ color: '#6a82a0' }}>{r.artist}</p>
-                    <p className="text-[10px] mt-1" style={{ color: '#2a3a50' }}>{r.tracks} dainos</p>
-                  </div>
-                </div>
-              ))}
+                  )
+                })()}
+
+                {/* Coming soon */}
+                {(() => {
+                  const soonAlbums = ALBUMS.filter(a => a.status === 'soon' && (genre === 'Visi' || genre === 'forYou' || a.genre === genre))
+                  if (soonAlbums.length === 0) return null
+                  return (
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.12em] mb-3" style={{ color: '#2a3a50' }}>Greitai pasirodys</p>
+                      <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+                        {soonAlbums.map((r, i) => (
+                          <div key={i} className="group cursor-pointer flex-shrink-0 flex items-center gap-3 p-3 rounded-xl transition-all w-[220px]"
+                            style={{ background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.06)', opacity: 0.8 }} {...CH}>
+                            <div className="flex-shrink-0 w-12 h-12 rounded-lg relative overflow-hidden"
+                              style={{ background: `hsl(${r.hue},30%,12%)` }}>
+                              <div className="absolute inset-0 flex items-center justify-center text-xl select-none" style={{ color: 'rgba(255,255,255,0.05)' }}>♪</div>
+                              {/* Lock overlay */}
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <span className="text-sm" style={{ color: 'rgba(255,255,255,0.2)' }}>⏳</span>
+                              </div>
+                              {r.lt && <span className="absolute top-0.5 left-0.5 text-[10px] opacity-50">🇱🇹</span>}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="text-[13px] font-bold truncate" style={{ color: '#c8d8f0' }}>{r.title}</h4>
+                              <p className="text-[11px] truncate mt-0.5" style={{ color: '#4a6080' }}>{r.artist}</p>
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <span className="text-[9px] font-black px-1.5 py-0.5 rounded" style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>GREITAI</span>
+                                <p className="text-[10px]" style={{ color: '#2a3a50' }}>{r.date}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })()}
+              </div>
+
             </div>
           </div>
-
         </section>
 
         {/* ━━ DIENOS DAINA + POKALBIAI ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
