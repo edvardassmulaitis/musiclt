@@ -244,6 +244,12 @@ export default function WikipediaImport({ onImport }: Props) {
       let website = infoboxWebsite
       const socials: Partial<ArtistFormData> = {}
 
+      // Parse years active from infobox immediately (before Wikidata)
+      if (infoboxYearsRaw) {
+        const ya = parseYearsActive(infoboxYearsRaw)
+        yearStart = ya.yearStart; yearEnd = ya.yearEnd; breaks = ya.breaks
+      }
+
       if (wdId) {
         setStep('📊 Skaitoma Wikidata...')
         const claims = (await (await fetch(
@@ -261,9 +267,8 @@ export default function WikipediaImport({ onImport }: Props) {
         const bd=first('P569')?.time; if(bd){const d=parseWDDate(bd);birthYear=d.year;birthMonth=d.month;birthDay=d.day;type='solo'}
         const dd=first('P570')?.time; if(dd){const d=parseWDDate(dd);deathYear=d.year;deathMonth=d.month;deathDay=d.day}
 
-        if (infoboxYearsRaw) {
-          const p=parseYearsActive(infoboxYearsRaw); yearStart=p.yearStart; yearEnd=p.yearEnd; breaks=p.breaks
-        } else {
+        // Wikidata fallback only if infobox had no years
+        if (!yearStart) {
           const yas=first('P2031')?.time; if(yas) yearStart=parseWDDate(yas).year
           const yae=first('P2032')?.time; if(yae) yearEnd=parseWDDate(yae).year
           if(!yearStart){const t=first('P571')?.time;if(t)yearStart=parseWDDate(t).year}
