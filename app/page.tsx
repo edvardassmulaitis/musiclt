@@ -231,7 +231,6 @@ export default function Home() {
   const [lens, setLens] = useState<'lt' | 'world' | 'all'>('lt')
   const [idx, setIdx] = useState(0)
   const [chartTab, setChartTab] = useState<'lt' | 'world'>('lt')
-  const [musicTab, setMusicTab] = useState<'singles' | 'albums'>('singles')
   const [genre, setGenre] = useState('Visi')
   const [city, setCity] = useState('Visi')
   const [rx, setRx] = useState(SOTD.rx)
@@ -439,47 +438,71 @@ export default function Home() {
       {/* ━━ MAIN CONTENT ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <div className="max-w-[1360px] mx-auto px-5 lg:px-8 py-12 space-y-16">
 
-        {/* ━━ NAUJA MUZIKA ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-        <section>
-          <div className="flex items-center gap-3 mb-5 flex-wrap">
-            <h2 className="text-[19px] font-black text-[#f2f4f8] tracking-tight flex-shrink-0">Nauja muzika</h2>
-            {/* Type tabs */}
-            <div className="flex rounded-full p-0.5" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)' }}>
-              {[{ k: 'singles', l: 'Singlai' }, { k: 'albums', l: 'Albumai / EP' }].map(t => (
-                <button key={t.k} onClick={() => setMusicTab(t.k as 'singles' | 'albums')}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${musicTab === t.k ? 'bg-[#1d4ed8] text-white' : 'text-[#4a6080] hover:text-[#c8d8f0]'}`}>
-                  {t.l}
-                </button>
+        {/* ━━ NAUJOS DAINOS + NAUJI ALBUMAI ━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+        <section className="space-y-10">
+
+          {/* ── Naujos dainos ── */}
+          <div>
+            <div className="flex items-center gap-3 mb-5 flex-wrap">
+              <h2 className="text-[19px] font-black tracking-tight flex-shrink-0" style={{ color: '#f2f4f8' }}>Naujos dainos</h2>
+              <div className="flex gap-2 flex-wrap">
+                {GENRES.map(g => <Pill key={g} label={g} active={genre === g} onClick={() => setGenre(g)} />)}
+              </div>
+              <a href="#" className="ml-auto text-sm font-semibold transition-colors hidden sm:block" style={{ color: '#4a6fa5' }}>Visos →</a>
+            </div>
+            {/* Horizontal scroll rail */}
+            <div className="flex gap-4 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+              {SINGLES.map((r, i) => (
+                <div key={i} className="group cursor-pointer flex-shrink-0 w-[130px]">
+                  <div className="aspect-square rounded-xl mb-2.5 relative overflow-hidden transition-all duration-300 group-hover:scale-[1.04]"
+                    style={{ background: `hsl(${r.hue},40%,14%)`, boxShadow: `0 10px 28px hsl(${r.hue},40%,6%)` }}>
+                    <div className="absolute inset-0 flex items-center justify-center text-4xl select-none font-black" style={{ color: 'rgba(255,255,255,0.05)' }}>♪</div>
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200"
+                      style={{ background: 'rgba(0,0,0,0.45)' }}>
+                      <PlayCircle sz={8} />
+                    </div>
+                    {r.lt && <span className="absolute top-1.5 left-1.5 text-xs opacity-70">🇱🇹</span>}
+                  </div>
+                  <p className="text-[11px] truncate mb-0.5" style={{ color: '#6a82a0' }}>{r.artist}</p>
+                  <h4 className="text-[13px] font-bold truncate group-hover:text-blue-300 transition-colors" style={{ color: '#e8eefa' }}>{r.title}</h4>
+                </div>
               ))}
             </div>
-            {/* Genre pills */}
-            <div className="flex gap-2 flex-wrap">
-              {GENRES.map(g => <Pill key={g} label={g} active={genre === g} onClick={() => setGenre(g)} />)}
+          </div>
+
+          {/* ── Nauji albumai ── */}
+          <div>
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-[19px] font-black tracking-tight" style={{ color: '#f2f4f8' }}>Nauji albumai</h2>
+              <a href="#" className="text-sm font-semibold transition-colors" style={{ color: '#4a6fa5' }}>Visi →</a>
             </div>
-            <a href="#" className="ml-auto text-sm text-[#4a6fa5] hover:text-[#93b4e0] font-semibold transition-colors hidden sm:block">Visi →</a>
-          </div>
-          <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-3.5">
-            {(musicTab === 'singles' ? SINGLES : ALBUMS).map((r, i) => (
-              <div key={i} className="group cursor-pointer">
-                <div className="aspect-square rounded-xl mb-2.5 relative overflow-hidden transition-all duration-300 group-hover:scale-[1.04]"
-                  style={{ background: `hsl(${r.hue},40%,14%)`, boxShadow: `0 10px 28px hsl(${r.hue},40%,5%)` }}>
-                  <div className="absolute inset-0 flex items-center justify-center text-4xl select-none font-black" style={{ color: 'rgba(255,255,255,0.05)' }}>♪</div>
-                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200"
-                    style={{ background: 'rgba(0,0,0,0.45)' }}>
-                    <PlayCircle sz={8} />
+            {/* Album rows — wider cards showing cover + info side by side on desktop */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {ALBUMS.filter(a => a.type === 'Albumas').map((r, i) => (
+                <div key={i} className="group cursor-pointer flex items-center gap-3.5 p-3 rounded-xl transition-all" style={CS} {...CH}>
+                  {/* Cover */}
+                  <div className="flex-shrink-0 w-14 h-14 rounded-lg relative overflow-hidden"
+                    style={{ background: `hsl(${r.hue},38%,15%)`, boxShadow: `0 6px 18px hsl(${r.hue},38%,6%)` }}>
+                    <div className="absolute inset-0 flex items-center justify-center text-2xl select-none" style={{ color: 'rgba(255,255,255,0.07)' }}>♪</div>
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200"
+                      style={{ background: 'rgba(0,0,0,0.5)' }}>
+                      <div className="w-7 h-7 rounded-full bg-orange-500 flex items-center justify-center">
+                        <span className="text-white text-xs ml-0.5">▶</span>
+                      </div>
+                    </div>
+                    {r.lt && <span className="absolute top-1 left-1 text-[10px] opacity-70">🇱🇹</span>}
                   </div>
-                  {r.lt && <span className="absolute top-1.5 left-1.5 text-xs opacity-75">🇱🇹</span>}
-                  {'type' in r && (
-                    <span className={`absolute top-1.5 right-1.5 text-[9px] font-black px-1.5 py-0.5 rounded text-white ${(r as {type: string}).type === 'EP' ? 'bg-violet-700/80' : (r as {type: string}).type === 'Albumas' ? 'bg-emerald-800/80' : 'bg-blue-700/80'}`}>
-                      {(r as {type: string}).type}
-                    </span>
-                  )}
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-[13px] font-bold truncate group-hover:text-blue-300 transition-colors" style={{ color: '#e8eefa' }}>{r.title}</h4>
+                    <p className="text-[11px] truncate mt-0.5" style={{ color: '#6a82a0' }}>{r.artist}</p>
+                    <p className="text-[10px] mt-1" style={{ color: '#2a3a50' }}>{r.tracks} dainos</p>
+                  </div>
                 </div>
-                <p className="text-[11px] truncate mb-0.5" style={{ color: '#6a82a0' }}>{r.artist}</p>
-                <h4 className="text-[13px] font-bold truncate group-hover:text-blue-300 transition-colors" style={{ color: '#e8eefa' }}>{r.title}</h4>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
+
         </section>
 
         {/* ━━ DIENOS DAINA + POKALBIAI ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
