@@ -169,7 +169,7 @@ async function syncRelations(id: number, data: ArtistFull) {
     supabase.from('artist_breaks').delete().eq('artist_id', id),
   ])
 
-  const inserts: Promise<any>[] = []
+  const inserts: any[] = []
 
   if (data.genres?.length) {
     inserts.push(supabase.from('artist_genres').insert(
