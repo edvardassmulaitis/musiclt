@@ -5,11 +5,29 @@ import { signIn, signOut, useSession } from 'next-auth/react'
 import Link from 'next/link'
 
 function AuthModal({ onClose }: { onClose: () => void }) {
+  const [tab, setTab] = useState<'social' | 'email'>('social')
   const [loading, setLoading] = useState<string | null>(null)
+  const [email, setEmail] = useState('')
+  const [emailSent, setEmailSent] = useState(false)
+  const [error, setError] = useState('')
 
   const handleSignIn = async (provider: string) => {
     setLoading(provider)
     await signIn(provider, { callbackUrl: window.location.href })
+  }
+
+  const handleEmail = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!email) return
+    setLoading('email')
+    setError('')
+    const result = await signIn('email', { email, callbackUrl: window.location.href, redirect: false })
+    setLoading(null)
+    if (result?.error) {
+      setError('Klaida siunčiant laišką. Bandykite dar kartą.')
+    } else {
+      setEmailSent(true)
+    }
   }
 
   useEffect(() => {
@@ -22,38 +40,89 @@ function AuthModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-gray-900 border border-white/10 rounded-2xl p-8 w-full max-w-sm shadow-2xl">
-        <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors text-xl leading-none">&times;</button>
-        <div className="text-center mb-8">
+      <div className="relative bg-gray-900 border border-white/10 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
+        <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors text-xl leading-none z-10">&times;</button>
+
+        <div className="px-8 pt-8 pb-4 text-center">
           <div className="text-4xl mb-2">🎵</div>
           <h2 className="text-2xl font-black"><span className="text-music-blue">music</span><span className="text-music-orange">.lt</span></h2>
           <p className="text-gray-400 text-sm mt-1">Prisijunkite prie bendruomenes</p>
         </div>
-        <div className="space-y-3">
-          <button onClick={() => handleSignIn('google')} disabled={loading !== null}
-            className="w-full flex items-center justify-center gap-3 bg-white text-gray-900 font-semibold py-3 px-5 rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-60">
-            {loading === 'google' ? <span className="w-5 h-5 border-2 border-gray-400 border-t-gray-900 rounded-full animate-spin" /> : (
-              <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-              </svg>
-            )}
-            Testi su Google
+
+        <div className="flex border-b border-white/10">
+          <button onClick={() => setTab('social')}
+            className={`flex-1 py-2.5 text-sm font-bold transition-colors ${tab === 'social' ? 'text-white bg-white/5 border-b-2 border-music-blue' : 'text-gray-500 hover:text-gray-300'}`}>
+            Socialiniai
           </button>
-          <button onClick={() => handleSignIn('facebook')} disabled={loading !== null}
-            className="w-full flex items-center justify-center gap-3 bg-[#1877F2] text-white font-semibold py-3 px-5 rounded-xl hover:bg-[#166FE5] transition-colors disabled:opacity-60">
-            {loading === 'facebook' ? <span className="w-5 h-5 border-2 border-blue-300 border-t-white rounded-full animate-spin" /> : (
-              <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-              </svg>
-            )}
-            Testi su Facebook
+          <button onClick={() => setTab('email')}
+            className={`flex-1 py-2.5 text-sm font-bold transition-colors ${tab === 'email' ? 'text-white bg-white/5 border-b-2 border-music-blue' : 'text-gray-500 hover:text-gray-300'}`}>
+            El. pastas
           </button>
         </div>
-        <p className="text-center text-xs text-gray-600 mt-6">
-          Prisijungdami sutinkate su <a href="/privatumas" className="text-music-blue hover:underline">privatumo politika</a>
+
+        <div className="p-6">
+          {tab === 'social' ? (
+            <div className="space-y-3">
+              <button onClick={() => handleSignIn('google')} disabled={loading !== null}
+                className="w-full flex items-center justify-center gap-3 bg-white text-gray-900 font-semibold py-3 px-5 rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-60">
+                {loading === 'google' ? <span className="w-5 h-5 border-2 border-gray-400 border-t-gray-900 rounded-full animate-spin" /> : (
+                  <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                  </svg>
+                )}
+                Testi su Google
+              </button>
+              <button onClick={() => handleSignIn('facebook')} disabled={loading !== null}
+                className="w-full flex items-center justify-center gap-3 bg-[#1877F2] text-white font-semibold py-3 px-5 rounded-xl hover:bg-[#166FE5] transition-colors disabled:opacity-60">
+                {loading === 'facebook' ? <span className="w-5 h-5 border-2 border-blue-300 border-t-white rounded-full animate-spin" /> : (
+                  <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                  </svg>
+                )}
+                Testi su Facebook
+              </button>
+            </div>
+          ) : emailSent ? (
+            <div className="text-center py-4">
+              <div className="text-4xl mb-3">📧</div>
+              <h3 className="font-bold text-white mb-2">Patikrinkite pastą!</h3>
+              <p className="text-gray-400 text-sm mb-4">Issiunteme nuoroda i <span className="text-white">{email}</span></p>
+              <p className="text-gray-600 text-xs">Nuoroda galioja 24 valandas</p>
+              <button onClick={() => { setEmailSent(false); setEmail('') }} className="mt-4 text-sm text-music-blue hover:underline">
+                Kitas el. pastas
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleEmail} className="space-y-4">
+              <div>
+                <label className="block text-xs text-gray-400 mb-1.5">El. pasto adresas</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="jusu@email.com"
+                  required
+                  autoFocus
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-music-blue transition-colors"
+                />
+              </div>
+              {error && <p className="text-red-400 text-xs">{error}</p>}
+              <button type="submit" disabled={loading === 'email' || !email}
+                className="w-full bg-music-blue hover:bg-blue-600 text-white font-bold py-3 rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+                {loading === 'email' && <span className="w-4 h-4 border-2 border-blue-300 border-t-white rounded-full animate-spin" />}
+                Gauti prisijungimo nuoroda
+              </button>
+              <p className="text-center text-xs text-gray-600">Issiusime magic link i jusu pasta</p>
+            </form>
+          )}
+        </div>
+
+        <p className="text-center text-xs text-gray-600 pb-6 px-6">
+          Prisijungdami sutinkate su{' '}
+          <a href="/privatumas" className="text-music-blue hover:underline">privatumo politika</a>
         </p>
       </div>
     </div>
@@ -65,7 +134,7 @@ function Avatar({ name, email, image }: { name?: string | null, email?: string |
   if (image) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={image} alt={name || ''} width={32} height={32} className="w-8 h-8 rounded-full ring-2 ring-white/20 object-cover" referrerPolicy="no-referrer" />
+      <img src={image} alt={name || ''} className="w-8 h-8 rounded-full ring-2 ring-white/20 object-cover" referrerPolicy="no-referrer" />
     )
   }
   return (
@@ -103,7 +172,7 @@ function UserMenu() {
       {open && (
         <div className="absolute right-0 top-full mt-2 w-52 bg-gray-900 border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50">
           <div className="px-4 py-3 border-b border-white/10">
-            <div className="text-sm font-semibold text-white truncate">{session.user.name}</div>
+            <div className="text-sm font-semibold text-white truncate">{session.user.name || 'Vartotojas'}</div>
             <div className="text-xs text-gray-400 truncate">{session.user.email}</div>
             {isAdmin && (
               <span className="inline-block mt-1 text-[10px] bg-music-orange/20 text-music-orange px-2 py-0.5 rounded-full font-bold">
