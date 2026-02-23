@@ -31,6 +31,7 @@ export type ArtistRow = {
 
 export type ArtistFull = ArtistRow & {
   genres: number[]
+  substyleNames?: string[]
   links: Record<string, string>
   photos: { url: string; caption: string; sort_order: number }[]
   related: { id: number; name: string; yearFrom: string; yearTo: string }[]
