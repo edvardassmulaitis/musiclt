@@ -31,9 +31,23 @@ function AuthModal({ onClose }: { onClose: () => void }) {
     e.preventDefault()
     if (!email.trim()) return
     setLoading('email')
-    await signIn('email', { email, callbackUrl: window.location.href, redirect: false })
-    setLoading(null)
-    setEmailSent(true)
+    try {
+      const res = await fetch('/api/auth/magic-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      const data = await res.json()
+      if (!res.ok || data.error) {
+        console.error('Magic link error:', data.error)
+      } else {
+        setEmailSent(true)
+      }
+    } catch (err) {
+      console.error('Magic link fetch error:', err)
+    } finally {
+      setLoading(null)
+    }
   }
 
   return (
