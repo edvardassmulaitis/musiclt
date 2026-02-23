@@ -231,6 +231,7 @@ export default function Home() {
   const [lens, setLens] = useState<'lt' | 'world' | 'all'>('lt')
   const [idx, setIdx] = useState(0)
   const [chartTab, setChartTab] = useState<'lt' | 'world'>('lt')
+  const [musicTab, setMusicTab] = useState<'singles' | 'albums'>('singles')
   const [genre, setGenre] = useState('Visi')
   const [city, setCity] = useState('Visi')
   const [rx, setRx] = useState(SOTD.rx)
@@ -258,21 +259,7 @@ export default function Home() {
   return (
     <div className="min-h-screen text-[#f2f4f8]" style={{ background: '#0d1117' }}>
 
-      {/* ━━ TOP NAV BAR ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <div style={{ background: 'rgba(8,11,17,0.98)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-        <div className="max-w-[1360px] mx-auto px-5 lg:px-8 h-9 flex items-center gap-6">
-          {NAV.map(n => (
-            <a key={n} href="#"
-              className="text-[12px] font-semibold text-[#5a7090] hover:text-[#c8d8f0] transition-colors tracking-wide">{n}</a>
-          ))}
-          <div className="ml-auto flex items-center gap-4">
-            <a href="#" className="text-[12px] text-[#5a7090] hover:text-[#c8d8f0] transition-colors">Atlikėjams</a>
-            <a href="#" className="text-[12px] text-[#5a7090] hover:text-[#c8d8f0] transition-colors">Reklama</a>
-          </div>
-        </div>
-      </div>
-
-      {/* ━━ MAIN HEADER ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      {/* ━━ HEADER ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <header className="sticky top-0 z-50 border-b border-white/[0.06]"
         style={{ background: 'rgba(13,17,23,0.96)', backdropFilter: 'blur(24px)' }}>
         <div className="max-w-[1360px] mx-auto px-5 lg:px-8 h-14 flex items-center gap-5">
@@ -286,6 +273,19 @@ export default function Home() {
               className="w-full h-9 rounded-full px-4 text-sm text-[#c8d8f0] placeholder:text-[#3d5070] focus:outline-none transition-all"
               style={{ background: 'rgba(255,255,255,0.055)', border: '1px solid rgba(255,255,255,0.09)' }} />
           </div>
+
+          {/* Nav links - after search */}
+          <nav className="hidden lg:flex items-center gap-0.5">
+            {NAV.map(n => (
+              <a key={n} href="#"
+                className="px-3 py-1.5 text-[13px] font-semibold rounded-lg transition-all"
+                style={{ color: '#6b88b0' }}
+                onMouseEnter={e => (e.currentTarget.style.color = '#c8d8f0')}
+                onMouseLeave={e => (e.currentTarget.style.color = '#6b88b0')}>
+                {n}
+              </a>
+            ))}
+          </nav>
 
           {/* 3-state Lens switch */}
           <div className="ml-auto flex items-center rounded-full p-0.5 gap-0.5" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)' }}>
@@ -314,15 +314,28 @@ export default function Home() {
 
             {/* ── HERO (65%) ── */}
             <div className="flex-1 py-10 lg:py-12 lg:pr-8 flex flex-col sm:flex-row items-center gap-8 sm:gap-10">
-              {/* Cover with overlay play */}
+              {/* Cover / Video embed mock */}
               <div className="relative group cursor-pointer flex-shrink-0">
-                <div className="w-44 h-44 sm:w-52 sm:h-52 rounded-2xl flex items-center justify-center text-7xl shadow-2xl transition-transform duration-300 group-hover:scale-[1.02] select-none"
+                <div className="w-44 h-44 sm:w-52 sm:h-52 rounded-2xl overflow-hidden shadow-2xl transition-transform duration-300 group-hover:scale-[1.02] select-none relative"
                   style={{ background: s.cover, boxShadow: `0 24px 64px ${s.cover}88, 0 6px 20px rgba(0,0,0,0.8)` }}>
-                  ♪
+                  {/* Simulated video/cover art */}
+                  <div className="absolute inset-0 flex items-center justify-center text-7xl" style={{ color: 'rgba(255,255,255,0.08)' }}>♪</div>
+                  {/* Spotify-style bottom bar */}
+                  <div className="absolute bottom-0 left-0 right-0 px-3 py-2.5 flex items-center gap-2"
+                    style={{ background: 'linear-gradient(transparent, rgba(0,0,0,0.75))' }}>
+                    <div className="flex-1 h-1 rounded-full" style={{ background: 'rgba(255,255,255,0.2)' }}>
+                      <div className="h-full w-2/5 rounded-full bg-white" />
+                    </div>
+                    <span className="text-[10px] font-bold text-white/60">1:47</span>
+                  </div>
                 </div>
+                {/* Play overlay */}
                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-2xl"
-                  style={{ background: 'rgba(0,0,0,0.4)' }}>
-                  <PlayCircle sz={14} />
+                  style={{ background: 'rgba(0,0,0,0.35)' }}>
+                  <div className="w-14 h-14 rounded-full flex items-center justify-center shadow-2xl transition-transform hover:scale-105"
+                    style={{ background: 'rgba(249,115,22,0.95)', backdropFilter: 'blur(4px)' }}>
+                    <span className="text-white text-xl ml-0.5">▶</span>
+                  </div>
                 </div>
               </div>
 
@@ -338,16 +351,18 @@ export default function Home() {
                 </h1>
                 <p className="text-xl sm:text-2xl font-light mb-5 tracking-wide" style={{ color: 'rgba(200,215,240,0.55)' }}>{s.title}</p>
                 {/* Desc on dark pill background for readability */}
-                <p className="text-sm leading-relaxed mb-7 max-w-md px-3 py-2.5 rounded-xl sm:px-0 sm:py-0 sm:bg-transparent"
-                  style={{ color: 'rgba(190,210,240,0.7)', background: 'rgba(0,0,0,0.25)' }}>
+                <p className="text-sm leading-relaxed mb-7 max-w-md"
+                  style={{ color: 'rgba(210,225,248,0.75)' }}>
                   {s.desc}
                 </p>
                 <div className="flex items-center gap-3 flex-wrap justify-center sm:justify-start">
-                  <button className="bg-orange-500 hover:bg-orange-400 text-white font-black px-7 py-3 rounded-full text-sm transition-all shadow-lg shadow-orange-900/50 hover:scale-[1.02]">
+                  <button className="flex items-center gap-2.5 bg-orange-500 hover:bg-orange-400 text-white font-black px-6 py-3 rounded-full text-sm transition-all shadow-lg shadow-orange-900/50 hover:scale-[1.02]">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
                     {s.cta}
                   </button>
-                  <button className="font-semibold px-5 py-3 rounded-full text-sm transition-all border hover:scale-[1.01]"
+                  <button className="flex items-center gap-2 font-semibold px-5 py-3 rounded-full text-sm transition-all border hover:scale-[1.01]"
                     style={{ color: 'rgba(200,215,240,0.6)', borderColor: 'rgba(255,255,255,0.14)' }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 8 16 12 12 16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
                     {s.ctaSecondary}
                   </button>
                 </div>
@@ -392,10 +407,10 @@ export default function Home() {
                     <div className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-[10px]" style={{ background: `hsl(${t.pos * 43},30%,14%)`, color: 'rgba(255,255,255,0.12)' }}>♪</div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[13px] font-semibold truncate group-hover:text-blue-300 transition-colors" style={{ color: '#dde8f8' }}>{t.title}</span>
-                        {t.lt && <span className="text-[10px] opacity-60 flex-shrink-0">🇱🇹</span>}
+                        <span className="text-[13px] font-semibold truncate group-hover:text-blue-300 transition-colors" style={{ color: '#eef2fa' }}>{t.title}</span>
+                        {t.lt && chartTab === 'world' && <span className="text-[10px] opacity-60 flex-shrink-0">🇱🇹</span>}
                       </div>
-                      <span className="text-[11px] truncate block" style={{ color: '#3d5878' }}>{t.artist}</span>
+                      <span className="text-[11px] truncate block" style={{ color: '#7a90b0' }}>{t.artist}</span>
                     </div>
                     {'wks' in t && typeof (t as {wks?: number}).wks === 'number' && (
                       <span className="text-[10px] flex-shrink-0" style={{ color: '#1e2e42' }}>{(t as {wks: number}).wks}w</span>
@@ -424,17 +439,27 @@ export default function Home() {
       {/* ━━ MAIN CONTENT ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <div className="max-w-[1360px] mx-auto px-5 lg:px-8 py-12 space-y-16">
 
-        {/* ━━ SINGLAI ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+        {/* ━━ NAUJA MUZIKA ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         <section>
-          <div className="flex items-center gap-4 mb-5 flex-wrap">
-            <h2 className="text-[19px] font-black text-[#f2f4f8] tracking-tight">Singlai</h2>
+          <div className="flex items-center gap-3 mb-5 flex-wrap">
+            <h2 className="text-[19px] font-black text-[#f2f4f8] tracking-tight flex-shrink-0">Nauja muzika</h2>
+            {/* Type tabs */}
+            <div className="flex rounded-full p-0.5" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)' }}>
+              {[{ k: 'singles', l: 'Singlai' }, { k: 'albums', l: 'Albumai / EP' }].map(t => (
+                <button key={t.k} onClick={() => setMusicTab(t.k as 'singles' | 'albums')}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${musicTab === t.k ? 'bg-[#1d4ed8] text-white' : 'text-[#4a6080] hover:text-[#c8d8f0]'}`}>
+                  {t.l}
+                </button>
+              ))}
+            </div>
+            {/* Genre pills */}
             <div className="flex gap-2 flex-wrap">
               {GENRES.map(g => <Pill key={g} label={g} active={genre === g} onClick={() => setGenre(g)} />)}
             </div>
             <a href="#" className="ml-auto text-sm text-[#4a6fa5] hover:text-[#93b4e0] font-semibold transition-colors hidden sm:block">Visi →</a>
           </div>
           <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-3.5">
-            {SINGLES.map((r, i) => (
+            {(musicTab === 'singles' ? SINGLES : ALBUMS).map((r, i) => (
               <div key={i} className="group cursor-pointer">
                 <div className="aspect-square rounded-xl mb-2.5 relative overflow-hidden transition-all duration-300 group-hover:scale-[1.04]"
                   style={{ background: `hsl(${r.hue},40%,14%)`, boxShadow: `0 10px 28px hsl(${r.hue},40%,5%)` }}>
@@ -444,34 +469,14 @@ export default function Home() {
                     <PlayCircle sz={8} />
                   </div>
                   {r.lt && <span className="absolute top-1.5 left-1.5 text-xs opacity-75">🇱🇹</span>}
+                  {'type' in r && (
+                    <span className={`absolute top-1.5 right-1.5 text-[9px] font-black px-1.5 py-0.5 rounded text-white ${(r as {type: string}).type === 'EP' ? 'bg-violet-700/80' : (r as {type: string}).type === 'Albumas' ? 'bg-emerald-800/80' : 'bg-blue-700/80'}`}>
+                      {(r as {type: string}).type}
+                    </span>
+                  )}
                 </div>
-                <p className="text-[11px] truncate mb-0.5" style={{ color: '#3d5878' }}>{r.artist}</p>
-                <h4 className="text-[12px] font-bold truncate group-hover:text-blue-300 transition-colors" style={{ color: '#c8d8f0' }}>{r.title}</h4>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ━━ ALBUMAI / EP ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-        <section>
-          <SecHead label="Albumai / EP" cta="Visi leidiniai" />
-          <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-3.5">
-            {ALBUMS.map((r, i) => (
-              <div key={i} className="group cursor-pointer">
-                <div className="aspect-square rounded-xl mb-2.5 relative overflow-hidden transition-all duration-300 group-hover:scale-[1.04]"
-                  style={{ background: `hsl(${r.hue},38%,14%)`, boxShadow: `0 10px 28px hsl(${r.hue},38%,5%)` }}>
-                  <div className="absolute inset-0 flex items-center justify-center text-4xl select-none font-black" style={{ color: 'rgba(255,255,255,0.05)' }}>♪</div>
-                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200"
-                    style={{ background: 'rgba(0,0,0,0.45)' }}>
-                    <PlayCircle sz={8} />
-                  </div>
-                  {r.lt && <span className="absolute top-1.5 left-1.5 text-xs opacity-75">🇱🇹</span>}
-                  <span className={`absolute top-1.5 right-1.5 text-[9px] font-black px-1.5 py-0.5 rounded text-white ${r.type === 'EP' ? 'bg-violet-700/80' : 'bg-emerald-800/80'}`}>
-                    {r.type}
-                  </span>
-                </div>
-                <p className="text-[11px] truncate mb-0.5" style={{ color: '#3d5878' }}>{r.artist}</p>
-                <h4 className="text-[12px] font-bold truncate group-hover:text-blue-300 transition-colors" style={{ color: '#c8d8f0' }}>{r.title}</h4>
+                <p className="text-[11px] truncate mb-0.5" style={{ color: '#6a82a0' }}>{r.artist}</p>
+                <h4 className="text-[13px] font-bold truncate group-hover:text-blue-300 transition-colors" style={{ color: '#e8eefa' }}>{r.title}</h4>
               </div>
             ))}
           </div>
@@ -479,51 +484,81 @@ export default function Home() {
 
         {/* ━━ DIENOS DAINA + POKALBIAI ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         <section>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+          <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-5">
 
-            {/* Dienos daina */}
+            {/* ── Dienos daina: kompaktiškas blokas su viskuo ── */}
             <div>
               <SecHead label="🎵 Dienos daina" />
-              <div className="rounded-2xl p-6 relative overflow-hidden"
-                style={{ background: 'linear-gradient(135deg, rgba(29,78,216,0.22) 0%, rgba(13,17,23,0.97) 100%)', border: '1px solid rgba(29,78,216,0.2)' }}>
-                <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse at 5% 80%, rgba(29,78,216,0.1) 0%, transparent 50%)' }} />
-                <div className="relative flex items-start gap-5 mb-5">
+              <div className="rounded-2xl overflow-hidden relative"
+                style={{ background: 'linear-gradient(160deg, rgba(29,78,216,0.22) 0%, rgba(13,17,23,0.98) 100%)', border: '1px solid rgba(29,78,216,0.2)' }}>
+                <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse at 5% 85%, rgba(29,78,216,0.1) 0%, transparent 50%)' }} />
+
+                {/* Main song info */}
+                <div className="relative flex items-center gap-4 p-5 border-b border-white/[0.06]">
                   <div className="relative group flex-shrink-0 cursor-pointer">
-                    <div className="w-18 h-18 rounded-xl flex items-center justify-center text-3xl shadow-2xl"
-                      style={{ width: 72, height: 72, background: `hsl(${SOTD.hue},45%,14%)`, boxShadow: `0 12px 32px hsl(${SOTD.hue},45%,6%)` }}>
-                      🎵
-                    </div>
+                    <div className="w-16 h-16 rounded-xl flex items-center justify-center text-2xl"
+                      style={{ background: `hsl(${SOTD.hue},45%,14%)`, boxShadow: `0 8px 24px hsl(${SOTD.hue},45%,6%)` }}>🎵</div>
                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-xl"
-                      style={{ background: 'rgba(0,0,0,0.4)' }}>
-                      <PlayCircle sz={8} />
+                      style={{ background: 'rgba(0,0,0,0.45)' }}>
+                      <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center"><span className="text-white text-sm ml-0.5">▶</span></div>
                     </div>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs mb-1" style={{ color: '#3d5878' }}>Siūlo <span className="text-blue-400 font-bold">{SOTD.by}</span></p>
-                    <h3 className="font-black text-xl leading-tight mb-0.5" style={{ color: '#f2f4f8' }}>{SOTD.artist}</h3>
+                    <p className="text-[11px] mb-0.5" style={{ color: '#3d5878' }}>Siūlo <span className="text-blue-400 font-bold">{SOTD.by}</span></p>
+                    <h3 className="font-black text-lg leading-tight" style={{ color: '#f2f4f8' }}>{SOTD.artist}</h3>
                     <p className="text-sm" style={{ color: 'rgba(200,215,240,0.55)' }}>{SOTD.title}</p>
                   </div>
+                  <button className="flex-shrink-0 flex items-center gap-1.5 bg-orange-500 hover:bg-orange-400 text-white font-black px-4 py-2 rounded-full text-xs transition-all shadow-md">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                    Klausyti
+                  </button>
                 </div>
-                <div className="relative flex gap-2 mb-5">
+
+                {/* Reactions */}
+                <div className="relative flex items-center gap-2 px-5 py-3 border-b border-white/[0.05]">
                   {([['fire', '🔥', rx.fire], ['heart', '❤️', rx.heart], ['star', '⭐', rx.star]] as const).map(([k, e, c]) => (
                     <button key={k} onClick={() => setRx(r => ({ ...r, [k]: r[k as keyof typeof r] + 1 }))}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-bold transition-all hover:scale-105 active:scale-95"
-                      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)' }}>
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold transition-all hover:scale-105 active:scale-95"
+                      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
                       {e} <span style={{ color: '#dde8f8' }}>{c}</span>
                     </button>
                   ))}
+                  <p className="ml-auto text-[11px]" style={{ color: '#2a3a50' }}>Vakar: {SOTD.yesterday}</p>
                 </div>
-                <button className="relative w-full bg-orange-500 hover:bg-orange-400 text-white font-black py-2.5 rounded-xl text-sm transition-all shadow-md shadow-orange-900/40">
-                  Klausyti →
-                </button>
-                <p className="relative text-[11px] mt-3 text-center" style={{ color: '#2a3a50' }}>Vakar: {SOTD.yesterday}</p>
+
+                {/* Voting list */}
+                <div className="relative">
+                  <div className="px-5 py-2.5 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <p className="text-[10px] font-black uppercase tracking-[0.1em]" style={{ color: '#2a3a50' }}>Rytdienos balsavimas</p>
+                    <a href="#" className="text-[10px] font-bold" style={{ color: '#4a6fa5' }}>+ Siūlyti</a>
+                  </div>
+                  <div className="divide-y divide-white/[0.04]">
+                    {SOTD_CANDIDATES.slice(0, 6).map((c, i) => (
+                      <div key={i} className="flex items-center gap-3 px-5 py-2.5 hover:bg-white/[0.03] transition-colors">
+                        <span className="font-black text-xs w-4 text-center flex-shrink-0" style={{ color: '#1e2e42' }}>#{i + 1}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[12px] font-semibold truncate" style={{ color: '#dde8f8' }}>{c.artist}</p>
+                          <p className="text-[10px] truncate" style={{ color: '#3d5878' }}>{c.title}</p>
+                        </div>
+                        <span className="text-xs font-black w-6 text-right flex-shrink-0" style={{ color: 'rgba(200,215,240,0.4)' }}>{voted === i ? c.votes + 1 : c.votes}</span>
+                        <button onClick={() => voted === null && setVoted(i)} disabled={voted !== null}
+                          className={`text-[11px] font-black px-2.5 py-1 rounded-full flex-shrink-0 transition-all ${
+                            voted === i ? 'text-emerald-400 bg-emerald-900/20 border border-emerald-700/25'
+                            : voted !== null ? 'opacity-25 border border-white/5'
+                            : 'text-blue-400 border border-blue-800/30 hover:bg-blue-900/15'}`}>
+                          {voted === i ? '✓' : 'Balsuoti'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Gyvi pokalbiai */}
+            {/* ── Gyvi pokalbiai ── */}
             <div>
               <SecHead label="💬 Gyvi pokalbiai" cta="Visi" />
-              <div className="rounded-2xl overflow-hidden" style={CS}>
+              <div className="rounded-2xl overflow-hidden h-[calc(100%-3rem)]" style={CS}>
                 <div>
                   {SHOUTBOX.map((s, i) => (
                     <div key={i} className="flex items-start gap-3 px-4 py-3 hover:bg-white/[0.025] transition-colors"
@@ -537,47 +572,18 @@ export default function Home() {
                           <span className="text-xs font-bold text-blue-400">{s.user}</span>
                           <span className="text-[10px]" style={{ color: '#1e2e42' }}>{s.ago}</span>
                         </div>
-                        <p className="text-[13px] leading-relaxed" style={{ color: 'rgba(190,210,240,0.55)' }}>{s.msg}</p>
+                        <p className="text-[13px] leading-relaxed" style={{ color: 'rgba(200,218,245,0.65)' }}>{s.msg}</p>
                       </div>
                     </div>
                   ))}
                 </div>
                 <div className="flex gap-2.5 p-3.5" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.015)' }}>
                   <input type="text" placeholder="Rašyk žinutę… (reikia prisijungti)"
-                    className="flex-1 h-8 rounded-full px-3.5 text-xs focus:outline-none transition-all"
+                    className="flex-1 h-8 rounded-full px-3.5 text-xs focus:outline-none"
                     style={{ background: 'rgba(255,255,255,0.055)', border: '1px solid rgba(255,255,255,0.08)', color: '#c8d8f0' }} />
                   <button className="bg-[#1d4ed8] hover:bg-blue-500 text-white font-bold px-4 h-8 rounded-full text-xs transition-all flex-shrink-0">Siųsti</button>
                 </div>
               </div>
-            </div>
-          </div>
-
-          {/* Full-width voting list */}
-          <div className="rounded-2xl overflow-hidden" style={CS}>
-            <div className="px-5 py-3.5 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-              <p className="text-[11px] font-black uppercase tracking-[0.12em]" style={{ color: '#2a3a50' }}>Rytdienos balsavimas</p>
-              <a href="#" className="text-[11px] font-bold transition-colors" style={{ color: '#4a6fa5' }}>+ Siūlyti dainą</a>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-0">
-              {SOTD_CANDIDATES.map((c, i) => (
-                <div key={i} className="flex items-center gap-3 px-4 py-3 hover:bg-white/[0.03] transition-colors"
-                  style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', borderRight: i % 2 === 0 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
-                  <span className="font-black text-sm w-5 text-center flex-shrink-0" style={{ color: '#1e2e42' }}>#{i + 1}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-semibold truncate" style={{ color: '#dde8f8' }}>{c.artist}</p>
-                    <p className="text-[11px] truncate" style={{ color: '#3d5878' }}>{c.title}</p>
-                  </div>
-                  <span className="text-sm font-black flex-shrink-0 w-7 text-right" style={{ color: 'rgba(200,215,240,0.5)' }}>{voted === i ? c.votes + 1 : c.votes}</span>
-                  <button onClick={() => voted === null && setVoted(i)} disabled={voted !== null}
-                    className={`text-xs font-black px-2.5 py-1 rounded-full flex-shrink-0 transition-all ${
-                      voted === i ? 'text-emerald-400 bg-emerald-900/20 border border-emerald-700/25'
-                      : voted !== null ? 'opacity-30 border border-white/5'
-                      : 'text-blue-400 border border-blue-800/35 hover:bg-blue-900/15'}`}
-                    style={{ fontSize: 11 }}>
-                    {voted === i ? '✓' : 'Balsuoti'}
-                  </button>
-                </div>
-              ))}
             </div>
           </div>
         </section>
