@@ -485,47 +485,42 @@ export default function Home() {
             </div>
 
             {/* ── Right: both rows ── */}
-            <div className="flex-1 min-w-0 space-y-10">
+            <div className="flex-1 min-w-0 space-y-8">
 
-              {/* ── Naujos dainos — minimal, compact ── */}
+              {/* ── Naujos dainos — compact inline cards ── */}
               <div>
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between mb-3">
                   <h2 className="text-[19px] font-black tracking-tight" style={{ color: '#f2f4f8' }}>Naujos dainos</h2>
                   <a href="#" className="text-sm font-semibold transition-colors" style={{ color: '#4a6fa5' }}>Visos →</a>
                 </div>
-                <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
+                <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
                   {SINGLES
                     .filter(r => genre === 'Visi' || genre === 'forYou' || r.genre === genre)
                     .map((r, i) => (
-                    <div key={i} className="group cursor-pointer flex-shrink-0 w-[110px]">
-                      {/* Square cover — minimal, no note icon clutter */}
-                      <div className="w-[110px] h-[110px] rounded-xl mb-2 relative overflow-hidden transition-all duration-300 group-hover:scale-[1.04]"
-                        style={{ background: `hsl(${r.hue},35%,16%)` }}>
-                        {/* Subtle radial to give depth without noise */}
-                        <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 35% 35%, hsl(${r.hue},45%,28%) 0%, transparent 65%)` }} />
-                        {/* Play overlay */}
-                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200"
-                          style={{ background: 'rgba(0,0,0,0.5)' }}>
-                          <div className="w-9 h-9 rounded-full bg-orange-500 flex items-center justify-center shadow-lg">
-                            <span className="text-white text-sm ml-0.5">▶</span>
-                          </div>
+                    <div key={i} className="group cursor-pointer flex-shrink-0 flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-all w-[190px]" style={CS} {...CH}>
+                      {/* Small square cover */}
+                      <div className="flex-shrink-0 w-9 h-9 rounded-lg relative overflow-hidden"
+                        style={{ background: `hsl(${r.hue},38%,18%)` }}>
+                        <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 30% 30%, hsl(${r.hue},50%,30%) 0%, transparent 65%)` }} />
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
+                          style={{ background: 'rgba(0,0,0,0.55)' }}>
+                          <span className="text-white text-[10px] ml-0.5">▶</span>
                         </div>
-                        {r.lt && <span className="absolute top-1.5 left-1.5 text-xs opacity-60">🇱🇹</span>}
-                        {genre === 'forYou' && (
-                          <div className="absolute bottom-0 left-0 right-0 h-0.5 rounded-b-xl" style={{ background: 'rgba(249,115,22,0.7)' }} />
-                        )}
                       </div>
-                      {/* Text — clear contrast */}
-                      <p className="text-[11px] truncate mb-0.5 font-medium" style={{ color: '#7a93b5' }}>{r.artist}</p>
-                      <h4 className="text-[13px] font-bold truncate group-hover:text-blue-300 transition-colors leading-tight" style={{ color: '#eef2fa' }}>{r.title}</h4>
+                      {/* Text */}
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-[12px] font-bold truncate leading-tight group-hover:text-blue-300 transition-colors" style={{ color: '#eef2fa' }}>{r.title}</h4>
+                        <p className="text-[11px] truncate font-medium" style={{ color: '#7a93b5' }}>{r.artist}</p>
+                      </div>
+                      {genre === 'forYou' && <div className="w-1 h-5 rounded-full flex-shrink-0" style={{ background: 'rgba(249,115,22,0.6)' }} />}
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* ── Nauji albumai — prominent, cover-led ── */}
+              {/* ── Nauji albumai — same compact inline style, split by status ── */}
               <div>
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between mb-3">
                   <h2 className="text-[19px] font-black tracking-tight" style={{ color: '#f2f4f8' }}>Nauji albumai</h2>
                   <a href="#" className="text-sm font-semibold transition-colors" style={{ color: '#4a6fa5' }}>Visi →</a>
                 </div>
@@ -535,30 +530,26 @@ export default function Home() {
                   const out = ALBUMS.filter(a => a.status === 'out' && (genre === 'Visi' || genre === 'forYou' || a.genre === genre))
                   if (!out.length) return null
                   return (
-                    <div className="mb-6">
-                      <p className="text-[10px] font-black uppercase tracking-[0.14em] mb-3" style={{ color: '#3d5878' }}>Neseniai išleista</p>
-                      <div className="flex gap-4 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
+                    <div className="mb-4">
+                      <p className="text-[10px] font-black uppercase tracking-[0.14em] mb-2" style={{ color: '#3d5878' }}>Neseniai išleista</p>
+                      <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
                         {out.map((r, i) => (
-                          <div key={i} className="group cursor-pointer flex-shrink-0 w-[150px]">
-                            {/* Larger square cover — prominent */}
-                            <div className="w-[150px] h-[150px] rounded-xl mb-3 relative overflow-hidden transition-all duration-300 group-hover:scale-[1.03]"
-                              style={{ background: `hsl(${r.hue},42%,17%)`, boxShadow: `0 12px 36px hsl(${r.hue},42%,6%)` }}>
-                              <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 30% 30%, hsl(${r.hue},55%,32%) 0%, transparent 60%)` }} />
-                              {/* Bottom gradient for text legibility hint */}
-                              <div className="absolute bottom-0 left-0 right-0 h-16" style={{ background: 'linear-gradient(transparent, rgba(0,0,0,0.55))' }} />
-                              {/* Play overlay */}
-                              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200"
-                                style={{ background: 'rgba(0,0,0,0.45)' }}>
-                                <div className="w-11 h-11 rounded-full bg-orange-500 flex items-center justify-center shadow-xl">
-                                  <span className="text-white text-base ml-0.5">▶</span>
-                                </div>
+                          <div key={i} className="group cursor-pointer flex-shrink-0 flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-all w-[210px]" style={CS} {...CH}>
+                            {/* Cover — slightly larger than songs to give albums more weight */}
+                            <div className="flex-shrink-0 w-11 h-11 rounded-lg relative overflow-hidden"
+                              style={{ background: `hsl(${r.hue},42%,18%)`, boxShadow: `0 4px 14px hsl(${r.hue},42%,6%)` }}>
+                              <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 28% 28%, hsl(${r.hue},55%,34%) 0%, transparent 60%)` }} />
+                              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
+                                style={{ background: 'rgba(0,0,0,0.5)' }}>
+                                <span className="text-white text-[10px] ml-0.5">▶</span>
                               </div>
-                              {r.lt && <span className="absolute top-2 left-2 text-xs opacity-70">🇱🇹</span>}
+                              {r.lt && <span className="absolute top-0.5 left-0.5 text-[9px] opacity-60">🇱🇹</span>}
                             </div>
-                            {/* Clear text below */}
-                            <h4 className="text-[14px] font-bold truncate group-hover:text-blue-300 transition-colors leading-tight" style={{ color: '#eef2fa' }}>{r.title}</h4>
-                            <p className="text-[12px] truncate mt-0.5 font-medium" style={{ color: '#7a93b5' }}>{r.artist}</p>
-                            <p className="text-[11px] mt-1 font-medium" style={{ color: '#4a6580' }}>{r.date}</p>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="text-[12px] font-bold truncate leading-tight group-hover:text-blue-300 transition-colors" style={{ color: '#eef2fa' }}>{r.title}</h4>
+                              <p className="text-[11px] truncate font-medium" style={{ color: '#7a93b5' }}>{r.artist}</p>
+                              <p className="text-[10px] font-medium mt-0.5" style={{ color: '#4a6580' }}>{r.date}</p>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -572,29 +563,27 @@ export default function Home() {
                   if (!soon.length) return null
                   return (
                     <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.14em] mb-3" style={{ color: '#3d5878' }}>Greitai pasirodys</p>
-                      <div className="flex gap-4 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
+                      <p className="text-[10px] font-black uppercase tracking-[0.14em] mb-2" style={{ color: '#3d5878' }}>Greitai pasirodys</p>
+                      <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
                         {soon.map((r, i) => (
-                          <div key={i} className="group cursor-pointer flex-shrink-0 w-[150px]">
-                            <div className="w-[150px] h-[150px] rounded-xl mb-3 relative overflow-hidden"
-                              style={{ background: `hsl(${r.hue},28%,12%)` }}>
-                              <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 30% 30%, hsl(${r.hue},35%,20%) 0%, transparent 55%)` }} />
-                              {/* Frosted overlay */}
-                              <div className="absolute inset-0" style={{ background: 'rgba(13,17,23,0.45)' }} />
+                          <div key={i} className="group cursor-pointer flex-shrink-0 flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-all w-[210px]"
+                            style={{ background: 'rgba(255,255,255,0.018)', border: '1px solid rgba(255,255,255,0.055)' }} {...CH}>
+                            <div className="flex-shrink-0 w-11 h-11 rounded-lg relative overflow-hidden"
+                              style={{ background: `hsl(${r.hue},28%,13%)` }}>
+                              <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 28% 28%, hsl(${r.hue},35%,20%) 0%, transparent 55%)` }} />
+                              <div className="absolute inset-0" style={{ background: 'rgba(13,17,23,0.4)' }} />
                               <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="text-center">
-                                  <div className="text-2xl mb-1" style={{ color: 'rgba(255,255,255,0.18)' }}>⏳</div>
-                                </div>
-                              </div>
-                              {r.lt && <span className="absolute top-2 left-2 text-xs opacity-40">🇱🇹</span>}
-                              {/* Release date badge */}
-                              <div className="absolute bottom-2 left-2 right-2 flex items-center gap-1.5">
-                                <span className="text-[9px] font-black px-1.5 py-0.5 rounded" style={{ background: 'rgba(245,158,11,0.2)', color: '#fbbf24' }}>GREITAI</span>
-                                <span className="text-[10px] font-bold" style={{ color: 'rgba(255,255,255,0.5)' }}>{r.date}</span>
+                                <span className="text-sm" style={{ color: 'rgba(255,255,255,0.2)' }}>⏳</span>
                               </div>
                             </div>
-                            <h4 className="text-[14px] font-bold truncate leading-tight" style={{ color: '#c8d8f0' }}>{r.title}</h4>
-                            <p className="text-[12px] truncate mt-0.5 font-medium" style={{ color: '#5a7898' }}>{r.artist}</p>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="text-[12px] font-bold truncate leading-tight" style={{ color: '#c8d8f0' }}>{r.title}</h4>
+                              <p className="text-[11px] truncate font-medium" style={{ color: '#5a7898' }}>{r.artist}</p>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="text-[9px] font-black px-1.5 py-0.5 rounded" style={{ background: 'rgba(245,158,11,0.18)', color: '#fbbf24' }}>GREITAI</span>
+                                <span className="text-[10px] font-medium" style={{ color: '#4a6580' }}>{r.date}</span>
+                              </div>
+                            </div>
                           </div>
                         ))}
                       </div>
