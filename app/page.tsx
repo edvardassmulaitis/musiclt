@@ -1,559 +1,493 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import Link from 'next/link'
+import { useState, useEffect } from 'react'
 import { HeaderAuth } from '@/components/HeaderAuth'
+import Link from 'next/link'
 
-// ─── Data ─────────────────────────────────────────────────────────────────────
+// ── Mock Data ──────────────────────────────────────────────────────────────────
 
-const NEWS_MAIN = {
-  tag: 'Interviu',
-  title: 'Andrius Mamontovas: „Muzika visada randa kelią – net ir tyliausiuose namuose"',
-  excerpt: 'Legendinis rokerys pasakoja apie naujausią albumą, ilgą kūrybinę pertrauką ir tai, kodėl lietuviška scena jam vis dar svarbiausia po trijų dešimtmečių. Albumas „Tyla" žada būti vienu asmeniškiausių jo karjeroje — dainos apie šeimą, praradimus ir naujus pradžius. „Kartais reikia nutilti, kad išgirstum, kas svarbiausia", – sako Mamontovas.',
-  daysAgo: 0,
-  likes: 127,
+const HERO_FEATURE = {
+  label: 'Šią savaitę kyla',
+  credibility: 'Redakcija',
+  artist: 'Silvester Belt',
+  title: 'Bend The Lie',
+  desc: 'Oficiali Lietuvos daina „Eurovision 2026" – jau viršuje Europoje.',
+  gradient: 'from-indigo-900 via-purple-900 to-pink-900',
+  accent: '#a78bfa',
+  streams: '2.4M',
+  weeks: 3,
 }
 
-const NEWS_SIDE = [
-  { id: 1, tag: 'Eurovizija', title: 'Silvester Belt atstovauja Lietuvą Bazelyje: paskelbta oficiali daina', daysAgo: 0, likes: 89 },
-  { id: 2, tag: 'Albumai', title: 'Skamp sugrįžta: pirmasis albumas per 15 metų jau gegužę', daysAgo: 1, likes: 56 },
-  { id: 3, tag: 'Renginiai', title: 'Granatas skelbia Vilniaus areną spalio 18 d.', daysAgo: 2, likes: 34 },
-  { id: 4, tag: 'Premjera', title: 'Monika Liu išleido naują dainą „Palauk"', daysAgo: 1, likes: 71 },
+const HERO_CARDS = [
+  { label: 'Premjera', title: 'Skamp sugrįžta', sub: 'Pirmasis albumas per 15 metų', color: 'from-orange-900 to-red-900' },
+  { label: 'Renginys', title: 'Granatas – Vilniaus arena', sub: 'Spalio 18 d. • Bilietai', color: 'from-emerald-900 to-teal-900' },
 ]
 
-const LT_TOP = [
-  { pos:1, prev:1, artist:'Monika Liu', title:'Sentimentai', wks:4 },
-  { pos:2, prev:4, artist:'Silvester Belt', title:'Bend The Lie', wks:2 },
-  { pos:3, prev:2, artist:'Jazzu', title:'Kur Eisi', wks:7 },
-  { pos:4, prev:6, artist:'Galerija', title:'Naktis', wks:3 },
-  { pos:5, prev:null, artist:'Dž. Džo', title:'Vilniaus Vakaras', wks:1 },
+const SIANDIEN = [
+  { type: 'release', label: 'Nauja daina', artist: 'Monika Liu', title: 'Sentimentai', genre: 'Pop', color: 'hsl(280,50%,25%)' },
+  { type: 'event', label: 'Šiandien', artist: 'Kęstutis Antanėlis', title: 'Žalgirio Arena', sub: 'Kaunas', color: 'hsl(200,50%,20%)' },
+  { type: 'community', label: 'Bendruomenė', artist: 'rokaslt', title: 'Mano top 10 LT albumų', sub: '47 komentarai', color: 'hsl(340,50%,20%)' },
 ]
 
-const INTL_TOP = [
-  { pos:1, prev:2, artist:'Rose & Bruno Mars', title:'APT.' },
-  { pos:2, prev:1, artist:'Lady Gaga', title:'Disease' },
-  { pos:3, prev:3, artist:'Sabrina Carpenter', title:'Espresso' },
-  { pos:4, prev:5, artist:'Billie Eilish', title:'Birds of a Feather' },
-  { pos:5, prev:4, artist:'Chappell Roan', title:'Good Luck, Babe!' },
+const CHARTS_LT = [
+  { pos: 1, prev: 1, artist: 'Monika Liu', title: 'Sentimentai', wks: 4, trend: 'same' },
+  { pos: 2, prev: 4, artist: 'Silvester Belt', title: 'Bend The Lie', wks: 2, trend: 'up' },
+  { pos: 3, prev: 2, artist: 'Jazzu', title: 'Kur Eisi', wks: 7, trend: 'down' },
+  { pos: 4, prev: 6, artist: 'Galerija', title: 'Naktis', wks: 3, trend: 'up' },
+  { pos: 5, prev: null, artist: 'Dž. Džo', title: 'Vilniaus Vakaras', wks: 1, trend: 'new' },
+  { pos: 6, prev: 5, artist: 'Andrius Mamontovas', title: 'Laikas', wks: 9, trend: 'down' },
+  { pos: 7, prev: 8, artist: 'Jurga', title: 'Vasaros Naktys', wks: 5, trend: 'up' },
+  { pos: 8, prev: 7, artist: 'Dainava', title: 'Tamsoje', wks: 2, trend: 'down' },
 ]
 
-const SOTD = {
-  artist: 'Foje',
-  title: 'Žmogus Kuris Nemoka Šokti',
-  by: 'rokaslt',
-  votes: 47,
-  yesterday: { artist: 'Monika Liu', title: 'Sentimentai', votes: 89 },
-  pretenders: [
-    { artist: 'Monika Liu', title: 'Sentimentai', by: 'disk0', votes: 31 },
-    { artist: 'Andrius Mamontovas', title: 'Laikas', by: 'metal', votes: 28 },
-    { artist: 'Jazzu', title: 'Kur Eisi', by: 'jazzf', votes: 19 },
-    { artist: 'Saulės Kliošas', title: 'Ruduo', by: 'slk', votes: 15 },
-  ],
-}
-
-const SHOUTBOX = [
-  { user: 'muzikoslt', msg: 'Kas žino kada bus kitas Skamp koncertas?', time: '2 min.' },
-  { user: 'rockfanas', msg: 'Mamontovas 🔥🔥🔥', time: '5 min.' },
-  { user: 'jazzlover', msg: 'Ieškau bilieto į Jurgą 03-01', time: '12 min.' },
-  { user: 'indie_lt', msg: 'Kas klausot Saulės Klioš naują EP?', time: '18 min.' },
-  { user: 'vertejas', msg: 'Padėkite išverst Arctic Monkeys dainą!', time: '23 min.' },
-  { user: 'kurejaslt', msg: 'Įkėliau savo pirmą demo 🎸', time: '31 min.' },
+const CHARTS_INTL = [
+  { pos: 1, prev: 2, artist: 'Rose & Bruno Mars', title: 'APT.', trend: 'up' },
+  { pos: 2, prev: 1, artist: 'Lady Gaga', title: 'Disease', trend: 'down' },
+  { pos: 3, prev: 3, artist: 'Sabrina Carpenter', title: 'Espresso', trend: 'same' },
+  { pos: 4, prev: 5, artist: 'Billie Eilish', title: 'Birds of a Feather', trend: 'up' },
+  { pos: 5, prev: 4, artist: 'Chappell Roan', title: 'Good Luck, Babe!', trend: 'down' },
+  { pos: 6, prev: 7, artist: 'Kendrick Lamar', title: 'Luther', trend: 'up' },
+  { pos: 7, prev: 6, artist: 'SZA', title: 'Saturn', trend: 'down' },
+  { pos: 8, prev: null, artist: 'Gracie Abrams', title: 'That\'s So True', trend: 'new' },
 ]
 
-const NEW_ALBUMS = [
-  { artist:'Jurga', title:'Vasaros Naktys', tracks:11, released:true, daysUntil:0 },
-  { artist:'Galerija', title:'Naktis', tracks:8, released:true, daysUntil:0 },
-  { artist:'Dainava', title:'Tamsoje', tracks:9, released:false, daysUntil:3 },
-  { artist:'Saulės Kliošas', title:'Rugsėjis EP', tracks:5, released:false, daysUntil:7 },
-  { artist:'Inculto', title:'Retro', tracks:13, released:false, daysUntil:14 },
-  { artist:'Skamp', title:'Sugrįžimas', tracks:12, released:false, daysUntil:45 },
-]
-
-const NEW_SONGS = [
-  { artist:'Monika Liu', title:'Palauk', duration:'3:22' },
-  { artist:'Silvester Belt', title:'Bend The Lie', duration:'2:58' },
-  { artist:'Galerija', title:'Miestas Miega', duration:'4:11' },
-  { artist:'Jurga', title:'Vasara', duration:'3:44' },
+const NEW_RELEASES = [
+  { artist: 'Jurga', title: 'Vasaros Naktys', type: 'Albumas', tracks: 11, color: 'hsl(160,50%,20%)' },
+  { artist: 'Galerija', title: 'Naktis', type: 'Albumas', tracks: 8, color: 'hsl(260,50%,22%)' },
+  { artist: 'Dainava', title: 'Tamsoje', type: 'EP', tracks: 9, color: 'hsl(20,50%,20%)' },
+  { artist: 'Saulės Kliošas', title: 'Rugsėjis EP', type: 'EP', tracks: 5, color: 'hsl(320,50%,20%)' },
+  { artist: 'Inculto', title: 'Retro', type: 'Albumas', tracks: 13, color: 'hsl(40,50%,18%)' },
+  { artist: 'Skamp', title: 'Sugrįžimas', type: 'Albumas', tracks: 12, color: 'hsl(200,60%,18%)' },
 ]
 
 const EVENTS = [
-  { d:'22', m:'VAS', title:'Kęstutis Antanėlis', venue:'Žalgirio Arena, Kaunas', sold:false },
-  { d:'28', m:'VAS', title:'Monika Liu Acoustic', venue:'Tamsta Club, Vilnius', sold:false },
-  { d:'01', m:'KOV', title:'Jurga & Orkestrinis junginys', venue:'LNFO, Vilnius', sold:false },
-  { d:'15', m:'KOV', title:'Donatas Montvydas', venue:'Compensa, Vilnius', sold:true },
+  { d: '22', m: 'VAS', title: 'Kęstutis Antanėlis', venue: 'Žalgirio Arena', city: 'Kaunas', sold: false },
+  { d: '28', m: 'VAS', title: 'Monika Liu Acoustic', venue: 'Tamsta Club', city: 'Vilnius', sold: false },
+  { d: '01', m: 'KOV', title: 'Jurga & Orkestras', venue: 'LNFO', city: 'Vilnius', sold: false },
+  { d: '15', m: 'KOV', title: 'Donatas Montvydas', venue: 'Compensa', city: 'Vilnius', sold: true },
+  { d: '22', m: 'KOV', title: 'Andrius Mamontovas', venue: 'Forum Palace', city: 'Vilnius', sold: false },
 ]
 
 const COMMUNITY = [
-  { type:'discussion', title:'Kaip vertinate naują Skamp albumą?', author:'muzikoslt', replies:47, likes:23, daysAgo:0 },
-  { type:'blog', title:'Mano top 10 LT albumų 2025 metais', author:'rockfanas', replies:12, likes:56, daysAgo:1 },
-  { type:'translation', title:'Arctic Monkeys - 505 (vertimas)', author:'vertejas_lt', replies:8, likes:34, daysAgo:2 },
-  { type:'creation', title:'[Original] Mano pirma daina „Vasara"', author:'kurejaslt', replies:15, likes:41, daysAgo:1 },
+  { type: 'discussion', author: 'muzikoslt', title: 'Kaip vertinate naują Skamp albumą?', replies: 47, likes: 23, ago: '2 val.' },
+  { type: 'blog', author: 'rockfanas', title: 'Mano top 10 LT albumų 2025 metais', replies: 12, likes: 56, ago: '5 val.' },
+  { type: 'review', author: 'jazzlover', title: 'Jurga „Vasaros Naktys" – recenzija', replies: 8, likes: 34, ago: '1 d.' },
+  { type: 'song', author: 'rokaslt', title: 'Foje – Žmogus Kuris Nemoka Šokti', votes: 47, ago: 'Dienos daina' },
 ]
 
-const DISCOVER = [
-  { id:'1', name:'Monika Liu', genre:'Pop', avatar:null, isNew:true },
-  { id:'2', name:'Jazzu', genre:'Pop/Soul', avatar:null, isNew:false },
-  { id:'3', name:'Dž. Džo', genre:'Hip-hop', avatar:null, isNew:true },
-  { id:'4', name:'Galerija', genre:'Elektronika', avatar:null, isNew:false },
-  { id:'5', name:'Saulės Kliošas', genre:'Indie pop', avatar:null, isNew:true },
-  { id:'6', name:'Inculto', genre:'Elektronika', avatar:null, isNew:false },
+const GENRES = ['Lietuviška estrada', 'Indie', 'Hip-hop', 'Elektronika', 'Rokas', 'Jazz / Soul', 'Folk / Etno', 'Klasika']
+const CITIES = ['Vilnius', 'Kaunas', 'Klaipėda', 'Šiauliai', 'Panevėžys']
+
+const DISCOVER_ARTISTS = [
+  { name: 'Monika Liu', genre: 'Pop', color: 'hsl(280,55%,30%)', new: true },
+  { name: 'Jazzu', genre: 'Soul', color: 'hsl(200,55%,25%)', new: false },
+  { name: 'Dž. Džo', genre: 'Hip-hop', color: 'hsl(30,60%,25%)', new: true },
+  { name: 'Galerija', genre: 'Elektronika', color: 'hsl(160,50%,22%)', new: false },
+  { name: 'Saulės Kliošas', genre: 'Indie', color: 'hsl(340,55%,25%)', new: true },
+  { name: 'Inculto', genre: 'Elektronika', color: 'hsl(60,50%,20%)', new: false },
 ]
 
-const RADIO = [
-  { name:'M-1 Extra', freq:'107.5 FM', playing:'Monika Liu — Sentimentai', active:true },
-  { name:'Power Hit Radio', freq:'100.7 FM', playing:'Bruno Mars — APT.', active:false },
-  { name:'Lietus', freq:'96.2 FM', playing:'Andrius Mamontovas — Tu', active:false },
-  { name:'LRT Opus', freq:'103.1 FM', playing:'Beethoven — Symphony No.5', active:false },
-]
+// ── Helpers ────────────────────────────────────────────────────────────────────
 
-const TODAY = [
-  { name:'Marijonas Mikutavičius', type:'birthday', age:48, date:'02-17', photo:null },
-  { name:'Andrius Mamontovas', type:'birthday', age:55, date:'02-17', photo:null },
-  { name:'Vytautas Kernagis', type:'death', years:20, date:'02-17', photo:null },
-]
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function formatDaysAgo(d: number) {
-  if (d === 0) return 'Šiandien'
-  if (d === 1) return 'Vakar'
-  return `Prieš ${d} d.`
+function TrendIcon({ trend }: { trend: string }) {
+  if (trend === 'up') return <span className="text-emerald-400 text-xs font-bold">↑</span>
+  if (trend === 'down') return <span className="text-red-400 text-xs font-bold">↓</span>
+  if (trend === 'new') return <span className="text-xs font-black text-amber-400">N</span>
+  return <span className="text-gray-600 text-xs">─</span>
 }
 
-function bg(seed: string | number) {
-  const h = typeof seed === 'number' ? seed : ((seed.charCodeAt(0)*37+seed.charCodeAt(seed.length-1)*13)%360)
-  return `linear-gradient(135deg,hsl(${h},50%,25%),hsl(${(h+40)%360},45%,18%))`
-}
-
-function Tag({ label, color='blue' }: { label:string; color?:'orange'|'blue'|'green'|'red' }) {
-  const cls = { orange:'bg-music-orange text-white', blue:'bg-music-blue text-white', green:'bg-emerald-500 text-white', red:'bg-red-500 text-white' }[color]
-  return <span className={`inline-block text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${cls}`}>{label}</span>
-}
-
-function SectionHead({ children }: { children:React.ReactNode }) {
+function Chip({ children, color = 'default' }: { children: React.ReactNode; color?: string }) {
+  const cls: Record<string, string> = {
+    default: 'bg-white/10 text-gray-300',
+    orange: 'bg-orange-500/20 text-orange-300 border border-orange-500/30',
+    blue: 'bg-blue-500/20 text-blue-300 border border-blue-500/30',
+    green: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30',
+    amber: 'bg-amber-500/20 text-amber-300 border border-amber-500/30',
+    purple: 'bg-purple-500/20 text-purple-300 border border-purple-500/30',
+    red: 'bg-red-500/20 text-red-300 border border-red-500/30',
+  }
   return (
-    <div className="flex items-center gap-3 mb-3">
-      <h2 className="text-[11px] font-black uppercase tracking-widest text-gray-500">{children}</h2>
-      <div className="flex-1 h-px bg-gray-200" />
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${cls[color] || cls.default}`}>
+      {children}
+    </span>
+  )
+}
+
+function SectionHeader({ children, action, actionHref = '#' }: { children: React.ReactNode; action?: string; actionHref?: string }) {
+  return (
+    <div className="flex items-center justify-between mb-6">
+      <h2 className="text-xl font-black text-white tracking-tight">{children}</h2>
+      {action && (
+        <a href={actionHref} className="text-sm text-gray-400 hover:text-white transition-colors font-medium">
+          {action} →
+        </a>
+      )}
     </div>
   )
 }
 
-function Trend({ pos,prev }: { pos:number; prev:number|null }) {
-  if (prev===null) return <span className="text-[10px] font-bold text-emerald-500 w-6 text-center">N</span>
-  if (pos<prev) return <span className="text-[10px] text-emerald-500 w-4">↑</span>
-  if (pos>prev) return <span className="text-[10px] text-red-400 w-4">↓</span>
-  return <span className="text-[10px] text-gray-300 w-4">─</span>
+function ArtistAvatar({ name, color, size = 'md' }: { name: string; color: string; size?: 'sm' | 'md' | 'lg' }) {
+  const sz = { sm: 'w-8 h-8 text-sm', md: 'w-12 h-12 text-base', lg: 'w-20 h-20 text-2xl' }[size]
+  return (
+    <div className={`${sz} rounded-full flex items-center justify-center font-black text-white/70 flex-shrink-0`} style={{ background: color }}>
+      {name[0]}
+    </div>
+  )
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ── Component ──────────────────────────────────────────────────────────────────
 
 export default function Home() {
-  const [artists, setArtists] = useState<any[]>([])
-  const [activeChart, setActiveChart] = useState<'lt'|'intl'>('lt')
-  const [votedSotd, setVotedSotd] = useState<number|null>(null)
+  const [chartTab, setChartTab] = useState<'lt' | 'intl' | 'vote'>('lt')
+  const [eventCity, setEventCity] = useState('Visi')
+  const [votedIdx, setVotedIdx] = useState<number | null>(null)
+  const [lensMode, setLensMode] = useState<'lt' | 'world' | 'mix'>('lt')
 
-  useEffect(() => {
-    try { setArtists(JSON.parse(localStorage.getItem('artists')||'[]')) } catch {}
-  }, [])
-
-  const displayArtists = artists.length > 0 ? artists.slice(0,6) : DISCOVER
+  const filteredEvents = eventCity === 'Visi' ? EVENTS : EVENTS.filter(e => e.city === eventCity)
 
   return (
-    <div className="min-h-screen bg-[#f2f2f0]">
+    <div className="min-h-screen bg-[#0d0d0f] text-white">
 
-      {/* ── Masthead ──────────────────────────────── */}
-      <header className="bg-black sticky top-0 z-50 shadow-lg">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-8 py-3 flex items-center gap-5">
-          <Link href="/" className="flex-shrink-0">
-            <span className="text-[32px] font-bold tracking-tight leading-none">
-              <span className="text-white">music</span><span className="text-music-orange">.lt</span>
-            </span>
+      {/* ── TOP NAV ─────────────────────────────────────────────────── */}
+      <header className="sticky top-0 z-50 border-b border-white/5 bg-[#0d0d0f]/90 backdrop-blur-xl">
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center gap-4">
+          <Link href="/" className="flex-shrink-0 font-black text-2xl tracking-tight">
+            <span className="text-white">music</span><span className="text-orange-400">.lt</span>
           </Link>
 
-          <div className="flex-1 max-w-md hidden md:block">
+          <div className="flex-1 max-w-xl hidden md:block">
             <div className="relative">
-              <input type="text" placeholder="Ieškoti atlikėjų, dainų, naujienų..."
-                className="w-full bg-gray-800 border border-gray-700 text-white text-sm px-4 py-2 rounded-full placeholder:text-gray-400 focus:outline-none focus:border-music-orange transition-colors" />
-              <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500">🔍</span>
+              <input type="text" placeholder="Ieškok atlikėjų, albumų, dainų, renginių…"
+                className="w-full bg-white/5 border border-white/8 rounded-full px-4 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-white/20 focus:bg-white/8 transition-all" />
+              <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm">⌕</span>
             </div>
           </div>
 
-<div className="ml-auto flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-1 ml-auto">
+            {/* Lens switch */}
+            <div className="hidden sm:flex items-center bg-white/5 rounded-full p-0.5 mr-2">
+              {(['lt', 'world', 'mix'] as const).map(mode => (
+                <button key={mode} onClick={() => setLensMode(mode)}
+                  className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${lensMode === mode ? 'bg-white text-black' : 'text-gray-400 hover:text-white'}`}>
+                  {mode === 'lt' ? '🇱🇹 LT' : mode === 'world' ? '🌍' : '⚡ Mix'}
+                </button>
+              ))}
+            </div>
             <HeaderAuth />
           </div>
         </div>
       </header>
 
-      {/* ── Nav strip ─────────────────────────────── */}
-      <div className="bg-music-blue overflow-x-auto scrollbar-none">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-8 flex">
-          {[['Nauja muzika','#'],['Topai','#'],['Grupės ir atlikėjai','/atlikejai'],['Renginiai','#'],['Diskusijos ir blogai','#'],['Pokalbiai','#']].map(([label,href],i)=>(
-            <a key={label} href={href}
-              className={`px-4 py-2.5 text-[13px] font-medium whitespace-nowrap transition-colors
-                ${i===0?'bg-music-orange text-white':'text-blue-100 hover:text-white hover:bg-blue-600'}`}>
-              {label}
-            </a>
-          ))}
-        </div>
-      </div>
+      {/* ── HERO ────────────────────────────────────────────────────── */}
+      <section className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
-      {/* ── Main ──────────────────────────────────── */}
-      <main className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-8 py-5">
-        
-        {/* ═══ ROW 1: Naujienos + Top 30/40 + Renginiai ═══ */}
-        <div className="grid grid-cols-12 gap-4 lg:gap-5 mb-4 lg:mb-5">
-          
-          {/* Naujienos */}
-          <div className="col-span-12 md:col-span-6 lg:col-span-4">
-            <div className="bg-white rounded-xl shadow-sm overflow-hidden flex flex-col h-full">
-              <div className="px-4 pt-4 pb-3 border-b border-gray-100 flex-shrink-0">
-                <div className="flex items-center gap-3">
-                  <h2 className="text-[11px] font-black uppercase tracking-widest text-gray-500">Naujienos</h2>
-                  <div className="flex-1 h-px bg-gray-200" />
-                  <a href="#" className="text-xs text-music-blue hover:text-music-orange font-bold transition-colors">Visos →</a>
-                </div>
+          {/* Feature card */}
+          <div className={`lg:col-span-2 relative rounded-2xl overflow-hidden bg-gradient-to-br ${HERO_FEATURE.gradient} p-6 sm:p-8 min-h-[280px] flex flex-col justify-between`}>
+            <div className="absolute inset-0 opacity-20" style={{backgroundImage: 'radial-gradient(circle at 70% 50%, rgba(167,139,250,0.4) 0%, transparent 60%)'}} />
+            <div className="relative">
+              <div className="flex items-center gap-2 mb-4">
+                <Chip color="purple">{HERO_FEATURE.credibility}</Chip>
+                <Chip color="amber">{HERO_FEATURE.label}</Chip>
               </div>
-              <article className="px-4 py-3 border-b border-gray-50 hover:bg-gray-50 cursor-pointer group transition-colors flex-shrink-0">
-                <div className="flex gap-3">
-                  <div className="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden" style={{background:bg('Mamontovas')}}>
-                    <div className="w-full h-full flex items-center justify-center text-2xl opacity-10">🎸</div>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <Tag label={NEWS_MAIN.tag} color="blue" />
-                    <h3 className="font-bold text-xs text-gray-900 leading-tight mt-1 mb-1 group-hover:text-music-blue transition-colors line-clamp-2">{NEWS_MAIN.title}</h3>
-                    <span className="text-[9px] text-gray-400">{formatDaysAgo(NEWS_MAIN.daysAgo)}</span>
-                  </div>
-                </div>
-              </article>
-              <div className="flex-1 overflow-y-auto divide-y divide-gray-50">
-                {NEWS_SIDE.slice(0,3).map(n=>(
-                  <article key={n.id} className="px-4 py-2.5 hover:bg-gray-50 cursor-pointer group transition-colors">
-                    <p className="text-xs font-bold text-gray-900 leading-snug group-hover:text-music-blue transition-colors line-clamp-2 mb-1">{n.title}</p>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[9px] text-gray-400">{formatDaysAgo(n.daysAgo)}</span>
-                      {n.likes>0 && <span className="text-[9px] text-music-orange font-bold">❤ {n.likes}</span>}
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Top 30/40 */}
-          <div className="col-span-12 md:col-span-6 lg:col-span-4">
-            <div className="bg-white rounded-xl shadow-sm overflow-hidden flex flex-col h-full">
-              <div className="flex items-center border-b border-gray-200 flex-shrink-0">
-                <button onClick={()=>setActiveChart('lt')} className={`flex-1 px-4 py-3 text-[11px] font-black uppercase tracking-wide transition-colors border-b-2 ${activeChart==='lt'?'text-music-blue border-music-blue bg-blue-50':'text-gray-400 border-transparent hover:text-gray-600'}`}>
-                  🇱🇹 LT TOP 30
+              <p className="text-gray-300 text-sm mb-2">{HERO_FEATURE.artist}</p>
+              <h1 className="text-3xl sm:text-4xl font-black leading-tight mb-3">{HERO_FEATURE.title}</h1>
+              <p className="text-gray-300 text-sm max-w-md leading-relaxed mb-6">{HERO_FEATURE.desc}</p>
+              <div className="flex items-center gap-3 flex-wrap">
+                <button className="bg-white text-black font-bold px-5 py-2.5 rounded-full text-sm hover:bg-gray-100 transition-colors">
+                  Klausyti Spotify →
                 </button>
-                <button onClick={()=>setActiveChart('intl')} className={`flex-1 px-4 py-3 text-[11px] font-black uppercase tracking-wide transition-colors border-b-2 ${activeChart==='intl'?'text-music-orange border-music-orange bg-orange-50':'text-gray-400 border-transparent hover:text-gray-600'}`}>
-                  🌍 TOP 40
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto divide-y divide-gray-50">
-                {(activeChart==='lt'?LT_TOP:INTL_TOP).map(t=>{
-                  const up=t.prev!==null&&t.pos<t.prev, dn=t.prev!==null&&t.pos>t.prev
-                  const color=activeChart==='lt'?'music-blue':'music-orange'
-                  return (
-                    <div key={t.pos} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer group transition-colors">
-                      <div className={`w-6 text-center font-black text-sm flex-shrink-0 ${t.pos===1?`text-${color}`:'text-gray-200'}`}>{t.pos}</div>
-                      <Trend pos={t.pos} prev={t.prev} />
-                      <div className="w-7 h-7 rounded flex-shrink-0 overflow-hidden" style={{background:bg(t.artist)}}>
-                        <div className="w-full h-full flex items-center justify-center text-xs opacity-20 text-white">♪</div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className={`text-xs font-bold text-gray-900 truncate group-hover:text-${color} transition-colors`}>{t.title}</div>
-                        <div className="text-[10px] text-gray-400 truncate">{t.artist}</div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-              <div className="p-3 border-t border-gray-100 bg-gray-50 flex-shrink-0">
-                <button className={`w-full py-2 text-white rounded-lg font-bold text-xs hover:shadow-lg transition-all ${activeChart==='lt'?'bg-music-blue':'bg-music-orange'}`}>
-                  🗳️ {activeChart==='lt'?'Balsuok LT TOP 30':'Balsuok TOP 40'}
+                <button className="border border-white/20 text-white font-medium px-5 py-2.5 rounded-full text-sm hover:bg-white/10 transition-colors">
+                  Atikėjo profilis
                 </button>
               </div>
             </div>
+            <div className="relative flex items-center gap-4 mt-6 pt-4 border-t border-white/10">
+              <div className="text-center"><div className="text-xl font-black">{HERO_FEATURE.streams}</div><div className="text-xs text-gray-400">srautų</div></div>
+              <div className="text-center"><div className="text-xl font-black">#{HERO_FEATURE.weeks}</div><div className="text-xs text-gray-400">savaitė TOP</div></div>
+            </div>
           </div>
 
-          {/* Renginiai */}
-          <div className="col-span-12 md:col-span-6 lg:col-span-4">
-            <div className="bg-white rounded-xl shadow-sm overflow-hidden flex flex-col h-full">
-              <div className="px-4 py-3 border-b border-gray-100 flex-shrink-0">
-                <div className="flex items-center gap-3">
-                  <h3 className="text-[11px] font-black uppercase tracking-widest text-gray-500">📅 Renginiai</h3>
-                  <div className="flex-1 h-px bg-gray-200" />
+          {/* Side cards */}
+          <div className="flex flex-col gap-4">
+            {HERO_CARDS.map((c, i) => (
+              <div key={i} className={`relative rounded-2xl overflow-hidden bg-gradient-to-br ${c.color} p-5 flex-1 flex flex-col justify-between cursor-pointer hover:scale-[1.01] transition-transform`}>
+                <Chip color="orange">{c.label}</Chip>
+                <div className="mt-4">
+                  <h3 className="font-black text-lg leading-snug">{c.title}</h3>
+                  <p className="text-sm text-gray-300 mt-1">{c.sub}</p>
                 </div>
               </div>
-              <div className="flex-1 overflow-y-auto divide-y divide-gray-50">
-                {EVENTS.map((e,i)=>(
-                  <div key={i} className="flex gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer group transition-colors">
-                    <div className="flex-shrink-0 text-center w-9">
-                      <div className="text-lg font-black text-gray-900 leading-none">{e.d}</div>
-                      <div className="text-[8px] font-black text-music-blue uppercase">{e.m}</div>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-bold text-gray-900 truncate group-hover:text-music-blue transition-colors">{e.title}</div>
-                      <div className="text-[10px] text-gray-400 truncate">{e.venue}</div>
-                      {e.sold && <span className="text-[9px] font-bold text-red-500 inline-block mt-0.5">⛔ PARDUOTA</span>}
-                    </div>
-                  </div>
-                ))}
-              </div>
+            ))}
+            {/* Artist CTA */}
+            <div className="rounded-2xl border border-dashed border-white/15 p-5 flex flex-col items-center justify-center text-center gap-2 hover:border-white/30 transition-colors cursor-pointer group">
+              <div className="text-2xl">🎤</div>
+              <p className="text-sm font-bold text-gray-300 group-hover:text-white transition-colors">Aš atlikėjas (-a)</p>
+              <p className="text-xs text-gray-500">Sukurk ar perimk profilį</p>
             </div>
           </div>
         </div>
 
-        {/* ═══ ROW 2: Nauja muzika (full width) ═══ */}
-        <div className="mb-4 lg:mb-5">
-          <SectionHead>🎧 Nauja muzika</SectionHead>
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-            <div className="p-4 border-b border-gray-50">
-              <div className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-3">Albumai</div>
-              <div className="flex gap-3 overflow-x-auto pb-2" style={{scrollbarWidth:'thin'}}>
-                {NEW_ALBUMS.map((a,i)=>(
-                  <div key={i} className="group cursor-pointer flex-shrink-0 w-[140px]">
-                    <div className="aspect-square rounded-lg mb-2 relative overflow-hidden shadow-sm group-hover:shadow-md transition-shadow" style={{background:bg(a.artist)}}>
-                      <div className="absolute inset-0 flex items-center justify-center text-4xl opacity-15 text-white">♪</div>
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                        <span className="text-white text-2xl opacity-0 group-hover:opacity-100 transition-opacity">▶</span>
-                      </div>
-                      <span className={`absolute top-2 left-2 text-[9px] font-black px-2 py-1 rounded uppercase ${a.released?'bg-music-blue text-white':'bg-orange-500 text-white'}`}>
-                        {a.released?'Išleista':`Po ${a.daysUntil}d`}
-                      </span>
-                    </div>
-                    <div className="text-sm font-bold text-gray-900 truncate group-hover:text-music-blue transition-colors">{a.title}</div>
-                    <div className="text-xs text-gray-400 truncate">{a.artist}</div>
-                    <div className="text-[10px] text-gray-300 mt-0.5">{a.tracks} {a.tracks===1?'daina':'dainos'}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="p-4">
-              <div className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-3">Naujos dainos</div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                {NEW_SONGS.map((s,i)=>(
-                  <div key={i} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer group transition-colors">
-                    <div className="w-12 h-12 rounded-lg flex-shrink-0 overflow-hidden" style={{background:bg(s.artist)}}>
-                      <div className="w-full h-full flex items-center justify-center text-base opacity-20 text-white">♪</div>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-bold text-gray-900 truncate group-hover:text-music-blue transition-colors">{s.title}</div>
-                      <div className="text-xs text-gray-400 truncate">{s.artist}</div>
-                    </div>
-                    <span className="text-[10px] text-gray-400 flex-shrink-0">{s.duration}</span>
-                    <button className="w-8 h-8 rounded-full bg-gray-100 group-hover:bg-music-blue flex items-center justify-center transition-colors flex-shrink-0">
-                      <span className="text-[10px] text-gray-500 group-hover:text-white transition-colors">▶</span>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+        {/* Value prop */}
+        <div className="mt-6 text-center">
+          <p className="text-gray-400 text-sm">Lietuvos muzikos bendruomenė nuo 1999 m. — <span className="text-white font-medium">atlikėjai, albumai, renginiai, topai ir daugiau.</span></p>
         </div>
+      </section>
 
-        {/* ═══ ROW 3+4: Dienos daina + Bendruomenė | Pokalbiai ═══ */}
-        <div className="grid grid-cols-12 gap-4 lg:gap-5 mb-4 lg:mb-5">
-          
-          {/* Left: Dienos daina + Bendruomenė */}
-          <div className="col-span-12 lg:col-span-8 space-y-4 lg:space-y-5">
-            {/* Dienos daina */}
-            <div>
-              <SectionHead>🎵 Dienos daina</SectionHead>
-              <div className="bg-gradient-to-br from-music-blue to-blue-600 rounded-xl overflow-hidden shadow-lg p-5">
-                <div className="flex gap-4 mb-4">
-                  <div className="w-20 h-20 rounded-xl flex-shrink-0 overflow-hidden shadow-lg" style={{background:bg(SOTD.artist)}}>
-                    <div className="w-full h-full flex items-center justify-center text-3xl opacity-20 text-white">♪</div>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[10px] text-blue-200 mb-1">siūlo <span className="text-music-orange font-bold">{SOTD.by}</span></div>
-                    <div className="text-white font-black text-xl leading-tight mb-1">{SOTD.artist}</div>
-                    <div className="text-blue-100 text-sm mb-2">{SOTD.title}</div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-white">🏆 {SOTD.votes} balsų</span>
-                      <button className="px-3 py-1 bg-white/20 hover:bg-white/30 text-white rounded-full text-xs font-bold transition-colors">▶ Klausyti</button>
-                    </div>
-                  </div>
-                </div>
-                <div className="text-[9px] text-blue-200 uppercase tracking-wider mb-2 font-bold">Pretendentai</div>
-                <div className="grid grid-cols-2 gap-2">
-                  {SOTD.pretenders.map((p,i)=>(
-                    <button key={i} onClick={()=>setVotedSotd(i)} disabled={votedSotd!==null}
-                      className={`flex items-center gap-2 p-2 rounded-lg text-left transition-all ${votedSotd===i?'bg-white/30 border border-white/40':'bg-white/10 hover:bg-white/20 border border-transparent'}`}>
-                      <span className="text-[9px] font-bold text-blue-200 w-4">#{i+1}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs font-bold text-white truncate">{p.artist}</div>
-                        <div className="text-[10px] text-blue-200 truncate">{p.title}</div>
-                      </div>
-                      <span className="text-[10px] font-bold text-white">▲{p.votes}</span>
-                    </button>
-                  ))}
-                </div>
-                <div className="mt-3 pt-3 border-t border-white/20 text-[10px] text-blue-200">
-                  Vakar nugalėjo: <span className="text-white font-bold">{SOTD.yesterday.artist}</span> ({SOTD.yesterday.votes})
-                </div>
-              </div>
-            </div>
+      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 space-y-14 pb-16">
 
-            {/* Bendruomenė (was Diskusijos) */}
-            <div>
-              <SectionHead>💬 Bendruomenė</SectionHead>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {COMMUNITY.map((c,i)=>(
-                  <article key={i} className="bg-white rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer group">
-                    <div className="flex items-start gap-2 mb-2">
-                      <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm" style={{background:bg(c.author)}}>
-                        <span className="text-white opacity-60">👤</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <Tag label={c.type==='discussion'?'Diskusija':c.type==='blog'?'Blogas':c.type==='translation'?'Vertimas':'Kūryba'} color={c.type==='discussion'?'blue':'green'} />
-                          <span className="text-[9px] text-gray-400">{formatDaysAgo(c.daysAgo)}</span>
-                        </div>
-                        <h3 className="font-bold text-sm text-gray-900 group-hover:text-music-blue transition-colors mb-1 line-clamp-2 leading-snug">{c.title}</h3>
-                        <div className="flex items-center gap-2 text-[10px]">
-                          <span className="text-gray-400">💬 {c.replies}</span>
-                          {c.likes>0 && <span className="text-music-orange font-bold">❤ {c.likes}</span>}
-                          <span className="ml-auto text-music-blue truncate">{c.author}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Right: Pokalbiai (extends both rows) */}
-          <div className="col-span-12 lg:col-span-4">
-            <div className="bg-white rounded-xl shadow-sm overflow-hidden flex flex-col h-full">
-              <div className="px-4 py-3 border-b border-gray-100 flex-shrink-0">
-                <div className="flex items-center gap-3">
-                  <h3 className="text-[11px] font-black uppercase tracking-widest text-gray-500">💬 Pokalbiai</h3>
-                  <div className="flex-1 h-px bg-gray-200" />
+        {/* ── 1. ŠIANDIEN LIETUVOJE ───────────────────────────────────── */}
+        <section>
+          <SectionHeader action="Visos naujienos">Šiandien Lietuvoje</SectionHeader>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {SIANDIEN.map((item, i) => (
+              <div key={i} className="rounded-2xl overflow-hidden border border-white/8 hover:border-white/15 transition-all cursor-pointer group">
+                <div className="h-32 flex items-center justify-center text-4xl font-black text-white/10" style={{ background: item.color }}>
+                  {item.type === 'release' ? '♪' : item.type === 'event' ? '📅' : '💬'}
                 </div>
-              </div>
-              <div className="flex-1 overflow-y-auto divide-y divide-gray-50">
-                {SHOUTBOX.map((sh,i)=>(
-                  <div key={i} className="p-3 hover:bg-gray-50 transition-colors">
-                    <div className="flex items-start gap-2">
-                      <div className="w-6 h-6 rounded-full flex-shrink-0" style={{background:bg(sh.user)}}>
-                        <div className="w-full h-full flex items-center justify-center text-xs text-white opacity-60">👤</div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <span className="text-xs font-bold text-music-blue">{sh.user}</span>
-                          <span className="text-[10px] text-gray-400">{sh.time}</span>
-                        </div>
-                        <p className="text-xs text-gray-600 leading-relaxed">{sh.msg}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="p-3 border-t border-gray-100 bg-gray-50 flex-shrink-0">
-                <input type="text" placeholder="Rašyk žinutę..." className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-music-blue transition-colors" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ═══ ROW 5: Atrask (full width) ═══ */}
-        <div className="mb-4 lg:mb-5">
-          <div className="flex items-center gap-3 mb-4">
-            <h2 className="text-[11px] font-black uppercase tracking-widest text-gray-500 group cursor-help relative">
-              🔍 Atrask
-              <span className="invisible group-hover:visible absolute left-0 top-full mt-1 w-64 bg-gray-900 text-white text-[10px] normal-case font-normal px-3 py-2 rounded-lg shadow-lg z-10">
-                Naujai pridėtos arba neseniai sužibusios grupės bei atlikėjai
-              </span>
-            </h2>
-            <div className="flex-1 h-px bg-gray-200" />
-          </div>
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4">
-            {displayArtists.map((a:any)=>(
-              <div key={a.id} className="group text-center cursor-pointer relative">
-                {a.isNew && <span className="absolute -top-1 -right-1 w-5 h-5 bg-music-orange text-white text-[9px] font-black rounded-full flex items-center justify-center z-10">N</span>}
-                <div className="aspect-square rounded-full mb-2 overflow-hidden shadow-sm group-hover:shadow-md transition-all mx-auto" style={{background:a.avatar?undefined:bg(a.name)}}>
-                  {a.avatar
-                    ?<img src={a.avatar} alt={a.name} className="w-full h-full object-cover" />
-                    :<div className="w-full h-full flex items-center justify-center font-black text-white text-xl opacity-60">{a.name[0]}</div>}
+                <div className="p-4">
+                  <Chip color={item.type === 'release' ? 'blue' : item.type === 'event' ? 'green' : 'purple'}>
+                    {item.label}
+                  </Chip>
+                  <h3 className="font-bold mt-2 group-hover:text-orange-400 transition-colors">{item.artist}</h3>
+                  <p className="text-sm text-gray-400 mt-0.5">{item.title}</p>
+                  {item.sub && <p className="text-xs text-gray-500 mt-0.5">{item.sub}</p>}
+                  <button className="mt-3 text-xs font-bold text-orange-400 hover:text-orange-300 transition-colors">
+                    {item.type === 'release' ? 'Klausyti →' : item.type === 'event' ? 'Bilietai →' : 'Skaityti →'}
+                  </button>
                 </div>
-                <div className="text-[11px] font-bold text-gray-900 truncate group-hover:text-music-blue transition-colors px-1">{a.name}</div>
-                <div className="text-[10px] text-gray-400 truncate px-1">{a.genre}</div>
               </div>
             ))}
           </div>
-        </div>
+        </section>
 
-        {/* ═══ ROW 6: Šiandien (full width) ═══ */}
-        <div>
-          <SectionHead>📅 Šiandien</SectionHead>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {TODAY.map((t,i)=>(
-              <div key={i} className={`rounded-xl p-4 flex items-center gap-4 shadow-sm
-                ${t.type==='birthday'?'bg-gradient-to-r from-pink-50 to-purple-50 border border-pink-100':'bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200'}`}>
-                <div className="w-16 h-16 rounded-full flex-shrink-0 overflow-hidden" style={{background:t.photo?undefined:bg(t.name)}}>
-                  {t.photo
-                    ?<img src={t.photo} alt={t.name} className="w-full h-full object-cover" />
-                    :<div className="w-full h-full flex items-center justify-center font-black text-white text-2xl opacity-60">{t.name[0]}</div>}
+        {/* ── 2. TOPAI ────────────────────────────────────────────────── */}
+        <section>
+          <SectionHeader>Topai</SectionHeader>
+          <div className="rounded-2xl border border-white/8 overflow-hidden">
+            {/* Tabs */}
+            <div className="flex border-b border-white/8">
+              {[
+                { key: 'lt', label: '🇱🇹 LT Top 30' },
+                { key: 'intl', label: '🌍 Top 40' },
+                { key: 'vote', label: '🗳️ Balsuoti' },
+              ].map(tab => (
+                <button key={tab.key} onClick={() => setChartTab(tab.key as any)}
+                  className={`flex-1 py-3 text-sm font-bold transition-all ${chartTab === tab.key ? 'bg-white/5 text-white border-b-2 border-orange-400' : 'text-gray-500 hover:text-gray-300'}`}>
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {chartTab !== 'vote' ? (
+              <div className="divide-y divide-white/5">
+                {(chartTab === 'lt' ? CHARTS_LT : CHARTS_INTL).map((track) => (
+                  <div key={track.pos} className="flex items-center gap-3 px-4 py-3 hover:bg-white/3 transition-colors group cursor-pointer">
+                    <span className={`w-6 text-center font-black text-sm flex-shrink-0 ${track.pos <= 3 ? 'text-orange-400' : 'text-gray-600'}`}>{track.pos}</span>
+                    <TrendIcon trend={track.trend} />
+                    <div className="w-9 h-9 rounded-lg flex-shrink-0 flex items-center justify-center font-black text-white/30 text-xs" style={{ background: `hsl(${track.pos * 37},40%,20%)` }}>♪</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold text-white truncate group-hover:text-orange-400 transition-colors">{track.title}</div>
+                      <div className="text-xs text-gray-400 truncate">{track.artist}</div>
+                    </div>
+                    {'wks' in track && track.wks && <span className="text-[10px] text-gray-600 flex-shrink-0">{track.wks} sav.</span>}
+                    <button className="text-[10px] text-gray-500 hover:text-white border border-white/10 hover:border-white/30 px-2 py-1 rounded-full transition-all opacity-0 group-hover:opacity-100">
+                      Klausyti
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-6 text-center">
+                <p className="text-gray-400 mb-2 text-sm">Balsuokite už savo mėgstamą dainą</p>
+                <button className="bg-orange-500 hover:bg-orange-400 text-white font-bold px-6 py-3 rounded-full transition-colors">
+                  Prisijungti ir balsuoti
+                </button>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* ── 3. NAUJA MUZIKA ─────────────────────────────────────────── */}
+        <section>
+          <SectionHeader action="Visa nauja muzika">Nauja muzika</SectionHeader>
+          <div className="flex gap-4 overflow-x-auto pb-3 -mx-1 px-1" style={{ scrollbarWidth: 'none' }}>
+            {NEW_RELEASES.map((r, i) => (
+              <div key={i} className="flex-shrink-0 w-[160px] group cursor-pointer">
+                <div className="aspect-square rounded-xl mb-3 flex items-center justify-center text-4xl font-black text-white/10 relative overflow-hidden" style={{ background: r.color }}>
+                  <span>♪</span>
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                    <span className="text-white text-2xl opacity-0 group-hover:opacity-100 transition-opacity">▶</span>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-400 mb-0.5">{r.artist}</p>
+                <h4 className="text-sm font-bold text-white group-hover:text-orange-400 transition-colors leading-snug">{r.title}</h4>
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  <Chip>{r.type}</Chip>
+                  <span className="text-[10px] text-gray-600">{r.tracks} d.</span>
+                </div>
+                <button className="mt-2 text-xs text-orange-400 hover:text-orange-300 font-semibold transition-colors">Klausyti →</button>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ── 4. RENGINIAI ────────────────────────────────────────────── */}
+        <section>
+          <SectionHeader action="Visi renginiai">Renginiai</SectionHeader>
+          {/* City filter */}
+          <div className="flex items-center gap-2 mb-4 flex-wrap">
+            {['Visi', ...CITIES].map(city => (
+              <button key={city} onClick={() => setEventCity(city)}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${eventCity === city ? 'bg-orange-500 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'}`}>
+                {city}
+              </button>
+            ))}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {filteredEvents.map((e, i) => (
+              <div key={i} className="flex items-center gap-4 bg-white/4 hover:bg-white/7 border border-white/6 hover:border-white/12 rounded-2xl px-5 py-4 cursor-pointer group transition-all">
+                <div className="text-center flex-shrink-0 w-10">
+                  <div className="text-2xl font-black leading-none text-white">{e.d}</div>
+                  <div className="text-[10px] font-black text-orange-400 uppercase">{e.m}</div>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-bold text-gray-900 mb-0.5">{t.name}</div>
-                  <div className="text-xs text-gray-600">
-                    {t.type==='birthday'
-                      ?<><span className="text-lg">🎂</span> Šiandien {t.age} metų</>
-                      :<><span className="text-lg">🕯️</span> Mirties {t.years} metinės</>}
-                  </div>
+                  <h4 className="font-bold text-sm truncate group-hover:text-orange-400 transition-colors">{e.title}</h4>
+                  <p className="text-xs text-gray-400 truncate">{e.venue} · {e.city}</p>
+                  {e.sold && <Chip color="red">Parduota</Chip>}
                 </div>
+                {!e.sold && <button className="text-xs font-bold text-orange-400 flex-shrink-0">Bilietai →</button>}
               </div>
             ))}
           </div>
-        </div>
+        </section>
 
-      </main>
+        {/* ── 5. BENDRUOMENĖ ──────────────────────────────────────────── */}
+        <section>
+          <SectionHeader action="Visos diskusijos">Bendruomenė</SectionHeader>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* Posts */}
+            <div className="lg:col-span-2 space-y-3">
+              {COMMUNITY.filter(c => c.type !== 'song').map((c, i) => (
+                <div key={i} className="flex gap-4 bg-white/4 hover:bg-white/7 border border-white/6 rounded-2xl p-4 cursor-pointer group transition-all">
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-white/60 flex-shrink-0 text-sm" style={{ background: `hsl(${c.author.charCodeAt(0) * 17 % 360},40%,25%)` }}>
+                    {c.author[0].toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Chip color={c.type === 'discussion' ? 'blue' : c.type === 'blog' ? 'purple' : 'green'}>
+                        {c.type === 'discussion' ? 'Diskusija' : c.type === 'blog' ? 'Blogas' : 'Recenzija'}
+                      </Chip>
+                      <span className="text-xs text-gray-500">{c.ago}</span>
+                    </div>
+                    <h4 className="font-bold text-sm group-hover:text-orange-400 transition-colors">{c.title}</h4>
+                    <p className="text-xs text-gray-500 mt-1">
+                      <span className="text-gray-400 font-medium">{c.author}</span>
+                      {' · '}{c.replies} ats. · {c.likes} ❤
+                    </p>
+                  </div>
+                </div>
+              ))}
+              <button className="w-full py-3 border border-dashed border-white/10 rounded-2xl text-sm text-gray-500 hover:text-white hover:border-white/20 transition-all font-medium">
+                + Pradėti diskusiją
+              </button>
+            </div>
 
-      {/* ── Footer ────────────────────────────────────── */}
-      <footer className="bg-gray-900 mt-10 border-t border-gray-800">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-8 py-10">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
+            {/* Dienos daina */}
             <div>
-              <div className="text-2xl font-black mb-3">
-                <span className="text-white">music</span><span className="text-music-orange">.lt</span>
-              </div>
-              <p className="text-sm text-gray-600 leading-relaxed">
-                Didžiausias lietuviškos muzikos portalas nuo 1999 m.
-              </p>
-              <div className="mt-3 text-xs text-gray-700">
-                <div>📧 info@music.lt</div>
-                <div>📞 +370 600 12345</div>
+              <div className="bg-gradient-to-br from-orange-950 to-amber-950 border border-orange-500/20 rounded-2xl p-5">
+                <Chip color="amber">🎵 Dienos daina</Chip>
+                <div className="mt-4 flex gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center text-xl">♪</div>
+                  <div>
+                    <p className="text-xs text-gray-400">siūlo <span className="text-orange-400 font-bold">rokaslt</span></p>
+                    <h4 className="font-black text-sm mt-0.5">Foje</h4>
+                    <p className="text-xs text-gray-300">Žmogus Kuris Nemoka Šokti</p>
+                  </div>
+                </div>
+                <div className="mt-4 flex items-center justify-between text-xs text-gray-400">
+                  <span>🏆 47 balsai</span>
+                  <button className="bg-orange-500 hover:bg-orange-400 text-white font-bold px-4 py-1.5 rounded-full transition-colors text-xs">Balsuoti</button>
+                </div>
+                <p className="text-[10px] text-gray-600 mt-3">Vakar: Monika Liu — Sentimentai (89)</p>
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* ── 6. ATRASK ───────────────────────────────────────────────── */}
+        <section>
+          <SectionHeader action="Visi atlikėjai">Atrask</SectionHeader>
+
+          {/* Genre chips */}
+          <div className="flex gap-2 flex-wrap mb-6">
+            {GENRES.map(g => (
+              <button key={g} className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/8 hover:border-white/15 text-gray-300 hover:text-white rounded-full text-xs font-medium transition-all">
+                {g}
+              </button>
+            ))}
+          </div>
+
+          {/* Artists */}
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4 mb-8">
+            {DISCOVER_ARTISTS.map((a, i) => (
+              <div key={i} className="group cursor-pointer text-center relative">
+                {a.new && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-orange-500 text-white text-[9px] font-black rounded-full flex items-center justify-center z-10">N</span>
+                )}
+                <div className="aspect-square rounded-full mb-2 flex items-center justify-center font-black text-white/50 text-2xl mx-auto group-hover:scale-105 transition-transform" style={{ background: a.color }}>
+                  {a.name[0]}
+                </div>
+                <p className="text-xs font-bold text-white group-hover:text-orange-400 transition-colors truncate">{a.name}</p>
+                <p className="text-[10px] text-gray-500 truncate">{a.genre}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* City/Scene entry points */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            {CITIES.map((city, i) => (
+              <button key={city} className="group bg-white/4 hover:bg-white/8 border border-white/6 hover:border-white/15 rounded-xl p-4 text-center transition-all">
+                <div className="text-2xl mb-1">{'🏙️🎪🌊🎵🌿'[i]}</div>
+                <p className="text-sm font-bold text-white group-hover:text-orange-400 transition-colors">{city}</p>
+                <p className="text-[10px] text-gray-500">scena</p>
+              </button>
+            ))}
+          </div>
+        </section>
+      </div>
+
+      {/* ── FOOTER ──────────────────────────────────────────────────── */}
+      <footer className="border-t border-white/5 bg-[#080809]">
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-10">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 mb-8">
+            <div>
+              <div className="font-black text-xl mb-3"><span className="text-white">music</span><span className="text-orange-400">.lt</span></div>
+              <p className="text-sm text-gray-600">Lietuvos muzikos bendruomenė nuo 1999 m.</p>
+            </div>
             {[
-              {t:'Naršyti',l:['Naujienos','Atlikėjai','Albumai','Dainos','TOP 40','Renginiai']},
-              {t:'Bendruomenė',l:['Diskusijos','Blogai','Vertimai','Kūryba','Pokalbių dėžutė','Vartotojai']},
-              {t:'Apie',l:['Apie mus','Reklama','Kontaktai','Privatumo politika','Taisyklės','Admin']},
-            ].map(col=>(
+              { t: 'Naršyti', l: ['Naujienos', 'Atlikėjai', 'Albumai', 'Renginiai', 'Topai'] },
+              { t: 'Bendruomenė', l: ['Diskusijos', 'Blogai', 'Recenzijos', 'Pokalbiai'] },
+              { t: 'Apie', l: ['Apie mus', 'Reklama', 'Kontaktai', 'Privatumas'] },
+            ].map(col => (
               <div key={col.t}>
-                <h4 className="text-white text-[10px] font-black uppercase tracking-widest mb-3">{col.t}</h4>
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-600 mb-3">{col.t}</h4>
                 <ul className="space-y-2">
-                  {col.l.map(l=><li key={l}><a href={l==='Admin'?'/admin':'#'} className="text-sm text-gray-600 hover:text-white transition-colors">{l}</a></li>)}
+                  {col.l.map(l => <li key={l}><a href="#" className="text-sm text-gray-600 hover:text-white transition-colors">{l}</a></li>)}
                 </ul>
               </div>
             ))}
           </div>
-          <div className="pt-6 border-t border-gray-800 flex flex-col md:flex-row justify-between items-center gap-3">
+          <div className="pt-6 border-t border-white/5 flex flex-col sm:flex-row justify-between items-center gap-3">
             <span className="text-xs text-gray-700">© 2026 Music.lt — Visos teisės saugomos</span>
-            <div className="flex gap-5">
-              {['Facebook','Instagram','YouTube','TikTok','Spotify'].map(s=>(
+            <div className="flex gap-4">
+              {['Facebook', 'Instagram', 'YouTube', 'Spotify'].map(s => (
                 <a key={s} href="#" className="text-xs text-gray-700 hover:text-white transition-colors">{s}</a>
               ))}
             </div>
           </div>
         </div>
       </footer>
-
     </div>
   )
 }
