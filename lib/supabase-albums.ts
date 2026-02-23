@@ -116,9 +116,10 @@ export async function getAlbumById(id: number): Promise<AlbumFull & { tracks: Tr
 }
 
 export async function createAlbum(data: AlbumFull): Promise<number> {
+  if (!data.artist_id) throw new Error('Atlikėjas privalomas')
   const slug = slugify(data.title) + (data.year ? `-${data.year}` : '')
   const { data: row, error } = await supabase.from('albums').insert({
-    title: data.title, slug, artist_id: data.artist_id,
+    title: data.title, slug, artist_id: Number(data.artist_id),
     year: toInt(data.year), month: toInt(data.month), day: toInt(data.day),
     type_studio: data.type_studio, type_compilation: data.type_compilation,
     type_ep: data.type_ep, type_single: data.type_single, type_live: data.type_live,
@@ -140,7 +141,7 @@ export async function createAlbum(data: AlbumFull): Promise<number> {
 export async function updateAlbum(id: number, data: AlbumFull): Promise<void> {
   const slug = slugify(data.title) + (data.year ? `-${data.year}` : '')
   const { error } = await supabase.from('albums').update({
-    title: data.title, slug, artist_id: data.artist_id,
+    title: data.title, slug, artist_id: Number(data.artist_id),
     year: toInt(data.year), month: toInt(data.month), day: toInt(data.day),
     type_studio: data.type_studio, type_compilation: data.type_compilation,
     type_ep: data.type_ep, type_single: data.type_single, type_live: data.type_live,
@@ -219,7 +220,7 @@ export async function getTrackById(id: number): Promise<TrackFull> {
 export async function createTrack(data: TrackFull): Promise<number> {
   const slug = slugify(data.title)
   const { data: row, error } = await supabase.from('tracks').insert({
-    title: data.title, slug, artist_id: data.artist_id, type: data.type,
+    title: data.title, slug, artist_id: Number(data.artist_id), type: data.type,
     release_date: data.release_date || null, is_new: data.is_new ?? false,
     video_url: data.video_url || null, lyrics: data.lyrics || null,
     chords: data.chords || null, description: data.description || null,
