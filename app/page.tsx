@@ -2,87 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
+import { HeaderAuth } from '@/components/HeaderAuth'
 
-// ── AUTH MODAL ─────────────────────────────────────────────────────────────────
-
-function AuthModal({ onClose }: { onClose: () => void }) {
-  const [tab, setTab] = useState<'in' | 'up'>('in')
-  const inp = "w-full h-11 rounded-xl px-4 text-sm focus:outline-none transition-all"
-  const inpStyle = { background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', color: '#c8d8f0' }
-  const focusB = (e: React.FocusEvent<HTMLInputElement>) => (e.currentTarget.style.borderColor = 'rgba(29,78,216,0.7)')
-  const blurB  = (e: React.FocusEvent<HTMLInputElement>) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)')
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(10px)' }}
-      onClick={onClose}>
-      <div className="w-full max-w-sm rounded-2xl overflow-hidden relative"
-        style={{ background: '#0d1320', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 32px 80px rgba(0,0,0,0.6)' }}
-        onClick={e => e.stopPropagation()}>
-
-        <button onClick={onClose} className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded-full transition-all text-sm"
-          style={{ color: '#4a6580', background: 'rgba(255,255,255,0.06)' }}
-          onMouseEnter={e => (e.currentTarget.style.color = '#f2f4f8')}
-          onMouseLeave={e => (e.currentTarget.style.color = '#4a6580')}>✕</button>
-
-        <div className="px-7 pt-7 pb-5">
-          <div className="font-black text-2xl mb-1">
-            <span style={{ color: '#f2f4f8' }}>music</span><span className="text-orange-400">.lt</span>
-          </div>
-          <p className="text-[13px]" style={{ color: '#4a6580' }}>Prisijunk prie Lietuvos muzikos bendruomenės</p>
-        </div>
-
-        {/* Social buttons first — primary action */}
-        <div className="px-7 space-y-2.5 pb-5">
-          <button className="w-full h-11 rounded-xl text-[13px] font-semibold transition-all flex items-center justify-center gap-3 hover:brightness-110"
-            style={{ background: '#1877F2', color: 'white' }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-            Tęsti su Facebook
-          </button>
-          <button className="w-full h-11 rounded-xl text-[13px] font-semibold transition-all flex items-center justify-center gap-3"
-            style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', color: '#c8d8f0' }}
-            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.11)')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.07)')}>
-            <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-            Tęsti su Google
-          </button>
-        </div>
-
-        <div className="flex items-center gap-3 px-7 pb-4">
-          <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
-          <span className="text-[11px]" style={{ color: '#2a3a50' }}>arba el. paštu</span>
-          <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
-        </div>
-
-        {/* Tabs */}
-        <div className="flex mx-7 mb-4 rounded-xl p-0.5" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.07)' }}>
-          {(['in','up'] as const).map((t) => (
-            <button key={t} onClick={() => setTab(t)}
-              className="flex-1 py-2 text-[13px] font-bold rounded-xl transition-all"
-              style={{ background: tab === t ? 'rgba(29,78,216,0.55)' : 'transparent', color: tab === t ? 'white' : '#4a6580' }}>
-              {t === 'in' ? 'Prisijungti' : 'Registruotis'}
-            </button>
-          ))}
-        </div>
-
-        <div className="px-7 pb-7 space-y-2.5">
-          {tab === 'up' && (
-            <input type="text" placeholder="Vardas / slapyvardis" className={inp} style={inpStyle} onFocus={focusB} onBlur={blurB} />
-          )}
-          <input type="email" placeholder="El. paštas" className={inp} style={inpStyle} onFocus={focusB} onBlur={blurB} />
-          <input type="password" placeholder="Slaptažodis" className={inp} style={inpStyle} onFocus={focusB} onBlur={blurB} />
-          <button className="w-full h-11 rounded-xl bg-orange-500 hover:bg-orange-400 text-white font-black text-[13px] transition-all shadow-md shadow-orange-900/40 mt-1">
-            {tab === 'in' ? 'Prisijungti' : 'Sukurti paskyrą'}
-          </button>
-          {tab === 'in' && (
-            <p className="text-center text-[11px] pt-1" style={{ color: '#2a3a50' }}>
-              <a href="#" className="hover:text-blue-400 transition-colors">Pamiršai slaptažodį?</a>
-            </p>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // ── MOCK DATA ──────────────────────────────────────────────────────────────────
 
@@ -316,7 +237,6 @@ function SecHead({ label, cta }: { label: React.ReactNode; cta?: string }) {
 
 export default function Home() {
   const [lens, setLens] = useState<'lt' | 'world' | 'all'>('lt')
-  const [authOpen, setAuthOpen] = useState(false)
   const [theme, setTheme] = useState<'dark' | 'light'>('dark')
   const dk = theme === 'dark'
   const CS = dk ? { background: 'rgba(255,255,255,0.028)', border: '1px solid rgba(255,255,255,0.075)' } : { background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(0,0,0,0.09)', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }
@@ -352,7 +272,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen" style={{ background: dk ? '#0d1117' : '#f0f4fa', color: dk ? '#f2f4f8' : '#1a2540', transition: 'background 0.3s, color 0.3s' }}>
-      {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
 
       {/* ━━ HEADER ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <header className="sticky top-0 z-50" style={{ background: dk ? 'rgba(13,17,23,0.97)' : 'rgba(245,248,255,0.97)', backdropFilter: 'blur(24px)', borderBottom: dk ? 'none' : '1px solid rgba(0,0,0,0.08)' }}>
@@ -396,10 +315,7 @@ export default function Home() {
             ))}
           </div>
 
-          {/* Auth — single button */}
-          <button onClick={() => setAuthOpen(true)} className="flex-shrink-0 bg-orange-500 hover:bg-orange-400 text-white font-bold px-5 py-2 rounded-full text-[13px] transition-all shadow-md shadow-orange-900/30 hover:scale-[1.02] whitespace-nowrap">
-            Prisijungti
-          </button>
+          <HeaderAuth />
         </div>
 
         {/* ── Row 2: Navigation ── */}
