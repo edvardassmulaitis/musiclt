@@ -290,7 +290,7 @@ export default function Home() {
                       <div className="text-sm font-semibold text-white truncate group-hover:text-orange-400 transition-colors">{track.title}</div>
                       <div className="text-xs text-gray-400 truncate">{track.artist}</div>
                     </div>
-                    {'wks' in track && track.wks && <span className="text-[10px] text-gray-600 flex-shrink-0">{track.wks} sav.</span>}
+                    {('wks' in track) && (track as {wks?: number}).wks && <span className="text-[10px] text-gray-600 flex-shrink-0">{(track as {wks?: number}).wks} sav.</span>}
                     <button className="text-[10px] text-gray-500 hover:text-white border border-white/10 hover:border-white/30 px-2 py-1 rounded-full transition-all opacity-0 group-hover:opacity-100">
                       Klausyti
                     </button>
