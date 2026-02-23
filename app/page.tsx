@@ -269,38 +269,35 @@ export default function Home() {
     <div className="min-h-screen text-[#f2f4f8]" style={{ background: '#0d1117' }}>
 
       {/* ━━ HEADER ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <header className="sticky top-0 z-50 border-b border-white/[0.06]"
-        style={{ background: 'rgba(13,17,23,0.96)', backdropFilter: 'blur(24px)' }}>
-        <div className="max-w-[1360px] mx-auto px-5 lg:px-8 h-14 flex items-center gap-5">
+      <header className="sticky top-0 z-50" style={{ background: 'rgba(13,17,23,0.97)', backdropFilter: 'blur(24px)' }}>
+
+        {/* ── Row 1: Logo + Search + Lens + Auth ── */}
+        <div className="max-w-[1360px] mx-auto px-5 lg:px-8 h-14 flex items-center gap-6">
           <Link href="/" className="flex-shrink-0">
-            <span className="font-black text-[24px] tracking-tight text-[#f2f4f8]">music</span>
-            <span className="font-black text-[24px] tracking-tight text-orange-400">.lt</span>
+            <span className="font-black text-[22px] tracking-tight" style={{ color: '#f2f4f8' }}>music</span>
+            <span className="font-black text-[22px] tracking-tight text-orange-400">.lt</span>
           </Link>
 
-          <div className="flex-1 max-w-md hidden md:block">
+          {/* Search — gets generous space now nav is on row 2 */}
+          <div className="flex-1 hidden md:block">
             <input type="text" placeholder="Ieškok atlikėjų, albumų, dainų, renginių…"
-              className="w-full h-9 rounded-full px-4 text-sm text-[#c8d8f0] placeholder:text-[#3d5070] focus:outline-none transition-all"
-              style={{ background: 'rgba(255,255,255,0.055)', border: '1px solid rgba(255,255,255,0.09)' }} />
+              className="w-full h-9 rounded-full px-4 text-sm focus:outline-none transition-all"
+              style={{ background: 'rgba(255,255,255,0.055)', border: '1px solid rgba(255,255,255,0.09)', color: '#c8d8f0' }}
+              onFocus={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.18)')}
+              onBlur={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)')} />
           </div>
 
-          {/* Nav links - after search */}
-          <nav className="hidden lg:flex items-center gap-0.5">
-            {NAV.map(n => (
-              <a key={n} href="#"
-                className="px-3 py-1.5 text-[13px] font-semibold rounded-lg transition-all"
-                style={{ color: '#6b88b0' }}
-                onMouseEnter={e => (e.currentTarget.style.color = '#c8d8f0')}
-                onMouseLeave={e => (e.currentTarget.style.color = '#6b88b0')}>
-                {n}
-              </a>
-            ))}
-          </nav>
-
-          {/* 3-state Lens switch */}
-          <div className="ml-auto flex items-center rounded-full p-0.5 gap-0.5" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)' }}>
-            {([['lt','🇱🇹 LT'],['world','🌍 Pasaulis'],['all','⚡ Visi']] as const).map(([v, l]) => (
+          {/* Lens switch — clean text-only, no cheap icons */}
+          <div className="flex-shrink-0 flex items-center rounded-full p-0.5" style={{ background: 'rgba(255,255,255,0.055)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            {([
+              ['lt',  '🇱🇹 LT'],
+              ['world', 'Pasaulis'],
+              ['all',   'Visi'],
+            ] as const).map(([v, l]) => (
               <button key={v} onClick={() => setLens(v)}
-                className={`px-3 py-1.5 rounded-full text-xs font-black transition-all ${lens === v ? 'bg-[#1d4ed8] text-white shadow-md' : 'text-[#4a6080] hover:text-[#c8d8f0]'}`}>
+                className={`px-3.5 py-1.5 rounded-full text-[12px] font-black tracking-wide transition-all ${
+                  lens === v ? 'bg-[#1d4ed8] text-white shadow-md' : 'text-[#4a6080] hover:text-[#c8d8f0]'
+                }`}>
                 {l}
               </button>
             ))}
@@ -308,6 +305,36 @@ export default function Home() {
 
           <HeaderAuth />
         </div>
+
+        {/* ── Row 2: Navigation ── */}
+        <div className="border-t border-white/[0.05]" style={{ background: 'rgba(255,255,255,0.018)' }}>
+          <div className="max-w-[1360px] mx-auto px-5 lg:px-8 h-9 flex items-center gap-1">
+            {NAV.map(n => (
+              <a key={n} href="#"
+                className="px-3.5 py-1 text-[12px] font-semibold rounded-md transition-all tracking-wide"
+                style={{ color: '#4a6580' }}
+                onMouseEnter={e => { e.currentTarget.style.color = '#c8d8f0'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
+                onMouseLeave={e => { e.currentTarget.style.color = '#4a6580'; e.currentTarget.style.background = 'transparent' }}>
+                {n}
+              </a>
+            ))}
+            <div className="ml-auto flex items-center gap-4">
+              <a href="#" className="text-[11px] font-semibold transition-colors"
+                style={{ color: '#2a3a50' }}
+                onMouseEnter={e => (e.currentTarget.style.color = '#4a6580')}
+                onMouseLeave={e => (e.currentTarget.style.color = '#2a3a50')}>
+                Atlikėjams
+              </a>
+              <a href="#" className="text-[11px] font-semibold transition-colors"
+                style={{ color: '#2a3a50' }}
+                onMouseEnter={e => (e.currentTarget.style.color = '#4a6580')}
+                onMouseLeave={e => (e.currentTarget.style.color = '#2a3a50')}>
+                Reklama
+              </a>
+            </div>
+          </div>
+        </div>
+
       </header>
 
       {/* ━━ HERO + TOPAI ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
