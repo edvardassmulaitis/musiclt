@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, Suspense } from 'react'
 import { signIn } from 'next-auth/react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -24,12 +24,22 @@ function SignInContent() {
     if (!email) return
     setLoading('email')
     setError('')
-    const result = await signIn('email', { email, callbackUrl, redirect: false })
-    setLoading(null)
-    if (result?.error) {
+    try {
+      const res = await fetch('/api/auth/magic-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      const data = await res.json()
+      if (!res.ok || data.error) {
+        setError('Klaida siunčiant laišką. Bandykite dar kartą.')
+      } else {
+        setEmailSent(true)
+      }
+    } catch {
       setError('Klaida siunčiant laišką. Bandykite dar kartą.')
-    } else {
-      setEmailSent(true)
+    } finally {
+      setLoading(null)
     }
   }
 
