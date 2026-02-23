@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, use } from 'react'
+import { useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -20,7 +20,6 @@ const ALBUM_TYPE_FIELDS = [
 ]
 
 const TRACK_TYPES = ['normal','remix','live','mashup','instrumental'] as const
-
 const CY = new Date().getFullYear()
 const YEARS = Array.from({ length: CY - 1950 + 2 }, (_, i) => CY + 1 - i)
 const MONTHS = ['Sausis','Vasaris','Kovas','Balandis','Gegužė','Birželis','Liepa','Rugpjūtis','Rugsėjis','Spalis','Lapkritis','Gruodis']
@@ -37,11 +36,11 @@ const emptyAlbum: AlbumFull = {
   tracks: [],
 }
 
-function Inp({ label, value, onChange, placeholder, type='text' }: any) {
+function Inp({ label, value, onChange, placeholder }: any) {
   return (
     <div>
       <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{label}</label>
-      <input type={type} value={value || ''} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+      <input value={value || ''} onChange={e => onChange(e.target.value)} placeholder={placeholder}
         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-music-blue bg-white" />
     </div>
   )
@@ -70,9 +69,7 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
   )
 }
 
-export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params)
-  const isNew = id === 'new'
+export default function AdminAlbumNewPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [form, setForm] = useState<AlbumFull>(emptyAlbum)
@@ -85,34 +82,11 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
   const set = (f: keyof AlbumFull, v: any) => setForm(p => ({ ...p, [f]: v }))
 
-  useEffect(() => { if (status === 'unauthenticated') router.push('/') }, [status])
-
-  useEffect(() => {
-    if (!isNew && isAdmin) {
-      fetch(`/api/albums/${id}`).then(r => r.json()).then(data => {
-        setForm({ ...data, tracks: data.tracks || [] })
-        if (data.artists?.name) setArtistName(data.artists.name)
-      })
-    }
-  }, [id, isAdmin])
-
-  useEffect(() => {
-    if (artistSearch.length < 2) { setArtistResults([]); return }
-    const t = setTimeout(async () => {
-      const res = await fetch(`/api/artists?search=${encodeURIComponent(artistSearch)}&limit=6`)
-      const data = await res.json()
-      setArtistResults(data.artists || [])
-    }, 200)
-    return () => clearTimeout(t)
-  }, [artistSearch])
-
-  const setType = (key: string, val: boolean) => {
-    // Only one type at a time
+  const setType = (key: string) => {
     const reset = Object.fromEntries(ALBUM_TYPE_FIELDS.map(t => [t.key, false]))
-    setForm(p => ({ ...p, ...reset, [key]: val }))
+    setForm(p => ({ ...p, ...reset, [key]: true }))
   }
 
-  // Tracks
   const addTrack = () => setForm(p => ({
     ...p, tracks: [...(p.tracks || []), { title: '', sort_order: (p.tracks?.length || 0) + 1, type: 'normal', disc_number: 1 }]
   }))
@@ -134,8 +108,8 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
     if (!form.artist_id) { setError('Pasirinkite atlikėją'); return }
     setSaving(true); setError('')
     try {
-      const res = await fetch(isNew ? '/api/albums' : `/api/albums/${id}`, {
-        method: isNew ? 'POST' : 'PUT',
+      const res = await fetch('/api/albums', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       })
@@ -153,7 +127,7 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
         <div className="flex items-center justify-between mb-6">
           <div>
             <Link href="/admin/albums" className="text-music-blue hover:text-music-orange text-sm">← Albumai</Link>
-            <h1 className="text-2xl font-black text-gray-900 mt-1">{isNew ? '💿 Naujas albumas' : '✏️ Redaguoti albumą'}</h1>
+            <h1 className="text-2xl font-black text-gray-900 mt-1">💿 Naujas albumas</h1>
           </div>
           <button onClick={handleSubmit} disabled={saving}
             className="px-6 py-3 bg-music-blue text-white font-bold rounded-xl hover:opacity-90 disabled:opacity-50">
@@ -164,13 +138,11 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
         {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">❌ {error}</div>}
 
         <div className="grid grid-cols-2 gap-5">
-          {/* LEFT */}
           <div className="space-y-5">
             <Card title="Pagrindinė informacija">
               <div className="space-y-4">
                 <Inp label="Pavadinimas *" value={form.title} onChange={(v: string) => set('title', v)} placeholder="Albumo pavadinimas" />
 
-                {/* Artist search */}
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Atlikėjas *</label>
                   {form.artist_id ? (
@@ -181,9 +153,15 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
                     </div>
                   ) : (
                     <div className="relative">
-                      <input type="text" value={artistSearch} onChange={e => setArtistSearch(e.target.value)}
+                      <input value={artistSearch} onChange={e => {
+                        setArtistSearch(e.target.value)
+                        if (e.target.value.length >= 2) {
+                          fetch(`/api/artists?search=${encodeURIComponent(e.target.value)}&limit=6`)
+                            .then(r => r.json()).then(d => setArtistResults(d.artists || []))
+                        } else setArtistResults([])
+                      }}
                         placeholder="Ieškoti atlikėjo..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-music-blue" />
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-music-blue" />
                       {artistResults.length > 0 && (
                         <div className="absolute z-20 w-full bg-white border border-gray-200 rounded-xl shadow-lg mt-1">
                           {artistResults.map(a => (
@@ -200,12 +178,11 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
                   )}
                 </div>
 
-                {/* Type */}
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Tipas</label>
                   <div className="flex flex-wrap gap-2">
                     {ALBUM_TYPE_FIELDS.map(t => (
-                      <button key={t.key} type="button" onClick={() => setType(t.key, true)}
+                      <button key={t.key} type="button" onClick={() => setType(t.key)}
                         className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                           (form as any)[t.key] ? 'bg-music-blue text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}>{t.label}</button>
@@ -213,17 +190,16 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
                   </div>
                 </div>
 
-                {/* Date */}
                 <div className="grid grid-cols-3 gap-2">
-                  <Sel label="Metai" value={form.year} onChange={(v: string) => set('year', v ? parseInt(v) : null)}>
+                  <Sel label="Metai" value={form.year} onChange={(v: string) => set('year', v ? parseInt(v) : undefined)}>
                     <option value="">–</option>
                     {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
                   </Sel>
-                  <Sel label="Mėnuo" value={form.month} onChange={(v: string) => set('month', v ? parseInt(v) : null)}>
+                  <Sel label="Mėnuo" value={form.month} onChange={(v: string) => set('month', v ? parseInt(v) : undefined)}>
                     <option value="">–</option>
                     {MONTHS.map((m, i) => <option key={i} value={i+1}>{m}</option>)}
                   </Sel>
-                  <Sel label="Diena" value={form.day} onChange={(v: string) => set('day', v ? parseInt(v) : null)}>
+                  <Sel label="Diena" value={form.day} onChange={(v: string) => set('day', v ? parseInt(v) : undefined)}>
                     <option value="">–</option>
                     {DAYS.map(d => <option key={d} value={d}>{d}</option>)}
                   </Sel>
@@ -237,7 +213,7 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
                 <Inp label="Video URL" value={form.video_url} onChange={(v: string) => set('video_url', v)} placeholder="https://youtube.com/..." />
                 <Inp label="Viršelio nuotrauka URL" value={form.cover_image_url} onChange={(v: string) => set('cover_image_url', v)} placeholder="https://..." />
                 <div className="flex gap-4 pt-1">
-                  {[['show_artist_name','Rodyti atlikėjo vardą'],['show_player','Rodyti player\'ą'],['is_upcoming','Laukiamas']] .map(([k,l]) => (
+                  {[['show_artist_name','Rodyti atlikėjo vardą'],['show_player','Rodyti playerą'],['is_upcoming','Laukiamas']].map(([k,l]) => (
                     <label key={k} className="flex items-center gap-2 cursor-pointer">
                       <input type="checkbox" checked={(form as any)[k] || false} onChange={e => set(k as any, e.target.checked)} className="accent-music-blue" />
                       <span className="text-sm text-gray-700">{l}</span>
@@ -248,7 +224,6 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
             </Card>
           </div>
 
-          {/* RIGHT - Tracklist */}
           <div>
             <Card title={`Dainų sąrašas (${form.tracks?.length || 0})`}>
               <div className="space-y-2 mb-3 max-h-[500px] overflow-y-auto">
@@ -267,7 +242,7 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
                     <div className="flex items-center gap-2 pl-7">
                       <input value={t.duration || ''} onChange={e => upTrack(i, 'duration', e.target.value)}
                         placeholder="3:45" maxLength={6}
-                        className="w-16 px-2 py-1 border border-gray-300 rounded text-xs text-gray-900 focus:outline-none focus:border-music-blue text-center" />
+                        className="w-16 px-2 py-1 border border-gray-300 rounded text-xs text-gray-900 focus:outline-none text-center" />
                       <label className="flex items-center gap-1 text-xs text-gray-600 cursor-pointer">
                         <input type="checkbox" checked={t.is_single || false} onChange={e => upTrack(i, 'is_single', e.target.checked)} className="accent-music-blue" />
                         Singlas
@@ -295,8 +270,7 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
             className="flex-1 py-4 bg-music-blue text-white font-bold rounded-xl hover:opacity-90 disabled:opacity-50 text-lg">
             {saving ? 'Saugoma...' : '✓ Išsaugoti albumą'}
           </button>
-          <Link href="/admin/albums"
-            className="px-8 py-4 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 flex items-center font-medium">
+          <Link href="/admin/albums" className="px-8 py-4 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 flex items-center font-medium">
             Atšaukti
           </Link>
         </div>
