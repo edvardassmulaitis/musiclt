@@ -174,7 +174,7 @@ async function syncRelations(id: number, data: ArtistFull) {
   if (data.genres?.length) {
     inserts.push(supabase.from('artist_genres').insert(
       data.genres.map(genre_id => ({ artist_id: id, genre_id }))
-    ))
+    ).then())
   }
 
   const linkPlatforms = ['facebook','instagram','youtube','tiktok','spotify','soundcloud','bandcamp','twitter']
@@ -182,13 +182,13 @@ async function syncRelations(id: number, data: ArtistFull) {
     .filter(p => data.links?.[p])
     .map(p => ({ artist_id: id, platform: p, url: data.links[p] }))
   if (linkRows.length) {
-    inserts.push(supabase.from('artist_links').insert(linkRows))
+    inserts.push(supabase.from('artist_links').insert(linkRows).then())
   }
 
   if (data.photos?.length) {
     inserts.push(supabase.from('artist_photos').insert(
       data.photos.map((p, i) => ({ artist_id: id, url: p.url, caption: p.caption, sort_order: i }))
-    ))
+    ).then())
   }
 
   if (data.breaks?.length) {
@@ -196,7 +196,7 @@ async function syncRelations(id: number, data: ArtistFull) {
       data.breaks
         .filter(b => b.from)
         .map(b => ({ artist_id: id, year_from: parseInt(b.from), year_until: b.to ? parseInt(b.to) : null }))
-    ))
+    ).then())
   }
 
   await Promise.all(inserts)
