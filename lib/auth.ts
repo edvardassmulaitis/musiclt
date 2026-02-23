@@ -29,9 +29,9 @@ export const authOptions: AuthOptions = {
               <h1 style="font-size:28px;font-weight:900;margin-bottom:4px;">
                 <span style="color:#1a73e8">music</span><span style="color:#f97316">.lt</span>
               </h1>
-              <p style="color:#666;margin-bottom:32px;">Didžiausias lietuviškos muzikos portalas</p>
+              <p style="color:#666;margin-bottom:32px;">Didziausia lietuviskos muzikos portalas</p>
               <h2 style="font-size:20px;margin-bottom:8px;">Prisijungimo nuoroda</h2>
-              <p style="color:#444;margin-bottom:24px;">Spauskite mygtuka zemiau norédami prisijungti. Nuoroda galioja 24 valandas.</p>
+              <p style="color:#444;margin-bottom:24px;">Spauskite mygtuka zemiau noredami prisijungti. Nuoroda galioja 24 valandas.</p>
               <a href="${url}" style="display:inline-block;background:linear-gradient(135deg,#1a73e8,#f97316);color:white;font-weight:700;padding:14px 32px;border-radius:12px;text-decoration:none;font-size:16px;">
                 Prisijungti prie music.lt
               </a>
@@ -97,10 +97,10 @@ export const authOptions: AuthOptions = {
       const supabase = createAdminClient()
       const { data: whitelisted } = await supabase
         .from('admin_whitelist')
-        .select('email')
+        .select('role')
         .eq('email', user.email)
         .single()
-      const role = whitelisted ? 'admin' : 'user'
+      const role = whitelisted?.role || (whitelisted ? 'admin' : 'user')
       const { data } = await supabase
         .from('profiles')
         .insert({
@@ -157,10 +157,10 @@ export const authOptions: AuthOptions = {
         if (!existing) {
           const { data: whitelisted } = await supabase
             .from('admin_whitelist')
-            .select('email')
+            .select('role')
             .eq('email', user.email)
             .single()
-          const role = whitelisted ? 'admin' : 'user'
+          const role = whitelisted?.role || (whitelisted ? 'admin' : 'user')
           const { data: newProfile } = await supabase
             .from('profiles')
             .insert({ email: user.email, full_name: user.name, avatar_url: user.image, role, provider: account?.provider })
@@ -179,16 +179,28 @@ export const authOptions: AuthOptions = {
       return true
     },
 
-    async jwt({ token, user, trigger }) {
+    async jwt({ token, user }) {
       if (user) {
         token.id = user.id
         token.role = (user as any).role || 'user'
+        token.email = user.email
+        token.name = user.name
+        token.picture = user.image
       }
-      if (trigger === 'update' || (!token.role && token.email)) {
+      if (!token.role && token.email) {
         try {
           const supabase = createAdminClient()
-          const { data } = await supabase.from('profiles').select('role, id').eq('email', token.email).single()
-          if (data) { token.role = data.role; token.id = data.id }
+          const { data } = await supabase
+            .from('profiles')
+            .select('role, id, full_name, avatar_url')
+            .eq('email', token.email)
+            .single()
+          if (data) {
+            token.role = data.role
+            token.id = data.id
+            if (!token.name) token.name = data.full_name
+            if (!token.picture) token.picture = data.avatar_url
+          }
         } catch {}
       }
       return token
@@ -196,8 +208,11 @@ export const authOptions: AuthOptions = {
 
     async session({ session, token }) {
       if (session.user) {
-        session.user.id = token.id
-        session.user.role = token.role
+        session.user.id = token.id as string
+        session.user.role = token.role as any
+        session.user.email = token.email as string
+        session.user.name = token.name as string
+        session.user.image = token.picture as string
       }
       return session
     },
