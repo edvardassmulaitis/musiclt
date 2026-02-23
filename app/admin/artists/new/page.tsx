@@ -5,11 +5,21 @@ import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import ArtistForm, { ArtistFormData, emptyArtistForm } from '@/components/ArtistForm'
 
+
+const GENRE_IDS: Record<string, number> = {
+  'Alternatyvioji muzika': 1,
+  'Elektroninė, šokių muzika': 2,
+  "Hip-hop'o muzika": 3,
+  'Kitų stilių muzika': 4,
+  'Pop, R&B muzika': 5,
+  'Rimtoji muzika': 6,
+  'Roko muzika': 7,
+  'Sunkioji muzika': 8,
+}
+
 function formToDb(form: ArtistFormData) {
-  const genreIds = [
-    form.genre ? parseInt(form.genre) : null,
-    ...(form.substyles || []).map(s => parseInt(s))
-  ].filter(Boolean) as number[]
+  const genreIds: number[] = []
+  if (form.genre && GENRE_IDS[form.genre]) genreIds.push(GENRE_IDS[form.genre])
 
   const birthDate = form.birthYear
     ? `${form.birthYear}-${String(form.birthMonth||1).padStart(2,'0')}-${String(form.birthDay||1).padStart(2,'0')}`
