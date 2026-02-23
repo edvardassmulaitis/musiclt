@@ -7,85 +7,77 @@ import Link from 'next/link'
 
 function AuthModal({ onClose }: { onClose: () => void }) {
   const [tab, setTab] = useState<'in' | 'up'>('in')
+  const inp = "w-full h-11 rounded-xl px-4 text-sm focus:outline-none transition-all"
+  const inpStyle = { background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', color: '#c8d8f0' }
+  const focusB = (e: React.FocusEvent<HTMLInputElement>) => (e.currentTarget.style.borderColor = 'rgba(29,78,216,0.7)')
+  const blurB  = (e: React.FocusEvent<HTMLInputElement>) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)')
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
+      style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(10px)' }}
       onClick={onClose}>
       <div className="w-full max-w-sm rounded-2xl overflow-hidden relative"
-        style={{ background: '#0f1520', border: '1px solid rgba(255,255,255,0.1)' }}
+        style={{ background: '#0d1320', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 32px 80px rgba(0,0,0,0.6)' }}
         onClick={e => e.stopPropagation()}>
-        {/* Close */}
-        <button onClick={onClose} className="absolute top-4 right-4 text-[#4a6580] hover:text-white transition-colors text-lg leading-none">✕</button>
 
-        {/* Logo */}
-        <div className="px-8 pt-8 pb-5">
+        <button onClick={onClose} className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded-full transition-all text-sm"
+          style={{ color: '#4a6580', background: 'rgba(255,255,255,0.06)' }}
+          onMouseEnter={e => (e.currentTarget.style.color = '#f2f4f8')}
+          onMouseLeave={e => (e.currentTarget.style.color = '#4a6580')}>✕</button>
+
+        <div className="px-7 pt-7 pb-5">
           <div className="font-black text-2xl mb-1">
-            <span style={{ color: '#f2f4f8' }}>music</span>
-            <span className="text-orange-400">.lt</span>
+            <span style={{ color: '#f2f4f8' }}>music</span><span className="text-orange-400">.lt</span>
           </div>
-          <p className="text-sm" style={{ color: '#4a6580' }}>Prisijunk prie Lietuvos muzikos bendruomenės</p>
+          <p className="text-[13px]" style={{ color: '#4a6580' }}>Prisijunk prie Lietuvos muzikos bendruomenės</p>
+        </div>
+
+        {/* Social buttons first — primary action */}
+        <div className="px-7 space-y-2.5 pb-5">
+          <button className="w-full h-11 rounded-xl text-[13px] font-semibold transition-all flex items-center justify-center gap-3 hover:brightness-110"
+            style={{ background: '#1877F2', color: 'white' }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+            Tęsti su Facebook
+          </button>
+          <button className="w-full h-11 rounded-xl text-[13px] font-semibold transition-all flex items-center justify-center gap-3"
+            style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', color: '#c8d8f0' }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.11)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.07)')}>
+            <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+            Tęsti su Google
+          </button>
+        </div>
+
+        <div className="flex items-center gap-3 px-7 pb-4">
+          <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
+          <span className="text-[11px]" style={{ color: '#2a3a50' }}>arba el. paštu</span>
+          <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
         </div>
 
         {/* Tabs */}
-        <div className="flex mx-8 mb-6 rounded-xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.07)' }}>
-          {([['in','Prisijungti'],['up','Registruotis']] as const).map(([t, l]) => (
+        <div className="flex mx-7 mb-4 rounded-xl p-0.5" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.07)' }}>
+          {(['in','up'] as const).map((t) => (
             <button key={t} onClick={() => setTab(t)}
-              className={`flex-1 py-2.5 text-sm font-bold transition-all ${tab === t ? 'text-white rounded-xl' : ''}`}
-              style={{ background: tab === t ? 'rgba(29,78,216,0.5)' : 'transparent', color: tab === t ? 'white' : '#4a6580' }}>
-              {l}
+              className="flex-1 py-2 text-[13px] font-bold rounded-xl transition-all"
+              style={{ background: tab === t ? 'rgba(29,78,216,0.55)' : 'transparent', color: tab === t ? 'white' : '#4a6580' }}>
+              {t === 'in' ? 'Prisijungti' : 'Registruotis'}
             </button>
           ))}
         </div>
 
-        <div className="px-8 pb-8 space-y-3">
-          {tab === 'in' ? (
-            <>
-              <input type="email" placeholder="El. paštas" className="w-full h-11 rounded-xl px-4 text-sm focus:outline-none transition-all"
-                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#c8d8f0' }}
-                onFocus={e => (e.currentTarget.style.borderColor = 'rgba(29,78,216,0.6)')}
-                onBlur={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)')} />
-              <input type="password" placeholder="Slaptažodis" className="w-full h-11 rounded-xl px-4 text-sm focus:outline-none transition-all"
-                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#c8d8f0' }}
-                onFocus={e => (e.currentTarget.style.borderColor = 'rgba(29,78,216,0.6)')}
-                onBlur={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)')} />
-              <button className="w-full h-11 rounded-xl bg-orange-500 hover:bg-orange-400 text-white font-black text-sm transition-all shadow-md shadow-orange-900/40">
-                Prisijungti
-              </button>
-              <p className="text-center text-[11px]" style={{ color: '#2a3a50' }}>
-                <a href="#" className="hover:text-blue-400 transition-colors">Pamiršai slaptažodį?</a>
-              </p>
-            </>
-          ) : (
-            <>
-              <input type="text" placeholder="Vardas / slapyvardis" className="w-full h-11 rounded-xl px-4 text-sm focus:outline-none transition-all"
-                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#c8d8f0' }}
-                onFocus={e => (e.currentTarget.style.borderColor = 'rgba(29,78,216,0.6)')}
-                onBlur={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)')} />
-              <input type="email" placeholder="El. paštas" className="w-full h-11 rounded-xl px-4 text-sm focus:outline-none transition-all"
-                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#c8d8f0' }}
-                onFocus={e => (e.currentTarget.style.borderColor = 'rgba(29,78,216,0.6)')}
-                onBlur={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)')} />
-              <input type="password" placeholder="Slaptažodis" className="w-full h-11 rounded-xl px-4 text-sm focus:outline-none transition-all"
-                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#c8d8f0' }}
-                onFocus={e => (e.currentTarget.style.borderColor = 'rgba(29,78,216,0.6)')}
-                onBlur={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)')} />
-              <button className="w-full h-11 rounded-xl bg-orange-500 hover:bg-orange-400 text-white font-black text-sm transition-all shadow-md shadow-orange-900/40">
-                Sukurti paskyrą
-              </button>
-            </>
+        <div className="px-7 pb-7 space-y-2.5">
+          {tab === 'up' && (
+            <input type="text" placeholder="Vardas / slapyvardis" className={inp} style={inpStyle} onFocus={focusB} onBlur={blurB} />
           )}
-
-          <div className="flex items-center gap-3 py-1">
-            <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.07)' }} />
-            <span className="text-[11px]" style={{ color: '#2a3a50' }}>arba</span>
-            <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.07)' }} />
-          </div>
-
-          <button className="w-full h-11 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2.5"
-            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)', color: '#c8d8f0' }}>
-            <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-            Tęsti su Google
+          <input type="email" placeholder="El. paštas" className={inp} style={inpStyle} onFocus={focusB} onBlur={blurB} />
+          <input type="password" placeholder="Slaptažodis" className={inp} style={inpStyle} onFocus={focusB} onBlur={blurB} />
+          <button className="w-full h-11 rounded-xl bg-orange-500 hover:bg-orange-400 text-white font-black text-[13px] transition-all shadow-md shadow-orange-900/40 mt-1">
+            {tab === 'in' ? 'Prisijungti' : 'Sukurti paskyrą'}
           </button>
+          {tab === 'in' && (
+            <p className="text-center text-[11px] pt-1" style={{ color: '#2a3a50' }}>
+              <a href="#" className="hover:text-blue-400 transition-colors">Pamiršai slaptažodį?</a>
+            </p>
+          )}
         </div>
       </div>
     </div>
@@ -310,7 +302,7 @@ function PlayCircle({ sz = 10 }: { sz?: number }) {
 function SecHead({ label, cta }: { label: React.ReactNode; cta?: string }) {
   return (
     <div className="flex items-center justify-between mb-6">
-      <h2 className="text-[19px] font-black text-[#f2f4f8] tracking-tight">{label}</h2>
+      <h2 className="text-[19px] font-black tracking-tight" style={{ color: dk ? '#f2f4f8' : '#0f1a2e' }}>{label}</h2>
       {cta && <a href="#" className="text-sm text-[#4a6fa5] hover:text-[#93b4e0] font-semibold transition-colors">{cta} →</a>}
     </div>
   )
@@ -380,7 +372,7 @@ export default function Home() {
               className="flex-1 h-9 px-4 text-sm bg-transparent focus:outline-none"
               style={{ color: '#c8d8f0' }} />
             <button className="flex-shrink-0 w-9 h-9 flex items-center justify-center transition-colors hover:text-white"
-              style={{ color: '#6a88b0' }}>
+              style={{ color: dk ? '#6a88b0' : '#4a6080' }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                 <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
               </svg>
@@ -422,23 +414,18 @@ export default function Home() {
                 {n}
               </a>
             ))}
-            <div className="ml-auto flex items-center gap-4">
-              <button onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
-                className="flex items-center gap-1.5 text-[11px] font-semibold transition-colors px-2 py-1 rounded-lg"
-                style={{ color: '#4a6580', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
-                onMouseEnter={e => (e.currentTarget.style.color = '#8aa8cc')}
-                onMouseLeave={e => (e.currentTarget.style.color = '#4a6580')}>
-                {dk ? '☀ Šviesus' : '☾ Tamsus'}
-              </button>
-              {['Atlikėjams', 'Reklama'].map(l => (
-                <a key={l} href="#" className="text-[11px] font-semibold transition-colors"
-                  style={{ color: '#4a6580' }}
-                  onMouseEnter={e => (e.currentTarget.style.color = '#8aa8cc')}
-                  onMouseLeave={e => (e.currentTarget.style.color = '#4a6580')}>
-                  {l}
-                </a>
-              ))}
-            </div>
+            {/* Theme toggle — right side of nav, minimal icon */}
+            <button onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+              className="ml-auto w-8 h-8 flex items-center justify-center rounded-lg transition-all"
+              style={{ color: dk ? '#4a6580' : '#6a85a8', background: 'transparent' }}
+              onMouseEnter={e => { e.currentTarget.style.background = dk ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)'; e.currentTarget.style.color = dk ? '#c8d8f0' : '#1a2540' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = dk ? '#4a6580' : '#6a85a8' }}
+              title={dk ? 'Perjungti i sviesa' : 'Perjungti i tamsa'}>
+              {dk
+                ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+              }
+            </button>
           </div>
         </div>
 
@@ -550,10 +537,10 @@ export default function Home() {
                     <div className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-[10px]" style={{ background: `hsl(${t.pos * 43},30%,14%)`, color: 'rgba(255,255,255,0.12)' }}>♪</div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[13px] font-semibold truncate group-hover:text-blue-300 transition-colors" style={{ color: '#eef2fa' }}>{t.title}</span>
+                        <span className="text-[13px] font-semibold truncate group-hover:text-blue-300 transition-colors" style={{ color: dk ? '#eef2fa' : '#0f1a2e' }}>{t.title}</span>
                         {t.lt && chartTab === 'world' && <span className="text-[10px] opacity-60 flex-shrink-0">🇱🇹</span>}
                       </div>
-                      <span className="text-[11px] truncate block" style={{ color: '#7a90b0' }}>{t.artist}</span>
+                      <span className="text-[11px] truncate block" style={{ color: dk ? '#7a90b0' : '#4a6080' }}>{t.artist}</span>
                     </div>
                     {'wks' in t && typeof (t as {wks?: number}).wks === 'number' && (
                       <span className="text-[10px] flex-shrink-0" style={{ color: '#1e2e42' }}>{(t as {wks: number}).wks}w</span>
@@ -588,15 +575,15 @@ export default function Home() {
 
             {/* ── Left sidebar: genre filter ── */}
             <div className="lg:w-32 flex-shrink-0">
-              <p className="text-[10px] font-black uppercase tracking-[0.12em] mb-2" style={{ color: '#3d5878' }}>Stilius</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.12em] mb-2" style={{ color: dk ? '#3d5878' : '#6a85a8' }}>Stilius</p>
               <div className="flex lg:flex-col gap-1.5 flex-wrap">
                 {GENRES.map(g => (
                   <button key={g}
                     onClick={() => setGenre(g)}
                     className="px-3 py-2 rounded-lg text-xs font-bold transition-all text-left"
                     style={{
-                      color: genre === g ? '#f2f4f8' : '#5a7898',
-                      background: genre === g ? 'rgba(29,78,216,0.22)' : 'transparent',
+                      color: genre === g ? (dk ? '#f2f4f8' : '#0f1a2e') : (dk ? '#5a7898' : '#4a6080'),
+                      background: genre === g ? 'rgba(29,78,216,0.18)' : 'transparent',
                       border: genre === g ? '1px solid rgba(29,78,216,0.28)' : '1px solid transparent',
                     }}>
                     {g}
@@ -624,7 +611,7 @@ export default function Home() {
               {/* ── Naujos dainos — compact inline cards ── */}
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-[19px] font-black tracking-tight" style={{ color: '#f2f4f8' }}>Naujos dainos</h2>
+                  <h2 className="text-[19px] font-black tracking-tight" style={{ color: dk ? '#f2f4f8' : '#0f1a2e' }}>Naujos dainos</h2>
                   <a href="#" className="text-sm font-semibold transition-colors" style={{ color: '#4a6fa5' }}>Visos →</a>
                 </div>
                 <div className="flex gap-2.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
@@ -643,8 +630,8 @@ export default function Home() {
                       </div>
                       {/* Text */}
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-[13px] font-bold truncate leading-tight group-hover:text-blue-300 transition-colors" style={{ color: '#eef2fa' }}>{r.title}</h4>
-                        <p className="text-[11px] truncate font-medium mt-0.5" style={{ color: '#7a93b5' }}>{r.artist}</p>
+                        <h4 className="text-[13px] font-bold truncate leading-tight group-hover:text-blue-300 transition-colors" style={{ color: dk ? '#eef2fa' : '#0f1a2e' }}>{r.title}</h4>
+                        <p className="text-[11px] truncate font-medium mt-0.5" style={{ color: dk ? '#7a93b5' : '#4a6080' }}>{r.artist}</p>
                       </div>
                       {genre === 'forYou' && <div className="w-1 h-5 rounded-full flex-shrink-0" style={{ background: 'rgba(249,115,22,0.6)' }} />}
                     </div>
@@ -655,7 +642,7 @@ export default function Home() {
               {/* ── Nauji albumai — same compact inline style, split by status ── */}
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-[19px] font-black tracking-tight" style={{ color: '#f2f4f8' }}>Nauji albumai</h2>
+                  <h2 className="text-[19px] font-black tracking-tight" style={{ color: dk ? '#f2f4f8' : '#0f1a2e' }}>Nauji albumai</h2>
                   <a href="#" className="text-sm font-semibold transition-colors" style={{ color: '#4a6fa5' }}>Visi →</a>
                 </div>
 
@@ -665,7 +652,7 @@ export default function Home() {
                   if (!out.length) return null
                   return (
                     <div className="mb-4">
-                      <p className="text-[10px] font-black uppercase tracking-[0.14em] mb-2" style={{ color: '#3d5878' }}>Neseniai išleista</p>
+                      <p className="text-[10px] font-black uppercase tracking-[0.14em] mb-2" style={{ color: dk ? '#3d5878' : '#7a93b5' }}>Neseniai išleista</p>
                       <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
                         {out.map((r, i) => (
                           <div key={i} className="group cursor-pointer flex-shrink-0 flex items-center gap-3 px-3 py-3 rounded-xl transition-all w-[240px]" style={CS} {...CH}>
@@ -679,9 +666,9 @@ export default function Home() {
                               {r.lt && <span className="absolute top-0.5 left-0.5 text-[9px] opacity-60">🇱🇹</span>}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <h4 className="text-[13px] font-bold truncate leading-tight group-hover:text-blue-300 transition-colors" style={{ color: '#eef2fa' }}>{r.title}</h4>
-                              <p className="text-[12px] truncate font-medium mt-0.5" style={{ color: '#7a93b5' }}>{r.artist}</p>
-                              <p className="text-[11px] font-medium mt-1" style={{ color: '#4a6580' }}>{r.date}</p>
+                              <h4 className="text-[13px] font-bold truncate leading-tight group-hover:text-blue-300 transition-colors" style={{ color: dk ? '#eef2fa' : '#0f1a2e' }}>{r.title}</h4>
+                              <p className="text-[12px] truncate font-medium mt-0.5" style={{ color: dk ? '#7a93b5' : '#4a6080' }}>{r.artist}</p>
+                              <p className="text-[11px] font-medium mt-1" style={{ color: dk ? '#4a6580' : '#6a85a8' }}>{r.date}</p>
                             </div>
                           </div>
                         ))}
@@ -696,7 +683,7 @@ export default function Home() {
                   if (!soon.length) return null
                   return (
                     <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.14em] mb-2" style={{ color: '#3d5878' }}>Greitai pasirodys</p>
+                      <p className="text-[10px] font-black uppercase tracking-[0.14em] mb-2" style={{ color: dk ? '#3d5878' : '#7a93b5' }}>Greitai pasirodys</p>
                       <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
                         {soon.map((r, i) => (
                           <div key={i} className="group cursor-pointer flex-shrink-0 flex items-center gap-3 px-3 py-3 rounded-xl transition-all w-[240px]"
@@ -752,7 +739,7 @@ export default function Home() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-[11px] mb-0.5" style={{ color: '#3d5878' }}>Siūlo <span className="text-blue-400 font-bold">{SOTD.by}</span></p>
-                    <h3 className="font-black text-lg leading-tight" style={{ color: '#f2f4f8' }}>{SOTD.artist}</h3>
+                    <h3 className="font-black text-lg leading-tight" style={{ color: dk ? '#f2f4f8' : '#0f1a2e' }}>{SOTD.artist}</h3>
                     <p className="text-sm" style={{ color: 'rgba(200,215,240,0.55)' }}>{SOTD.title}</p>
                   </div>
                   <button className="flex-shrink-0 flex items-center gap-1.5 bg-orange-500 hover:bg-orange-400 text-white font-black px-4 py-2 rounded-full text-xs transition-all shadow-md">
@@ -850,7 +837,7 @@ export default function Home() {
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,255,255,0.07)', color: '#4a6080' }}>{c.type}</span>
                     <span className="text-[10px]" style={{ color: '#2a3a50' }}>{c.ago}</span>
                   </div>
-                  <p className="text-[13px] font-semibold group-hover:text-blue-300 transition-colors leading-snug" style={{ color: '#c8d8f0' }}>{c.title}</p>
+                  <p className="text-[13px] font-semibold group-hover:text-blue-300 transition-colors leading-snug" style={{ color: dk ? '#c8d8f0' : '#0f1a2e' }}>{c.title}</p>
                   <p className="text-[11px] mt-1" style={{ color: '#3d5878' }}>{c.user} · {c.replies} ats.</p>
                 </div>
               </div>
@@ -874,7 +861,7 @@ export default function Home() {
                     <p className="text-[9px] font-black uppercase tracking-wide text-orange-400">{e.m}</p>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate group-hover:text-blue-300 transition-colors" style={{ color: '#dde8f8' }}>{e.title}</p>
+                    <p className="text-sm font-semibold truncate group-hover:text-blue-300 transition-colors" style={{ color: dk ? '#dde8f8' : '#0f1a2e' }}>{e.title}</p>
                     <p className="text-xs" style={{ color: '#3d5878' }}>{e.venue} · {e.city}</p>
                   </div>
                   {e.sold
@@ -902,7 +889,7 @@ export default function Home() {
                       </span>
                       <span className="text-[10px]" style={{ color: '#2a3a50' }}>{p.ago}</span>
                     </div>
-                    <p className="text-[13px] font-semibold group-hover:text-blue-300 transition-colors leading-snug" style={{ color: '#c8d8f0' }}>{p.title}</p>
+                    <p className="text-[13px] font-semibold group-hover:text-blue-300 transition-colors leading-snug" style={{ color: dk ? '#c8d8f0' : '#0f1a2e' }}>{p.title}</p>
                   </div>
                 </div>
               ))}
@@ -923,7 +910,7 @@ export default function Home() {
                   style={{ background: `hsl(${a.hue},40%,16%)`, boxShadow: `0 8px 20px hsl(${a.hue},40%,6%)` }}>
                   <span className="text-3xl font-black" style={{ color: 'rgba(255,255,255,0.1)' }}>{a.name[0]}</span>
                 </div>
-                <p className="text-[13px] font-bold group-hover:text-blue-300 transition-colors truncate" style={{ color: '#c8d8f0' }}>{a.name}</p>
+                <p className="text-[13px] font-bold group-hover:text-blue-300 transition-colors truncate" style={{ color: dk ? '#c8d8f0' : '#0f1a2e' }}>{a.name}</p>
                 <p className="text-[11px] truncate" style={{ color: '#3d5878' }}>{a.genre}</p>
               </div>
             ))}
@@ -939,7 +926,7 @@ export default function Home() {
             <div className="relative flex-shrink-0 w-16 h-16 rounded-2xl flex items-center justify-center text-3xl"
               style={{ background: 'rgba(29,78,216,0.18)', border: '1px solid rgba(29,78,216,0.25)' }}>🎤</div>
             <div className="relative flex-1 text-center sm:text-left">
-              <h3 className="text-[22px] font-black mb-1.5" style={{ color: '#f2f4f8' }}>Atlikėjams</h3>
+              <h3 className="text-[22px] font-black mb-1.5" style={{ color: dk ? '#f2f4f8' : '#0f1a2e' }}>Atlikėjams</h3>
               <p className="text-sm leading-relaxed max-w-lg" style={{ color: '#4a6080' }}>
                 Sukurk arba perimk savo profilį Music.lt platformoje. Skelk naujienas, renginius ir naują muziką tiesiai savo gerbėjams — nemokamai.
               </p>
@@ -953,11 +940,11 @@ export default function Home() {
       </div>
 
       {/* ━━ FOOTER ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <footer style={{ borderTop: '1px solid rgba(255,255,255,0.05)', background: '#080b11' }}>
+      <footer style={{ borderTop: dk ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(0,0,0,0.1)', background: dk ? '#080b11' : '#e4eaf5' }}>
         <div className="max-w-[1360px] mx-auto px-5 lg:px-8 py-12">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 mb-10">
             <div>
-              <div className="font-black text-xl mb-3"><span style={{ color: '#f2f4f8' }}>music</span><span className="text-orange-400">.lt</span></div>
+              <div className="font-black text-xl mb-3"><span style={{ color: dk ? '#f2f4f8' : '#0f1a2e' }}>music</span><span className="text-orange-400">.lt</span></div>
               <p className="text-sm leading-relaxed" style={{ color: '#2a3a50' }}>Lietuvos muzikos ekosistemos platforma nuo 1999 m.</p>
             </div>
             {[
