@@ -198,7 +198,7 @@ async function syncRelations(id: number, data: ArtistFull) {
 
   if (data.related?.length) {
     inserts.push(supabase.from('artist_related').insert(
-      data.related.map(r => ({ artist_id: id, related_artist_id: r.id }))
+      data.related.map(r => ({ artist_id: id, related_artist_id: r.id, year_from: r.yearFrom ? parseInt(r.yearFrom) : null, year_until: r.yearTo ? parseInt(r.yearTo) : null }))
     ).then())
   }
 
