@@ -23,7 +23,6 @@ function fmtDate(year?: string, month?: string, day?: string): string {
   return parts.join(' ')
 }
 
-// ── Genre mapping ───────────────────────────────────────────────────────────
 const GENRE_RULES: [string, string[]][] = [
   ['Sunkioji muzika',           ['metal','heavy metal','thrash','doom','black metal','grindcore','metalcore','death metal']],
   ['Roko muzika',               ['rock','punk','grunge','new wave','britpop','alternative rock','indie rock','post-punk','hard rock','post-rock','progressive rock']],
@@ -42,7 +41,6 @@ function mapGenres(genreLabels: string[]): { genre: string; substyles: string[] 
     const score = lower.reduce((a, gl) => a + kws.reduce((s, kw) => s + (gl === kw || gl.includes(kw) ? 1 : 0), 0), 0)
     if (score > bestScore) { bestScore = score; best = g }
   }
-  // Only match substyles that are EXACTLY in our list (case-insensitive)
   const substyles: string[] = []
   for (const g of genreLabels) {
     const found = ALL_SUBSTYLES.find(s => s.toLowerCase() === g.toLowerCase().trim())
@@ -51,40 +49,30 @@ function mapGenres(genreLabels: string[]): { genre: string; substyles: string[] 
   return { genre: best, substyles }
 }
 
-// ── Parse genres from Wikipedia infobox wikitext ──────────────────────────
-// Handles: {{hlist|[[Pop music|Pop]]|[[R&B]]|funk}}, plain text, etc.
+// FIXED: properly extracts wikilinks from hlist/flatlist templates
 function parseInfoboxGenres(wikitext: string): string[] | null {
-  // Extract genre line from infobox
   const genreMatch = wikitext.match(/\|\s*genre\s*=\s*([\s\S]*?)(?=\n\s*\||\n\s*\}\})/i)
   if (!genreMatch) return null
-
   const raw = genreMatch[1]
 
-  // Extract display text from wikilinks: [[Pop music|Pop]] → "Pop", [[funk]] → "funk"
+  // Extract all wikilink display texts: [[Pop music|Pop]] → "Pop", [[funk]] → "funk"
   const fromLinks = [...raw.matchAll(/\[\[(?:[^\]|]+\|)?([^\]|]+)\]\]/g)].map(m => m[1].trim())
 
-  // Also extract plain text items from hlist/flatlist: {{hlist|item1|item2}}
-  const fromHlist = [...raw.matchAll(/\{\{(?:hlist|flatlist|ubl|plainlist)[^}]*\|([^}]+)\}\}/gi)].flatMap(m =>
-    m[1].split('|').map(s => s.replace(/\[\[[^\]]+\]\]/g, '').trim()).filter(Boolean)
-  )
-
-  // Strip all templates and wikilinks, get remaining plain text
+  // Strip templates and wikilinks, get remaining plain text
   const stripped = raw
     .replace(/\{\{[^}]+\}\}/g, ' ')
     .replace(/\[\[(?:[^\]|]+\|)?([^\]|]+)\]\]/g, '$1')
     .replace(/[*#\[\]{}|]/g, ' ')
     .split(/[,·•\n]/)
     .map(s => s.trim())
-    .filter(s => s.length > 1 && s.length < 40)
+    .filter(s => s.length > 1 && s.length < 40 && !/^(hlist|flatlist|ubl|br|small|nowrap|\d+)$/i.test(s))
 
-  // Combine all, deduplicate, filter out empty/template artifacts
-  const all = [...new Set([...fromLinks, ...fromHlist, ...stripped])]
-    .filter(s => s && !s.match(/^\d+$/) && !s.match(/^(hlist|flatlist|ubl|br|small|nowrap)$/i))
+  const all = [...new Set([...fromLinks, ...stripped])]
+    .filter(s => s && s.length > 1)
 
   return all.length > 0 ? all : null
 }
 
-// ── Country ──────────────────────────────────────────────────────────────────
 const QID_COUNTRY: Record<string, string> = {
   Q142:'Prancūzija',Q183:'Vokietija',Q30:'JAV',Q145:'Didžioji Britanija',
   Q34:'Švedija',Q20:'Norvegija',Q33:'Suomija',Q35:'Danija',
@@ -133,7 +121,6 @@ function findCountry(text: string): string {
   return ''
 }
 
-// ── Date ─────────────────────────────────────────────────────────────────────
 function parseWDDate(t: string) {
   const [dp] = t.replace(/^\+/, '').split('T')
   const [y, m, d] = dp.split('-')
@@ -144,7 +131,6 @@ function parseWDDate(t: string) {
   }
 }
 
-// ── Years active ──────────────────────────────────────────────────────────────
 function parseYearsActive(raw: string): { yearStart: string; yearEnd: string; breaks: Break[] } {
   const clean = raw
     .replace(/\{\{[^}]+\}\}/g,'').replace(/\[\[([^\]|]+\|)?([^\]]+)\]\]/g,'$2')
@@ -174,7 +160,6 @@ function parseYearsActive(raw: string): { yearStart: string; yearEnd: string; br
   return { yearStart, yearEnd, breaks }
 }
 
-// ── Socials ───────────────────────────────────────────────────────────────────
 const SOCIAL_MAP: Record<string, { key: keyof ArtistFormData; url: (v: string) => string }> = {
   P2013: { key:'facebook',   url: v=>`https://www.facebook.com/${v}` },
   P2003: { key:'instagram',  url: v=>`https://www.instagram.com/${v}` },
@@ -213,7 +198,6 @@ export default function WikipediaImport({ onImport }: Props) {
     if (!s) { setError('Netinkamas URL'); return }
     setLoading(true)
     try {
-      // 1. Summary
       setStep('📄 Kraunama Wikipedia...')
       const sumRes = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(s)}`)
       if (!sumRes.ok) throw new Error(`Puslapis nerastas: ${s}`)
@@ -222,7 +206,6 @@ export default function WikipediaImport({ onImport }: Props) {
       const shortDesc = rawDesc.split(/\.\s+/).slice(0, 3).join('. ').substring(0, 700)
       const avatarSrcUrl = sum.thumbnail?.source || ''
 
-      // 2. Wikitext — parse genres FROM INFOBOX (most accurate!)
       setStep('📋 Skaitomas infobox...')
       let infoboxWebsite = '', infoboxYearsRaw = '', infoboxGenres: string[] | null = null
       try {
@@ -230,22 +213,19 @@ export default function WikipediaImport({ onImport }: Props) {
           `https://en.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(s)}&prop=wikitext&format=json&origin=*`
         )).json()).parse?.wikitext?.['*'] || ''
 
-        // Genres from infobox — most reliable source
         infoboxGenres = parseInfoboxGenres(wt)
 
-        // Website
         const wsM = wt.match(/\|\s*website\s*=\s*(?:\{\{[Uu][Rr][Ll]\|([^|}]+)[^}]*\}\}|(https?:\/\/[^\s<|{}\[\]\n]+))/i)
         if (wsM) {
           const raw = (wsM[1] || wsM[2] || '').trim().replace(/\/*$/, '')
           if (raw) infoboxWebsite = raw.startsWith('http') ? raw : `https://${raw}`
         }
 
-        // Years active
+        // FIXED: support both "years_active" and "years active"
         const yaM = wt.match(/\|\s*years[_ ]active\s*=\s*([^\n|<]+)/i)
         if (yaM) infoboxYearsRaw = yaM[1].trim()
       } catch {}
 
-      // 3. Wikidata (for dates, country, socials — NOT genres)
       setStep('🔗 Jungiamasi prie Wikidata...')
       const ppRes = await fetch(
         `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(s)}&prop=pageprops&format=json&origin=*`
@@ -271,17 +251,14 @@ export default function WikipediaImport({ onImport }: Props) {
         const first = (p: string) => claims[p]?.[0]?.mainsnak?.datavalue?.value
         const all   = (p: string): any[] => (claims[p]||[]).map((x:any)=>x.mainsnak?.datavalue?.value)
 
-        // Type
         const instances: string[] = all('P31').map((v:any)=>v?.id).filter(Boolean)
         const hasBirth = !!claims['P569']
         type = (hasBirth || instances.includes('Q5')) ? 'solo'
              : instances.some(q=>GROUP_QIDS.has(q)) ? 'group' : 'solo'
 
-        // Dates
         const bd=first('P569')?.time; if(bd){const d=parseWDDate(bd);birthYear=d.year;birthMonth=d.month;birthDay=d.day;type='solo'}
         const dd=first('P570')?.time; if(dd){const d=parseWDDate(dd);deathYear=d.year;deathMonth=d.month;deathDay=d.day}
 
-        // Years active
         if (infoboxYearsRaw) {
           const p=parseYearsActive(infoboxYearsRaw); yearStart=p.yearStart; yearEnd=p.yearEnd; breaks=p.breaks
         } else {
@@ -291,33 +268,28 @@ export default function WikipediaImport({ onImport }: Props) {
           if(!yearEnd){const t=first('P576')?.time;if(t)yearEnd=parseWDDate(t).year}
         }
 
-        // Gender
         const gId=first('P21')?.id
         if(gId==='Q6581097') gender='male'; else if(gId==='Q6581072') gender='female'
 
-        // Country
         for(const p of ['P27','P495','P17']){
           const qid=first(p)?.id
           if(qid && QID_COUNTRY[qid]){country=QID_COUNTRY[qid];break}
         }
         if(!country) country=findCountry((sum.description||'')+' '+(sum.extract?.substring(0,500)||''))
 
-        // Website (Wikidata fallback)
         if(!website){
           for(const v of all('P856')){
             if(typeof v==='string' && !SKIP_WEB.some(d=>v.includes(d))){website=v;break}
           }
         }
 
-        // Socials
         for(const [prop,cfg] of Object.entries(SOCIAL_MAP)){
           const v=first(prop)
           if(typeof v==='string' && v)(socials as any)[cfg.key]=cfg.url(v)
         }
 
-        // Wikidata genres ONLY as fallback if infobox parsing failed
         if (!infoboxGenres) {
-          setStep('🎵 Nustatomi žanrai (Wikidata)...')
+          setStep('🎵 Nustatomi žanrai...')
           const genreQids = all('P136').map((v:any)=>v?.id).filter(Boolean).slice(0,12)
           if(genreQids.length>0){
             try{
@@ -330,10 +302,8 @@ export default function WikipediaImport({ onImport }: Props) {
         }
       }
 
-      // Use infobox genres if available, otherwise Wikidata
       const finalGenres = infoboxGenres || wdGenres
 
-      // 4. Avatar → base64
       let avatar = ''
       if (avatarSrcUrl) {
         setStep('🖼️ Saugoma nuotrauka...')
@@ -343,7 +313,6 @@ export default function WikipediaImport({ onImport }: Props) {
         }catch{avatar=avatarSrcUrl}
       }
 
-      // 5. Translate via server route
       setStep('🌐 Verčiama į lietuvių kalbą...')
       let description = shortDesc
       let trOk = false
@@ -352,7 +321,7 @@ export default function WikipediaImport({ onImport }: Props) {
           const tr = await translateToLT(shortDesc)
           description = tr.result
           trOk = tr.ok
-        } catch(e: any) { /* stay with english */ }
+        } catch {}
       }
       setTranslateOk(trOk)
 
@@ -431,7 +400,7 @@ export default function WikipediaImport({ onImport }: Props) {
             </div>
             {p.substyles&&p.substyles.length>0&&(
               <div>
-                <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Stiliai (iš Wikipedia infobox)</div>
+                <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Stiliai</div>
                 <div className="flex flex-wrap gap-1.5">
                   {p.substyles.map(s=><span key={s} className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">{s}</span>)}
                 </div>
@@ -451,7 +420,9 @@ export default function WikipediaImport({ onImport }: Props) {
             )}
             {p.description&&(
               <div>
-                <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">{translateOk ? "APRAŠYMAS (LT ✓)" : "APRAŠYMAS (vertimas nepavyko – angliškai)"}</div>
+                <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+                  {translateOk ? "APRAŠYMAS (LT ✓)" : "APRAŠYMAS (vertimas nepavyko – angliškai)"}
+                </div>
                 <p className="text-sm text-gray-800 leading-relaxed bg-gray-50 rounded-lg p-3 border border-gray-100">{p.description}</p>
               </div>
             )}
