@@ -493,24 +493,24 @@ export default function Home() {
                   <h2 className="text-[19px] font-black tracking-tight" style={{ color: '#f2f4f8' }}>Naujos dainos</h2>
                   <a href="#" className="text-sm font-semibold transition-colors" style={{ color: '#4a6fa5' }}>Visos →</a>
                 </div>
-                <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+                <div className="flex gap-2.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
                   {SINGLES
                     .filter(r => genre === 'Visi' || genre === 'forYou' || r.genre === genre)
                     .map((r, i) => (
-                    <div key={i} className="group cursor-pointer flex-shrink-0 flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-all w-[190px]" style={CS} {...CH}>
+                    <div key={i} className="group cursor-pointer flex-shrink-0 flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all w-[210px]" style={CS} {...CH}>
                       {/* Small square cover */}
-                      <div className="flex-shrink-0 w-9 h-9 rounded-lg relative overflow-hidden"
+                      <div className="flex-shrink-0 w-11 h-11 rounded-lg relative overflow-hidden"
                         style={{ background: `hsl(${r.hue},38%,18%)` }}>
                         <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 30% 30%, hsl(${r.hue},50%,30%) 0%, transparent 65%)` }} />
                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
                           style={{ background: 'rgba(0,0,0,0.55)' }}>
-                          <span className="text-white text-[10px] ml-0.5">▶</span>
+                          <span className="text-white text-xs ml-0.5">▶</span>
                         </div>
                       </div>
                       {/* Text */}
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-[12px] font-bold truncate leading-tight group-hover:text-blue-300 transition-colors" style={{ color: '#eef2fa' }}>{r.title}</h4>
-                        <p className="text-[11px] truncate font-medium" style={{ color: '#7a93b5' }}>{r.artist}</p>
+                        <h4 className="text-[13px] font-bold truncate leading-tight group-hover:text-blue-300 transition-colors" style={{ color: '#eef2fa' }}>{r.title}</h4>
+                        <p className="text-[11px] truncate font-medium mt-0.5" style={{ color: '#7a93b5' }}>{r.artist}</p>
                       </div>
                       {genre === 'forYou' && <div className="w-1 h-5 rounded-full flex-shrink-0" style={{ background: 'rgba(249,115,22,0.6)' }} />}
                     </div>
@@ -532,23 +532,22 @@ export default function Home() {
                   return (
                     <div className="mb-4">
                       <p className="text-[10px] font-black uppercase tracking-[0.14em] mb-2" style={{ color: '#3d5878' }}>Neseniai išleista</p>
-                      <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+                      <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
                         {out.map((r, i) => (
-                          <div key={i} className="group cursor-pointer flex-shrink-0 flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-all w-[210px]" style={CS} {...CH}>
-                            {/* Cover — slightly larger than songs to give albums more weight */}
-                            <div className="flex-shrink-0 w-11 h-11 rounded-lg relative overflow-hidden"
+                          <div key={i} className="group cursor-pointer flex-shrink-0 flex items-center gap-3 px-3 py-3 rounded-xl transition-all w-[240px]" style={CS} {...CH}>
+                            <div className="flex-shrink-0 w-14 h-14 rounded-xl relative overflow-hidden"
                               style={{ background: `hsl(${r.hue},42%,18%)`, boxShadow: `0 4px 14px hsl(${r.hue},42%,6%)` }}>
                               <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 28% 28%, hsl(${r.hue},55%,34%) 0%, transparent 60%)` }} />
                               <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
                                 style={{ background: 'rgba(0,0,0,0.5)' }}>
-                                <span className="text-white text-[10px] ml-0.5">▶</span>
+                                <span className="text-white text-xs ml-0.5">▶</span>
                               </div>
                               {r.lt && <span className="absolute top-0.5 left-0.5 text-[9px] opacity-60">🇱🇹</span>}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <h4 className="text-[12px] font-bold truncate leading-tight group-hover:text-blue-300 transition-colors" style={{ color: '#eef2fa' }}>{r.title}</h4>
-                              <p className="text-[11px] truncate font-medium" style={{ color: '#7a93b5' }}>{r.artist}</p>
-                              <p className="text-[10px] font-medium mt-0.5" style={{ color: '#4a6580' }}>{r.date}</p>
+                              <h4 className="text-[13px] font-bold truncate leading-tight group-hover:text-blue-300 transition-colors" style={{ color: '#eef2fa' }}>{r.title}</h4>
+                              <p className="text-[12px] truncate font-medium mt-0.5" style={{ color: '#7a93b5' }}>{r.artist}</p>
+                              <p className="text-[11px] font-medium mt-1" style={{ color: '#4a6580' }}>{r.date}</p>
                             </div>
                           </div>
                         ))}
@@ -564,11 +563,11 @@ export default function Home() {
                   return (
                     <div>
                       <p className="text-[10px] font-black uppercase tracking-[0.14em] mb-2" style={{ color: '#3d5878' }}>Greitai pasirodys</p>
-                      <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+                      <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
                         {soon.map((r, i) => (
-                          <div key={i} className="group cursor-pointer flex-shrink-0 flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-all w-[210px]"
+                          <div key={i} className="group cursor-pointer flex-shrink-0 flex items-center gap-3 px-3 py-3 rounded-xl transition-all w-[240px]"
                             style={{ background: 'rgba(255,255,255,0.018)', border: '1px solid rgba(255,255,255,0.055)' }} {...CH}>
-                            <div className="flex-shrink-0 w-11 h-11 rounded-lg relative overflow-hidden"
+                            <div className="flex-shrink-0 w-14 h-14 rounded-xl relative overflow-hidden"
                               style={{ background: `hsl(${r.hue},28%,13%)` }}>
                               <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 28% 28%, hsl(${r.hue},35%,20%) 0%, transparent 55%)` }} />
                               <div className="absolute inset-0" style={{ background: 'rgba(13,17,23,0.4)' }} />
@@ -577,11 +576,11 @@ export default function Home() {
                               </div>
                             </div>
                             <div className="flex-1 min-w-0">
-                              <h4 className="text-[12px] font-bold truncate leading-tight" style={{ color: '#c8d8f0' }}>{r.title}</h4>
-                              <p className="text-[11px] truncate font-medium" style={{ color: '#5a7898' }}>{r.artist}</p>
-                              <div className="flex items-center gap-1.5 mt-0.5">
+                              <h4 className="text-[13px] font-bold truncate leading-tight" style={{ color: '#c8d8f0' }}>{r.title}</h4>
+                              <p className="text-[12px] truncate font-medium mt-0.5" style={{ color: '#5a7898' }}>{r.artist}</p>
+                              <div className="flex items-center gap-1.5 mt-1">
                                 <span className="text-[9px] font-black px-1.5 py-0.5 rounded" style={{ background: 'rgba(245,158,11,0.18)', color: '#fbbf24' }}>GREITAI</span>
-                                <span className="text-[10px] font-medium" style={{ color: '#4a6580' }}>{r.date}</span>
+                                <span className="text-[11px] font-medium" style={{ color: '#4a6580' }}>{r.date}</span>
                               </div>
                             </div>
                           </div>
