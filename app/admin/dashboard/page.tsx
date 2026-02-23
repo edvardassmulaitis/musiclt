@@ -4,9 +4,11 @@ import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+
 export default function AdminDashboard() {
   const { data: session, status } = useSession()
   const router = useRouter()
+
   useEffect(() => {
     if (status === 'loading') return
     if (!session) {
@@ -17,6 +19,7 @@ export default function AdminDashboard() {
       router.push('/auth/forbidden')
     }
   }, [status, session?.user?.role])
+
   if (status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -24,16 +27,19 @@ export default function AdminDashboard() {
       </div>
     )
   }
+
   if (!session || (session.user?.role !== 'admin' && session.user?.role !== 'super_admin')) {
     return null
   }
+
   const quickActions = [
     { href: '/admin/artists', icon: '🎤', title: 'Atlikėjai', desc: 'Tvarkyti atlikėjų sąrašą' },
-    { href: '/admin/albums', icon: '💿', title: 'Albumai', desc: 'Tvarkyti albumus ir tracklist'us' },
+    { href: '/admin/albums', icon: '💿', title: 'Albumai', desc: 'Tvarkyti albumus ir dainas' },
     { href: '/admin/tracks', icon: '🎵', title: 'Dainos', desc: 'Tvarkyti dainų sąrašą' },
     { href: '/admin/users', icon: '👥', title: 'Vartotojai', desc: 'Valdyti vartotojus ir roles' },
     { href: '/admin/settings', icon: '⚙️', title: 'Nustatymai', desc: 'Svetainės nustatymai' },
   ]
+
   return (
     <div className="min-h-screen">
       <nav className="border-b border-white/10 bg-black/30 backdrop-blur-sm sticky top-0 z-10">
