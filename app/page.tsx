@@ -302,7 +302,7 @@ function PlayCircle({ sz = 10 }: { sz?: number }) {
 function SecHead({ label, cta }: { label: React.ReactNode; cta?: string }) {
   return (
     <div className="flex items-center justify-between mb-6">
-      <h2 className="text-[19px] font-black tracking-tight" style={{ color: dk ? '#f2f4f8' : '#0f1a2e' }}>{label}</h2>
+      <h2 className="text-[19px] font-black tracking-tight" style={{ color: '#f2f4f8' }}>{label}</h2>
       {cta && <a href="#" className="text-sm text-[#4a6fa5] hover:text-[#93b4e0] font-semibold transition-colors">{cta} →</a>}
     </div>
   )
