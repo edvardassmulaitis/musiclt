@@ -25,7 +25,7 @@ function dbToForm(data: any): ArtistFormData {
     type:        data.type || 'group',
     country:     data.country || 'Lietuva',
     genre:       data.genres?.[0] ? (GENRE_BY_ID[data.genres[0]] || '') : '',
-    substyles:   [], // substyles handled separately via StyleModal
+    substyles:   data.substyleNames || [],
     description: data.description || '',
     yearStart:   data.active_from ? String(data.active_from) : '',
     yearEnd:     data.active_until ? String(data.active_until) : '',
@@ -96,6 +96,7 @@ function formToDb(form: ArtistFormData) {
     birth_date:         birthDate,
     death_date:         deathDate,
     genres:             genreIds,
+    substyleNames:      form.substyles || [],
     breaks:             form.breaks,
     photos:             form.photos,
     links: {
