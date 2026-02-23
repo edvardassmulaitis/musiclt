@@ -71,8 +71,9 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 }
 
 export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params)
-  const isNew = id === 'new'
+  const resolvedParams = use(params)
+  const id = resolvedParams?.id
+  const isNew = !id || id === 'new'
   const { data: session, status } = useSession()
   const router = useRouter()
   const [form, setForm] = useState<AlbumFull>(emptyAlbum)
