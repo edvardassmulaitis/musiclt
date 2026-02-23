@@ -6,14 +6,26 @@ import { useSession } from 'next-auth/react'
 import ArtistForm, { ArtistFormData, emptyArtistForm } from '@/components/ArtistForm'
 
 // Convert DB row → ArtistFormData
+
+const GENRE_BY_ID: Record<number, string> = {
+  1: 'Alternatyvioji muzika',
+  2: 'Elektroninė, šokių muzika',
+  3: "Hip-hop'o muzika",
+  4: 'Kitų stilių muzika',
+  5: 'Pop, R&B muzika',
+  6: 'Rimtoji muzika',
+  7: 'Roko muzika',
+  8: 'Sunkioji muzika',
+}
+
 function dbToForm(data: any): ArtistFormData {
   return {
     ...emptyArtistForm,
     name:        data.name || '',
     type:        data.type || 'group',
     country:     data.country || 'Lietuva',
-    genre:       data.genres?.[0] ? String(data.genres[0]) : '',
-    substyles:   data.genres?.slice(1).map(String) || [],
+    genre:       data.genres?.[0] ? (GENRE_BY_ID[data.genres[0]] || '') : '',
+    substyles:   [], // substyles handled separately via StyleModal
     description: data.description || '',
     yearStart:   data.active_from ? String(data.active_from) : '',
     yearEnd:     data.active_until ? String(data.active_until) : '',
@@ -43,11 +55,21 @@ function dbToForm(data: any): ArtistFormData {
 }
 
 // Convert ArtistFormData → DB payload
+
+const GENRE_IDS: Record<string, number> = {
+  'Alternatyvioji muzika': 1,
+  'Elektroninė, šokių muzika': 2,
+  "Hip-hop'o muzika": 3,
+  'Kitų stilių muzika': 4,
+  'Pop, R&B muzika': 5,
+  'Rimtoji muzika': 6,
+  'Roko muzika': 7,
+  'Sunkioji muzika': 8,
+}
+
 function formToDb(form: ArtistFormData) {
-  const genreIds = [
-    form.genre ? parseInt(form.genre) : null,
-    ...(form.substyles || []).map(s => parseInt(s))
-  ].filter(Boolean) as number[]
+  const genreIds: number[] = []
+  if (form.genre && GENRE_IDS[form.genre]) genreIds.push(GENRE_IDS[form.genre])
 
   const birthDate = form.birthYear
     ? `${form.birthYear}-${String(form.birthMonth||1).padStart(2,'0')}-${String(form.birthDay||1).padStart(2,'0')}`
