@@ -218,8 +218,9 @@ export default function WikipediaImport({ onImport }: Props) {
           `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(s)}&prop=revisions&rvprop=content&rvslots=main&format=json&origin=*`
         )).json()
         const pages = wtRes.query?.pages || {}
-        const wt: string = Object.values(pages)[0]?.['revisions']?.[0]?.['slots']?.['main']?.['*']
-          || Object.values(pages)[0]?.['revisions']?.[0]?.['*']
+        const firstPage = Object.values(pages)[0] as any
+        const wt: string = firstPage?.['revisions']?.[0]?.['slots']?.['main']?.['*']
+          || firstPage?.['revisions']?.[0]?.['*']
           || (await (await fetch(
             `https://en.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(s)}&prop=wikitext&format=json&origin=*`
           )).json()).parse?.wikitext?.['*'] || ''
