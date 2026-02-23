@@ -13,7 +13,6 @@ export async function GET(req: NextRequest) {
 
   const supabase = createAdminClient()
 
-  // Check token
   const { data: record } = await supabase
     .from('verification_tokens')
     .select()
@@ -30,7 +29,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL('/auth/error?error=ExpiredToken', req.url))
   }
 
-  // Delete used token
   await supabase.from('verification_tokens').delete().eq('token', token)
 
   // Get or create profile
@@ -59,7 +57,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL('/auth/error?error=ProfileError', req.url))
   }
 
-  // Create JWT session token
+  const secret = process.env.NEXTAUTH_SECRET || 'kjcxLaUePrIgs0SM6C6yen/Whkp87MDKywsUjmrBPYE='
+
   const sessionToken = await encode({
     token: {
       id: profile.id,
@@ -69,14 +68,19 @@ export async function GET(req: NextRequest) {
       role: profile.role,
       sub: profile.id,
     },
-    secret: process.env.NEXTAUTH_SECRET || 'kjcxLaUePrIgs0SM6C6yen/Whkp87MDKywsUjmrBPYE=',
+    secret,
   })
 
-  // Set cookie and redirect
+  const isProduction = process.env.NODE_ENV === 'production'
+  // Production uses __Secure- prefix, development does not
+  const cookieName = isProduction
+    ? '__Secure-next-auth.session-token'
+    : 'next-auth.session-token'
+
   const response = NextResponse.redirect(new URL('/', req.url))
-  response.cookies.set('next-auth.session-token', sessionToken, {
+  response.cookies.set(cookieName, sessionToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: isProduction,
     sameSite: 'lax',
     maxAge: 30 * 24 * 60 * 60,
     path: '/',
