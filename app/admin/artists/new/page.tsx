@@ -46,6 +46,7 @@ function formToDb(form: ArtistFormData) {
     birth_date:      birthDate,
     death_date:      deathDate,
     genres:          genreIds,
+    substyleNames:   form.substyles || [],
     breaks:          form.breaks,
     photos:          form.photos,
     links: {
