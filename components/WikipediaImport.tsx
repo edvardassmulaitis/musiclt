@@ -15,10 +15,7 @@ const MONTHS_LT = ['sausio','vasario','kovo','balandžio','gegužės','birželio
 function fmtDate(year?: string, month?: string, day?: string): string {
   const parts: string[] = []
   if (year) parts.push(`${year} m.`)
-  if (month) {
-    const m = parseInt(month)
-    if (m >= 1 && m <= 12) parts.push(`${MONTHS_LT[m - 1]} mėn.`)
-  }
+  if (month) { const m = parseInt(month); if (m >= 1 && m <= 12) parts.push(`${MONTHS_LT[m-1]} mėn.`) }
   if (day) parts.push(`${day} d.`)
   return parts.join(' ')
 }
@@ -49,16 +46,11 @@ function mapGenres(genreLabels: string[]): { genre: string; substyles: string[] 
   return { genre: best, substyles }
 }
 
-// FIXED: properly extracts wikilinks from hlist/flatlist templates
 function parseInfoboxGenres(wikitext: string): string[] | null {
   const genreMatch = wikitext.match(/\|\s*genre\s*=\s*([\s\S]*?)(?=\n\s*\||\n\s*\}\})/i)
   if (!genreMatch) return null
   const raw = genreMatch[1]
-
-  // Extract all wikilink display texts: [[Pop music|Pop]] → "Pop", [[funk]] → "funk"
   const fromLinks = [...raw.matchAll(/\[\[(?:[^\]|]+\|)?([^\]|]+)\]\]/g)].map(m => m[1].trim())
-
-  // Strip templates and wikilinks, get remaining plain text
   const stripped = raw
     .replace(/\{\{[^}]+\}\}/g, ' ')
     .replace(/\[\[(?:[^\]|]+\|)?([^\]|]+)\]\]/g, '$1')
@@ -66,10 +58,7 @@ function parseInfoboxGenres(wikitext: string): string[] | null {
     .split(/[,·•\n]/)
     .map(s => s.trim())
     .filter(s => s.length > 1 && s.length < 40 && !/^(hlist|flatlist|ubl|br|small|nowrap|\d+)$/i.test(s))
-
-  const all = [...new Set([...fromLinks, ...stripped])]
-    .filter(s => s && s.length > 1)
-
+  const all = [...new Set([...fromLinks, ...stripped])].filter(s => s && s.length > 1)
   return all.length > 0 ? all : null
 }
 
@@ -124,37 +113,38 @@ function findCountry(text: string): string {
 function parseWDDate(t: string) {
   const [dp] = t.replace(/^\+/, '').split('T')
   const [y, m, d] = dp.split('-')
-  return {
-    year:  parseInt(y) ? String(parseInt(y)) : '',
-    month: parseInt(m) ? String(parseInt(m)) : '',
-    day:   parseInt(d) ? String(parseInt(d)) : '',
-  }
+  return { year: parseInt(y) ? String(parseInt(y)) : '', month: parseInt(m) ? String(parseInt(m)) : '', day: parseInt(d) ? String(parseInt(d)) : '' }
 }
 
+// FIXED: single years (2004, 2014) treated as one-off, not full ranges
 function parseYearsActive(raw: string): { yearStart: string; yearEnd: string; breaks: Break[] } {
   const clean = raw
-    .replace(/\{\{[^}]+\}\}/g,'').replace(/\[\[([^\]|]+\|)?([^\]]+)\]\]/g,'$2')
-    .replace(/<[^>]+>/g,'').replace(/&ndash;|&mdash;/g,'–').replace(/\s+/g,' ').trim()
+    .replace(/\{\{[^}]+\}\}/g, '').replace(/\[\[([^\]|]+\|)?([^\]]+)\]\]/g, '$2')
+    .replace(/<[^>]+>/g, '').replace(/&ndash;|&mdash;/g, '–').replace(/\s+/g, ' ').trim()
   const parts = clean.split(/,\s*/)
-  const ranges: { from: string; to: string }[] = []
+  const ranges: { from: string; to: string; oneoff?: boolean }[] = []
   for (const part of parts) {
     const t = part.trim()
     const rng     = t.match(/(\d{4})\s*[–—\-]\s*(\d{4})/)
     const rngOpen = t.match(/(\d{4})\s*[–—\-]\s*(present|dabar)/i)
     const single  = t.match(/^(\d{4})$/)
-    if (rng)          ranges.push({ from: rng[1],     to: rng[2] })
+    if (rng)          ranges.push({ from: rng[1], to: rng[2] })
     else if (rngOpen) ranges.push({ from: rngOpen[1], to: '' })
-    else if (single)  ranges.push({ from: single[1],  to: single[1] })
+    else if (single)  ranges.push({ from: single[1], to: single[1], oneoff: true })
   }
   if (!ranges.length) {
     const y = clean.match(/(\d{4})/)
     return { yearStart: y?.[1] || '', yearEnd: '', breaks: [] }
   }
   const yearStart = ranges[0].from
-  const yearEnd   = ranges[ranges.length - 1].to
+  // yearEnd from last non-oneoff range
+  const realRanges = ranges.filter(r => !r.oneoff)
+  const lastReal = realRanges[realRanges.length - 1]
+  const yearEnd = lastReal ? lastReal.to : ranges[ranges.length - 1].to
+  // Breaks only between consecutive real ranges
   const breaks: Break[] = []
-  for (let i = 0; i < ranges.length - 1; i++) {
-    const gf = ranges[i].to, gt = ranges[i + 1].from
+  for (let i = 0; i < realRanges.length - 1; i++) {
+    const gf = realRanges[i].to, gt = realRanges[i + 1].from
     if (gf && gt && gf !== gt) breaks.push({ from: gf, to: gt })
   }
   return { yearStart, yearEnd, breaks }
@@ -198,6 +188,7 @@ export default function WikipediaImport({ onImport }: Props) {
     if (!s) { setError('Netinkamas URL'); return }
     setLoading(true)
     try {
+      // 1. Summary + translate FIRST (before other slow calls)
       setStep('📄 Kraunama Wikipedia...')
       const sumRes = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(s)}`)
       if (!sumRes.ok) throw new Error(`Puslapis nerastas: ${s}`)
@@ -206,26 +197,37 @@ export default function WikipediaImport({ onImport }: Props) {
       const shortDesc = rawDesc.split(/\.\s+/).slice(0, 3).join('. ').substring(0, 700)
       const avatarSrcUrl = sum.thumbnail?.source || ''
 
+      // 2. Translate EARLY — before slow Wikidata calls
+      let description = shortDesc
+      let trOk = false
+      if (shortDesc) {
+        setStep('🌐 Verčiama į lietuvių kalbą...')
+        try {
+          const tr = await translateToLT(shortDesc)
+          description = tr.result
+          trOk = tr.ok
+        } catch {}
+      }
+      setTranslateOk(trOk)
+
+      // 3. Wikitext (infobox)
       setStep('📋 Skaitomas infobox...')
       let infoboxWebsite = '', infoboxYearsRaw = '', infoboxGenres: string[] | null = null
       try {
         const wt: string = (await (await fetch(
           `https://en.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(s)}&prop=wikitext&format=json&origin=*`
         )).json()).parse?.wikitext?.['*'] || ''
-
         infoboxGenres = parseInfoboxGenres(wt)
-
         const wsM = wt.match(/\|\s*website\s*=\s*(?:\{\{[Uu][Rr][Ll]\|([^|}]+)[^}]*\}\}|(https?:\/\/[^\s<|{}\[\]\n]+))/i)
         if (wsM) {
           const raw = (wsM[1] || wsM[2] || '').trim().replace(/\/*$/, '')
           if (raw) infoboxWebsite = raw.startsWith('http') ? raw : `https://${raw}`
         }
-
-        // FIXED: support both "years_active" and "years active"
         const yaM = wt.match(/\|\s*years[_ ]active\s*=\s*([^\n|<]+)/i)
         if (yaM) infoboxYearsRaw = yaM[1].trim()
       } catch {}
 
+      // 4. Wikidata
       setStep('🔗 Jungiamasi prie Wikidata...')
       const ppRes = await fetch(
         `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(s)}&prop=pageprops&format=json&origin=*`
@@ -302,8 +304,7 @@ export default function WikipediaImport({ onImport }: Props) {
         }
       }
 
-      const finalGenres = infoboxGenres || wdGenres
-
+      // 5. Avatar
       let avatar = ''
       if (avatarSrcUrl) {
         setStep('🖼️ Saugoma nuotrauka...')
@@ -313,18 +314,7 @@ export default function WikipediaImport({ onImport }: Props) {
         }catch{avatar=avatarSrcUrl}
       }
 
-      setStep('🌐 Verčiama į lietuvių kalbą...')
-      let description = shortDesc
-      let trOk = false
-      if (shortDesc) {
-        try {
-          const tr = await translateToLT(shortDesc)
-          description = tr.result
-          trOk = tr.ok
-        } catch {}
-      }
-      setTranslateOk(trOk)
-
+      const finalGenres = infoboxGenres || wdGenres
       const { genre, substyles } = mapGenres(finalGenres)
 
       setPreview({
@@ -357,7 +347,7 @@ export default function WikipediaImport({ onImport }: Props) {
       <div className="flex gap-2">
         <input type="url" value={url} onChange={e=>setUrl(e.target.value)}
           onKeyDown={e=>e.key==='Enter'&&go()}
-          placeholder="https://en.wikipedia.org/wiki/Bruno_Mars"
+          placeholder="https://en.wikipedia.org/wiki/Destiny%27s_Child"
           className="flex-1 px-4 py-2.5 border border-blue-300 bg-white rounded-lg text-gray-900 text-sm focus:outline-none focus:border-music-blue" />
         <button type="button" onClick={go} disabled={loading||!url.trim()}
           className="px-5 py-2.5 bg-music-blue text-white rounded-lg text-sm font-bold hover:opacity-90 disabled:opacity-40 whitespace-nowrap">
