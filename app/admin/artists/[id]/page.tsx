@@ -8,14 +8,14 @@ import ArtistForm, { ArtistFormData, emptyArtistForm } from '@/components/Artist
 // Convert DB row → ArtistFormData
 
 const GENRE_BY_ID: Record<number, string> = {
-  1: 'Alternatyvioji muzika',
-  2: 'Elektroninė, šokių muzika',
-  3: "Hip-hop'o muzika",
-  4: 'Kitų stilių muzika',
-  5: 'Pop, R&B muzika',
-  6: 'Rimtoji muzika',
-  7: 'Roko muzika',
-  8: 'Sunkioji muzika',
+  1000001: 'Alternatyvioji muzika',
+  1000002: 'Elektroninė, šokių muzika',
+  1000003: "Hip-hop'o muzika",
+  1000004: 'Kitų stilių muzika',
+  1000005: 'Pop, R&B muzika',
+  1000006: 'Rimtoji muzika',
+  1000007: 'Roko muzika',
+  1000008: 'Sunkioji muzika',
 }
 
 function dbToForm(data: any): ArtistFormData {
@@ -57,14 +57,14 @@ function dbToForm(data: any): ArtistFormData {
 // Convert ArtistFormData → DB payload
 
 const GENRE_IDS: Record<string, number> = {
-  'Alternatyvioji muzika': 1,
-  'Elektroninė, šokių muzika': 2,
-  "Hip-hop'o muzika": 3,
-  'Kitų stilių muzika': 4,
-  'Pop, R&B muzika': 5,
-  'Rimtoji muzika': 6,
-  'Roko muzika': 7,
-  'Sunkioji muzika': 8,
+  'Alternatyvioji muzika': 1000001,
+  'Elektroninė, šokių muzika': 1000002,
+  "Hip-hop'o muzika": 1000003,
+  'Kitų stilių muzika': 1000004,
+  'Pop, R&B muzika': 1000005,
+  'Rimtoji muzika': 1000006,
+  'Roko muzika': 1000007,
+  'Sunkioji muzika': 1000008,
 }
 
 function formToDb(form: ArtistFormData) {
