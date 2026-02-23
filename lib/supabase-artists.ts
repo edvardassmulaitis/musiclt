@@ -70,7 +70,7 @@ export async function getArtistById(id: number): Promise<ArtistFull | null> {
 
   const [{ data: genreRows }, { data: linkRows }, { data: photoRows }, { data: breakRows }, { data: relatedRows }] =
     await Promise.all([
-      supabase.from('artist_genres').select('genre_id').eq('artist_id', id),
+      supabase.from('artist_genres').select('genre_id, genres(id, name, parent_id)').eq('artist_id', id),
       supabase.from('artist_links').select('platform, url').eq('artist_id', id),
       supabase.from('artist_photos').select('url, caption, sort_order').eq('artist_id', id).order('sort_order'),
       supabase.from('artist_breaks').select('year_from, year_until').eq('artist_id', id),
@@ -79,7 +79,8 @@ export async function getArtistById(id: number): Promise<ArtistFull | null> {
 
   return {
     ...artist,
-    genres: (genreRows || []).map((r: any) => r.genre_id),
+    genres: (genreRows || []).filter((r: any) => !r.genres?.parent_id).map((r: any) => r.genre_id),
+    substyleNames: (genreRows || []).filter((r: any) => r.genres?.parent_id).map((r: any) => r.genres?.name).filter(Boolean),
     links: Object.fromEntries((linkRows || []).map((r: any) => [r.platform, r.url])),
     photos: photoRows || [],
     breaks: (breakRows || []).map((r: any) => ({ from: String(r.year_from || ''), to: String(r.year_until || '') })),
@@ -170,9 +171,24 @@ async function syncRelations(id: number, data: ArtistFull) {
   const inserts: any[] = []
 
   if (data.genres?.length) {
-    inserts.push(supabase.from('artist_genres').insert(
-      data.genres.map(genre_id => ({ artist_id: id, genre_id }))
-    ).then())
+    // data.genres = [mainGenreId, ...substyleIds] OR just look up substyleNames
+    const genreIds = data.genres.filter((g: any) => typeof g === 'number')
+    const substyleNames: string[] = data.substyleNames || []
+    
+    let allIds = [...genreIds]
+    if (substyleNames.length) {
+      const { data: subRows } = await supabase
+        .from('genres')
+        .select('id')
+        .in('name', substyleNames)
+      if (subRows) allIds = [...allIds, ...subRows.map((r: any) => r.id)]
+    }
+    
+    if (allIds.length) {
+      inserts.push(supabase.from('artist_genres').insert(
+        allIds.map((genre_id: number) => ({ artist_id: id, genre_id }))
+      ).then())
+    }
   }
 
   const linkPlatforms = ['facebook','instagram','youtube','tiktok','spotify','soundcloud','bandcamp','twitter']
