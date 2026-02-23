@@ -452,101 +452,113 @@ export default function Home() {
         <section>
           <div className="flex flex-col lg:flex-row gap-8">
 
-            {/* ── Left sidebar: genre filter + personalized ── */}
-            <div className="lg:w-36 flex-shrink-0">
-              <p className="text-[10px] font-black uppercase tracking-[0.12em] mb-3" style={{ color: '#2a3a50' }}>Stilius</p>
-              <div className="flex lg:flex-col gap-2 flex-wrap">
-                {/* Personalised filter — shown first, visually distinct */}
-                <button
-                  onClick={() => setGenre('forYou')}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all text-left ${genre === 'forYou' ? 'text-orange-300' : 'text-[#4a6080] hover:text-[#c8d8f0]'}`}
-                  style={{
-                    background: genre === 'forYou' ? 'rgba(249,115,22,0.12)' : 'transparent',
-                    border: genre === 'forYou' ? '1px solid rgba(249,115,22,0.25)' : '1px solid transparent',
-                  }}>
-                  <span>✦</span> Man patinka
-                </button>
-                <div className="hidden lg:block w-full h-px my-1" style={{ background: 'rgba(255,255,255,0.06)' }} />
+            {/* ── Left sidebar: genre filter ── */}
+            <div className="lg:w-32 flex-shrink-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.12em] mb-2" style={{ color: '#3d5878' }}>Stilius</p>
+              <div className="flex lg:flex-col gap-1.5 flex-wrap">
                 {GENRES.map(g => (
                   <button key={g}
                     onClick={() => setGenre(g)}
-                    className={`px-3 py-2 rounded-xl text-xs font-bold transition-all text-left ${genre === g ? 'text-white' : 'text-[#4a6080] hover:text-[#c8d8f0]'}`}
+                    className="px-3 py-2 rounded-lg text-xs font-bold transition-all text-left"
                     style={{
-                      background: genre === g ? 'rgba(29,78,216,0.25)' : 'transparent',
-                      border: genre === g ? '1px solid rgba(29,78,216,0.3)' : '1px solid transparent',
+                      color: genre === g ? '#f2f4f8' : '#5a7898',
+                      background: genre === g ? 'rgba(29,78,216,0.22)' : 'transparent',
+                      border: genre === g ? '1px solid rgba(29,78,216,0.28)' : '1px solid transparent',
                     }}>
                     {g}
                   </button>
                 ))}
+                {/* Man patinka — below genres, clearly separate */}
+                <div className="hidden lg:block w-full h-px mt-1 mb-1" style={{ background: 'rgba(255,255,255,0.06)' }} />
+                <button
+                  onClick={() => setGenre('forYou')}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all text-left"
+                  style={{
+                    color: genre === 'forYou' ? '#fb923c' : '#5a7898',
+                    background: genre === 'forYou' ? 'rgba(249,115,22,0.12)' : 'transparent',
+                    border: genre === 'forYou' ? '1px solid rgba(249,115,22,0.22)' : '1px solid transparent',
+                  }}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                  Man patinka
+                </button>
               </div>
             </div>
 
             {/* ── Right: both rows ── */}
             <div className="flex-1 min-w-0 space-y-10">
 
-              {/* Naujos dainos */}
+              {/* ── Naujos dainos — minimal, compact ── */}
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-[19px] font-black tracking-tight" style={{ color: '#f2f4f8' }}>Naujos dainos</h2>
                   <a href="#" className="text-sm font-semibold transition-colors" style={{ color: '#4a6fa5' }}>Visos →</a>
                 </div>
-                <div className="flex gap-4 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
+                <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
                   {SINGLES
                     .filter(r => genre === 'Visi' || genre === 'forYou' || r.genre === genre)
                     .map((r, i) => (
-                    <div key={i} className="group cursor-pointer flex-shrink-0 w-[130px]">
-                      <div className="aspect-square rounded-xl mb-2.5 relative overflow-hidden transition-all duration-300 group-hover:scale-[1.04]"
-                        style={{ background: `hsl(${r.hue},40%,14%)`, boxShadow: `0 10px 28px hsl(${r.hue},40%,6%)` }}>
-                        <div className="absolute inset-0 flex items-center justify-center text-4xl select-none font-black" style={{ color: 'rgba(255,255,255,0.05)' }}>♪</div>
+                    <div key={i} className="group cursor-pointer flex-shrink-0 w-[110px]">
+                      {/* Square cover — minimal, no note icon clutter */}
+                      <div className="w-[110px] h-[110px] rounded-xl mb-2 relative overflow-hidden transition-all duration-300 group-hover:scale-[1.04]"
+                        style={{ background: `hsl(${r.hue},35%,16%)` }}>
+                        {/* Subtle radial to give depth without noise */}
+                        <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 35% 35%, hsl(${r.hue},45%,28%) 0%, transparent 65%)` }} />
+                        {/* Play overlay */}
                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200"
-                          style={{ background: 'rgba(0,0,0,0.45)' }}>
-                          <PlayCircle sz={8} />
+                          style={{ background: 'rgba(0,0,0,0.5)' }}>
+                          <div className="w-9 h-9 rounded-full bg-orange-500 flex items-center justify-center shadow-lg">
+                            <span className="text-white text-sm ml-0.5">▶</span>
+                          </div>
                         </div>
-                        {r.lt && <span className="absolute top-1.5 left-1.5 text-xs opacity-70">🇱🇹</span>}
+                        {r.lt && <span className="absolute top-1.5 left-1.5 text-xs opacity-60">🇱🇹</span>}
                         {genre === 'forYou' && (
-                          <div className="absolute bottom-0 left-0 right-0 h-1 rounded-b-xl" style={{ background: 'rgba(249,115,22,0.6)' }} />
+                          <div className="absolute bottom-0 left-0 right-0 h-0.5 rounded-b-xl" style={{ background: 'rgba(249,115,22,0.7)' }} />
                         )}
                       </div>
-                      <p className="text-[11px] truncate mb-0.5" style={{ color: '#6a82a0' }}>{r.artist}</p>
-                      <h4 className="text-[13px] font-bold truncate group-hover:text-blue-300 transition-colors" style={{ color: '#e8eefa' }}>{r.title}</h4>
+                      {/* Text — clear contrast */}
+                      <p className="text-[11px] truncate mb-0.5 font-medium" style={{ color: '#7a93b5' }}>{r.artist}</p>
+                      <h4 className="text-[13px] font-bold truncate group-hover:text-blue-300 transition-colors leading-tight" style={{ color: '#eef2fa' }}>{r.title}</h4>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Nauji albumai — split into out + soon */}
+              {/* ── Nauji albumai — prominent, cover-led ── */}
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-[19px] font-black tracking-tight" style={{ color: '#f2f4f8' }}>Nauji albumai</h2>
                   <a href="#" className="text-sm font-semibold transition-colors" style={{ color: '#4a6fa5' }}>Visi →</a>
                 </div>
 
-                {/* Recently released */}
+                {/* Neseniai išleista */}
                 {(() => {
-                  const outAlbums = ALBUMS.filter(a => a.status === 'out' && (genre === 'Visi' || genre === 'forYou' || a.genre === genre))
-                  if (outAlbums.length === 0) return null
+                  const out = ALBUMS.filter(a => a.status === 'out' && (genre === 'Visi' || genre === 'forYou' || a.genre === genre))
+                  if (!out.length) return null
                   return (
-                    <div className="mb-5">
-                      <p className="text-[10px] font-black uppercase tracking-[0.12em] mb-3" style={{ color: '#2a3a50' }}>Neseniai išleista</p>
-                      <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-                        {outAlbums.map((r, i) => (
-                          <div key={i} className="group cursor-pointer flex-shrink-0 flex items-center gap-3 p-3 rounded-xl transition-all w-[220px]" style={CS} {...CH}>
-                            <div className="flex-shrink-0 w-12 h-12 rounded-lg relative overflow-hidden"
-                              style={{ background: `hsl(${r.hue},38%,15%)`, boxShadow: `0 6px 18px hsl(${r.hue},38%,6%)` }}>
-                              <div className="absolute inset-0 flex items-center justify-center text-xl select-none" style={{ color: 'rgba(255,255,255,0.07)' }}>♪</div>
-                              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
-                                style={{ background: 'rgba(0,0,0,0.5)' }}>
-                                <div className="w-7 h-7 rounded-full bg-orange-500 flex items-center justify-center">
-                                  <span className="text-white text-xs ml-0.5">▶</span>
+                    <div className="mb-6">
+                      <p className="text-[10px] font-black uppercase tracking-[0.14em] mb-3" style={{ color: '#3d5878' }}>Neseniai išleista</p>
+                      <div className="flex gap-4 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
+                        {out.map((r, i) => (
+                          <div key={i} className="group cursor-pointer flex-shrink-0 w-[150px]">
+                            {/* Larger square cover — prominent */}
+                            <div className="w-[150px] h-[150px] rounded-xl mb-3 relative overflow-hidden transition-all duration-300 group-hover:scale-[1.03]"
+                              style={{ background: `hsl(${r.hue},42%,17%)`, boxShadow: `0 12px 36px hsl(${r.hue},42%,6%)` }}>
+                              <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 30% 30%, hsl(${r.hue},55%,32%) 0%, transparent 60%)` }} />
+                              {/* Bottom gradient for text legibility hint */}
+                              <div className="absolute bottom-0 left-0 right-0 h-16" style={{ background: 'linear-gradient(transparent, rgba(0,0,0,0.55))' }} />
+                              {/* Play overlay */}
+                              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200"
+                                style={{ background: 'rgba(0,0,0,0.45)' }}>
+                                <div className="w-11 h-11 rounded-full bg-orange-500 flex items-center justify-center shadow-xl">
+                                  <span className="text-white text-base ml-0.5">▶</span>
                                 </div>
                               </div>
-                              {r.lt && <span className="absolute top-0.5 left-0.5 text-[10px] opacity-70">🇱🇹</span>}
+                              {r.lt && <span className="absolute top-2 left-2 text-xs opacity-70">🇱🇹</span>}
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="text-[13px] font-bold truncate group-hover:text-blue-300 transition-colors" style={{ color: '#e8eefa' }}>{r.title}</h4>
-                              <p className="text-[11px] truncate mt-0.5" style={{ color: '#6a82a0' }}>{r.artist}</p>
-                              <p className="text-[10px] mt-1" style={{ color: '#2a3a50' }}>{r.date} · {r.tracks} dainos</p>
-                            </div>
+                            {/* Clear text below */}
+                            <h4 className="text-[14px] font-bold truncate group-hover:text-blue-300 transition-colors leading-tight" style={{ color: '#eef2fa' }}>{r.title}</h4>
+                            <p className="text-[12px] truncate mt-0.5 font-medium" style={{ color: '#7a93b5' }}>{r.artist}</p>
+                            <p className="text-[11px] mt-1 font-medium" style={{ color: '#4a6580' }}>{r.date}</p>
                           </div>
                         ))}
                       </div>
@@ -554,34 +566,35 @@ export default function Home() {
                   )
                 })()}
 
-                {/* Coming soon */}
+                {/* Greitai pasirodys */}
                 {(() => {
-                  const soonAlbums = ALBUMS.filter(a => a.status === 'soon' && (genre === 'Visi' || genre === 'forYou' || a.genre === genre))
-                  if (soonAlbums.length === 0) return null
+                  const soon = ALBUMS.filter(a => a.status === 'soon' && (genre === 'Visi' || genre === 'forYou' || a.genre === genre))
+                  if (!soon.length) return null
                   return (
                     <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.12em] mb-3" style={{ color: '#2a3a50' }}>Greitai pasirodys</p>
-                      <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-                        {soonAlbums.map((r, i) => (
-                          <div key={i} className="group cursor-pointer flex-shrink-0 flex items-center gap-3 p-3 rounded-xl transition-all w-[220px]"
-                            style={{ background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.06)', opacity: 0.8 }} {...CH}>
-                            <div className="flex-shrink-0 w-12 h-12 rounded-lg relative overflow-hidden"
-                              style={{ background: `hsl(${r.hue},30%,12%)` }}>
-                              <div className="absolute inset-0 flex items-center justify-center text-xl select-none" style={{ color: 'rgba(255,255,255,0.05)' }}>♪</div>
-                              {/* Lock overlay */}
+                      <p className="text-[10px] font-black uppercase tracking-[0.14em] mb-3" style={{ color: '#3d5878' }}>Greitai pasirodys</p>
+                      <div className="flex gap-4 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
+                        {soon.map((r, i) => (
+                          <div key={i} className="group cursor-pointer flex-shrink-0 w-[150px]">
+                            <div className="w-[150px] h-[150px] rounded-xl mb-3 relative overflow-hidden"
+                              style={{ background: `hsl(${r.hue},28%,12%)` }}>
+                              <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 30% 30%, hsl(${r.hue},35%,20%) 0%, transparent 55%)` }} />
+                              {/* Frosted overlay */}
+                              <div className="absolute inset-0" style={{ background: 'rgba(13,17,23,0.45)' }} />
                               <div className="absolute inset-0 flex items-center justify-center">
-                                <span className="text-sm" style={{ color: 'rgba(255,255,255,0.2)' }}>⏳</span>
+                                <div className="text-center">
+                                  <div className="text-2xl mb-1" style={{ color: 'rgba(255,255,255,0.18)' }}>⏳</div>
+                                </div>
                               </div>
-                              {r.lt && <span className="absolute top-0.5 left-0.5 text-[10px] opacity-50">🇱🇹</span>}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="text-[13px] font-bold truncate" style={{ color: '#c8d8f0' }}>{r.title}</h4>
-                              <p className="text-[11px] truncate mt-0.5" style={{ color: '#4a6080' }}>{r.artist}</p>
-                              <div className="flex items-center gap-1.5 mt-1">
-                                <span className="text-[9px] font-black px-1.5 py-0.5 rounded" style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>GREITAI</span>
-                                <p className="text-[10px]" style={{ color: '#2a3a50' }}>{r.date}</p>
+                              {r.lt && <span className="absolute top-2 left-2 text-xs opacity-40">🇱🇹</span>}
+                              {/* Release date badge */}
+                              <div className="absolute bottom-2 left-2 right-2 flex items-center gap-1.5">
+                                <span className="text-[9px] font-black px-1.5 py-0.5 rounded" style={{ background: 'rgba(245,158,11,0.2)', color: '#fbbf24' }}>GREITAI</span>
+                                <span className="text-[10px] font-bold" style={{ color: 'rgba(255,255,255,0.5)' }}>{r.date}</span>
                               </div>
                             </div>
+                            <h4 className="text-[14px] font-bold truncate leading-tight" style={{ color: '#c8d8f0' }}>{r.title}</h4>
+                            <p className="text-[12px] truncate mt-0.5 font-medium" style={{ color: '#5a7898' }}>{r.artist}</p>
                           </div>
                         ))}
                       </div>
