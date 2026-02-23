@@ -100,6 +100,10 @@ function DateRow({ label, y, m, d, onY, onM, onD }: any) {
   )
 }
 
+// Pakeisti ArtistSearch funkciją ArtistForm.tsx faile
+// Rasti: function ArtistSearch({ ... }) { ... }
+// Pakeisti šiuo:
+
 function ArtistSearch({ label, ph, items, onAdd, onRemove, onYears, filterType }: {
   label:string; ph:string; items:(Member|GroupRef)[]
   onAdd:(a:any)=>void; onRemove:(i:number)=>void
@@ -112,22 +116,41 @@ function ArtistSearch({ label, ph, items, onAdd, onRemove, onYears, filterType }
   const [newName, setNewName] = useState('')
 
   useEffect(() => {
-    if (q.length < 1) { setResults([]); return }
-    const all = JSON.parse(localStorage.getItem('artists')||'[]')
-    setResults(all.filter((a:any) =>
-      a.name.toLowerCase().includes(q.toLowerCase()) &&
-      (filterType==='any'||a.type===filterType) &&
-      !items.find((m:any)=>m.id===a.id)
-    ).slice(0,6))
+    if (q.length < 2) { setResults([]); return }
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/artists?search=${encodeURIComponent(q)}&limit=6`)
+        const data = await res.json()
+        const filtered = (data.artists || []).filter((a: any) =>
+          (filterType === 'any' || a.type === filterType) &&
+          !items.find((m: any) => m.id === a.id)
+        )
+        setResults(filtered)
+      } catch {}
+    }, 200)
+    return () => clearTimeout(t)
   }, [q, items, filterType])
 
-  const addNew = () => {
+  const addNew = async () => {
     if (!newName.trim()) return
-    const a = { ...emptyArtistForm, id: Date.now().toString(), name: newName.trim(),
-      type: filterType==='any'?'solo':filterType, createdAt: new Date().toISOString() }
-    const ex = JSON.parse(localStorage.getItem('artists')||'[]')
-    localStorage.setItem('artists', JSON.stringify([...ex, a]))
-    onAdd(a); setNewName(''); setShowNew(false); setQ('')
+    try {
+      const res = await fetch('/api/artists', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newName.trim(),
+          type: filterType === 'any' ? 'solo' : filterType,
+          country: 'Lietuva',
+          type_music: true, type_film: false, type_dance: false, type_books: false,
+          genres: [], breaks: [], photos: [], links: {},
+        })
+      })
+      const data = await res.json()
+      if (data.id) {
+        onAdd({ id: data.id, name: newName.trim() })
+        setNewName(''); setShowNew(false); setQ('')
+      }
+    } catch {}
   }
 
   return (
@@ -157,8 +180,10 @@ function ArtistSearch({ label, ph, items, onAdd, onRemove, onYears, filterType }
               <button key={a.id} type="button" onClick={()=>{onAdd(a);setQ('');setResults([])}}
                 className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 text-left">
                 <div className="w-7 h-7 rounded-full bg-music-blue flex items-center justify-center text-white text-xs">{a.name[0]}</div>
-                <div><div className="text-sm font-medium text-gray-900">{a.name}</div>
-                  <div className="text-xs text-gray-400">{a.type==='group'?'Grupė':'Atlikėjas'} · {a.country}</div></div>
+                <div>
+                  <div className="text-sm font-medium text-gray-900">{a.name}</div>
+                  <div className="text-xs text-gray-400">{a.type==='group'?'Grupė':'Atlikėjas'} · {a.country}</div>
+                </div>
               </button>
             ))}
           </div>
