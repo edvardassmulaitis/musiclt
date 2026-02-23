@@ -5,6 +5,12 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+function toInt(v: any): number | null {
+  if (v === null || v === undefined || v === '' || v === 0) return null
+  const n = typeof v === 'number' ? v : parseInt(String(v))
+  return isNaN(n) || n === 0 ? null : n
+}
+
 function slugify(text: string): string {
   return text.toLowerCase()
     .replace(/[ąčęėįšųūž]/g, c => ({ ą:'a',č:'c',ę:'e',ė:'e',į:'i',š:'s',ų:'u',ū:'u',ž:'z' }[c] || c))
@@ -113,7 +119,7 @@ export async function createAlbum(data: AlbumFull): Promise<number> {
   const slug = slugify(data.title) + (data.year ? `-${data.year}` : '')
   const { data: row, error } = await supabase.from('albums').insert({
     title: data.title, slug, artist_id: data.artist_id,
-    year: data.year || null, month: data.month || null, day: data.day || null,
+    year: toInt(data.year), month: toInt(data.month), day: toInt(data.day),
     type_studio: data.type_studio, type_compilation: data.type_compilation,
     type_ep: data.type_ep, type_single: data.type_single, type_live: data.type_live,
     type_remix: data.type_remix, type_covers: data.type_covers,
@@ -135,7 +141,7 @@ export async function updateAlbum(id: number, data: AlbumFull): Promise<void> {
   const slug = slugify(data.title) + (data.year ? `-${data.year}` : '')
   const { error } = await supabase.from('albums').update({
     title: data.title, slug, artist_id: data.artist_id,
-    year: data.year || null, month: data.month || null, day: data.day || null,
+    year: toInt(data.year), month: toInt(data.month), day: toInt(data.day),
     type_studio: data.type_studio, type_compilation: data.type_compilation,
     type_ep: data.type_ep, type_single: data.type_single, type_live: data.type_live,
     type_remix: data.type_remix, type_covers: data.type_covers,
@@ -182,7 +188,7 @@ async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackI
     if (trackId) {
       trackRows.push({
         album_id: albumId, track_id: trackId,
-        sort_order: t.sort_order, disc_number: t.disc_number || 1,
+        sort_order: toInt(t.sort_order) || 1, disc_number: toInt(t.disc_number) || 1,
         duration: t.duration || null, is_single: t.is_single || false,
       })
     }
