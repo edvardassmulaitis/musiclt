@@ -214,9 +214,15 @@ export default function WikipediaImport({ onImport }: Props) {
       setStep('📋 Skaitomas infobox...')
       let infoboxWebsite = '', infoboxYearsRaw = '', infoboxGenres: string[] | null = null
       try {
-        const wt: string = (await (await fetch(
-          `https://en.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(s)}&prop=wikitext&format=json&origin=*`
-        )).json()).parse?.wikitext?.['*'] || ''
+        const wtRes = await (await fetch(
+          `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(s)}&prop=revisions&rvprop=content&rvslots=main&format=json&origin=*`
+        )).json()
+        const pages = wtRes.query?.pages || {}
+        const wt: string = Object.values(pages)[0]?.['revisions']?.[0]?.['slots']?.['main']?.['*']
+          || Object.values(pages)[0]?.['revisions']?.[0]?.['*']
+          || (await (await fetch(
+            `https://en.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(s)}&prop=wikitext&format=json&origin=*`
+          )).json()).parse?.wikitext?.['*'] || ''
         infoboxGenres = parseInfoboxGenres(wt)
         const wsM = wt.match(/\|\s*website\s*=\s*(?:\{\{[Uu][Rr][Ll]\|([^|}]+)[^}]*\}\}|(https?:\/\/[^\s<|{}\[\]\n]+))/i)
         if (wsM) {
