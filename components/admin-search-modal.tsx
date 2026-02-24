@@ -56,10 +56,10 @@ export default function AdminSearchModal({ onClose }: { onClose: () => void }) {
   const noResults = searched && !loading && !hasResults
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 px-4"
+    <div className="fixed inset-0 z-50 flex flex-col"
       onClick={onClose}>
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-      <div className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl overflow-hidden"
+      <div className="relative w-full h-full bg-white flex flex-col"
         onClick={e => e.stopPropagation()}>
 
         {/* Search input */}
@@ -81,12 +81,12 @@ export default function AdminSearchModal({ onClose }: { onClose: () => void }) {
 
         {/* Results */}
         {(hasResults || noResults) && (
-          <div className="max-h-[60vh] overflow-y-auto">
+          <div className="flex-1 overflow-y-auto">
             {noResults && (
               <div className="px-5 py-8 text-center text-gray-400">Nieko nerasta pagal „{query}"</div>
             )}
             {hasResults && (
-              <div className="grid grid-cols-3 divide-x divide-gray-100">
+              <div className="grid grid-cols-3 divide-x divide-gray-100 h-full">
 
                 {/* Artists */}
                 <div>
