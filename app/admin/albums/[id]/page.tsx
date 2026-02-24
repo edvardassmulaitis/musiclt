@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, use } from 'react'
+import { useState, useEffect, use, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -70,6 +70,133 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
   )
 }
 
+// Cover image upload/preview component
+function CoverImageField({ value, onChange }: { value: string; onChange: (url: string) => void }) {
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
+  const [urlInput, setUrlInput] = useState(value || '')
+
+  // Sync urlInput when value changes externally (e.g. loaded from DB)
+  useEffect(() => { setUrlInput(value || '') }, [value])
+
+  const handleUrlChange = (v: string) => {
+    setUrlInput(v)
+    onChange(v)
+  }
+
+  const handleFileUpload = async (file: File) => {
+    if (!file) return
+    setUploading(true)
+    setUploadError('')
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch('/api/upload', { method: 'POST', body: formData })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Upload nepavyko')
+      onChange(data.url)
+      setUrlInput(data.url)
+    } catch (e: any) {
+      setUploadError(e.message)
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    const file = e.dataTransfer.files[0]
+    if (file && file.type.startsWith('image/')) handleFileUpload(file)
+  }
+
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Viršelio nuotrauka</label>
+      <div className="flex gap-3">
+        {/* Preview */}
+        <div
+          className="w-24 h-24 rounded-lg border-2 border-dashed border-gray-300 flex-shrink-0 overflow-hidden relative bg-gray-50 cursor-pointer hover:border-music-blue transition-colors group"
+          onClick={() => fileRef.current?.click()}
+          onDrop={handleDrop}
+          onDragOver={e => e.preventDefault()}
+          title="Spustelėk arba nutempk nuotrauką"
+        >
+          {value ? (
+            <>
+              <img
+                src={value}
+                alt="Viršelis"
+                referrerPolicy="no-referrer"
+                className="w-full h-full object-cover"
+                onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+              />
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <span className="text-white text-xs font-medium">Keisti</span>
+              </div>
+            </>
+          ) : (
+            <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 gap-1">
+              {uploading ? (
+                <span className="text-xs">⏳</span>
+              ) : (
+                <>
+                  <span className="text-2xl">🖼️</span>
+                  <span className="text-xs text-center px-1">Spausti arba tempti</span>
+                </>
+              )}
+            </div>
+          )}
+          {uploading && (
+            <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
+              <span className="text-xs text-gray-500">⏳ Keliama...</span>
+            </div>
+          )}
+        </div>
+
+        {/* URL input + upload button */}
+        <div className="flex-1 space-y-2">
+          <input
+            type="text"
+            value={urlInput}
+            onChange={e => handleUrlChange(e.target.value)}
+            placeholder="https://... arba įkelk failą"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-music-blue bg-white"
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+              className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium disabled:opacity-50 transition-colors"
+            >
+              📁 Įkelti failą
+            </button>
+            {value && (
+              <button
+                type="button"
+                onClick={() => { onChange(''); setUrlInput('') }}
+                className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-xs font-medium transition-colors"
+              >
+                🗑️ Pašalinti
+              </button>
+            )}
+          </div>
+          {uploadError && <p className="text-xs text-red-500">{uploadError}</p>}
+        </div>
+      </div>
+
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f) }}
+      />
+    </div>
+  )
+}
+
 export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
   const id = resolvedParams?.id
@@ -108,12 +235,10 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
   }, [artistSearch])
 
   const setType = (key: string, val: boolean) => {
-    // Only one type at a time
     const reset = Object.fromEntries(ALBUM_TYPE_FIELDS.map(t => [t.key, false]))
     setForm(p => ({ ...p, ...reset, [key]: val }))
   }
 
-  // Tracks
   const addTrack = () => setForm(p => ({
     ...p, tracks: [...(p.tracks || []), { title: '', sort_order: (p.tracks?.length || 0) + 1, type: 'normal', disc_number: 1 }]
   }))
@@ -234,11 +359,15 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
 
             <Card title="Papildoma">
               <div className="space-y-3">
+                {/* Cover image with preview */}
+                <CoverImageField
+                  value={form.cover_image_url || ''}
+                  onChange={(url) => set('cover_image_url', url)}
+                />
                 <Inp label="Spotify ID" value={form.spotify_id} onChange={(v: string) => set('spotify_id', v)} placeholder="0abc123..." />
                 <Inp label="Video URL" value={form.video_url} onChange={(v: string) => set('video_url', v)} placeholder="https://youtube.com/..." />
-                <Inp label="Viršelio nuotrauka URL" value={form.cover_image_url} onChange={(v: string) => set('cover_image_url', v)} placeholder="https://..." />
                 <div className="flex gap-4 pt-1">
-                  {[['show_artist_name','Rodyti atlikėjo vardą'],['show_player','Rodyti player\'ą'],['is_upcoming','Laukiamas']] .map(([k,l]) => (
+                  {[['show_artist_name','Rodyti atlikėjo vardą'],['show_player','Rodyti player\'ą'],['is_upcoming','Laukiamas']].map(([k,l]) => (
                     <label key={k} className="flex items-center gap-2 cursor-pointer">
                       <input type="checkbox" checked={(form as any)[k] || false} onChange={e => set(k as any, e.target.checked)} className="accent-music-blue" />
                       <span className="text-sm text-gray-700">{l}</span>
