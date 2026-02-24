@@ -39,13 +39,23 @@ async function fetchWikitext(title: string): Promise<string> {
 
 async function fetchCoverImage(wikiTitle: string): Promise<string> {
   try {
+    // Try pageimages first (faster)
     const res = await fetch(
-      `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(wikiTitle)}&prop=pageimages&pithumbsize=400&format=json&origin=*`
+      `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(wikiTitle)}&prop=pageimages&pithumbsize=500&piprop=thumbnail&format=json&origin=*`
     )
     const json = await res.json()
     const pages = json.query?.pages || {}
     const page = Object.values(pages)[0] as any
-    return page?.thumbnail?.source || ''
+    const thumb = page?.thumbnail?.source || ''
+    if (thumb) return thumb
+    // Fallback: original image
+    const res2 = await fetch(
+      `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(wikiTitle)}&prop=pageimages&pithumbsize=500&piprop=original&format=json&origin=*`
+    )
+    const json2 = await res2.json()
+    const pages2 = json2.query?.pages || {}
+    const page2 = Object.values(pages2)[0] as any
+    return page2?.original?.source || ''
   } catch { return '' }
 }
 
@@ -181,23 +191,47 @@ function parseDiscographyPage(wikitext: string): DiscographyAlbum[] {
   return albums
 }
 
+// Extract {{Track listing}} templates handling nested {{ }}
+function extractTrackListings(wikitext: string): string[] {
+  const results: string[] = []
+  const pattern = /\{\{[Tt]rack\s*[Ll]isting/g
+  let m: RegExpExecArray | null
+  while ((m = pattern.exec(wikitext)) !== null) {
+    let depth = 0, i = m.index
+    while (i < wikitext.length - 1) {
+      if (wikitext[i] === '{' && wikitext[i+1] === '{') { depth++; i += 2 }
+      else if (wikitext[i] === '}' && wikitext[i+1] === '}') {
+        depth--; i += 2
+        if (depth === 0) { results.push(wikitext.slice(m.index + 2, i - 2)); break }
+      } else i++
+    }
+  }
+  return results
+}
+
 function parseTracklist(wikitext: string): { title: string; duration?: string; sort_order: number }[] {
   const tracks: { title: string; duration?: string; sort_order: number }[] = []
   let order = 1
 
-  const tlMatches = wikitext.match(/\{\{[Tt]rack\s*listing([\s\S]+?)\}\}/g) || []
-  for (const tl of tlMatches) {
+  const tlBlocks = extractTrackListings(wikitext)
+  for (const tl of tlBlocks) {
     let i = 1
     while (true) {
       const titleM = tl.match(new RegExp(`\\|\\s*title${i}\\s*=\\s*([^|\\n]+)`))
       if (!titleM) break
       const lenM = tl.match(new RegExp(`\\|\\s*length${i}\\s*=\\s*([^|\\n]+)`))
-      const title = titleM[1].trim().replace(/\[\[(?:[^\]|]+\|)?([^\]|]+)\]\]/g, '$1').replace(/''/g, '').trim()
+      const raw = titleM[1].trim()
+      const title = raw
+        .replace(/\[\[(?:[^\]|]+\|)?([^\]|]+)\]\]/g, '$1')
+        .replace(/''/g, '')
+        .replace(/\{\{.*?\}\}/g, '')  // remove nested templates like {{efn}}
+        .trim()
       if (title) tracks.push({ title, duration: lenM?.[1]?.trim(), sort_order: order++ })
       i++
     }
   }
 
+  // Fallback: numbered list format
   if (!tracks.length) {
     for (const line of wikitext.split('\n')) {
       const m = line.match(/^#+\s*(?:\[\[(?:[^\]|]+\|)?([^\]|]+)\]\]|''([^']+)''|([^<({|\n]+))/)
