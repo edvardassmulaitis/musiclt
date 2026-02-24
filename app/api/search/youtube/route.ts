@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// YouTube Data API v3 search
 export async function GET(req: NextRequest) {
   const q = new URL(req.url).searchParams.get('q') || ''
   if (!q.trim()) return NextResponse.json({ results: [] })
 
   const apiKey = process.env.YOUTUBE_API_KEY
   if (!apiKey) {
-    // Fallback: return search URL for manual use
     return NextResponse.json({
       results: [],
       searchUrl: `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`,
@@ -16,21 +14,44 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const res = await fetch(
+    // Step 1: Search
+    const searchRes = await fetch(
       `https://www.googleapis.com/youtube/v3/search?` +
-      `part=snippet&q=${encodeURIComponent(q)}&type=video&maxResults=8` +
-      `&videoCategoryId=10&key=${apiKey}` // category 10 = Music
+      `part=snippet&q=${encodeURIComponent(q)}&type=video&maxResults=10` +
+      `&videoCategoryId=10&key=${apiKey}`
     )
-    const data = await res.json()
+    const searchData = await searchRes.json()
+    if (searchData.error) throw new Error(searchData.error.message)
 
-    if (data.error) throw new Error(data.error.message)
+    const videoIds = (searchData.items || []).map((i: any) => i.id.videoId).join(',')
+    if (!videoIds) return NextResponse.json({ results: [] })
 
-    const results = (data.items || []).map((item: any) => ({
-      videoId: item.id.videoId,
-      title: item.snippet.title,
-      channel: item.snippet.channelTitle,
-      thumbnail: item.snippet.thumbnails?.medium?.url || item.snippet.thumbnails?.default?.url || '',
-    }))
+    // Step 2: Check embeddable + status for each video
+    const detailRes = await fetch(
+      `https://www.googleapis.com/youtube/v3/videos?` +
+      `part=status,snippet&id=${videoIds}&key=${apiKey}`
+    )
+    const detailData = await detailRes.json()
+
+    const availableIds = new Set(
+      (detailData.items || [])
+        .filter((v: any) =>
+          v.status?.embeddable === true &&
+          v.status?.uploadStatus === 'processed' &&
+          v.status?.privacyStatus === 'public'
+        )
+        .map((v: any) => v.id)
+    )
+
+    const results = (searchData.items || [])
+      .filter((item: any) => availableIds.has(item.id.videoId))
+      .slice(0, 8)
+      .map((item: any) => ({
+        videoId: item.id.videoId,
+        title: item.snippet.title,
+        channel: item.snippet.channelTitle,
+        thumbnail: item.snippet.thumbnails?.medium?.url || item.snippet.thumbnails?.default?.url || '',
+      }))
 
     return NextResponse.json({ results })
   } catch (e: any) {
