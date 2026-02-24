@@ -83,31 +83,38 @@ export async function PUT(
   try {
     const data = await req.json()
 
-    const y = data.release_year ? parseInt(data.release_year) : null
-    const m = data.release_month ? parseInt(data.release_month) : null
-    const d = data.release_day ? parseInt(data.release_day) : null
-    // Only store release_date when all three known
-    const release_date = y && m && d
-      ? `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`
-      : null
+    // Partial update: only include fields that are explicitly provided
+    const updates: Record<string, any> = {}
 
-    const { error } = await supabase.from('tracks').update({
-      title: data.title,
-      artist_id: Number(data.artist_id),
-      type: data.type || 'normal',
-      release_year: y,
-      release_month: m,
-      release_day: d,
-      release_date,
-      is_new: data.is_new ?? false,
-      is_new_date: data.is_new ? (data.is_new_date || new Date().toISOString().slice(0, 10)) : null,
-      cover_url: data.cover_url || null,
-      video_url: data.video_url || null,
-      lyrics: data.lyrics || null,
-      description: data.description || null,
-      spotify_id: data.spotify_id || null,
-    }).eq('id', trackId)
-    if (error) throw error
+    if ('title' in data) updates.title = data.title
+    if ('artist_id' in data) updates.artist_id = Number(data.artist_id)
+    if ('type' in data) updates.type = data.type || 'normal'
+    if ('is_new' in data) {
+      updates.is_new = data.is_new ?? false
+      updates.is_new_date = data.is_new ? (data.is_new_date || new Date().toISOString().slice(0, 10)) : null
+    }
+    if ('cover_url' in data) updates.cover_url = data.cover_url || null
+    if ('video_url' in data) updates.video_url = data.video_url || null
+    if ('youtube_url' in data) updates.video_url = data.youtube_url || null
+    if ('lyrics' in data) updates.lyrics = data.lyrics || null
+    if ('description' in data) updates.description = data.description || null
+    if ('spotify_id' in data) updates.spotify_id = data.spotify_id || null
+    if ('release_year' in data || 'release_month' in data || 'release_day' in data) {
+      const y = data.release_year ? parseInt(data.release_year) : null
+      const m = data.release_month ? parseInt(data.release_month) : null
+      const d = data.release_day ? parseInt(data.release_day) : null
+      updates.release_year = y
+      updates.release_month = m
+      updates.release_day = d
+      updates.release_date = y && m && d
+        ? `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+        : null
+    }
+
+    if (Object.keys(updates).length > 0) {
+      const { error } = await supabase.from('tracks').update(updates).eq('id', trackId)
+      if (error) throw error
+    }
 
     if (Array.isArray(data.featuring)) {
       await supabase.from('track_artists').delete().eq('track_id', trackId)
