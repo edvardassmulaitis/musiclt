@@ -56,6 +56,8 @@ export type TrackInAlbum = {
   video_url?: string
   spotify_id?: string
   is_single?: boolean
+  // Featuring artists parsed from title e.g. "Song (featuring Jenny Lewis)"
+  featuring?: string[]
 }
 
 export type TrackFull = {
@@ -118,7 +120,6 @@ export async function createAlbum(data: AlbumFull): Promise<number> {
   if (!data.artist_id) throw new Error('Atlikėjas privalomas')
   const slug = slugify(data.title) + (data.year ? `-${data.year}` : '')
 
-  // Check if album already exists (avoid duplicates on re-import)
   const { data: existing } = await supabase
     .from('albums').select('id').eq('artist_id', Number(data.artist_id)).eq('slug', slug).maybeSingle()
   if (existing) {
@@ -172,28 +173,88 @@ export async function deleteAlbum(id: number): Promise<void> {
   if (error) throw error
 }
 
+// Find or create an artist by name (used for featuring artists)
+async function findOrCreateArtist(name: string): Promise<number | null> {
+  const slug = slugify(name)
+  // Try to find existing
+  const { data: existing } = await supabase
+    .from('artists').select('id').eq('slug', slug).maybeSingle()
+  if (existing) return existing.id
+
+  // Create new artist (minimal data, can be enriched later)
+  const { data: newArtist, error } = await supabase.from('artists').insert({
+    name,
+    slug,
+    // Required fields with sensible defaults
+    country: '',
+    type_group: false,
+    type_solo: true,
+  }).select('id').single()
+
+  if (error) {
+    console.error('Failed to create featuring artist:', name, error)
+    return null
+  }
+  return newArtist?.id || null
+}
+
 async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackInAlbum[]) {
+  // Delete existing album_tracks rows
   await supabase.from('album_tracks').delete().eq('album_id', albumId)
   if (!tracks.length) return
 
   const trackRows = []
+
   for (let i = 0; i < tracks.length; i++) {
     const t = tracks[i]
     let trackId = t.track_id
+
     if (!trackId) {
-      const slug = slugify(t.title)
+      // Use cleaned title (without "featuring ...") for the slug/DB title
+      const cleanTitle = t.title
+        .replace(/\s*\(feat(?:uring)?\.?\s+[^)]+\)/gi, '')
+        .replace(/\s*\[feat(?:uring)?\.?\s+[^\]]+\]/gi, '')
+        .trim()
+
+      const slug = slugify(cleanTitle)
+
       const { data: existing } = await supabase
         .from('tracks').select('id').eq('artist_id', artistId).eq('slug', slug).maybeSingle()
+
       if (existing) {
         trackId = existing.id
       } else {
-        const { data: newTrack } = await supabase.from('tracks').insert({
-          title: t.title, slug, artist_id: artistId, type: t.type || 'normal',
-          video_url: t.video_url || null, spotify_id: t.spotify_id || null,
+        const { data: newTrack, error: trackError } = await supabase.from('tracks').insert({
+          title: cleanTitle,
+          slug,
+          artist_id: artistId,
+          type: t.type || 'normal',
+          video_url: t.video_url || null,
+          spotify_id: t.spotify_id || null,
         }).select('id').single()
+
+        if (trackError) {
+          console.error('Failed to insert track:', cleanTitle, trackError)
+          continue
+        }
         trackId = newTrack?.id
+
+        // Handle featuring artists: parse from original title
+        if (trackId && t.featuring && t.featuring.length > 0) {
+          for (const featName of t.featuring) {
+            const featArtistId = await findOrCreateArtist(featName.trim())
+            if (featArtistId) {
+              await supabase.from('track_artists').upsert({
+                track_id: trackId,
+                artist_id: featArtistId,
+                is_primary: false,
+              }, { onConflict: 'track_id,artist_id' })
+            }
+          }
+        }
       }
     }
+
     if (trackId) {
       trackRows.push({
         album_id: albumId,
@@ -203,6 +264,7 @@ async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackI
       })
     }
   }
+
   if (trackRows.length) {
     const { error } = await supabase.from('album_tracks').insert(trackRows)
     if (error) console.error('album_tracks insert error:', error)
