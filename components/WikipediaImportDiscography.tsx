@@ -548,41 +548,45 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
 
     let ytCount = 0, lyricsCount = 0
 
-    for (const dbTrack of dbTracks) {
-      const updates: Record<string, any> = {}
+    // Process in parallel batches of 3
+    const BATCH = 3
+    for (let i = 0; i < dbTracks.length; i += BATCH) {
+      const batch = dbTracks.slice(i, i + BATCH)
+      await Promise.all(batch.map(async (dbTrack: any) => {
+        const updates: Record<string, any> = {}
 
-      if (enrichYoutube && !dbTrack.youtube_url) {
-        try {
-          const q = `${artistName} ${dbTrack.title}`
-          const r = await fetch(`/api/search/youtube?q=${encodeURIComponent(q)}`)
-          const data = await r.json()
-          const first = data.results?.[0]
-          if (first && titleMatches(first.title, q)) {
-            updates.youtube_url = `https://www.youtube.com/watch?v=${first.videoId}`
-            ytCount++
-          }
-        } catch {}
-      }
+        if (enrichYoutube && !dbTrack.youtube_url) {
+          try {
+            const q = `${artistName} ${dbTrack.title}`
+            const r = await fetch(`/api/search/youtube?q=${encodeURIComponent(q)}`)
+            const data = await r.json()
+            const first = data.results?.[0]
+            if (first && titleMatches(first.title, q)) {
+              updates.youtube_url = `https://www.youtube.com/watch?v=${first.videoId}`
+              ytCount++
+            }
+          } catch {}
+        }
 
-      if (enrichLyrics && !dbTrack.lyrics) {
-        try {
-          const r = await fetch(`/api/search/lyrics?artist=${encodeURIComponent(artistName)}&title=${encodeURIComponent(dbTrack.title)}`)
-          const data = await r.json()
-          if (data.lyrics) { updates.lyrics = data.lyrics; lyricsCount++ }
-        } catch {}
-      }
+        if (enrichLyrics && !dbTrack.lyrics) {
+          try {
+            const r = await fetch(`/api/search/lyrics?artist=${encodeURIComponent(artistName)}&title=${encodeURIComponent(dbTrack.title)}`)
+            const data = await r.json()
+            if (data.lyrics) { updates.lyrics = data.lyrics; lyricsCount++ }
+          } catch {}
+        }
 
-      if (Object.keys(updates).length > 0) {
-        try {
-          await fetch(`/api/tracks/${dbTrack.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updates),
-          })
-        } catch {}
-      }
-
-      await new Promise(r => setTimeout(r, 200))
+        if (Object.keys(updates).length > 0) {
+          try {
+            await fetch(`/api/tracks/${dbTrack.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(updates),
+            })
+          } catch {}
+        }
+      }))
+      await new Promise(r => setTimeout(r, 100))
     }
     addLog(`  ✓ ${ytCount} YouTube, ${lyricsCount} žodžių`)
   }
