@@ -534,53 +534,57 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
   // Enrich tracks with YouTube video ID and lyrics after album import
   const enrichTracks = async (albumId: number, tracks: TrackEntry[], albumTitle: string) => {
     if (!enrichYoutube && !enrichLyrics) return
-    addLog(`  🎬 Praturtinama: ${albumTitle} (${tracks.length} dainų)...`)
+    addLog(`  🎬 Praturtinama: ${albumTitle}...`)
 
-    for (const track of tracks) {
+    // Fetch all tracks for this album once
+    let dbTracks: any[] = []
+    try {
+      const r = await fetch(`/api/tracks?album_id=${albumId}&limit=200`)
+      const data = await r.json()
+      dbTracks = data.tracks || []
+    } catch { return }
+
+    if (!dbTracks.length) { addLog(`  ⚠️ Nerasta dainų albumui ${albumId}`); return }
+
+    let ytCount = 0, lyricsCount = 0
+
+    for (const dbTrack of dbTracks) {
       const updates: Record<string, any> = {}
 
-      // YouTube
-      if (enrichYoutube) {
+      if (enrichYoutube && !dbTrack.youtube_url) {
         try {
-          const q = `${artistName} ${track.title}`
+          const q = `${artistName} ${dbTrack.title}`
           const r = await fetch(`/api/search/youtube?q=${encodeURIComponent(q)}`)
           const data = await r.json()
           const first = data.results?.[0]
           if (first && titleMatches(first.title, q)) {
             updates.youtube_url = `https://www.youtube.com/watch?v=${first.videoId}`
+            ytCount++
           }
         } catch {}
       }
 
-      // Lyrics
-      if (enrichLyrics) {
+      if (enrichLyrics && !dbTrack.lyrics) {
         try {
-          const r = await fetch(`/api/search/lyrics?artist=${encodeURIComponent(artistName)}&title=${encodeURIComponent(track.title)}`)
+          const r = await fetch(`/api/search/lyrics?artist=${encodeURIComponent(artistName)}&title=${encodeURIComponent(dbTrack.title)}`)
           const data = await r.json()
-          if (data.lyrics) updates.lyrics = data.lyrics
+          if (data.lyrics) { updates.lyrics = data.lyrics; lyricsCount++ }
         } catch {}
       }
 
       if (Object.keys(updates).length > 0) {
-        // Find track by title in album
         try {
-          const tracksRes = await fetch(`/api/tracks?album_id=${albumId}&limit=200`)
-          const tracksData = await tracksRes.json()
-          const found = (tracksData.tracks || []).find((t: any) =>
-            t.title.toLowerCase() === track.title.toLowerCase()
-          )
-          if (found) {
-            await fetch(`/api/tracks/${found.id}`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(updates),
-            })
-          }
+          await fetch(`/api/tracks/${dbTrack.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updates),
+          })
         } catch {}
       }
 
-      await new Promise(r => setTimeout(r, 150))
+      await new Promise(r => setTimeout(r, 200))
     }
+    addLog(`  ✓ ${ytCount} YouTube, ${lyricsCount} žodžių`)
   }
 
   const importSelected = async () => {
