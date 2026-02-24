@@ -1,41 +1,130 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getTrackById, updateTrack, deleteTrack } from '@/lib/supabase-albums'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { createClient } from '@supabase/supabase-js'
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+
+// GET /api/tracks/[id] – fetch single track with featuring + albums
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   const { id } = await params
   try {
-    const track = await getTrackById(parseInt(id))
-    return NextResponse.json(track)
+    const { data: track, error } = await supabase
+      .from('tracks')
+      .select('*, artists!tracks_artist_id_fkey(id, name, slug)')
+      .eq('id', parseInt(id))
+      .single()
+    if (error) throw error
+
+    // Featuring artists
+    const { data: featRows } = await supabase
+      .from('track_artists')
+      .select('artist_id, is_primary, artists(id, name, slug)')
+      .eq('track_id', parseInt(id))
+
+    const featuring = (featRows || []).map((r: any) => ({
+      artist_id: r.artist_id,
+      name: r.artists?.name || '',
+      slug: r.artists?.slug || '',
+      is_primary: r.is_primary || false,
+    }))
+
+    // Albums this track appears in
+    const { data: albumRows } = await supabase
+      .from('album_tracks')
+      .select('position, is_primary, albums(id, title, year)')
+      .eq('track_id', parseInt(id))
+      .order('position')
+
+    const albums = (albumRows || []).map((r: any) => ({
+      album_id: r.albums?.id,
+      album_title: r.albums?.title || '',
+      album_year: r.albums?.year || null,
+      position: r.position || 0,
+      is_single: r.is_primary || false,
+    }))
+
+    return NextResponse.json({ ...track, featuring, albums })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
 }
 
-export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
+// PUT /api/tracks/[id] – update track + featuring
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   const session = await getServerSession(authOptions)
-  if (!session?.user || !['admin','super_admin'].includes(session.user.role || '')) {
+  if (!session?.user || !['admin', 'super_admin'].includes(session.user.role || '')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+
+  const { id } = await params
+  const trackId = parseInt(id)
+
   try {
     const data = await req.json()
-    await updateTrack(parseInt(id), data)
+
+    const { error } = await supabase.from('tracks').update({
+      title: data.title,
+      artist_id: Number(data.artist_id),
+      type: data.type || 'normal',
+      release_date: data.release_date || null,
+      is_new: data.is_new ?? false,
+      video_url: data.video_url || null,
+      lyrics: data.lyrics || null,
+      description: data.description || null,
+      spotify_id: data.spotify_id || null,
+      show_player: data.show_player ?? false,
+    }).eq('id', trackId)
+    if (error) throw error
+
+    // Sync featuring artists (replace all)
+    if (Array.isArray(data.featuring)) {
+      await supabase.from('track_artists').delete().eq('track_id', trackId)
+      if (data.featuring.length > 0) {
+        const { error: featError } = await supabase.from('track_artists').insert(
+          data.featuring.map((f: any) => ({
+            track_id: trackId,
+            artist_id: f.artist_id,
+            is_primary: f.is_primary || false,
+          }))
+        )
+        if (featError) throw featError
+      }
+    }
+
     return NextResponse.json({ ok: true })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
+// DELETE /api/tracks/[id] – delete track + relations
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   const session = await getServerSession(authOptions)
-  if (!session?.user || !['admin','super_admin'].includes(session.user.role || '')) {
+  if (!session?.user || !['admin', 'super_admin'].includes(session.user.role || '')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+
+  const { id } = await params
+  const trackId = parseInt(id)
+
   try {
-    await deleteTrack(parseInt(id))
+    await supabase.from('track_artists').delete().eq('track_id', trackId)
+    await supabase.from('album_tracks').delete().eq('track_id', trackId)
+    const { error } = await supabase.from('tracks').delete().eq('id', trackId)
+    if (error) throw error
     return NextResponse.json({ ok: true })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
