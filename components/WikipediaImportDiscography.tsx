@@ -92,20 +92,15 @@ async function fetchCoverImage(wikiTitle: string): Promise<string> {
   } catch { return '' }
 }
 
-// Clean wiki markup from text
 function cleanWikiText(raw: string): string {
   let s = raw
-  // [[Link|Display]] - take display part, strip surrounding quotes
   s = s.replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, (_: string, _link: string, display: string) =>
     display.replace(/^[\u201c\u2018\u2019\u201d"']+|[\u201c\u2018\u2019\u201d"']+$/g, '').trim()
   )
-  // [[Link]] - take link text, replace underscores
   s = s.replace(/\[\[([^\]]+)\]\]/g, (_: string, link: string) =>
     link.replace(/_/g, ' ').replace(/^[\u201c\u2018\u2019\u201d"']+|[\u201c\u2018\u2019\u201d"']+$/g, '').trim()
   )
-  // Remove remaining [[ ]] fragments
   s = s.replace(/\[\[|\]\]/g, '')
-  // Remove {{templates}} - but featuring templates are handled before this
   s = s.replace(/\{\{[^}]*\}\}/g, '')
   s = s.replace(/''+/g, '')
   s = s.replace(/\[\w*\s*\d*\]/g, '')
@@ -115,12 +110,8 @@ function cleanWikiText(raw: string): string {
   return s.trim()
 }
 
-// Extract featuring names from RAW wikitext (before template cleanup)
-// Handles: (featuring [[Jenny Lewis]]), {{feat.|[[X]]}}, (feat. X and Y)
 function extractFeaturing(raw: string): string[] {
   const names: string[] = []
-
-  // Pattern 1: (featuring ...) or (feat. ...) with optional wiki links
   const parenMatch = raw.match(/\((?:feat(?:uring)?\.?|ft\.?)\s+([^)]+)\)/i)
   if (parenMatch) {
     const parts = parenMatch[1].split(/\s+and\s+|[,&]/i)
@@ -131,8 +122,6 @@ function extractFeaturing(raw: string): string[] {
     }
     return names
   }
-
-  // Pattern 2: {{featuring|...}} or {{feat.|...}} template
   const tplMatch = raw.match(/\{\{(?:feat(?:uring)?\.?|ft\.?)[\s|]([^}]+)\}\}/i)
   if (tplMatch) {
     const parts = tplMatch[1].split(/\s*\|\s*|\s+and\s+|[,&]/i)
@@ -142,24 +131,20 @@ function extractFeaturing(raw: string): string[] {
       if (name.length > 1) names.push(name)
     }
   }
-
   return names
 }
 
-// Parse featuring from raw wiki title - extract BEFORE cleaning templates
 function parseFeaturing(raw: string): { cleanTitle: string; featuring: string[] } {
   const featuring = extractFeaturing(raw)
-
-  // Remove featuring markup from title before cleaning
   let cleanTitle = raw
     .replace(/\s*\((?:feat(?:uring)?\.?|ft\.?)\s+[^)]+\)/gi, '')
     .replace(/\s*\{\{(?:feat(?:uring)?\.?|ft\.?)[\s|][^}]+\}\}/gi, '')
     .trim()
-
   cleanTitle = cleanWikiText(cleanTitle)
   return { cleanTitle, featuring }
 }
-function parseMainPageDiscography(wikitext: string, soloOnly = false): DiscographyAlbum[] {
+
+function parseMainPageDiscography(wikitext: string, soloOnly = false, groupFilter?: string): DiscographyAlbum[] {
   const albums: DiscographyAlbum[] = []
   const lines = wikitext.split('\n')
   let inDiscSection = false
@@ -179,7 +164,12 @@ function parseMainPageDiscography(wikitext: string, soloOnly = false): Discograp
       if (inDiscSection) {
         if (depth === 3) {
           const groupName = hRaw.trim()
-          skipGroup = soloOnly && !/solo|as lead|as artist/i.test(groupName) && groupName.length > 0
+          if (groupFilter && groupFilter !== '__solo__' && groupFilter !== '__all__') {
+            // Filter by specific group name
+            skipGroup = !groupName.toLowerCase().includes(groupFilter.toLowerCase())
+          } else {
+            skipGroup = soloOnly && !/solo|as lead|as artist/i.test(groupName) && groupName.length > 0
+          }
         }
         if (depth === 3 || depth === 4) {
           const typeH = h.replace(/\[\[.*?\]\]/g, '')
@@ -274,8 +264,6 @@ function extractTrackListings(wikitext: string): string[] {
 
 function parseSinglesFromInfobox(wikitext: string): Set<string> {
   const singles = new Set<string>()
-
-  // Extract {{Singles}} template with proper brace counting (handles nested {{ }})
   const extractTemplate = (text: string, name: string): string | null => {
     const start = text.search(new RegExp(`\\{\\{${name}\\b`, 'i'))
     if (start === -1) return null
@@ -287,35 +275,21 @@ function parseSinglesFromInfobox(wikitext: string): Set<string> {
     }
     return null
   }
-
   const singlesBlock = extractTemplate(wikitext, 'Singles')
   if (singlesBlock) {
     const singleRe = /\|\s*single\d+\s*=\s*([^\n|]+)/g
     let m: RegExpExecArray | null
     while ((m = singleRe.exec(singlesBlock)) !== null) {
       const raw = m[1].trim()
-      // [[Link with (parens)|DisplayName]] - use .*? to handle parens in link
       const withDisplay = raw.match(/\[\[.*?\|([^\]]+)\]\]/)
-      if (withDisplay) {
-        const name = withDisplay[1].replace(/''+/g, '').trim()
-        if (name.length > 1) singles.add(name.toLowerCase())
-        continue
-      }
-      // [[LinkOnly]] - strip disambiguation like "(Brandon Flowers song)"
+      if (withDisplay) { const name = withDisplay[1].replace(/''+/g, '').trim(); if (name.length > 1) singles.add(name.toLowerCase()); continue }
       const linkOnly = raw.match(/\[\[([^\]|]+)\]\]/)
-      if (linkOnly) {
-        const name = linkOnly[1].replace(/\s*\([^)]+\)$/g, '').replace(/_/g, ' ').replace(/''+/g, '').trim()
-        if (name.length > 1) singles.add(name.toLowerCase())
-        continue
-      }
-      // Plain text
+      if (linkOnly) { const name = linkOnly[1].replace(/\s*\([^)]+\)$/g, '').replace(/_/g, ' ').replace(/''+/g, '').trim(); if (name.length > 1) singles.add(name.toLowerCase()); continue }
       const name = raw.replace(/''+/g, '').trim()
       if (name.length > 1) singles.add(name.toLowerCase())
     }
     return singles
   }
-
-  // Fallback: | singles = ... in infobox
   const infoboxM = wikitext.match(/\|\s*singles?\s*=([\s\S]*?)(?=\n\s*\||\n\}\})/)
   if (infoboxM) {
     const block = infoboxM[1]
@@ -327,17 +301,14 @@ function parseSinglesFromInfobox(wikitext: string): Set<string> {
       if (name.length > 1) singles.add(name.toLowerCase())
     }
   }
-
   return singles
 }
 
 function getBlockHeadline(tl: string): string {
-  // Try both headline= and caption= (both used in Wikipedia track listings)
   const m = tl.match(/\|\s*(?:headline|caption)\s*=\s*([^\n|]+)/)
   return m ? m[1].replace(/[''+\[\]]/g, '').trim() : ''
 }
 
-// A block is "bonus" if its headline mentions bonus/deluxe/special/etc
 function isBonusBlock(headline: string): boolean {
   if (!headline) return false
   const h = headline.toLowerCase()
@@ -350,74 +321,11 @@ function isDiscBlock(tl: string): boolean {
   return /\|\s*headline\s*=.*[Dd]isc\s*[12]/i.test(tl) || /\|\s*disc\s*=\s*[12]/i.test(tl)
 }
 
-function parseTracksFromBlock(tl: string, startOrder: number, singles: Set<string>): TrackEntry[] {
-  const tracks: TrackEntry[] = []
-  let i = 1
-  let order = startOrder
-  while (true) {
-    // Try titleN - Wikipedia uses sequential numbers even in bonus blocks (title11, title12...)
-    // So we try both i and i+10, i+20 etc - actually just increment until no match
-    const titleM = tl.match(new RegExp(`\\|\\s*title${i}\\s*=\\s*([^|\\n]+)`))
-    if (!titleM) {
-      // Also try with the actual track number if block starts mid-album
-      // Stop after 5 consecutive misses to avoid infinite loop
-      break
-    }
-    const lenM = tl.match(new RegExp(`\\|\\s*length${i}\\s*=\\s*([^|\\n]+)`))
-    // Check note{i} for featuring (Wikipedia uses | note3 = featuring [[Jenny Lewis]])
-    const noteM = tl.match(new RegExp(`\\|\\s*note${i}\\s*=\\s*([^|\\n]+)`))
-
-    const rawTitle = titleM[1].trim()
-    // Extract featuring from note field first, then from title
-    let featuring: string[] = []
-    if (noteM) {
-      const note = noteM[1].trim()
-      const featM = note.match(/feat(?:uring)?[.\s]+(.+)/i)
-      if (featM) {
-        const parts = featM[1].split(/\s+and\s+|[,&]/i)
-        for (const p of parts) {
-          const linkM = p.match(/\[\[(?:[^\]|]+\|)?([^\]|]+)\]\]/)
-          const name = (linkM ? linkM[1] : p).replace(/['[\]]/g, '').trim()
-          if (name.length > 1) featuring.push(name)
-        }
-      }
-    }
-
-    // Parse featuring from title if not found in note
-    const { cleanTitle, featuring: titleFeat } = parseFeaturing(rawTitle)
-    if (featuring.length === 0) featuring = titleFeat
-
-    const finalTitle = cleanWikiText(cleanTitle)
-    if (finalTitle) {
-      const is_single = singles.size > 0 ? singles.has(finalTitle.toLowerCase()) : undefined
-      tracks.push({
-        title: finalTitle,
-        duration: lenM?.[1]?.trim(),
-        sort_order: order++,
-        is_single,
-        featuring: featuring.length > 0 ? featuring : undefined,
-      })
-    }
-    i++
-  }
-  return tracks
-}
-
 function parseTracklist(wikitext: string): TrackEntry[] {
   const singles = parseSinglesFromInfobox(wikitext)
   const tlBlocks = extractTrackListings(wikitext)
 
-  // Debug: log block headlines
-  if (typeof window !== 'undefined') {
-    console.log('[parseTracklist] blocks found:', tlBlocks.length)
-    tlBlocks.forEach((b, i) => {
-      const h = getBlockHeadline(b)
-      console.log(`  block[${i}] headline="${h}" isBonus=${isBonusBlock(h)} trackCount=${(b.match(/\|\s*title\d+\s*=/g)||[]).length}`)
-    })
-  }
-
   if (!tlBlocks.length) {
-    // Fallback: numbered list
     const tracks: TrackEntry[] = []
     let order = 1
     for (const line of wikitext.split('\n')) {
@@ -434,14 +342,10 @@ function parseTracklist(wikitext: string): TrackEntry[] {
   }
 
   const allTracks: TrackEntry[] = []
-
-  // Check if all blocks are disc parts (multi-disc album)
   const isMultiDisc = tlBlocks.every(b => isDiscBlock(b)) && tlBlocks.length > 1
 
-  // Parse all track numbers from a block (handles title11, title12... in bonus blocks)
   const parseBlockTracks = (tl: string, startOrder: number): TrackEntry[] => {
     const tracks: TrackEntry[] = []
-    // Find all title numbers present in this block
     const titleNums = [...tl.matchAll(/\|\s*title(\d+)\s*=/g)].map(m => parseInt(m[1])).sort((a,b) => a-b)
     if (!titleNums.length) return tracks
     let order = startOrder
@@ -450,11 +354,8 @@ function parseTracklist(wikitext: string): TrackEntry[] {
       if (!titleM) continue
       const lenM = tl.match(new RegExp(`\\|\\s*length${num}\\s*=\\s*([^|\\n]+)`))
       const noteM = tl.match(new RegExp(`\\|\\s*note${num}\\s*=\\s*([^|\\n]+)`))
-
       const rawTitle = titleM[1].trim()
       let featuring: string[] = []
-
-      // Check note field for featuring first (e.g. | note3 = featuring [[Jenny Lewis]])
       if (noteM) {
         const note = noteM[1].trim()
         const featM = note.match(/feat(?:uring)?[.\s]+(.+)/i)
@@ -467,21 +368,12 @@ function parseTracklist(wikitext: string): TrackEntry[] {
           }
         }
       }
-
-      // Parse featuring from title if not found in note
       const { cleanTitle, featuring: titleFeat } = parseFeaturing(rawTitle)
       if (featuring.length === 0) featuring = titleFeat
-
       const finalTitle = cleanWikiText(cleanTitle)
       if (finalTitle) {
         const is_single = singles.size > 0 ? singles.has(finalTitle.toLowerCase()) : undefined
-        tracks.push({
-          title: finalTitle,
-          duration: lenM?.[1]?.trim(),
-          sort_order: order++,
-          is_single,
-          featuring: featuring.length > 0 ? featuring : undefined,
-        })
+        tracks.push({ title: finalTitle, duration: lenM?.[1]?.trim(), sort_order: order++, is_single, featuring: featuring.length > 0 ? featuring : undefined })
       }
     }
     return tracks
@@ -498,14 +390,12 @@ function parseTracklist(wikitext: string): TrackEntry[] {
     const standardBlocks = tlBlocks.filter(tl => !isBonusBlock(getBlockHeadline(tl)))
     const bonusBlocks = tlBlocks.filter(tl => isBonusBlock(getBlockHeadline(tl)))
     const blocksToUse = standardBlocks.length > 0 ? standardBlocks : [tlBlocks[0]]
-
     let order = 1
     for (const tl of blocksToUse) {
       const newTracks = parseBlockTracks(tl, order)
       allTracks.push(...newTracks)
       order += newTracks.length
     }
-
     const existingTitles = new Set(allTracks.map(t => t.title.toLowerCase()))
     for (const tl of bonusBlocks) {
       const bonusTracks = parseBlockTracks(tl, order)
@@ -517,22 +407,14 @@ function parseTracklist(wikitext: string): TrackEntry[] {
       }
     }
   }
-
   return allTracks
 }
 
 function parseReleaseDate(wikitext: string): { year: number | null; month: number | null; day: number | null } {
   const startDateM = wikitext.match(/\{\{[Ss]tart\s*date\|(\d{4})\|?(\d{1,2})?\|?(\d{1,2})?/)
-  if (startDateM) return {
-    year: startDateM[1] ? parseInt(startDateM[1]) : null,
-    month: startDateM[2] ? parseInt(startDateM[2]) : null,
-    day: startDateM[3] ? parseInt(startDateM[3]) : null,
-  }
+  if (startDateM) return { year: startDateM[1] ? parseInt(startDateM[1]) : null, month: startDateM[2] ? parseInt(startDateM[2]) : null, day: startDateM[3] ? parseInt(startDateM[3]) : null }
   const releasedM = wikitext.match(/\|\s*released\s*=\s*[^|{[\n]*?(\w+ \d{1,2},?\s*\d{4})/)
-  if (releasedM) {
-    const d = new Date(releasedM[1])
-    if (!isNaN(d.getTime())) return { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() }
-  }
+  if (releasedM) { const d = new Date(releasedM[1]); if (!isNaN(d.getTime())) return { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() } }
   const isoM = wikitext.match(/\|\s*released\s*=\s*(\d{4})-(\d{2})-(\d{2})/)
   if (isoM) return { year: parseInt(isoM[1]), month: parseInt(isoM[2]), day: parseInt(isoM[3]) }
   const yearM = wikitext.match(/\|\s*released\s*=\s*.*?(\d{4})/)
@@ -556,6 +438,17 @@ function hasMultipleArtistSections(wikitext: string): string[] {
   return groups
 }
 
+// Check if YouTube result title matches track/album title
+function titleMatches(resultTitle: string, query: string): boolean {
+  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim()
+  const rt = normalize(resultTitle)
+  const qt = normalize(query)
+  // Check if all words from query appear in result
+  const queryWords = qt.split(' ').filter(w => w.length > 2)
+  const matchCount = queryWords.filter(w => rt.includes(w)).length
+  return matchCount >= Math.ceil(queryWords.length * 0.7)
+}
+
 type Props = { artistId: number; artistName: string; artistWikiTitle?: string; isSolo?: boolean }
 
 export default function WikipediaImportDiscography({ artistId, artistName, artistWikiTitle, isSolo }: Props) {
@@ -567,6 +460,8 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
   const [log, setLog] = useState<string[]>([])
   const [importing, setImporting] = useState(false)
   const [artistGroups, setArtistGroups] = useState<string[]>([])
+  const [enrichYoutube, setEnrichYoutube] = useState(true)
+  const [enrichLyrics, setEnrichLyrics] = useState(true)
 
   const addLog = (msg: string) => setLog(p => [...p, msg])
 
@@ -585,7 +480,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
         return
       }
       const soloMode = isSolo || groupFilter === '__solo__'
-      found = parseMainPageDiscography(mainWikitext, soloMode)
+      found = parseMainPageDiscography(mainWikitext, soloMode, groupFilter)
       if (found.length) addLog(`✅ Rasta ${found.length} albumų iš pagrindinio puslapio`)
     }
 
@@ -616,13 +511,11 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       const [wikitext, cover] = await Promise.all([fetchWikitext(a.wikiTitle), fetchCoverImage(a.wikiTitle)])
       const dateInfo = parseReleaseDate(wikitext)
       const tracks = parseTracklist(wikitext)
-      const singlesCount = tracks.filter(t => t.is_single).length
-      const featCount = tracks.filter(t => t.featuring?.length).length
       setAlbums(p => p.map((al, i) => i === idx
         ? { ...al, tracks, fetched: true, cover_image_url: cover || al.cover_image_url,
             year: dateInfo.year ?? al.year, month: dateInfo.month, day: dateInfo.day }
         : al))
-      addLog(`  → ${tracks.length} dainų${singlesCount ? `, ${singlesCount} singlų` : ''}${featCount ? `, ${featCount} su feat.` : ''}${cover ? ', viršelis ✓' : ''}`)
+      addLog(`  → ${tracks.length} dainų${cover ? ', viršelis ✓' : ''}`)
     } catch {
       setAlbums(p => p.map((al, i) => i === idx ? { ...al, fetched: true, tracks: [] } : al))
       addLog(`  ❌ Klaida kraunant ${a.title}`)
@@ -638,6 +531,58 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
     }
   }
 
+  // Enrich tracks with YouTube video ID and lyrics after album import
+  const enrichTracks = async (albumId: number, tracks: TrackEntry[], albumTitle: string) => {
+    if (!enrichYoutube && !enrichLyrics) return
+    addLog(`  🎬 Praturtinama: ${albumTitle} (${tracks.length} dainų)...`)
+
+    for (const track of tracks) {
+      const updates: Record<string, any> = {}
+
+      // YouTube
+      if (enrichYoutube) {
+        try {
+          const q = `${artistName} ${track.title}`
+          const r = await fetch(`/api/search/youtube?q=${encodeURIComponent(q)}`)
+          const data = await r.json()
+          const first = data.results?.[0]
+          if (first && titleMatches(first.title, q)) {
+            updates.youtube_url = `https://www.youtube.com/watch?v=${first.videoId}`
+          }
+        } catch {}
+      }
+
+      // Lyrics
+      if (enrichLyrics) {
+        try {
+          const r = await fetch(`/api/search/lyrics?artist=${encodeURIComponent(artistName)}&title=${encodeURIComponent(track.title)}`)
+          const data = await r.json()
+          if (data.lyrics) updates.lyrics = data.lyrics
+        } catch {}
+      }
+
+      if (Object.keys(updates).length > 0) {
+        // Find track by title in album
+        try {
+          const tracksRes = await fetch(`/api/tracks?album_id=${albumId}&limit=200`)
+          const tracksData = await tracksRes.json()
+          const found = (tracksData.tracks || []).find((t: any) =>
+            t.title.toLowerCase() === track.title.toLowerCase()
+          )
+          if (found) {
+            await fetch(`/api/tracks/${found.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(updates),
+            })
+          }
+        } catch {}
+      }
+
+      await new Promise(r => setTimeout(r, 150))
+    }
+  }
+
   const importSelected = async () => {
     const indices = Array.from(selected).sort((a, b) => a - b)
     const unfetched = indices.filter(i => !albums[i].fetched)
@@ -649,7 +594,6 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       }
     }
 
-    // Snapshot to avoid React async state issues
     let snapshot: DiscographyAlbum[] = []
     setAlbums(p => { snapshot = [...p]; return p })
     await new Promise(r => setTimeout(r, 50))
@@ -690,10 +634,17 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
         })
         if (!res.ok) throw new Error((await res.json()).error)
+        const newAlbum = await res.json()
+        const albumId = newAlbum.id || newAlbum.album?.id
+
         setAlbums(p => p.map((al, i) => i === idx ? { ...al, importing: false, imported: true } : al))
-        const singlesInAlbum = (a.tracks || []).filter(t => t.is_single).length
-        addLog(`✅ ${a.title} (${a.tracks?.length || 0} dainų${singlesInAlbum ? `, ${singlesInAlbum} singlų` : ''})`)
+        addLog(`✅ ${a.title} (${a.tracks?.length || 0} dainų)`)
         ok++
+
+        // Enrich with YouTube + lyrics
+        if (albumId && (enrichYoutube || enrichLyrics) && a.tracks?.length) {
+          await enrichTracks(albumId, a.tracks, a.title)
+        }
       } catch (e: any) {
         setAlbums(p => p.map((al, i) => i === idx ? { ...al, importing: false, error: e.message } : al))
         addLog(`❌ ${a.title}: ${e.message}`)
@@ -727,15 +678,30 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               <button onClick={() => !importing && setOpen(false)} className="text-gray-400 hover:text-gray-700 text-2xl leading-none">×</button>
             </div>
 
-            <div className="px-6 py-4 border-b border-gray-100 flex gap-3">
-              <input value={url} onChange={e => setUrl(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && !loading && search()}
-                placeholder="https://en.wikipedia.org/wiki/Coldplay"
-                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 bg-white focus:outline-none focus:border-purple-400 placeholder:text-gray-400" />
-              <button onClick={() => search()} disabled={loading || !url.trim()}
-                className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-medium disabled:opacity-50 transition-colors whitespace-nowrap">
-                {loading ? '⏳' : '🔍 Ieškoti'}
-              </button>
+            <div className="px-6 py-4 border-b border-gray-100 space-y-3">
+              <div className="flex gap-3">
+                <input value={url} onChange={e => setUrl(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && !loading && search()}
+                  placeholder="https://en.wikipedia.org/wiki/Coldplay"
+                  className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 bg-white focus:outline-none focus:border-purple-400 placeholder:text-gray-400" />
+                <button onClick={() => search()} disabled={loading || !url.trim()}
+                  className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-medium disabled:opacity-50 transition-colors whitespace-nowrap">
+                  {loading ? '⏳' : '🔍 Ieškoti'}
+                </button>
+              </div>
+              {/* Enrichment options */}
+              <div className="flex gap-4 text-sm">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={enrichYoutube} onChange={e => setEnrichYoutube(e.target.checked)}
+                    className="accent-purple-600" />
+                  <span className="text-gray-700">🎬 Auto YouTube</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={enrichLyrics} onChange={e => setEnrichLyrics(e.target.checked)}
+                    className="accent-purple-600" />
+                  <span className="text-gray-700">📝 Auto žodžiai</span>
+                </label>
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
