@@ -27,21 +27,37 @@ export default function AdminAlbumsPage() {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState<number | null>(null)
+  const [artistId, setArtistId] = useState<string | null>(null)
+  const [artistName, setArtistName] = useState<string | null>(null)
 
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
 
-  const load = useCallback(async (q = '') => {
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const aid = params.get('artist_id')
+    if (aid) {
+      setArtistId(aid)
+      fetch(`/api/artists/${aid}`)
+        .then(r => r.json())
+        .then(d => { if (d.name) setArtistName(d.name) })
+        .catch(() => {})
+    }
+  }, [])
+
+  const load = useCallback(async (q = '', aid?: string | null) => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/albums?search=${encodeURIComponent(q)}&limit=100`)
+      const artistParam = (aid !== undefined ? aid : artistId)
+      const url = `/api/albums?search=${encodeURIComponent(q)}&limit=100${artistParam ? `&artist_id=${artistParam}` : ''}`
+      const res = await fetch(url)
       const data = await res.json()
       setAlbums(data.albums || [])
       setTotal(data.total || 0)
     } finally { setLoading(false) }
-  }, [])
+  }, [artistId])
 
   useEffect(() => { if (status === 'unauthenticated') router.push('/') }, [status])
-  useEffect(() => { if (isAdmin) load() }, [isAdmin])
+  useEffect(() => { if (isAdmin) load(search, artistId) }, [isAdmin, artistId])
   useEffect(() => { const t = setTimeout(() => isAdmin && load(search), 300); return () => clearTimeout(t) }, [search])
 
   const del = async (id: number, title: string) => {
@@ -59,10 +75,15 @@ export default function AdminAlbumsPage() {
       <div className="max-w-7xl mx-auto px-6 py-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <Link href="/admin" className="text-music-blue hover:text-music-orange text-sm">← Admin</Link>
-            <h1 className="text-2xl font-black text-gray-900 mt-1">💿 Albumai <span className="text-gray-400 font-normal text-lg">({total})</span></h1>
+            {artistId
+              ? <Link href={`/admin/artists/${artistId}`} className="text-music-blue hover:text-music-orange text-sm">← {artistName || 'Atlikėjas'}</Link>
+              : <Link href="/admin" className="text-music-blue hover:text-music-orange text-sm">← Admin</Link>
+            }
+            <h1 className="text-2xl font-black text-gray-900 mt-1">
+              💿 {artistName ? `${artistName} — albumai` : 'Albumai'} <span className="text-gray-400 font-normal text-lg">({total})</span>
+            </h1>
           </div>
-          <Link href="/admin/albums/new"
+          <Link href={`/admin/albums/new${artistId ? `?artist_id=${artistId}` : ''}`}
             className="px-5 py-2.5 bg-music-blue text-white rounded-xl font-bold hover:opacity-90">
             + Naujas albumas
           </Link>
