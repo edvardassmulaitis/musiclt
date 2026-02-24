@@ -52,11 +52,10 @@ export type TrackInAlbum = {
   sort_order: number
   disc_number?: number
   duration?: string
-  type: 'normal' | 'remix' | 'live' | 'mashup' | 'instrumental'
+  type: 'normal' | 'single' | 'remix' | 'live' | 'mashup' | 'instrumental'
   video_url?: string
   spotify_id?: string
   is_single?: boolean
-  // Featuring artists parsed from title e.g. "Song (featuring Jenny Lewis)"
   featuring?: string[]
 }
 
@@ -65,9 +64,12 @@ export type TrackFull = {
   slug?: string
   title: string
   artist_id: number
-  type: 'normal' | 'remix' | 'live' | 'mashup' | 'instrumental'
+  type: 'normal' | 'single' | 'remix' | 'live' | 'mashup' | 'instrumental'
   release_date?: string | null
   is_new?: boolean
+  is_new_date?: string | null
+  is_single?: boolean
+  cover_url?: string | null
   video_url?: string
   lyrics?: string
   chords?: string
@@ -79,13 +81,20 @@ export type TrackFull = {
 // ── Albums ──────────────────────────────────────────────────────────────────
 
 export async function getAlbums(artistId?: number, limit = 50, offset = 0, search = '') {
-  let q = supabase.from('albums').select('*, artists!albums_artist_id_fkey(name)', { count: 'exact' })
+  let q = supabase
+    .from('albums')
+    .select('id, title, year, cover_image_url, artist_id, artists!albums_artist_id_fkey(id, name)', { count: 'exact' })
   if (artistId) q = q.eq('artist_id', artistId)
   if (search) q = q.ilike('title', `%${search}%`)
   q = q.order('year', { ascending: false }).order('month', { ascending: false }).range(offset, offset + limit - 1)
   const { data, error, count } = await q
   if (error) throw error
-  return { albums: data || [], total: count || 0 }
+  const albums = (data || []).map((a: any) => ({
+    ...a,
+    artist_name: a.artists?.name || '',
+    cover_url: a.cover_image_url || null,
+  }))
+  return { albums, total: count || 0 }
 }
 
 export async function getAlbumById(id: number): Promise<AlbumFull & { tracks: TrackInAlbum[] }> {
@@ -173,30 +182,19 @@ export async function deleteAlbum(id: number): Promise<void> {
   if (error) throw error
 }
 
-// Find or create an artist by name (used for featuring artists)
 async function findOrCreateArtist(name: string): Promise<number | null> {
   const slug = slugify(name)
-  // Try to find existing
   const { data: existing } = await supabase
     .from('artists').select('id').eq('slug', slug).maybeSingle()
   if (existing) return existing.id
-
-  // Create new artist (minimal data, can be enriched later)
   const { data: newArtist, error } = await supabase.from('artists').insert({
-    name,
-    slug,
-    type: 'solo',
+    name, slug, type: 'solo',
   }).select('id').single()
-
-  if (error) {
-    console.error('Failed to create featuring artist:', name, error)
-    return null
-  }
+  if (error) { console.error('Failed to create featuring artist:', name, error); return null }
   return newArtist?.id || null
 }
 
 async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackInAlbum[]) {
-  // Delete existing album_tracks rows
   await supabase.from('album_tracks').delete().eq('album_id', albumId)
   if (!tracks.length) return
 
@@ -207,7 +205,6 @@ async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackI
     let trackId = t.track_id
 
     if (!trackId) {
-      // Use cleaned title (without "featuring ...") for the slug/DB title
       const cleanTitle = t.title
         .replace(/\s*\(feat(?:uring)?\.?\s+[^)]+\)/gi, '')
         .replace(/\s*\[feat(?:uring)?\.?\s+[^\]]+\]/gi, '')
@@ -222,29 +219,21 @@ async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackI
         trackId = existing.id
       } else {
         const { data: newTrack, error: trackError } = await supabase.from('tracks').insert({
-          title: cleanTitle,
-          slug,
-          artist_id: artistId,
+          title: cleanTitle, slug, artist_id: artistId,
           type: t.type || 'normal',
           video_url: t.video_url || null,
           spotify_id: t.spotify_id || null,
         }).select('id').single()
 
-        if (trackError) {
-          console.error('Failed to insert track:', cleanTitle, trackError)
-          continue
-        }
+        if (trackError) { console.error('Failed to insert track:', cleanTitle, trackError); continue }
         trackId = newTrack?.id
 
-        // Handle featuring artists: parse from original title
         if (trackId && t.featuring && t.featuring.length > 0) {
           for (const featName of t.featuring) {
             const featArtistId = await findOrCreateArtist(featName.trim())
             if (featArtistId) {
               await supabase.from('track_artists').upsert({
-                track_id: trackId,
-                artist_id: featArtistId,
-                is_primary: false,
+                track_id: trackId, artist_id: featArtistId, is_primary: false,
               }, { onConflict: 'track_id,artist_id' })
             }
           }
@@ -254,8 +243,7 @@ async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackI
 
     if (trackId) {
       trackRows.push({
-        album_id: albumId,
-        track_id: trackId,
+        album_id: albumId, track_id: trackId,
         position: toInt(t.sort_order) || i + 1,
         is_primary: t.is_single || false,
       })
@@ -274,7 +262,7 @@ export async function getTracks(artistId?: number, limit = 50, offset = 0, searc
   let q = supabase
     .from('tracks')
     .select(
-      '*, artists!tracks_artist_id_fkey(name), track_artists(artist_id), album_tracks(position, is_primary, albums(id, title, year))',
+      'id, title, type, release_date, video_url, spotify_id, is_new, is_new_date, cover_url, lyrics, artists!tracks_artist_id_fkey(id, name, slug), track_artists(artist_id), album_tracks(position, is_primary, albums(id, title, year))',
       { count: 'exact' }
     )
   if (artistId) q = q.eq('artist_id', artistId)
@@ -283,10 +271,20 @@ export async function getTracks(artistId?: number, limit = 50, offset = 0, searc
   const { data, error, count } = await q
   if (error) throw error
   const tracks = (data || []).map((t: any) => ({
-    ...t,
+    id: t.id,
+    title: t.title,
+    type: t.type,
+    release_date: t.release_date,
+    video_url: t.video_url,
+    spotify_id: t.spotify_id,
+    is_new: t.is_new,
+    is_new_date: t.is_new_date,
+    cover_url: t.cover_url,
+    has_lyrics: !!(t.lyrics),
+    artist_name: t.artists?.name || '',
+    artist_slug: t.artists?.slug || '',
     featuring_count: (t.track_artists || []).length,
     album_count: (t.album_tracks || []).length,
-    // First album's year for display
     release_year: t.release_date
       ? new Date(t.release_date).getFullYear()
       : (t.album_tracks?.[0]?.albums?.year || null),
@@ -297,8 +295,6 @@ export async function getTracks(artistId?: number, limit = 50, offset = 0, searc
       position: at.position,
       is_single: at.is_primary,
     })),
-    track_artists: undefined,
-    album_tracks: undefined,
   }))
   return { tracks, total: count || 0 }
 }
@@ -314,6 +310,8 @@ export async function createTrack(data: TrackFull): Promise<number> {
   const { data: row, error } = await supabase.from('tracks').insert({
     title: data.title, slug, artist_id: Number(data.artist_id), type: data.type,
     release_date: data.release_date || null, is_new: data.is_new ?? false,
+    is_new_date: data.is_new_date || null,
+    cover_url: data.cover_url || null,
     video_url: data.video_url || null, lyrics: data.lyrics || null,
     chords: data.chords || null, description: data.description || null,
     spotify_id: data.spotify_id || null, show_player: data.show_player ?? false,
@@ -326,6 +324,8 @@ export async function updateTrack(id: number, data: TrackFull): Promise<void> {
   const { error } = await supabase.from('tracks').update({
     title: data.title, artist_id: data.artist_id, type: data.type,
     release_date: data.release_date || null, is_new: data.is_new ?? false,
+    is_new_date: data.is_new_date || null,
+    cover_url: data.cover_url || null,
     video_url: data.video_url || null, lyrics: data.lyrics || null,
     chords: data.chords || null, description: data.description || null,
     spotify_id: data.spotify_id || null, show_player: data.show_player ?? false,
