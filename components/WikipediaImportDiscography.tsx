@@ -41,41 +41,68 @@ function parseDiscography(wikitext: string): DiscographyAlbum[] {
   const albums: DiscographyAlbum[] = []
   const lines = wikitext.split('\n')
   let currentType: DiscographyAlbum['type'] = 'studio'
-  let inDiscSection = false
+  let inTable = false
+  let skipSection = false
+
+  const TYPE_MAP: Record<string, DiscographyAlbum['type']> = {
+    studio: 'studio', album: 'studio',
+    ep: 'ep', extended: 'ep',
+    single: 'single',
+    compilation: 'compilation', greatest: 'compilation',
+    live: 'live', concert: 'live',
+  }
+  const SKIP_WORDS = ['wikipedia', 'category:', 'file:', 'image:', 'riaa', 'bpi', 'aria']
+  const ORG_WORDS = ['industry', 'association', 'federation', 'phonographic', 'academy', 'bundesverband']
 
   for (const line of lines) {
+    // Section headers
     const headerM = line.match(/==+\s*(.+?)\s*==+/)
     if (headerM) {
       const h = headerM[1].toLowerCase()
-      // Start collecting after discography-related headers
-      if (h.includes('discograph') || h.includes('album') || h.includes('single') || h.includes('ep')) {
-        inDiscSection = true
+      skipSection = /video|dvd|film|promo|tour|guest|appear/.test(h)
+      for (const [key, val] of Object.entries(TYPE_MAP)) {
+        if (h.includes(key)) { currentType = val; break }
       }
-      if (h.includes('studio')) currentType = 'studio'
-      else if (h.includes('ep') || h.includes('extended')) currentType = 'ep'
-      else if (h.includes('single')) currentType = 'single'
-      else if (h.includes('compilation') || h.includes('greatest') || h.includes('best')) currentType = 'compilation'
-      else if (h.includes('live') || h.includes('concert')) currentType = 'live'
       continue
     }
-    if (!inDiscSection) continue
+    if (skipSection) continue
 
-    // Match: * ''Title'' (year) or * [[Title|display]] (year) or * [[Title]] (year)
-    const m = line.match(/^\*+\s*(?:''|\[\[)([^\]'|]+?)(?:\|[^\]]+)?(?:''|\]\])[^(]*(?:\((\d{4})\))?/)
-    if (m) {
-      const title = m[1].trim()
-      const year = m[2] ? parseInt(m[2]) : null
-      if (title.length > 1 && !title.toLowerCase().includes('category:')) {
-        // Extract wiki link if present
-        const wikiM = line.match(/\[\[([^\]|]+)/)
-        albums.push({
-          title,
-          year,
-          type: currentType,
-          wikiTitle: wikiM ? wikiM[1].trim() : title,
-        })
+    if (line.startsWith('{|')) { inTable = true; continue }
+    if (line.startsWith('|}')) { inTable = false; continue }
+
+    let title = ''
+    let year: number | null = null
+    let wikiTitle = ''
+
+    if (inTable) {
+      // Table row with [[link]]
+      const m = line.match(/[!|].*?\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
+      if (m) {
+        wikiTitle = m[1].trim()
+        const display = m[2] || m[1]
+        title = display.replace(/\(.*?\)/g, '').replace(/''/g, '').trim()
+        const yr = line.match(/\b(19|20)\d{2}\b/)
+        if (yr) year = parseInt(yr[0])
+      }
+    } else {
+      // List format: * [[Title|Display]] (year)
+      if (!line.startsWith('*') || !line.includes('[[')) continue
+      const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
+      if (wm) {
+        wikiTitle = wm[1].trim()
+        const display = wm[2] || wm[1]
+        title = display.replace(/\(.*?\)/g, '').replace(/''/g, '').trim()
+        const yr = line.match(/\((\d{4})\)/)
+        if (yr) year = parseInt(yr[1])
       }
     }
+
+    if (!title || title.length < 2) continue
+    const combined = (title + ' ' + wikiTitle).toLowerCase()
+    if (SKIP_WORDS.some(w => combined.includes(w))) continue
+    if (ORG_WORDS.some(w => combined.includes(w))) continue
+
+    albums.push({ title, year, type: currentType, wikiTitle: wikiTitle || title })
   }
   return albums
 }
