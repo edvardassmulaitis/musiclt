@@ -11,7 +11,7 @@ const TRACK_TYPE_LABELS: Record<string, string> = {
 }
 
 type FeaturingArtist = { artist_id: number; name: string }
-type AlbumRef = { album_id: number; album_title: string; album_year: number | null; position: number }
+type AlbumRef = { album_id: number; album_title: string; album_year: number | null; position: number; is_single: boolean }
 type YTResult = { videoId: string; title: string; channel: string; thumbnail: string }
 type SPResult = { id: string; name: string; artists: string; album: string }
 
@@ -440,8 +440,8 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
                 <Field label="Išleidimo data">
                   <DateInput year={releaseYear} month={releaseMonth} day={releaseDay}
                     onChange={(y,m,d) => { setReleaseYear(y); setReleaseMonth(m); setReleaseDay(d) }} />
-                  {albums.length > 0 && !releaseYear && albums[0].album_year && (
-                    <button onClick={() => { setReleaseYear(String(albums[0].album_year)); setReleaseMonth(""); setReleaseDay("") }}
+                  {albums.length > 0 && albums[0].album_year && releaseYear !== String(albums[0].album_year) && (
+                    <button onClick={() => { setReleaseYear(String(albums[0].album_year)); setReleaseMonth(''); setReleaseDay('') }}
                       className="mt-1.5 text-xs text-music-blue hover:underline">
                       ← Naudoti albumo metus ({albums[0].album_year})
                     </button>
