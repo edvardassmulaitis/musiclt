@@ -2,23 +2,42 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createClient } from '@supabase/supabase-js'
-
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
-
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session?.user || !['admin', 'super_admin'].includes(session.user.role || '')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-
   const { searchParams } = new URL(req.url)
   const search = searchParams.get('search') || ''
+  const album_id = searchParams.get('album_id')
   const page = parseInt(searchParams.get('page') || '1')
   const limit = parseInt(searchParams.get('limit') || '50')
   const offset = (page - 1) * limit
+
+  // If album_id provided, fetch tracks via album_tracks join
+  if (album_id) {
+    const { data, error } = await supabase
+      .from('album_tracks')
+      .select(`position, tracks(id, title, type, video_url, spotify_id, lyrics, cover_url)`)
+      .eq('album_id', parseInt(album_id))
+      .order('position', { ascending: true })
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    const tracks = (data || []).map((at: any) => ({
+      id: at.tracks?.id,
+      title: at.tracks?.title,
+      type: at.tracks?.type,
+      video_url: at.tracks?.video_url,
+      spotify_id: at.tracks?.spotify_id,
+      lyrics: at.tracks?.lyrics,
+      cover_url: at.tracks?.cover_url,
+      position: at.position,
+    })).filter((t: any) => t.id)
+    return NextResponse.json({ tracks, total: tracks.length })
+  }
 
   let query = supabase
     .from('tracks')
@@ -30,18 +49,14 @@ export async function GET(req: NextRequest) {
     `, { count: 'exact' })
     .order('title', { ascending: true })
     .range(offset, offset + limit - 1)
-
   if (search) query = query.ilike('title', `%${search}%`)
-
   const { data, error, count } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
   const tracks = (data || []).map((t: any) => {
     const albumList = (t.album_tracks || [])
       .map((at: any) => at.albums ? {
         id: at.albums.id, title: at.albums.title, year: at.albums.year, position: at.position,
       } : null).filter(Boolean)
-
     return {
       id: t.id,
       title: t.title,
@@ -63,20 +78,16 @@ export async function GET(req: NextRequest) {
         : (albumList[0]?.year || null),
     }
   })
-
   return NextResponse.json({ tracks, total: count || 0 })
 }
-
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session?.user || !['admin', 'super_admin'].includes(session.user.role || '')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-
   const data = await req.json()
   if (!data.title?.trim()) return NextResponse.json({ error: 'Title required' }, { status: 400 })
   if (!data.artist_id) return NextResponse.json({ error: 'Artist required' }, { status: 400 })
-
   const { data: track, error } = await supabase
     .from('tracks')
     .insert({
@@ -94,14 +105,11 @@ export async function POST(req: NextRequest) {
     })
     .select()
     .single()
-
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
   if (data.featuring?.length > 0) {
     await supabase.from('track_artists').insert(
       data.featuring.map((f: any) => ({ track_id: track.id, artist_id: f.artist_id }))
     )
   }
-
   return NextResponse.json(track, { status: 201 })
 }
