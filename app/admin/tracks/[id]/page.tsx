@@ -198,8 +198,27 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
     } finally { setUploadingCover(false) }
   }
 
-  const applyCoverUrl = () => {
-    setCoverUrl(coverUrlInput.trim())
+  const applyCoverUrl = async () => {
+    const url = coverUrlInput.trim()
+    if (!url) return
+    // If it's already our own storage URL, just use it
+    if (url.includes('supabase.co') || url.startsWith('/')) {
+      setCoverUrl(url)
+      return
+    }
+    // Otherwise download and re-upload to our storage
+    setUploadingCover(true)
+    try {
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      })
+      const data = await res.json()
+      if (data.url) { setCoverUrl(data.url); setCoverUrlInput(data.url) }
+      else setError(data.error || 'Nepavyko įkelti paveikslėlio')
+    } catch (e: any) { setError(e.message) }
+    finally { setUploadingCover(false) }
   }
 
   const removeFromAlbum = async (albumId: number) => {
