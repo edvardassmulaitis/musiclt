@@ -50,7 +50,7 @@ export default function AdminTracksPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-6 py-6">
+      <div className="w-full px-6 py-6">
         <div className="flex items-center justify-between mb-6">
           <div>
             <Link href="/admin" className="text-music-blue hover:text-music-orange text-sm">← Admin</Link>
