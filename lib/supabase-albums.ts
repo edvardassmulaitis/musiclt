@@ -77,7 +77,7 @@ export type TrackFull = {
 // ── Albums ──────────────────────────────────────────────────────────────────
 
 export async function getAlbums(artistId?: number, limit = 50, offset = 0, search = '') {
-  let q = supabase.from('albums').select('*, artists(name)', { count: 'exact' })
+  let q = supabase.from('albums').select('*, artists!albums_artist_id_fkey(name)', { count: 'exact' })
   if (artistId) q = q.eq('artist_id', artistId)
   if (search) q = q.ilike('title', `%${search}%`)
   q = q.order('year', { ascending: false }).order('month', { ascending: false }).range(offset, offset + limit - 1)
@@ -88,7 +88,7 @@ export async function getAlbums(artistId?: number, limit = 50, offset = 0, searc
 
 export async function getAlbumById(id: number): Promise<AlbumFull & { tracks: TrackInAlbum[] }> {
   const { data: album, error } = await supabase
-    .from('albums').select('*, artists(name)').eq('id', id).single()
+    .from('albums').select('*, artists!albums_artist_id_fkey(name)').eq('id', id).single()
   if (error) throw error
 
   const { data: trackRows } = await supabase
@@ -202,7 +202,7 @@ async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackI
 // ── Tracks ──────────────────────────────────────────────────────────────────
 
 export async function getTracks(artistId?: number, limit = 50, offset = 0, search = '') {
-  let q = supabase.from('tracks').select('*, artists(name)', { count: 'exact' })
+  let q = supabase.from('tracks').select('*, artists!albums_artist_id_fkey(name)', { count: 'exact' })
   if (artistId) q = q.eq('artist_id', artistId)
   if (search) q = q.ilike('title', `%${search}%`)
   q = q.order('release_date', { ascending: false }).range(offset, offset + limit - 1)
