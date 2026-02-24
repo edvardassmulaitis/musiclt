@@ -43,20 +43,23 @@ function DateInput({ year, month, day, onChange }: {
   year: string; month: string; day: string
   onChange: (y: string, m: string, d: string) => void
 }) {
-  const cls = "px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:border-music-blue [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+  const cls = "px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:border-music-blue"
   const hasAny = year || month || day
   return (
     <div className="flex gap-2 items-center">
-      <input type="number" min="1900" max="2099" value={year}
-        onChange={e => onChange(e.target.value, month, day)}
+      <input
+        type="text" inputMode="numeric" maxLength={4}
+        value={year} onChange={e => onChange(e.target.value.replace(/\D/g,''), month, day)}
         placeholder="Metai" className={`w-24 ${cls}`} />
       <span className="text-gray-400">/</span>
-      <input type="number" min="1" max="12" value={month}
-        onChange={e => onChange(year, e.target.value, day)}
+      <input
+        type="text" inputMode="numeric" maxLength={2}
+        value={month} onChange={e => onChange(year, e.target.value.replace(/\D/g,''), day)}
         placeholder="Mėn" className={`w-16 ${cls}`} />
       <span className="text-gray-400">/</span>
-      <input type="number" min="1" max="31" value={day}
-        onChange={e => onChange(year, month, e.target.value)}
+      <input
+        type="text" inputMode="numeric" maxLength={2}
+        value={day} onChange={e => onChange(year, month, e.target.value.replace(/\D/g,''))}
         placeholder="D" className={`w-16 ${cls}`} />
       {hasAny && <button onClick={() => onChange('', '', '')} className="text-gray-400 hover:text-red-500 ml-1">✕</button>}
     </div>
