@@ -439,11 +439,14 @@ function hasMultipleArtistSections(wikitext: string): string[] {
 }
 
 // Check if YouTube result title matches track/album title
+function decodeHtml(s: string): string {
+  return s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&quot;/g, '"')
+}
+
 function titleMatches(resultTitle: string, query: string): boolean {
-  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim()
+  const normalize = (s: string) => decodeHtml(s).toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim()
   const rt = normalize(resultTitle)
   const qt = normalize(query)
-  // Check if all words from query appear in result
   const queryWords = qt.split(' ').filter(w => w.length > 2)
   const matchCount = queryWords.filter(w => rt.includes(w)).length
   return matchCount >= Math.ceil(queryWords.length * 0.7)
