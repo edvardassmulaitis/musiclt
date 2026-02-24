@@ -185,10 +185,7 @@ async function findOrCreateArtist(name: string): Promise<number | null> {
   const { data: newArtist, error } = await supabase.from('artists').insert({
     name,
     slug,
-    // Required fields with sensible defaults
-    country: '',
-    type_group: false,
-    type_solo: true,
+    type: 'solo',
   }).select('id').single()
 
   if (error) {
