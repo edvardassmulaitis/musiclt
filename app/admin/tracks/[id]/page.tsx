@@ -613,35 +613,18 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
                   <p className="text-xs text-gray-400 mt-1">open.spotify.com/track/<strong>ID čia</strong></p>
                 </Field>
                 <div className="pt-1 border-t border-gray-100">
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Ieškoti Spotify</label>
-                  <div className="flex gap-2 mb-2">
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Spotify URL → ID</label>
+                  <div className="flex gap-2">
                     <input value={spQuery} onChange={e => setSpQuery(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && handleSpSearch()}
-                      placeholder="Atlikėjas daina..."
+                      onKeyDown={e => { if (e.key === 'Enter') { const m = spQuery.match(/track\/([A-Za-z0-9]+)/); if (m) setSpotifyId(m[1]); }}}
+                      placeholder="https://open.spotify.com/track/..."
                       className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:border-green-500" />
-                    <button onClick={handleSpSearch} disabled={spLoading}
-                      className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-bold disabled:opacity-50">
-                      {spLoading ? '⏳' : '🔍'}
+                    <button onClick={() => { const m = spQuery.match(/track\/([A-Za-z0-9]+)/); if (m) setSpotifyId(m[1]); }}
+                      className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-bold">
+                      ✓
                     </button>
                   </div>
-                  {spResults.length > 0 && (
-                    <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                      {spResults.map(r => (
-                        <div key={r.id} onClick={() => setSpotifyId(r.id)}
-                          className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${
-                            spotifyId === r.id ? 'border-green-400 bg-green-50' : 'border-gray-100 hover:bg-gray-50'
-                          }`}>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium text-gray-900 truncate">{r.name}</div>
-                            <div className="text-xs text-gray-500 truncate">{r.artists} · {r.album}</div>
-                          </div>
-                          {spotifyId === r.id
-                            ? <span className="text-green-500 font-bold shrink-0">✓</span>
-                            : <span className="text-gray-300 text-xs shrink-0">►</span>}
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <p className="text-xs text-gray-400 mt-1">Nukopijuok track URL iš Spotify app → Share → Copy Link</p>
                 </div>
               </Card>
             </div>
