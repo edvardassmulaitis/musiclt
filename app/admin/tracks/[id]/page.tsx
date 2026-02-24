@@ -109,6 +109,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
   const [spQuery, setSpQuery] = useState('')
   const [spResults, setSpResults] = useState<SPResult[]>([])
   const [spLoading, setSpLoading] = useState(false)
+  const [spToken, setSpToken] = useState('')
 
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -241,8 +242,28 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
     if (!spQuery.trim()) return
     setSpLoading(true); setSpResults([])
     try {
-      const r = await fetch(`/api/search/spotify?q=${encodeURIComponent(spQuery)}`)
-      setSpResults((await r.json()).results || [])
+      // Get anonymous token from Spotify web player (works if user is logged into Spotify in browser)
+      let token = spToken
+      if (!token) {
+        const tokenRes = await fetch('https://open.spotify.com/get_access_token?reason=transport&productType=web_player', {
+          credentials: 'include',
+        })
+        if (tokenRes.ok) {
+          const tokenData = await tokenRes.json()
+          token = tokenData.accessToken || ''
+          if (token) setSpToken(token)
+        }
+      }
+      if (!token) throw new Error('Reikia būti prisijungus prie Spotify naršyklėje')
+      const r = await fetch(`/api/search/spotify?q=${encodeURIComponent(spQuery)}&token=${encodeURIComponent(token)}`)
+      const data = await r.json()
+      if (data.error === 'no_token' || r.status === 401) {
+        setSpToken('')
+        throw new Error('Spotify token pasibaigė, bandykite dar kartą')
+      }
+      setSpResults(data.results || [])
+    } catch (e: any) {
+      setError(e.message)
     } finally { setSpLoading(false) }
   }
 
