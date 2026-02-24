@@ -441,7 +441,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
                   <DateInput year={releaseYear} month={releaseMonth} day={releaseDay}
                     onChange={(y,m,d) => { setReleaseYear(y); setReleaseMonth(m); setReleaseDay(d) }} />
                   {albums.length > 0 && !releaseYear && albums[0].album_year && (
-                    <button onClick={() => setReleaseDate(`${albums[0].album_year}-01-01`)}
+                    <button onClick={() => { setReleaseYear(String(albums[0].album_year)); setReleaseMonth(""); setReleaseDay("") }}
                       className="mt-1.5 text-xs text-music-blue hover:underline">
                       ← Naudoti albumo metus ({albums[0].album_year})
                     </button>
