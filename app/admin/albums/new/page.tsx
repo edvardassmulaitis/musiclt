@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -79,8 +80,21 @@ export default function AdminAlbumNewPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
+  const searchParams = useSearchParams()
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
   const set = (f: keyof AlbumFull, v: any) => setForm(p => ({ ...p, [f]: v }))
+
+  useEffect(() => {
+    const artistIdParam = searchParams.get('artist_id')
+    if (artistIdParam) {
+      const id = parseInt(artistIdParam)
+      set('artist_id', id)
+      fetch(`/api/artists/${id}`)
+        .then(r => r.json())
+        .then(data => { if (data.name) setArtistName(data.name) })
+        .catch(() => {})
+    }
+  }, [])
 
   const setType = (key: string) => {
     const reset = Object.fromEntries(ALBUM_TYPE_FIELDS.map(t => [t.key, false]))
