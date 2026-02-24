@@ -5,7 +5,7 @@ import Link from 'next/link'
 
 type Artist = { id: number; name: string; cover_image_url?: string }
 type Album = { id: number; title: string; year: number | null; artist_name: string; cover_url?: string }
-type Track = { id: number; title: string; type: string; artist_name: string; video_url?: string; spotify_id?: string; has_lyrics?: boolean }
+type Track = { id: number; title: string; type: string; artist_name: string; cover_url?: string; video_url?: string; spotify_id?: string; has_lyrics?: boolean }
 
 export default function AdminSearchModal({ onClose }: { onClose: () => void }) {
   const [query, setQuery] = useState('')
@@ -148,7 +148,10 @@ export default function AdminSearchModal({ onClose }: { onClose: () => void }) {
                 : tracks.map((t, i) => (
                   <Link key={t.id} href={`/admin/tracks/${t.id}`} onClick={onClose}
                     className={`flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 transition-colors ${i > 0 ? 'border-t border-gray-50' : ''}`}>
-                    <span className="text-base shrink-0">{t.type === 'single' ? '💿' : '🎵'}</span>
+                    {t.cover_url
+                      ? <img src={t.cover_url} alt="" className="w-8 h-8 rounded-lg object-cover shrink-0" />
+                      : <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-sm shrink-0">{t.type === 'single' ? '💿' : '🎵'}</div>
+                    }
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-gray-900 truncate">{t.title}</div>
                       <div className="text-xs text-gray-400 truncate">{t.artist_name}</div>
