@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
       .slice(0, 8)
       .map((item: any) => ({
         videoId: item.id.videoId,
-        title: item.snippet.title,
+        title: item.snippet.title.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&quot;/g, '"'),
         channel: item.snippet.channelTitle,
         thumbnail: item.snippet.thumbnails?.medium?.url || item.snippet.thumbnails?.default?.url || '',
       }))
