@@ -10,11 +10,20 @@ type DiscographyAlbum = {
   type: 'studio' | 'ep' | 'single' | 'compilation' | 'live'
   wikiTitle?: string
   cover_image_url?: string
-  tracks?: { title: string; duration?: string; sort_order: number; is_single?: boolean }[]
+  tracks?: TrackEntry[]
   fetched?: boolean
   importing?: boolean
   imported?: boolean
   error?: string
+}
+
+type TrackEntry = {
+  title: string
+  duration?: string
+  sort_order: number
+  is_single?: boolean
+  featuring?: string[]
+  disc_number?: number
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -39,10 +48,8 @@ async function fetchWikitext(title: string): Promise<string> {
   return page?.revisions?.[0]?.slots?.main?.['*'] || page?.revisions?.[0]?.['*'] || ''
 }
 
-// FIX #3: Try multiple image fetching strategies
 async function fetchCoverImage(wikiTitle: string): Promise<string> {
   try {
-    // Strategy 1: pageimages thumbnail
     const res = await fetch(
       `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(wikiTitle)}&prop=pageimages&pithumbsize=500&piprop=thumbnail&format=json&origin=*`
     )
@@ -51,7 +58,6 @@ async function fetchCoverImage(wikiTitle: string): Promise<string> {
     const page = Object.values(pages)[0] as any
     if (page?.thumbnail?.source) return page.thumbnail.source
 
-    // Strategy 2: original image via pageimages
     const res2 = await fetch(
       `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(wikiTitle)}&prop=pageimages&piprop=original&format=json&origin=*`
     )
@@ -60,7 +66,7 @@ async function fetchCoverImage(wikiTitle: string): Promise<string> {
     const page2 = Object.values(pages2)[0] as any
     if (page2?.original?.source) return page2.original.source
 
-    // Strategy 3: get images list and find likely cover
+    // Fallback: image list
     const res3 = await fetch(
       `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(wikiTitle)}&prop=images&format=json&origin=*`
     )
@@ -87,7 +93,6 @@ async function fetchCoverImage(wikiTitle: string): Promise<string> {
   } catch { return '' }
 }
 
-// FIX #2: Clean wiki markup from track titles properly
 function cleanWikiText(raw: string): string {
   return raw
     .replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, '$2')
@@ -100,13 +105,26 @@ function cleanWikiText(raw: string): string {
     .trim()
 }
 
-// FIX #5: Parse discography with optional solo-only filter
+// Parse featuring artists from track title: "Song (featuring A & B)" → ["A", "B"]
+function parseFeaturing(raw: string): { cleanTitle: string; featuring: string[] } {
+  const featMatch = raw.match(/\((?:feat(?:uring)?\.?|ft\.?)\s+([^)]+)\)/i)
+  if (!featMatch) return { cleanTitle: raw.trim(), featuring: [] }
+
+  const cleanTitle = raw.replace(featMatch[0], '').trim()
+  // Split by "and", "&", ","
+  const featuring = featMatch[1]
+    .split(/\s+and\s+|[,&]/i)
+    .map(s => s.replace(/\[\[([^\]|]+\|)?([^\]]+)\]\]/g, '$2').replace(/''/g, '').trim())
+    .filter(s => s.length > 0)
+
+  return { cleanTitle, featuring }
+}
+
 function parseMainPageDiscography(wikitext: string, soloOnly = false): DiscographyAlbum[] {
   const albums: DiscographyAlbum[] = []
   const lines = wikitext.split('\n')
   let inDiscSection = false
   let currentType: DiscographyAlbum['type'] = 'studio'
-  let currentGroup = ''
   let skipGroup = false
 
   for (const line of lines) {
@@ -117,27 +135,19 @@ function parseMainPageDiscography(wikitext: string, soloOnly = false): Discograp
       const hRaw = headerM[2]
 
       if (depth === 2 && inDiscSection && !h.includes('discograph')) break
-
-      if (h.includes('discograph')) {
-        inDiscSection = true
-        currentGroup = ''
-        skipGroup = false
-        continue
-      }
+      if (h.includes('discograph')) { inDiscSection = true; skipGroup = false; continue }
 
       if (inDiscSection) {
         if (depth === 3) {
-          currentGroup = hRaw.trim()
+          const groupName = hRaw.trim()
           if (soloOnly) {
-            const isSolo = /solo|as lead|as artist/i.test(currentGroup)
-            skipGroup = !isSolo && currentGroup.length > 0
+            skipGroup = !/solo|as lead|as artist/i.test(groupName) && groupName.length > 0
           } else {
             skipGroup = false
           }
         }
-
         if (depth === 3 || depth === 4) {
-          const typeH = h.replace(/\[\[.*?\]\]/g, '').toLowerCase()
+          const typeH = h.replace(/\[\[.*?\]\]/g, '')
           if (typeH.includes('studio') || typeH.includes('album')) currentType = 'studio'
           else if (typeH.includes(' ep') || typeH === 'eps') currentType = 'ep'
           else if (typeH.includes('single')) currentType = 'single'
@@ -148,8 +158,7 @@ function parseMainPageDiscography(wikitext: string, soloOnly = false): Discograp
       continue
     }
 
-    if (!inDiscSection) continue
-    if (skipGroup) continue
+    if (!inDiscSection || skipGroup) continue
     if (!line.startsWith('*')) continue
     if (line.toLowerCase().includes('main article') || line.toLowerCase().includes('see also')) continue
 
@@ -163,25 +172,16 @@ function parseMainPageDiscography(wikitext: string, soloOnly = false): Discograp
       title = cleanWikiText(display)
     } else {
       const italicM = line.match(/'{2,3}([^']+)'{2,3}/)
-      if (italicM) {
-        title = cleanWikiText(italicM[1])
-        wikiTitle = title.replace(/ /g, '_')
-      }
+      if (italicM) { title = cleanWikiText(italicM[1]); wikiTitle = title.replace(/ /g, '_') }
     }
 
-    if (!title || title.length < 2) continue
-    if (wikiTitle.includes(':')) continue
-    if (/^[A-Z]{2,3}$/.test(title)) continue
-
+    if (!title || title.length < 2 || wikiTitle.includes(':') || /^[A-Z]{2,3}$/.test(title)) continue
     const bad = ['discography', 'songs', 'videography', 'filmography', 'certification', 'chart']
     if (bad.some(b => title.toLowerCase().includes(b) || wikiTitle.toLowerCase().includes(b))) continue
 
     const yearM = line.match(/\((\d{4})\)/)
-    const year = yearM ? parseInt(yearM[1]) : null
-
-    albums.push({ title, year, month: null, day: null, type: currentType, wikiTitle: wikiTitle || title })
+    albums.push({ title, year: yearM ? parseInt(yearM[1]) : null, month: null, day: null, type: currentType, wikiTitle: wikiTitle || title })
   }
-
   return albums
 }
 
@@ -189,8 +189,7 @@ function parseDiscographyPage(wikitext: string): DiscographyAlbum[] {
   const albums: DiscographyAlbum[] = []
   const lines = wikitext.split('\n')
   let currentType: DiscographyAlbum['type'] = 'studio'
-  let inTable = false
-  let skipSection = false
+  let inTable = false, skipSection = false
 
   for (const line of lines) {
     const headerM = line.match(/==+\s*(.+?)\s*==+/)
@@ -207,25 +206,17 @@ function parseDiscographyPage(wikitext: string): DiscographyAlbum[] {
     if (skipSection) continue
     if (line.startsWith('{|')) { inTable = true; continue }
     if (line.startsWith('|}')) { inTable = false; continue }
-    if (!inTable) continue
-    if (!line.match(/!\s*scope=['"]row['"]/)) continue
+    if (!inTable || !line.match(/!\s*scope=['"]row['"]/)) continue
 
     const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
     if (!wm) continue
-
     const wikiTitle = wm[1].trim()
-    const display = wm[2] || wm[1]
-    const title = cleanWikiText(display)
-
-    if (!title || title.length < 2) continue
-    if (wikiTitle.includes(':')) continue
+    const title = cleanWikiText(wm[2] || wm[1])
+    if (!title || title.length < 2 || wikiTitle.includes(':')) continue
 
     const yr = line.match(/\b(19|20)\d{2}\b/)
-    const year = yr ? parseInt(yr[0]) : null
-
-    albums.push({ title, year, month: null, day: null, type: currentType, wikiTitle })
+    albums.push({ title, year: yr ? parseInt(yr[0]) : null, month: null, day: null, type: currentType, wikiTitle })
   }
-
   return albums
 }
 
@@ -246,77 +237,129 @@ function extractTrackListings(wikitext: string): string[] {
   return results
 }
 
-// FIX #4: Parse singles from album infobox
 function parseSinglesFromInfobox(wikitext: string): Set<string> {
   const singles = new Set<string>()
   const singlesM = wikitext.match(/\|\s*singles?\s*=\s*([\s\S]*?)(?=\n\s*\||\n\s*\}\})/)
   if (!singlesM) return singles
-
   const block = singlesM[1]
   const linkRe = /\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/g
   let m: RegExpExecArray | null
-  while ((m = linkRe.exec(block)) !== null) {
-    singles.add(cleanWikiText(m[2] || m[1]).toLowerCase())
-  }
+  while ((m = linkRe.exec(block)) !== null) singles.add(cleanWikiText(m[2] || m[1]).toLowerCase())
   const plainRe = /[""]([^""]+)[""]/g
-  while ((m = plainRe.exec(block)) !== null) {
-    singles.add(m[1].trim().toLowerCase())
-  }
+  while ((m = plainRe.exec(block)) !== null) singles.add(m[1].trim().toLowerCase())
   return singles
 }
 
-// FIX #1: Smart multi-disc detection, only take standard edition
-function parseTracklist(wikitext: string): { title: string; duration?: string; sort_order: number; is_single?: boolean }[] {
-  const tracks: { title: string; duration?: string; sort_order: number; is_single?: boolean }[] = []
-  let order = 1
+// Get "headline" label from a track listing block (e.g. "Standard edition", "Deluxe edition bonus tracks")
+function getBlockHeadline(tl: string): string {
+  const m = tl.match(/\|\s*headline\s*=\s*([^\n|]+)/)
+  return m ? m[1].trim().replace(/[''+]/g, '') : ''
+}
 
-  const singles = parseSinglesFromInfobox(wikitext)
-  const tlBlocks = extractTrackListings(wikitext)
+function isStandardBlock(headline: string): boolean {
+  if (!headline) return true // no headline = standard
+  const h = headline.toLowerCase()
+  return !h.includes('bonus') && !h.includes('deluxe') && !h.includes('japan') &&
+    !h.includes('special') && !h.includes('edition') && !h.includes('version') &&
+    !h.includes('international') && !h.includes('itunes') && !h.includes('target') &&
+    !h.includes('walmart') && !h.includes('exclusive')
+}
 
-  const isMultiDisc = tlBlocks.some(b =>
-    /\|\s*headline\s*=.*disc\s*[12]/i.test(b) ||
-    /\|\s*disc\s*=\s*[12]/i.test(b)
-  )
-
-  const blocksToUse = isMultiDisc ? tlBlocks : tlBlocks.slice(0, 1)
-
-  for (const tl of blocksToUse) {
-    let i = 1
-    while (true) {
-      const titleM = tl.match(new RegExp(`\\|\\s*title${i}\\s*=\\s*([^|\\n]+)`))
-      if (!titleM) break
-      const lenM = tl.match(new RegExp(`\\|\\s*length${i}\\s*=\\s*([^|\\n]+)`))
-      const title = cleanWikiText(titleM[1].trim())
-      if (title) {
-        const is_single = singles.size > 0 ? singles.has(title.toLowerCase()) : undefined
-        tracks.push({ title, duration: lenM?.[1]?.trim(), sort_order: order++, is_single })
-      }
-      i++
+function parseTracksFromBlock(tl: string, startOrder: number, singles: Set<string>): TrackEntry[] {
+  const tracks: TrackEntry[] = []
+  let i = 1
+  let order = startOrder
+  while (true) {
+    const titleM = tl.match(new RegExp(`\\|\\s*title${i}\\s*=\\s*([^|\\n]+)`))
+    if (!titleM) break
+    const lenM = tl.match(new RegExp(`\\|\\s*length${i}\\s*=\\s*([^|\\n]+)`))
+    const rawTitle = cleanWikiText(titleM[1].trim())
+    if (rawTitle) {
+      const { cleanTitle, featuring } = parseFeaturing(rawTitle)
+      const is_single = singles.size > 0 ? singles.has(cleanTitle.toLowerCase()) : undefined
+      tracks.push({
+        title: cleanTitle,
+        duration: lenM?.[1]?.trim(),
+        sort_order: order++,
+        is_single,
+        featuring: featuring.length > 0 ? featuring : undefined,
+      })
     }
-  }
-
-  if (!tracks.length) {
-    for (const line of wikitext.split('\n')) {
-      const m = line.match(/^#+\s*(?:\[\[(?:[^\]|]+\|)?([^\]|]+)\]\]|''([^']+)''|([^<({|\n]+))/)
-      if (m) {
-        const title = cleanWikiText(m[1] || m[2] || m[3] || '')
-        if (title.length > 1) {
-          tracks.push({ title, sort_order: order++, is_single: singles.has(title.toLowerCase()) || undefined })
-        }
-      }
-    }
+    i++
   }
   return tracks
 }
 
+function parseTracklist(wikitext: string): TrackEntry[] {
+  const singles = parseSinglesFromInfobox(wikitext)
+  const tlBlocks = extractTrackListings(wikitext)
+  if (!tlBlocks.length) {
+    // Fallback: numbered list
+    const tracks: TrackEntry[] = []
+    let order = 1
+    for (const line of wikitext.split('\n')) {
+      const m = line.match(/^#+\s*(?:\[\[(?:[^\]|]+\|)?([^\]|]+)\]\]|''([^']+)''|([^<({|\n]+))/)
+      if (m) {
+        const rawTitle = cleanWikiText(m[1] || m[2] || m[3] || '')
+        if (rawTitle.length > 1) {
+          const { cleanTitle, featuring } = parseFeaturing(rawTitle)
+          tracks.push({ title: cleanTitle, sort_order: order++, featuring: featuring.length > 0 ? featuring : undefined })
+        }
+      }
+    }
+    return tracks
+  }
+
+  // Check if multi-disc (all blocks are standard disc parts)
+  const isMultiDisc = tlBlocks.some(b =>
+    /\|\s*headline\s*=.*disc\s*[12]/i.test(b) || /\|\s*disc\s*=\s*[12]/i.test(b)
+  )
+
+  const allTracks: TrackEntry[] = []
+
+  if (isMultiDisc) {
+    // Merge all disc blocks
+    let order = 1
+    for (const tl of tlBlocks) {
+      const newTracks = parseTracksFromBlock(tl, order, singles)
+      allTracks.push(...newTracks)
+      order += newTracks.length
+    }
+  } else {
+    // Separate standard and bonus blocks
+    const standardBlocks = tlBlocks.filter(tl => isStandardBlock(getBlockHeadline(tl)))
+    const bonusBlocks = tlBlocks.filter(tl => !isStandardBlock(getBlockHeadline(tl)))
+
+    // Always add standard tracks
+    let order = 1
+    for (const tl of standardBlocks.length ? standardBlocks : tlBlocks.slice(0, 1)) {
+      const newTracks = parseTracksFromBlock(tl, order, singles)
+      allTracks.push(...newTracks)
+      order += newTracks.length
+    }
+
+    // Add bonus tracks, skipping duplicates by title
+    const existingTitles = new Set(allTracks.map(t => t.title.toLowerCase()))
+    for (const tl of bonusBlocks) {
+      const bonusTracks = parseTracksFromBlock(tl, order, singles)
+      for (const bt of bonusTracks) {
+        if (!existingTitles.has(bt.title.toLowerCase())) {
+          allTracks.push({ ...bt, sort_order: order++ })
+          existingTitles.add(bt.title.toLowerCase())
+        }
+      }
+    }
+  }
+
+  return allTracks
+}
+
 function parseReleaseDate(wikitext: string): { year: number | null; month: number | null; day: number | null } {
   const startDateM = wikitext.match(/\{\{[Ss]tart\s*date\|(\d{4})\|?(\d{1,2})?\|?(\d{1,2})?/)
-  if (startDateM) {
-    return {
-      year: startDateM[1] ? parseInt(startDateM[1]) : null,
-      month: startDateM[2] ? parseInt(startDateM[2]) : null,
-      day: startDateM[3] ? parseInt(startDateM[3]) : null,
-    }
+  if (startDateM) return {
+    year: startDateM[1] ? parseInt(startDateM[1]) : null,
+    month: startDateM[2] ? parseInt(startDateM[2]) : null,
+    day: startDateM[3] ? parseInt(startDateM[3]) : null,
   }
   const releasedM = wikitext.match(/\|\s*released\s*=\s*[^|{[\n]*?(\w+ \d{1,2},?\s*\d{4})/)
   if (releasedM) {
@@ -362,22 +405,18 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
 
   const search = async (groupFilter?: string) => {
     setLoading(true); setAlbums([]); setLog([]); setSelected(new Set())
-
     const baseTitle = extractWikiTitle(url)
     addLog(`🔍 Ieškoma: ${baseTitle}...`)
-
     let found: DiscographyAlbum[] = []
 
     const mainWikitext = await fetchWikitext(baseTitle)
     if (mainWikitext) {
-      // FIX #5: Detect multiple artist sections
       const groups = hasMultipleArtistSections(mainWikitext)
       if (groups.length > 1 && !groupFilter && !isSolo) {
         setArtistGroups(groups)
         setLoading(false)
         return
       }
-
       const soloMode = isSolo || groupFilter === '__solo__'
       found = parseMainPageDiscography(mainWikitext, soloMode)
       if (found.length) addLog(`✅ Rasta ${found.length} albumų iš pagrindinio puslapio`)
@@ -390,16 +429,12 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
         const discWikitext = await fetchWikitext(discTitle)
         if (discWikitext) {
           const discFound = parseDiscographyPage(discWikitext)
-          if (discFound.length > found.length) {
-            found = discFound
-            addLog(`✅ Rasta ${found.length} albumų iš diskografijos puslapio`)
-          }
+          if (discFound.length > found.length) { found = discFound; addLog(`✅ Rasta ${found.length} albumų iš diskografijos puslapio`) }
         }
       }
     }
 
     if (!found.length) addLog('❌ Nieko nerasta. Pabandyk nurodyti _discography URL.')
-
     setArtistGroups([])
     setAlbums(found)
     setSelected(new Set(found.map((_, i) => i)))
@@ -411,22 +446,16 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
     if (!a.wikiTitle || a.fetched) return
     addLog(`📋 ${a.title}...`)
     try {
-      const [wikitext, cover] = await Promise.all([
-        fetchWikitext(a.wikiTitle),
-        fetchCoverImage(a.wikiTitle),
-      ])
-
+      const [wikitext, cover] = await Promise.all([fetchWikitext(a.wikiTitle), fetchCoverImage(a.wikiTitle)])
       const dateInfo = parseReleaseDate(wikitext)
-      const year = dateInfo.year ?? a.year
-      const month = dateInfo.month
-      const day = dateInfo.day
       const tracks = parseTracklist(wikitext)
       const singlesCount = tracks.filter(t => t.is_single).length
-
+      const featCount = tracks.filter(t => t.featuring?.length).length
       setAlbums(p => p.map((al, i) => i === idx
-        ? { ...al, tracks, fetched: true, cover_image_url: cover || al.cover_image_url, year, month, day }
+        ? { ...al, tracks, fetched: true, cover_image_url: cover || al.cover_image_url,
+            year: dateInfo.year ?? al.year, month: dateInfo.month, day: dateInfo.day }
         : al))
-      addLog(`  → ${tracks.length} dainų${singlesCount ? `, ${singlesCount} singlų` : ''}${cover ? ', viršelis ✓' : ' (viršelio nėra)'}`)
+      addLog(`  → ${tracks.length} dainų${singlesCount ? `, ${singlesCount} singlų` : ''}${featCount ? `, ${featCount} su feat.` : ''}${cover ? ', viršelis ✓' : ''}`)
     } catch {
       setAlbums(p => p.map((al, i) => i === idx ? { ...al, fetched: true, tracks: [] } : al))
       addLog(`  ❌ Klaida kraunant ${a.title}`)
@@ -442,28 +471,33 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
     }
   }
 
+  // Stable import: collect all album data BEFORE starting import loop
   const importSelected = async () => {
-    const unfetched = Array.from(selected).filter(i => !albums[i].fetched)
+    const indices = Array.from(selected).sort((a, b) => a - b)
+
+    // Auto-fetch unfetched
+    const unfetched = indices.filter(i => !albums[i].fetched)
     if (unfetched.length > 0) {
-      addLog(`📋 Kraunamos detalės prieš importą (${unfetched.length} albumų)...`)
+      addLog(`📋 Kraunamos detalės (${unfetched.length} albumų)...`)
       for (const i of unfetched) {
         await fetchAlbumDetails(i)
         await new Promise(r => setTimeout(r, 300))
       }
     }
 
+    // Snapshot current state to avoid React async state issues
+    let snapshot: DiscographyAlbum[] = []
+    setAlbums(p => { snapshot = p; return p })
+    await new Promise(r => setTimeout(r, 20))
+
     setImporting(true)
     let ok = 0, fail = 0
 
-    for (const idx of Array.from(selected).sort((a, b) => a - b)) {
-      setAlbums(p => p.map((al, i) => i === idx ? { ...al, importing: true } : al))
-      await new Promise(r => setTimeout(r, 50))
+    for (const idx of indices) {
+      const a = snapshot[idx]
+      if (!a) continue
 
-      let currentAlbum: DiscographyAlbum | null = null
-      setAlbums(p => { currentAlbum = p[idx]; return p })
-      await new Promise(r => setTimeout(r, 10))
-      if (!currentAlbum) continue
-      const a = currentAlbum as DiscographyAlbum
+      setAlbums(p => p.map((al, i) => i === idx ? { ...al, importing: true } : al))
 
       try {
         const payload = {
@@ -484,8 +518,9 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
             sort_order: i + 1,
             duration: t.duration || null,
             type: 'normal' as const,
-            disc_number: 1,
+            disc_number: t.disc_number || 1,
             is_single: t.is_single || false,
+            featuring: t.featuring || [],
           })),
         }
         const res = await fetch('/api/albums', {
@@ -494,14 +529,14 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
         if (!res.ok) throw new Error((await res.json()).error)
         setAlbums(p => p.map((al, i) => i === idx ? { ...al, importing: false, imported: true } : al))
         const singlesInAlbum = (a.tracks || []).filter(t => t.is_single).length
-        addLog(`✅ ${a.title}${a.tracks?.length ? ` (${a.tracks.length} dainų${singlesInAlbum ? `, ${singlesInAlbum} singlų` : ''})` : ''}`)
+        addLog(`✅ ${a.title} (${a.tracks?.length || 0} dainų${singlesInAlbum ? `, ${singlesInAlbum} singlų` : ''})`)
         ok++
       } catch (e: any) {
         setAlbums(p => p.map((al, i) => i === idx ? { ...al, importing: false, error: e.message } : al))
         addLog(`❌ ${a.title}: ${e.message}`)
         fail++
       }
-      await new Promise(r => setTimeout(r, 150))
+      await new Promise(r => setTimeout(r, 200))
     }
     setImporting(false)
     addLog(`🏁 Baigta: ${ok} importuota${fail ? `, ${fail} klaida` : ''}`)
@@ -510,10 +545,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
   const toggleSelect = (i: number) => setSelected(p => {
     const s = new Set(p); s.has(i) ? s.delete(i) : s.add(i); return s
   })
-
-  const selectOnlyStudio = () => {
-    setSelected(new Set(albums.map((a, i) => a.type === 'studio' ? i : -1).filter(i => i !== -1)))
-  }
+  const selectOnlyStudio = () => setSelected(new Set(albums.map((a, i) => a.type === 'studio' ? i : -1).filter(i => i !== -1)))
 
   return (
     <>
@@ -533,12 +565,10 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
             </div>
 
             <div className="px-6 py-4 border-b border-gray-100 flex gap-3">
-              <input
-                value={url} onChange={e => setUrl(e.target.value)}
+              <input value={url} onChange={e => setUrl(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && !loading && search()}
                 placeholder="https://en.wikipedia.org/wiki/Coldplay"
-                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 bg-white focus:outline-none focus:border-purple-400 placeholder:text-gray-400"
-              />
+                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 bg-white focus:outline-none focus:border-purple-400 placeholder:text-gray-400" />
               <button onClick={() => search()} disabled={loading || !url.trim()}
                 className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-medium disabled:opacity-50 transition-colors whitespace-nowrap">
                 {loading ? '⏳' : '🔍 Ieškoti'}
@@ -547,24 +577,21 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
 
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
 
-              {/* FIX #5: Group selector */}
+              {/* Group selector */}
               {artistGroups.length > 1 && !loading && (
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
                   <p className="text-sm font-medium text-amber-800 mb-3">
                     ⚠️ Rastos kelios diskografijos grupės. Kurią importuoti?
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    <button onClick={() => search('__solo__')}
-                      className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700">
+                    <button onClick={() => search('__solo__')} className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700">
                       🎤 Tik solo albumai
                     </button>
-                    <button onClick={() => { setArtistGroups([]); search('__all__') }}
-                      className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-300">
+                    <button onClick={() => { setArtistGroups([]); search('__all__') }} className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-300">
                       📀 Visi albumai
                     </button>
                     {artistGroups.map(g => (
-                      <button key={g} onClick={() => { setArtistGroups([]); search(g) }}
-                        className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-sm hover:bg-gray-200">
+                      <button key={g} onClick={() => { setArtistGroups([]); search(g) }} className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-sm hover:bg-gray-200">
                         {g}
                       </button>
                     ))}
@@ -581,7 +608,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                       <button onClick={selectOnlyStudio} className="text-gray-500 hover:underline text-xs">Tik studijiniai</button>
                       <button onClick={fetchAllDetails} disabled={importing}
                         className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium disabled:opacity-50">
-                        📋 Krauti detales (datas, dainas, viršelius)
+                        📋 Krauti detales
                       </button>
                     </div>
                     <span className="text-xs text-gray-400">{selected.size} pasirinkta</span>
@@ -612,14 +639,13 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                             {a.error && <span className="text-xs text-red-500" title={a.error}>❌</span>}
                             {a.importing && <span className="text-xs text-purple-500 animate-pulse">⏳</span>}
                           </div>
-                          <div className="flex items-center gap-2 mt-0.5">
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                             <span className="text-xs text-gray-400">{TYPE_LABELS[a.type]}</span>
                             {a.tracks !== undefined && (
                               <span className="text-xs text-purple-600">
                                 {a.tracks.length} dainų
-                                {a.tracks.filter(t => t.is_single).length > 0 && (
-                                  <span className="text-amber-600 ml-1">· {a.tracks.filter(t => t.is_single).length} singlai</span>
-                                )}
+                                {a.tracks.filter(t => t.is_single).length > 0 && <span className="text-amber-600 ml-1">· {a.tracks.filter(t => t.is_single).length} singlai</span>}
+                                {a.tracks.filter(t => t.featuring?.length).length > 0 && <span className="text-blue-500 ml-1">· feat. ✓</span>}
                               </span>
                             )}
                           </div>
