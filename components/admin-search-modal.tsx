@@ -64,8 +64,9 @@ export default function AdminSearchModal({ onClose }: { onClose: () => void }) {
         />
         {loading && <div className="w-4 h-4 border-2 border-music-blue border-t-transparent rounded-full animate-spin shrink-0" />}
         <button onClick={onClose}
-          className="text-gray-400 hover:text-gray-600 text-sm px-2 py-1 rounded border border-gray-200 shrink-0">
-          Esc
+          className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors shrink-0 text-xl"
+          title="Uždaryti (Esc)">
+          ×
         </button>
       </div>
 
