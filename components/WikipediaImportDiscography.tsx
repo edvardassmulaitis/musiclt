@@ -92,49 +92,73 @@ async function fetchCoverImage(wikiTitle: string): Promise<string> {
   } catch { return '' }
 }
 
-// FIX: Handle [[Link|"Display with quotes"]] and [[Link]] and plain text
+// Clean wiki markup from text
 function cleanWikiText(raw: string): string {
   let s = raw
-  // [[Link|Display]] – take display part, strip surrounding quotes
-  s = s.replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, (_, _link, display) =>
-    display.replace(/^["'"']+|["'"']+$/g, '').trim()
+  // [[Link|Display]] - take display part, strip surrounding quotes
+  s = s.replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, (_: string, _link: string, display: string) =>
+    display.replace(/^[\u201c\u2018\u2019\u201d"']+|[\u201c\u2018\u2019\u201d"']+$/g, '').trim()
   )
-  // [[Link]] – take link text, replace underscores
-  s = s.replace(/\[\[([^\]]+)\]\]/g, (_, link) =>
-    link.replace(/_/g, ' ').replace(/^["'"']+|["'"']+$/g, '').trim()
+  // [[Link]] - take link text, replace underscores
+  s = s.replace(/\[\[([^\]]+)\]\]/g, (_: string, link: string) =>
+    link.replace(/_/g, ' ').replace(/^[\u201c\u2018\u2019\u201d"']+|[\u201c\u2018\u2019\u201d"']+$/g, '').trim()
   )
-  // Remove any remaining [[ or ]] fragments (unclosed links)
+  // Remove remaining [[ ]] fragments
   s = s.replace(/\[\[|\]\]/g, '')
-  // Remove {{templates}}
+  // Remove {{templates}} - but featuring templates are handled before this
   s = s.replace(/\{\{[^}]*\}\}/g, '')
-  // Remove ''italics'' markup
   s = s.replace(/''+/g, '')
-  // Remove citation refs [1], [note 1]
   s = s.replace(/\[\w*\s*\d*\]/g, '')
-  // Remove disambiguation suffixes like "(Brandon Flowers song)", "(album)"
   s = s.replace(/\s*\([^)]*\bsong\b[^)]*\)/gi, '')
   s = s.replace(/\s*\([^)]*\balbum\b[^)]*\)/gi, '')
-  // Remove surrounding quotes
-  s = s.replace(/^["'"']+|["'"']+$/g, '')
+  s = s.replace(/^[\u201c\u2018\u2019\u201d"']+|[\u201c\u2018\u2019\u201d"']+$/g, '')
   return s.trim()
 }
 
-// Parse featuring artists from track title
-function parseFeaturing(raw: string): { cleanTitle: string; featuring: string[] } {
-  const featMatch = raw.match(/\((?:feat(?:uring)?\.?|ft\.?)\s+([^)]+)\)/i)
-  if (!featMatch) return { cleanTitle: raw.trim(), featuring: [] }
-  const cleanTitle = raw.replace(featMatch[0], '').trim()
-  const featuring = featMatch[1]
-    .split(/\s+and\s+|[,&]/i)
-    .map(s => {
-      // Clean wiki markup from featuring name too
-      return s.replace(/\[\[([^\]|]+\|)?([^\]|]+)\]\]/g, '$2')
-               .replace(/''/g, '').trim()
-    })
-    .filter(s => s.length > 0)
-  return { cleanTitle, featuring }
+// Extract featuring names from RAW wikitext (before template cleanup)
+// Handles: (featuring [[Jenny Lewis]]), {{feat.|[[X]]}}, (feat. X and Y)
+function extractFeaturing(raw: string): string[] {
+  const names: string[] = []
+
+  // Pattern 1: (featuring ...) or (feat. ...) with optional wiki links
+  const parenMatch = raw.match(/\((?:feat(?:uring)?\.?|ft\.?)\s+([^)]+)\)/i)
+  if (parenMatch) {
+    const parts = parenMatch[1].split(/\s+and\s+|[,&]/i)
+    for (const p of parts) {
+      const linkM = p.match(/\[\[(?:[^\]|]+\|)?([^\]|]+)\]\]/)
+      const name = (linkM ? linkM[1] : p).replace(/['\[\]]/g, '').trim()
+      if (name.length > 1) names.push(name)
+    }
+    return names
+  }
+
+  // Pattern 2: {{featuring|...}} or {{feat.|...}} template
+  const tplMatch = raw.match(/\{\{(?:feat(?:uring)?\.?|ft\.?)[\s|]([^}]+)\}\}/i)
+  if (tplMatch) {
+    const parts = tplMatch[1].split(/\s*\|\s*|\s+and\s+|[,&]/i)
+    for (const p of parts) {
+      const linkM = p.match(/\[\[(?:[^\]|]+\|)?([^\]|]+)\]\]/)
+      const name = (linkM ? linkM[1] : p).replace(/['\[\]]/g, '').trim()
+      if (name.length > 1) names.push(name)
+    }
+  }
+
+  return names
 }
 
+// Parse featuring from raw wiki title - extract BEFORE cleaning templates
+function parseFeaturing(raw: string): { cleanTitle: string; featuring: string[] } {
+  const featuring = extractFeaturing(raw)
+
+  // Remove featuring markup from title before cleaning
+  let cleanTitle = raw
+    .replace(/\s*\((?:feat(?:uring)?\.?|ft\.?)\s+[^)]+\)/gi, '')
+    .replace(/\s*\{\{(?:feat(?:uring)?\.?|ft\.?)[\s|][^}]+\}\}/gi, '')
+    .trim()
+
+  cleanTitle = cleanWikiText(cleanTitle)
+  return { cleanTitle, featuring }
+}
 function parseMainPageDiscography(wikitext: string, soloOnly = false): DiscographyAlbum[] {
   const albums: DiscographyAlbum[] = []
   const lines = wikitext.split('\n')
@@ -250,19 +274,57 @@ function extractTrackListings(wikitext: string): string[] {
 
 function parseSinglesFromInfobox(wikitext: string): Set<string> {
   const singles = new Set<string>()
-  const singlesM = wikitext.match(/\|\s*singles?\s*=\s*([\s\S]*?)(?=\n\s*\||\n\s*\}\})/)
-  if (!singlesM) return singles
-  const block = singlesM[1]
-  const linkRe = /\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/g
-  let m: RegExpExecArray | null
-  while ((m = linkRe.exec(block)) !== null) singles.add(cleanWikiText(m[2] || m[1]).toLowerCase())
-  const plainRe = /[""]([^""]+)[""]/g
-  while ((m = plainRe.exec(block)) !== null) singles.add(m[1].trim().toLowerCase())
+
+  // Method 1: {{Singles | single1 = [[X|Y]] }} template (most common)
+  const singlesTplMatch = wikitext.match(/\{\{Singles\b([\s\S]*?)\}\}/)
+  if (singlesTplMatch) {
+    const block = singlesTplMatch[1]
+    const singleRe = /\|\s*single\d+\s*=\s*([^\n|]+)/g
+    let m: RegExpExecArray | null
+    while ((m = singleRe.exec(block)) !== null) {
+      const raw = m[1].trim()
+      // Extract display name from [[Link|DisplayName]] → DisplayName
+      const withDisplay = raw.match(/\[\[(?:[^\]|]+)\|([^\]|]+)\]\]/)
+      if (withDisplay) {
+        const name = withDisplay[1].replace(/''+/g, '').trim()
+        if (name.length > 1) singles.add(name.toLowerCase())
+        continue
+      }
+      // Extract from [[LinkOnly]] → LinkOnly (remove disambiguation)
+      const linkOnly = raw.match(/\[\[([^\]|]+)\]\]/)
+      if (linkOnly) {
+        // Remove disambiguation like "(Brandon Flowers song)"
+        const name = linkOnly[1].replace(/\s*\([^)]+\)$/g, '').replace(/_/g, ' ').replace(/''+/g, '').trim()
+        if (name.length > 1) singles.add(name.toLowerCase())
+        continue
+      }
+      // Plain text
+      const name = raw.replace(/''+/g, '').trim()
+      if (name.length > 1) singles.add(name.toLowerCase())
+    }
+    return singles
+  }
+
+  // Method 2: | singles = ... in infobox
+  const infoboxM = wikitext.match(/\|\s*singles?\s*=([\s\S]*?)(?=\n\s*\||\n\}\})/)
+  if (infoboxM) {
+    const block = infoboxM[1]
+    const linkRe = /\[\[(?:[^\]|]+\|)?([^\]|]+)\]\]/g
+    let m: RegExpExecArray | null
+    while ((m = linkRe.exec(block)) !== null) {
+      const name = m[1].replace(/''+/g, '').trim()
+      if (name.length > 1) singles.add(name.toLowerCase())
+    }
+    const quotedRe = /[""\u201c\u201d]([^""\u201c\u201d]{2,})[""\u201c\u201d]/g
+    while ((m = quotedRe.exec(block)) !== null) singles.add(m[1].trim().toLowerCase())
+  }
+
   return singles
 }
 
 function getBlockHeadline(tl: string): string {
-  const m = tl.match(/\|\s*headline\s*=\s*([^\n|]+)/)
+  // Try both headline= and caption= (both used in Wikipedia track listings)
+  const m = tl.match(/\|\s*(?:headline|caption)\s*=\s*([^\n|]+)/)
   return m ? m[1].replace(/[''+\[\]]/g, '').trim() : ''
 }
 
@@ -284,16 +346,43 @@ function parseTracksFromBlock(tl: string, startOrder: number, singles: Set<strin
   let i = 1
   let order = startOrder
   while (true) {
+    // Try titleN - Wikipedia uses sequential numbers even in bonus blocks (title11, title12...)
+    // So we try both i and i+10, i+20 etc - actually just increment until no match
     const titleM = tl.match(new RegExp(`\\|\\s*title${i}\\s*=\\s*([^|\\n]+)`))
-    if (!titleM) break
+    if (!titleM) {
+      // Also try with the actual track number if block starts mid-album
+      // Stop after 5 consecutive misses to avoid infinite loop
+      break
+    }
     const lenM = tl.match(new RegExp(`\\|\\s*length${i}\\s*=\\s*([^|\\n]+)`))
-    // FIX: clean wiki markup first, THEN parse featuring
-    const rawCleaned = cleanWikiText(titleM[1].trim())
-    if (rawCleaned) {
-      const { cleanTitle, featuring } = parseFeaturing(rawCleaned)
-      const is_single = singles.size > 0 ? singles.has(cleanTitle.toLowerCase()) : undefined
+    // Check note{i} for featuring (Wikipedia uses | note3 = featuring [[Jenny Lewis]])
+    const noteM = tl.match(new RegExp(`\\|\\s*note${i}\\s*=\\s*([^|\\n]+)`))
+
+    const rawTitle = titleM[1].trim()
+    // Extract featuring from note field first, then from title
+    let featuring: string[] = []
+    if (noteM) {
+      const note = noteM[1].trim()
+      const featM = note.match(/feat(?:uring)?[.\s]+(.+)/i)
+      if (featM) {
+        const parts = featM[1].split(/\s+and\s+|[,&]/i)
+        for (const p of parts) {
+          const linkM = p.match(/\[\[(?:[^\]|]+\|)?([^\]|]+)\]\]/)
+          const name = (linkM ? linkM[1] : p).replace(/['[\]]/g, '').trim()
+          if (name.length > 1) featuring.push(name)
+        }
+      }
+    }
+
+    // Parse featuring from title if not found in note
+    const { cleanTitle, featuring: titleFeat } = parseFeaturing(rawTitle)
+    if (featuring.length === 0) featuring = titleFeat
+
+    const finalTitle = cleanWikiText(cleanTitle)
+    if (finalTitle) {
+      const is_single = singles.size > 0 ? singles.has(finalTitle.toLowerCase()) : undefined
       tracks.push({
-        title: cleanTitle,
+        title: finalTitle,
         duration: lenM?.[1]?.trim(),
         sort_order: order++,
         is_single,
@@ -308,6 +397,15 @@ function parseTracksFromBlock(tl: string, startOrder: number, singles: Set<strin
 function parseTracklist(wikitext: string): TrackEntry[] {
   const singles = parseSinglesFromInfobox(wikitext)
   const tlBlocks = extractTrackListings(wikitext)
+
+  // Debug: log block headlines
+  if (typeof window !== 'undefined') {
+    console.log('[parseTracklist] blocks found:', tlBlocks.length)
+    tlBlocks.forEach((b, i) => {
+      const h = getBlockHeadline(b)
+      console.log(`  block[${i}] headline="${h}" isBonus=${isBonusBlock(h)} trackCount=${(b.match(/\|\s*title\d+\s*=/g)||[]).length}`)
+    })
+  }
 
   if (!tlBlocks.length) {
     // Fallback: numbered list
@@ -331,32 +429,77 @@ function parseTracklist(wikitext: string): TrackEntry[] {
   // Check if all blocks are disc parts (multi-disc album)
   const isMultiDisc = tlBlocks.every(b => isDiscBlock(b)) && tlBlocks.length > 1
 
+  // Parse all track numbers from a block (handles title11, title12... in bonus blocks)
+  const parseBlockTracks = (tl: string, startOrder: number): TrackEntry[] => {
+    const tracks: TrackEntry[] = []
+    // Find all title numbers present in this block
+    const titleNums = [...tl.matchAll(/\|\s*title(\d+)\s*=/g)].map(m => parseInt(m[1])).sort((a,b) => a-b)
+    if (!titleNums.length) return tracks
+    let order = startOrder
+    for (const num of titleNums) {
+      const titleM = tl.match(new RegExp(`\\|\\s*title${num}\\s*=\\s*([^|\\n]+)`))
+      if (!titleM) continue
+      const lenM = tl.match(new RegExp(`\\|\\s*length${num}\\s*=\\s*([^|\\n]+)`))
+      const noteM = tl.match(new RegExp(`\\|\\s*note${num}\\s*=\\s*([^|\\n]+)`))
+
+      const rawTitle = titleM[1].trim()
+      let featuring: string[] = []
+
+      // Check note field for featuring first (e.g. | note3 = featuring [[Jenny Lewis]])
+      if (noteM) {
+        const note = noteM[1].trim()
+        const featM = note.match(/feat(?:uring)?[.\s]+(.+)/i)
+        if (featM) {
+          const parts = featM[1].split(/\s+and\s+|[,&]/i)
+          for (const p of parts) {
+            const linkM = p.match(/\[\[(?:[^\]|]+\|)?([^\]|]+)\]\]/)
+            const name = (linkM ? linkM[1] : p).replace(/['[\]]/g, '').trim()
+            if (name.length > 1) featuring.push(name)
+          }
+        }
+      }
+
+      // Parse featuring from title if not found in note
+      const { cleanTitle, featuring: titleFeat } = parseFeaturing(rawTitle)
+      if (featuring.length === 0) featuring = titleFeat
+
+      const finalTitle = cleanWikiText(cleanTitle)
+      if (finalTitle) {
+        const is_single = singles.size > 0 ? singles.has(finalTitle.toLowerCase()) : undefined
+        tracks.push({
+          title: finalTitle,
+          duration: lenM?.[1]?.trim(),
+          sort_order: order++,
+          is_single,
+          featuring: featuring.length > 0 ? featuring : undefined,
+        })
+      }
+    }
+    return tracks
+  }
+
   if (isMultiDisc) {
     let order = 1
     for (const tl of tlBlocks) {
-      const newTracks = parseTracksFromBlock(tl, order, singles)
+      const newTracks = parseBlockTracks(tl, order)
       allTracks.push(...newTracks)
       order += newTracks.length
     }
   } else {
-    // Split into standard and bonus blocks by headline
     const standardBlocks = tlBlocks.filter(tl => !isBonusBlock(getBlockHeadline(tl)))
     const bonusBlocks = tlBlocks.filter(tl => isBonusBlock(getBlockHeadline(tl)))
-
-    // Use standard blocks (or first block if none identified as standard)
     const blocksToUse = standardBlocks.length > 0 ? standardBlocks : [tlBlocks[0]]
 
     let order = 1
     for (const tl of blocksToUse) {
-      const newTracks = parseTracksFromBlock(tl, order, singles)
+      const newTracks = parseBlockTracks(tl, order)
       allTracks.push(...newTracks)
       order += newTracks.length
     }
 
-    // Add bonus tracks, deduplicating by title
     const existingTitles = new Set(allTracks.map(t => t.title.toLowerCase()))
     for (const tl of bonusBlocks) {
-      const bonusTracks = parseTracksFromBlock(tl, order, singles)
+      const bonusTracks = parseBlockTracks(tl, order)
       for (const bt of bonusTracks) {
         if (!existingTitles.has(bt.title.toLowerCase())) {
           allTracks.push({ ...bt, sort_order: order++ })
