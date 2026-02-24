@@ -8,7 +8,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-// GET /api/tracks/[id] – fetch single track with featuring + albums
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -22,7 +21,6 @@ export async function GET(
       .single()
     if (error) throw error
 
-    // Featuring artists
     const { data: featRows } = await supabase
       .from('track_artists')
       .select('artist_id, is_primary, artists(id, name, slug)')
@@ -35,7 +33,6 @@ export async function GET(
       is_primary: r.is_primary || false,
     }))
 
-    // Albums this track appears in
     const { data: albumRows } = await supabase
       .from('album_tracks')
       .select('position, is_primary, albums(id, title, year)')
@@ -50,13 +47,27 @@ export async function GET(
       is_single: r.is_primary || false,
     }))
 
-    return NextResponse.json({ ...track, featuring, albums })
+    // Backward compat: parse old release_date if new fields empty
+    let release_year = track.release_year || null
+    let release_month = track.release_month || null
+    let release_day = track.release_day || null
+    if (!release_year && track.release_date) {
+      const d = new Date(track.release_date)
+      release_year = d.getFullYear()
+      // Only expose month/day if it's not Jan 1 (likely a placeholder)
+      const isJan1 = d.getMonth() === 0 && d.getDate() === 1
+      if (!isJan1) {
+        release_month = d.getMonth() + 1
+        release_day = d.getDate()
+      }
+    }
+
+    return NextResponse.json({ ...track, release_year, release_month, release_day, featuring, albums })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
 }
 
-// PUT /api/tracks/[id] – update track + featuring
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -72,24 +83,32 @@ export async function PUT(
   try {
     const data = await req.json()
 
+    const y = data.release_year ? parseInt(data.release_year) : null
+    const m = data.release_month ? parseInt(data.release_month) : null
+    const d = data.release_day ? parseInt(data.release_day) : null
+    // Only store release_date when all three known
+    const release_date = y && m && d
+      ? `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+      : null
+
     const { error } = await supabase.from('tracks').update({
       title: data.title,
       artist_id: Number(data.artist_id),
       type: data.type || 'normal',
-      release_date: data.release_date || null,
+      release_year: y,
+      release_month: m,
+      release_day: d,
+      release_date,
       is_new: data.is_new ?? false,
       is_new_date: data.is_new ? (data.is_new_date || new Date().toISOString().slice(0, 10)) : null,
-      is_single: data.is_single ?? false,
       cover_url: data.cover_url || null,
       video_url: data.video_url || null,
       lyrics: data.lyrics || null,
       description: data.description || null,
       spotify_id: data.spotify_id || null,
-      show_player: data.show_player ?? false,
     }).eq('id', trackId)
     if (error) throw error
 
-    // Sync featuring artists (replace all)
     if (Array.isArray(data.featuring)) {
       await supabase.from('track_artists').delete().eq('track_id', trackId)
       if (data.featuring.length > 0) {
@@ -110,7 +129,6 @@ export async function PUT(
   }
 }
 
-// DELETE /api/tracks/[id] – delete track + relations
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
