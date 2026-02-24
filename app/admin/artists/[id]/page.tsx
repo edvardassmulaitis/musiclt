@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
+import WikipediaImportDiscography from '@/components/WikipediaImportDiscography'
 import ArtistForm, { ArtistFormData, emptyArtistForm } from '@/components/ArtistForm'
 
 const GENRE_BY_ID: Record<number, string> = {
@@ -118,6 +119,7 @@ export default function EditArtist() {
   const router = useRouter()
   const params = useParams()
   const [initialData, setInitialData] = useState<ArtistFormData | null>(null)
+  const [artistName, setArtistName] = useState('')
   const [albumCount, setAlbumCount] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -135,6 +137,7 @@ export default function EditArtist() {
       .then(data => {
         if (data.error) { alert('Atlikėjas nerastas!'); router.push('/admin/artists'); return }
         setInitialData(dbToForm(data))
+        setArtistName(data.name || '')
       })
 
     fetch(`/api/albums?artist_id=${artistId}&limit=1`)
@@ -176,8 +179,8 @@ export default function EditArtist() {
         </div>
       )}
 
-      {/* Diskografijos nuoroda */}
-      <div className="bg-white border-b border-gray-200 px-6 py-2 flex items-center gap-3">
+      {/* Viršutinė juosta */}
+      <div className="bg-white border-b border-gray-200 px-6 py-2 flex items-center gap-3 flex-wrap">
         <Link
           href={`/admin/albums?artist_id=${artistId}`}
           className="flex items-center gap-2 px-4 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg text-sm font-medium transition-colors"
@@ -195,6 +198,13 @@ export default function EditArtist() {
         >
           + Naujas albumas
         </Link>
+        {artistName && (
+          <WikipediaImportDiscography
+            artistId={parseInt(artistId)}
+            artistName={artistName}
+            artistWikiTitle={artistName.replace(/ /g, '_')}
+          />
+        )}
       </div>
 
       <ArtistForm
