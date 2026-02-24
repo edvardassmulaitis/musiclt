@@ -275,25 +275,35 @@ function extractTrackListings(wikitext: string): string[] {
 function parseSinglesFromInfobox(wikitext: string): Set<string> {
   const singles = new Set<string>()
 
-  // Method 1: {{Singles | single1 = [[X|Y]] }} template (most common)
-  const singlesTplMatch = wikitext.match(/\{\{Singles\b([\s\S]*?)\}\}/)
-  if (singlesTplMatch) {
-    const block = singlesTplMatch[1]
+  // Extract {{Singles}} template with proper brace counting (handles nested {{ }})
+  const extractTemplate = (text: string, name: string): string | null => {
+    const start = text.search(new RegExp(`\\{\\{${name}\\b`, 'i'))
+    if (start === -1) return null
+    let depth = 0, i = start
+    while (i < text.length - 1) {
+      if (text[i] === '{' && text[i+1] === '{') { depth++; i += 2 }
+      else if (text[i] === '}' && text[i+1] === '}') { depth--; i += 2; if (depth === 0) return text.slice(start, i) }
+      else i++
+    }
+    return null
+  }
+
+  const singlesBlock = extractTemplate(wikitext, 'Singles')
+  if (singlesBlock) {
     const singleRe = /\|\s*single\d+\s*=\s*([^\n|]+)/g
     let m: RegExpExecArray | null
-    while ((m = singleRe.exec(block)) !== null) {
+    while ((m = singleRe.exec(singlesBlock)) !== null) {
       const raw = m[1].trim()
-      // Extract display name from [[Link|DisplayName]] → DisplayName
-      const withDisplay = raw.match(/\[\[(?:[^\]|]+)\|([^\]|]+)\]\]/)
+      // [[Link with (parens)|DisplayName]] - use .*? to handle parens in link
+      const withDisplay = raw.match(/\[\[.*?\|([^\]]+)\]\]/)
       if (withDisplay) {
         const name = withDisplay[1].replace(/''+/g, '').trim()
         if (name.length > 1) singles.add(name.toLowerCase())
         continue
       }
-      // Extract from [[LinkOnly]] → LinkOnly (remove disambiguation)
+      // [[LinkOnly]] - strip disambiguation like "(Brandon Flowers song)"
       const linkOnly = raw.match(/\[\[([^\]|]+)\]\]/)
       if (linkOnly) {
-        // Remove disambiguation like "(Brandon Flowers song)"
         const name = linkOnly[1].replace(/\s*\([^)]+\)$/g, '').replace(/_/g, ' ').replace(/''+/g, '').trim()
         if (name.length > 1) singles.add(name.toLowerCase())
         continue
@@ -305,18 +315,17 @@ function parseSinglesFromInfobox(wikitext: string): Set<string> {
     return singles
   }
 
-  // Method 2: | singles = ... in infobox
+  // Fallback: | singles = ... in infobox
   const infoboxM = wikitext.match(/\|\s*singles?\s*=([\s\S]*?)(?=\n\s*\||\n\}\})/)
   if (infoboxM) {
     const block = infoboxM[1]
-    const linkRe = /\[\[(?:[^\]|]+\|)?([^\]|]+)\]\]/g
+    const linkRe = /\[\[.*?\|([^\]]+)\]\]|\[\[([^\]|]+)\]\]/g
     let m: RegExpExecArray | null
     while ((m = linkRe.exec(block)) !== null) {
-      const name = m[1].replace(/''+/g, '').trim()
+      const raw = m[1] || m[2] || ''
+      const name = raw.replace(/\s*\([^)]+\)$/g, '').replace(/''+/g, '').trim()
       if (name.length > 1) singles.add(name.toLowerCase())
     }
-    const quotedRe = /[""\u201c\u201d]([^""\u201c\u201d]{2,})[""\u201c\u201d]/g
-    while ((m = quotedRe.exec(block)) !== null) singles.add(m[1].trim().toLowerCase())
   }
 
   return singles
