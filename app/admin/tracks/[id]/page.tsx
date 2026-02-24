@@ -5,13 +5,13 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
-const TRACK_TYPES = ['normal', 'remix', 'live', 'mashup', 'instrumental'] as const
+const TRACK_TYPES = ['normal', 'single', 'remix', 'live', 'mashup', 'instrumental'] as const
 const TRACK_TYPE_LABELS: Record<string, string> = {
-  normal: 'Įprastinė', remix: 'Remix', live: 'Gyva', mashup: 'Mashup', instrumental: 'Instrumentinė'
+  normal: 'Įprastinė', single: '💿 Singlas', remix: 'Remix', live: 'Gyva', mashup: 'Mashup', instrumental: 'Instrumentinė'
 }
 
 type FeaturingArtist = { artist_id: number; name: string }
-type AlbumRef = { album_id: number; album_title: string; album_year: number | null; position: number; is_single: boolean }
+type AlbumRef = { album_id: number; album_title: string; album_year: number | null; position: number }
 type YTResult = { videoId: string; title: string; channel: string; thumbnail: string }
 type SPResult = { id: string; name: string; artists: string; album: string }
 
@@ -48,37 +48,31 @@ function DateInput({ value, onChange }: { value: string; onChange: (v: string) =
   const update = (y: string, m: string, d: string) => {
     if (!y && !m && !d) { onChange(''); return }
     if (y.length === 4) {
-      const mm = m ? m.padStart(2, '0') : '01'
-      const dd = d ? d.padStart(2, '0') : '01'
-      onChange(`${y}-${mm}-${dd}`)
-    } else {
-      onChange('')
-    }
+      onChange(`${y}-${(m || '1').padStart(2, '0')}-${(d || '1').padStart(2, '0')}`)
+    } else onChange('')
   }
 
-  const inputCls = "px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:border-music-blue [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+  const cls = "px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:border-music-blue [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
 
   return (
     <div className="flex gap-2 items-center">
       <input type="number" min="1900" max="2099" value={year}
         onChange={e => update(e.target.value, month, day)}
-        placeholder="Metai" className={`w-24 ${inputCls}`} />
-      <span className="text-gray-400 text-sm">/</span>
+        placeholder="Metai" className={`w-24 ${cls}`} />
+      <span className="text-gray-400">/</span>
       <input type="number" min="1" max="12" value={month ? String(parseInt(month)) : ''}
         onChange={e => update(year, e.target.value, day)}
-        placeholder="Mėn" className={`w-16 ${inputCls}`} />
-      <span className="text-gray-400 text-sm">/</span>
+        placeholder="Mėn" className={`w-16 ${cls}`} />
+      <span className="text-gray-400">/</span>
       <input type="number" min="1" max="31" value={day ? String(parseInt(day)) : ''}
         onChange={e => update(year, month, e.target.value)}
-        placeholder="D" className={`w-16 ${inputCls}`} />
-      {value && (
-        <button onClick={() => onChange('')} className="text-gray-400 hover:text-red-500 text-sm ml-1">✕</button>
-      )}
+        placeholder="D" className={`w-16 ${cls}`} />
+      {value && <button onClick={() => onChange('')} className="text-gray-400 hover:text-red-500 ml-1">✕</button>}
     </div>
   )
 }
 
-const inputCls = "w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:border-music-blue"
+const inp = "w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:border-music-blue"
 
 export default function AdminTrackEditPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
@@ -91,6 +85,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
   const [title, setTitle] = useState('')
   const [artistId, setArtistId] = useState(0)
   const [artistName, setArtistName] = useState('')
+  const [artistSlug, setArtistSlug] = useState('')
   const [trackType, setTrackType] = useState('normal')
   const [releaseDate, setReleaseDate] = useState('')
   const [videoUrl, setVideoUrl] = useState('')
@@ -99,14 +94,15 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
   const [description, setDescription] = useState('')
   const [isNew, setIsNew] = useState(false)
   const [isNewDate, setIsNewDate] = useState<string | null>(null)
-  const [isSingle, setIsSingle] = useState(false)
   const [coverUrl, setCoverUrl] = useState('')
+  const [coverUrlInput, setCoverUrlInput] = useState('')
   const [uploadingCover, setUploadingCover] = useState(false)
 
   const [artistSearch, setArtistSearch] = useState('')
   const [artistResults, setArtistResults] = useState<any[]>([])
   const [featuring, setFeaturing] = useState<FeaturingArtist[]>([])
   const [albums, setAlbums] = useState<AlbumRef[]>([])
+  const [removingFromAlbum, setRemovingFromAlbum] = useState<number | null>(null)
   const [featSearch, setFeatSearch] = useState('')
   const [featResults, setFeatResults] = useState<any[]>([])
 
@@ -144,9 +140,9 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
         setDescription(data.description || '')
         setIsNew(data.is_new || false)
         setIsNewDate(data.is_new_date || null)
-        setIsSingle(data.is_single || false)
         setCoverUrl(data.cover_url || '')
-        if (data.artists?.name) setArtistName(data.artists.name)
+        setCoverUrlInput(data.cover_url || '')
+        if (data.artists?.name) { setArtistName(data.artists.name); setArtistSlug(data.artists.slug || '') }
         if (data.featuring) setFeaturing(data.featuring)
         if (data.albums) setAlbums(data.albums)
         setYtQuery(`${data.artists?.name || ''} ${data.title || ''}`)
@@ -173,13 +169,18 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
     return () => clearTimeout(t)
   }, [featSearch])
 
-  const toggleNew = () => {
-    if (isNew) {
-      setIsNew(false)
-      setIsNewDate(null)
-    } else {
-      setIsNew(true)
-      setIsNewDate(new Date().toISOString().slice(0, 10))
+  // Toggle "Naujas" and immediately save
+  const toggleNew = async () => {
+    const newVal = !isNew
+    const newDate = newVal ? new Date().toISOString().slice(0, 10) : null
+    setIsNew(newVal)
+    setIsNewDate(newDate)
+    if (!isNewTrack) {
+      await fetch(`/api/tracks/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_new: newVal, is_new_date: newDate, _partial: true }),
+      })
     }
   }
 
@@ -193,8 +194,21 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
       formData.append('type', 'track')
       const res = await fetch('/api/upload', { method: 'POST', body: formData })
       const data = await res.json()
-      if (data.url) setCoverUrl(data.url)
+      if (data.url) { setCoverUrl(data.url); setCoverUrlInput(data.url) }
     } finally { setUploadingCover(false) }
+  }
+
+  const applyCoverUrl = () => {
+    setCoverUrl(coverUrlInput.trim())
+  }
+
+  const removeFromAlbum = async (albumId: number) => {
+    if (!confirm('Pašalinti šią dainą iš albumo?')) return
+    setRemovingFromAlbum(albumId)
+    try {
+      await fetch(`/api/album-tracks?track_id=${id}&album_id=${albumId}`, { method: 'DELETE' })
+      setAlbums(p => p.filter(a => a.album_id !== albumId))
+    } finally { setRemovingFromAlbum(null) }
   }
 
   const handleYtSearch = async () => {
@@ -223,8 +237,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
       const payload = {
         title, artist_id: artistId, type: trackType, release_date: releaseDate,
         video_url: videoUrl, spotify_id: spotifyId, lyrics, description,
-        is_new: isNew, is_new_date: isNewDate, is_single: isSingle,
-        cover_url: coverUrl, featuring,
+        is_new: isNew, is_new_date: isNewDate, cover_url: coverUrl, featuring,
       }
       const res = await fetch(isNewTrack ? '/api/tracks' : `/api/tracks/${id}`, {
         method: isNewTrack ? 'POST' : 'PUT',
@@ -238,7 +251,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
   }
 
   const handleDelete = async () => {
-    if (!confirm(`Ištrinti "${title}"?`)) return
+    if (!confirm(`Ar tikrai ištrinti "${title}"? Daina bus pašalinta iš visų albumų.`)) return
     setDeleting(true)
     await fetch(`/api/tracks/${id}`, { method: 'DELETE' })
     router.push('/admin/tracks')
@@ -252,18 +265,39 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto px-6 py-6">
 
-        <div className="flex items-center justify-between mb-6">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-2">
           <div>
-            <Link href="/admin/tracks" className="text-music-blue text-sm">← Dainos</Link>
-            <h1 className="text-2xl font-black text-gray-900 mt-1">
+            {/* Breadcrumb */}
+            <div className="flex items-center gap-1.5 text-sm text-gray-400 mb-1">
+              <Link href="/admin" className="hover:text-music-blue">Admin</Link>
+              <span>/</span>
+              <Link href="/admin/tracks" className="hover:text-music-blue">Dainos</Link>
+              {artistId > 0 && (
+                <>
+                  <span>/</span>
+                  <Link href={`/admin/artists/${artistSlug || artistId}`} className="hover:text-music-blue">{artistName}</Link>
+                  <span>/</span>
+                  <Link href={`/admin/albums?artist=${artistId}`} className="hover:text-music-blue text-xs">albumai</Link>
+                </>
+              )}
+              <span>/</span>
+              <span className="text-gray-600 font-medium">{title || 'Nauja daina'}</span>
+            </div>
+            <h1 className="text-2xl font-black text-gray-900">
               {isNewTrack ? '🎵 Nauja daina' : '✏️ Redaguoti dainą'}
             </h1>
           </div>
-          <div className="flex gap-3">
+          {/* Action buttons - top only */}
+          <div className="flex gap-2">
+            <Link href="/admin/tracks"
+              className="px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50">
+              Atšaukti
+            </Link>
             {!isNewTrack && (
               <button onClick={handleDelete} disabled={deleting}
                 className="px-4 py-2.5 border border-red-200 text-red-600 rounded-xl text-sm font-medium hover:bg-red-50 disabled:opacity-50">
-                🗑️ Ištrinti
+                {deleting ? '...' : '🗑️ Ištrinti'}
               </button>
             )}
             <button onClick={handleSave} disabled={saving}
@@ -282,56 +316,30 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
             <div className="w-8 h-8 border-2 border-music-blue border-t-transparent rounded-full animate-spin" />
           </div>
         ) : (
-          <div className="grid grid-cols-3 gap-5">
+          <div className="grid grid-cols-3 gap-5 mt-4">
 
             {/* === COL 1 === */}
             <div className="space-y-5">
               <Card title="Pagrindinė informacija">
 
-                {/* Cover image */}
-                <div className="flex gap-4 items-start">
-                  <div className="shrink-0">
-                    {coverUrl ? (
-                      <div className="relative group w-20 h-20">
-                        <img src={coverUrl} alt="" className="w-20 h-20 rounded-lg object-cover border border-gray-200" />
-                        <button onClick={() => setCoverUrl('')}
-                          className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full text-xs hidden group-hover:flex items-center justify-center">×</button>
-                      </div>
-                    ) : (
-                      <label className="w-20 h-20 rounded-lg border-2 border-dashed border-gray-300 hover:border-music-blue cursor-pointer flex flex-col items-center justify-center gap-1 transition-colors">
-                        <span className="text-2xl">🖼️</span>
-                        <span className="text-xs text-gray-400">Viršelis</span>
-                        <input type="file" accept="image/*" className="hidden" onChange={handleCoverUpload} disabled={uploadingCover} />
-                      </label>
-                    )}
-                    {uploadingCover && <div className="text-xs text-gray-400 mt-1 text-center">↑...</div>}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <Field label="Pavadinimas *">
-                      <input value={title} onChange={e => setTitle(e.target.value)}
-                        placeholder="Dainos pavadinimas" className={inputCls} />
-                    </Field>
-                  </div>
-                </div>
-
+                {/* Artist first */}
                 <Field label="Atlikėjas *">
                   {artistId ? (
                     <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
                       <span className="flex-1 text-sm font-medium text-gray-900">{artistName}</span>
-                      <button onClick={() => { setArtistId(0); setArtistName('') }}
-                        title="Keisti atlikėją"
-                        className="text-gray-400 hover:text-red-500 text-xs font-medium px-1.5 py-0.5 rounded border border-gray-200 hover:border-red-300 bg-white">
+                      <button onClick={() => { setArtistId(0); setArtistName(''); setArtistSlug('') }}
+                        className="text-xs text-gray-400 hover:text-red-500 border border-gray-200 hover:border-red-300 bg-white rounded px-1.5 py-0.5">
                         keisti
                       </button>
                     </div>
                   ) : (
                     <div className="relative">
                       <input value={artistSearch} onChange={e => setArtistSearch(e.target.value)}
-                        placeholder="Ieškoti atlikėjo..." className={inputCls} />
+                        placeholder="Ieškoti atlikėjo..." className={inp} />
                       {artistResults.length > 0 && (
                         <div className="absolute z-20 w-full bg-white border border-gray-200 rounded-xl shadow-xl mt-1 overflow-hidden">
                           {artistResults.map(a => (
-                            <button key={a.id} onClick={() => { setArtistId(a.id); setArtistName(a.name); setArtistSearch(''); setArtistResults([]) }}
+                            <button key={a.id} onClick={() => { setArtistId(a.id); setArtistName(a.name); setArtistSlug(a.slug || ''); setArtistSearch(''); setArtistResults([]) }}
                               className="w-full px-4 py-2.5 hover:bg-blue-50 text-left text-sm font-medium text-gray-900">
                               {a.name}
                             </button>
@@ -342,6 +350,46 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
                   )}
                 </Field>
 
+                {/* Title + cover side by side */}
+                <Field label="Pavadinimas *">
+                  <div className="flex gap-3 items-start">
+                    {/* Cover */}
+                    <div className="shrink-0">
+                      {coverUrl ? (
+                        <div className="relative group w-16 h-16">
+                          <img src={coverUrl} alt="" className="w-16 h-16 rounded-lg object-cover border border-gray-200" />
+                          <button onClick={() => { setCoverUrl(''); setCoverUrlInput('') }}
+                            className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full text-xs hidden group-hover:flex items-center justify-center">×</button>
+                        </div>
+                      ) : (
+                        <label className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 hover:border-music-blue cursor-pointer flex flex-col items-center justify-center gap-0.5 transition-colors">
+                          <span className="text-xl">🖼️</span>
+                          <span className="text-xs text-gray-400 text-center leading-tight">viršelis</span>
+                          <input type="file" accept="image/*" className="hidden" onChange={handleCoverUpload} disabled={uploadingCover} />
+                        </label>
+                      )}
+                    </div>
+                    <input value={title} onChange={e => setTitle(e.target.value)}
+                      placeholder="Dainos pavadinimas" className={`flex-1 ${inp}`} />
+                  </div>
+                </Field>
+
+                {/* Cover URL input */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Viršelio URL</label>
+                  <div className="flex gap-2">
+                    <input value={coverUrlInput} onChange={e => setCoverUrlInput(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && applyCoverUrl()}
+                      placeholder="https://..." 
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:border-music-blue" />
+                    <button onClick={applyCoverUrl}
+                      className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium">
+                      ✓
+                    </button>
+                  </div>
+                </div>
+
+                {/* Featuring */}
                 <Field label="Featuring atlikėjai">
                   {featuring.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mb-2">
@@ -356,7 +404,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
                   )}
                   <div className="relative">
                     <input value={featSearch} onChange={e => setFeatSearch(e.target.value)}
-                      placeholder="Pridėti feat. atlikėją..." className={inputCls} />
+                      placeholder="Pridėti feat. atlikėją..." className={inp} />
                     {featResults.length > 0 && (
                       <div className="absolute z-20 w-full bg-white border border-gray-200 rounded-xl shadow-xl mt-1 overflow-hidden">
                         {featResults.filter(a => a.id !== artistId && !featuring.find(f => f.artist_id === a.id)).map(a => (
@@ -370,19 +418,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
                   </div>
                 </Field>
 
-                <Field label="Tipas">
-                  <div className="flex flex-wrap gap-1.5">
-                    {TRACK_TYPES.map(tp => (
-                      <button key={tp} onClick={() => setTrackType(tp)}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-                          trackType === tp ? 'bg-music-blue text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}>
-                        {TRACK_TYPE_LABELS[tp]}
-                      </button>
-                    ))}
-                  </div>
-                </Field>
-
+                {/* Release date */}
                 <Field label="Išleidimo data">
                   <DateInput value={releaseDate} onChange={setReleaseDate} />
                   {albums.length > 0 && !releaseDate && albums[0].album_year && (
@@ -393,35 +429,43 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
                   )}
                 </Field>
 
-                {/* Flags */}
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {/* Singlas checkbox */}
-                  <label className="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50">
-                    <input type="checkbox" checked={isSingle} onChange={e => setIsSingle(e.target.checked)} className="accent-amber-500 w-4 h-4" />
-                    <span className="text-sm text-gray-700">💿 Singlas</span>
-                  </label>
+                {/* Type - now includes Single */}
+                <Field label="Tipas">
+                  <div className="flex flex-wrap gap-1.5">
+                    {TRACK_TYPES.map(tp => (
+                      <button key={tp} onClick={() => setTrackType(tp)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+                          trackType === tp
+                            ? tp === 'single' ? 'bg-amber-500 text-white' : 'bg-music-blue text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}>
+                        {TRACK_TYPE_LABELS[tp]}
+                      </button>
+                    ))}
+                  </div>
+                </Field>
 
-                  {/* Naujas toggle button */}
+                {/* Naujas toggle – auto save */}
+                <div>
                   <button onClick={toggleNew}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors ${
-                      isNew
-                        ? 'bg-green-50 border-green-300 text-green-700'
-                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                      isNew ? 'bg-green-50 border-green-300 text-green-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
                     }`}>
                     🆕 Naujas
                     {isNew && isNewDate && (
                       <span className="text-xs text-green-500 font-normal">nuo {isNewDate}</span>
                     )}
                   </button>
+                  <p className="text-xs text-gray-400 mt-1">Išsaugoma automatiškai</p>
                 </div>
               </Card>
 
-              {/* Albums */}
+              {/* Albums with remove button */}
               {albums.length > 0 && (
                 <Card title={`Albumai (${albums.length})`}>
                   <div className="-my-2">
                     {albums.map(a => (
-                      <div key={a.album_id} className="flex items-center gap-2 py-2 border-b border-gray-50 last:border-0">
+                      <div key={a.album_id} className="flex items-center gap-2 py-2 border-b border-gray-50 last:border-0 group">
                         <span className="text-gray-300 text-xs w-5 text-right shrink-0">{a.position}.</span>
                         <div className="flex-1 min-w-0">
                           <Link href={`/admin/albums/${a.album_id}`}
@@ -430,7 +474,13 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
                           </Link>
                           {a.album_year && <span className="text-xs text-gray-400">{a.album_year}</span>}
                         </div>
-                        {a.is_single && <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full shrink-0">Singlas</span>}
+                        <button
+                          onClick={() => removeFromAlbum(a.album_id)}
+                          disabled={removingFromAlbum === a.album_id}
+                          title="Pašalinti iš albumo"
+                          className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 text-xs px-1.5 py-0.5 rounded border border-transparent hover:border-red-200 transition-all disabled:opacity-50">
+                          {removingFromAlbum === a.album_id ? '...' : '✕'}
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -441,7 +491,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
               <Card title="📝 Aprašymas">
                 <textarea value={description} onChange={e => setDescription(e.target.value)}
                   placeholder="Trumpas aprašymas apie dainą..." rows={4}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:outline-none focus:border-music-blue resize-none" />
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:border-music-blue resize-none" />
               </Card>
             </div>
 
@@ -450,8 +500,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
               <Card title="🎬 YouTube video">
                 {ytId && (
                   <div className="rounded-xl overflow-hidden bg-black aspect-video">
-                    <iframe src={`https://www.youtube.com/embed/${ytId}`}
-                      className="w-full h-full" allowFullScreen />
+                    <iframe src={`https://www.youtube.com/embed/${ytId}`} className="w-full h-full" allowFullScreen />
                   </div>
                 )}
                 <Field label="Video URL">
@@ -461,7 +510,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
                       className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:border-red-400" />
                     {videoUrl && (
                       <button onClick={() => setVideoUrl('')}
-                        className="px-2.5 text-red-400 hover:text-red-600 border border-gray-200 rounded-lg text-lg leading-none bg-white">×</button>
+                        className="px-2.5 text-red-400 hover:text-red-600 border border-gray-200 bg-white rounded-lg">×</button>
                     )}
                   </div>
                 </Field>
@@ -500,8 +549,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
               <Card title="🎵 Spotify">
                 {spotifyId && (
                   <iframe src={`https://open.spotify.com/embed/track/${spotifyId}`}
-                    width="100%" height="80" frameBorder="0" allow="encrypted-media"
-                    className="rounded-lg" />
+                    width="100%" height="80" frameBorder="0" allow="encrypted-media" className="rounded-lg" />
                 )}
                 <Field label="Spotify Track ID">
                   <div className="flex gap-2">
@@ -510,7 +558,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
                       className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:border-green-500" />
                     {spotifyId && (
                       <button onClick={() => setSpotifyId('')}
-                        className="px-2.5 text-red-400 hover:text-red-600 border border-gray-200 rounded-lg text-lg leading-none bg-white">×</button>
+                        className="px-2.5 text-red-400 hover:text-red-600 border border-gray-200 bg-white rounded-lg">×</button>
                     )}
                   </div>
                   <p className="text-xs text-gray-400 mt-1">open.spotify.com/track/<strong>ID čia</strong></p>
@@ -559,19 +607,6 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
               </Card>
             </div>
 
-          </div>
-        )}
-
-        {!loading && (
-          <div className="mt-5 flex gap-3">
-            <button onClick={handleSave} disabled={saving}
-              className="flex-1 py-3.5 bg-music-blue text-white font-bold rounded-xl hover:opacity-90 disabled:opacity-50 text-base">
-              {saving ? 'Saugoma...' : '✓ Išsaugoti dainą'}
-            </button>
-            <Link href="/admin/tracks"
-              className="px-8 py-3.5 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 flex items-center font-medium">
-              Atšaukti
-            </Link>
           </div>
         )}
       </div>
