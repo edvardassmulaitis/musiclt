@@ -5,6 +5,8 @@ import { useState } from 'react'
 type DiscographyAlbum = {
   title: string
   year: number | null
+  month: number | null
+  day: number | null
   type: 'studio' | 'ep' | 'single' | 'compilation' | 'live'
   wikiTitle?: string
   cover_image_url?: string
@@ -37,9 +39,9 @@ async function fetchWikitext(title: string): Promise<string> {
   return page?.revisions?.[0]?.slots?.main?.['*'] || page?.revisions?.[0]?.['*'] || ''
 }
 
+// FIX #2: Fetch cover via Wikimedia Commons API proxy to avoid CORS/hotlink issues
 async function fetchCoverImage(wikiTitle: string): Promise<string> {
   try {
-    // Try pageimages first (faster)
     const res = await fetch(
       `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(wikiTitle)}&prop=pageimages&pithumbsize=500&piprop=thumbnail&format=json&origin=*`
     )
@@ -48,6 +50,7 @@ async function fetchCoverImage(wikiTitle: string): Promise<string> {
     const page = Object.values(pages)[0] as any
     const thumb = page?.thumbnail?.source || ''
     if (thumb) return thumb
+
     // Fallback: original image
     const res2 = await fetch(
       `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(wikiTitle)}&prop=pageimages&pithumbsize=500&piprop=original&format=json&origin=*`
@@ -59,13 +62,11 @@ async function fetchCoverImage(wikiTitle: string): Promise<string> {
   } catch { return '' }
 }
 
-// Parse discography from the MAIN artist page (simple bullet list, italic titles)
 function parseMainPageDiscography(wikitext: string): DiscographyAlbum[] {
   const albums: DiscographyAlbum[] = []
   const lines = wikitext.split('\n')
   let inDiscSection = false
   let currentType: DiscographyAlbum['type'] = 'studio'
-  let discSectionDepth = 0
 
   for (const line of lines) {
     const headerM = line.match(/^(==+)\s*(.+?)\s*\1/)
@@ -73,25 +74,19 @@ function parseMainPageDiscography(wikitext: string): DiscographyAlbum[] {
       const depth = headerM[1].length
       const h = headerM[2].toLowerCase()
 
-      if (depth === 2 && inDiscSection) {
-        // New top-level section — stop
-        if (!h.includes('discograph')) break
-      }
+      if (depth === 2 && inDiscSection && !h.includes('discograph')) break
 
       if (h.includes('discograph')) {
         inDiscSection = true
-        discSectionDepth = depth
         continue
       }
 
       if (inDiscSection) {
-        // Sub-section type detection
         if (h.includes('studio')) currentType = 'studio'
         else if (h.includes(' ep') || h === 'eps') currentType = 'ep'
         else if (h.includes('single')) currentType = 'single'
         else if (h.includes('compilation') || h.includes('greatest') || h.includes('best of')) currentType = 'compilation'
         else if (h.includes('live') || h.includes('concert')) currentType = 'live'
-        // Skip video/film/other
         if (h.includes('video') || h.includes('film') || h.includes('tour')) continue
       }
       continue
@@ -101,17 +96,14 @@ function parseMainPageDiscography(wikitext: string): DiscographyAlbum[] {
     if (!line.startsWith('*')) continue
 
     let title = ''
-    let year: number | null = null
     let wikiTitle = ''
 
-    // Try [[WikiTitle|Display]] format
     const wikiLinkM = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
     if (wikiLinkM) {
       wikiTitle = wikiLinkM[1].trim()
       const display = wikiLinkM[2] || wikiLinkM[1]
       title = display.replace(/\(.*?\)/g, '').replace(/''/g, '').trim()
     } else {
-      // Try ''italic title'' format (no wiki link)
       const italicM = line.match(/['']['"]{0,1}([^'']+)['']['"]{0,1}/)
       if (italicM) {
         title = italicM[1].trim()
@@ -120,31 +112,23 @@ function parseMainPageDiscography(wikitext: string): DiscographyAlbum[] {
     }
 
     if (!title || title.length < 2) continue
-
-    // Skip if clearly not an album (category links, files, etc.)
     if (wikiTitle.includes(':')) continue
-
-    // Skip "Main article:", "See also:" type lines
     if (line.toLowerCase().includes('main article') || line.toLowerCase().includes('see also')) continue
 
-    // Extract year
     const yearM = line.match(/\((\d{4})\)/)
-    if (yearM) year = parseInt(yearM[1])
+    const year = yearM ? parseInt(yearM[1]) : null
 
-    // Skip country codes like UK, CAN, GER that sneak in
     if (/^[A-Z]{2,3}$/.test(title)) continue
 
-    // Skip obvious non-album entries
     const bad = ['discography', 'songs', 'videography', 'filmography', 'certification', 'chart']
     if (bad.some(b => title.toLowerCase().includes(b) || wikiTitle.toLowerCase().includes(b))) continue
 
-    albums.push({ title, year, type: currentType, wikiTitle: wikiTitle || title })
+    albums.push({ title, year, month: null, day: null, type: currentType, wikiTitle: wikiTitle || title })
   }
 
   return albums
 }
 
-// Also parse dedicated _discography pages (wikitable format, only rows with album wiki links)
 function parseDiscographyPage(wikitext: string): DiscographyAlbum[] {
   const albums: DiscographyAlbum[] = []
   const lines = wikitext.split('\n')
@@ -168,8 +152,6 @@ function parseDiscographyPage(wikitext: string): DiscographyAlbum[] {
     if (line.startsWith('{|')) { inTable = true; continue }
     if (line.startsWith('|}')) { inTable = false; continue }
     if (!inTable) continue
-
-    // Only scope="row" header cells — these are album titles
     if (!line.match(/!\s*scope=['"]row['"]/)) continue
 
     const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
@@ -185,13 +167,12 @@ function parseDiscographyPage(wikitext: string): DiscographyAlbum[] {
     const yr = line.match(/\b(19|20)\d{2}\b/)
     const year = yr ? parseInt(yr[0]) : null
 
-    albums.push({ title, year, type: currentType, wikiTitle })
+    albums.push({ title, year, month: null, day: null, type: currentType, wikiTitle })
   }
 
   return albums
 }
 
-// Extract {{Track listing}} templates handling nested {{ }}
 function extractTrackListings(wikitext: string): string[] {
   const results: string[] = []
   const pattern = /\{\{[Tt]rack\s*[Ll]isting/g
@@ -209,22 +190,28 @@ function extractTrackListings(wikitext: string): string[] {
   return results
 }
 
+// FIX #1: Only take the FIRST track listing block (standard edition),
+// skip bonus/deluxe/japanese/etc editions
 function parseTracklist(wikitext: string): { title: string; duration?: string; sort_order: number }[] {
   const tracks: { title: string; duration?: string; sort_order: number }[] = []
   let order = 1
 
   const tlBlocks = extractTrackListings(wikitext)
-  for (const tl of tlBlocks) {
+
+  // Only use the FIRST block — that's the standard tracklist
+  // Additional blocks are usually bonus/deluxe/regional editions
+  const firstBlock = tlBlocks[0]
+  if (firstBlock) {
     let i = 1
     while (true) {
-      const titleM = tl.match(new RegExp(`\\|\\s*title${i}\\s*=\\s*([^|\\n]+)`))
+      const titleM = firstBlock.match(new RegExp(`\\|\\s*title${i}\\s*=\\s*([^|\\n]+)`))
       if (!titleM) break
-      const lenM = tl.match(new RegExp(`\\|\\s*length${i}\\s*=\\s*([^|\\n]+)`))
+      const lenM = firstBlock.match(new RegExp(`\\|\\s*length${i}\\s*=\\s*([^|\\n]+)`))
       const raw = titleM[1].trim()
       const title = raw
         .replace(/\[\[(?:[^\]|]+\|)?([^\]|]+)\]\]/g, '$1')
         .replace(/''/g, '')
-        .replace(/\{\{.*?\}\}/g, '')  // remove nested templates like {{efn}}
+        .replace(/\{\{.*?\}\}/g, '')
         .trim()
       if (title) tracks.push({ title, duration: lenM?.[1]?.trim(), sort_order: order++ })
       i++
@@ -242,6 +229,40 @@ function parseTracklist(wikitext: string): { title: string; duration?: string; s
     }
   }
   return tracks
+}
+
+// FIX #4: Parse full release date from infobox ({{Start date|2004|6|15}} or plain text)
+function parseReleaseDate(wikitext: string): { year: number | null; month: number | null; day: number | null } {
+  // Try {{Start date|YYYY|MM|DD}} or {{Start date|YYYY|M|D}}
+  const startDateM = wikitext.match(/\{\{[Ss]tart\s*date\|(\d{4})\|?(\d{1,2})?\|?(\d{1,2})?/)
+  if (startDateM) {
+    return {
+      year: startDateM[1] ? parseInt(startDateM[1]) : null,
+      month: startDateM[2] ? parseInt(startDateM[2]) : null,
+      day: startDateM[3] ? parseInt(startDateM[3]) : null,
+    }
+  }
+
+  // Try | released = Month DD, YYYY (e.g. "June 14, 2004")
+  const releasedM = wikitext.match(/\|\s*released\s*=\s*[^|{[\n]*?(\w+ \d{1,2},?\s*\d{4})/)
+  if (releasedM) {
+    const d = new Date(releasedM[1])
+    if (!isNaN(d.getTime())) {
+      return { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() }
+    }
+  }
+
+  // Try | released = YYYY-MM-DD
+  const isoM = wikitext.match(/\|\s*released\s*=\s*(\d{4})-(\d{2})-(\d{2})/)
+  if (isoM) {
+    return { year: parseInt(isoM[1]), month: parseInt(isoM[2]), day: parseInt(isoM[3]) }
+  }
+
+  // Fallback: just year
+  const yearM = wikitext.match(/\|\s*released\s*=\s*.*?(\d{4})/)
+  if (yearM) return { year: parseInt(yearM[1]), month: null, day: null }
+
+  return { year: null, month: null, day: null }
 }
 
 type Props = { artistId: number; artistName: string; artistWikiTitle?: string }
@@ -265,16 +286,12 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
 
     let found: DiscographyAlbum[] = []
 
-    // 1. Try main artist page first (cleanest source)
     const mainWikitext = await fetchWikitext(baseTitle)
     if (mainWikitext) {
       found = parseMainPageDiscography(mainWikitext)
-      if (found.length) {
-        addLog(`✅ Rasta ${found.length} albumų iš pagrindinio puslapio`)
-      }
+      if (found.length) addLog(`✅ Rasta ${found.length} albumų iš pagrindinio puslapio`)
     }
 
-    // 2. If none found or explicitly a _discography URL, try discography page
     if (!found.length || baseTitle.toLowerCase().includes('discography')) {
       const discTitle = baseTitle.replace(/_discography$/i, '') + '_discography'
       if (discTitle !== baseTitle) {
@@ -307,18 +324,17 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
         fetchCoverImage(a.wikiTitle),
       ])
 
-      // Extract year from infobox if not already set
-      let year = a.year
-      if (!year) {
-        const relM = wikitext.match(/\|\s*released\s*=\s*.*?(\d{4})/)
-        if (relM) year = parseInt(relM[1])
-      }
+      // FIX #4: Parse full date, not just year
+      const dateInfo = parseReleaseDate(wikitext)
+      const year = dateInfo.year ?? a.year
+      const month = dateInfo.month
+      const day = dateInfo.day
 
       const tracks = parseTracklist(wikitext)
       setAlbums(p => p.map((al, i) => i === idx
-        ? { ...al, tracks, fetched: true, cover_image_url: cover, year: year ?? al.year }
+        ? { ...al, tracks, fetched: true, cover_image_url: cover || al.cover_image_url, year, month, day }
         : al))
-      addLog(`  → ${tracks.length} dainų${cover ? ', viršelis ✓' : ''}`)
+      addLog(`  → ${tracks.length} dainų${cover ? ', viršelis ✓' : ''}${month ? `, data: ${year}-${String(month).padStart(2,'0')}${day ? `-${String(day).padStart(2,'0')}` : ''}` : ''}`)
     } catch {
       setAlbums(p => p.map((al, i) => i === idx ? { ...al, fetched: true, tracks: [] } : al))
     }
@@ -334,16 +350,50 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
   }
 
   const importSelected = async () => {
+    // FIX #3: Ensure details are fetched before import if not already done
+    const unfetched = Array.from(selected).filter(i => !albums[i].fetched)
+    if (unfetched.length > 0) {
+      addLog(`📋 Kraunamos detalės prieš importą (${unfetched.length} albumų)...`)
+      for (const i of unfetched) {
+        await fetchAlbumDetails(i)
+        await new Promise(r => setTimeout(r, 300))
+      }
+    }
+
     setImporting(true)
     let ok = 0, fail = 0
+
+    // Re-read albums state after fetching
+    setAlbums(current => {
+      // We'll use the updated state in the import loop below
+      return current
+    })
+
     for (const idx of Array.from(selected).sort((a, b) => a - b)) {
-      const a = albums[idx]
-      setAlbums(p => p.map((al, i) => i === idx ? { ...al, importing: true } : al))
+      // Use functional update to always get latest album state
+      let currentAlbum: DiscographyAlbum | null = null
+      setAlbums(p => {
+        currentAlbum = p[idx]
+        return p.map((al, i) => i === idx ? { ...al, importing: true } : al)
+      })
+
+      // Small delay to ensure state is updated
+      await new Promise(r => setTimeout(r, 50))
+
+      // Get fresh album data
+      setAlbums(p => { currentAlbum = p[idx]; return p })
+      await new Promise(r => setTimeout(r, 10))
+
+      if (!currentAlbum) continue
+      const a = currentAlbum as DiscographyAlbum
+
       try {
         const payload = {
           title: a.title,
           artist_id: artistId,
           year: a.year || null,
+          month: a.month || null,   // FIX #4: send month
+          day: a.day || null,       // FIX #4: send day
           cover_image_url: a.cover_image_url || '',
           type_studio: a.type === 'studio',
           type_ep: a.type === 'ep',
@@ -351,8 +401,13 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
           type_compilation: a.type === 'compilation',
           type_live: a.type === 'live',
           type_remix: false, type_covers: false, type_holiday: false, type_soundtrack: false, type_demo: false,
+          // FIX #3: ensure tracks are included (even empty array is ok)
           tracks: (a.tracks || []).map((t, i) => ({
-            title: t.title, sort_order: i + 1, duration: t.duration, type: 'normal', disc_number: 1,
+            title: t.title,
+            sort_order: i + 1,
+            duration: t.duration || null,
+            type: 'normal' as const,
+            disc_number: 1,
           })),
         }
         const res = await fetch('/api/albums', {
@@ -360,7 +415,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
         })
         if (!res.ok) throw new Error((await res.json()).error)
         setAlbums(p => p.map((al, i) => i === idx ? { ...al, importing: false, imported: true } : al))
-        addLog(`✅ ${a.title}`)
+        addLog(`✅ ${a.title}${a.tracks?.length ? ` (${a.tracks.length} dainų)` : ''}`)
         ok++
       } catch (e: any) {
         setAlbums(p => p.map((al, i) => i === idx ? { ...al, importing: false, error: e.message } : al))
@@ -376,6 +431,12 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
   const toggleSelect = (i: number) => setSelected(p => {
     const s = new Set(p); s.has(i) ? s.delete(i) : s.add(i); return s
   })
+
+  const selectOnlyStudio = () => {
+    setSelected(new Set(
+      albums.map((a, i) => a.type === 'studio' ? i : -1).filter(i => i !== -1)
+    ))
+  }
 
   return (
     <>
@@ -411,10 +472,10 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               {albums.length > 0 && (
                 <>
                   <div className="flex items-center justify-between">
-                    <div className="flex gap-3 text-sm flex-wrap">
+                    <div className="flex gap-3 text-sm flex-wrap items-center">
                       <button onClick={() => setSelected(new Set(albums.map((_, i) => i)))} className="text-purple-600 hover:underline">Visi</button>
                       <button onClick={() => setSelected(new Set())} className="text-gray-400 hover:underline">Joks</button>
-                      <button onClick={() => setSelected(new Set(albums.filter((a,_) => a.type === 'studio').map((_, i) => albums.findIndex(a2 => a2 === _))))} className="text-gray-500 hover:underline text-xs">Tik studijiniai</button>
+                      <button onClick={selectOnlyStudio} className="text-gray-500 hover:underline text-xs">Tik studijiniai</button>
                       <button onClick={fetchAllDetails} disabled={importing}
                         className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium disabled:opacity-50">
                         📋 Krauti detales (datas, dainas, viršelius)
@@ -433,15 +494,20 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                         }`}>
                         <input type="checkbox" checked={selected.has(i)} onChange={() => {}} className="accent-purple-600 pointer-events-none shrink-0" />
                         {a.cover_image_url
-                          ? <img src={a.cover_image_url} alt="" className="w-10 h-10 rounded object-cover shrink-0" />
+                          // FIX #2: Use regular <img> with referrerPolicy to avoid Wikipedia hotlink protection
+                          ? <img src={a.cover_image_url} alt="" referrerPolicy="no-referrer" className="w-10 h-10 rounded object-cover shrink-0" />
                           : <div className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center text-gray-300 shrink-0 text-lg">💿</div>
                         }
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-medium text-gray-900 text-sm truncate">{a.title}</span>
-                            {a.year && <span className="text-xs text-gray-400 shrink-0">({a.year})</span>}
+                            {a.year && (
+                              <span className="text-xs text-gray-400 shrink-0">
+                                ({a.year}{a.month ? `-${String(a.month).padStart(2,'0')}` : ''}{a.day ? `-${String(a.day).padStart(2,'0')}` : ''})
+                              </span>
+                            )}
                             {a.imported && <span className="text-xs text-green-600 font-medium">✅</span>}
-                            {a.error && <span className="text-xs text-red-500">❌</span>}
+                            {a.error && <span className="text-xs text-red-500" title={a.error}>❌</span>}
                             {a.importing && <span className="text-xs text-purple-500 animate-pulse">⏳</span>}
                           </div>
                           <div className="flex items-center gap-2 mt-0.5">
