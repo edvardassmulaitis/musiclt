@@ -95,22 +95,21 @@ export async function getAlbumById(id: number): Promise<AlbumFull & { tracks: Tr
     .from('album_tracks')
     .select('*, tracks(id, title, slug, type, video_url, spotify_id)')
     .eq('album_id', id)
-    .order('disc_number').order('sort_order')
+    .order('position')
 
   return {
     ...album,
     tracks: (trackRows || []).map((r: any) => ({
-      id: r.id,
       track_id: r.track_id,
       title: r.tracks?.title || '',
       slug: r.tracks?.slug || '',
-      sort_order: r.sort_order,
-      disc_number: r.disc_number || 1,
-      duration: r.duration,
+      sort_order: r.position || 1,
+      disc_number: 1,
+      duration: '',
       type: r.tracks?.type || 'normal',
       video_url: r.tracks?.video_url || '',
       spotify_id: r.tracks?.spotify_id || '',
-      is_single: r.is_single || false,
+      is_single: r.is_primary || false,
     }))
   }
 }
@@ -170,7 +169,8 @@ async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackI
   if (!tracks.length) return
 
   const trackRows = []
-  for (const t of tracks) {
+  for (let i = 0; i < tracks.length; i++) {
+    const t = tracks[i]
     let trackId = t.track_id
     if (!trackId) {
       const slug = slugify(t.title)
@@ -188,11 +188,10 @@ async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackI
     }
     if (trackId) {
       trackRows.push({
-        album_id: albumId, track_id: trackId,
-        sort_order: toInt(t.sort_order) || 1,
-        ...(t.disc_number ? { disc_number: toInt(t.disc_number) || 1 } : {}),
-        ...(t.duration ? { duration: t.duration } : {}),
-        ...(t.is_single !== undefined ? { is_single: t.is_single } : {}),
+        album_id: albumId,
+        track_id: trackId,
+        position: toInt(t.sort_order) || i + 1,
+        is_primary: t.is_single || false,
       })
     }
   }
