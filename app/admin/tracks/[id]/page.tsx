@@ -247,12 +247,12 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
       if (!token) {
         const tokenRes = await fetch(
           'https://open.spotify.com/get_access_token?reason=transport&productType=web_player',
-          { credentials: 'include', headers: { 'App-Platform': 'WebPlayer' } }
+          { headers: { 'App-Platform': 'WebPlayer' } }
         )
-        if (!tokenRes.ok) throw new Error('Prisijunkite prie Spotify (open.spotify.com) ir bandykite dar kartą')
+        if (!tokenRes.ok) throw new Error('Nepavyko prisijungti prie Spotify')
         const tokenData = await tokenRes.json()
         token = tokenData.accessToken
-        if (!token) throw new Error('Nepavyko gauti Spotify token - prisijunkite prie open.spotify.com')
+        if (!token) throw new Error('Nepavyko gauti Spotify token')
         setSpToken(token)
       }
       // Step 2: search directly from browser
