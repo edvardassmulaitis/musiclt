@@ -271,13 +271,25 @@ async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackI
 // ── Tracks ──────────────────────────────────────────────────────────────────
 
 export async function getTracks(artistId?: number, limit = 50, offset = 0, search = '') {
-  let q = supabase.from('tracks').select('*, artists!albums_artist_id_fkey(name)', { count: 'exact' })
+  let q = supabase
+    .from('tracks')
+    .select(
+      '*, artists!tracks_artist_id_fkey(name), track_artists(artist_id), album_tracks(album_id)',
+      { count: 'exact' }
+    )
   if (artistId) q = q.eq('artist_id', artistId)
   if (search) q = q.ilike('title', `%${search}%`)
-  q = q.order('release_date', { ascending: false }).range(offset, offset + limit - 1)
+  q = q.order('title', { ascending: true }).range(offset, offset + limit - 1)
   const { data, error, count } = await q
   if (error) throw error
-  return { tracks: data || [], total: count || 0 }
+  const tracks = (data || []).map((t: any) => ({
+    ...t,
+    featuring_count: (t.track_artists || []).length,
+    album_count: (t.album_tracks || []).length,
+    track_artists: undefined,
+    album_tracks: undefined,
+  }))
+  return { tracks, total: count || 0 }
 }
 
 export async function getTrackById(id: number): Promise<TrackFull> {
