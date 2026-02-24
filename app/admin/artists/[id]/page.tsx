@@ -3,9 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
+import Link from 'next/link'
 import ArtistForm, { ArtistFormData, emptyArtistForm } from '@/components/ArtistForm'
-
-// Convert DB row → ArtistFormData
 
 const GENRE_BY_ID: Record<number, string> = {
   1000001: 'Alternatyvioji muzika',
@@ -53,8 +52,6 @@ function dbToForm(data: any): ArtistFormData {
     groups:      data.related?.filter((r: any) => r.type === 'group') || [],
   }
 }
-
-// Convert ArtistFormData → DB payload
 
 const GENRE_IDS: Record<string, number> = {
   'Alternatyvioji muzika': 1000001,
@@ -121,29 +118,36 @@ export default function EditArtist() {
   const router = useRouter()
   const params = useParams()
   const [initialData, setInitialData] = useState<ArtistFormData | null>(null)
+  const [albumCount, setAlbumCount] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
+  const artistId = params.id as string
 
   useEffect(() => {
     if (status === 'unauthenticated') { router.push('/auth/signin'); return }
     if (status === 'authenticated' && !isAdmin) { router.push('/'); return }
     if (status !== 'authenticated') return
 
-    fetch(`/api/artists/${params.id}`)
+    fetch(`/api/artists/${artistId}`)
       .then(r => r.json())
       .then(data => {
         if (data.error) { alert('Atlikėjas nerastas!'); router.push('/admin/artists'); return }
         setInitialData(dbToForm(data))
       })
-  }, [status, isAdmin, params.id, router])
+
+    fetch(`/api/albums?artist_id=${artistId}&limit=1`)
+      .then(r => r.json())
+      .then(data => setAlbumCount(data.total ?? 0))
+      .catch(() => setAlbumCount(0))
+  }, [status, isAdmin, artistId, router])
 
   const handleSubmit = async (form: ArtistFormData) => {
     setSaving(true)
     setError('')
     try {
-      const res = await fetch(`/api/artists/${params.id}`, {
+      const res = await fetch(`/api/artists/${artistId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formToDb(form)),
@@ -171,12 +175,34 @@ export default function EditArtist() {
           ❌ {error}
         </div>
       )}
+
+      {/* Diskografijos nuoroda */}
+      <div className="bg-white border-b border-gray-200 px-6 py-2 flex items-center gap-3">
+        <Link
+          href={`/admin/albums?artist_id=${artistId}`}
+          className="flex items-center gap-2 px-4 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg text-sm font-medium transition-colors"
+        >
+          💿 Diskografija
+          {albumCount !== null && (
+            <span className="bg-purple-200 text-purple-800 text-xs font-bold px-1.5 py-0.5 rounded-full">
+              {albumCount}
+            </span>
+          )}
+        </Link>
+        <Link
+          href={`/admin/albums/new?artist_id=${artistId}`}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-sm font-medium transition-colors"
+        >
+          + Naujas albumas
+        </Link>
+      </div>
+
       <ArtistForm
         title="✏️ Redaguoti atlikėją"
         submitLabel={saving ? 'Saugoma...' : 'Išsaugoti pakeitimus'}
         backHref="/admin/artists"
         initialData={initialData}
-        artistId={params.id as string}
+        artistId={artistId}
         onSubmit={handleSubmit}
       />
     </>
