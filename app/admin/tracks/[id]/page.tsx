@@ -242,10 +242,37 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
     if (!spQuery.trim()) return
     setSpLoading(true); setSpResults([])
     try {
-      const r = await fetch(`/api/search/spotify?q=${encodeURIComponent(spQuery)}`)
+      // Step 1: get anonymous token directly from Spotify (browser has no CORS issue for GET)
+      let token = spToken
+      if (!token) {
+        const tokenRes = await fetch(
+          'https://open.spotify.com/get_access_token?reason=transport&productType=web_player',
+          { credentials: 'include', headers: { 'App-Platform': 'WebPlayer' } }
+        )
+        if (!tokenRes.ok) throw new Error('Prisijunkite prie Spotify (open.spotify.com) ir bandykite dar kartą')
+        const tokenData = await tokenRes.json()
+        token = tokenData.accessToken
+        if (!token) throw new Error('Nepavyko gauti Spotify token - prisijunkite prie open.spotify.com')
+        setSpToken(token)
+      }
+      // Step 2: search directly from browser
+      const r = await fetch(
+        `https://api.spotify.com/v1/search?q=${encodeURIComponent(spQuery)}&type=track&limit=8&market=LT`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
       const data = await r.json()
-      if (data.error) throw new Error(data.error)
-      setSpResults(data.results || [])
+      if (data.error) {
+        if (data.error.status === 401) { setSpToken(''); throw new Error('Token pasibaigė, bandykite dar kartą') }
+        throw new Error(data.error.message)
+      }
+      const results = (data.tracks?.items || []).map((item: any) => ({
+        id: item.id,
+        name: item.name,
+        artists: item.artists.map((a: any) => a.name).join(', '),
+        album: item.album.name,
+        album_image: item.album.images?.[2]?.url || item.album.images?.[0]?.url || '',
+      }))
+      setSpResults(results)
     } catch (e: any) {
       setError(e.message)
     } finally { setSpLoading(false) }
