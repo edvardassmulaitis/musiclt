@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// Anonymous token cache (Spotify web player trick)
 let cachedToken: { token: string; expiresAt: number } | null = null
 
 async function getAnonymousToken(): Promise<string> {
@@ -8,27 +7,37 @@ async function getAnonymousToken(): Promise<string> {
     return cachedToken.token
   }
 
-  // Fetch Spotify web player page - it returns an anonymous accessToken
-  const res = await fetch('https://open.spotify.com/search', {
+  // Method: fetch Spotify's anonymous client token endpoint
+  // This is what the web player uses before user logs in
+  const res = await fetch('https://clienttoken.spotify.com/v1/clienttoken', {
+    method: 'POST',
     headers: {
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.5',
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
     },
+    body: JSON.stringify({
+      client_data: {
+        client_version: '1.2.31.588.g1d08c15e',
+        client_id: 'd8a5ed958d274c2e8ee717e6a4b0971d', // Spotify web player client ID (public)
+        js_sdk_data: {
+          device_brand: 'unknown',
+          device_model: 'unknown',
+          os: 'windows',
+          os_version: 'NT 10.0',
+          device_id: Math.random().toString(36).slice(2),
+          device_type: 'computer',
+        },
+      },
+    }),
   })
 
-  const html = await res.text()
+  const data = await res.json()
+  const token = data?.granted_token?.token
+  const expiresAfterSeconds = data?.granted_token?.expires_after_seconds || 3600
 
-  // Extract token from Spotify's server-rendered page data
-  const tokenMatch = html.match(/"accessToken":"([^"]+)"/)
-  const expiresMatch = html.match(/"accessTokenExpirationTimestampMs":(\d+)/)
+  if (!token) throw new Error(`No token in response: ${JSON.stringify(data).slice(0, 200)}`)
 
-  if (!tokenMatch) throw new Error('Could not extract Spotify token')
-
-  const token = tokenMatch[1]
-  const expiresAt = expiresMatch ? parseInt(expiresMatch[1]) : Date.now() + 3600_000
-
-  cachedToken = { token, expiresAt }
+  cachedToken = { token, expiresAt: Date.now() + expiresAfterSeconds * 1000 }
   return token
 }
 
@@ -41,16 +50,11 @@ export async function GET(req: NextRequest) {
 
     const res = await fetch(
       `https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=8&market=LT`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'User-Agent': 'Mozilla/5.0',
-        },
-      }
+      { headers: { Authorization: `Bearer ${token}` } }
     )
 
     const data = await res.json()
-    if (data.error) throw new Error(data.error.message)
+    if (data.error) throw new Error(`Spotify: ${data.error.status} ${data.error.message}`)
 
     const results = (data.tracks?.items || []).map((item: any) => ({
       id: item.id,
