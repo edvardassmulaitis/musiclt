@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
   let query = supabase
     .from('tracks')
     .select(`
-      id, title, type, release_date, video_url, spotify_id, is_new, is_new_date, cover_url,
+      id, title, type, release_date, video_url, spotify_id, is_new, is_new_date, cover_url, lyrics,
       artists!tracks_artist_id_fkey(id, name, slug),
       track_artists(artist_id),
       album_tracks(position, albums(id, title, year))
@@ -31,36 +31,36 @@ export async function GET(req: NextRequest) {
     .order('title', { ascending: true })
     .range(offset, offset + limit - 1)
 
-  if (search) {
-    query = query.ilike('title', `%${search}%`)
-  }
+  if (search) query = query.ilike('title', `%${search}%`)
 
   const { data, error, count } = await query
-
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   const tracks = (data || []).map((t: any) => {
     const albumList = (t.album_tracks || [])
       .map((at: any) => at.albums ? {
-        id: at.albums.id,
-        title: at.albums.title,
-        year: at.albums.year,
-        position: at.position,
-      } : null)
-      .filter(Boolean)
-
-    const releaseYear = t.release_date
-      ? new Date(t.release_date).getFullYear()
-      : (albumList[0]?.year || null)
+        id: at.albums.id, title: at.albums.title, year: at.albums.year, position: at.position,
+      } : null).filter(Boolean)
 
     return {
-      ...t,
+      id: t.id,
+      title: t.title,
+      type: t.type,
+      release_date: t.release_date,
+      video_url: t.video_url,
+      spotify_id: t.spotify_id,
+      is_new: t.is_new,
+      is_new_date: t.is_new_date,
+      cover_url: t.cover_url || null,
+      has_lyrics: !!(t.lyrics),
       artist_name: t.artists?.name || '',
       artist_slug: t.artists?.slug || '',
       featuring_count: (t.track_artists || []).length,
       album_count: albumList.length,
       albums_list: albumList,
-      release_year: releaseYear,
+      release_year: t.release_date
+        ? new Date(t.release_date).getFullYear()
+        : (albumList[0]?.year || null),
     }
   })
 
@@ -74,7 +74,6 @@ export async function POST(req: NextRequest) {
   }
 
   const data = await req.json()
-
   if (!data.title?.trim()) return NextResponse.json({ error: 'Title required' }, { status: 400 })
   if (!data.artist_id) return NextResponse.json({ error: 'Artist required' }, { status: 400 })
 
@@ -98,7 +97,6 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Save featuring artists
   if (data.featuring?.length > 0) {
     await supabase.from('track_artists').insert(
       data.featuring.map((f: any) => ({ track_id: track.id, artist_id: f.artist_id }))
