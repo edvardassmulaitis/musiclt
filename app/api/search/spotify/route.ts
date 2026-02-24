@@ -16,12 +16,16 @@ async function getTokenFromSpDc(): Promise<string> {
       headers: {
         'Cookie': `sp_dc=${spDc}`,
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json',
+        'App-Platform': 'WebPlayer',
       },
     }
   )
 
-  const data = await res.json()
-  if (!data.accessToken) throw new Error('Nepavyko gauti token: ' + JSON.stringify(data).slice(0, 100))
+  const text = await res.text()
+  let data: any
+  try { data = JSON.parse(text) } catch { throw new Error('Spotify HTML atsakymas (sp_dc negalioja?): ' + text.slice(0, 200)) }
+  if (!data.accessToken) throw new Error('Nepavyko gauti token: ' + JSON.stringify(data).slice(0, 200))
 
   cachedToken = { token: data.accessToken, expiresAt: data.accessTokenExpirationTimestampMs }
   return data.accessToken
