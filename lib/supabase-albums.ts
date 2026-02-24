@@ -274,7 +274,7 @@ export async function getTracks(artistId?: number, limit = 50, offset = 0, searc
   let q = supabase
     .from('tracks')
     .select(
-      '*, artists!tracks_artist_id_fkey(name), track_artists(artist_id), album_tracks(album_id)',
+      '*, artists!tracks_artist_id_fkey(name), track_artists(artist_id), album_tracks(position, is_primary, albums(id, title, year))',
       { count: 'exact' }
     )
   if (artistId) q = q.eq('artist_id', artistId)
@@ -286,6 +286,17 @@ export async function getTracks(artistId?: number, limit = 50, offset = 0, searc
     ...t,
     featuring_count: (t.track_artists || []).length,
     album_count: (t.album_tracks || []).length,
+    // First album's year for display
+    release_year: t.release_date
+      ? new Date(t.release_date).getFullYear()
+      : (t.album_tracks?.[0]?.albums?.year || null),
+    albums_list: (t.album_tracks || []).map((at: any) => ({
+      id: at.albums?.id,
+      title: at.albums?.title,
+      year: at.albums?.year,
+      position: at.position,
+      is_single: at.is_primary,
+    })),
     track_artists: undefined,
     album_tracks: undefined,
   }))
