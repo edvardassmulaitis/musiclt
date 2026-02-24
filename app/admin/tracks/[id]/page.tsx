@@ -39,35 +39,26 @@ function extractYouTubeId(url: string): string {
   return url.match(/(?:v=|youtu\.be\/)([^&?]+)/)?.[1] || ''
 }
 
-function DateInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const parts = value ? value.split('-') : ['', '', '']
-  const year = parts[0] || ''
-  const month = parts[1] || ''
-  const day = parts[2] || ''
-
-  const update = (y: string, m: string, d: string) => {
-    if (!y && !m && !d) { onChange(''); return }
-    if (y.length === 4) {
-      onChange(`${y}-${(m || '1').padStart(2, '0')}-${(d || '1').padStart(2, '0')}`)
-    } else onChange('')
-  }
-
+function DateInput({ year, month, day, onChange }: {
+  year: string; month: string; day: string
+  onChange: (y: string, m: string, d: string) => void
+}) {
   const cls = "px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:border-music-blue [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-
+  const hasAny = year || month || day
   return (
     <div className="flex gap-2 items-center">
       <input type="number" min="1900" max="2099" value={year}
-        onChange={e => update(e.target.value, month, day)}
+        onChange={e => onChange(e.target.value, month, day)}
         placeholder="Metai" className={`w-24 ${cls}`} />
       <span className="text-gray-400">/</span>
-      <input type="number" min="1" max="12" value={month ? String(parseInt(month)) : ''}
-        onChange={e => update(year, e.target.value, day)}
+      <input type="number" min="1" max="12" value={month}
+        onChange={e => onChange(year, e.target.value, day)}
         placeholder="Mėn" className={`w-16 ${cls}`} />
       <span className="text-gray-400">/</span>
-      <input type="number" min="1" max="31" value={day ? String(parseInt(day)) : ''}
-        onChange={e => update(year, month, e.target.value)}
+      <input type="number" min="1" max="31" value={day}
+        onChange={e => onChange(year, month, e.target.value)}
         placeholder="D" className={`w-16 ${cls}`} />
-      {value && <button onClick={() => onChange('')} className="text-gray-400 hover:text-red-500 ml-1">✕</button>}
+      {hasAny && <button onClick={() => onChange('', '', '')} className="text-gray-400 hover:text-red-500 ml-1">✕</button>}
     </div>
   )
 }
@@ -87,7 +78,9 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
   const [artistName, setArtistName] = useState('')
   const [artistSlug, setArtistSlug] = useState('')
   const [trackType, setTrackType] = useState('normal')
-  const [releaseDate, setReleaseDate] = useState('')
+  const [releaseYear, setReleaseYear] = useState('')
+  const [releaseMonth, setReleaseMonth] = useState('')
+  const [releaseDay, setReleaseDay] = useState('')
   const [videoUrl, setVideoUrl] = useState('')
   const [spotifyId, setSpotifyId] = useState('')
   const [lyrics, setLyrics] = useState('')
@@ -133,7 +126,9 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
         setTitle(data.title || '')
         setArtistId(data.artist_id || 0)
         setTrackType(data.type || 'normal')
-        setReleaseDate(data.release_date?.slice(0, 10) || '')
+        setReleaseYear(data.release_year ? String(data.release_year) : '')
+        setReleaseMonth(data.release_month ? String(data.release_month) : '')
+        setReleaseDay(data.release_day ? String(data.release_day) : '')
         setVideoUrl(data.video_url || '')
         setSpotifyId(data.spotify_id || '')
         setLyrics(data.lyrics || '')
@@ -254,7 +249,8 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
     setSaving(true); setError('')
     try {
       const payload = {
-        title, artist_id: artistId, type: trackType, release_date: releaseDate,
+        title, artist_id: artistId, type: trackType,
+        release_year: releaseYear || null, release_month: releaseMonth || null, release_day: releaseDay || null,
         video_url: videoUrl, spotify_id: spotifyId, lyrics, description,
         is_new: isNew, is_new_date: isNewDate, cover_url: coverUrl, featuring,
       }
@@ -295,7 +291,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
               {artistId > 0 && (
                 <>
                   <span>/</span>
-                  <Link href={`/admin/artists/${artistSlug || artistId}`} className="hover:text-music-blue">{artistName}</Link>
+                  <Link href={`/admin/artists/${artistId}`} className="hover:text-music-blue">{artistName}</Link>
                   <span>/</span>
                   <Link href={`/admin/albums?artist=${artistId}`} className="hover:text-music-blue text-xs">albumai</Link>
                 </>
@@ -439,8 +435,9 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
 
                 {/* Release date */}
                 <Field label="Išleidimo data">
-                  <DateInput value={releaseDate} onChange={setReleaseDate} />
-                  {albums.length > 0 && !releaseDate && albums[0].album_year && (
+                  <DateInput year={releaseYear} month={releaseMonth} day={releaseDay}
+                    onChange={(y,m,d) => { setReleaseYear(y); setReleaseMonth(m); setReleaseDay(d) }} />
+                  {albums.length > 0 && !releaseYear && albums[0].album_year && (
                     <button onClick={() => setReleaseDate(`${albums[0].album_year}-01-01`)}
                       className="mt-1.5 text-xs text-music-blue hover:underline">
                       ← Naudoti albumo metus ({albums[0].album_year})
