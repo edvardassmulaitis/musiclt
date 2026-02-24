@@ -534,7 +534,6 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
   // Enrich tracks with YouTube video ID and lyrics after album import
   const enrichTracks = async (albumId: number, tracks: TrackEntry[], albumTitle: string) => {
     if (!enrichYoutube && !enrichLyrics) return
-    addLog(`  🎬 Praturtinama: ${albumTitle}...`)
 
     // Fetch all tracks for this album once
     let dbTracks: any[] = []
@@ -542,53 +541,70 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       const r = await fetch(`/api/tracks?album_id=${albumId}&limit=200`)
       const data = await r.json()
       dbTracks = data.tracks || []
-    } catch { return }
+    } catch (e: any) {
+      addLog(`  ❌ Nepavyko gauti dainų: ${e.message}`)
+      return
+    }
 
     if (!dbTracks.length) { addLog(`  ⚠️ Nerasta dainų albumui ${albumId}`); return }
 
-    let ytCount = 0, lyricsCount = 0
+    addLog(`  🎬 ${albumTitle}: ${dbTracks.length} dainų...`)
+    let ytCount = 0, lyricsCount = 0, done = 0
 
-    // Process in parallel batches of 3
-    const BATCH = 3
+    // Process in parallel batches of 4
+    const BATCH = 4
     for (let i = 0; i < dbTracks.length; i += BATCH) {
       const batch = dbTracks.slice(i, i + BATCH)
       await Promise.all(batch.map(async (dbTrack: any) => {
         const updates: Record<string, any> = {}
+        const short = dbTrack.title.slice(0, 20)
 
         if (enrichYoutube && !dbTrack.youtube_url) {
           try {
             const q = `${artistName} ${dbTrack.title}`
             const r = await fetch(`/api/search/youtube?q=${encodeURIComponent(q)}`)
+            if (!r.ok) throw new Error(`HTTP ${r.status}`)
             const data = await r.json()
             const first = data.results?.[0]
             if (first && titleMatches(first.title, q)) {
               updates.youtube_url = `https://www.youtube.com/watch?v=${first.videoId}`
               ytCount++
             }
-          } catch {}
+          } catch (e: any) {
+            addLog(`    ⚠️ YT klaida "${short}": ${e.message}`)
+          }
         }
 
         if (enrichLyrics && !dbTrack.lyrics) {
           try {
             const r = await fetch(`/api/search/lyrics?artist=${encodeURIComponent(artistName)}&title=${encodeURIComponent(dbTrack.title)}`)
+            if (!r.ok) throw new Error(`HTTP ${r.status}`)
             const data = await r.json()
             if (data.lyrics) { updates.lyrics = data.lyrics; lyricsCount++ }
-          } catch {}
+          } catch (e: any) {
+            addLog(`    ⚠️ Lyrics klaida "${short}": ${e.message}`)
+          }
         }
 
         if (Object.keys(updates).length > 0) {
           try {
-            await fetch(`/api/tracks/${dbTrack.id}`, {
+            const r = await fetch(`/api/tracks/${dbTrack.id}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(updates),
             })
-          } catch {}
+            if (!r.ok) addLog(`    ⚠️ Nepavyko išsaugoti "${short}"`)
+          } catch (e: any) {
+            addLog(`    ⚠️ Išsaugojimo klaida "${short}": ${e.message}`)
+          }
+        }
+        done++
+        if (done % 4 === 0 || done === dbTracks.length) {
+          addLog(`  ⏳ ${done}/${dbTracks.length} apdorota...`)
         }
       }))
-      await new Promise(r => setTimeout(r, 100))
     }
-    addLog(`  ✓ ${ytCount} YouTube, ${lyricsCount} žodžių`)
+    addLog(`  ✅ ${albumTitle}: ${ytCount} YouTube, ${lyricsCount} žodžių`)
   }
 
   const importSelected = async () => {
