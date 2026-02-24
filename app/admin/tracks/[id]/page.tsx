@@ -39,6 +39,48 @@ function extractYouTubeId(url: string): string {
   return url.match(/(?:v=|youtu\.be\/)([^&?]+)/)?.[1] || ''
 }
 
+// Simple date input: three separate fields
+function DateInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const parts = value ? value.split('-') : ['', '', '']
+  const year = parts[0] || ''
+  const month = parts[1] || ''
+  const day = parts[2] || ''
+
+  const update = (y: string, m: string, d: string) => {
+    if (!y && !m && !d) { onChange(''); return }
+    const yy = y.padStart(4, '0').slice(-4)
+    const mm = m ? m.padStart(2, '0') : '01'
+    const dd = d ? d.padStart(2, '0') : '01'
+    if (y.length === 4) onChange(`${yy}-${mm}-${dd}`)
+    else onChange('')
+  }
+
+  return (
+    <div className="flex gap-2 items-center">
+      <input
+        type="number" min="1900" max="2099" value={year}
+        onChange={e => update(e.target.value, month, day)}
+        placeholder="Metai"
+        className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:border-music-blue [appearance:textfield]" />
+      <span className="text-gray-400">/</span>
+      <input
+        type="number" min="1" max="12" value={month ? String(parseInt(month)) : ''}
+        onChange={e => update(year, e.target.value, day)}
+        placeholder="Mėn"
+        className="w-16 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:border-music-blue [appearance:textfield]" />
+      <span className="text-gray-400">/</span>
+      <input
+        type="number" min="1" max="31" value={day ? String(parseInt(day)) : ''}
+        onChange={e => update(year, month, e.target.value)}
+        placeholder="Diena"
+        className="w-16 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:border-music-blue [appearance:textfield]" />
+      {value && (
+        <button onClick={() => onChange('')} className="text-gray-400 hover:text-red-500 text-sm">✕</button>
+      )}
+    </div>
+  )
+}
+
 export default function AdminTrackEditPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
   const id = resolvedParams?.id
@@ -58,6 +100,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
   const [description, setDescription] = useState('')
   const [isNewFlag, setIsNewFlag] = useState(false)
   const [showPlayer, setShowPlayer] = useState(false)
+  const [isSingle, setIsSingle] = useState(false)
 
   const [artistSearch, setArtistSearch] = useState('')
   const [artistResults, setArtistResults] = useState<any[]>([])
@@ -100,6 +143,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
         setDescription(data.description || '')
         setIsNewFlag(data.is_new || false)
         setShowPlayer(data.show_player || false)
+        setIsSingle(data.is_single || false)
         if (data.artists?.name) setArtistName(data.artists.name)
         if (data.featuring) setFeaturing(data.featuring)
         if (data.albums) setAlbums(data.albums)
@@ -153,7 +197,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
       const payload = {
         title, artist_id: artistId, type: trackType, release_date: releaseDate,
         video_url: videoUrl, spotify_id: spotifyId, lyrics, description,
-        is_new: isNewFlag, show_player: showPlayer, featuring,
+        is_new: isNewFlag, show_player: showPlayer, is_single: isSingle, featuring,
       }
       const res = await fetch(isNewTrack ? '/api/tracks' : `/api/tracks/${id}`, {
         method: isNewTrack ? 'POST' : 'PUT',
@@ -213,13 +257,14 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
         ) : (
           <div className="grid grid-cols-3 gap-5">
 
-            {/* === COL 1: Basic info === */}
+            {/* === COL 1: Basic info + Albums + Description === */}
             <div className="space-y-5">
               <Card title="Pagrindinė informacija">
+
                 <Field label="Pavadinimas *">
                   <input value={title} onChange={e => setTitle(e.target.value)}
                     placeholder="Dainos pavadinimas"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-music-blue" />
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:border-music-blue" />
                 </Field>
 
                 <Field label="Atlikėjas *">
@@ -233,7 +278,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
                     <div className="relative">
                       <input value={artistSearch} onChange={e => setArtistSearch(e.target.value)}
                         placeholder="Ieškoti atlikėjo..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-music-blue" />
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-music-blue" />
                       {artistResults.length > 0 && (
                         <div className="absolute z-20 w-full bg-white border border-gray-200 rounded-xl shadow-xl mt-1 overflow-hidden">
                           {artistResults.map(a => (
@@ -263,7 +308,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
                   <div className="relative">
                     <input value={featSearch} onChange={e => setFeatSearch(e.target.value)}
                       placeholder="Pridėti feat. atlikėją..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-purple-400" />
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-purple-400" />
                     {featResults.length > 0 && (
                       <div className="absolute z-20 w-full bg-white border border-gray-200 rounded-xl shadow-xl mt-1 overflow-hidden">
                         {featResults.filter(a => a.id !== artistId && !featuring.find(f => f.artist_id === a.id)).map(a => (
@@ -291,29 +336,30 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
                 </Field>
 
                 <Field label="Išleidimo data">
-                  <input type="date" value={releaseDate} onChange={e => setReleaseDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-music-blue" />
+                  <DateInput value={releaseDate} onChange={setReleaseDate} />
                   {albums.length > 0 && !releaseDate && albums[0].album_year && (
                     <button onClick={() => setReleaseDate(`${albums[0].album_year}-01-01`)}
-                      className="mt-1 text-xs text-music-blue hover:underline">
+                      className="mt-1.5 text-xs text-music-blue hover:underline">
                       ← Naudoti albumo metus ({albums[0].album_year})
                     </button>
                   )}
                 </Field>
 
-                <div className="flex gap-4 pt-1">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={isNewFlag} onChange={e => setIsNewFlag(e.target.checked)} className="accent-music-blue" />
-                    <span className="text-sm text-gray-700">🆕 Naujas</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={showPlayer} onChange={e => setShowPlayer(e.target.checked)} className="accent-music-blue" />
-                    <span className="text-sm text-gray-700">▶️ Grotuvą</span>
-                  </label>
+                <div className="flex flex-wrap gap-4 pt-1">
+                  {[
+                    ['isNewFlag', '🆕 Naujas', isNewFlag, setIsNewFlag],
+                    ['showPlayer', '▶️ Grotuvą', showPlayer, setShowPlayer],
+                    ['isSingle', '💿 Singlas', isSingle, setIsSingle],
+                  ].map(([k, l, val, setter]: any) => (
+                    <label key={k} className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={val} onChange={e => setter(e.target.checked)} className="accent-music-blue w-4 h-4" />
+                      <span className="text-sm text-gray-700">{l}</span>
+                    </label>
+                  ))}
                 </div>
               </Card>
 
-              {/* Albums list */}
+              {/* Albums */}
               {albums.length > 0 && (
                 <Card title={`Albumai (${albums.length})`}>
                   <div className="-my-2">
@@ -334,51 +380,48 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
                 </Card>
               )}
 
-              {/* Lyrics */}
-              <Card title="✍️ Žodžiai">
-                <textarea value={lyrics} onChange={e => setLyrics(e.target.value)}
-                  placeholder="Dainos žodžiai..." rows={8}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-music-blue resize-none font-mono" />
+              {/* Description */}
+              <Card title="📝 Aprašymas">
+                <textarea value={description} onChange={e => setDescription(e.target.value)}
+                  placeholder="Trumpas aprašymas apie dainą..." rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-music-blue resize-none" />
               </Card>
             </div>
 
-            {/* === COL 2: YouTube === */}
+            {/* === COL 2: YouTube + Spotify === */}
             <div className="space-y-5">
               <Card title="🎬 YouTube video">
-                {/* Preview */}
                 {ytId && (
                   <div className="rounded-xl overflow-hidden bg-black aspect-video">
                     <iframe src={`https://www.youtube.com/embed/${ytId}`}
                       className="w-full h-full" allowFullScreen />
                   </div>
                 )}
-
                 <Field label="Video URL">
                   <div className="flex gap-2">
                     <input value={videoUrl} onChange={e => setVideoUrl(e.target.value)}
                       placeholder="https://youtube.com/watch?v=..."
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-red-400" />
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-red-400" />
                     {videoUrl && (
                       <button onClick={() => setVideoUrl('')}
                         className="px-2.5 text-red-400 hover:text-red-600 border border-gray-200 rounded-lg text-lg leading-none">×</button>
                     )}
                   </div>
                 </Field>
-
                 <div className="pt-1 border-t border-gray-100">
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Ieškoti YouTube</label>
                   <div className="flex gap-2 mb-2">
                     <input value={ytQuery} onChange={e => setYtQuery(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && handleYtSearch()}
                       placeholder="Atlikėjas daina..."
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-red-400" />
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-red-400" />
                     <button onClick={handleYtSearch} disabled={ytLoading}
                       className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-bold disabled:opacity-50">
                       {ytLoading ? '⏳' : '🔍'}
                     </button>
                   </div>
                   {ytResults.length > 0 && (
-                    <div className="space-y-1.5 max-h-96 overflow-y-auto">
+                    <div className="space-y-1.5 max-h-72 overflow-y-auto">
                       {ytResults.map(r => (
                         <div key={r.videoId} onClick={() => setVideoUrl(`https://www.youtube.com/watch?v=${r.videoId}`)}
                           className={`flex gap-2.5 p-2 rounded-lg border cursor-pointer transition-colors ${
@@ -396,23 +439,18 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
                   )}
                 </div>
               </Card>
-            </div>
 
-            {/* === COL 3: Spotify + Description === */}
-            <div className="space-y-5">
               <Card title="🎵 Spotify">
-                {/* Preview */}
                 {spotifyId && (
                   <iframe src={`https://open.spotify.com/embed/track/${spotifyId}`}
                     width="100%" height="80" frameBorder="0" allow="encrypted-media"
                     className="rounded-lg" />
                 )}
-
                 <Field label="Spotify Track ID">
                   <div className="flex gap-2">
                     <input value={spotifyId} onChange={e => setSpotifyId(e.target.value)}
                       placeholder="0abc123..."
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-green-500" />
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-green-500" />
                     {spotifyId && (
                       <button onClick={() => setSpotifyId('')}
                         className="px-2.5 text-red-400 hover:text-red-600 border border-gray-200 rounded-lg text-lg leading-none">×</button>
@@ -420,21 +458,20 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
                   </div>
                   <p className="text-xs text-gray-400 mt-1">open.spotify.com/track/<strong>ID čia</strong></p>
                 </Field>
-
                 <div className="pt-1 border-t border-gray-100">
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Ieškoti Spotify</label>
                   <div className="flex gap-2 mb-2">
                     <input value={spQuery} onChange={e => setSpQuery(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && handleSpSearch()}
                       placeholder="Atlikėjas daina..."
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-green-500" />
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-green-500" />
                     <button onClick={handleSpSearch} disabled={spLoading}
                       className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-bold disabled:opacity-50">
                       {spLoading ? '⏳' : '🔍'}
                     </button>
                   </div>
                   {spResults.length > 0 && (
-                    <div className="space-y-1.5 max-h-64 overflow-y-auto">
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto">
                       {spResults.map(r => (
                         <div key={r.id} onClick={() => setSpotifyId(r.id)}
                           className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${
@@ -453,13 +490,18 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
                   )}
                 </div>
               </Card>
+            </div>
 
-              <Card title="📝 Aprašymas">
-                <textarea value={description} onChange={e => setDescription(e.target.value)}
-                  placeholder="Trumpas aprašymas apie dainą..." rows={5}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-music-blue resize-none" />
+            {/* === COL 3: Lyrics (wide) === */}
+            <div className="space-y-5">
+              <Card title="✍️ Žodžiai / Lyrics">
+                <textarea value={lyrics} onChange={e => setLyrics(e.target.value)}
+                  placeholder="Dainos žodžiai..."
+                  style={{ minHeight: '600px' }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-music-blue resize-y font-mono leading-relaxed" />
               </Card>
             </div>
+
           </div>
         )}
 
