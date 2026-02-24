@@ -302,9 +302,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
               <span>/</span>
               <span className="text-gray-600 font-medium">{title || 'Nauja daina'}</span>
             </div>
-            <h1 className="text-2xl font-black text-gray-900">
-              {isNewTrack ? '🎵 Nauja daina' : '✏️ Redaguoti dainą'}
-            </h1>
+{isNewTrack && <h1 className="text-2xl font-black text-gray-900">🎵 Nauja daina</h1>}
           </div>
           {/* Action buttons - top only */}
           <div className="flex gap-2">
