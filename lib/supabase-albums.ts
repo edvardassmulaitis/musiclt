@@ -117,6 +117,14 @@ export async function getAlbumById(id: number): Promise<AlbumFull & { tracks: Tr
 export async function createAlbum(data: AlbumFull): Promise<number> {
   if (!data.artist_id) throw new Error('Atlikėjas privalomas')
   const slug = slugify(data.title) + (data.year ? `-${data.year}` : '')
+
+  // Check if album already exists (avoid duplicates on re-import)
+  const { data: existing } = await supabase
+    .from('albums').select('id').eq('artist_id', Number(data.artist_id)).eq('slug', slug).maybeSingle()
+  if (existing) {
+    await updateAlbum(existing.id, data)
+    return existing.id
+  }
   const { data: row, error } = await supabase.from('albums').insert({
     title: data.title, slug, artist_id: Number(data.artist_id),
     year: toInt(data.year), month: toInt(data.month), day: toInt(data.day),
@@ -195,7 +203,10 @@ async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackI
       })
     }
   }
-  if (trackRows.length) await supabase.from('album_tracks').insert(trackRows)
+  if (trackRows.length) {
+    const { error } = await supabase.from('album_tracks').insert(trackRows)
+    if (error) console.error('album_tracks insert error:', error)
+  }
 }
 
 // ── Tracks ──────────────────────────────────────────────────────────────────
