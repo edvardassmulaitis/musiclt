@@ -1,37 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// Cache Spotify access token in memory
+// Anonymous token cache (Spotify web player trick)
 let cachedToken: { token: string; expiresAt: number } | null = null
 
-async function getSpotifyToken(): Promise<string> {
-  // Return cached token if still valid (5 min buffer)
-  if (cachedToken && cachedToken.expiresAt > Date.now() + 300_000) {
+async function getAnonymousToken(): Promise<string> {
+  if (cachedToken && cachedToken.expiresAt > Date.now() + 60_000) {
     return cachedToken.token
   }
 
-  const clientId = process.env.SPOTIFY_CLIENT_ID
-  const clientSecret = process.env.SPOTIFY_CLIENT_SECRET
-
-  if (!clientId || !clientSecret) throw new Error('Spotify credentials not configured')
-
-  const res = await fetch('https://accounts.spotify.com/api/token', {
-    method: 'POST',
+  // Fetch Spotify web player page - it returns an anonymous accessToken
+  const res = await fetch('https://open.spotify.com/search', {
     headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.5',
     },
-    body: 'grant_type=client_credentials',
   })
 
-  const data = await res.json()
-  if (!data.access_token) throw new Error('Failed to get Spotify token')
+  const html = await res.text()
 
-  cachedToken = {
-    token: data.access_token,
-    expiresAt: Date.now() + data.expires_in * 1000,
-  }
+  // Extract token from Spotify's server-rendered page data
+  const tokenMatch = html.match(/"accessToken":"([^"]+)"/)
+  const expiresMatch = html.match(/"accessTokenExpirationTimestampMs":(\d+)/)
 
-  return cachedToken.token
+  if (!tokenMatch) throw new Error('Could not extract Spotify token')
+
+  const token = tokenMatch[1]
+  const expiresAt = expiresMatch ? parseInt(expiresMatch[1]) : Date.now() + 3600_000
+
+  cachedToken = { token, expiresAt }
+  return token
 }
 
 export async function GET(req: NextRequest) {
@@ -39,11 +37,16 @@ export async function GET(req: NextRequest) {
   if (!q.trim()) return NextResponse.json({ results: [] })
 
   try {
-    const token = await getSpotifyToken()
+    const token = await getAnonymousToken()
 
     const res = await fetch(
       `https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=8&market=LT`,
-      { headers: { Authorization: `Bearer ${token}` } }
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'User-Agent': 'Mozilla/5.0',
+        },
+      }
     )
 
     const data = await res.json()
@@ -61,10 +64,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ results })
   } catch (e: any) {
-    return NextResponse.json({
-      error: e.message,
-      results: [],
-      configured: !!(process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_SECRET)
-    }, { status: 500 })
+    console.error('Spotify search error:', e.message)
+    return NextResponse.json({ error: e.message, results: [] }, { status: 500 })
   }
 }
