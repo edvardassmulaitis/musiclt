@@ -27,28 +27,19 @@ export default function AdminAlbumsPage() {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState<number | null>(null)
-  const [artistId, setArtistId] = useState<string | null>(null)
+  // Read artist_id synchronously from URL on first render
+  const [artistId] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null
+    return new URLSearchParams(window.location.search).get('artist_id')
+  })
   const [artistName, setArtistName] = useState<string | null>(null)
 
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const aid = params.get('artist_id')
-    if (aid) {
-      setArtistId(aid)
-      fetch(`/api/artists/${aid}`)
-        .then(r => r.json())
-        .then(d => { if (d.name) setArtistName(d.name) })
-        .catch(() => {})
-    }
-  }, [])
-
-  const load = useCallback(async (q = '', aid?: string | null) => {
+  const load = useCallback(async (q = '') => {
     setLoading(true)
     try {
-      const artistParam = (aid !== undefined ? aid : artistId)
-      const url = `/api/albums?search=${encodeURIComponent(q)}&limit=100${artistParam ? `&artist_id=${artistParam}` : ''}`
+      const url = `/api/albums?search=${encodeURIComponent(q)}&limit=100${artistId ? `&artist_id=${artistId}` : ''}`
       const res = await fetch(url)
       const data = await res.json()
       setAlbums(data.albums || [])
@@ -57,7 +48,16 @@ export default function AdminAlbumsPage() {
   }, [artistId])
 
   useEffect(() => { if (status === 'unauthenticated') router.push('/') }, [status])
-  useEffect(() => { if (isAdmin) load(search, artistId) }, [isAdmin, artistId])
+  useEffect(() => {
+    if (!isAdmin) return
+    load()
+    if (artistId) {
+      fetch(`/api/artists/${artistId}`)
+        .then(r => r.json())
+        .then(d => { if (d.name) setArtistName(d.name) })
+        .catch(() => {})
+    }
+  }, [isAdmin, artistId])
   useEffect(() => { const t = setTimeout(() => isAdmin && load(search), 300); return () => clearTimeout(t) }, [search])
 
   const del = async (id: number, title: string) => {
