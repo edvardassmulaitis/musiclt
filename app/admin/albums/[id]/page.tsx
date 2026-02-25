@@ -140,7 +140,7 @@ function CoverImageField({ value, onChange }: { value: string; onChange: (url: s
           onClick={() => !uploading && fileRef.current?.click()}
           onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f?.type.startsWith('image/')) handleFileUpload(f) }}
           onDragOver={e => e.preventDefault()}>
-          <img src={value} alt="" referrerPolicy="no-referrer" className="w-full aspect-square object-cover group-hover:opacity-90 transition-opacity" />
+          <img src={value} alt="" referrerPolicy="no-referrer" className="w-full object-cover group-hover:opacity-90 transition-opacity" style={{height:'160px'}} />
           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
             <span className="text-white text-sm font-medium">Keisti ↗</span>
           </div>
@@ -148,7 +148,7 @@ function CoverImageField({ value, onChange }: { value: string; onChange: (url: s
             <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" /></div>}
         </div>
       ) : (
-        <div className="relative w-full aspect-square rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 cursor-pointer hover:border-blue-400 transition-colors flex items-center justify-center group"
+        <div className="relative w-full rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 cursor-pointer hover:border-blue-400 transition-colors flex items-center justify-center group" style={{height:'160px'}}
           onClick={() => !uploading && fileRef.current?.click()}
           onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f?.type.startsWith('image/')) handleFileUpload(f) }}
           onDragOver={e => e.preventDefault()}>
@@ -683,10 +683,10 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
 
       {/* Desktop 50/50 */}
       <div className="hidden lg:grid lg:grid-cols-2 items-start">
-        <div className="border-r border-gray-200 overflow-y-auto sticky top-[41px]" style={{ height: 'calc(100dvh - 41px)' }}>
+        <div className="border-r border-gray-200">
           {InfoPanel}
         </div>
-        <div className="bg-[#f8f7f5] overflow-y-auto sticky top-[41px]" style={{ height: 'calc(100dvh - 41px)' }}>
+        <div className="bg-[#f8f7f5] sticky top-[41px]" style={{ height: 'calc(100vh - 41px)', overflowY: 'auto' }}>
           <div className="m-3 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
             <TracksHeader count={trackCount} />
             <TrackList tracks={form.tracks || []} isMobile={false}
