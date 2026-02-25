@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import WikimediaSearch from './WikimediaSearch'
 
 export type Photo = {
   url: string
@@ -108,16 +109,19 @@ export default function PhotoGallery({
   photos,
   onChange,
   onOriginalAdded,
+  artistName,
 }: {
   photos: Photo[]
   onChange: (photos: Photo[]) => void
-  onOriginalAdded?: (url: string) => void  // called when crop original is added
+  onOriginalAdded?: (url: string) => void
+  artistName?: string
 }) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
   const [urlInput, setUrlInput] = useState('')
   const [showUrlInput, setShowUrlInput] = useState(false)
+  const [showWikimedia, setShowWikimedia] = useState(false)
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
 
   const { onDragStart, onDragEnter, onDragEnd } = useDragReorder(photos, items => {
@@ -172,6 +176,13 @@ export default function PhotoGallery({
 
   return (
     <div className="space-y-3">
+      {showWikimedia && (
+        <WikimediaSearch
+          artistName={artistName || ''}
+          onSelect={photo => onChange([...photos, photo])}
+          onClose={() => setShowWikimedia(false)}
+        />
+      )}
 
       {/* Grid */}
       {photos.length > 0 && (
@@ -240,6 +251,15 @@ export default function PhotoGallery({
         >
           📁 Įkelti failus
         </button>
+        {artistName && (
+          <button
+            type="button"
+            onClick={() => setShowWikimedia(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-medium transition-colors"
+          >
+            🔍 Wikimedia
+          </button>
+        )}
         <button
           type="button"
           onClick={() => setShowUrlInput(v => !v)}
