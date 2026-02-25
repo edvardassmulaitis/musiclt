@@ -103,101 +103,304 @@ function DateRow({ label, y, m, d, onY, onM, onD }: any) {
   )
 }
 
-// ── AvatarUpload — handles file upload, URL input, Wikipedia image caching ───
+// ── ImageCropper — canvas-based pan/zoom crop modal ──────────────────────────
+function ImageCropper({ src, onCrop, onCancel }: { src: string; onCrop: (blob: Blob) => void; onCancel: () => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [img, setImg] = useState<HTMLImageElement | null>(null)
+  const [scale, setScale] = useState(1)
+  const [offset, setOffset] = useState({ x: 0, y: 0 })
+  const [dragging, setDragging] = useState(false)
+  const dragStart = useRef({ mx: 0, my: 0, ox: 0, oy: 0 })
+  const SIZE = 320 // canvas preview size
+
+  useEffect(() => {
+    const image = new window.Image()
+    image.crossOrigin = 'anonymous'
+    image.onload = () => {
+      setImg(image)
+      // fit image initially
+      const fit = Math.max(SIZE / image.naturalWidth, SIZE / image.naturalHeight)
+      setScale(fit)
+      setOffset({ x: 0, y: 0 })
+    }
+    image.src = src
+  }, [src])
+
+  useEffect(() => {
+    if (!img || !canvasRef.current) return
+    const ctx = canvasRef.current.getContext('2d')!
+    ctx.clearRect(0, 0, SIZE, SIZE)
+    ctx.save()
+    ctx.translate(SIZE / 2 + offset.x, SIZE / 2 + offset.y)
+    ctx.scale(scale, scale)
+    ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2)
+    ctx.restore()
+  }, [img, scale, offset])
+
+  const clampOffset = (ox: number, oy: number, s: number) => {
+    if (!img) return { x: ox, y: oy }
+    const hw = (img.naturalWidth * s) / 2
+    const hh = (img.naturalHeight * s) / 2
+    const halfSize = SIZE / 2
+    return {
+      x: Math.max(Math.min(ox, hw - halfSize), -(hw - halfSize)),
+      y: Math.max(Math.min(oy, hh - halfSize), -(hh - halfSize)),
+    }
+  }
+
+  const onMouseDown = (e: React.MouseEvent) => {
+    setDragging(true)
+    dragStart.current = { mx: e.clientX, my: e.clientY, ox: offset.x, oy: offset.y }
+  }
+  const onMouseMove = (e: React.MouseEvent) => {
+    if (!dragging) return
+    const dx = e.clientX - dragStart.current.mx
+    const dy = e.clientY - dragStart.current.my
+    setOffset(clampOffset(dragStart.current.ox + dx, dragStart.current.oy + dy, scale))
+  }
+  const onMouseUp = () => setDragging(false)
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches[0]
+    setDragging(true)
+    dragStart.current = { mx: t.clientX, my: t.clientY, ox: offset.x, oy: offset.y }
+  }
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (!dragging) return
+    const t = e.touches[0]
+    const dx = t.clientX - dragStart.current.mx
+    const dy = t.clientY - dragStart.current.my
+    setOffset(clampOffset(dragStart.current.ox + dx, dragStart.current.oy + dy, scale))
+  }
+
+  const changeScale = (delta: number) => {
+    if (!img) return
+    const minScale = Math.max(SIZE / img.naturalWidth, SIZE / img.naturalHeight)
+    const next = Math.max(minScale, Math.min(scale + delta, minScale * 5))
+    setScale(next)
+    setOffset(prev => clampOffset(prev.x, prev.y, next))
+  }
+
+  const handleCrop = () => {
+    if (!canvasRef.current) return
+    canvasRef.current.toBlob(blob => { if (blob) onCrop(blob) }, 'image/jpeg', 0.92)
+  }
+
+  return (
+    <div className="fixed inset-0 flex items-center justify-center p-4 bg-black/70" style={{ zIndex: 10000 }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+          <span className="text-sm font-bold text-gray-800">✂️ Apkarpyti nuotrauką</span>
+          <button type="button" onClick={onCancel} className="text-gray-400 hover:text-gray-600 text-xl leading-none px-1">✕</button>
+        </div>
+        <div className="p-4 flex flex-col items-center gap-3">
+          {/* Canvas preview */}
+          <div className="relative rounded-xl overflow-hidden border-2 border-gray-200 cursor-grab active:cursor-grabbing"
+            style={{ width: SIZE, height: SIZE, maxWidth: '100%' }}>
+            <canvas ref={canvasRef} width={SIZE} height={SIZE}
+              style={{ display: 'block', width: '100%', height: '100%', touchAction: 'none' }}
+              onMouseDown={onMouseDown} onMouseMove={onMouseMove}
+              onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
+              onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onMouseUp}
+            />
+            {/* crosshair overlay */}
+            <div className="absolute inset-0 pointer-events-none border-2 border-white/30 rounded-xl" />
+          </div>
+          {/* Zoom slider */}
+          <div className="flex items-center gap-2 w-full px-1">
+            <button type="button" onClick={() => changeScale(-0.1)}
+              className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-sm font-bold text-gray-600 shrink-0">−</button>
+            <input type="range" min={0} max={100} value={Math.round(((scale - (img ? Math.max(SIZE/img.naturalWidth, SIZE/img.naturalHeight) : 1)) / ((img ? Math.max(SIZE/img.naturalWidth, SIZE/img.naturalHeight) : 1) * 4)) * 100)}
+              onChange={e => {
+                if (!img) return
+                const minScale = Math.max(SIZE / img.naturalWidth, SIZE / img.naturalHeight)
+                const next = minScale + (parseInt(e.target.value) / 100) * minScale * 4
+                setScale(next)
+                setOffset(prev => clampOffset(prev.x, prev.y, next))
+              }}
+              className="flex-1 accent-music-blue" />
+            <button type="button" onClick={() => changeScale(0.1)}
+              className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-sm font-bold text-gray-600 shrink-0">+</button>
+          </div>
+          <p className="text-xs text-gray-400 -mt-1">Tempk norėdamas pastumti · Slinkite norėdami priartinti</p>
+        </div>
+        <div className="flex gap-2 px-4 pb-4">
+          <button type="button" onClick={onCancel}
+            className="flex-1 py-2 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">
+            Atšaukti
+          </button>
+          <button type="button" onClick={handleCrop}
+            className="flex-1 py-2 bg-music-blue text-white rounded-xl text-sm font-bold hover:opacity-90 transition-opacity">
+            ✓ Išsaugoti
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── AvatarUpload — handles file upload, URL input, crop, Wikipedia image ──────
 function AvatarUpload({ value, onChange }: { value: string; onChange: (url: string) => void }) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
-  const [urlInput, setUrlInput] = useState(value || '')
+  const [urlInput, setUrlInput] = useState('')
+  const [cropSrc, setCropSrc] = useState<string | null>(null) // image to crop
 
-  useEffect(() => { setUrlInput(value || '') }, [value])
+  // Update URL input only when value changes externally (wiki import etc)
+  useEffect(() => {
+    if (value && !value.startsWith('data:')) setUrlInput(value)
+  }, [value])
 
-  const uploadFile = async (file: File) => {
+  // Upload a Blob/File to /api/upload → Supabase URL
+  const uploadBlob = async (blob: Blob, filename = 'avatar.jpg') => {
     setUploading(true); setError('')
     try {
-      const fd = new FormData(); fd.append('file', file)
+      const fd = new FormData()
+      fd.append('file', blob, filename)
       const res = await fetch('/api/upload', { method: 'POST', body: fd })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Upload nepavyko')
       onChange(data.url)
+      setUrlInput(data.url)
     } catch (e: any) { setError(e.message) }
     finally { setUploading(false) }
   }
 
-  // Always store external URLs via fetch-image proxy → Supabase
+  // When user picks a file — open cropper
+  const handleFileSelect = (file: File) => {
+    const reader = new FileReader()
+    reader.onload = e => setCropSrc(e.target?.result as string)
+    reader.readAsDataURL(file)
+  }
+
+  // After crop — upload to Supabase
+  const handleCropped = async (blob: Blob) => {
+    setCropSrc(null)
+    await uploadBlob(blob)
+  }
+
+  // Store external URL via fetch-image proxy → Supabase, then open cropper
   const storeUrl = async (raw: string) => {
     const v = raw.trim()
     if (!v) { onChange(''); return }
-    if (v.includes('supabase')) { onChange(v); return }
-    if (v.startsWith('http')) {
-      setUploading(true); setError('')
-      try {
-        const res = await fetch('/api/fetch-image', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: v }),
-        })
-        if (res.ok) {
-          const d = await res.json()
-          if (d.url && !d.url.startsWith('data:')) { onChange(d.url); setUrlInput(d.url); return }
+    // Already a Supabase URL — just use directly
+    if (v.includes('supabase') || v.startsWith('/')) { onChange(v); return }
+    if (!v.startsWith('http')) return
+    setUploading(true); setError('')
+    try {
+      const res = await fetch('/api/fetch-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: v }),
+      })
+      if (res.ok) {
+        const d = await res.json()
+        if (d.url) {
+          // If we got a data URL, open cropper; if Supabase URL, use directly
+          if (d.url.startsWith('data:')) {
+            setCropSrc(d.url)
+          } else {
+            onChange(d.url)
+            setUrlInput(d.url)
+          }
+          return
         }
-      } catch {}
-      finally { setUploading(false) }
-      onChange(v) // fallback: use as-is
+      }
+    } catch {}
+    finally { setUploading(false) }
+    // Fallback: open cropper with original URL (might work if CORS allows)
+    setCropSrc(v)
+    setUploading(false)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()  // CRITICAL: prevent form submit
+      e.stopPropagation()
+      storeUrl(urlInput)
     }
   }
 
   return (
-    <div className="space-y-2">
-      {/* Preview / drop zone */}
-      <div
-        className="relative rounded-xl overflow-hidden cursor-pointer group border-2 border-dashed border-gray-200 hover:border-music-blue transition-colors"
-        style={{ aspectRatio: '1/1', maxWidth: 180 }}
-        onClick={() => !uploading && fileRef.current?.click()}
-        onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f?.type.startsWith('image/')) uploadFile(f) }}
-        onDragOver={e => e.preventDefault()}
-      >
-        {value ? (
-          <>
-            <img src={value} alt="" referrerPolicy="no-referrer"
-              className="w-full h-full object-cover group-hover:opacity-80 transition-opacity" />
-            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-              <span className="text-white text-xs font-medium">Keisti</span>
-            </div>
-          </>
-        ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 bg-gray-50">
-            <span className="text-3xl mb-1">🎤</span>
-            <span className="text-xs">Įkelti nuotrauką</span>
-          </div>
-        )}
-        {uploading && (
-          <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
-            <div className="w-5 h-5 border-2 border-music-blue border-t-transparent rounded-full animate-spin" />
-          </div>
-        )}
-      </div>
-      {/* URL input row */}
-      <div className="flex gap-1.5" style={{ maxWidth: 180 }}>
-        <input
-          type="text" value={urlInput}
-          onChange={e => setUrlInput(e.target.value)}
-          onBlur={e => storeUrl(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && storeUrl(urlInput)}
-          placeholder="URL arba įkelti..."
-          className="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-music-blue bg-white"
+    <>
+      {cropSrc && (
+        <ImageCropper
+          src={cropSrc}
+          onCrop={handleCropped}
+          onCancel={() => { setCropSrc(null); setUploading(false) }}
         />
-        <button type="button" onClick={() => fileRef.current?.click()}
-          className="px-2 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-xs transition-colors shrink-0">📁</button>
-        {value && (
-          <button type="button" onClick={() => { onChange(''); setUrlInput('') }}
-            className="px-2 py-1.5 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg text-xs transition-colors shrink-0">✕</button>
-        )}
+      )}
+      <div className="space-y-3">
+        {/* Preview */}
+        <div
+          className="relative rounded-xl overflow-hidden cursor-pointer group border-2 border-dashed border-gray-200 hover:border-music-blue transition-colors bg-gray-50"
+          style={{ width: 200, height: 200 }}
+          onClick={() => !uploading && fileRef.current?.click()}
+          onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f?.type.startsWith('image/')) handleFileSelect(f) }}
+          onDragOver={e => e.preventDefault()}
+        >
+          {value ? (
+            <>
+              <img src={value} alt="" referrerPolicy="no-referrer"
+                className="w-full h-full object-cover group-hover:opacity-70 transition-opacity" />
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1">
+                <span className="text-white text-sm">📁</span>
+                <span className="text-white text-xs font-medium">Keisti</span>
+              </div>
+            </>
+          ) : (
+            <div className="w-full h-full flex flex-col items-center justify-center text-gray-400">
+              <span className="text-4xl mb-2">🎤</span>
+              <span className="text-xs text-center px-4">Spustelėkite arba<br/>vilkite nuotrauką</span>
+            </div>
+          )}
+          {uploading && (
+            <div className="absolute inset-0 bg-white/80 flex flex-col items-center justify-center gap-2">
+              <div className="w-6 h-6 border-2 border-music-blue border-t-transparent rounded-full animate-spin" />
+              <span className="text-xs text-gray-500">Įkeliama...</span>
+            </div>
+          )}
+        </div>
+
+        {/* Action buttons row */}
+        <div className="flex gap-2 flex-wrap" style={{ maxWidth: 200 }}>
+          <button type="button" onClick={() => fileRef.current?.click()}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition-colors">
+            📁 Įkelti failą
+          </button>
+          {value && (
+            <button type="button"
+              onClick={() => { onChange(''); setUrlInput('') }}
+              className="flex items-center gap-1 px-2 py-1.5 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg text-xs transition-colors">
+              ✕ Išvalyti
+            </button>
+          )}
+        </div>
+
+        {/* URL input */}
+        <div className="space-y-1" style={{ maxWidth: 200 }}>
+          <label className="text-xs text-gray-400 font-medium">Arba įveskite URL:</label>
+          <div className="flex gap-1.5">
+            <input
+              type="text"
+              value={urlInput}
+              onChange={e => setUrlInput(e.target.value)}
+              onBlur={e => { if (e.target.value !== value) storeUrl(e.target.value) }}
+              onKeyDown={handleKeyDown}
+              placeholder="https://..."
+              className="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-music-blue bg-white"
+            />
+            <button type="button" onClick={() => storeUrl(urlInput)}
+              className="px-2 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-colors shrink-0">→</button>
+          </div>
+        </div>
+
+        {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+        <input ref={fileRef} type="file" accept="image/*" className="hidden"
+          onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelect(f) }} />
       </div>
-      {error && <p className="text-xs text-red-500">{error}</p>}
-      <input ref={fileRef} type="file" accept="image/*" className="hidden"
-        onChange={e => { const f = e.target.files?.[0]; if (f) uploadFile(f) }} />
-    </div>
+    </>
   )
 }
 
