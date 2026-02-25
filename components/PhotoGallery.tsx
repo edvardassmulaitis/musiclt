@@ -5,8 +5,9 @@ import WikimediaSearch from './WikimediaSearch'
 
 export type Photo = {
   url: string
-  author?: string   // copyright / credit
-  caption?: string  // optional description
+  author?: string     // copyright / credit
+  authorUrl?: string  // link to author profile / license page
+  caption?: string    // optional description
 }
 
 // ── Drag-to-reorder hook ──────────────────────────────────────────────────────
@@ -75,28 +76,43 @@ function PhotoCard({
         >✕</button>
       </div>
 
-      {/* Bottom author bar — always visible but subtle, expands on hover */}
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent pt-4 pb-1 px-2">
+      {/* Bottom author bar */}
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent pt-4 pb-1.5 px-2">
         {editingAuthor ? (
-          <input
-            autoFocus
-            type="text"
-            value={photo.author || ''}
-            onChange={e => onUpdate({ ...photo, author: e.target.value })}
-            onBlur={() => setEditingAuthor(false)}
-            onKeyDown={e => { e.stopPropagation(); if (e.key === 'Enter' || e.key === 'Escape') setEditingAuthor(false) }}
-            placeholder="Autorius / © šaltinis"
-            className="w-full text-xs px-1.5 py-0.5 rounded-md focus:outline-none bg-white/90 text-gray-800"
-            onClick={e => e.stopPropagation()}
-          />
+          <div className="space-y-1" onClick={e => e.stopPropagation()}>
+            <input
+              autoFocus
+              type="text"
+              value={photo.author || ''}
+              onChange={e => onUpdate({ ...photo, author: e.target.value })}
+              onKeyDown={e => { e.stopPropagation(); if (e.key === 'Enter') (e.target as HTMLElement).blur(); if (e.key === 'Escape') setEditingAuthor(false) }}
+              placeholder="Autorius / © šaltinis"
+              className="w-full text-xs px-1.5 py-0.5 rounded-md focus:outline-none bg-white/90 text-gray-800"
+            />
+            <input
+              type="text"
+              value={photo.authorUrl || ''}
+              onChange={e => onUpdate({ ...photo, authorUrl: e.target.value })}
+              onKeyDown={e => { e.stopPropagation(); if (e.key === 'Enter' || e.key === 'Escape') setEditingAuthor(false) }}
+              onBlur={() => setEditingAuthor(false)}
+              placeholder="URL (autorius / licencija)"
+              className="w-full text-xs px-1.5 py-0.5 rounded-md focus:outline-none bg-white/80 text-gray-800"
+            />
+          </div>
         ) : (
           <button
             type="button"
             onClick={e => { e.stopPropagation(); setEditingAuthor(true) }}
-            className="w-full text-left text-xs text-white/70 hover:text-white transition-colors truncate leading-none"
+            className="w-full text-left leading-none"
             title="Spustelėkite norėdami nurodyti autorių"
           >
-            {photo.author ? `© ${photo.author}` : <span className="opacity-50">© autorius</span>}
+            {photo.author ? (
+              <span className="text-xs text-white/80 hover:text-white transition-colors truncate block">
+                © {photo.author}{photo.authorUrl ? ' 🔗' : ''}
+              </span>
+            ) : (
+              <span className="text-xs text-white/40 hover:text-white/70 transition-colors italic">© autorius</span>
+            )}
           </button>
         )}
       </div>
@@ -179,7 +195,7 @@ export default function PhotoGallery({
       {showWikimedia && (
         <WikimediaSearch
           artistName={artistName || ''}
-          onSelect={photo => onChange([...photos, photo])}
+          onAddMultiple={newPhotos => onChange([...photos, ...newPhotos])}
           onClose={() => setShowWikimedia(false)}
         />
       )}
