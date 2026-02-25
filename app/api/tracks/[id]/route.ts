@@ -54,7 +54,6 @@ export async function GET(
     if (!release_year && track.release_date) {
       const d = new Date(track.release_date)
       release_year = d.getFullYear()
-      // Only expose month/day if it's not Jan 1 (likely a placeholder)
       const isJan1 = d.getMonth() === 0 && d.getDate() === 1
       if (!isJan1) {
         release_month = d.getMonth() + 1
@@ -62,7 +61,15 @@ export async function GET(
       }
     }
 
-    return NextResponse.json({ ...track, release_year, release_month, release_day, featuring, albums })
+    return NextResponse.json({
+      ...track,
+      release_year,
+      release_month,
+      release_day,
+      featuring,
+      albums,
+      chords: track.chords || '',
+    })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
@@ -83,7 +90,6 @@ export async function PUT(
   try {
     const data = await req.json()
 
-    // Partial update: only include fields that are explicitly provided
     const updates: Record<string, any> = {}
 
     if ('title' in data) updates.title = data.title
@@ -97,6 +103,7 @@ export async function PUT(
     if ('video_url' in data) updates.video_url = data.video_url || null
     if ('youtube_url' in data) updates.video_url = data.youtube_url || null
     if ('lyrics' in data) updates.lyrics = data.lyrics || null
+    if ('chords' in data) updates.chords = data.chords || null
     if ('description' in data) updates.description = data.description || null
     if ('spotify_id' in data) updates.spotify_id = data.spotify_id || null
     if ('release_year' in data || 'release_month' in data || 'release_day' in data) {
@@ -107,7 +114,7 @@ export async function PUT(
       updates.release_month = m
       updates.release_day = d
       updates.release_date = y && m && d
-        ? `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+        ? `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
         : null
     }
 
