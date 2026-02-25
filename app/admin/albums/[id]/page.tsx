@@ -50,7 +50,7 @@ function DateNumberInput({ label, value, onChange, min, max, placeholder }: {
   }
   return (
     <div>
-      <p className="text-xs text-gray-400 mb-1">{label}</p>
+      {label && <p className="text-xs text-gray-400 mb-1">{label}</p>}
       <input type="number" value={raw}
         onChange={e => setRaw(e.target.value)}
         onBlur={e => commit(e.target.value)}
@@ -230,8 +230,8 @@ function TrackList({ tracks, isMobile, onAdd, onUpdate, onRemove, onHardDelete, 
         const trackId = t.track_id || t.id
         const trackEditUrl = trackId ? `/admin/tracks/${trackId}` : null
         const hasVideo = !!(t.video_url)
-        // T icon: check multiple possible field names from API
-        const hasLyrics = !!(t as any).has_lyrics || !!(t as any).lyrics?.trim() || !!(t as any).lyrics_count
+        // T icon: true if lyrics text exists and is non-empty
+        const hasLyrics = typeof (t as any).lyrics === 'string' && (t as any).lyrics.trim().length > 0
         // Featuring: check multiple possible structures
         const rawFeat = (t as any).featuring || (t as any).featuring_artists || (t as any).track_artists?.filter((ta: any) => ta.role === 'featuring').map((ta: any) => ta.artists?.name || ta.name) || []
         const featuring: string[] = Array.isArray(rawFeat) ? rawFeat.map((f: any) => typeof f === 'string' ? f : f.name || f.artists?.name || '').filter(Boolean) : []
@@ -321,7 +321,7 @@ function TrackList({ tracks, isMobile, onAdd, onUpdate, onRemove, onHardDelete, 
         </div>
       )}
 
-      <div className="p-2.5">
+      <div className="p-2.5 bg-gray-50/60">
         <button type="button" onClick={onAdd}
           className="w-full py-2 border-2 border-dashed border-gray-200 text-gray-400 rounded-xl text-sm hover:border-blue-300 hover:text-blue-500 active:bg-blue-50 transition-colors">
           + Pridėti dainą
@@ -469,57 +469,59 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
       {/* Main info card */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 space-y-2.5">
 
-        {/* Title — full width */}
-        <div>
-          <label className="block text-xs font-semibold text-gray-500 mb-1">Pavadinimas *</label>
-          <input value={form.title} onChange={e => set('title', e.target.value)} placeholder="Albumo pavadinimas"
-            className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-sm font-medium focus:outline-none focus:border-blue-400 bg-white transition-colors" />
+        {/* Row 1: Title (left) + Date (right) */}
+        <div className="grid grid-cols-[1fr_auto] gap-3 items-start">
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 mb-1">Pavadinimas *</label>
+            <input value={form.title} onChange={e => set('title', e.target.value)} placeholder="Albumo pavadinimas"
+              className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-sm font-medium focus:outline-none focus:border-blue-400 bg-white transition-colors" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 mb-1">Data</label>
+            <div className="flex gap-1">
+              <DateNumberInput label="" value={form.year} onChange={v => set('year', v)} min={1900} max={CY + 2} placeholder="Metai" />
+              <DateNumberInput label="" value={form.month} onChange={v => set('month', v)} min={1} max={12} placeholder="Mėn" />
+              <DateNumberInput label="" value={form.day} onChange={v => set('day', v)} min={1} max={31} placeholder="D" />
+            </div>
+          </div>
         </div>
 
-        {/* Artists — main chip + feat chips in a row + search below */}
+        {/* Row 2: Artists chips (left) + feat search (right) */}
         <div>
           <label className="block text-xs font-semibold text-gray-500 mb-1">Atlikėjai *</label>
-          {/* Chips row */}
-          <div className="flex flex-wrap gap-1.5 mb-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             {/* Main artist chip */}
             {form.artist_id ? (
-              <div className="flex items-center gap-1 bg-blue-100 text-blue-800 border border-blue-200 rounded-full px-2.5 py-1 text-sm font-semibold">
+              <div className="flex items-center gap-1 bg-blue-100 text-blue-800 border border-blue-200 rounded-full px-2.5 py-1 text-sm font-semibold shrink-0">
                 {artistName}
                 <button type="button" onClick={() => { set('artist_id', 0); setArtistName(''); setArtistId(null) }}
                   className="text-blue-400 hover:text-red-500 transition-colors leading-none ml-0.5 text-base">×</button>
               </div>
-            ) : null}
+            ) : (
+              <div className="flex-1 min-w-[140px]">
+                <ArtistSearchInput placeholder="Pagrindinis atlikėjas..." onSelect={(id, name) => { set('artist_id', id); setArtistName(name); setArtistId(id) }} />
+              </div>
+            )}
             {/* Featured artist chips */}
             {featuredArtists.map((a, i) => (
-              <div key={a.id} className="flex items-center gap-1 bg-gray-100 text-gray-700 border border-gray-200 rounded-full px-2.5 py-1 text-xs">
-                <span className="text-gray-400 mr-0.5">feat.</span>
+              <div key={a.id} className="flex items-center gap-1 bg-gray-100 text-gray-700 border border-gray-200 rounded-full px-2 py-1 text-xs shrink-0">
+                <span className="text-gray-400">feat.</span>
                 {a.name}
                 <button type="button" onClick={() => setFeaturedArtists(p => p.filter((_, j) => j !== i))}
-                  className="text-gray-400 hover:text-red-500 transition-colors leading-none ml-0.5 text-sm">×</button>
+                  className="text-gray-400 hover:text-red-500 transition-colors leading-none ml-0.5">×</button>
               </div>
             ))}
-          </div>
-          {/* Search: show main artist search if none selected, always show feat search */}
-          <div className="space-y-1.5">
-            {!form.artist_id && (
-              <ArtistSearchInput placeholder="Ieškoti pagrindinio atlikėjo..." onSelect={(id, name) => { set('artist_id', id); setArtistName(name); setArtistId(id) }} />
+            {/* Inline feat search */}
+            {form.artist_id && (
+              <div className="flex-1 min-w-[120px]">
+                <ArtistSearchInput placeholder="+ feat..."
+                  onSelect={(id, name) => {
+                    if (id === form.artist_id) return
+                    if (!featuredArtists.find(a => a.id === id))
+                      setFeaturedArtists(p => [...p, { id, name }])
+                  }} />
+              </div>
             )}
-            <ArtistSearchInput placeholder="+ feat. atlikėjas..."
-              onSelect={(id, name) => {
-                if (id === form.artist_id) return
-                if (!featuredArtists.find(a => a.id === id))
-                  setFeaturedArtists(p => [...p, { id, name }])
-              }} />
-          </div>
-        </div>
-
-        {/* Date */}
-        <div>
-          <label className="block text-xs font-semibold text-gray-500 mb-1">Išleidimo data</label>
-          <div className="grid grid-cols-3 gap-1.5">
-            <DateNumberInput label="Metai" value={form.year} onChange={v => set('year', v)} min={1900} max={CY + 2} placeholder="2010" />
-            <DateNumberInput label="Mėnuo" value={form.month} onChange={v => set('month', v)} min={1} max={12} placeholder="9" />
-            <DateNumberInput label="Diena" value={form.day} onChange={v => set('day', v)} min={1} max={31} placeholder="3" />
           </div>
         </div>
 
@@ -539,53 +541,58 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
         </div>
       </div>
 
-      {/* Media card: cover + YouTube + Spotify compact */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 space-y-2.5">
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Media</p>
+      {/* Media card: 2 columns — cover left, YT+Spotify right */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Media</p>
+        <div className="grid grid-cols-2 gap-3">
 
-        {/* Cover + IDs side by side */}
-        <div className="flex gap-3">
-          {/* Cover thumbnail */}
-          <CoverImageField value={form.cover_image_url || ''} onChange={url => set('cover_image_url', url)} />
-        </div>
-
-        {/* YouTube URL row */}
-        <div>
-          <p className="text-xs font-semibold text-gray-500 mb-1">🎬 YouTube URL</p>
-          <div className="flex gap-1.5">
-            <input value={form.video_url || ''} onChange={e => set('video_url', e.target.value)}
-              placeholder="https://youtube.com/watch?v=..."
-              className="flex-1 px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
-            {ytId && (
-              <button type="button" onClick={() => set('video_url', '')}
-                className="px-2 py-1.5 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg text-xs transition-colors">✕</button>
-            )}
+          {/* Left: Cover */}
+          <div>
+            <p className="text-xs font-semibold text-gray-500 mb-1.5">Viršelis</p>
+            <CoverImageField value={form.cover_image_url || ''} onChange={url => set('cover_image_url', url)} />
           </div>
-          {/* Thumbnail preview if video set */}
-          {ytId && (
-            <a href={form.video_url || ''} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 mt-1.5 group">
-              <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} alt=""
-                className="w-20 h-12 object-cover rounded-md shrink-0 group-hover:opacity-90 transition-opacity" />
-              <span className="text-xs text-gray-500 group-hover:text-blue-600 transition-colors line-clamp-2">Žiūrėti ↗</span>
-            </a>
-          )}
-          <div className="mt-1.5">
-            <YouTubeSearch initialQuery={ytSearchQuery} onSelect={url => set('video_url', url)} />
-          </div>
-        </div>
 
-        {/* Spotify row */}
-        <div>
-          <p className="text-xs font-semibold text-gray-500 mb-1">🎧 Spotify ID</p>
-          <input value={form.spotify_id || ''} onChange={e => set('spotify_id', e.target.value)}
-            placeholder="Spotify album ID..."
-            className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-blue-400 font-mono transition-colors" />
-          {form.spotify_id && (
-            <a href={`https://open.spotify.com/album/${form.spotify_id}`} target="_blank" rel="noopener noreferrer"
-              className="mt-1 flex items-center gap-1 text-xs text-green-600 hover:text-green-700 transition-colors">
-              🔗 Atidaryti Spotify
-            </a>
-          )}
+          {/* Right: YouTube + Spotify */}
+          <div className="space-y-2.5">
+            {/* YouTube */}
+            <div>
+              <p className="text-xs font-semibold text-gray-500 mb-1">🎬 YouTube</p>
+              <div className="flex gap-1">
+                <input value={form.video_url || ''} onChange={e => set('video_url', e.target.value)}
+                  placeholder="youtube.com/watch?v=..."
+                  className="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
+                {ytId && (
+                  <button type="button" onClick={() => set('video_url', '')}
+                    className="px-2 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg text-xs transition-colors shrink-0">✕</button>
+                )}
+              </div>
+              {ytId && (
+                <a href={form.video_url || ''} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 mt-1 group">
+                  <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} alt=""
+                    className="w-16 h-10 object-cover rounded shrink-0 group-hover:opacity-80 transition-opacity" />
+                  <span className="text-xs text-gray-400 group-hover:text-blue-500 transition-colors">Žiūrėti ↗</span>
+                </a>
+              )}
+              <div className="mt-1.5">
+                <YouTubeSearch initialQuery={ytSearchQuery} onSelect={url => set('video_url', url)} />
+              </div>
+            </div>
+
+            {/* Spotify */}
+            <div>
+              <p className="text-xs font-semibold text-gray-500 mb-1">🎧 Spotify</p>
+              <input value={form.spotify_id || ''} onChange={e => set('spotify_id', e.target.value)}
+                placeholder="Album ID..."
+                className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-xs focus:outline-none focus:border-blue-400 font-mono transition-colors" />
+              {form.spotify_id && (
+                <a href={`https://open.spotify.com/album/${form.spotify_id}`} target="_blank" rel="noopener noreferrer"
+                  className="mt-1 flex items-center gap-1 text-xs text-green-600 hover:text-green-700 transition-colors">
+                  🔗 Atidaryti
+                </a>
+              )}
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
@@ -666,7 +673,7 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
         <div className="border-r border-gray-200 overflow-y-auto" style={{ height: 'calc(100vh - 41px)', position: 'sticky', top: '41px' }}>
           {InfoPanel}
         </div>
-        <div className="bg-white overflow-y-auto" style={{ height: 'calc(100vh - 41px)', position: 'sticky', top: '41px' }}>
+        <div className="bg-gray-50/40 overflow-y-auto" style={{ height: 'calc(100vh - 41px)', position: 'sticky', top: '41px' }}>
           <TracksHeader count={trackCount} />
           <TrackList tracks={form.tracks || []} isMobile={false}
             onAdd={addTrack} onUpdate={upTrack} onRemove={rmTrack} onHardDelete={hardDeleteTrack} onReorder={reorderTracks} />
