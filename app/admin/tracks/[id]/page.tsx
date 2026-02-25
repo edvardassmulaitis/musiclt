@@ -492,8 +492,8 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
   )
 
   return (
-    // KEY FIX: h-screen + overflow-hidden on root prevents any page-level scroll
-    <div className="h-screen overflow-hidden flex flex-col bg-[#f8f7f5]">
+    // global navbar 56px + admin header 41px = 97px
+    <div className="overflow-hidden flex flex-col bg-[#f8f7f5]" style={{ height: 'calc(100vh - 56px)' }}>
 
       {/* Sticky header */}
       <div className="shrink-0 bg-white/95 backdrop-blur border-b border-gray-200">
@@ -555,8 +555,9 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
             {InfoPanel}
           </div>
 
-          {/* Right: lyrics — fills height exactly, textarea scrolls internally */}
-          <div className="flex flex-col min-h-0 bg-[#f8f7f5] p-3 gap-0">
+          {/* Right: lyrics panel */}
+          {/* global navbar=56px, admin header=41px, padding=24px, tab bar=37px → textarea height = 100vh - 158px */}
+          <div className="flex flex-col bg-[#f8f7f5] p-3">
             {/* Tab bar */}
             <div className="bg-white rounded-t-xl border border-gray-100 shadow-sm shrink-0 flex items-center">
               <button onClick={() => setLyricsTab('lyrics')}
@@ -575,13 +576,14 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
                 {hasChords && <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />}
               </button>
             </div>
-            {/* Textarea — flex-1 fills remaining, overflow-y-auto scrolls internally */}
+            {/* Textarea with explicit height: 100vh minus global navbar(56) admin header(41) padding(24) tabbar(37) */}
             <textarea
               key={lyricsTab}
               value={lyricsTab === 'lyrics' ? lyrics : chords}
               onChange={e => lyricsTab === 'lyrics' ? setLyrics(e.target.value) : setChords(e.target.value)}
               placeholder={lyricsTab === 'lyrics' ? 'Dainos žodžiai...' : 'Am  G  F  G\nVerse 1...'}
-              className="flex-1 min-h-0 w-full px-3 py-2.5 text-sm text-gray-900 bg-white border border-t-0 border-gray-100 shadow-sm rounded-b-xl focus:outline-none resize-none font-mono leading-relaxed overflow-y-auto"
+              style={{ height: 'calc(100vh - 180px)' }}
+              className="w-full px-3 py-2.5 text-sm text-gray-900 bg-white border border-t-0 border-gray-100 shadow-sm rounded-b-xl focus:outline-none resize-none font-mono leading-relaxed overflow-y-auto"
             />
           </div>
         </div>
