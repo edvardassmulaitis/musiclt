@@ -450,9 +450,9 @@ function titleMatches(resultTitle: string, query: string): boolean {
   return matchCount >= Math.ceil(queryWords.length * 0.7)
 }
 
-type Props = { artistId: number; artistName: string; artistWikiTitle?: string; isSolo?: boolean; onClose?: () => void }
+type Props = { artistId: number; artistName: string; artistWikiTitle?: string; isSolo?: boolean; onClose?: () => void; buttonClassName?: string; buttonLabel?: string }
 
-export default function WikipediaImportDiscography({ artistId, artistName, artistWikiTitle, isSolo, onClose }: Props) {
+export default function WikipediaImportDiscography({ artistId, artistName, artistWikiTitle, isSolo, onClose, buttonClassName, buttonLabel }: Props) {
   const [open, setOpen] = useState(false)
   const [url, setUrl] = useState(artistWikiTitle ? `https://en.wikipedia.org/wiki/${artistWikiTitle}` : '')
   const [loading, setLoading] = useState(false)
@@ -692,8 +692,8 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
   return (
     <>
       <button type="button" onClick={() => setOpen(true)}
-        className="flex items-center gap-2 px-4 py-2 bg-purple-100 hover:bg-purple-200 text-purple-800 rounded-lg text-sm font-medium transition-colors">
-        📀 Importuoti diskografiją
+        className={buttonClassName ?? "flex items-center gap-2 px-4 py-2 bg-purple-100 hover:bg-purple-200 text-purple-800 rounded-lg text-sm font-medium transition-colors"}>
+        {buttonLabel ?? "📀 Importuoti diskografiją"}
       </button>
 
       {open && (
