@@ -1,19 +1,19 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { COUNTRIES, GENRES, MONTHS, DAYS } from '@/lib/constants'
+import { GENRES, MONTHS, DAYS } from '@/lib/constants'
 import StyleModal from './StyleModal'
-import ImageInput from './ImageInput'
 import PhotoGallery, { type Photo } from './PhotoGallery'
 import WikipediaImport from './WikipediaImport'
-import RichTextEditor from './RichTextEditor'
 import InstagramConnect from './InstagramConnect'
+import RichTextEditor from './RichTextEditor'
 
 const CY = new Date().getFullYear()
 const YEARS = Array.from({ length: CY - 1900 + 1 }, (_, i) => CY - i)
 
 const SOCIALS = [
+  { key:'website',    label:'Oficialus puslapis', icon:'🌐', ph:'https://...', type:'url' },
   { key:'facebook',   label:'Facebook',   icon:'📘', ph:'https://facebook.com/...' },
   { key:'instagram',  label:'Instagram',  icon:'📸', ph:'https://instagram.com/...' },
   { key:'youtube',    label:'YouTube',    icon:'▶️',  ph:'https://youtube.com/...' },
@@ -52,16 +52,19 @@ export const emptyArtistForm: ArtistFormData = {
   spotify:'', soundcloud:'', bandcamp:'', twitter:'',
 }
 
-type Props = { initialData?: ArtistFormData; artistId?: string; onSubmit:(d:ArtistFormData)=>void; backHref:string; title:string; submitLabel:string }
-
-// Small section label
-function SL({ children }: { children: React.ReactNode }) {
-  return <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{children}</label>
+type Props = {
+  initialData?: ArtistFormData
+  artistId?: string
+  onSubmit: (d: ArtistFormData) => void
+  backHref: string
+  title: string
+  submitLabel: string
+  // Called when any field changes — for auto-save
+  onChange?: (d: ArtistFormData) => void
 }
 
-// Input wrapper
-function Field({ label, children, wide }: { label: string; children: React.ReactNode; wide?: boolean }) {
-  return <div className={wide ? 'col-span-2' : ''}><SL>{label}</SL>{children}</div>
+function SL({ children }: { children: React.ReactNode }) {
+  return <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{children}</label>
 }
 
 function Inp({ value, onChange, placeholder, type='text', required }: any) {
@@ -100,9 +103,185 @@ function DateRow({ label, y, m, d, onY, onM, onD }: any) {
   )
 }
 
-// Pakeisti ArtistSearch funkciją ArtistForm.tsx faile
-// Rasti: function ArtistSearch({ ... }) { ... }
-// Pakeisti šiuo:
+// ── AvatarUpload — handles file upload, URL input, Wikipedia image caching ───
+function AvatarUpload({ value, onChange }: { value: string; onChange: (url: string) => void }) {
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState('')
+  const [urlInput, setUrlInput] = useState(value || '')
+
+  useEffect(() => { setUrlInput(value || '') }, [value])
+
+  const uploadFile = async (file: File) => {
+    setUploading(true); setError('')
+    try {
+      const fd = new FormData(); fd.append('file', file)
+      const res = await fetch('/api/upload', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Upload nepavyko')
+      onChange(data.url)
+    } catch (e: any) { setError(e.message) }
+    finally { setUploading(false) }
+  }
+
+  // Always store external URLs via fetch-image proxy → Supabase
+  const storeUrl = async (raw: string) => {
+    const v = raw.trim()
+    if (!v) { onChange(''); return }
+    if (v.includes('supabase')) { onChange(v); return }
+    if (v.startsWith('http')) {
+      setUploading(true); setError('')
+      try {
+        const res = await fetch('/api/fetch-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: v }),
+        })
+        if (res.ok) {
+          const d = await res.json()
+          if (d.url && !d.url.startsWith('data:')) { onChange(d.url); setUrlInput(d.url); return }
+        }
+      } catch {}
+      finally { setUploading(false) }
+      onChange(v) // fallback: use as-is
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      {/* Preview / drop zone */}
+      <div
+        className="relative rounded-xl overflow-hidden cursor-pointer group border-2 border-dashed border-gray-200 hover:border-music-blue transition-colors"
+        style={{ aspectRatio: '1/1', maxWidth: 180 }}
+        onClick={() => !uploading && fileRef.current?.click()}
+        onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f?.type.startsWith('image/')) uploadFile(f) }}
+        onDragOver={e => e.preventDefault()}
+      >
+        {value ? (
+          <>
+            <img src={value} alt="" referrerPolicy="no-referrer"
+              className="w-full h-full object-cover group-hover:opacity-80 transition-opacity" />
+            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <span className="text-white text-xs font-medium">Keisti</span>
+            </div>
+          </>
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 bg-gray-50">
+            <span className="text-3xl mb-1">🎤</span>
+            <span className="text-xs">Įkelti nuotrauką</span>
+          </div>
+        )}
+        {uploading && (
+          <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
+            <div className="w-5 h-5 border-2 border-music-blue border-t-transparent rounded-full animate-spin" />
+          </div>
+        )}
+      </div>
+      {/* URL input row */}
+      <div className="flex gap-1.5" style={{ maxWidth: 180 }}>
+        <input
+          type="text" value={urlInput}
+          onChange={e => setUrlInput(e.target.value)}
+          onBlur={e => storeUrl(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && storeUrl(urlInput)}
+          placeholder="URL arba įkelti..."
+          className="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-music-blue bg-white"
+        />
+        <button type="button" onClick={() => fileRef.current?.click()}
+          className="px-2 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-xs transition-colors shrink-0">📁</button>
+        {value && (
+          <button type="button" onClick={() => { onChange(''); setUrlInput('') }}
+            className="px-2 py-1.5 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg text-xs transition-colors shrink-0">✕</button>
+        )}
+      </div>
+      {error && <p className="text-xs text-red-500">{error}</p>}
+      <input ref={fileRef} type="file" accept="image/*" className="hidden"
+        onChange={e => { const f = e.target.files?.[0]; if (f) uploadFile(f) }} />
+    </div>
+  )
+}
+
+// ── InlineStyleSearch — quick style add without opening full modal ────────────
+function InlineStyleSearch({ selected, onAdd }: { selected: string[]; onAdd: (s: string) => void }) {
+  const [q, setQ] = useState('')
+  const [results, setResults] = useState<string[]>([])
+
+  useEffect(() => {
+    if (!q.trim()) { setResults([]); return }
+    // Fetch all substyles matching query from constants
+    import('@/lib/constants').then(m => {
+      const all: string[] = m.ALL_SUBSTYLES || m.SUBSTYLES || []
+      const filtered = all
+        .filter((s: string) => s.toLowerCase().includes(q.toLowerCase()) && !selected.includes(s))
+        .slice(0, 6)
+      setResults(filtered)
+    }).catch(() => setResults([]))
+  }, [q, selected])
+
+  return (
+    <div className="relative flex-1 max-w-[180px]">
+      <input
+        type="text" value={q} onChange={e => setQ(e.target.value)}
+        placeholder="+ Pridėti stilių..."
+        className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-music-blue bg-white"
+      />
+      {results.length > 0 && (
+        <div className="absolute z-20 top-8 left-0 w-48 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+          {results.map(s => (
+            <button key={s} type="button"
+              onClick={() => { onAdd(s); setQ(''); setResults([]) }}
+              className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 text-gray-700 transition-colors">
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── DescriptionEditor — expandable rich text editor ─────────────────────────
+function DescriptionEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [expanded, setExpanded] = useState(false)
+
+  const editor = (
+    <div style={{ minHeight: expanded ? 300 : 140 }}>
+      <RichTextEditor value={value} onChange={onChange} placeholder="Trumpas aprašymas..." />
+    </div>
+  )
+
+  return (
+    <div className="relative">
+      {expanded ? (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-6">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col" style={{ maxHeight: '80vh' }}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+              <span className="text-sm font-bold text-gray-700">Aprašymas</span>
+              <button onClick={() => setExpanded(false)} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+            </div>
+            <div className="flex-1 overflow-auto p-4" style={{ minHeight: 300 }}>
+              <RichTextEditor value={value} onChange={onChange} placeholder="Trumpas aprašymas..." />
+            </div>
+            <div className="px-4 py-3 border-t border-gray-100 flex justify-end">
+              <button onClick={() => setExpanded(false)}
+                className="px-4 py-2 bg-music-blue text-white rounded-lg text-sm font-medium hover:opacity-90">
+                ✓ Uždaryti
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div style={{ minHeight: 140 }}>
+          <RichTextEditor value={value} onChange={onChange} placeholder="Trumpas aprašymas..." />
+        </div>
+      )}
+      <button type="button" onClick={() => setExpanded(true)}
+        className="mt-1 text-xs text-gray-400 hover:text-music-blue transition-colors">
+        ⤢ Plėsti redaktorių
+      </button>
+    </div>
+  )
+}
 
 function ArtistSearch({ label, ph, items, onAdd, onRemove, onYears, filterType }: {
   label:string; ph:string; items:(Member|GroupRef)[]
@@ -202,9 +381,35 @@ function ArtistSearch({ label, ph, items, onAdd, onRemove, onYears, filterType }
   )
 }
 
-export default function ArtistForm({ initialData, artistId, onSubmit, backHref, title, submitLabel }: Props) {
+export default function ArtistForm({ initialData, artistId, onSubmit, backHref, title, submitLabel, onChange }: Props) {
   const [form, setForm] = useState<ArtistFormData>(initialData || emptyArtistForm)
-  const set = (f: keyof ArtistFormData, v: any) => setForm(p => ({ ...p, [f]: v }))
+
+  useEffect(() => {
+    if (initialData) setForm(initialData)
+  }, [initialData])
+
+  const set = (f: keyof ArtistFormData, v: any) => {
+    const next = { ...form, [f]: v }
+    setForm(next)
+    onChange?.(next)
+  }
+
+  // Auto-save avatar when it changes (fire-and-forget, called when AvatarUpload finishes upload)
+  const setAvatar = (url: string) => {
+    const next = { ...form, avatar: url }
+    setForm(next)
+    // Trigger auto-save immediately when avatar URL is set (upload done)
+    if (onChange && url !== form.avatar) {
+      onChange(next)
+    }
+  }
+
+  // Auto-save photos when gallery changes
+  const setPhotos = (photos: any[]) => {
+    const next = { ...form, photos }
+    setForm(next)
+    if (onChange) onChange(next)
+  }
 
   const addBreak = () => set('breaks', [...form.breaks, { from:'', to:'' }])
   const upBreak = (i:number, f:'from'|'to', v:string) => { const b=[...form.breaks]; b[i]={...b[i],[f]:v}; set('breaks',b) }
@@ -223,7 +428,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-6 py-6">
-        {/* Header */}
+        {/* Header — hidden when used inside edit page (CSS override hides it) */}
         <div className="flex items-center justify-between mb-6">
           <div>
             <Link href={backHref} className="text-music-blue hover:text-music-orange text-sm">← Atgal</Link>
@@ -236,29 +441,31 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
         </div>
 
         <form onSubmit={handleSubmit}>
-          {/* Wikipedia import - full width */}
-          <div className="mb-5">
+          {/* Wikipedia import - full width (hidden via CSS in edit page) */}
+          <div className="mb-5 WikipediaImport">
             <WikipediaImport onImport={data => setForm(prev => ({ ...prev, ...data }))} />
           </div>
 
-          {/* Instagram Connect - full width */}
+          {/* Instagram Connect - full width (hidden via CSS in edit page) */}
           {artistId && (
-            <div className="mb-5">
+            <div className="mb-5 InstagramConnect">
               <InstagramConnect artistId={artistId} artistName={form.name} />
             </div>
           )}
 
           {/* 2-column layout */}
           <div className="grid grid-cols-2 gap-5">
-            {/* LEFT COLUMN */}
+
+            {/* ── LEFT COLUMN ── */}
             <div className="space-y-5">
 
               {/* Pagrindinė info */}
               <Card title="Pagrindinė informacija">
                 <div className="space-y-4">
-                  <Field label="Pavadinimas *">
+                  <div>
+                    <SL>Pavadinimas *</SL>
                     <Inp value={form.name} onChange={(v:string)=>set('name',v)} placeholder="Pvz: Jazzu" required />
-                  </Field>
+                  </div>
 
                   <div>
                     <SL>Tipas *</SL>
@@ -273,46 +480,58 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
-                    <Field label="Šalis *">
+                    <div>
+                      <SL>Šalis *</SL>
                       <Sel value={form.country} onChange={(v:string)=>set('country',v)} required>
                         {['Lietuva','Latvija','Estija','Lenkija','Vokietija','Prancūzija','JAV','Didžioji Britanija','Švedija','Norvegija','Suomija','Danija'].map(c=><option key={c} value={c}>{c}</option>)}
                         <optgroup label="─────────────">
                           {require('@/lib/constants').COUNTRIES.filter((c:string)=>!['Lietuva','Latvija','Estija','Lenkija','Vokietija','Prancūzija','JAV','Didžioji Britanija','Švedija','Norvegija','Suomija','Danija'].includes(c)).map((c:string)=><option key={c} value={c}>{c}</option>)}
                         </optgroup>
                       </Sel>
-                    </Field>
-                    <Field label="Žanras *">
+                    </div>
+                    <div>
+                      <SL>Žanras *</SL>
                       <Sel value={form.genre} onChange={(v:string)=>{ set('genre',v); set('substyles',[]) }} required>
                         <option value="">Pasirinkite...</option>
                         {GENRES.map(g=><option key={g} value={g}>{g}</option>)}
                       </Sel>
-                    </Field>
+                    </div>
                   </div>
 
-                  <Field label="Stiliai">
-                    <StyleModal selected={form.substyles||[]} onChange={v=>set('substyles',v)} />
-                  </Field>
+                  {/* FIX #5: Stiliai + inline search */}
+                  <div>
+                    <SL>Stiliai</SL>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <StyleModal selected={form.substyles||[]} onChange={v=>set('substyles',v)} />
+                      <InlineStyleSearch
+                        selected={form.substyles||[]}
+                        onAdd={s => set('substyles', [...(form.substyles||[]), s])}
+                      />
+                    </div>
+                  </div>
                 </div>
               </Card>
 
-              {/* Aprašymas - rich text */}
+              {/* FIX #7: Aprašymas — expandable */}
               <Card title="Aprašymas">
-                <RichTextEditor value={form.description} onChange={v=>set('description',v)} placeholder="Trumpas aprašymas..." />
+                <DescriptionEditor value={form.description} onChange={v=>set('description',v)} />
               </Card>
 
-              {/* Veiklos laikotarpis */}
+              {/* FIX #6: Veiklos laikotarpis moved to LEFT (was right) */}
               <Card title="Veiklos laikotarpis">
                 <div className="grid grid-cols-2 gap-3 mb-4">
-                  <Field label="Nuo">
+                  <div>
+                    <SL>Nuo</SL>
                     <Sel value={form.yearStart} onChange={(v:string)=>set('yearStart',v)}>
                       <option value="">Nežinoma</option>{YEARS.map(y=><option key={y} value={y}>{y}</option>)}
                     </Sel>
-                  </Field>
-                  <Field label="Iki">
+                  </div>
+                  <div>
+                    <SL>Iki</SL>
                     <Sel value={form.yearEnd} onChange={(v:string)=>set('yearEnd',v)}>
                       <option value="">Aktyvūs</option>{YEARS.map(y=><option key={y} value={y}>{y}</option>)}
                     </Sel>
-                  </Field>
+                  </div>
                 </div>
                 <div>
                   <div className="flex justify-between items-center mb-2">
@@ -361,7 +580,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                 </Card>
               )}
 
-              {/* Group members */}
+              {/* FIX #6: Group members moved to LEFT */}
               {form.type==='group' && (
                 <Card title="Grupės nariai">
                   <ArtistSearch label="Nariai" ph="Ieškoti atlikėjo..." items={form.members}
@@ -370,48 +589,47 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
               )}
             </div>
 
-            {/* RIGHT COLUMN */}
+            {/* ── RIGHT COLUMN ── */}
             <div className="space-y-5">
 
-              {/* Nuotraukos */}
-              <Card title="Profilinis foto">
-                <ImageInput value={form.avatar} onChange={v=>set('avatar',v)} size={200} mode="square" />
+              {/* FIX #3: Profilio nuotrauka — new AvatarUpload */}
+              <Card title="Profilio nuotrauka">
+                <AvatarUpload value={form.avatar} onChange={setAvatar} />
               </Card>
 
+              {/* Nuotraukų galerija — auto-saves when photos change */}
               <Card title="Nuotraukų galerija">
-                <PhotoGallery photos={form.photos} onChange={p=>set('photos',p)} />
+                <PhotoGallery photos={form.photos} onChange={setPhotos} />
               </Card>
 
-              {/* Nuorodos */}
-              <Card title="Nuorodos ir subdomenas">
+              {/* FIX #8: Socials — website moved here, subdomain at bottom */}
+              <Card title="Socialiniai tinklai ir nuorodos">
                 <div className="space-y-3">
-                  <Field label="Oficialus puslapis">
-                    <Inp value={form.website} onChange={(v:string)=>set('website',v)} placeholder="https://..." type="url" />
-                  </Field>
-                  <Field label="Subdomenas">
-                    <div className="flex">
-                      <Inp value={form.subdomain} onChange={(v:string)=>set('subdomain',v)} placeholder="vardas" />
-                      <span className="px-3 py-2 bg-gray-100 border border-l-0 border-gray-300 rounded-r-lg text-gray-500 text-sm whitespace-nowrap">.music.lt</span>
-                    </div>
-                  </Field>
-                </div>
-              </Card>
-
-              {/* Socialiniai tinklai */}
-              <Card title="Socialiniai tinklai">
-                <div className="grid grid-cols-1 gap-3">
-                  {SOCIALS.map(({ key, label, icon, ph }) => (
+                  {SOCIALS.map(({ key, label, icon, ph, type }) => (
                     <div key={key} className="flex items-center gap-2">
                       <span className="text-lg w-7 text-center flex-shrink-0">{icon}</span>
                       <div className="flex-1">
-                        <input type="url"
+                        <input
+                          type={type || 'url'}
                           value={form[key as keyof ArtistFormData] as string}
                           onChange={e => set(key as keyof ArtistFormData, e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-music-blue"
-                          placeholder={ph} />
+                          placeholder={ph}
+                        />
                       </div>
                     </div>
                   ))}
+                </div>
+              </Card>
+
+              {/* FIX #8: Subdomain at very bottom */}
+              <Card title="music.lt domenas">
+                <div>
+                  <SL>Subdomenas</SL>
+                  <div className="flex">
+                    <Inp value={form.subdomain} onChange={(v:string)=>set('subdomain',v)} placeholder="vardas" />
+                    <span className="px-3 py-2 bg-gray-100 border border-l-0 border-gray-300 rounded-r-lg text-gray-500 text-sm whitespace-nowrap">.music.lt</span>
+                  </div>
                 </div>
               </Card>
             </div>
