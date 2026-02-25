@@ -227,8 +227,8 @@ function AlbumCard({ album, defaultOpen }: { album: any; defaultOpen: boolean })
 }
 
 // ── Discography panel ────────────────────────────────────────────────────────
-function DiscographyPanel({ artistId, artistName, refreshKey }: {
-  artistId: string; artistName: string; refreshKey: number
+function DiscographyPanel({ artistId, artistName, refreshKey, onImportClose }: {
+  artistId: string; artistName: string; refreshKey: number; onImportClose: () => void
 }) {
   const [albums, setAlbums] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -242,7 +242,7 @@ function DiscographyPanel({ artistId, artistName, refreshKey }: {
         setAlbums(sorted)
       })
       .finally(() => setLoading(false))
-  }, [artistId, refreshKey]) // FIX #4: re-fetch on refreshKey change
+  }, [artistId, refreshKey])
 
   return (
     <div className="h-full flex flex-col">
@@ -254,6 +254,16 @@ function DiscographyPanel({ artistId, artistName, refreshKey }: {
           )}
         </div>
         <div className="flex items-center gap-1.5">
+          {artistName && (
+            <WikipediaImportDiscography
+              artistId={parseInt(artistId)}
+              artistName={artistName}
+              artistWikiTitle={artistName.replace(/ /g, '_')}
+              onClose={onImportClose}
+              buttonClassName="flex items-center gap-1 px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg text-xs font-medium transition-colors"
+              buttonLabel="📀 Importuoti iš Wiki"
+            />
+          )}
           <Link href={`/admin/albums/new?artist_id=${artistId}`}
             className="flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-colors">
             + Naujas albumas
@@ -299,26 +309,51 @@ function DiscographyImportCompact({ artistId, artistName, onClose }: {
   )
 }
 
+// ── WikipediaImportWithHint — wraps WikipediaImport, pre-fills URL input ────
+function WikipediaImportWithHint({ artistName, onImport }: { artistName?: string; onImport: (data: any) => void }) {
+  // Inject URL into WikipediaImport input after mount
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!artistName) return
+    const input = ref.current?.querySelector('input[type="url"], input[type="text"]') as HTMLInputElement | null
+    if (input && !input.value) {
+      const url = `https://en.wikipedia.org/wiki/${encodeURIComponent(artistName.replace(/ /g, '_'))}`
+      const nativeInput = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')
+      nativeInput?.set?.call(input, url)
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      input.dispatchEvent(new Event('change', { bubbles: true }))
+    }
+  }, [artistName])
+  return <div ref={ref}><WikipediaImport onImport={onImport} /></div>
+}
+
 // ── WikipediaImportCompact ───────────────────────────────────────────────────
-function WikipediaImportCompact({ onImport }: { onImport: (data: any) => void }) {
+function WikipediaImportCompact({ onImport, artistName }: { onImport: (data: any) => void; artistName?: string }) {
   const [open, setOpen] = useState(false)
   return (
-    <div className="relative">
-      <button type="button" onClick={() => setOpen(p => !p)}
-        className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-        title="Importuoti atlikėjo info iš Wikipedia">
-        📖 Wiki
+    <>
+      <button type="button" onClick={() => setOpen(true)}
+        className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors font-medium"
+        title="Atnaujinti atlikėjo informaciją iš Wikipedia">
+        📖 Wiki atnaujinti
       </button>
       {open && (
-        <div className="absolute top-8 left-0 z-50 w-[420px] bg-white rounded-xl shadow-2xl border border-gray-200 p-3">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-gray-600">Importuoti iš Wikipedia</span>
-            <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600 text-sm">✕</button>
+        <div className="fixed inset-0 flex items-start justify-center pt-20 px-4" style={{ zIndex: 9999 }} onClick={e => { if (e.target === e.currentTarget) setOpen(false) }}>
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-lg" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+              <span className="text-sm font-bold text-gray-700">📖 Atnaujinti iš Wikipedia</span>
+              <button type="button" onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none px-1">✕</button>
+            </div>
+            <div className="p-4">
+              <WikipediaImportWithHint
+                artistName={artistName}
+                onImport={(data: any) => { onImport(data); setOpen(false) }}
+              />
+            </div>
           </div>
-          <WikipediaImport onImport={(data: any) => { onImport(data); setOpen(false) }} />
         </div>
       )}
-    </div>
+    </>
   )
 }
 
@@ -360,10 +395,10 @@ export default function EditArtist() {
       .then(r => r.json()).then(d => setTrackCount(d.total ?? null)).catch(() => {})
   }, [status, isAdmin, artistId, router])
 
+  // Full save (submit button)
   const handleSubmit = useCallback(async (form: ArtistFormData) => {
     setSaving(true); setError('')
     try {
-      // FIX #5: store external avatar URL in Supabase before saving
       let avatar = form.avatar
       if (avatar && !avatar.includes('supabase') && avatar.startsWith('http')) {
         avatar = await fetchAndStoreWikiAvatar(avatar)
@@ -380,6 +415,22 @@ export default function EditArtist() {
       setArtistName(form.name)
     } catch (e: any) { setError(e.message) }
     finally { setSaving(false) }
+  }, [artistId])
+
+  // Auto-save for photos/avatar (fire-and-forget, no loading indicator)
+  const handleAutoSave = useCallback(async (form: ArtistFormData) => {
+    try {
+      let avatar = form.avatar
+      if (avatar && !avatar.includes('supabase') && avatar.startsWith('http')) {
+        avatar = await fetchAndStoreWikiAvatar(avatar)
+        form = { ...form, avatar }
+      }
+      await fetch(`/api/artists/${artistId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formToDb(form)),
+      })
+    } catch {}
   }, [artistId])
 
   if (status === 'loading' || !initialData) return (
@@ -426,20 +477,12 @@ export default function EditArtist() {
               )}
             </nav>
 
-            {/* Compact action buttons — wiki info import + discography import */}
+            {/* Wiki update button only in header */}
             <div className="hidden lg:flex items-center gap-1 shrink-0 border-l border-gray-200 pl-2 ml-1">
-              <WikipediaImportCompact onImport={(data: Partial<ArtistFormData>) => {
-                setInitialData(prev => prev ? { ...prev, ...data } : prev)
-              }} />
-              <DiscographyImportCompact
-                artistId={parseInt(artistId)}
+              <WikipediaImportCompact
                 artistName={artistName}
-                onClose={() => {
-                  setDiscographyKey(k => k + 1)
-                  fetch(`/api/albums?artist_id=${artistId}&limit=1`)
-                    .then(r => r.json()).then(d => setAlbumCount(d.total ?? 0)).catch(() => {})
-                  fetch(`/api/tracks?artist_id=${artistId}&limit=1`)
-                    .then(r => r.json()).then(d => setTrackCount(d.total ?? null)).catch(() => {})
+                onImport={(data: Partial<ArtistFormData>) => {
+                  setInitialData(prev => prev ? { ...prev, ...data } : prev)
                 }}
               />
             </div>
@@ -487,20 +530,32 @@ export default function EditArtist() {
       {/* Mobile */}
       <div className="lg:hidden flex-1 overflow-y-auto">
         {tab === 'form' && (
-          <ArtistFormCompact initialData={initialData} artistId={artistId} onSubmit={handleSubmit} saving={saving} />
+          <ArtistFormCompact initialData={initialData} artistId={artistId} onSubmit={handleSubmit} onAutoSave={handleAutoSave} saving={saving} />
         )}
         {tab === 'discography' && (
-          <DiscographyPanel artistId={artistId} artistName={artistName} refreshKey={discographyKey} />
+          <DiscographyPanel artistId={artistId} artistName={artistName} refreshKey={discographyKey}
+            onImportClose={() => {
+              setDiscographyKey(k => k + 1)
+              fetch(`/api/albums?artist_id=${artistId}&limit=1`).then(r => r.json()).then(d => setAlbumCount(d.total ?? 0)).catch(() => {})
+              fetch(`/api/tracks?artist_id=${artistId}&limit=1`).then(r => r.json()).then(d => setTrackCount(d.total ?? null)).catch(() => {})
+            }}
+          />
         )}
       </div>
 
       {/* Desktop 60/40 */}
       <div className="hidden lg:flex flex-1 min-h-0">
         <div className="border-r border-gray-200 overflow-y-auto" style={{ width: '60%' }}>
-          <ArtistFormCompact initialData={initialData} artistId={artistId} onSubmit={handleSubmit} saving={saving} />
+          <ArtistFormCompact initialData={initialData} artistId={artistId} onSubmit={handleSubmit} onAutoSave={handleAutoSave} saving={saving} />
         </div>
         <div className="overflow-hidden flex flex-col" style={{ width: '40%' }}>
-          <DiscographyPanel artistId={artistId} artistName={artistName} refreshKey={discographyKey} />
+          <DiscographyPanel artistId={artistId} artistName={artistName} refreshKey={discographyKey}
+            onImportClose={() => {
+              setDiscographyKey(k => k + 1)
+              fetch(`/api/albums?artist_id=${artistId}&limit=1`).then(r => r.json()).then(d => setAlbumCount(d.total ?? 0)).catch(() => {})
+              fetch(`/api/tracks?artist_id=${artistId}&limit=1`).then(r => r.json()).then(d => setTrackCount(d.total ?? null)).catch(() => {})
+            }}
+          />
         </div>
       </div>
     </div>
@@ -508,9 +563,11 @@ export default function EditArtist() {
 }
 
 // ── ArtistFormCompact — hides ArtistForm's own header, footer, wiki, instagram
-function ArtistFormCompact({ initialData, artistId, onSubmit, saving }: {
+function ArtistFormCompact({ initialData, artistId, onSubmit, onAutoSave, saving }: {
   initialData: ArtistFormData; artistId: string
-  onSubmit: (d: ArtistFormData) => void; saving: boolean
+  onSubmit: (d: ArtistFormData) => void
+  onAutoSave?: (d: ArtistFormData) => void
+  saving: boolean
 }) {
   return (
     <div className="artist-form-compact">
@@ -530,6 +587,7 @@ function ArtistFormCompact({ initialData, artistId, onSubmit, saving }: {
         initialData={initialData}
         artistId={artistId}
         onSubmit={onSubmit}
+        onChange={onAutoSave}
       />
     </div>
   )
