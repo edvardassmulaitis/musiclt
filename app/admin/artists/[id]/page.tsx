@@ -416,11 +416,12 @@ export default function EditArtist() {
               <WikipediaImportCompact onImport={(data: Partial<ArtistFormData>) => {
                 setInitialData(prev => prev ? { ...prev, ...data } : prev)
               }} />
-              {/* FIX #4: discography import — polling for refresh after modal closes */}
-              <DiscographyImportWrapper
-                artistId={artistId}
+              {/* FIX #4: onClose triggers discography refresh */}
+              <WikipediaImportDiscography
+                artistId={parseInt(artistId)}
                 artistName={artistName}
-                onImported={() => {
+                artistWikiTitle={artistName.replace(/ /g, '_')}
+                onClose={() => {
                   setDiscographyKey(k => k + 1)
                   fetch(`/api/albums?artist_id=${artistId}&limit=1`)
                     .then(r => r.json()).then(d => setAlbumCount(d.total ?? 0)).catch(() => {})
@@ -515,62 +516,6 @@ function ArtistFormCompact({ initialData, artistId, onSubmit, saving }: {
         initialData={initialData}
         artistId={artistId}
         onSubmit={onSubmit}
-      />
-    </div>
-  )
-}
-
-// ── DiscographyImportWrapper — shows the import button and polls for new albums
-// after user clicks it (every 4s for 30s), without needing onClose prop
-function DiscographyImportWrapper({ artistId, artistName, onImported }: {
-  artistId: string; artistName: string; onImported: () => void
-}) {
-  const [polling, setPolling] = useState(false)
-  const [baseCount, setBaseCount] = useState<number | null>(null)
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const attemptsRef = useRef(0)
-
-  const startPolling = useCallback((knownCount: number) => {
-    if (polling) return
-    setPolling(true)
-    attemptsRef.current = 0
-    intervalRef.current = setInterval(async () => {
-      attemptsRef.current++
-      try {
-        const res = await fetch(`/api/albums?artist_id=${artistId}&limit=1`)
-        const d = await res.json()
-        const newCount = d.total ?? 0
-        if (newCount !== knownCount) {
-          clearInterval(intervalRef.current!)
-          setPolling(false)
-          onImported()
-          return
-        }
-      } catch {}
-      if (attemptsRef.current >= 8) { // stop after ~32s
-        clearInterval(intervalRef.current!)
-        setPolling(false)
-      }
-    }, 4000)
-  }, [artistId, polling, onImported])
-
-  // Get current album count when wrapper mounts
-  useEffect(() => {
-    fetch(`/api/albums?artist_id=${artistId}&limit=1`)
-      .then(r => r.json()).then(d => setBaseCount(d.total ?? 0)).catch(() => {})
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
-  }, [artistId])
-
-  return (
-    <div onClick={() => {
-      // When user clicks anything inside (the import button), start polling
-      if (baseCount !== null && !polling) startPolling(baseCount)
-    }}>
-      {polling && <span className="text-xs text-blue-500 animate-pulse mr-1">⟳</span>}
-      <WikipediaImportDiscography
-        artistId={parseInt(artistId)}
-        artistName={artistName}
-        artistWikiTitle={artistName.replace(/ /g, '_')}
       />
     </div>
   )
