@@ -289,16 +289,18 @@ function AvatarUpload({ value, onChange }: { value: string; onChange: (url: stri
     if (!v.startsWith('http') && !v.startsWith('/')) return
     setUploading(true); setError('')
     try {
-      // /api/fetch-image-data fetches server-side and returns base64 dataUrl
-      const res = await fetch('/api/fetch-image-data', {
+      // Pass returnDataUrl=true so patched route always returns dataUrl for cropper
+      const res = await fetch('/api/fetch-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: v }),
+        body: JSON.stringify({ url: v, returnDataUrl: true }),
       })
+      if (!res.ok) throw new Error('Serverio klaida')
       const d = await res.json()
-      if (!res.ok || !d.dataUrl) throw new Error(d.error || 'Nepavyko gauti nuotraukos')
+      const src = d.dataUrl || d.url
+      if (!src) throw new Error('Negautas URL')
       setUploading(false)
-      setCropSrc(d.dataUrl)
+      setCropSrc(src)
     } catch (e: any) {
       setError('Nepavyko gauti nuotraukos. Bandykite įkelti failą.')
       setUploading(false)
