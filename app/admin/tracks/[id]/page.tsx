@@ -5,9 +5,10 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
-const TRACK_TYPES = ['normal', 'remix', 'live', 'mashup', 'instrumental'] as const
+const TRACK_TYPES = ['normal', 'single', 'remix', 'live', 'mashup', 'instrumental'] as const
 const TRACK_TYPE_LABELS: Record<string, { label: string; icon: string }> = {
   normal:       { label: 'Įprastinė', icon: '🎵' },
+  single:       { label: 'Singlas',   icon: '💿' },
   remix:        { label: 'Remix',     icon: '🔄' },
   live:         { label: 'Gyva',      icon: '🎸' },
   mashup:       { label: 'Mashup',    icon: '🎛️' },
@@ -17,6 +18,7 @@ const TRACK_TYPE_LABELS: Record<string, { label: string; icon: string }> = {
 type FeaturingArtist = { artist_id: number; name: string }
 type AlbumRef = { album_id: number; album_title: string; album_year: number | null; position: number }
 type YTResult = { videoId: string; title: string; channel: string; thumbnail: string }
+type LyricsTab = 'lyrics' | 'chords'
 
 function extractYouTubeId(url: string): string {
   return url.match(/(?:v=|youtu\.be\/)([^&?]+)/)?.[1] || ''
@@ -120,7 +122,7 @@ function YouTubeSearch({ initialQuery, onSelect }: { initialQuery: string; onSel
   )
 }
 
-// ── CoverMini — identical to album CoverImageField ────────────────────────────
+// ── CoverMini ─────────────────────────────────────────────────────────────────
 function CoverMini({ value, onChange }: { value: string; onChange: (url: string) => void }) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
@@ -170,7 +172,10 @@ function CoverMini({ value, onChange }: { value: string; onChange: (url: string)
           onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f?.type.startsWith('image/')) upload(f) }}
           onDragOver={e => e.preventDefault()}>
           <div className="text-center text-gray-400">
-            <span className="text-3xl block mb-1">🎵</span>
+            {/* FIX 5: photo icon instead of music note */}
+            <svg className="w-8 h-8 mx-auto mb-1 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
             <span className="text-xs">Įkelti viršelį</span>
           </div>
           {uploading && <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-lg">
@@ -203,6 +208,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
   const [title, setTitle] = useState('')
   const [artistId, setArtistId] = useState(0)
   const [artistName, setArtistName] = useState('')
+  const [artistSlug, setArtistSlug] = useState('')
   const [trackType, setTrackType] = useState('normal')
   const [releaseYear, setReleaseYear] = useState('')
   const [releaseMonth, setReleaseMonth] = useState('')
@@ -211,6 +217,8 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
   const [spotifyId, setSpotifyId] = useState('')
   const [spUrlInput, setSpUrlInput] = useState('')
   const [lyrics, setLyrics] = useState('')
+  const [chords, setChords] = useState('')
+  const [lyricsTab, setLyricsTab] = useState<LyricsTab>('lyrics')
   const [isNew, setIsNew] = useState(false)
   const [isNewDate, setIsNewDate] = useState<string | null>(null)
   const [coverUrl, setCoverUrl] = useState('')
@@ -244,10 +252,11 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
         setVideoUrl(data.video_url || '')
         setSpotifyId(data.spotify_id || '')
         setLyrics(data.lyrics || '')
+        setChords(data.chords || '')
         setIsNew(data.is_new || false)
         setIsNewDate(data.is_new_date || null)
         setCoverUrl(data.cover_url || '')
-        if (data.artists?.name) setArtistName(data.artists.name)
+        if (data.artists?.name) { setArtistName(data.artists.name); setArtistSlug(data.artists.slug || '') }
         if (data.featuring) setFeaturing(data.featuring)
         if (data.albums) setAlbums(data.albums)
       })
@@ -287,7 +296,8 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
         release_month: releaseMonth || null,
         release_day: releaseDay || null,
         video_url: videoUrl, spotify_id: spotifyId,
-        lyrics, is_new: isNew, is_new_date: isNewDate,
+        lyrics, chords,
+        is_new: isNew, is_new_date: isNewDate,
         cover_url: coverUrl, featuring,
       }
       const res = await fetch(isNewTrack ? '/api/tracks' : `/api/tracks/${id}`, {
@@ -300,7 +310,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
       setSaved(true); setTimeout(() => setSaved(false), 2000)
       if (isNewTrack) router.push(`/admin/tracks/${data.id}`)
     } catch (e: any) { setError(e.message) } finally { setSaving(false) }
-  }, [title, artistId, trackType, releaseYear, releaseMonth, releaseDay, videoUrl, spotifyId, lyrics, isNew, isNewDate, coverUrl, featuring, id, isNewTrack])
+  }, [title, artistId, trackType, releaseYear, releaseMonth, releaseDay, videoUrl, spotifyId, lyrics, chords, isNew, isNewDate, coverUrl, featuring, id, isNewTrack])
 
   const handleDelete = async () => {
     if (!confirm(`Ištrinti "${title}"?`)) return
@@ -317,10 +327,12 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
   const ytId = extractYouTubeId(videoUrl)
   const ytSearchQuery = [artistName, title].filter(Boolean).join(' ')
   const firstAlbumYear = albums[0]?.album_year
+  const hasLyrics = lyrics.trim().length > 0
+  const hasChords = chords.trim().length > 0
 
   if (status === 'loading' || !isAdmin) return null
 
-  // ── Info Panel (left side, mirrors album edit InfoPanel) ───────────────────
+  // ── Info Panel ─────────────────────────────────────────────────────────────
   const InfoPanel = (
     <div className="space-y-2.5 p-3 pb-4">
 
@@ -357,7 +369,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
             {artistId ? (
               <div className="flex items-center gap-1 bg-blue-100 text-blue-800 border border-blue-200 rounded-full px-2.5 py-1 text-sm font-semibold shrink-0">
                 {artistName}
-                <button type="button" onClick={() => { setArtistId(0); setArtistName('') }}
+                <button type="button" onClick={() => { setArtistId(0); setArtistName(''); setArtistSlug('') }}
                   className="text-blue-400 hover:text-red-500 transition-colors leading-none ml-0.5 text-base">×</button>
               </div>
             ) : (
@@ -385,18 +397,21 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
           </div>
         </div>
 
-        {/* Type + Naujas */}
+        {/* Type — now includes Singlas + Naujas */}
         <div>
           <label className="block text-xs font-semibold text-gray-500 mb-1">Tipas</label>
           <div className="flex flex-wrap gap-1">
             {TRACK_TYPES.map(tp => (
               <button key={tp} type="button" onClick={() => setTrackType(tp)}
                 className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all ${
-                  trackType === tp ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  trackType === tp
+                    ? tp === 'single' ? 'bg-amber-500 text-white shadow-sm' : 'bg-blue-600 text-white shadow-sm'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}>
                 {TRACK_TYPE_LABELS[tp].icon} {TRACK_TYPE_LABELS[tp].label}
               </button>
             ))}
+            {/* Naujas toggle inline with type chips */}
             <button type="button" onClick={toggleNew}
               className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all ${
                 isNew ? 'bg-green-500 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -435,18 +450,14 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
         </div>
       )}
 
-      {/* Media card — identical layout to album edit */}
+      {/* Media card */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
         <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Media</p>
         <div className="grid grid-cols-2 gap-3">
-
-          {/* Cover */}
           <div>
             <p className="text-xs font-semibold text-gray-500 mb-1.5">Viršelis</p>
             <CoverMini value={coverUrl} onChange={setCoverUrl} />
           </div>
-
-          {/* YouTube + Spotify */}
           <div className="space-y-2.5 min-w-0">
             <div>
               <p className="text-xs font-semibold text-gray-500 mb-1">🎬 YouTube</p>
@@ -469,7 +480,6 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
               )}
               <YouTubeSearch initialQuery={ytSearchQuery} onSelect={url => setVideoUrl(url)} />
             </div>
-
             <div>
               <p className="text-xs font-semibold text-gray-500 mb-1">🎧 Spotify</p>
               <input value={spotifyId} onChange={e => setSpotifyId(e.target.value)}
@@ -481,7 +491,6 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
                   🔗 Atidaryti Spotify
                 </a>
               )}
-              {/* URL → ID */}
               <div className="flex gap-1 mt-1">
                 <input value={spUrlInput} onChange={e => setSpUrlInput(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') { const m = spUrlInput.match(/track\/([A-Za-z0-9]+)/); if (m) { setSpotifyId(m[1]); setSpUrlInput('') } } }}
@@ -504,13 +513,16 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
       {/* Sticky header */}
       <div className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-gray-200">
         <div className="flex items-center justify-between gap-3 px-4 py-2">
+          {/* FIX 4: breadcrumb — Admin / [atlikėjas] / Albumai / Dainos / [daina] */}
           <nav className="flex items-center gap-1 text-sm min-w-0">
             <Link href="/admin" className="text-gray-400 hover:text-gray-700 shrink-0">Admin</Link>
-            <span className="text-gray-300">/</span>
-            <Link href="/admin/tracks" className="text-gray-400 hover:text-gray-700 shrink-0">Dainos</Link>
             {artistId > 0 && <>
               <span className="text-gray-300">/</span>
               <Link href={`/admin/artists/${artistId}`} className="text-gray-400 hover:text-gray-700 shrink-0">{artistName}</Link>
+              <span className="text-gray-300">/</span>
+              <Link href={`/admin/albums?artist=${artistId}`} className="text-gray-400 hover:text-gray-700 shrink-0">Albumai</Link>
+              <span className="text-gray-300">/</span>
+              <Link href={`/admin/tracks?artist=${artistId}`} className="text-gray-400 hover:text-gray-700 shrink-0">Dainos</Link>
             </>}
             <span className="text-gray-300">/</span>
             <span className="text-gray-800 font-semibold truncate max-w-[200px]">{isNewTrack ? 'Nauja' : (title || '...')}</span>
@@ -551,31 +563,49 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
           <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
-        /* Desktop 50/50 — identical structure to album edit */
         <div className="hidden lg:grid lg:grid-cols-2 items-start">
           {/* Left: scrollable info + media */}
           <div className="border-r border-gray-200">
             {InfoPanel}
           </div>
-          {/* Right: sticky lyrics panel — full height, no scroll */}
-          <div className="bg-[#f8f7f5] sticky top-[41px]" style={{ height: 'calc(100vh - 41px)', overflowY: 'auto' }}>
-            <div className="h-full flex flex-col p-3">
-              <div className="flex-1 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden flex flex-col min-h-0">
-                <div className="px-3 py-2 border-b border-gray-100 shrink-0 flex items-center gap-1.5">
-                  <span className="text-sm font-bold text-gray-700">✍️ Žodžiai / Lyrics</span>
-                  {lyrics && (
-                    <span className="bg-gray-200 text-gray-600 text-xs font-bold px-1.5 py-0.5 rounded-full">
-                      {lyrics.split('\n').length} eilučių
-                    </span>
+
+          {/* FIX 1: Right — sticky, exact viewport height, lyrics fills remaining space */}
+          <div className="sticky top-[41px] bg-[#f8f7f5]" style={{ height: 'calc(100vh - 41px)' }}>
+            <div className="flex flex-col h-full p-3 gap-0">
+
+              {/* FIX 3: Tab header — "Dainos tekstas" + "Akordai" with dot indicators */}
+              <div className="bg-white rounded-t-xl border border-gray-100 shadow-sm shrink-0 flex items-center">
+                <button
+                  onClick={() => setLyricsTab('lyrics')}
+                  className={`flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-tl-xl transition-colors ${
+                    lyricsTab === 'lyrics' ? 'text-blue-600 bg-blue-50/60' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                  }`}>
+                  Dainos tekstas
+                  {hasLyrics && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" title="Yra tekstas" />
                   )}
-                </div>
-                <textarea
-                  value={lyrics}
-                  onChange={e => setLyrics(e.target.value)}
-                  placeholder="Dainos žodžiai..."
-                  className="flex-1 w-full px-3 py-2.5 text-sm text-gray-900 bg-white focus:outline-none resize-none font-mono leading-relaxed"
-                />
+                </button>
+                <div className="w-px h-5 bg-gray-200 shrink-0" />
+                <button
+                  onClick={() => setLyricsTab('chords')}
+                  className={`flex items-center gap-1.5 px-3 py-2 text-sm font-semibold transition-colors ${
+                    lyricsTab === 'chords' ? 'text-blue-600 bg-blue-50/60' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                  }`}>
+                  Akordai
+                  {hasChords && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" title="Yra akordai" />
+                  )}
+                </button>
               </div>
+
+              {/* Textarea fills all remaining height */}
+              <textarea
+                key={lyricsTab}
+                value={lyricsTab === 'lyrics' ? lyrics : chords}
+                onChange={e => lyricsTab === 'lyrics' ? setLyrics(e.target.value) : setChords(e.target.value)}
+                placeholder={lyricsTab === 'lyrics' ? 'Dainos žodžiai...' : 'Am  G  F  G\nVerse 1...'}
+                className="flex-1 w-full px-3 py-2.5 text-sm text-gray-900 bg-white border border-t-0 border-gray-100 shadow-sm rounded-b-xl focus:outline-none resize-none font-mono leading-relaxed"
+              />
             </div>
           </div>
         </div>
