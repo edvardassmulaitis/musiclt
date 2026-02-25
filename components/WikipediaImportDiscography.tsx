@@ -165,7 +165,6 @@ function parseMainPageDiscography(wikitext: string, soloOnly = false, groupFilte
         if (depth === 3) {
           const groupName = hRaw.trim()
           if (groupFilter && groupFilter !== '__solo__' && groupFilter !== '__all__') {
-            // Filter by specific group name
             skipGroup = !groupName.toLowerCase().includes(groupFilter.toLowerCase())
           } else {
             skipGroup = soloOnly && !/solo|as lead|as artist/i.test(groupName) && groupName.length > 0
@@ -438,7 +437,6 @@ function hasMultipleArtistSections(wikitext: string): string[] {
   return groups
 }
 
-// Check if YouTube result title matches track/album title
 function decodeHtml(s: string): string {
   return s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&quot;/g, '"')
 }
@@ -452,9 +450,9 @@ function titleMatches(resultTitle: string, query: string): boolean {
   return matchCount >= Math.ceil(queryWords.length * 0.7)
 }
 
-type Props = { artistId: number; artistName: string; artistWikiTitle?: string; isSolo?: boolean }
+type Props = { artistId: number; artistName: string; artistWikiTitle?: string; isSolo?: boolean; onClose?: () => void }
 
-export default function WikipediaImportDiscography({ artistId, artistName, artistWikiTitle, isSolo }: Props) {
+export default function WikipediaImportDiscography({ artistId, artistName, artistWikiTitle, isSolo, onClose }: Props) {
   const [open, setOpen] = useState(false)
   const [url, setUrl] = useState(artistWikiTitle ? `https://en.wikipedia.org/wiki/${artistWikiTitle}` : '')
   const [loading, setLoading] = useState(false)
@@ -534,11 +532,9 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
     }
   }
 
-  // Enrich tracks with YouTube video ID and lyrics after album import
   const enrichTracks = async (albumId: number, tracks: TrackEntry[], albumTitle: string) => {
     if (!enrichYoutube && !enrichLyrics) return
 
-    // Fetch all tracks for this album once
     let dbTracks: any[] = []
     try {
       const r = await fetch(`/api/tracks?album_id=${albumId}&limit=200`)
@@ -554,7 +550,6 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
     addLog(`  🎬 ${albumTitle}: ${dbTracks.length} dainų...`)
     let ytCount = 0, lyricsCount = 0, done = 0
 
-    // Process in parallel batches of 4
     const BATCH = 4
     for (let i = 0; i < dbTracks.length; i += BATCH) {
       const batch = dbTracks.slice(i, i + BATCH)
@@ -668,7 +663,6 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
         addLog(`✅ ${a.title} (${a.tracks?.length || 0} dainų)`)
         ok++
 
-        // Enrich with YouTube + lyrics
         if (albumId && (enrichYoutube || enrichLyrics) && a.tracks?.length) {
           await enrichTracks(albumId, a.tracks, a.title)
         }
@@ -681,6 +675,13 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
     }
     setImporting(false)
     addLog(`🏁 Baigta: ${ok} importuota${fail ? `, ${fail} klaida` : ''}`)
+  }
+
+  const closeModal = () => {
+    if (!importing) {
+      setOpen(false)
+      onClose?.()
+    }
   }
 
   const toggleSelect = (i: number) => setSelected(p => {
@@ -697,12 +698,12 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60" onClick={() => !importing && setOpen(false)} />
+          <div className="absolute inset-0 bg-black/60" onClick={closeModal} />
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
 
             <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">
               <h3 className="text-lg font-bold text-gray-900">📀 Diskografijos importas — {artistName}</h3>
-              <button onClick={() => !importing && setOpen(false)} className="text-gray-400 hover:text-gray-700 text-2xl leading-none">×</button>
+              <button onClick={closeModal} className="text-gray-400 hover:text-gray-700 text-2xl leading-none">×</button>
             </div>
 
             <div className="px-6 py-4 border-b border-gray-100 space-y-3">
@@ -716,7 +717,6 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                   {loading ? '⏳' : '🔍 Ieškoti'}
                 </button>
               </div>
-              {/* Enrichment options */}
               <div className="flex gap-4 text-sm">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={enrichYoutube} onChange={e => setEnrichYoutube(e.target.checked)}
@@ -827,7 +827,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                 className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl disabled:opacity-40 transition-colors">
                 {importing ? '⏳ Importuojama...' : `⬆️ Importuoti ${selected.size} albumą(-ų)`}
               </button>
-              <button onClick={() => !importing && setOpen(false)}
+              <button onClick={closeModal}
                 className="px-6 py-3 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 transition-colors">
                 Uždaryti
               </button>
