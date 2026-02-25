@@ -20,11 +20,6 @@ const ALBUM_TYPE_FIELDS = [
 
 const TRACK_TYPES = ['normal', 'remix', 'live', 'mashup', 'instrumental'] as const
 
-const CY = new Date().getFullYear()
-const YEARS = Array.from({ length: CY - 1950 + 2 }, (_, i) => CY + 1 - i)
-const MONTHS = ['Sausis','Vasaris','Kovas','Balandis','Gegužė','Birželis','Liepa','Rugpjūtis','Rugsėjis','Spalis','Lapkritis','Gruodis']
-const DAYS = Array.from({ length: 31 }, (_, i) => i + 1)
-
 type YTResult = { videoId: string; title: string; channel: string; thumbnail: string }
 
 const emptyAlbum: AlbumFull = {
@@ -40,6 +35,35 @@ const emptyAlbum: AlbumFull = {
 
 function extractYouTubeId(url: string): string {
   return url.match(/(?:v=|youtu\.be\/)([^&?]+)/)?.[1] || ''
+}
+
+// ── Number input for year/month/day ──────────────────────────────────────────
+function DateNumberInput({
+  label, value, onChange, min, max, placeholder,
+}: { label: string; value: number | undefined | null; onChange: (v: number | null) => void; min: number; max: number; placeholder: string }) {
+  const [raw, setRaw] = useState(value ? String(value) : '')
+  useEffect(() => { setRaw(value ? String(value) : '') }, [value])
+
+  const commit = (s: string) => {
+    const n = parseInt(s)
+    if (!s || isNaN(n)) { onChange(null); setRaw('') }
+    else if (n >= min && n <= max) { onChange(n); setRaw(String(n)) }
+    else { setRaw(value ? String(value) : '') } // revert invalid
+  }
+
+  return (
+    <div>
+      <p className="text-xs text-gray-400 mb-1">{label}</p>
+      <input
+        type="number" value={raw}
+        onChange={e => setRaw(e.target.value)}
+        onBlur={e => commit(e.target.value)}
+        onKeyDown={e => e.key === 'Enter' && commit(raw)}
+        placeholder={placeholder} min={min} max={max}
+        className="w-full px-2.5 py-2 border border-gray-200 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-blue-400 bg-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+      />
+    </div>
+  )
 }
 
 // ── Cover Image Field ─────────────────────────────────────────────────────────
@@ -93,52 +117,42 @@ function CoverImageField({ value, onChange }: { value: string; onChange: (url: s
   }
 
   return (
-    <div className="flex gap-4 items-start">
-      {/* Square preview - click to upload */}
+    <div className="flex gap-3 items-start">
       <div
-        className="relative w-24 h-24 rounded-xl border-2 border-dashed border-gray-200 overflow-hidden bg-gray-50 cursor-pointer group hover:border-blue-400 transition-colors shrink-0"
+        className="relative w-20 h-20 rounded-xl border-2 border-dashed border-gray-200 overflow-hidden bg-gray-50 cursor-pointer group hover:border-blue-400 transition-colors shrink-0"
         onClick={() => !uploading && fileRef.current?.click()}
-        onDrop={handleDrop}
-        onDragOver={e => e.preventDefault()}
+        onDrop={handleDrop} onDragOver={e => e.preventDefault()}
       >
-        {value ? (
-          <>
-            <img src={value} alt="Viršelis" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-              <span className="text-white text-xs font-medium">Keisti</span>
-            </div>
-          </>
-        ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 gap-1">
-            <span className="text-2xl">💿</span>
-            <span className="text-xs text-center leading-tight">Spausti</span>
-          </div>
-        )}
+        {value
+          ? <><img src={value} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <span className="text-white text-xs">Keisti</span>
+              </div></>
+          : <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 gap-1">
+              <span className="text-xl">💿</span>
+              <span className="text-xs">Spausti</span>
+            </div>}
         {uploading && (
           <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
-            <div className="w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+            <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
           </div>
         )}
       </div>
-
-      {/* URL input + buttons */}
-      <div className="flex-1 space-y-2 min-w-0">
+      <div className="flex-1 space-y-1.5 min-w-0">
         <input type="text" value={urlInput}
           onChange={e => setUrlInput(e.target.value)}
           onBlur={e => handleUrlCommit(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleUrlCommit(urlInput)}
           placeholder="https://... arba spausti viršelį"
-          className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
-        <div className="flex gap-2">
+          className="w-full px-2.5 py-2 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
+        <div className="flex gap-1.5">
           <button type="button" onClick={() => fileRef.current?.click()}
-            className="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-xs font-medium transition-colors">
-            📁 Įkelti failą
+            className="flex-1 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs font-medium transition-colors">
+            📁 Įkelti
           </button>
           {value && (
             <button type="button" onClick={() => { onChange(''); setUrlInput('') }}
-              className="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-500 rounded-xl text-xs transition-colors">
-              ✕
-            </button>
+              className="px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg text-xs transition-colors">✕</button>
           )}
         </div>
         {uploadError && <p className="text-xs text-red-500">{uploadError}</p>}
@@ -154,7 +168,6 @@ function YouTubeSearch({ initialQuery, onSelect }: { initialQuery: string; onSel
   const [query, setQuery] = useState(initialQuery)
   const [results, setResults] = useState<YTResult[]>([])
   const [loading, setLoading] = useState(false)
-
   useEffect(() => { setQuery(initialQuery) }, [initialQuery])
 
   const search = async () => {
@@ -175,21 +188,18 @@ function YouTubeSearch({ initialQuery, onSelect }: { initialQuery: string; onSel
           className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-blue-400 bg-white" />
         <button type="button" onClick={search} disabled={loading}
           className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm disabled:opacity-50 transition-colors shrink-0">
-          {loading
-            ? <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-            : '🔍'}
+          {loading ? <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : '🔍'}
         </button>
       </div>
       {results.length > 0 && (
-        <div className="space-y-1 rounded-xl border border-gray-100 overflow-hidden">
+        <div className="rounded-xl border border-gray-100 overflow-hidden">
           {results.map(r => (
-            <div key={r.videoId}
-              onClick={() => { onSelect(`https://www.youtube.com/watch?v=${r.videoId}`); setResults([]) }}
-              className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-blue-50 active:bg-blue-100 transition-colors">
-              <img src={r.thumbnail} alt="" className="w-16 h-10 object-cover rounded shrink-0" />
+            <div key={r.videoId} onClick={() => { onSelect(`https://www.youtube.com/watch?v=${r.videoId}`); setResults([]) }}
+              className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-blue-50 active:bg-blue-100 transition-colors border-b border-gray-50 last:border-0">
+              <img src={r.thumbnail} alt="" className="w-14 h-9 object-cover rounded shrink-0" />
               <div className="min-w-0">
                 <p className="text-xs font-medium text-gray-900 line-clamp-2 leading-tight">{r.title}</p>
-                <p className="text-xs text-gray-400 truncate mt-0.5">{r.channel}</p>
+                <p className="text-xs text-gray-400 truncate">{r.channel}</p>
               </div>
             </div>
           ))}
@@ -201,23 +211,24 @@ function YouTubeSearch({ initialQuery, onSelect }: { initialQuery: string; onSel
 
 // ── Tracklist ─────────────────────────────────────────────────────────────────
 function TrackList({
-  tracks, onAdd, onUpdate, onRemove, onReorder,
+  tracks, isMobile, onAdd, onUpdate, onRemove, onReorder,
 }: {
   tracks: TrackInAlbum[]
+  isMobile: boolean
   onAdd: () => void
   onUpdate: (i: number, f: keyof TrackInAlbum, v: any) => void
   onRemove: (i: number) => void
   onReorder: (from: number, to: number) => void
 }) {
+  // Desktop: drag-and-drop
   const dragIdx = useRef<number | null>(null)
   const [dragOver, setDragOver] = useState<number | null>(null)
 
   const onDragStart = (i: number) => { dragIdx.current = i }
   const onDragEnter = (i: number) => setDragOver(i)
   const onDragEnd = () => {
-    if (dragIdx.current !== null && dragOver !== null && dragIdx.current !== dragOver) {
+    if (dragIdx.current !== null && dragOver !== null && dragIdx.current !== dragOver)
       onReorder(dragIdx.current, dragOver)
-    }
     dragIdx.current = null; setDragOver(null)
   }
 
@@ -227,29 +238,51 @@ function TrackList({
         const trackEditUrl = (t.track_id || t.id) ? `/admin/tracks/${t.track_id || t.id}` : null
         const hasVideo = !!(t.video_url)
         const hasLyrics = !!(t as any).has_lyrics
+        const featuring: string[] = (t as any).featuring || []
 
         return (
           <div
             key={i}
-            draggable
-            onDragStart={() => onDragStart(i)}
-            onDragEnter={() => onDragEnter(i)}
-            onDragOver={e => e.preventDefault()}
-            onDragEnd={onDragEnd}
-            className={`flex items-center gap-2 px-3 py-2 border-b border-gray-100 cursor-grab active:cursor-grabbing transition-colors ${
-              dragOver === i ? 'bg-blue-50 border-t-2 border-blue-400' : 'hover:bg-gray-50'
+            draggable={!isMobile}
+            onDragStart={() => !isMobile && onDragStart(i)}
+            onDragEnter={() => !isMobile && onDragEnter(i)}
+            onDragOver={e => { if (!isMobile) e.preventDefault() }}
+            onDragEnd={() => !isMobile && onDragEnd()}
+            className={`flex items-center gap-2 px-3 border-b border-gray-100 transition-colors ${
+              isMobile ? 'py-3' : 'py-1.5'
+            } ${dragOver === i ? 'bg-blue-50 border-t-2 border-blue-400' : 'hover:bg-gray-50'} ${
+              !isMobile ? 'cursor-grab active:cursor-grabbing' : ''
             }`}
           >
-            {/* Drag + number */}
-            <span className="text-gray-300 select-none text-sm shrink-0">⠿</span>
+            {/* Reorder: drag handle on desktop, up/down buttons on mobile */}
+            {isMobile ? (
+              <div className="flex flex-col gap-0.5 shrink-0">
+                <button type="button" onClick={() => i > 0 && onReorder(i, i - 1)}
+                  disabled={i === 0}
+                  className="w-6 h-5 flex items-center justify-center text-gray-400 hover:text-gray-700 disabled:opacity-20 text-xs rounded transition-colors">▲</button>
+                <button type="button" onClick={() => i < tracks.length - 1 && onReorder(i, i + 1)}
+                  disabled={i === tracks.length - 1}
+                  className="w-6 h-5 flex items-center justify-center text-gray-400 hover:text-gray-700 disabled:opacity-20 text-xs rounded transition-colors">▼</button>
+              </div>
+            ) : (
+              <span className="text-gray-300 hover:text-gray-500 select-none text-sm shrink-0 w-4">⠿</span>
+            )}
+
+            {/* Number */}
             <span className="text-xs text-gray-400 w-5 text-right shrink-0 tabular-nums">{i + 1}</span>
 
-            {/* Title */}
-            <input value={t.title} onChange={e => onUpdate(i, 'title', e.target.value)}
-              placeholder="Dainos pavadinimas"
-              className="flex-1 min-w-0 px-2 py-1 border border-transparent hover:border-gray-200 focus:border-blue-300 rounded-lg text-sm text-gray-900 focus:outline-none bg-transparent focus:bg-white transition-all" />
+            {/* Title + featuring */}
+            <div className="flex-1 min-w-0">
+              <input value={t.title} onChange={e => onUpdate(i, 'title', e.target.value)}
+                placeholder="Dainos pavadinimas"
+                size={Math.max(10, t.title?.length || 10)}
+                className="px-1.5 py-0.5 border border-transparent hover:border-gray-200 focus:border-blue-300 rounded-lg text-sm text-gray-900 focus:outline-none bg-transparent focus:bg-white transition-all max-w-full" />
+              {featuring.length > 0 && (
+                <p className="text-xs text-gray-400 px-1.5 truncate">feat. {featuring.join(', ')}</p>
+              )}
+            </div>
 
-            {/* Indicators always visible */}
+            {/* Indicators */}
             {hasVideo && <span className="text-blue-400 text-xs shrink-0" title="Video">▶</span>}
             {hasLyrics && <span className="text-green-500 text-xs font-bold shrink-0" title="Žodžiai">T</span>}
 
@@ -261,18 +294,20 @@ function TrackList({
               <span className="text-xs text-gray-400">S</span>
             </label>
 
-            {/* Edit link — always visible, not hover-only */}
+            {/* Edit link — always visible, clear text on desktop */}
             {trackEditUrl && (
               <a href={trackEditUrl} target="_blank" rel="noopener noreferrer"
-                className="shrink-0 px-2 py-1 text-xs text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors font-medium"
-                onClick={e => e.stopPropagation()}>
-                ↗
+                onClick={e => e.stopPropagation()}
+                className={`shrink-0 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors font-medium ${
+                  isMobile ? 'px-2 py-1 text-xs' : 'px-2.5 py-1 text-xs'
+                }`}>
+                {isMobile ? '↗' : 'Redaguoti ↗'}
               </a>
             )}
 
             {/* Delete */}
             <button type="button" onClick={() => onRemove(i)}
-              className="w-7 h-7 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0 text-sm">
+              className="w-7 h-7 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0">
               ✕
             </button>
           </div>
@@ -296,6 +331,19 @@ function TrackList({
   )
 }
 
+// ── Tracks header ─────────────────────────────────────────────────────────────
+function TracksHeader({ count }: { count: number }) {
+  return (
+    <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 bg-gray-50/80 sticky top-0 z-10">
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-bold text-gray-700">Dainų sąrašas</span>
+        <span className="bg-gray-200 text-gray-600 text-xs font-bold px-2 py-0.5 rounded-full">{count}</span>
+      </div>
+      <span className="text-xs text-gray-400">▶ video · T žodžiai · S singlas</span>
+    </div>
+  )
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
@@ -313,8 +361,15 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(false)
-  // Mobile tab state
   const [tab, setTab] = useState<'info' | 'tracks'>('info')
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 1024)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
   const set = (f: keyof AlbumFull, v: any) => setForm(p => ({ ...p, [f]: v }))
@@ -404,98 +459,72 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
 
   const activeType = ALBUM_TYPE_FIELDS.find(t => (form as any)[t.key])
   const ytId = extractYouTubeId(form.video_url || '')
-  const ytSearchQuery = form.title && artistName ? `${artistName} ${form.title}` : form.title || ''
+  const ytSearchQuery = [artistName, form.title].filter(Boolean).join(' ')
+  const CY = new Date().getFullYear()
 
   if (status === 'loading' || !isAdmin) return null
 
-  // ── Info panel content (shared between mobile tab and desktop left col) ──
+  // ── Info panel ──────────────────────────────────────────────────────────────
   const InfoPanel = (
-    <div className="space-y-4 p-4">
-      {/* Summary card */}
-      {!isNew && (
-        <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl p-4 text-white">
-          <div className="flex items-center gap-3">
-            {form.cover_image_url
-              ? <img src={form.cover_image_url} alt="" referrerPolicy="no-referrer" className="w-14 h-14 rounded-xl object-cover shrink-0 shadow-lg" />
-              : <div className="w-14 h-14 rounded-xl bg-white/20 flex items-center justify-center text-2xl shrink-0">💿</div>}
-            <div className="min-w-0">
-              <p className="font-bold text-white leading-tight truncate text-lg">{form.title || 'Albumas'}</p>
-              <p className="text-blue-200 text-sm mt-0.5">{artistName}</p>
-              <div className="flex items-center gap-2 mt-1 flex-wrap">
-                {form.year && <span className="text-blue-200 text-xs">{form.year}</span>}
-                {activeType && <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">{activeType.icon} {activeType.label}</span>}
+    <div className="space-y-3 p-4">
+
+      {/* Pagrindinė info – compact, no blue summary card */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-3">
+        {/* Title + artist inline-ish */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 mb-1">Pavadinimas *</label>
+            <input value={form.title} onChange={e => set('title', e.target.value)}
+              placeholder="Flamingo"
+              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-gray-900 text-sm font-medium focus:outline-none focus:border-blue-400 bg-white transition-colors" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 mb-1">Atlikėjas *</label>
+            {form.artist_id ? (
+              <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-xl px-2.5 py-2">
+                <span className="flex-1 text-sm font-semibold text-gray-900 truncate">{artistName}</span>
+                <button type="button" onClick={() => { set('artist_id', 0); setArtistName(''); setArtistId(null) }}
+                  className="text-gray-400 hover:text-red-500 transition-colors text-lg leading-none shrink-0">×</button>
               </div>
-            </div>
+            ) : (
+              <div className="relative">
+                <input type="text" value={artistSearch} onChange={e => setArtistSearch(e.target.value)}
+                  placeholder="Ieškoti..."
+                  className="w-full px-2.5 py-2 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:border-blue-400 transition-colors" />
+                {artistResults.length > 0 && (
+                  <div className="absolute z-20 w-full bg-white border border-gray-200 rounded-xl shadow-xl mt-1 overflow-hidden">
+                    {artistResults.map(a => (
+                      <button key={a.id} type="button"
+                        onClick={() => { set('artist_id', a.id); setArtistName(a.name); setArtistId(a.id); setArtistSearch(''); setArtistResults([]) }}
+                        className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-blue-50 text-left transition-colors">
+                        <span className="font-semibold text-gray-900 text-sm">{a.name}</span>
+                        <span className="text-gray-400 text-xs ml-auto">{a.country}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
-      )}
 
-      {/* Pagrindinė info */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-4">
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Pagrindinė informacija</p>
-
+        {/* Date as number inputs */}
         <div>
-          <label className="block text-xs font-semibold text-gray-500 mb-1.5">Pavadinimas *</label>
-          <input value={form.title} onChange={e => set('title', e.target.value)}
-            placeholder="Albumo pavadinimas"
-            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 text-sm font-medium focus:outline-none focus:border-blue-400 bg-white transition-colors" />
-        </div>
-
-        <div>
-          <label className="block text-xs font-semibold text-gray-500 mb-1.5">Atlikėjas *</label>
-          {form.artist_id ? (
-            <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-xl px-3 py-2.5">
-              <span className="flex-1 text-sm font-semibold text-gray-900">{artistName}</span>
-              <button type="button" onClick={() => { set('artist_id', 0); setArtistName(''); setArtistId(null) }}
-                className="text-gray-400 hover:text-red-500 transition-colors text-xl leading-none">×</button>
-            </div>
-          ) : (
-            <div className="relative">
-              <input type="text" value={artistSearch} onChange={e => setArtistSearch(e.target.value)}
-                placeholder="Ieškoti atlikėjo..."
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:border-blue-400 transition-colors" />
-              {artistResults.length > 0 && (
-                <div className="absolute z-20 w-full bg-white border border-gray-200 rounded-xl shadow-xl mt-1 overflow-hidden">
-                  {artistResults.map(a => (
-                    <button key={a.id} type="button"
-                      onClick={() => { set('artist_id', a.id); setArtistName(a.name); setArtistId(a.id); setArtistSearch(''); setArtistResults([]) }}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-blue-50 active:bg-blue-100 text-left transition-colors">
-                      <span className="font-semibold text-gray-900">{a.name}</span>
-                      <span className="text-gray-400 text-xs ml-auto">{a.country}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div>
-          <label className="block text-xs font-semibold text-gray-500 mb-1.5">Išleidimo data</label>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">Išleidimo data</label>
           <div className="grid grid-cols-3 gap-2">
-            {[
-              { key: 'year', label: 'Metai', value: form.year, opts: YEARS.map(y => ({ v: y, l: String(y) })) },
-              { key: 'month', label: 'Mėnuo', value: form.month, opts: MONTHS.map((m, i) => ({ v: i+1, l: m })) },
-              { key: 'day', label: 'Diena', value: form.day, opts: DAYS.map(d => ({ v: d, l: String(d) })) },
-            ].map(({ key, label, value, opts }) => (
-              <div key={key}>
-                <p className="text-xs text-gray-400 mb-1">{label}</p>
-                <select value={value || ''} onChange={e => set(key as any, e.target.value ? parseInt(e.target.value) : null)}
-                  className="w-full px-2 py-2 border border-gray-200 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-blue-400 bg-white">
-                  <option value="">–</option>
-                  {opts.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
-                </select>
-              </div>
-            ))}
+            <DateNumberInput label="Metai" value={form.year} onChange={v => set('year', v)} min={1900} max={CY + 2} placeholder="2010" />
+            <DateNumberInput label="Mėnuo" value={form.month} onChange={v => set('month', v)} min={1} max={12} placeholder="9" />
+            <DateNumberInput label="Diena" value={form.day} onChange={v => set('day', v)} min={1} max={31} placeholder="3" />
           </div>
         </div>
 
+        {/* Type */}
         <div>
           <label className="block text-xs font-semibold text-gray-500 mb-1.5">Tipas</label>
           <div className="flex flex-wrap gap-1.5">
             {ALBUM_TYPE_FIELDS.map(t => (
               <button key={t.key} type="button" onClick={() => setType(t.key)}
-                className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
                   (form as any)[t.key] ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 active:bg-gray-300'
                 }`}>
                 {t.icon} {t.label}
@@ -521,9 +550,9 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
             </div>
             <div className="flex gap-1.5">
               <input value={form.video_url || ''} onChange={e => set('video_url', e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
+                className="flex-1 px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
               <button type="button" onClick={() => set('video_url', '')}
-                className="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-500 rounded-xl text-xs transition-colors">✕</button>
+                className="px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg text-xs transition-colors">✕</button>
             </div>
           </div>
         ) : (
@@ -539,7 +568,7 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
         <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">🎧 Spotify</p>
         <input value={form.spotify_id || ''} onChange={e => set('spotify_id', e.target.value)}
           placeholder="Spotify album ID..."
-          className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:border-blue-400 font-mono transition-colors" />
+          className="w-full px-3 py-2 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:border-blue-400 font-mono transition-colors" />
         {form.spotify_id && (
           <a href={`https://open.spotify.com/album/${form.spotify_id}`} target="_blank" rel="noopener noreferrer"
             className="mt-2 flex items-center gap-1.5 text-xs text-green-600 hover:text-green-700 transition-colors">
@@ -550,31 +579,22 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
     </div>
   )
 
-  // ── Tracks panel content ──
-  const TracksPanel = (
-    <TrackList
-      tracks={form.tracks || []}
-      onAdd={addTrack}
-      onUpdate={upTrack}
-      onRemove={rmTrack}
-      onReorder={reorderTracks}
-    />
-  )
+  const trackCount = form.tracks?.length || 0
 
   return (
     <div className="min-h-screen bg-[#f8f7f5]">
       {/* ── Sticky header ── */}
       <div className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-gray-200">
-        {/* Breadcrumbs row */}
-        <div className="px-4 pt-2.5 pb-1">
+        {/* Single compact bar: breadcrumbs left, actions right */}
+        <div className="flex items-center justify-between gap-3 px-4 py-2">
           <nav className="flex items-center gap-1 text-sm min-w-0 flex-wrap">
-            <Link href="/admin" className="text-gray-400 hover:text-gray-700 transition-colors shrink-0">Admin</Link>
+            <Link href="/admin" className="text-gray-400 hover:text-gray-700 shrink-0">Admin</Link>
             <span className="text-gray-300">/</span>
-            <Link href="/admin/albums" className="text-gray-400 hover:text-gray-700 transition-colors shrink-0">Albumai</Link>
+            <Link href="/admin/albums" className="text-gray-400 hover:text-gray-700 shrink-0">Albumai</Link>
             {artistName && artistId && (
               <>
                 <span className="text-gray-300">/</span>
-                <Link href={`/admin/artists/${artistId}`} className="text-gray-400 hover:text-gray-700 transition-colors truncate max-w-[80px]">{artistName}</Link>
+                <Link href={`/admin/artists/${artistId}`} className="text-gray-400 hover:text-gray-700 truncate max-w-[80px]">{artistName}</Link>
               </>
             )}
             <span className="text-gray-300">/</span>
@@ -582,48 +602,41 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
               {isNew ? 'Naujas' : (form.title || '...')}
             </span>
           </nav>
-        </div>
-
-        {/* Actions row */}
-        <div className="px-4 pb-2.5 flex items-center justify-end gap-2">
-          {!isNew && (
-            <button onClick={handleDelete} disabled={deleting}
-              className="flex items-center gap-1.5 px-3 py-2 text-red-500 hover:bg-red-50 rounded-xl text-sm font-medium transition-colors disabled:opacity-50">
-              🗑️ <span className="hidden sm:inline">Ištrinti</span>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {!isNew && (
+              <button onClick={handleDelete} disabled={deleting}
+                className="flex items-center gap-1 px-2.5 py-1.5 text-red-500 hover:bg-red-50 rounded-lg text-sm font-medium transition-colors disabled:opacity-50">
+                🗑️ <span className="hidden sm:inline">Ištrinti</span>
+              </button>
+            )}
+            <Link href={artistId ? `/admin/artists/${artistId}` : '/admin/albums'}
+              className="px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
+              Atšaukti
+            </Link>
+            <button onClick={handleSubmit} disabled={saving}
+              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${
+                saved ? 'bg-green-500 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'
+              } disabled:opacity-50`}>
+              {saving
+                ? <><span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin inline-block" /> Saugoma...</>
+                : saved ? '✓ Išsaugota!' : '✓ Išsaugoti'}
             </button>
-          )}
-          <Link href={artistId ? `/admin/artists/${artistId}` : '/admin/albums'}
-            className="px-4 py-2 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">
-            Atšaukti
-          </Link>
-          <button onClick={handleSubmit} disabled={saving}
-            className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold transition-all ${
-              saved ? 'bg-green-500 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'
-            } disabled:opacity-50`}>
-            {saving
-              ? <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin inline-block" /> Saugoma...</>
-              : saved ? '✓ Išsaugota!' : '✓ Išsaugoti'}
-          </button>
+          </div>
         </div>
 
         {/* Mobile tabs */}
         <div className="flex lg:hidden border-t border-gray-100">
           <button onClick={() => setTab('info')}
-            className={`flex-1 py-2.5 text-sm font-semibold transition-colors ${
-              tab === 'info' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-gray-500 hover:text-gray-700'
+            className={`flex-1 py-2 text-sm font-semibold transition-colors ${
+              tab === 'info' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-gray-500'
             }`}>
             📋 Informacija
           </button>
           <button onClick={() => setTab('tracks')}
-            className={`flex-1 py-2.5 text-sm font-semibold transition-colors relative ${
-              tab === 'tracks' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-gray-500 hover:text-gray-700'
+            className={`flex-1 py-2 text-sm font-semibold transition-colors ${
+              tab === 'tracks' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-gray-500'
             }`}>
-            🎵 Dainos
-            {(form.tracks?.length || 0) > 0 && (
-              <span className="ml-1.5 bg-gray-200 text-gray-700 text-xs font-bold px-1.5 py-0.5 rounded-full">
-                {form.tracks?.length}
-              </span>
-            )}
+            🎵 Dainos {trackCount > 0 && <span className="ml-1 bg-gray-200 text-gray-700 text-xs font-bold px-1.5 py-0.5 rounded-full">{trackCount}</span>}
           </button>
         </div>
       </div>
@@ -643,34 +656,34 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
         {tab === 'info' && InfoPanel}
         {tab === 'tracks' && (
           <div className="bg-white min-h-screen">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-gray-700">Dainų sąrašas</span>
-                <span className="bg-gray-200 text-gray-600 text-xs font-bold px-2 py-0.5 rounded-full">{form.tracks?.length || 0}</span>
-              </div>
-              <span className="text-xs text-gray-400">▶ video · T žodžiai · S singlas</span>
-            </div>
-            {TracksPanel}
+            <TracksHeader count={trackCount} />
+            <TrackList
+              tracks={form.tracks || []}
+              isMobile={true}
+              onAdd={addTrack}
+              onUpdate={upTrack}
+              onRemove={rmTrack}
+              onReorder={reorderTracks}
+            />
           </div>
         )}
       </div>
 
-      {/* ── DESKTOP: Side-by-side 40/60 ── */}
+      {/* ── DESKTOP: Side by side 40/60 ── */}
       <div className="hidden lg:grid lg:grid-cols-[2fr_3fr]">
-        {/* Left: Info */}
-        <div className="border-r border-gray-200 overflow-y-auto" style={{ height: 'calc(100vh - 96px)', position: 'sticky', top: '96px' }}>
+        <div className="border-r border-gray-200 overflow-y-auto" style={{ height: 'calc(100vh - 41px)', position: 'sticky', top: '41px' }}>
           {InfoPanel}
         </div>
-        {/* Right: Tracks */}
-        <div className="bg-white overflow-y-auto" style={{ height: 'calc(100vh - 96px)', position: 'sticky', top: '96px' }}>
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50 sticky top-0 z-10">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-gray-700">Dainų sąrašas</span>
-              <span className="bg-gray-200 text-gray-600 text-xs font-bold px-2 py-0.5 rounded-full">{form.tracks?.length || 0}</span>
-            </div>
-            <span className="text-xs text-gray-400">▶ video · T žodžiai · S singlas</span>
-          </div>
-          {TracksPanel}
+        <div className="bg-white overflow-y-auto" style={{ height: 'calc(100vh - 41px)', position: 'sticky', top: '41px' }}>
+          <TracksHeader count={trackCount} />
+          <TrackList
+            tracks={form.tracks || []}
+            isMobile={false}
+            onAdd={addTrack}
+            onUpdate={upTrack}
+            onRemove={rmTrack}
+            onReorder={reorderTracks}
+          />
         </div>
       </div>
     </div>
