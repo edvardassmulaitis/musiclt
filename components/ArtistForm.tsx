@@ -305,16 +305,13 @@ function ImageCropper({ src, onCrop, onCancel }: {
 }
 
 // ── AvatarUpload — handles file upload, URL input, crop, Wikipedia image ──────
-function AvatarUpload({ value, onChange, wideValue, onChangeWide }: { value: string; onChange: (url: string) => void; wideValue?: string; onChangeWide?: (url: string) => void }) {
+function AvatarUpload({ value, onChange, onOriginalSaved }: { value: string; onChange: (url: string) => void; onOriginalSaved?: (url: string) => void }) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
   const [urlInput, setUrlInput] = useState('')
   const [cropSrc, setCropSrc] = useState<string | null>(null) // image to crop
-  const [wideUrl, setWideUrl] = useState(wideValue || '')
 
-  // Propagate wideUrl changes up
-  useEffect(() => { if (wideUrl && onChangeWide) onChangeWide(wideUrl) }, [wideUrl]) // eslint-disable-line
 
   // Update URL input only when value changes externally (wiki import etc)
   useEffect(() => {
@@ -343,26 +340,26 @@ function AvatarUpload({ value, onChange, wideValue, onChangeWide }: { value: str
     reader.readAsDataURL(file)
   }
 
-  // After crop — upload square to Supabase (cover_image_url) + original (cover_image_wide_url)
+  // After crop — upload square (→ avatar) + original (→ gallery via onOriginalSaved)
   const handleCropped = async ({ square, original }: CropResult) => {
     setCropSrc(null)
     setUploading(true); setError('')
     try {
-      // Upload square crop → main avatar
+      // Upload square crop → cover_image_url
       const fd1 = new FormData(); fd1.append('file', square, 'avatar-square.jpg')
       const r1 = await fetch('/api/upload', { method: 'POST', body: fd1 })
       const d1 = await r1.json()
       if (!r1.ok) throw new Error(d1.error || 'Upload nepavyko')
-
-      // Upload original → wide version
-      const fd2 = new FormData(); fd2.append('file', original, 'avatar-original.jpg')
-      const r2 = await fetch('/api/upload', { method: 'POST', body: fd2 })
-      const d2 = await r2.json()
-
-      // Set square as primary avatar, store wide URL in state
       onChange(d1.url)
       setUrlInput(d1.url)
-      if (d2.ok !== false && d2.url) setWideUrl(d2.url)
+
+      // Upload original → notify parent to add to gallery
+      if (onOriginalSaved) {
+        const fd2 = new FormData(); fd2.append('file', original, 'avatar-original.jpg')
+        const r2 = await fetch('/api/upload', { method: 'POST', body: fd2 })
+        const d2 = await r2.json()
+        if (r2.ok && d2.url) onOriginalSaved(d2.url)
+      }
     } catch (e: any) { setError(e.message) }
     finally { setUploading(false) }
   }
@@ -473,16 +470,6 @@ function AvatarUpload({ value, onChange, wideValue, onChangeWide }: { value: str
               className="px-2 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-colors shrink-0">→</button>
           </div>
         </div>
-
-        {/* Wide/original preview if available */}
-        {wideUrl && (
-          <div className="space-y-1 pt-1 border-t border-gray-100">
-            <p className="text-xs text-gray-400 font-medium">Originali (plati) nuotrauka:</p>
-            <img src={wideUrl} alt="wide" referrerPolicy="no-referrer"
-              className="rounded-lg border border-gray-200 object-cover"
-              style={{ maxWidth: 200, maxHeight: 100, width: '100%' }} />
-          </div>
-        )}
 
         {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
         <input ref={fileRef} type="file" accept="image/*" className="hidden"
@@ -891,8 +878,12 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                 <AvatarUpload
                   value={form.avatar}
                   onChange={setAvatar}
-                  wideValue={form.avatarWide}
-                  onChangeWide={setAvatarWide}
+                  onOriginalSaved={url => {
+                    // Auto-add original to gallery if not already there
+                    if (!form.photos.find(p => p.url === url)) {
+                      setPhotos([{ url }, ...form.photos])
+                    }
+                  }}
                 />
               </Card>
 
