@@ -6,7 +6,6 @@ import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import WikipediaImportDiscography from '@/components/WikipediaImportDiscography'
 import WikipediaImport from '@/components/WikipediaImport'
-import InstagramConnect from '@/components/InstagramConnect'
 import ArtistForm, { ArtistFormData, emptyArtistForm } from '@/components/ArtistForm'
 
 const GENRE_BY_ID: Record<number, string> = {
@@ -284,6 +283,22 @@ function DiscographyPanel({ artistId, artistName, refreshKey }: {
   )
 }
 
+// ── DiscographyImportCompact — compact header button for discography import
+function DiscographyImportCompact({ artistId, artistName, onClose }: {
+  artistId: number; artistName: string; onClose: () => void
+}) {
+  return (
+    <WikipediaImportDiscography
+      artistId={artistId}
+      artistName={artistName}
+      artistWikiTitle={artistName.replace(/ /g, '_')}
+      onClose={onClose}
+      buttonClassName="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors font-medium"
+      buttonLabel="📀 Disk."
+    />
+  )
+}
+
 // ── WikipediaImportCompact ───────────────────────────────────────────────────
 function WikipediaImportCompact({ onImport }: { onImport: (data: any) => void }) {
   const [open, setOpen] = useState(false)
@@ -411,16 +426,14 @@ export default function EditArtist() {
               )}
             </nav>
 
-            {/* FIX #2: compact tool buttons inline */}
-            <div className="hidden lg:flex items-center gap-1 shrink-0">
+            {/* Compact action buttons — wiki info import + discography import */}
+            <div className="hidden lg:flex items-center gap-1 shrink-0 border-l border-gray-200 pl-2 ml-1">
               <WikipediaImportCompact onImport={(data: Partial<ArtistFormData>) => {
                 setInitialData(prev => prev ? { ...prev, ...data } : prev)
               }} />
-              {/* FIX #4: onClose triggers discography refresh */}
-              <WikipediaImportDiscography
+              <DiscographyImportCompact
                 artistId={parseInt(artistId)}
                 artistName={artistName}
-                artistWikiTitle={artistName.replace(/ /g, '_')}
                 onClose={() => {
                   setDiscographyKey(k => k + 1)
                   fetch(`/api/albums?artist_id=${artistId}&limit=1`)
@@ -429,7 +442,6 @@ export default function EditArtist() {
                     .then(r => r.json()).then(d => setTrackCount(d.total ?? null)).catch(() => {})
                 }}
               />
-              <InstagramConnect artistId={artistId} artistName={artistName} />
             </div>
           </div>
 
@@ -508,6 +520,8 @@ function ArtistFormCompact({ initialData, artistId, onSubmit, saving }: {
         .artist-form-compact > div > div > .flex.items-center.justify-between.mb-6 { display: none !important; }
         .artist-form-compact > div > div > form > .mt-6 { display: none !important; }
         .artist-form-compact > div { background: transparent !important; }
+        /* Hide WikipediaImport and InstagramConnect - they appear as .mb-5 direct children of form, before the grid */
+        .artist-form-compact form > .mb-5 { display: none !important; }
       `}</style>
       <ArtistForm
         title=""
