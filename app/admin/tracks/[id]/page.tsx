@@ -256,36 +256,48 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
     try {
       const added: string[] = []
       const newFeaturing = [...featuring]
+      const normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9\s]/g, '').trim()
+      // Capitalize first letter of each word
+      const capitalize = (s: string) => s.replace(/\b\w/g, c => c.toUpperCase())
 
-      for (const name of names) {
+      for (const rawName of names) {
+        const name = capitalize(rawName.trim())
+        const normName = normalize(name)
+
         // Skip if already in featuring
-        if (newFeaturing.find(f => f.name.toLowerCase() === name.toLowerCase())) continue
-        // Search DB
-        const res = await fetch(`/api/artists?search=${encodeURIComponent(name)}&limit=5`)
+        if (newFeaturing.find(f => normalize(f.name) === normName)) continue
+
+        // Search DB — use normalized name for search
+        const res = await fetch(`/api/artists?search=${encodeURIComponent(normName)}&limit=10`)
         const data = await res.json()
-        const normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9\s]/g, '').trim()
-        const exact = (data.artists || []).find((a: any) => normalize(a.name) === normalize(name))
-        if (exact) {
-          if (exact.id !== artistId) {
-            newFeaturing.push({ artist_id: exact.id, name: exact.name })
-            added.push(exact.name)
+        const match = (data.artists || []).find((a: any) => normalize(a.name) === normName)
+
+        if (match) {
+          if (match.id !== artistId) {
+            newFeaturing.push({ artist_id: match.id, name: match.name })
+            added.push(match.name)
           }
         } else {
-          // Create new artist
+          // Create new artist with capitalized name
           const createRes = await fetch('/api/artists', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name }),
           })
           if (createRes.ok) {
-            const newArtist = await createRes.json()
-            newFeaturing.push({ artist_id: newArtist.id, name: newArtist.name })
-            added.push(`${newArtist.name} (naujas)`)
+            const json = await createRes.json()
+            // Handle different response shapes: { id } or { artist: { id } } or { data: { id } }
+            const newArtist = json.artist || json.data || json
+            if (newArtist?.id) {
+              newFeaturing.push({ artist_id: newArtist.id, name: newArtist.name || name })
+              added.push(`${newArtist.name || name} (naujas)`)
+            } else {
+              added.push(`${name} (klaida: nežinoma atsakymo struktūra)`)
+            }
           }
         }
       }
 
-      // Set all at once to avoid race condition
       setFeaturing(newFeaturing)
       setTitle(cleanTitle)
       setParseResult(added.length > 0 ? `✓ Pridėta: ${added.join(', ')} · Pavadinimas išvalytas` : '✓ Pavadinimas išvalytas')
