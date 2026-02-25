@@ -171,32 +171,37 @@ export default function WikimediaSearch({
 
   const handleAdd = async () => {
     const toAdd = images.filter(img => selected.has(img.title))
+    if (!toAdd.length) return
     setLoading(true)
+    setError('')
     const uploaded: Photo[] = []
     for (const img of toAdd) {
       const authorParts = [img.author, img.license].filter(Boolean)
+      const authorStr = authorParts.join(' · ') || undefined
       try {
-        // Upload to Supabase via proxy so URL persists
+        // Upload through proxy with wikimedia referer hint
         const res = await fetch('/api/fetch-image', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: img.fullUrl }),
+          body: JSON.stringify({
+            // Use larger thumbnail (800px) — much faster than full res (can be 50MB+)
+            url: img.thumb.replace('320px', '800px'),
+            referer: 'https://en.wikipedia.org/',
+          }),
         })
-        const d = await res.json()
-        uploaded.push({
-          url: d.url || img.fullUrl,
-          author: authorParts.join(' · ') || undefined,
-        })
-      } catch {
-        // Fallback: use original URL
-        uploaded.push({
-          url: img.fullUrl,
-          author: authorParts.join(' · ') || undefined,
-        })
-      }
+        if (res.ok) {
+          const d = await res.json()
+          // Only use proxy result if it looks like a valid stored URL
+          if (d.url && (d.url.includes('supabase') || d.url.startsWith('/'))) {
+            uploaded.push({ url: d.url, author: authorStr, authorUrl: img.descriptionUrl })
+            continue
+          }
+        }
+      } catch {}
+      // Fallback: store directly (will use wikimedia URL — may expire)
+      uploaded.push({ url: img.thumb, author: authorStr, authorUrl: img.descriptionUrl })
     }
     setLoading(false)
-    // Pass all at once so parent gets correct array
     onAddMultiple(uploaded)
     onClose()
   }
