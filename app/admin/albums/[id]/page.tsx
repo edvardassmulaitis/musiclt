@@ -81,7 +81,7 @@ function ArtistSearchInput({ placeholder = 'Ieškoti atlikėjo...', onSelect }: 
       <input value={q} onChange={e => setQ(e.target.value)} placeholder={placeholder}
         className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-blue-400 transition-colors" />
       {results.length > 0 && (
-        <div className="absolute z-20 w-full bg-white border border-gray-200 rounded-xl shadow-xl mt-1 overflow-hidden">
+        <div className="absolute z-50 w-full bg-white border border-gray-200 rounded-xl shadow-xl mt-1 overflow-hidden">
           {results.map(a => (
             <button key={a.id} type="button"
               onClick={() => { onSelect(a.id, a.name); setQ(''); setResults([]) }}
@@ -230,9 +230,11 @@ function TrackList({ tracks, isMobile, onAdd, onUpdate, onRemove, onHardDelete, 
         const trackId = t.track_id || t.id
         const trackEditUrl = trackId ? `/admin/tracks/${trackId}` : null
         const hasVideo = !!(t.video_url)
-        // T icon: any truthy has_lyrics OR non-empty lyrics text
-        const hasLyrics = !!(t as any).has_lyrics || !!(t as any).lyrics?.trim()
-        const featuring: string[] = (t as any).featuring || []
+        // T icon: check multiple possible field names from API
+        const hasLyrics = !!(t as any).has_lyrics || !!(t as any).lyrics?.trim() || !!(t as any).lyrics_count
+        // Featuring: check multiple possible structures
+        const rawFeat = (t as any).featuring || (t as any).featuring_artists || (t as any).track_artists?.filter((ta: any) => ta.role === 'featuring').map((ta: any) => ta.artists?.name || ta.name) || []
+        const featuring: string[] = Array.isArray(rawFeat) ? rawFeat.map((f: any) => typeof f === 'string' ? f : f.name || f.artists?.name || '').filter(Boolean) : []
         const isSaved = !!trackId  // track exists in DB
 
         return (
@@ -474,42 +476,40 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
             className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-sm font-medium focus:outline-none focus:border-blue-400 bg-white transition-colors" />
         </div>
 
-        {/* Artists — main + featured in one block */}
+        {/* Artists — main chip + feat chips in a row + search below */}
         <div>
           <label className="block text-xs font-semibold text-gray-500 mb-1">Atlikėjai *</label>
-          <div className="border border-gray-200 rounded-lg overflow-hidden divide-y divide-gray-100">
-            {/* Main artist row */}
-            <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50/60">
-              <span className="text-xs text-gray-500 shrink-0 w-7">–</span>
-              {form.artist_id ? (
-                <>
-                  <span className="flex-1 text-sm font-semibold text-gray-900 truncate">{artistName}</span>
-                  <button type="button" onClick={() => { set('artist_id', 0); setArtistName(''); setArtistId(null) }}
-                    className="text-gray-400 hover:text-red-500 transition-colors text-lg leading-none shrink-0">×</button>
-                </>
-              ) : (
-                <div className="flex-1">
-                  <ArtistSearchInput placeholder="Ieškoti pagrindinio atlikėjo..." onSelect={(id, name) => { set('artist_id', id); setArtistName(name); setArtistId(id) }} />
-                </div>
-              )}
-            </div>
-            {/* Featured artist rows */}
+          {/* Chips row */}
+          <div className="flex flex-wrap gap-1.5 mb-1.5">
+            {/* Main artist chip */}
+            {form.artist_id ? (
+              <div className="flex items-center gap-1 bg-blue-100 text-blue-800 border border-blue-200 rounded-full px-2.5 py-1 text-sm font-semibold">
+                {artistName}
+                <button type="button" onClick={() => { set('artist_id', 0); setArtistName(''); setArtistId(null) }}
+                  className="text-blue-400 hover:text-red-500 transition-colors leading-none ml-0.5 text-base">×</button>
+              </div>
+            ) : null}
+            {/* Featured artist chips */}
             {featuredArtists.map((a, i) => (
-              <div key={a.id} className="flex items-center gap-1.5 px-2.5 py-1.5">
-                <span className="text-xs text-gray-400 shrink-0 w-7">feat.</span>
-                <span className="flex-1 text-sm text-gray-700 truncate">{a.name}</span>
+              <div key={a.id} className="flex items-center gap-1 bg-gray-100 text-gray-700 border border-gray-200 rounded-full px-2.5 py-1 text-xs">
+                <span className="text-gray-400 mr-0.5">feat.</span>
+                {a.name}
                 <button type="button" onClick={() => setFeaturedArtists(p => p.filter((_, j) => j !== i))}
-                  className="text-gray-400 hover:text-red-500 transition-colors text-lg leading-none">×</button>
+                  className="text-gray-400 hover:text-red-500 transition-colors leading-none ml-0.5 text-sm">×</button>
               </div>
             ))}
-            {/* Add featured */}
-            <div className="px-2.5 py-1">
-              <ArtistSearchInput placeholder="+ feat. atlikėjas..."
-                onSelect={(id, name) => {
-                  if (!featuredArtists.find(a => a.id === id))
-                    setFeaturedArtists(p => [...p, { id, name }])
-                }} />
-            </div>
+          </div>
+          {/* Search: show main artist search if none selected, always show feat search */}
+          <div className="space-y-1.5">
+            {!form.artist_id && (
+              <ArtistSearchInput placeholder="Ieškoti pagrindinio atlikėjo..." onSelect={(id, name) => { set('artist_id', id); setArtistName(name); setArtistId(id) }} />
+            )}
+            <ArtistSearchInput placeholder="+ feat. atlikėjas..."
+              onSelect={(id, name) => {
+                if (id === form.artist_id) return
+                if (!featuredArtists.find(a => a.id === id))
+                  setFeaturedArtists(p => [...p, { id, name }])
+              }} />
           </div>
         </div>
 
@@ -539,47 +539,54 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
         </div>
       </div>
 
-      {/* Viršelis */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Viršelis</p>
-        <CoverImageField value={form.cover_image_url || ''} onChange={url => set('cover_image_url', url)} />
-      </div>
+      {/* Media card: cover + YouTube + Spotify compact */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 space-y-2.5">
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Media</p>
 
-      {/* YouTube */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">🎬 YouTube</p>
-        {ytId ? (
-          <div className="space-y-1.5 mb-2">
-            <div className="aspect-video rounded-lg overflow-hidden bg-black">
-              <iframe src={`https://www.youtube.com/embed/${ytId}`} className="w-full h-full" allowFullScreen />
-            </div>
-            <div className="flex gap-1.5">
-              <input value={form.video_url || ''} onChange={e => set('video_url', e.target.value)}
-                className="flex-1 px-2 py-1 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
+        {/* Cover + IDs side by side */}
+        <div className="flex gap-3">
+          {/* Cover thumbnail */}
+          <CoverImageField value={form.cover_image_url || ''} onChange={url => set('cover_image_url', url)} />
+        </div>
+
+        {/* YouTube URL row */}
+        <div>
+          <p className="text-xs font-semibold text-gray-500 mb-1">🎬 YouTube URL</p>
+          <div className="flex gap-1.5">
+            <input value={form.video_url || ''} onChange={e => set('video_url', e.target.value)}
+              placeholder="https://youtube.com/watch?v=..."
+              className="flex-1 px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
+            {ytId && (
               <button type="button" onClick={() => set('video_url', '')}
-                className="px-2 py-1 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg text-xs transition-colors">✕</button>
-            </div>
+                className="px-2 py-1.5 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg text-xs transition-colors">✕</button>
+            )}
           </div>
-        ) : (
-          <input value={form.video_url || ''} onChange={e => set('video_url', e.target.value)}
-            placeholder="https://youtube.com/watch?v=..."
-            className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-blue-400 bg-white mb-2" />
-        )}
-        <YouTubeSearch initialQuery={ytSearchQuery} onSelect={url => set('video_url', url)} />
-      </div>
+          {/* Thumbnail preview if video set */}
+          {ytId && (
+            <a href={form.video_url || ''} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 mt-1.5 group">
+              <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} alt=""
+                className="w-20 h-12 object-cover rounded-md shrink-0 group-hover:opacity-90 transition-opacity" />
+              <span className="text-xs text-gray-500 group-hover:text-blue-600 transition-colors line-clamp-2">Žiūrėti ↗</span>
+            </a>
+          )}
+          <div className="mt-1.5">
+            <YouTubeSearch initialQuery={ytSearchQuery} onSelect={url => set('video_url', url)} />
+          </div>
+        </div>
 
-      {/* Spotify */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">🎧 Spotify</p>
-        <input value={form.spotify_id || ''} onChange={e => set('spotify_id', e.target.value)}
-          placeholder="Spotify album ID..."
-          className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-blue-400 font-mono transition-colors" />
-        {form.spotify_id && (
-          <a href={`https://open.spotify.com/album/${form.spotify_id}`} target="_blank" rel="noopener noreferrer"
-            className="mt-1.5 flex items-center gap-1 text-xs text-green-600 hover:text-green-700 transition-colors">
-            🔗 Atidaryti Spotify
-          </a>
-        )}
+        {/* Spotify row */}
+        <div>
+          <p className="text-xs font-semibold text-gray-500 mb-1">🎧 Spotify ID</p>
+          <input value={form.spotify_id || ''} onChange={e => set('spotify_id', e.target.value)}
+            placeholder="Spotify album ID..."
+            className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-blue-400 font-mono transition-colors" />
+          {form.spotify_id && (
+            <a href={`https://open.spotify.com/album/${form.spotify_id}`} target="_blank" rel="noopener noreferrer"
+              className="mt-1 flex items-center gap-1 text-xs text-green-600 hover:text-green-700 transition-colors">
+              🔗 Atidaryti Spotify
+            </a>
+          )}
+        </div>
       </div>
     </div>
   )
