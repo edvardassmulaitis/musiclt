@@ -24,7 +24,6 @@ function extractYouTubeId(url: string): string {
   return url.match(/(?:v=|youtu\.be\/)([^&?]+)/)?.[1] || ''
 }
 
-// ── DateNum ───────────────────────────────────────────────────────────────────
 function DateNum({ value, onChange, min, max, placeholder, width = 'w-14' }: {
   value: string; onChange: (v: string) => void
   min: number; max: number; placeholder: string; width?: string
@@ -47,7 +46,6 @@ function DateNum({ value, onChange, min, max, placeholder, width = 'w-14' }: {
   )
 }
 
-// ── ArtistSearch ──────────────────────────────────────────────────────────────
 function ArtistSearchInput({ placeholder = 'Ieškoti atlikėjo...', onSelect }: {
   placeholder?: string
   onSelect: (id: number, name: string) => void
@@ -82,7 +80,6 @@ function ArtistSearchInput({ placeholder = 'Ieškoti atlikėjo...', onSelect }: 
   )
 }
 
-// ── YouTubeSearch ─────────────────────────────────────────────────────────────
 function YouTubeSearch({ initialQuery, onSelect }: { initialQuery: string; onSelect: (url: string) => void }) {
   const [query, setQuery] = useState(initialQuery)
   const [results, setResults] = useState<YTResult[]>([])
@@ -122,7 +119,6 @@ function YouTubeSearch({ initialQuery, onSelect }: { initialQuery: string; onSel
   )
 }
 
-// ── CoverMini ─────────────────────────────────────────────────────────────────
 function CoverMini({ value, onChange }: { value: string; onChange: (url: string) => void }) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
@@ -172,7 +168,6 @@ function CoverMini({ value, onChange }: { value: string; onChange: (url: string)
           onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f?.type.startsWith('image/')) upload(f) }}
           onDragOver={e => e.preventDefault()}>
           <div className="text-center text-gray-400">
-            {/* FIX 5: photo icon instead of music note */}
             <svg className="w-8 h-8 mx-auto mb-1 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
@@ -196,7 +191,6 @@ function CoverMini({ value, onChange }: { value: string; onChange: (url: string)
   )
 }
 
-// ── Main page ─────────────────────────────────────────────────────────────────
 export default function AdminTrackEditPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
   const id = resolvedParams?.id
@@ -332,11 +326,8 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
 
   if (status === 'loading' || !isAdmin) return null
 
-  // ── Info Panel ─────────────────────────────────────────────────────────────
   const InfoPanel = (
     <div className="space-y-2.5 p-3 pb-4">
-
-      {/* Main info card */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 space-y-2.5">
 
         {/* Title + Date */}
@@ -397,7 +388,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
           </div>
         </div>
 
-        {/* Type — now includes Singlas + Naujas */}
+        {/* Type + Naujas */}
         <div>
           <label className="block text-xs font-semibold text-gray-500 mb-1">Tipas</label>
           <div className="flex flex-wrap gap-1">
@@ -411,7 +402,6 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
                 {TRACK_TYPE_LABELS[tp].icon} {TRACK_TYPE_LABELS[tp].label}
               </button>
             ))}
-            {/* Naujas toggle inline with type chips */}
             <button type="button" onClick={toggleNew}
               className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all ${
                 isNew ? 'bg-green-500 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -423,7 +413,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
         </div>
       </div>
 
-      {/* Albums card */}
+      {/* Albums */}
       {albums.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-3 py-2 border-b border-gray-100 flex items-center gap-1.5">
@@ -434,14 +424,12 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
             <div key={a.album_id} className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-50 last:border-0 group hover:bg-gray-50 transition-colors">
               <span className="text-gray-300 text-xs w-4 text-right shrink-0">{a.position}.</span>
               <div className="flex-1 min-w-0">
-                <Link href={`/admin/albums/${a.album_id}`}
-                  className="text-sm text-gray-900 hover:text-blue-600 truncate block transition-colors">
+                <Link href={`/admin/albums/${a.album_id}`} className="text-sm text-gray-900 hover:text-blue-600 truncate block transition-colors">
                   {a.album_title}
                 </Link>
                 {a.album_year && <span className="text-xs text-gray-400">{a.album_year}</span>}
               </div>
-              <button onClick={() => removeFromAlbum(a.album_id)}
-                disabled={removingFromAlbum === a.album_id}
+              <button onClick={() => removeFromAlbum(a.album_id)} disabled={removingFromAlbum === a.album_id}
                 className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 text-xs px-1 rounded transition-all disabled:opacity-50">
                 {removingFromAlbum === a.album_id ? '...' : '✕'}
               </button>
@@ -450,7 +438,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
         </div>
       )}
 
-      {/* Media card */}
+      {/* Media */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
         <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Media</p>
         <div className="grid grid-cols-2 gap-3">
@@ -465,14 +453,11 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
                 <input value={videoUrl} onChange={e => setVideoUrl(e.target.value)}
                   placeholder="youtube.com/watch?v=..."
                   className="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
-                {ytId && (
-                  <button type="button" onClick={() => setVideoUrl('')}
-                    className="px-2 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg text-xs transition-colors shrink-0">✕</button>
-                )}
+                {ytId && <button type="button" onClick={() => setVideoUrl('')}
+                  className="px-2 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg text-xs transition-colors shrink-0">✕</button>}
               </div>
               {ytId && (
-                <a href={videoUrl} target="_blank" rel="noopener noreferrer"
-                  className="block relative rounded-lg overflow-hidden group mb-1">
+                <a href={videoUrl} target="_blank" rel="noopener noreferrer" className="block relative rounded-lg overflow-hidden group mb-1">
                   <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} alt=""
                     className="w-full aspect-video object-cover group-hover:opacity-90 transition-opacity" />
                   <span className="absolute bottom-1 right-1 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded">↗</span>
@@ -482,8 +467,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
             </div>
             <div>
               <p className="text-xs font-semibold text-gray-500 mb-1">🎧 Spotify</p>
-              <input value={spotifyId} onChange={e => setSpotifyId(e.target.value)}
-                placeholder="Track ID..."
+              <input value={spotifyId} onChange={e => setSpotifyId(e.target.value)} placeholder="Track ID..."
                 className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-xs focus:outline-none focus:border-blue-400 font-mono transition-colors" />
               {spotifyId && (
                 <a href={`https://open.spotify.com/track/${spotifyId}`} target="_blank" rel="noopener noreferrer"
@@ -508,12 +492,12 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
   )
 
   return (
-    <div className="min-h-screen bg-[#f8f7f5]">
+    // KEY FIX: h-screen + overflow-hidden on root prevents any page-level scroll
+    <div className="h-screen overflow-hidden flex flex-col bg-[#f8f7f5]">
 
       {/* Sticky header */}
-      <div className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-gray-200">
+      <div className="shrink-0 bg-white/95 backdrop-blur border-b border-gray-200">
         <div className="flex items-center justify-between gap-3 px-4 py-2">
-          {/* FIX 4: breadcrumb — Admin / [atlikėjas] / Albumai / Dainos / [daina] */}
           <nav className="flex items-center gap-1 text-sm min-w-0">
             <Link href="/admin" className="text-gray-400 hover:text-gray-700 shrink-0">Admin</Link>
             {artistId > 0 && <>
@@ -550,7 +534,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
 
       {/* Error */}
       {error && (
-        <div className="px-3 pt-2">
+        <div className="shrink-0 px-3 pt-2">
           <div className="p-2.5 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm flex items-center gap-2">
             ❌ {error}
             <button onClick={() => setError('')} className="ml-auto text-red-400 hover:text-red-600">✕</button>
@@ -558,55 +542,47 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
         </div>
       )}
 
+      {/* Body — fills remaining height exactly */}
       {loading ? (
-        <div className="flex items-center justify-center py-20">
+        <div className="flex-1 flex items-center justify-center">
           <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
-        <div className="hidden lg:grid lg:grid-cols-2 items-start">
-          {/* Left: scrollable info + media */}
-          <div className="border-r border-gray-200">
+        <div className="flex-1 grid grid-cols-2 min-h-0">
+
+          {/* Left: scrollable info panel */}
+          <div className="border-r border-gray-200 overflow-y-auto">
             {InfoPanel}
           </div>
 
-          {/* FIX 1: Right — sticky, exact viewport height, lyrics fills remaining space */}
-          <div className="sticky top-[41px] bg-[#f8f7f5]" style={{ height: 'calc(100vh - 41px)' }}>
-            <div className="flex flex-col h-full p-3 gap-0">
-
-              {/* FIX 3: Tab header — "Dainos tekstas" + "Akordai" with dot indicators */}
-              <div className="bg-white rounded-t-xl border border-gray-100 shadow-sm shrink-0 flex items-center">
-                <button
-                  onClick={() => setLyricsTab('lyrics')}
-                  className={`flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-tl-xl transition-colors ${
-                    lyricsTab === 'lyrics' ? 'text-blue-600 bg-blue-50/60' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                  }`}>
-                  Dainos tekstas
-                  {hasLyrics && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" title="Yra tekstas" />
-                  )}
-                </button>
-                <div className="w-px h-5 bg-gray-200 shrink-0" />
-                <button
-                  onClick={() => setLyricsTab('chords')}
-                  className={`flex items-center gap-1.5 px-3 py-2 text-sm font-semibold transition-colors ${
-                    lyricsTab === 'chords' ? 'text-blue-600 bg-blue-50/60' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                  }`}>
-                  Akordai
-                  {hasChords && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" title="Yra akordai" />
-                  )}
-                </button>
-              </div>
-
-              {/* Textarea fills all remaining height */}
-              <textarea
-                key={lyricsTab}
-                value={lyricsTab === 'lyrics' ? lyrics : chords}
-                onChange={e => lyricsTab === 'lyrics' ? setLyrics(e.target.value) : setChords(e.target.value)}
-                placeholder={lyricsTab === 'lyrics' ? 'Dainos žodžiai...' : 'Am  G  F  G\nVerse 1...'}
-                className="flex-1 w-full px-3 py-2.5 text-sm text-gray-900 bg-white border border-t-0 border-gray-100 shadow-sm rounded-b-xl focus:outline-none resize-none font-mono leading-relaxed"
-              />
+          {/* Right: lyrics — fills height exactly, textarea scrolls internally */}
+          <div className="flex flex-col min-h-0 bg-[#f8f7f5] p-3 gap-0">
+            {/* Tab bar */}
+            <div className="bg-white rounded-t-xl border border-gray-100 shadow-sm shrink-0 flex items-center">
+              <button onClick={() => setLyricsTab('lyrics')}
+                className={`flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-tl-xl transition-colors ${
+                  lyricsTab === 'lyrics' ? 'text-blue-600 bg-blue-50/60' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}>
+                Dainos tekstas
+                {hasLyrics && <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />}
+              </button>
+              <div className="w-px h-5 bg-gray-200 shrink-0" />
+              <button onClick={() => setLyricsTab('chords')}
+                className={`flex items-center gap-1.5 px-3 py-2 text-sm font-semibold transition-colors ${
+                  lyricsTab === 'chords' ? 'text-blue-600 bg-blue-50/60' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}>
+                Akordai
+                {hasChords && <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />}
+              </button>
             </div>
+            {/* Textarea — flex-1 fills remaining, overflow-y-auto scrolls internally */}
+            <textarea
+              key={lyricsTab}
+              value={lyricsTab === 'lyrics' ? lyrics : chords}
+              onChange={e => lyricsTab === 'lyrics' ? setLyrics(e.target.value) : setChords(e.target.value)}
+              placeholder={lyricsTab === 'lyrics' ? 'Dainos žodžiai...' : 'Am  G  F  G\nVerse 1...'}
+              className="flex-1 min-h-0 w-full px-3 py-2.5 text-sm text-gray-900 bg-white border border-t-0 border-gray-100 shadow-sm rounded-b-xl focus:outline-none resize-none font-mono leading-relaxed overflow-y-auto"
+            />
           </div>
         </div>
       )}
