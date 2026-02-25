@@ -230,7 +230,7 @@ function TrackList({ tracks, isMobile, onAdd, onUpdate, onRemove, onHardDelete, 
         const trackId = t.track_id || t.id
         const trackEditUrl = trackId ? `/admin/tracks/${trackId}` : null
         const hasVideo = !!(t.video_url)
-        // Check lyrics: has_lyrics field OR lyrics field has content
+        // T icon: any truthy has_lyrics OR non-empty lyrics text
         const hasLyrics = !!(t as any).has_lyrics || !!(t as any).lyrics?.trim()
         const featuring: string[] = (t as any).featuring || []
         const isSaved = !!trackId  // track exists in DB
@@ -263,14 +263,14 @@ function TrackList({ tracks, isMobile, onAdd, onUpdate, onRemove, onHardDelete, 
             {/* Number */}
             <span className="text-xs text-gray-400 w-4 text-right shrink-0 tabular-nums">{i + 1}</span>
 
-            {/* Title + featuring */}
-            <div className="flex-1 min-w-0">
+            {/* Title + featuring inline */}
+            <div className="flex-1 min-w-0 flex items-baseline gap-1 flex-wrap">
               <input value={t.title} onChange={e => onUpdate(i, 'title', e.target.value)}
                 placeholder="Dainos pavadinimas"
                 size={Math.max(8, (t.title?.length || 0) + 2)}
-                className="px-1 py-0.5 border border-transparent hover:border-gray-200 focus:border-blue-300 rounded text-sm text-gray-900 focus:outline-none bg-transparent focus:bg-white transition-all max-w-full" />
+                className="px-1 py-0.5 border border-transparent hover:border-gray-200 focus:border-blue-300 rounded text-sm text-gray-900 focus:outline-none bg-transparent focus:bg-white transition-all" />
               {featuring.length > 0 && (
-                <p className="text-xs text-gray-400 px-1 leading-tight">feat. {featuring.join(', ')}</p>
+                <span className="text-xs text-gray-400 leading-tight whitespace-nowrap">feat. {featuring.join(', ')}</span>
               )}
             </div>
 
@@ -474,39 +474,42 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
             className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-sm font-medium focus:outline-none focus:border-blue-400 bg-white transition-colors" />
         </div>
 
-        {/* Main artist — full width */}
+        {/* Artists — main + featured in one block */}
         <div>
-          <label className="block text-xs font-semibold text-gray-500 mb-1">Pagrindinis atlikėjas *</label>
-          {form.artist_id ? (
-            <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-lg px-2.5 py-1.5">
-              <span className="flex-1 text-sm font-semibold text-gray-900 truncate">{artistName}</span>
-              <button type="button" onClick={() => { set('artist_id', 0); setArtistName(''); setArtistId(null) }}
-                className="text-gray-400 hover:text-red-500 transition-colors text-lg leading-none shrink-0">×</button>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">Atlikėjai *</label>
+          <div className="border border-gray-200 rounded-lg overflow-hidden divide-y divide-gray-100">
+            {/* Main artist row */}
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50/60">
+              <span className="text-xs text-gray-500 shrink-0 w-7">–</span>
+              {form.artist_id ? (
+                <>
+                  <span className="flex-1 text-sm font-semibold text-gray-900 truncate">{artistName}</span>
+                  <button type="button" onClick={() => { set('artist_id', 0); setArtistName(''); setArtistId(null) }}
+                    className="text-gray-400 hover:text-red-500 transition-colors text-lg leading-none shrink-0">×</button>
+                </>
+              ) : (
+                <div className="flex-1">
+                  <ArtistSearchInput placeholder="Ieškoti pagrindinio atlikėjo..." onSelect={(id, name) => { set('artist_id', id); setArtistName(name); setArtistId(id) }} />
+                </div>
+              )}
             </div>
-          ) : (
-            <ArtistSearchInput placeholder="Ieškoti atlikėjo..." onSelect={(id, name) => { set('artist_id', id); setArtistName(name); setArtistId(id) }} />
-          )}
-        </div>
-
-        {/* Featured artists */}
-        <div>
-          <label className="block text-xs font-semibold text-gray-500 mb-1">
-            Papildomi atlikėjai <span className="font-normal text-gray-400">(neprivaloma)</span>
-          </label>
-          <div className="space-y-1">
+            {/* Featured artist rows */}
             {featuredArtists.map((a, i) => (
-              <div key={a.id} className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5">
-                <span className="text-xs text-gray-500">feat.</span>
-                <span className="flex-1 text-sm text-gray-800">{a.name}</span>
+              <div key={a.id} className="flex items-center gap-1.5 px-2.5 py-1.5">
+                <span className="text-xs text-gray-400 shrink-0 w-7">feat.</span>
+                <span className="flex-1 text-sm text-gray-700 truncate">{a.name}</span>
                 <button type="button" onClick={() => setFeaturedArtists(p => p.filter((_, j) => j !== i))}
                   className="text-gray-400 hover:text-red-500 transition-colors text-lg leading-none">×</button>
               </div>
             ))}
-            <ArtistSearchInput placeholder="+ Pridėti atlikėją..."
-              onSelect={(id, name) => {
-                if (!featuredArtists.find(a => a.id === id))
-                  setFeaturedArtists(p => [...p, { id, name }])
-              }} />
+            {/* Add featured */}
+            <div className="px-2.5 py-1">
+              <ArtistSearchInput placeholder="+ feat. atlikėjas..."
+                onSelect={(id, name) => {
+                  if (!featuredArtists.find(a => a.id === id))
+                    setFeaturedArtists(p => [...p, { id, name }])
+                }} />
+            </div>
           </div>
         </div>
 
