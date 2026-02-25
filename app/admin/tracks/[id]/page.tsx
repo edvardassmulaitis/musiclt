@@ -235,33 +235,66 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
     setFetchingCover(true); setCoverFetchMsg(null)
     try {
       const query = [artistName, title].filter(Boolean).join(' ')
-      // Try Wikipedia API — search for page, then get main image
-      const searchRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*&srlimit=1`)
-      const searchData = await searchRes.json()
-      const pageTitle = searchData?.query?.search?.[0]?.title
+
+      // Step 1: search for Wikipedia page — try with "song" suffix first
+      const query1 = [artistName, title, 'song'].filter(Boolean).join(' ')
+      const query2 = [artistName, title].filter(Boolean).join(' ')
+      let pageTitle = ''
+      for (const q of [query1, query2]) {
+        const searchRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q)}&format=json&origin=*&srlimit=3`)
+        const searchData = await searchRes.json()
+        const results = searchData?.query?.search || []
+        // Prefer result whose title contains the track title
+        const match = results.find((r: any) => r.title.toLowerCase().includes(title.toLowerCase())) || results[0]
+        if (match) { pageTitle = match.title; break }
+      }
       if (!pageTitle) { setCoverFetchMsg('Wikipedia puslapio nerasta'); return }
 
-      const imgRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(pageTitle)}&prop=pageimages&pithumbsize=600&format=json&origin=*`)
-      const imgData = await imgRes.json()
-      const pages = imgData?.query?.pages
+      // Step 2: get all images on the page
+      const imgListRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(pageTitle)}&prop=images&format=json&origin=*&imlimit=20`)
+      const imgListData = await imgListRes.json()
+      const pages = imgListData?.query?.pages
       const page = pages && Object.values(pages)[0] as any
-      const imgUrl = page?.thumbnail?.source
+      const images: string[] = (page?.images || []).map((i: any) => i.title as string)
 
-      if (!imgUrl) { setCoverFetchMsg('Wikipedia paveikslėlio nerasta'); return }
+      // Step 3: find the best cover image — prefer files with "cover", "single", "album" in name
+      const coverKeywords = ['cover', 'single', 'album', title.toLowerCase().replace(/\s+/g, '_')]
+      let bestImage = images.find(img => {
+        const lower = img.toLowerCase()
+        return coverKeywords.some(k => lower.includes(k)) && (lower.endsWith('.jpg') || lower.endsWith('.png'))
+      }) || images.find(img => img.toLowerCase().endsWith('.jpg') || img.toLowerCase().endsWith('.png'))
 
-      // Upload via our fetch-image endpoint to store in Supabase
-      const uploadRes = await fetch('/api/fetch-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: imgUrl }),
-      })
-      if (uploadRes.ok) {
-        const d = await uploadRes.json()
-        if (d.url) { setCoverUrl(d.url); setCoverFetchMsg('✓ Viršelis pridėtas!'); return }
-      }
-      // If upload fails, use direct URL
+      if (!bestImage) { setCoverFetchMsg('Tinkamo paveikslėlio nerasta'); return }
+
+      // Step 4: get actual URL from Wikimedia
+      const fileRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(bestImage)}&prop=imageinfo&iiprop=url&format=json&origin=*`)
+      const fileData = await fileRes.json()
+      const filePages = fileData?.query?.pages
+      const filePage = filePages && Object.values(filePages)[0] as any
+      const imgUrl = filePage?.imageinfo?.[0]?.url
+
+      if (!imgUrl) { setCoverFetchMsg('Nepavyko gauti paveikslėlio URL'); return }
+
+      // Step 5: try to upload via fetch-image, fallback to direct URL
+      try {
+        const uploadRes = await fetch('/api/fetch-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: imgUrl }),
+        })
+        if (uploadRes.ok) {
+          const d = await uploadRes.json()
+          if (d.url && !d.url.startsWith('data:')) {
+            setCoverUrl(d.url)
+            setCoverFetchMsg('✓ Viršelis pridėtas!')
+            return
+          }
+        }
+      } catch {}
+
+      // Fallback: use direct Wikimedia URL
       setCoverUrl(imgUrl)
-      setCoverFetchMsg('✓ Viršelis pridėtas (tiesioginis URL)')
+      setCoverFetchMsg('✓ Viršelis pridėtas!')
     } catch (e: any) { setCoverFetchMsg(`Klaida: ${e.message}`) }
     finally { setFetchingCover(false) }
   }
