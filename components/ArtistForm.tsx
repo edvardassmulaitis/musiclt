@@ -1071,7 +1071,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
 
           {/* Nuotraukų galerija — full width, below both columns */}
           <Card title="Nuotraukų galerija" className="mt-5">
-            <PhotoGallery photos={form.photos} onChange={setPhotos} />
+            <PhotoGallery photos={form.photos} onChange={setPhotos} artistName={form.name} />
           </Card>
 
           {/* Submit */}
