@@ -282,44 +282,25 @@ function AvatarUpload({ value, onChange }: { value: string; onChange: (url: stri
     await uploadBlob(blob)
   }
 
-  // Fetch external URL → data: URL (via our proxy) → open cropper
+  // Fetch external URL → data: URL via server-side proxy → open cropper
   const storeUrl = async (raw: string) => {
     const v = raw.trim()
     if (!v) { onChange(''); return }
     if (!v.startsWith('http') && !v.startsWith('/')) return
     setUploading(true); setError('')
-
-    const toDataUrl = (blob: Blob): Promise<string> =>
-      new Promise(res => { const r = new FileReader(); r.onload = e => res(e.target?.result as string); r.readAsDataURL(blob) })
-
     try {
-      if (v.includes('supabase')) {
-        // Supabase URL — fetch directly as blob (same-origin, no CORS issue)
-        const blob = await fetch(v).then(r => r.blob())
-        setCropSrc(await toDataUrl(blob))
-        return
-      }
-      // External URL — go through our proxy which downloads server-side
-      const res = await fetch('/api/fetch-image', {
+      // /api/fetch-image-data fetches server-side and returns base64 dataUrl
+      const res = await fetch('/api/fetch-image-data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: v }),
       })
-      if (!res.ok) throw new Error('Proxy klaida')
       const d = await res.json()
-      if (!d.url) throw new Error('Negautas URL')
-
-      if (d.url.startsWith('data:')) {
-        // Proxy returned data URL directly
-        setCropSrc(d.url)
-      } else {
-        // Proxy returned Supabase URL — fetch as blob
-        const blob = await fetch(d.url).then(r => r.blob())
-        setCropSrc(await toDataUrl(blob))
-      }
+      if (!res.ok || !d.dataUrl) throw new Error(d.error || 'Nepavyko gauti nuotraukos')
+      setUploading(false)
+      setCropSrc(d.dataUrl)
     } catch (e: any) {
       setError('Nepavyko gauti nuotraukos. Bandykite įkelti failą.')
-    } finally {
       setUploading(false)
     }
   }
