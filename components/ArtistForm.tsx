@@ -33,7 +33,7 @@ export type ArtistFormData = {
   country: string; genre: string; substyles: string[]; description: string
   yearStart: string; yearEnd: string; breaks: Break[]
   members: Member[]; groups: GroupRef[]
-  avatar: string; photos: Photo[]
+  avatar: string; avatarWide: string; photos: Photo[]
   website: string; subdomain: string
   birthYear: string; birthMonth: string; birthDay: string
   deathYear: string; deathMonth: string; deathDay: string
@@ -45,7 +45,7 @@ export type ArtistFormData = {
 export const emptyArtistForm: ArtistFormData = {
   name:'', type:'group', country:'Lietuva', genre:'', substyles:[],
   description:'', yearStart:'', yearEnd:'', breaks:[], members:[], groups:[],
-  avatar:'', photos:[], website:'', subdomain:'',
+  avatar:'', avatarWide:'', photos:[], website:'', subdomain:'',
   birthYear:'', birthMonth:'', birthDay:'',
   deathYear:'', deathMonth:'', deathDay:'', gender:'',
   facebook:'', instagram:'', youtube:'', tiktok:'',
@@ -103,15 +103,26 @@ function DateRow({ label, y, m, d, onY, onM, onD }: any) {
   )
 }
 
-// ── ImageCropper — canvas-based pan/zoom crop modal ──────────────────────────
-function ImageCropper({ src, onCrop, onCancel }: { src: string; onCrop: (blob: Blob) => void; onCancel: () => void }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+// ── ImageCropper — canvas pan/zoom, returns square crop + original ────────────
+type CropResult = { square: Blob; original: Blob }
+
+function ImageCropper({ src, onCrop, onCancel }: {
+  src: string
+  onCrop: (result: CropResult) => void
+  onCancel: () => void
+}) {
+  const squareRef = useRef<HTMLCanvasElement>(null)
   const [img, setImg] = useState<HTMLImageElement | null>(null)
   const [scale, setScale] = useState(1)
   const [offset, setOffset] = useState({ x: 0, y: 0 })
   const [dragging, setDragging] = useState(false)
   const dragStart = useRef({ mx: 0, my: 0, ox: 0, oy: 0 })
-  const SIZE = 320 // canvas preview size
+  const scaleRef = useRef(scale)
+  const offsetRef = useRef(offset)
+  const SIZE = 320
+
+  useEffect(() => { scaleRef.current = scale }, [scale])
+  useEffect(() => { offsetRef.current = offset }, [offset])
 
   useEffect(() => {
     const image = new window.Image()
@@ -120,17 +131,17 @@ function ImageCropper({ src, onCrop, onCancel }: { src: string; onCrop: (blob: B
     }
     image.onload = () => {
       setImg(image)
-      // fit image initially
       const fit = Math.max(SIZE / image.naturalWidth, SIZE / image.naturalHeight)
       setScale(fit)
+      scaleRef.current = fit
       setOffset({ x: 0, y: 0 })
     }
     image.src = src
   }, [src])
 
   useEffect(() => {
-    if (!img || !canvasRef.current) return
-    const ctx = canvasRef.current.getContext('2d')!
+    if (!img || !squareRef.current) return
+    const ctx = squareRef.current.getContext('2d')!
     ctx.clearRect(0, 0, SIZE, SIZE)
     ctx.save()
     ctx.translate(SIZE / 2 + offset.x, SIZE / 2 + offset.y)
@@ -143,50 +154,105 @@ function ImageCropper({ src, onCrop, onCancel }: { src: string; onCrop: (blob: B
     if (!img) return { x: ox, y: oy }
     const hw = (img.naturalWidth * s) / 2
     const hh = (img.naturalHeight * s) / 2
-    const halfSize = SIZE / 2
+    const half = SIZE / 2
     return {
-      x: Math.max(Math.min(ox, hw - halfSize), -(hw - halfSize)),
-      y: Math.max(Math.min(oy, hh - halfSize), -(hh - halfSize)),
+      x: Math.max(Math.min(ox, hw - half), -(hw - half)),
+      y: Math.max(Math.min(oy, hh - half), -(hh - half)),
     }
   }
 
+  const applyScale = (next: number) => {
+    if (!img) return
+    const minScale = Math.max(SIZE / img.naturalWidth, SIZE / img.naturalHeight)
+    const clamped = Math.max(minScale, Math.min(next, minScale * 8))
+    setScale(clamped)
+    setOffset(prev => clampOffset(prev.x, prev.y, clamped))
+  }
+
+  // ── Mouse events ──────────────────────────────────────────────────────────
   const onMouseDown = (e: React.MouseEvent) => {
     setDragging(true)
     dragStart.current = { mx: e.clientX, my: e.clientY, ox: offset.x, oy: offset.y }
   }
   const onMouseMove = (e: React.MouseEvent) => {
     if (!dragging) return
-    const dx = e.clientX - dragStart.current.mx
-    const dy = e.clientY - dragStart.current.my
-    setOffset(clampOffset(dragStart.current.ox + dx, dragStart.current.oy + dy, scale))
+    setOffset(clampOffset(
+      dragStart.current.ox + e.clientX - dragStart.current.mx,
+      dragStart.current.oy + e.clientY - dragStart.current.my,
+      scaleRef.current
+    ))
   }
   const onMouseUp = () => setDragging(false)
 
+  // ── Scroll wheel zoom ─────────────────────────────────────────────────────
+  const onWheel = (e: React.WheelEvent) => {
+    e.preventDefault()
+    // deltaY negative = scroll up = zoom in
+    const delta = -e.deltaY * 0.001 * scaleRef.current
+    applyScale(scaleRef.current + delta)
+  }
+
+  // ── Touch events (single finger pan, pinch zoom) ──────────────────────────
+  const lastPinchDist = useRef<number | null>(null)
   const onTouchStart = (e: React.TouchEvent) => {
-    const t = e.touches[0]
-    setDragging(true)
-    dragStart.current = { mx: t.clientX, my: t.clientY, ox: offset.x, oy: offset.y }
+    if (e.touches.length === 1) {
+      const t = e.touches[0]
+      setDragging(true)
+      dragStart.current = { mx: t.clientX, my: t.clientY, ox: offsetRef.current.x, oy: offsetRef.current.y }
+    } else if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX
+      const dy = e.touches[0].clientY - e.touches[1].clientY
+      lastPinchDist.current = Math.hypot(dx, dy)
+    }
   }
   const onTouchMove = (e: React.TouchEvent) => {
-    if (!dragging) return
-    const t = e.touches[0]
-    const dx = t.clientX - dragStart.current.mx
-    const dy = t.clientY - dragStart.current.my
-    setOffset(clampOffset(dragStart.current.ox + dx, dragStart.current.oy + dy, scale))
+    e.preventDefault()
+    if (e.touches.length === 1 && dragging) {
+      const t = e.touches[0]
+      setOffset(clampOffset(
+        dragStart.current.ox + t.clientX - dragStart.current.mx,
+        dragStart.current.oy + t.clientY - dragStart.current.my,
+        scaleRef.current
+      ))
+    } else if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX
+      const dy = e.touches[0].clientY - e.touches[1].clientY
+      const dist = Math.hypot(dx, dy)
+      if (lastPinchDist.current !== null) {
+        const ratio = dist / lastPinchDist.current
+        applyScale(scaleRef.current * ratio)
+      }
+      lastPinchDist.current = dist
+    }
   }
+  const onTouchEnd = () => { setDragging(false); lastPinchDist.current = null }
 
-  const changeScale = (delta: number) => {
-    if (!img) return
-    const minScale = Math.max(SIZE / img.naturalWidth, SIZE / img.naturalHeight)
-    const next = Math.max(minScale, Math.min(scale + delta, minScale * 5))
-    setScale(next)
-    setOffset(prev => clampOffset(prev.x, prev.y, next))
-  }
-
+  // ── Export: square crop + full original ──────────────────────────────────
   const handleCrop = () => {
-    if (!canvasRef.current) return
-    canvasRef.current.toBlob(blob => { if (blob) onCrop(blob) }, 'image/jpeg', 0.92)
+    if (!squareRef.current || !img) return
+
+    // 1. Square crop — exactly what's visible in canvas
+    squareRef.current.toBlob(squareBlob => {
+      if (!squareBlob) return
+
+      // 2. Original — resize to max 1200px wide, keep aspect ratio
+      const MAX = 1200
+      const ratio = Math.min(1, MAX / img.naturalWidth, MAX / img.naturalHeight)
+      const w = Math.round(img.naturalWidth * ratio)
+      const h = Math.round(img.naturalHeight * ratio)
+      const origCanvas = document.createElement('canvas')
+      origCanvas.width = w; origCanvas.height = h
+      const ctx = origCanvas.getContext('2d')!
+      ctx.drawImage(img, 0, 0, w, h)
+      origCanvas.toBlob(origBlob => {
+        if (!origBlob) return
+        onCrop({ square: squareBlob, original: origBlob })
+      }, 'image/jpeg', 0.92)
+    }, 'image/jpeg', 0.92)
   }
+
+  const minScale = img ? Math.max(SIZE / img.naturalWidth, SIZE / img.naturalHeight) : 1
+  const sliderVal = img ? Math.round(((scale - minScale) / (minScale * 7)) * 100) : 0
 
   return (
     <div className="fixed inset-0 flex items-center justify-center p-4 bg-black/70" style={{ zIndex: 10000 }}>
@@ -196,35 +262,32 @@ function ImageCropper({ src, onCrop, onCancel }: { src: string; onCrop: (blob: B
           <button type="button" onClick={onCancel} className="text-gray-400 hover:text-gray-600 text-xl leading-none px-1">✕</button>
         </div>
         <div className="p-4 flex flex-col items-center gap-3">
-          {/* Canvas preview */}
-          <div className="relative rounded-xl overflow-hidden border-2 border-gray-200 cursor-grab active:cursor-grabbing"
+          {/* Canvas */}
+          <div className="relative rounded-xl overflow-hidden border-2 border-gray-200 cursor-grab active:cursor-grabbing select-none"
             style={{ width: SIZE, height: SIZE, maxWidth: '100%' }}>
-            <canvas ref={canvasRef} width={SIZE} height={SIZE}
+            <canvas ref={squareRef} width={SIZE} height={SIZE}
               style={{ display: 'block', width: '100%', height: '100%', touchAction: 'none' }}
               onMouseDown={onMouseDown} onMouseMove={onMouseMove}
               onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
-              onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onMouseUp}
+              onWheel={onWheel}
+              onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
             />
-            {/* crosshair overlay */}
-            <div className="absolute inset-0 pointer-events-none border-2 border-white/30 rounded-xl" />
+            <div className="absolute inset-0 pointer-events-none border-2 border-white/20 rounded-xl" />
           </div>
-          {/* Zoom slider */}
+          {/* Zoom controls */}
           <div className="flex items-center gap-2 w-full px-1">
-            <button type="button" onClick={() => changeScale(-0.1)}
-              className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-sm font-bold text-gray-600 shrink-0">−</button>
-            <input type="range" min={0} max={100} value={Math.round(((scale - (img ? Math.max(SIZE/img.naturalWidth, SIZE/img.naturalHeight) : 1)) / ((img ? Math.max(SIZE/img.naturalWidth, SIZE/img.naturalHeight) : 1) * 4)) * 100)}
+            <button type="button" onClick={() => applyScale(scale / 1.15)}
+              className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-base font-bold text-gray-600 shrink-0 leading-none">−</button>
+            <input type="range" min={0} max={100} value={sliderVal}
               onChange={e => {
                 if (!img) return
-                const minScale = Math.max(SIZE / img.naturalWidth, SIZE / img.naturalHeight)
-                const next = minScale + (parseInt(e.target.value) / 100) * minScale * 4
-                setScale(next)
-                setOffset(prev => clampOffset(prev.x, prev.y, next))
+                applyScale(minScale + (parseInt(e.target.value) / 100) * minScale * 7)
               }}
-              className="flex-1 accent-music-blue" />
-            <button type="button" onClick={() => changeScale(0.1)}
-              className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-sm font-bold text-gray-600 shrink-0">+</button>
+              className="flex-1 accent-music-blue cursor-pointer" />
+            <button type="button" onClick={() => applyScale(scale * 1.15)}
+              className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-base font-bold text-gray-600 shrink-0 leading-none">+</button>
           </div>
-          <p className="text-xs text-gray-400 -mt-1">Tempk norėdamas pastumti · Slinkite norėdami priartinti</p>
+          <p className="text-xs text-gray-400 -mt-1">Tempk · Scroll arba žnyplės — zoom · Išsaugo kvadratą + originalą</p>
         </div>
         <div className="flex gap-2 px-4 pb-4">
           <button type="button" onClick={onCancel}
@@ -242,12 +305,16 @@ function ImageCropper({ src, onCrop, onCancel }: { src: string; onCrop: (blob: B
 }
 
 // ── AvatarUpload — handles file upload, URL input, crop, Wikipedia image ──────
-function AvatarUpload({ value, onChange }: { value: string; onChange: (url: string) => void }) {
+function AvatarUpload({ value, onChange, wideValue, onChangeWide }: { value: string; onChange: (url: string) => void; wideValue?: string; onChangeWide?: (url: string) => void }) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
   const [urlInput, setUrlInput] = useState('')
   const [cropSrc, setCropSrc] = useState<string | null>(null) // image to crop
+  const [wideUrl, setWideUrl] = useState(wideValue || '')
+
+  // Propagate wideUrl changes up
+  useEffect(() => { if (wideUrl && onChangeWide) onChangeWide(wideUrl) }, [wideUrl]) // eslint-disable-line
 
   // Update URL input only when value changes externally (wiki import etc)
   useEffect(() => {
@@ -276,10 +343,28 @@ function AvatarUpload({ value, onChange }: { value: string; onChange: (url: stri
     reader.readAsDataURL(file)
   }
 
-  // After crop — upload to Supabase
-  const handleCropped = async (blob: Blob) => {
+  // After crop — upload square to Supabase (cover_image_url) + original (cover_image_wide_url)
+  const handleCropped = async ({ square, original }: CropResult) => {
     setCropSrc(null)
-    await uploadBlob(blob)
+    setUploading(true); setError('')
+    try {
+      // Upload square crop → main avatar
+      const fd1 = new FormData(); fd1.append('file', square, 'avatar-square.jpg')
+      const r1 = await fetch('/api/upload', { method: 'POST', body: fd1 })
+      const d1 = await r1.json()
+      if (!r1.ok) throw new Error(d1.error || 'Upload nepavyko')
+
+      // Upload original → wide version
+      const fd2 = new FormData(); fd2.append('file', original, 'avatar-original.jpg')
+      const r2 = await fetch('/api/upload', { method: 'POST', body: fd2 })
+      const d2 = await r2.json()
+
+      // Set square as primary avatar, store wide URL in state
+      onChange(d1.url)
+      setUrlInput(d1.url)
+      if (d2.ok !== false && d2.url) setWideUrl(d2.url)
+    } catch (e: any) { setError(e.message) }
+    finally { setUploading(false) }
   }
 
   // Fetch external URL → data: URL via server-side proxy → open cropper
@@ -388,6 +473,16 @@ function AvatarUpload({ value, onChange }: { value: string; onChange: (url: stri
               className="px-2 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-colors shrink-0">→</button>
           </div>
         </div>
+
+        {/* Wide/original preview if available */}
+        {wideUrl && (
+          <div className="space-y-1 pt-1 border-t border-gray-100">
+            <p className="text-xs text-gray-400 font-medium">Originali (plati) nuotrauka:</p>
+            <img src={wideUrl} alt="wide" referrerPolicy="no-referrer"
+              className="rounded-lg border border-gray-200 object-cover"
+              style={{ maxWidth: 200, maxHeight: 100, width: '100%' }} />
+          </div>
+        )}
 
         {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
         <input ref={fileRef} type="file" accept="image/*" className="hidden"
@@ -594,10 +689,13 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
   const setAvatar = (url: string) => {
     const next = { ...form, avatar: url }
     setForm(next)
-    // Trigger auto-save immediately when avatar URL is set (upload done)
-    if (onChange && url !== form.avatar) {
-      onChange(next)
-    }
+    if (onChange && url !== form.avatar) onChange(next)
+  }
+
+  const setAvatarWide = (url: string) => {
+    const next = { ...form, avatarWide: url }
+    setForm(next)
+    if (onChange) onChange(next)
   }
 
   // Auto-save photos when gallery changes
@@ -790,7 +888,12 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
 
               {/* FIX #3: Profilio nuotrauka — new AvatarUpload */}
               <Card title="Profilio nuotrauka">
-                <AvatarUpload value={form.avatar} onChange={setAvatar} />
+                <AvatarUpload
+                  value={form.avatar}
+                  onChange={setAvatar}
+                  wideValue={form.avatarWide}
+                  onChangeWide={setAvatarWide}
+                />
               </Card>
 
               {/* Nuotraukų galerija — auto-saves when photos change */}
