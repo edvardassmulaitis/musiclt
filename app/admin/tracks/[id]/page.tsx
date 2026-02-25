@@ -229,21 +229,19 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
   const [parseResult, setParseResult] = useState<string | null>(null)
 
   // Extracts featuring artist names from title string
-  // Handles: (feat. X), (featuring X), (ft. X), (su X), (with X), (ir X)
   const extractFeatFromTitle = (t: string): { cleanTitle: string; names: string[] } => {
     const patterns = [
       /\s*\(feat(?:uring)?\.?\s+([^)]+)\)/gi,
       /\s*\(ft\.?\s+([^)]+)\)/gi,
-      /\s*\(su\s+([^)]+)\)/gi,
-      /\s*\(with\s+([^)]+)\)/gi,
-      /\s*\(ir\s+([^)]+)\)/gi,
+      /\s*\(su\s+([^)]{2,})\)/gi,
+      /\s*\(with\s+([^)]{2,})\)/gi,
+      /\s*\(ir\s+([^)]{2,})\)/gi,
     ]
     let cleanTitle = t
     const allNames: string[] = []
     for (const pattern of patterns) {
       cleanTitle = cleanTitle.replace(pattern, (_, names) => {
-        // Split by " and ", " ir ", " & ", ","
-        const split = names.split(/\s+(?:and|ir|&)\s+|,\s*/).map((n: string) => n.trim()).filter(Boolean)
+        const split = names.split(/\s+(?:and|ir|&)\s+|,\s*/).map((n: string) => n.trim()).filter((n: string) => n.length > 1)
         allNames.push(...split)
         return ''
       })
@@ -257,16 +255,18 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
     setParsingFeat(true); setParseResult(null)
     try {
       const added: string[] = []
+      const newFeaturing = [...featuring]
+
       for (const name of names) {
         // Skip if already in featuring
-        if (featuring.find(f => f.name.toLowerCase() === name.toLowerCase())) continue
+        if (newFeaturing.find(f => f.name.toLowerCase() === name.toLowerCase())) continue
         // Search DB
-        const res = await fetch(`/api/artists?search=${encodeURIComponent(name)}&limit=3`)
+        const res = await fetch(`/api/artists?search=${encodeURIComponent(name)}&limit=5`)
         const data = await res.json()
         const exact = (data.artists || []).find((a: any) => a.name.toLowerCase() === name.toLowerCase())
         if (exact) {
           if (exact.id !== artistId) {
-            setFeaturing(p => [...p, { artist_id: exact.id, name: exact.name }])
+            newFeaturing.push({ artist_id: exact.id, name: exact.name })
             added.push(exact.name)
           }
         } else {
@@ -278,13 +278,16 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
           })
           if (createRes.ok) {
             const newArtist = await createRes.json()
-            setFeaturing(p => [...p, { artist_id: newArtist.id, name: newArtist.name }])
+            newFeaturing.push({ artist_id: newArtist.id, name: newArtist.name })
             added.push(`${newArtist.name} (naujas)`)
           }
         }
       }
+
+      // Set all at once to avoid race condition
+      setFeaturing(newFeaturing)
       setTitle(cleanTitle)
-      setParseResult(`✓ Pridėta: ${added.join(', ')} · Pavadinimas išvalytas`)
+      setParseResult(added.length > 0 ? `✓ Pridėta: ${added.join(', ')} · Pavadinimas išvalytas` : '✓ Pavadinimas išvalytas')
     } catch (e: any) { setParseResult(`Klaida: ${e.message}`) }
     finally { setParsingFeat(false) }
   }
