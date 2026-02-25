@@ -225,6 +225,69 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(!isNewTrack)
+  const [parsingFeat, setParsingFeat] = useState(false)
+  const [parseResult, setParseResult] = useState<string | null>(null)
+
+  // Extracts featuring artist names from title string
+  // Handles: (feat. X), (featuring X), (ft. X), (su X), (with X), (ir X)
+  const extractFeatFromTitle = (t: string): { cleanTitle: string; names: string[] } => {
+    const patterns = [
+      /\s*\(feat(?:uring)?\.?\s+([^)]+)\)/gi,
+      /\s*\(ft\.?\s+([^)]+)\)/gi,
+      /\s*\(su\s+([^)]+)\)/gi,
+      /\s*\(with\s+([^)]+)\)/gi,
+      /\s*\(ir\s+([^)]+)\)/gi,
+    ]
+    let cleanTitle = t
+    const allNames: string[] = []
+    for (const pattern of patterns) {
+      cleanTitle = cleanTitle.replace(pattern, (_, names) => {
+        // Split by " and ", " ir ", " & ", ","
+        const split = names.split(/\s+(?:and|ir|&)\s+|,\s*/).map((n: string) => n.trim()).filter(Boolean)
+        allNames.push(...split)
+        return ''
+      })
+    }
+    return { cleanTitle: cleanTitle.trim(), names: allNames }
+  }
+
+  const handleParseFeaturing = async () => {
+    const { cleanTitle, names } = extractFeatFromTitle(title)
+    if (names.length === 0) { setParseResult('Nerasta featuring informacijos pavadinime'); return }
+    setParsingFeat(true); setParseResult(null)
+    try {
+      const added: string[] = []
+      for (const name of names) {
+        // Skip if already in featuring
+        if (featuring.find(f => f.name.toLowerCase() === name.toLowerCase())) continue
+        // Search DB
+        const res = await fetch(`/api/artists?search=${encodeURIComponent(name)}&limit=3`)
+        const data = await res.json()
+        const exact = (data.artists || []).find((a: any) => a.name.toLowerCase() === name.toLowerCase())
+        if (exact) {
+          if (exact.id !== artistId) {
+            setFeaturing(p => [...p, { artist_id: exact.id, name: exact.name }])
+            added.push(exact.name)
+          }
+        } else {
+          // Create new artist
+          const createRes = await fetch('/api/artists', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name }),
+          })
+          if (createRes.ok) {
+            const newArtist = await createRes.json()
+            setFeaturing(p => [...p, { artist_id: newArtist.id, name: newArtist.name }])
+            added.push(`${newArtist.name} (naujas)`)
+          }
+        }
+      }
+      setTitle(cleanTitle)
+      setParseResult(`✓ Pridėta: ${added.join(', ')} · Pavadinimas išvalytas`)
+    } catch (e: any) { setParseResult(`Klaida: ${e.message}`) }
+    finally { setParsingFeat(false) }
+  }
 
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
 
@@ -334,8 +397,28 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
         <div className="grid grid-cols-[1fr_auto] gap-3 items-start">
           <div>
             <label className="block text-xs font-semibold text-gray-500 mb-1">Pavadinimas *</label>
-            <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Dainos pavadinimas"
+            <input value={title} onChange={e => { setTitle(e.target.value); setParseResult(null) }} placeholder="Dainos pavadinimas"
               className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-sm font-medium focus:outline-none focus:border-blue-400 bg-white transition-colors" />
+            {/* Show parse button only if title contains feat-like patterns */}
+            {/\((feat|featuring|ft\.|su |with |ir )/i.test(title) && (
+              <div className="mt-1">
+                <button type="button" onClick={handleParseFeaturing} disabled={parsingFeat}
+                  className="text-xs text-blue-500 hover:underline disabled:opacity-50 flex items-center gap-1">
+                  {parsingFeat
+                    ? <><span className="inline-block w-3 h-3 border border-blue-400 border-t-transparent rounded-full animate-spin" /> Ieškoma...</>
+                    : '← Ieškoti papildomų atlikėjų'}
+                </button>
+                {parseResult && (
+                  <p className={`text-xs mt-0.5 ${parseResult.startsWith('✓') ? 'text-green-600' : 'text-red-500'}`}>
+                    {parseResult}
+                  </p>
+                )}
+              </div>
+            )}
+            {/* Show result even after title cleaned */}
+            {parseResult && !/\((feat|featuring|ft\.|su |with |ir )/i.test(title) && (
+              <p className="text-xs mt-0.5 text-green-600">{parseResult}</p>
+            )}
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-500 mb-1">Data</label>
