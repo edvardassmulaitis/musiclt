@@ -16,7 +16,7 @@ const TRACK_TYPE_LABELS: Record<string, { label: string; icon: string }> = {
 }
 
 type FeaturingArtist = { artist_id: number; name: string }
-type AlbumRef = { album_id: number; album_title: string; album_year: number | null; position: number }
+type AlbumRef = { album_id: number; album_title: string; album_year: number | null; position: number; cover_url?: string | null }
 type YTResult = { videoId: string; title: string; channel: string; thumbnail: string }
 type LyricsTab = 'lyrics' | 'chords'
 
@@ -598,12 +598,15 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
           </div>
           {albums.map(a => (
             <div key={a.album_id} className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-50 last:border-0 group hover:bg-gray-50 transition-colors">
-              <span className="text-gray-300 text-xs w-4 text-right shrink-0">{a.position}.</span>
+              {a.cover_url
+                ? <img src={a.cover_url} alt="" className="w-8 h-8 rounded object-cover shrink-0" referrerPolicy="no-referrer" />
+                : <div className="w-8 h-8 rounded bg-gray-100 shrink-0 flex items-center justify-center text-gray-300 text-xs">♪</div>
+              }
               <div className="flex-1 min-w-0">
                 <Link href={`/admin/albums/${a.album_id}`} className="text-sm text-gray-900 hover:text-blue-600 truncate block transition-colors">
                   {a.album_title}
                 </Link>
-                {a.album_year && <span className="text-xs text-gray-400">{a.album_year}</span>}
+                {a.album_year && <span className="text-xs text-gray-400">{a.album_year} · nr. {a.position}</span>}
               </div>
               <button onClick={() => removeFromAlbum(a.album_id)} disabled={removingFromAlbum === a.album_id}
                 className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 text-xs px-1 rounded transition-all disabled:opacity-50">
