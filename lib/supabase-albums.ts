@@ -56,6 +56,7 @@ export type TrackInAlbum = {
   video_url?: string
   spotify_id?: string
   is_single?: boolean
+  lyrics?: string
   featuring?: string[]
 }
 
@@ -104,24 +105,31 @@ export async function getAlbumById(id: number): Promise<AlbumFull & { tracks: Tr
 
   const { data: trackRows } = await supabase
     .from('album_tracks')
-    .select('*, tracks(id, title, slug, type, video_url, spotify_id)')
+    .select('*, tracks(id, title, slug, type, video_url, spotify_id, lyrics, track_artists(is_primary, artists(id, name)))')
     .eq('album_id', id)
     .order('position')
 
   return {
     ...album,
-    tracks: (trackRows || []).map((r: any) => ({
-      track_id: r.track_id,
-      title: r.tracks?.title || '',
-      slug: r.tracks?.slug || '',
-      sort_order: r.position || 1,
-      disc_number: 1,
-      duration: '',
-      type: r.tracks?.type || 'normal',
-      video_url: r.tracks?.video_url || '',
-      spotify_id: r.tracks?.spotify_id || '',
-      is_single: r.is_primary || false,
-    }))
+    tracks: (trackRows || []).map((r: any) => {
+      const featuring: string[] = (r.tracks?.track_artists || [])
+        .filter((ta: any) => !ta.is_primary)
+        .map((ta: any) => ta.artists?.name)
+        .filter(Boolean)
+      return {
+        track_id: r.track_id,
+        title: r.tracks?.title || '',
+        slug: r.tracks?.slug || '',
+        sort_order: r.position || 1,
+        disc_number: 1,
+        type: r.tracks?.type || 'normal',
+        video_url: r.tracks?.video_url || '',
+        spotify_id: r.tracks?.spotify_id || '',
+        is_single: r.is_primary || false,
+        lyrics: r.tracks?.lyrics || '',
+        featuring,
+      }
+    })
   }
 }
 
