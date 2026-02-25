@@ -5,6 +5,8 @@ import { useRouter, useParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import WikipediaImportDiscography from '@/components/WikipediaImportDiscography'
+import WikipediaImport from '@/components/WikipediaImport'
+import InstagramConnect from '@/components/InstagramConnect'
 import ArtistForm, { ArtistFormData, emptyArtistForm } from '@/components/ArtistForm'
 
 const GENRE_BY_ID: Record<number, string> = {
@@ -96,21 +98,34 @@ function formToDb(form: ArtistFormData) {
   }
 }
 
-// ── Track row (compact, read-only with edit link) ────────────────────────────
-function TrackRow({ track, albumId }: { track: any; albumId: number }) {
+// FIX #5: upload external/Wikipedia image to Supabase on save
+async function fetchAndStoreWikiAvatar(rawUrl: string): Promise<string> {
+  try {
+    const res = await fetch('/api/fetch-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: rawUrl }),
+    })
+    if (res.ok) {
+      const d = await res.json()
+      if (d.url && !d.url.startsWith('data:')) return d.url
+    }
+  } catch {}
+  return rawUrl
+}
+
+// ── Track row ────────────────────────────────────────────────────────────────
+function TrackRow({ track }: { track: any }) {
   const trackId = track.track_id || track.id
   const hasVideo = !!track.video_url
   const hasLyrics = typeof track.lyrics === 'string' && track.lyrics.trim().length > 0
   const featuring: string[] = (track.featuring || []).map((f: any) => typeof f === 'string' ? f : f.name || '')
-
   return (
     <div className="flex items-center gap-1.5 px-3 py-1 border-b border-gray-50 last:border-0 hover:bg-gray-50/80 group transition-colors">
       <span className="text-gray-300 text-xs w-5 text-right shrink-0 tabular-nums">{track.sort_order || track.position}.</span>
       <div className="flex-1 min-w-0 flex items-baseline gap-1 flex-wrap">
         <span className="text-sm text-gray-800 truncate">{track.title}</span>
-        {featuring.length > 0 && (
-          <span className="text-xs text-gray-400 whitespace-nowrap">su {featuring.join(', ')}</span>
-        )}
+        {featuring.length > 0 && <span className="text-xs text-gray-400 whitespace-nowrap">su {featuring.join(', ')}</span>}
       </div>
       {hasVideo && <span className="text-blue-400 text-xs shrink-0">▶</span>}
       {hasLyrics && <span className="text-green-500 text-xs font-bold shrink-0">T</span>}
@@ -124,24 +139,32 @@ function TrackRow({ track, albumId }: { track: any; albumId: number }) {
   )
 }
 
-// ── Album accordion card ─────────────────────────────────────────────────────
+// ── Album accordion ──────────────────────────────────────────────────────────
 function AlbumCard({ album, defaultOpen }: { album: any; defaultOpen: boolean }) {
   const [open, setOpen] = useState(defaultOpen)
-  const [tracks, setTracks] = useState<any[]>(album.tracks || [])
+  const [tracks, setTracks] = useState<any[]>([])
   const [loadingTracks, setLoadingTracks] = useState(false)
-  const [tracksLoaded, setTracksLoaded] = useState(!!(album.tracks?.length))
+  const [tracksLoaded, setTracksLoaded] = useState(false)
+
+  // FIX #3: fetch tracks immediately if this is default-open
+  useEffect(() => {
+    if (defaultOpen) loadTracks()
+  }, []) // eslint-disable-line
+
+  const loadTracks = async () => {
+    if (tracksLoaded) return
+    setLoadingTracks(true)
+    try {
+      const res = await fetch(`/api/albums/${album.id}`)
+      const data = await res.json()
+      setTracks(data.tracks || [])
+      setTracksLoaded(true)
+    } catch {}
+    finally { setLoadingTracks(false) }
+  }
 
   const toggleOpen = async () => {
-    if (!open && !tracksLoaded) {
-      setLoadingTracks(true)
-      try {
-        const res = await fetch(`/api/albums/${album.id}`)
-        const data = await res.json()
-        setTracks(data.tracks || [])
-        setTracksLoaded(true)
-      } catch {}
-      finally { setLoadingTracks(false) }
-    }
+    if (!open && !tracksLoaded) await loadTracks()
     setOpen(p => !p)
   }
 
@@ -154,17 +177,11 @@ function AlbumCard({ album, defaultOpen }: { album: any; defaultOpen: boolean })
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-      {/* Album header — click to expand */}
-      <div
-        className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-gray-50 transition-colors select-none"
-        onClick={toggleOpen}
-      >
-        {/* Cover */}
+      <div className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-gray-50 transition-colors select-none" onClick={toggleOpen}>
         {album.cover_image_url
           ? <img src={album.cover_image_url} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" referrerPolicy="no-referrer" />
           : <div className="w-10 h-10 rounded-lg bg-gray-100 shrink-0 flex items-center justify-center text-gray-300 text-lg">💿</div>
         }
-        {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-1.5 flex-wrap">
             <span className="text-sm font-semibold text-gray-900 truncate">{album.title}</span>
@@ -172,21 +189,17 @@ function AlbumCard({ album, defaultOpen }: { album: any; defaultOpen: boolean })
             <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded shrink-0">{typeLabel}</span>
           </div>
           <div className="text-xs text-gray-400 mt-0.5">
-            {tracks.length > 0 ? `${tracks.length} dainų` : album.track_count ? `${album.track_count} dainų` : ''}
+            {tracksLoaded ? `${tracks.length} dainų` : album.track_count ? `${album.track_count} dainų` : ''}
           </div>
         </div>
-        {/* Actions */}
         <div className="flex items-center gap-1 shrink-0">
-          <a href={`/admin/albums/${album.id}`}
-            onClick={e => e.stopPropagation()}
+          <a href={`/admin/albums/${album.id}`} onClick={e => e.stopPropagation()}
             className="px-2 py-1 text-xs text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors font-medium">
             Redaguoti ↗
           </a>
           <span className={`text-gray-400 text-xs transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>▼</span>
         </div>
       </div>
-
-      {/* Track list */}
       {open && (
         <div className="border-t border-gray-100">
           {loadingTracks ? (
@@ -195,12 +208,9 @@ function AlbumCard({ album, defaultOpen }: { album: any; defaultOpen: boolean })
             </div>
           ) : tracks.length > 0 ? (
             <>
-              {tracks.map((t: any, i: number) => (
-                <TrackRow key={t.track_id || t.id || i} track={t} albumId={album.id} />
-              ))}
+              {tracks.map((t: any, i: number) => <TrackRow key={t.track_id || t.id || i} track={t} />)}
               <div className="px-3 py-1.5 border-t border-gray-50">
-                <a href={`/admin/albums/${album.id}`}
-                  className="text-xs text-gray-400 hover:text-blue-500 transition-colors">
+                <a href={`/admin/albums/${album.id}`} className="text-xs text-gray-400 hover:text-blue-500 transition-colors">
                   + Pridėti / redaguoti dainas
                 </a>
               </div>
@@ -208,9 +218,7 @@ function AlbumCard({ album, defaultOpen }: { album: any; defaultOpen: boolean })
           ) : (
             <div className="py-4 text-center">
               <p className="text-xs text-gray-400">Nėra dainų</p>
-              <a href={`/admin/albums/${album.id}`} className="text-xs text-blue-500 hover:underline mt-1 block">
-                + Pridėti dainas
-              </a>
+              <a href={`/admin/albums/${album.id}`} className="text-xs text-blue-500 hover:underline mt-1 block">+ Pridėti dainas</a>
             </div>
           )}
         </div>
@@ -220,24 +228,25 @@ function AlbumCard({ album, defaultOpen }: { album: any; defaultOpen: boolean })
 }
 
 // ── Discography panel ────────────────────────────────────────────────────────
-function DiscographyPanel({ artistId, artistName }: { artistId: string; artistName: string }) {
+function DiscographyPanel({ artistId, artistName, refreshKey }: {
+  artistId: string; artistName: string; refreshKey: number
+}) {
   const [albums, setAlbums] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    setLoading(true)
     fetch(`/api/albums?artist_id=${artistId}&limit=100`)
       .then(r => r.json())
       .then(data => {
-        // Sort: newest first
         const sorted = (data.albums || []).sort((a: any, b: any) => (b.year || 0) - (a.year || 0))
         setAlbums(sorted)
       })
       .finally(() => setLoading(false))
-  }, [artistId])
+  }, [artistId, refreshKey]) // FIX #4: re-fetch on refreshKey change
 
   return (
     <div className="h-full flex flex-col">
-      {/* Discography header */}
       <div className="shrink-0 flex items-center justify-between px-3 py-2 border-b border-gray-200 bg-white/80 backdrop-blur sticky top-0 z-10">
         <div className="flex items-center gap-1.5">
           <span className="text-sm font-bold text-gray-700">Diskografija</span>
@@ -250,17 +259,8 @@ function DiscographyPanel({ artistId, artistName }: { artistId: string; artistNa
             className="flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-colors">
             + Naujas albumas
           </Link>
-          {artistName && (
-            <WikipediaImportDiscography
-              artistId={parseInt(artistId)}
-              artistName={artistName}
-              artistWikiTitle={artistName.replace(/ /g, '_')}
-            />
-          )}
         </div>
       </div>
-
-      {/* Albums list */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {loading ? (
           <div className="flex justify-center py-8">
@@ -276,11 +276,33 @@ function DiscographyPanel({ artistId, artistName }: { artistId: string; artistNa
             </Link>
           </div>
         ) : (
-          albums.map((album, i) => (
-            <AlbumCard key={album.id} album={album} defaultOpen={i === 0} />
-          ))
+          // Key includes refreshKey so AlbumCards remount fresh after import
+          albums.map((album, i) => <AlbumCard key={`${album.id}-${refreshKey}`} album={album} defaultOpen={i === 0} />)
         )}
       </div>
+    </div>
+  )
+}
+
+// ── WikipediaImportCompact ───────────────────────────────────────────────────
+function WikipediaImportCompact({ onImport }: { onImport: (data: any) => void }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="relative">
+      <button type="button" onClick={() => setOpen(p => !p)}
+        className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+        title="Importuoti atlikėjo info iš Wikipedia">
+        📖 Wiki
+      </button>
+      {open && (
+        <div className="absolute top-8 left-0 z-50 w-[420px] bg-white rounded-xl shadow-2xl border border-gray-200 p-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold text-gray-600">Importuoti iš Wikipedia</span>
+            <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600 text-sm">✕</button>
+          </div>
+          <WikipediaImport onImport={(data: any) => { onImport(data); setOpen(false) }} />
+        </div>
+      )}
     </div>
   )
 }
@@ -292,10 +314,13 @@ export default function EditArtist() {
   const params = useParams()
   const [initialData, setInitialData] = useState<ArtistFormData | null>(null)
   const [artistName, setArtistName] = useState('')
+  const [albumCount, setAlbumCount] = useState<number | null>(null)
+  const [trackCount, setTrackCount] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
   const [tab, setTab] = useState<'form' | 'discography'>('form')
+  const [discographyKey, setDiscographyKey] = useState(0) // FIX #4
 
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
   const artistId = params.id as string
@@ -312,11 +337,23 @@ export default function EditArtist() {
         setInitialData(dbToForm(data))
         setArtistName(data.name || '')
       })
+
+    fetch(`/api/albums?artist_id=${artistId}&limit=1`)
+      .then(r => r.json()).then(d => setAlbumCount(d.total ?? 0)).catch(() => {})
+
+    fetch(`/api/tracks?artist_id=${artistId}&limit=1`)
+      .then(r => r.json()).then(d => setTrackCount(d.total ?? null)).catch(() => {})
   }, [status, isAdmin, artistId, router])
 
   const handleSubmit = useCallback(async (form: ArtistFormData) => {
     setSaving(true); setError('')
     try {
+      // FIX #5: store external avatar URL in Supabase before saving
+      let avatar = form.avatar
+      if (avatar && !avatar.includes('supabase') && avatar.startsWith('http')) {
+        avatar = await fetchAndStoreWikiAvatar(avatar)
+        form = { ...form, avatar }
+      }
       const res = await fetch(`/api/artists/${artistId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -341,14 +378,63 @@ export default function EditArtist() {
 
       {/* Sticky header */}
       <div className="shrink-0 bg-white/95 backdrop-blur border-b border-gray-200">
-        <div className="flex items-center justify-between gap-3 px-4 py-2">
-          <nav className="flex items-center gap-1 text-sm min-w-0">
-            <Link href="/admin" className="text-gray-400 hover:text-gray-700 shrink-0">Admin</Link>
-            <span className="text-gray-300">/</span>
-            <Link href="/admin/artists" className="text-gray-400 hover:text-gray-700 shrink-0">Atlikėjai</Link>
-            <span className="text-gray-300">/</span>
-            <span className="text-gray-800 font-semibold truncate max-w-[200px]">{artistName || '...'}</span>
-          </nav>
+        <div className="flex items-center justify-between gap-2 px-4 py-2">
+
+          {/* Left: breadcrumb + compact tool buttons */}
+          <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
+            {/* FIX #1: breadcrumb with Albumai + Dainos counts */}
+            <nav className="flex items-center gap-1 text-sm min-w-0 shrink overflow-hidden">
+              <Link href="/admin" className="text-gray-400 hover:text-gray-700 shrink-0">Admin</Link>
+              <span className="text-gray-300 shrink-0">/</span>
+              <Link href="/admin/artists" className="text-gray-400 hover:text-gray-700 shrink-0">Atlikėjai</Link>
+              <span className="text-gray-300 shrink-0">/</span>
+              <span className="text-gray-800 font-semibold truncate">{artistName || '...'}</span>
+              {albumCount !== null && (
+                <>
+                  <span className="text-gray-300 shrink-0">/</span>
+                  <Link href={`/admin/albums?artist_id=${artistId}`}
+                    className="text-gray-400 hover:text-blue-600 shrink-0 flex items-center gap-1 transition-colors">
+                    Albumai
+                    <span className="bg-gray-100 text-gray-500 text-xs font-bold px-1 py-0.5 rounded leading-none">{albumCount}</span>
+                  </Link>
+                </>
+              )}
+              {trackCount !== null && (
+                <>
+                  <span className="text-gray-300 shrink-0">/</span>
+                  <Link href={`/admin/tracks?artist_id=${artistId}`}
+                    className="text-gray-400 hover:text-blue-600 shrink-0 flex items-center gap-1 transition-colors">
+                    Dainos
+                    <span className="bg-gray-100 text-gray-500 text-xs font-bold px-1 py-0.5 rounded leading-none">{trackCount}</span>
+                  </Link>
+                </>
+              )}
+            </nav>
+
+            {/* FIX #2: compact tool buttons inline */}
+            <div className="hidden lg:flex items-center gap-1 shrink-0">
+              <WikipediaImportCompact onImport={(data: Partial<ArtistFormData>) => {
+                setInitialData(prev => prev ? { ...prev, ...data } : prev)
+              }} />
+              {/* FIX #4: discography import with onClose refresh */}
+              <WikipediaImportDiscography
+                artistId={parseInt(artistId)}
+                artistName={artistName}
+                artistWikiTitle={artistName.replace(/ /g, '_')}
+                onClose={() => {
+                  setDiscographyKey(k => k + 1)
+                  // also refresh counts
+                  fetch(`/api/albums?artist_id=${artistId}&limit=1`)
+                    .then(r => r.json()).then(d => setAlbumCount(d.total ?? 0)).catch(() => {})
+                  fetch(`/api/tracks?artist_id=${artistId}&limit=1`)
+                    .then(r => r.json()).then(d => setTrackCount(d.total ?? null)).catch(() => {})
+                }}
+              />
+              <InstagramConnect artistId={artistId} artistName={artistName} compact />
+            </div>
+          </div>
+
+          {/* Right: action buttons */}
           <div className="flex items-center gap-1.5 shrink-0">
             <Link href="/admin/artists"
               className="px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
@@ -378,7 +464,6 @@ export default function EditArtist() {
         </div>
       </div>
 
-      {/* Error */}
       {error && (
         <div className="shrink-0 px-3 pt-2">
           <div className="p-2.5 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm flex items-center gap-2">
@@ -391,44 +476,30 @@ export default function EditArtist() {
       {/* Mobile */}
       <div className="lg:hidden flex-1 overflow-y-auto">
         {tab === 'form' && (
-          <ArtistFormCompact
-            initialData={initialData}
-            artistId={artistId}
-            onSubmit={handleSubmit}
-            saving={saving}
-          />
+          <ArtistFormCompact initialData={initialData} artistId={artistId} onSubmit={handleSubmit} saving={saving} />
         )}
         {tab === 'discography' && (
-          <DiscographyPanel artistId={artistId} artistName={artistName} />
+          <DiscographyPanel artistId={artistId} artistName={artistName} refreshKey={discographyKey} />
         )}
       </div>
 
       {/* Desktop 60/40 */}
       <div className="hidden lg:flex flex-1 min-h-0">
-        {/* Left: artist form — scrollable */}
         <div className="border-r border-gray-200 overflow-y-auto" style={{ width: '60%' }}>
-          <ArtistFormCompact
-            initialData={initialData}
-            artistId={artistId}
-            onSubmit={handleSubmit}
-            saving={saving}
-          />
+          <ArtistFormCompact initialData={initialData} artistId={artistId} onSubmit={handleSubmit} saving={saving} />
         </div>
-        {/* Right: discography — fixed height, internal scroll */}
         <div className="overflow-hidden flex flex-col" style={{ width: '40%' }}>
-          <DiscographyPanel artistId={artistId} artistName={artistName} />
+          <DiscographyPanel artistId={artistId} artistName={artistName} refreshKey={discographyKey} />
         </div>
       </div>
     </div>
   )
 }
 
-// ── ArtistFormCompact — wraps ArtistForm, hides its own header/footer ────────
+// ── ArtistFormCompact — hides ArtistForm's own header, footer, wiki, instagram
 function ArtistFormCompact({ initialData, artistId, onSubmit, saving }: {
-  initialData: ArtistFormData
-  artistId: string
-  onSubmit: (d: ArtistFormData) => void
-  saving: boolean
+  initialData: ArtistFormData; artistId: string
+  onSubmit: (d: ArtistFormData) => void; saving: boolean
 }) {
   return (
     <div className="artist-form-compact">
@@ -439,7 +510,6 @@ function ArtistFormCompact({ initialData, artistId, onSubmit, saving }: {
         .artist-form-compact > div > div > form > .mt-6 { display: none !important; }
         .artist-form-compact > div { background: transparent !important; }
       `}</style>
-      {/* Hidden submit trigger for header button */}
       <ArtistForm
         title=""
         submitLabel={saving ? 'Saugoma...' : 'Išsaugoti pakeitimus'}
