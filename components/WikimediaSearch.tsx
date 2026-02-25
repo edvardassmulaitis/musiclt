@@ -119,11 +119,11 @@ async function searchImages(query: string, offset = 0): Promise<{ images: WikiIm
 // ── WikimediaSearch modal ─────────────────────────────────────────────────────
 export default function WikimediaSearch({
   artistName,
-  onSelect,
+  onAddMultiple,
   onClose,
 }: {
   artistName: string
-  onSelect: (photo: Photo) => void
+  onAddMultiple: (photos: Photo[]) => void
   onClose: () => void
 }) {
   const [query, setQuery] = useState(artistName)
@@ -169,15 +169,35 @@ export default function WikimediaSearch({
     })
   }
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     const toAdd = images.filter(img => selected.has(img.title))
-    toAdd.forEach(img => {
+    setLoading(true)
+    const uploaded: Photo[] = []
+    for (const img of toAdd) {
       const authorParts = [img.author, img.license].filter(Boolean)
-      onSelect({
-        url: img.fullUrl,
-        author: authorParts.join(' · ') || undefined,
-      })
-    })
+      try {
+        // Upload to Supabase via proxy so URL persists
+        const res = await fetch('/api/fetch-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: img.fullUrl }),
+        })
+        const d = await res.json()
+        uploaded.push({
+          url: d.url || img.fullUrl,
+          author: authorParts.join(' · ') || undefined,
+        })
+      } catch {
+        // Fallback: use original URL
+        uploaded.push({
+          url: img.fullUrl,
+          author: authorParts.join(' · ') || undefined,
+        })
+      }
+    }
+    setLoading(false)
+    // Pass all at once so parent gets correct array
+    onAddMultiple(uploaded)
     onClose()
   }
 
@@ -215,7 +235,7 @@ export default function WikimediaSearch({
           </div>
           {/* Quick suggestions */}
           <div className="flex gap-1.5 mt-2 flex-wrap">
-            {[artistName, `${artistName} band`, `${artistName} concert`, `${artistName} live`].map(s => (
+            {[artistName, `${artistName} music`, `${artistName} band`, `${artistName} concert`, `${artistName} live`].map(s => (
               <button key={s} type="button"
                 onClick={() => { setQuery(s); search(s) }}
                 className="text-xs px-2 py-0.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-full transition-colors">
