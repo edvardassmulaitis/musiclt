@@ -270,7 +270,9 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
         // Search DB — use normalized name for search
         const res = await fetch(`/api/artists?search=${encodeURIComponent(normName)}&limit=10`)
         const data = await res.json()
+        console.log(`[feat parse] searching "${normName}", got:`, (data.artists || []).map((a: any) => ({ id: a.id, name: a.name, norm: normalize(a.name) })))
         const match = (data.artists || []).find((a: any) => normalize(a.name) === normName)
+        console.log(`[feat parse] match for "${normName}":`, match)
 
         if (match) {
           if (match.id !== artistId) {
