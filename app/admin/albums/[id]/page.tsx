@@ -9,7 +9,6 @@ import type { AlbumFull, TrackInAlbum } from '@/lib/supabase-albums'
 const ALBUM_TYPE_FIELDS = [
   { key: 'type_studio', label: 'Studijinis', icon: '🎵' },
   { key: 'type_ep', label: 'EP', icon: '🎼' },
-  { key: 'type_single', label: 'Singlas', icon: '🎤' },
   { key: 'type_compilation', label: 'Kompiliacija', icon: '📀' },
   { key: 'type_live', label: 'Gyvas', icon: '🎸' },
   { key: 'type_remix', label: 'Remix', icon: '🔄' },
@@ -149,12 +148,9 @@ function CoverImageField({ value, onChange }: { value: string; onChange: (url: s
 
 // ── Drag-and-drop Tracklist ───────────────────────────────────────────────────
 function TrackList({
-  tracks, artistSlug, albumId,
-  onAdd, onUpdate, onRemove, onReorder,
+  tracks, onAdd, onUpdate, onRemove, onReorder,
 }: {
   tracks: TrackInAlbum[]
-  artistSlug?: string
-  albumId?: string
   onAdd: () => void
   onUpdate: (i: number, f: keyof TrackInAlbum, v: any) => void
   onRemove: (i: number) => void
@@ -174,11 +170,21 @@ function TrackList({
 
   return (
     <div>
+      {/* Legend */}
       {tracks.length > 0 && (
-        <div className="divide-y divide-gray-50">
+        <div className="flex items-center justify-between px-4 py-1.5 border-b border-gray-100 bg-gray-50/60">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-gray-700">Dainų sąrašas</span>
+            <span className="bg-gray-200 text-gray-600 text-xs font-bold px-1.5 py-0.5 rounded-full leading-none">{tracks.length}</span>
+          </div>
+          <span className="text-xs text-gray-400">▶ video · T žodžiai · S singlas</span>
+        </div>
+      )}
+
+      {tracks.length > 0 && (
+        <div>
           {tracks.map((t, i) => {
-            const trackSlug = t.slug || t.title?.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || ''
-            const trackUrl = artistSlug && trackSlug ? `/admin/tracks/${t.track_id || t.id || ''}` : null
+            const trackEditUrl = (t.track_id || t.id) ? `/admin/tracks/${t.track_id || t.id}` : null
             const hasVideo = !!(t.video_url)
             const hasLyrics = !!(t as any).has_lyrics
 
@@ -190,58 +196,51 @@ function TrackList({
                 onDragEnter={() => onDragEnter(i)}
                 onDragOver={e => e.preventDefault()}
                 onDragEnd={onDragEnd}
-                className={`flex items-center gap-2 px-3 py-2.5 group transition-colors cursor-grab active:cursor-grabbing ${
-                  dragOver === i ? 'bg-blue-50 border-t-2 border-blue-400' : 'hover:bg-gray-50/60'
+                className={`flex items-center gap-1.5 px-2 py-1 group transition-colors cursor-grab active:cursor-grabbing border-b border-gray-50 ${
+                  dragOver === i ? 'bg-blue-50 border-t-2 border-blue-400' : 'hover:bg-gray-50/70'
                 }`}
               >
                 {/* Drag handle */}
-                <span className="text-gray-300 group-hover:text-gray-400 transition-colors select-none text-xs shrink-0 w-4 text-center">⠿</span>
+                <span className="text-gray-300 group-hover:text-gray-400 select-none text-xs shrink-0 w-3">⠿</span>
 
                 {/* Number */}
-                <span className="text-xs font-bold text-gray-400 w-5 text-right shrink-0">{i + 1}</span>
+                <span className="text-xs text-gray-400 w-5 text-right shrink-0 tabular-nums">{i + 1}</span>
 
-                {/* Title with link */}
-                <div className="flex-1 min-w-0 flex items-center gap-1.5">
-                  <input value={t.title} onChange={e => onUpdate(i, 'title', e.target.value)}
-                    placeholder="Dainos pavadinimas"
-                    className="flex-1 min-w-0 px-2 py-1 border border-transparent hover:border-gray-200 focus:border-blue-300 rounded-lg text-sm text-gray-900 focus:outline-none bg-transparent focus:bg-white transition-all" />
-                  {trackUrl && (
-                    <a href={trackUrl} target="_blank" rel="noopener noreferrer"
-                      className="shrink-0 text-gray-300 hover:text-blue-500 transition-colors opacity-0 group-hover:opacity-100"
-                      title="Atidaryti dainą" onClick={e => e.stopPropagation()}>
-                      ↗
-                    </a>
-                  )}
-                </div>
+                {/* Title */}
+                <input value={t.title} onChange={e => onUpdate(i, 'title', e.target.value)}
+                  placeholder="Dainos pavadinimas"
+                  className="flex-1 min-w-0 px-1.5 py-0.5 border border-transparent hover:border-gray-200 focus:border-blue-300 rounded text-xs text-gray-900 focus:outline-none bg-transparent focus:bg-white transition-all" />
 
                 {/* Indicators */}
-                <div className="flex items-center gap-1 shrink-0">
-                  {hasVideo && <span className="text-xs text-blue-400" title="Turi video">▶</span>}
-                  {hasLyrics && <span className="text-xs text-green-400" title="Turi žodžius">♪</span>}
-                </div>
-
-                {/* Duration */}
-                <input value={t.duration || ''} onChange={e => onUpdate(i, 'duration', e.target.value)}
-                  placeholder="3:45" maxLength={6}
-                  className="w-12 px-1.5 py-1 border border-transparent hover:border-gray-200 focus:border-blue-300 rounded text-xs text-gray-500 focus:outline-none text-center bg-transparent focus:bg-white transition-all" />
+                {hasVideo && <span className="text-blue-400 text-xs shrink-0" title="Turi video">▶</span>}
+                {hasLyrics && <span className="text-green-500 text-xs font-bold shrink-0" title="Turi žodžius">T</span>}
 
                 {/* Type */}
                 <select value={t.type} onChange={e => onUpdate(i, 'type', e.target.value)}
-                  className="px-1.5 py-1 border border-transparent hover:border-gray-200 focus:border-blue-300 rounded text-xs text-gray-500 focus:outline-none bg-transparent focus:bg-white transition-all cursor-pointer">
+                  className="px-1 py-0.5 border border-transparent hover:border-gray-200 focus:border-blue-300 rounded text-xs text-gray-400 focus:outline-none bg-transparent focus:bg-white transition-all cursor-pointer max-w-[70px]">
                   {TRACK_TYPES.map(tp => <option key={tp} value={tp}>{tp}</option>)}
                 </select>
 
                 {/* Singlas */}
-                <label className="flex items-center gap-1 cursor-pointer shrink-0" title="Singlas">
+                <label className="flex items-center gap-0.5 cursor-pointer shrink-0" title="Singlas">
                   <input type="checkbox" checked={t.is_single || false}
                     onChange={e => onUpdate(i, 'is_single', e.target.checked)}
                     className="accent-blue-600 w-3 h-3" />
                   <span className="text-xs text-gray-400">S</span>
                 </label>
 
+                {/* Edit link */}
+                {trackEditUrl && (
+                  <a href={trackEditUrl} target="_blank" rel="noopener noreferrer"
+                    className="text-xs text-gray-400 hover:text-blue-600 shrink-0 opacity-0 group-hover:opacity-100 transition-all whitespace-nowrap font-medium"
+                    onClick={e => e.stopPropagation()}>
+                    Redaguoti
+                  </a>
+                )}
+
                 {/* Delete */}
                 <button type="button" onClick={() => onRemove(i)}
-                  className="w-6 h-6 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 rounded transition-all opacity-0 group-hover:opacity-100 shrink-0 text-xs">
+                  className="w-5 h-5 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 rounded transition-all opacity-0 group-hover:opacity-100 shrink-0 text-xs">
                   ✕
                 </button>
               </div>
@@ -253,14 +252,14 @@ function TrackList({
       {!tracks.length && (
         <div className="py-10 text-center">
           <span className="text-3xl block mb-2">🎵</span>
-          <p className="text-sm text-gray-400 mb-3">Nėra dainų</p>
+          <p className="text-sm text-gray-400">Nėra dainų</p>
         </div>
       )}
 
       {/* Add button at bottom */}
-      <div className="px-3 py-2 border-t border-gray-100 mt-1">
+      <div className="px-3 py-2 border-t border-gray-100">
         <button type="button" onClick={onAdd}
-          className="w-full py-2 border-2 border-dashed border-gray-200 text-gray-400 rounded-xl text-sm hover:border-blue-300 hover:text-blue-500 transition-colors">
+          className="w-full py-1.5 border-2 border-dashed border-gray-200 text-gray-400 rounded-lg text-xs hover:border-blue-300 hover:text-blue-500 transition-colors">
           + Pridėti dainą
         </button>
       </div>
@@ -490,38 +489,11 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
         </div>
       )}
 
-      {/* ── Main 2-column layout ── */}
-      <div className="grid grid-cols-[1fr_360px] gap-0 h-full">
+      {/* ── Main 2-column layout: 40% info | 60% tracklist ── */}
+      <div className="grid grid-cols-[2fr_3fr] gap-0">
 
-        {/* ── LEFT: Tracklist ── */}
-        <div className="border-r border-gray-200 bg-white">
-          <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 sticky top-[49px] bg-white z-10">
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-bold text-gray-700">Dainų sąrašas</h2>
-              <span className="bg-gray-100 text-gray-600 text-xs font-bold px-2 py-0.5 rounded-full">
-                {form.tracks?.length || 0}
-              </span>
-            </div>
-            {form.tracks && form.tracks.length > 0 && (
-              <div className="flex items-center gap-2 text-xs text-gray-400">
-                <span title="▶ = video, ♪ = žodžiai">▶ video &nbsp; ♪ žodžiai &nbsp; S = singlas</span>
-              </div>
-            )}
-          </div>
-
-          <TrackList
-            tracks={form.tracks || []}
-            artistSlug={artistSlug}
-            albumId={id}
-            onAdd={addTrack}
-            onUpdate={upTrack}
-            onRemove={rmTrack}
-            onReorder={reorderTracks}
-          />
-        </div>
-
-        {/* ── RIGHT: Info panel ── */}
-        <div className="overflow-y-auto" style={{ height: 'calc(100vh - 49px)', position: 'sticky', top: '49px' }}>
+        {/* ── LEFT (40%): Album info ── */}
+        <div className="border-r border-gray-200 bg-[#f8f7f5] overflow-y-auto" style={{ height: 'calc(100vh - 49px)', position: 'sticky', top: '49px' }}>
           <div className="p-4 space-y-4">
 
             {/* Summary card (edit mode only) */}
@@ -675,6 +647,17 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
               <kbd className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-500 font-mono">⌘S</kbd> Išsaugoti
             </div>
           </div>
+        </div>
+
+        {/* ── RIGHT (60%): Tracklist ── */}
+        <div className="bg-white overflow-y-auto" style={{ height: 'calc(100vh - 49px)', position: 'sticky', top: '49px' }}>
+          <TrackList
+            tracks={form.tracks || []}
+            onAdd={addTrack}
+            onUpdate={upTrack}
+            onRemove={rmTrack}
+            onReorder={reorderTracks}
+          />
         </div>
       </div>
     </div>
