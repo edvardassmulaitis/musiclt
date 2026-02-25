@@ -465,7 +465,7 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
   if (status === 'loading' || !isAdmin) return null
 
   const InfoPanel = (
-    <div className="space-y-2.5 p-3">
+    <div className="space-y-2.5 p-3 pb-4">
       {/* Main info card */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 space-y-2.5">
 
@@ -544,49 +544,53 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
       {/* Media card: 2 columns — cover left, YT+Spotify right */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
         <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Media</p>
-        <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-3">
 
-          {/* Cover — full width input + square preview */}
+          {/* Left col: Cover */}
           <div>
             <p className="text-xs font-semibold text-gray-500 mb-1.5">Viršelis</p>
             <CoverImageField value={form.cover_image_url || ''} onChange={url => set('cover_image_url', url)} />
           </div>
 
-          {/* YouTube — full width */}
-          <div>
-            <p className="text-xs font-semibold text-gray-500 mb-1">🎬 YouTube</p>
-            <div className="flex gap-1.5 mb-1.5">
-              <input value={form.video_url || ''} onChange={e => set('video_url', e.target.value)}
-                placeholder="youtube.com/watch?v=..."
-                className="flex-1 min-w-0 px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
-              {ytId && (
-                <button type="button" onClick={() => set('video_url', '')}
-                  className="px-2.5 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg text-xs transition-colors shrink-0">✕</button>
+          {/* Right col: YouTube + Spotify */}
+          <div className="space-y-2.5 min-w-0">
+            {/* YouTube */}
+            <div>
+              <p className="text-xs font-semibold text-gray-500 mb-1">🎬 YouTube</p>
+              <div className="flex gap-1 mb-1">
+                <input value={form.video_url || ''} onChange={e => set('video_url', e.target.value)}
+                  placeholder="youtube.com/watch?v=..."
+                  className="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
+                {ytId && (
+                  <button type="button" onClick={() => set('video_url', '')}
+                    className="px-2 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg text-xs transition-colors shrink-0">✕</button>
+                )}
+              </div>
+              {/* Thumbnail – fits in right column, aspect-video */}
+              {ytId ? (
+                <a href={form.video_url || ''} target="_blank" rel="noopener noreferrer"
+                  className="block relative rounded-lg overflow-hidden group mb-1">
+                  <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} alt=""
+                    className="w-full aspect-video object-cover group-hover:opacity-90 transition-opacity" />
+                  <span className="absolute bottom-1 right-1 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded">↗</span>
+                </a>
+              ) : null}
+              <YouTubeSearch initialQuery={ytSearchQuery} onSelect={url => set('video_url', url)} />
+            </div>
+
+            {/* Spotify */}
+            <div>
+              <p className="text-xs font-semibold text-gray-500 mb-1">🎧 Spotify</p>
+              <input value={form.spotify_id || ''} onChange={e => set('spotify_id', e.target.value)}
+                placeholder="Album ID..."
+                className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-xs focus:outline-none focus:border-blue-400 font-mono transition-colors" />
+              {form.spotify_id && (
+                <a href={`https://open.spotify.com/album/${form.spotify_id}`} target="_blank" rel="noopener noreferrer"
+                  className="mt-1 flex items-center gap-1 text-xs text-green-600 hover:text-green-700 transition-colors">
+                  🔗 Atidaryti Spotify
+                </a>
               )}
             </div>
-            {/* Big thumbnail when video set */}
-            {ytId && (
-              <a href={form.video_url || ''} target="_blank" rel="noopener noreferrer" className="block mb-1.5 group relative">
-                <img src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`} alt=""
-                  className="w-full aspect-video object-cover rounded-lg group-hover:opacity-90 transition-opacity" />
-                <span className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded">Žiūrėti ↗</span>
-              </a>
-            )}
-            <YouTubeSearch initialQuery={ytSearchQuery} onSelect={url => set('video_url', url)} />
-          </div>
-
-          {/* Spotify */}
-          <div>
-            <p className="text-xs font-semibold text-gray-500 mb-1">🎧 Spotify</p>
-            <input value={form.spotify_id || ''} onChange={e => set('spotify_id', e.target.value)}
-              placeholder="Album ID..."
-              className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-xs focus:outline-none focus:border-blue-400 font-mono transition-colors" />
-            {form.spotify_id && (
-              <a href={`https://open.spotify.com/album/${form.spotify_id}`} target="_blank" rel="noopener noreferrer"
-                className="mt-1 flex items-center gap-1 text-xs text-green-600 hover:text-green-700 transition-colors">
-                🔗 Atidaryti Spotify
-              </a>
-            )}
           </div>
 
         </div>
@@ -666,7 +670,7 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
 
       {/* Desktop 50/50 */}
       <div className="hidden lg:grid lg:grid-cols-2">
-        <div className="border-r border-gray-200 overflow-y-auto" style={{ height: 'calc(100vh - 41px)', position: 'sticky', top: '41px' }}>
+        <div className="border-r border-gray-200 overflow-y-auto" style={{ height: 'calc(100vh - 41px)', position: 'sticky', top: '41px', overflowX: 'hidden', scrollbarGutter: 'stable' }}>
           {InfoPanel}
         </div>
         <div className="bg-[#f8f7f5] overflow-y-auto" style={{ height: 'calc(100vh - 41px)', position: 'sticky', top: '41px' }}>
