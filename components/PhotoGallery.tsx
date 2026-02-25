@@ -2,169 +2,299 @@
 
 import { useRef, useState } from 'react'
 
-export type Photo = { src: string; author: string }
-
-type Props = {
-  photos: Photo[]
-  onChange: (photos: Photo[]) => void
+export type Photo = {
+  url: string
+  author?: string   // copyright / credit
+  caption?: string  // optional description
 }
 
-export default function PhotoGallery({ photos, onChange }: Props) {
-  const [urlMode, setUrlMode] = useState(false)
-  const [urlInput, setUrlInput] = useState('')
-  const [urlAuthor, setUrlAuthor] = useState('')
-  const [uploading, setUploading] = useState(false)
-  const [editAuthor, setEditAuthor] = useState<number | null>(null)
-  const fileRef = useRef<HTMLInputElement>(null)
+// ── Drag-to-reorder hook ──────────────────────────────────────────────────────
+function useDragReorder<T>(items: T[], onChange: (items: T[]) => void) {
+  const dragIdx = useRef<number | null>(null)
+  const dragOver = useRef<number | null>(null)
 
-  const handleFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-    if (!files.length) return
-    setUploading(true)
-    Promise.all(files.map(file => new Promise<string>(resolve => {
-      const reader = new FileReader()
-      reader.onload = ev => resolve(ev.target?.result as string)
-      reader.readAsDataURL(file)
-    }))).then(srcs => {
-      onChange([...photos, ...srcs.map(src => ({ src, author: '' }))])
-      setUploading(false)
-    })
-    e.target.value = ''
+  const onDragStart = (i: number) => { dragIdx.current = i }
+  const onDragEnter = (i: number) => { dragOver.current = i }
+  const onDragEnd   = () => {
+    if (dragIdx.current === null || dragOver.current === null || dragIdx.current === dragOver.current) {
+      dragIdx.current = null; dragOver.current = null; return
+    }
+    const next = [...items]
+    const [moved] = next.splice(dragIdx.current, 1)
+    next.splice(dragOver.current, 0, moved)
+    onChange(next)
+    dragIdx.current = null; dragOver.current = null
+  }
+
+  return { onDragStart, onDragEnter, onDragEnd }
+}
+
+// ── PhotoCard — single photo in grid ─────────────────────────────────────────
+function PhotoCard({
+  photo, index, total,
+  onUpdate, onRemove,
+  dragHandlers, isDragOver,
+}: {
+  photo: Photo; index: number; total: number
+  onUpdate: (p: Photo) => void
+  onRemove: () => void
+  dragHandlers: { onDragStart: () => void; onDragEnter: () => void; onDragEnd: () => void }
+  isDragOver: boolean
+}) {
+  const [editingAuthor, setEditingAuthor] = useState(false)
+
+  return (
+    <div
+      className={`group relative rounded-xl overflow-hidden border-2 transition-all bg-white
+        ${isDragOver ? 'border-music-blue scale-[1.02] shadow-lg' : 'border-gray-200 hover:border-gray-300'}`}
+      style={{ aspectRatio: 'auto' }}
+      draggable
+      onDragStart={dragHandlers.onDragStart}
+      onDragEnter={dragHandlers.onDragEnter}
+      onDragEnd={dragHandlers.onDragEnd}
+      onDragOver={e => e.preventDefault()}
+    >
+      {/* Image */}
+      <div className="relative overflow-hidden bg-gray-100" style={{ minHeight: 80 }}>
+        <img
+          src={photo.url}
+          alt={photo.caption || ''}
+          referrerPolicy="no-referrer"
+          className="w-full h-full object-cover"
+          style={{ maxHeight: 160, objectFit: 'cover' }}
+        />
+
+        {/* Hover actions overlay */}
+        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-start justify-between p-1.5">
+          {/* Drag handle */}
+          <div className="cursor-grab active:cursor-grabbing p-1 text-white/80 hover:text-white text-sm" title="Tempti">
+            ⠿
+          </div>
+          {/* Remove */}
+          <button
+            type="button"
+            onClick={onRemove}
+            className="p-1 bg-red-500/80 hover:bg-red-500 text-white rounded-lg text-xs leading-none transition-colors"
+            title="Pašalinti"
+          >✕</button>
+        </div>
+
+        {/* Position badge */}
+        <div className="absolute bottom-1 left-1 bg-black/50 text-white text-xs px-1.5 py-0.5 rounded-md font-mono leading-none">
+          {index + 1}/{total}
+        </div>
+      </div>
+
+      {/* Author/credit row */}
+      <div className="px-2 py-1.5 border-t border-gray-100">
+        {editingAuthor ? (
+          <input
+            autoFocus
+            type="text"
+            value={photo.author || ''}
+            onChange={e => onUpdate({ ...photo, author: e.target.value })}
+            onBlur={() => setEditingAuthor(false)}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') setEditingAuthor(false) }}
+            placeholder="Autorius / © šaltinis"
+            className="w-full text-xs px-1.5 py-1 border border-music-blue rounded-lg focus:outline-none bg-white text-gray-700"
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setEditingAuthor(true)}
+            className="w-full text-left text-xs text-gray-400 hover:text-gray-600 transition-colors truncate"
+            title="Spustelėkite norėdami nurodyti autorių"
+          >
+            {photo.author
+              ? <span className="text-gray-600">© {photo.author}</span>
+              : <span className="italic">+ Autorius</span>
+            }
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── PhotoGallery — main export ────────────────────────────────────────────────
+export default function PhotoGallery({
+  photos,
+  onChange,
+  onOriginalAdded,
+}: {
+  photos: Photo[]
+  onChange: (photos: Photo[]) => void
+  onOriginalAdded?: (url: string) => void  // called when crop original is added
+}) {
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState('')
+  const [urlInput, setUrlInput] = useState('')
+  const [showUrlInput, setShowUrlInput] = useState(false)
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
+
+  const { onDragStart, onDragEnter, onDragEnd } = useDragReorder(photos, items => {
+    setDragOverIdx(null)
+    onChange(items)
+  })
+
+  const uploadFile = async (file: File): Promise<string | null> => {
+    const fd = new FormData()
+    fd.append('file', file)
+    const res = await fetch('/api/upload', { method: 'POST', body: fd })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || 'Upload nepavyko')
+    return data.url
+  }
+
+  const handleFiles = async (files: File[]) => {
+    const imageFiles = files.filter(f => f.type.startsWith('image/'))
+    if (!imageFiles.length) return
+    setUploading(true); setError('')
+    try {
+      const urls = await Promise.all(imageFiles.map(uploadFile))
+      const newPhotos: Photo[] = urls.filter(Boolean).map(url => ({ url: url! }))
+      onChange([...photos, ...newPhotos])
+    } catch (e: any) { setError(e.message) }
+    finally { setUploading(false) }
   }
 
   const addUrl = async () => {
-    if (!urlInput.trim()) return
-    const rawUrl = urlInput.trim()
-    setUploading(true)
-    let finalSrc = rawUrl
-    if (rawUrl.startsWith('http')) {
-      try {
-        const res = await fetch('/api/fetch-image', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: rawUrl }),
-        })
-        if (res.ok) { const { dataUrl } = await res.json(); if (dataUrl) finalSrc = dataUrl }
-      } catch {}
-    }
-    setUploading(false)
-    onChange([...photos, { src: finalSrc, author: urlAuthor.trim() }])
-    setUrlInput(''); setUrlAuthor(''); setUrlMode(false)
+    const v = urlInput.trim()
+    if (!v) return
+    setUploading(true); setError('')
+    try {
+      const res = await fetch('/api/fetch-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: v }),
+      })
+      const d = await res.json()
+      if (!res.ok || !d.url) throw new Error(d.error || 'Nepavyko')
+      onChange([...photos, { url: d.url }])
+      setUrlInput('')
+      setShowUrlInput(false)
+    } catch (e: any) { setError(e.message) }
+    finally { setUploading(false) }
   }
 
+  const update = (i: number, p: Photo) => {
+    const next = [...photos]; next[i] = p; onChange(next)
+  }
   const remove = (i: number) => onChange(photos.filter((_, idx) => idx !== i))
-  const moveLeft = (i: number) => {
-    if (i === 0) return
-    const p = [...photos]; [p[i-1], p[i]] = [p[i], p[i-1]]; onChange(p)
-  }
-  const moveRight = (i: number) => {
-    if (i === photos.length - 1) return
-    const p = [...photos]; [p[i+1], p[i]] = [p[i], p[i+1]]; onChange(p)
-  }
-  const updateAuthor = (i: number, author: string) => {
-    const p = [...photos]; p[i] = { ...p[i], author }; onChange(p)
-  }
 
   return (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-3">
-        🖼️ Nuotraukų galerija
-        {photos.length > 0 && <span className="text-gray-400 font-normal ml-1">({photos.length})</span>}
-      </label>
+    <div className="space-y-3">
 
       {/* Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
-        {photos.map((photo, i) => (
-          <div key={i} className="relative group rounded-lg overflow-hidden bg-gray-100">
-            <div className="aspect-[4/3]">
-              <img src={photo.src} alt={`foto ${i+1}`} className="w-full h-full object-cover" />
-            </div>
-            {/* Author badge */}
-            {photo.author && (
-              <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1 text-white text-xs truncate">
-                © {photo.author}
-              </div>
-            )}
-            {/* Index */}
-            <div className="absolute top-1.5 left-1.5 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center text-white text-xs font-bold">
-              {i + 1}
-            </div>
-            {/* Overlay on hover */}
-            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5 p-2">
-              <div className="flex gap-1">
-                <button type="button" onClick={() => moveLeft(i)} disabled={i === 0}
-                  className="px-2 py-1 bg-white/20 hover:bg-white/40 rounded text-white text-xs disabled:opacity-30">←</button>
-                <button type="button" onClick={() => moveRight(i)} disabled={i === photos.length - 1}
-                  className="px-2 py-1 bg-white/20 hover:bg-white/40 rounded text-white text-xs disabled:opacity-30">→</button>
-              </div>
-              <button type="button" onClick={() => setEditAuthor(editAuthor === i ? null : i)}
-                className="px-3 py-1 bg-blue-500/80 hover:bg-blue-600 rounded text-white text-xs">
-                ✏️ Autorius
-              </button>
-              <button type="button" onClick={() => remove(i)}
-                className="px-3 py-1 bg-red-500/80 hover:bg-red-600 rounded text-white text-xs">
-                ✕ Trinti
-              </button>
-            </div>
+      {photos.length > 0 && (
+        <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))' }}>
+          {photos.map((photo, i) => (
+            <PhotoCard
+              key={`${photo.url}-${i}`}
+              photo={photo}
+              index={i}
+              total={photos.length}
+              onUpdate={p => update(i, p)}
+              onRemove={() => remove(i)}
+              isDragOver={dragOverIdx === i}
+              dragHandlers={{
+                onDragStart: () => { onDragStart(i) },
+                onDragEnter: () => { onDragEnter(i); setDragOverIdx(i) },
+                onDragEnd:   () => { onDragEnd(); setDragOverIdx(null) },
+              }}
+            />
+          ))}
+
+          {/* Add more slot */}
+          <div
+            className="rounded-xl border-2 border-dashed border-gray-200 hover:border-music-blue transition-colors cursor-pointer flex flex-col items-center justify-center gap-1 text-gray-400 hover:text-music-blue"
+            style={{ minHeight: 80, aspectRatio: '1/1' }}
+            onClick={() => fileRef.current?.click()}
+            onDrop={e => { e.preventDefault(); handleFiles(Array.from(e.dataTransfer.files)) }}
+            onDragOver={e => e.preventDefault()}
+          >
+            {uploading
+              ? <div className="w-5 h-5 border-2 border-music-blue border-t-transparent rounded-full animate-spin" />
+              : <><span className="text-xl">+</span><span className="text-xs">Pridėti</span></>
+            }
           </div>
-        ))}
+        </div>
+      )}
 
-        {/* Upload button */}
-        <button type="button" onClick={() => fileRef.current?.click()}
-          className="aspect-[4/3] border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center hover:border-music-blue hover:bg-blue-50 transition-colors text-gray-400">
-          {uploading ? <span className="text-2xl">⏳</span> : <><span className="text-3xl">+</span><span className="text-xs mt-1">Failas</span></>}
-        </button>
-      </div>
-
-      {/* Author edit inline */}
-      {editAuthor !== null && photos[editAuthor] && (
-        <div className="mb-3 bg-blue-50 border border-blue-200 rounded-lg p-3 flex gap-2 items-center">
-          <span className="text-sm text-gray-700 whitespace-nowrap">Nuotr. {editAuthor + 1} autorius:</span>
-          <input type="text" value={photos[editAuthor].author}
-            onChange={e => updateAuthor(editAuthor, e.target.value)}
-            className="flex-1 px-3 py-1.5 border border-blue-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-music-blue"
-            placeholder="Pvz: Jonas Jonaitis" />
-          <button type="button" onClick={() => setEditAuthor(null)}
-            className="px-3 py-1.5 bg-music-blue text-white rounded-lg text-sm">✓</button>
+      {/* Empty state */}
+      {photos.length === 0 && (
+        <div
+          className="rounded-xl border-2 border-dashed border-gray-200 hover:border-music-blue transition-colors cursor-pointer py-6 flex flex-col items-center gap-1.5 text-gray-400 hover:text-music-blue"
+          onClick={() => fileRef.current?.click()}
+          onDrop={e => { e.preventDefault(); handleFiles(Array.from(e.dataTransfer.files)) }}
+          onDragOver={e => e.preventDefault()}
+        >
+          {uploading
+            ? <div className="w-6 h-6 border-2 border-music-blue border-t-transparent rounded-full animate-spin" />
+            : (
+              <>
+                <span className="text-2xl">🖼️</span>
+                <span className="text-xs font-medium">Įkelti nuotraukas</span>
+                <span className="text-xs opacity-70">JPG, PNG · vilkite arba spustelėkite</span>
+              </>
+            )
+          }
         </div>
       )}
 
       {/* Action buttons */}
-      <div className="flex gap-2">
-        <button type="button" onClick={() => fileRef.current?.click()}
-          className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg">
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={uploading}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+        >
           📁 Įkelti failus
         </button>
-        <button type="button" onClick={() => setUrlMode(!urlMode)}
-          className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg">
+        <button
+          type="button"
+          onClick={() => setShowUrlInput(v => !v)}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition-colors"
+        >
           🔗 Pridėti URL
         </button>
       </div>
 
       {/* URL input */}
-      {urlMode && (
-        <div className="mt-3 bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Nuotraukos URL</label>
-            <input type="url" value={urlInput} onChange={e => setUrlInput(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-music-blue"
-              placeholder="https://www.music.lt/images/..." />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Autorius (neprivaloma)</label>
-            <input type="text" value={urlAuthor} onChange={e => setUrlAuthor(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-music-blue"
-              placeholder="Pvz: Jonas Jonaitis" />
-          </div>
-          <div className="flex gap-2">
-            <button type="button" onClick={addUrl}
-              className="px-4 py-2 bg-music-blue text-white rounded-lg text-sm font-medium hover:opacity-90">Pridėti</button>
-            <button type="button" onClick={() => { setUrlMode(false); setUrlInput(''); setUrlAuthor('') }}
-              className="px-4 py-2 bg-white border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50">Atšaukti</button>
-          </div>
+      {showUrlInput && (
+        <div className="flex gap-1.5">
+          <input
+            type="text"
+            value={urlInput}
+            onChange={e => setUrlInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addUrl() } if (e.key === 'Escape') setShowUrlInput(false) }}
+            placeholder="https://..."
+            autoFocus
+            className="flex-1 px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-music-blue bg-white"
+          />
+          <button type="button" onClick={addUrl}
+            className="px-3 py-1.5 bg-music-blue text-white rounded-lg text-xs font-medium hover:opacity-90 transition-opacity">
+            Pridėti
+          </button>
+          <button type="button" onClick={() => setShowUrlInput(false)}
+            className="px-2 py-1.5 bg-gray-100 text-gray-500 rounded-lg text-xs hover:bg-gray-200 transition-colors">
+            ✕
+          </button>
         </div>
       )}
 
-      <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFiles} />
+      {error && <p className="text-xs text-red-500">{error}</p>}
+
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={e => { if (e.target.files) handleFiles(Array.from(e.target.files)) }}
+      />
     </div>
   )
 }
