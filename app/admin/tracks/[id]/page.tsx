@@ -263,7 +263,8 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
         // Search DB
         const res = await fetch(`/api/artists?search=${encodeURIComponent(name)}&limit=5`)
         const data = await res.json()
-        const exact = (data.artists || []).find((a: any) => a.name.toLowerCase() === name.toLowerCase())
+        const normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9\s]/g, '').trim()
+        const exact = (data.artists || []).find((a: any) => normalize(a.name) === normalize(name))
         if (exact) {
           if (exact.id !== artistId) {
             newFeaturing.push({ artist_id: exact.id, name: exact.name })
