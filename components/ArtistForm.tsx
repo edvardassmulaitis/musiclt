@@ -115,7 +115,9 @@ function ImageCropper({ src, onCrop, onCancel }: { src: string; onCrop: (blob: B
 
   useEffect(() => {
     const image = new window.Image()
-    image.crossOrigin = 'anonymous'
+    if (src.startsWith('http') && !src.includes(window.location.hostname)) {
+      image.crossOrigin = 'anonymous'
+    }
     image.onload = () => {
       setImg(image)
       // fit image initially
@@ -280,38 +282,46 @@ function AvatarUpload({ value, onChange }: { value: string; onChange: (url: stri
     await uploadBlob(blob)
   }
 
-  // Store external URL via fetch-image proxy → Supabase, then open cropper
+  // Fetch external URL → data: URL (via our proxy) → open cropper
   const storeUrl = async (raw: string) => {
     const v = raw.trim()
     if (!v) { onChange(''); return }
-    // Already a Supabase URL — just use directly
-    if (v.includes('supabase') || v.startsWith('/')) { onChange(v); return }
-    if (!v.startsWith('http')) return
+    if (!v.startsWith('http') && !v.startsWith('/')) return
     setUploading(true); setError('')
+
+    const toDataUrl = (blob: Blob): Promise<string> =>
+      new Promise(res => { const r = new FileReader(); r.onload = e => res(e.target?.result as string); r.readAsDataURL(blob) })
+
     try {
+      if (v.includes('supabase')) {
+        // Supabase URL — fetch directly as blob (same-origin, no CORS issue)
+        const blob = await fetch(v).then(r => r.blob())
+        setCropSrc(await toDataUrl(blob))
+        return
+      }
+      // External URL — go through our proxy which downloads server-side
       const res = await fetch('/api/fetch-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: v }),
       })
-      if (res.ok) {
-        const d = await res.json()
-        if (d.url) {
-          // If we got a data URL, open cropper; if Supabase URL, use directly
-          if (d.url.startsWith('data:')) {
-            setCropSrc(d.url)
-          } else {
-            onChange(d.url)
-            setUrlInput(d.url)
-          }
-          return
-        }
+      if (!res.ok) throw new Error('Proxy klaida')
+      const d = await res.json()
+      if (!d.url) throw new Error('Negautas URL')
+
+      if (d.url.startsWith('data:')) {
+        // Proxy returned data URL directly
+        setCropSrc(d.url)
+      } else {
+        // Proxy returned Supabase URL — fetch as blob
+        const blob = await fetch(d.url).then(r => r.blob())
+        setCropSrc(await toDataUrl(blob))
       }
-    } catch {}
-    finally { setUploading(false) }
-    // Fallback: open cropper with original URL (might work if CORS allows)
-    setCropSrc(v)
-    setUploading(false)
+    } catch (e: any) {
+      setError('Nepavyko gauti nuotraukos. Bandykite įkelti failą.')
+    } finally {
+      setUploading(false)
+    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
