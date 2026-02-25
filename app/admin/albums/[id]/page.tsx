@@ -63,12 +63,10 @@ function CoverImageField({ value, onChange }: { value: string; onChange: (url: s
     } catch (e: any) { setUploadError(e.message) } finally { setUploading(false) }
   }
 
-  // Handle URL paste + auto-download to server
   const handleUrlCommit = async (raw: string) => {
     const v = raw.trim()
     if (!v || v === value) return
-    if (v.startsWith('http') && !v.includes('/api/upload') && !v.includes('supabase')) {
-      // Fetch and re-upload to our server
+    if (v.startsWith('http') && !v.includes('supabase')) {
       setUploading(true); setUploadError('')
       try {
         const res = await fetch('/api/fetch-image', {
@@ -95,174 +93,58 @@ function CoverImageField({ value, onChange }: { value: string; onChange: (url: s
   }
 
   return (
-    <div className="space-y-2">
+    <div className="flex gap-4 items-start">
+      {/* Square preview - click to upload */}
       <div
-        className="relative w-full aspect-square rounded-xl border-2 border-dashed border-gray-200 overflow-hidden bg-gray-50 cursor-pointer group hover:border-blue-400 transition-colors"
+        className="relative w-24 h-24 rounded-xl border-2 border-dashed border-gray-200 overflow-hidden bg-gray-50 cursor-pointer group hover:border-blue-400 transition-colors shrink-0"
         onClick={() => !uploading && fileRef.current?.click()}
         onDrop={handleDrop}
         onDragOver={e => e.preventDefault()}
       >
         {value ? (
           <>
-            <img src={value} alt="Viršelis" referrerPolicy="no-referrer"
-              className="w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
-              <span className="text-white text-3xl">📷</span>
+            <img src={value} alt="Viršelis" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
               <span className="text-white text-xs font-medium">Keisti</span>
             </div>
           </>
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 gap-2">
-            <span className="text-4xl">💿</span>
-            <span className="text-xs text-center px-2">Spausti arba tempti nuotrauką</span>
+          <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 gap-1">
+            <span className="text-2xl">💿</span>
+            <span className="text-xs text-center leading-tight">Spausti</span>
           </div>
         )}
         {uploading && (
           <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
-            <div className="w-8 h-8 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
           </div>
         )}
       </div>
-      <div className="flex gap-1.5">
+
+      {/* URL input + buttons */}
+      <div className="flex-1 space-y-2 min-w-0">
         <input type="text" value={urlInput}
           onChange={e => setUrlInput(e.target.value)}
           onBlur={e => handleUrlCommit(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleUrlCommit(urlInput)}
-          placeholder="https://... (Enter)"
-          className="flex-1 min-w-0 px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
-        <button type="button" onClick={() => fileRef.current?.click()}
-          className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs transition-colors" title="Įkelti failą">
-          📁
-        </button>
-        {value && (
-          <button type="button" onClick={() => { onChange(''); setUrlInput('') }}
-            className="px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg text-xs transition-colors">✕</button>
-        )}
+          placeholder="https://... arba spausti viršelį"
+          className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
+        <div className="flex gap-2">
+          <button type="button" onClick={() => fileRef.current?.click()}
+            className="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-xs font-medium transition-colors">
+            📁 Įkelti failą
+          </button>
+          {value && (
+            <button type="button" onClick={() => { onChange(''); setUrlInput('') }}
+              className="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-500 rounded-xl text-xs transition-colors">
+              ✕
+            </button>
+          )}
+        </div>
+        {uploadError && <p className="text-xs text-red-500">{uploadError}</p>}
       </div>
-      {uploadError && <p className="text-xs text-red-500">{uploadError}</p>}
       <input ref={fileRef} type="file" accept="image/*" className="hidden"
         onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f) }} />
-    </div>
-  )
-}
-
-// ── Drag-and-drop Tracklist ───────────────────────────────────────────────────
-function TrackList({
-  tracks, onAdd, onUpdate, onRemove, onReorder,
-}: {
-  tracks: TrackInAlbum[]
-  onAdd: () => void
-  onUpdate: (i: number, f: keyof TrackInAlbum, v: any) => void
-  onRemove: (i: number) => void
-  onReorder: (from: number, to: number) => void
-}) {
-  const dragIdx = useRef<number | null>(null)
-  const [dragOver, setDragOver] = useState<number | null>(null)
-
-  const onDragStart = (i: number) => { dragIdx.current = i }
-  const onDragEnter = (i: number) => setDragOver(i)
-  const onDragEnd = () => {
-    if (dragIdx.current !== null && dragOver !== null && dragIdx.current !== dragOver) {
-      onReorder(dragIdx.current, dragOver)
-    }
-    dragIdx.current = null; setDragOver(null)
-  }
-
-  return (
-    <div>
-      {/* Legend */}
-      {tracks.length > 0 && (
-        <div className="flex items-center justify-between px-4 py-1.5 border-b border-gray-100 bg-gray-50/60">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-gray-700">Dainų sąrašas</span>
-            <span className="bg-gray-200 text-gray-600 text-xs font-bold px-1.5 py-0.5 rounded-full leading-none">{tracks.length}</span>
-          </div>
-          <span className="text-xs text-gray-400">▶ video · T žodžiai · S singlas</span>
-        </div>
-      )}
-
-      {tracks.length > 0 && (
-        <div>
-          {tracks.map((t, i) => {
-            const trackEditUrl = (t.track_id || t.id) ? `/admin/tracks/${t.track_id || t.id}` : null
-            const hasVideo = !!(t.video_url)
-            const hasLyrics = !!(t as any).has_lyrics
-
-            return (
-              <div
-                key={i}
-                draggable
-                onDragStart={() => onDragStart(i)}
-                onDragEnter={() => onDragEnter(i)}
-                onDragOver={e => e.preventDefault()}
-                onDragEnd={onDragEnd}
-                className={`flex items-center gap-1.5 px-2 py-1 group transition-colors cursor-grab active:cursor-grabbing border-b border-gray-50 ${
-                  dragOver === i ? 'bg-blue-50 border-t-2 border-blue-400' : 'hover:bg-gray-50/70'
-                }`}
-              >
-                {/* Drag handle */}
-                <span className="text-gray-300 group-hover:text-gray-400 select-none text-xs shrink-0 w-3">⠿</span>
-
-                {/* Number */}
-                <span className="text-xs text-gray-400 w-5 text-right shrink-0 tabular-nums">{i + 1}</span>
-
-                {/* Title */}
-                <input value={t.title} onChange={e => onUpdate(i, 'title', e.target.value)}
-                  placeholder="Dainos pavadinimas"
-                  className="flex-1 min-w-0 px-1.5 py-0.5 border border-transparent hover:border-gray-200 focus:border-blue-300 rounded text-xs text-gray-900 focus:outline-none bg-transparent focus:bg-white transition-all" />
-
-                {/* Indicators */}
-                {hasVideo && <span className="text-blue-400 text-xs shrink-0" title="Turi video">▶</span>}
-                {hasLyrics && <span className="text-green-500 text-xs font-bold shrink-0" title="Turi žodžius">T</span>}
-
-                {/* Type */}
-                <select value={t.type} onChange={e => onUpdate(i, 'type', e.target.value)}
-                  className="px-1 py-0.5 border border-transparent hover:border-gray-200 focus:border-blue-300 rounded text-xs text-gray-400 focus:outline-none bg-transparent focus:bg-white transition-all cursor-pointer max-w-[70px]">
-                  {TRACK_TYPES.map(tp => <option key={tp} value={tp}>{tp}</option>)}
-                </select>
-
-                {/* Singlas */}
-                <label className="flex items-center gap-0.5 cursor-pointer shrink-0" title="Singlas">
-                  <input type="checkbox" checked={t.is_single || false}
-                    onChange={e => onUpdate(i, 'is_single', e.target.checked)}
-                    className="accent-blue-600 w-3 h-3" />
-                  <span className="text-xs text-gray-400">S</span>
-                </label>
-
-                {/* Edit link */}
-                {trackEditUrl && (
-                  <a href={trackEditUrl} target="_blank" rel="noopener noreferrer"
-                    className="text-xs text-gray-400 hover:text-blue-600 shrink-0 opacity-0 group-hover:opacity-100 transition-all whitespace-nowrap font-medium"
-                    onClick={e => e.stopPropagation()}>
-                    Redaguoti
-                  </a>
-                )}
-
-                {/* Delete */}
-                <button type="button" onClick={() => onRemove(i)}
-                  className="w-5 h-5 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 rounded transition-all opacity-0 group-hover:opacity-100 shrink-0 text-xs">
-                  ✕
-                </button>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {!tracks.length && (
-        <div className="py-10 text-center">
-          <span className="text-3xl block mb-2">🎵</span>
-          <p className="text-sm text-gray-400">Nėra dainų</p>
-        </div>
-      )}
-
-      {/* Add button at bottom */}
-      <div className="px-3 py-2 border-t border-gray-100">
-        <button type="button" onClick={onAdd}
-          className="w-full py-1.5 border-2 border-dashed border-gray-200 text-gray-400 rounded-lg text-xs hover:border-blue-300 hover:text-blue-500 transition-colors">
-          + Pridėti dainą
-        </button>
-      </div>
     </div>
   )
 }
@@ -292,24 +174,124 @@ function YouTubeSearch({ initialQuery, onSelect }: { initialQuery: string; onSel
           placeholder="Ieškoti YouTube..."
           className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-blue-400 bg-white" />
         <button type="button" onClick={search} disabled={loading}
-          className="px-3 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm disabled:opacity-50 transition-colors">
-          {loading ? <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : '🔍'}
+          className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm disabled:opacity-50 transition-colors shrink-0">
+          {loading
+            ? <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+            : '🔍'}
         </button>
       </div>
       {results.length > 0 && (
-        <div className="space-y-1 max-h-56 overflow-y-auto rounded-xl border border-gray-100">
+        <div className="space-y-1 rounded-xl border border-gray-100 overflow-hidden">
           {results.map(r => (
-            <div key={r.videoId} onClick={() => { onSelect(`https://www.youtube.com/watch?v=${r.videoId}`); setResults([]) }}
-              className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-blue-50 transition-colors">
+            <div key={r.videoId}
+              onClick={() => { onSelect(`https://www.youtube.com/watch?v=${r.videoId}`); setResults([]) }}
+              className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-blue-50 active:bg-blue-100 transition-colors">
               <img src={r.thumbnail} alt="" className="w-16 h-10 object-cover rounded shrink-0" />
               <div className="min-w-0">
-                <p className="text-xs font-medium text-gray-900 line-clamp-1">{r.title}</p>
-                <p className="text-xs text-gray-400 truncate">{r.channel}</p>
+                <p className="text-xs font-medium text-gray-900 line-clamp-2 leading-tight">{r.title}</p>
+                <p className="text-xs text-gray-400 truncate mt-0.5">{r.channel}</p>
               </div>
             </div>
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Tracklist ─────────────────────────────────────────────────────────────────
+function TrackList({
+  tracks, onAdd, onUpdate, onRemove, onReorder,
+}: {
+  tracks: TrackInAlbum[]
+  onAdd: () => void
+  onUpdate: (i: number, f: keyof TrackInAlbum, v: any) => void
+  onRemove: (i: number) => void
+  onReorder: (from: number, to: number) => void
+}) {
+  const dragIdx = useRef<number | null>(null)
+  const [dragOver, setDragOver] = useState<number | null>(null)
+
+  const onDragStart = (i: number) => { dragIdx.current = i }
+  const onDragEnter = (i: number) => setDragOver(i)
+  const onDragEnd = () => {
+    if (dragIdx.current !== null && dragOver !== null && dragIdx.current !== dragOver) {
+      onReorder(dragIdx.current, dragOver)
+    }
+    dragIdx.current = null; setDragOver(null)
+  }
+
+  return (
+    <div>
+      {tracks.map((t, i) => {
+        const trackEditUrl = (t.track_id || t.id) ? `/admin/tracks/${t.track_id || t.id}` : null
+        const hasVideo = !!(t.video_url)
+        const hasLyrics = !!(t as any).has_lyrics
+
+        return (
+          <div
+            key={i}
+            draggable
+            onDragStart={() => onDragStart(i)}
+            onDragEnter={() => onDragEnter(i)}
+            onDragOver={e => e.preventDefault()}
+            onDragEnd={onDragEnd}
+            className={`flex items-center gap-2 px-3 py-2 border-b border-gray-100 cursor-grab active:cursor-grabbing transition-colors ${
+              dragOver === i ? 'bg-blue-50 border-t-2 border-blue-400' : 'hover:bg-gray-50'
+            }`}
+          >
+            {/* Drag + number */}
+            <span className="text-gray-300 select-none text-sm shrink-0">⠿</span>
+            <span className="text-xs text-gray-400 w-5 text-right shrink-0 tabular-nums">{i + 1}</span>
+
+            {/* Title */}
+            <input value={t.title} onChange={e => onUpdate(i, 'title', e.target.value)}
+              placeholder="Dainos pavadinimas"
+              className="flex-1 min-w-0 px-2 py-1 border border-transparent hover:border-gray-200 focus:border-blue-300 rounded-lg text-sm text-gray-900 focus:outline-none bg-transparent focus:bg-white transition-all" />
+
+            {/* Indicators always visible */}
+            {hasVideo && <span className="text-blue-400 text-xs shrink-0" title="Video">▶</span>}
+            {hasLyrics && <span className="text-green-500 text-xs font-bold shrink-0" title="Žodžiai">T</span>}
+
+            {/* Singlas */}
+            <label className="flex items-center gap-1 cursor-pointer shrink-0">
+              <input type="checkbox" checked={t.is_single || false}
+                onChange={e => onUpdate(i, 'is_single', e.target.checked)}
+                className="accent-blue-600 w-3.5 h-3.5" />
+              <span className="text-xs text-gray-400">S</span>
+            </label>
+
+            {/* Edit link — always visible, not hover-only */}
+            {trackEditUrl && (
+              <a href={trackEditUrl} target="_blank" rel="noopener noreferrer"
+                className="shrink-0 px-2 py-1 text-xs text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors font-medium"
+                onClick={e => e.stopPropagation()}>
+                ↗
+              </a>
+            )}
+
+            {/* Delete */}
+            <button type="button" onClick={() => onRemove(i)}
+              className="w-7 h-7 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0 text-sm">
+              ✕
+            </button>
+          </div>
+        )
+      })}
+
+      {!tracks.length && (
+        <div className="py-12 text-center">
+          <span className="text-4xl block mb-2">🎵</span>
+          <p className="text-sm text-gray-400">Nėra dainų</p>
+        </div>
+      )}
+
+      <div className="p-3">
+        <button type="button" onClick={onAdd}
+          className="w-full py-3 border-2 border-dashed border-gray-200 text-gray-400 rounded-xl text-sm hover:border-blue-300 hover:text-blue-500 active:bg-blue-50 transition-colors">
+          + Pridėti dainą
+        </button>
+      </div>
     </div>
   )
 }
@@ -326,12 +308,13 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
   const [artistSearch, setArtistSearch] = useState('')
   const [artistResults, setArtistResults] = useState<any[]>([])
   const [artistName, setArtistName] = useState('')
-  const [artistSlug, setArtistSlug] = useState('')
   const [artistId, setArtistId] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(false)
+  // Mobile tab state
+  const [tab, setTab] = useState<'info' | 'tracks'>('info')
 
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
   const set = (f: keyof AlbumFull, v: any) => setForm(p => ({ ...p, [f]: v }))
@@ -342,11 +325,7 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
     if (!isNew && isAdmin) {
       fetch(`/api/albums/${id}`).then(r => r.json()).then(data => {
         setForm({ ...data, tracks: data.tracks || [] })
-        if (data.artists?.name) {
-          setArtistName(data.artists.name)
-          setArtistSlug(data.artists.slug || '')
-          setArtistId(data.artist_id)
-        }
+        if (data.artists?.name) { setArtistName(data.artists.name); setArtistId(data.artist_id) }
       })
     }
   }, [id, isAdmin])
@@ -429,235 +408,269 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
 
   if (status === 'loading' || !isAdmin) return null
 
+  // ── Info panel content (shared between mobile tab and desktop left col) ──
+  const InfoPanel = (
+    <div className="space-y-4 p-4">
+      {/* Summary card */}
+      {!isNew && (
+        <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl p-4 text-white">
+          <div className="flex items-center gap-3">
+            {form.cover_image_url
+              ? <img src={form.cover_image_url} alt="" referrerPolicy="no-referrer" className="w-14 h-14 rounded-xl object-cover shrink-0 shadow-lg" />
+              : <div className="w-14 h-14 rounded-xl bg-white/20 flex items-center justify-center text-2xl shrink-0">💿</div>}
+            <div className="min-w-0">
+              <p className="font-bold text-white leading-tight truncate text-lg">{form.title || 'Albumas'}</p>
+              <p className="text-blue-200 text-sm mt-0.5">{artistName}</p>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                {form.year && <span className="text-blue-200 text-xs">{form.year}</span>}
+                {activeType && <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">{activeType.icon} {activeType.label}</span>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pagrindinė info */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-4">
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Pagrindinė informacija</p>
+
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1.5">Pavadinimas *</label>
+          <input value={form.title} onChange={e => set('title', e.target.value)}
+            placeholder="Albumo pavadinimas"
+            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 text-sm font-medium focus:outline-none focus:border-blue-400 bg-white transition-colors" />
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1.5">Atlikėjas *</label>
+          {form.artist_id ? (
+            <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-xl px-3 py-2.5">
+              <span className="flex-1 text-sm font-semibold text-gray-900">{artistName}</span>
+              <button type="button" onClick={() => { set('artist_id', 0); setArtistName(''); setArtistId(null) }}
+                className="text-gray-400 hover:text-red-500 transition-colors text-xl leading-none">×</button>
+            </div>
+          ) : (
+            <div className="relative">
+              <input type="text" value={artistSearch} onChange={e => setArtistSearch(e.target.value)}
+                placeholder="Ieškoti atlikėjo..."
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:border-blue-400 transition-colors" />
+              {artistResults.length > 0 && (
+                <div className="absolute z-20 w-full bg-white border border-gray-200 rounded-xl shadow-xl mt-1 overflow-hidden">
+                  {artistResults.map(a => (
+                    <button key={a.id} type="button"
+                      onClick={() => { set('artist_id', a.id); setArtistName(a.name); setArtistId(a.id); setArtistSearch(''); setArtistResults([]) }}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-blue-50 active:bg-blue-100 text-left transition-colors">
+                      <span className="font-semibold text-gray-900">{a.name}</span>
+                      <span className="text-gray-400 text-xs ml-auto">{a.country}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1.5">Išleidimo data</label>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { key: 'year', label: 'Metai', value: form.year, opts: YEARS.map(y => ({ v: y, l: String(y) })) },
+              { key: 'month', label: 'Mėnuo', value: form.month, opts: MONTHS.map((m, i) => ({ v: i+1, l: m })) },
+              { key: 'day', label: 'Diena', value: form.day, opts: DAYS.map(d => ({ v: d, l: String(d) })) },
+            ].map(({ key, label, value, opts }) => (
+              <div key={key}>
+                <p className="text-xs text-gray-400 mb-1">{label}</p>
+                <select value={value || ''} onChange={e => set(key as any, e.target.value ? parseInt(e.target.value) : null)}
+                  className="w-full px-2 py-2 border border-gray-200 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-blue-400 bg-white">
+                  <option value="">–</option>
+                  {opts.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+                </select>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1.5">Tipas</label>
+          <div className="flex flex-wrap gap-1.5">
+            {ALBUM_TYPE_FIELDS.map(t => (
+              <button key={t.key} type="button" onClick={() => setType(t.key)}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
+                  (form as any)[t.key] ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 active:bg-gray-300'
+                }`}>
+                {t.icon} {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Viršelis */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Viršelis</p>
+        <CoverImageField value={form.cover_image_url || ''} onChange={url => set('cover_image_url', url)} />
+      </div>
+
+      {/* YouTube */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">🎬 YouTube</p>
+        {ytId ? (
+          <div className="space-y-2 mb-3">
+            <div className="aspect-video rounded-xl overflow-hidden bg-black">
+              <iframe src={`https://www.youtube.com/embed/${ytId}`} className="w-full h-full" allowFullScreen />
+            </div>
+            <div className="flex gap-1.5">
+              <input value={form.video_url || ''} onChange={e => set('video_url', e.target.value)}
+                className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
+              <button type="button" onClick={() => set('video_url', '')}
+                className="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-500 rounded-xl text-xs transition-colors">✕</button>
+            </div>
+          </div>
+        ) : (
+          <input value={form.video_url || ''} onChange={e => set('video_url', e.target.value)}
+            placeholder="https://youtube.com/watch?v=..."
+            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:border-blue-400 bg-white mb-3" />
+        )}
+        <YouTubeSearch initialQuery={ytSearchQuery} onSelect={url => set('video_url', url)} />
+      </div>
+
+      {/* Spotify */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">🎧 Spotify</p>
+        <input value={form.spotify_id || ''} onChange={e => set('spotify_id', e.target.value)}
+          placeholder="Spotify album ID..."
+          className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:border-blue-400 font-mono transition-colors" />
+        {form.spotify_id && (
+          <a href={`https://open.spotify.com/album/${form.spotify_id}`} target="_blank" rel="noopener noreferrer"
+            className="mt-2 flex items-center gap-1.5 text-xs text-green-600 hover:text-green-700 transition-colors">
+            🔗 Atidaryti Spotify
+          </a>
+        )}
+      </div>
+    </div>
+  )
+
+  // ── Tracks panel content ──
+  const TracksPanel = (
+    <TrackList
+      tracks={form.tracks || []}
+      onAdd={addTrack}
+      onUpdate={upTrack}
+      onRemove={rmTrack}
+      onReorder={reorderTracks}
+    />
+  )
+
   return (
     <div className="min-h-screen bg-[#f8f7f5]">
       {/* ── Sticky header ── */}
-      <div className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-gray-200 px-4 py-2.5">
-        <div className="flex items-center justify-between gap-4">
-          {/* Breadcrumbs */}
+      <div className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-gray-200">
+        {/* Breadcrumbs row */}
+        <div className="px-4 pt-2.5 pb-1">
           <nav className="flex items-center gap-1 text-sm min-w-0 flex-wrap">
             <Link href="/admin" className="text-gray-400 hover:text-gray-700 transition-colors shrink-0">Admin</Link>
             <span className="text-gray-300">/</span>
             <Link href="/admin/albums" className="text-gray-400 hover:text-gray-700 transition-colors shrink-0">Albumai</Link>
-            {artistName && (
+            {artistName && artistId && (
               <>
                 <span className="text-gray-300">/</span>
-                {artistId
-                  ? <Link href={`/admin/artists/${artistId}`} className="text-gray-400 hover:text-gray-700 transition-colors truncate max-w-[100px]">{artistName}</Link>
-                  : <span className="text-gray-400 truncate max-w-[100px]">{artistName}</span>}
-                <span className="text-gray-300">/</span>
-                <Link href={`/admin/albums?artist_id=${artistId}`} className="text-gray-400 hover:text-gray-700 transition-colors shrink-0">albumai</Link>
+                <Link href={`/admin/artists/${artistId}`} className="text-gray-400 hover:text-gray-700 transition-colors truncate max-w-[80px]">{artistName}</Link>
               </>
             )}
             <span className="text-gray-300">/</span>
-            <span className="text-gray-800 font-semibold truncate max-w-[160px]">
+            <span className="text-gray-800 font-semibold truncate max-w-[120px]">
               {isNew ? 'Naujas' : (form.title || '...')}
             </span>
           </nav>
+        </div>
 
-          {/* Actions */}
-          <div className="flex items-center gap-2 shrink-0">
-            {!isNew && (
-              <button onClick={handleDelete} disabled={deleting}
-                className="flex items-center gap-1.5 px-3 py-2 text-red-500 hover:bg-red-50 rounded-lg text-sm font-medium transition-colors disabled:opacity-50">
-                🗑️ Ištrinti
-              </button>
-            )}
-            <Link href={artistId ? `/admin/artists/${artistId}` : '/admin/albums'}
-              className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
-              Atšaukti
-            </Link>
-            <button onClick={handleSubmit} disabled={saving}
-              className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold transition-all ${
-                saved ? 'bg-green-500 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'
-              } disabled:opacity-50`}>
-              {saving
-                ? <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin inline-block" /> Saugoma...</>
-                : saved ? '✓ Išsaugota!' : '✓ Išsaugoti'}
+        {/* Actions row */}
+        <div className="px-4 pb-2.5 flex items-center justify-end gap-2">
+          {!isNew && (
+            <button onClick={handleDelete} disabled={deleting}
+              className="flex items-center gap-1.5 px-3 py-2 text-red-500 hover:bg-red-50 rounded-xl text-sm font-medium transition-colors disabled:opacity-50">
+              🗑️ <span className="hidden sm:inline">Ištrinti</span>
             </button>
-          </div>
+          )}
+          <Link href={artistId ? `/admin/artists/${artistId}` : '/admin/albums'}
+            className="px-4 py-2 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">
+            Atšaukti
+          </Link>
+          <button onClick={handleSubmit} disabled={saving}
+            className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold transition-all ${
+              saved ? 'bg-green-500 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'
+            } disabled:opacity-50`}>
+            {saving
+              ? <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin inline-block" /> Saugoma...</>
+              : saved ? '✓ Išsaugota!' : '✓ Išsaugoti'}
+          </button>
+        </div>
+
+        {/* Mobile tabs */}
+        <div className="flex lg:hidden border-t border-gray-100">
+          <button onClick={() => setTab('info')}
+            className={`flex-1 py-2.5 text-sm font-semibold transition-colors ${
+              tab === 'info' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-gray-500 hover:text-gray-700'
+            }`}>
+            📋 Informacija
+          </button>
+          <button onClick={() => setTab('tracks')}
+            className={`flex-1 py-2.5 text-sm font-semibold transition-colors relative ${
+              tab === 'tracks' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-gray-500 hover:text-gray-700'
+            }`}>
+            🎵 Dainos
+            {(form.tracks?.length || 0) > 0 && (
+              <span className="ml-1.5 bg-gray-200 text-gray-700 text-xs font-bold px-1.5 py-0.5 rounded-full">
+                {form.tracks?.length}
+              </span>
+            )}
+          </button>
         </div>
       </div>
 
       {/* Error */}
       {error && (
         <div className="px-4 pt-3">
-          <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm flex items-center gap-2 max-w-screen-xl mx-auto">
+          <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm flex items-center gap-2">
             ❌ {error}
             <button onClick={() => setError('')} className="ml-auto text-red-400 hover:text-red-600">✕</button>
           </div>
         </div>
       )}
 
-      {/* ── Main 2-column layout: 40% info | 60% tracklist ── */}
-      <div className="grid grid-cols-[2fr_3fr] gap-0">
-
-        {/* ── LEFT (40%): Album info ── */}
-        <div className="border-r border-gray-200 bg-[#f8f7f5] overflow-y-auto" style={{ height: 'calc(100vh - 49px)', position: 'sticky', top: '49px' }}>
-          <div className="p-4 space-y-4">
-
-            {/* Summary card (edit mode only) */}
-            {!isNew && (
-              <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl p-4 text-white">
-                <div className="flex items-center gap-3">
-                  {form.cover_image_url ? (
-                    <img src={form.cover_image_url} alt="" referrerPolicy="no-referrer"
-                      className="w-14 h-14 rounded-lg object-cover shrink-0 shadow-lg" />
-                  ) : (
-                    <div className="w-14 h-14 rounded-lg bg-white/20 flex items-center justify-center text-2xl shrink-0">💿</div>
-                  )}
-                  <div className="min-w-0">
-                    <p className="font-bold text-white leading-tight truncate">{form.title || 'Albumas'}</p>
-                    <p className="text-blue-200 text-xs mt-0.5">{artistName}</p>
-                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                      {form.year && <span className="text-blue-200 text-xs">{form.year}</span>}
-                      {activeType && <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">{activeType.icon} {activeType.label}</span>}
-                    </div>
-                  </div>
-                </div>
+      {/* ── MOBILE: Tab view ── */}
+      <div className="lg:hidden">
+        {tab === 'info' && InfoPanel}
+        {tab === 'tracks' && (
+          <div className="bg-white min-h-screen">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-gray-700">Dainų sąrašas</span>
+                <span className="bg-gray-200 text-gray-600 text-xs font-bold px-2 py-0.5 rounded-full">{form.tracks?.length || 0}</span>
               </div>
-            )}
-
-            {/* Pagrindinė informacija */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-3">
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Pagrindinė informacija</p>
-
-              {/* Title */}
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Pavadinimas *</label>
-                <input value={form.title} onChange={e => set('title', e.target.value)}
-                  placeholder="Albumo pavadinimas"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-gray-900 text-sm font-medium focus:outline-none focus:border-blue-400 bg-white transition-colors" />
-              </div>
-
-              {/* Artist */}
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Atlikėjas *</label>
-                {form.artist_id ? (
-                  <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-xl px-3 py-2">
-                    <span className="flex-1 text-sm font-semibold text-gray-900">{artistName}</span>
-                    <button type="button" onClick={() => { set('artist_id', 0); setArtistName(''); setArtistId(null); setArtistSlug('') }}
-                      className="text-gray-400 hover:text-red-500 transition-colors leading-none text-lg">×</button>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <input type="text" value={artistSearch} onChange={e => setArtistSearch(e.target.value)}
-                      placeholder="Ieškoti atlikėjo..."
-                      className="w-full px-3 py-2 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:border-blue-400 transition-colors" />
-                    {artistResults.length > 0 && (
-                      <div className="absolute z-20 w-full bg-white border border-gray-200 rounded-xl shadow-xl mt-1 overflow-hidden">
-                        {artistResults.map(a => (
-                          <button key={a.id} type="button"
-                            onClick={() => { set('artist_id', a.id); setArtistName(a.name); setArtistSlug(a.slug || ''); setArtistId(a.id); setArtistSearch(''); setArtistResults([]) }}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 text-left transition-colors">
-                            <span className="font-semibold text-gray-900 text-sm">{a.name}</span>
-                            <span className="text-gray-400 text-xs ml-auto">{a.country}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Date */}
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Išleidimo data</label>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {[
-                    { key: 'year', label: 'Metai', value: form.year, opts: YEARS.map(y => ({ v: y, l: String(y) })) },
-                    { key: 'month', label: 'Mėnuo', value: form.month, opts: MONTHS.map((m, i) => ({ v: i+1, l: m })) },
-                    { key: 'day', label: 'Diena', value: form.day, opts: DAYS.map(d => ({ v: d, l: String(d) })) },
-                  ].map(({ key, label, value, opts }) => (
-                    <div key={key}>
-                      <p className="text-xs text-gray-400 mb-0.5">{label}</p>
-                      <select value={value || ''} onChange={e => set(key as any, e.target.value ? parseInt(e.target.value) : null)}
-                        className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-xs focus:outline-none focus:border-blue-400 bg-white">
-                        <option value="">–</option>
-                        {opts.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
-                      </select>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Type */}
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1.5">Tipas</label>
-                <div className="flex flex-wrap gap-1">
-                  {ALBUM_TYPE_FIELDS.map(t => (
-                    <button key={t.key} type="button" onClick={() => setType(t.key)}
-                      className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-                        (form as any)[t.key] ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}>
-                      {t.icon} {t.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <span className="text-xs text-gray-400">▶ video · T žodžiai · S singlas</span>
             </div>
-
-            {/* Viršelis */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Viršelis</p>
-              <CoverImageField value={form.cover_image_url || ''} onChange={url => set('cover_image_url', url)} />
-            </div>
-
-            {/* YouTube */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">🎬 YouTube</p>
-              {ytId ? (
-                <div className="space-y-2 mb-3">
-                  <div className="aspect-video rounded-xl overflow-hidden bg-black">
-                    <iframe src={`https://www.youtube.com/embed/${ytId}`} className="w-full h-full" allowFullScreen />
-                  </div>
-                  <div className="flex gap-1.5">
-                    <input value={form.video_url || ''} onChange={e => set('video_url', e.target.value)}
-                      className="flex-1 px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
-                    <button type="button" onClick={() => set('video_url', '')}
-                      className="px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg text-xs transition-colors">✕</button>
-                  </div>
-                </div>
-              ) : (
-                <div className="mb-3">
-                  <input value={form.video_url || ''} onChange={e => set('video_url', e.target.value)}
-                    placeholder="https://youtube.com/watch?v=..."
-                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white mb-2" />
-                </div>
-              )}
-              <YouTubeSearch initialQuery={ytSearchQuery} onSelect={url => set('video_url', url)} />
-            </div>
-
-            {/* Spotify */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">🎧 Spotify</p>
-              <input value={form.spotify_id || ''} onChange={e => set('spotify_id', e.target.value)}
-                placeholder="Spotify album ID..."
-                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:border-blue-400 font-mono transition-colors" />
-              {form.spotify_id && (
-                <a href={`https://open.spotify.com/album/${form.spotify_id}`} target="_blank" rel="noopener noreferrer"
-                  className="mt-2 flex items-center gap-1.5 text-xs text-green-600 hover:text-green-700 transition-colors">
-                  🔗 Atidaryti Spotify
-                </a>
-              )}
-            </div>
-
-            {/* Save hint */}
-            <div className="text-center text-xs text-gray-400 py-2">
-              <kbd className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-500 font-mono">⌘S</kbd> Išsaugoti
-            </div>
+            {TracksPanel}
           </div>
-        </div>
+        )}
+      </div>
 
-        {/* ── RIGHT (60%): Tracklist ── */}
-        <div className="bg-white overflow-y-auto" style={{ height: 'calc(100vh - 49px)', position: 'sticky', top: '49px' }}>
-          <TrackList
-            tracks={form.tracks || []}
-            onAdd={addTrack}
-            onUpdate={upTrack}
-            onRemove={rmTrack}
-            onReorder={reorderTracks}
-          />
+      {/* ── DESKTOP: Side-by-side 40/60 ── */}
+      <div className="hidden lg:grid lg:grid-cols-[2fr_3fr]">
+        {/* Left: Info */}
+        <div className="border-r border-gray-200 overflow-y-auto" style={{ height: 'calc(100vh - 96px)', position: 'sticky', top: '96px' }}>
+          {InfoPanel}
+        </div>
+        {/* Right: Tracks */}
+        <div className="bg-white overflow-y-auto" style={{ height: 'calc(100vh - 96px)', position: 'sticky', top: '96px' }}>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50 sticky top-0 z-10">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-gray-700">Dainų sąrašas</span>
+              <span className="bg-gray-200 text-gray-600 text-xs font-bold px-2 py-0.5 rounded-full">{form.tracks?.length || 0}</span>
+            </div>
+            <span className="text-xs text-gray-400">▶ video · T žodžiai · S singlas</span>
+          </div>
+          {TracksPanel}
         </div>
       </div>
     </div>
