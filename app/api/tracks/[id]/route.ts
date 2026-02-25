@@ -35,7 +35,7 @@ export async function GET(
 
     const { data: albumRows } = await supabase
       .from('album_tracks')
-      .select('position, is_primary, albums(id, title, year)')
+      .select('position, is_primary, albums(id, title, year, cover_url)')
       .eq('track_id', parseInt(id))
       .order('position')
 
@@ -45,6 +45,7 @@ export async function GET(
       album_year: r.albums?.year || null,
       position: r.position || 0,
       is_single: r.is_primary || false,
+      cover_url: r.albums?.cover_url || null,
     }))
 
     // Backward compat: parse old release_date if new fields empty
