@@ -45,48 +45,37 @@ function PhotoCard({
 
   return (
     <div
-      className={`group relative rounded-xl overflow-hidden border-2 transition-all bg-white
+      className={`group relative rounded-xl overflow-hidden border-2 transition-all bg-gray-100 cursor-grab active:cursor-grabbing
         ${isDragOver ? 'border-music-blue scale-[1.02] shadow-lg' : 'border-gray-200 hover:border-gray-300'}`}
-      style={{ aspectRatio: 'auto' }}
+      style={{ aspectRatio: '3/2' }}
       draggable
       onDragStart={dragHandlers.onDragStart}
       onDragEnter={dragHandlers.onDragEnter}
       onDragEnd={dragHandlers.onDragEnd}
       onDragOver={e => e.preventDefault()}
     >
-      {/* Image */}
-      <div className="relative overflow-hidden bg-gray-100" style={{ minHeight: 80 }}>
-        <img
-          src={photo.url}
-          alt={photo.caption || ''}
-          referrerPolicy="no-referrer"
-          className="w-full h-full object-cover"
-          style={{ maxHeight: 160, objectFit: 'cover' }}
-        />
+      {/* Image fills entire card */}
+      <img
+        src={photo.url}
+        alt={photo.caption || ''}
+        referrerPolicy="no-referrer"
+        className="absolute inset-0 w-full h-full object-cover"
+      />
 
-        {/* Hover actions overlay */}
-        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-start justify-between p-1.5">
-          {/* Drag handle */}
-          <div className="cursor-grab active:cursor-grabbing p-1 text-white/80 hover:text-white text-sm" title="Tempti">
-            ⠿
-          </div>
-          {/* Remove */}
-          <button
-            type="button"
-            onClick={onRemove}
-            className="p-1 bg-red-500/80 hover:bg-red-500 text-white rounded-lg text-xs leading-none transition-colors"
-            title="Pašalinti"
-          >✕</button>
-        </div>
-
-        {/* Position badge */}
-        <div className="absolute bottom-1 left-1 bg-black/50 text-white text-xs px-1.5 py-0.5 rounded-md font-mono leading-none">
+      {/* Top bar — index + remove (visible on hover) */}
+      <div className="absolute inset-x-0 top-0 flex items-center justify-between px-1.5 pt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+        <span className="bg-black/50 text-white text-xs px-1.5 py-0.5 rounded-md font-mono leading-none">
           {index + 1}/{total}
-        </div>
+        </span>
+        <button
+          type="button"
+          onClick={e => { e.stopPropagation(); onRemove() }}
+          className="w-5 h-5 bg-red-500/80 hover:bg-red-500 text-white rounded-md text-xs leading-none flex items-center justify-center transition-colors"
+        >✕</button>
       </div>
 
-      {/* Author/credit row */}
-      <div className="px-2 py-1.5 border-t border-gray-100">
+      {/* Bottom author bar — always visible but subtle, expands on hover */}
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent pt-4 pb-1 px-2">
         {editingAuthor ? (
           <input
             autoFocus
@@ -94,21 +83,19 @@ function PhotoCard({
             value={photo.author || ''}
             onChange={e => onUpdate({ ...photo, author: e.target.value })}
             onBlur={() => setEditingAuthor(false)}
-            onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') setEditingAuthor(false) }}
+            onKeyDown={e => { e.stopPropagation(); if (e.key === 'Enter' || e.key === 'Escape') setEditingAuthor(false) }}
             placeholder="Autorius / © šaltinis"
-            className="w-full text-xs px-1.5 py-1 border border-music-blue rounded-lg focus:outline-none bg-white text-gray-700"
+            className="w-full text-xs px-1.5 py-0.5 rounded-md focus:outline-none bg-white/90 text-gray-800"
+            onClick={e => e.stopPropagation()}
           />
         ) : (
           <button
             type="button"
-            onClick={() => setEditingAuthor(true)}
-            className="w-full text-left text-xs text-gray-400 hover:text-gray-600 transition-colors truncate"
+            onClick={e => { e.stopPropagation(); setEditingAuthor(true) }}
+            className="w-full text-left text-xs text-white/70 hover:text-white transition-colors truncate leading-none"
             title="Spustelėkite norėdami nurodyti autorių"
           >
-            {photo.author
-              ? <span className="text-gray-600">© {photo.author}</span>
-              : <span className="italic">+ Autorius</span>
-            }
+            {photo.author ? `© ${photo.author}` : <span className="opacity-50">© autorius</span>}
           </button>
         )}
       </div>
@@ -188,7 +175,7 @@ export default function PhotoGallery({
 
       {/* Grid */}
       {photos.length > 0 && (
-        <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))' }}>
+        <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}>
           {photos.map((photo, i) => (
             <PhotoCard
               key={`${photo.url}-${i}`}
@@ -206,17 +193,17 @@ export default function PhotoGallery({
             />
           ))}
 
-          {/* Add more slot */}
+          {/* Add more — same 3:2 ratio as photos */}
           <div
             className="rounded-xl border-2 border-dashed border-gray-200 hover:border-music-blue transition-colors cursor-pointer flex flex-col items-center justify-center gap-1 text-gray-400 hover:text-music-blue"
-            style={{ minHeight: 80, aspectRatio: '1/1' }}
+            style={{ aspectRatio: '3/2' }}
             onClick={() => fileRef.current?.click()}
             onDrop={e => { e.preventDefault(); handleFiles(Array.from(e.dataTransfer.files)) }}
             onDragOver={e => e.preventDefault()}
           >
             {uploading
               ? <div className="w-5 h-5 border-2 border-music-blue border-t-transparent rounded-full animate-spin" />
-              : <><span className="text-xl">+</span><span className="text-xs">Pridėti</span></>
+              : <><span className="text-lg">+</span><span className="text-xs">Pridėti</span></>
             }
           </div>
         </div>
