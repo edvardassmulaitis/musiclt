@@ -227,6 +227,44 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
   const [loading, setLoading] = useState(!isNewTrack)
   const [parsingFeat, setParsingFeat] = useState(false)
   const [parseResult, setParseResult] = useState<string | null>(null)
+  const [fetchingCover, setFetchingCover] = useState(false)
+  const [coverFetchMsg, setCoverFetchMsg] = useState<string | null>(null)
+
+  const handleFetchWikiCover = async () => {
+    if (!title) return
+    setFetchingCover(true); setCoverFetchMsg(null)
+    try {
+      const query = [artistName, title].filter(Boolean).join(' ')
+      // Try Wikipedia API — search for page, then get main image
+      const searchRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*&srlimit=1`)
+      const searchData = await searchRes.json()
+      const pageTitle = searchData?.query?.search?.[0]?.title
+      if (!pageTitle) { setCoverFetchMsg('Wikipedia puslapio nerasta'); return }
+
+      const imgRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(pageTitle)}&prop=pageimages&pithumbsize=600&format=json&origin=*`)
+      const imgData = await imgRes.json()
+      const pages = imgData?.query?.pages
+      const page = pages && Object.values(pages)[0] as any
+      const imgUrl = page?.thumbnail?.source
+
+      if (!imgUrl) { setCoverFetchMsg('Wikipedia paveikslėlio nerasta'); return }
+
+      // Upload via our fetch-image endpoint to store in Supabase
+      const uploadRes = await fetch('/api/fetch-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: imgUrl }),
+      })
+      if (uploadRes.ok) {
+        const d = await uploadRes.json()
+        if (d.url) { setCoverUrl(d.url); setCoverFetchMsg('✓ Viršelis pridėtas!'); return }
+      }
+      // If upload fails, use direct URL
+      setCoverUrl(imgUrl)
+      setCoverFetchMsg('✓ Viršelis pridėtas (tiesioginis URL)')
+    } catch (e: any) { setCoverFetchMsg(`Klaida: ${e.message}`) }
+    finally { setFetchingCover(false) }
+  }
 
   // Extracts featuring artist names from title string
   const extractFeatFromTitle = (t: string): { cleanTitle: string; names: string[] } => {
@@ -549,7 +587,22 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
         <div className="grid grid-cols-2 gap-3">
           <div>
             <p className="text-xs font-semibold text-gray-500 mb-1.5">Viršelis</p>
-            <CoverMini value={coverUrl} onChange={setCoverUrl} />
+            <CoverMini value={coverUrl} onChange={v => { setCoverUrl(v); setCoverFetchMsg(null) }} />
+            {!coverUrl && (
+              <div className="mt-1">
+                <button type="button" onClick={handleFetchWikiCover} disabled={fetchingCover}
+                  className="text-xs text-blue-500 hover:underline disabled:opacity-50 flex items-center gap-1">
+                  {fetchingCover
+                    ? <><span className="inline-block w-3 h-3 border border-blue-400 border-t-transparent rounded-full animate-spin" /> Ieškoma...</>
+                    : '← Ieškoti Wikipedia viršelio'}
+                </button>
+                {coverFetchMsg && (
+                  <p className={`text-xs mt-0.5 ${coverFetchMsg.startsWith('✓') ? 'text-green-600' : 'text-red-500'}`}>
+                    {coverFetchMsg}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
           <div className="space-y-2.5 min-w-0">
             <div>
@@ -605,6 +658,8 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
         <div className="flex items-center justify-between gap-3 px-4 py-2">
           <nav className="flex items-center gap-1 text-sm min-w-0">
             <Link href="/admin" className="text-gray-400 hover:text-gray-700 shrink-0">Admin</Link>
+            <span className="text-gray-300">/</span>
+            <Link href="/admin/artists" className="text-gray-400 hover:text-gray-700 shrink-0">Atlikėjai</Link>
             {artistId > 0 && <>
               <span className="text-gray-300">/</span>
               <Link href={`/admin/artists/${artistId}`} className="text-gray-400 hover:text-gray-700 shrink-0">{artistName}</Link>
