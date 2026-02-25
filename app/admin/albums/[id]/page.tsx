@@ -140,7 +140,7 @@ function CoverImageField({ value, onChange }: { value: string; onChange: (url: s
           onClick={() => !uploading && fileRef.current?.click()}
           onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f?.type.startsWith('image/')) handleFileUpload(f) }}
           onDragOver={e => e.preventDefault()}>
-          <img src={value} alt="" referrerPolicy="no-referrer" className="w-full object-cover group-hover:opacity-90 transition-opacity" style={{height:'160px'}} />
+          <img src={value} alt="" referrerPolicy="no-referrer" className="w-full object-contain bg-gray-900 group-hover:opacity-90 transition-opacity" style={{height:'160px'}} />
           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
             <span className="text-white text-sm font-medium">Keisti ↗</span>
           </div>
@@ -282,7 +282,7 @@ function TrackList({ tracks, isMobile, onAdd, onUpdate, onRemove, onHardDelete, 
             <div className="flex-1 min-w-0 flex items-baseline gap-1 flex-wrap">
               <input value={t.title} onChange={e => onUpdate(i, 'title', e.target.value)}
                 placeholder="Dainos pavadinimas"
-                size={Math.max(8, (t.title?.length || 0) + 2)}
+                size={t.title ? Math.max(8, t.title.length + 2) : 20}
                 className="px-1 py-0.5 border border-transparent hover:border-gray-200 focus:border-blue-300 rounded text-sm text-gray-900 focus:outline-none bg-transparent focus:bg-white transition-all" />
               {featuring.length > 0 && (
                 <span className="text-xs text-gray-400 leading-tight whitespace-nowrap">su {featuring.join(', ')}</span>
