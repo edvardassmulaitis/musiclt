@@ -133,31 +133,44 @@ function CoverImageField({ value, onChange }: { value: string; onChange: (url: s
   }
 
   return (
-    <div className="flex gap-3 items-start">
-      <div className="relative w-16 h-16 rounded-lg border-2 border-dashed border-gray-200 overflow-hidden bg-gray-50 cursor-pointer group hover:border-blue-400 transition-colors shrink-0"
-        onClick={() => !uploading && fileRef.current?.click()}
-        onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f?.type.startsWith('image/')) handleFileUpload(f) }}
-        onDragOver={e => e.preventDefault()}>
-        {value
-          ? <><img src={value} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                <span className="text-white text-xs">Keisti</span></div></>
-          : <div className="w-full h-full flex items-center justify-center text-gray-400"><span className="text-xl">💿</span></div>}
-        {uploading && <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
-          <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" /></div>}
-      </div>
-      <div className="flex-1 space-y-1.5 min-w-0">
+    <div className="space-y-1.5">
+      {/* Big preview – same style as YouTube thumbnail */}
+      {value ? (
+        <div className="relative rounded-lg overflow-hidden group cursor-pointer"
+          onClick={() => !uploading && fileRef.current?.click()}
+          onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f?.type.startsWith('image/')) handleFileUpload(f) }}
+          onDragOver={e => e.preventDefault()}>
+          <img src={value} alt="" referrerPolicy="no-referrer" className="w-full aspect-square object-cover group-hover:opacity-90 transition-opacity" />
+          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+            <span className="text-white text-sm font-medium">Keisti ↗</span>
+          </div>
+          {uploading && <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
+            <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" /></div>}
+        </div>
+      ) : (
+        <div className="relative w-full aspect-square rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 cursor-pointer hover:border-blue-400 transition-colors flex items-center justify-center group"
+          onClick={() => !uploading && fileRef.current?.click()}
+          onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f?.type.startsWith('image/')) handleFileUpload(f) }}
+          onDragOver={e => e.preventDefault()}>
+          <div className="text-center text-gray-400">
+            <span className="text-3xl block mb-1">💿</span>
+            <span className="text-xs">Įkelti viršelį</span>
+          </div>
+          {uploading && <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-lg">
+            <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" /></div>}
+        </div>
+      )}
+      {/* URL input + upload button row */}
+      <div className="flex gap-1.5">
         <input type="text" value={urlInput} onChange={e => setUrlInput(e.target.value)}
           onBlur={e => handleUrlCommit(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleUrlCommit(urlInput)}
-          placeholder="https://..." className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
-        <div className="flex gap-1.5">
-          <button type="button" onClick={() => fileRef.current?.click()}
-            className="flex-1 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs font-medium transition-colors">📁 Įkelti</button>
-          {value && <button type="button" onClick={() => { onChange(''); setUrlInput('') }}
-            className="px-2 py-1 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg text-xs transition-colors">✕</button>}
-        </div>
-        {uploadError && <p className="text-xs text-red-500">{uploadError}</p>}
+          placeholder="https://..." className="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
+        <button type="button" onClick={() => fileRef.current?.click()}
+          className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs font-medium transition-colors shrink-0">📁</button>
+        {value && <button type="button" onClick={() => { onChange(''); setUrlInput('') }}
+          className="px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg text-xs transition-colors shrink-0">✕</button>}
       </div>
+      {uploadError && <p className="text-xs text-red-500">{uploadError}</p>}
       <input ref={fileRef} type="file" accept="image/*" className="hidden"
         onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f) }} />
     </div>
@@ -333,7 +346,7 @@ function TrackList({ tracks, isMobile, onAdd, onUpdate, onRemove, onHardDelete, 
 
 function TracksHeader({ count }: { count: number }) {
   return (
-    <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100 bg-white/90 backdrop-blur sticky top-0 z-10 rounded-t-xl">
+    <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100 bg-white sticky top-0 z-10">
       <div className="flex items-center gap-1.5">
         <span className="text-sm font-bold text-gray-700">Dainų sąrašas</span>
         <span className="bg-gray-200 text-gray-600 text-xs font-bold px-1.5 py-0.5 rounded-full">{count}</span>
@@ -612,7 +625,7 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
               <Link href={`/admin/artists/${artistId}`} className="text-gray-400 hover:text-gray-700 shrink-0">{artistName}</Link>
             </>}
             <span className="text-gray-300">/</span>
-            <Link href="/admin/albums" className="text-gray-400 hover:text-gray-700 shrink-0">Albumai</Link>
+            <Link href={artistId ? `/admin/albums?artist=${artistId}` : "/admin/albums"} className="text-gray-400 hover:text-gray-700 shrink-0">Albumai</Link>
             <span className="text-gray-300">/</span>
             <span className="text-gray-800 font-semibold truncate max-w-[160px]">{isNew ? 'Naujas' : (form.title || '...')}</span>
           </nav>
@@ -669,11 +682,11 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
       </div>
 
       {/* Desktop 50/50 */}
-      <div className="hidden lg:grid lg:grid-cols-2">
-        <div className="border-r border-gray-200 overflow-y-auto" style={{ height: 'calc(100vh - 41px)', position: 'sticky', top: '41px', overflowX: 'hidden', scrollbarGutter: 'stable' }}>
+      <div className="hidden lg:grid lg:grid-cols-2 items-start">
+        <div className="border-r border-gray-200 overflow-y-auto sticky top-[41px]" style={{ height: 'calc(100dvh - 41px)' }}>
           {InfoPanel}
         </div>
-        <div className="bg-[#f8f7f5] overflow-y-auto" style={{ height: 'calc(100vh - 41px)', position: 'sticky', top: '41px' }}>
+        <div className="bg-[#f8f7f5] overflow-y-auto sticky top-[41px]" style={{ height: 'calc(100dvh - 41px)' }}>
           <div className="m-3 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
             <TracksHeader count={trackCount} />
             <TrackList tracks={form.tracks || []} isMobile={false}
