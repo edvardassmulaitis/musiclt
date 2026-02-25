@@ -479,6 +479,156 @@ function AvatarUpload({ value, onChange, onOriginalSaved }: { value: string; onC
   )
 }
 
+// ── AvatarUploadCompact — horizontal layout: photo left, controls right ────────
+function AvatarUploadCompact({ value, onChange, onOriginalSaved }: {
+  value: string
+  onChange: (url: string) => void
+  onOriginalSaved?: (url: string) => void
+}) {
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState('')
+  const [urlInput, setUrlInput] = useState('')
+  const [cropSrc, setCropSrc] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (value && !value.startsWith('data:')) setUrlInput(value)
+  }, [value])
+
+  const blobToDataUrl = (blob: Blob): Promise<string> =>
+    new Promise(res => { const r = new FileReader(); r.onload = e => res(e.target?.result as string); r.readAsDataURL(blob) })
+
+  const uploadBlob = async (blob: Blob, filename: string): Promise<string> => {
+    const fd = new FormData(); fd.append('file', blob, filename)
+    const res = await fetch('/api/upload', { method: 'POST', body: fd })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || 'Upload nepavyko')
+    return data.url
+  }
+
+  const handleFileSelect = (file: File) => {
+    const reader = new FileReader()
+    reader.onload = e => setCropSrc(e.target?.result as string)
+    reader.readAsDataURL(file)
+  }
+
+  const handleCropped = async ({ square, original }: CropResult) => {
+    setCropSrc(null)
+    setUploading(true); setError('')
+    try {
+      const squareUrl = await uploadBlob(square, 'avatar-square.jpg')
+      onChange(squareUrl); setUrlInput(squareUrl)
+      if (onOriginalSaved) {
+        const origUrl = await uploadBlob(original, 'avatar-original.jpg')
+        onOriginalSaved(origUrl)
+      }
+    } catch (e: any) { setError(e.message) }
+    finally { setUploading(false) }
+  }
+
+  const storeUrl = async (raw: string) => {
+    const v = raw.trim()
+    if (!v || !v.startsWith('http')) return
+    setUploading(true); setError('')
+    try {
+      const res = await fetch('/api/fetch-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: v, returnDataUrl: true }),
+      })
+      if (!res.ok) throw new Error('Serverio klaida')
+      const d = await res.json()
+      const src = d.dataUrl || d.url
+      if (!src) throw new Error('Negautas URL')
+      setUploading(false)
+      setCropSrc(src)
+    } catch (e: any) {
+      setError('Nepavyko gauti nuotraukos')
+      setUploading(false)
+    }
+  }
+
+  return (
+    <>
+      {cropSrc && (
+        <ImageCropper
+          src={cropSrc}
+          onCrop={handleCropped}
+          onCancel={() => { setCropSrc(null); setUploading(false) }}
+        />
+      )}
+      <div className="flex gap-4 items-start">
+        {/* Square photo preview */}
+        <div
+          className="relative rounded-xl overflow-hidden cursor-pointer group border-2 border-dashed border-gray-200 hover:border-music-blue transition-colors bg-gray-50 shrink-0"
+          style={{ width: 120, height: 120 }}
+          onClick={() => !uploading && fileRef.current?.click()}
+          onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f?.type.startsWith('image/')) handleFileSelect(f) }}
+          onDragOver={e => e.preventDefault()}
+        >
+          {value ? (
+            <>
+              <img src={value} alt="" referrerPolicy="no-referrer"
+                className="w-full h-full object-cover group-hover:opacity-70 transition-opacity" />
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <span className="text-white text-xs font-medium">Keisti</span>
+              </div>
+            </>
+          ) : (
+            <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 gap-1">
+              <span className="text-3xl">🎤</span>
+              <span className="text-xs text-center leading-tight">Įkelti<br/>nuotrauką</span>
+            </div>
+          )}
+          {uploading && (
+            <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
+              <div className="w-5 h-5 border-2 border-music-blue border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
+        </div>
+
+        {/* Controls */}
+        <div className="flex-1 min-w-0 space-y-2.5 pt-1">
+          <div className="flex gap-2">
+            <button type="button" onClick={() => fileRef.current?.click()}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition-colors">
+              📁 Įkelti failą
+            </button>
+            {value && (
+              <button type="button" onClick={() => { onChange(''); setUrlInput('') }}
+                className="flex items-center gap-1 px-2 py-1.5 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg text-xs transition-colors">
+                ✕ Išvalyti
+              </button>
+            )}
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs text-gray-400 font-medium">Arba įveskite URL:</label>
+            <div className="flex gap-1.5">
+              <input
+                type="text"
+                value={urlInput}
+                onChange={e => setUrlInput(e.target.value)}
+                onBlur={e => { if (e.target.value && e.target.value !== value) storeUrl(e.target.value) }}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); storeUrl(urlInput) } }}
+                placeholder="https://..."
+                className="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-music-blue bg-white"
+              />
+              <button type="button" onClick={() => storeUrl(urlInput)}
+                className="px-2 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-colors shrink-0">→</button>
+            </div>
+          </div>
+
+          {error && <p className="text-xs text-red-500">{error}</p>}
+          <p className="text-xs text-gray-400 leading-tight">Apkarpoma kvadratiškai.<br/>Originalas išsaugomas galerijoje.</p>
+        </div>
+      </div>
+      <input ref={fileRef} type="file" accept="image/*" className="hidden"
+        onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelect(f) }} />
+    </>
+  )
+}
+
 // ── InlineStyleSearch — quick style add without opening full modal ────────────
 function InlineStyleSearch({ selected, onAdd }: { selected: string[]; onAdd: (s: string) => void }) {
   const [q, setQ] = useState('')
@@ -873,13 +1023,12 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
             {/* ── RIGHT COLUMN ── */}
             <div className="space-y-5">
 
-              {/* FIX #3: Profilio nuotrauka — new AvatarUpload */}
+              {/* Profilio nuotrauka — horizontal: foto kairėje, valdymas dešinėje */}
               <Card title="Profilio nuotrauka">
-                <AvatarUpload
+                <AvatarUploadCompact
                   value={form.avatar}
                   onChange={setAvatar}
                   onOriginalSaved={url => {
-                    // Auto-add original to gallery if not already there
                     if (!form.photos.find(p => p.url === url)) {
                       setPhotos([{ url }, ...form.photos])
                     }
@@ -887,12 +1036,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                 />
               </Card>
 
-              {/* Nuotraukų galerija — auto-saves when photos change */}
-              <Card title="Nuotraukų galerija">
-                <PhotoGallery photos={form.photos} onChange={setPhotos} />
-              </Card>
-
-              {/* FIX #8: Socials — website moved here, subdomain at bottom */}
+              {/* Socialiniai tinklai */}
               <Card title="Socialiniai tinklai ir nuorodos">
                 <div className="space-y-3">
                   {SOCIALS.map(({ key, label, icon, ph, type }) => (
@@ -912,7 +1056,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                 </div>
               </Card>
 
-              {/* FIX #8: Subdomain at very bottom */}
+              {/* music.lt domenas */}
               <Card title="music.lt domenas">
                 <div>
                   <SL>Subdomenas</SL>
@@ -924,6 +1068,11 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
               </Card>
             </div>
           </div>
+
+          {/* Nuotraukų galerija — full width, below both columns */}
+          <Card title="Nuotraukų galerija" className="mt-5">
+            <PhotoGallery photos={form.photos} onChange={setPhotos} />
+          </Card>
 
           {/* Submit */}
           <div className="mt-6 flex gap-4">
