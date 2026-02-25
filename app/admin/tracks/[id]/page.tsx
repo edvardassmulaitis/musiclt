@@ -598,15 +598,12 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
           </div>
           {albums.map(a => (
             <div key={a.album_id} className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-50 last:border-0 group hover:bg-gray-50 transition-colors">
-              {a.cover_url
-                ? <img src={a.cover_url} alt="" className="w-8 h-8 rounded object-cover shrink-0" referrerPolicy="no-referrer" />
-                : <div className="w-8 h-8 rounded bg-gray-100 shrink-0 flex items-center justify-center text-gray-300 text-xs">♪</div>
-              }
+              <span className="text-gray-300 text-xs w-4 text-right shrink-0">{a.position}.</span>
               <div className="flex-1 min-w-0">
                 <Link href={`/admin/albums/${a.album_id}`} className="text-sm text-gray-900 hover:text-blue-600 truncate block transition-colors">
                   {a.album_title}
                 </Link>
-                {a.album_year && <span className="text-xs text-gray-400">{a.album_year} · nr. {a.position}</span>}
+                {a.album_year && <span className="text-xs text-gray-400">{a.album_year}</span>}
               </div>
               <button onClick={() => removeFromAlbum(a.album_id)} disabled={removingFromAlbum === a.album_id}
                 className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 text-xs px-1 rounded transition-all disabled:opacity-50">
