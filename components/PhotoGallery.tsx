@@ -171,6 +171,10 @@ export default function PhotoGallery({
     if (!v) return
     setUploading(true); setError('')
     try {
+      // Extract domain for auto-author
+      let autoDomain = ''
+      try { autoDomain = new URL(v).hostname.replace(/^www\./, '') } catch {}
+
       const res = await fetch('/api/fetch-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -178,7 +182,11 @@ export default function PhotoGallery({
       })
       const d = await res.json()
       if (!res.ok || !d.url) throw new Error(d.error || 'Nepavyko')
-      onChange([...photos, { url: d.url }])
+      onChange([...photos, {
+        url: d.url,
+        authorUrl: v,                      // original URL as source link
+        author: autoDomain || undefined,   // domain as default author
+      }])
       setUrlInput('')
       setShowUrlInput(false)
     } catch (e: any) { setError(e.message) }
