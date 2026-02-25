@@ -272,7 +272,7 @@ function TrackList({ tracks, isMobile, onAdd, onUpdate, onRemove, onHardDelete, 
                 size={Math.max(8, (t.title?.length || 0) + 2)}
                 className="px-1 py-0.5 border border-transparent hover:border-gray-200 focus:border-blue-300 rounded text-sm text-gray-900 focus:outline-none bg-transparent focus:bg-white transition-all" />
               {featuring.length > 0 && (
-                <span className="text-xs text-gray-400 leading-tight whitespace-nowrap">feat. {featuring.join(', ')}</span>
+                <span className="text-xs text-gray-400 leading-tight whitespace-nowrap">su {featuring.join(', ')}</span>
               )}
             </div>
 
@@ -321,7 +321,7 @@ function TrackList({ tracks, isMobile, onAdd, onUpdate, onRemove, onHardDelete, 
         </div>
       )}
 
-      <div className="p-2.5 bg-gray-50/60">
+      <div className="p-2.5">
         <button type="button" onClick={onAdd}
           className="w-full py-2 border-2 border-dashed border-gray-200 text-gray-400 rounded-xl text-sm hover:border-blue-300 hover:text-blue-500 active:bg-blue-50 transition-colors">
           + Pridėti dainą
@@ -333,7 +333,7 @@ function TrackList({ tracks, isMobile, onAdd, onUpdate, onRemove, onHardDelete, 
 
 function TracksHeader({ count }: { count: number }) {
   return (
-    <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100 bg-gray-50/80 sticky top-0 z-10">
+    <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100 bg-white/90 backdrop-blur sticky top-0 z-10 rounded-t-xl">
       <div className="flex items-center gap-1.5">
         <span className="text-sm font-bold text-gray-700">Dainų sąrašas</span>
         <span className="bg-gray-200 text-gray-600 text-xs font-bold px-1.5 py-0.5 rounded-full">{count}</span>
@@ -505,7 +505,7 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
             {/* Featured artist chips */}
             {featuredArtists.map((a, i) => (
               <div key={a.id} className="flex items-center gap-1 bg-gray-100 text-gray-700 border border-gray-200 rounded-full px-2 py-1 text-xs shrink-0">
-                <span className="text-gray-400">feat.</span>
+                <span className="text-gray-400">su</span>
                 {a.name}
                 <button type="button" onClick={() => setFeaturedArtists(p => p.filter((_, j) => j !== i))}
                   className="text-gray-400 hover:text-red-500 transition-colors leading-none ml-0.5">×</button>
@@ -514,7 +514,7 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
             {/* Inline feat search */}
             {form.artist_id && (
               <div className="flex-1 min-w-[120px]">
-                <ArtistSearchInput placeholder="+ feat..."
+                <ArtistSearchInput placeholder="+ su atlikėju..."
                   onSelect={(id, name) => {
                     if (id === form.artist_id) return
                     if (!featuredArtists.find(a => a.id === id))
@@ -544,53 +544,49 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
       {/* Media card: 2 columns — cover left, YT+Spotify right */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
         <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Media</p>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-3">
 
-          {/* Left: Cover */}
+          {/* Cover — full width input + square preview */}
           <div>
             <p className="text-xs font-semibold text-gray-500 mb-1.5">Viršelis</p>
             <CoverImageField value={form.cover_image_url || ''} onChange={url => set('cover_image_url', url)} />
           </div>
 
-          {/* Right: YouTube + Spotify */}
-          <div className="space-y-2.5">
-            {/* YouTube */}
-            <div>
-              <p className="text-xs font-semibold text-gray-500 mb-1">🎬 YouTube</p>
-              <div className="flex gap-1">
-                <input value={form.video_url || ''} onChange={e => set('video_url', e.target.value)}
-                  placeholder="youtube.com/watch?v=..."
-                  className="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
-                {ytId && (
-                  <button type="button" onClick={() => set('video_url', '')}
-                    className="px-2 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg text-xs transition-colors shrink-0">✕</button>
-                )}
-              </div>
+          {/* YouTube — full width */}
+          <div>
+            <p className="text-xs font-semibold text-gray-500 mb-1">🎬 YouTube</p>
+            <div className="flex gap-1.5 mb-1.5">
+              <input value={form.video_url || ''} onChange={e => set('video_url', e.target.value)}
+                placeholder="youtube.com/watch?v=..."
+                className="flex-1 min-w-0 px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
               {ytId && (
-                <a href={form.video_url || ''} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 mt-1 group">
-                  <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} alt=""
-                    className="w-16 h-10 object-cover rounded shrink-0 group-hover:opacity-80 transition-opacity" />
-                  <span className="text-xs text-gray-400 group-hover:text-blue-500 transition-colors">Žiūrėti ↗</span>
-                </a>
+                <button type="button" onClick={() => set('video_url', '')}
+                  className="px-2.5 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg text-xs transition-colors shrink-0">✕</button>
               )}
-              <div className="mt-1.5">
-                <YouTubeSearch initialQuery={ytSearchQuery} onSelect={url => set('video_url', url)} />
-              </div>
             </div>
+            {/* Big thumbnail when video set */}
+            {ytId && (
+              <a href={form.video_url || ''} target="_blank" rel="noopener noreferrer" className="block mb-1.5 group relative">
+                <img src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`} alt=""
+                  className="w-full aspect-video object-cover rounded-lg group-hover:opacity-90 transition-opacity" />
+                <span className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded">Žiūrėti ↗</span>
+              </a>
+            )}
+            <YouTubeSearch initialQuery={ytSearchQuery} onSelect={url => set('video_url', url)} />
+          </div>
 
-            {/* Spotify */}
-            <div>
-              <p className="text-xs font-semibold text-gray-500 mb-1">🎧 Spotify</p>
-              <input value={form.spotify_id || ''} onChange={e => set('spotify_id', e.target.value)}
-                placeholder="Album ID..."
-                className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-xs focus:outline-none focus:border-blue-400 font-mono transition-colors" />
-              {form.spotify_id && (
-                <a href={`https://open.spotify.com/album/${form.spotify_id}`} target="_blank" rel="noopener noreferrer"
-                  className="mt-1 flex items-center gap-1 text-xs text-green-600 hover:text-green-700 transition-colors">
-                  🔗 Atidaryti
-                </a>
-              )}
-            </div>
+          {/* Spotify */}
+          <div>
+            <p className="text-xs font-semibold text-gray-500 mb-1">🎧 Spotify</p>
+            <input value={form.spotify_id || ''} onChange={e => set('spotify_id', e.target.value)}
+              placeholder="Album ID..."
+              className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-xs focus:outline-none focus:border-blue-400 font-mono transition-colors" />
+            {form.spotify_id && (
+              <a href={`https://open.spotify.com/album/${form.spotify_id}`} target="_blank" rel="noopener noreferrer"
+                className="mt-1 flex items-center gap-1 text-xs text-green-600 hover:text-green-700 transition-colors">
+                🔗 Atidaryti Spotify
+              </a>
+            )}
           </div>
 
         </div>
@@ -607,14 +603,14 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
         <div className="flex items-center justify-between gap-3 px-4 py-2">
           <nav className="flex items-center gap-1 text-sm min-w-0">
             <Link href="/admin" className="text-gray-400 hover:text-gray-700 shrink-0">Admin</Link>
-            <span className="text-gray-300">/</span>
-            <Link href="/admin/albums" className="text-gray-400 hover:text-gray-700 shrink-0">Albumai</Link>
             {artistName && artistId && <>
               <span className="text-gray-300">/</span>
-              <Link href={`/admin/artists/${artistId}`} className="text-gray-400 hover:text-gray-700 truncate max-w-[80px]">{artistName}</Link>
+              <Link href={`/admin/artists/${artistId}`} className="text-gray-400 hover:text-gray-700 shrink-0">{artistName}</Link>
             </>}
             <span className="text-gray-300">/</span>
-            <span className="text-gray-800 font-semibold truncate max-w-[120px]">{isNew ? 'Naujas' : (form.title || '...')}</span>
+            <Link href="/admin/albums" className="text-gray-400 hover:text-gray-700 shrink-0">Albumai</Link>
+            <span className="text-gray-300">/</span>
+            <span className="text-gray-800 font-semibold truncate max-w-[160px]">{isNew ? 'Naujas' : (form.title || '...')}</span>
           </nav>
           <div className="flex items-center gap-1.5 shrink-0">
             {!isNew && (
@@ -673,10 +669,12 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
         <div className="border-r border-gray-200 overflow-y-auto" style={{ height: 'calc(100vh - 41px)', position: 'sticky', top: '41px' }}>
           {InfoPanel}
         </div>
-        <div className="bg-gray-50/40 overflow-y-auto" style={{ height: 'calc(100vh - 41px)', position: 'sticky', top: '41px' }}>
-          <TracksHeader count={trackCount} />
-          <TrackList tracks={form.tracks || []} isMobile={false}
-            onAdd={addTrack} onUpdate={upTrack} onRemove={rmTrack} onHardDelete={hardDeleteTrack} onReorder={reorderTracks} />
+        <div className="bg-[#f8f7f5] overflow-y-auto" style={{ height: 'calc(100vh - 41px)', position: 'sticky', top: '41px' }}>
+          <div className="m-3 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+            <TracksHeader count={trackCount} />
+            <TrackList tracks={form.tracks || []} isMobile={false}
+              onAdd={addTrack} onUpdate={upTrack} onRemove={rmTrack} onHardDelete={hardDeleteTrack} onReorder={reorderTracks} />
+          </div>
         </div>
       </div>
     </div>
