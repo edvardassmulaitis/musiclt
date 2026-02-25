@@ -47,15 +47,33 @@ function slugify(name: string): string {
 }
 
 export async function getArtists(limit = 50, offset = 0, search = '') {
-  let q = supabase
+  if (search) {
+    // Use unaccent via rpc for accent-insensitive search (e.g. Beyonce → Beyoncé)
+    const { data, error } = await supabase.rpc('search_artists', {
+      search_term: search,
+      row_limit: limit,
+      row_offset: offset,
+    })
+    if (error) {
+      // Fallback to regular ilike if rpc not available
+      const { data: fallback, count, error: e2 } = await supabase
+        .from('artists')
+        .select('id, slug, name, country, type, active_from, active_until, cover_image_url, is_verified', { count: 'exact' })
+        .ilike('name', `%${search}%`)
+        .order('name')
+        .range(offset, offset + limit - 1)
+      if (e2) throw e2
+      return { artists: fallback || [], total: count || 0 }
+    }
+    return { artists: data || [], total: data?.length || 0 }
+  }
+
+  const { data, count, error } = await supabase
     .from('artists')
     .select('id, slug, name, country, type, active_from, active_until, cover_image_url, is_verified', { count: 'exact' })
     .order('name')
     .range(offset, offset + limit - 1)
 
-  if (search) q = q.ilike('name', `%${search}%`)
-
-  const { data, count, error } = await q
   if (error) throw error
   return { artists: data || [], total: count || 0 }
 }
@@ -172,10 +190,9 @@ async function syncRelations(id: number, data: ArtistFull) {
   const inserts: any[] = []
 
   if (data.genres?.length) {
-    // data.genres = [mainGenreId, ...substyleIds] OR just look up substyleNames
     const genreIds = data.genres.filter((g: any) => typeof g === 'number')
     const substyleNames: string[] = data.substyleNames || []
-    
+
     let allIds = [...genreIds]
     if (substyleNames.length) {
       const { data: subRows } = await supabase
@@ -184,7 +201,7 @@ async function syncRelations(id: number, data: ArtistFull) {
         .in('name', substyleNames)
       if (subRows) allIds = [...allIds, ...subRows.map((r: any) => r.id)]
     }
-    
+
     if (allIds.length) {
       inserts.push(supabase.from('artist_genres').insert(
         allIds.map((genre_id: number) => ({ artist_id: id, genre_id }))
@@ -215,7 +232,6 @@ async function syncRelations(id: number, data: ArtistFull) {
   }
 
   if (data.related?.length) {
-    // Insert both directions: A→B and B→A
     const relRows = data.related.flatMap(r => [
       { artist_id: id, related_artist_id: r.id, year_from: r.yearFrom ? parseInt(r.yearFrom) : null, year_until: r.yearTo ? parseInt(r.yearTo) : null },
       { artist_id: r.id, related_artist_id: id, year_from: r.yearFrom ? parseInt(r.yearFrom) : null, year_until: r.yearTo ? parseInt(r.yearTo) : null },
