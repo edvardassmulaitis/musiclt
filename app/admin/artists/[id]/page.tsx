@@ -418,22 +418,31 @@ export default function EditArtist() {
     finally { setSaving(false) }
   }, [artistId])
 
-  // Auto-save for photos/avatar (fire-and-forget, no loading indicator)
-  const handleAutoSave = useCallback(async (form: ArtistFormData) => {
-    // Safety guard: don't save if form doesn't look loaded (no name = not ready)
+  // Auto-save — debounced so rapid calls (e.g. gallery upload) don't race
+  const pendingFormRef = useRef<ArtistFormData | null>(null)
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleAutoSave = useCallback((form: ArtistFormData) => {
     if (!form.name) return
-    try {
-      let avatar = form.avatar
-      if (avatar && !avatar.includes('supabase') && avatar.startsWith('http')) {
-        avatar = await fetchAndStoreWikiAvatar(avatar)
-        form = { ...form, avatar }
-      }
-      await fetch(`/api/artists/${artistId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formToDb(form)),
-      })
-    } catch {}
+    // Always store latest form — debounce 600ms
+    pendingFormRef.current = form
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(async () => {
+      const latest = pendingFormRef.current
+      if (!latest) return
+      pendingFormRef.current = null
+      try {
+        let avatar = latest.avatar
+        if (avatar && !avatar.includes('supabase') && avatar.startsWith('http')) {
+          avatar = await fetchAndStoreWikiAvatar(avatar)
+        }
+        await fetch(`/api/artists/${artistId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formToDb({ ...latest, avatar })),
+        })
+      } catch {}
+    }, 600)
   }, [artistId])
 
   if (status === 'loading' || !initialData) return (
