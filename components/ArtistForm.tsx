@@ -210,7 +210,7 @@ function InlineStyleSearch({ selected, onAdd }: { selected: string[]; onAdd: (s:
     if (!q.trim()) { setResults([]); return }
     // Fetch all substyles matching query from constants
     import('@/lib/constants').then(m => {
-      const all: string[] = m.ALL_SUBSTYLES || m.SUBSTYLES || []
+      const all: string[] = (m as any).ALL_SUBSTYLES || m.SUBSTYLES || []
       const filtered = all
         .filter((s: string) => s.toLowerCase().includes(q.toLowerCase()) && !selected.includes(s))
         .slice(0, 6)
