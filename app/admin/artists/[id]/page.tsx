@@ -256,8 +256,8 @@ function DiscographyPanel({ artistId, artistName, refreshKey, onImportClose }: {
               artistName={artistName}
               artistWikiTitle={artistName.replace(/ /g, '_')}
               onClose={onImportClose}
-              buttonClassName="flex items-center gap-1 px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg text-xs font-medium transition-colors"
-              buttonLabel="📀 Importuoti iš Wiki"
+              buttonClassName="flex items-center gap-1.5 px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg text-xs font-medium transition-colors"
+              buttonLabel="Įkelti Wiki diskografiją"
             />
           )}
           <Link href={`/admin/albums/new?artist_id=${artistId}`}
@@ -309,9 +309,10 @@ function WikipediaImportCompact({ onImport, artistName }: { onImport: (data: any
   return (
     <>
       <button type="button" onClick={() => setOpen(true)}
-        className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors font-medium"
+        className="flex items-center gap-1.5 px-2 py-1 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors font-medium"
         title="Atnaujinti atlikėjo informaciją iš Wikipedia">
-        📖 Wiki atnaujinti
+        <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-none stroke-current stroke-2 shrink-0"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        Įkelti Wiki info
       </button>
       {open && (
         <div
