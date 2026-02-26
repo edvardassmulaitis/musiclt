@@ -642,11 +642,11 @@ async function loadStyleData(): Promise<StyleData> {
   if (STYLES_CACHE) return STYLES_CACHE
   try {
     const m = await import('@/lib/constants') as any
-
-    // Case 1: SUBSTYLES_BY_GENRE = { Rock: [...], Pop: [...], ... }
-    if (m.SUBSTYLES_BY_GENRE && typeof m.SUBSTYLES_BY_GENRE === 'object' && !Array.isArray(m.SUBSTYLES_BY_GENRE)) {
-      const grouped = Object.entries(m.SUBSTYLES_BY_GENRE as Record<string,string[]>)
-        .map(([genre, styles]) => ({ genre, styles: [...new Set(styles)].sort() }))
+    // SUBSTYLES is Record<string, string[]> — genre name → substyles array
+    const src = m.SUBSTYLES
+    if (src && typeof src === 'object' && !Array.isArray(src)) {
+      const grouped = Object.entries(src as Record<string, string[]>)
+        .map(([genre, styles]) => ({ genre, styles: [...new Set(styles as string[])].sort() }))
         .filter(g => g.styles.length > 0)
       const seen = new Set<string>()
       const flat: string[] = []
@@ -655,28 +655,8 @@ async function loadStyleData(): Promise<StyleData> {
       STYLES_CACHE = { grouped, flat }
       return STYLES_CACHE
     }
-
-    // Case 2: flat array
-    const arr: string[] = Array.isArray(m.ALL_SUBSTYLES) ? m.ALL_SUBSTYLES
-      : Array.isArray(m.SUBSTYLES) ? m.SUBSTYLES : []
-    if (arr.length) {
-      const flat = [...new Set(arr)].sort()
-      STYLES_CACHE = { grouped: [{ genre: 'Visi', styles: flat }], flat }
-      return STYLES_CACHE
-    }
-  } catch {}
-
-  // Hardcoded fallback
-  const FALLBACK: Record<string,string[]> = {
-    'Pop': ['Pop','Indie pop','Bedroom pop','Dream pop','Synthpop','Pop rock','Dance pop','Electropop'],
-    'Rock': ['Rock','Indie rock','Alternative rock','Classic rock','Hard rock','Soft rock','Post-punk','Shoegaze','Grunge','Emo','Punk','Nu metal'],
-    'Elektroninė': ['Electronic','House','Techno','Trance','Drum and bass','Dubstep','Ambient','New wave','Lo-fi'],
-    'Hip hop': ['Hip hop','Rap','Trap','R&B','Soul','Funk'],
-    'Kita': ['Jazz','Blues','Country','Folk','Classical','Metal','Reggae'],
-  }
-  const grouped = Object.entries(FALLBACK).map(([genre, styles]) => ({ genre, styles }))
-  const flat = [...new Set(Object.values(FALLBACK).flat())].sort()
-  STYLES_CACHE = { grouped, flat }
+  } catch(e) { console.error('[StylePicker] error:', e) }
+  STYLES_CACHE = { grouped: [], flat: [] }
   return STYLES_CACHE
 }
 
