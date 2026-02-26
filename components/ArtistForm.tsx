@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { GENRES } from '@/lib/constants'
-import StyleModal from './StyleModal'
 import PhotoGallery, { type Photo } from './PhotoGallery'
 import WikipediaImport from './WikipediaImport'
 import InstagramConnect from './InstagramConnect'
@@ -634,6 +633,111 @@ function AvatarUploadCompact({ value, onChange, onOriginalSaved, artistId }: {
   )
 }
 
+// ── StylePicker — compact self-contained style tags editor ─────────────────
+function StylePicker({ selected, onChange }: { selected: string[]; onChange: (v: string[]) => void }) {
+  const [q, setQ] = useState('')
+  const [results, setResults] = useState<string[]>([])
+  const [showAll, setShowAll] = useState(false)
+  const [allStyles, setAllStyles] = useState<string[]>([])
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    loadAllStyles().then(setAllStyles).catch(()=>{})
+  }, [])
+
+  useEffect(() => {
+    if (!q.trim()) { setResults([]); return }
+    const lower = q.toLowerCase()
+    setResults(allStyles.filter(s => s.toLowerCase().includes(lower) && !selected.includes(s)).slice(0, 10))
+  }, [q, selected, allStyles])
+
+  const add = (s: string) => {
+    if (!selected.includes(s)) onChange([...selected, s])
+    setQ(''); setResults([])
+    inputRef.current?.focus()
+  }
+  const remove = (s: string) => onChange(selected.filter(x => x !== s))
+
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-gray-500 mb-1">Stiliai</label>
+      <div className="flex items-center gap-1 flex-wrap">
+        {selected.map(s => (
+          <span key={s} className="flex items-center gap-0.5 px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-xs font-medium">
+            {s}
+            <button type="button" onClick={()=>remove(s)} className="text-blue-400 hover:text-red-500 ml-0.5 leading-none">×</button>
+          </span>
+        ))}
+        {/* Inline search input */}
+        <div className="relative">
+          <input ref={inputRef} type="text" value={q} onChange={e=>setQ(e.target.value)}
+            onKeyDown={e=>{
+              if (e.key==='Enter') { e.preventDefault(); e.stopPropagation(); if(results[0]) add(results[0]) }
+              if (e.key==='Escape') { setQ(''); setResults([]) }
+            }}
+            placeholder="+ stilius..."
+            className="w-24 px-2 py-0.5 border border-dashed border-gray-300 rounded-full text-xs text-gray-500 focus:outline-none focus:border-blue-400 focus:border-solid bg-white"
+          />
+          {results.length > 0 && (
+            <div className="absolute z-40 top-7 left-0 w-52 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
+              {results.map(s => (
+                <button key={s} type="button" onClick={()=>add(s)}
+                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-blue-50 text-gray-700 transition-colors border-b border-gray-50 last:border-0">
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        {/* Browse all button */}
+        <button type="button" onClick={()=>setShowAll(true)}
+          className="px-2 py-0.5 border border-dashed border-gray-300 rounded-full text-xs text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-colors">
+          ☰
+        </button>
+      </div>
+
+      {/* Full-screen browse modal */}
+      {showAll && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-6" onClick={()=>setShowAll(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col" onClick={e=>e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+              <span className="text-sm font-bold text-gray-800">Visi stiliai</span>
+              <button onClick={()=>setShowAll(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div className="p-3 border-b border-gray-100">
+              <input type="text" value={q} onChange={e=>setQ(e.target.value)} placeholder="Ieškoti..."
+                className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-blue-400" autoFocus />
+            </div>
+            <div className="flex-1 overflow-y-auto p-3">
+              <div className="flex flex-wrap gap-1.5">
+                {(q.trim() ? results : allStyles.filter(s=>!selected.includes(s))).map(s => (
+                  <button key={s} type="button" onClick={()=>add(s)}
+                    className="px-2.5 py-1 bg-gray-100 hover:bg-blue-100 hover:text-blue-700 text-gray-700 rounded-full text-xs font-medium transition-colors">
+                    {s}
+                  </button>
+                ))}
+              </div>
+              {selected.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-gray-100">
+                  <p className="text-xs text-gray-400 mb-2">Pasirinkta:</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selected.map(s => (
+                      <span key={s} className="flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-xs font-medium">
+                        {s}
+                        <button type="button" onClick={()=>remove(s)} className="text-blue-400 hover:text-red-500">×</button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── InlineStyleSearch — quick style add without opening full modal ────────────
 // All known substyles loaded from constants — all arrays merged as fallback
 const ALL_STYLES_CACHE: string[] = []
@@ -713,8 +817,14 @@ function DescriptionEditor({ value, onChange }: { value: string; onChange: (v: s
           </div>
         </div>
       )}
-      <div style={{ minHeight: 120 }}>
-        <RichTextEditor value={value} onChange={onChange} placeholder="Trumpas aprašymas..." />
+      <div className="relative overflow-hidden" style={{ height: 120 }}>
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <RichTextEditor value={value} onChange={onChange} placeholder="Trumpas aprašymas..." />
+        </div>
+        {/* Clickable overlay to open full editor */}
+        <div className="absolute inset-0 cursor-pointer" onClick={() => setExpanded(true)} />
+        {/* Fade gradient at bottom */}
+        <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent pointer-events-none" />
       </div>
       <button type="button" onClick={() => setExpanded(true)}
         className="mt-1 text-xs text-gray-400 hover:text-blue-500 transition-colors">
@@ -1207,24 +1317,10 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Stiliai</label>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {(form.substyles||[]).map(s => (
-                      <span key={s} className="flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-xs font-medium">
-                        {s}
-                        <button type="button" onClick={()=>set('substyles',(form.substyles||[]).filter(x=>x!==s))} className="text-blue-400 hover:text-red-500 leading-none ml-0.5">×</button>
-                      </span>
-                    ))}
-                    <InlineStyleSearch
-                      selected={form.substyles||[]}
-                      onAdd={s => set('substyles', [...(form.substyles||[]), s])}
-                    />
-                    <span className="[&>*]:!text-xs [&>*]:!px-2 [&>*]:!py-0.5 [&>*]:!font-medium">
-                      <StyleModal selected={form.substyles||[]} onChange={v=>set('substyles',v)} />
-                    </span>
-                  </div>
-                </div>
+                <StylePicker
+                  selected={form.substyles||[]}
+                  onChange={v=>set('substyles',v)}
+                />
 
                 <div className="grid grid-cols-2 gap-3">
                   {/* Left: Veiklos metai */}
