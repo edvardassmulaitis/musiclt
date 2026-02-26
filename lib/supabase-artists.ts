@@ -91,7 +91,7 @@ export async function getArtistById(id: number): Promise<ArtistFull | null> {
       supabase.from('artist_links').select('platform, url').eq('artist_id', id),
       supabase.from('artist_photos').select('url, caption, sort_order').eq('artist_id', id).order('sort_order'),
       supabase.from('artist_breaks').select('year_from, year_until').eq('artist_id', id),
-      supabase.from('artist_related').select('related_artist_id, year_from, year_until, artists!artist_related_related_artist_id_fkey(id, name, type)').eq('artist_id', id),
+      supabase.from('artist_related').select('related_artist_id, year_from, year_until, artists!artist_related_related_artist_id_fkey(id, name, type, cover_image_url)').eq('artist_id', id),
     ])
 
   return {
@@ -101,7 +101,7 @@ export async function getArtistById(id: number): Promise<ArtistFull | null> {
     links: Object.fromEntries((linkRows || []).map((r: any) => [r.platform, r.url])),
     photos: photoRows || [],
     breaks: (breakRows || []).map((r: any) => ({ from: String(r.year_from || ''), to: String(r.year_until || '') })),
-    related: (relatedRows || []).map((r: any) => ({ id: r.related_artist_id, name: r.artists?.name || '', type: r.artists?.type || 'solo', yearFrom: r.year_from ? String(r.year_from) : '', yearTo: r.year_until ? String(r.year_until) : '' })),
+    related: (relatedRows || []).map((r: any) => ({ id: r.related_artist_id, name: r.artists?.name || '', type: r.artists?.type || 'solo', yearFrom: r.year_from ? String(r.year_from) : '', yearTo: r.year_until ? String(r.year_until) : '', cover_image_url: r.artists?.cover_image_url || null })),
   }
 }
 
