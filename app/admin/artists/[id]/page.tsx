@@ -431,7 +431,7 @@ export default function EditArtist() {
       await fetch(`/api/artists/${artistId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formToDb(form)),
+        body: JSON.stringify({ ...formToDb(form), skipPhotos: true }),
       })
     } catch {}
   }, [artistId])
