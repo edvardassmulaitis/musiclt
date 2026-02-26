@@ -82,9 +82,6 @@ function Sel({ value, onChange, children, required }: any) {
 function Card({ title, children, className='' }: { title:string; children:React.ReactNode; className?:string }) {
   return (
     <div className={`bg-white rounded-xl shadow-sm border border-gray-100 ${className}`}>
-      <div className="px-5 py-3 border-b border-gray-100">
-        <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide">{title}</h2>
-      </div>
       <div className="p-5">{children}</div>
     </div>
   )
@@ -920,10 +917,6 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                 </div>
               </Card>
 
-              <Card title="Aprašymas">
-                <DescriptionEditor value={form.description} onChange={v=>set('description',v)} />
-              </Card>
-
               <Card title="Veiklos laikotarpis">
                 <div className="grid grid-cols-2 gap-3 mb-4">
                   <div>
@@ -1017,6 +1010,10 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                     }
                   }}
                 />
+              </Card>
+
+              <Card title="Aprašymas">
+                <DescriptionEditor value={form.description} onChange={v=>set('description',v)} />
               </Card>
 
               <Card title="Socialiniai tinklai ir nuorodos">
