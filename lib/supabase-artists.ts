@@ -48,14 +48,12 @@ function slugify(name: string): string {
 
 export async function getArtists(limit = 50, offset = 0, search = '') {
   if (search) {
-    // Use unaccent via rpc for accent-insensitive search (e.g. Beyonce → Beyoncé)
     const { data, error } = await supabase.rpc('search_artists', {
       search_term: search,
       row_limit: limit,
       row_offset: offset,
     })
     if (error) {
-      // Fallback to regular ilike if rpc not available
       const { data: fallback, count, error: e2 } = await supabase
         .from('artists')
         .select('id, slug, name, country, type, active_from, active_until, cover_image_url, is_verified', { count: 'exact' })
@@ -142,30 +140,37 @@ export async function createArtist(data: ArtistFull): Promise<number> {
   return id
 }
 
-export async function updateArtist(id: number, data: ArtistFull, skipPhotos = false): Promise<void> {
+// ✅ skipAvatar: true — cover_image_url neperrašomas (valdomas atskirai per /api/artists/[id]/avatar)
+export async function updateArtist(id: number, data: ArtistFull, skipPhotos = false, skipAvatar = false): Promise<void> {
+  const updateData: any = {
+    name: data.name,
+    country: data.country,
+    type: data.type,
+    type_music: data.type_music ?? true,
+    type_film: data.type_film ?? false,
+    type_dance: data.type_dance ?? false,
+    type_books: data.type_books ?? false,
+    active_from: data.active_from || null,
+    active_until: data.active_until || null,
+    description: data.description,
+    spotify_id: data.spotify_id,
+    youtube_channel_id: data.youtube_channel_id,
+    website: data.website,
+    subdomain: data.subdomain,
+    gender: data.gender,
+    birth_date: data.birth_date || null,
+    death_date: data.death_date || null,
+    updated_at: new Date().toISOString(),
+  }
+
+  // ✅ Tik kai skipAvatar=false įtraukiame cover_image_url į update
+  if (!skipAvatar) {
+    updateData.cover_image_url = data.cover_image_url
+  }
+
   const { error } = await supabase
     .from('artists')
-    .update({
-      name: data.name,
-      country: data.country,
-      type: data.type,
-      type_music: data.type_music ?? true,
-      type_film: data.type_film ?? false,
-      type_dance: data.type_dance ?? false,
-      type_books: data.type_books ?? false,
-      active_from: data.active_from || null,
-      active_until: data.active_until || null,
-      description: data.description,
-      spotify_id: data.spotify_id,
-      youtube_channel_id: data.youtube_channel_id,
-      cover_image_url: data.cover_image_url,
-      website: data.website,
-      subdomain: data.subdomain,
-      gender: data.gender,
-      birth_date: data.birth_date || null,
-      death_date: data.death_date || null,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updateData)
     .eq('id', id)
 
   if (error) throw error
