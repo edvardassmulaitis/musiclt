@@ -1,127 +1,209 @@
 'use client'
+import { useEffect } from 'react'
+import { useEditor, EditorContent } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import Underline from '@tiptap/extension-underline'
+import Link from '@tiptap/extension-link'
+import TextAlign from '@tiptap/extension-text-align'
+import Placeholder from '@tiptap/extension-placeholder'
+import CharacterCount from '@tiptap/extension-character-count'
 
-import { useRef, useEffect, useState } from 'react'
-
-type Props = {
+// ── Types ────────────────────────────────────────────────────────────────────
+interface RichTextEditorProps {
   value: string
-  onChange: (html: string) => void
+  onChange: (v: string) => void
   placeholder?: string
+  maxLength?: number
 }
 
-const TOOLS = [
-  { cmd: 'bold',                icon: 'B',  title: 'Pusjuodis',  cls: 'font-bold' },
-  { cmd: 'italic',              icon: 'I',  title: 'Kursyvas',   cls: 'italic' },
-  { cmd: 'underline',           icon: 'U',  title: 'Pabrauktas', cls: 'underline' },
-  { cmd: 'insertUnorderedList', icon: '≡',  title: 'Sąrašas',    cls: '' },
-]
+// ── Toolbar button ────────────────────────────────────────────────────────────
+function Btn({
+  active, disabled, onClick, title, children,
+}: {
+  active?: boolean; disabled?: boolean; onClick: () => void; title: string; children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onMouseDown={e => { e.preventDefault(); onClick() }}
+      disabled={disabled}
+      title={title}
+      className={`w-7 h-7 flex items-center justify-center rounded text-sm transition-colors
+        ${active
+          ? 'bg-blue-100 text-blue-700'
+          : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'}
+        ${disabled ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}`}
+    >
+      {children}
+    </button>
+  )
+}
 
-export default function RichTextEditor({ value, onChange, placeholder = 'Aprašymas...' }: Props) {
-  const editorRef = useRef<HTMLDivElement>(null)
-  const [linkMode, setLinkMode] = useState(false)
-  const [linkUrl, setLinkUrl] = useState('')
-  const savedSel = useRef<Range | null>(null)
-  const isInternal = useRef(false)
+function Divider() {
+  return <div className="w-px h-5 bg-gray-200 mx-0.5" />
+}
 
-  // Sync external value changes (e.g. from Wikipedia import)
+// ── Main component ────────────────────────────────────────────────────────────
+export default function RichTextEditor({ value, onChange, placeholder, maxLength = 5000 }: RichTextEditorProps) {
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        heading: { levels: [2, 3] },
+        bulletList: { keepMarks: true },
+        orderedList: { keepMarks: true },
+      }),
+      Underline,
+      Link.configure({
+        openOnClick: false,
+        HTMLAttributes: { class: 'text-blue-600 underline hover:text-blue-800 cursor-pointer' },
+      }),
+      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      Placeholder.configure({ placeholder: placeholder || 'Rašykite aprašymą...' }),
+      CharacterCount.configure({ limit: maxLength }),
+    ],
+    content: value || '',
+    onUpdate: ({ editor }) => onChange(editor.getHTML()),
+    editorProps: {
+      attributes: {
+        class: 'prose prose-sm max-w-none min-h-[200px] px-4 py-3 focus:outline-none text-gray-800',
+      },
+    },
+  })
+
+  // Sync external value changes (e.g. when draft resets)
   useEffect(() => {
-    const el = editorRef.current
-    if (!el || isInternal.current) return
-    // Only update DOM if content actually differs
-    if (el.innerHTML !== (value || '')) {
-      el.innerHTML = value || ''
+    if (!editor) return
+    const current = editor.getHTML()
+    if (value !== current) {
+      editor.commands.setContent(value || '', false)
     }
-  }, [value])
+  }, [value]) // eslint-disable-line
 
-  const exec = (cmd: string, val?: string) => {
-    editorRef.current?.focus()
-    document.execCommand(cmd, false, val)
-    isInternal.current = true
-    onChange(editorRef.current?.innerHTML || '')
-    setTimeout(() => { isInternal.current = false }, 0)
+  if (!editor) return null
+
+  const setLink = () => {
+    const prev = editor.getAttributes('link').href as string | undefined
+    const url = window.prompt('URL:', prev ?? 'https://')
+    if (url === null) return
+    if (url === '') { editor.chain().focus().unsetLink().run(); return }
+    editor.chain().focus().setLink({ href: url }).run()
   }
 
-  const handleInput = () => {
-    isInternal.current = true
-    onChange(editorRef.current?.innerHTML || '')
-    setTimeout(() => { isInternal.current = false }, 0)
-  }
-
-  const saveSelection = () => {
-    const sel = window.getSelection()
-    if (sel && sel.rangeCount > 0) savedSel.current = sel.getRangeAt(0).cloneRange()
-  }
-
-  const insertLink = () => {
-    if (!linkUrl) return
-    editorRef.current?.focus()
-    if (savedSel.current) {
-      const sel = window.getSelection()
-      sel?.removeAllRanges()
-      sel?.addRange(savedSel.current)
-    }
-    exec('createLink', linkUrl.startsWith('http') ? linkUrl : `https://${linkUrl}`)
-    setLinkMode(false)
-    setLinkUrl('')
-  }
+  const chars = editor.storage.characterCount?.characters?.() ?? 0
 
   return (
-    <div className="border border-gray-300 rounded-lg overflow-hidden focus-within:border-music-blue transition-colors">
-      {/* Toolbar */}
-      <div className="flex items-center gap-0.5 p-2 bg-gray-50 border-b border-gray-200">
-        {TOOLS.map(t => (
-          <button key={t.cmd} type="button"
-            onMouseDown={e => { e.preventDefault(); exec(t.cmd) }}
-            title={t.title}
-            className={`w-8 h-8 flex items-center justify-center rounded text-sm hover:bg-gray-200 text-gray-700 ${t.cls}`}>
-            {t.icon}
-          </button>
-        ))}
-        <div className="w-px h-5 bg-gray-300 mx-1" />
-        <button type="button"
-          onMouseDown={e => { e.preventDefault(); saveSelection(); setLinkMode(m => !m) }}
-          title="Nuoroda"
-          className={`w-8 h-8 flex items-center justify-center rounded text-sm hover:bg-gray-200 ${linkMode ? 'bg-blue-100 text-music-blue' : 'text-gray-700'}`}>
-          🔗
-        </button>
-        <button type="button"
-          onMouseDown={e => { e.preventDefault(); exec('unlink') }}
-          title="Pašalinti nuorodą"
-          className="w-8 h-8 flex items-center justify-center rounded text-sm text-gray-700 hover:bg-gray-200">
-          ✂️
-        </button>
-        <div className="w-px h-5 bg-gray-300 mx-1" />
-        <button type="button"
-          onMouseDown={e => { e.preventDefault(); exec('removeFormat') }}
-          title="Išvalyti formatavimą"
-          className="px-2 h-8 flex items-center justify-center rounded text-xs text-gray-500 hover:bg-gray-200">
-          Tx
-        </button>
+    <div className="border border-gray-200 rounded-xl overflow-hidden bg-white flex flex-col">
+      {/* ── Toolbar ── */}
+      <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-gray-100 bg-gray-50 flex-wrap">
+
+        {/* Headings */}
+        <Btn active={editor.isActive('heading', { level: 2 })} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} title="Antraštė H2">
+          <span className="font-bold text-xs">H2</span>
+        </Btn>
+        <Btn active={editor.isActive('heading', { level: 3 })} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} title="Antraštė H3">
+          <span className="font-bold text-xs">H3</span>
+        </Btn>
+
+        <Divider />
+
+        {/* Inline formatting */}
+        <Btn active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()} title="Paryškintas (Ctrl+B)">
+          <strong className="text-xs">B</strong>
+        </Btn>
+        <Btn active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()} title="Kursyvas (Ctrl+I)">
+          <em className="text-xs">I</em>
+        </Btn>
+        <Btn active={editor.isActive('underline')} onClick={() => editor.chain().focus().toggleUnderline().run()} title="Pabrauktas (Ctrl+U)">
+          <span className="text-xs underline">U</span>
+        </Btn>
+        <Btn active={editor.isActive('strike')} onClick={() => editor.chain().focus().toggleStrike().run()} title="Perbrauktas">
+          <span className="text-xs line-through">S</span>
+        </Btn>
+
+        <Divider />
+
+        {/* Lists */}
+        <Btn active={editor.isActive('bulletList')} onClick={() => editor.chain().focus().toggleBulletList().run()} title="Sąrašas">
+          <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor">
+            <circle cx="2" cy="4" r="1.5"/><rect x="5" y="3" width="9" height="2" rx="1"/>
+            <circle cx="2" cy="8" r="1.5"/><rect x="5" y="7" width="9" height="2" rx="1"/>
+            <circle cx="2" cy="12" r="1.5"/><rect x="5" y="11" width="9" height="2" rx="1"/>
+          </svg>
+        </Btn>
+        <Btn active={editor.isActive('orderedList')} onClick={() => editor.chain().focus().toggleOrderedList().run()} title="Numeruotas sąrašas">
+          <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor">
+            <text x="0" y="5" fontSize="5" fontWeight="bold">1.</text>
+            <rect x="5" y="3" width="9" height="2" rx="1"/>
+            <text x="0" y="9" fontSize="5" fontWeight="bold">2.</text>
+            <rect x="5" y="7" width="9" height="2" rx="1"/>
+            <text x="0" y="13" fontSize="5" fontWeight="bold">3.</text>
+            <rect x="5" y="11" width="9" height="2" rx="1"/>
+          </svg>
+        </Btn>
+        <Btn active={editor.isActive('blockquote')} onClick={() => editor.chain().focus().toggleBlockquote().run()} title="Citata">
+          <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor">
+            <path d="M3 4h2v4H3zm0 0c0 2.5 1 4 3 5M9 4h2v4H9zm0 0c0 2.5 1 4 3 5"/>
+          </svg>
+        </Btn>
+
+        <Divider />
+
+        {/* Alignment */}
+        <Btn active={editor.isActive({ textAlign: 'left' })} onClick={() => editor.chain().focus().setTextAlign('left').run()} title="Kairė">
+          <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor">
+            <rect x="1" y="2" width="14" height="2" rx="1"/><rect x="1" y="6" width="9" height="2" rx="1"/>
+            <rect x="1" y="10" width="14" height="2" rx="1"/><rect x="1" y="14" width="9" height="2" rx="1"/>
+          </svg>
+        </Btn>
+        <Btn active={editor.isActive({ textAlign: 'center' })} onClick={() => editor.chain().focus().setTextAlign('center').run()} title="Centre">
+          <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor">
+            <rect x="1" y="2" width="14" height="2" rx="1"/><rect x="3.5" y="6" width="9" height="2" rx="1"/>
+            <rect x="1" y="10" width="14" height="2" rx="1"/><rect x="3.5" y="14" width="9" height="2" rx="1"/>
+          </svg>
+        </Btn>
+
+        <Divider />
+
+        {/* Link */}
+        <Btn active={editor.isActive('link')} onClick={setLink} title="Nuoroda">
+          <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M6.5 9.5a3.5 3.5 0 0 0 4.95 0l2-2a3.5 3.5 0 0 0-4.95-4.95l-1 1"/>
+            <path d="M9.5 6.5a3.5 3.5 0 0 0-4.95 0l-2 2a3.5 3.5 0 0 0 4.95 4.95l1-1"/>
+          </svg>
+        </Btn>
+        {editor.isActive('link') && (
+          <Btn active={false} onClick={() => editor.chain().focus().unsetLink().run()} title="Pašalinti nuorodą">
+            <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M6.5 9.5a3.5 3.5 0 0 0 4.95 0l2-2a3.5 3.5 0 0 0-4.95-4.95l-1 1"/>
+              <path d="M9.5 6.5a3.5 3.5 0 0 0-4.95 0l-2 2a3.5 3.5 0 0 0 4.95 4.95l1-1"/>
+              <line x1="2" y1="2" x2="14" y2="14"/>
+            </svg>
+          </Btn>
+        )}
+
+        <Divider />
+
+        {/* Undo/Redo */}
+        <Btn active={false} disabled={!editor.can().undo()} onClick={() => editor.chain().focus().undo().run()} title="Atšaukti (Ctrl+Z)">
+          <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M3 7H10a4 4 0 0 1 0 8H7"/><path d="M3 7L6 4M3 7L6 10"/>
+          </svg>
+        </Btn>
+        <Btn active={false} disabled={!editor.can().redo()} onClick={() => editor.chain().focus().redo().run()} title="Pakartoti (Ctrl+Y)">
+          <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M13 7H6a4 4 0 0 0 0 8H9"/><path d="M13 7L10 4M13 7L10 10"/>
+          </svg>
+        </Btn>
+
+        {/* Spacer + char count */}
+        <div className="flex-1" />
+        <span className={`text-xs tabular-nums ${chars > maxLength * 0.9 ? 'text-orange-500' : 'text-gray-300'}`}>
+          {chars}/{maxLength}
+        </span>
       </div>
 
-      {/* Link input */}
-      {linkMode && (
-        <div className="flex gap-2 px-3 py-2 bg-blue-50 border-b border-blue-200">
-          <input type="url" value={linkUrl} onChange={e => setLinkUrl(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && insertLink()}
-            className="flex-1 px-3 py-1.5 border border-blue-300 rounded-lg text-sm text-gray-900 focus:outline-none bg-white"
-            placeholder="https://..." autoFocus />
-          <button type="button" onClick={insertLink}
-            className="px-3 py-1.5 bg-music-blue text-white rounded-lg text-sm font-medium">Pridėti</button>
-          <button type="button" onClick={() => setLinkMode(false)}
-            className="px-3 py-1.5 bg-white border border-gray-300 text-gray-600 rounded-lg text-sm">✕</button>
-        </div>
-      )}
-
-      <div
-        ref={editorRef}
-        contentEditable
-        suppressContentEditableWarning
-        onInput={handleInput}
-        className="min-h-36 p-4 text-gray-900 text-sm leading-relaxed focus:outline-none [&_a]:text-music-blue [&_a]:underline [&_ul]:list-disc [&_ul]:ml-4"
-        data-placeholder={placeholder}
-        style={{ wordBreak: 'break-word' }}
-      />
-      <style>{`[contenteditable]:empty:before{content:attr(data-placeholder);color:#9ca3af;pointer-events:none}`}</style>
+      {/* ── Editor area ── */}
+      <EditorContent editor={editor} className="flex-1" />
     </div>
   )
 }
