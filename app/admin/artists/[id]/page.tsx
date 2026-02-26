@@ -455,6 +455,10 @@ export default function EditArtist() {
   const handlePhotosSave = useCallback(async (photos: any[]) => {
     const base = latestFormRef.current
     if (!base?.name) return
+    // Update latestFormRef with new photos so debounced auto-save won't overwrite them
+    latestFormRef.current = { ...base, photos }
+    // Cancel any pending debounced auto-save to prevent race condition
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     try {
       const body = formToDb({ ...base, photos })
       const res = await fetch(`/api/artists/${artistId}`, {
