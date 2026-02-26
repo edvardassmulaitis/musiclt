@@ -21,8 +21,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   try {
-    const data = await req.json()
-    await updateArtist(parseInt(id), data)
+    const body = await req.json()
+    const { skipPhotos, ...data } = body
+    await updateArtist(parseInt(id), data, skipPhotos === true)
     return NextResponse.json({ ok: true })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
