@@ -1004,7 +1004,16 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                   artistId={artistId}
                   onOriginalSaved={url => {
                     if (!formRef.current.photos.find((p: any) => p.url === url)) {
-                      setPhotos([{ url }, ...formRef.current.photos])
+                      const newPhotos = [{ url }, ...formRef.current.photos]
+                      setPhotos(newPhotos)
+                      // ✅ Tiesiogiai išsaugoti į DB kaip PhotoGallery daro
+                      if (artistId) {
+                        fetch(`/api/artists/${artistId}/photos`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ photos: newPhotos }),
+                        }).catch(() => {})
+                      }
                     }
                   }}
                 />
