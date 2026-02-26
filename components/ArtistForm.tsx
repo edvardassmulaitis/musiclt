@@ -2,7 +2,7 @@
 // v2
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { GENRES, MONTHS, DAYS } from '@/lib/constants'
+import { GENRES } from '@/lib/constants'
 import StyleModal from './StyleModal'
 import PhotoGallery, { type Photo } from './PhotoGallery'
 import WikipediaImport from './WikipediaImport'
@@ -87,23 +87,48 @@ function Card({ title, children, className='' }: { title:string; children:React.
   )
 }
 
+function YearInput({ value, onChange, placeholder='MMMM' }: { value:string; onChange:(v:string)=>void; placeholder?:string }) {
+  const [raw, setRaw] = useState(value)
+  useEffect(()=>setRaw(value),[value])
+  const commit = (s:string) => {
+    const n = parseInt(s)
+    if (!s || isNaN(n)) { onChange(''); setRaw('') }
+    else if (n>=1900 && n<=2100) { onChange(String(n)); setRaw(String(n)) }
+    else setRaw(value)
+  }
+  return <input type="number" value={raw} onChange={e=>setRaw(e.target.value)}
+    onBlur={e=>commit(e.target.value)} onKeyDown={e=>e.key==='Enter'&&commit(raw)}
+    placeholder={placeholder} min={1900} max={2100}
+    className="w-16 px-1.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-xs focus:outline-none focus:border-blue-400 bg-white text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+}
+
+function DateInput({ value, onChange, placeholder='MM' }: { value:string; onChange:(v:string)=>void; placeholder?:string }) {
+  const [raw, setRaw] = useState(value)
+  useEffect(()=>setRaw(value),[value])
+  const isMonth = placeholder==='MM'
+  const max = isMonth ? 12 : 31
+  const commit = (s:string) => {
+    const n = parseInt(s)
+    if (!s || isNaN(n)) { onChange(''); setRaw('') }
+    else if (n>=1 && n<=max) { onChange(String(n)); setRaw(String(n).padStart(2,'0')) }
+    else setRaw(value)
+  }
+  return <input type="number" value={raw} onChange={e=>setRaw(e.target.value)}
+    onBlur={e=>commit(e.target.value)} onKeyDown={e=>e.key==='Enter'&&commit(raw)}
+    placeholder={placeholder} min={1} max={max}
+    className="w-10 px-1 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-xs focus:outline-none focus:border-blue-400 bg-white text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+}
+
 function DateRow({ label, y, m, d, onY, onM, onD }: any) {
   return (
     <div className="flex-1 min-w-0">
       <label className="block text-xs font-semibold text-gray-500 mb-1">{label}</label>
-      <div className="flex gap-1">
-        <select value={y} onChange={e=>onY(e.target.value)}
-          className="flex-1 min-w-0 px-1.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-xs focus:outline-none focus:border-blue-400 bg-white">
-          <option value="">Metai</option>{YEARS.map(yr=><option key={yr} value={yr}>{yr}</option>)}
-        </select>
-        <select value={m} onChange={e=>onM(e.target.value)}
-          className="w-14 px-1 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-xs focus:outline-none focus:border-blue-400 bg-white">
-          <option value="">Mėn</option>{MONTHS.map((mn,i)=><option key={i} value={i+1}>{mn}</option>)}
-        </select>
-        <select value={d} onChange={e=>onD(e.target.value)}
-          className="w-12 px-1 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-xs focus:outline-none focus:border-blue-400 bg-white">
-          <option value="">D</option>{DAYS.map(dy=><option key={dy} value={dy}>{dy}</option>)}
-        </select>
+      <div className="flex gap-1 items-center">
+        <YearInput value={y} onChange={onY} />
+        <span className="text-gray-300 text-xs">·</span>
+        <DateInput value={m} onChange={onM} placeholder="MM" />
+        <span className="text-gray-300 text-xs">·</span>
+        <DateInput value={d} onChange={onD} placeholder="DD" />
       </div>
     </div>
   )
@@ -620,24 +645,29 @@ function InlineStyleSearch({ selected, onAdd }: { selected: string[]; onAdd: (s:
       const all: string[] = (m as any).ALL_SUBSTYLES || m.SUBSTYLES || []
       const filtered = all
         .filter((s: string) => s.toLowerCase().includes(q.toLowerCase()) && !selected.includes(s))
-        .slice(0, 6)
+        .slice(0, 8)
       setResults(filtered)
     }).catch(() => setResults([]))
   }, [q, selected])
 
+  const addFirst = () => {
+    if (results.length > 0) { onAdd(results[0]); setQ(''); setResults([]) }
+  }
+
   return (
-    <div className="relative flex-1 max-w-[180px]">
+    <div className="relative">
       <input
         type="text" value={q} onChange={e => setQ(e.target.value)}
-        placeholder="+ Pridėti stilių..."
-        className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-music-blue bg-white"
+        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); addFirst() } }}
+        placeholder="+ Stilius..."
+        className="w-32 px-2 py-0.5 border border-gray-200 rounded-full text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white"
       />
       {results.length > 0 && (
-        <div className="absolute z-20 top-8 left-0 w-48 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+        <div className="absolute z-30 top-7 left-0 w-52 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
           {results.map(s => (
             <button key={s} type="button"
               onClick={() => { onAdd(s); setQ(''); setResults([]) }}
-              className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 text-gray-700 transition-colors">
+              className="w-full text-left px-3 py-1.5 text-xs hover:bg-blue-50 text-gray-700 transition-colors border-b border-gray-50 last:border-0">
               {s}
             </button>
           ))}
@@ -782,38 +812,141 @@ function ArtistSearch({ label, ph, items, onAdd, onRemove, onYears, filterType }
   )
 }
 
-function CompactGallery({ photos, onChange, artistName, artistId }: {
-  photos: Photo[]; onChange: (p: Photo[]) => void; artistName: string; artistId?: string
+type PhotoMeta = Photo & { author?: string; sourceUrl?: string }
+
+function InlineGallery({ photos, onChange, artistName, artistId }: {
+  photos: PhotoMeta[]; onChange: (p: PhotoMeta[]) => void; artistName: string; artistId?: string
 }) {
-  const [open, setOpen] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const [urlInput, setUrlInput] = useState('')
+  const [expandedIdx, setExpandedIdx] = useState<number|null>(null)
+
+  const upload = async (file: File) => {
+    setUploading(true)
+    try {
+      const fd = new FormData(); fd.append('file', file); fd.append('type', 'gallery')
+      const res = await fetch('/api/upload', { method:'POST', body:fd })
+      const data = await res.json()
+      if (data.url) {
+        const next = [{ url: data.url }, ...photos]
+        onChange(next)
+        if (artistId) {
+          fetch(`/api/artists/${artistId}/photos`, {
+            method:'PUT', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ photos: next })
+          }).catch(()=>{})
+        }
+      }
+    } finally { setUploading(false) }
+  }
+
+  const addUrl = async () => {
+    const v = urlInput.trim()
+    if (!v) return
+    setUrlInput('')
+    let finalUrl = v
+    if (v.startsWith('http') && !v.includes('supabase')) {
+      try {
+        const r = await fetch('/api/fetch-image', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url:v}) })
+        if (r.ok) { const d = await r.json(); if (d.url && !d.url.startsWith('data:')) finalUrl = d.url }
+      } catch {}
+    }
+    const next = [{ url: finalUrl }, ...photos]
+    onChange(next)
+    if (artistId) {
+      fetch(`/api/artists/${artistId}/photos`, {
+        method:'PUT', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ photos: next })
+      }).catch(()=>{})
+    }
+  }
+
+  const remove = (i: number) => {
+    const next = photos.filter((_,idx)=>idx!==i)
+    onChange(next)
+    if (artistId) {
+      fetch(`/api/artists/${artistId}/photos`, {
+        method:'PUT', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ photos: next })
+      }).catch(()=>{})
+    }
+    if (expandedIdx===i) setExpandedIdx(null)
+  }
+
+  const updateMeta = (i: number, field: 'author'|'sourceUrl', val: string) => {
+    const next = photos.map((p,idx) => idx===i ? {...p, [field]:val} : p)
+    onChange(next)
+  }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-      <button type="button" onClick={() => setOpen(p => !p)}
-        className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 transition-colors">
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm mx-3 mb-2.5 overflow-hidden">
+      <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-gray-500">Nuotraukų galerija</span>
-          {photos.length > 0 && (
-            <span className="bg-gray-200 text-gray-600 text-xs font-bold px-1.5 py-0.5 rounded-full">{photos.length}</span>
-          )}
-          {/* Mini thumbnails preview */}
-          {!open && photos.length > 0 && (
-            <div className="flex gap-0.5">
-              {photos.slice(0, 5).map((p, i) => (
-                <img key={i} src={p.url} alt="" referrerPolicy="no-referrer"
-                  className="w-6 h-6 rounded object-cover" />
-              ))}
-              {photos.length > 5 && <span className="text-xs text-gray-400 self-center ml-0.5">+{photos.length - 5}</span>}
-            </div>
-          )}
+          {photos.length > 0 && <span className="bg-gray-200 text-gray-600 text-xs font-bold px-1.5 py-0.5 rounded-full">{photos.length}</span>}
         </div>
-        <span className={`text-gray-400 text-xs transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>▼</span>
-      </button>
-      {open && (
-        <div className="border-t border-gray-100 p-3">
-          <PhotoGallery photos={photos} onChange={onChange} artistName={artistName} artistId={artistId} />
+        {/* Add controls */}
+        <div className="flex items-center gap-1.5">
+          <input type="text" value={urlInput} onChange={e=>setUrlInput(e.target.value)}
+            onKeyDown={e=>{ if(e.key==='Enter'){e.preventDefault();e.stopPropagation();addUrl()} }}
+            placeholder="URL nuotraukos..."
+            className="w-40 px-2 py-1 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
+          <button type="button" onClick={addUrl} className="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs transition-colors">↵</button>
+          <button type="button" onClick={()=>!uploading&&fileRef.current?.click()}
+            className="flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-colors">
+            {uploading ? <span className="w-3 h-3 border border-blue-400 border-t-transparent rounded-full animate-spin inline-block"/> : '📁'}
+            Pridėti
+          </button>
+        </div>
+      </div>
+
+      {photos.length === 0 ? (
+        <div className="flex items-center justify-center py-6 text-gray-400 text-xs">Nėra nuotraukų</div>
+      ) : (
+        <div className="p-2 grid grid-cols-6 gap-1.5">
+          {photos.map((p, i) => (
+            <div key={i} className="relative group">
+              <div className="aspect-square rounded-lg overflow-hidden bg-gray-100 cursor-pointer"
+                onClick={()=>setExpandedIdx(expandedIdx===i?null:i)}>
+                <img src={p.url} alt="" referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover group-hover:opacity-90 transition-opacity" />
+              </div>
+              {/* Remove button */}
+              <button type="button" onClick={()=>remove(i)}
+                className="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 hover:bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity leading-none">
+                ×
+              </button>
+              {/* Meta indicator */}
+              {(p.author||p.sourceUrl) && (
+                <div className="absolute bottom-0.5 left-0.5 w-3 h-3 bg-blue-500 rounded-full opacity-70" title="Turi metaduomenis" />
+              )}
+              {/* Expanded meta row */}
+              {expandedIdx===i && (
+                <div className="absolute z-30 top-full left-0 mt-1 w-56 bg-white border border-gray-200 rounded-xl shadow-xl p-2 space-y-1.5"
+                  style={{right:'auto'}}>
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-0.5">© Autorius</label>
+                    <input type="text" value={p.author||''} onChange={e=>updateMeta(i,'author',e.target.value)}
+                      placeholder="Fotografas / šaltinis"
+                      className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-0.5">🔗 Šaltinio URL</label>
+                    <input type="url" value={p.sourceUrl||''} onChange={e=>updateMeta(i,'sourceUrl',e.target.value)}
+                      placeholder="https://..."
+                      className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400" />
+                  </div>
+                  <button type="button" onClick={()=>setExpandedIdx(null)} className="text-xs text-gray-400 hover:text-gray-600">✕ Uždaryti</button>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
+
+      <input ref={fileRef} type="file" accept="image/*" multiple className="hidden"
+        onChange={e=>{ const files=Array.from(e.target.files||[]); files.forEach(f=>upload(f)) }} />
     </div>
   )
 }
@@ -832,7 +965,7 @@ function SocialsSection({ form, set }: { form: any; set: (k: any, v: any) => voi
   const displayDomain = form.subdomain || suggestedSubdomain
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+    <div>
       {/* Header — collapsible */}
       <button type="button" onClick={() => setOpen(p => !p)}
         className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 transition-colors">
@@ -994,11 +1127,11 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-0">
+          <div className="grid grid-cols-2 gap-0 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mb-2.5 mx-3">
 
             {/* ── LEFT COLUMN ── */}
-            <div className="p-3 pb-4">
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 space-y-3">
+            <div className="p-3 pb-4 border-r border-gray-100">
+              <div className="p-0 space-y-3">
 
                 {/* Pavadinimas + Tipas vienoje eilutėje */}
                 <div className="flex gap-3 items-end">
@@ -1052,21 +1185,19 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                       selected={form.substyles||[]}
                       onAdd={s => set('substyles', [...(form.substyles||[]), s])}
                     />
+                    <StyleModal selected={form.substyles||[]} onChange={v=>set('substyles',v)} />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="flex gap-3 items-end">
                   <div>
                     <label className="block text-xs font-semibold text-gray-500 mb-1">Veiklos pradžia</label>
-                    <Sel value={form.yearStart} onChange={(v:string)=>set('yearStart',v)}>
-                      <option value="">Nežinoma</option>{YEARS.map(y=><option key={y} value={y}>{y}</option>)}
-                    </Sel>
+                    <YearInput value={form.yearStart} onChange={(v:string)=>set('yearStart',v)} placeholder="Metai" />
                   </div>
+                  <span className="text-gray-300 mb-2.5">—</span>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 mb-1">Veiklos pabaiga</label>
-                    <Sel value={form.yearEnd} onChange={(v:string)=>set('yearEnd',v)}>
-                      <option value="">—</option>{YEARS.map(y=><option key={y} value={y}>{y}</option>)}
-                    </Sel>
+                    <label className="block text-xs font-semibold text-gray-500 mb-1">Pabaiga</label>
+                    <YearInput value={form.yearEnd} onChange={(v:string)=>set('yearEnd',v)} placeholder="—" />
                   </div>
                 </div>
 
@@ -1085,7 +1216,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                       <button type="button" onClick={()=>rmBreak(i)} className="text-red-400 hover:text-red-600 font-bold">×</button>
                     </div>
                   ))}
-                  {form.breaks.length===0 && <p className="text-xs text-gray-400 italic">Nėra pertraukų</p>}
+
                 </div>
 
                 {form.type==='solo' && (
@@ -1129,8 +1260,8 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
             </div>
 
             {/* ── RIGHT COLUMN ── */}
-            <div className="p-3 pb-4 space-y-2.5">
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
+            <div className="pt-0 p-3 pb-4 space-y-2.5">
+              <div>
                 {/* ✅ avatar išsaugomas tiesiai į DB per /api/artists/[id]/avatar */}
                 <AvatarUploadCompact
                   value={form.avatar}
@@ -1152,19 +1283,19 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                 />
               </div>
 
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
+              <div className="border-t border-gray-100 pt-3">
                 <DescriptionEditor value={form.description} onChange={v=>set('description',v)} />
               </div>
 
               {/* Socialiniai tinklai — collapsible */}
-              <SocialsSection form={form} set={set} />
+              <div className="border-t border-gray-100">
+                <SocialsSection form={form} set={set} />
+              </div>
 
             </div>
           </div>
 
-          <div className="px-3 pb-3">
-            <CompactGallery photos={form.photos} onChange={setPhotos} artistName={form.name} artistId={artistId} />
-          </div>
+          <InlineGallery photos={form.photos} onChange={setPhotos} artistName={form.name} artistId={artistId} />
 
           <div className="mt-6 flex gap-4">
             <button id="submit-btn" type="submit"
