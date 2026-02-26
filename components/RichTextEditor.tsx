@@ -44,7 +44,7 @@ function Divider() {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function RichTextEditor({ value, onChange, placeholder, maxLength = 5000 }: RichTextEditorProps) {
+export default function RichTextEditor({ value, onChange, placeholder, maxLength, showToolbar = true }: RichTextEditorProps & { showToolbar?: boolean }) {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -59,7 +59,7 @@ export default function RichTextEditor({ value, onChange, placeholder, maxLength
       }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       Placeholder.configure({ placeholder: placeholder || 'Rašykite aprašymą...' }),
-      CharacterCount.configure({ limit: maxLength }),
+      ...(maxLength ? [CharacterCount.configure({ limit: maxLength })] : []),
     ],
     content: value || '',
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
@@ -94,7 +94,7 @@ export default function RichTextEditor({ value, onChange, placeholder, maxLength
   return (
     <div className="border border-gray-200 rounded-xl overflow-hidden bg-white flex flex-col">
       {/* ── Toolbar ── */}
-      <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-gray-100 bg-gray-50 flex-wrap">
+      {showToolbar && <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-gray-100 bg-gray-50 flex-wrap">
 
         {/* Headings */}
         <Btn active={editor.isActive('heading', { level: 2 })} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} title="Antraštė H2">
@@ -197,10 +197,8 @@ export default function RichTextEditor({ value, onChange, placeholder, maxLength
 
         {/* Spacer + char count */}
         <div className="flex-1" />
-        <span className={`text-xs tabular-nums ${chars > maxLength * 0.9 ? 'text-orange-500' : 'text-gray-300'}`}>
-          {chars}/{maxLength}
-        </span>
-      </div>
+        {maxLength && <span className={`text-xs tabular-nums ${chars > maxLength * 0.9 ? 'text-orange-500' : 'text-gray-300'}`}>{chars}/{maxLength}</span>}
+      </div>}
 
       {/* ── Editor area ── */}
       <EditorContent editor={editor} className="flex-1" />
