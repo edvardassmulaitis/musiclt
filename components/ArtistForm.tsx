@@ -1052,8 +1052,8 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                   value={form.avatar}
                   onChange={setAvatar}
                   onOriginalSaved={url => {
-                    if (!form.photos.find(p => p.url === url)) {
-                      setPhotos([{ url }, ...form.photos])
+                    if (!formRef.current.photos.find((p: any) => p.url === url)) {
+                      setPhotos([{ url }, ...formRef.current.photos])
                     }
                   }}
                 />
