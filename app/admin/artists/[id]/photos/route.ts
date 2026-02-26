@@ -9,13 +9,14 @@ const supabase = createClient(
 )
 
 // PUT /api/artists/[id]/photos — replace all photos for artist
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const session = await getServerSession(authOptions)
   if (!session?.user || !['admin', 'super_admin'].includes(session.user.role || '')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const artistId = parseInt(params.id)
+  const artistId = parseInt(id)
   if (isNaN(artistId)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
 
   const { photos } = await req.json()
