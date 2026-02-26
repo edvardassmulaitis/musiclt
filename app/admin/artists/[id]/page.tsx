@@ -98,7 +98,6 @@ function formToDb(form: ArtistFormData) {
   }
 }
 
-// FIX #5: upload external/Wikipedia image to Supabase on save
 async function fetchAndStoreWikiAvatar(rawUrl: string): Promise<string> {
   try {
     const res = await fetch('/api/fetch-image', {
@@ -114,7 +113,6 @@ async function fetchAndStoreWikiAvatar(rawUrl: string): Promise<string> {
   return rawUrl
 }
 
-// ── Track row ────────────────────────────────────────────────────────────────
 function TrackRow({ track }: { track: any }) {
   const trackId = track.track_id || track.id
   const hasVideo = !!track.video_url
@@ -139,14 +137,12 @@ function TrackRow({ track }: { track: any }) {
   )
 }
 
-// ── Album accordion ──────────────────────────────────────────────────────────
 function AlbumCard({ album, defaultOpen }: { album: any; defaultOpen: boolean }) {
   const [open, setOpen] = useState(defaultOpen)
   const [tracks, setTracks] = useState<any[]>([])
   const [loadingTracks, setLoadingTracks] = useState(false)
   const [tracksLoaded, setTracksLoaded] = useState(false)
 
-  // FIX #3: fetch tracks immediately if this is default-open
   useEffect(() => {
     if (defaultOpen) loadTracks()
   }, []) // eslint-disable-line
@@ -227,7 +223,6 @@ function AlbumCard({ album, defaultOpen }: { album: any; defaultOpen: boolean })
   )
 }
 
-// ── Discography panel ────────────────────────────────────────────────────────
 function DiscographyPanel({ artistId, artistName, refreshKey, onImportClose }: {
   artistId: string; artistName: string; refreshKey: number; onImportClose: () => void
 }) {
@@ -286,7 +281,6 @@ function DiscographyPanel({ artistId, artistName, refreshKey, onImportClose }: {
             </Link>
           </div>
         ) : (
-          // Key includes refreshKey so AlbumCards remount fresh after import
           albums.map((album, i) => <AlbumCard key={`${album.id}-${refreshKey}`} album={album} defaultOpen={i === 0} />)
         )}
       </div>
@@ -294,25 +288,7 @@ function DiscographyPanel({ artistId, artistName, refreshKey, onImportClose }: {
   )
 }
 
-// ── DiscographyImportCompact — compact header button for discography import
-function DiscographyImportCompact({ artistId, artistName, onClose }: {
-  artistId: number; artistName: string; onClose: () => void
-}) {
-  return (
-    <WikipediaImportDiscography
-      artistId={artistId}
-      artistName={artistName}
-      artistWikiTitle={artistName.replace(/ /g, '_')}
-      onClose={onClose}
-      buttonClassName="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors font-medium"
-      buttonLabel="📀 Disk."
-    />
-  )
-}
-
-// ── WikipediaImportWithHint — wraps WikipediaImport, pre-fills URL input ────
 function WikipediaImportWithHint({ artistName, onImport }: { artistName?: string; onImport: (data: any) => void }) {
-  // Inject URL into WikipediaImport input after mount
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!artistName) return
@@ -328,7 +304,6 @@ function WikipediaImportWithHint({ artistName, onImport }: { artistName?: string
   return <div ref={ref}><WikipediaImport onImport={onImport} /></div>
 }
 
-// ── WikipediaImportCompact ───────────────────────────────────────────────────
 function WikipediaImportCompact({ onImport, artistName }: { onImport: (data: any) => void; artistName?: string }) {
   const [open, setOpen] = useState(false)
   return (
@@ -358,7 +333,6 @@ function WikipediaImportCompact({ onImport, artistName }: { onImport: (data: any
   )
 }
 
-// ── Main page ────────────────────────────────────────────────────────────────
 export default function EditArtist() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -371,7 +345,7 @@ export default function EditArtist() {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
   const [tab, setTab] = useState<'form' | 'discography'>('form')
-  const [discographyKey, setDiscographyKey] = useState(0) // FIX #4
+  const [discographyKey, setDiscographyKey] = useState(0)
 
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
   const artistId = params.id as string
@@ -397,7 +371,7 @@ export default function EditArtist() {
       .then(r => r.json()).then(d => setTrackCount(d.total ?? null)).catch(() => {})
   }, [status, isAdmin, artistId, router])
 
-  // Full save (submit button)
+  // ✅ PATAISYTA: skipPhotos: true — nuotraukos valdomas atskirai per PhotoGallery
   const handleSubmit = useCallback(async (form: ArtistFormData) => {
     setSaving(true); setError('')
     try {
@@ -409,7 +383,7 @@ export default function EditArtist() {
       const res = await fetch(`/api/artists/${artistId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formToDb(form)),
+        body: JSON.stringify({ ...formToDb(form), skipPhotos: true }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
@@ -419,7 +393,6 @@ export default function EditArtist() {
     finally { setSaving(false) }
   }, [artistId])
 
-  // Auto-save (avatar only — simple, no debounce needed)
   const handleAutoSave = useCallback(async (form: ArtistFormData) => {
     if (!form.name) return
     try {
@@ -445,13 +418,10 @@ export default function EditArtist() {
   return (
     <div className="overflow-hidden flex flex-col bg-[#f8f7f5]" style={{ height: 'calc(100vh - 56px)' }}>
 
-      {/* Sticky header */}
       <div className="shrink-0 bg-white/95 backdrop-blur border-b border-gray-200">
         <div className="flex items-center justify-between gap-2 px-4 py-2">
 
-          {/* Left: breadcrumb + compact tool buttons */}
           <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
-            {/* FIX #1: breadcrumb with Albumai + Dainos counts */}
             <nav className="flex items-center gap-1 text-sm min-w-0 shrink overflow-hidden">
               <Link href="/admin" className="text-gray-400 hover:text-gray-700 shrink-0">Admin</Link>
               <span className="text-gray-300 shrink-0">/</span>
@@ -480,7 +450,6 @@ export default function EditArtist() {
               )}
             </nav>
 
-            {/* Wiki update button only in header */}
             <div className="hidden lg:flex items-center gap-1 shrink-0 border-l border-gray-200 pl-2 ml-1">
               <WikipediaImportCompact
                 artistName={artistName}
@@ -491,7 +460,6 @@ export default function EditArtist() {
             </div>
           </div>
 
-          {/* Right: action buttons */}
           <div className="flex items-center gap-1.5 shrink-0">
             <Link href="/admin/artists"
               className="px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
@@ -508,7 +476,6 @@ export default function EditArtist() {
           </div>
         </div>
 
-        {/* Mobile tabs */}
         <div className="flex lg:hidden border-t border-gray-100">
           <button onClick={() => setTab('form')}
             className={`flex-1 py-2 text-sm font-semibold transition-colors ${tab === 'form' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-gray-500'}`}>
@@ -530,7 +497,6 @@ export default function EditArtist() {
         </div>
       )}
 
-      {/* Mobile */}
       <div className="lg:hidden flex-1 overflow-y-auto">
         {tab === 'form' && (
           <ArtistFormCompact initialData={initialData} artistId={artistId} onSubmit={handleSubmit} onAutoSave={handleAutoSave} saving={saving} />
@@ -546,7 +512,6 @@ export default function EditArtist() {
         )}
       </div>
 
-      {/* Desktop 60/40 */}
       <div className="hidden lg:flex flex-1 min-h-0">
         <div className="border-r border-gray-200 overflow-y-auto" style={{ width: '60%' }}>
           <ArtistFormCompact initialData={initialData} artistId={artistId} onSubmit={handleSubmit} onAutoSave={handleAutoSave} saving={saving} />
@@ -565,7 +530,6 @@ export default function EditArtist() {
   )
 }
 
-// ── ArtistFormCompact — hides ArtistForm's own header, footer, wiki, instagram
 function ArtistFormCompact({ initialData, artistId, onSubmit, onAutoSave, saving }: {
   initialData: ArtistFormData; artistId: string
   onSubmit: (d: ArtistFormData) => void
@@ -580,7 +544,6 @@ function ArtistFormCompact({ initialData, artistId, onSubmit, onAutoSave, saving
         .artist-form-compact > div > div > .flex.items-center.justify-between.mb-6 { display: none !important; }
         .artist-form-compact > div > div > form > .mt-6 { display: none !important; }
         .artist-form-compact > div { background: transparent !important; }
-        /* Hide WikipediaImport and InstagramConnect - they appear as .mb-5 direct children of form, before the grid */
         .artist-form-compact form > .mb-5 { display: none !important; }
       `}</style>
       <ArtistForm
