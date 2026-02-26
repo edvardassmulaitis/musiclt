@@ -22,8 +22,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
   try {
     const body = await req.json()
-    const { skipPhotos, ...data } = body
-    await updateArtist(parseInt(id), data, skipPhotos === true)
+    const { skipPhotos, skipAvatar, ...data } = body
+    await updateArtist(parseInt(id), data, skipPhotos === true, skipAvatar === true)
     return NextResponse.json({ ok: true })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
