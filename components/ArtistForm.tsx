@@ -68,6 +68,12 @@ const IconWiki = () => (
 const IconDisc = () => (
   <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-none stroke-current stroke-2 shrink-0"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
 )
+const WikipediaIcon = () => (
+  <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 shrink-0" fill="currentColor" aria-hidden="true">
+    <path d="M12.09 13.119c-.936 1.932-2.217 4.548-2.853 5.728-.616 1.146-1.069 1.93-1.402 2.376-.333.445-.716.777-1.15.995C6.22 22.604 5.378 22 4.5 22c-.841 0-1.533-.31-2.074-.931C1.885 20.448 1.615 19.67 1.615 18.75c0-.65.194-1.21.583-1.68l.042-.047c.422-.458 1.01-.737 1.762-.837v-.073c-.558-.113-.997-.365-1.317-.757-.32-.393-.48-.861-.48-1.406 0-.484.143-.9.428-1.248.285-.348.655-.522 1.11-.522.392 0 .74.104 1.044.312.304.207.537.516.7.927.162.41.244.879.244 1.407v.115c.357-.05.685-.076.982-.076.298 0 .608.025.93.076v-.115c0-.528.081-.998.244-1.407.163-.411.396-.72.7-.927.304-.208.652-.312 1.044-.312.455 0 .825.174 1.11.522.285.348.428.764.428 1.248 0 .545-.16 1.013-.48 1.406-.32.392-.759.644-1.317.757v.073c.752.1 1.34.379 1.762.837l.042.047c.389.47.583 1.03.583 1.68 0 .919-.27 1.697-.81 2.333C14.034 21.69 13.34 22 12.5 22c-.878 0-1.72-.604-2.185-1.082L12.09 13.119zM22 2h-3.5l-3 9-3-9h-1l-3 9-3-9H2l4.5 13h1L11 6l3.5 9h1L20 2h2z"/>
+  </svg>
+)
+
 const IconExpand = () => (
   <svg viewBox="0 0 24 24" className="w-3 h-3 fill-none stroke-current stroke-2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
 )
@@ -79,8 +85,8 @@ const IconGroup = () => (
 )
 
 export type Break    = { from: string; to: string }
-export type Member   = { id: string; name: string; yearFrom: string; yearTo: string }
-export type GroupRef = { id: string; name: string; yearFrom: string; yearTo: string }
+export type Member   = { id: string; name: string; yearFrom: string; yearTo: string; avatar?: string }
+export type GroupRef = { id: string; name: string; yearFrom: string; yearTo: string; avatar?: string }
 
 export type ArtistFormData = {
   name: string; type: 'group'|'solo'
@@ -128,7 +134,7 @@ function Inp({ value, onChange, placeholder, type='text', required }: any) {
 
 function Sel({ value, onChange, children, required }: any) {
   return <select value={value} onChange={e=>onChange(e.target.value)} required={required}
-    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-blue-400 bg-white">
+    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-blue-400 bg-white appearance-none cursor-pointer hover:border-gray-300 transition-colors">
     {children}
   </select>
 }
@@ -661,7 +667,7 @@ function AvatarUploadCompact({ value, onChange, onOriginalSaved, artistId }: {
             )}
             <div className="relative inline-block group">
               <span className="w-4 h-4 rounded-full bg-gray-200 text-gray-500 text-xs flex items-center justify-center cursor-help select-none">i</span>
-              <div className="absolute left-0 bottom-6 w-44 bg-gray-800 text-white text-xs rounded-lg px-2.5 py-2 leading-snug opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20 shadow-lg">
+              <div className="absolute left-0 top-6 w-44 bg-gray-800 text-white text-xs rounded-lg px-2.5 py-2 leading-snug opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
                 Apkarpoma kvadratiškai. Originalas išsaugomas galerijoje.
               </div>
             </div>
@@ -901,7 +907,7 @@ function DescriptionEditor({ value, onChange }: { value: string; onChange: (v: s
       )}
       <div className="relative overflow-hidden" style={{ height: 160 }}>
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <RichTextEditor value={value} onChange={onChange} placeholder="Trumpas aprašymas..." />
+          <RichTextEditor value={value} onChange={onChange} placeholder="Trumpas aprašymas..." showToolbar={false} />
         </div>
         <div className="absolute inset-0 cursor-pointer" onClick={open} />
         <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent pointer-events-none" />
@@ -969,7 +975,10 @@ function ArtistSearch({ label, ph, items, onAdd, onRemove, onYears, filterType }
     <div className="space-y-2">
       {items.map((item, i) => (
         <div key={i} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
-          <div className="w-6 h-6 rounded-full bg-music-blue flex items-center justify-center text-white text-xs flex-shrink-0">{item.name[0]}</div>
+          {(item as any).avatar
+            ? <img src={(item as any).avatar} alt="" referrerPolicy="no-referrer" className="w-6 h-6 rounded-full object-cover flex-shrink-0 border border-gray-200" />
+            : <div className="w-6 h-6 rounded-full bg-music-blue flex items-center justify-center text-white text-xs flex-shrink-0">{item.name[0]}</div>
+          }
           <span className="flex-1 text-xs font-medium text-gray-800 truncate">{item.name}</span>
           <input value={item.yearFrom}
             onChange={e=>onYears(i,'yearFrom',e.target.value.replace(/\D/g,'').slice(0,4))}
@@ -989,9 +998,12 @@ function ArtistSearch({ label, ph, items, onAdd, onRemove, onYears, filterType }
         {results.length > 0 && (
           <div className="absolute z-50 w-full bg-white border border-gray-200 rounded-xl shadow-xl bottom-full mb-1 overflow-hidden">
             {results.map(a => (
-              <button key={a.id} type="button" onClick={()=>{onAdd(a);setQ('');setResults([])}}
+              <button key={a.id} type="button" onClick={()=>{onAdd({...a, avatar: a.cover_image_url || null});setQ('');setResults([])}}
                 className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 text-left">
-                <div className="w-7 h-7 rounded-full bg-music-blue flex items-center justify-center text-white text-xs">{a.name[0]}</div>
+                {a.cover_image_url
+                  ? <img src={a.cover_image_url} alt="" referrerPolicy="no-referrer" className="w-7 h-7 rounded-full object-cover border border-gray-200 shrink-0" />
+                  : <div className="w-7 h-7 rounded-full bg-music-blue flex items-center justify-center text-white text-xs shrink-0">{a.name[0]}</div>
+                }
                 <div>
                   <div className="text-sm font-medium text-gray-900">{a.name}</div>
                   <div className="text-xs text-gray-400">{a.type==='group'?'Grupė':'Atlikėjas'} · {a.country}</div>
@@ -1115,12 +1127,12 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
         <div className="flex items-center gap-1.5">
           <input type="text" value={urlInput} onChange={e=>setUrlInput(e.target.value)}
             onKeyDown={e=>{ if(e.key==='Enter'){e.preventDefault();e.stopPropagation();addUrl()} }}
-            placeholder="URL nuotraukos..."
+            placeholder="https://..."
             className="w-36 px-2 py-1 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
           <button type="button" onClick={()=>addUrl()} className="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs transition-colors">↵</button>
           <button type="button" onClick={() => setShowWikimedia(true)} title="Wikimedia Commons nuotraukų paieška"
-            className="flex items-center gap-1 px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-600 rounded-lg text-xs font-medium transition-colors">
-            <IconWiki /> Įkelti Wiki nuotraukas
+            className="flex items-center gap-1.5 px-2 py-1 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg text-xs font-medium transition-colors">
+            <WikipediaIcon /> Įkelti Wiki nuotraukas
           </button>
           <button type="button" onClick={()=>!uploading&&fileRef.current?.click()}
             className="flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-colors">
@@ -1386,7 +1398,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                     </Sel>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 mb-1">Žanras *</label>
+                    <label className="block text-xs font-semibold text-gray-500 mb-1">Pagrindinis stilius *</label>
                     <Sel value={form.genre} onChange={(v:string)=>{ set('genre',v); set('substyles',[]) }} required>
                       <option value="">Pasirinkite...</option>
                       {GENRES.map(g=><option key={g} value={g}>{g}</option>)}
