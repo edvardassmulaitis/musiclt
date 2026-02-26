@@ -634,53 +634,79 @@ function AvatarUploadCompact({ value, onChange, onOriginalSaved, artistId }: {
 }
 
 // ── Shared style loader ──────────────────────────────────────────────────────
-const ALL_STYLES_CACHE: string[] = []
-async function loadAllStyles(): Promise<string[]> {
-  if (ALL_STYLES_CACHE.length) return ALL_STYLES_CACHE
+// Grouped: { genre: string[] }[], flat unique list
+type StyleData = { grouped: { genre: string; styles: string[] }[]; flat: string[] }
+let STYLES_CACHE: StyleData | null = null
+
+async function loadStyleData(): Promise<StyleData> {
+  if (STYLES_CACHE) return STYLES_CACHE
   try {
     const m = await import('@/lib/constants') as any
-    // Try all known export shapes
-    let arr: string[] = []
-    if (Array.isArray(m.ALL_SUBSTYLES)) arr = m.ALL_SUBSTYLES
-    else if (Array.isArray(m.SUBSTYLES)) arr = m.SUBSTYLES
-    else if (m.SUBSTYLES_BY_GENRE && typeof m.SUBSTYLES_BY_GENRE === 'object') {
-      Object.values(m.SUBSTYLES_BY_GENRE as Record<string,string[]>).forEach((v:any) => {
-        if (Array.isArray(v)) arr.push(...v)
-      })
+
+    // Case 1: SUBSTYLES_BY_GENRE = { Rock: [...], Pop: [...], ... }
+    if (m.SUBSTYLES_BY_GENRE && typeof m.SUBSTYLES_BY_GENRE === 'object' && !Array.isArray(m.SUBSTYLES_BY_GENRE)) {
+      const grouped = Object.entries(m.SUBSTYLES_BY_GENRE as Record<string,string[]>)
+        .map(([genre, styles]) => ({ genre, styles: [...new Set(styles)].sort() }))
+        .filter(g => g.styles.length > 0)
+      const seen = new Set<string>()
+      const flat: string[] = []
+      grouped.forEach(g => g.styles.forEach(s => { if (!seen.has(s)) { seen.add(s); flat.push(s) } }))
+      flat.sort()
+      STYLES_CACHE = { grouped, flat }
+      return STYLES_CACHE
     }
-    // Fallback hardcoded common styles if nothing found
-    if (!arr.length) arr = [
-      'Pop','Pop rock','Indie pop','Indie rock','Alternative rock','Classic rock','Hard rock','Soft rock',
-      'Electronic','House','Techno','Trance','Drum and bass','Dubstep','Ambient','Synthpop','New wave',
-      'Hip hop','Rap','R&B','Soul','Funk','Jazz','Blues','Country','Folk','Classical','Metal','Punk',
-      'Lo-fi','Bedroom pop','Dream pop','Shoegaze','Post-punk','Emo','Grunge','Nu metal',
-    ]
-    ALL_STYLES_CACHE.push(...[...new Set(arr)].sort())
+
+    // Case 2: flat array
+    const arr: string[] = Array.isArray(m.ALL_SUBSTYLES) ? m.ALL_SUBSTYLES
+      : Array.isArray(m.SUBSTYLES) ? m.SUBSTYLES : []
+    if (arr.length) {
+      const flat = [...new Set(arr)].sort()
+      STYLES_CACHE = { grouped: [{ genre: 'Visi', styles: flat }], flat }
+      return STYLES_CACHE
+    }
   } catch {}
-  return ALL_STYLES_CACHE
+
+  // Hardcoded fallback
+  const FALLBACK: Record<string,string[]> = {
+    'Pop': ['Pop','Indie pop','Bedroom pop','Dream pop','Synthpop','Pop rock','Dance pop','Electropop'],
+    'Rock': ['Rock','Indie rock','Alternative rock','Classic rock','Hard rock','Soft rock','Post-punk','Shoegaze','Grunge','Emo','Punk','Nu metal'],
+    'Elektroninė': ['Electronic','House','Techno','Trance','Drum and bass','Dubstep','Ambient','New wave','Lo-fi'],
+    'Hip hop': ['Hip hop','Rap','Trap','R&B','Soul','Funk'],
+    'Kita': ['Jazz','Blues','Country','Folk','Classical','Metal','Reggae'],
+  }
+  const grouped = Object.entries(FALLBACK).map(([genre, styles]) => ({ genre, styles }))
+  const flat = [...new Set(Object.values(FALLBACK).flat())].sort()
+  STYLES_CACHE = { grouped, flat }
+  return STYLES_CACHE
 }
 
 // ── StylePicker — compact self-contained style tags editor ─────────────────
 function StylePicker({ selected, onChange }: { selected: string[]; onChange: (v: string[]) => void }) {
-  const [q, setQ] = useState('')
-  const [results, setResults] = useState<string[]>([])
+  const [inlineQ, setInlineQ] = useState('')         // inline input query
+  const [inlineSuggestions, setInlineSuggestions] = useState<string[]>([])
   const [showAll, setShowAll] = useState(false)
-  const [allStyles, setAllStyles] = useState<string[]>([])
+  const [modalQ, setModalQ] = useState('')           // modal search query — SEPARATE state
+  const [styleData, setStyleData] = useState<StyleData>({ grouped: [], flat: [] })
   const inputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    loadAllStyles().then(setAllStyles).catch(()=>{})
-  }, [])
+  useEffect(() => { loadStyleData().then(setStyleData).catch(()=>{}) }, [])
 
+  // Inline suggestions
   useEffect(() => {
-    if (!q.trim()) { setResults([]); return }
-    const lower = q.toLowerCase()
-    setResults(allStyles.filter(s => s.toLowerCase().includes(lower) && !selected.includes(s)).slice(0, 10))
-  }, [q, selected, allStyles])
+    if (!inlineQ.trim()) { setInlineSuggestions([]); return }
+    const lower = inlineQ.toLowerCase()
+    setInlineSuggestions(styleData.flat.filter(s => s.toLowerCase().includes(lower) && !selected.includes(s)).slice(0, 8))
+  }, [inlineQ, selected, styleData])
+
+  // Modal filtered results (searched across all flat)
+  const modalResults = modalQ.trim()
+    ? styleData.flat.filter(s => s.toLowerCase().includes(modalQ.toLowerCase()) && !selected.includes(s))
+    : null // null = show grouped
 
   const add = (s: string) => {
     if (!selected.includes(s)) onChange([...selected, s])
-    setQ(''); setResults([])
+    setInlineQ(''); setInlineSuggestions([])
+    setModalQ('')
     inputRef.current?.focus()
   }
   const remove = (s: string) => onChange(selected.filter(x => x !== s))
@@ -695,19 +721,19 @@ function StylePicker({ selected, onChange }: { selected: string[]; onChange: (v:
             <button type="button" onClick={()=>remove(s)} className="text-blue-400 hover:text-red-500 ml-0.5 leading-none">×</button>
           </span>
         ))}
-        {/* Inline search input */}
+        {/* Inline quick search */}
         <div className="relative">
-          <input ref={inputRef} type="text" value={q} onChange={e=>setQ(e.target.value)}
+          <input ref={inputRef} type="text" value={inlineQ} onChange={e=>setInlineQ(e.target.value)}
             onKeyDown={e=>{
-              if (e.key==='Enter') { e.preventDefault(); e.stopPropagation(); if(results[0]) add(results[0]) }
-              if (e.key==='Escape') { setQ(''); setResults([]) }
+              if (e.key==='Enter') { e.preventDefault(); e.stopPropagation(); if(inlineSuggestions[0]) add(inlineSuggestions[0]) }
+              if (e.key==='Escape') { setInlineQ(''); setInlineSuggestions([]) }
             }}
             placeholder="+ stilius..."
             className="w-24 px-2 py-0.5 border border-dashed border-gray-300 rounded-full text-xs text-gray-500 focus:outline-none focus:border-blue-400 focus:border-solid bg-white"
           />
-          {results.length > 0 && (
+          {inlineSuggestions.length > 0 && (
             <div className="absolute z-40 top-7 left-0 w-52 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
-              {results.map(s => (
+              {inlineSuggestions.map(s => (
                 <button key={s} type="button" onClick={()=>add(s)}
                   className="w-full text-left px-3 py-1.5 text-xs hover:bg-blue-50 text-gray-700 transition-colors border-b border-gray-50 last:border-0">
                   {s}
@@ -716,48 +742,78 @@ function StylePicker({ selected, onChange }: { selected: string[]; onChange: (v:
             </div>
           )}
         </div>
-        {/* Browse all button */}
-        <button type="button" onClick={()=>setShowAll(true)}
+        {/* Browse all */}
+        <button type="button" onClick={()=>{ setShowAll(true); setModalQ('') }}
           className="px-2 py-0.5 border border-dashed border-gray-300 rounded-full text-xs text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-colors">
           ☰
         </button>
       </div>
 
-      {/* Full-screen browse modal */}
+      {/* Modal */}
       {showAll && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-6" onClick={()=>setShowAll(false)}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col" onClick={e=>e.stopPropagation()}>
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-              <span className="text-sm font-bold text-gray-800">Visi stiliai</span>
-              <button onClick={()=>setShowAll(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 shrink-0">
+              <span className="text-sm font-bold text-gray-800">Stiliai</span>
+              <button type="button" onClick={()=>setShowAll(false)} className="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
             </div>
-            <div className="p-3 border-b border-gray-100">
-              <input type="text" value={q} onChange={e=>setQ(e.target.value)} placeholder="Ieškoti..."
-                className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-blue-400" autoFocus />
+            <div className="px-4 py-2.5 border-b border-gray-100 shrink-0">
+              <input type="text" value={modalQ} onChange={e=>setModalQ(e.target.value)}
+                placeholder="Ieškoti stiliaus..."
+                className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-blue-400"
+                autoFocus />
             </div>
-            <div className="flex-1 overflow-y-auto p-3">
-              <div className="flex flex-wrap gap-1.5">
-                {(q.trim() ? results : allStyles.filter(s=>!selected.includes(s))).map(s => (
-                  <button key={s} type="button" onClick={()=>add(s)}
-                    className="px-2.5 py-1 bg-gray-100 hover:bg-blue-100 hover:text-blue-700 text-gray-700 rounded-full text-xs font-medium transition-colors">
-                    {s}
-                  </button>
-                ))}
-              </div>
-              {selected.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-gray-100">
-                  <p className="text-xs text-gray-400 mb-2">Pasirinkta:</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {selected.map(s => (
-                      <span key={s} className="flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-xs font-medium">
-                        {s}
-                        <button type="button" onClick={()=>remove(s)} className="text-blue-400 hover:text-red-500">×</button>
-                      </span>
-                    ))}
-                  </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {modalResults !== null ? (
+                /* Search results — flat, no duplicates */
+                <div className="flex flex-wrap gap-1.5">
+                  {modalResults.length === 0
+                    ? <p className="text-xs text-gray-400">Nerasta</p>
+                    : modalResults.map(s => (
+                        <button key={s} type="button" onClick={()=>add(s)}
+                          className="px-2.5 py-1 bg-gray-100 hover:bg-blue-100 hover:text-blue-700 text-gray-700 rounded-full text-xs font-medium transition-colors">
+                          {s}
+                        </button>
+                      ))
+                  }
                 </div>
+              ) : (
+                /* Grouped by genre */
+                styleData.grouped.map(({ genre, styles }) => {
+                  const available = styles.filter(s => !selected.includes(s))
+                  if (available.length === 0) return null
+                  return (
+                    <div key={genre}>
+                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">{genre}</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {available.map(s => (
+                          <button key={s} type="button" onClick={()=>add(s)}
+                            className="px-2.5 py-1 bg-gray-100 hover:bg-blue-100 hover:text-blue-700 text-gray-700 rounded-full text-xs font-medium transition-colors">
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })
               )}
             </div>
+
+            {/* Selected at bottom */}
+            {selected.length > 0 && (
+              <div className="px-4 py-3 border-t border-gray-100 shrink-0">
+                <p className="text-xs text-gray-400 mb-2">Pasirinkta:</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {selected.map(s => (
+                    <span key={s} className="flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-xs font-medium">
+                      {s}
+                      <button type="button" onClick={()=>remove(s)} className="text-blue-400 hover:text-red-500 leading-none">×</button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
