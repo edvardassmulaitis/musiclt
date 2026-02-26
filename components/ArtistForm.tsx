@@ -836,15 +836,6 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
     }))
   }, [initialData]) // eslint-disable-line
 
-  // Fire onChange (auto-save) whenever photos change
-  const prevPhotosRef = useRef<any[]>(initialData?.photos || [])
-  useEffect(() => {
-    if (!form.name) return
-    if (form.photos === prevPhotosRef.current) return
-    prevPhotosRef.current = form.photos
-    if (onChange) onChange(form)
-  }, [form.photos]) // eslint-disable-line
-
   const set = (f: keyof ArtistFormData, v: any) => {
     const next = { ...form, [f]: v }
     setForm(next)
