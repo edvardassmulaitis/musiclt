@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -9,7 +9,7 @@ const TRACK_TYPE_LABELS: Record<string, string> = {
   normal: 'Įprastinė', remix: 'Remix', live: 'Gyva', mashup: 'Mashup', instrumental: 'Instrumentinė'
 }
 
-export default function AdminTracksPage() {
+function AdminTracksContent() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -123,25 +123,18 @@ export default function AdminTracksPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-700">
-                      {t.artists?.name || t.artist_name || '–'}
-                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700">{t.artists?.name || t.artist_name || '–'}</td>
                     <td className="px-4 py-3 text-sm">
                       {t.albums_list?.length > 0 ? (
                         <div>
-                          <Link href={`/admin/albums/${t.albums_list[0].id}`}
-                            className="text-music-blue hover:underline text-sm">
+                          <Link href={`/admin/albums/${t.albums_list[0].id}`} className="text-music-blue hover:underline text-sm">
                             {t.albums_list[0].title}
                           </Link>
-                          {t.albums_list.length > 1 && (
-                            <span className="text-gray-400 text-xs ml-1">+{t.albums_list.length - 1}</span>
-                          )}
+                          {t.albums_list.length > 1 && <span className="text-gray-400 text-xs ml-1">+{t.albums_list.length - 1}</span>}
                         </div>
                       ) : <span className="text-gray-400">–</span>}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {t.release_year || t.albums_list?.[0]?.year || '–'}
-                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{t.release_year || t.albums_list?.[0]?.year || '–'}</td>
                     <td className="px-4 py-3">
                       <span className="px-2 py-0.5 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
                         {TRACK_TYPE_LABELS[t.type] || t.type || 'normal'}
@@ -175,5 +168,13 @@ export default function AdminTracksPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function AdminTracksPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center py-16"><div className="w-8 h-8 border-2 border-music-blue border-t-transparent rounded-full animate-spin" /></div>}>
+      <AdminTracksContent />
+    </Suspense>
   )
 }
