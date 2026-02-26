@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
 const ALBUM_TYPES = [
@@ -22,16 +22,14 @@ function albumType(a: any) {
 export default function AdminAlbumsPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const artistId = searchParams.get('artist_id')
+
   const [albums, setAlbums] = useState<any[]>([])
   const [total, setTotal] = useState(0)
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState<number | null>(null)
-  // Read artist_id synchronously from URL on first render
-  const [artistId] = useState<string | null>(() => {
-    if (typeof window === 'undefined') return null
-    return new URLSearchParams(window.location.search).get('artist_id')
-  })
   const [artistName, setArtistName] = useState<string | null>(null)
 
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
