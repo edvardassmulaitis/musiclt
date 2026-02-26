@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -19,7 +19,7 @@ function albumType(a: any) {
   return '–'
 }
 
-export default function AdminAlbumsPage() {
+function AdminAlbumsContent() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -146,5 +146,13 @@ export default function AdminAlbumsPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function AdminAlbumsPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center py-16"><div className="w-8 h-8 border-2 border-music-blue border-t-transparent rounded-full animate-spin" /></div>}>
+      <AdminAlbumsContent />
+    </Suspense>
   )
 }
