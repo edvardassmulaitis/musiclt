@@ -906,8 +906,7 @@ function DescriptionEditor({ value, onChange }: { value: string; onChange: (v: s
         </div>
       )}
       <div className="relative overflow-hidden" style={{ height: 160 }}>
-        <div className="absolute inset-0 overflow-hidden pointer-events-none editor-preview-no-toolbar">
-          <style>{`.editor-preview-no-toolbar .border.border-gray-200.rounded-xl { border: none !important; border-radius: 0 !important; } .editor-preview-no-toolbar .flex.items-center.gap-0\.5 { display: none !important; }`}</style>
+        <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ marginTop: -45 }}>
           <RichTextEditor value={value} onChange={onChange} placeholder="Trumpas aprašymas..." />
         </div>
         <div className="absolute inset-0 cursor-pointer" onClick={open} />
