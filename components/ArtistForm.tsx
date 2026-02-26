@@ -509,7 +509,6 @@ function AvatarUpload({ value, onChange, onOriginalSaved }: { value: string; onC
         </div>
 
         <div className="space-y-1" style={{ maxWidth: 200 }}>
-          <label className="text-xs text-gray-400 font-medium">Arba įveskite URL:</label>
           <div className="flex gap-1.5">
             <input
               type="text"
@@ -674,7 +673,6 @@ function AvatarUploadCompact({ value, onChange, onOriginalSaved, artistId }: {
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs text-gray-400 font-medium">Arba įveskite URL:</label>
             <div className="flex gap-1.5">
               <input
                 type="text"
@@ -979,7 +977,10 @@ function ArtistSearch({ label, ph, items, onAdd, onRemove, onYears, filterType }
             ? <img src={(item as any).avatar} alt="" referrerPolicy="no-referrer" className="w-6 h-6 rounded-full object-cover flex-shrink-0 border border-gray-200" />
             : <div className="w-6 h-6 rounded-full bg-music-blue flex items-center justify-center text-white text-xs flex-shrink-0">{item.name[0]}</div>
           }
-          <span className="flex-1 text-xs font-medium text-gray-800 truncate">{item.name}</span>
+          <a href={`/admin/artists/${item.id}`} target="_blank" rel="noopener noreferrer"
+            className="flex-1 text-xs font-medium text-gray-800 hover:text-blue-600 hover:underline truncate transition-colors">
+            {item.name}
+          </a>
           <input value={item.yearFrom}
             onChange={e=>onYears(i,'yearFrom',e.target.value.replace(/\D/g,'').slice(0,4))}
             placeholder="Nuo" maxLength={4} inputMode="numeric"
