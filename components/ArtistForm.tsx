@@ -635,20 +635,34 @@ function AvatarUploadCompact({ value, onChange, onOriginalSaved, artistId }: {
 }
 
 // ── InlineStyleSearch — quick style add without opening full modal ────────────
+// All known substyles loaded from constants — all arrays merged as fallback
+const ALL_STYLES_CACHE: string[] = []
+async function loadAllStyles(): Promise<string[]> {
+  if (ALL_STYLES_CACHE.length) return ALL_STYLES_CACHE
+  const m = await import('@/lib/constants') as any
+  const arr: string[] = m.ALL_SUBSTYLES || m.SUBSTYLES || []
+  // Also try SUBSTYLES_BY_GENRE object
+  if (!arr.length && m.SUBSTYLES_BY_GENRE) {
+    Object.values(m.SUBSTYLES_BY_GENRE as Record<string,string[]>).forEach(v => arr.push(...v))
+  }
+  ALL_STYLES_CACHE.push(...[...new Set(arr)].sort())
+  return ALL_STYLES_CACHE
+}
+
 function InlineStyleSearch({ selected, onAdd }: { selected: string[]; onAdd: (s: string) => void }) {
   const [q, setQ] = useState('')
   const [results, setResults] = useState<string[]>([])
+  const [allStyles, setAllStyles] = useState<string[]>([])
+
+  useEffect(() => { loadAllStyles().then(setAllStyles).catch(()=>{}) }, [])
 
   useEffect(() => {
     if (!q.trim()) { setResults([]); return }
-    import('@/lib/constants').then(m => {
-      const all: string[] = (m as any).ALL_SUBSTYLES || m.SUBSTYLES || []
-      const filtered = all
-        .filter((s: string) => s.toLowerCase().includes(q.toLowerCase()) && !selected.includes(s))
-        .slice(0, 8)
-      setResults(filtered)
-    }).catch(() => setResults([]))
-  }, [q, selected])
+    const lower = q.toLowerCase()
+    setResults(
+      allStyles.filter(s => s.toLowerCase().includes(lower) && !selected.includes(s)).slice(0, 8)
+    )
+  }, [q, selected, allStyles])
 
   const addFirst = () => {
     if (results.length > 0) { onAdd(results[0]); setQ(''); setResults([]) }
@@ -660,7 +674,7 @@ function InlineStyleSearch({ selected, onAdd }: { selected: string[]; onAdd: (s:
         type="text" value={q} onChange={e => setQ(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); addFirst() } }}
         placeholder="+ Stilius..."
-        className="w-32 px-2 py-0.5 border border-gray-200 rounded-full text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white"
+        className="w-28 px-2 py-0.5 border border-dashed border-gray-300 rounded-full text-xs text-gray-500 focus:outline-none focus:border-blue-400 focus:border-solid bg-white"
       />
       {results.length > 0 && (
         <div className="absolute z-30 top-7 left-0 w-52 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
@@ -683,31 +697,27 @@ function DescriptionEditor({ value, onChange }: { value: string; onChange: (v: s
 
   return (
     <div className="relative">
-      {expanded ? (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-6">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col" style={{ maxHeight: '80vh' }}>
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-              <span className="text-sm font-bold text-gray-700">Aprašymas</span>
-              <button onClick={() => setExpanded(false)} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
-            </div>
-            <div className="flex-1 overflow-auto p-4" style={{ minHeight: 300 }}>
-              <RichTextEditor value={value} onChange={onChange} placeholder="Trumpas aprašymas..." />
-            </div>
-            <div className="px-4 py-3 border-t border-gray-100 flex justify-end">
+      {expanded && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex flex-col">
+          <div className="bg-white flex flex-col" style={{ height: '100vh' }}>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200 shrink-0">
+              <span className="text-sm font-bold text-gray-800">✏️ Aprašymas</span>
               <button onClick={() => setExpanded(false)}
-                className="px-4 py-2 bg-music-blue text-white rounded-lg text-sm font-medium hover:opacity-90">
-                ✓ Uždaryti
+                className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+                ✓ Išsaugoti ir uždaryti
               </button>
+            </div>
+            <div className="flex-1 overflow-auto px-5 py-4">
+              <RichTextEditor value={value} onChange={onChange} placeholder="Trumpas aprašymas..." />
             </div>
           </div>
         </div>
-      ) : (
-        <div style={{ minHeight: 140 }}>
-          <RichTextEditor value={value} onChange={onChange} placeholder="Trumpas aprašymas..." />
-        </div>
       )}
+      <div style={{ minHeight: 120 }}>
+        <RichTextEditor value={value} onChange={onChange} placeholder="Trumpas aprašymas..." />
+      </div>
       <button type="button" onClick={() => setExpanded(true)}
-        className="mt-1 text-xs text-gray-400 hover:text-music-blue transition-colors">
+        className="mt-1 text-xs text-gray-400 hover:text-blue-500 transition-colors">
         ⤢ Plėsti redaktorių
       </button>
     </div>
@@ -785,7 +795,7 @@ function ArtistSearch({ label, ph, items, onAdd, onRemove, onYears, filterType }
         <input type="text" value={q} onChange={e=>setQ(e.target.value)} placeholder={ph}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-music-blue" />
         {results.length > 0 && (
-          <div className="absolute z-20 w-full bg-white border border-gray-200 rounded-xl shadow-lg mt-1 overflow-hidden">
+          <div className="absolute z-50 w-full bg-white border border-gray-200 rounded-xl shadow-xl bottom-full mb-1 overflow-hidden">
             {results.map(a => (
               <button key={a.id} type="button" onClick={()=>{onAdd(a);setQ('');setResults([])}}
                 className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 text-left">
@@ -841,10 +851,10 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
     } finally { setUploading(false) }
   }
 
-  const addUrl = async () => {
-    const v = urlInput.trim()
+  const addUrl = async (rawUrl?: string) => {
+    const v = (rawUrl || urlInput).trim()
     if (!v) return
-    setUrlInput('')
+    if (!rawUrl) setUrlInput('')
     let finalUrl = v
     if (v.startsWith('http') && !v.includes('supabase')) {
       try {
@@ -860,6 +870,36 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
         body: JSON.stringify({ photos: next })
       }).catch(()=>{})
     }
+  }
+
+  const fetchWikiPhotos = async () => {
+    if (!artistName) return
+    setUploading(true)
+    try {
+      // Search Wikimedia Commons for artist photos
+      const query = artistName
+      const searchRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*&srlimit=1`)
+      const searchData = await searchRes.json()
+      const pageTitle = searchData?.query?.search?.[0]?.title
+      if (!pageTitle) return
+
+      const imgListRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(pageTitle)}&prop=images&format=json&origin=*&imlimit=20`)
+      const imgListData = await imgListRes.json()
+      const page = Object.values(imgListData?.query?.pages || {})[0] as any
+      const images: string[] = (page?.images || [])
+        .map((i: any) => i.title as string)
+        .filter((t: string) => /\.(jpg|jpeg|png)/i.test(t))
+        .slice(0, 5)
+
+      for (const imgTitle of images) {
+        const fileRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(imgTitle)}&prop=imageinfo&iiprop=url&format=json&origin=*`)
+        const fileData = await fileRes.json()
+        const filePage = Object.values(fileData?.query?.pages || {})[0] as any
+        const imgUrl = filePage?.imageinfo?.[0]?.url
+        if (imgUrl) await addUrl(imgUrl)
+      }
+    } catch {}
+    finally { setUploading(false) }
   }
 
   const remove = (i: number) => {
@@ -891,12 +931,15 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
           <input type="text" value={urlInput} onChange={e=>setUrlInput(e.target.value)}
             onKeyDown={e=>{ if(e.key==='Enter'){e.preventDefault();e.stopPropagation();addUrl()} }}
             placeholder="URL nuotraukos..."
-            className="w-40 px-2 py-1 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
-          <button type="button" onClick={addUrl} className="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs transition-colors">↵</button>
+            className="w-36 px-2 py-1 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
+          <button type="button" onClick={()=>addUrl()} className="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs transition-colors">↵</button>
+          <button type="button" onClick={fetchWikiPhotos} disabled={uploading} title="Ieškoti Wikipedia nuotraukų"
+            className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-600 rounded-lg text-xs font-medium transition-colors disabled:opacity-50">
+            {uploading ? <span className="w-3 h-3 border border-purple-400 border-t-transparent rounded-full animate-spin inline-block"/> : '🌐 Wiki'}
+          </button>
           <button type="button" onClick={()=>!uploading&&fileRef.current?.click()}
             className="flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-colors">
-            {uploading ? <span className="w-3 h-3 border border-blue-400 border-t-transparent rounded-full animate-spin inline-block"/> : '📁'}
-            Pridėti
+            📁
           </button>
         </div>
       </div>
@@ -970,8 +1013,8 @@ function SocialsSection({ form, set }: { form: any; set: (k: any, v: any) => voi
       <button type="button" onClick={() => setOpen(p => !p)}
         className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 transition-colors">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-gray-500">Nuorodos</span>
-          {filledCount > 0 && (
+          <span className="text-xs font-semibold text-gray-500">Nuorodos ir domenas</span>
+          {(filledCount > 0 || displayDomain) && (
             <span className="bg-blue-100 text-blue-600 text-xs font-bold px-1.5 py-0.5 rounded-full">{filledCount}</span>
           )}
           {!open && filledCount > 0 && (
@@ -981,29 +1024,12 @@ function SocialsSection({ form, set }: { form: any; set: (k: any, v: any) => voi
               ))}
             </div>
           )}
+          {!open && displayDomain && (
+            <span className="text-xs text-gray-400 truncate max-w-[120px]">{displayDomain}.music.lt</span>
+          )}
         </div>
         <span className={`text-gray-400 text-xs transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>▼</span>
       </button>
-
-      {/* Domain row — always visible */}
-      <div className="px-3 py-2 border-t border-gray-50 flex items-center gap-2">
-        {/* Toggle */}
-        <button type="button" onClick={() => setDomainActive(p => !p)}
-          className={`relative shrink-0 w-8 h-4 rounded-full transition-colors ${domainActive ? 'bg-blue-500' : 'bg-gray-200'}`}>
-          <span className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${domainActive ? 'translate-x-4' : ''}`} />
-        </button>
-        <div className="flex-1 min-w-0">
-          {displayDomain ? (
-            <span className={`text-sm truncate block ${domainActive ? 'text-gray-800 font-medium' : 'text-gray-400'}`}>
-              {displayDomain}.music.lt
-            </span>
-          ) : (
-            <span className="text-sm text-gray-400 italic">domenas nenurodytas</span>
-          )}
-        </div>
-        <button type="button" onClick={() => setOpen(p => !p)}
-          className="shrink-0 text-xs text-blue-500 hover:text-blue-700">Keisti</button>
-      </div>
 
       {/* Expandable */}
       {open && (
@@ -1025,7 +1051,16 @@ function SocialsSection({ form, set }: { form: any; set: (k: any, v: any) => voi
             </div>
           ))}
           <div className="pt-2 border-t border-gray-100">
-            <label className="block text-xs font-semibold text-gray-500 mb-1">Subdomenas</label>
+            <label className="block text-xs font-semibold text-gray-500 mb-1">Domenas music.lt</label>
+            <div className="flex items-center gap-2 mb-1.5">
+              <button type="button" onClick={() => setDomainActive(p => !p)}
+                className={`relative shrink-0 w-8 h-4 rounded-full transition-colors ${domainActive ? 'bg-blue-500' : 'bg-gray-200'}`}>
+                <span className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${domainActive ? 'translate-x-4' : ''}`} />
+              </button>
+              <span className={`text-xs ${domainActive ? 'text-gray-700 font-medium' : 'text-gray-400'}`}>
+                {domainActive ? 'Aktyvus' : 'Neaktyvus'}
+              </span>
+            </div>
             <div className="flex gap-1">
               <input type="text" value={form.subdomain} onChange={e=>set('subdomain',e.target.value)}
                 placeholder={suggestedSubdomain || 'vardas'}
@@ -1185,38 +1220,39 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                       selected={form.substyles||[]}
                       onAdd={s => set('substyles', [...(form.substyles||[]), s])}
                     />
-                    <StyleModal selected={form.substyles||[]} onChange={v=>set('substyles',v)} />
+                    <span className="[&>*]:!text-xs [&>*]:!px-2 [&>*]:!py-0.5 [&>*]:!font-medium">
+                      <StyleModal selected={form.substyles||[]} onChange={v=>set('substyles',v)} />
+                    </span>
                   </div>
                 </div>
 
-                <div className="flex gap-3 items-end">
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Left: Veiklos metai */}
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 mb-1">Veiklos pradžia</label>
-                    <YearInput value={form.yearStart} onChange={(v:string)=>set('yearStart',v)} placeholder="Metai" />
-                  </div>
-                  <span className="text-gray-300 mb-2.5">—</span>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-500 mb-1">Pabaiga</label>
-                    <YearInput value={form.yearEnd} onChange={(v:string)=>set('yearEnd',v)} placeholder="—" />
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex justify-between items-center mb-1.5">
-                    <label className="block text-xs font-semibold text-gray-500">Pertraukos</label>
-                    <button type="button" onClick={addBreak} className="text-xs text-blue-500 hover:text-blue-700 font-medium">+ Pridėti</button>
-                  </div>
-                  {form.breaks.map((br,i) => (
-                    <div key={i} className="flex gap-2 mb-2 items-center">
-                      <input value={br.from} onChange={e=>upBreak(i,'from',e.target.value)} placeholder="Nuo"
-                        className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-blue-400" />
-                      <span className="text-gray-400">–</span>
-                      <input value={br.to} onChange={e=>upBreak(i,'to',e.target.value)} placeholder="Iki"
-                        className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-blue-400" />
-                      <button type="button" onClick={()=>rmBreak(i)} className="text-red-400 hover:text-red-600 font-bold">×</button>
+                    <label className="block text-xs font-semibold text-gray-500 mb-1">Veiklos laikotarpis</label>
+                    <div className="flex items-center gap-1.5">
+                      <YearInput value={form.yearStart} onChange={(v:string)=>set('yearStart',v)} placeholder="Nuo" />
+                      <span className="text-gray-300 text-sm">—</span>
+                      <YearInput value={form.yearEnd} onChange={(v:string)=>set('yearEnd',v)} placeholder="Iki" />
                     </div>
-                  ))}
-
+                  </div>
+                  {/* Right: Pertraukos */}
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="block text-xs font-semibold text-gray-500">Pertraukos</label>
+                      <button type="button" onClick={addBreak} className="text-xs text-blue-500 hover:text-blue-700 font-medium">+ Pridėti</button>
+                    </div>
+                    {form.breaks.map((br,i) => (
+                      <div key={i} className="flex gap-1 mb-1 items-center">
+                        <input value={br.from} onChange={e=>upBreak(i,'from',e.target.value)} placeholder="Nuo"
+                          className="w-14 px-1.5 py-1 border border-gray-200 rounded-lg text-xs text-gray-900 focus:outline-none focus:border-blue-400 text-center" />
+                        <span className="text-gray-300 text-xs">–</span>
+                        <input value={br.to} onChange={e=>upBreak(i,'to',e.target.value)} placeholder="Iki"
+                          className="w-14 px-1.5 py-1 border border-gray-200 rounded-lg text-xs text-gray-900 focus:outline-none focus:border-blue-400 text-center" />
+                        <button type="button" onClick={()=>rmBreak(i)} className="text-red-400 hover:text-red-600 text-xs">×</button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 {form.type==='solo' && (
