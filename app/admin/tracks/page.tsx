@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
 const TRACK_TYPE_LABELS: Record<string, string> = {
@@ -12,17 +12,14 @@ const TRACK_TYPE_LABELS: Record<string, string> = {
 export default function AdminTracksPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const artistId = searchParams.get('artist_id')
+
   const [tracks, setTracks] = useState<any[]>([])
   const [total, setTotal] = useState(0)
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState<number | null>(null)
-
-  // Read artist_id from URL (same pattern as albums page)
-  const [artistId] = useState<string | null>(() => {
-    if (typeof window === 'undefined') return null
-    return new URLSearchParams(window.location.search).get('artist_id')
-  })
   const [artistName, setArtistName] = useState<string | null>(null)
 
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
@@ -127,7 +124,7 @@ export default function AdminTracksPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-700">
-                      {t.artists?.name || '–'}
+                      {t.artists?.name || t.artist_name || '–'}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       {t.albums_list?.length > 0 ? (
