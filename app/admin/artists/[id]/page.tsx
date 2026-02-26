@@ -385,7 +385,9 @@ export default function EditArtist() {
       .then(r => r.json())
       .then(data => {
         if (data.error) { alert('Atlikėjas nerastas!'); router.push('/admin/artists'); return }
-        setInitialData(dbToForm(data))
+        const formData = dbToForm(data)
+        setInitialData(formData)
+        latestFormRef.current = formData
         setArtistName(data.name || '')
       })
 
@@ -423,6 +425,7 @@ export default function EditArtist() {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const handleAutoSave = useCallback((form: ArtistFormData) => {
+    latestFormRef.current = form
     if (!form.name) return
     // Always store latest form — debounce 600ms
     pendingFormRef.current = form
@@ -443,6 +446,24 @@ export default function EditArtist() {
         })
       } catch {}
     }, 600)
+  }, [artistId])
+
+  // Always keep latest form in a ref so handlePhotosSave can access it without stale closure
+  const latestFormRef = useRef<ArtistFormData | null>(initialData)
+
+  // Direct photo save — called immediately when gallery changes, uses latestFormRef
+  const handlePhotosSave = useCallback(async (photos: any[]) => {
+    const base = latestFormRef.current
+    if (!base?.name) return
+    try {
+      const body = formToDb({ ...base, photos })
+      const res = await fetch(`/api/artists/${artistId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) console.error('Photo save failed')
+    } catch (e) { console.error('Photo save error:', e) }
   }, [artistId])
 
   if (status === 'loading' || !initialData) return (
@@ -542,7 +563,7 @@ export default function EditArtist() {
       {/* Mobile */}
       <div className="lg:hidden flex-1 overflow-y-auto">
         {tab === 'form' && (
-          <ArtistFormCompact initialData={initialData} artistId={artistId} onSubmit={handleSubmit} onAutoSave={handleAutoSave} saving={saving} />
+          <ArtistFormCompact initialData={initialData} artistId={artistId} onSubmit={handleSubmit} onAutoSave={handleAutoSave} onPhotosSave={handlePhotosSave} saving={saving} />
         )}
         {tab === 'discography' && (
           <DiscographyPanel artistId={artistId} artistName={artistName} refreshKey={discographyKey}
@@ -558,7 +579,7 @@ export default function EditArtist() {
       {/* Desktop 60/40 */}
       <div className="hidden lg:flex flex-1 min-h-0">
         <div className="border-r border-gray-200 overflow-y-auto" style={{ width: '60%' }}>
-          <ArtistFormCompact initialData={initialData} artistId={artistId} onSubmit={handleSubmit} onAutoSave={handleAutoSave} saving={saving} />
+          <ArtistFormCompact initialData={initialData} artistId={artistId} onSubmit={handleSubmit} onAutoSave={handleAutoSave} onPhotosSave={handlePhotosSave} saving={saving} />
         </div>
         <div className="overflow-hidden flex flex-col" style={{ width: '40%' }}>
           <DiscographyPanel artistId={artistId} artistName={artistName} refreshKey={discographyKey}
@@ -575,10 +596,11 @@ export default function EditArtist() {
 }
 
 // ── ArtistFormCompact — hides ArtistForm's own header, footer, wiki, instagram
-function ArtistFormCompact({ initialData, artistId, onSubmit, onAutoSave, saving }: {
+function ArtistFormCompact({ initialData, artistId, onSubmit, onAutoSave, onPhotosSave, saving }: {
   initialData: ArtistFormData; artistId: string
   onSubmit: (d: ArtistFormData) => void
   onAutoSave?: (d: ArtistFormData) => void
+  onPhotosSave?: (photos: any[]) => void
   saving: boolean
 }) {
   return (
@@ -600,6 +622,7 @@ function ArtistFormCompact({ initialData, artistId, onSubmit, onAutoSave, saving
         artistId={artistId}
         onSubmit={onSubmit}
         onChange={onAutoSave}
+        onPhotosSave={onPhotosSave}
       />
     </div>
   )
