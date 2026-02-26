@@ -221,8 +221,10 @@ async function syncRelations(id: number, data: ArtistFull, skipPhotos = false) {
   }
 
   if (!skipPhotos && data.photos?.length) {
+    const validPhotos = data.photos.filter(p => p.url && !p.url.startsWith('data:'))
+    if (!validPhotos.length) return
     inserts.push(supabase.from('artist_photos').insert(
-      data.photos.map((p, i) => ({ artist_id: id, url: p.url, caption: p.caption, sort_order: i }))
+      validPhotos.map((p, i) => ({ artist_id: id, url: p.url, caption: p.caption, sort_order: i }))
     ).then())
   }
 
