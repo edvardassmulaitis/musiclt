@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { GENRES } from '@/lib/constants'
 import PhotoGallery, { type Photo } from './PhotoGallery'
 import WikipediaImport from './WikipediaImport'
+import WikimediaSearch from './WikimediaSearch'
 import InstagramConnect from './InstagramConnect'
 import RichTextEditor from './RichTextEditor'
 
@@ -966,6 +967,7 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
   const [uploading, setUploading] = useState(false)
   const [urlInput, setUrlInput] = useState('')
   const [expandedIdx, setExpandedIdx] = useState<number|null>(null)
+  const [showWikimedia, setShowWikimedia] = useState(false)
 
   const upload = async (file: File) => {
     setUploading(true)
@@ -1007,36 +1009,6 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
     }
   }
 
-  const fetchWikiPhotos = async () => {
-    if (!artistName) return
-    setUploading(true)
-    try {
-      // Search Wikimedia Commons for artist photos
-      const query = artistName
-      const searchRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*&srlimit=1`)
-      const searchData = await searchRes.json()
-      const pageTitle = searchData?.query?.search?.[0]?.title
-      if (!pageTitle) return
-
-      const imgListRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(pageTitle)}&prop=images&format=json&origin=*&imlimit=20`)
-      const imgListData = await imgListRes.json()
-      const page = Object.values(imgListData?.query?.pages || {})[0] as any
-      const images: string[] = (page?.images || [])
-        .map((i: any) => i.title as string)
-        .filter((t: string) => /\.(jpg|jpeg|png)/i.test(t))
-        .slice(0, 5)
-
-      for (const imgTitle of images) {
-        const fileRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(imgTitle)}&prop=imageinfo&iiprop=url&format=json&origin=*`)
-        const fileData = await fileRes.json()
-        const filePage = Object.values(fileData?.query?.pages || {})[0] as any
-        const imgUrl = filePage?.imageinfo?.[0]?.url
-        if (imgUrl) await addUrl(imgUrl)
-      }
-    } catch {}
-    finally { setUploading(false) }
-  }
-
   const remove = (i: number) => {
     const next = photos.filter((_,idx)=>idx!==i)
     onChange(next)
@@ -1056,6 +1028,28 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm mx-3 mb-2.5 overflow-hidden">
+      {showWikimedia && (
+        <WikimediaSearch
+          artistName={artistName || ''}
+          onAddMultiple={newPhotos => {
+            const existingUrls = new Set(photos.map(p => p.url))
+            const fresh = newPhotos.filter(p => !existingUrls.has(p.url))
+            if (fresh.length) {
+              const next = [...fresh, ...photos]
+              onChange(next)
+              if (artistId) {
+                fetch(`/api/artists/${artistId}/photos`, {
+                  method:'PUT', headers:{'Content-Type':'application/json'},
+                  body: JSON.stringify({ photos: next })
+                }).catch(()=>{})
+              }
+            }
+            setShowWikimedia(false)
+          }}
+          onClose={() => setShowWikimedia(false)}
+        />
+      )}
+
       <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-gray-500">Nuotraukų galerija</span>
@@ -1068,9 +1062,9 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
             placeholder="URL nuotraukos..."
             className="w-36 px-2 py-1 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
           <button type="button" onClick={()=>addUrl()} className="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs transition-colors">↵</button>
-          <button type="button" onClick={fetchWikiPhotos} disabled={uploading} title="Ieškoti Wikipedia nuotraukų"
-            className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-600 rounded-lg text-xs font-medium transition-colors disabled:opacity-50">
-            {uploading ? <span className="w-3 h-3 border border-purple-400 border-t-transparent rounded-full animate-spin inline-block"/> : '🌐 Wiki'}
+          <button type="button" onClick={() => setShowWikimedia(true)} title="Wikimedia Commons nuotraukų paieška"
+            className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-600 rounded-lg text-xs font-medium transition-colors">
+            🌐 Wiki
           </button>
           <button type="button" onClick={()=>!uploading&&fileRef.current?.click()}
             className="flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-colors">
