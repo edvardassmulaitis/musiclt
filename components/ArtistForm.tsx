@@ -732,7 +732,7 @@ function StylePicker({ selected, onChange }: { selected: string[]; onChange: (v:
       {/* Modal */}
       {showAll && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-6" onClick={()=>setShowAll(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col" onClick={e=>e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col" onClick={e=>e.stopPropagation()}>
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 shrink-0">
               <span className="text-sm font-bold text-gray-800">Stiliai</span>
               <button type="button" onClick={()=>setShowAll(false)} className="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
