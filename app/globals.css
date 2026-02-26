@@ -1,3 +1,20 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+/* Tiptap placeholder */
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #9ca3af;
+  pointer-events: none;
+  height: 0;
+}
+
+.tiptap.prose { font-size: 0.875rem; line-height: 1.6; }
+.tiptap.prose h2 { font-size: 1.1rem; font-weight: 700; margin-top: 1rem; margin-bottom: 0.25rem; color: #111827; }
+.tiptap.prose h3 { font-size: 0.95rem; font-weight: 600; margin-top: 0.75rem; margin-bottom: 0.25rem; color: #374151; }
+.tiptap.prose p { margin-bottom: 0.5rem; }
+.tiptap.prose ul, .tiptap.prose ol { padding-left: 1.25rem; margin-bottom: 0.5rem; }
+.tiptap.prose blockquote { border-left: 3px solid #e5e7eb; padding-left: 0.75rem; color: #6b7280; font-style: italic; }
+.tiptap.prose a { color: #2563eb; text-decoration: underline; }
+.tiptap.prose a:hover { color: #1d4ed8; }
