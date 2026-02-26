@@ -633,6 +633,33 @@ function AvatarUploadCompact({ value, onChange, onOriginalSaved, artistId }: {
   )
 }
 
+// ── Shared style loader ──────────────────────────────────────────────────────
+const ALL_STYLES_CACHE: string[] = []
+async function loadAllStyles(): Promise<string[]> {
+  if (ALL_STYLES_CACHE.length) return ALL_STYLES_CACHE
+  try {
+    const m = await import('@/lib/constants') as any
+    // Try all known export shapes
+    let arr: string[] = []
+    if (Array.isArray(m.ALL_SUBSTYLES)) arr = m.ALL_SUBSTYLES
+    else if (Array.isArray(m.SUBSTYLES)) arr = m.SUBSTYLES
+    else if (m.SUBSTYLES_BY_GENRE && typeof m.SUBSTYLES_BY_GENRE === 'object') {
+      Object.values(m.SUBSTYLES_BY_GENRE as Record<string,string[]>).forEach((v:any) => {
+        if (Array.isArray(v)) arr.push(...v)
+      })
+    }
+    // Fallback hardcoded common styles if nothing found
+    if (!arr.length) arr = [
+      'Pop','Pop rock','Indie pop','Indie rock','Alternative rock','Classic rock','Hard rock','Soft rock',
+      'Electronic','House','Techno','Trance','Drum and bass','Dubstep','Ambient','Synthpop','New wave',
+      'Hip hop','Rap','R&B','Soul','Funk','Jazz','Blues','Country','Folk','Classical','Metal','Punk',
+      'Lo-fi','Bedroom pop','Dream pop','Shoegaze','Post-punk','Emo','Grunge','Nu metal',
+    ]
+    ALL_STYLES_CACHE.push(...[...new Set(arr)].sort())
+  } catch {}
+  return ALL_STYLES_CACHE
+}
+
 // ── StylePicker — compact self-contained style tags editor ─────────────────
 function StylePicker({ selected, onChange }: { selected: string[]; onChange: (v: string[]) => void }) {
   const [q, setQ] = useState('')
@@ -732,63 +759,6 @@ function StylePicker({ selected, onChange }: { selected: string[]; onChange: (v:
               )}
             </div>
           </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── InlineStyleSearch — quick style add without opening full modal ────────────
-// All known substyles loaded from constants — all arrays merged as fallback
-const ALL_STYLES_CACHE: string[] = []
-async function loadAllStyles(): Promise<string[]> {
-  if (ALL_STYLES_CACHE.length) return ALL_STYLES_CACHE
-  const m = await import('@/lib/constants') as any
-  const arr: string[] = m.ALL_SUBSTYLES || m.SUBSTYLES || []
-  // Also try SUBSTYLES_BY_GENRE object
-  if (!arr.length && m.SUBSTYLES_BY_GENRE) {
-    Object.values(m.SUBSTYLES_BY_GENRE as Record<string,string[]>).forEach(v => arr.push(...v))
-  }
-  ALL_STYLES_CACHE.push(...[...new Set(arr)].sort())
-  return ALL_STYLES_CACHE
-}
-
-function InlineStyleSearch({ selected, onAdd }: { selected: string[]; onAdd: (s: string) => void }) {
-  const [q, setQ] = useState('')
-  const [results, setResults] = useState<string[]>([])
-  const [allStyles, setAllStyles] = useState<string[]>([])
-
-  useEffect(() => { loadAllStyles().then(setAllStyles).catch(()=>{}) }, [])
-
-  useEffect(() => {
-    if (!q.trim()) { setResults([]); return }
-    const lower = q.toLowerCase()
-    setResults(
-      allStyles.filter(s => s.toLowerCase().includes(lower) && !selected.includes(s)).slice(0, 8)
-    )
-  }, [q, selected, allStyles])
-
-  const addFirst = () => {
-    if (results.length > 0) { onAdd(results[0]); setQ(''); setResults([]) }
-  }
-
-  return (
-    <div className="relative">
-      <input
-        type="text" value={q} onChange={e => setQ(e.target.value)}
-        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); addFirst() } }}
-        placeholder="+ Stilius..."
-        className="w-28 px-2 py-0.5 border border-dashed border-gray-300 rounded-full text-xs text-gray-500 focus:outline-none focus:border-blue-400 focus:border-solid bg-white"
-      />
-      {results.length > 0 && (
-        <div className="absolute z-30 top-7 left-0 w-52 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
-          {results.map(s => (
-            <button key={s} type="button"
-              onClick={() => { onAdd(s); setQ(''); setResults([]) }}
-              className="w-full text-left px-3 py-1.5 text-xs hover:bg-blue-50 text-gray-700 transition-colors border-b border-gray-50 last:border-0">
-              {s}
-            </button>
-          ))}
         </div>
       )}
     </div>
