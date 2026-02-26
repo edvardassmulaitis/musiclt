@@ -907,7 +907,7 @@ function DescriptionEditor({ value, onChange }: { value: string; onChange: (v: s
       )}
       <div className="relative overflow-hidden" style={{ height: 160 }}>
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <RichTextEditor value={value} onChange={onChange} placeholder="Trumpas aprašymas..." showToolbar={false} />
+          <RichTextEditor value={value} onChange={onChange} placeholder="Trumpas aprašymas..." />
         </div>
         <div className="absolute inset-0 cursor-pointer" onClick={open} />
         <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent pointer-events-none" />
