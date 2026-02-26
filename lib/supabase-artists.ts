@@ -142,7 +142,7 @@ export async function createArtist(data: ArtistFull): Promise<number> {
   return id
 }
 
-export async function updateArtist(id: number, data: ArtistFull): Promise<void> {
+export async function updateArtist(id: number, data: ArtistFull, skipPhotos = false): Promise<void> {
   const { error } = await supabase
     .from('artists')
     .update({
@@ -169,7 +169,7 @@ export async function updateArtist(id: number, data: ArtistFull): Promise<void> 
     .eq('id', id)
 
   if (error) throw error
-  await syncRelations(id, data)
+  await syncRelations(id, data, skipPhotos)
 }
 
 export async function deleteArtist(id: number): Promise<void> {
@@ -177,12 +177,15 @@ export async function deleteArtist(id: number): Promise<void> {
   if (error) throw error
 }
 
-async function syncRelations(id: number, data: ArtistFull) {
-  await Promise.all([
+async function syncRelations(id: number, data: ArtistFull, skipPhotos = false) {
+  const deleteOps: any[] = [
     supabase.from('artist_genres').delete().eq('artist_id', id),
     supabase.from('artist_links').delete().eq('artist_id', id),
-    supabase.from('artist_photos').delete().eq('artist_id', id),
     supabase.from('artist_breaks').delete().eq('artist_id', id),
+  ]
+  if (!skipPhotos) deleteOps.push(supabase.from('artist_photos').delete().eq('artist_id', id))
+  await Promise.all([
+    ...deleteOps,
     supabase.from('artist_related').delete().eq('artist_id', id),
     supabase.from('artist_related').delete().eq('related_artist_id', id),
   ])
@@ -217,7 +220,7 @@ async function syncRelations(id: number, data: ArtistFull) {
     inserts.push(supabase.from('artist_links').insert(linkRows).then())
   }
 
-  if (data.photos?.length) {
+  if (!skipPhotos && data.photos?.length) {
     inserts.push(supabase.from('artist_photos').insert(
       data.photos.map((p, i) => ({ artist_id: id, url: p.url, caption: p.caption, sort_order: i }))
     ).then())
