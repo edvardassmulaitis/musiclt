@@ -823,7 +823,7 @@ function DescriptionEditor({ value, onChange }: { value: string; onChange: (v: s
           </div>
         </div>
       )}
-      <div className="relative overflow-hidden" style={{ height: 120 }}>
+      <div className="relative overflow-hidden" style={{ height: 160 }}>
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <RichTextEditor value={value} onChange={onChange} placeholder="Trumpas aprašymas..." />
         </div>
@@ -1129,7 +1129,7 @@ function SocialsSection({ form, set }: { form: any; set: (k: any, v: any) => voi
       <button type="button" onClick={() => setOpen(p => !p)}
         className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 transition-colors">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-gray-500">Nuorodos ir domenas</span>
+          <span className="text-xs font-semibold text-gray-500">Nuorodos</span>
           {(filledCount > 0 || displayDomain) && (
             <span className="bg-blue-100 text-blue-600 text-xs font-bold px-1.5 py-0.5 rounded-full">{filledCount}</span>
           )}
@@ -1281,7 +1281,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
           <div className="grid grid-cols-2 gap-0 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mb-2.5 mx-3">
 
             {/* ── LEFT COLUMN ── */}
-            <div className="p-3 pb-4 border-r border-gray-100">
+            <div className="p-3 pt-4 pb-4 border-r border-gray-100">
               <div className="p-0 space-y-3">
 
                 {/* Pavadinimas + Tipas vienoje eilutėje */}
@@ -1347,10 +1347,10 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                     {form.breaks.map((br,i) => (
                       <div key={i} className="flex gap-1 mb-1 items-center">
                         <input value={br.from} onChange={e=>upBreak(i,'from',e.target.value)} placeholder="Nuo"
-                          className="w-14 px-1.5 py-1 border border-gray-200 rounded-lg text-xs text-gray-900 focus:outline-none focus:border-blue-400 text-center" />
+                          className="w-12 px-1 py-1 border border-gray-200 rounded-lg text-xs text-gray-900 focus:outline-none focus:border-blue-400 text-center" />
                         <span className="text-gray-300 text-xs">–</span>
                         <input value={br.to} onChange={e=>upBreak(i,'to',e.target.value)} placeholder="Iki"
-                          className="w-14 px-1.5 py-1 border border-gray-200 rounded-lg text-xs text-gray-900 focus:outline-none focus:border-blue-400 text-center" />
+                          className="w-12 px-1 py-1 border border-gray-200 rounded-lg text-xs text-gray-900 focus:outline-none focus:border-blue-400 text-center" />
                         <button type="button" onClick={()=>rmBreak(i)} className="text-red-400 hover:text-red-600 text-xs">×</button>
                       </div>
                     ))}
@@ -1359,20 +1359,20 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
 
                 {form.type==='solo' && (
                   <div className="space-y-3 pt-2 border-t border-gray-100">
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-500 mb-1">Lytis</label>
-                      <div className="flex gap-1">
-                        {([['male','Vyras'],['female','Moteris']] as const).map(([v,l]) => (
-                          <button key={v} type="button" onClick={()=>set('gender',v)}
-                            className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                              form.gender===v ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                            }`}>
-                            {l}
-                          </button>
-                        ))}
+                    <div className="flex items-end gap-4 flex-wrap">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-500 mb-1">Lytis</label>
+                        <div className="flex gap-1">
+                          {([['male','Vyras'],['female','Moteris']] as const).map(([v,l]) => (
+                            <button key={v} type="button" onClick={()=>set('gender',v)}
+                              className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                                form.gender===v ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                              }`}>
+                              {l}
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex gap-3">
                       <DateRow label="Gimė" y={form.birthYear} m={form.birthMonth} d={form.birthDay}
                         onY={(v:string)=>set('birthYear',v)} onM={(v:string)=>set('birthMonth',v)} onD={(v:string)=>set('birthDay',v)} />
                       <DateRow label="Mirė" y={form.deathYear} m={form.deathMonth} d={form.deathDay}
@@ -1398,7 +1398,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
             </div>
 
             {/* ── RIGHT COLUMN ── */}
-            <div className="pt-0 p-3 pb-4 space-y-2.5">
+            <div className="p-3 pt-4 pb-4 space-y-2.5">
               <div>
                 {/* ✅ avatar išsaugomas tiesiai į DB per /api/artists/[id]/avatar */}
                 <AvatarUploadCompact
