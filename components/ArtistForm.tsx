@@ -877,7 +877,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
   const rmGroup  = (i:number) => set('groups', (form.groups||[]).filter((_,idx)=>idx!==i))
   const upGroup  = (i:number, f:'yearFrom'|'yearTo', v:string) => { const g=[...(form.groups||[])]; g[i]={...g[i],[f]:v}; set('groups',g) }
 
-  const handleSubmit = (e:React.FormEvent) => { e.preventDefault(); onSubmit(form) }
+  const handleSubmit = (e:React.FormEvent) => { e.preventDefault(); onSubmit(formRef.current) }
 
   return (
     <div className="min-h-screen bg-gray-50">
