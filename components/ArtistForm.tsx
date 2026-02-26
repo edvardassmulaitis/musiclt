@@ -624,7 +624,12 @@ function AvatarUploadCompact({ value, onChange, onOriginalSaved, artistId }: {
           </div>
 
           {error && <p className="text-xs text-red-500">{error}</p>}
-          <p className="text-xs text-gray-400 leading-tight">Apkarpoma kvadratiškai.<br/>Originalas išsaugomas galerijoje.</p>
+          <div className="relative inline-block group">
+            <span className="w-4 h-4 rounded-full bg-gray-200 text-gray-500 text-xs flex items-center justify-center cursor-help select-none">i</span>
+            <div className="absolute left-0 bottom-6 w-44 bg-gray-800 text-white text-xs rounded-lg px-2.5 py-2 leading-snug opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20 shadow-lg">
+              Apkarpoma kvadratiškai. Originalas išsaugomas galerijoje.
+            </div>
+          </div>
         </div>
       </div>
       <input ref={fileRef} type="file" accept="image/*" className="hidden"
@@ -909,7 +914,7 @@ function ArtistSearch({ label, ph, items, onAdd, onRemove, onYears, filterType }
       ))}
       <div className="relative">
         <input type="text" value={q} onChange={e=>setQ(e.target.value)} placeholder={ph}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-music-blue" />
+          className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-xs focus:outline-none focus:border-blue-400" />
         {results.length > 0 && (
           <div className="absolute z-50 w-full bg-white border border-gray-200 rounded-xl shadow-xl bottom-full mb-1 overflow-hidden">
             {results.map(a => (
@@ -1140,8 +1145,10 @@ function SocialsSection({ form, set }: { form: any; set: (k: any, v: any) => voi
               ))}
             </div>
           )}
-          {!open && displayDomain && (
-            <span className="text-xs text-gray-400 truncate max-w-[120px]">{displayDomain}.music.lt</span>
+          {!open && (form.website || displayDomain) && (
+            <span className="text-xs text-gray-400 truncate max-w-[140px]">
+              {form.website ? form.website.replace(/^https?:\/\/(www\.)?/,'').split('/')[0] : `${displayDomain}.music.lt`}
+            </span>
           )}
         </div>
         <span className={`text-gray-400 text-xs transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>▼</span>
