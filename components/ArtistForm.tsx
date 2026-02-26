@@ -809,6 +809,16 @@ function StylePicker({ selected, onChange }: { selected: string[]; onChange: (v:
 // ── DescriptionEditor — expandable rich text editor ─────────────────────────
 function DescriptionEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [expanded, setExpanded] = useState(false)
+  const [draft, setDraft] = useState(value)
+  const snapshotRef = useRef(value)
+
+  const open = () => {
+    snapshotRef.current = value
+    setDraft(value)
+    setExpanded(true)
+  }
+  const save = () => { onChange(draft); setExpanded(false) }
+  const discard = () => { setExpanded(false) }  // just close, draft is discarded
 
   return (
     <div className="relative">
@@ -817,13 +827,19 @@ function DescriptionEditor({ value, onChange }: { value: string; onChange: (v: s
           <div className="bg-white flex flex-col" style={{ height: '100vh' }}>
             <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200 shrink-0">
               <span className="text-sm font-bold text-gray-800">✏️ Aprašymas</span>
-              <button onClick={() => setExpanded(false)}
-                className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
-                ✓ Išsaugoti ir uždaryti
-              </button>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={discard}
+                  className="px-4 py-1.5 border border-gray-200 text-gray-500 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
+                  Atmesti
+                </button>
+                <button type="button" onClick={save}
+                  className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+                  ✓ Išsaugoti
+                </button>
+              </div>
             </div>
             <div className="flex-1 overflow-auto px-5 py-4">
-              <RichTextEditor value={value} onChange={onChange} placeholder="Trumpas aprašymas..." />
+              <RichTextEditor value={draft} onChange={setDraft} placeholder="Trumpas aprašymas..." />
             </div>
           </div>
         </div>
@@ -832,12 +848,10 @@ function DescriptionEditor({ value, onChange }: { value: string; onChange: (v: s
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <RichTextEditor value={value} onChange={onChange} placeholder="Trumpas aprašymas..." />
         </div>
-        {/* Clickable overlay to open full editor */}
-        <div className="absolute inset-0 cursor-pointer" onClick={() => setExpanded(true)} />
-        {/* Fade gradient at bottom */}
+        <div className="absolute inset-0 cursor-pointer" onClick={open} />
         <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent pointer-events-none" />
       </div>
-      <button type="button" onClick={() => setExpanded(true)}
+      <button type="button" onClick={open}
         className="mt-1 text-xs text-gray-400 hover:text-blue-500 transition-colors">
         ⤢ Plėsti redaktorių
       </button>
