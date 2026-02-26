@@ -497,7 +497,7 @@ function AvatarUpload({ value, onChange, onOriginalSaved }: { value: string; onC
         <div className="flex gap-2 flex-wrap" style={{ maxWidth: 200 }}>
           <button type="button" onClick={() => fileRef.current?.click()}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition-colors">
-            <IconUpload /> Įkelti failą
+            <IconUpload />
           </button>
           {value && (
             <button type="button"
@@ -657,7 +657,7 @@ function AvatarUploadCompact({ value, onChange, onOriginalSaved, artistId }: {
           <div className="flex gap-2 items-center flex-wrap">
             <button type="button" onClick={() => fileRef.current?.click()}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition-colors">
-              <IconUpload /> Įkelti failą
+              <IconUpload />
             </button>
             {value && (
               <button type="button" onClick={() => { onChange(''); setUrlInput('') }}
@@ -906,7 +906,8 @@ function DescriptionEditor({ value, onChange }: { value: string; onChange: (v: s
         </div>
       )}
       <div className="relative overflow-hidden" style={{ height: 160 }}>
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none editor-preview-no-toolbar">
+          <style>{`.editor-preview-no-toolbar .border.border-gray-200.rounded-xl { border: none !important; border-radius: 0 !important; } .editor-preview-no-toolbar .flex.items-center.gap-0\.5 { display: none !important; }`}</style>
           <RichTextEditor value={value} onChange={onChange} placeholder="Trumpas aprašymas..." />
         </div>
         <div className="absolute inset-0 cursor-pointer" onClick={open} />
