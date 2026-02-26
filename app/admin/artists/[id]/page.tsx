@@ -314,13 +314,20 @@ function WikipediaImportCompact({ onImport, artistName }: { onImport: (data: any
         📖 Wiki atnaujinti
       </button>
       {open && (
-        <div className="fixed inset-0 flex items-start justify-center pt-20 px-4" style={{ zIndex: 9999 }} onClick={e => { if (e.target === e.currentTarget) setOpen(false) }}>
-          <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-lg" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+        <div
+          className="fixed inset-0 flex items-center justify-center px-4 py-8"
+          style={{ zIndex: 9999 }}
+          onClick={e => { if (e.target === e.currentTarget) setOpen(false) }}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-2xl flex flex-col max-h-full"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 shrink-0">
               <span className="text-sm font-bold text-gray-700">📖 Atnaujinti iš Wikipedia</span>
               <button type="button" onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none px-1">✕</button>
             </div>
-            <div className="p-4">
+            <div className="p-4 overflow-y-auto">
               <WikipediaImportWithHint
                 artistName={artistName}
                 onImport={(data: any) => { onImport(data); setOpen(false) }}
@@ -371,7 +378,6 @@ export default function EditArtist() {
       .then(r => r.json()).then(d => setTrackCount(d.total ?? null)).catch(() => {})
   }, [status, isAdmin, artistId, router])
 
-  // handleSubmit: skipPhotos + skipAvatar — abi valdomo atskirai
   const handleSubmit = useCallback(async (form: ArtistFormData) => {
     setSaving(true); setError('')
     try {
@@ -388,7 +394,6 @@ export default function EditArtist() {
     finally { setSaving(false) }
   }, [artistId])
 
-  // handleAutoSave: skipPhotos + skipAvatar — avatar saugomas atskirai per /api/artists/[id]/avatar
   const handleAutoSave = useCallback(async (form: ArtistFormData) => {
     if (!form.name) return
     try {
