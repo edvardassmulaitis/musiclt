@@ -51,8 +51,8 @@ function dbToForm(data: any): ArtistFormData {
     soundcloud:  data.links?.soundcloud || '',
     bandcamp:    data.links?.bandcamp || '',
     twitter:     data.links?.twitter || '',
-    members:     data.related?.filter((r: any) => r.type === 'solo') || [],
-    groups:      data.related?.filter((r: any) => r.type === 'group') || [],
+    members:     data.related?.filter((r: any) => r.type === 'solo').map((r: any) => ({ ...r, avatar: r.cover_image_url || null })) || [],
+    groups:      data.related?.filter((r: any) => r.type === 'group').map((r: any) => ({ ...r, avatar: r.cover_image_url || null })) || [],
   }
 }
 
@@ -169,6 +169,7 @@ function AlbumCard({ album, defaultOpen }: { album: any; defaultOpen: boolean })
     : album.type_compilation ? 'Kompiliacija'
     : album.type_live ? 'Gyvas'
     : album.type_single ? 'Singlas'
+    : album.type_remix ? 'Remix'
     : 'Albumas'
 
   return (
@@ -305,6 +306,15 @@ function DiscographyPanel({ artistId, artistName, refreshKey, onImportClose }: {
   )
 }
 
+// Wikipedia W icon
+function WikipediaIcon({ className = "w-3.5 h-3.5 shrink-0" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
+      <path d="M22 2h-3.5l-3 9-3-9h-1l-3 9-3-9H2l4.5 13h1L11 6l3.5 9h1L20 2h2z"/>
+    </svg>
+  )
+}
+
 function WikipediaImportWithHint({ artistName, onImport }: { artistName?: string; onImport: (data: any) => void }) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -328,7 +338,7 @@ function WikipediaImportCompact({ onImport, artistName }: { onImport: (data: any
       <button type="button" onClick={() => setOpen(true)}
         className="flex items-center gap-1.5 px-2 py-1 text-xs text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors font-medium"
         title="Atnaujinti atlikėjo informaciją iš Wikipedia">
-        <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-none stroke-current stroke-2 shrink-0"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        <WikipediaIcon />
         Įkelti Wiki info
       </button>
       {open && (
