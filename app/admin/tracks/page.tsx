@@ -18,20 +18,37 @@ export default function AdminTracksPage() {
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState<number | null>(null)
 
+  // Read artist_id from URL (same pattern as albums page)
+  const [artistId] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null
+    return new URLSearchParams(window.location.search).get('artist_id')
+  })
+  const [artistName, setArtistName] = useState<string | null>(null)
+
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
 
   const load = useCallback(async (q = '') => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/tracks?search=${encodeURIComponent(q)}&limit=100`)
+      const url = `/api/tracks?search=${encodeURIComponent(q)}&limit=100${artistId ? `&artist_id=${artistId}` : ''}`
+      const res = await fetch(url)
       const data = await res.json()
       setTracks(data.tracks || [])
       setTotal(data.total || 0)
     } finally { setLoading(false) }
-  }, [])
+  }, [artistId])
 
   useEffect(() => { if (status === 'unauthenticated') router.push('/') }, [status])
-  useEffect(() => { if (isAdmin) load() }, [isAdmin])
+  useEffect(() => {
+    if (!isAdmin) return
+    load()
+    if (artistId) {
+      fetch(`/api/artists/${artistId}`)
+        .then(r => r.json())
+        .then(d => { if (d.name) setArtistName(d.name) })
+        .catch(() => {})
+    }
+  }, [isAdmin, artistId])
   useEffect(() => {
     const t = setTimeout(() => isAdmin && load(search), 300)
     return () => clearTimeout(t)
@@ -53,12 +70,15 @@ export default function AdminTracksPage() {
       <div className="w-full px-6 py-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <Link href="/admin" className="text-music-blue hover:text-music-orange text-sm">← Admin</Link>
+            {artistId
+              ? <Link href={`/admin/artists/${artistId}`} className="text-music-blue hover:text-music-orange text-sm">← {artistName || 'Atlikėjas'}</Link>
+              : <Link href="/admin" className="text-music-blue hover:text-music-orange text-sm">← Admin</Link>
+            }
             <h1 className="text-2xl font-black text-gray-900 mt-1">
-              🎵 Dainos <span className="text-gray-400 font-normal text-lg">({total})</span>
+              🎵 {artistName ? `${artistName} — dainos` : 'Dainos'} <span className="text-gray-400 font-normal text-lg">({total})</span>
             </h1>
           </div>
-          <Link href="/admin/tracks/new"
+          <Link href={`/admin/tracks/new${artistId ? `?artist_id=${artistId}` : ''}`}
             className="px-5 py-2.5 bg-music-blue text-white rounded-xl font-bold hover:opacity-90">
             + Nauja daina
           </Link>
