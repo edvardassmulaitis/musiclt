@@ -69,12 +69,12 @@ function SL({ children }: { children: React.ReactNode }) {
 
 function Inp({ value, onChange, placeholder, type='text', required }: any) {
   return <input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} required={required}
-    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-music-blue bg-white" />
+    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-blue-400 bg-white" />
 }
 
 function Sel({ value, onChange, children, required }: any) {
   return <select value={value} onChange={e=>onChange(e.target.value)} required={required}
-    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-music-blue bg-white">
+    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-blue-400 bg-white">
     {children}
   </select>
 }
@@ -89,12 +89,21 @@ function Card({ title, children, className='' }: { title:string; children:React.
 
 function DateRow({ label, y, m, d, onY, onM, onD }: any) {
   return (
-    <div>
-      <SL>{label}</SL>
-      <div className="flex gap-1.5">
-        <Sel value={y} onChange={onY}><option value="">Metai</option>{YEARS.map(yr=><option key={yr} value={yr}>{yr}</option>)}</Sel>
-        <Sel value={m} onChange={onM}><option value="">Mėn.</option>{MONTHS.map((mn,i)=><option key={i} value={i+1}>{mn}</option>)}</Sel>
-        <Sel value={d} onChange={onD}><option value="">D.</option>{DAYS.map(dy=><option key={dy} value={dy}>{dy}</option>)}</Sel>
+    <div className="flex-1 min-w-0">
+      <label className="block text-xs font-semibold text-gray-500 mb-1">{label}</label>
+      <div className="flex gap-1">
+        <select value={y} onChange={e=>onY(e.target.value)}
+          className="flex-1 min-w-0 px-1.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-xs focus:outline-none focus:border-blue-400 bg-white">
+          <option value="">Metai</option>{YEARS.map(yr=><option key={yr} value={yr}>{yr}</option>)}
+        </select>
+        <select value={m} onChange={e=>onM(e.target.value)}
+          className="w-14 px-1 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-xs focus:outline-none focus:border-blue-400 bg-white">
+          <option value="">Mėn</option>{MONTHS.map((mn,i)=><option key={i} value={i+1}>{mn}</option>)}
+        </select>
+        <select value={d} onChange={e=>onD(e.target.value)}
+          className="w-12 px-1 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-xs focus:outline-none focus:border-blue-400 bg-white">
+          <option value="">D</option>{DAYS.map(dy=><option key={dy} value={dy}>{dy}</option>)}
+        </select>
       </div>
     </div>
   )
@@ -773,34 +782,69 @@ function ArtistSearch({ label, ph, items, onAdd, onRemove, onYears, filterType }
   )
 }
 
-function SocialsSection({ form, set }: { form: any; set: (k: any, v: any) => void }) {
+function CompactGallery({ photos, onChange, artistName, artistId }: {
+  photos: Photo[]; onChange: (p: Photo[]) => void; artistName: string; artistId?: string
+}) {
   const [open, setOpen] = useState(false)
 
-  const filledCount = SOCIALS.filter(({ key }) => !!(form[key as keyof ArtistFormData] as string)).length
-  const hasSubdomain = !!form.subdomain
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      <button type="button" onClick={() => setOpen(p => !p)}
+        className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 transition-colors">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-gray-500">Nuotraukų galerija</span>
+          {photos.length > 0 && (
+            <span className="bg-gray-200 text-gray-600 text-xs font-bold px-1.5 py-0.5 rounded-full">{photos.length}</span>
+          )}
+          {/* Mini thumbnails preview */}
+          {!open && photos.length > 0 && (
+            <div className="flex gap-0.5">
+              {photos.slice(0, 5).map((p, i) => (
+                <img key={i} src={p.url} alt="" referrerPolicy="no-referrer"
+                  className="w-6 h-6 rounded object-cover" />
+              ))}
+              {photos.length > 5 && <span className="text-xs text-gray-400 self-center ml-0.5">+{photos.length - 5}</span>}
+            </div>
+          )}
+        </div>
+        <span className={`text-gray-400 text-xs transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>▼</span>
+      </button>
+      {open && (
+        <div className="border-t border-gray-100 p-3">
+          <PhotoGallery photos={photos} onChange={onChange} artistName={artistName} artistId={artistId} />
+        </div>
+      )}
+    </div>
+  )
+}
 
-  // Generate subdomain from name if not set
+function SocialsSection({ form, set }: { form: any; set: (k: any, v: any) => void }) {
+  const [open, setOpen] = useState(false)
+  const [domainActive, setDomainActive] = useState(false)
+
+  const filledCount = SOCIALS.filter(({ key }) => !!(form[key as keyof ArtistFormData] as string)).length
+
   const suggestedSubdomain = form.name
     ? form.name.toLowerCase()
         .replace(/[ąčęėįšųūž]/g, (c: string) => ({ ą:'a',č:'c',ę:'e',ė:'e',į:'i',š:'s',ų:'u',ū:'u',ž:'z' }[c] || c))
         .replace(/[^a-z0-9]+/g, '')
     : ''
+  const displayDomain = form.subdomain || suggestedSubdomain
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-      {/* Header row — always visible */}
+      {/* Header — collapsible */}
       <button type="button" onClick={() => setOpen(p => !p)}
-        className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-gray-50 transition-colors">
+        className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 transition-colors">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-gray-500">🔗 Nuorodos ir domenas</span>
+          <span className="text-xs font-semibold text-gray-500">Nuorodos</span>
           {filledCount > 0 && (
             <span className="bg-blue-100 text-blue-600 text-xs font-bold px-1.5 py-0.5 rounded-full">{filledCount}</span>
           )}
-          {/* Show filled socials as mini icons when collapsed */}
           {!open && filledCount > 0 && (
-            <div className="flex gap-1">
+            <div className="flex gap-0.5">
               {SOCIALS.filter(({ key }) => !!(form[key as keyof ArtistFormData] as string)).map(({ key, icon }) => (
-                <span key={key} className="text-sm">{icon}</span>
+                <span key={key} className="text-sm leading-none">{icon}</span>
               ))}
             </div>
           )}
@@ -808,48 +852,52 @@ function SocialsSection({ form, set }: { form: any; set: (k: any, v: any) => voi
         <span className={`text-gray-400 text-xs transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>▼</span>
       </button>
 
-      {/* Subdomain — always visible below header */}
-      <div className="px-3 pb-2.5 border-t border-gray-50 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="text-xs text-gray-400 shrink-0">🌐</span>
-          {form.subdomain ? (
-            <span className="text-sm font-medium text-gray-700 truncate">{form.subdomain}.music.lt</span>
-          ) : suggestedSubdomain ? (
-            <span className="text-sm text-gray-400 truncate">{suggestedSubdomain}.music.lt</span>
+      {/* Domain row — always visible */}
+      <div className="px-3 py-2 border-t border-gray-50 flex items-center gap-2">
+        {/* Toggle */}
+        <button type="button" onClick={() => setDomainActive(p => !p)}
+          className={`relative shrink-0 w-8 h-4 rounded-full transition-colors ${domainActive ? 'bg-blue-500' : 'bg-gray-200'}`}>
+          <span className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${domainActive ? 'translate-x-4' : ''}`} />
+        </button>
+        <div className="flex-1 min-w-0">
+          {displayDomain ? (
+            <span className={`text-sm truncate block ${domainActive ? 'text-gray-800 font-medium' : 'text-gray-400'}`}>
+              {displayDomain}.music.lt
+            </span>
           ) : (
             <span className="text-sm text-gray-400 italic">domenas nenurodytas</span>
           )}
         </div>
         <button type="button" onClick={() => setOpen(p => !p)}
-          className="shrink-0 text-xs text-blue-500 hover:text-blue-700 font-medium">
-          {open ? 'Uždaryti' : 'Keisti'}
-        </button>
+          className="shrink-0 text-xs text-blue-500 hover:text-blue-700">Keisti</button>
       </div>
 
-      {/* Expandable socials */}
+      {/* Expandable */}
       {open && (
-        <div className="border-t border-gray-100 p-3 space-y-2">
+        <div className="border-t border-gray-100 p-3 space-y-1.5">
           {SOCIALS.map(({ key, icon, ph, type }) => (
-            <div key={key} className="flex items-center gap-2">
-              <span className="text-base w-6 text-center flex-shrink-0">{icon}</span>
+            <div key={key} className="flex items-center gap-1.5">
+              <span className="text-base w-5 text-center shrink-0 leading-none">{icon}</span>
               <input
                 type={type || 'url'}
                 value={form[key as keyof ArtistFormData] as string}
                 onChange={e => set(key as keyof ArtistFormData, e.target.value)}
-                className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-blue-400"
+                className="flex-1 px-2 py-1 border border-gray-200 rounded-lg text-gray-900 text-xs focus:outline-none focus:border-blue-400"
                 placeholder={ph}
               />
               {(form[key as keyof ArtistFormData] as string) && (
                 <button type="button" onClick={() => set(key as keyof ArtistFormData, '')}
-                  className="text-gray-300 hover:text-red-400 text-sm shrink-0">×</button>
+                  className="text-gray-300 hover:text-red-400 text-xs shrink-0">×</button>
               )}
             </div>
           ))}
           <div className="pt-2 border-t border-gray-100">
             <label className="block text-xs font-semibold text-gray-500 mb-1">Subdomenas</label>
             <div className="flex gap-1">
-              <Inp value={form.subdomain} onChange={(v:string)=>set('subdomain',v)} placeholder={suggestedSubdomain || 'vardas'} />
-              <span className="px-2.5 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-500 text-sm whitespace-nowrap">.music.lt</span>
+              <input type="text" value={form.subdomain} onChange={e=>set('subdomain',e.target.value)}
+                placeholder={suggestedSubdomain || 'vardas'}
+                className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-blue-400 bg-white" />
+              <span className="px-2 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-500 text-sm whitespace-nowrap">.music.lt</span>
             </div>
           </div>
         </div>
@@ -946,7 +994,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-5">
+          <div className="grid grid-cols-2 gap-0">
 
             {/* ── LEFT COLUMN ── */}
             <div className="p-3 pb-4">
@@ -1000,7 +1048,6 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                         <button type="button" onClick={()=>set('substyles',(form.substyles||[]).filter(x=>x!==s))} className="text-blue-400 hover:text-red-500 leading-none ml-0.5">×</button>
                       </span>
                     ))}
-                    <StyleModal selected={form.substyles||[]} onChange={v=>set('substyles',v)} />
                     <InlineStyleSearch
                       selected={form.substyles||[]}
                       onAdd={s => set('substyles', [...(form.substyles||[]), s])}
@@ -1018,7 +1065,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                   <div>
                     <label className="block text-xs font-semibold text-gray-500 mb-1">Veiklos pabaiga</label>
                     <Sel value={form.yearEnd} onChange={(v:string)=>set('yearEnd',v)}>
-                      <option value="">Aktyvūs</option>{YEARS.map(y=><option key={y} value={y}>{y}</option>)}
+                      <option value="">—</option>{YEARS.map(y=><option key={y} value={y}>{y}</option>)}
                     </Sel>
                   </div>
                 </div>
@@ -1056,10 +1103,12 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                         ))}
                       </div>
                     </div>
-                    <DateRow label="Gimė" y={form.birthYear} m={form.birthMonth} d={form.birthDay}
-                      onY={(v:string)=>set('birthYear',v)} onM={(v:string)=>set('birthMonth',v)} onD={(v:string)=>set('birthDay',v)} />
-                    <DateRow label="Mirė" y={form.deathYear} m={form.deathMonth} d={form.deathDay}
-                      onY={(v:string)=>set('deathYear',v)} onM={(v:string)=>set('deathMonth',v)} onD={(v:string)=>set('deathDay',v)} />
+                    <div className="flex gap-3">
+                      <DateRow label="Gimė" y={form.birthYear} m={form.birthMonth} d={form.birthDay}
+                        onY={(v:string)=>set('birthYear',v)} onM={(v:string)=>set('birthMonth',v)} onD={(v:string)=>set('birthDay',v)} />
+                      <DateRow label="Mirė" y={form.deathYear} m={form.deathMonth} d={form.deathDay}
+                        onY={(v:string)=>set('deathYear',v)} onM={(v:string)=>set('deathMonth',v)} onD={(v:string)=>set('deathDay',v)} />
+                    </div>
                     <div>
                       <label className="block text-xs font-semibold text-gray-500 mb-1">Priklauso grupėms</label>
                       <ArtistSearch label="Grupės" ph="Ieškoti grupės..." items={form.groups||[]}
@@ -1114,10 +1163,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
           </div>
 
           <div className="px-3 pb-3">
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
-              <label className="block text-xs font-semibold text-gray-500 mb-2">Nuotraukų galerija</label>
-              <PhotoGallery photos={form.photos} onChange={setPhotos} artistName={form.name} artistId={artistId} />
-            </div>
+            <CompactGallery photos={form.photos} onChange={setPhotos} artistName={form.name} artistId={artistId} />
           </div>
 
           <div className="mt-6 flex gap-4">
