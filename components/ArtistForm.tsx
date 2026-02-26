@@ -61,6 +61,8 @@ type Props = {
   submitLabel: string
   // Called when any field changes — for auto-save
   onChange?: (d: ArtistFormData) => void
+  // Direct save callback for photos (bypasses debounce issues)
+  onPhotosSave?: (photos: any[]) => void
 }
 
 function SL({ children }: { children: React.ReactNode }) {
@@ -809,7 +811,7 @@ function ArtistSearch({ label, ph, items, onAdd, onRemove, onYears, filterType }
   )
 }
 
-export default function ArtistForm({ initialData, artistId, onSubmit, backHref, title, submitLabel, onChange }: Props) {
+export default function ArtistForm({ initialData, artistId, onSubmit, backHref, title, submitLabel, onChange, onPhotosSave }: Props) {
   const [form, setForm] = useState<ArtistFormData>(initialData || emptyArtistForm)
 
   // Sync initialData → form, but never overwrite photos/avatar that user just changed
@@ -867,6 +869,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
   // Use functional setForm to avoid stale closure — photos arrive after async upload
   const setPhotos = (photos: any[]) => {
     setForm(prev => ({ ...prev, photos }))
+    if (onPhotosSave) onPhotosSave(photos)
   }
 
   const addBreak = () => set('breaks', [...form.breaks, { from:'', to:'' }])
