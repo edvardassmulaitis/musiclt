@@ -221,10 +221,9 @@ async function syncRelations(id: number, data: ArtistFull, skipPhotos = false) {
   }
 
   if (!skipPhotos && data.photos?.length) {
-    const validPhotos = data.photos.filter(p => p.url && !p.url.startsWith('data:'))
-    if (!validPhotos.length) return
-    inserts.push(supabase.from('artist_photos').insert(
-      validPhotos.map((p, i) => ({ artist_id: id, url: p.url, caption: p.caption, sort_order: i }))
+    const validPhotos = data.photos.filter((p: any) => p.url && !p.url.startsWith('data:'))
+    if (validPhotos.length) inserts.push(supabase.from('artist_photos').insert(
+      validPhotos.map((p: any, i: number) => ({ artist_id: id, url: p.url, caption: p.caption, sort_order: i }))
     ).then())
   }
 
