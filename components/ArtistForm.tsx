@@ -12,17 +12,71 @@ import RichTextEditor from './RichTextEditor'
 const CY = new Date().getFullYear()
 const YEARS = Array.from({ length: CY - 1900 + 1 }, (_, i) => CY - i)
 
+// SVG ikonos socialiniams tinklams
+const SocialIcons: Record<string, React.ReactNode> = {
+  website: (
+    <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+  ),
+  facebook: (
+    <svg viewBox="0 0 24 24" className="w-4 h-4"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" fill="#1877F2"/></svg>
+  ),
+  instagram: (
+    <svg viewBox="0 0 24 24" className="w-4 h-4"><defs><linearGradient id="ig" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stopColor="#f09433"/><stop offset="25%" stopColor="#e6683c"/><stop offset="50%" stopColor="#dc2743"/><stop offset="75%" stopColor="#cc2366"/><stop offset="100%" stopColor="#bc1888"/></linearGradient></defs><rect x="2" y="2" width="20" height="20" rx="5" ry="5" fill="url(#ig)"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" fill="white"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5" stroke="white" strokeWidth="2" strokeLinecap="round"/></svg>
+  ),
+  youtube: (
+    <svg viewBox="0 0 24 24" className="w-4 h-4"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46a2.78 2.78 0 0 0-1.95 1.96A29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58A2.78 2.78 0 0 0 3.41 19.6C5.12 20 12 20 12 20s6.88 0 8.59-.46a2.78 2.78 0 0 0 1.95-1.95A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58z" fill="#FF0000"/><polygon points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02" fill="white"/></svg>
+  ),
+  tiktok: (
+    <svg viewBox="0 0 24 24" className="w-4 h-4"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.28 6.28 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.78 1.52V6.78a4.85 4.85 0 0 1-1.01-.09z" fill="#000"/></svg>
+  ),
+  spotify: (
+    <svg viewBox="0 0 24 24" className="w-4 h-4"><circle cx="12" cy="12" r="10" fill="#1DB954"/><path d="M8 14.5c2.5-1 5.5-.8 7.5.5" stroke="white" strokeWidth="1.4" strokeLinecap="round" fill="none"/><path d="M7.5 11.5c3-1.2 6.5-1 9 .8" stroke="white" strokeWidth="1.4" strokeLinecap="round" fill="none"/><path d="M7 8.5c3.5-1.3 7.5-1 10.5 1" stroke="white" strokeWidth="1.4" strokeLinecap="round" fill="none"/></svg>
+  ),
+  soundcloud: (
+    <svg viewBox="0 0 24 24" className="w-4 h-4"><path d="M1.175 12.225c-.015.109-.023.219-.023.333 0 .113.008.224.023.333L2.6 12.89l-1.425-.665zM2.6 10.665c-.8.4-1.35 1.225-1.425 2.225l1.425.664V10.665zM3.6 9.44c-.35.195-.65.45-.9.74v4.225l.9.42V9.44zM5.375 8.89c-.65.11-1.225.44-1.65.91v5.65c.425.47 1 .79 1.65.9V8.89zM7.225 8.665c-.65 0-1.25.175-1.75.465v6.44c.5.29 1.1.46 1.75.46.85 0 1.625-.29 2.225-.775V9.44a3.75 3.75 0 0 0-2.225-.775zM12 7.44c-1.35 0-2.575.5-3.5 1.325v7.07c.925.825 2.15 1.325 3.5 1.325 2.9 0 5.25-2.35 5.25-5.25A5.25 5.25 0 0 0 12 7.44z" fill="#F50"/></svg>
+  ),
+  bandcamp: (
+    <svg viewBox="0 0 24 24" className="w-4 h-4"><path d="M0 18.75l7.437-13.5H24l-7.438 13.5z" fill="#1DA0C3"/></svg>
+  ),
+  twitter: (
+    <svg viewBox="0 0 24 24" className="w-4 h-4"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.747l7.73-8.835L1.254 2.25H8.08l4.259 5.63zm-1.161 17.52h1.833L7.084 4.126H5.117z" fill="#000"/></svg>
+  ),
+}
+
 const SOCIALS = [
-  { key:'website',    label:'Oficialus puslapis', icon:'🌐', ph:'https://...', type:'url' },
-  { key:'facebook',   label:'Facebook',   icon:'📘', ph:'https://facebook.com/...' },
-  { key:'instagram',  label:'Instagram',  icon:'📸', ph:'https://instagram.com/...' },
-  { key:'youtube',    label:'YouTube',    icon:'▶️',  ph:'https://youtube.com/...' },
-  { key:'tiktok',     label:'TikTok',     icon:'🎵', ph:'https://tiktok.com/...' },
-  { key:'spotify',    label:'Spotify',    icon:'🎧', ph:'https://open.spotify.com/...' },
-  { key:'soundcloud', label:'SoundCloud', icon:'☁️',  ph:'https://soundcloud.com/...' },
-  { key:'bandcamp',   label:'Bandcamp',   icon:'🎸', ph:'https://bandcamp.com/...' },
-  { key:'twitter',    label:'X (Twitter)',icon:'𝕏',  ph:'https://x.com/...' },
+  { key:'website',    label:'Oficialus puslapis', ph:'https://...', type:'url' },
+  { key:'facebook',   label:'Facebook',   ph:'https://facebook.com/...' },
+  { key:'instagram',  label:'Instagram',  ph:'https://instagram.com/...' },
+  { key:'youtube',    label:'YouTube',    ph:'https://youtube.com/...' },
+  { key:'tiktok',     label:'TikTok',     ph:'https://tiktok.com/...' },
+  { key:'spotify',    label:'Spotify',    ph:'https://open.spotify.com/...' },
+  { key:'soundcloud', label:'SoundCloud', ph:'https://soundcloud.com/...' },
+  { key:'bandcamp',   label:'Bandcamp',   ph:'https://bandcamp.com/...' },
+  { key:'twitter',    label:'X (Twitter)',ph:'https://x.com/...' },
 ]
+
+// Reusable SVG icons
+const IconUpload = () => (
+  <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-none stroke-current stroke-2 shrink-0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+)
+const IconTrash = () => (
+  <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-none stroke-current stroke-2 shrink-0"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+)
+const IconWiki = () => (
+  <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-none stroke-current stroke-2 shrink-0"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+)
+const IconDisc = () => (
+  <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-none stroke-current stroke-2 shrink-0"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+)
+const IconExpand = () => (
+  <svg viewBox="0 0 24 24" className="w-3 h-3 fill-none stroke-current stroke-2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+)
+const IconPerson = () => (
+  <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-none stroke-current stroke-2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+)
+const IconGroup = () => (
+  <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-none stroke-current stroke-2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+)
 
 export type Break    = { from: string; to: string }
 export type Member   = { id: string; name: string; yearFrom: string; yearTo: string }
@@ -437,13 +491,13 @@ function AvatarUpload({ value, onChange, onOriginalSaved }: { value: string; onC
         <div className="flex gap-2 flex-wrap" style={{ maxWidth: 200 }}>
           <button type="button" onClick={() => fileRef.current?.click()}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition-colors">
-            📁 Įkelti failą
+            <IconUpload /> Įkelti failą
           </button>
           {value && (
             <button type="button"
               onClick={() => { onChange(''); setUrlInput('') }}
               className="flex items-center gap-1 px-2 py-1.5 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg text-xs transition-colors">
-              ✕ Išvalyti
+              <IconTrash /> Išvalyti
             </button>
           )}
         </div>
@@ -487,7 +541,7 @@ function AvatarUploadCompact({ value, onChange, onOriginalSaved, artistId }: {
   const [cropSrc, setCropSrc] = useState<string | null>(null)
 
   useEffect(() => {
-    if (value && !value.startsWith('data:')) setUrlInput(value)
+    // Do not pre-fill URL input with existing value — keep it clean
   }, [value])
 
   const uploadBlob = async (blob: Blob, filename: string): Promise<string> => {
@@ -594,17 +648,23 @@ function AvatarUploadCompact({ value, onChange, onOriginalSaved, artistId }: {
         </div>
 
         <div className="flex-1 min-w-0 space-y-2.5 pt-1">
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center flex-wrap">
             <button type="button" onClick={() => fileRef.current?.click()}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition-colors">
-              📁 Įkelti failą
+              <IconUpload /> Įkelti failą
             </button>
             {value && (
               <button type="button" onClick={() => { onChange(''); setUrlInput('') }}
                 className="flex items-center gap-1 px-2 py-1.5 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg text-xs transition-colors">
-                ✕ Išvalyti
+                <IconTrash /> Išvalyti
               </button>
             )}
+            <div className="relative inline-block group">
+              <span className="w-4 h-4 rounded-full bg-gray-200 text-gray-500 text-xs flex items-center justify-center cursor-help select-none">i</span>
+              <div className="absolute left-0 bottom-6 w-44 bg-gray-800 text-white text-xs rounded-lg px-2.5 py-2 leading-snug opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20 shadow-lg">
+                Apkarpoma kvadratiškai. Originalas išsaugomas galerijoje.
+              </div>
+            </div>
           </div>
 
           <div className="space-y-1">
@@ -625,12 +685,6 @@ function AvatarUploadCompact({ value, onChange, onOriginalSaved, artistId }: {
           </div>
 
           {error && <p className="text-xs text-red-500">{error}</p>}
-          <div className="relative inline-block group">
-            <span className="w-4 h-4 rounded-full bg-gray-200 text-gray-500 text-xs flex items-center justify-center cursor-help select-none">i</span>
-            <div className="absolute left-0 bottom-6 w-44 bg-gray-800 text-white text-xs rounded-lg px-2.5 py-2 leading-snug opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20 shadow-lg">
-              Apkarpoma kvadratiškai. Originalas išsaugomas galerijoje.
-            </div>
-          </div>
         </div>
       </div>
       <input ref={fileRef} type="file" accept="image/*" className="hidden"
@@ -852,10 +906,12 @@ function DescriptionEditor({ value, onChange }: { value: string; onChange: (v: s
         <div className="absolute inset-0 cursor-pointer" onClick={open} />
         <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent pointer-events-none" />
       </div>
-      <button type="button" onClick={open}
-        className="mt-1 text-xs text-gray-400 hover:text-blue-500 transition-colors">
-        ⤢ Plėsti redaktorių
-      </button>
+      <div className="flex justify-end mt-1">
+        <button type="button" onClick={open}
+          className="flex items-center gap-1 px-2 py-1 text-xs text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors">
+          <IconExpand /> Plėsti
+        </button>
+      </div>
     </div>
   )
 }
@@ -914,7 +970,7 @@ function ArtistSearch({ label, ph, items, onAdd, onRemove, onYears, filterType }
       {items.map((item, i) => (
         <div key={i} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
           <div className="w-6 h-6 rounded-full bg-music-blue flex items-center justify-center text-white text-xs flex-shrink-0">{item.name[0]}</div>
-          <span className="flex-1 text-sm font-medium text-gray-900 truncate">{item.name}</span>
+          <span className="flex-1 text-xs font-medium text-gray-800 truncate">{item.name}</span>
           <input value={item.yearFrom}
             onChange={e=>onYears(i,'yearFrom',e.target.value.replace(/\D/g,'').slice(0,4))}
             placeholder="Nuo" maxLength={4} inputMode="numeric"
@@ -1063,12 +1119,12 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
             className="w-36 px-2 py-1 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
           <button type="button" onClick={()=>addUrl()} className="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs transition-colors">↵</button>
           <button type="button" onClick={() => setShowWikimedia(true)} title="Wikimedia Commons nuotraukų paieška"
-            className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-600 rounded-lg text-xs font-medium transition-colors">
-            🌐 Wiki
+            className="flex items-center gap-1 px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-600 rounded-lg text-xs font-medium transition-colors">
+            <IconWiki /> Įkelti Wiki nuotraukas
           </button>
           <button type="button" onClick={()=>!uploading&&fileRef.current?.click()}
             className="flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-colors">
-            📁
+            <IconUpload />
           </button>
         </div>
       </div>
@@ -1147,9 +1203,9 @@ function SocialsSection({ form, set }: { form: any; set: (k: any, v: any) => voi
             <span className="bg-blue-100 text-blue-600 text-xs font-bold px-1.5 py-0.5 rounded-full">{filledCount}</span>
           )}
           {!open && filledCount > 0 && (
-            <div className="flex gap-0.5">
-              {SOCIALS.filter(({ key }) => !!(form[key as keyof ArtistFormData] as string)).map(({ key, icon }) => (
-                <span key={key} className="text-sm leading-none">{icon}</span>
+            <div className="flex gap-1 items-center">
+              {SOCIALS.filter(({ key }) => !!(form[key as keyof ArtistFormData] as string)).map(({ key }) => (
+                <span key={key} className="w-4 h-4 flex items-center justify-center text-gray-400">{SocialIcons[key]}</span>
               ))}
             </div>
           )}
@@ -1165,9 +1221,9 @@ function SocialsSection({ form, set }: { form: any; set: (k: any, v: any) => voi
       {/* Expandable */}
       {open && (
         <div className="border-t border-gray-100 p-3 space-y-1.5">
-          {SOCIALS.map(({ key, icon, ph, type }) => (
+          {SOCIALS.map(({ key, ph, type }) => (
             <div key={key} className="flex items-center gap-1.5">
-              <span className="text-base w-5 text-center shrink-0 leading-none">{icon}</span>
+              <span className="w-5 flex items-center justify-center shrink-0 text-gray-400">{SocialIcons[key]}</span>
               <input
                 type={type || 'url'}
                 value={form[key as keyof ArtistFormData] as string}
@@ -1307,12 +1363,12 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                   </div>
                   <div className="shrink-0 pb-0.5">
                     <div className="flex gap-1">
-                      {([['group','🎸 Grupė'],['solo','🎤 Solo']] as const).map(([v,l]) => (
+                      {([['group','Grupė', <IconGroup />],['solo','Solo', <IconPerson />]] as const).map(([v,l,icon]) => (
                         <button key={v} type="button" onClick={()=>set('type',v)}
-                          className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                             form.type===v ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                           }`}>
-                          {l}
+                          {icon}{l}
                         </button>
                       ))}
                     </div>
