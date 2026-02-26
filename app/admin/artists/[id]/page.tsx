@@ -127,6 +127,7 @@ function TrackRow({ track }: { track: any }) {
       </div>
       {hasVideo && <span className="text-blue-400 text-xs shrink-0">▶</span>}
       {hasLyrics && <span className="text-green-500 text-xs font-bold shrink-0">T</span>}
+      {track.is_single && <span className="text-orange-400 text-xs font-bold shrink-0">S</span>}
       {trackId && (
         <a href={`/admin/tracks/${trackId}`} target="_blank" rel="noopener noreferrer"
           className="opacity-0 group-hover:opacity-100 shrink-0 px-1.5 py-0.5 text-xs text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded transition-all font-medium">
@@ -260,7 +261,7 @@ function DiscographyPanel({ artistId, artistName, refreshKey, onImportClose }: {
               artistWikiTitle={artistName.replace(/ /g, '_')}
               onClose={onImportClose}
               buttonClassName="flex items-center gap-1.5 px-2 py-1 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg text-xs font-medium transition-colors"
-              buttonLabel="Įkelti Wiki diskografiją"
+              buttonLabel="𝐖 Įkelti Wiki diskografiją"
             />
           )}
           <Link href={`/admin/albums/new?artist_id=${artistId}`}
