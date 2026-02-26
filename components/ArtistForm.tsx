@@ -834,6 +834,15 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
     }))
   }, [initialData]) // eslint-disable-line
 
+  // Fire onChange (auto-save) whenever photos change
+  const prevPhotosRef = useRef<any[]>(initialData?.photos || [])
+  useEffect(() => {
+    if (!form.name) return
+    if (form.photos === prevPhotosRef.current) return
+    prevPhotosRef.current = form.photos
+    if (onChange) onChange(form)
+  }, [form.photos]) // eslint-disable-line
+
   const set = (f: keyof ArtistFormData, v: any) => {
     const next = { ...form, [f]: v }
     setForm(next)
@@ -857,11 +866,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
   // Auto-save photos when gallery changes
   // Use functional setForm to avoid stale closure — photos arrive after async upload
   const setPhotos = (photos: any[]) => {
-    setForm(prev => {
-      const next = { ...prev, photos }
-      if (onChange && prev.name) onChange(next)
-      return next
-    })
+    setForm(prev => ({ ...prev, photos }))
   }
 
   const addBreak = () => set('breaks', [...form.breaks, { from:'', to:'' }])
