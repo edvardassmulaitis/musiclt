@@ -1,5 +1,5 @@
 'use client'
-
+// v2
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { GENRES, MONTHS, DAYS } from '@/lib/constants'
@@ -773,6 +773,91 @@ function ArtistSearch({ label, ph, items, onAdd, onRemove, onYears, filterType }
   )
 }
 
+function SocialsSection({ form, set }: { form: any; set: (k: any, v: any) => void }) {
+  const [open, setOpen] = useState(false)
+
+  const filledCount = SOCIALS.filter(({ key }) => !!(form[key as keyof ArtistFormData] as string)).length
+  const hasSubdomain = !!form.subdomain
+
+  // Generate subdomain from name if not set
+  const suggestedSubdomain = form.name
+    ? form.name.toLowerCase()
+        .replace(/[ąčęėįšųūž]/g, (c: string) => ({ ą:'a',č:'c',ę:'e',ė:'e',į:'i',š:'s',ų:'u',ū:'u',ž:'z' }[c] || c))
+        .replace(/[^a-z0-9]+/g, '')
+    : ''
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      {/* Header row — always visible */}
+      <button type="button" onClick={() => setOpen(p => !p)}
+        className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-gray-50 transition-colors">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-gray-500">🔗 Nuorodos ir domenas</span>
+          {filledCount > 0 && (
+            <span className="bg-blue-100 text-blue-600 text-xs font-bold px-1.5 py-0.5 rounded-full">{filledCount}</span>
+          )}
+          {/* Show filled socials as mini icons when collapsed */}
+          {!open && filledCount > 0 && (
+            <div className="flex gap-1">
+              {SOCIALS.filter(({ key }) => !!(form[key as keyof ArtistFormData] as string)).map(({ key, icon }) => (
+                <span key={key} className="text-sm">{icon}</span>
+              ))}
+            </div>
+          )}
+        </div>
+        <span className={`text-gray-400 text-xs transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>▼</span>
+      </button>
+
+      {/* Subdomain — always visible below header */}
+      <div className="px-3 pb-2.5 border-t border-gray-50 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-xs text-gray-400 shrink-0">🌐</span>
+          {form.subdomain ? (
+            <span className="text-sm font-medium text-gray-700 truncate">{form.subdomain}.music.lt</span>
+          ) : suggestedSubdomain ? (
+            <span className="text-sm text-gray-400 truncate">{suggestedSubdomain}.music.lt</span>
+          ) : (
+            <span className="text-sm text-gray-400 italic">domenas nenurodytas</span>
+          )}
+        </div>
+        <button type="button" onClick={() => setOpen(p => !p)}
+          className="shrink-0 text-xs text-blue-500 hover:text-blue-700 font-medium">
+          {open ? 'Uždaryti' : 'Keisti'}
+        </button>
+      </div>
+
+      {/* Expandable socials */}
+      {open && (
+        <div className="border-t border-gray-100 p-3 space-y-2">
+          {SOCIALS.map(({ key, icon, ph, type }) => (
+            <div key={key} className="flex items-center gap-2">
+              <span className="text-base w-6 text-center flex-shrink-0">{icon}</span>
+              <input
+                type={type || 'url'}
+                value={form[key as keyof ArtistFormData] as string}
+                onChange={e => set(key as keyof ArtistFormData, e.target.value)}
+                className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-blue-400"
+                placeholder={ph}
+              />
+              {(form[key as keyof ArtistFormData] as string) && (
+                <button type="button" onClick={() => set(key as keyof ArtistFormData, '')}
+                  className="text-gray-300 hover:text-red-400 text-sm shrink-0">×</button>
+              )}
+            </div>
+          ))}
+          <div className="pt-2 border-t border-gray-100">
+            <label className="block text-xs font-semibold text-gray-500 mb-1">Subdomenas</label>
+            <div className="flex gap-1">
+              <Inp value={form.subdomain} onChange={(v:string)=>set('subdomain',v)} placeholder={suggestedSubdomain || 'vardas'} />
+              <span className="px-2.5 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-500 text-sm whitespace-nowrap">.music.lt</span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function ArtistForm({ initialData, artistId, onSubmit, backHref, title, submitLabel, onChange }: Props) {
   const [form, setForm] = useState<ArtistFormData>(initialData || emptyArtistForm)
 
@@ -864,23 +949,26 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
           <div className="grid grid-cols-2 gap-5">
 
             {/* ── LEFT COLUMN ── */}
-            <div className="space-y-2.5 p-3 pb-4">
+            <div className="p-3 pb-4">
               <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 space-y-3">
 
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Pavadinimas *</label>
-                  <Inp value={form.name} onChange={(v:string)=>set('name',v)} placeholder="Pvz: Jazzu" required />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Tipas *</label>
-                  <div className="flex gap-4">
-                    {([['group','🎸 Grupė'],['solo','🎤 Solo']] as const).map(([v,l]) => (
-                      <label key={v} className="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" name="type" value={v} checked={form.type===v} onChange={()=>set('type',v)} className="accent-music-blue" />
-                        <span className="text-sm text-gray-700">{l}</span>
-                      </label>
-                    ))}
+                {/* Pavadinimas + Tipas vienoje eilutėje */}
+                <div className="flex gap-3 items-end">
+                  <div className="flex-1 min-w-0">
+                    <label className="block text-xs font-semibold text-gray-500 mb-1">Pavadinimas *</label>
+                    <Inp value={form.name} onChange={(v:string)=>set('name',v)} placeholder="Pvz: Jazzu" required />
+                  </div>
+                  <div className="shrink-0 pb-0.5">
+                    <div className="flex gap-1">
+                      {([['group','🎸 Grupė'],['solo','🎤 Solo']] as const).map(([v,l]) => (
+                        <button key={v} type="button" onClick={()=>set('type',v)}
+                          className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                            form.type===v ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }`}>
+                          {l}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
@@ -905,7 +993,13 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
 
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 mb-1">Stiliai</label>
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {(form.substyles||[]).map(s => (
+                      <span key={s} className="flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-xs font-medium">
+                        {s}
+                        <button type="button" onClick={()=>set('substyles',(form.substyles||[]).filter(x=>x!==s))} className="text-blue-400 hover:text-red-500 leading-none ml-0.5">×</button>
+                      </span>
+                    ))}
                     <StyleModal selected={form.substyles||[]} onChange={v=>set('substyles',v)} />
                     <InlineStyleSearch
                       selected={form.substyles||[]}
@@ -914,50 +1008,51 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                   </div>
                 </div>
 
-                <div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-500 mb-1">Nuo</label>
-                      <Sel value={form.yearStart} onChange={(v:string)=>set('yearStart',v)}>
-                        <option value="">Nežinoma</option>{YEARS.map(y=><option key={y} value={y}>{y}</option>)}
-                      </Sel>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-500 mb-1">Iki</label>
-                      <Sel value={form.yearEnd} onChange={(v:string)=>set('yearEnd',v)}>
-                        <option value="">Aktyvūs</option>{YEARS.map(y=><option key={y} value={y}>{y}</option>)}
-                      </Sel>
-                    </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 mb-1">Veiklos pradžia</label>
+                    <Sel value={form.yearStart} onChange={(v:string)=>set('yearStart',v)}>
+                      <option value="">Nežinoma</option>{YEARS.map(y=><option key={y} value={y}>{y}</option>)}
+                    </Sel>
                   </div>
-                  <div className="mt-3">
-                    <div className="flex justify-between items-center mb-1.5">
-                      <label className="block text-xs font-semibold text-gray-500">Pertraukos</label>
-                      <button type="button" onClick={addBreak} className="text-xs text-music-blue hover:text-music-orange font-medium">+ Pridėti</button>
-                    </div>
-                    {form.breaks.map((br,i) => (
-                      <div key={i} className="flex gap-2 mb-2 items-center">
-                        <input value={br.from} onChange={e=>upBreak(i,'from',e.target.value)} placeholder="Nuo"
-                          className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-blue-400" />
-                        <span className="text-gray-400">–</span>
-                        <input value={br.to} onChange={e=>upBreak(i,'to',e.target.value)} placeholder="Iki"
-                          className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-blue-400" />
-                        <button type="button" onClick={()=>rmBreak(i)} className="text-red-400 hover:text-red-600 font-bold">×</button>
-                      </div>
-                    ))}
-                    {form.breaks.length===0 && <p className="text-xs text-gray-400 italic">Nėra pertraukų</p>}
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 mb-1">Veiklos pabaiga</label>
+                    <Sel value={form.yearEnd} onChange={(v:string)=>set('yearEnd',v)}>
+                      <option value="">Aktyvūs</option>{YEARS.map(y=><option key={y} value={y}>{y}</option>)}
+                    </Sel>
                   </div>
                 </div>
 
+                <div>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="block text-xs font-semibold text-gray-500">Pertraukos</label>
+                    <button type="button" onClick={addBreak} className="text-xs text-blue-500 hover:text-blue-700 font-medium">+ Pridėti</button>
+                  </div>
+                  {form.breaks.map((br,i) => (
+                    <div key={i} className="flex gap-2 mb-2 items-center">
+                      <input value={br.from} onChange={e=>upBreak(i,'from',e.target.value)} placeholder="Nuo"
+                        className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-blue-400" />
+                      <span className="text-gray-400">–</span>
+                      <input value={br.to} onChange={e=>upBreak(i,'to',e.target.value)} placeholder="Iki"
+                        className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-blue-400" />
+                      <button type="button" onClick={()=>rmBreak(i)} className="text-red-400 hover:text-red-600 font-bold">×</button>
+                    </div>
+                  ))}
+                  {form.breaks.length===0 && <p className="text-xs text-gray-400 italic">Nėra pertraukų</p>}
+                </div>
+
                 {form.type==='solo' && (
-                  <div className="space-y-3 pt-1 border-t border-gray-100">
+                  <div className="space-y-3 pt-2 border-t border-gray-100">
                     <div>
                       <label className="block text-xs font-semibold text-gray-500 mb-1">Lytis</label>
-                      <div className="flex gap-4">
+                      <div className="flex gap-1">
                         {([['male','Vyras'],['female','Moteris']] as const).map(([v,l]) => (
-                          <label key={v} className="flex items-center gap-2 cursor-pointer">
-                            <input type="radio" name="gender" value={v} checked={form.gender===v} onChange={()=>set('gender',v)} className="accent-music-blue" />
-                            <span className="text-sm text-gray-700">{l}</span>
-                          </label>
+                          <button key={v} type="button" onClick={()=>set('gender',v)}
+                            className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                              form.gender===v ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}>
+                            {l}
+                          </button>
                         ))}
                       </div>
                     </div>
@@ -974,7 +1069,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                 )}
 
                 {form.type==='group' && (
-                  <div className="pt-1 border-t border-gray-100">
+                  <div className="pt-2 border-t border-gray-100">
                     <label className="block text-xs font-semibold text-gray-500 mb-1">Grupės nariai</label>
                     <ArtistSearch label="Nariai" ph="Ieškoti atlikėjo..." items={form.members}
                       onAdd={addMember} onRemove={rmMember} onYears={upMember} filterType="solo" />
@@ -985,7 +1080,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
             </div>
 
             {/* ── RIGHT COLUMN ── */}
-            <div className="space-y-2.5 p-3 pb-4">
+            <div className="p-3 pb-4 space-y-2.5">
               <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
                 {/* ✅ avatar išsaugomas tiesiai į DB per /api/artists/[id]/avatar */}
                 <AvatarUploadCompact
@@ -1012,27 +1107,9 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                 <DescriptionEditor value={form.description} onChange={v=>set('description',v)} />
               </div>
 
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 space-y-2">
-                {SOCIALS.map(({ key, label, icon, ph, type }) => (
-                  <div key={key} className="flex items-center gap-2">
-                    <span className="text-lg w-7 text-center flex-shrink-0">{icon}</span>
-                    <input
-                      type={type || 'url'}
-                      value={form[key as keyof ArtistFormData] as string}
-                      onChange={e => set(key as keyof ArtistFormData, e.target.value)}
-                      className="flex-1 px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-blue-400"
-                      placeholder={ph}
-                    />
-                  </div>
-                ))}
-                <div className="pt-2 border-t border-gray-100">
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Subdomenas</label>
-                  <div className="flex">
-                    <Inp value={form.subdomain} onChange={(v:string)=>set('subdomain',v)} placeholder="vardas" />
-                    <span className="px-3 py-2 bg-gray-100 border border-l-0 border-gray-200 rounded-r-lg text-gray-500 text-sm whitespace-nowrap">.music.lt</span>
-                  </div>
-                </div>
-              </div>
+              {/* Socialiniai tinklai — collapsible */}
+              <SocialsSection form={form} set={set} />
+
             </div>
           </div>
 
