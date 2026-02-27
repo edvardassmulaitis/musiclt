@@ -171,7 +171,11 @@ function AlbumCard({ album, defaultOpen }: { album: any; defaultOpen: boolean })
     : album.type_live ? 'Gyvas'
     : album.type_single ? 'Singlas'
     : album.type_remix ? 'Remix'
-    : 'Albumas'
+    : album.type_covers ? 'Coveriai'
+    : album.type_holiday ? 'Šventinis'
+    : album.type_soundtrack ? 'Soundtrack'
+    : album.type_demo ? 'Demo'
+    : 'Studijinis'
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
