@@ -1061,6 +1061,7 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
   const [lightboxIdx, setLightboxIdx] = useState<number|null>(null)
   const [dragIdx, setDragIdx] = useState<number|null>(null)
   const [dragOverIdx, setDragOverIdx] = useState<number|null>(null)
+  const [editMetaIdx, setEditMetaIdx] = useState<number|null>(null)
 
   const saveToDb = (next: PhotoMeta[]) => {
     if (!artistId) return
@@ -1224,54 +1225,61 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
         </div>
       </div>
 
-      {/* Photo list */}
+      {/* Photo grid */}
       {photos.length === 0 ? (
         <div className="flex items-center justify-center py-6 text-gray-400 text-xs">Nėra nuotraukų</div>
       ) : (
-        <div className="divide-y divide-gray-50">
+        <div className="p-2 grid grid-cols-4 sm:grid-cols-6 gap-1.5">
           {photos.map((p, i) => (
-            <div key={i}
+            <div key={i} className="relative group"
               draggable
               onDragStart={() => onDragStart(i)}
               onDragOver={e => onDragOver(e, i)}
               onDrop={() => onDrop(i)}
-              onDragEnd={() => { setDragIdx(null); setDragOverIdx(null) }}
-              className={`flex items-center gap-2.5 px-3 py-2 transition-colors ${dragOverIdx === i ? 'bg-blue-50' : 'hover:bg-gray-50/60'}`}>
-              {/* Drag handle */}
-              <div className="text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing shrink-0 select-none text-sm leading-none">⠿</div>
-              {/* Thumbnail — click to lightbox */}
-              <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0 cursor-pointer"
+              onDragEnd={() => { setDragIdx(null); setDragOverIdx(null) }}>
+              <div className={`aspect-square rounded-lg overflow-hidden bg-gray-100 cursor-pointer ring-2 transition-all ${dragOverIdx === i ? 'ring-blue-400 scale-95' : 'ring-transparent'}`}
                 onClick={() => setLightboxIdx(i)}>
-                <img src={p.url} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover hover:opacity-80 transition-opacity" />
+                <img src={p.url} alt="" referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover group-hover:opacity-85 transition-opacity" />
               </div>
-              {/* Meta fields */}
-              <div className="flex-1 min-w-0 flex flex-col sm:flex-row gap-1.5">
-                <input type="text" value={p.author || ''} onChange={e => updateMeta(i, 'author', e.target.value)}
-                  placeholder="© Autorius / licencija"
-                  className="flex-1 min-w-0 px-2 py-1 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
-                <input type="url" value={p.sourceUrl || ''} onChange={e => updateMeta(i, 'sourceUrl', e.target.value)}
-                  placeholder="Šaltinio URL"
-                  className="flex-1 min-w-0 px-2 py-1 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
+              {/* Delete */}
+              <button type="button" onClick={() => remove(i)}
+                className="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 hover:bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity leading-none">×</button>
+              {/* Meta overlay on hover */}
+              <div className="absolute inset-x-0 bottom-0 rounded-b-lg bg-gradient-to-t from-black/80 to-transparent p-1.5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                {p.author && <p className="text-white/90 text-[9px] leading-tight truncate">© {p.author.split(' · ')[0]}</p>}
+                {p.sourceUrl && <p className="text-blue-300 text-[9px] leading-tight truncate">↗ šaltinis</p>}
               </div>
-              {/* Actions */}
-              <div className="flex items-center gap-1 shrink-0">
-                {p.sourceUrl && (
-                  <a href={p.sourceUrl} target="_blank" rel="noopener noreferrer"
-                    className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-blue-500 transition-colors" title="Atidaryti šaltinį">
-                    <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-none stroke-current stroke-2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                  </a>
-                )}
-                <button type="button" onClick={() => setLightboxIdx(i)}
-                  className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-blue-500 transition-colors" title="Peržiūrėti">
-                  <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-none stroke-current stroke-2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                </button>
-                <button type="button" onClick={() => remove(i)}
-                  className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-red-500 transition-colors" title="Ištrinti">
-                  <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-none stroke-current stroke-2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-                </button>
-              </div>
+              {/* Edit meta button */}
+              <button type="button" onClick={e => { e.stopPropagation(); setEditMetaIdx(editMetaIdx === i ? null : i) }}
+                className={`absolute bottom-0.5 left-0.5 w-4 h-4 rounded-full text-[9px] flex items-center justify-center transition-all
+                  ${(p.author || p.sourceUrl) ? 'bg-blue-500 text-white opacity-80 group-hover:opacity-100' : 'bg-black/40 text-white opacity-0 group-hover:opacity-100'}`}
+                title="Autorius / šaltinis">©</button>
             </div>
           ))}
+        </div>
+      )}
+      {/* Meta edit popup */}
+      {editMetaIdx !== null && photos[editMetaIdx] && (
+        <div className="mx-2 mb-2 p-2.5 bg-gray-50 border border-gray-200 rounded-xl space-y-1.5">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs font-semibold text-gray-600">Nuotrauka #{editMetaIdx + 1} — metaduomenys</span>
+            <button type="button" onClick={() => setEditMetaIdx(null)} className="text-gray-400 hover:text-gray-600 text-sm leading-none">✕</button>
+          </div>
+          <div className="flex gap-2">
+            <input type="text" value={photos[editMetaIdx].author || ''} onChange={e => updateMeta(editMetaIdx, 'author', e.target.value)}
+              placeholder="© Autorius / licencija (pvz. Tilly antoine · CC BY-SA 4.0)"
+              className="flex-1 px-2 py-1 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
+            <input type="url" value={photos[editMetaIdx].sourceUrl || ''} onChange={e => updateMeta(editMetaIdx, 'sourceUrl', e.target.value)}
+              placeholder="Šaltinio URL"
+              className="flex-1 px-2 py-1 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
+            {photos[editMetaIdx].sourceUrl && (
+              <a href={photos[editMetaIdx].sourceUrl} target="_blank" rel="noopener noreferrer"
+                className="flex items-center px-2 text-blue-500 hover:text-blue-700 shrink-0" title="Atidaryti">
+                <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-none stroke-current stroke-2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              </a>
+            )}
+          </div>
         </div>
       )}
 
