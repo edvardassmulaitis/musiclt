@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { GENRES } from '@/lib/constants'
 import PhotoGallery, { type Photo } from './PhotoGallery'
-import WikipediaImport from './WikipediaImport'
 import WikimediaSearch from './WikimediaSearch'
 import RichTextEditor from './RichTextEditor'
 
@@ -1007,12 +1006,12 @@ function ArtistSearch({ label, ph, items, onAdd, onRemove, onYears, filterType }
           <input value={item.yearFrom}
             onChange={e=>onYears(i,'yearFrom',e.target.value.replace(/\D/g,'').slice(0,4))}
             placeholder="MMMM" maxLength={4} inputMode="numeric"
-            className="w-12 px-1 py-1 border border-gray-300 rounded text-xs text-gray-900 focus:outline-none focus:border-music-blue text-center" />
+            className="w-14 px-1 py-1 border border-gray-300 rounded text-xs text-gray-900 focus:outline-none focus:border-music-blue text-center" />
           <span className="text-gray-400 text-xs">–</span>
           <input value={item.yearTo}
             onChange={e=>onYears(i,'yearTo',e.target.value.replace(/\D/g,'').slice(0,4))}
             placeholder="MMMM" maxLength={4} inputMode="numeric"
-            className="w-12 px-1 py-1 border border-gray-300 rounded text-xs text-gray-900 focus:outline-none focus:border-music-blue text-center" />
+            className="w-14 px-1 py-1 border border-gray-300 rounded text-xs text-gray-900 focus:outline-none focus:border-music-blue text-center" />
           <button type="button" onClick={()=>onRemove(i)} className="text-red-400 hover:text-red-600 font-bold text-base ml-1">×</button>
         </div>
       ))}
@@ -1401,9 +1400,6 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="mb-5 WikipediaImport">
-            <WikipediaImport onImport={data => setForm(prev => ({ ...prev, ...data }))} />
-          </div>
 
 
           <div className="flex flex-col lg:grid lg:grid-cols-2 gap-0 bg-white border-y lg:border lg:rounded-xl border-gray-100 shadow-sm overflow-hidden mb-2.5 lg:mx-3">
@@ -1413,12 +1409,12 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
               <div className="p-0 space-y-3">
 
                 {/* Pavadinimas + Tipas vienoje eilutėje */}
-                <div className="flex flex-col gap-2">
+                <div className="flex gap-2 items-end">
                   <div className="flex-1 min-w-0">
                     <label className="block text-xs font-semibold text-gray-500 mb-1">Pavadinimas *</label>
                     <Inp value={form.name} onChange={(v:string)=>set('name',v)} placeholder="Pvz: Jazzu" required />
                   </div>
-                  <div>
+                  <div className="shrink-0 pb-0.5">
                     <div className="flex gap-1">
                       {([['group','Grupė', <IconGroup />],['solo','Solo', <IconPerson />]] as const).map(([v,l,icon]) => (
                         <button key={v} type="button" onClick={()=>set('type',v)}
