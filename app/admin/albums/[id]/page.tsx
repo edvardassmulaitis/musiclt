@@ -28,6 +28,7 @@ const emptyAlbum: AlbumFull = {
   type_soundtrack: false, type_demo: false,
   cover_image_url: '', spotify_id: '', video_url: '',
   show_artist_name: false, show_player: false, is_upcoming: false,
+  description: '',
   tracks: [],
 }
 
@@ -96,6 +97,84 @@ function ArtistSearchInput({ placeholder = 'Ieškoti atlikėjo...', onSelect }: 
             </button>
           ))}
         </div>
+      )}
+    </div>
+  )
+}
+
+// ── DescriptionEditor ─────────────────────────────────────────────────────────
+function DescriptionEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const editorRef = useRef<HTMLDivElement>(null)
+  const isUpdating = useRef(false)
+
+  // Sync external value → editor (only on mount or external change)
+  useEffect(() => {
+    if (!editorRef.current || isUpdating.current) return
+    if (editorRef.current.innerHTML !== value) {
+      editorRef.current.innerHTML = value
+    }
+  }, [value])
+
+  const exec = (cmd: string, val?: string) => {
+    document.execCommand(cmd, false, val)
+    editorRef.current?.focus()
+    syncContent()
+  }
+
+  const syncContent = () => {
+    isUpdating.current = true
+    onChange(editorRef.current?.innerHTML || '')
+    setTimeout(() => { isUpdating.current = false }, 0)
+  }
+
+  const tools = [
+    { cmd: 'bold', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 4h8a4 4 0 014 4 4 4 0 01-4 4H6z M6 12h9a4 4 0 014 4 4 4 0 01-4 4H6z"/></svg>, title: 'Bold' },
+    { cmd: 'italic', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="19" y1="4" x2="10" y2="4" strokeWidth={2} strokeLinecap="round"/><line x1="14" y1="20" x2="5" y2="20" strokeWidth={2} strokeLinecap="round"/><line x1="15" y1="4" x2="9" y2="20" strokeWidth={2} strokeLinecap="round"/></svg>, title: 'Italic' },
+    { cmd: 'insertUnorderedList', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>, title: 'Sąrašas' },
+    { cmd: 'insertOrderedList', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6h11M10 12h11M10 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg>, title: 'Numeruotas sąrašas' },
+    { cmd: 'removeFormat', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>, title: 'Išvalyti formatą' },
+  ]
+
+  return (
+    <div className="border border-gray-200 rounded-lg overflow-hidden focus-within:border-blue-400 transition-colors">
+      {/* Toolbar */}
+      <div className="flex items-center gap-0.5 px-1.5 py-1 border-b border-gray-100 bg-gray-50">
+        {tools.map(t => (
+          <button key={t.cmd} type="button" title={t.title}
+            onMouseDown={e => { e.preventDefault(); exec(t.cmd) }}
+            className="p-1.5 rounded hover:bg-gray-200 text-gray-500 hover:text-gray-800 transition-colors">
+            {t.icon}
+          </button>
+        ))}
+        <div className="w-px h-4 bg-gray-200 mx-1" />
+        <button type="button" title="Nuoroda"
+          onMouseDown={e => {
+            e.preventDefault()
+            const url = prompt('URL:')
+            if (url) exec('createLink', url)
+          }}
+          className="p-1.5 rounded hover:bg-gray-200 text-gray-500 hover:text-gray-800 transition-colors">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+        </button>
+        {value && (
+          <button type="button" title="Išvalyti viską" onMouseDown={e => { e.preventDefault(); onChange(''); if (editorRef.current) editorRef.current.innerHTML = '' }}
+            className="ml-auto p-1.5 rounded hover:bg-red-100 text-gray-400 hover:text-red-500 transition-colors">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          </button>
+        )}
+      </div>
+      {/* Editable area */}
+      <div
+        ref={editorRef}
+        contentEditable
+        suppressContentEditableWarning
+        onInput={syncContent}
+        className="min-h-[100px] max-h-[300px] overflow-y-auto p-2.5 text-sm text-gray-800 focus:outline-none prose prose-sm max-w-none"
+        style={{ lineHeight: '1.6' }}
+        data-placeholder="Albumo aprašymas..."
+      />
+      {!value && (
+        <style>{`[data-placeholder]:empty:before { content: attr(data-placeholder); color: #9ca3af; pointer-events: none; }`}</style>
       )}
     </div>
   )
@@ -595,6 +674,12 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
         </div>
       </div>
 
+      {/* Description card */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Aprašymas</p>
+        <DescriptionEditor value={form.description || ''} onChange={v => set('description', v)} />
+      </div>
+
       {/* Media card */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
         <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Media</p>
@@ -674,7 +759,11 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
             <span className="text-gray-300">/</span>
             <Link href={artistId ? `/admin/albums?artist=${artistId}` : "/admin/albums"} className="text-gray-400 hover:text-gray-700 shrink-0">Albumai</Link>
             <span className="text-gray-300">/</span>
-            <span className="text-gray-800 font-semibold truncate max-w-[160px]">{isNew ? 'Naujas' : (form.title || '...')}</span>
+            <span className="text-gray-700 truncate max-w-[160px]">{isNew ? 'Naujas' : (form.title || '...')}</span>
+            {!isNew && artistId && <>
+              <span className="text-gray-300">/</span>
+              <Link href={`/admin/tracks?artist=${artistId}`} className="text-gray-400 hover:text-gray-700 shrink-0">Dainos</Link>
+            </>}
           </nav>
           {/* Mobile: back arrow + title only */}
           <div className="flex sm:hidden items-center gap-2 min-w-0">
