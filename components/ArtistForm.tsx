@@ -1063,12 +1063,20 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
   const [dragOverIdx, setDragOverIdx] = useState<number|null>(null)
   const [editMetaIdx, setEditMetaIdx] = useState<number|null>(null)
 
-  const saveToDb = (next: PhotoMeta[]) => {
+  const saveToDb = async (next: PhotoMeta[]) => {
     if (!artistId) return
-    fetch(`/api/artists/${artistId}/photos`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ photos: next })
-    }).catch(() => {})
+    try {
+      const res = await fetch(`/api/artists/${artistId}/photos`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photos: next })
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        console.error('[Gallery] saveToDb failed:', res.status, err)
+      }
+    } catch (e) {
+      console.error('[Gallery] saveToDb error:', e)
+    }
   }
 
   const upload = async (file: File) => {
