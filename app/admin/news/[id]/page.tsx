@@ -195,20 +195,20 @@ function EditorJsWrapper({ value, onChange, photos, onUploadedImage }: {
         placeholder: 'Rašykite naujieną...',
         tools: {
           header: {
-            class: Header,
+            class: Header as any,
             config: { levels: [2, 3, 4], defaultLevel: 2 },
           },
           list: {
-            class: List,
+            class: List as any,
             inlineToolbar: true,
           },
           quote: {
-            class: Quote,
+            class: Quote as any,
             inlineToolbar: true,
             config: { quotePlaceholder: 'Citata...', captionPlaceholder: 'Autorius' },
           },
           image: {
-            class: ImageTool,
+            class: ImageTool as any,
             config: {
               uploader: {
                 uploadByFile: async (file: File) => {
@@ -232,7 +232,7 @@ function EditorJsWrapper({ value, onChange, photos, onUploadedImage }: {
               },
             },
           },
-          delimiter: { class: Delimiter },
+          delimiter: { class: Delimiter as any },
         },
         onChange: async () => {
           if (!editor) return
