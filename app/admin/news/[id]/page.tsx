@@ -517,7 +517,7 @@ function FormPane({ form, set, artistPhotos, Label, showSlug, setShowSlug, showD
   Label: ({ children }: { children: React.ReactNode }) => JSX.Element
   showSlug: boolean; setShowSlug: (v: boolean) => void
   showDate: boolean; setShowDate: (v: boolean) => void
-  slugRef: React.RefObject<HTMLDivElement>; dateRef: React.RefObject<HTMLDivElement>
+  slugRef: React.RefObject<HTMLDivElement | null>; dateRef: React.RefObject<HTMLDivElement | null>
 }) {
   return (
     <div className="p-3 space-y-3">
