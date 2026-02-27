@@ -246,6 +246,8 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
   const [albums, setAlbums] = useState<AlbumRef[]>([])
   const [removingFromAlbum, setRemovingFromAlbum] = useState<number | null>(null)
   const [mobileTab, setMobileTab] = useState<'info' | 'lyrics'>('info')
+  const [showMobileNav, setShowMobileNav] = useState(false)
+  const mobileNavRef = useRef<HTMLDivElement>(null)
 
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -326,6 +328,11 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
   }
 
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
+
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (mobileNavRef.current && !mobileNavRef.current.contains(e.target as Node)) setShowMobileNav(false) }
+    document.addEventListener('mousedown', h); return () => document.removeEventListener('mousedown', h)
+  }, [])
   useEffect(() => { if (status === 'unauthenticated') router.push('/') }, [status])
 
   useEffect(() => {
@@ -403,8 +410,8 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
       {/* Main card */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 space-y-2.5">
 
-        {/* Title + Date */}
-        <div className="grid grid-cols-[1fr_auto] gap-3 items-start">
+        {/* Title + Date — side by side on desktop, stacked on mobile */}
+        <div className="space-y-2 sm:space-y-0 sm:grid sm:grid-cols-[1fr_auto] sm:gap-3 sm:items-start">
           <div>
             <label className="block text-xs font-semibold text-gray-500 mb-1">Pavadinimas *</label>
             <input value={title} onChange={e => { setTitle(e.target.value); setParseResult(null) }} placeholder="Dainos pavadinimas"
@@ -545,7 +552,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
                   className="px-2 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg text-xs transition-colors shrink-0">✕</button>}
               </div>
               {ytId && (
-                <a href={videoUrl} target="_blank" rel="noopener noreferrer" className="block relative rounded-lg overflow-hidden group mb-1">
+                <a href={videoUrl} target="_blank" rel="noopener noreferrer" className="block relative rounded-lg overflow-hidden group mb-1.5">
                   <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} alt="" className="w-full aspect-video object-cover group-hover:opacity-90 transition-opacity" />
                   <span className="absolute bottom-1 right-1 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded">↗</span>
                 </a>
@@ -621,11 +628,41 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
               <span className="text-gray-300 hidden lg:block">/</span>
               <Link href={`/admin/tracks?artist=${artistId}`} className="text-gray-400 hover:text-gray-700 shrink-0 hidden lg:block">Dainos</Link>
             </>}
-            {/* Mobile back arrow */}
-            <Link href={artistId ? `/admin/tracks?artist=${artistId}` : '/admin/tracks'}
-              className="text-gray-400 hover:text-gray-700 shrink-0 lg:hidden"><IcoBack /></Link>
+            {/* Mobile: back + title + dots nav */}
+            <div className="flex lg:hidden items-center gap-2 min-w-0">
+              <Link href={artistId ? `/admin/tracks?artist=${artistId}` : '/admin/tracks'}
+                className="text-gray-400 hover:text-gray-700 shrink-0"><IcoBack /></Link>
+              <span className="text-gray-800 font-semibold truncate">{isNewTrack ? 'Nauja daina' : (title || '...')}</span>
+              {artistId > 0 && (
+                <div className="relative shrink-0" ref={mobileNavRef}>
+                  <button onClick={() => setShowMobileNav(p => !p)}
+                    className="p-1 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+                  </button>
+                  {showMobileNav && (
+                    <div className="absolute left-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-50 min-w-[160px] overflow-hidden">
+                      <Link href={`/admin/artists/${artistId}`} onClick={() => setShowMobileNav(false)}
+                        className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                        {artistName}
+                      </Link>
+                      <Link href={`/admin/albums?artist=${artistId}`} onClick={() => setShowMobileNav(false)}
+                        className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-t border-gray-50">
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" /></svg>
+                        Albumai
+                      </Link>
+                      <Link href={`/admin/tracks?artist=${artistId}`} onClick={() => setShowMobileNav(false)}
+                        className="flex items-center gap-2 px-3 py-2 text-sm text-blue-600 font-medium hover:bg-blue-50 transition-colors border-t border-gray-50">
+                        <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h10" /></svg>
+                        Dainos
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
             <span className="text-gray-300 hidden lg:block">/</span>
-            <span className="text-gray-800 font-semibold truncate max-w-[180px] lg:max-w-[260px]">{isNewTrack ? 'Nauja daina' : (title || '...')}</span>
+            <span className="text-gray-800 font-semibold truncate max-w-[260px] hidden lg:block">{isNewTrack ? 'Nauja daina' : (title || '...')}</span>
           </nav>
 
           {/* Actions */}
