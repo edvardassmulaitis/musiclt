@@ -81,11 +81,11 @@ function ArtistSearchInput({ placeholder = 'Ieškoti atlikėjo...', onSelect }: 
         <div className="absolute z-50 w-full bg-white border border-gray-200 rounded-xl shadow-xl mt-1 overflow-hidden">
           {results.map(a => (
             <button key={a.id} type="button"
-              onClick={() => { onSelect(a.id, a.name, a.avatar); setQ(''); setResults([]) }}
+              onClick={() => { onSelect(a.id, a.name, a.avatar || a.avatar_url || a.cover_image_url); setQ(''); setResults([]) }}
               className="w-full flex items-center gap-2 px-3 py-2 hover:bg-blue-50 text-left transition-colors">
               <div className="w-7 h-7 rounded-full overflow-hidden bg-gray-200 shrink-0">
-                {a.avatar
-                  ? <img src={a.avatar} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                {(a.avatar || a.avatar_url || a.cover_image_url)
+                  ? <img src={a.avatar || a.avatar_url || a.cover_image_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   : <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs font-bold">{a.name[0]}</div>
                 }
               </div>
@@ -522,40 +522,39 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
         {/* Artists */}
         <div>
           <label className="block text-xs font-semibold text-gray-500 mb-1">Atlikėjai *</label>
-          {form.artist_id ? (
-            <div className="space-y-1.5">
-              <div className="flex flex-wrap gap-1.5">
-                {/* Main artist chip with avatar */}
-                <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-xl px-2 py-1 shadow-sm shrink-0">
-                  <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 shrink-0">
-                    {artistAvatar
-                      ? <img src={artistAvatar} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                      : <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs font-bold">{artistName[0]}</div>
-                    }
-                  </div>
-                  <span className="text-gray-900 text-sm font-semibold">{artistName}</span>
-                  <button type="button" onClick={() => { set('artist_id', 0); setArtistName(''); setArtistId(null); setArtistAvatar('') }}
-                    className="text-gray-300 hover:text-red-500 transition-colors ml-0.5 text-base leading-none">×</button>
+          {/* Chips + inline search all in one flex row */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {form.artist_id ? (
+              <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-xl px-2 py-1 shadow-sm shrink-0">
+                <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 shrink-0">
+                  {artistAvatar
+                    ? <img src={artistAvatar} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    : <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs font-bold">{artistName[0]}</div>
+                  }
                 </div>
-                {featuredArtists.map((a, i) => (
-                  <div key={a.id} className="flex items-center gap-1 bg-white border border-gray-200 rounded-xl px-2 py-1 text-xs shadow-sm shrink-0">
-                    <span className="text-gray-400 text-[10px]">su</span>
-                    <span className="text-gray-700 font-medium">{a.name}</span>
-                    <button type="button" onClick={() => setFeaturedArtists(p => p.filter((_, j) => j !== i))}
-                      className="text-gray-300 hover:text-red-500 ml-0.5 leading-none">×</button>
-                  </div>
-                ))}
+                <span className="text-gray-900 text-sm font-semibold">{artistName}</span>
+                <button type="button" onClick={() => { set('artist_id', 0); setArtistName(''); setArtistId(null); setArtistAvatar('') }}
+                  className="text-gray-300 hover:text-red-500 transition-colors ml-0.5 text-base leading-none">×</button>
               </div>
-              <ArtistSearchInput placeholder="+ su atlikėju..."
-                onSelect={(id, name) => {
-                  if (id === form.artist_id) return
-                  if (!featuredArtists.find(a => a.id === id))
+            ) : null}
+            {featuredArtists.map((a, i) => (
+              <div key={a.id} className="flex items-center gap-1 bg-white border border-gray-200 rounded-xl px-2 py-1 text-xs shadow-sm shrink-0">
+                <span className="text-gray-400 text-[10px]">su</span>
+                <span className="text-gray-700 font-medium">{a.name}</span>
+                <button type="button" onClick={() => setFeaturedArtists(p => p.filter((_, j) => j !== i))}
+                  className="text-gray-300 hover:text-red-500 ml-0.5 leading-none">×</button>
+              </div>
+            ))}
+            <div className="flex-1 min-w-[120px]">
+              <ArtistSearchInput
+                placeholder={form.artist_id ? '+ su atlikėju...' : 'Ieškoti atlikėjo...'}
+                onSelect={(id, name, avatar) => {
+                  if (!form.artist_id) { set('artist_id', id); setArtistName(name); setArtistId(id); setArtistAvatar(avatar || '') }
+                  else if (id !== form.artist_id && !featuredArtists.find(a => a.id === id))
                     setFeaturedArtists(p => [...p, { id, name }])
                 }} />
             </div>
-          ) : (
-            <ArtistSearchInput placeholder="Ieškoti atlikėjo..." onSelect={(id, name, avatar) => { set('artist_id', id); setArtistName(name); setArtistId(id); setArtistAvatar(avatar || '') }} />
-          )}
+          </div>
         </div>
 
         {/* Type */}
