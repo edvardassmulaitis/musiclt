@@ -1457,7 +1457,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
         <form onSubmit={handleSubmit}>
 
 
-          <div className="flex flex-col lg:grid lg:grid-cols-2 gap-0 bg-white border-y lg:border lg:rounded-xl border-gray-100 shadow-sm overflow-hidden mb-2.5 lg:mx-3">
+          <div className="flex flex-col lg:grid lg:grid-cols-2 gap-0 bg-white border-y lg:border lg:rounded-xl border-gray-100 shadow-sm overflow-hidden mt-2.5 mb-2.5 lg:mx-3">
 
             {/* ── LEFT COLUMN ── */}
             <div className="p-3 pt-4 pb-4 border-b lg:border-b-0 lg:border-r border-gray-100">
