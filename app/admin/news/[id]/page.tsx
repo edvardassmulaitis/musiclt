@@ -7,7 +7,7 @@ import Link from 'next/link'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
-import Link as TiptapLink from '@tiptap/extension-link'
+import { Link as TiptapLink } from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
