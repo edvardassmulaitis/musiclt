@@ -185,7 +185,6 @@ function EditorJsWrapper({ value, onChange, photos, onUploadedImage }: {
       const List = (await import('@editorjs/list')).default
       const Quote = (await import('@editorjs/quote')).default
       const ImageTool = (await import('@editorjs/image')).default
-      const LinkTool = (await import('@editorjs/link')).default
       const Delimiter = (await import('@editorjs/delimiter')).default
 
       const initialData = parseInitialData(value)
