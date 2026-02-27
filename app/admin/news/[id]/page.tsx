@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { useEditor, EditorContent, Editor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { Link as TiptapLink } from '@tiptap/extension-link'
+import TiptapImage from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -68,7 +69,7 @@ function MiniPhotoCrop({ src, onSave, onCancel }: { src: string; onSave: (url: s
   const [dragging, setDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const imgRef = useRef<HTMLImageElement | null>(null)
-  const SIZE = 200
+  const SIZE = 280
 
   useEffect(() => {
     const img = new Image()
@@ -124,7 +125,7 @@ function MiniPhotoCrop({ src, onSave, onCancel }: { src: string; onSave: (url: s
         <div className="flex justify-center mb-3">
           <canvas ref={canvasRef} width={SIZE} height={SIZE}
             className="rounded-xl border border-gray-200 cursor-move"
-            style={{ width: SIZE, height: SIZE }}
+            style={{ width: SIZE, height: SIZE, touchAction: 'none' }}
             onMouseDown={handleMouseDown} onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} />
         </div>
@@ -183,6 +184,7 @@ function RichEditor({ value, onChange, photos, onUploadedImage }: {
         blockquote: { HTMLAttributes: { class: 'blockquote' } },
       }),
       TiptapLink.configure({ openOnClick: false }),
+      TiptapImage.configure({ inline: false, allowBase64: false, HTMLAttributes: { style: 'max-width:100%;border-radius:8px;margin:4px 0;' } }),
       Placeholder.configure({ placeholder: 'Rašykite naujieną...' }),
     ],
     content: value,
@@ -194,7 +196,7 @@ function RichEditor({ value, onChange, photos, onUploadedImage }: {
 
   const insertImg = useCallback((url: string) => {
     if (!editor) return
-    editor.chain().focus().insertContent(`<p><img src="${url}" alt="" style="max-width:100%;border-radius:8px;margin:4px 0;" /></p>`).run()
+    editor.chain().focus().setImage({ src: url }).run()
     onUploadedImage?.(url)
   }, [editor, onUploadedImage])
 
@@ -681,10 +683,13 @@ export default function EditNews() {
           <div className="shrink-0 px-3 py-2 border-b border-gray-100 bg-white/80 flex items-center justify-between">
             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Atlikėjo nuotraukos</span>
             {form.image_small_url && (
-              <div className="flex items-center gap-1.5">
-                <img src={form.image_small_url} alt="" className="w-6 h-6 rounded object-cover border border-gray-200" />
-                <span className="text-[10px] text-gray-500">Mini pasirinkta</span>
-                <button type="button" onClick={() => set('image_small_url', '')} className="text-gray-400 hover:text-red-500 text-xs">✕</button>
+              <div className="flex items-center gap-2">
+                <img src={form.image_small_url} alt="" className="w-10 h-10 rounded-lg object-cover border border-gray-200 cursor-pointer hover:opacity-80" 
+                  onClick={() => window.open(form.image_small_url, '_blank')} title="Paspausti peržiūrai" />
+                <div>
+                  <p className="text-[10px] text-gray-500 font-medium">Mini pasirinkta</p>
+                  <button type="button" onClick={() => set('image_small_url', '')} className="text-[10px] text-red-400 hover:text-red-600">✕ Pašalinti</button>
+                </div>
               </div>
             )}
           </div>
