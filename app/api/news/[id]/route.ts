@@ -3,7 +3,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const supabase = createAdminClient()
   const { data, error } = await supabase
     .from('news')
@@ -12,14 +13,15 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       artist:artists!news_artist_id_fkey(id, name, slug, cover_image_url),
       artist2:artists!news_artist_id2_fkey(id, name, slug, cover_image_url)
     `)
-    .eq('id', params.id)
+    .eq('id', id)
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 404 })
   return NextResponse.json(data)
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const session = await getServerSession(authOptions)
   if (!session?.user || !['admin', 'super_admin'].includes(session.user.role || '')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -45,7 +47,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         image5_url: data.image5_url || null, image5_caption: data.image5_caption || null,
         published_at: data.published_at,
       })
-      .eq('id', params.id)
+      .eq('id', id)
 
     if (error) throw new Error(error.message)
     return NextResponse.json({ success: true })
@@ -54,13 +56,14 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const session = await getServerSession(authOptions)
   if (!session?.user || !['admin', 'super_admin'].includes(session.user.role || '')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   const supabase = createAdminClient()
-  const { error } = await supabase.from('news').delete().eq('id', params.id)
+  const { error } = await supabase.from('news').delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })
 }
