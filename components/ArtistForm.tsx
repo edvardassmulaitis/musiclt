@@ -500,13 +500,7 @@ function AvatarUpload({ value, onChange, onOriginalSaved }: { value: string; onC
             className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition-colors">
             <IconUpload />
           </button>
-          {value && (
-            <button type="button"
-              onClick={() => { onChange(''); setUrlInput('') }}
-              className="flex items-center gap-1 px-2 py-1.5 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg text-xs transition-colors">
-              <IconTrash /> Išvalyti
-            </button>
-          )}
+
         </div>
 
         <div className="space-y-1">
@@ -659,12 +653,7 @@ function AvatarUploadCompact({ value, onChange, onOriginalSaved, artistId }: {
               className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition-colors">
               <IconUpload />
             </button>
-            {value && (
-              <button type="button" onClick={() => { onChange(''); setUrlInput('') }}
-                className="flex items-center gap-1 px-2 py-1.5 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg text-xs transition-colors">
-                <IconTrash /> Išvalyti
-              </button>
-            )}
+
             <div className="relative inline-block group">
               <span className="w-4 h-4 rounded-full bg-gray-200 text-gray-500 text-xs flex items-center justify-center cursor-help select-none">i</span>
               <div className="absolute left-0 top-6 w-44 bg-gray-800 text-white text-xs rounded-lg px-2.5 py-2 leading-snug opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
@@ -1259,6 +1248,9 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
                   className="w-full h-full object-cover group-hover:opacity-85 transition-opacity" />
               </div>
 
+              {/* Delete */}
+              <button type="button" onClick={e => { e.stopPropagation(); remove(i) }}
+                className="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 hover:bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity leading-none">×</button>
               {/* Author overlay — always visible if has author */}
               {p.author && (
                 <div className="absolute inset-x-0 bottom-0 rounded-b-lg bg-gradient-to-t from-black/75 to-transparent px-1.5 pt-4 pb-1 pointer-events-none">
