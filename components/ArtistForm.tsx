@@ -1119,29 +1119,52 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
         />
       )}
 
-      <div className="px-3 py-2 border-b border-gray-100 flex flex-col gap-1.5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+      <div className="px-3 py-2 border-b border-gray-100">
+        {/* Desktop: single row */}
+        <div className="hidden sm:flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <span className="text-xs font-semibold text-gray-500">Nuotraukų galerija</span>
             {photos.length > 0 && <span className="bg-gray-200 text-gray-600 text-xs font-bold px-1.5 py-0.5 rounded-full">{photos.length}</span>}
           </div>
-          <div className="flex items-center gap-1.5">
-            <button type="button" onClick={() => setShowWikimedia(true)} title="Wikimedia Commons"
-              className="flex items-center gap-1 px-2 py-1 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg text-xs font-medium transition-colors">
-              <WikipediaIcon /> Wiki
-            </button>
-            <button type="button" onClick={()=>!uploading&&fileRef.current?.click()}
-              className="flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-colors">
-              <IconUpload />
-            </button>
-          </div>
-        </div>
-        <div className="flex items-center gap-1.5">
           <input type="text" value={urlInput} onChange={e=>setUrlInput(e.target.value)}
             onKeyDown={e=>{ if(e.key==='Enter'){e.preventDefault();e.stopPropagation();addUrl()} }}
             placeholder="https://..."
             className="flex-1 min-w-0 px-2 py-1 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
           <button type="button" onClick={()=>addUrl()} className="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs transition-colors shrink-0">↵</button>
+          <button type="button" onClick={() => setShowWikimedia(true)} title="Wikimedia Commons"
+            className="flex items-center gap-1 px-2 py-1 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg text-xs font-medium transition-colors shrink-0">
+            <WikipediaIcon /> Wiki
+          </button>
+          <button type="button" onClick={()=>!uploading&&fileRef.current?.click()}
+            className="flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-colors shrink-0">
+            <IconUpload />
+          </button>
+        </div>
+        {/* Mobile: two rows */}
+        <div className="flex sm:hidden flex-col gap-1.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-gray-500">Nuotraukų galerija</span>
+              {photos.length > 0 && <span className="bg-gray-200 text-gray-600 text-xs font-bold px-1.5 py-0.5 rounded-full">{photos.length}</span>}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button type="button" onClick={() => setShowWikimedia(true)}
+                className="flex items-center gap-1 px-2 py-1 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg text-xs font-medium transition-colors">
+                <WikipediaIcon /> Wiki
+              </button>
+              <button type="button" onClick={()=>!uploading&&fileRef.current?.click()}
+                className="flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-colors">
+                <IconUpload />
+              </button>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <input type="text" value={urlInput} onChange={e=>setUrlInput(e.target.value)}
+              onKeyDown={e=>{ if(e.key==='Enter'){e.preventDefault();e.stopPropagation();addUrl()} }}
+              placeholder="https://..."
+              className="flex-1 min-w-0 px-2 py-1 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
+            <button type="button" onClick={()=>addUrl()} className="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs transition-colors shrink-0">↵</button>
+          </div>
         </div>
       </div>
 
@@ -1342,7 +1365,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
 
   return (
     <div className="min-h-screen bg-gray-50 lg:bg-gray-50" style={{ overflowX: "hidden", maxWidth: "100vw" }}>
-      <div className="w-full py-3 sm:py-6">
+      <div className="w-full py-0 sm:py-0">
         <div className="flex items-center justify-between mb-6">
           <div>
             <Link href={backHref} className="text-music-blue hover:text-music-orange text-sm">← Atgal</Link>
