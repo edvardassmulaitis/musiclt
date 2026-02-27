@@ -4,11 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
-import { useEditor, EditorContent, Editor, NodeViewWrapper } from '@tiptap/react'
-import { Node, mergeAttributes, ReactNodeViewRenderer } from '@tiptap/core'
-import StarterKit from '@tiptap/starter-kit'
-import { Link as TiptapLink } from '@tiptap/extension-link'
-import Placeholder from '@tiptap/extension-placeholder'
+
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -151,246 +147,181 @@ function MiniPhotoCrop({ src, onSave, onCancel }: { src: string; onSave: (url: s
   )
 }
 
-// ─── Custom Image Node Extension ─────────────────────────────────────────────
+// ─── Editor.js Wrapper ───────────────────────────────────────────────────────
 
-
-function ImageNodeView({ node, updateAttributes, selected }: any) {
-  const { src, alt, width, float } = node.attrs
-  const [showToolbar, setShowToolbar] = useState(false)
-
-  const widths = ['25%', '33%', '50%', '75%', '100%']
-  const floats = [
-    { val: 'left', label: '◀ Kairė' },
-    { val: 'none', label: '— Centras' },
-    { val: 'right', label: 'Dešinė ▶' },
-  ]
-
-  const style: React.CSSProperties = {
-    width: width || '100%',
-    float: (float && float !== 'none') ? float as 'left' | 'right' : 'none',
-    display: float === 'none' || !float ? 'block' : undefined,
-    margin: float === 'left' ? '4px 16px 8px 0' : float === 'right' ? '4px 0 8px 16px' : '8px auto',
-    borderRadius: 8,
-    cursor: 'pointer',
-    outline: selected ? '2px solid #3b82f6' : 'none',
-    outlineOffset: 2,
-    position: 'relative',
-  }
-
-  return (
-    <NodeViewWrapper style={{ display: float && float !== 'none' ? 'contents' : 'block' }}>
-      <div style={{ position: 'relative', display: 'inline-block', width: style.width, float: style.float, margin: style.margin }}>
-        {(showToolbar || selected) && (
-          <div
-            contentEditable={false}
-            style={{ position: 'absolute', top: -36, left: '50%', transform: 'translateX(-50%)', zIndex: 50, background: '#1f2937', borderRadius: 8, padding: '4px 6px', display: 'flex', gap: 2, alignItems: 'center', whiteSpace: 'nowrap', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
-            {floats.map(f => (
-              <button key={f.val} type="button"
-                onClick={() => updateAttributes({ float: f.val })}
-                style={{ padding: '2px 6px', borderRadius: 4, fontSize: 11, fontWeight: 600, background: (float || 'none') === f.val ? '#3b82f6' : 'transparent', color: 'white', border: 'none', cursor: 'pointer' }}>
-                {f.label}
-              </button>
-            ))}
-            <div style={{ width: 1, background: '#4b5563', margin: '0 3px', height: 14 }} />
-            {widths.map(w => (
-              <button key={w} type="button"
-                onClick={() => updateAttributes({ width: w })}
-                style={{ padding: '2px 5px', borderRadius: 4, fontSize: 10, fontWeight: 700, background: (width || '100%') === w ? '#3b82f6' : 'transparent', color: 'white', border: 'none', cursor: 'pointer' }}>
-                {w}
-              </button>
-            ))}
-            <div style={{ width: 1, background: '#4b5563', margin: '0 3px', height: 14 }} />
-            <button type="button"
-              onClick={() => {
-                // delete node - handled by selection + backspace equivalent
-                updateAttributes({ src: '' })
-              }}
-              style={{ padding: '2px 5px', borderRadius: 4, fontSize: 11, background: 'transparent', color: '#f87171', border: 'none', cursor: 'pointer' }}>
-              ✕
-            </button>
-          </div>
-        )}
-        <img
-          src={src} alt={alt || ''}
-          onClick={() => setShowToolbar(v => !v)}
-          style={{ width: '100%', borderRadius: 8, display: 'block', outline: selected ? '2px solid #3b82f6' : 'none', outlineOffset: 2, cursor: 'pointer' }}
-        />
-      </div>
-    </NodeViewWrapper>
-  )
-}
-
-const ResizableImage = Node.create({
-  name: 'resizableImage',
-  group: 'block',
-  atom: true,
-  draggable: true,
-  addAttributes() {
-    return {
-      src: { default: null },
-      alt: { default: '' },
-      width: { default: '100%' },
-      float: { default: 'none' },
-    }
-  },
-  parseHTML() {
-    return [{ tag: 'img[src]', getAttrs: el => {
-      const img = el as HTMLImageElement
-      const style = img.style
-      return {
-        src: img.getAttribute('src'),
-        alt: img.getAttribute('alt') || '',
-        width: style.width || '100%',
-        float: style.float || 'none',
-      }
-    }}]
-  },
-  renderHTML({ HTMLAttributes }) {
-    const { width, float, src, alt } = HTMLAttributes
-    const style = [
-      `width:${width || '100%'}`,
-      `float:${float || 'none'}`,
-      float === 'left' ? 'margin:4px 16px 8px 0' : float === 'right' ? 'margin:4px 0 8px 16px' : 'margin:8px auto',
-      'border-radius:8px',
-      'display:block',
-    ].join(';')
-    return ['img', mergeAttributes({ src, alt, style })]
-  },
-  addNodeView() {
-    return ReactNodeViewRenderer(ImageNodeView)
-  },
-  addCommands() {
-    return {
-      setResizableImage: (options: { src: string }) => ({ commands }: any) => {
-        return commands.insertContent({ type: this.name, attrs: options })
-      },
-    } as any
-  },
-})
-
-// ─── Rich Text Editor ─────────────────────────────────────────────────────────
-
-function RichEditor({ value, onChange, photos, onUploadedImage }: {
+function EditorJsWrapper({ value, onChange, photos, onUploadedImage }: {
   value: string
   onChange: (v: string) => void
   photos: Photo[]
   onUploadedImage?: (url: string) => void
 }) {
-  const [uploading, setUploading] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const editorRef = useRef<any>(null)
+  const holderRef = useRef<HTMLDivElement>(null)
+  const initializedRef = useRef(false)
+  const [ready, setReady] = useState(false)
 
-  const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        blockquote: { HTMLAttributes: { class: 'blockquote' } },
-      }),
-      TiptapLink.configure({ openOnClick: false }),
-      Placeholder.configure({ placeholder: 'Rašykite naujieną...' }),
-      ResizableImage,
-    ],
-    content: value,
-    onUpdate: ({ editor }) => onChange(editor.getHTML()),
-    editorProps: {
-      attributes: { class: 'prose prose-sm max-w-none focus:outline-none min-h-[200px] px-3 py-2.5 text-gray-800 text-sm' },
-    },
-  })
-
-  const insertImg = useCallback((url: string) => {
-    if (!editor) return
-    ;(editor.commands as any).setResizableImage({ src: url })
-    onUploadedImage?.(url)
-  }, [editor, onUploadedImage])
-
-  const handleFileUpload = async (files: FileList | null) => {
-    if (!files || !editor) return
-    setUploading(true)
+  // Parse stored value – could be EditorJS JSON or legacy HTML
+  const parseInitialData = (val: string) => {
+    if (!val) return undefined
     try {
-      for (const file of Array.from(files)) {
-        if (!file.type.startsWith('image/')) continue
-        const url = await uploadImage(file)
-        insertImg(url)
+      const parsed = JSON.parse(val)
+      if (parsed.blocks) return parsed
+    } catch {}
+    // Legacy HTML – wrap as single paragraph block
+    return {
+      blocks: [{ type: 'paragraph', data: { text: val.replace(/<[^>]+>/g, '') } }]
+    }
+  }
+
+  useEffect(() => {
+    if (initializedRef.current || !holderRef.current) return
+    initializedRef.current = true
+
+    let editor: any
+
+    const init = async () => {
+      const EditorJS = (await import('@editorjs/editorjs')).default
+      const Header = (await import('@editorjs/header')).default
+      const List = (await import('@editorjs/list')).default
+      const Quote = (await import('@editorjs/quote')).default
+      const ImageTool = (await import('@editorjs/image')).default
+      const LinkTool = (await import('@editorjs/link')).default
+      const Delimiter = (await import('@editorjs/delimiter')).default
+
+      const initialData = parseInitialData(value)
+
+      editor = new EditorJS({
+        holder: holderRef.current!,
+        data: initialData,
+        placeholder: 'Rašykite naujieną...',
+        tools: {
+          header: {
+            class: Header,
+            config: { levels: [2, 3, 4], defaultLevel: 2 },
+          },
+          list: {
+            class: List,
+            inlineToolbar: true,
+          },
+          quote: {
+            class: Quote,
+            inlineToolbar: true,
+            config: { quotePlaceholder: 'Citata...', captionPlaceholder: 'Autorius' },
+          },
+          image: {
+            class: ImageTool,
+            config: {
+              uploader: {
+                uploadByFile: async (file: File) => {
+                  try {
+                    const url = await uploadImage(file)
+                    onUploadedImage?.(url)
+                    return { success: 1, file: { url } }
+                  } catch (e: any) {
+                    return { success: 0, file: { url: '' } }
+                  }
+                },
+                uploadByUrl: async (url: string) => {
+                  try {
+                    const stored = await uploadFromUrl(url)
+                    onUploadedImage?.(stored)
+                    return { success: 1, file: { url: stored } }
+                  } catch {
+                    return { success: 1, file: { url } }
+                  }
+                },
+              },
+            },
+          },
+          delimiter: { class: Delimiter },
+        },
+        onChange: async () => {
+          if (!editor) return
+          try {
+            const data = await editor.save()
+            onChange(JSON.stringify(data))
+          } catch {}
+        },
+        onReady: () => setReady(true),
+        i18n: {
+          messages: {
+            ui: {
+              blockTunes: { toggler: { 'Click to tune': 'Nustatymai', 'or drag to move': 'arba tempti' } },
+              inlineToolbar: { converter: { 'Convert to': 'Konvertuoti į' } },
+              toolbar: { toolbox: { Add: 'Pridėti' } },
+            },
+            toolNames: {
+              Text: 'Tekstas', Heading: 'Antraštė', List: 'Sąrašas',
+              Quote: 'Citata', Image: 'Nuotrauka', Delimiter: 'Skyriklis',
+              Bold: 'Paryškintas', Italic: 'Kursyvas', Link: 'Nuoroda',
+            },
+            tools: {
+              image: {
+                'Select an Image': 'Pasirinkite nuotrauką',
+                'With border': 'Su rėmeliu',
+                'Stretch image': 'Išplėsti',
+                'With background': 'Su fonu',
+              },
+              list: { Ordered: 'Sunumeruotas', Unordered: 'Nenumeruotas' },
+              header: { 'Heading 1': 'H1', 'Heading 2': 'H2', 'Heading 3': 'H3' },
+            },
+            blockTunes: {
+              delete: { Delete: 'Ištrinti', 'Click to delete': 'Spausti ištrinti' },
+              moveUp: { 'Move up': 'Kelti aukštyn' },
+              moveDown: { 'Move down': 'Leisti žemyn' },
+            },
+          },
+        },
+      })
+
+      editorRef.current = editor
+    }
+
+    init()
+
+    return () => {
+      if (editorRef.current?.destroy) {
+        editorRef.current.destroy()
+        editorRef.current = null
+        initializedRef.current = false
       }
-    } catch (e: any) { alert(e.message) }
-    finally { setUploading(false) }
-  }
+    }
+  }, [])
 
-  const handleUrlInsert = async () => {
-    const url = window.prompt('Nuotraukos URL:')
-    if (!url || !editor) return
-    setUploading(true)
+  // Insert photo from gallery
+  const insertGalleryPhoto = async (url: string) => {
+    const editor = editorRef.current
+    if (!editor) return
     try {
-      const stored = await uploadFromUrl(url)
-      insertImg(stored)
-    } catch { insertImg(url) }
-    finally { setUploading(false) }
+      await editor.blocks.insert('image', { file: { url }, caption: '', withBorder: false, stretched: false, withBackground: false })
+      onUploadedImage?.(url)
+    } catch {}
   }
-
-  const handleDrop = async (e: React.DragEvent) => {
-    e.preventDefault()
-    await handleFileUpload(e.dataTransfer.files)
-  }
-
-  if (!editor) return null
-
-  const Btn = ({ onClick, label, active = false, disabled = false }: { onClick: () => void; label: string; active?: boolean; disabled?: boolean }) => (
-    <button type="button" onClick={onClick} disabled={disabled}
-      className={\`px-1.5 py-0.5 rounded text-xs font-medium transition-colors disabled:opacity-40 \${active ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'}\`}>
-      {label}
-    </button>
-  )
 
   return (
-    <div className="border border-gray-200 rounded-lg overflow-visible bg-white">
-      <div className="flex flex-wrap items-center gap-0.5 px-2 py-1 border-b border-gray-100 bg-gray-50/60">
-        <Btn onClick={() => editor.chain().focus().toggleBold().run()} label="B" active={editor.isActive('bold')} />
-        <Btn onClick={() => editor.chain().focus().toggleItalic().run()} label="I" active={editor.isActive('italic')} />
-        <Btn onClick={() => editor.chain().focus().toggleStrike().run()} label="S̶" active={editor.isActive('strike')} />
-        <div className="w-px h-3 bg-gray-200 mx-0.5" />
-        <Btn onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} label="H2" active={editor.isActive('heading', { level: 2 })} />
-        <Btn onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} label="H3" active={editor.isActive('heading', { level: 3 })} />
-        <div className="w-px h-3 bg-gray-200 mx-0.5" />
-        <Btn onClick={() => editor.chain().focus().toggleBulletList().run()} label="• Sąrašas" active={editor.isActive('bulletList')} />
-        <Btn onClick={() => editor.chain().focus().toggleOrderedList().run()} label="1." active={editor.isActive('orderedList')} />
-        <Btn onClick={() => editor.chain().focus().toggleBlockquote().run()} label="❝ Citata" active={editor.isActive('blockquote')} />
-        <div className="w-px h-3 bg-gray-200 mx-0.5" />
-        <button type="button" onClick={() => {
-          const url = window.prompt('Nuorodos URL:')
-          if (url) editor.chain().focus().setLink({ href: url }).run()
-        }} className={\`px-1.5 py-0.5 rounded text-xs font-medium transition-colors \${editor.isActive('link') ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'}\`}>
-          🔗
-        </button>
-        <div className="w-px h-3 bg-gray-200 mx-0.5" />
-        {photos.length > 0 && (
-          <div className="relative group/gallery">
-            <button type="button" className="px-1.5 py-0.5 rounded text-xs font-medium text-gray-500 hover:bg-gray-100 transition-colors">
-              📷 Galerija
-            </button>
-            <div className="absolute left-0 top-full mt-0.5 bg-white border border-gray-200 rounded-xl shadow-xl z-[100] p-2 hidden group-hover/gallery:flex gap-1.5 flex-wrap min-w-[180px] max-w-[280px]">
-              {photos.slice(0, 9).map((p, i) => (
-                <button key={i} type="button" onClick={() => insertImg(p.url)}
-                  className="w-12 h-12 rounded-lg overflow-hidden border-2 border-transparent hover:border-blue-400 transition-all shrink-0">
-                  <img src={p.url} alt="" className="w-full h-full object-cover" />
-                </button>
-              ))}
-            </div>
+    <div className="border border-gray-200 rounded-lg bg-white overflow-hidden">
+      {/* Gallery toolbar */}
+      {photos.length > 0 && (
+        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-100 bg-gray-50/60">
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Įterpti iš galerijos:</span>
+          <div className="flex gap-1.5 overflow-x-auto">
+            {photos.slice(0, 12).map((p, i) => (
+              <button key={i} type="button" onClick={() => insertGalleryPhoto(p.url)}
+                className="w-8 h-8 rounded-md overflow-hidden border-2 border-transparent hover:border-blue-400 transition-all shrink-0">
+                <img src={p.url} alt="" className="w-full h-full object-cover" />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {/* Editor holder */}
+      <div className="relative">
+        {!ready && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white z-10 min-h-[200px]">
+            <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
           </div>
         )}
-        <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}
-          className="px-1.5 py-0.5 rounded text-xs font-medium text-gray-500 hover:bg-gray-100 transition-colors disabled:opacity-40">
-          {uploading ? '⏳' : '📁 Įkelti'}
-        </button>
-        <Btn onClick={handleUrlInsert} label="🔗 URL" disabled={uploading} />
-        <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
-          onChange={e => handleFileUpload(e.target.files)} />
-      </div>
-      <div onDrop={handleDrop} onDragOver={e => e.preventDefault()} className="overflow-hidden">
-        <EditorContent editor={editor} />
-        {uploading && (
-          <div className="flex items-center gap-2 px-3 py-2 border-t border-gray-100 bg-blue-50 text-xs text-blue-600">
-            <span className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin inline-block" />
-            Įkeliama nuotrauka...
-          </div>
-        )}
+        <div ref={holderRef} className="min-h-[200px] px-2 py-1 editorjs-holder" />
       </div>
     </div>
   )
@@ -891,7 +822,7 @@ function FormPane({ form, set, artistPhotos, Label, showSlug, setShowSlug, showD
       <div>
         <Label>Tekstas</Label>
         <div className="mt-1">
-          <RichEditor value={form.body} onChange={v => set('body', v)} photos={artistPhotos}
+          <EditorJsWrapper value={form.body} onChange={v => set('body', v)} photos={artistPhotos}
             onUploadedImage={url => { if (!form.image_small_url) set('image_small_url', url) }} />
         </div>
       </div>
