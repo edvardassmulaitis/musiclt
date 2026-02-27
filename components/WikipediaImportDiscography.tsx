@@ -48,6 +48,23 @@ async function fetchWikitext(title: string): Promise<string> {
   return page?.revisions?.[0]?.slots?.main?.['*'] || page?.revisions?.[0]?.['*'] || ''
 }
 
+// Upload external image URL to Supabase storage via /api/fetch-image
+async function uploadToStorage(url: string): Promise<string> {
+  if (!url || url.includes('supabase')) return url
+  try {
+    const res = await fetch('/api/fetch-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    })
+    if (res.ok) {
+      const d = await res.json()
+      if (d.url && !d.url.startsWith('data:') && d.url.includes('supabase')) return d.url
+    }
+  } catch {}
+  return url // fallback to original URL if upload fails
+}
+
 async function fetchCoverImage(wikiTitle: string): Promise<string> {
   try {
     const res = await fetch(
@@ -56,7 +73,7 @@ async function fetchCoverImage(wikiTitle: string): Promise<string> {
     const json = await res.json()
     const pages = json.query?.pages || {}
     const page = Object.values(pages)[0] as any
-    if (page?.thumbnail?.source) return page.thumbnail.source
+    if (page?.thumbnail?.source) return uploadToStorage(page.thumbnail.source)
 
     const res2 = await fetch(
       `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(wikiTitle)}&prop=pageimages&piprop=original&format=json&origin=*`
@@ -64,7 +81,7 @@ async function fetchCoverImage(wikiTitle: string): Promise<string> {
     const json2 = await res2.json()
     const pages2 = json2.query?.pages || {}
     const page2 = Object.values(pages2)[0] as any
-    if (page2?.original?.source) return page2.original.source
+    if (page2?.original?.source) return uploadToStorage(page2.original.source)
 
     const res3 = await fetch(
       `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(wikiTitle)}&prop=images&format=json&origin=*`
@@ -86,7 +103,8 @@ async function fetchCoverImage(wikiTitle: string): Promise<string> {
       const json4 = await res4.json()
       const pages4 = json4.query?.pages || {}
       const page4 = Object.values(pages4)[0] as any
-      return page4?.imageinfo?.[0]?.thumburl || page4?.imageinfo?.[0]?.url || ''
+      const imgUrl = page4?.imageinfo?.[0]?.thumburl || page4?.imageinfo?.[0]?.url || ''
+      if (imgUrl) return uploadToStorage(imgUrl)
     }
     return ''
   } catch { return '' }
@@ -516,7 +534,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
         ? { ...al, tracks, fetched: true, cover_image_url: cover || al.cover_image_url,
             year: dateInfo.year ?? al.year, month: dateInfo.month, day: dateInfo.day }
         : al))
-      addLog(`  → ${tracks.length} dainų${cover ? ', viršelis ✓' : ''}`)
+      addLog(`  → ${tracks.length} dainų${cover ? ', viršelis ✓' : ''}${cover?.includes('supabase') ? ' (storage)' : cover ? ' (ext. URL)' : ''}`)
     } catch {
       setAlbums(p => p.map((al, i) => i === idx ? { ...al, fetched: true, tracks: [] } : al))
       addLog(`  ❌ Klaida kraunant ${a.title}`)
@@ -795,6 +813,11 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                           </div>
                           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                             <span className="text-xs text-gray-400">{TYPE_LABELS[a.type]}</span>
+                            {a.cover_image_url && (
+                              <span className={`text-xs ${a.cover_image_url.includes('supabase') ? 'text-green-500' : 'text-amber-500'}`}>
+                                {a.cover_image_url.includes('supabase') ? '☁️ storage' : '🔗 ext. URL'}
+                              </span>
+                            )}
                             {a.tracks !== undefined && (
                               <span className="text-xs text-purple-600">
                                 {a.tracks.length} dainų
