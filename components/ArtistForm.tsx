@@ -1148,19 +1148,24 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
       {lightboxIdx !== null && (
         <div className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center"
           onClick={() => setLightboxIdx(null)}>
+          {/* Close */}
           <button type="button" onClick={() => setLightboxIdx(null)}
-            className="absolute top-4 right-4 w-9 h-9 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center text-xl transition-colors">✕</button>
+            className="absolute top-4 right-4 w-9 h-9 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center text-xl transition-colors z-10">✕</button>
+          {/* Prev — outside image, won't interfere */}
           {lightboxIdx > 0 && (
             <button type="button"
               onClick={e => { e.stopPropagation(); setLightboxIdx(lightboxIdx - 1) }}
-              className="absolute left-4 top-1/2 -translate-y-1/2 w-9 h-9 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center text-lg transition-colors">‹</button>
+              className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/10 hover:bg-white/25 text-white rounded-full flex items-center justify-center text-2xl transition-colors z-10">‹</button>
           )}
+          {/* Next */}
           {lightboxIdx < photos.length - 1 && (
             <button type="button"
               onClick={e => { e.stopPropagation(); setLightboxIdx(lightboxIdx + 1) }}
-              className="absolute right-4 top-1/2 -translate-y-1/2 w-9 h-9 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center text-lg transition-colors">›</button>
+              className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/10 hover:bg-white/25 text-white rounded-full flex items-center justify-center text-2xl transition-colors z-10">›</button>
           )}
-          <div className="flex flex-col items-center gap-3 px-16 max-w-4xl w-full" onClick={e => e.stopPropagation()}>
+          {/* Image + meta — stopPropagation only here so clicking bg closes */}
+          <div className="flex flex-col items-center gap-3 max-w-4xl w-full px-14 sm:px-20"
+            onClick={e => e.stopPropagation()}>
             <img src={photos[lightboxIdx].url} alt="" referrerPolicy="no-referrer"
               className="max-h-[75vh] max-w-full object-contain rounded-xl shadow-2xl" />
             {(photos[lightboxIdx].author || photos[lightboxIdx].sourceUrl) && (
@@ -1168,6 +1173,7 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
                 {photos[lightboxIdx].author && <span>© {photos[lightboxIdx].author}</span>}
                 {photos[lightboxIdx].sourceUrl && (
                   <a href={photos[lightboxIdx].sourceUrl} target="_blank" rel="noopener noreferrer"
+                    onClick={e => e.stopPropagation()}
                     className="text-blue-300 hover:text-blue-200 hover:underline">Šaltinis ↗</a>
                 )}
               </div>
