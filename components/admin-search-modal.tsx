@@ -7,15 +7,14 @@ type Artist = { id: number; name: string; cover_image_url?: string }
 type Album = { id: number; title: string; year: number | null; artist_name: string; cover_url?: string }
 type Track = { id: number; title: string; type: string; artist_name: string; cover_url?: string; video_url?: string; spotify_id?: string; has_lyrics?: boolean }
 
-export default function AdminSearchModal({ onClose, inputRef: externalRef }: { onClose: () => void; inputRef?: React.RefObject<HTMLInputElement> }) {
+export default function AdminSearchModal({ onClose }: { onClose: () => void }) {
   const [query, setQuery] = useState('')
   const [artists, setArtists] = useState<Artist[]>([])
   const [albums, setAlbums] = useState<Album[]>([])
   const [tracks, setTracks] = useState<Track[]>([])
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
-  const localRef = useRef<HTMLInputElement>(null)
-  const inputRef = externalRef || localRef
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     inputRef.current?.focus()
