@@ -1413,7 +1413,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                 />
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* Left: Veiklos metai */
+                  {/* Left: Veiklos metai */}
                   <div>
                     <label className="block text-xs font-semibold text-gray-500 mb-1">Veiklos laikotarpis</label>
                     <div className="flex items-center gap-1.5">
