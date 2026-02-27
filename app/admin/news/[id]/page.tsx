@@ -514,7 +514,7 @@ export default function EditNews() {
 
 function FormPane({ form, set, artistPhotos, Label, showSlug, setShowSlug, showDate, setShowDate, slugRef, dateRef }: {
   form: NewsForm; set: (k: keyof NewsForm, v: any) => void; artistPhotos: Photo[]
-  Label: ({ children }: { children: React.ReactNode }) => JSX.Element
+  Label: ({ children }: { children: React.ReactNode }) => React.ReactElement
   showSlug: boolean; setShowSlug: (v: boolean) => void
   showDate: boolean; setShowDate: (v: boolean) => void
   slugRef: React.RefObject<HTMLDivElement | null>; dateRef: React.RefObject<HTMLDivElement | null>
