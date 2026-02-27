@@ -1070,9 +1070,11 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ photos: next })
       })
+      const result = await res.json().catch(() => ({}))
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        console.error('[Gallery] saveToDb failed:', res.status, err)
+        console.error('[Gallery] saveToDb failed:', res.status, result)
+      } else {
+        console.log('[Gallery] saveToDb ok:', result)
       }
     } catch (e) {
       console.error('[Gallery] saveToDb error:', e)
@@ -1256,9 +1258,7 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
                 <img src={p.url} alt="" referrerPolicy="no-referrer"
                   className="w-full h-full object-cover group-hover:opacity-85 transition-opacity" />
               </div>
-              {/* Delete */}
-              <button type="button" onClick={e => { e.stopPropagation(); remove(i) }}
-                className="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 hover:bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity leading-none">×</button>
+
               {/* Author overlay — always visible if has author */}
               {p.author && (
                 <div className="absolute inset-x-0 bottom-0 rounded-b-lg bg-gradient-to-t from-black/75 to-transparent px-1.5 pt-4 pb-1 pointer-events-none">
