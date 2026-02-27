@@ -1115,6 +1115,12 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
   const updateMeta = (i: number, field: 'author'|'sourceUrl', val: string) => {
     const next = photos.map((p,idx) => idx===i ? {...p, [field]:val} : p)
     onChange(next)
+    if (artistId) {
+      fetch(`/api/artists/${artistId}/photos`, {
+        method:'PUT', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ photos: next })
+      }).catch(()=>{})
+    }
   }
 
   return (
@@ -1124,7 +1130,13 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
           artistName={artistName || ''}
           onAddMultiple={newPhotos => {
             const existingUrls = new Set(photos.map(p => p.url))
-            const fresh = newPhotos.filter(p => !existingUrls.has(p.url))
+            const fresh = newPhotos
+              .filter(p => !existingUrls.has(p.url))
+              .map(p => ({
+                url: p.url,
+                author: (p as any).author || undefined,
+                sourceUrl: (p as any).authorUrl || (p as any).sourceUrl || undefined,
+              }))
             if (fresh.length) {
               const next = [...fresh, ...photos]
               onChange(next)
@@ -1212,20 +1224,31 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
               )}
               {/* Expanded meta row */}
               {expandedIdx===i && (
-                <div className="absolute z-30 top-full left-0 mt-1 w-56 bg-white border border-gray-200 rounded-xl shadow-xl p-2 space-y-1.5"
+                <div className="absolute z-30 top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-xl shadow-xl p-2.5 space-y-2"
                   style={{right:'auto'}}>
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="text-xs font-semibold text-gray-600">Metaduomenys</span>
+                    {(p.author||p.sourceUrl) && <span className="text-[10px] text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded-full">Wiki</span>}
+                  </div>
                   <div>
-                    <label className="block text-xs text-gray-400 mb-0.5">© Autorius</label>
+                    <label className="block text-[11px] text-gray-400 mb-0.5">© Autorius / licencija</label>
                     <input type="text" value={p.author||''} onChange={e=>updateMeta(i,'author',e.target.value)}
-                      placeholder="Fotografas / šaltinis"
+                      placeholder="Fotografas · CC BY-SA 4.0"
                       className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400" />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-400 mb-0.5">🔗 Šaltinio URL</label>
+                    <label className="block text-[11px] text-gray-400 mb-0.5">Šaltinio URL</label>
                     <input type="url" value={p.sourceUrl||''} onChange={e=>updateMeta(i,'sourceUrl',e.target.value)}
-                      placeholder="https://..."
+                      placeholder="https://commons.wikimedia.org/..."
                       className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400" />
                   </div>
+                  {p.sourceUrl && (
+                    <a href={p.sourceUrl} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-[11px] text-blue-500 hover:underline">
+                      <svg viewBox="0 0 24 24" className="w-3 h-3 fill-none stroke-current stroke-2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                      Atidaryti šaltinį
+                    </a>
+                  )}
                   <button type="button" onClick={()=>setExpandedIdx(null)} className="text-xs text-gray-400 hover:text-gray-600">✕ Uždaryti</button>
                 </div>
               )}
