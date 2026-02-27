@@ -483,7 +483,7 @@ export default function EditArtist() {
       const res = await fetch(`/api/artists/${artistId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formToDb(form), skipPhotos: true, skipAvatar: true }),
+        body: JSON.stringify({ ...formToDb(form), skipAvatar: true }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
@@ -499,7 +499,7 @@ export default function EditArtist() {
       await fetch(`/api/artists/${artistId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formToDb(form), skipPhotos: true, skipAvatar: true }),
+        body: JSON.stringify({ ...formToDb(form), skipAvatar: true }),
       })
     } catch {}
   }, [artistId])
