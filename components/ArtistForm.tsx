@@ -1460,7 +1460,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
           <div className="flex flex-col lg:grid lg:grid-cols-2 gap-0 bg-white border-y lg:border lg:rounded-xl border-gray-100 shadow-sm overflow-hidden mt-2.5 mb-2.5 lg:mx-3">
 
             {/* ── LEFT COLUMN ── */}
-            <div className="p-3 pt-4 pb-4 border-b lg:border-b-0 lg:border-r border-gray-100">
+            <div className="p-2.5 sm:p-3 sm:pt-4 sm:pb-4 border-b lg:border-b-0 lg:border-r border-gray-100 space-y-2 sm:space-y-3">
               <div className="p-0 space-y-3">
 
                 {/* Pavadinimas + Tipas vienoje eilutėje */}
@@ -1507,7 +1507,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                   onChange={v=>set('substyles',v)}
                 />
 
-                <div className="flex flex-col sm:grid sm:grid-cols-2 gap-3">
+                <div className="flex flex-col sm:grid sm:grid-cols-2 gap-1.5 sm:gap-3">
                   {/* Left: Veiklos metai */}
                   <div>
                     <label className="block text-xs font-semibold text-gray-500 mb-1">Veiklos laikotarpis</label>
@@ -1537,14 +1537,14 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                 </div>
 
                 {form.type==='solo' && (
-                  <div className="space-y-3 pt-2 border-t border-gray-100">
-                    <div className="flex flex-col sm:flex-row sm:items-end sm:gap-4 gap-2">
+                  <div className="space-y-1.5 sm:space-y-3 pt-1.5 sm:pt-2 border-t border-gray-100">
+                    <div className="flex flex-col sm:flex-row sm:items-end sm:gap-4 gap-1">
                       <div>
                         <label className="block text-xs font-semibold text-gray-500 mb-1">Lytis</label>
                         <div className="flex gap-1">
                           {([['male','Vyras'],['female','Moteris']] as const).map(([v,l]) => (
                             <button key={v} type="button" onClick={()=>set('gender',v)}
-                              className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                              className={`px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-semibold transition-all ${
                                 form.gender===v ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                               }`}>
                               {l}
@@ -1558,7 +1558,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                         onY={(v:string)=>set('deathYear',v)} onM={(v:string)=>set('deathMonth',v)} onD={(v:string)=>set('deathDay',v)} /></div>
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-gray-500 mb-1">Priklauso grupėms</label>
+                      <label className="block text-xs font-semibold text-gray-500 mb-0.5">Priklauso grupėms</label>
                       <ArtistSearch label="Grupės" ph="Ieškoti grupės..." items={form.groups||[]}
                         onAdd={addGroup} onRemove={rmGroup} onYears={upGroup} filterType="group" />
                     </div>
@@ -1566,7 +1566,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                 )}
 
                 {form.type==='group' && (
-                  <div className="pt-2 border-t border-gray-100">
+                  <div className="pt-1.5 sm:pt-2 border-t border-gray-100">
                     <label className="block text-xs font-semibold text-gray-500 mb-1">Grupės nariai</label>
                     <ArtistSearch label="Nariai" ph="Ieškoti atlikėjo..." items={form.members}
                       onAdd={addMember} onRemove={rmMember} onYears={upMember} filterType="solo" />
