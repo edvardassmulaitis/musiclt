@@ -1,12 +1,11 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import AdminSearchModal from './admin-search-modal'
 export default function AdminHeader() {
   const { data: session } = useSession()
   const [searchOpen, setSearchOpen] = useState(false)
-  const searchInputRef = useRef<HTMLInputElement>(null)
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -27,7 +26,7 @@ export default function AdminHeader() {
             🎵 <span className="hidden sm:inline">music.lt</span>
           </Link>
           <button
-            onClick={() => { setSearchOpen(true); setTimeout(() => searchInputRef.current?.focus(), 0) }}
+            onClick={() => { setSearchOpen(true) }}
             className="flex-1 flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm text-gray-400 transition-colors text-left min-w-0">
             <svg viewBox="0 0 24 24" className="w-4 h-4 shrink-0 fill-none stroke-current stroke-2 text-gray-400">
               <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
@@ -56,7 +55,7 @@ export default function AdminHeader() {
           </nav>
         </div>
       </header>
-      {searchOpen && <AdminSearchModal onClose={() => setSearchOpen(false)} inputRef={searchInputRef} />}
+      {searchOpen && <AdminSearchModal onClose={() => setSearchOpen(false)} />}
     </>
   )
 }
