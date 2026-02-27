@@ -656,10 +656,10 @@ function ArtistFormCompact({ initialData, artistId, onSubmit, onAutoSave, saving
     <div className="artist-form-compact">
       <style>{`
         .artist-form-compact { overflow-x: hidden; max-width: 100vw; }
-        .artist-form-compact input, .artist-form-compact select, .artist-form-compact textarea { font-size: 16px !important; }
+        @media (max-width: 640px) { .artist-form-compact input, .artist-form-compact select, .artist-form-compact textarea { font-size: 16px !important; } }
         .artist-form-compact .min-h-screen { min-height: unset !important; }
         .artist-form-compact .max-w-7xl { max-width: 100% !important; padding: 0 !important; width: 100% !important; }
-        .artist-form-compact > div > div > .flex.items-center.justify-between.mb-6 { display: none !important; }
+        .artist-form-compact > div > div > .flex.items-center.justify-between.mb-6 { display: none !important; margin: 0 !important; }
         .artist-form-compact > div > div > form > .mt-6 { display: none !important; }
         .artist-form-compact > div { background: transparent !important; }
         .artist-form-compact form > .mb-5 { display: none !important; }
