@@ -59,6 +59,9 @@ const SOCIALS = [
 const IconUpload = () => (
   <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-none stroke-current stroke-2 shrink-0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
 )
+const IconLink = () => (
+  <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-none stroke-current stroke-2 shrink-0"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+)
 const IconTrash = () => (
   <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-none stroke-current stroke-2 shrink-0"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
 )
@@ -1018,9 +1021,9 @@ function ArtistSearch({ label, ph, items, onAdd, onRemove, onYears, filterType }
         ? <button type="button" onClick={()=>setShowNew(true)} className="text-xs text-music-blue hover:text-music-orange font-medium">+ Sukurti naują ir pridėti</button>
         : <div className="flex gap-2">
             <input type="text" value={newName} onChange={e=>setNewName(e.target.value)} placeholder="Vardas / pavadinimas"
-              className="flex-1 px-3 py-2 border border-blue-300 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-music-blue" />
-            <button type="button" onClick={addNew} className="px-3 py-2 bg-music-blue text-white rounded-lg text-sm font-medium">Sukurti</button>
-            <button type="button" onClick={()=>setShowNew(false)} className="px-3 py-2 bg-gray-100 rounded-lg text-sm text-gray-600">✕</button>
+              className="flex-1 px-2.5 py-1.5 border border-blue-300 rounded-lg text-gray-900 text-xs focus:outline-none focus:border-music-blue" />
+            <button type="button" onClick={addNew} className="px-2.5 py-1.5 bg-music-blue text-white rounded-lg text-xs font-medium">Sukurti</button>
+            <button type="button" onClick={()=>setShowNew(false)} className="px-2.5 py-1.5 bg-gray-100 rounded-lg text-xs text-gray-600">✕</button>
           </div>
       }
     </div>
@@ -1130,7 +1133,7 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
             onKeyDown={e=>{ if(e.key==='Enter'){e.preventDefault();e.stopPropagation();addUrl()} }}
             placeholder="https://..."
             className="flex-1 min-w-0 px-2 py-1 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
-          <button type="button" onClick={()=>addUrl()} className="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs transition-colors shrink-0">↵</button>
+          <button type="button" onClick={()=>addUrl()} title="Pridėti nuorodą" className="flex items-center justify-center px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs transition-colors shrink-0"><IconLink /></button>
           <button type="button" onClick={() => setShowWikimedia(true)} title="Wikimedia Commons"
             className="flex items-center gap-1 px-2 py-1 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg text-xs font-medium transition-colors shrink-0">
             <WikipediaIcon /> Wiki
@@ -1163,7 +1166,7 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
               onKeyDown={e=>{ if(e.key==='Enter'){e.preventDefault();e.stopPropagation();addUrl()} }}
               placeholder="https://..."
               className="flex-1 min-w-0 px-2 py-1 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
-            <button type="button" onClick={()=>addUrl()} className="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs transition-colors shrink-0">↵</button>
+            <button type="button" onClick={()=>addUrl()} title="Pridėti nuorodą" className="flex items-center justify-center px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs transition-colors shrink-0"><IconLink /></button>
           </div>
         </div>
       </div>
@@ -1388,7 +1391,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
             </div>
           )}
 
-          <div className="flex flex-col lg:grid lg:grid-cols-2 gap-0 bg-white border-y lg:border lg:rounded-xl border-gray-100 shadow-sm overflow-hidden mb-2.5">
+          <div className="flex flex-col lg:grid lg:grid-cols-2 gap-0 bg-white border-y lg:border lg:rounded-xl border-gray-100 shadow-sm overflow-hidden mb-2.5 lg:mx-3">
 
             {/* ── LEFT COLUMN ── */}
             <div className="p-3 pt-4 pb-4 border-b lg:border-b-0 lg:border-r border-gray-100">
@@ -1450,7 +1453,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                   </div>
                   {/* Right: Pertraukos */}
                   <div>
-                    <div className="flex justify-between items-center mb-1">
+                    <div className="flex items-center gap-2 mb-1">
                       <label className="block text-xs font-semibold text-gray-500">Pertraukos</label>
                       <button type="button" onClick={addBreak} className="text-xs text-blue-500 hover:text-blue-700 font-medium">+ Pridėti</button>
                     </div>
