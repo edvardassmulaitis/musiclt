@@ -972,7 +972,7 @@ function ArtistSearch({ label, ph, items, onAdd, onRemove, onYears, filterType }
   return (
     <div className="space-y-2">
       {items.map((item, i) => (
-        <div key={i} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
+        <div key={i} className="flex items-center gap-1.5 bg-gray-50 rounded-lg px-2 py-2 flex-wrap">
           {(item as any).avatar
             ? <img src={(item as any).avatar} alt="" referrerPolicy="no-referrer" className="w-6 h-6 rounded-full object-cover flex-shrink-0 border border-gray-200" />
             : <div className="w-6 h-6 rounded-full bg-music-blue flex items-center justify-center text-white text-xs flex-shrink-0">{item.name[0]}</div>
@@ -984,12 +984,12 @@ function ArtistSearch({ label, ph, items, onAdd, onRemove, onYears, filterType }
           <input value={item.yearFrom}
             onChange={e=>onYears(i,'yearFrom',e.target.value.replace(/\D/g,'').slice(0,4))}
             placeholder="Nuo" maxLength={4} inputMode="numeric"
-            className="w-14 px-1.5 py-1 border border-gray-300 rounded text-xs text-gray-900 focus:outline-none focus:border-music-blue text-center" />
+            className="w-12 px-1 py-1 border border-gray-300 rounded text-xs text-gray-900 focus:outline-none focus:border-music-blue text-center" />
           <span className="text-gray-400 text-xs">–</span>
           <input value={item.yearTo}
             onChange={e=>onYears(i,'yearTo',e.target.value.replace(/\D/g,'').slice(0,4))}
             placeholder="Iki" maxLength={4} inputMode="numeric"
-            className="w-14 px-1.5 py-1 border border-gray-300 rounded text-xs text-gray-900 focus:outline-none focus:border-music-blue text-center" />
+            className="w-12 px-1 py-1 border border-gray-300 rounded text-xs text-gray-900 focus:outline-none focus:border-music-blue text-center" />
           <button type="button" onClick={()=>onRemove(i)} className="text-red-400 hover:text-red-600 font-bold text-base ml-1">×</button>
         </div>
       ))}
@@ -1339,7 +1339,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
 
   return (
     <div className="min-h-screen bg-gray-50 lg:bg-gray-50">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-6">
+      <div className="max-w-7xl mx-auto px-0 sm:px-6 py-3 sm:py-6" style={{ maxWidth: "100vw", overflowX: "hidden" }}>
         <div className="flex items-center justify-between mb-6">
           <div>
             <Link href={backHref} className="text-music-blue hover:text-music-orange text-sm">← Atgal</Link>
@@ -1362,14 +1362,14 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
             </div>
           )}
 
-          <div className="flex flex-col lg:grid lg:grid-cols-2 gap-0 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mb-2.5 mx-3">
+          <div className="flex flex-col lg:grid lg:grid-cols-2 gap-0 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mb-2.5 mx-2 sm:mx-3">
 
             {/* ── LEFT COLUMN ── */}
             <div className="p-3 pt-4 pb-4 border-b lg:border-b-0 lg:border-r border-gray-100">
               <div className="p-0 space-y-3">
 
                 {/* Pavadinimas + Tipas vienoje eilutėje */}
-                <div className="flex gap-3 items-end">
+                <div className="flex flex-wrap gap-2 items-end">
                   <div className="flex-1 min-w-0">
                     <label className="block text-xs font-semibold text-gray-500 mb-1">Pavadinimas *</label>
                     <Inp value={form.name} onChange={(v:string)=>set('name',v)} placeholder="Pvz: Jazzu" required />
@@ -1388,7 +1388,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
                     <label className="block text-xs font-semibold text-gray-500 mb-1">Šalis *</label>
                     <Sel value={form.country} onChange={(v:string)=>set('country',v)} required>
@@ -1412,7 +1412,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                   onChange={v=>set('substyles',v)}
                 />
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="flex flex-col sm:grid sm:grid-cols-2 gap-3">
                   {/* Left: Veiklos metai */}
                   <div>
                     <label className="block text-xs font-semibold text-gray-500 mb-1">Veiklos laikotarpis</label>
