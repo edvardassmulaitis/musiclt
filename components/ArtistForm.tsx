@@ -6,7 +6,6 @@ import { GENRES } from '@/lib/constants'
 import PhotoGallery, { type Photo } from './PhotoGallery'
 import WikipediaImport from './WikipediaImport'
 import WikimediaSearch from './WikimediaSearch'
-import InstagramConnect from './InstagramConnect'
 import RichTextEditor from './RichTextEditor'
 
 const CY = new Date().getFullYear()
@@ -1406,11 +1405,6 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
             <WikipediaImport onImport={data => setForm(prev => ({ ...prev, ...data }))} />
           </div>
 
-          {artistId && (
-            <div className="mb-5 InstagramConnect">
-              <InstagramConnect artistId={artistId} artistName={form.name} />
-            </div>
-          )}
 
           <div className="flex flex-col lg:grid lg:grid-cols-2 gap-0 bg-white border-y lg:border lg:rounded-xl border-gray-100 shadow-sm overflow-hidden mb-2.5 lg:mx-3">
 
