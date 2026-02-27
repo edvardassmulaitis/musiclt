@@ -477,13 +477,17 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
     set('tracks', t)
   }
 
+  const featuredArtistsRef = useRef(featuredArtists)
+  featuredArtistsRef.current = featuredArtists
+
   const handleSubmit = useCallback(async () => {
     const cur = formRef.current
+    console.log('[handleSubmit] tracks titles:', cur.tracks?.map(t => t.title))
     if (!cur.title.trim()) { setError('Pavadinimas privalomas'); return }
     if (!cur.artist_id) { setError('Pasirinkite atlikėją'); return }
     setSaving(true); setError('')
     try {
-      const payload = { ...cur, featured_artist_ids: featuredArtists.map(a => a.id) }
+      const payload = { ...cur, featured_artist_ids: featuredArtistsRef.current.map(a => a.id) }
       const res = await fetch(isNew ? '/api/albums' : `/api/albums/${id}`, {
         method: isNew ? 'POST' : 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -494,7 +498,7 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
       setSaved(true); setTimeout(() => setSaved(false), 2000)
       if (isNew) router.push(`/admin/albums/${data.id}`)
     } catch (e: any) { setError(e.message) } finally { setSaving(false) }
-  }, [id, isNew, featuredArtists])
+  }, [id, isNew])
 
   const handleDelete = async () => {
     if (!confirm(`Ištrinti albumą "${form.title}"?`)) return
