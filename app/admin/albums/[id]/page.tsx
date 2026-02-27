@@ -81,12 +81,12 @@ function ArtistSearchInput({ placeholder = 'Ieškoti atlikėjo...', onSelect }: 
         <div className="absolute z-50 w-full bg-white border border-gray-200 rounded-xl shadow-xl mt-1 overflow-hidden">
           {results.map(a => (
             <button key={a.id} type="button"
-              onClick={() => { onSelect(a.id, a.name, a.avatar || a.avatar_url || a.cover_image_url); setQ(''); setResults([]) }}
+              onClick={() => { onSelect(a.id, a.name, a.cover_image_url || a.avatar || null); setQ(''); setResults([]) }}
               className="w-full flex items-center gap-2 px-3 py-2 hover:bg-blue-50 text-left transition-colors">
               <div className="w-7 h-7 rounded-full overflow-hidden bg-gray-200 shrink-0">
-                {(a.avatar || a.avatar_url || a.cover_image_url)
-                  ? <img src={a.avatar || a.avatar_url || a.cover_image_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                  : <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs font-bold">{a.name[0]}</div>
+                {(a.cover_image_url || a.avatar)
+                  ? <img src={a.cover_image_url || a.avatar} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  : <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-400 to-indigo-500 text-white text-xs font-bold">{a.name[0]}</div>
                 }
               </div>
               <div className="min-w-0">
@@ -529,7 +529,7 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
                 <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 shrink-0">
                   {artistAvatar
                     ? <img src={artistAvatar} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                    : <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs font-bold">{artistName[0]}</div>
+                    : <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-400 to-indigo-500 text-white text-xs font-bold">{artistName[0]}</div>
                   }
                 </div>
                 <span className="text-gray-900 text-sm font-semibold">{artistName}</span>
