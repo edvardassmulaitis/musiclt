@@ -662,7 +662,6 @@ function ArtistFormCompact({ initialData, artistId, onSubmit, onAutoSave, saving
         .artist-form-compact > div > div > .flex.items-center.justify-between.mb-6 { display: none !important; margin: 0 !important; }
         .artist-form-compact > div > div > form > .mt-6 { display: none !important; }
         .artist-form-compact > div { background: transparent !important; }
-        .artist-form-compact form > .mb-5 { display: none !important; }
       `}</style>
       <ArtistForm
         title=""
