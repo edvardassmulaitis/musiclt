@@ -4,10 +4,10 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
-import { useEditor, EditorContent, Editor } from '@tiptap/react'
+import { useEditor, EditorContent, Editor, NodeViewWrapper } from '@tiptap/react'
+import { Node, mergeAttributes, ReactNodeViewRenderer } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import { Link as TiptapLink } from '@tiptap/extension-link'
-import TiptapImage from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -151,23 +151,124 @@ function MiniPhotoCrop({ src, onSave, onCancel }: { src: string; onSave: (url: s
   )
 }
 
-// ─── Rich Text Editor ─────────────────────────────────────────────────────────
+// ─── Custom Image Node Extension ─────────────────────────────────────────────
 
-function insertImageToEditor(editor: Editor, url: string) {
-  editor.chain().focus().insertContent({
-    type: 'paragraph',
-    content: [{
-      type: 'text',
-      text: ' ',
-    }]
-  }).run()
-  // Insert as HTML
-  const view = editor.view
-  const { state, dispatch } = view
-  const { tr, schema } = state
-  // Use insertContent with html
-  editor.chain().focus().insertContent(`<p><img src="${url}" alt="" style="max-width:100%;border-radius:8px;" /></p>`).run()
+
+function ImageNodeView({ node, updateAttributes, selected }: any) {
+  const { src, alt, width, float } = node.attrs
+  const [showToolbar, setShowToolbar] = useState(false)
+
+  const widths = ['25%', '33%', '50%', '75%', '100%']
+  const floats = [
+    { val: 'left', label: '◀ Kairė' },
+    { val: 'none', label: '— Centras' },
+    { val: 'right', label: 'Dešinė ▶' },
+  ]
+
+  const style: React.CSSProperties = {
+    width: width || '100%',
+    float: (float && float !== 'none') ? float as 'left' | 'right' : 'none',
+    display: float === 'none' || !float ? 'block' : undefined,
+    margin: float === 'left' ? '4px 16px 8px 0' : float === 'right' ? '4px 0 8px 16px' : '8px auto',
+    borderRadius: 8,
+    cursor: 'pointer',
+    outline: selected ? '2px solid #3b82f6' : 'none',
+    outlineOffset: 2,
+    position: 'relative',
+  }
+
+  return (
+    <NodeViewWrapper style={{ display: float && float !== 'none' ? 'contents' : 'block' }}>
+      <div style={{ position: 'relative', display: 'inline-block', width: style.width, float: style.float, margin: style.margin }}>
+        {(showToolbar || selected) && (
+          <div
+            contentEditable={false}
+            style={{ position: 'absolute', top: -36, left: '50%', transform: 'translateX(-50%)', zIndex: 50, background: '#1f2937', borderRadius: 8, padding: '4px 6px', display: 'flex', gap: 2, alignItems: 'center', whiteSpace: 'nowrap', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+            {floats.map(f => (
+              <button key={f.val} type="button"
+                onClick={() => updateAttributes({ float: f.val })}
+                style={{ padding: '2px 6px', borderRadius: 4, fontSize: 11, fontWeight: 600, background: (float || 'none') === f.val ? '#3b82f6' : 'transparent', color: 'white', border: 'none', cursor: 'pointer' }}>
+                {f.label}
+              </button>
+            ))}
+            <div style={{ width: 1, background: '#4b5563', margin: '0 3px', height: 14 }} />
+            {widths.map(w => (
+              <button key={w} type="button"
+                onClick={() => updateAttributes({ width: w })}
+                style={{ padding: '2px 5px', borderRadius: 4, fontSize: 10, fontWeight: 700, background: (width || '100%') === w ? '#3b82f6' : 'transparent', color: 'white', border: 'none', cursor: 'pointer' }}>
+                {w}
+              </button>
+            ))}
+            <div style={{ width: 1, background: '#4b5563', margin: '0 3px', height: 14 }} />
+            <button type="button"
+              onClick={() => {
+                // delete node - handled by selection + backspace equivalent
+                updateAttributes({ src: '' })
+              }}
+              style={{ padding: '2px 5px', borderRadius: 4, fontSize: 11, background: 'transparent', color: '#f87171', border: 'none', cursor: 'pointer' }}>
+              ✕
+            </button>
+          </div>
+        )}
+        <img
+          src={src} alt={alt || ''}
+          onClick={() => setShowToolbar(v => !v)}
+          style={{ width: '100%', borderRadius: 8, display: 'block', outline: selected ? '2px solid #3b82f6' : 'none', outlineOffset: 2, cursor: 'pointer' }}
+        />
+      </div>
+    </NodeViewWrapper>
+  )
 }
+
+const ResizableImage = Node.create({
+  name: 'resizableImage',
+  group: 'block',
+  atom: true,
+  draggable: true,
+  addAttributes() {
+    return {
+      src: { default: null },
+      alt: { default: '' },
+      width: { default: '100%' },
+      float: { default: 'none' },
+    }
+  },
+  parseHTML() {
+    return [{ tag: 'img[src]', getAttrs: el => {
+      const img = el as HTMLImageElement
+      const style = img.style
+      return {
+        src: img.getAttribute('src'),
+        alt: img.getAttribute('alt') || '',
+        width: style.width || '100%',
+        float: style.float || 'none',
+      }
+    }}]
+  },
+  renderHTML({ HTMLAttributes }) {
+    const { width, float, src, alt } = HTMLAttributes
+    const style = [
+      `width:${width || '100%'}`,
+      `float:${float || 'none'}`,
+      float === 'left' ? 'margin:4px 16px 8px 0' : float === 'right' ? 'margin:4px 0 8px 16px' : 'margin:8px auto',
+      'border-radius:8px',
+      'display:block',
+    ].join(';')
+    return ['img', mergeAttributes({ src, alt, style })]
+  },
+  addNodeView() {
+    return ReactNodeViewRenderer(ImageNodeView)
+  },
+  addCommands() {
+    return {
+      setResizableImage: (options: { src: string }) => ({ commands }: any) => {
+        return commands.insertContent({ type: this.name, attrs: options })
+      },
+    } as any
+  },
+})
+
+// ─── Rich Text Editor ─────────────────────────────────────────────────────────
 
 function RichEditor({ value, onChange, photos, onUploadedImage }: {
   value: string
@@ -184,8 +285,8 @@ function RichEditor({ value, onChange, photos, onUploadedImage }: {
         blockquote: { HTMLAttributes: { class: 'blockquote' } },
       }),
       TiptapLink.configure({ openOnClick: false }),
-      TiptapImage.configure({ inline: false, allowBase64: false, HTMLAttributes: { style: 'max-width:100%;border-radius:8px;margin:4px 0;' } }),
       Placeholder.configure({ placeholder: 'Rašykite naujieną...' }),
+      ResizableImage,
     ],
     content: value,
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
@@ -196,7 +297,7 @@ function RichEditor({ value, onChange, photos, onUploadedImage }: {
 
   const insertImg = useCallback((url: string) => {
     if (!editor) return
-    editor.chain().focus().setImage({ src: url }).run()
+    ;(editor.commands as any).setResizableImage({ src: url })
     onUploadedImage?.(url)
   }, [editor, onUploadedImage])
 
@@ -224,7 +325,6 @@ function RichEditor({ value, onChange, photos, onUploadedImage }: {
     finally { setUploading(false) }
   }
 
-  // Drag & drop on editor
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault()
     await handleFileUpload(e.dataTransfer.files)
@@ -234,14 +334,13 @@ function RichEditor({ value, onChange, photos, onUploadedImage }: {
 
   const Btn = ({ onClick, label, active = false, disabled = false }: { onClick: () => void; label: string; active?: boolean; disabled?: boolean }) => (
     <button type="button" onClick={onClick} disabled={disabled}
-      className={`px-1.5 py-0.5 rounded text-xs font-medium transition-colors disabled:opacity-40 ${active ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'}`}>
+      className={\`px-1.5 py-0.5 rounded text-xs font-medium transition-colors disabled:opacity-40 \${active ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'}\`}>
       {label}
     </button>
   )
 
   return (
     <div className="border border-gray-200 rounded-lg overflow-visible bg-white">
-      {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-0.5 px-2 py-1 border-b border-gray-100 bg-gray-50/60">
         <Btn onClick={() => editor.chain().focus().toggleBold().run()} label="B" active={editor.isActive('bold')} />
         <Btn onClick={() => editor.chain().focus().toggleItalic().run()} label="I" active={editor.isActive('italic')} />
@@ -257,11 +356,10 @@ function RichEditor({ value, onChange, photos, onUploadedImage }: {
         <button type="button" onClick={() => {
           const url = window.prompt('Nuorodos URL:')
           if (url) editor.chain().focus().setLink({ href: url }).run()
-        }} className={`px-1.5 py-0.5 rounded text-xs font-medium transition-colors ${editor.isActive('link') ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'}`}>
+        }} className={\`px-1.5 py-0.5 rounded text-xs font-medium transition-colors \${editor.isActive('link') ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'}\`}>
           🔗
         </button>
         <div className="w-px h-3 bg-gray-200 mx-0.5" />
-        {/* Photo insert from gallery */}
         {photos.length > 0 && (
           <div className="relative group/gallery">
             <button type="button" className="px-1.5 py-0.5 rounded text-xs font-medium text-gray-500 hover:bg-gray-100 transition-colors">
@@ -277,7 +375,6 @@ function RichEditor({ value, onChange, photos, onUploadedImage }: {
             </div>
           </div>
         )}
-        {/* Upload from device */}
         <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}
           className="px-1.5 py-0.5 rounded text-xs font-medium text-gray-500 hover:bg-gray-100 transition-colors disabled:opacity-40">
           {uploading ? '⏳' : '📁 Įkelti'}
@@ -286,8 +383,7 @@ function RichEditor({ value, onChange, photos, onUploadedImage }: {
         <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
           onChange={e => handleFileUpload(e.target.files)} />
       </div>
-      {/* Editor area with drop support */}
-      <div onDrop={handleDrop} onDragOver={e => e.preventDefault()}>
+      <div onDrop={handleDrop} onDragOver={e => e.preventDefault()} className="overflow-hidden">
         <EditorContent editor={editor} />
         {uploading && (
           <div className="flex items-center gap-2 px-3 py-2 border-t border-gray-100 bg-blue-50 text-xs text-blue-600">
