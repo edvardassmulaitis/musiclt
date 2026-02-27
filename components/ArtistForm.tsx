@@ -1057,24 +1057,28 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
   const fileRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [urlInput, setUrlInput] = useState('')
-  const [expandedIdx, setExpandedIdx] = useState<number|null>(null)
   const [showWikimedia, setShowWikimedia] = useState(false)
+  const [lightboxIdx, setLightboxIdx] = useState<number|null>(null)
+  const [dragIdx, setDragIdx] = useState<number|null>(null)
+  const [dragOverIdx, setDragOverIdx] = useState<number|null>(null)
+
+  const saveToDb = (next: PhotoMeta[]) => {
+    if (!artistId) return
+    fetch(`/api/artists/${artistId}/photos`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ photos: next })
+    }).catch(() => {})
+  }
 
   const upload = async (file: File) => {
     setUploading(true)
     try {
       const fd = new FormData(); fd.append('file', file); fd.append('type', 'gallery')
-      const res = await fetch('/api/upload', { method:'POST', body:fd })
+      const res = await fetch('/api/upload', { method: 'POST', body: fd })
       const data = await res.json()
       if (data.url) {
         const next = [{ url: data.url }, ...photos]
-        onChange(next)
-        if (artistId) {
-          fetch(`/api/artists/${artistId}/photos`, {
-            method:'PUT', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ photos: next })
-          }).catch(()=>{})
-        }
+        onChange(next); saveToDb(next)
       }
     } finally { setUploading(false) }
   }
@@ -1086,45 +1090,40 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
     let finalUrl = v
     if (v.startsWith('http') && !v.includes('supabase')) {
       try {
-        const r = await fetch('/api/fetch-image', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url:v}) })
+        const r = await fetch('/api/fetch-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: v }) })
         if (r.ok) { const d = await r.json(); if (d.url && !d.url.startsWith('data:')) finalUrl = d.url }
       } catch {}
     }
     const next = [{ url: finalUrl }, ...photos]
-    onChange(next)
-    if (artistId) {
-      fetch(`/api/artists/${artistId}/photos`, {
-        method:'PUT', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ photos: next })
-      }).catch(()=>{})
-    }
+    onChange(next); saveToDb(next)
   }
 
   const remove = (i: number) => {
-    const next = photos.filter((_,idx)=>idx!==i)
-    onChange(next)
-    if (artistId) {
-      fetch(`/api/artists/${artistId}/photos`, {
-        method:'PUT', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ photos: next })
-      }).catch(()=>{})
-    }
-    if (expandedIdx===i) setExpandedIdx(null)
+    const next = photos.filter((_, idx) => idx !== i)
+    onChange(next); saveToDb(next)
+    if (lightboxIdx === i) setLightboxIdx(null)
   }
 
-  const updateMeta = (i: number, field: 'author'|'sourceUrl', val: string) => {
-    const next = photos.map((p,idx) => idx===i ? {...p, [field]:val} : p)
-    onChange(next)
-    if (artistId) {
-      fetch(`/api/artists/${artistId}/photos`, {
-        method:'PUT', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ photos: next })
-      }).catch(()=>{})
-    }
+  const updateMeta = (i: number, field: 'author' | 'sourceUrl', val: string) => {
+    const next = photos.map((p, idx) => idx === i ? { ...p, [field]: val } : p)
+    onChange(next); saveToDb(next)
+  }
+
+  // ── Drag-and-drop reorder ──────────────────────────────────────────────────
+  const onDragStart = (i: number) => setDragIdx(i)
+  const onDragOver = (e: React.DragEvent, i: number) => { e.preventDefault(); setDragOverIdx(i) }
+  const onDrop = (i: number) => {
+    if (dragIdx === null || dragIdx === i) { setDragIdx(null); setDragOverIdx(null); return }
+    const next = [...photos]
+    const [moved] = next.splice(dragIdx, 1)
+    next.splice(i, 0, moved)
+    onChange(next); saveToDb(next)
+    setDragIdx(null); setDragOverIdx(null)
   }
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm mx-3 mb-2.5 overflow-hidden">
+      {/* Wikimedia modal */}
       {showWikimedia && (
         <WikimediaSearch
           artistName={artistName || ''}
@@ -1137,44 +1136,67 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
                 author: (p as any).author || undefined,
                 sourceUrl: (p as any).authorUrl || (p as any).sourceUrl || undefined,
               }))
-            if (fresh.length) {
-              const next = [...fresh, ...photos]
-              onChange(next)
-              if (artistId) {
-                fetch(`/api/artists/${artistId}/photos`, {
-                  method:'PUT', headers:{'Content-Type':'application/json'},
-                  body: JSON.stringify({ photos: next })
-                }).catch(()=>{})
-              }
-            }
+            if (fresh.length) { const next = [...fresh, ...photos]; onChange(next); saveToDb(next) }
             setShowWikimedia(false)
           }}
           onClose={() => setShowWikimedia(false)}
         />
       )}
 
+      {/* Lightbox */}
+      {lightboxIdx !== null && (
+        <div className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center"
+          onClick={() => setLightboxIdx(null)}>
+          <button type="button" onClick={() => setLightboxIdx(null)}
+            className="absolute top-4 right-4 w-9 h-9 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center text-xl transition-colors">✕</button>
+          {lightboxIdx > 0 && (
+            <button type="button"
+              onClick={e => { e.stopPropagation(); setLightboxIdx(lightboxIdx - 1) }}
+              className="absolute left-4 top-1/2 -translate-y-1/2 w-9 h-9 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center text-lg transition-colors">‹</button>
+          )}
+          {lightboxIdx < photos.length - 1 && (
+            <button type="button"
+              onClick={e => { e.stopPropagation(); setLightboxIdx(lightboxIdx + 1) }}
+              className="absolute right-4 top-1/2 -translate-y-1/2 w-9 h-9 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center text-lg transition-colors">›</button>
+          )}
+          <div className="flex flex-col items-center gap-3 px-16 max-w-4xl w-full" onClick={e => e.stopPropagation()}>
+            <img src={photos[lightboxIdx].url} alt="" referrerPolicy="no-referrer"
+              className="max-h-[75vh] max-w-full object-contain rounded-xl shadow-2xl" />
+            {(photos[lightboxIdx].author || photos[lightboxIdx].sourceUrl) && (
+              <div className="text-white/60 text-xs flex items-center gap-3">
+                {photos[lightboxIdx].author && <span>© {photos[lightboxIdx].author}</span>}
+                {photos[lightboxIdx].sourceUrl && (
+                  <a href={photos[lightboxIdx].sourceUrl} target="_blank" rel="noopener noreferrer"
+                    className="text-blue-300 hover:text-blue-200 hover:underline">Šaltinis ↗</a>
+                )}
+              </div>
+            )}
+            <span className="text-white/30 text-xs">{lightboxIdx + 1} / {photos.length}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Header toolbar */}
       <div className="px-3 py-2 border-b border-gray-100">
-        {/* Desktop: single row */}
         <div className="hidden sm:flex items-center gap-2">
           <div className="flex items-center gap-2 shrink-0">
             <span className="text-xs font-semibold text-gray-500">Nuotraukų galerija</span>
             {photos.length > 0 && <span className="bg-gray-200 text-gray-600 text-xs font-bold px-1.5 py-0.5 rounded-full">{photos.length}</span>}
           </div>
-          <input type="text" value={urlInput} onChange={e=>setUrlInput(e.target.value)}
-            onKeyDown={e=>{ if(e.key==='Enter'){e.preventDefault();e.stopPropagation();addUrl()} }}
+          <input type="text" value={urlInput} onChange={e => setUrlInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); addUrl() } }}
             placeholder="https://..."
             className="flex-1 min-w-0 px-2 py-1 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
-          <button type="button" onClick={()=>addUrl()} title="Pridėti nuorodą" className="px-2 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-colors shrink-0">→</button>
-          <button type="button" onClick={() => setShowWikimedia(true)} title="Wikimedia Commons"
+          <button type="button" onClick={() => addUrl()} className="px-2 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-colors shrink-0">→</button>
+          <button type="button" onClick={() => setShowWikimedia(true)}
             className="flex items-center gap-1 px-2 py-1 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg text-xs font-medium transition-colors shrink-0">
             <WikipediaIcon /> Wiki
           </button>
-          <button type="button" onClick={()=>!uploading&&fileRef.current?.click()}
+          <button type="button" onClick={() => !uploading && fileRef.current?.click()}
             className="flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-colors shrink-0">
             <IconUpload />
           </button>
         </div>
-        {/* Mobile: two rows */}
         <div className="flex sm:hidden flex-col gap-1.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -1186,79 +1208,75 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
                 className="flex items-center gap-1 px-2 py-1 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg text-xs font-medium transition-colors">
                 <WikipediaIcon /> Wiki
               </button>
-              <button type="button" onClick={()=>!uploading&&fileRef.current?.click()}
+              <button type="button" onClick={() => !uploading && fileRef.current?.click()}
                 className="flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-colors">
                 <IconUpload />
               </button>
             </div>
           </div>
           <div className="flex items-center gap-1.5">
-            <input type="text" value={urlInput} onChange={e=>setUrlInput(e.target.value)}
-              onKeyDown={e=>{ if(e.key==='Enter'){e.preventDefault();e.stopPropagation();addUrl()} }}
+            <input type="text" value={urlInput} onChange={e => setUrlInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); addUrl() } }}
               placeholder="https://..."
               className="flex-1 min-w-0 px-2 py-1 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
-            <button type="button" onClick={()=>addUrl()} title="Pridėti nuorodą" className="px-2 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-colors shrink-0">→</button>
+            <button type="button" onClick={() => addUrl()} className="px-2 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-colors shrink-0">→</button>
           </div>
         </div>
       </div>
 
+      {/* Photo list */}
       {photos.length === 0 ? (
         <div className="flex items-center justify-center py-6 text-gray-400 text-xs">Nėra nuotraukų</div>
       ) : (
-        <div className="p-2 grid grid-cols-4 sm:grid-cols-6 gap-1.5">
+        <div className="divide-y divide-gray-50">
           {photos.map((p, i) => (
-            <div key={i} className="relative group">
-              <div className="aspect-square rounded-lg overflow-hidden bg-gray-100 cursor-pointer"
-                onClick={()=>setExpandedIdx(expandedIdx===i?null:i)}>
-                <img src={p.url} alt="" referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover group-hover:opacity-90 transition-opacity" />
+            <div key={i}
+              draggable
+              onDragStart={() => onDragStart(i)}
+              onDragOver={e => onDragOver(e, i)}
+              onDrop={() => onDrop(i)}
+              onDragEnd={() => { setDragIdx(null); setDragOverIdx(null) }}
+              className={`flex items-center gap-2.5 px-3 py-2 transition-colors ${dragOverIdx === i ? 'bg-blue-50' : 'hover:bg-gray-50/60'}`}>
+              {/* Drag handle */}
+              <div className="text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing shrink-0 select-none text-sm leading-none">⠿</div>
+              {/* Thumbnail — click to lightbox */}
+              <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0 cursor-pointer"
+                onClick={() => setLightboxIdx(i)}>
+                <img src={p.url} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover hover:opacity-80 transition-opacity" />
               </div>
-              {/* Remove button */}
-              <button type="button" onClick={()=>remove(i)}
-                className="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 hover:bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity leading-none">
-                ×
-              </button>
-              {/* Meta indicator */}
-              {(p.author||p.sourceUrl) && (
-                <div className="absolute bottom-0.5 left-0.5 w-3 h-3 bg-blue-500 rounded-full opacity-70" title="Turi metaduomenis" />
-              )}
-              {/* Expanded meta row */}
-              {expandedIdx===i && (
-                <div className="absolute z-30 top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-xl shadow-xl p-2.5 space-y-2"
-                  style={{right:'auto'}}>
-                  <div className="flex items-center justify-between mb-0.5">
-                    <span className="text-xs font-semibold text-gray-600">Metaduomenys</span>
-                    {(p.author||p.sourceUrl) && <span className="text-[10px] text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded-full">Wiki</span>}
-                  </div>
-                  <div>
-                    <label className="block text-[11px] text-gray-400 mb-0.5">© Autorius / licencija</label>
-                    <input type="text" value={p.author||''} onChange={e=>updateMeta(i,'author',e.target.value)}
-                      placeholder="Fotografas · CC BY-SA 4.0"
-                      className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400" />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] text-gray-400 mb-0.5">Šaltinio URL</label>
-                    <input type="url" value={p.sourceUrl||''} onChange={e=>updateMeta(i,'sourceUrl',e.target.value)}
-                      placeholder="https://commons.wikimedia.org/..."
-                      className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400" />
-                  </div>
-                  {p.sourceUrl && (
-                    <a href={p.sourceUrl} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-[11px] text-blue-500 hover:underline">
-                      <svg viewBox="0 0 24 24" className="w-3 h-3 fill-none stroke-current stroke-2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                      Atidaryti šaltinį
-                    </a>
-                  )}
-                  <button type="button" onClick={()=>setExpandedIdx(null)} className="text-xs text-gray-400 hover:text-gray-600">✕ Uždaryti</button>
-                </div>
-              )}
+              {/* Meta fields */}
+              <div className="flex-1 min-w-0 flex flex-col sm:flex-row gap-1.5">
+                <input type="text" value={p.author || ''} onChange={e => updateMeta(i, 'author', e.target.value)}
+                  placeholder="© Autorius / licencija"
+                  className="flex-1 min-w-0 px-2 py-1 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
+                <input type="url" value={p.sourceUrl || ''} onChange={e => updateMeta(i, 'sourceUrl', e.target.value)}
+                  placeholder="Šaltinio URL"
+                  className="flex-1 min-w-0 px-2 py-1 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
+              </div>
+              {/* Actions */}
+              <div className="flex items-center gap-1 shrink-0">
+                {p.sourceUrl && (
+                  <a href={p.sourceUrl} target="_blank" rel="noopener noreferrer"
+                    className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-blue-500 transition-colors" title="Atidaryti šaltinį">
+                    <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-none stroke-current stroke-2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                  </a>
+                )}
+                <button type="button" onClick={() => setLightboxIdx(i)}
+                  className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-blue-500 transition-colors" title="Peržiūrėti">
+                  <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-none stroke-current stroke-2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+                <button type="button" onClick={() => remove(i)}
+                  className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-red-500 transition-colors" title="Ištrinti">
+                  <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-none stroke-current stroke-2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                </button>
+              </div>
             </div>
           ))}
         </div>
       )}
 
       <input ref={fileRef} type="file" accept="image/*" multiple className="hidden"
-        onChange={e=>{ const files=Array.from(e.target.files||[]); files.forEach(f=>upload(f)) }} />
+        onChange={e => { const files = Array.from(e.target.files || []); files.forEach(f => upload(f)) }} />
     </div>
   )
 }
