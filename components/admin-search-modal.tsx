@@ -7,17 +7,17 @@ type Artist = { id: number; name: string; cover_image_url?: string }
 type Album = { id: number; title: string; year: number | null; artist_name: string; cover_url?: string }
 type Track = { id: number; title: string; type: string; artist_name: string; cover_url?: string; video_url?: string; spotify_id?: string; has_lyrics?: boolean }
 
-export default function AdminSearchModal({ onClose }: { onClose: () => void }) {
+export default function AdminSearchModal({ onClose, inputRef: externalRef }: { onClose: () => void; inputRef?: React.RefObject<HTMLInputElement> }) {
   const [query, setQuery] = useState('')
   const [artists, setArtists] = useState<Artist[]>([])
   const [albums, setAlbums] = useState<Album[]>([])
   const [tracks, setTracks] = useState<Track[]>([])
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const localRef = useRef<HTMLInputElement>(null)
+  const inputRef = externalRef || localRef
 
   useEffect(() => {
-    // autoFocus handles most cases; this is a fallback for browsers that ignore it
     inputRef.current?.focus()
   }, [])
 
