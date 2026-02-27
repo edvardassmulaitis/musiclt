@@ -41,6 +41,7 @@ export type AlbumFull = {
   show_artist_name?: boolean
   show_player?: boolean
   is_upcoming?: boolean
+  description?: string
   tracks?: TrackInAlbum[]
 }
 
@@ -160,6 +161,7 @@ export async function createAlbum(data: AlbumFull): Promise<number> {
     show_artist_name: data.show_artist_name ?? false,
     show_player: data.show_player ?? false,
     is_upcoming: data.is_upcoming ?? false,
+    description: data.description || null,
   }).select('id').single()
   if (error) throw error
   if (data.tracks?.length) await syncAlbumTracks(row.id, data.artist_id, data.tracks)
@@ -182,6 +184,7 @@ export async function updateAlbum(id: number, data: AlbumFull): Promise<void> {
     show_artist_name: data.show_artist_name ?? false,
     show_player: data.show_player ?? false,
     is_upcoming: data.is_upcoming ?? false,
+    description: data.description || null,
   }).eq('id', id)
   if (error) throw error
   if (data.tracks !== undefined) await syncAlbumTracks(id, data.artist_id, data.tracks || [])
