@@ -1119,26 +1119,29 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
         />
       )}
 
-      <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-gray-500">Nuotraukų galerija</span>
-          {photos.length > 0 && <span className="bg-gray-200 text-gray-600 text-xs font-bold px-1.5 py-0.5 rounded-full">{photos.length}</span>}
+      <div className="px-3 py-2 border-b border-gray-100 flex flex-col gap-1.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-gray-500">Nuotraukų galerija</span>
+            {photos.length > 0 && <span className="bg-gray-200 text-gray-600 text-xs font-bold px-1.5 py-0.5 rounded-full">{photos.length}</span>}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button type="button" onClick={() => setShowWikimedia(true)} title="Wikimedia Commons"
+              className="flex items-center gap-1 px-2 py-1 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg text-xs font-medium transition-colors">
+              <WikipediaIcon /> Wiki
+            </button>
+            <button type="button" onClick={()=>!uploading&&fileRef.current?.click()}
+              className="flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-colors">
+              <IconUpload />
+            </button>
+          </div>
         </div>
-        {/* Add controls */}
         <div className="flex items-center gap-1.5">
           <input type="text" value={urlInput} onChange={e=>setUrlInput(e.target.value)}
             onKeyDown={e=>{ if(e.key==='Enter'){e.preventDefault();e.stopPropagation();addUrl()} }}
             placeholder="https://..."
-            className="w-36 px-2 py-1 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
-          <button type="button" onClick={()=>addUrl()} className="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs transition-colors">↵</button>
-          <button type="button" onClick={() => setShowWikimedia(true)} title="Wikimedia Commons nuotraukų paieška"
-            className="flex items-center gap-1.5 px-2 py-1 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg text-xs font-medium transition-colors">
-            <WikipediaIcon /> Įkelti Wiki nuotraukas
-          </button>
-          <button type="button" onClick={()=>!uploading&&fileRef.current?.click()}
-            className="flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-colors">
-            <IconUpload />
-          </button>
+            className="flex-1 min-w-0 px-2 py-1 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
+          <button type="button" onClick={()=>addUrl()} className="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs transition-colors shrink-0">↵</button>
         </div>
       </div>
 
@@ -1211,7 +1214,7 @@ function SocialsSection({ form, set }: { form: any; set: (k: any, v: any) => voi
       <button type="button" onClick={() => setOpen(p => !p)}
         className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 transition-colors">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-gray-500">Nuorodos</span>
+          <span className="text-xs font-semibold text-gray-500 hidden sm:inline">Nuorodos</span>
           {(filledCount > 0 || displayDomain) && (
             <span className="bg-blue-100 text-blue-600 text-xs font-bold px-1.5 py-0.5 rounded-full">{filledCount}</span>
           )}
@@ -1443,7 +1446,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
 
                 {form.type==='solo' && (
                   <div className="space-y-3 pt-2 border-t border-gray-100">
-                    <div className="flex items-end gap-4 flex-wrap">
+                    <div className="flex flex-col gap-2">
                       <div>
                         <label className="block text-xs font-semibold text-gray-500 mb-1">Lytis</label>
                         <div className="flex gap-1">
@@ -1457,10 +1460,10 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                           ))}
                         </div>
                       </div>
-                      <DateRow label="Gimė" y={form.birthYear} m={form.birthMonth} d={form.birthDay}
-                        onY={(v:string)=>set('birthYear',v)} onM={(v:string)=>set('birthMonth',v)} onD={(v:string)=>set('birthDay',v)} />
-                      <DateRow label="Mirė" y={form.deathYear} m={form.deathMonth} d={form.deathDay}
-                        onY={(v:string)=>set('deathYear',v)} onM={(v:string)=>set('deathMonth',v)} onD={(v:string)=>set('deathDay',v)} />
+                      <div><DateRow label="Gimė" y={form.birthYear} m={form.birthMonth} d={form.birthDay}
+                        onY={(v:string)=>set('birthYear',v)} onM={(v:string)=>set('birthMonth',v)} onD={(v:string)=>set('birthDay',v)} /></div>
+                      <div><DateRow label="Mirė" y={form.deathYear} m={form.deathMonth} d={form.deathDay}
+                        onY={(v:string)=>set('deathYear',v)} onM={(v:string)=>set('deathMonth',v)} onD={(v:string)=>set('deathDay',v)} /></div>
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-gray-500 mb-1">Priklauso grupėms</label>
