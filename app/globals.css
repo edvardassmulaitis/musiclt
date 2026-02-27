@@ -18,3 +18,7 @@
 .tiptap.prose blockquote { border-left: 3px solid #e5e7eb; padding-left: 0.75rem; color: #6b7280; font-style: italic; }
 .tiptap.prose a { color: #2563eb; text-decoration: underline; }
 .tiptap.prose a:hover { color: #1d4ed8; }
+.ce-block__content { max-width: 100% !important; }
+.ce-toolbar__content { max-width: 100% !important; }
+.codex-editor { font-family: inherit; }
+.cdx-quote__text { border-left: 3px solid #e5e7eb; padding-left: 12px; }
