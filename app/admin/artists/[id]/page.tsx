@@ -513,10 +513,10 @@ export default function EditArtist() {
   return (
     <div className="overflow-hidden flex flex-col bg-[#f8f7f5]" style={{ height: 'calc(100vh - 56px)' }}>
 
-      <div className="shrink-0 bg-white/95 backdrop-blur border-b border-gray-200">
+      <div className="shrink-0 bg-white/95 backdrop-blur border-b border-gray-200" style={{ overflow: "visible" }}>
         <div className="flex items-center justify-between gap-2 px-4 py-2">
 
-          <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             {/* Desktop breadcrumb */}
             <nav className="hidden lg:flex items-center gap-1 text-sm min-w-0 shrink overflow-hidden">
               <Link href="/admin" className="text-gray-400 hover:text-gray-700 shrink-0">Admin</Link>
