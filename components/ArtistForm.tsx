@@ -463,10 +463,10 @@ function AvatarUpload({ value, onChange, onOriginalSaved }: { value: string; onC
           onCancel={() => { setCropSrc(null); setUploading(false) }}
         />
       )}
-      <div className="space-y-3">
+      <div className="flex gap-3 items-start lg:block lg:space-y-3">
         <div
           className="relative rounded-xl overflow-hidden cursor-pointer group border-2 border-dashed border-gray-200 hover:border-music-blue transition-colors bg-gray-50"
-          style={{ width: 200, height: 200 }}
+          style={{ width: "min(200px, 45vw)", height: "min(200px, 45vw)" }}
           onClick={() => !uploading && fileRef.current?.click()}
           onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f?.type.startsWith('image/')) handleFileSelect(f) }}
           onDragOver={e => e.preventDefault()}
@@ -494,7 +494,7 @@ function AvatarUpload({ value, onChange, onOriginalSaved }: { value: string; onC
           )}
         </div>
 
-        <div className="flex gap-2 flex-wrap" style={{ maxWidth: 200 }}>
+        <div className="flex gap-2 flex-wrap">
           <button type="button" onClick={() => fileRef.current?.click()}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition-colors">
             <IconUpload />
@@ -508,7 +508,7 @@ function AvatarUpload({ value, onChange, onOriginalSaved }: { value: string; onC
           )}
         </div>
 
-        <div className="space-y-1" style={{ maxWidth: 200 }}>
+        <div className="space-y-1">
           <div className="flex gap-1.5">
             <input
               type="text"
@@ -1145,7 +1145,7 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
       {photos.length === 0 ? (
         <div className="flex items-center justify-center py-6 text-gray-400 text-xs">Nėra nuotraukų</div>
       ) : (
-        <div className="p-2 grid grid-cols-6 gap-1.5">
+        <div className="p-2 grid grid-cols-4 sm:grid-cols-6 gap-1.5">
           {photos.map((p, i) => (
             <div key={i} className="relative group">
               <div className="aspect-square rounded-lg overflow-hidden bg-gray-100 cursor-pointer"
@@ -1338,8 +1338,8 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
   const handleSubmit = (e:React.FormEvent) => { e.preventDefault(); onSubmit(formRef.current) }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-6 py-6">
+    <div className="min-h-screen bg-gray-50 lg:bg-gray-50">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-6">
         <div className="flex items-center justify-between mb-6">
           <div>
             <Link href={backHref} className="text-music-blue hover:text-music-orange text-sm">← Atgal</Link>
@@ -1362,10 +1362,10 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-0 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mb-2.5 mx-3">
+          <div className="flex flex-col lg:grid lg:grid-cols-2 gap-0 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mb-2.5 mx-3">
 
             {/* ── LEFT COLUMN ── */}
-            <div className="p-3 pt-4 pb-4 border-r border-gray-100">
+            <div className="p-3 pt-4 pb-4 border-b lg:border-b-0 lg:border-r border-gray-100">
               <div className="p-0 space-y-3">
 
                 {/* Pavadinimas + Tipas vienoje eilutėje */}
@@ -1388,7 +1388,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-2">
                   <div>
                     <label className="block text-xs font-semibold text-gray-500 mb-1">Šalis *</label>
                     <Sel value={form.country} onChange={(v:string)=>set('country',v)} required>
@@ -1412,8 +1412,8 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                   onChange={v=>set('substyles',v)}
                 />
 
-                <div className="grid grid-cols-2 gap-3">
-                  {/* Left: Veiklos metai */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Left: Veiklos metai */
                   <div>
                     <label className="block text-xs font-semibold text-gray-500 mb-1">Veiklos laikotarpis</label>
                     <div className="flex items-center gap-1.5">
