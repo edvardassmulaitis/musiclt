@@ -742,12 +742,33 @@ function StylePicker({ selected, onChange }: { selected: string[]; onChange: (v:
   useEffect(() => {
     if (!inlineQ.trim()) { setInlineSuggestions([]); return }
     const lower = inlineQ.toLowerCase()
-    setInlineSuggestions(styleData.flat.filter(s => s.toLowerCase().includes(lower) && !selected.includes(s)).slice(0, 8))
+    const matches = styleData.flat.filter(s => s.toLowerCase().includes(lower) && !selected.includes(s))
+    matches.sort((a, b) => {
+      const al = a.toLowerCase(), bl = b.toLowerCase()
+      const aExact = al === lower, bExact = bl === lower
+      const aStarts = al.startsWith(lower), bStarts = bl.startsWith(lower)
+      if (aExact !== bExact) return aExact ? -1 : 1
+      if (aStarts !== bStarts) return aStarts ? -1 : 1
+      return a.localeCompare(b)
+    })
+    setInlineSuggestions(matches.slice(0, 8))
   }, [inlineQ, selected, styleData])
 
   // Modal filtered results (searched across all flat)
   const modalResults = modalQ.trim()
-    ? styleData.flat.filter(s => s.toLowerCase().includes(modalQ.toLowerCase()) && !selected.includes(s))
+    ? (() => {
+        const lower = modalQ.toLowerCase()
+        const matches = styleData.flat.filter(s => s.toLowerCase().includes(lower) && !selected.includes(s))
+        matches.sort((a, b) => {
+          const al = a.toLowerCase(), bl = b.toLowerCase()
+          const aExact = al === lower, bExact = bl === lower
+          const aStarts = al.startsWith(lower), bStarts = bl.startsWith(lower)
+          if (aExact !== bExact) return aExact ? -1 : 1
+          if (aStarts !== bStarts) return aStarts ? -1 : 1
+          return a.localeCompare(b)
+        })
+        return matches
+      })()
     : null // null = show grouped
 
   const add = (s: string) => {
@@ -782,7 +803,7 @@ function StylePicker({ selected, onChange }: { selected: string[]; onChange: (v:
             <div className="absolute z-40 top-7 left-0 w-52 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
               {inlineSuggestions.map(s => (
                 <button key={s} type="button" onClick={()=>add(s)}
-                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-blue-50 text-gray-700 transition-colors border-b border-gray-50 last:border-0">
+                  className={`w-full text-left px-3 py-1.5 text-xs hover:bg-blue-50 transition-colors border-b border-gray-50 last:border-0 ${s.toLowerCase() === inlineQ.toLowerCase() ? 'font-bold text-blue-700 bg-blue-50/50' : 'text-gray-700'}`}>
                   {s}
                 </button>
               ))}
