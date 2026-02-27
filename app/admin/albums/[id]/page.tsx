@@ -7,15 +7,15 @@ import Link from 'next/link'
 import type { AlbumFull, TrackInAlbum } from '@/lib/supabase-albums'
 
 const ALBUM_TYPE_FIELDS = [
-  { key: 'type_studio', label: 'Studijinis', icon: <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg> },
-  { key: 'type_ep', label: 'EP', icon: <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" /></svg> },
+  { key: 'type_studio', label: 'Studijinis', icon: <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" strokeWidth={2}/><circle cx="12" cy="12" r="3" strokeWidth={2}/><path strokeLinecap="round" strokeWidth={2} d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg> },
+  { key: 'type_ep', label: 'EP', icon: <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" strokeWidth={2}/><circle cx="12" cy="12" r="2" strokeWidth={2}/></svg> },
   { key: 'type_compilation', label: 'Kompiliacija', icon: <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg> },
-  { key: 'type_live', label: 'Gyvas', icon: <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg> },
+  { key: 'type_live', label: 'Gyvas', icon: <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V5l3 3 3-3v14" /><path strokeLinecap="round" strokeWidth={2} d="M3 12h2m14 0h2"/></svg> },
   { key: 'type_remix', label: 'Remix', icon: <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg> },
   { key: 'type_covers', label: 'Coveriai', icon: <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg> },
-  { key: 'type_holiday', label: 'Šventinis', icon: <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg> },
+  { key: 'type_holiday', label: 'Šventinis', icon: <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2z" /></svg> },
   { key: 'type_soundtrack', label: 'Soundtrack', icon: <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" /></svg> },
-  { key: 'type_demo', label: 'Demo', icon: <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg> },
+  { key: 'type_demo', label: 'Demo', icon: <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg> },
 ]
 
 type YTResult = { videoId: string; title: string; channel: string; thumbnail: string }
@@ -674,15 +674,8 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
         </div>
       </div>
 
-      {/* Description card */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Aprašymas</p>
-        <DescriptionEditor value={form.description || ''} onChange={v => set('description', v)} />
-      </div>
-
       {/* Media card */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Media</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {/* Cover */}
           <div>
@@ -737,6 +730,11 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
             </div>
           </div>
         </div>
+        {/* Description below cover */}
+        <div className="mt-2.5">
+          <p className="text-xs font-semibold text-gray-500 mb-1">Aprašymas</p>
+          <DescriptionEditor value={form.description || ''} onChange={v => set('description', v)} />
+        </div>
       </div>
     </div>
   )
@@ -762,7 +760,7 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
             <span className="text-gray-700 truncate max-w-[160px]">{isNew ? 'Naujas' : (form.title || '...')}</span>
             {!isNew && artistId && <>
               <span className="text-gray-300">/</span>
-              <Link href={`/admin/tracks?artist=${artistId}`} className="text-gray-400 hover:text-gray-700 shrink-0">Dainos</Link>
+              <Link href={`/admin/tracks?artistId=${artistId}`} className="text-gray-400 hover:text-gray-700 shrink-0">Dainos</Link>
             </>}
           </nav>
           {/* Mobile: back arrow + title only */}
