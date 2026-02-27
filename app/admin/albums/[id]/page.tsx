@@ -265,15 +265,13 @@ function TrackList({ tracks, isMobile, onAdd, onUpdate, onRemove, onHardDelete, 
 
         return (
           <div key={i}
-            draggable={!isMobile}
-            onDragStart={() => !isMobile && onDragStart(i)}
+            draggable={false}
             onDragEnter={() => !isMobile && onDragEnter(i)}
             onDragOver={e => { if (!isMobile) e.preventDefault() }}
-            onDragEnd={() => !isMobile && onDragEnd()}
             className={`flex items-center gap-1.5 px-2.5 border-b border-gray-100 transition-colors group ${
               isMobile ? 'py-2' : 'py-1'
             } ${dragOver === i ? 'bg-blue-50 border-t-2 border-blue-400' : 'hover:bg-gray-50/80'} ${
-              !isMobile ? 'cursor-grab active:cursor-grabbing' : ''
+              ''
             }`}>
 
             {/* Reorder */}
@@ -289,7 +287,12 @@ function TrackList({ tracks, isMobile, onAdd, onUpdate, onRemove, onHardDelete, 
                 </button>
               </div>
             ) : (
-              <svg className="w-3.5 h-3.5 text-gray-300 hover:text-gray-500 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M8 6a2 2 0 100-4 2 2 0 000 4zm0 8a2 2 0 100-4 2 2 0 000 4zm0 8a2 2 0 100-4 2 2 0 000 4zm8-16a2 2 0 100-4 2 2 0 000 4zm0 8a2 2 0 100-4 2 2 0 000 4zm0 8a2 2 0 100-4 2 2 0 000 4z" /></svg>
+              <span draggable={true}
+                onDragStart={e => { e.stopPropagation(); onDragStart(i) }}
+                onDragEnd={e => { e.stopPropagation(); onDragEnd() }}
+                className="cursor-grab active:cursor-grabbing">
+                <svg className="w-3.5 h-3.5 text-gray-300 hover:text-gray-500 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M8 6a2 2 0 100-4 2 2 0 000 4zm0 8a2 2 0 100-4 2 2 0 000 4zm0 8a2 2 0 100-4 2 2 0 000 4zm8-16a2 2 0 100-4 2 2 0 000 4zm0 8a2 2 0 100-4 2 2 0 000 4zm0 8a2 2 0 100-4 2 2 0 000 4z" /></svg>
+              </span>
             )}
 
             {/* Number */}
@@ -299,6 +302,8 @@ function TrackList({ tracks, isMobile, onAdd, onUpdate, onRemove, onHardDelete, 
             <div className="flex-1 min-w-0 flex items-baseline gap-1 flex-wrap">
               <input value={t.title} onChange={e => onUpdate(i, 'title', e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); onSave() } }}
+                onMouseDown={e => e.stopPropagation()}
+                onDragStart={e => e.preventDefault()}
                 placeholder="Dainos pavadinimas"
                 size={t.title ? Math.max(8, t.title.length + 2) : 20}
                 className="px-1 py-0.5 border border-transparent hover:border-gray-200 focus:border-blue-300 rounded text-sm text-gray-900 focus:outline-none bg-transparent focus:bg-white transition-all" />
@@ -438,7 +443,12 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
   }))
 
   const upTrack = (i: number, f: keyof TrackInAlbum, v: any) => {
-    const t = [...(form.tracks || [])]; t[i] = { ...t[i], [f]: v }; set('tracks', t)
+    setForm(p => {
+      const t = [...(p.tracks || [])]; t[i] = { ...t[i], [f]: v }
+      const next = { ...p, tracks: t }
+      formRef.current = next
+      return next
+    })
   }
 
   const rmTrack = (i: number) => {
