@@ -6,7 +6,6 @@ import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import Image from '@tiptap/extension-image'
 import { Link as TiptapLink } from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
 
@@ -122,7 +121,6 @@ function RichEditor({ value, onChange }: { value: string; onChange: (v: string) 
   const editor = useEditor({
     extensions: [
       StarterKit,
-      Image,
       TiptapLink.configure({ openOnClick: false }),
       Placeholder.configure({ placeholder: 'Rašykite naujieną...' }),
     ],
@@ -165,12 +163,7 @@ function RichEditor({ value, onChange }: { value: string; onChange: (v: string) 
         }} className={`px-2 py-1 rounded text-xs font-medium transition-colors ${editor.isActive('link') ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
           🔗 Nuoroda
         </button>
-        <button type="button" onClick={() => {
-          const url = window.prompt('Paveikslėlio URL:')
-          if (url) editor.chain().focus().setImage({ src: url }).run()
-        }} className="px-2 py-1 rounded text-xs font-medium text-gray-600 hover:bg-gray-100 transition-colors">
-          🖼 Paveikslėlis
-        </button>
+
       </div>
       <EditorContent editor={editor} />
     </div>
