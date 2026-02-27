@@ -1243,28 +1243,18 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
                   className="w-full h-full object-cover group-hover:opacity-85 transition-opacity" />
               </div>
               {/* Delete */}
-              <button type="button" onClick={() => remove(i)}
+              <button type="button" onClick={e => { e.stopPropagation(); remove(i) }}
                 className="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 hover:bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity leading-none">×</button>
-              {/* Meta overlay — always visible if has meta, hover otherwise */}
-              <div className={`absolute inset-x-0 bottom-0 rounded-b-lg bg-gradient-to-t from-black/80 to-transparent px-1.5 pt-4 pb-1 transition-opacity pointer-events-none
-                ${(p.author || p.sourceUrl) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-                {p.author && <p className="text-white/90 text-[10px] leading-tight truncate">© {p.author.split(' · ')[0]}</p>}
-                {p.sourceUrl && <p className="text-blue-300 text-[10px] leading-tight">↗ šaltinis</p>}
-              </div>
-              {/* Edit meta button — larger tap target */}
+              {/* Author overlay — always visible if has author */}
+              {p.author && (
+                <div className="absolute inset-x-0 bottom-0 rounded-b-lg bg-gradient-to-t from-black/75 to-transparent px-1.5 pt-4 pb-1 pointer-events-none">
+                  <p className="text-white/90 text-[10px] leading-tight truncate">© {p.author.split(' · ')[0]}</p>
+                </div>
+              )}
+              {/* © edit button — hover only, bottom-left */}
               <button type="button" onClick={e => { e.stopPropagation(); setEditMetaIdx(editMetaIdx === i ? null : i) }}
-                className={`absolute bottom-0 left-0 right-0 h-8 rounded-b-lg transition-all
-                  ${(p.author || p.sourceUrl) ? 'opacity-0' : 'opacity-0 group-hover:opacity-0'}`}
-                title="Autorius / šaltinis" />
-              <button type="button" onClick={e => { e.stopPropagation(); setEditMetaIdx(editMetaIdx === i ? null : i) }}
-                className={`absolute top-0 left-0 right-0 bottom-0 rounded-lg transition-all opacity-0 group-hover:opacity-100 sm:block hidden`}
-                title="Redaguoti metaduomenis" />
-              {/* Visible © badge */}
-              <div onClick={e => { e.stopPropagation(); setEditMetaIdx(editMetaIdx === i ? null : i) }}
-                className={`absolute top-0.5 left-0.5 px-1 py-0.5 rounded text-[9px] font-bold cursor-pointer transition-all
-                  ${(p.author || p.sourceUrl) ? 'bg-blue-500/80 text-white' : 'bg-black/30 text-white opacity-0 group-hover:opacity-100'}`}>
-                ©
-              </div>
+                className="absolute bottom-0.5 left-0.5 w-5 h-5 bg-black/50 hover:bg-blue-500 text-white rounded text-[9px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
+                title="Redaguoti metaduomenis">©</button>
             </div>
           ))}
         </div>
