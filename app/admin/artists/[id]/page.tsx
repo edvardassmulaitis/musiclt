@@ -246,14 +246,12 @@ function DiscographyPanel({ artistId, artistName, refreshKey, onImportClose }: {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="shrink-0 flex items-center justify-between px-3 py-2 border-b border-gray-200 bg-white/80 backdrop-blur sticky top-0 z-10">
-        <div className="flex items-center gap-1.5">
-          <span className="text-sm font-bold text-gray-700">Diskografija</span>
+      <div className="shrink-0 flex items-center gap-1.5 flex-wrap px-3 py-2 border-b border-gray-200 bg-white/80 backdrop-blur sticky top-0 z-10">
+          <span className="text-sm font-bold text-gray-700 hidden lg:inline">Diskografija</span>
           {albums.length > 0 && (
-            <span className="bg-gray-200 text-gray-600 text-xs font-bold px-1.5 py-0.5 rounded-full">{albums.length}</span>
+            <span className="bg-gray-200 text-gray-600 text-xs font-bold px-1.5 py-0.5 rounded-full hidden lg:inline-flex">{albums.length}</span>
           )}
-        </div>
-        <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 ml-auto flex-wrap">
           {artistName && (
             <WikipediaImportDiscography
               artistId={parseInt(artistId)}
@@ -261,7 +259,7 @@ function DiscographyPanel({ artistId, artistName, refreshKey, onImportClose }: {
               artistWikiTitle={artistName.replace(/ /g, '_')}
               onClose={onImportClose}
               buttonClassName="flex items-center gap-1.5 px-2 py-1 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg text-xs font-medium transition-colors"
-              buttonLabel="𝐖 Įkelti Wiki diskografiją"
+              buttonLabel="𝐖 Įkelti iš Wiki"
             />
           )}
           <Link href={`/admin/albums/new?artist_id=${artistId}`}
@@ -272,7 +270,7 @@ function DiscographyPanel({ artistId, artistName, refreshKey, onImportClose }: {
             className="flex items-center gap-1 px-2 py-1 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg text-xs font-medium transition-colors">
             + Nauja daina
           </Link>
-        </div>
+          </div>
       </div>
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {loading ? (
@@ -326,7 +324,7 @@ function MobileBreadcrumb({ artistName, artistId, albumCount, trackCount, onWiki
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 w-56 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden">
+          <div className="fixed top-[104px] left-4 right-4 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
             <div className="px-3 py-2.5 border-b border-gray-100">
               <p className="text-xs font-semibold text-gray-700 truncate">{artistName}</p>
               <p className="text-xs text-gray-400 mt-0.5">Navigacija</p>
@@ -658,6 +656,7 @@ function ArtistFormCompact({ initialData, artistId, onSubmit, onAutoSave, saving
     <div className="artist-form-compact">
       <style>{`
         .artist-form-compact { overflow-x: hidden; max-width: 100vw; }
+        .artist-form-compact input, .artist-form-compact select, .artist-form-compact textarea { font-size: 16px !important; }
         .artist-form-compact .min-h-screen { min-height: unset !important; }
         .artist-form-compact .max-w-7xl { max-width: 100% !important; padding: 0 !important; width: 100% !important; }
         .artist-form-compact > div > div > .flex.items-center.justify-between.mb-6 { display: none !important; }
