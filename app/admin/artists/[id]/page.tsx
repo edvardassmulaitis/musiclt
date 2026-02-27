@@ -513,7 +513,7 @@ export default function EditArtist() {
   )
 
   return (
-    <div className="overflow-hidden flex flex-col bg-[#f8f7f5]" style={{ height: 'calc(100vh - 56px)' }}>
+    <div className="flex flex-col bg-[#f8f7f5]" style={{ height: "calc(100vh - 56px)", overflow: "hidden", maxWidth: "100vw" }}>
 
       <div className="shrink-0 bg-white/95 backdrop-blur border-b border-gray-200" style={{ overflow: "visible" }}>
         <div className="flex items-center justify-between gap-2 px-4 py-2">
@@ -615,7 +615,7 @@ export default function EditArtist() {
         </div>
       )}
 
-      <div className="lg:hidden flex-1 overflow-y-auto">
+      <div className="lg:hidden flex-1 overflow-y-auto overflow-x-hidden">
         {tab === 'form' && (
           <ArtistFormCompact initialData={initialData} artistId={artistId} onSubmit={handleSubmit} onAutoSave={handleAutoSave} saving={saving} />
         )}
@@ -657,8 +657,9 @@ function ArtistFormCompact({ initialData, artistId, onSubmit, onAutoSave, saving
   return (
     <div className="artist-form-compact">
       <style>{`
+        .artist-form-compact { overflow-x: hidden; max-width: 100vw; }
         .artist-form-compact .min-h-screen { min-height: unset !important; }
-        .artist-form-compact .max-w-7xl { max-width: unset !important; padding: 0 !important; }
+        .artist-form-compact .max-w-7xl { max-width: 100% !important; padding: 0 !important; width: 100% !important; }
         .artist-form-compact > div > div > .flex.items-center.justify-between.mb-6 { display: none !important; }
         .artist-form-compact > div > div > form > .mt-6 { display: none !important; }
         .artist-form-compact > div { background: transparent !important; }
