@@ -46,6 +46,28 @@ function slugify(name: string): string {
     .replace(/^-|-$/g, '')
 }
 
+// ── Photo meta helpers ────────────────────────────────────────────────────────
+// We store author + sourceUrl in the caption field as JSON: {"a":"...","s":"..."}
+// Falls back gracefully if caption is plain string
+
+function encodeCaption(photo: any): string {
+  const a = photo.author || photo.a || ''
+  const s = photo.sourceUrl || photo.s || ''
+  if (!a && !s) return photo.caption || ''
+  return JSON.stringify({ a, s })
+}
+
+function decodeCaption(caption: string | null): { author?: string; sourceUrl?: string; caption?: string } {
+  if (!caption) return {}
+  try {
+    const parsed = JSON.parse(caption)
+    if (parsed.a !== undefined || parsed.s !== undefined) {
+      return { author: parsed.a || undefined, sourceUrl: parsed.s || undefined }
+    }
+  } catch {}
+  return { caption }
+}
+
 export async function getArtists(limit = 50, offset = 0, search = '') {
   if (search) {
     const { data, error } = await supabase.rpc('search_artists', {
@@ -99,7 +121,12 @@ export async function getArtistById(id: number): Promise<ArtistFull | null> {
     genres: (genreRows || []).filter((r: any) => !r.genres?.parent_id).map((r: any) => r.genre_id),
     substyleNames: (genreRows || []).filter((r: any) => r.genres?.parent_id).map((r: any) => r.genres?.name).filter(Boolean),
     links: Object.fromEntries((linkRows || []).map((r: any) => [r.platform, r.url])),
-    photos: photoRows || [],
+    // Decode author/sourceUrl from caption JSON
+    photos: (photoRows || []).map((p: any) => ({
+      url: p.url,
+      sort_order: p.sort_order,
+      ...decodeCaption(p.caption),
+    })),
     breaks: (breakRows || []).map((r: any) => ({ from: String(r.year_from || ''), to: String(r.year_until || '') })),
     related: (relatedRows || []).map((r: any) => ({ id: r.related_artist_id, name: r.artists?.name || '', type: r.artists?.type || 'solo', yearFrom: r.year_from ? String(r.year_from) : '', yearTo: r.year_until ? String(r.year_until) : '', cover_image_url: r.artists?.cover_image_url || null })),
   }
@@ -163,7 +190,6 @@ export async function updateArtist(id: number, data: ArtistFull, skipPhotos = fa
     updated_at: new Date().toISOString(),
   }
 
-  // ✅ Tik kai skipAvatar=false įtraukiame cover_image_url į update
   if (!skipAvatar) {
     updateData.cover_image_url = data.cover_image_url
   }
@@ -228,7 +254,12 @@ async function syncRelations(id: number, data: ArtistFull, skipPhotos = false) {
   if (!skipPhotos && data.photos?.length) {
     const validPhotos = data.photos.filter((p: any) => p.url && !p.url.startsWith('data:'))
     if (validPhotos.length) inserts.push(supabase.from('artist_photos').insert(
-      validPhotos.map((p: any, i: number) => ({ artist_id: id, url: p.url, caption: p.caption, sort_order: i }))
+      validPhotos.map((p: any, i: number) => ({
+        artist_id: id,
+        url: p.url,
+        caption: encodeCaption(p),  // stores author+sourceUrl as JSON in caption
+        sort_order: i,
+      }))
     ).then())
   }
 
