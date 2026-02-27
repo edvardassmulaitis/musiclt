@@ -524,7 +524,9 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
       )}
 
       {/* Media */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 space-y-2.5">
+
+        {/* Row 1: Cover + Spotify side by side */}
         <div className="grid grid-cols-2 gap-3">
           {/* Cover */}
           <div>
@@ -541,43 +543,42 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
             )}
           </div>
 
-          {/* YouTube + Spotify */}
-          <div className="space-y-2.5 min-w-0">
-            <div>
-              <p className="text-xs font-semibold text-gray-500 mb-1 flex items-center gap-1"><IcoYT />YouTube</p>
-              <div className="flex gap-1 mb-1">
-                <input value={videoUrl} onChange={e => setVideoUrl(e.target.value)} placeholder="youtube.com/watch?v=..."
-                  className="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
-                {ytId && <button type="button" onClick={() => setVideoUrl('')}
-                  className="px-2 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg text-xs transition-colors shrink-0">✕</button>}
-              </div>
-              {ytId && (
-                <a href={videoUrl} target="_blank" rel="noopener noreferrer" className="block relative rounded-lg overflow-hidden group mb-1.5">
-                  <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} alt="" className="w-full aspect-video object-cover group-hover:opacity-90 transition-opacity" />
-                  <span className="absolute bottom-1 right-1 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded">↗</span>
-                </a>
-              )}
-              <YouTubeSearch initialQuery={ytSearchQuery} onSelect={url => setVideoUrl(url)} />
-            </div>
-
-            <div>
-              <p className="text-xs font-semibold text-gray-500 mb-1 flex items-center gap-1"><IcoSP />Spotify</p>
-              <input value={spotifyId} onChange={e => setSpotifyId(e.target.value)} placeholder="Track ID..."
-                className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-xs focus:outline-none focus:border-blue-400 font-mono transition-colors" />
-              {spotifyId && (
-                <a href={`https://open.spotify.com/track/${spotifyId}`} target="_blank" rel="noopener noreferrer"
-                  className="mt-1 flex items-center gap-1 text-xs text-green-600 hover:text-green-700 transition-colors">🔗 Atidaryti Spotify</a>
-              )}
-              <div className="flex gap-1 mt-1">
-                <input value={spUrlInput} onChange={e => setSpUrlInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') { const m = spUrlInput.match(/track\/([A-Za-z0-9]+)/); if (m) { setSpotifyId(m[1]); setSpUrlInput('') } } }}
-                  placeholder="Spotify URL..."
-                  className="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
-                <button type="button" onClick={() => { const m = spUrlInput.match(/track\/([A-Za-z0-9]+)/); if (m) { setSpotifyId(m[1]); setSpUrlInput('') } }}
-                  className="px-2.5 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold transition-colors shrink-0">✓</button>
-              </div>
+          {/* Spotify */}
+          <div>
+            <p className="text-xs font-semibold text-gray-500 mb-1 flex items-center gap-1"><IcoSP />Spotify</p>
+            <input value={spotifyId} onChange={e => setSpotifyId(e.target.value)} placeholder="Track ID..."
+              className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-xs focus:outline-none focus:border-blue-400 font-mono transition-colors" />
+            {spotifyId && (
+              <a href={`https://open.spotify.com/track/${spotifyId}`} target="_blank" rel="noopener noreferrer"
+                className="mt-1 flex items-center gap-1 text-xs text-green-600 hover:text-green-700 transition-colors">🔗 Atidaryti Spotify</a>
+            )}
+            <div className="flex gap-1 mt-1">
+              <input value={spUrlInput} onChange={e => setSpUrlInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { const m = spUrlInput.match(/track\/([A-Za-z0-9]+)/); if (m) { setSpotifyId(m[1]); setSpUrlInput('') } } }}
+                placeholder="Spotify URL..."
+                className="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
+              <button type="button" onClick={() => { const m = spUrlInput.match(/track\/([A-Za-z0-9]+)/); if (m) { setSpotifyId(m[1]); setSpUrlInput('') } }}
+                className="px-2.5 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold transition-colors shrink-0">✓</button>
             </div>
           </div>
+        </div>
+
+        {/* Row 2: YouTube full width */}
+        <div className="border-t border-gray-100 pt-2.5">
+          <p className="text-xs font-semibold text-gray-500 mb-1 flex items-center gap-1"><IcoYT />YouTube</p>
+          <div className="flex gap-1 mb-1.5">
+            <input value={videoUrl} onChange={e => setVideoUrl(e.target.value)} placeholder="youtube.com/watch?v=..."
+              className="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
+            {ytId && <button type="button" onClick={() => setVideoUrl('')}
+              className="px-2 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg text-xs transition-colors shrink-0">✕</button>}
+          </div>
+          {ytId && (
+            <a href={videoUrl} target="_blank" rel="noopener noreferrer" className="block relative rounded-lg overflow-hidden group mb-1.5">
+              <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} alt="" className="w-full aspect-video object-cover group-hover:opacity-90 transition-opacity" />
+              <span className="absolute bottom-1 right-1 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded">↗</span>
+            </a>
+          )}
+          <YouTubeSearch initialQuery={ytSearchQuery} onSelect={url => setVideoUrl(url)} />
         </div>
       </div>
     </div>
@@ -661,6 +662,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
                 </div>
               )}
             </div>
+            {/* Desktop: separator + title */}
             <span className="text-gray-300 hidden lg:block">/</span>
             <span className="text-gray-800 font-semibold truncate max-w-[260px] hidden lg:block">{isNewTrack ? 'Nauja daina' : (title || '...')}</span>
           </nav>
