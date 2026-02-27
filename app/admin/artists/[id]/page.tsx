@@ -314,21 +314,22 @@ function MobileBreadcrumb({ artistName, artistId, albumCount, trackCount, onWiki
 }) {
   const [open, setOpen] = useState(false)
   return (
-    <div className="lg:hidden flex items-center gap-1.5 min-w-0 flex-1 relative">
-      <Link href="/admin/artists" className="text-gray-400 shrink-0">
+    <div className="lg:hidden flex items-center gap-1.5 min-w-0 flex-1">
+      <Link href="/admin/artists" className="text-gray-400 shrink-0 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100">
         <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
       </Link>
-      <span className="text-gray-800 font-semibold text-sm truncate flex-1">{artistName || '...'}</span>
-      <button type="button" onClick={() => setOpen(p => !p)}
-        className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors text-gray-500">
-        <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
-      </button>
+      <div className="relative">
+        <button type="button" onClick={() => setOpen(p => !p)}
+          className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors text-gray-500">
+          <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+        </button>
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute top-full right-0 mt-1 w-52 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden">
-            <div className="px-3 py-2 border-b border-gray-100">
-              <p className="text-xs text-gray-400">Navigacija</p>
+          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 w-56 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden">
+            <div className="px-3 py-2.5 border-b border-gray-100">
+              <p className="text-xs font-semibold text-gray-700 truncate">{artistName}</p>
+              <p className="text-xs text-gray-400 mt-0.5">Navigacija</p>
             </div>
             <Link href="/admin/artists" onClick={() => setOpen(false)}
               className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
@@ -373,6 +374,7 @@ function MobileBreadcrumb({ artistName, artistId, albumCount, trackCount, onWiki
           </div>
         </>
       )}
+      </div>
     </div>
   )
 }
