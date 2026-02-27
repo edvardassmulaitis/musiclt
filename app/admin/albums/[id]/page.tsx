@@ -61,7 +61,7 @@ function DateNumberInput({ value, onChange, min, max, placeholder }: {
 // ── ArtistSearch ───────────────────────────────────────────────────────────────
 function ArtistSearchInput({ placeholder = 'Ieškoti atlikėjo...', onSelect }: {
   placeholder?: string
-  onSelect: (id: number, name: string) => void
+  onSelect: (id: number, name: string, avatar?: string) => void
 }) {
   const [q, setQ] = useState('')
   const [results, setResults] = useState<any[]>([])
@@ -81,10 +81,18 @@ function ArtistSearchInput({ placeholder = 'Ieškoti atlikėjo...', onSelect }: 
         <div className="absolute z-50 w-full bg-white border border-gray-200 rounded-xl shadow-xl mt-1 overflow-hidden">
           {results.map(a => (
             <button key={a.id} type="button"
-              onClick={() => { onSelect(a.id, a.name); setQ(''); setResults([]) }}
+              onClick={() => { onSelect(a.id, a.name, a.avatar); setQ(''); setResults([]) }}
               className="w-full flex items-center gap-2 px-3 py-2 hover:bg-blue-50 text-left transition-colors">
-              <span className="font-medium text-gray-900 text-sm">{a.name}</span>
-              <span className="text-gray-400 text-xs ml-auto">{a.country}</span>
+              <div className="w-7 h-7 rounded-full overflow-hidden bg-gray-200 shrink-0">
+                {a.avatar
+                  ? <img src={a.avatar} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  : <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs font-bold">{a.name[0]}</div>
+                }
+              </div>
+              <div className="min-w-0">
+                <p className="font-medium text-gray-900 text-sm truncate">{a.name}</p>
+                {a.country && <p className="text-gray-400 text-xs truncate">{a.country}</p>}
+              </div>
             </button>
           ))}
         </div>
@@ -382,6 +390,7 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
   const [form, setForm] = useState<AlbumFull>(emptyAlbum)
   const [artistName, setArtistName] = useState('')
   const [artistId, setArtistId] = useState<number | null>(null)
+  const [artistAvatar, setArtistAvatar] = useState('')
   const [featuredArtists, setFeaturedArtists] = useState<{id: number; name: string}[]>([])
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -405,7 +414,7 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
     if (!isNew && isAdmin) {
       fetch(`/api/albums/${id}`).then(r => r.json()).then(data => {
         setForm({ ...data, tracks: data.tracks || [] })
-        if (data.artists?.name) { setArtistName(data.artists.name); setArtistId(data.artist_id) }
+        if (data.artists?.name) { setArtistName(data.artists.name); setArtistId(data.artist_id); setArtistAvatar(data.artists.avatar || '') }
         if (data.featured_artists) setFeaturedArtists(data.featured_artists)
       })
     }
@@ -515,14 +524,17 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
           <label className="block text-xs font-semibold text-gray-500 mb-1">Atlikėjai *</label>
           <div className="flex flex-wrap items-center gap-1.5">
             {form.artist_id ? (
-              <div className="flex items-center gap-1 bg-blue-100 text-blue-800 border border-blue-200 rounded-full px-2.5 py-1 text-sm font-semibold shrink-0">
-                {artistName}
-                <button type="button" onClick={() => { set('artist_id', 0); setArtistName(''); setArtistId(null) }}
-                  className="text-blue-400 hover:text-red-500 transition-colors leading-none ml-0.5 text-base">×</button>
+              <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-xl px-2 py-1 shrink-0">
+                {artistAvatar && (
+                  <img src={artistAvatar} alt="" className="w-5 h-5 rounded-full object-cover shrink-0" referrerPolicy="no-referrer" />
+                )}
+                <span className="text-blue-800 text-sm font-semibold">{artistName}</span>
+                <button type="button" onClick={() => { set('artist_id', 0); setArtistName(''); setArtistId(null); setArtistAvatar('') }}
+                  className="text-blue-300 hover:text-red-500 transition-colors leading-none ml-0.5">×</button>
               </div>
             ) : (
               <div className="flex-1 min-w-[140px]">
-                <ArtistSearchInput placeholder="Pagrindinis atlikėjas..." onSelect={(id, name) => { set('artist_id', id); setArtistName(name); setArtistId(id) }} />
+                <ArtistSearchInput placeholder="Pagrindinis atlikėjas..." onSelect={(id, name, avatar) => { set('artist_id', id); setArtistName(name); setArtistId(id); setArtistAvatar(avatar || '') }} />
               </div>
             )}
             {featuredArtists.map((a, i) => (
@@ -534,7 +546,7 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
               </div>
             ))}
             {form.artist_id && (
-              <div className="flex-1 min-w-[120px]">
+              <div className="w-full mt-1">
                 <ArtistSearchInput placeholder="+ su atlikėju..."
                   onSelect={(id, name) => {
                     if (id === form.artist_id) return
@@ -565,7 +577,7 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
       {/* Media card */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
         <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Media</p>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {/* Cover */}
           <div>
             <p className="text-xs font-semibold text-gray-500 mb-1.5">Viršelis</p>
@@ -630,8 +642,10 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
       {/* Header */}
       <div className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-gray-200">
         <div className="flex items-center justify-between gap-3 px-4 py-2">
-          <nav className="flex items-center gap-1 text-sm min-w-0">
+          <nav className="hidden sm:flex items-center gap-1 text-sm min-w-0">
             <Link href="/admin" className="text-gray-400 hover:text-gray-700 shrink-0">Admin</Link>
+            <span className="text-gray-300">/</span>
+            <Link href="/admin/artists" className="text-gray-400 hover:text-gray-700 shrink-0">Atlikėjai</Link>
             {artistName && artistId && <>
               <span className="text-gray-300">/</span>
               <Link href={`/admin/artists/${artistId}`} className="text-gray-400 hover:text-gray-700 shrink-0">{artistName}</Link>
@@ -641,6 +655,14 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
             <span className="text-gray-300">/</span>
             <span className="text-gray-800 font-semibold truncate max-w-[160px]">{isNew ? 'Naujas' : (form.title || '...')}</span>
           </nav>
+          {/* Mobile: back arrow + title only */}
+          <div className="flex sm:hidden items-center gap-2 min-w-0">
+            <Link href={artistId ? `/admin/artists/${artistId}` : '/admin/albums'}
+              className="text-gray-400 hover:text-gray-700 shrink-0">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+            </Link>
+            <span className="text-gray-800 font-semibold truncate">{isNew ? 'Naujas albumas' : (form.title || '...')}</span>
+          </div>
           <div className="flex items-center gap-1.5 shrink-0">
             {!isNew && (
               <button onClick={handleDelete} disabled={deleting}
