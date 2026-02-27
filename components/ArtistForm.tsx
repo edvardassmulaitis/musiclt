@@ -1338,8 +1338,8 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
   const handleSubmit = (e:React.FormEvent) => { e.preventDefault(); onSubmit(formRef.current) }
 
   return (
-    <div className="min-h-screen bg-gray-50 lg:bg-gray-50">
-      <div className="max-w-7xl mx-auto px-0 sm:px-6 py-3 sm:py-6" style={{ maxWidth: "100vw", overflowX: "hidden" }}>
+    <div className="min-h-screen bg-gray-50 lg:bg-gray-50" style={{ overflowX: "hidden", maxWidth: "100vw" }}>
+      <div className="w-full py-3 sm:py-6">
         <div className="flex items-center justify-between mb-6">
           <div>
             <Link href={backHref} className="text-music-blue hover:text-music-orange text-sm">← Atgal</Link>
@@ -1362,19 +1362,19 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
             </div>
           )}
 
-          <div className="flex flex-col lg:grid lg:grid-cols-2 gap-0 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mb-2.5 mx-2 sm:mx-3">
+          <div className="flex flex-col lg:grid lg:grid-cols-2 gap-0 bg-white border-y lg:border lg:rounded-xl border-gray-100 shadow-sm overflow-hidden mb-2.5">
 
             {/* ── LEFT COLUMN ── */}
             <div className="p-2.5 pt-3 pb-3 border-b lg:border-b-0 lg:border-r border-gray-100">
               <div className="p-0 space-y-2.5">
 
                 {/* Pavadinimas + Tipas vienoje eilutėje */}
-                <div className="flex flex-wrap gap-2 items-end">
+                <div className="flex flex-col gap-2">
                   <div className="flex-1 min-w-0">
                     <label className="block text-xs font-semibold text-gray-500 mb-1">Pavadinimas *</label>
                     <Inp value={form.name} onChange={(v:string)=>set('name',v)} placeholder="Pvz: Jazzu" required />
                   </div>
-                  <div className="shrink-0 pb-0.5">
+                  <div>
                     <div className="flex gap-1">
                       {([['group','Grupė', <IconGroup />],['solo','Solo', <IconPerson />]] as const).map(([v,l,icon]) => (
                         <button key={v} type="button" onClick={()=>set('type',v)}
@@ -1517,7 +1517,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
             </div>
           </div>
 
-          <InlineGallery photos={form.photos} onChange={setPhotos} artistName={form.name} artistId={artistId} />
+          <div className="px-0"><InlineGallery photos={form.photos} onChange={setPhotos} artistName={form.name} artistId={artistId} /></div>
 
           <div className="mt-6 flex gap-4">
             <button id="submit-btn" type="submit"
