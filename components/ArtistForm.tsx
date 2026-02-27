@@ -162,7 +162,7 @@ function YearInput({ value, onChange, placeholder='MMMM' }: { value:string; onCh
   return <input type="number" value={raw} onChange={e=>setRaw(e.target.value)}
     onBlur={e=>commit(e.target.value)} onKeyDown={e=>e.key==='Enter'&&commit(raw)}
     placeholder={placeholder} min={1900} max={2100}
-    className="w-16 px-1.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-xs focus:outline-none focus:border-blue-400 bg-white text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+    className="w-14 px-1 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-xs focus:outline-none focus:border-blue-400 bg-white text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
 }
 
 function DateInput({ value, onChange, placeholder='MM' }: { value:string; onChange:(v:string)=>void; placeholder?:string }) {
@@ -179,14 +179,14 @@ function DateInput({ value, onChange, placeholder='MM' }: { value:string; onChan
   return <input type="number" value={raw} onChange={e=>setRaw(e.target.value)}
     onBlur={e=>commit(e.target.value)} onKeyDown={e=>e.key==='Enter'&&commit(raw)}
     placeholder={placeholder} min={1} max={max}
-    className="w-10 px-1 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-xs focus:outline-none focus:border-blue-400 bg-white text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+    className="w-9 px-0.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-xs focus:outline-none focus:border-blue-400 bg-white text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
 }
 
 function DateRow({ label, y, m, d, onY, onM, onD }: any) {
   return (
     <div className="flex-1 min-w-0">
       <label className="block text-xs font-semibold text-gray-500 mb-1">{label}</label>
-      <div className="flex gap-1 items-center">
+      <div className="flex gap-0.5 items-center">
         <YearInput value={y} onChange={onY} />
         <span className="text-gray-300 text-xs">·</span>
         <DateInput value={m} onChange={onM} placeholder="MM" />
@@ -1007,12 +1007,12 @@ function ArtistSearch({ label, ph, items, onAdd, onRemove, onYears, filterType }
           </a>
           <input value={item.yearFrom}
             onChange={e=>onYears(i,'yearFrom',e.target.value.replace(/\D/g,'').slice(0,4))}
-            placeholder="Nuo" maxLength={4} inputMode="numeric"
+            placeholder="MMMM" maxLength={4} inputMode="numeric"
             className="w-12 px-1 py-1 border border-gray-300 rounded text-xs text-gray-900 focus:outline-none focus:border-music-blue text-center" />
           <span className="text-gray-400 text-xs">–</span>
           <input value={item.yearTo}
             onChange={e=>onYears(i,'yearTo',e.target.value.replace(/\D/g,'').slice(0,4))}
-            placeholder="Iki" maxLength={4} inputMode="numeric"
+            placeholder="MMMM" maxLength={4} inputMode="numeric"
             className="w-12 px-1 py-1 border border-gray-300 rounded text-xs text-gray-900 focus:outline-none focus:border-music-blue text-center" />
           <button type="button" onClick={()=>onRemove(i)} className="text-red-400 hover:text-red-600 font-bold text-base ml-1">×</button>
         </div>
@@ -1154,7 +1154,7 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
             onKeyDown={e=>{ if(e.key==='Enter'){e.preventDefault();e.stopPropagation();addUrl()} }}
             placeholder="https://..."
             className="flex-1 min-w-0 px-2 py-1 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
-          <button type="button" onClick={()=>addUrl()} title="Pridėti nuorodą" className="flex items-center justify-center px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs transition-colors shrink-0"><IconLink /></button>
+          <button type="button" onClick={()=>addUrl()} title="Pridėti nuorodą" className="px-2 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-colors shrink-0">→</button>
           <button type="button" onClick={() => setShowWikimedia(true)} title="Wikimedia Commons"
             className="flex items-center gap-1 px-2 py-1 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg text-xs font-medium transition-colors shrink-0">
             <WikipediaIcon /> Wiki
@@ -1187,7 +1187,7 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
               onKeyDown={e=>{ if(e.key==='Enter'){e.preventDefault();e.stopPropagation();addUrl()} }}
               placeholder="https://..."
               className="flex-1 min-w-0 px-2 py-1 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
-            <button type="button" onClick={()=>addUrl()} title="Pridėti nuorodą" className="flex items-center justify-center px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs transition-colors shrink-0"><IconLink /></button>
+            <button type="button" onClick={()=>addUrl()} title="Pridėti nuorodą" className="px-2 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-colors shrink-0">→</button>
           </div>
         </div>
       </div>
@@ -1266,7 +1266,7 @@ function SocialsSection({ form, set }: { form: any; set: (k: any, v: any) => voi
             <span className="bg-blue-100 text-blue-600 text-xs font-bold px-1.5 py-0.5 rounded-full">{filledCount}</span>
           )}
           {!open && filledCount > 0 && (
-            <div className="flex gap-1 items-center">
+            <div className="flex gap-0.5 items-center">
               {SOCIALS.filter(({ key }) => !!(form[key as keyof ArtistFormData] as string)).map(({ key }) => (
                 <span key={key} className="w-4 h-4 flex items-center justify-center text-gray-400">{SocialIcons[key]}</span>
               ))}
@@ -1467,9 +1467,9 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                   <div>
                     <label className="block text-xs font-semibold text-gray-500 mb-1">Veiklos laikotarpis</label>
                     <div className="flex items-center gap-1.5">
-                      <YearInput value={form.yearStart} onChange={(v:string)=>set('yearStart',v)} placeholder="Nuo" />
+                      <YearInput value={form.yearStart} onChange={(v:string)=>set('yearStart',v)} />
                       <span className="text-gray-300 text-sm">—</span>
-                      <YearInput value={form.yearEnd} onChange={(v:string)=>set('yearEnd',v)} placeholder="Iki" />
+                      <YearInput value={form.yearEnd} onChange={(v:string)=>set('yearEnd',v)} />
                     </div>
                   </div>
                   {/* Right: Pertraukos */}
@@ -1480,11 +1480,11 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                     </div>
                     {form.breaks.map((br,i) => (
                       <div key={i} className="flex gap-1 mb-1 items-center">
-                        <input value={br.from} onChange={e=>upBreak(i,'from',e.target.value)} placeholder="Nuo"
-                          className="w-12 px-1 py-1 border border-gray-200 rounded-lg text-xs text-gray-900 focus:outline-none focus:border-blue-400 text-center" />
+                        <input value={br.from} onChange={e=>upBreak(i,'from',e.target.value)} placeholder="MMMM"
+                          className="w-14 px-1 py-1 border border-gray-200 rounded-lg text-xs text-gray-900 focus:outline-none focus:border-blue-400 text-center" />
                         <span className="text-gray-300 text-xs">–</span>
-                        <input value={br.to} onChange={e=>upBreak(i,'to',e.target.value)} placeholder="Iki"
-                          className="w-12 px-1 py-1 border border-gray-200 rounded-lg text-xs text-gray-900 focus:outline-none focus:border-blue-400 text-center" />
+                        <input value={br.to} onChange={e=>upBreak(i,'to',e.target.value)} placeholder="MMMM"
+                          className="w-14 px-1 py-1 border border-gray-200 rounded-lg text-xs text-gray-900 focus:outline-none focus:border-blue-400 text-center" />
                         <button type="button" onClick={()=>rmBreak(i)} className="text-red-400 hover:text-red-600 text-xs">×</button>
                       </div>
                     ))}
