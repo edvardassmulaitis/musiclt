@@ -129,12 +129,12 @@ function SL({ children }: { children: React.ReactNode }) {
 
 function Inp({ value, onChange, placeholder, type='text', required }: any) {
   return <input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} required={required}
-    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-blue-400 bg-white" />
+    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-[13px] focus:outline-none focus:border-blue-400 bg-white" />
 }
 
 function Sel({ value, onChange, children, required }: any) {
   return <select value={value} onChange={e=>onChange(e.target.value)} required={required}
-    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-blue-400 bg-white appearance-none cursor-pointer hover:border-gray-300 transition-colors">
+    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-[13px] focus:outline-none focus:border-blue-400 bg-white appearance-none cursor-pointer hover:border-gray-300 transition-colors">
     {children}
   </select>
 }
@@ -1365,8 +1365,8 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
           <div className="flex flex-col lg:grid lg:grid-cols-2 gap-0 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mb-2.5 mx-2 sm:mx-3">
 
             {/* ── LEFT COLUMN ── */}
-            <div className="p-3 pt-4 pb-4 border-b lg:border-b-0 lg:border-r border-gray-100">
-              <div className="p-0 space-y-3">
+            <div className="p-2.5 pt-3 pb-3 border-b lg:border-b-0 lg:border-r border-gray-100">
+              <div className="p-0 space-y-2.5">
 
                 {/* Pavadinimas + Tipas vienoje eilutėje */}
                 <div className="flex flex-wrap gap-2 items-end">
@@ -1482,7 +1482,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
             </div>
 
             {/* ── RIGHT COLUMN ── */}
-            <div className="p-3 pt-4 pb-4 space-y-2.5">
+            <div className="p-2.5 pt-3 pb-3 space-y-2">
               <div>
                 {/* ✅ avatar išsaugomas tiesiai į DB per /api/artists/[id]/avatar */}
                 <AvatarUploadCompact
