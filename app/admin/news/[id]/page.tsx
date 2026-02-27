@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
-import { useEditor, EditorContent } from '@tiptap/react'
+import { useEditor, EditorContent, Editor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { Link as TiptapLink } from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -24,7 +24,6 @@ type NewsForm = {
   source_name: string
   is_hidden_home: boolean
   artists: ArtistRef[]
-  album_code: string
   image_small_url: string
   published_at: string
 }
@@ -32,44 +31,215 @@ type NewsForm = {
 const emptyForm: NewsForm = {
   title: '', slug: '', type: 'news', body: '',
   source_url: '', source_name: '',
-  is_hidden_home: false, artists: [], album_code: '',
+  is_hidden_home: false, artists: [],
   image_small_url: '',
   published_at: new Date().toISOString().slice(0, 16),
 }
 
+// ─── Image Upload Helper ──────────────────────────────────────────────────────
+
+async function uploadImage(file: File): Promise<string> {
+  const fd = new FormData()
+  fd.append('file', file)
+  const res = await fetch('/api/upload', { method: 'POST', body: fd })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || 'Upload nepavyko')
+  return data.url
+}
+
+async function uploadFromUrl(url: string): Promise<string> {
+  const res = await fetch('/api/upload', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url }),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || 'Upload nepavyko')
+  return data.url
+}
+
+// ─── Mini Photo Crop ──────────────────────────────────────────────────────────
+
+function MiniPhotoCrop({ src, onSave, onCancel }: { src: string; onSave: (url: string) => void; onCancel: () => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [zoom, setZoom] = useState(1)
+  const [offsetX, setOffsetX] = useState(0)
+  const [offsetY, setOffsetY] = useState(0)
+  const [dragging, setDragging] = useState(false)
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+  const imgRef = useRef<HTMLImageElement | null>(null)
+  const SIZE = 200
+
+  useEffect(() => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => { imgRef.current = img; draw() }
+    img.src = src
+  }, [src])
+
+  useEffect(() => { draw() }, [zoom, offsetX, offsetY])
+
+  const draw = () => {
+    const canvas = canvasRef.current
+    const img = imgRef.current
+    if (!canvas || !img) return
+    const ctx = canvas.getContext('2d')!
+    ctx.clearRect(0, 0, SIZE, SIZE)
+    const scale = Math.max(SIZE / img.width, SIZE / img.height) * zoom
+    const w = img.width * scale
+    const h = img.height * scale
+    const x = (SIZE - w) / 2 + offsetX
+    const y = (SIZE - h) / 2 + offsetY
+    ctx.drawImage(img, x, y, w, h)
+  }
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setDragging(true)
+    setDragStart({ x: e.clientX - offsetX, y: e.clientY - offsetY })
+  }
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!dragging) return
+    setOffsetX(e.clientX - dragStart.x)
+    setOffsetY(e.clientY - dragStart.y)
+  }
+  const handleMouseUp = () => setDragging(false)
+
+  const handleSave = () => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    canvas.toBlob(async blob => {
+      if (!blob) return
+      const file = new File([blob], 'mini.jpg', { type: 'image/jpeg' })
+      try {
+        const url = await uploadImage(file)
+        onSave(url)
+      } catch (e: any) { alert(e.message) }
+    }, 'image/jpeg', 0.9)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl p-4 w-80">
+        <p className="text-sm font-bold text-gray-800 mb-3">✂️ Apkarpyti mini nuotrauką</p>
+        <div className="flex justify-center mb-3">
+          <canvas ref={canvasRef} width={SIZE} height={SIZE}
+            className="rounded-xl border border-gray-200 cursor-move"
+            style={{ width: SIZE, height: SIZE }}
+            onMouseDown={handleMouseDown} onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} />
+        </div>
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-xs text-gray-400">🔍</span>
+          <input type="range" min="0.5" max="3" step="0.05" value={zoom}
+            onChange={e => setZoom(parseFloat(e.target.value))}
+            className="flex-1" />
+          <span className="text-xs text-gray-400">{Math.round(zoom * 100)}%</span>
+        </div>
+        <div className="flex gap-2">
+          <button type="button" onClick={onCancel}
+            className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">
+            Atšaukti
+          </button>
+          <button type="button" onClick={handleSave}
+            className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700">
+            Išsaugoti
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Rich Text Editor ─────────────────────────────────────────────────────────
 
-function RichEditor({ value, onChange, photos }: {
-  value: string; onChange: (v: string) => void; photos: Photo[]
+function insertImageToEditor(editor: Editor, url: string) {
+  editor.chain().focus().insertContent({
+    type: 'paragraph',
+    content: [{
+      type: 'text',
+      text: ' ',
+    }]
+  }).run()
+  // Insert as HTML
+  const view = editor.view
+  const { state, dispatch } = view
+  const { tr, schema } = state
+  // Use insertContent with html
+  editor.chain().focus().insertContent(`<p><img src="${url}" alt="" style="max-width:100%;border-radius:8px;" /></p>`).run()
+}
+
+function RichEditor({ value, onChange, photos, onUploadedImage }: {
+  value: string
+  onChange: (v: string) => void
+  photos: Photo[]
+  onUploadedImage?: (url: string) => void
 }) {
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({
+        blockquote: { HTMLAttributes: { class: 'blockquote' } },
+      }),
       TiptapLink.configure({ openOnClick: false }),
       Placeholder.configure({ placeholder: 'Rašykite naujieną...' }),
     ],
     content: value,
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
     editorProps: {
-      attributes: { class: 'prose prose-sm max-w-none focus:outline-none min-h-[220px] px-3 py-2.5 text-gray-800 text-sm' },
+      attributes: { class: 'prose prose-sm max-w-none focus:outline-none min-h-[200px] px-3 py-2.5 text-gray-800 text-sm' },
     },
   })
 
-  if (!editor) return null
+  const insertImg = useCallback((url: string) => {
+    if (!editor) return
+    editor.chain().focus().insertContent(`<p><img src="${url}" alt="" style="max-width:100%;border-radius:8px;margin:4px 0;" /></p>`).run()
+    onUploadedImage?.(url)
+  }, [editor, onUploadedImage])
 
-  const insertPhoto = (url: string) => {
-    editor.chain().focus().insertContent(`<img src="${url}" alt="" style="max-width:100%;border-radius:8px;margin:8px 0;" />`).run()
+  const handleFileUpload = async (files: FileList | null) => {
+    if (!files || !editor) return
+    setUploading(true)
+    try {
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith('image/')) continue
+        const url = await uploadImage(file)
+        insertImg(url)
+      }
+    } catch (e: any) { alert(e.message) }
+    finally { setUploading(false) }
   }
 
-  const Btn = ({ onClick, label, active = false }: { onClick: () => void; label: string; active?: boolean }) => (
-    <button type="button" onClick={onClick}
-      className={`px-1.5 py-0.5 rounded text-xs font-medium transition-colors ${active ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'}`}>
+  const handleUrlInsert = async () => {
+    const url = window.prompt('Nuotraukos URL:')
+    if (!url || !editor) return
+    setUploading(true)
+    try {
+      const stored = await uploadFromUrl(url)
+      insertImg(stored)
+    } catch { insertImg(url) }
+    finally { setUploading(false) }
+  }
+
+  // Drag & drop on editor
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault()
+    await handleFileUpload(e.dataTransfer.files)
+  }
+
+  if (!editor) return null
+
+  const Btn = ({ onClick, label, active = false, disabled = false }: { onClick: () => void; label: string; active?: boolean; disabled?: boolean }) => (
+    <button type="button" onClick={onClick} disabled={disabled}
+      className={`px-1.5 py-0.5 rounded text-xs font-medium transition-colors disabled:opacity-40 ${active ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'}`}>
       {label}
     </button>
   )
 
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
+    <div className="border border-gray-200 rounded-lg overflow-visible bg-white">
+      {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-0.5 px-2 py-1 border-b border-gray-100 bg-gray-50/60">
         <Btn onClick={() => editor.chain().focus().toggleBold().run()} label="B" active={editor.isActive('bold')} />
         <Btn onClick={() => editor.chain().focus().toggleItalic().run()} label="I" active={editor.isActive('italic')} />
@@ -80,7 +250,7 @@ function RichEditor({ value, onChange, photos }: {
         <div className="w-px h-3 bg-gray-200 mx-0.5" />
         <Btn onClick={() => editor.chain().focus().toggleBulletList().run()} label="• Sąrašas" active={editor.isActive('bulletList')} />
         <Btn onClick={() => editor.chain().focus().toggleOrderedList().run()} label="1." active={editor.isActive('orderedList')} />
-        <Btn onClick={() => editor.chain().focus().toggleBlockquote().run()} label="❝" active={editor.isActive('blockquote')} />
+        <Btn onClick={() => editor.chain().focus().toggleBlockquote().run()} label="❝ Citata" active={editor.isActive('blockquote')} />
         <div className="w-px h-3 bg-gray-200 mx-0.5" />
         <button type="button" onClick={() => {
           const url = window.prompt('Nuorodos URL:')
@@ -88,29 +258,42 @@ function RichEditor({ value, onChange, photos }: {
         }} className={`px-1.5 py-0.5 rounded text-xs font-medium transition-colors ${editor.isActive('link') ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'}`}>
           🔗
         </button>
+        <div className="w-px h-3 bg-gray-200 mx-0.5" />
+        {/* Photo insert from gallery */}
         {photos.length > 0 && (
-          <>
-            <div className="w-px h-3 bg-gray-200 mx-0.5" />
-            <div className="relative group/photos">
-              <button type="button" className="px-1.5 py-0.5 rounded text-xs font-medium text-gray-500 hover:bg-gray-100 transition-colors">
-                🖼 Įterpti
-              </button>
-              <div className="absolute left-0 top-full mt-0.5 bg-white border border-gray-200 rounded-xl shadow-xl z-50 p-2 hidden group-hover/photos:flex gap-1.5 flex-wrap min-w-[180px] max-w-[300px]">
-                {photos.slice(0, 9).map((p, i) => (
-                  <button key={i} type="button" onClick={() => insertPhoto(p.url)} className="w-12 h-12 rounded-lg overflow-hidden border border-gray-200 hover:border-blue-400 transition-colors shrink-0">
-                    <img src={p.url} alt="" className="w-full h-full object-cover" />
-                  </button>
-                ))}
-              </div>
+          <div className="relative group/gallery">
+            <button type="button" className="px-1.5 py-0.5 rounded text-xs font-medium text-gray-500 hover:bg-gray-100 transition-colors">
+              📷 Galerija
+            </button>
+            <div className="absolute left-0 top-full mt-0.5 bg-white border border-gray-200 rounded-xl shadow-xl z-[100] p-2 hidden group-hover/gallery:flex gap-1.5 flex-wrap min-w-[180px] max-w-[280px]">
+              {photos.slice(0, 9).map((p, i) => (
+                <button key={i} type="button" onClick={() => insertImg(p.url)}
+                  className="w-12 h-12 rounded-lg overflow-hidden border-2 border-transparent hover:border-blue-400 transition-all shrink-0">
+                  <img src={p.url} alt="" className="w-full h-full object-cover" />
+                </button>
+              ))}
             </div>
-          </>
+          </div>
         )}
-        <button type="button" onClick={() => { const url = window.prompt('Nuotraukos URL:'); if (url) insertPhoto(url) }}
-          className="px-1.5 py-0.5 rounded text-xs font-medium text-gray-500 hover:bg-gray-100 transition-colors">
-          🖼 URL
+        {/* Upload from device */}
+        <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}
+          className="px-1.5 py-0.5 rounded text-xs font-medium text-gray-500 hover:bg-gray-100 transition-colors disabled:opacity-40">
+          {uploading ? '⏳' : '📁 Įkelti'}
         </button>
+        <Btn onClick={handleUrlInsert} label="🔗 URL" disabled={uploading} />
+        <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
+          onChange={e => handleFileUpload(e.target.files)} />
       </div>
-      <EditorContent editor={editor} />
+      {/* Editor area with drop support */}
+      <div onDrop={handleDrop} onDragOver={e => e.preventDefault()}>
+        <EditorContent editor={editor} />
+        {uploading && (
+          <div className="flex items-center gap-2 px-3 py-2 border-t border-gray-100 bg-blue-50 text-xs text-blue-600">
+            <span className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin inline-block" />
+            Įkeliama nuotrauka...
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -155,7 +338,8 @@ function TypeSelector({ value, onChange }: { value: string; onChange: (v: string
         <div className="flex items-center gap-1">
           <input ref={inputRef} type="text" value={newLabel} onChange={e => setNewLabel(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') { setAdding(false); setNewLabel('') } }}
-            placeholder="Naujas tipas..." className="px-2 py-0.5 border border-blue-300 rounded-full text-xs focus:outline-none w-28" />
+            placeholder="Naujas tipas..."
+            className="px-2 py-0.5 bg-white border border-blue-300 rounded-full text-xs text-gray-800 focus:outline-none w-28 placeholder:text-gray-400" />
           <button type="button" onClick={handleAdd} disabled={saving}
             className="px-2 py-0.5 bg-blue-600 text-white rounded-full text-xs disabled:opacity-50">{saving ? '...' : '✓'}</button>
           <button type="button" onClick={() => { setAdding(false); setNewLabel('') }} className="text-gray-400 text-xs">✕</button>
@@ -189,36 +373,35 @@ function MultiArtistSearch({ value, onChange }: { value: ArtistRef[]; onChange: 
   }, [q, value])
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => { if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false) }
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false)
+    }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
   return (
-    <div ref={containerRef} className="space-y-1.5">
-      {value.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {value.map(a => (
-            <div key={a.id} className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 border border-blue-200 rounded-lg">
-              {a.cover_image_url && <img src={a.cover_image_url} alt="" className="w-5 h-5 rounded-full object-cover" />}
-              <span className="text-xs font-medium text-blue-800">{a.name}</span>
-              <button type="button" onClick={() => onChange(value.filter(x => x.id !== a.id))} className="text-blue-400 hover:text-blue-600 text-sm leading-none ml-0.5">×</button>
-            </div>
-          ))}
+    <div ref={containerRef} className="flex flex-wrap items-center gap-1.5">
+      {value.map(a => (
+        <div key={a.id} className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 border border-blue-200 rounded-lg">
+          {a.cover_image_url && <img src={a.cover_image_url} alt="" className="w-4 h-4 rounded-full object-cover" />}
+          <span className="text-xs font-medium text-blue-800">{a.name}</span>
+          <button type="button" onClick={() => onChange(value.filter(x => x.id !== a.id))} className="text-blue-400 hover:text-blue-600 text-sm leading-none">×</button>
         </div>
-      )}
+      ))}
+      {/* Inline search */}
       <div className="relative">
         <input type="text" value={q} onChange={e => { setQ(e.target.value); setOpen(true) }}
           onFocus={() => setOpen(true)}
-          placeholder={value.length === 0 ? 'Ieškoti atlikėjo...' : '+ Pridėti atlikėją...'}
-          className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-blue-400" />
+          placeholder={value.length === 0 ? 'Ieškoti atlikėjo...' : '+ Pridėti...'}
+          className="px-2.5 py-1 bg-white border border-gray-200 rounded-lg text-xs text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-blue-400 w-36" />
         {open && results.length > 0 && (
-          <div className="absolute z-50 top-full left-0 right-0 mt-0.5 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+          <div className="absolute z-50 top-full left-0 mt-0.5 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden w-48">
             {results.map(a => (
               <button key={a.id} type="button" onClick={() => { onChange([...value, a]); setQ(''); setOpen(false) }}
                 className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-50 text-left text-sm text-gray-700 transition-colors">
-                {a.cover_image_url && <img src={a.cover_image_url} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />}
-                <span>{a.name}</span>
+                {a.cover_image_url && <img src={a.cover_image_url} alt="" className="w-5 h-5 rounded-full object-cover shrink-0" />}
+                <span className="truncate">{a.name}</span>
               </button>
             ))}
           </div>
@@ -243,7 +426,7 @@ function SourceInput({ nameValue, urlValue, onNameChange, onUrlChange }: {
   }, [])
 
   useEffect(() => {
-    setSuggestions(nameValue ? history.filter(h => h.name.toLowerCase().includes(nameValue.toLowerCase())) : [])
+    setSuggestions(nameValue ? history.filter(h => h.name.toLowerCase().includes(nameValue.toLowerCase())) : history.slice(0, 5))
   }, [nameValue, history])
 
   useEffect(() => {
@@ -267,12 +450,12 @@ function SourceInput({ nameValue, urlValue, onNameChange, onUrlChange }: {
           placeholder="pvz. Delfi, 15min..."
           className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-blue-400" />
         {open && suggestions.length > 0 && (
-          <div className="absolute z-50 top-full left-0 right-0 mt-0.5 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+          <div className="absolute z-50 bottom-full left-0 right-0 mb-0.5 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
             {suggestions.map((s, i) => (
-              <button key={i} type="button" onClick={() => { onNameChange(s.name); onUrlChange(s.url); setOpen(false) }}
+              <button key={i} type="button" onMouseDown={() => { onNameChange(s.name); onUrlChange(s.url); setOpen(false) }}
                 className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 text-sm text-gray-700 transition-colors">
                 <span className="font-medium">{s.name}</span>
-                <span className="text-xs text-gray-400 truncate ml-2 max-w-[120px]">{s.url}</span>
+                <span className="text-xs text-gray-400 truncate ml-2 max-w-[100px]">{s.url.replace('https://', '')}</span>
               </button>
             ))}
           </div>
@@ -286,10 +469,15 @@ function SourceInput({ nameValue, urlValue, onNameChange, onUrlChange }: {
 
 // ─── Artist Photos Panel ──────────────────────────────────────────────────────
 
-function ArtistPhotosPanel({ artists, onSelectMini }: { artists: ArtistRef[]; onSelectMini: (url: string) => void }) {
+function ArtistPhotosPanel({ artists, selectedMini, onSelectMini }: {
+  artists: ArtistRef[]
+  selectedMini: string
+  onSelectMini: (url: string) => void
+}) {
   const [photos, setPhotos] = useState<Photo[]>([])
   const [loading, setLoading] = useState(false)
   const [activeId, setActiveId] = useState<number | null>(null)
+  const [cropSrc, setCropSrc] = useState<string | null>(null)
 
   const artistId = activeId || artists[0]?.id
 
@@ -310,6 +498,9 @@ function ArtistPhotosPanel({ artists, onSelectMini }: { artists: ArtistRef[]; on
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
+      {cropSrc && (
+        <MiniPhotoCrop src={cropSrc} onSave={url => { onSelectMini(url); setCropSrc(null) }} onCancel={() => setCropSrc(null)} />
+      )}
       {artists.length > 1 && (
         <div className="shrink-0 flex gap-1 px-3 pt-2 overflow-x-auto">
           {artists.map(a => (
@@ -320,7 +511,7 @@ function ArtistPhotosPanel({ artists, onSelectMini }: { artists: ArtistRef[]; on
           ))}
         </div>
       )}
-      <p className="text-[10px] text-gray-400 px-3 py-1.5 shrink-0">Paspausk → mini foto naujienos kortelėje</p>
+      <p className="text-[10px] text-gray-400 px-3 py-1.5 shrink-0">Paspausk nuotrauką → apkarpyti kaip mini foto kortelėje</p>
       {loading ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
@@ -333,11 +524,11 @@ function ArtistPhotosPanel({ artists, onSelectMini }: { artists: ArtistRef[]; on
         <div className="flex-1 overflow-y-auto p-3">
           <div className="grid grid-cols-3 gap-1.5">
             {photos.map((p, i) => (
-              <button key={i} type="button" onClick={() => onSelectMini(p.url)}
-                className="relative group aspect-square rounded-lg overflow-hidden border border-gray-200 hover:border-blue-400 transition-all">
+              <button key={i} type="button" onClick={() => setCropSrc(p.url)}
+                className={`relative group aspect-square rounded-lg overflow-hidden border-2 transition-all ${selectedMini === p.url ? 'border-blue-500' : 'border-transparent hover:border-blue-300'}`}>
                 <img src={p.url} alt="" className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-blue-600/0 group-hover:bg-blue-600/20 transition-all flex items-end justify-center pb-1">
-                  <span className="opacity-0 group-hover:opacity-100 text-white text-[10px] font-bold bg-blue-600 px-1.5 py-0.5 rounded transition-all">Mini</span>
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-end justify-center pb-1">
+                  <span className="opacity-0 group-hover:opacity-100 text-white text-[10px] font-bold bg-blue-600 px-1.5 py-0.5 rounded transition-all">✂️ Apkarpyti</span>
                 </div>
               </button>
             ))}
@@ -366,8 +557,8 @@ export default function EditNews() {
   const [tab, setTab] = useState<'form' | 'photos'>('form')
   const [showSlug, setShowSlug] = useState(false)
   const [showDate, setShowDate] = useState(false)
-  const dateRef = useRef<HTMLDivElement>(null)
-  const slugRef = useRef<HTMLDivElement>(null)
+  const dateRef = useRef<HTMLDivElement | null>(null)
+  const slugRef = useRef<HTMLDivElement | null>(null)
 
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
   const set = useCallback((key: keyof NewsForm, val: any) => setForm(f => ({ ...f, [key]: val })), [])
@@ -398,7 +589,7 @@ export default function EditNews() {
         body: data.body || '', source_url: data.source_url || '', source_name: data.source_name || '',
         is_hidden_home: data.is_hidden_home || false,
         artists: [...(data.artist ? [data.artist] : []), ...(data.artist2 ? [data.artist2] : [])],
-        album_code: data.album_code || '', image_small_url: data.image_small_url || '',
+        image_small_url: data.image_small_url || '',
         published_at: data.published_at ? data.published_at.slice(0, 16) : new Date().toISOString().slice(0, 16),
       })
       setLoading(false)
@@ -477,20 +668,14 @@ export default function EditNews() {
 
       {/* Mobile */}
       <div className="lg:hidden flex-1 overflow-y-auto">
-        {tab === 'form' && (
-          <FormPane form={form} set={set} artistPhotos={artistPhotos} Label={Label}
-            showSlug={showSlug} setShowSlug={setShowSlug} showDate={showDate} setShowDate={setShowDate}
-            slugRef={slugRef} dateRef={dateRef} />
-        )}
-        {tab === 'photos' && <ArtistPhotosPanel artists={form.artists} onSelectMini={url => set('image_small_url', url)} />}
+        {tab === 'form' && <FormPane form={form} set={set} artistPhotos={artistPhotos} Label={Label} showSlug={showSlug} setShowSlug={setShowSlug} showDate={showDate} setShowDate={setShowDate} slugRef={slugRef} dateRef={dateRef} />}
+        {tab === 'photos' && <ArtistPhotosPanel artists={form.artists} selectedMini={form.image_small_url} onSelectMini={url => set('image_small_url', url)} />}
       </div>
 
       {/* Desktop */}
       <div className="hidden lg:flex flex-1 min-h-0">
         <div className="overflow-y-auto border-r border-gray-200" style={{ width: '62%' }}>
-          <FormPane form={form} set={set} artistPhotos={artistPhotos} Label={Label}
-            showSlug={showSlug} setShowSlug={setShowSlug} showDate={showDate} setShowDate={setShowDate}
-            slugRef={slugRef} dateRef={dateRef} />
+          <FormPane form={form} set={set} artistPhotos={artistPhotos} Label={Label} showSlug={showSlug} setShowSlug={setShowSlug} showDate={showDate} setShowDate={setShowDate} slugRef={slugRef} dateRef={dateRef} />
         </div>
         <div className="flex flex-col overflow-hidden" style={{ width: '38%' }}>
           <div className="shrink-0 px-3 py-2 border-b border-gray-100 bg-white/80 flex items-center justify-between">
@@ -503,7 +688,7 @@ export default function EditNews() {
               </div>
             )}
           </div>
-          <ArtistPhotosPanel artists={form.artists} onSelectMini={url => set('image_small_url', url)} />
+          <ArtistPhotosPanel artists={form.artists} selectedMini={form.image_small_url} onSelectMini={url => set('image_small_url', url)} />
         </div>
       </div>
     </div>
@@ -513,27 +698,40 @@ export default function EditNews() {
 // ─── Form Pane ────────────────────────────────────────────────────────────────
 
 function FormPane({ form, set, artistPhotos, Label, showSlug, setShowSlug, showDate, setShowDate, slugRef, dateRef }: {
-  form: NewsForm; set: (k: keyof NewsForm, v: any) => void; artistPhotos: Photo[]
+  form: NewsForm
+  set: (k: keyof NewsForm, v: any) => void
+  artistPhotos: Photo[]
   Label: ({ children }: { children: React.ReactNode }) => React.ReactElement
   showSlug: boolean; setShowSlug: (v: boolean) => void
   showDate: boolean; setShowDate: (v: boolean) => void
-  slugRef: React.RefObject<HTMLDivElement | null>; dateRef: React.RefObject<HTMLDivElement | null>
+  slugRef: React.RefObject<HTMLDivElement | null>
+  dateRef: React.RefObject<HTMLDivElement | null>
 }) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Auto-resize textarea
+  useEffect(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = el.scrollHeight + 'px'
+  }, [form.title])
+
   return (
     <div className="p-3 space-y-3">
 
       {/* Title */}
       <div>
-        <textarea value={form.title} onChange={e => set('title', e.target.value)} rows={2}
+        <textarea ref={textareaRef} value={form.title} onChange={e => set('title', e.target.value)} rows={1}
           placeholder="Naujienos antraštė..."
-          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-gray-900 font-semibold placeholder:text-gray-300 focus:outline-none focus:border-blue-400 resize-none text-sm leading-snug" />
+          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-gray-900 font-semibold placeholder:text-gray-300 focus:outline-none focus:border-blue-400 resize-none text-sm leading-snug overflow-hidden" />
         {/* Meta row */}
         <div className="flex flex-wrap items-center gap-3 mt-1 px-0.5">
           <div className="relative" ref={slugRef}>
             <button type="button" onClick={() => setShowSlug(!showSlug)}
               className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors">
               <svg viewBox="0 0 24 24" className="w-3 h-3 fill-none stroke-current stroke-2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-              {form.slug ? form.slug.slice(0, 24) + (form.slug.length > 24 ? '…' : '') : 'slug'}
+              {form.slug ? form.slug.slice(0, 20) + (form.slug.length > 20 ? '…' : '') : 'slug'}
             </button>
             {showSlug && (
               <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-2 w-64">
@@ -567,30 +765,33 @@ function FormPane({ form, set, artistPhotos, Label, showSlug, setShowSlug, showD
         </div>
       </div>
 
-      {/* Type */}
-      <div>
-        <Label>Tipas</Label>
-        <div className="mt-1"><TypeSelector value={form.type} onChange={v => set('type', v)} /></div>
+      {/* Type + Artists row */}
+      <div className="grid grid-cols-1 gap-3">
+        <div>
+          <Label>Tipas</Label>
+          <div className="mt-1"><TypeSelector value={form.type} onChange={v => set('type', v)} /></div>
+        </div>
+        <div>
+          <Label>Atlikėjai</Label>
+          <div className="mt-1"><MultiArtistSearch value={form.artists} onChange={v => set('artists', v)} /></div>
+        </div>
       </div>
 
-      {/* Artists */}
-      <div>
-        <Label>Atlikėjai</Label>
-        <div className="mt-1"><MultiArtistSearch value={form.artists} onChange={v => set('artists', v)} /></div>
-      </div>
-
-      {/* Body */}
-      <div>
-        <Label>Tekstas</Label>
-        <div className="mt-1"><RichEditor value={form.body} onChange={v => set('body', v)} photos={artistPhotos} /></div>
-      </div>
-
-      {/* Source */}
+      {/* Source – before body */}
       <div>
         <Label>Šaltinis</Label>
         <div className="mt-1">
           <SourceInput nameValue={form.source_name} urlValue={form.source_url}
             onNameChange={v => set('source_name', v)} onUrlChange={v => set('source_url', v)} />
+        </div>
+      </div>
+
+      {/* Body */}
+      <div>
+        <Label>Tekstas</Label>
+        <div className="mt-1">
+          <RichEditor value={form.body} onChange={v => set('body', v)} photos={artistPhotos}
+            onUploadedImage={url => { if (!form.image_small_url) set('image_small_url', url) }} />
         </div>
       </div>
 
