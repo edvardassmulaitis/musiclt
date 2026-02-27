@@ -8,6 +8,13 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+function encodeCaption(p: any): string | null {
+  const a = p.author || ''
+  const s = p.sourceUrl || ''
+  if (!a && !s) return p.caption || null
+  return JSON.stringify({ a, s })
+}
+
 // PUT /api/artists/[id]/photos — replace all photos for artist
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -15,17 +22,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!session?.user || !['admin', 'super_admin'].includes(session.user.role || '')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-
   const artistId = parseInt(id)
   if (isNaN(artistId)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
 
   const { photos } = await req.json()
   if (!Array.isArray(photos)) return NextResponse.json({ error: 'photos must be array' }, { status: 400 })
 
-  // Filter out invalid or data: URLs
   const validPhotos = photos.filter((p: any) => p?.url && typeof p.url === 'string' && !p.url.startsWith('data:'))
 
-  // Delete existing, insert new
   const { error: delError } = await supabase.from('artist_photos').delete().eq('artist_id', artistId)
   if (delError) return NextResponse.json({ error: delError.message }, { status: 500 })
 
@@ -34,7 +38,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       validPhotos.map((p: any, i: number) => ({
         artist_id: artistId,
         url: p.url,
-        caption: p.caption || null,
+        caption: encodeCaption(p),
         sort_order: i,
       }))
     )
