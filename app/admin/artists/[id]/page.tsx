@@ -307,6 +307,76 @@ function DiscographyPanel({ artistId, artistName, refreshKey, onImportClose }: {
   )
 }
 
+function MobileBreadcrumb({ artistName, artistId, albumCount, trackCount, onWikiImport }: {
+  artistName: string; artistId: string
+  albumCount: number | null; trackCount: number | null
+  onWikiImport: (data: any) => void
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="lg:hidden flex items-center gap-1.5 min-w-0 flex-1 relative">
+      <Link href="/admin/artists" className="text-gray-400 shrink-0">
+        <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+      </Link>
+      <span className="text-gray-800 font-semibold text-sm truncate flex-1">{artistName || '...'}</span>
+      <button type="button" onClick={() => setOpen(p => !p)}
+        className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors text-gray-500">
+        <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute top-full right-0 mt-1 w-52 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden">
+            <div className="px-3 py-2 border-b border-gray-100">
+              <p className="text-xs text-gray-400">Navigacija</p>
+            </div>
+            <Link href="/admin/artists" onClick={() => setOpen(false)}
+              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+              <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2 text-gray-400"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              Visi atlikėjai
+            </Link>
+            {albumCount !== null && (
+              <Link href={`/admin/albums?artist_id=${artistId}`} onClick={() => setOpen(false)}
+                className="flex items-center justify-between px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                <span className="flex items-center gap-2">
+                  <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2 text-gray-400"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+                  Albumai
+                </span>
+                <span className="bg-gray-100 text-gray-600 text-xs font-bold px-1.5 py-0.5 rounded-full">{albumCount}</span>
+              </Link>
+            )}
+            {trackCount !== null && (
+              <Link href={`/admin/tracks?artist_id=${artistId}`} onClick={() => setOpen(false)}
+                className="flex items-center justify-between px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                <span className="flex items-center gap-2">
+                  <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2 text-gray-400"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                  Dainos
+                </span>
+                <span className="bg-gray-100 text-gray-600 text-xs font-bold px-1.5 py-0.5 rounded-full">{trackCount}</span>
+              </Link>
+            )}
+            <div className="border-t border-gray-100">
+              <WikipediaImportCompact artistName={artistName} onImport={(data) => { onWikiImport(data); setOpen(false) }} />
+            </div>
+            <div className="border-t border-gray-100 px-3 py-2">
+              <Link href={`/admin/albums/new?artist_id=${artistId}`} onClick={() => setOpen(false)}
+                className="flex items-center gap-2 py-1 text-sm text-gray-700 hover:text-blue-600">
+                <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2 text-gray-400 shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                Naujas albumas
+              </Link>
+              <Link href={`/admin/tracks/new?artist_id=${artistId}`} onClick={() => setOpen(false)}
+                className="flex items-center gap-2 py-1 text-sm text-gray-700 hover:text-green-600">
+                <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2 text-gray-400 shrink-0"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Nauja daina
+              </Link>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 // Wikipedia W icon
 function WikipediaIcon({ className = "w-3.5 h-3.5 shrink-0" }: { className?: string }) {
   return (
@@ -447,7 +517,8 @@ export default function EditArtist() {
         <div className="flex items-center justify-between gap-2 px-4 py-2">
 
           <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
-            <nav className="flex items-center gap-1 text-sm min-w-0 shrink overflow-hidden">
+            {/* Desktop breadcrumb */}
+            <nav className="hidden lg:flex items-center gap-1 text-sm min-w-0 shrink overflow-hidden">
               <Link href="/admin" className="text-gray-400 hover:text-gray-700 shrink-0">Admin</Link>
               <span className="text-gray-300 shrink-0">/</span>
               <Link href="/admin/artists" className="text-gray-400 hover:text-gray-700 shrink-0">Atlikėjai</Link>
@@ -474,6 +545,17 @@ export default function EditArtist() {
                 </>
               )}
             </nav>
+
+            {/* Mobile breadcrumb — artist name + ... menu */}
+            <MobileBreadcrumb
+              artistName={artistName}
+              artistId={artistId}
+              albumCount={albumCount}
+              trackCount={trackCount}
+              onWikiImport={(data: Partial<ArtistFormData>) => {
+                setInitialData(prev => prev ? { ...prev, ...data } : prev)
+              }}
+            />
 
             <div className="hidden lg:flex items-center gap-1 shrink-0 border-l border-gray-200 pl-2 ml-1">
               <WikipediaImportCompact
@@ -503,12 +585,21 @@ export default function EditArtist() {
 
         <div className="flex lg:hidden border-t border-gray-100">
           <button onClick={() => setTab('form')}
-            className={`flex-1 py-2 text-sm font-semibold transition-colors ${tab === 'form' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-gray-500'}`}>
-            ✏️ Redagavimas
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold transition-colors ${tab === 'form' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/30' : 'text-gray-400 hover:text-gray-600'}`}>
+            <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2 shrink-0">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+            Redagavimas
           </button>
           <button onClick={() => setTab('discography')}
-            className={`flex-1 py-2 text-sm font-semibold transition-colors ${tab === 'discography' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-gray-500'}`}>
-            💿 Diskografija
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold transition-colors ${tab === 'discography' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/30' : 'text-gray-400 hover:text-gray-600'}`}>
+            <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2 shrink-0">
+              <circle cx="12" cy="12" r="10"/>
+              <circle cx="12" cy="12" r="4"/>
+              <circle cx="12" cy="12" r="1.5" className="fill-current stroke-none"/>
+            </svg>
+            Diskografija
           </button>
         </div>
       </div>
