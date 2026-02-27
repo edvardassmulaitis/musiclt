@@ -25,7 +25,14 @@
 "@tiptap/extension-text-align": "^2.10.4",
 "@tiptap/extension-placeholder": "^2.10.4",
 "@tiptap/extension-character-count": "^2.10.4",
-"@tiptap/extension-image": "^2.10.4"
+"@tiptap/extension-image": "^2.10.4",
+"@editorjs/editorjs": "^2.30.7",
+"@editorjs/header": "^2.8.8",
+"@editorjs/list": "^2.0.2",
+"@editorjs/quote": "^2.7.6",
+"@editorjs/image": "^2.10.3",
+"@editorjs/link": "^2.6.2",
+"@editorjs/delimiter": "^1.4.2"
   },
   "devDependencies": {
     "@types/node": "^20",
