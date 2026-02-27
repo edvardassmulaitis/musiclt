@@ -388,6 +388,7 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
   const router = useRouter()
 
   const [form, setForm] = useState<AlbumFull>(emptyAlbum)
+  const formRef = useRef<AlbumFull>(emptyAlbum)
   const [artistName, setArtistName] = useState('')
   const [artistId, setArtistId] = useState<number | null>(null)
   const [artistAvatar, setArtistAvatar] = useState('')
@@ -406,14 +407,20 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
   }, [])
 
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
-  const set = (f: keyof AlbumFull, v: any) => setForm(p => ({ ...p, [f]: v }))
+  const set = (f: keyof AlbumFull, v: any) => setForm(p => {
+    const next = { ...p, [f]: v }
+    formRef.current = next
+    return next
+  })
 
   useEffect(() => { if (status === 'unauthenticated') router.push('/') }, [status])
 
   useEffect(() => {
     if (!isNew && isAdmin) {
       fetch(`/api/albums/${id}`).then(r => r.json()).then(data => {
-        setForm({ ...data, tracks: data.tracks || [] })
+        const loaded = { ...data, tracks: data.tracks || [] }
+        setForm(loaded)
+        formRef.current = loaded
         if (data.artists?.name) { setArtistName(data.artists.name); setArtistId(data.artist_id); setArtistAvatar(data.artists.avatar || data.artists.cover_image_url || '') }
         if (data.featured_artists) setFeaturedArtists(data.featured_artists)
       })
@@ -461,11 +468,12 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
   }
 
   const handleSubmit = useCallback(async () => {
-    if (!form.title.trim()) { setError('Pavadinimas privalomas'); return }
-    if (!form.artist_id) { setError('Pasirinkite atlikėją'); return }
+    const cur = formRef.current
+    if (!cur.title.trim()) { setError('Pavadinimas privalomas'); return }
+    if (!cur.artist_id) { setError('Pasirinkite atlikėją'); return }
     setSaving(true); setError('')
     try {
-      const payload = { ...form, featured_artist_ids: featuredArtists.map(a => a.id) }
+      const payload = { ...cur, featured_artist_ids: featuredArtists.map(a => a.id) }
       const res = await fetch(isNew ? '/api/albums' : `/api/albums/${id}`, {
         method: isNew ? 'POST' : 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -476,7 +484,7 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
       setSaved(true); setTimeout(() => setSaved(false), 2000)
       if (isNew) router.push(`/admin/albums/${data.id}`)
     } catch (e: any) { setError(e.message) } finally { setSaving(false) }
-  }, [form, id, isNew, featuredArtists])
+  }, [id, isNew, featuredArtists])
 
   const handleDelete = async () => {
     if (!confirm(`Ištrinti albumą "${form.title}"?`)) return
