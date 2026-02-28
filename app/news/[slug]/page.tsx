@@ -64,7 +64,9 @@ export default async function NewsPage({ params }: Props) {
   const news = await getNews(slug)
   if (!news) notFound()
 
-  const related = await getRelatedNews(news.id, news.artist?.id)
+  const artist = Array.isArray(news.artist) ? news.artist[0] : news.artist
+  const related = await getRelatedNews(news.id, artist?.id)
 
-  return <NewsArticleClient news={news} related={related} />
+  const newsData = { ...news, artist, artist2: Array.isArray(news.artist2) ? news.artist2[0] : news.artist2 }
+  return <NewsArticleClient news={newsData as any} related={related} />
 }
