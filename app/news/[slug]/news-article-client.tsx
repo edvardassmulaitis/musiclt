@@ -98,7 +98,7 @@ function renderBody(body: string): React.ReactNode[] {
         )
         break
       case 'header':
-        const Tag = `h${block.data.level}` as keyof JSX.IntrinsicElements
+        const Tag = `h${block.data.level}` as React.ElementType
         nodes.push(
           <Tag key={i} className={`news-h${block.data.level}`}
             dangerouslySetInnerHTML={{ __html: block.data.text }} />
