@@ -1,13 +1,13 @@
 // app/news/[slug]/page.tsx
 import { notFound } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createPublicClient } from '@/lib/supabase'
 import NewsArticleClient from './news-article-client'
 import type { Metadata } from 'next'
 
 type Props = { params: Promise<{ slug: string }> }
 
 async function getNews(slug: string) {
-  const supabase = await createClient()
+  const supabase = createPublicClient()
   const { data } = await supabase
     .from('news')
     .select(`
@@ -22,7 +22,7 @@ async function getNews(slug: string) {
 }
 
 async function getRelatedNews(newsId: number, artistId?: number) {
-  const supabase = await createClient()
+  const supabase = createPublicClient()
   let q = supabase
     .from('news')
     .select('id, title, slug, image_small_url, published_at, type')
