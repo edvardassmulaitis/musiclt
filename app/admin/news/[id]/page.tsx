@@ -149,181 +149,25 @@ function MiniPhotoCrop({ src, onSave, onCancel }: { src: string; onSave: (url: s
 
 // ─── Editor.js Wrapper ───────────────────────────────────────────────────────
 
+import dynamic from 'next/dynamic'
+
+// Dynamically import the actual editor to avoid SSR issues
+const EditorJsClient = dynamic(
+  () => import('./editor-client').then(m => m.EditorJsClient),
+  { ssr: false, loading: () => (
+    <div className="border border-gray-200 rounded-lg bg-white min-h-[200px] flex items-center justify-center">
+      <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+    </div>
+  )}
+)
+
 function EditorJsWrapper({ value, onChange, photos, onUploadedImage }: {
   value: string
   onChange: (v: string) => void
   photos: Photo[]
   onUploadedImage?: (url: string) => void
 }) {
-  const editorRef = useRef<any>(null)
-  const holderRef = useRef<HTMLDivElement>(null)
-  const initializedRef = useRef(false)
-  const [ready, setReady] = useState(false)
-
-  // Parse stored value – could be EditorJS JSON or legacy HTML
-  const parseInitialData = (val: string) => {
-    if (!val) return undefined
-    try {
-      const parsed = JSON.parse(val)
-      if (parsed.blocks) return parsed
-    } catch {}
-    // Legacy HTML – wrap as single paragraph block
-    return {
-      blocks: [{ type: 'paragraph', data: { text: val.replace(/<[^>]+>/g, '') } }]
-    }
-  }
-
-  useEffect(() => {
-    if (initializedRef.current || !holderRef.current) return
-    initializedRef.current = true
-
-    let editor: any
-
-    const init = async () => {
-      const EditorJS = (await import('@editorjs/editorjs')).default
-      const Header = (await import('@editorjs/header')).default
-      const List = (await import('@editorjs/list')).default
-      const Quote = (await import('@editorjs/quote')).default
-      const ImageTool = (await import('@editorjs/image')).default
-      const Delimiter = (await import('@editorjs/delimiter')).default
-
-      const initialData = parseInitialData(value)
-
-      editor = new EditorJS({
-        holder: holderRef.current!,
-        data: initialData,
-        placeholder: 'Rašykite naujieną...',
-        tools: {
-          header: {
-            class: Header as any,
-            config: { levels: [2, 3, 4], defaultLevel: 2 },
-          },
-          list: {
-            class: List as any,
-            inlineToolbar: true,
-          },
-          quote: {
-            class: Quote as any,
-            inlineToolbar: true,
-            config: { quotePlaceholder: 'Citata...', captionPlaceholder: 'Autorius' },
-          },
-          image: {
-            class: ImageTool as any,
-            config: {
-              uploader: {
-                uploadByFile: async (file: File) => {
-                  try {
-                    const url = await uploadImage(file)
-                    onUploadedImage?.(url)
-                    return { success: 1, file: { url } }
-                  } catch (e: any) {
-                    return { success: 0, file: { url: '' } }
-                  }
-                },
-                uploadByUrl: async (url: string) => {
-                  try {
-                    const stored = await uploadFromUrl(url)
-                    onUploadedImage?.(stored)
-                    return { success: 1, file: { url: stored } }
-                  } catch {
-                    return { success: 1, file: { url } }
-                  }
-                },
-              },
-            },
-          },
-          delimiter: { class: Delimiter as any },
-        },
-        onChange: async () => {
-          if (!editor) return
-          try {
-            const data = await editor.save()
-            onChange(JSON.stringify(data))
-          } catch {}
-        },
-        onReady: () => setReady(true),
-        i18n: {
-          messages: {
-            ui: {
-              blockTunes: { toggler: { 'Click to tune': 'Nustatymai', 'or drag to move': 'arba tempti' } },
-              inlineToolbar: { converter: { 'Convert to': 'Konvertuoti į' } },
-              toolbar: { toolbox: { Add: 'Pridėti' } },
-            },
-            toolNames: {
-              Text: 'Tekstas', Heading: 'Antraštė', List: 'Sąrašas',
-              Quote: 'Citata', Image: 'Nuotrauka', Delimiter: 'Skyriklis',
-              Bold: 'Paryškintas', Italic: 'Kursyvas', Link: 'Nuoroda',
-            },
-            tools: {
-              image: {
-                'Select an Image': 'Pasirinkite nuotrauką',
-                'With border': 'Su rėmeliu',
-                'Stretch image': 'Išplėsti',
-                'With background': 'Su fonu',
-              },
-              list: { Ordered: 'Sunumeruotas', Unordered: 'Nenumeruotas' },
-              header: { 'Heading 1': 'H1', 'Heading 2': 'H2', 'Heading 3': 'H3' },
-            },
-            blockTunes: {
-              delete: { Delete: 'Ištrinti', 'Click to delete': 'Spausti ištrinti' },
-              moveUp: { 'Move up': 'Kelti aukštyn' },
-              moveDown: { 'Move down': 'Leisti žemyn' },
-            },
-          },
-        },
-      })
-
-      editorRef.current = editor
-    }
-
-    init()
-
-    return () => {
-      if (editorRef.current?.destroy) {
-        editorRef.current.destroy()
-        editorRef.current = null
-        initializedRef.current = false
-      }
-    }
-  }, [])
-
-  // Insert photo from gallery
-  const insertGalleryPhoto = async (url: string) => {
-    const editor = editorRef.current
-    if (!editor) return
-    try {
-      await editor.blocks.insert('image', { file: { url }, caption: '', withBorder: false, stretched: false, withBackground: false })
-      onUploadedImage?.(url)
-    } catch {}
-  }
-
-  return (
-    <div className="border border-gray-200 rounded-lg bg-white overflow-hidden">
-      {/* Gallery toolbar */}
-      {photos.length > 0 && (
-        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-100 bg-gray-50/60">
-          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Įterpti iš galerijos:</span>
-          <div className="flex gap-1.5 overflow-x-auto">
-            {photos.slice(0, 12).map((p, i) => (
-              <button key={i} type="button" onClick={() => insertGalleryPhoto(p.url)}
-                className="w-8 h-8 rounded-md overflow-hidden border-2 border-transparent hover:border-blue-400 transition-all shrink-0">
-                <img src={p.url} alt="" className="w-full h-full object-cover" />
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      {/* Editor holder */}
-      <div className="relative">
-        {!ready && (
-          <div className="absolute inset-0 flex items-center justify-center bg-white z-10 min-h-[200px]">
-            <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-          </div>
-        )}
-        <div ref={holderRef} className="min-h-[200px] px-2 py-1 editorjs-holder" />
-      </div>
-    </div>
-  )
+  return <EditorJsClient value={value} onChange={onChange} photos={photos} onUploadedImage={onUploadedImage} />
 }
 
 // ─── Type Selector ────────────────────────────────────────────────────────────
