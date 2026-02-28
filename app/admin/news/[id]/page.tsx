@@ -906,11 +906,11 @@ export default function EditNews() {
 function FormPane({ form, set, textareaRef, showSlug, setShowSlug, showDate, setShowDate, slugRef, dateRef }: {
   form: NewsForm
   set: (k: keyof NewsForm, v: any) => void
-  textareaRef: React.RefObject<HTMLTextAreaElement>
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>
   showSlug: boolean; setShowSlug: (v: boolean) => void
   showDate: boolean; setShowDate: (v: boolean) => void
-  slugRef: React.RefObject<HTMLDivElement>
-  dateRef: React.RefObject<HTMLDivElement>
+  slugRef: React.RefObject<HTMLDivElement | null>
+  dateRef: React.RefObject<HTMLDivElement | null>
 }) {
   // Artist photos for editor toolbar
   const [artistPhotos, setArtistPhotos] = useState<Photo[]>([])
