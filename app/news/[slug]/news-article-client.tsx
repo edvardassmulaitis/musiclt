@@ -122,7 +122,7 @@ function MusicPlayer({ songs }: { songs: SongEntry[] }) {
         </div>
       </div>
 
-      {songs.length > 1 && (
+      {songs.length > 2 && (
         <div className="mu-list">
           <div className="mu-list-label">{songs.length} dainos</div>
           {songs.map((s, i) => {
@@ -376,14 +376,30 @@ export default function NewsArticleClient({
         /* ═══ LAYOUT: 3 zones ═══ */
         .zone-article { max-width:1360px; margin:0 auto; padding:32px 24px 0; }
         .article-grid { display:grid; gap:0; align-items:start; }
-        .article-grid.with-sidebar { grid-template-columns:1fr 1fr; }
+        .article-grid.with-sidebar { grid-template-columns:3fr 2fr; }
         .article-grid.no-sidebar { grid-template-columns:1fr; max-width:860px; margin:0 auto; }
         .main { }
         .article-grid.with-sidebar .main { padding-right:36px; }
         .sidebar { position:sticky; top:80px; display:flex; flex-direction:column; gap:12px; padding-left:32px; border-left:1px solid var(--border2); }
 
         .zone-gallery { max-width:1360px; margin:0 auto; padding:0 24px; }
-        .zone-bottom { max-width:860px; margin:0 auto; padding:0 24px 80px; }
+        .zone-bottom { max-width:1360px; margin:0 auto; padding:0 24px 80px; }
+
+        /* Bottom cards row */
+        .bottom-cards { display:grid; grid-template-columns:auto 1fr; gap:16px; margin-bottom:40px; padding-top:40px; border-top:1px solid var(--border); }
+        .artist-card-h { border-radius:14px; border:1px solid var(--border); background:var(--card); display:flex; align-items:center; gap:14px; padding:16px 20px; min-width:280px; }
+        .ach-img { width:48px; height:48px; border-radius:50%; object-fit:cover; border:2px solid var(--border); flex-shrink:0; background:rgba(255,255,255,.06); }
+        .ach-info { flex:1; min-width:0; }
+        .ach-name { font-size:14px; font-weight:800; color:var(--text); }
+        .ach-sub { font-size:11px; color:var(--text4); margin-top:1px; }
+        .ach-btn { background:rgba(29,78,216,.1); border:1px solid rgba(29,78,216,.2); color:#93b4e0; font-size:11px; font-weight:700; padding:7px 14px; border-radius:8px; text-decoration:none; white-space:nowrap; transition:all .2s; flex-shrink:0; }
+        .ach-btn:hover { background:rgba(29,78,216,.2); }
+        .rel-card-h { border-radius:14px; border:1px solid var(--border); background:var(--card); padding:16px 20px; }
+        .rel-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:8px; }
+
+        @media(max-width:768px) {
+          .bottom-cards { grid-template-columns:1fr; }
+        }
 
         /* Prose */
         .divider { height:1px; background:var(--border2); margin-bottom:32px; }
@@ -637,27 +653,6 @@ export default function NewsArticleClient({
                     <button className="sh-btn" onClick={() => window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(location.href)}&text=${encodeURIComponent(news.title)}`)}>Twitter / X</button>
                   </div>
                 </div>
-                {related.length > 0 && (
-                  <div className="rel-card">
-                    <div className="rel-label">Taip pat skaitykite</div>
-                    {related.map(r => (
-                      <Link key={r.id} href={`/news/${r.slug}`} className="rel-item">
-                        {r.image_small_url ? <img src={r.image_small_url} alt="" className="rel-thumb" /> : <div className="rel-thumb" />}
-                        <span className="rel-title">{r.title}</span>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-                {news.artist && (
-                  <div className="artist-card">
-                    {news.artist.cover_image_url
-                      ? <img src={news.artist.cover_image_url} alt={news.artist.name} className="ac-img" />
-                      : <div className="ac-img" style={{ display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,fontWeight:900,color:'rgba(255,255,255,.15)' }}>{news.artist.name[0]}</div>}
-                    <div className="ac-name">{news.artist.name}</div>
-                    <div className="ac-sub">music.lt atlikėjas</div>
-                    <Link href={`/artists/${news.artist.id}`} className="ac-btn">Atlikėjo profilis →</Link>
-                  </div>
-                )}
               </aside>
             )}
           </div>
@@ -670,8 +665,38 @@ export default function NewsArticleClient({
           </div>
         )}
 
-        {/* ═══ ZONE 3: Comments (centered, narrower) ═══ */}
+        {/* ═══ ZONE 3: Bottom content (centered, narrower) ═══ */}
         <div className="zone-bottom">
+          {/* Artist + Related in a horizontal row */}
+          {(news.artist || related.length > 0) && (
+            <div className="bottom-cards">
+              {news.artist && (
+                <div className="artist-card-h">
+                  {news.artist.cover_image_url
+                    ? <img src={news.artist.cover_image_url} alt={news.artist.name} className="ach-img" />
+                    : <div className="ach-img" style={{ display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,fontWeight:900,color:'rgba(255,255,255,.15)' }}>{news.artist.name[0]}</div>}
+                  <div className="ach-info">
+                    <div className="ach-name">{news.artist.name}</div>
+                    <div className="ach-sub">music.lt atlikėjas</div>
+                  </div>
+                  <Link href={`/artists/${news.artist.id}`} className="ach-btn">Profilis →</Link>
+                </div>
+              )}
+              {related.length > 0 && (
+                <div className="rel-card-h">
+                  <div className="rel-label">Taip pat skaitykite</div>
+                  <div className="rel-grid">
+                    {related.map(r => (
+                      <Link key={r.id} href={`/news/${r.slug}`} className="rel-item">
+                        {r.image_small_url ? <img src={r.image_small_url} alt="" className="rel-thumb" /> : <div className="rel-thumb" />}
+                        <span className="rel-title">{r.title}</span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           <Comments />
         </div>
       </div>
