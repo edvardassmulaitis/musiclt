@@ -1,185 +1,160 @@
 'use client'
 // app/news/[slug]/news-article-client.tsx
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { HeaderAuth } from '@/components/HeaderAuth'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ── Types ──────────────────────────────────────────────────────────────────
 
-type ArtistRef = {
-  id: number
-  name: string
-  cover_image_url?: string
-  photos?: { url: string; caption?: string }[]
-}
-
-type Photo = { url: string; caption?: string; source?: string; source_url?: string }
+type Photo = { url: string; caption?: string; source?: string }
+type SongEntry = { id?: number; song_id?: number | null; title: string; artist_name: string; youtube_url: string }
 
 type NewsItem = {
-  id: number
-  title: string
-  slug: string
-  body: string
-  type: string
-  source_url?: string
-  source_name?: string
-  published_at: string
-  image_small_url?: string
-  gallery?: Photo[]
-  youtube_url?: string
-  artist?: ArtistRef
-  artist2?: ArtistRef
+  id: number; title: string; slug: string; body: string; type: string
+  source_url?: string; source_name?: string; published_at: string
+  image_small_url?: string; gallery?: Photo[]; youtube_url?: string
+  artist?: { id: number; name: string; cover_image_url?: string }
 }
 
-type RelatedNews = {
-  id: number
-  title: string
-  slug: string
-  image_small_url?: string
-  published_at: string
-  type: string
-}
+type RelatedNews = { id: number; title: string; slug: string; image_small_url?: string; published_at: string; type: string }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ── Helpers ────────────────────────────────────────────────────────────────
 
-function getYouTubeId(url?: string): string | null {
+function ytId(url?: string | null) {
   if (!url) return null
   const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/)
   return m ? m[1] : null
 }
-
-function getLede(body: string): string {
+function getLede(body: string) {
   const m = body.match(/<p[^>]*>(.*?)<\/p>/i)
-  if (!m) return ''
-  return m[1].replace(/<[^>]+>/g, '')
+  return m ? m[1].replace(/<[^>]+>/g, '') : ''
 }
 
-// ─── Chip ─────────────────────────────────────────────────────────────────────
+// ── Chip ──────────────────────────────────────────────────────────────────
 
-const TYPE_COLORS: Record<string, string> = {
-  news:       'bg-red-500/20 text-red-300 border-red-500/30',
+const T_COLOR: Record<string, string> = {
+  news: 'bg-red-500/20 text-red-300 border-red-500/30',
   reportazas: 'bg-red-500/20 text-red-300 border-red-500/30',
-  interviu:   'bg-violet-500/20 text-violet-300 border-violet-500/30',
-  recenzija:  'bg-blue-500/20 text-blue-300 border-blue-500/30',
-  default:    'bg-orange-500/20 text-orange-300 border-orange-500/30',
+  interviu: 'bg-violet-500/20 text-violet-300 border-violet-500/30',
+  recenzija: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
 }
-const TYPE_LABELS: Record<string, string> = {
-  news: 'Naujiena', reportazas: 'Reportažas', interviu: 'Interviu', recenzija: 'Recenzija',
-}
+const T_LABEL: Record<string, string> = { news: 'Naujiena', reportazas: 'Reportažas', interviu: 'Interviu', recenzija: 'Recenzija' }
+
 function Chip({ type }: { type: string }) {
-  const cls = TYPE_COLORS[type] || TYPE_COLORS.default
   return (
-    <span className={`inline-flex items-center text-[10px] font-black tracking-widest uppercase px-2.5 py-1 rounded-full border ${cls}`}>
-      {TYPE_LABELS[type] || type}
+    <span className={`inline-flex items-center text-[10px] font-black tracking-widest uppercase px-2.5 py-1 rounded-full border ${T_COLOR[type] || 'bg-orange-500/20 text-orange-300 border-orange-500/30'}`}>
+      {T_LABEL[type] || type}
     </span>
   )
 }
 
-// ─── YouTube Widget ───────────────────────────────────────────────────────────
+// ── Songs Player Sidebar ───────────────────────────────────────────────────
 
-function YouTubeWidget({ url }: { url: string }) {
+function SongsPlayer({ songs }: { songs: SongEntry[] }) {
+  const [active, setActive] = useState(0)
   const [playing, setPlaying] = useState(false)
-  const id = getYouTubeId(url)
-  if (!id) return null
+
+  if (!songs.length) return null
+  const cur = songs[active]
+  const vid = ytId(cur.youtube_url)
+
   return (
-    <div className="yt-widget">
-      <div className="yt-widget-label">🎬 Vaizdo klipas</div>
-      {playing ? (
-        <div className="yt-embed-wrap">
-          <iframe src={`https://www.youtube.com/embed/${id}?autoplay=1`} allow="autoplay; encrypted-media" allowFullScreen className="yt-iframe" />
-        </div>
-      ) : (
-        <div className="yt-thumb-wrap" onClick={() => setPlaying(true)}>
-          <img src={`https://img.youtube.com/vi/${id}/maxresdefault.jpg`} alt="Video" />
-          <div className="yt-play-btn">
-            <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
-              <circle cx="28" cy="28" r="28" fill="rgba(0,0,0,0.6)"/>
-              <polygon points="23,18 41,28 23,38" fill="white"/>
-            </svg>
+    <div className="songs-player">
+      {/* Current video */}
+      <div className="sp-video">
+        {playing && vid ? (
+          <iframe
+            src={`https://www.youtube.com/embed/${vid}?autoplay=1`}
+            allow="autoplay; encrypted-media" allowFullScreen
+            className="sp-iframe"
+          />
+        ) : (
+          <div className="sp-thumb" onClick={() => vid && setPlaying(true)}>
+            {vid
+              ? <img src={`https://img.youtube.com/vi/${vid}/mqdefault.jpg`} alt={cur.title} />
+              : <div className="sp-no-thumb">♪</div>
+            }
+            <div className="sp-play-overlay">
+              <div className="sp-play-btn">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+              </div>
+            </div>
+            <div className="sp-thumb-meta">
+              <div className="sp-thumb-title">{cur.title}</div>
+              {cur.artist_name && <div className="sp-thumb-artist">{cur.artist_name}</div>}
+            </div>
           </div>
+        )}
+      </div>
+
+      {/* Playlist */}
+      {songs.length > 1 && (
+        <div className="sp-list">
+          {songs.map((s, i) => {
+            const v = ytId(s.youtube_url)
+            return (
+              <button key={i} onClick={() => { setActive(i); setPlaying(false) }}
+                className={`sp-item ${active === i ? 'sp-item-active' : ''}`}>
+                {v
+                  ? <img src={`https://img.youtube.com/vi/${v}/default.jpg`} alt="" className="sp-item-thumb" />
+                  : <div className="sp-item-thumb sp-item-no-thumb">♪</div>
+                }
+                <div className="sp-item-text">
+                  <div className="sp-item-title">{s.title}</div>
+                  {s.artist_name && <div className="sp-item-artist">{s.artist_name}</div>}
+                </div>
+                {active === i && <div className="sp-item-dot" />}
+              </button>
+            )
+          })}
         </div>
       )}
     </div>
   )
 }
 
-// ─── Vertical Gallery Sidebar ─────────────────────────────────────────────────
+// ── Reactions (sidebar) ────────────────────────────────────────────────────
 
-function VerticalGallery({ photos }: { photos: Photo[] }) {
-  const [lightbox, setLightbox] = useState<number | null>(null)
-  if (!photos.length) return null
-
-  return (
-    <>
-      <div className="vgallery">
-        <div className="vgallery-label">📸 {photos.length} nuotr.</div>
-        <div className="vgallery-list">
-          {photos.map((p, i) => (
-            <div key={i} className="vgallery-item" onClick={() => setLightbox(i)}>
-              <img src={p.url} alt={p.caption || ''} />
-              {p.caption && <div className="vgallery-cap">{p.caption}</div>}
-              {p.source && <div className="vgallery-src">© {p.source}</div>}
-              <div className="vgallery-overlay">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Lightbox */}
-      {lightbox !== null && (
-        <div className="lightbox" onClick={() => setLightbox(null)}>
-          <button className="lb-close" onClick={() => setLightbox(null)}>✕</button>
-          <button className="lb-prev" onClick={e => { e.stopPropagation(); setLightbox(i => Math.max(0, i! - 1)) }}>‹</button>
-          <div className="lb-img-wrap" onClick={e => e.stopPropagation()}>
-            <img src={photos[lightbox].url} alt={photos[lightbox].caption || ''} />
-            {photos[lightbox].caption && <div className="lb-cap">{photos[lightbox].caption}</div>}
-          </div>
-          <button className="lb-next" onClick={e => { e.stopPropagation(); setLightbox(i => Math.min(photos.length - 1, i! + 1)) }}>›</button>
-          <div className="lb-counter">{lightbox + 1} / {photos.length}</div>
-        </div>
-      )}
-    </>
-  )
-}
-
-// ─── Reactions ────────────────────────────────────────────────────────────────
-
-const REACTIONS = [
-  { emoji: '🏆', label: 'Laimės!', count: 214 },
-  { emoji: '🔥', label: 'Puiki daina', count: 389 },
-  { emoji: '🇱🇹', label: 'Palaikau', count: 512 },
-  { emoji: '😬', label: 'Abejoju', count: 67 },
+const RX = [
+  { e: '🏆', l: 'Laimės!', c: 214 },
+  { e: '🔥', l: 'Puiki daina', c: 389 },
+  { e: '🇱🇹', l: 'Palaikau', c: 512 },
+  { e: '😬', l: 'Abejoju', c: 67 },
 ]
+
 function Reactions() {
   const [picked, setPicked] = useState<number | null>(null)
-  const [counts, setCounts] = useState(REACTIONS.map(r => r.count))
+  const [counts, setCounts] = useState(RX.map(r => r.c))
   const total = counts.reduce((a, b) => a + b, 0)
+
   const pick = (i: number) => {
     if (picked === i) return
+    if (picked !== null) setCounts(c => c.map((v, j) => j === picked ? v - 1 : v))
     setCounts(c => c.map((v, j) => j === i ? v + 1 : v))
     setPicked(i)
   }
+
   return (
-    <div className="reactions-block">
-      <p className="reactions-q">Kaip vertini šios naujienos atlikėją?</p>
-      <div className="reactions-btns">
-        {REACTIONS.map((r, i) => (
-          <button key={i} onClick={() => pick(i)} className={`reaction-btn ${picked === i ? 'reaction-btn-on' : ''}`}>
-            <span className="reaction-emoji">{r.emoji}</span>
-            <span className="reaction-label">{r.label}</span>
-            <span className="reaction-count">{counts[i]}</span>
+    <div className="rx-block">
+      <div className="rx-label">Kaip vertini?</div>
+      <div className="rx-grid">
+        {RX.map((r, i) => (
+          <button key={i} onClick={() => pick(i)} className={`rx-btn ${picked === i ? 'rx-btn-on' : ''}`}>
+            <span className="rx-e">{r.e}</span>
+            <span className="rx-l">{r.l}</span>
+            <span className="rx-c">{counts[i]}</span>
           </button>
         ))}
       </div>
       {picked !== null && (
-        <div className="reactions-bars">
-          {REACTIONS.map((r, i) => (
+        <div className="rx-bars">
+          {RX.map((r, i) => (
             <div key={i} className="rx-bar-row">
-              <span className="rx-bar-e">{r.emoji}</span>
-              <div className="rx-bar-bg"><div className="rx-bar-fg" style={{ width: `${Math.round(counts[i] / total * 100)}%` }} /></div>
+              <span className="rx-bar-e">{r.e}</span>
+              <div className="rx-bar-bg">
+                <div className="rx-bar-fg" style={{ width: `${Math.round(counts[i] / total * 100)}%` }} />
+              </div>
               <span className="rx-bar-n">{counts[i]}</span>
             </div>
           ))}
@@ -189,46 +164,85 @@ function Reactions() {
   )
 }
 
-// ─── Comments ─────────────────────────────────────────────────────────────────
+// ── Photo Grid (below article) ─────────────────────────────────────────────
 
-const MOCK_COMMENTS = [
-  { id: 1, user: 'muzikoslt', badge: 'Fanas', color: 'bg-violet-500/20 text-violet-300', text: 'Labai džiaugiuosi! Puiki daina, tikiuosi gerai pasirodys Vienoje.', time: '2 val.', likes: 24 },
-  { id: 2, user: 'eurovizijos_fanas', badge: 'Ekspertas', color: 'bg-orange-500/20 text-orange-300', text: 'Pagal bukmeikerių prognozes esame tarp TOP 15 – labai geras rezultatas Lietuvai.', time: '8 val.', likes: 41 },
+function PhotoGrid({ photos }: { photos: Photo[] }) {
+  const [lb, setLb] = useState<number | null>(null)
+  if (!photos.length) return null
+
+  const n = photos.length
+  // grid class depending on count
+  const gridCls = n === 1 ? 'pg-1' : n === 2 ? 'pg-2' : n === 3 ? 'pg-3' : 'pg-4'
+
+  return (
+    <>
+      <div className={`photo-grid ${gridCls}`}>
+        {photos.slice(0, n === 4 ? 4 : n === 3 ? 3 : n).map((p, i) => (
+          <div key={i} className="pg-item" onClick={() => setLb(i)}>
+            <img src={p.url} alt={p.caption || ''} />
+            {i === 3 && n > 4 && <div className="pg-more">+{n - 4}</div>}
+            {p.caption && <div className="pg-cap">{p.caption}</div>}
+          </div>
+        ))}
+      </div>
+
+      {lb !== null && (
+        <div className="lb" onClick={() => setLb(null)}>
+          <button className="lb-x" onClick={() => setLb(null)}>✕</button>
+          <button className="lb-prev" onClick={e => { e.stopPropagation(); setLb(i => Math.max(0, i! - 1)) }}>‹</button>
+          <div className="lb-wrap" onClick={e => e.stopPropagation()}>
+            <img src={photos[lb].url} alt="" />
+            {photos[lb].caption && <p className="lb-cap">{photos[lb].caption}</p>}
+          </div>
+          <button className="lb-next" onClick={e => { e.stopPropagation(); setLb(i => Math.min(photos.length - 1, i! + 1)) }}>›</button>
+          <div className="lb-counter">{lb + 1} / {photos.length}</div>
+        </div>
+      )}
+    </>
+  )
+}
+
+// ── Comments ───────────────────────────────────────────────────────────────
+
+const MOCK_CMT = [
+  { id: 1, user: 'muzikoslt', badge: 'Fanas', bCls: 'bg-violet-500/20 text-violet-300', text: 'Labai džiaugiuosi! Puiki daina, tikiuosi gerai pasirodys Vienoje.', time: '2 val.', likes: 24 },
+  { id: 2, user: 'eurovizijos_fanas', badge: 'Ekspertas', bCls: 'bg-orange-500/20 text-orange-300', text: 'Pagal bukmeikerių prognozes esame tarp TOP 15 – labai geras rezultatas Lietuvai.', time: '8 val.', likes: 41 },
 ]
+
 function Comments() {
   const [liked, setLiked] = useState<number[]>([])
-  const [likes, setLikes] = useState(MOCK_COMMENTS.map(c => c.likes))
-  const toggleLike = (i: number) => {
-    setLiked(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i])
-    setLikes(prev => prev.map((v, j) => j === i ? (liked.includes(i) ? v - 1 : v + 1) : v))
+  const [counts, setCounts] = useState(MOCK_CMT.map(c => c.likes))
+  const toggle = (i: number) => {
+    setLiked(p => p.includes(i) ? p.filter(x => x !== i) : [...p, i])
+    setCounts(p => p.map((v, j) => j === i ? (liked.includes(i) ? v - 1 : v + 1) : v))
   }
   return (
-    <div className="comments-block">
-      <div className="comments-header">
-        <span className="comments-title">💬 Komentarai ({MOCK_COMMENTS.length + 45})</span>
-        <button className="comments-sort">Naujausi ↓</button>
+    <div className="cmt-block">
+      <div className="cmt-hdr">
+        <span className="cmt-title">💬 Komentarai ({MOCK_CMT.length + 45})</span>
+        <button className="cmt-sort">Naujausi ↓</button>
       </div>
-      <div className="comment-input-row">
-        <div className="comment-av" style={{ background: 'rgba(29,78,216,.25)', color: '#93b4e0' }}>J</div>
-        <textarea className="comment-input" placeholder="Parašyk komentarą…" rows={1}
+      <div className="cmt-input-row">
+        <div className="cmt-av" style={{ background: 'rgba(29,78,216,.25)', color: '#93b4e0' }}>J</div>
+        <textarea className="cmt-input" placeholder="Parašyk komentarą…" rows={1}
           onFocus={e => { e.target.rows = 3 }} onBlur={e => { if (!e.target.value) e.target.rows = 1 }} />
-        <button className="comment-send">Siųsti</button>
+        <button className="cmt-send">Siųsti</button>
       </div>
-      {MOCK_COMMENTS.map((c, i) => (
-        <div key={c.id} className="comment-item">
-          <div className={`comment-av ${c.color}`}>{c.user[0].toUpperCase()}</div>
-          <div className="comment-body">
-            <div className="comment-top">
-              <span className="comment-user">{c.user}</span>
-              <span className={`comment-badge ${c.color}`}>{c.badge}</span>
-              <span className="comment-time">{c.time}</span>
+      {MOCK_CMT.map((c, i) => (
+        <div key={c.id} className="cmt-item">
+          <div className={`cmt-av ${c.bCls}`}>{c.user[0].toUpperCase()}</div>
+          <div className="cmt-body">
+            <div className="cmt-top">
+              <span className="cmt-user">{c.user}</span>
+              <span className={`cmt-badge ${c.bCls}`}>{c.badge}</span>
+              <span className="cmt-time">{c.time}</span>
             </div>
-            <p className="comment-text">{c.text}</p>
-            <div className="comment-acts">
-              <button className={`comment-act ${liked.includes(i) ? 'comment-act-liked' : ''}`} onClick={() => toggleLike(i)}>
-                👍 <span>{likes[i]}</span>
+            <p className="cmt-text">{c.text}</p>
+            <div className="cmt-acts">
+              <button className={`cmt-act ${liked.includes(i) ? 'cmt-liked' : ''}`} onClick={() => toggle(i)}>
+                👍 <span>{counts[i]}</span>
               </button>
-              <button className="comment-act">↩ Atsakyti</button>
+              <button className="cmt-act">↩ Atsakyti</button>
             </div>
           </div>
         </div>
@@ -237,314 +251,334 @@ function Comments() {
   )
 }
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
+// ── Main ───────────────────────────────────────────────────────────────────
 
 const NAV = ['Topai', 'Muzika', 'Renginiai', 'Atlikėjai', 'Bendruomenė']
 
-export default function NewsArticleClient({ news, related }: { news: NewsItem; related: RelatedNews[] }) {
-  const [heroLoaded, setHeroLoaded] = useState(false)
+export default function NewsArticleClient({
+  news, related, songs = [],
+}: {
+  news: NewsItem
+  related: RelatedNews[]
+  songs?: SongEntry[]
+}) {
   const heroImg = news.image_small_url || news.artist?.cover_image_url
   const gallery = news.gallery || []
   const lede = getLede(news.body)
-
-  const formattedDate = new Date(news.published_at).toLocaleDateString('lt-LT', {
-    year: 'numeric', month: 'long', day: 'numeric'
-  })
+  const hasSidebar = songs.length > 0
 
   return (
     <>
       <style>{`
         :root {
-          --bg: #0d1117; --text: #f2f4f8; --text2: #c8d8f0; --text3: #7a90b0;
-          --text4: #3d5878; --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.04);
-          --orange: #f97316; --blue: #1d4ed8; --card: rgba(255,255,255,0.03);
+          --bg:#0d1117; --text:#f2f4f8; --text2:#c8d8f0; --text3:#7a90b0;
+          --text4:#3d5878; --border:rgba(255,255,255,0.07); --border2:rgba(255,255,255,0.04);
+          --orange:#f97316; --blue:#1d4ed8; --card:rgba(255,255,255,0.03);
         }
-        .news-page { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; min-height: 100vh; }
+        .np { background:var(--bg); color:var(--text); font-family:'Inter',system-ui,sans-serif; -webkit-font-smoothing:antialiased; min-height:100vh; }
 
-        /* ── Site Header ── */
-        .site-header { position: sticky; top: 0; z-index: 50; background: rgba(13,17,23,0.97); backdrop-filter: blur(24px); }
-        .site-header-row1 { max-width: 1360px; margin: 0 auto; padding: 0 20px; height: 56px; display: flex; align-items: center; gap: 24px; }
-        .site-logo { font-size: 22px; font-weight: 900; letter-spacing: -0.03em; text-decoration: none; flex-shrink: 0; }
-        .site-logo-main { color: #f2f4f8; }
-        .site-logo-dot { color: #fb923c; }
-        .site-search { flex: 1; display: flex; align-items: center; border-radius: 100px; overflow: hidden; background: rgba(255,255,255,0.055); border: 1px solid rgba(255,255,255,0.09); }
-        .site-search input { flex: 1; height: 36px; padding: 0 16px; font-size: 13px; background: transparent; border: none; outline: none; color: #c8d8f0; }
-        .site-search input::placeholder { color: #3d5878; }
-        .site-search-btn { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; color: #6a88b0; }
-        .site-lens { display: flex; align-items: center; border-radius: 100px; padding: 2px; background: rgba(255,255,255,0.055); border: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; }
-        .site-lens-btn { padding: 6px 14px; border-radius: 100px; font-size: 12px; font-weight: 700; letter-spacing: 0.02em; background: none; border: none; cursor: pointer; color: #8aa8cc; transition: all .15s; font-family: 'Inter', sans-serif; }
-        .site-lens-btn.active { background: #1d4ed8; color: white; }
-        .site-header-row2 { border-top: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.02); }
-        .site-nav { max-width: 1360px; margin: 0 auto; padding: 0 20px; height: 36px; display: flex; align-items: center; gap: 2px; }
-        .site-nav a { padding: 4px 14px; font-size: 12px; font-weight: 600; color: #8aa8cc; border-radius: 6px; text-decoration: none; transition: all .15s; }
-        .site-nav a:hover { color: #e2eaf8; background: rgba(255,255,255,0.06); }
-        .site-nav a.active { color: #f2f4f8; background: rgba(255,255,255,0.08); }
+        /* Header */
+        .sh { position:sticky; top:0; z-index:50; background:rgba(13,17,23,0.97); backdrop-filter:blur(24px); }
+        .sh-r1 { max-width:1360px; margin:0 auto; padding:0 20px; height:56px; display:flex; align-items:center; gap:24px; }
+        .sh-logo { font-size:22px; font-weight:900; letter-spacing:-.03em; text-decoration:none; flex-shrink:0; }
+        .sh-logo-m { color:#f2f4f8; }
+        .sh-logo-d { color:#fb923c; }
+        .sh-search { flex:1; display:flex; align-items:center; border-radius:100px; overflow:hidden; background:rgba(255,255,255,0.055); border:1px solid rgba(255,255,255,0.09); }
+        .sh-search input { flex:1; height:36px; padding:0 16px; font-size:13px; background:transparent; border:none; outline:none; color:#c8d8f0; }
+        .sh-search input::placeholder { color:#3d5878; }
+        .sh-search-icon { width:36px; height:36px; display:flex; align-items:center; justify-content:center; color:#6a88b0; }
+        .sh-lens { display:flex; align-items:center; border-radius:100px; padding:2px; background:rgba(255,255,255,0.055); border:1px solid rgba(255,255,255,0.08); flex-shrink:0; }
+        .sh-lbtn { padding:6px 14px; border-radius:100px; font-size:12px; font-weight:700; background:none; border:none; cursor:pointer; color:#8aa8cc; font-family:'Inter',sans-serif; }
+        .sh-lbtn.on { background:#1d4ed8; color:white; }
+        .sh-r2 { border-top:1px solid rgba(255,255,255,0.06); background:rgba(255,255,255,0.02); }
+        .sh-nav { max-width:1360px; margin:0 auto; padding:0 20px; height:36px; display:flex; align-items:center; gap:2px; }
+        .sh-nav a { padding:4px 14px; font-size:12px; font-weight:600; color:#8aa8cc; border-radius:6px; text-decoration:none; transition:all .15s; }
+        .sh-nav a:hover { color:#e2eaf8; background:rgba(255,255,255,0.06); }
 
-        /* ── Hero ── */
-        .news-hero { position: relative; height: 100svh; min-height: 560px; max-height: 860px; overflow: hidden; }
-        .news-hero-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 60% 15%; transform: scale(1.06); animation: slow-zoom 18s ease-out forwards; }
-        @keyframes slow-zoom { to { transform: scale(1); } }
-        .news-hero-grad { position: absolute; inset: 0; background: linear-gradient(to right, rgba(8,11,17,0.92) 0%, rgba(8,11,17,0.5) 55%, rgba(8,11,17,0.1) 100%), linear-gradient(to top, rgba(8,11,17,0.8) 0%, transparent 45%); }
-        .news-hero-content { position: absolute; inset: 0; display: flex; align-items: center; padding: 80px 48px 80px; max-width: 740px; }
-        .news-hero-inner { animation: hero-fadein 0.9s 0.15s both; }
-        @keyframes hero-fadein { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
-        .news-hero-chips { display: flex; gap: 6px; margin-bottom: 20px; }
-        .news-hero-h1 { font-size: clamp(2rem, 4.5vw, 3.8rem); font-weight: 900; line-height: 1.05; letter-spacing: -0.035em; color: #fff; margin-bottom: 18px; }
-        .news-hero-lede { font-size: clamp(0.95rem, 1.6vw, 1.1rem); color: rgba(200,218,245,0.78); line-height: 1.7; margin-bottom: 32px; max-width: 540px; }
-        .news-hero-cta { display: flex; gap: 10px; flex-wrap: wrap; }
-        .news-btn-primary { display: inline-flex; align-items: center; gap: 8px; background: var(--orange); color: #fff; border: none; font-size: 13px; font-weight: 800; padding: 12px 24px; border-radius: 100px; cursor: pointer; font-family: 'Inter', sans-serif; box-shadow: 0 4px 20px rgba(249,115,22,.35); transition: all .2s; text-decoration: none; }
-        .news-btn-primary:hover { background: #ea6b0a; transform: translateY(-1px); }
-        .news-scroll-hint { position: absolute; bottom: 32px; left: 48px; display: flex; align-items: center; gap: 10px; opacity: 0.4; animation: bob 2.4s ease-in-out infinite; }
-        @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(6px); } }
-        .news-scroll-hint span { font-size: 9px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: rgba(255,255,255,.7); }
-        .news-scroll-line { width: 28px; height: 1px; background: rgba(255,255,255,.3); }
+        /* Hero */
+        .hero { position:relative; height:100svh; min-height:560px; max-height:820px; overflow:hidden; }
+        .hero-img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:60% 15%; transform:scale(1.06); animation:zoom 18s ease-out forwards; }
+        @keyframes zoom { to { transform:scale(1); } }
+        .hero-grad { position:absolute; inset:0; background:linear-gradient(to right, rgba(8,11,17,0.92) 0%, rgba(8,11,17,0.5) 55%, rgba(8,11,17,0.1) 100%), linear-gradient(to top, rgba(8,11,17,0.8) 0%, transparent 45%); }
+        .hero-content { position:absolute; inset:0; display:flex; align-items:center; padding:80px 48px; max-width:760px; }
+        .hero-inner { animation:fadein .9s .15s both; }
+        @keyframes fadein { from { opacity:0; transform:translateY(22px); } to { opacity:1; transform:none; } }
+        .hero-chips { display:flex; gap:6px; margin-bottom:20px; }
+        .hero-h1 { font-size:clamp(2rem,4.5vw,3.8rem); font-weight:900; line-height:1.05; letter-spacing:-.035em; color:#fff; margin-bottom:18px; }
+        .hero-lede { font-size:clamp(.95rem,1.6vw,1.1rem); color:rgba(200,218,245,0.78); line-height:1.7; margin-bottom:32px; max-width:560px; }
+        .hero-btn { display:inline-flex; align-items:center; gap:8px; background:var(--orange); color:#fff; border:none; font-size:13px; font-weight:800; padding:12px 24px; border-radius:100px; cursor:pointer; font-family:'Inter',sans-serif; box-shadow:0 4px 20px rgba(249,115,22,.35); transition:all .2s; text-decoration:none; }
+        .hero-btn:hover { background:#ea6b0a; transform:translateY(-1px); }
+        .hero-scroll { position:absolute; bottom:32px; left:48px; display:flex; align-items:center; gap:10px; opacity:.4; animation:bob 2.4s ease-in-out infinite; }
+        @keyframes bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(6px)} }
+        .hero-scroll span { font-size:9px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:rgba(255,255,255,.7); }
+        .hero-scroll-line { width:28px; height:1px; background:rgba(255,255,255,.3); }
 
-        /* ── Layout ── */
-        .news-layout { max-width: 1360px; margin: 0 auto; padding: 52px 24px 80px; display: grid; grid-template-columns: 1fr 300px; gap: 0; align-items: start; }
-        .news-main { padding-right: 48px; border-right: 1px solid var(--border2); }
-        .news-sidebar { padding-left: 32px; position: sticky; top: 80px; display: flex; flex-direction: column; gap: 10px; }
+        /* Layout */
+        .layout { max-width:1360px; margin:0 auto; padding:52px 24px 80px; display:grid; gap:0; align-items:start; }
+        .layout.with-sidebar { grid-template-columns:1fr 320px; }
+        .layout.no-sidebar { grid-template-columns:1fr; }
+        .main { padding-right:0; }
+        .layout.with-sidebar .main { padding-right:40px; border-right:1px solid var(--border2); }
+        .sidebar { padding-left:28px; position:sticky; top:80px; display:flex; flex-direction:column; gap:10px; }
 
-        /* ── Prose ── */
-        .news-divider { height: 1px; background: var(--border2); margin-bottom: 32px; }
-        .news-prose { color: var(--text3); font-size: 1rem; line-height: 1.9; }
-        .news-prose p { margin-bottom: 24px; }
-        .news-prose a { color: #93b4e0; text-decoration: underline; }
-        .news-prose h2 { font-size: 1.45rem; font-weight: 800; color: var(--text2); margin: 36px 0 16px; letter-spacing: -.02em; }
-        .news-prose h3 { font-size: 1.18rem; font-weight: 700; color: var(--text2); margin: 28px 0 12px; }
-        .news-prose blockquote { border-left: 3px solid var(--orange); padding: 14px 20px; margin: 32px 0; background: rgba(249,115,22,.05); border-radius: 0 10px 10px 0; }
-        .news-prose blockquote p { font-size: 1.08rem; font-weight: 700; font-style: italic; color: var(--text2); line-height: 1.5; margin: 0; }
-        .news-prose ul { margin: 16px 0 24px 20px; list-style: disc; }
-        .news-prose ol { margin: 16px 0 24px 20px; list-style: decimal; }
-        .news-prose li { color: var(--text3); line-height: 1.78; margin-bottom: 6px; }
-        .news-prose hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
-        .news-prose strong { color: var(--text2); font-weight: 700; }
-        .news-prose em { font-style: italic; }
-        .news-prose u { text-decoration: underline; }
+        /* Prose */
+        .divider { height:1px; background:var(--border2); margin-bottom:32px; }
+        .prose { color:var(--text3); font-size:1rem; line-height:1.9; }
+        .prose p { margin-bottom:24px; }
+        .prose a { color:#93b4e0; text-decoration:underline; }
+        .prose h2 { font-size:1.45rem; font-weight:800; color:var(--text2); margin:36px 0 16px; letter-spacing:-.02em; }
+        .prose h3 { font-size:1.18rem; font-weight:700; color:var(--text2); margin:28px 0 12px; }
+        .prose blockquote { border-left:3px solid var(--orange); padding:14px 20px; margin:32px 0; background:rgba(249,115,22,.05); border-radius:0 10px 10px 0; }
+        .prose blockquote p { font-size:1.08rem; font-weight:700; font-style:italic; color:var(--text2); line-height:1.5; margin:0; }
+        .prose ul { margin:16px 0 24px 20px; list-style:disc; }
+        .prose ol { margin:16px 0 24px 20px; list-style:decimal; }
+        .prose li { color:var(--text3); line-height:1.78; margin-bottom:6px; }
+        .prose strong { color:var(--text2); font-weight:700; }
+        .prose em { font-style:italic; }
 
-        /* ── YouTube ── */
-        .yt-widget { margin-bottom: 32px; border-radius: 14px; overflow: hidden; border: 1px solid var(--border); background: #000; }
-        .yt-widget-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .12em; color: var(--text4); padding: 10px 14px; background: rgba(255,255,255,.025); }
-        .yt-thumb-wrap { position: relative; aspect-ratio: 16/9; cursor: pointer; overflow: hidden; }
-        .yt-thumb-wrap img { width: 100%; height: 100%; object-fit: cover; opacity: .7; display: block; transition: opacity .2s; }
-        .yt-thumb-wrap:hover img { opacity: .85; }
-        .yt-play-btn { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; }
-        .yt-embed-wrap { position: relative; aspect-ratio: 16/9; }
-        .yt-iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: none; }
+        /* Songs Player */
+        .songs-player { border-radius:14px; overflow:hidden; border:1px solid var(--border); background:rgba(0,0,0,.5); margin-bottom:8px; }
+        .sp-video { position:relative; }
+        .sp-iframe { width:100%; aspect-ratio:16/9; border:none; display:block; }
+        .sp-thumb { position:relative; aspect-ratio:16/9; overflow:hidden; cursor:pointer; }
+        .sp-thumb img { width:100%; height:100%; object-fit:cover; display:block; transition:transform .3s; }
+        .sp-thumb:hover img { transform:scale(1.03); }
+        .sp-no-thumb { width:100%; aspect-ratio:16/9; background:#111; display:flex; align-items:center; justify-content:center; font-size:32px; color:rgba(255,255,255,.1); }
+        .sp-play-overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.3); transition:background .2s; }
+        .sp-thumb:hover .sp-play-overlay { background:rgba(0,0,0,.45); }
+        .sp-play-btn { width:52px; height:52px; border-radius:50%; background:rgba(249,115,22,.9); display:flex; align-items:center; justify-content:center; box-shadow:0 4px 20px rgba(249,115,22,.5); transition:transform .15s; }
+        .sp-thumb:hover .sp-play-btn { transform:scale(1.08); }
+        .sp-thumb-meta { position:absolute; bottom:0; left:0; right:0; padding:24px 12px 10px; background:linear-gradient(transparent, rgba(0,0,0,.8)); }
+        .sp-thumb-title { font-size:13px; font-weight:800; color:#fff; line-height:1.3; }
+        .sp-thumb-artist { font-size:11px; color:rgba(255,255,255,.5); margin-top:2px; }
+        .sp-list { border-top:1px solid var(--border2); }
+        .sp-item { width:100%; display:flex; align-items:center; gap:9px; padding:8px 10px; text-align:left; background:none; border:none; cursor:pointer; border-bottom:1px solid var(--border2); transition:background .15s; font-family:'Inter',sans-serif; }
+        .sp-item:last-child { border-bottom:none; }
+        .sp-item:hover { background:rgba(255,255,255,.04); }
+        .sp-item-active { background:rgba(249,115,22,.07); }
+        .sp-item-thumb { width:38px; height:38px; border-radius:6px; object-fit:cover; flex-shrink:0; }
+        .sp-item-no-thumb { background:rgba(255,255,255,.06); display:flex; align-items:center; justify-content:center; font-size:14px; color:rgba(255,255,255,.2); }
+        .sp-item-text { flex:1; min-width:0; }
+        .sp-item-title { font-size:12px; font-weight:700; color:var(--text2); truncate:true; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .sp-item-artist { font-size:10px; color:var(--text4); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .sp-item-dot { width:6px; height:6px; border-radius:50%; background:var(--orange); flex-shrink:0; }
 
-        /* ── Vertical Gallery ── */
-        .vgallery { }
-        .vgallery-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .12em; color: var(--text4); margin-bottom: 8px; padding: 0 4px; }
-        .vgallery-list { display: flex; flex-direction: column; gap: 5px; }
-        .vgallery-item { position: relative; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); cursor: pointer; aspect-ratio: 3/2; }
-        .vgallery-item img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .35s; }
-        .vgallery-item:hover img { transform: scale(1.04); }
-        .vgallery-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0); display: flex; align-items: center; justify-content: center; opacity: 0; transition: all .2s; }
-        .vgallery-item:hover .vgallery-overlay { background: rgba(0,0,0,.35); opacity: 1; }
-        .vgallery-cap { position: absolute; bottom: 0; left: 0; right: 0; font-size: 10px; color: #fff; padding: 20px 8px 6px; background: linear-gradient(to top, rgba(0,0,0,.75), transparent); line-height: 1.3; }
-        .vgallery-src { position: absolute; top: 5px; right: 7px; font-size: 9px; color: rgba(255,255,255,.35); }
+        /* Reactions sidebar */
+        .rx-block { border-radius:14px; border:1px solid var(--border); background:var(--card); padding:14px; }
+        .rx-label { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.12em; color:var(--text4); margin-bottom:10px; }
+        .rx-grid { display:grid; grid-template-columns:1fr 1fr; gap:5px; margin-bottom:10px; }
+        .rx-btn { background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:10px; padding:9px 8px; cursor:pointer; display:flex; align-items:center; gap:5px; font-size:11px; font-weight:700; color:var(--text2); transition:all .2s; font-family:'Inter',sans-serif; }
+        .rx-btn.rx-btn-on { border-color:rgba(249,115,22,.4); background:rgba(249,115,22,.1); color:var(--orange); }
+        .rx-e { font-size:15px; }
+        .rx-l { font-size:10px; flex:1; text-align:left; }
+        .rx-c { font-size:10px; color:var(--text4); font-weight:500; }
+        .rx-bars { display:flex; flex-direction:column; gap:6px; margin-top:8px; padding-top:8px; border-top:1px solid var(--border2); }
+        .rx-bar-row { display:flex; align-items:center; gap:8px; }
+        .rx-bar-e { font-size:12px; width:18px; text-align:center; }
+        .rx-bar-bg { flex:1; height:4px; background:rgba(255,255,255,.06); border-radius:100px; overflow:hidden; }
+        .rx-bar-fg { height:100%; border-radius:100px; background:var(--orange); transition:width .5s; }
+        .rx-bar-n { font-size:10px; color:var(--text4); width:24px; text-align:right; font-weight:600; }
 
-        /* ── Lightbox ── */
-        .lightbox { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,.93); display: flex; align-items: center; justify-content: center; }
-        .lb-img-wrap { max-width: 88vw; max-height: 85vh; }
-        .lb-img-wrap img { max-width: 100%; max-height: 80vh; object-fit: contain; border-radius: 8px; display: block; }
-        .lb-cap { font-size: 12px; color: rgba(255,255,255,.45); text-align: center; margin-top: 10px; }
-        .lb-close { position: absolute; top: 20px; right: 24px; background: rgba(255,255,255,.1); border: none; color: rgba(255,255,255,.7); font-size: 18px; cursor: pointer; width: 36px; height: 36px; border-radius: 50%; }
-        .lb-prev, .lb-next { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,.08); border: none; color: rgba(255,255,255,.7); font-size: 36px; cursor: pointer; width: 52px; height: 52px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-        .lb-prev { left: 16px; }
-        .lb-next { right: 16px; }
-        .lb-counter { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); font-size: 12px; color: rgba(255,255,255,.35); }
+        /* Share */
+        .share-card { border-radius:14px; border:1px solid var(--border); background:var(--card); padding:14px; }
+        .share-label { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.12em; color:var(--text4); margin-bottom:10px; }
+        .share-grid { display:grid; grid-template-columns:1fr 1fr; gap:5px; }
+        .sh-btn { background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:8px; padding:7px; font-size:11px; font-weight:700; color:var(--text3); cursor:pointer; font-family:'Inter',sans-serif; transition:all .2s; }
+        .sh-btn:hover { color:var(--text); border-color:rgba(255,255,255,.15); }
+        .sh-btn-full { grid-column:1/-1; background:rgba(249,115,22,.1); border-color:rgba(249,115,22,.25); color:var(--orange); }
+        .sh-btn-full:hover { background:rgba(249,115,22,.18); }
 
-        /* ── Sidebar cards ── */
-        .sb-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; }
-        .sb-inner { padding: 14px; }
-        .sb-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .12em; color: var(--text4); margin-bottom: 10px; }
-        .share-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
-        .share-btn { background: rgba(255,255,255,.04); border: 1px solid var(--border); border-radius: 8px; padding: 7px; font-size: 11px; font-weight: 700; color: var(--text3); cursor: pointer; font-family: 'Inter', sans-serif; transition: all .2s; }
-        .share-btn:hover { color: var(--text); border-color: rgba(255,255,255,.15); }
-        .share-btn-full { grid-column: 1 / -1; background: rgba(249,115,22,.1); border-color: rgba(249,115,22,.25); color: var(--orange); }
-        .share-btn-full:hover { background: rgba(249,115,22,.18); }
-        .related-item { display: flex; gap: 9px; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border2); text-decoration: none; transition: opacity .2s; }
-        .related-item:last-child { border-bottom: none; }
-        .related-item:hover { opacity: .8; }
-        .related-thumb { width: 42px; height: 42px; border-radius: 6px; object-fit: cover; flex-shrink: 0; background: rgba(255,255,255,.06); }
-        .related-title { font-size: 12px; font-weight: 700; color: var(--text2); line-height: 1.35; }
-        .artist-card { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 18px 14px; }
-        .artist-card-img { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border); margin-bottom: 8px; background: rgba(255,255,255,.06); }
-        .artist-card-name { font-size: 14px; font-weight: 800; color: var(--text); margin-bottom: 2px; }
-        .artist-card-sub { font-size: 11px; color: var(--text4); margin-bottom: 10px; }
-        .artist-card-btn { width: 100%; background: rgba(29,78,216,.1); border: 1px solid rgba(29,78,216,.2); color: #93b4e0; font-size: 11px; font-weight: 700; padding: 7px; border-radius: 8px; cursor: pointer; font-family: 'Inter', sans-serif; transition: all .2s; text-decoration: none; display: block; text-align: center; }
-        .artist-card-btn:hover { background: rgba(29,78,216,.2); }
-        .source-link { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text3); text-decoration: none; padding: 7px 0; border-top: 1px solid var(--border2); margin-top: 7px; }
-        .source-link:hover { color: var(--text2); }
+        /* Related */
+        .rel-card { border-radius:14px; border:1px solid var(--border); background:var(--card); padding:14px; }
+        .rel-label { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.12em; color:var(--text4); margin-bottom:10px; }
+        .rel-item { display:flex; gap:9px; align-items:center; padding:6px 0; border-bottom:1px solid var(--border2); text-decoration:none; transition:opacity .2s; }
+        .rel-item:last-child { border-bottom:none; }
+        .rel-item:hover { opacity:.8; }
+        .rel-thumb { width:40px; height:40px; border-radius:6px; object-fit:cover; flex-shrink:0; background:rgba(255,255,255,.06); }
+        .rel-title { font-size:12px; font-weight:700; color:var(--text2); line-height:1.35; }
 
-        /* ── Reactions ── */
-        .reactions-block { margin: 32px 0; padding: 16px; border-radius: 14px; background: var(--card); border: 1px solid var(--border); }
-        .reactions-q { font-size: 13px; font-weight: 700; color: var(--text2); margin-bottom: 12px; }
-        .reactions-btns { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; margin-bottom: 12px; }
-        .reaction-btn { background: rgba(255,255,255,.04); border: 1px solid var(--border); border-radius: 10px; padding: 9px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--text2); transition: all .2s; font-family: 'Inter', sans-serif; }
-        .reaction-btn-on { border-color: rgba(249,115,22,.4); background: rgba(249,115,22,.1); color: var(--orange); }
-        .reaction-emoji { font-size: 15px; }
-        .reaction-label { font-size: 11px; }
-        .reaction-count { font-size: 11px; color: var(--text4); font-weight: 500; margin-left: auto; }
-        .reactions-bars { display: flex; flex-direction: column; gap: 6px; }
-        .rx-bar-row { display: flex; align-items: center; gap: 8px; }
-        .rx-bar-e { font-size: 13px; width: 18px; text-align: center; }
-        .rx-bar-bg { flex: 1; height: 4px; background: rgba(255,255,255,.06); border-radius: 100px; overflow: hidden; }
-        .rx-bar-fg { height: 100%; border-radius: 100px; background: var(--orange); transition: width .5s; }
-        .rx-bar-n { font-size: 11px; color: var(--text4); width: 26px; text-align: right; font-weight: 600; }
+        /* Artist card */
+        .artist-card { border-radius:14px; border:1px solid var(--border); background:var(--card); display:flex; flex-direction:column; align-items:center; text-align:center; padding:18px 14px; }
+        .ac-img { width:56px; height:56px; border-radius:50%; object-fit:cover; border:2px solid var(--border); margin-bottom:8px; background:rgba(255,255,255,.06); }
+        .ac-name { font-size:14px; font-weight:800; color:var(--text); margin-bottom:2px; }
+        .ac-sub { font-size:11px; color:var(--text4); margin-bottom:10px; }
+        .ac-btn { width:100%; background:rgba(29,78,216,.1); border:1px solid rgba(29,78,216,.2); color:#93b4e0; font-size:11px; font-weight:700; padding:7px; border-radius:8px; cursor:pointer; font-family:'Inter',sans-serif; transition:all .2s; text-decoration:none; display:block; text-align:center; }
+        .ac-btn:hover { background:rgba(29,78,216,.2); }
 
-        /* ── Comments ── */
-        .comments-block { margin: 32px 0 0; }
-        .comments-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-        .comments-title { font-size: 14px; font-weight: 800; color: var(--text2); }
-        .comments-sort { font-size: 11px; color: var(--text4); background: var(--card); border: 1px solid var(--border); padding: 3px 10px; border-radius: 100px; cursor: pointer; font-family: 'Inter', sans-serif; }
-        .comment-input-row { display: flex; gap: 9px; margin-bottom: 18px; align-items: flex-start; }
-        .comment-av { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 900; flex-shrink: 0; }
-        .comment-input { flex: 1; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; font-size: 13px; color: var(--text2); font-family: 'Inter', sans-serif; resize: none; outline: none; }
-        .comment-input:focus { border-color: rgba(29,78,216,.4); }
-        .comment-input::placeholder { color: var(--text4); }
-        .comment-send { background: var(--blue); color: #fff; border: none; border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 700; cursor: pointer; flex-shrink: 0; font-family: 'Inter', sans-serif; }
-        .comment-item { display: flex; gap: 9px; padding: 12px 0; border-bottom: 1px solid var(--border2); }
-        .comment-body { flex: 1; min-width: 0; }
-        .comment-top { display: flex; align-items: center; gap: 7px; margin-bottom: 4px; flex-wrap: wrap; }
-        .comment-user { font-size: 12px; font-weight: 700; color: var(--text); }
-        .comment-badge { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; padding: 2px 6px; border-radius: 100px; }
-        .comment-time { font-size: 10px; color: var(--text4); margin-left: auto; }
-        .comment-text { font-size: 13px; color: var(--text3); line-height: 1.6; margin-bottom: 7px; }
-        .comment-acts { display: flex; gap: 9px; }
-        .comment-act { background: none; border: none; font-size: 11px; font-weight: 600; color: var(--text4); cursor: pointer; display: flex; align-items: center; gap: 3px; font-family: 'Inter', sans-serif; }
-        .comment-act-liked { color: var(--orange); }
+        /* Photo grid */
+        .photo-grid { display:grid; gap:4px; margin-top:32px; margin-bottom:32px; border-radius:14px; overflow:hidden; }
+        .pg-1 { grid-template-columns:1fr; }
+        .pg-2 { grid-template-columns:1fr 1fr; }
+        .pg-3 { grid-template-columns:2fr 1fr; grid-template-rows:auto auto; }
+        .pg-3 .pg-item:first-child { grid-row:1/3; }
+        .pg-4 { grid-template-columns:1fr 1fr; grid-template-rows:auto auto; }
+        .pg-item { position:relative; overflow:hidden; cursor:pointer; aspect-ratio:4/3; }
+        .pg-1 .pg-item { aspect-ratio:16/9; }
+        .pg-item img { width:100%; height:100%; object-fit:cover; display:block; transition:transform .3s; }
+        .pg-item:hover img { transform:scale(1.04); }
+        .pg-more { position:absolute; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:900; color:#fff; }
+        .pg-cap { position:absolute; bottom:0; left:0; right:0; font-size:10px; color:#fff; padding:20px 10px 7px; background:linear-gradient(transparent, rgba(0,0,0,.7)); }
 
-        /* ── Responsive ── */
-        @media (max-width: 900px) {
-          .news-layout { grid-template-columns: 1fr; padding: 32px 16px 60px; }
-          .news-main { padding-right: 0; border-right: none; border-bottom: 1px solid var(--border2); padding-bottom: 40px; margin-bottom: 32px; }
-          .news-sidebar { padding-left: 0; position: static; }
-          .site-search { display: none; }
-          .site-lens { display: none; }
-        }
-        @media (max-width: 600px) {
-          .news-hero-content { padding: 80px 20px 60px; }
+        /* Lightbox */
+        .lb { position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,.93); display:flex; align-items:center; justify-content:center; }
+        .lb-wrap { max-width:88vw; max-height:85vh; }
+        .lb-wrap img { max-width:100%; max-height:80vh; object-fit:contain; border-radius:8px; display:block; }
+        .lb-cap { font-size:12px; color:rgba(255,255,255,.45); text-align:center; margin-top:10px; }
+        .lb-x { position:absolute; top:20px; right:24px; background:rgba(255,255,255,.1); border:none; color:rgba(255,255,255,.7); font-size:18px; cursor:pointer; width:36px; height:36px; border-radius:50%; }
+        .lb-prev,.lb-next { position:absolute; top:50%; transform:translateY(-50%); background:rgba(255,255,255,.08); border:none; color:rgba(255,255,255,.7); font-size:36px; cursor:pointer; width:52px; height:52px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+        .lb-prev { left:16px; } .lb-next { right:16px; }
+        .lb-counter { position:absolute; bottom:20px; left:50%; transform:translateX(-50%); font-size:12px; color:rgba(255,255,255,.35); }
+
+        /* Comments */
+        .cmt-block { margin-top:40px; }
+        .cmt-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+        .cmt-title { font-size:14px; font-weight:800; color:var(--text2); }
+        .cmt-sort { font-size:11px; color:var(--text4); background:var(--card); border:1px solid var(--border); padding:3px 10px; border-radius:100px; cursor:pointer; font-family:'Inter',sans-serif; }
+        .cmt-input-row { display:flex; gap:9px; margin-bottom:18px; align-items:flex-start; }
+        .cmt-av { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:900; flex-shrink:0; }
+        .cmt-input { flex:1; background:var(--card); border:1px solid var(--border); border-radius:10px; padding:8px 12px; font-size:13px; color:var(--text2); font-family:'Inter',sans-serif; resize:none; outline:none; }
+        .cmt-input:focus { border-color:rgba(29,78,216,.4); }
+        .cmt-input::placeholder { color:var(--text4); }
+        .cmt-send { background:var(--blue); color:#fff; border:none; border-radius:8px; padding:6px 12px; font-size:12px; font-weight:700; cursor:pointer; flex-shrink:0; font-family:'Inter',sans-serif; }
+        .cmt-item { display:flex; gap:9px; padding:12px 0; border-bottom:1px solid var(--border2); }
+        .cmt-body { flex:1; min-width:0; }
+        .cmt-top { display:flex; align-items:center; gap:7px; margin-bottom:4px; flex-wrap:wrap; }
+        .cmt-user { font-size:12px; font-weight:700; color:var(--text); }
+        .cmt-badge { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.07em; padding:2px 6px; border-radius:100px; }
+        .cmt-time { font-size:10px; color:var(--text4); margin-left:auto; }
+        .cmt-text { font-size:13px; color:var(--text3); line-height:1.6; margin-bottom:7px; }
+        .cmt-acts { display:flex; gap:9px; }
+        .cmt-act { background:none; border:none; font-size:11px; font-weight:600; color:var(--text4); cursor:pointer; display:flex; align-items:center; gap:3px; font-family:'Inter',sans-serif; }
+        .cmt-liked { color:var(--orange); }
+
+        @media(max-width:900px){
+          .layout.with-sidebar,.layout.no-sidebar { grid-template-columns:1fr; padding:32px 16px 60px; }
+          .layout.with-sidebar .main { padding-right:0; border-right:none; border-bottom:1px solid var(--border2); padding-bottom:40px; margin-bottom:32px; }
+          .sidebar { padding-left:0; position:static; }
+          .sh-search,.sh-lens { display:none; }
+          .hero-content { padding:80px 20px 60px; }
         }
       `}</style>
 
-      <div className="news-page">
+      <div className="np">
 
-        {/* ── SITE HEADER ── */}
-        <header className="site-header">
-          <div className="site-header-row1">
-            <Link href="/" className="site-logo">
-              <span className="site-logo-main">music</span>
-              <span className="site-logo-dot">.lt</span>
+        {/* ── HEADER ── */}
+        <header className="sh">
+          <div className="sh-r1">
+            <Link href="/" className="sh-logo">
+              <span className="sh-logo-m">music</span><span className="sh-logo-d">.lt</span>
             </Link>
-            <div className="site-search">
+            <div className="sh-search">
               <input type="text" placeholder="Ieškok atlikėjų, albumų, dainų…" />
-              <div className="site-search-btn">
+              <div className="sh-search-icon">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                   <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
                 </svg>
               </div>
             </div>
-            <div className="site-lens">
-              {(['🇱🇹 LT', 'Pasaulis', 'Visi'] as const).map((l, i) => (
-                <button key={i} className={`site-lens-btn ${i === 0 ? 'active' : ''}`}>{l}</button>
+            <div className="sh-lens">
+              {['🇱🇹 LT', 'Pasaulis', 'Visi'].map((l, i) => (
+                <button key={i} className={`sh-lbtn ${i === 0 ? 'on' : ''}`}>{l}</button>
               ))}
             </div>
             <HeaderAuth />
           </div>
-          <div className="site-header-row2">
-            <nav className="site-nav">
-              {NAV.map(n => (
-                <a key={n} href="/" className={n === 'Topai' ? '' : ''}>{n}</a>
-              ))}
+          <div className="sh-r2">
+            <nav className="sh-nav">
+              {NAV.map(n => <a key={n} href="/">{n}</a>)}
             </nav>
           </div>
         </header>
 
         {/* ── HERO ── */}
-        <div className="news-hero">
-          {heroImg && <img src={heroImg} alt={news.title} className="news-hero-img" onLoad={() => setHeroLoaded(true)} />}
-          <div className="news-hero-grad" />
-          <div className="news-hero-content">
-            <div className="news-hero-inner">
-              <div className="news-hero-chips"><Chip type={news.type} /></div>
-              <h1 className="news-hero-h1">{news.title}</h1>
-              {lede && <p className="news-hero-lede">{lede}</p>}
-              <div className="news-hero-cta">
-                {news.source_url && (
-                  <a href={news.source_url} target="_blank" rel="noopener" className="news-btn-primary">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                    Skaityti šaltinį
-                  </a>
-                )}
-              </div>
+        <div className="hero">
+          {heroImg && <img src={heroImg} alt={news.title} className="hero-img" />}
+          <div className="hero-grad" />
+          <div className="hero-content">
+            <div className="hero-inner">
+              <div className="hero-chips"><Chip type={news.type} /></div>
+              <h1 className="hero-h1">{news.title}</h1>
+              {lede && <p className="hero-lede">{lede}</p>}
+              {news.source_url && (
+                <a href={news.source_url} target="_blank" rel="noopener" className="hero-btn">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                    <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                  </svg>
+                  Skaityti šaltinį
+                </a>
+              )}
             </div>
           </div>
-          <div className="news-scroll-hint">
-            <div className="news-scroll-line" />
+          <div className="hero-scroll">
+            <div className="hero-scroll-line" />
             <span>Skaityti</span>
           </div>
         </div>
 
         {/* ── BODY ── */}
-        <div className="news-layout">
-          <main className="news-main">
-            <div className="news-divider" />
+        <div className={`layout ${hasSidebar ? 'with-sidebar' : 'no-sidebar'}`}>
+          <main className="main">
+            <div className="divider" />
+            <div className="prose" dangerouslySetInnerHTML={{ __html: news.body }} />
 
-            {news.youtube_url && <YouTubeWidget url={news.youtube_url} />}
+            {/* Photo grid below article */}
+            {gallery.length > 0 && <PhotoGrid photos={gallery} />}
 
-            <div className="news-prose" dangerouslySetInnerHTML={{ __html: news.body }} />
-
-            <Reactions />
             <Comments />
           </main>
 
           {/* ── SIDEBAR ── */}
-          <aside className="news-sidebar">
+          {hasSidebar && (
+            <aside className="sidebar">
+              {/* Songs player */}
+              <SongsPlayer songs={songs} />
 
-            {/* Share */}
-            <div className="sb-card sb-inner">
-              <div className="sb-label">Dalintis</div>
-              <div className="share-grid">
-                <button className="share-btn share-btn-full" onClick={() => navigator.share?.({ title: news.title, url: window.location.href })}>📤 Dalintis</button>
-                <button className="share-btn" onClick={() => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`)}>Facebook</button>
-                <button className="share-btn" onClick={() => window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent(news.title)}`)}>Twitter / X</button>
+              {/* Reactions */}
+              <Reactions />
+
+              {/* Share */}
+              <div className="share-card">
+                <div className="share-label">Dalintis</div>
+                <div className="share-grid">
+                  <button className="sh-btn sh-btn-full" onClick={() => navigator.share?.({ title: news.title, url: location.href })}>📤 Dalintis</button>
+                  <button className="sh-btn" onClick={() => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(location.href)}`)}>Facebook</button>
+                  <button className="sh-btn" onClick={() => window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(location.href)}&text=${encodeURIComponent(news.title)}`)}>Twitter / X</button>
+                </div>
               </div>
-            </div>
 
-            {/* Vertical photo gallery */}
-            {gallery.length > 0 && <VerticalGallery photos={gallery} />}
+              {/* Related */}
+              {related.length > 0 && (
+                <div className="rel-card">
+                  <div className="rel-label">Taip pat skaitykite</div>
+                  {related.map(r => (
+                    <Link key={r.id} href={`/news/${r.slug}`} className="rel-item">
+                      {r.image_small_url ? <img src={r.image_small_url} alt="" className="rel-thumb" /> : <div className="rel-thumb" />}
+                      <span className="rel-title">{r.title}</span>
+                    </Link>
+                  ))}
+                </div>
+              )}
 
-            {/* Related */}
-            {related.length > 0 && (
-              <div className="sb-card sb-inner">
-                <div className="sb-label">Taip pat skaitykite</div>
-                {related.map(r => (
-                  <Link key={r.id} href={`/news/${r.slug}`} className="related-item">
-                    {r.image_small_url ? <img src={r.image_small_url} alt="" className="related-thumb" /> : <div className="related-thumb" />}
-                    <span className="related-title">{r.title}</span>
-                  </Link>
-                ))}
-              </div>
-            )}
+              {/* Artist */}
+              {news.artist && (
+                <div className="artist-card">
+                  {news.artist.cover_image_url
+                    ? <img src={news.artist.cover_image_url} alt={news.artist.name} className="ac-img" />
+                    : <div className="ac-img" style={{ display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,fontWeight:900,color:'rgba(255,255,255,.15)' }}>{news.artist.name[0]}</div>
+                  }
+                  <div className="ac-name">{news.artist.name}</div>
+                  <div className="ac-sub">music.lt atlikėjas</div>
+                  <Link href={`/artists/${news.artist.id}`} className="ac-btn">Atlikėjo profilis →</Link>
+                </div>
+              )}
+            </aside>
+          )}
 
-            {/* Artist – žemiau */}
-            {news.artist && (
-              <div className="sb-card artist-card">
-                {news.artist.cover_image_url
-                  ? <img src={news.artist.cover_image_url} alt={news.artist.name} className="artist-card-img" />
-                  : <div className="artist-card-img" style={{ display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,fontWeight:900,color:'rgba(255,255,255,.15)' }}>{news.artist.name[0]}</div>
-                }
-                <div className="artist-card-name">{news.artist.name}</div>
-                <div className="artist-card-sub">music.lt atlikėjas</div>
-                <Link href={`/artists/${news.artist.id}`} className="artist-card-btn">Atlikėjo profilis →</Link>
-                {news.source_url && news.source_name && (
-                  <a href={news.source_url} target="_blank" rel="noopener" className="source-link">↗ {news.source_name}</a>
-                )}
-              </div>
-            )}
-
-          </aside>
+          {/* No sidebar – share & related inline below */}
+          {!hasSidebar && (
+            <></>
+          )}
         </div>
       </div>
     </>
