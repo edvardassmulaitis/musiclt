@@ -368,15 +368,17 @@ export default function NewsArticleClient({
         .hero-lede { font-size:clamp(.95rem,1.6vw,1.1rem); color:rgba(200,218,245,0.78); line-height:1.7; margin-bottom:32px; max-width:560px; }
         .hero-btn { display:inline-flex; align-items:center; gap:8px; background:var(--orange); color:#fff; border:none; font-size:13px; font-weight:800; padding:12px 24px; border-radius:100px; cursor:pointer; font-family:'Inter',sans-serif; box-shadow:0 4px 20px rgba(249,115,22,.35); transition:all .2s; text-decoration:none; }
         .hero-btn:hover { background:#ea6b0a; transform:translateY(-1px); }
-        .hero-scroll { position:absolute; bottom:32px; left:48px; display:flex; align-items:center; gap:10px; opacity:.4; animation:bob 2.4s ease-in-out infinite; }
+        .hero-scroll { position:absolute; bottom:28px; left:50%; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer; opacity:.6; transition:opacity .2s; }
+        .hero-scroll:hover { opacity:1; }
+        .hero-scroll-arrow { width:40px; height:40px; border-radius:50%; border:1.5px solid rgba(255,255,255,.3); display:flex; align-items:center; justify-content:center; animation:bob 2s ease-in-out infinite; backdrop-filter:blur(4px); background:rgba(255,255,255,.05); transition:all .2s; }
+        .hero-scroll:hover .hero-scroll-arrow { border-color:rgba(255,255,255,.6); background:rgba(255,255,255,.1); }
+        .hero-scroll-arrow svg { color:rgba(255,255,255,.7); }
         @keyframes bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(6px)} }
-        .hero-scroll span { font-size:9px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:rgba(255,255,255,.7); }
-        .hero-scroll-line { width:28px; height:1px; background:rgba(255,255,255,.3); }
 
         /* ═══ LAYOUT: 3 zones ═══ */
         .zone-article { max-width:1360px; margin:0 auto; padding:32px 24px 0; }
         .article-grid { display:grid; gap:0; align-items:start; }
-        .article-grid.with-sidebar { grid-template-columns:3fr 2fr; }
+        .article-grid.with-sidebar { grid-template-columns:7fr 5fr; }
         .article-grid.no-sidebar { grid-template-columns:1fr; max-width:860px; margin:0 auto; }
         .main { }
         .article-grid.with-sidebar .main { padding-right:36px; }
@@ -630,11 +632,15 @@ export default function NewsArticleClient({
               )}
             </div>
           </div>
-          <div className="hero-scroll"><div className="hero-scroll-line" /><span>Skaityti</span></div>
+          <div className="hero-scroll" onClick={() => document.getElementById('article-start')?.scrollIntoView({ behavior: 'smooth' })}>
+            <div className="hero-scroll-arrow">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M7 13l5 5 5-5"/><path d="M7 6l5 5 5-5"/></svg>
+            </div>
+          </div>
         </div>
 
         {/* ═══ ZONE 1: Article text + Sidebar ═══ */}
-        <div className="zone-article">
+        <div className="zone-article" id="article-start">
           <div className={`article-grid ${hasSidebar ? 'with-sidebar' : 'no-sidebar'}`}>
             <main className="main">
               <div className="divider" />
