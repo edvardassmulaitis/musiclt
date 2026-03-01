@@ -39,21 +39,70 @@ async function getRelatedNews(newsId: number, artistId?: number) {
 
 async function getSongs(newsId: number) {
   const supabase = createAdminClient()
-  const { data } = await supabase
+
+  // Step 1: fetch news_songs rows (without join — more reliable)
+  const { data: rows } = await supabase
     .from('news_songs')
-    .select(`
-      id, sort_order, song_id, title, artist_name, youtube_url,
-      song:song_id ( id, title, artist_name, youtube_url, cover_url )
-    `)
+    .select('id, sort_order, song_id, title, artist_name, youtube_url')
     .eq('news_id', newsId)
     .order('sort_order')
-  if (!data) return []
-  return data.map((s: any) => ({
-    id: s.id,
-    song_id: s.song_id,
-    title: s.song?.title || s.title || '',
-    artist_name: s.song?.artist_name || s.artist_name || '',
-    youtube_url: s.song?.youtube_url || s.youtube_url || '',
+
+  if (!rows || rows.length === 0) return []
+
+  // Step 2: for rows with song_id, fetch track data separately from tracks table
+  const trackIds = rows.filter(r => r.song_id).map(r => r.song_id as number)
+  let tracksMap: Record<number, { title: string; artist_name: string; video_url: string; cover_url: string }> = {}
+
+  if (trackIds.length > 0) {
+    const { data: tracks } = await supabase
+      .from('tracks')
+      .select('id, title, video_url, cover_url, artists!tracks_artist_id_fkey(name)')
+      .in('id', trackIds)
+
+    for (const t of (tracks || []) as any[]) {
+      tracksMap[t.id] = {
+        title: t.title,
+        artist_name: t.artists?.name || '',
+        video_url: t.video_url || '',
+        cover_url: t.cover_url || '',
+      }
+    }
+  }
+
+  // Step 3: merge — track data takes priority over manual news_songs data
+  return rows.map((s: any) => {
+    const track = s.song_id ? tracksMap[s.song_id] : null
+    return {
+      id: s.id,
+      song_id: s.song_id,
+      title: track?.title || s.title || '',
+      artist_name: track?.artist_name || s.artist_name || '',
+      youtube_url: track?.video_url || s.youtube_url || '',
+      cover_url: track?.cover_url || '',
+    }
+  })
+}
+
+// --- Fallback: if no songs linked, get artist's top/newest tracks ---
+async function getArtistTracks(artistId: number, limit = 5) {
+  const supabase = createAdminClient()
+  const { data } = await supabase
+    .from('tracks')
+    .select('id, title, video_url, cover_url, release_date, artists!tracks_artist_id_fkey(name)')
+    .eq('artist_id', artistId)
+    .not('video_url', 'is', null)
+    .order('release_date', { ascending: false })
+    .limit(limit)
+
+  if (!data || data.length === 0) return []
+
+  return data.map((t: any) => ({
+    id: t.id,
+    song_id: t.id,
+    title: t.title,
+    artist_name: t.artists?.name || '',
+    youtube_url: t.video_url || '',
+    cover_url: t.cover_url || '',
   }))
 }
 
@@ -97,6 +146,12 @@ export default async function NewsPage({ params }: Props) {
     getSongs(news.id),
   ])
 
+  // Fallback: if no songs linked to this news, show artist's tracks
+  let finalSongs = songs
+  if (finalSongs.length === 0 && artist?.id) {
+    finalSongs = await getArtistTracks(artist.id)
+  }
+
   // Build gallery: prefer new gallery jsonb, fallback to image1-5 columns
   let gallery: { url: string; caption?: string }[] = []
   if (news.gallery && Array.isArray(news.gallery) && news.gallery.length > 0) {
@@ -110,5 +165,5 @@ export default async function NewsPage({ params }: Props) {
   }
 
   const newsData = { ...news, artist, artist2, gallery }
-  return <NewsArticleClient news={newsData as any} related={related} songs={songs} />
+  return <NewsArticleClient news={newsData as any} related={related} songs={finalSongs} />
 }
