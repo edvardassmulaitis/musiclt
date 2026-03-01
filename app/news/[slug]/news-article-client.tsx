@@ -5,8 +5,6 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { HeaderAuth } from '@/components/HeaderAuth'
 
-// ── Types ──────────────────────────────────────────────────────────────────
-
 type Photo = { url: string; caption?: string; source?: string }
 type SongEntry = { id?: number; song_id?: number | null; title: string; artist_name: string; youtube_url: string }
 
@@ -19,19 +17,16 @@ type NewsItem = {
 
 type RelatedNews = { id: number; title: string; slug: string; image_small_url?: string; published_at: string; type: string }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
-
 function ytId(url?: string | null) {
   if (!url) return null
   const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/)
   return m ? m[1] : null
 }
+
 function getLede(body: string) {
   const m = body.match(/<p[^>]*>(.*?)<\/p>/i)
   return m ? m[1].replace(/<[^>]+>/g, '') : ''
 }
-
-// ── Chip ──────────────────────────────────────────────────────────────────
 
 const T_COLOR: Record<string, string> = {
   news: 'bg-red-500/20 text-red-300 border-red-500/30',
@@ -49,19 +44,19 @@ function Chip({ type }: { type: string }) {
   )
 }
 
-// ── Songs Player Sidebar ───────────────────────────────────────────────────
+// ── Songs Player ──────────────────────────────────────────────────────────
 
 function SongsPlayer({ songs }: { songs: SongEntry[] }) {
   const [active, setActive] = useState(0)
   const [playing, setPlaying] = useState(false)
 
   if (!songs.length) return null
+
   const cur = songs[active]
   const vid = ytId(cur.youtube_url)
 
   return (
     <div className="songs-player">
-      {/* Current video */}
       <div className="sp-video">
         {playing && vid ? (
           <iframe
@@ -70,16 +65,18 @@ function SongsPlayer({ songs }: { songs: SongEntry[] }) {
             className="sp-iframe"
           />
         ) : (
-          <div className="sp-thumb" onClick={() => vid && setPlaying(true)}>
+          <div className="sp-thumb" onClick={() => { if (vid) setPlaying(true) }}>
             {vid
               ? <img src={`https://img.youtube.com/vi/${vid}/mqdefault.jpg`} alt={cur.title} />
               : <div className="sp-no-thumb">♪</div>
             }
-            <div className="sp-play-overlay">
-              <div className="sp-play-btn">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+            {vid && (
+              <div className="sp-play-overlay">
+                <div className="sp-play-btn">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+                </div>
               </div>
-            </div>
+            )}
             <div className="sp-thumb-meta">
               <div className="sp-thumb-title">{cur.title}</div>
               {cur.artist_name && <div className="sp-thumb-artist">{cur.artist_name}</div>}
@@ -88,7 +85,6 @@ function SongsPlayer({ songs }: { songs: SongEntry[] }) {
         )}
       </div>
 
-      {/* Playlist */}
       {songs.length > 1 && (
         <div className="sp-list">
           {songs.map((s, i) => {
@@ -114,7 +110,7 @@ function SongsPlayer({ songs }: { songs: SongEntry[] }) {
   )
 }
 
-// ── Reactions (sidebar) ────────────────────────────────────────────────────
+// ── Reactions ─────────────────────────────────────────────────────────────
 
 const RX = [
   { e: '🏆', l: 'Laimės!', c: 214 },
@@ -164,35 +160,59 @@ function Reactions() {
   )
 }
 
-// ── Photo Grid (below article) ─────────────────────────────────────────────
+// ── Photo Gallery (modern collage) ────────────────────────────────────────
 
-function PhotoGrid({ photos }: { photos: Photo[] }) {
+function PhotoGallery({ photos }: { photos: Photo[] }) {
   const [lb, setLb] = useState<number | null>(null)
+  const [showAll, setShowAll] = useState(false)
   if (!photos.length) return null
 
-  const n = photos.length
-  // grid class depending on count
-  const gridCls = n === 1 ? 'pg-1' : n === 2 ? 'pg-2' : n === 3 ? 'pg-3' : 'pg-4'
+  const PREVIEW = 5
+  const shown = showAll ? photos : photos.slice(0, PREVIEW)
+  const hidden = photos.length - PREVIEW
 
   return (
     <>
-      <div className={`photo-grid ${gridCls}`}>
-        {photos.slice(0, n === 4 ? 4 : n === 3 ? 3 : n).map((p, i) => (
-          <div key={i} className="pg-item" onClick={() => setLb(i)}>
-            <img src={p.url} alt={p.caption || ''} />
-            {i === 3 && n > 4 && <div className="pg-more">+{n - 4}</div>}
-            {p.caption && <div className="pg-cap">{p.caption}</div>}
-          </div>
-        ))}
+      <div className="pg-wrap">
+        <div className="pg-label">
+          <span className="pg-label-line" />
+          <span className="pg-label-txt">Galerija · {photos.length} nuotr.</span>
+          <span className="pg-label-line" />
+        </div>
+
+        {/* Masonry-style collage grid */}
+        <div className={`pg-grid pg-grid-${Math.min(shown.length, 5)}`}>
+          {shown.map((p, i) => (
+            <div key={i} className={`pg-cell pg-cell-${i}`} onClick={() => setLb(i)}>
+              <img src={p.url} alt={p.caption || ''} />
+              <div className="pg-cell-overlay">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+              </div>
+              {/* Show +N on last visible if hidden */}
+              {!showAll && i === PREVIEW - 1 && hidden > 0 && (
+                <div className="pg-more-overlay" onClick={e => { e.stopPropagation(); setShowAll(true) }}>
+                  <span>+{hidden}</span>
+                  <small>nuotraukos</small>
+                </div>
+              )}
+              {p.caption && <div className="pg-caption">{p.caption}</div>}
+            </div>
+          ))}
+        </div>
+
+        {showAll && photos.length > PREVIEW && (
+          <button className="pg-less" onClick={() => setShowAll(false)}>↑ Rodyti mažiau</button>
+        )}
       </div>
 
       {lb !== null && (
         <div className="lb" onClick={() => setLb(null)}>
-          <button className="lb-x" onClick={() => setLb(null)}>✕</button>
+          <button className="lb-x" onClick={e => { e.stopPropagation(); setLb(null) }}>✕</button>
           <button className="lb-prev" onClick={e => { e.stopPropagation(); setLb(i => Math.max(0, i! - 1)) }}>‹</button>
           <div className="lb-wrap" onClick={e => e.stopPropagation()}>
             <img src={photos[lb].url} alt="" />
             {photos[lb].caption && <p className="lb-cap">{photos[lb].caption}</p>}
+            {photos[lb].source && <p className="lb-src">© {photos[lb].source}</p>}
           </div>
           <button className="lb-next" onClick={e => { e.stopPropagation(); setLb(i => Math.min(photos.length - 1, i! + 1)) }}>›</button>
           <div className="lb-counter">{lb + 1} / {photos.length}</div>
@@ -202,7 +222,7 @@ function PhotoGrid({ photos }: { photos: Photo[] }) {
   )
 }
 
-// ── Comments ───────────────────────────────────────────────────────────────
+// ── Comments ──────────────────────────────────────────────────────────────
 
 const MOCK_CMT = [
   { id: 1, user: 'muzikoslt', badge: 'Fanas', bCls: 'bg-violet-500/20 text-violet-300', text: 'Labai džiaugiuosi! Puiki daina, tikiuosi gerai pasirodys Vienoje.', time: '2 val.', likes: 24 },
@@ -251,8 +271,6 @@ function Comments() {
   )
 }
 
-// ── Main ───────────────────────────────────────────────────────────────────
-
 const NAV = ['Topai', 'Muzika', 'Renginiai', 'Atlikėjai', 'Bendruomenė']
 
 export default function NewsArticleClient({
@@ -281,8 +299,7 @@ export default function NewsArticleClient({
         .sh { position:sticky; top:0; z-index:50; background:rgba(13,17,23,0.97); backdrop-filter:blur(24px); }
         .sh-r1 { max-width:1360px; margin:0 auto; padding:0 20px; height:56px; display:flex; align-items:center; gap:24px; }
         .sh-logo { font-size:22px; font-weight:900; letter-spacing:-.03em; text-decoration:none; flex-shrink:0; }
-        .sh-logo-m { color:#f2f4f8; }
-        .sh-logo-d { color:#fb923c; }
+        .sh-logo-m { color:#f2f4f8; } .sh-logo-d { color:#fb923c; }
         .sh-search { flex:1; display:flex; align-items:center; border-radius:100px; overflow:hidden; background:rgba(255,255,255,0.055); border:1px solid rgba(255,255,255,0.09); }
         .sh-search input { flex:1; height:36px; padding:0 16px; font-size:13px; background:transparent; border:none; outline:none; color:#c8d8f0; }
         .sh-search input::placeholder { color:#3d5878; }
@@ -359,19 +376,17 @@ export default function NewsArticleClient({
         .sp-item-thumb { width:38px; height:38px; border-radius:6px; object-fit:cover; flex-shrink:0; }
         .sp-item-no-thumb { background:rgba(255,255,255,.06); display:flex; align-items:center; justify-content:center; font-size:14px; color:rgba(255,255,255,.2); }
         .sp-item-text { flex:1; min-width:0; }
-        .sp-item-title { font-size:12px; font-weight:700; color:var(--text2); truncate:true; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .sp-item-title { font-size:12px; font-weight:700; color:var(--text2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .sp-item-artist { font-size:10px; color:var(--text4); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .sp-item-dot { width:6px; height:6px; border-radius:50%; background:var(--orange); flex-shrink:0; }
 
-        /* Reactions sidebar */
+        /* Reactions */
         .rx-block { border-radius:14px; border:1px solid var(--border); background:var(--card); padding:14px; }
         .rx-label { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.12em; color:var(--text4); margin-bottom:10px; }
         .rx-grid { display:grid; grid-template-columns:1fr 1fr; gap:5px; margin-bottom:10px; }
         .rx-btn { background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:10px; padding:9px 8px; cursor:pointer; display:flex; align-items:center; gap:5px; font-size:11px; font-weight:700; color:var(--text2); transition:all .2s; font-family:'Inter',sans-serif; }
         .rx-btn.rx-btn-on { border-color:rgba(249,115,22,.4); background:rgba(249,115,22,.1); color:var(--orange); }
-        .rx-e { font-size:15px; }
-        .rx-l { font-size:10px; flex:1; text-align:left; }
-        .rx-c { font-size:10px; color:var(--text4); font-weight:500; }
+        .rx-e { font-size:15px; } .rx-l { font-size:10px; flex:1; text-align:left; } .rx-c { font-size:10px; color:var(--text4); font-weight:500; }
         .rx-bars { display:flex; flex-direction:column; gap:6px; margin-top:8px; padding-top:8px; border-top:1px solid var(--border2); }
         .rx-bar-row { display:flex; align-items:center; gap:8px; }
         .rx-bar-e { font-size:12px; width:18px; text-align:center; }
@@ -386,7 +401,6 @@ export default function NewsArticleClient({
         .sh-btn { background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:8px; padding:7px; font-size:11px; font-weight:700; color:var(--text3); cursor:pointer; font-family:'Inter',sans-serif; transition:all .2s; }
         .sh-btn:hover { color:var(--text); border-color:rgba(255,255,255,.15); }
         .sh-btn-full { grid-column:1/-1; background:rgba(249,115,22,.1); border-color:rgba(249,115,22,.25); color:var(--orange); }
-        .sh-btn-full:hover { background:rgba(249,115,22,.18); }
 
         /* Related */
         .rel-card { border-radius:14px; border:1px solid var(--border); background:var(--card); padding:14px; }
@@ -405,29 +419,65 @@ export default function NewsArticleClient({
         .ac-btn { width:100%; background:rgba(29,78,216,.1); border:1px solid rgba(29,78,216,.2); color:#93b4e0; font-size:11px; font-weight:700; padding:7px; border-radius:8px; cursor:pointer; font-family:'Inter',sans-serif; transition:all .2s; text-decoration:none; display:block; text-align:center; }
         .ac-btn:hover { background:rgba(29,78,216,.2); }
 
-        /* Photo grid */
-        .photo-grid { display:grid; gap:4px; margin-top:32px; margin-bottom:32px; border-radius:14px; overflow:hidden; }
-        .pg-1 { grid-template-columns:1fr; }
-        .pg-2 { grid-template-columns:1fr 1fr; }
-        .pg-3 { grid-template-columns:2fr 1fr; grid-template-rows:auto auto; }
-        .pg-3 .pg-item:first-child { grid-row:1/3; }
-        .pg-4 { grid-template-columns:1fr 1fr; grid-template-rows:auto auto; }
-        .pg-item { position:relative; overflow:hidden; cursor:pointer; aspect-ratio:4/3; }
-        .pg-1 .pg-item { aspect-ratio:16/9; }
-        .pg-item img { width:100%; height:100%; object-fit:cover; display:block; transition:transform .3s; }
-        .pg-item:hover img { transform:scale(1.04); }
-        .pg-more { position:absolute; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:900; color:#fff; }
-        .pg-cap { position:absolute; bottom:0; left:0; right:0; font-size:10px; color:#fff; padding:20px 10px 7px; background:linear-gradient(transparent, rgba(0,0,0,.7)); }
+        /* ── PHOTO GALLERY ── */
+        .pg-wrap { margin:40px 0 32px; }
+        .pg-label { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+        .pg-label-line { flex:1; height:1px; background:var(--border); }
+        .pg-label-txt { font-size:10px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--text4); white-space:nowrap; }
+
+        /* Dynamic grid by photo count */
+        .pg-grid { display:grid; gap:3px; border-radius:12px; overflow:hidden; }
+
+        /* 1 photo: full width 16:9 */
+        .pg-grid-1 { grid-template-columns:1fr; }
+        .pg-grid-1 .pg-cell { aspect-ratio:16/9; }
+
+        /* 2 photos: equal halves */
+        .pg-grid-2 { grid-template-columns:1fr 1fr; }
+        .pg-grid-2 .pg-cell { aspect-ratio:4/3; }
+
+        /* 3 photos: big left + 2 right stacked */
+        .pg-grid-3 { grid-template-columns:2fr 1fr; grid-template-rows:1fr 1fr; height:360px; }
+        .pg-grid-3 .pg-cell-0 { grid-row:1/3; }
+        .pg-grid-3 .pg-cell { height:100%; }
+
+        /* 4 photos: 1 wide top + 3 bottom */
+        .pg-grid-4 { grid-template-columns:1fr 1fr 1fr; grid-template-rows:240px 180px; }
+        .pg-grid-4 .pg-cell-0 { grid-column:1/4; }
+
+        /* 5+ photos: asymmetric editorial grid */
+        .pg-grid-5 { grid-template-columns:2fr 1fr 1fr; grid-template-rows:220px 160px; }
+        .pg-grid-5 .pg-cell-0 { grid-row:1/3; }
+        .pg-grid-5 .pg-cell { height:100%; }
+
+        .pg-cell { position:relative; overflow:hidden; cursor:zoom-in; background:rgba(255,255,255,.03); }
+        .pg-cell img { width:100%; height:100%; object-fit:cover; display:block; transition:transform .4s cubic-bezier(.25,.46,.45,.94); }
+        .pg-cell:hover img { transform:scale(1.05); }
+        .pg-cell-overlay { position:absolute; inset:0; background:rgba(0,0,0,0); display:flex; align-items:center; justify-content:center; transition:background .2s; opacity:0; }
+        .pg-cell:hover .pg-cell-overlay { background:rgba(0,0,0,.3); opacity:1; }
+        .pg-caption { position:absolute; bottom:0; left:0; right:0; font-size:10px; color:rgba(255,255,255,.7); padding:20px 10px 7px; background:linear-gradient(transparent,rgba(0,0,0,.65)); pointer-events:none; }
+
+        /* +N overlay on last cell */
+        .pg-more-overlay { position:absolute; inset:0; background:rgba(10,14,20,.75); backdrop-filter:blur(4px); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; cursor:pointer; transition:background .2s; }
+        .pg-more-overlay:hover { background:rgba(10,14,20,.6); }
+        .pg-more-overlay span { font-size:28px; font-weight:900; color:#fff; line-height:1; }
+        .pg-more-overlay small { font-size:10px; font-weight:600; color:rgba(255,255,255,.5); letter-spacing:.08em; text-transform:uppercase; }
+
+        .pg-less { display:block; margin:10px auto 0; font-size:11px; font-weight:700; color:var(--text4); background:none; border:1px solid var(--border); padding:6px 16px; border-radius:100px; cursor:pointer; font-family:'Inter',sans-serif; transition:all .2s; }
+        .pg-less:hover { color:var(--text2); border-color:rgba(255,255,255,.15); }
 
         /* Lightbox */
-        .lb { position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,.93); display:flex; align-items:center; justify-content:center; }
-        .lb-wrap { max-width:88vw; max-height:85vh; }
-        .lb-wrap img { max-width:100%; max-height:80vh; object-fit:contain; border-radius:8px; display:block; }
+        .lb { position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,.95); backdrop-filter:blur(12px); display:flex; align-items:center; justify-content:center; animation:fadein .15s; }
+        .lb-wrap { max-width:88vw; max-height:88vh; display:flex; flex-direction:column; align-items:center; }
+        .lb-wrap img { max-width:100%; max-height:80vh; object-fit:contain; border-radius:8px; display:block; box-shadow:0 24px 80px rgba(0,0,0,.8); }
         .lb-cap { font-size:12px; color:rgba(255,255,255,.45); text-align:center; margin-top:10px; }
-        .lb-x { position:absolute; top:20px; right:24px; background:rgba(255,255,255,.1); border:none; color:rgba(255,255,255,.7); font-size:18px; cursor:pointer; width:36px; height:36px; border-radius:50%; }
-        .lb-prev,.lb-next { position:absolute; top:50%; transform:translateY(-50%); background:rgba(255,255,255,.08); border:none; color:rgba(255,255,255,.7); font-size:36px; cursor:pointer; width:52px; height:52px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+        .lb-src { font-size:10px; color:rgba(255,255,255,.25); text-align:center; margin-top:4px; }
+        .lb-x { position:absolute; top:20px; right:24px; background:rgba(255,255,255,.1); border:none; color:rgba(255,255,255,.7); font-size:18px; cursor:pointer; width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; transition:background .2s; }
+        .lb-x:hover { background:rgba(255,255,255,.2); }
+        .lb-prev,.lb-next { position:absolute; top:50%; transform:translateY(-50%); background:rgba(255,255,255,.08); border:none; color:rgba(255,255,255,.7); font-size:36px; cursor:pointer; width:52px; height:52px; border-radius:50%; display:flex; align-items:center; justify-content:center; transition:background .2s; }
+        .lb-prev:hover,.lb-next:hover { background:rgba(255,255,255,.15); }
         .lb-prev { left:16px; } .lb-next { right:16px; }
-        .lb-counter { position:absolute; bottom:20px; left:50%; transform:translateX(-50%); font-size:12px; color:rgba(255,255,255,.35); }
+        .lb-counter { position:absolute; bottom:20px; left:50%; transform:translateX(-50%); font-size:11px; font-weight:600; color:rgba(255,255,255,.3); letter-spacing:.08em; }
 
         /* Comments */
         .cmt-block { margin-top:40px; }
@@ -457,12 +507,15 @@ export default function NewsArticleClient({
           .sidebar { padding-left:0; position:static; }
           .sh-search,.sh-lens { display:none; }
           .hero-content { padding:80px 20px 60px; }
+          .pg-grid-3 { height:260px; }
+          .pg-grid-4 { grid-template-rows:180px 140px; }
+          .pg-grid-5 { grid-template-rows:180px 130px; }
         }
       `}</style>
 
       <div className="np">
 
-        {/* ── HEADER ── */}
+        {/* Header */}
         <header className="sh">
           <div className="sh-r1">
             <Link href="/" className="sh-logo">
@@ -490,7 +543,7 @@ export default function NewsArticleClient({
           </div>
         </header>
 
-        {/* ── HERO ── */}
+        {/* Hero */}
         <div className="hero">
           {heroImg && <img src={heroImg} alt={news.title} className="hero-img" />}
           <div className="hero-grad" />
@@ -516,28 +569,19 @@ export default function NewsArticleClient({
           </div>
         </div>
 
-        {/* ── BODY ── */}
+        {/* Body */}
         <div className={`layout ${hasSidebar ? 'with-sidebar' : 'no-sidebar'}`}>
           <main className="main">
             <div className="divider" />
             <div className="prose" dangerouslySetInnerHTML={{ __html: news.body }} />
-
-            {/* Photo grid below article */}
-            {gallery.length > 0 && <PhotoGrid photos={gallery} />}
-
+            {gallery.length > 0 && <PhotoGallery photos={gallery} />}
             <Comments />
           </main>
 
-          {/* ── SIDEBAR ── */}
           {hasSidebar && (
             <aside className="sidebar">
-              {/* Songs player */}
               <SongsPlayer songs={songs} />
-
-              {/* Reactions */}
               <Reactions />
-
-              {/* Share */}
               <div className="share-card">
                 <div className="share-label">Dalintis</div>
                 <div className="share-grid">
@@ -546,8 +590,6 @@ export default function NewsArticleClient({
                   <button className="sh-btn" onClick={() => window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(location.href)}&text=${encodeURIComponent(news.title)}`)}>Twitter / X</button>
                 </div>
               </div>
-
-              {/* Related */}
               {related.length > 0 && (
                 <div className="rel-card">
                   <div className="rel-label">Taip pat skaitykite</div>
@@ -559,8 +601,6 @@ export default function NewsArticleClient({
                   ))}
                 </div>
               )}
-
-              {/* Artist */}
               {news.artist && (
                 <div className="artist-card">
                   {news.artist.cover_image_url
@@ -573,11 +613,6 @@ export default function NewsArticleClient({
                 </div>
               )}
             </aside>
-          )}
-
-          {/* No sidebar – share & related inline below */}
-          {!hasSidebar && (
-            <></>
           )}
         </div>
       </div>
