@@ -53,7 +53,7 @@ function Chip({ type }: { type: string }) {
 
 // ── Music Player ──────────────────────────────────────────────────────────
 
-function MusicPlayer({ songs, artistName }: { songs: SongEntry[]; artistName?: string }) {
+function MusicPlayer({ songs }: { songs: SongEntry[] }) {
   const [active, setActive] = useState(0)
   const [playing, setPlaying] = useState(false)
   const [liked, setLiked] = useState<Set<number>>(new Set())
@@ -73,10 +73,7 @@ function MusicPlayer({ songs, artistName }: { songs: SongEntry[]; artistName?: s
     <div className="mu">
       <div className="mu-hdr">
         <div className="mu-hdr-icon">♫</div>
-        <div>
-          <div className="mu-hdr-label">Susijusi muzika</div>
-          <div className="mu-hdr-sub">{artistName || 'Klausytis'}</div>
-        </div>
+        <div className="mu-hdr-label">Susijusi muzika</div>
       </div>
 
       <div className="mu-video">
@@ -377,12 +374,12 @@ export default function NewsArticleClient({
         .hero-scroll-line { width:28px; height:1px; background:rgba(255,255,255,.3); }
 
         /* ═══ LAYOUT: 3 zones ═══ */
-        .zone-article { max-width:1360px; margin:0 auto; padding:52px 24px 0; }
+        .zone-article { max-width:1360px; margin:0 auto; padding:32px 24px 0; }
         .article-grid { display:grid; gap:0; align-items:start; }
-        .article-grid.with-sidebar { grid-template-columns:1fr 400px; }
+        .article-grid.with-sidebar { grid-template-columns:1fr 1fr; }
         .article-grid.no-sidebar { grid-template-columns:1fr; max-width:860px; margin:0 auto; }
         .main { }
-        .article-grid.with-sidebar .main { padding-right:48px; }
+        .article-grid.with-sidebar .main { padding-right:36px; }
         .sidebar { position:sticky; top:80px; display:flex; flex-direction:column; gap:12px; padding-left:32px; border-left:1px solid var(--border2); }
 
         .zone-gallery { max-width:1360px; margin:0 auto; padding:0 24px; }
@@ -404,10 +401,9 @@ export default function NewsArticleClient({
 
         /* ═══ MUSIC PLAYER ═══ */
         .mu { border-radius:16px; overflow:hidden; background:rgba(0,0,0,.45); border:1px solid var(--border); backdrop-filter:blur(12px); }
-        .mu-hdr { display:flex; align-items:center; gap:10px; padding:14px 16px; border-bottom:1px solid var(--border2); }
-        .mu-hdr-icon { width:32px; height:32px; border-radius:8px; background:linear-gradient(135deg, var(--orange), #e05500); display:flex; align-items:center; justify-content:center; font-size:14px; color:#fff; flex-shrink:0; }
-        .mu-hdr-label { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.12em; color:var(--text4); }
-        .mu-hdr-sub { font-size:13px; font-weight:700; color:var(--text2); margin-top:1px; }
+        .mu-hdr { display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid var(--border2); }
+        .mu-hdr-icon { width:28px; height:28px; border-radius:7px; background:linear-gradient(135deg, var(--orange), #e05500); display:flex; align-items:center; justify-content:center; font-size:12px; color:#fff; flex-shrink:0; }
+        .mu-hdr-label { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.1em; color:var(--text3); }
         .mu-video { position:relative; background:#000; }
         .mu-iframe { width:100%; aspect-ratio:16/9; border:none; display:block; }
         .mu-thumb { position:relative; aspect-ratio:16/9; overflow:hidden; cursor:pointer; }
@@ -631,7 +627,7 @@ export default function NewsArticleClient({
 
             {hasSidebar && (
               <aside className="sidebar">
-                <MusicPlayer songs={songs} artistName={news.artist?.name} />
+                <MusicPlayer songs={songs} />
                 <Reactions />
                 <div className="share-card">
                   <div className="share-label">Dalintis</div>
