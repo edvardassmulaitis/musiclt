@@ -16,8 +16,8 @@ async function getNews(slug: string) {
       image1_url, image1_caption, image2_url, image2_caption,
       image3_url, image3_caption, image4_url, image4_caption,
       image5_url, image5_caption,
-      artist:artists!news_artist_id_fkey ( id, name, cover_image_url, photos ),
-      artist2:artists!news_artist_id2_fkey ( id, name, cover_image_url )
+      artist:artist_id ( id, name, cover_image_url, photos ),
+      artist2:artist_id2 ( id, name, cover_image_url )
     `)
     .eq('slug', slug)
     .single()
