@@ -8,12 +8,8 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+// GET is public – needed for SongsPanel search in news admin
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user || !['admin', 'super_admin'].includes(session.user.role || '')) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
   const { searchParams } = new URL(req.url)
   const search = searchParams.get('search') || ''
   const album_id = searchParams.get('album_id')
@@ -22,7 +18,6 @@ export async function GET(req: NextRequest) {
   const limit = parseInt(searchParams.get('limit') || '50')
   const offset = (page - 1) * limit
 
-  // ── album_id: fetch via album_tracks join ──────────────────────────────────
   if (album_id) {
     const { data, error } = await supabase
       .from('album_tracks')
@@ -43,7 +38,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ tracks, total: tracks.length })
   }
 
-  // ── general list (with optional artist_id filter) ──────────────────────────
   let query = supabase
     .from('tracks')
     .select(`
