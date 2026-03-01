@@ -37,6 +37,26 @@ async function getRelatedNews(newsId: number, artistId?: number) {
   return data || []
 }
 
+async function getSongs(newsId: number) {
+  const supabase = createAdminClient()
+  const { data } = await supabase
+    .from('news_songs')
+    .select(`
+      id, sort_order, song_id, title, artist_name, youtube_url,
+      song:song_id ( id, title, artist_name, youtube_url, cover_url )
+    `)
+    .eq('news_id', newsId)
+    .order('sort_order')
+  if (!data) return []
+  return data.map((s: any) => ({
+    id: s.id,
+    song_id: s.song_id,
+    title: s.song?.title || s.title || '',
+    artist_name: s.song?.artist_name || s.artist_name || '',
+    youtube_url: s.song?.youtube_url || s.youtube_url || '',
+  }))
+}
+
 function extractLede(body: string): string {
   try {
     const parsed = JSON.parse(body)
@@ -71,7 +91,11 @@ export default async function NewsPage({ params }: Props) {
 
   const artist = Array.isArray(news.artist) ? news.artist[0] : news.artist
   const artist2 = Array.isArray(news.artist2) ? news.artist2[0] : news.artist2
-  const related = await getRelatedNews(news.id, artist?.id)
+
+  const [related, songs] = await Promise.all([
+    getRelatedNews(news.id, artist?.id),
+    getSongs(news.id),
+  ])
 
   // Build gallery: prefer new gallery jsonb, fallback to image1-5 columns
   let gallery: { url: string; caption?: string }[] = []
@@ -86,5 +110,5 @@ export default async function NewsPage({ params }: Props) {
   }
 
   const newsData = { ...news, artist, artist2, gallery }
-  return <NewsArticleClient news={newsData as any} related={related} />
+  return <NewsArticleClient news={newsData as any} related={related} songs={songs} />
 }
