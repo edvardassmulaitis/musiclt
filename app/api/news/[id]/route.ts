@@ -1,3 +1,4 @@
+// app/api/news/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -10,12 +11,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     .from('news')
     .select(`
       *,
-      artist:artists!news_artist_id_fkey(id, name, slug, cover_image_url),
+      artist:artists!news_artist_id_fkey(id, name, slug, cover_image_url, photos),
       artist2:artists!news_artist_id2_fkey(id, name, slug, cover_image_url)
     `)
     .eq('id', id)
     .single()
-
   if (error) return NextResponse.json({ error: error.message }, { status: 404 })
   return NextResponse.json(data)
 }
@@ -29,22 +29,37 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   try {
     const data = await req.json()
     const supabase = createAdminClient()
+
+    // Build gallery fallback into image1-5 columns for backwards compat
+    const gallery: { url: string; caption?: string }[] = data.gallery || []
+    const imageColumns: Record<string, string | null> = {}
+    for (let i = 1; i <= 5; i++) {
+      imageColumns[`image${i}_url`] = gallery[i - 1]?.url || null
+      imageColumns[`image${i}_caption`] = gallery[i - 1]?.caption || null
+    }
+
     const { error } = await supabase
       .from('news')
       .update({
-        title: data.title, body: data.body,
-        type: data.type, slug: data.slug,
-        source_url: data.source_url || null, source_name: data.source_name || null,
-        is_featured: data.is_featured || false, is_hidden_home: data.is_hidden_home || false,
-        is_title_page: data.is_title_page || false, is_delfi: data.is_delfi || false,
-        artist_id: data.artist_id || null, artist_id2: data.artist_id2 || null,
+        title: data.title,
+        body: data.body,
+        type: data.type,
+        slug: data.slug,
+        source_url: data.source_url || null,
+        source_name: data.source_name || null,
+        is_featured: data.is_featured || false,
+        is_hidden_home: data.is_hidden_home || false,
+        is_title_page: data.is_title_page || false,
+        is_delfi: data.is_delfi || false,
+        artist_id: data.artist_id || null,
+        artist_id2: data.artist_id2 || null,
         album_code: data.album_code || null,
-        image_small_url: data.image_small_url || null, image_title_url: data.image_title_url || null,
-        image1_url: data.image1_url || null, image1_caption: data.image1_caption || null,
-        image2_url: data.image2_url || null, image2_caption: data.image2_caption || null,
-        image3_url: data.image3_url || null, image3_caption: data.image3_caption || null,
-        image4_url: data.image4_url || null, image4_caption: data.image4_caption || null,
-        image5_url: data.image5_url || null, image5_caption: data.image5_caption || null,
+        // Hero photo
+        image_small_url: data.image_small_url || null,
+        image_title_url: data.image_title_url || null,
+        // Gallery as jsonb (if column exists) + legacy columns
+        ...(data.gallery !== undefined ? { gallery: gallery } : {}),
+        ...imageColumns,
         published_at: data.published_at,
       })
       .eq('id', id)
