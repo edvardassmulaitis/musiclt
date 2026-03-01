@@ -11,8 +11,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     .from('news')
     .select(`
       *,
-      artist:artists!news_artist_id_fkey(id, name, slug, cover_image_url, photos),
-      artist2:artists!news_artist_id2_fkey(id, name, slug, cover_image_url)
+      artist:artist_id(id, name, slug, cover_image_url, photos),
+      artist2:artist_id2(id, name, slug, cover_image_url)
     `)
     .eq('id', id)
     .single()
