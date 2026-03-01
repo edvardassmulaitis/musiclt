@@ -4,26 +4,6 @@ import { useEffect, useRef, useState } from 'react'
 
 type Photo = { url: string; caption?: string }
 
-async function uploadImage(file: File): Promise<string> {
-  const fd = new FormData()
-  fd.append('file', file)
-  const res = await fetch('/api/upload', { method: 'POST', body: fd })
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.error || 'Upload nepavyko')
-  return data.url
-}
-
-async function uploadFromUrl(url: string): Promise<string> {
-  const res = await fetch('/api/upload', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url }),
-  })
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.error || 'Upload nepavyko')
-  return data.url
-}
-
 export function EditorJsClient({ value, onChange, photos, onUploadedImage }: {
   value: string
   onChange: (v: string) => void
@@ -42,9 +22,7 @@ export function EditorJsClient({ value, onChange, photos, onUploadedImage }: {
       if (parsed.blocks) return parsed
     } catch {}
     if (val.trim()) {
-      return {
-        blocks: [{ type: 'paragraph', data: { text: val.replace(/<[^>]+>/g, '') } }]
-      }
+      return { blocks: [{ type: 'paragraph', data: { text: val.replace(/<[^>]+>/g, '') } }] }
     }
     return undefined
   }
@@ -58,7 +36,6 @@ export function EditorJsClient({ value, onChange, photos, onUploadedImage }: {
       const Header = (await import('@editorjs/header')).default
       const List = (await import('@editorjs/list')).default
       const Quote = (await import('@editorjs/quote')).default
-      const ImageTool = (await import('@editorjs/image')).default
       const Delimiter = (await import('@editorjs/delimiter')).default
 
       const initialData = parseInitialData(value)
@@ -66,7 +43,7 @@ export function EditorJsClient({ value, onChange, photos, onUploadedImage }: {
       const editor = new EditorJS({
         holder: holderRef.current!,
         data: initialData,
-        placeholder: 'Rašykite naujieną... (+  norėdami pridėti bloką)',
+        placeholder: 'Rašykite tekstą... (+ norėdami pridėti bloką)',
         minHeight: 200,
         tools: {
           header: {
@@ -81,31 +58,6 @@ export function EditorJsClient({ value, onChange, photos, onUploadedImage }: {
             class: Quote as any,
             inlineToolbar: true,
             config: { quotePlaceholder: 'Citata...', captionPlaceholder: 'Autorius' },
-          },
-          image: {
-            class: ImageTool as any,
-            config: {
-              uploader: {
-                uploadByFile: async (file: File) => {
-                  try {
-                    const url = await uploadImage(file)
-                    onUploadedImage?.(url)
-                    return { success: 1, file: { url } }
-                  } catch (e: any) {
-                    return { success: 0, file: { url: '' } }
-                  }
-                },
-                uploadByUrl: async (url: string) => {
-                  try {
-                    const stored = await uploadFromUrl(url)
-                    onUploadedImage?.(stored)
-                    return { success: 1, file: { url: stored } }
-                  } catch {
-                    return { success: 1, file: { url } }
-                  }
-                },
-              },
-            },
           },
           delimiter: { class: Delimiter as any },
         },
@@ -125,16 +77,10 @@ export function EditorJsClient({ value, onChange, photos, onUploadedImage }: {
             },
             toolNames: {
               Text: 'Tekstas', Heading: 'Antraštė', List: 'Sąrašas',
-              Quote: 'Citata', Image: 'Nuotrauka', Delimiter: 'Skyriklis',
+              Quote: 'Citata', Delimiter: 'Skyriklis',
               Bold: 'Paryškintas', Italic: 'Kursyvas', Link: 'Nuoroda',
             },
             tools: {
-              image: {
-                'Select an Image': 'Pasirinkite nuotrauką',
-                'With border': 'Su rėmeliu',
-                'Stretch image': 'Išplėsti',
-                'With background': 'Su fonu',
-              },
               list: { Ordered: 'Sunumeruotas', Unordered: 'Nenumeruotas' },
             },
             blockTunes: {
@@ -160,45 +106,30 @@ export function EditorJsClient({ value, onChange, photos, onUploadedImage }: {
     }
   }, [])
 
-  const insertGalleryPhoto = async (url: string) => {
-    const editor = editorRef.current
-    if (!editor) return
-    try {
-      await editor.blocks.insert('image', {
-        file: { url },
-        caption: '',
-        withBorder: false,
-        stretched: false,
-        withBackground: false,
-      })
-      onUploadedImage?.(url)
-    } catch (e) {
-      console.error('Insert image failed:', e)
-    }
-  }
-
   return (
-    <div className="border border-gray-200 rounded-lg bg-white overflow-hidden">
+    <div className="border border-gray-200 rounded-lg bg-white">
+      {/* Gallery thumbnail bar – only for quick reference, no insert */}
       {photos.length > 0 && (
-        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-100 bg-gray-50/60">
-          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider shrink-0">Galerija:</span>
+        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-100 bg-gray-50/60 rounded-t-lg">
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider shrink-0">Nuotraukos:</span>
           <div className="flex gap-1.5 overflow-x-auto">
             {photos.slice(0, 12).map((p, i) => (
-              <button key={i} type="button" onClick={() => insertGalleryPhoto(p.url)}
-                className="w-8 h-8 rounded-md overflow-hidden border-2 border-transparent hover:border-blue-400 transition-all shrink-0">
+              <div key={i} className="w-8 h-8 rounded-md overflow-hidden border border-gray-200 shrink-0">
                 <img src={p.url} alt="" className="w-full h-full object-cover" />
-              </button>
+              </div>
             ))}
           </div>
+          <span className="text-[10px] text-gray-300 shrink-0 ml-auto">Valdyk dešinėje →</span>
         </div>
       )}
-      <div className="relative">
+      {/* Editor – NO overflow-hidden here, toolbar must float freely */}
+      <div className="relative" style={{ minHeight: 200 }}>
         {!ready && (
-          <div className="absolute inset-0 flex items-center justify-center bg-white z-10" style={{ minHeight: 200 }}>
+          <div className="absolute inset-0 flex items-center justify-center bg-white z-10 rounded-b-lg">
             <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
           </div>
         )}
-        <div ref={holderRef} className="min-h-[200px] px-4 py-2" />
+        <div ref={holderRef} className="px-4 py-3" />
       </div>
     </div>
   )
