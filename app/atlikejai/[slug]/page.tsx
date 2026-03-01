@@ -8,17 +8,8 @@ type Props = { params: Promise<{ slug: string }> }
 
 async function getArtist(slug: string) {
   const supabase = createAdminClient()
-
-  // Try slug first, then try as ID for backwards compat
-  let query = supabase
-    .from('artists')
-    .select('*')
-    .eq('slug', slug)
-    .single()
-
-  let { data, error } = await query
-  if (error || !data) {
-    // Try by ID
+  let { data } = await supabase.from('artists').select('*').eq('slug', slug).single()
+  if (!data) {
     const id = parseInt(slug)
     if (!isNaN(id)) {
       const r = await supabase.from('artists').select('*').eq('id', id).single()
@@ -30,29 +21,19 @@ async function getArtist(slug: string) {
 
 async function getArtistGenres(artistId: number) {
   const supabase = createAdminClient()
-  const { data } = await supabase
-    .from('artist_genres')
-    .select('genre_id, genres(id, name)')
-    .eq('artist_id', artistId)
+  const { data } = await supabase.from('artist_genres').select('genre_id, genres(id, name)').eq('artist_id', artistId)
   return (data || []).map((g: any) => g.genres).filter(Boolean)
 }
 
 async function getArtistLinks(artistId: number) {
   const supabase = createAdminClient()
-  const { data } = await supabase
-    .from('artist_links')
-    .select('platform, url')
-    .eq('artist_id', artistId)
+  const { data } = await supabase.from('artist_links').select('platform, url').eq('artist_id', artistId)
   return data || []
 }
 
 async function getArtistPhotos(artistId: number) {
   const supabase = createAdminClient()
-  const { data } = await supabase
-    .from('artist_photos')
-    .select('id, url, caption, sort_order')
-    .eq('artist_id', artistId)
-    .order('sort_order')
+  const { data } = await supabase.from('artist_photos').select('id, url, caption, sort_order').eq('artist_id', artistId).order('sort_order')
   return data || []
 }
 
@@ -66,7 +47,7 @@ async function getAlbums(artistId: number) {
   return data || []
 }
 
-async function getPopularTracks(artistId: number, limit = 10) {
+async function getTracks(artistId: number, limit = 20) {
   const supabase = createAdminClient()
   const { data } = await supabase
     .from('tracks')
@@ -77,42 +58,34 @@ async function getPopularTracks(artistId: number, limit = 10) {
   return data || []
 }
 
-async function getRelatedArtists(artistId: number) {
+async function getMembers(artistId: number) {
   const supabase = createAdminClient()
   const { data } = await supabase
     .from('artist_related')
-    .select('related_artist_id, year_from, year_until, artists:related_artist_id(id, slug, name, cover_image_url, type)')
+    .select('related_artist_id, year_from, year_until, artists:related_artist_id(id, slug, name, cover_image_url, type, active_from, active_until)')
     .eq('artist_id', artistId)
-  return (data || []).map((r: any) => ({ ...r.artists, year_from: r.year_from, year_until: r.year_until })).filter(Boolean)
+  return (data || []).map((r: any) => ({
+    ...(r.artists || {}),
+    member_from: r.year_from,
+    member_until: r.year_until,
+  })).filter((m: any) => m.id)
 }
 
 async function getArtistBreaks(artistId: number) {
   const supabase = createAdminClient()
-  const { data } = await supabase
-    .from('artist_breaks')
-    .select('year_from, year_until')
-    .eq('artist_id', artistId)
-    .order('year_from')
+  const { data } = await supabase.from('artist_breaks').select('year_from, year_until').eq('artist_id', artistId).order('year_from')
   return data || []
 }
 
 async function getFollowerCount(artistId: number) {
   const supabase = createAdminClient()
-  const { count } = await supabase
-    .from('artist_follows')
-    .select('*', { count: 'exact', head: true })
-    .eq('artist_id', artistId)
+  const { count } = await supabase.from('artist_follows').select('*', { count: 'exact', head: true }).eq('artist_id', artistId)
   return count || 0
 }
 
 async function getLatestNews(artistId: number, limit = 3) {
   const supabase = createAdminClient()
-  const { data } = await supabase
-    .from('news')
-    .select('id, slug, title, image_small_url, published_at, type')
-    .eq('artist_id', artistId)
-    .order('published_at', { ascending: false })
-    .limit(limit)
+  const { data } = await supabase.from('news').select('id, slug, title, image_small_url, published_at, type').eq('artist_id', artistId).order('published_at', { ascending: false }).limit(limit)
   return data || []
 }
 
@@ -122,31 +95,38 @@ async function getUpcomingEvents(artistId: number) {
     .from('event_artists')
     .select('event_id, events(id, slug, title, event_date, venue_custom, image_small_url, venues(name, city))')
     .eq('artist_id', artistId)
-    .order('sort_order')
-  const events = (data || [])
-    .map((ea: any) => ea.events)
-    .filter((e: any) => e && new Date(e.event_date) >= new Date())
+  const events = (data || []).map((ea: any) => ea.events).filter((e: any) => e && new Date(e.event_date) >= new Date())
     .sort((a: any, b: any) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime())
   return events.slice(0, 5)
 }
 
-function extractDescription(desc?: string | null): string {
-  if (!desc) return ''
-  return desc.replace(/<[^>]+>/g, '').slice(0, 200)
+function stripInlineColors(html: string): string {
+  if (!html) return ''
+  // Remove inline color styles that cause black-on-dark issues
+  return html
+    .replace(/style="[^"]*color:\s*rgb\([^)]*\)[^"]*"/gi, '')
+    .replace(/style="[^"]*color:\s*#[0-9a-f]+[^"]*"/gi, '')
+    .replace(/style="[^"]*font-family:[^"]*"/gi, '')
+    .replace(/style="[^"]*font-size:[^"]*"/gi, '')
+    .replace(/style="\s*"/g, '')
+}
+
+function extractPlain(html: string): string {
+  if (!html) return ''
+  return html.replace(/<[^>]+>/g, '').slice(0, 200)
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
   const artist = await getArtist(slug)
   if (!artist) return { title: 'Atlikėjas nerastas' }
-  const img = artist.cover_image_url || artist.cover_image_wide_url
   return {
     title: `${artist.name} — music.lt`,
-    description: extractDescription(artist.description) || `${artist.name} profilis music.lt platformoje`,
+    description: extractPlain(artist.description) || `${artist.name} profilis music.lt platformoje`,
     openGraph: {
       title: `${artist.name} — music.lt`,
-      description: extractDescription(artist.description) || `${artist.name} profilis music.lt`,
-      images: img ? [img] : [],
+      description: extractPlain(artist.description) || `${artist.name} profilis music.lt`,
+      images: artist.cover_image_url ? [artist.cover_image_url] : [],
     },
   }
 }
@@ -156,48 +136,45 @@ export default async function ArtistPage({ params }: Props) {
   const artist = await getArtist(slug)
   if (!artist) notFound()
 
-  const [genres, links, photos, albums, tracks, related, breaks, followers, news, events] = await Promise.all([
+  const [genres, links, dbPhotos, albums, tracks, members, breaks, followers, news, events] = await Promise.all([
     getArtistGenres(artist.id),
     getArtistLinks(artist.id),
     getArtistPhotos(artist.id),
     getAlbums(artist.id),
-    getPopularTracks(artist.id),
-    getRelatedArtists(artist.id),
+    getTracks(artist.id),
+    getMembers(artist.id),
     getArtistBreaks(artist.id),
     getFollowerCount(artist.id),
     getLatestNews(artist.id),
     getUpcomingEvents(artist.id),
   ])
 
-  // Merge artist_photos table + photos jsonb field
-  let allPhotos = photos.map((p: any) => ({ url: p.url, caption: p.caption }))
+  // Merge photos from artist_photos table + photos JSONB
+  let photos: { url: string; caption?: string }[] = dbPhotos.map((p: any) => ({ url: p.url, caption: p.caption }))
   if (artist.photos && Array.isArray(artist.photos)) {
     for (const p of artist.photos as any[]) {
-      if (p.url && !allPhotos.some((ap: any) => ap.url === p.url)) {
-        allPhotos.push({ url: p.url, caption: p.caption || '' })
+      if (p.url && !photos.some(ap => ap.url === p.url)) {
+        photos.push({ url: p.url, caption: p.caption || '' })
       }
     }
   }
 
+  // Clean bio HTML
+  const cleanDescription = stripInlineColors(artist.description || '')
+
+  // Find first track with video for hero player
+  const heroTrack = tracks.find((t: any) => t.video_url) || null
+
   const artistData: any = {
-    id: artist.id,
-    slug: artist.slug,
-    name: artist.name,
-    type: artist.type || 'group',
-    country: artist.country,
-    active_from: artist.active_from,
-    active_until: artist.active_until,
-    description: artist.description,
+    id: artist.id, slug: artist.slug, name: artist.name,
+    type: artist.type || 'group', country: artist.country,
+    active_from: artist.active_from, active_until: artist.active_until,
+    description: cleanDescription,
     cover_image_url: artist.cover_image_url,
     cover_image_wide_url: artist.cover_image_wide_url,
-    website: artist.website,
-    spotify_id: artist.spotify_id,
+    website: artist.website, spotify_id: artist.spotify_id,
     youtube_channel_id: artist.youtube_channel_id,
-    is_verified: artist.is_verified,
-    gender: artist.gender,
-    birth_date: artist.birth_date,
-    death_date: artist.death_date,
-    subdomain: artist.subdomain,
+    is_verified: artist.is_verified, gender: artist.gender,
   }
 
   return (
@@ -205,14 +182,15 @@ export default async function ArtistPage({ params }: Props) {
       artist={artistData}
       genres={genres}
       links={links}
-      photos={allPhotos}
-      albums={albums}
-      tracks={tracks}
-      related={related}
+      photos={photos}
+      albums={albums as any}
+      tracks={tracks as any}
+      members={members}
       breaks={breaks}
       followers={followers}
-      news={news}
+      news={news as any}
       events={events}
+      heroTrack={heroTrack as any}
     />
   )
 }
