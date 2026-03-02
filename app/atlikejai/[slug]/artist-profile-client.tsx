@@ -126,17 +126,18 @@ export default function ArtistProfileClient({
           <HeaderAuth />
         </div></header>
 
-        {/* ═══ HERO — immersive full-width ═══ */}
+        {/* ═══ HERO — immersive, full image visible ═══ */}
         <div className="hero-wrap">
-          <div className="hero-bg">
-            {heroImage
-              ? <img src={heroImage} alt={artist.name} />
-              : artist.cover_image_url
-                ? <div className="hero-blur"><img src={artist.cover_image_url} alt="" /></div>
-                : <div className="hero-fb" />}
-          </div>
-          <div className="hero-grad" />
-          <div className="hero-grad-b" />
+          {heroImage ? (
+            <>
+              <div className="hero-bgblur"><img src={heroImage} alt="" /></div>
+              <div className="hero-photo"><div className="hero-photo-fade" /><img src={heroImage} alt={artist.name} /></div>
+            </>
+          ) : artist.cover_image_url ? (
+            <div className="hero-bgblur"><img src={artist.cover_image_url} alt="" /></div>
+          ) : (
+            <div className="hero-fb" />
+          )}
           <div className="hero">
             <div className="hero-left">
               <div className="hero-title-row">
@@ -312,15 +313,14 @@ const styles = `
 .srch input{flex:1;padding:0 14px;font-size:12px;background:none;border:none;outline:none;color:var(--t2);font-family:var(--fb)}.srch input::placeholder{color:var(--t4)}
 .nav{display:flex;gap:1px;margin-left:auto}.nav a{padding:4px 10px;font-size:11px;font-weight:600;color:var(--t3);border-radius:4px;text-decoration:none;font-family:var(--fd);transition:.15s}.nav a:hover{color:var(--t);background:rgba(255,255,255,.04)}.nav a.on{color:var(--or)}
 
-/* ═══ HERO — immersive full-width, fixed height ═══ */
-.hero-wrap{position:relative;height:340px;overflow:hidden;background:#000}
-.hero-bg{position:absolute;inset:0}
-.hero-bg>img{width:100%;height:100%;object-fit:cover;object-position:center 20%;display:block}
-.hero-bg .hero-blur{position:absolute;inset:0}.hero-blur img{width:100%;height:100%;object-fit:cover;filter:blur(50px) brightness(.2) saturate(1.3);transform:scale(1.4)}
+/* ═══ HERO — immersive, image fully visible ═══ */
+.hero-wrap{position:relative;height:340px;overflow:hidden;background:var(--bg)}
+.hero-bgblur{position:absolute;inset:0;overflow:hidden}.hero-bgblur img{width:100%;height:100%;object-fit:cover;filter:blur(60px) brightness(.15) saturate(1.2);transform:scale(1.5)}
+.hero-photo{position:absolute;right:0;top:0;bottom:0;width:65%;display:flex;align-items:center;justify-content:flex-end}
+.hero-photo img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+.hero-photo-fade{position:absolute;left:0;top:0;bottom:0;width:120px;background:linear-gradient(to right,var(--bg),transparent);z-index:1}
 .hero-fb{position:absolute;inset:0;background:linear-gradient(135deg,#0f1825,#090d13)}
-.hero-grad{position:absolute;inset:0;background:linear-gradient(to right,var(--bg) 0%,var(--bg) 20%,rgba(9,13,19,.75) 45%,rgba(9,13,19,.25) 70%,rgba(9,13,19,.1) 100%)}
-.hero-grad-b{position:absolute;inset:0;background:linear-gradient(to top,var(--bg),transparent 40%)}
-.hero{position:relative;max-width:1400px;margin:0 auto;height:100%;display:flex;align-items:flex-end;padding:0 24px 24px}
+.hero{position:relative;max-width:1400px;margin:0 auto;height:100%;display:flex;align-items:flex-end;padding:0 24px 24px;z-index:2}
 .hero-left{max-width:480px}
 
 .hero-title-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
@@ -420,12 +420,11 @@ const styles = `
 .sim-n{font-size:9px;font-weight:700;color:var(--t2)}
 
 @media(max-width:1024px){
-  .hero{grid-template-columns:1fr;height:auto}
-  .hero-left{padding:16px 24px}
-  .hero-right{height:220px;order:-1}
-  .hero-fade{display:none}
-  .hero-right>img{object-fit:cover;object-position:center 20%}
   .hero-wrap{height:auto;min-height:280px}
+  .hero-photo{position:relative;width:100%;height:200px;justify-content:center}
+  .hero-photo-fade{display:none}
+  .hero{flex-direction:column;align-items:flex-start;padding:16px 24px}
+  .hero-left{max-width:100%}
   .mr-box{grid-template-columns:1fr}
   .two-col{grid-template-columns:1fr}
   .srch{display:none}
