@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getEventBySlug } from '@/lib/supabase-events'
 
-type Artist = { id: number; name: string; slug: string; photo_url: string | null }
+type Artist = { id: number; name: string; slug: string; cover_image_url: string | null }
 
 function getArtist(ea: any): Artist | null {
   const a = Array.isArray(ea.artists) ? ea.artists[0] : ea.artists
@@ -177,8 +177,8 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
                     style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
                     <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
                       style={{ background: `hsl(${(a.name.charCodeAt(0) || 65) * 17 % 360},30%,16%)` }}>
-                      {a.photo_url
-                        ? <img src={a.photo_url} alt={a.name} className="w-full h-full object-cover" />
+                      {a.cover_image_url
+                        ? <img src={a.cover_image_url} alt={a.name} className="w-full h-full object-cover" />
                         : <span className="text-lg font-bold" style={{ color: 'rgba(255,255,255,0.15)' }}>{a.name[0]}</span>
                       }
                     </div>
