@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
-import { AuthProvider } from '@/components/AuthProvider'
+import AuthProvider from '@/components/AuthProvider'
+import { SiteShell } from '@/components/SiteShell'
 
 export const metadata: Metadata = {
   title: 'Music.lt - Lietuviškos muzikos bendruomenė',
@@ -14,9 +15,16 @@ export default function RootLayout({
 }) {
   return (
     <html lang="lt">
-      <body className="bg-gradient-to-br from-black via-slate-900 to-slate-800 min-h-screen text-white">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+      </head>
+      <body>
         <AuthProvider>
-          {children}
+          <SiteShell>
+            {children}
+          </SiteShell>
         </AuthProvider>
       </body>
     </html>
