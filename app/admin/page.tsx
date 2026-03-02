@@ -1,14 +1,19 @@
 'use client'
+
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+
 export default function AdminDashboardPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const [counts, setCounts] = useState<{ artists: number; albums: number; tracks: number; news: number } | null>(null)
+  const [counts, setCounts] = useState<{ artists: number; albums: number; tracks: number; news: number; events: number } | null>(null)
+
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
+
   useEffect(() => { if (status === 'unauthenticated') router.push('/') }, [status])
+
   useEffect(() => {
     if (!isAdmin) return
     Promise.all([
@@ -16,17 +21,28 @@ export default function AdminDashboardPage() {
       fetch('/api/albums?limit=1').then(r => r.json()),
       fetch('/api/tracks?limit=1').then(r => r.json()),
       fetch('/api/news?limit=1').then(r => r.json()),
-    ]).then(([ar, al, tr, nw]) => {
-      setCounts({ artists: ar.total || 0, albums: al.total || 0, tracks: tr.total || 0, news: nw.total || 0 })
+      fetch('/api/events?limit=1').then(r => r.json()),
+    ]).then(([ar, al, tr, nw, ev]) => {
+      setCounts({
+        artists: ar.total || 0,
+        albums: al.total || 0,
+        tracks: tr.total || 0,
+        news: nw.total || 0,
+        events: ev.total || 0,
+      })
     })
   }, [isAdmin])
+
   if (status === 'loading' || !isAdmin) return null
+
   const items = [
     { href: '/admin/artists', newHref: '/admin/artists/new', icon: '🎤', label: 'Atlikėjai', count: counts?.artists },
     { href: '/admin/albums', newHref: '/admin/albums/new', icon: '💿', label: 'Albumai', count: counts?.albums },
     { href: '/admin/tracks', newHref: '/admin/tracks/new', icon: '🎵', label: 'Dainos', count: counts?.tracks },
     { href: '/admin/news', newHref: '/admin/news/new', icon: '📰', label: 'Naujienos', count: counts?.news },
+    { href: '/admin/events', newHref: '/admin/events/new', icon: '📅', label: 'Renginiai', count: counts?.events },
   ]
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="w-full px-6 py-8">
