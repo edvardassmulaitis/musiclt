@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { HeaderAuth } from '@/components/HeaderAuth'
 
@@ -16,7 +16,7 @@ type Props = {
 
 const yt = (u?: string | null) => { if (!u) return null; const m = u.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/); return m ? m[1] : null }
 const aType = (a: Album) => { if (a.type_ep) return 'EP'; if (a.type_single) return 'Singlas'; if (a.type_live) return 'Live'; if (a.type_compilation) return 'Rinkinys'; if (a.type_remix) return 'Remix'; if (a.type_soundtrack) return 'OST'; if (a.type_demo) return 'Demo'; return 'Albumas' }
-const FLAGS: Record<string, string> = { 'Lietuva': '🇱🇹', 'Latvija': '🇱🇻', 'Estija': '🇪🇪', 'Lenkija': '🇵🇱', 'Vokietija': '🇩🇪', 'Prancūzija': '🇫🇷', 'Italija': '🇮🇹', 'Ispanija': '🇪🇸', 'Olandija': '🇳🇱', 'Švedija': '🇸🇪', 'Norvegija': '🇳🇴', 'Danija': '🇩🇰', 'Suomija': '🇫🇮', 'Airija': '🇮🇪', 'Didžioji Britanija': '🇬🇧', 'JAV': '🇺🇸', 'Kanada': '🇨🇦', 'Australija': '🇦🇺', 'Japonija': '🇯🇵', 'Rusija': '🇷🇺', 'Ukraina': '🇺🇦' }
+const FLAGS: Record<string, string> = { 'Lietuva': '🇱🇹', 'Latvija': '🇱🇻', 'Estija': '🇪🇪', 'Lenkija': '🇵🇱', 'Vokietija': '🇩🇪', 'Prancūzija': '🇫🇷', 'Italija': '🇮🇹', 'Ispanija': '🇪🇸', 'Didžioji Britanija': '🇬🇧', 'JAV': '🇺🇸', 'Kanada': '🇨🇦', 'Australija': '🇦🇺', 'Japonija': '🇯🇵', 'Švedija': '🇸🇪', 'Norvegija': '🇳🇴', 'Danija': '🇩🇰', 'Suomija': '🇫🇮', 'Airija': '🇮🇪', 'Olandija': '🇳🇱', 'Rusija': '🇷🇺', 'Ukraina': '🇺🇦' }
 const SOC: Record<string, { l: string; c: string; d: string }> = {
   spotify: { l: 'Spotify', c: '#1DB954', d: 'M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.52 17.34c-.24.36-.66.48-1.02.24-2.82-1.74-6.36-2.1-10.56-1.14-.42.12-.78-.18-.9-.54-.12-.42.18-.78.54-.9 4.56-1.02 8.52-.6 11.64 1.32.42.18.48.66.3 1.02z' },
   youtube: { l: 'YouTube', c: '#FF0000', d: 'M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.38.55A3.02 3.02 0 0 0 .5 6.19 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.81 3.02 3.02 0 0 0 2.12 2.14c1.88.55 9.38.55 9.38.55s7.5 0 9.38-.55a3.02 3.02 0 0 0 2.12-2.14A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.81zM9.54 15.57V8.43L15.82 12l-6.28 3.57z' },
@@ -25,7 +25,6 @@ const SOC: Record<string, { l: string; c: string; d: string }> = {
   facebook: { l: 'Facebook', c: '#1877F2', d: 'M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z' },
   twitter: { l: 'X', c: '#fff', d: 'M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z' },
   soundcloud: { l: 'SoundCloud', c: '#FF5500', d: 'M1.175 12.225c-.051 0-.094.046-.101.1l-.233 2.154.233 2.105c.007.058.05.098.101.098.05 0 .09-.04.099-.098l.255-2.105-.27-2.154c-.009-.06-.05-.1-.084-.1z' },
-  bandcamp: { l: 'Bandcamp', c: '#629aa9', d: 'M0 18.75l7.437-13.5H24l-7.438 13.5H0z' },
 }
 
 function Spark({ data, w = 130, h = 28 }: { data: ChartPt[]; w?: number; h?: number }) {
@@ -33,17 +32,17 @@ function Spark({ data, w = 130, h = 28 }: { data: ChartPt[]; w?: number; h?: num
   const max = Math.max(...data.map(d => d.value)); const min = Math.min(...data.map(d => d.value)); const r = max - min || 1
   const pts = data.map((d, i) => `${(i / (data.length - 1)) * w},${h - ((d.value - min) / r) * (h - 4) - 2}`).join(' ')
   return (
-    <svg width={w} height={h + 10} viewBox={`0 0 ${w} ${h + 10}`}>
+    <svg width={w} height={h + 10} viewBox={`0 0 ${w} ${h + 10}`} style={{ display: 'block' }}>
       <defs><linearGradient id="sg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="rgba(249,115,22,.15)" /><stop offset="100%" stopColor="rgba(249,115,22,0)" /></linearGradient></defs>
       <polygon points={`0,${h} ${pts} ${w},${h}`} fill="url(#sg)" />
       <polyline points={pts} fill="none" stroke="#f97316" strokeWidth="1.5" strokeLinejoin="round" />
-      <text x="0" y={h + 9} fill="rgba(255,255,255,.2)" fontSize="7" fontFamily="var(--fd)" fontWeight="700">{data[0].year}</text>
-      <text x={w} y={h + 9} fill="rgba(255,255,255,.2)" fontSize="7" fontFamily="var(--fd)" fontWeight="700" textAnchor="end">{data[data.length - 1].year}</text>
+      <text x="0" y={h + 9} fill="rgba(255,255,255,.25)" fontSize="7" fontFamily="var(--fd)" fontWeight="700">{data[0].year}</text>
+      <text x={w} y={h + 9} fill="rgba(255,255,255,.25)" fontSize="7" fontFamily="var(--fd)" fontWeight="700" textAnchor="end">{data[data.length - 1].year}</text>
     </svg>
   )
 }
 
-function MusicRow({ label, tracks: list, playingId, onPlay }: { label: string; tracks: Track[]; playingId: number | null; onPlay: (id: number) => void }) {
+function MusicRow({ label, list, playingId, onPlay }: { label: string; list: Track[]; playingId: number | null; onPlay: (id: number) => void }) {
   const [idx, setIdx] = useState(0)
   if (!list.length) return null
   const cur = list[idx]; const vid = yt(cur?.video_url)
@@ -55,8 +54,8 @@ function MusicRow({ label, tracks: list, playingId, onPlay }: { label: string; t
           {playingId === cur?.id && vid
             ? <iframe src={`https://www.youtube.com/embed/${vid}?autoplay=1&rel=0`} allow="autoplay;encrypted-media" allowFullScreen />
             : <div className="mr-th" onClick={() => vid && onPlay(cur.id)}>
-              {vid ? <img src={`https://img.youtube.com/vi/${vid}/hqdefault.jpg`} alt={cur.title} /> : <div className="mr-noth" />}
-              {vid && <div className="mr-ply"><div className="mr-pbtn"><svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg></div></div>}
+              {vid ? <img src={`https://img.youtube.com/vi/${vid}/hqdefault.jpg`} alt="" /> : <div className="mr-noth" />}
+              {vid && <div className="mr-ply"><div className="mr-pb"><svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg></div></div>}
             </div>}
           <div className="mr-cur">{cur.title}</div>
         </div>
@@ -64,11 +63,11 @@ function MusicRow({ label, tracks: list, playingId, onPlay }: { label: string; t
           {list.map((t, i) => {
             const v = yt(t.video_url); const th = t.cover_url || (v ? `https://img.youtube.com/vi/${v}/default.jpg` : null)
             return (
-              <div key={t.id} className={`pl-r${idx === i ? ' pl-on' : ''}`} onClick={() => { setIdx(i); onPlay(-1) }}>
-                <span className="pl-n">{i + 1}</span>
-                {th ? <img src={th} className="pl-img" alt="" /> : <div className="pl-img pl-ni">♪</div>}
-                <div className="pl-info"><div className="pl-name">{t.title}</div></div>
-                {v && <div className="pl-play"><svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg></div>}
+              <div key={t.id} className={`pl${idx === i ? ' pla' : ''}`} onClick={() => { setIdx(i); onPlay(-1) }}>
+                <span className="pln">{i + 1}</span>
+                {th ? <img src={th} className="pli" alt="" /> : <div className="pli plni">♪</div>}
+                <div className="plx"><div className="plnm">{t.title}</div></div>
+                {v && <div className="plp"><svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg></div>}
               </div>
             )
           })}
@@ -84,16 +83,14 @@ function Gallery({ photos }: { photos: { url: string; caption?: string }[] }) {
   return (
     <>
       <div className="gal">{photos.slice(0, 10).map((p, i) => (
-        <div key={i} className={`gc${i === 0 ? ' gc-big' : ''}`} onClick={() => setLb(i)}>
-          <img src={p.url} alt={p.caption || ''} /><div className="gc-ov" />
-        </div>
+        <div key={i} className={`gc${i === 0 ? ' gcb' : ''}`} onClick={() => setLb(i)}><img src={p.url} alt={p.caption || ''} /><div className="gco" /></div>
       ))}</div>
       {lb !== null && <div className="lb" onClick={() => setLb(null)}>
-        <button className="lb-x" onClick={e => { e.stopPropagation(); setLb(null) }}>✕</button>
-        {lb > 0 && <button className="lb-a lb-p" onClick={e => { e.stopPropagation(); setLb(lb - 1) }}>‹</button>}
-        <div className="lb-m" onClick={e => e.stopPropagation()}><img src={photos[lb].url} alt="" />{photos[lb].caption && <p>{photos[lb].caption}</p>}</div>
-        {lb < photos.length - 1 && <button className="lb-a lb-n" onClick={e => { e.stopPropagation(); setLb(lb + 1) }}>›</button>}
-        <div className="lb-ct">{lb + 1}/{photos.length}</div>
+        <button className="lbx" onClick={e => { e.stopPropagation(); setLb(null) }}>✕</button>
+        {lb > 0 && <button className="lba lbp" onClick={e => { e.stopPropagation(); setLb(lb - 1) }}>‹</button>}
+        <div className="lbm" onClick={e => e.stopPropagation()}><img src={photos[lb].url} alt="" />{photos[lb].caption && <p>{photos[lb].caption}</p>}</div>
+        {lb < photos.length - 1 && <button className="lba lbn" onClick={e => { e.stopPropagation(); setLb(lb + 1) }}>›</button>}
+        <div className="lbc">{lb + 1}/{photos.length}</div>
       </div>}
     </>
   )
@@ -102,338 +99,213 @@ function Gallery({ photos }: { photos: { url: string; caption?: string }[] }) {
 export default function ArtistProfileClient({
   artist, heroImage, genres, links, photos, albums, tracks, members, followers, likeCount, news, events, similar, newTracks, topVideos, chartData, hasNewMusic
 }: Props) {
-  const [playingId, setPlayingId] = useState<number | null>(null)
-  const [discFilter, setDiscFilter] = useState('all')
+  const [pid, setPid] = useState<number | null>(null)
+  const [df, setDf] = useState('all')
+  const [loaded, setLoaded] = useState(false)
+  useEffect(() => { setLoaded(true) }, [])
 
   const flag = FLAGS[artist.country] || (artist.country ? '🌍' : '')
-  const hasBio = artist.description && artist.description.trim().length > 10
-  const isSolo = artist.type === 'solo'
-  const age = isSolo && artist.birth_date ? Math.floor((Date.now() - new Date(artist.birth_date).getTime()) / 31557600000) : null
-  const activeYears = artist.active_from ? `${artist.active_from}–${artist.active_until || 'dabar'}` : null
-  const totalLikes = likeCount + followers
-  const albumTypes = [...new Set(albums.map(aType))]
-  const filteredAlbums = discFilter === 'all' ? albums : albums.filter(a => aType(a) === discFilter)
-  const now = new Date(); const thisYear = now.getFullYear()
+  const hasBio = artist.description?.trim().length > 10
+  const solo = artist.type === 'solo'
+  const age = solo && artist.birth_date ? Math.floor((Date.now() - new Date(artist.birth_date).getTime()) / 31557600000) : null
+  const active = artist.active_from ? `${artist.active_from}–${artist.active_until || 'dabar'}` : null
+  const likes = likeCount + followers
+  const atypes = [...new Set(albums.map(aType))]
+  const fAlbums = df === 'all' ? albums : albums.filter(a => aType(a) === df)
+  const yr = new Date().getFullYear()
 
   return (
     <>
-      <style>{styles}</style>
+      <style>{CSS}</style>
       <div className="pg">
-        <header className="hd"><div className="hd-w">
-          <Link href="/" className="logo"><b>music</b><i>.lt</i></Link>
-          <div className="srch"><input placeholder="Ieškok atlikėjų, albumų, dainų…" /></div>
-          <nav className="nav">{['Topai', 'Muzika', 'Renginiai', 'Atlikėjai', 'Bendruomenė'].map(n => <a key={n} href="/" className={n === 'Atlikėjai' ? 'on' : ''}>{n}</a>)}</nav>
+        <header className="hd"><div className="hw">
+          <Link href="/" className="lg"><b>music</b><i>.lt</i></Link>
+          <div className="sr"><input placeholder="Ieškok atlikėjų, albumų, dainų…" /></div>
+          <nav className="nv">{['Topai', 'Muzika', 'Renginiai', 'Atlikėjai', 'Bendruomenė'].map(n => <a key={n} href="/" className={n === 'Atlikėjai' ? 'on' : ''}>{n}</a>)}</nav>
           <HeaderAuth />
         </div></header>
 
-        {/* ═══ HERO — immersive, full image visible ═══ */}
-        <div className="hero-wrap">
+        {/* ═══ HERO — cinematic full-bleed ═══ */}
+        <div className="hero">
+          {/* Background: cover image fills entire hero */}
           {heroImage ? (
-            <>
-              <div className="hero-bgblur"><img src={heroImage} alt="" /></div>
-              <div className="hero-photo"><div className="hero-photo-fade" /><img src={heroImage} alt={artist.name} /></div>
-            </>
+            <div className="hero-img"><img src={heroImage} alt="" /></div>
           ) : artist.cover_image_url ? (
-            <div className="hero-bgblur"><img src={artist.cover_image_url} alt="" /></div>
+            <div className="hero-img hero-img-blur"><img src={artist.cover_image_url} alt="" /></div>
           ) : (
-            <div className="hero-fb" />
+            <div className="hero-img hero-fb" />
           )}
-          <div className="hero">
-            <div className="hero-left">
-              <div className="hero-title-row">
-                <h1 className="hero-name">
-                  {flag && <span className="hero-flag">{flag}</span>}
-                  {artist.name}
-                  {artist.is_verified && <span className="vf"><svg width="10" height="10" viewBox="0 0 24 24" fill="#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg></span>}
-                </h1>
-                <button className="hlike">
-                  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
-                  {totalLikes > 0 ? totalLikes : '0'}
-                </button>
+          {/* Gradient overlays */}
+          <div className="hero-g1" />
+          <div className="hero-g2" />
+          {/* Content anchored bottom-left */}
+          <div className={`hero-ct${loaded ? ' hero-in' : ''}`}>
+            <div className="hero-main">
+              <h1 className="hero-nm">{flag && <span className="hero-fl">{flag}</span>}{artist.name}{artist.is_verified && <span className="hero-vf"><svg width="12" height="12" viewBox="0 0 24 24" fill="#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg></span>}</h1>
+              <div className="hero-row">
+                <div className="hero-tags">{genres.map(g => <span key={g.id} className="ht">{g.name}</span>)}</div>
+                <button className="hero-lk"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>{likes > 0 ? likes : '0'}</button>
+                {solo && members.map(m => <Link key={m.id} href={`/atlikejai/${m.slug}`} className="hero-mem">{m.cover_image_url ? <img src={m.cover_image_url} alt="" /> : <span className="hmfb">{m.name[0]}</span>}<span>{m.name}</span></Link>)}
               </div>
-              <div className="hero-tags">
-                {genres.map(g => <span key={g.id} className="htag">{g.name}</span>)}
-              </div>
-              {isSolo && members.length > 0 && (
-                <div className="hero-mems">
-                  {members.map(m => (
-                    <Link key={m.id} href={`/atlikejai/${m.slug}`} className="hmem">
-                      {m.cover_image_url ? <img src={m.cover_image_url} alt={m.name} /> : <span className="hmem-fb">{m.name[0]}</span>}
-                      <span>{m.name}</span>
-                    </Link>
-                  ))}
-                </div>
-              )}
-              {chartData.length > 5 && (
-                <div className="hero-chart">
-                  <div className="hch-lbl">Populiarumas</div>
-                  <Spark data={chartData} />
-                </div>
-              )}
             </div>
+            {chartData.length > 5 && <div className="hero-ch"><div className="hcl">Populiarumas</div><Spark data={chartData} /></div>}
           </div>
         </div>
 
-        <div className="content">
-          {/* ═══ EVENTS ═══ */}
-          {events.length > 0 && (
-            <section className="sec">
-              <div className="sec-t">Artimiausi renginiai</div>
-              <div className="ev-row">{events.map((e: any) => {
-                const d = new Date(e.event_date); const yr = d.getFullYear(); const showYear = yr !== thisYear
-                return (
-                  <div key={e.id} className="ev-c">
-                    <div className="ev-dd">
-                      <div className="ev-mo">{d.toLocaleDateString('lt-LT', { month: 'long' })}{showYear ? `, ${yr}` : ''}</div>
-                      <div className="ev-day">{d.getDate()}</div>
-                    </div>
-                    <div className="ev-info">
-                      <div className="ev-t">{e.title}</div>
-                      <div className="ev-v">{e.venues?.name || e.venue_custom || ''}{e.venues?.city ? `, ${e.venues.city}` : ''}</div>
-                    </div>
-                  </div>
-                )
-              })}</div>
-            </section>
-          )}
+        <div className="ct">
+          {/* Events */}
+          {events.length > 0 && <section className="s"><div className="st">Artimiausi renginiai</div>
+            <div className="evr">{events.map((e: any) => { const d = new Date(e.event_date); const sy = d.getFullYear() !== yr; return (
+              <div key={e.id} className="evc"><div className="evd"><div className="evm">{d.toLocaleDateString('lt-LT', { month: 'long' })}{sy ? `, ${d.getFullYear()}` : ''}</div><div className="evdy">{d.getDate()}</div></div><div className="evi"><div className="evt">{e.title}</div><div className="evv">{e.venues?.name || e.venue_custom || ''}{e.venues?.city ? `, ${e.venues.city}` : ''}</div></div></div>
+            ) })}</div>
+          </section>}
 
-          {/* ═══ MUSIC — always two rows if data exists ═══ */}
-          {(topVideos.length > 0 || newTracks.length > 0) && (
-            <section className="sec">
-              <div className="sec-t">Muzika</div>
-              {hasNewMusic && newTracks.length > 0 && (
-                <MusicRow label="Nauja muzika" tracks={newTracks.slice(0, 6)} playingId={playingId} onPlay={setPlayingId} />
-              )}
-              {topVideos.length > 0 && (
-                <MusicRow label={hasNewMusic ? 'Populiariausia visa laikų' : ''} tracks={topVideos} playingId={playingId} onPlay={setPlayingId} />
-              )}
-            </section>
-          )}
+          {/* Music */}
+          {(topVideos.length > 0 || newTracks.length > 0) && <section className="s"><div className="st">Muzika</div>
+            {hasNewMusic && newTracks.length > 0 && <MusicRow label="Nauja muzika" list={newTracks.slice(0, 6)} playingId={pid} onPlay={setPid} />}
+            {topVideos.length > 0 && <MusicRow label={hasNewMusic ? 'Populiariausia' : ''} list={topVideos} playingId={pid} onPlay={setPid} />}
+          </section>}
 
-          {/* ═══ DISCOGRAPHY ═══ */}
-          {albums.length > 0 && (
-            <section className="sec">
-              <div className="sec-t">Diskografija · {albums.length}</div>
-              {albumTypes.length > 1 && <div className="df-row"><button className={`df${discFilter === 'all' ? ' df-on' : ''}`} onClick={() => setDiscFilter('all')}>Visi</button>{albumTypes.map(t => <button key={t} className={`df${discFilter === t ? ' df-on' : ''}`} onClick={() => setDiscFilter(t)}>{t}</button>)}</div>}
-              <div className="disc-g">{filteredAlbums.map(a => (
-                <div key={a.id} className="dc">
-                  <div className="dc-cv">{a.cover_image_url ? <img src={a.cover_image_url} alt={a.title} /> : <div className="dc-no">💿</div>}{aType(a) !== 'Albumas' && <span className="dc-tp">{aType(a)}</span>}</div>
-                  <div className="dc-i"><div className="dc-t">{a.title}</div><div className="dc-y">{a.year || '—'}</div></div>
-                </div>
-              ))}</div>
-            </section>
-          )}
+          {/* Discography */}
+          {albums.length > 0 && <section className="s"><div className="st">Diskografija · {albums.length}</div>
+            {atypes.length > 1 && <div className="dfr">{['all', ...atypes].map(t => <button key={t} className={`dft${df === t ? ' dfa' : ''}`} onClick={() => setDf(t)}>{t === 'all' ? 'Visi' : t}</button>)}</div>}
+            <div className="dg">{fAlbums.map(a => <div key={a.id} className="dc"><div className="dcv">{a.cover_image_url ? <img src={a.cover_image_url} alt={a.title} /> : <div className="dcn">💿</div>}{aType(a) !== 'Albumas' && <span className="dct">{aType(a)}</span>}</div><div className="dci"><div className="dctt">{a.title}</div><div className="dcy">{a.year || '—'}</div></div></div>)}</div>
+          </section>}
 
-          {/* ═══ BIO (overview inline) + NEWS sidebar ═══ */}
-          {(hasBio || news.length > 0) && (
-            <section className="sec">
-              <div className="two-col">
-                <div>
-                  {/* Overview chips inline before bio */}
-                  <div className="bio-row-top">
-                    <div className="bio-chips">
-                      {activeYears && <div className="bch"><span className="bch-v">{activeYears}</span><span className="bch-l">Aktyvumas</span></div>}
-                      {isSolo && age && <div className="bch"><span className="bch-v">{age} m.</span><span className="bch-l">Amžius</span></div>}
-                      {artist.country && <div className="bch"><span className="bch-v">{flag} {artist.country}</span><span className="bch-l">Šalis</span></div>}
-                      {albums.length > 0 && <div className="bch"><span className="bch-v">{albums.length}</span><span className="bch-l">Albumai</span></div>}
-                      {tracks.length > 0 && <div className="bch"><span className="bch-v">{tracks.length}+</span><span className="bch-l">Dainos</span></div>}
-                    </div>
-                  </div>
-                  {hasBio && <><div className="sec-t">Apie</div><div className="bio" dangerouslySetInnerHTML={{ __html: artist.description }} /></>}
-                  {links.length > 0 && (
-                    <div className="soc-row">{links.map(l => { const p = SOC[l.platform]; return (
-                      <a key={l.platform} href={l.url} target="_blank" rel="noopener" className="soc-a">{p && <svg viewBox="0 0 24 24" fill={p.c} width="13" height="13"><path d={p.d} /></svg>}<span>{p?.l || l.platform}</span></a>
-                    ) })}{artist.website && <a href={artist.website} target="_blank" rel="noopener" className="soc-a"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13" style={{ color: '#5e7290' }}><circle cx="12" cy="12" r="10" /></svg><span>Svetainė</span></a>}</div>
-                  )}
-                  {!isSolo && members.length > 0 && (
-                    <div style={{ marginTop: 16 }}>
-                      <div className="sec-t">Nariai · {members.length}</div>
-                      <div className="mem-row">{members.map(m => (
-                        <Link key={m.id} href={`/atlikejai/${m.slug}`} className="mem">
-                          {m.cover_image_url ? <img src={m.cover_image_url} alt={m.name} className="mem-img" /> : <div className="mem-img mem-ni">{m.name[0]}</div>}
-                          <div><div className="mem-name">{m.name}</div><div className="mem-yr">{m.member_from ? `${m.member_from}–${m.member_until || 'dabar'}` : ''}</div></div>
-                        </Link>
-                      ))}</div>
-                    </div>
-                  )}
-                </div>
-                <div>
-                  {news.length > 0 && <div className="card"><div className="sec-t" style={{ marginBottom: 6 }}>Naujienos</div>{news.map(n => (
-                    <Link key={n.id} href={`/news/${n.slug}`} className="ni">
-                      {n.image_small_url ? <img src={n.image_small_url} className="ni-img" alt="" /> : <div className="ni-img" />}
-                      <div><div className="ni-t">{n.title}</div><div className="ni-d">{new Date(n.published_at).toLocaleDateString('lt-LT')}</div></div>
-                    </Link>
-                  ))}</div>}
-                </div>
-              </div>
-            </section>
-          )}
+          {/* Bio + News */}
+          {(hasBio || news.length > 0) && <section className="s"><div className="tc">
+            <div>
+              <div className="bch">{active && <div className="bc"><span className="bcv">{active}</span><span className="bcl">Aktyvumas</span></div>}{solo && age && <div className="bc"><span className="bcv">{age} m.</span><span className="bcl">Amžius</span></div>}{artist.country && <div className="bc"><span className="bcv">{flag} {artist.country}</span><span className="bcl">Šalis</span></div>}{albums.length > 0 && <div className="bc"><span className="bcv">{albums.length}</span><span className="bcl">Albumai</span></div>}{tracks.length > 0 && <div className="bc"><span className="bcv">{tracks.length}+</span><span className="bcl">Dainos</span></div>}</div>
+              {hasBio && <><div className="st">Apie</div><div className="bio" dangerouslySetInnerHTML={{ __html: artist.description }} /></>}
+              {links.length > 0 && <div className="sr2">{links.map(l => { const p = SOC[l.platform]; return <a key={l.platform} href={l.url} target="_blank" rel="noopener" className="sc">{p && <svg viewBox="0 0 24 24" fill={p.c} width="13" height="13"><path d={p.d} /></svg>}<span>{p?.l || l.platform}</span></a> })}{artist.website && <a href={artist.website} target="_blank" rel="noopener" className="sc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13" style={{ color: '#5e7290' }}><circle cx="12" cy="12" r="10" /></svg><span>Svetainė</span></a>}</div>}
+              {!solo && members.length > 0 && <div style={{ marginTop: 16 }}><div className="st">Nariai · {members.length}</div><div className="mmr">{members.map(m => <Link key={m.id} href={`/atlikejai/${m.slug}`} className="mm">{m.cover_image_url ? <img src={m.cover_image_url} alt={m.name} className="mmi" /> : <div className="mmi mmni">{m.name[0]}</div>}<div><div className="mmn">{m.name}</div><div className="mmy">{m.member_from ? `${m.member_from}–${m.member_until || 'dabar'}` : ''}</div></div></Link>)}</div></div>}
+            </div>
+            <div>{news.length > 0 && <div className="cd"><div className="st" style={{ marginBottom: 6 }}>Naujienos</div>{news.map(n => <Link key={n.id} href={`/news/${n.slug}`} className="ni">{n.image_small_url ? <img src={n.image_small_url} className="nii" alt="" /> : <div className="nii" />}<div><div className="nit">{n.title}</div><div className="nid">{new Date(n.published_at).toLocaleDateString('lt-LT')}</div></div></Link>)}</div>}</div>
+          </div></section>}
 
-          {/* ═══ GALLERY ═══ */}
-          {photos.length > 0 && <section className="sec"><div className="sec-t">Galerija · {photos.length}</div><Gallery photos={photos} /></section>}
+          {/* Gallery */}
+          {photos.length > 0 && <section className="s"><div className="st">Galerija · {photos.length}</div><Gallery photos={photos} /></section>}
 
-          {/* ═══ DISCUSSIONS ═══ */}
-          <section className="sec">
-            <div className="sec-t">Diskusijos</div>
-            <div className="disc-empty"><div className="de-t">Dar nėra diskusijų apie {artist.name}</div><div className="de-s">Būk pirmas — pradėk diskusiją!</div><button className="de-btn">+ Nauja diskusija</button></div>
-          </section>
+          {/* Discussions */}
+          <section className="s"><div className="st">Diskusijos</div><div className="de"><div className="det">Dar nėra diskusijų apie {artist.name}</div><div className="des">Būk pirmas — pradėk diskusiją!</div><button className="deb">+ Nauja diskusija</button></div></section>
 
-          {/* ═══ SIMILAR ═══ */}
-          {similar.length > 0 && (
-            <section className="sec sec-last">
-              <div className="sec-t">Panaši muzika</div>
-              <div className="sim-row">{similar.map((a: any) => (
-                <Link key={a.id} href={`/atlikejai/${a.slug}`} className="sim-c">
-                  {a.cover_image_url ? <img src={a.cover_image_url} alt={a.name} className="sim-img" /> : <div className="sim-img sim-ni">{a.name[0]}</div>}
-                  <div className="sim-n">{a.name}</div>
-                </Link>
-              ))}</div>
-            </section>
-          )}
+          {/* Similar */}
+          {similar.length > 0 && <section className="s slast"><div className="st">Panaši muzika</div><div className="smr">{similar.map((a: any) => <Link key={a.id} href={`/atlikejai/${a.slug}`} className="smc">{a.cover_image_url ? <img src={a.cover_image_url} alt={a.name} className="smi" /> : <div className="smi smni">{a.name[0]}</div>}<div className="smn">{a.name}</div></Link>)}</div></section>}
         </div>
       </div>
     </>
   )
 }
 
-const styles = `
+const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&display=swap');
-:root{--bg:#090d13;--bg2:#111822;--t:#f0f2f5;--t2:#b0bdd4;--t3:#5e7290;--t4:#334058;--bd:rgba(255,255,255,.06);--or:#f97316;--fd:'Outfit',system-ui,sans-serif;--fb:'DM Sans',system-ui,sans-serif}
+:root{--bg:#080c12;--bg2:#111822;--t:#f0f2f5;--t2:#b0bdd4;--t3:#5e7290;--t4:#334058;--bd:rgba(255,255,255,.06);--or:#f97316;--fd:'Outfit',system-ui,sans-serif;--fb:'DM Sans',system-ui,sans-serif}
 *{box-sizing:border-box;margin:0;padding:0}
 .pg{background:var(--bg);color:var(--t);font-family:var(--fb);-webkit-font-smoothing:antialiased;min-height:100vh}
-.content{max-width:1400px;margin:0 auto;padding:0 24px}
-.sec{padding-top:24px}.sec-last{padding-bottom:48px}
-.sec-t{font-family:var(--fd);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.14em;color:var(--t4);margin-bottom:12px;display:flex;align-items:center;gap:10px}.sec-t::after{content:'';flex:1;height:1px;background:var(--bd)}
+.ct{max-width:1400px;margin:0 auto;padding:0 24px}
+.s{padding-top:24px}.slast{padding-bottom:48px}
+.st{font-family:var(--fd);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.14em;color:var(--t4);margin-bottom:12px;display:flex;align-items:center;gap:10px}.st::after{content:'';flex:1;height:1px;background:var(--bd)}
 
-/* Header */
-.hd{position:sticky;top:0;z-index:50;background:rgba(9,13,19,.94);backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,.03)}
-.hd-w{max-width:1400px;margin:0 auto;padding:0 24px;height:52px;display:flex;align-items:center;gap:18px}
-.logo{font-family:var(--fd);font-size:20px;font-weight:900;letter-spacing:-.03em;text-decoration:none}.logo b{color:#f2f4f8}.logo i{color:#fb923c;font-style:normal}
-.srch{flex:1;max-width:360px;height:32px;border-radius:100px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.06);display:flex;align-items:center;overflow:hidden}
-.srch input{flex:1;padding:0 14px;font-size:12px;background:none;border:none;outline:none;color:var(--t2);font-family:var(--fb)}.srch input::placeholder{color:var(--t4)}
-.nav{display:flex;gap:1px;margin-left:auto}.nav a{padding:4px 10px;font-size:11px;font-weight:600;color:var(--t3);border-radius:4px;text-decoration:none;font-family:var(--fd);transition:.15s}.nav a:hover{color:var(--t);background:rgba(255,255,255,.04)}.nav a.on{color:var(--or)}
+.hd{position:sticky;top:0;z-index:50;background:rgba(8,12,18,.92);backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,.03)}
+.hw{max-width:1400px;margin:0 auto;padding:0 24px;height:52px;display:flex;align-items:center;gap:18px}
+.lg{font-family:var(--fd);font-size:20px;font-weight:900;letter-spacing:-.03em;text-decoration:none}.lg b{color:#f2f4f8}.lg i{color:#fb923c;font-style:normal}
+.sr{flex:1;max-width:360px;height:32px;border-radius:100px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);display:flex;align-items:center;overflow:hidden}
+.sr input{flex:1;padding:0 14px;font-size:12px;background:none;border:none;outline:none;color:var(--t2);font-family:var(--fb)}.sr input::placeholder{color:var(--t4)}
+.nv{display:flex;gap:1px;margin-left:auto}.nv a{padding:4px 10px;font-size:11px;font-weight:600;color:var(--t3);border-radius:4px;text-decoration:none;font-family:var(--fd);transition:.15s}.nv a:hover{color:var(--t);background:rgba(255,255,255,.04)}.nv a.on{color:var(--or)}
 
-/* ═══ HERO — immersive, image fully visible ═══ */
-.hero-wrap{position:relative;height:340px;overflow:hidden;background:var(--bg)}
-.hero-bgblur{position:absolute;inset:0;overflow:hidden}.hero-bgblur img{width:100%;height:100%;object-fit:cover;filter:blur(60px) brightness(.15) saturate(1.2);transform:scale(1.5)}
-.hero-photo{position:absolute;right:0;top:0;bottom:0;width:65%;display:flex;align-items:center;justify-content:flex-end}
-.hero-photo img{max-width:100%;max-height:100%;object-fit:contain;display:block}
-.hero-photo-fade{position:absolute;left:0;top:0;bottom:0;width:120px;background:linear-gradient(to right,var(--bg),transparent);z-index:1}
-.hero-fb{position:absolute;inset:0;background:linear-gradient(135deg,#0f1825,#090d13)}
-.hero{position:relative;max-width:1400px;margin:0 auto;height:100%;display:flex;align-items:flex-end;padding:0 24px 24px;z-index:2}
-.hero-left{max-width:480px}
+/* ═══ HERO — cinematic ═══ */
+.hero{position:relative;height:380px;overflow:hidden}
+.hero-img{position:absolute;inset:0}
+.hero-img img{width:100%;height:100%;object-fit:cover;object-position:center 20%;display:block;animation:heroZoom 20s ease-in-out infinite alternate}
+.hero-img-blur img{filter:blur(40px) brightness(.2) saturate(1.3);transform:scale(1.4);animation:none}
+.hero-fb{position:absolute;inset:0;background:linear-gradient(135deg,#0f1825 0%,#080c12 50%,rgba(249,115,22,.03) 100%)}
+@keyframes heroZoom{0%{transform:scale(1)}100%{transform:scale(1.05)}}
+.hero-g1{position:absolute;inset:0;background:linear-gradient(to top,var(--bg) 0%,rgba(8,12,18,.85) 30%,rgba(8,12,18,.4) 60%,rgba(8,12,18,.2) 100%)}
+.hero-g2{position:absolute;inset:0;background:linear-gradient(to right,rgba(8,12,18,.6) 0%,transparent 50%)}
+.hero-ct{position:relative;max-width:1400px;margin:0 auto;height:100%;display:flex;align-items:flex-end;justify-content:space-between;padding:0 24px 28px;gap:20px;opacity:0;transform:translateY(12px);transition:opacity .6s,transform .6s}
+.hero-in{opacity:1;transform:translateY(0)}
+.hero-main{flex:1;min-width:0}
+.hero-nm{font-family:var(--fd);font-size:clamp(2rem,5vw,3.5rem);font-weight:900;line-height:1.05;letter-spacing:-.04em;color:#fff;margin-bottom:10px;text-shadow:0 2px 20px rgba(0,0,0,.4)}
+.hero-fl{margin-right:6px;font-size:.65em;vertical-align:middle}
+.hero-vf{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:#3b82f6;border-radius:50%;margin-left:6px;vertical-align:middle}
+.hero-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.hero-tags{display:contents}
+.ht{font-size:10px;font-weight:700;color:rgba(255,255,255,.7);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:100px;padding:3px 10px;font-family:var(--fd);backdrop-filter:blur(4px)}
+.hero-lk{display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border-radius:100px;border:1px solid rgba(249,115,22,.25);font-size:11px;font-weight:800;cursor:pointer;font-family:var(--fd);background:rgba(249,115,22,.1);color:var(--or);transition:.2s;backdrop-filter:blur(4px)}.hero-lk:hover{background:rgba(249,115,22,.2)}.hero-lk svg{width:11px;height:11px}
+.hero-mem{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:100px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.06);text-decoration:none;font-size:10px;font-weight:700;color:#fff;font-family:var(--fd);backdrop-filter:blur(4px);transition:.2s}.hero-mem:hover{background:rgba(255,255,255,.12)}
+.hero-mem img{width:18px;height:18px;border-radius:50%;object-fit:cover}.hmfb{width:18px;height:18px;border-radius:50%;background:rgba(255,255,255,.1);display:inline-flex;align-items:center;justify-content:center;font-size:7px}
+.hero-ch{background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:8px 12px 2px;backdrop-filter:blur(8px);flex-shrink:0}
+.hcl{font-size:7px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.25);font-family:var(--fd);margin-bottom:2px}
 
-.hero-title-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
-.hero-name{font-family:var(--fd);font-size:clamp(1.5rem,3.5vw,2.4rem);font-weight:900;line-height:1.1;letter-spacing:-.04em;color:#fff;flex:1;min-width:0}
-.hero-flag{margin-right:4px;font-size:.7em}
-.vf{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;background:#3b82f6;border-radius:50%;margin-left:4px;vertical-align:middle}
-.hlike{display:inline-flex;align-items:center;gap:3px;padding:5px 11px;border-radius:100px;border:1px solid rgba(249,115,22,.2);font-size:11px;font-weight:800;cursor:pointer;font-family:var(--fd);background:rgba(249,115,22,.08);color:var(--or);transition:.2s;flex-shrink:0}.hlike:hover{background:rgba(249,115,22,.16)}.hlike svg{width:11px;height:11px}
+/* Events */
+.evr{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}.evr::-webkit-scrollbar{display:none}
+.evc{flex-shrink:0;display:flex;gap:12px;align-items:center;border-radius:12px;border:1px solid rgba(249,115,22,.12);background:rgba(249,115,22,.03);padding:14px 18px;cursor:pointer;transition:.2s;min-width:220px}.evc:hover{border-color:rgba(249,115,22,.22);background:rgba(249,115,22,.06)}
+.evd{text-align:center;min-width:40px;background:rgba(249,115,22,.1);border-radius:8px;padding:5px 4px}
+.evm{font-size:9px;font-weight:700;color:var(--or);text-transform:capitalize;line-height:1.2}
+.evdy{font-size:20px;font-weight:900;color:#fff;font-family:var(--fd);line-height:1}
+.evi{flex:1;min-width:0}.evt{font-size:13px;font-weight:700;color:#fff;line-height:1.2}.evv{font-size:11px;color:var(--t2);margin-top:2px}
 
-.hero-tags{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
-.htag{font-size:9px;font-weight:700;color:var(--t2);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:100px;padding:2px 8px;font-family:var(--fd)}
-.hero-mems{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
-.hmem{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:100px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);text-decoration:none;font-size:10px;font-weight:700;color:var(--t);font-family:var(--fd);transition:.2s}.hmem:hover{background:rgba(255,255,255,.08)}
-.hmem img{width:18px;height:18px;border-radius:50%;object-fit:cover}.hmem-fb{width:18px;height:18px;border-radius:50%;background:var(--bg2);display:inline-flex;align-items:center;justify-content:center;font-size:7px;color:rgba(255,255,255,.06)}
-
-.hero-chart{margin-top:6px}
-.hch-lbl{font-size:7px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--t4);font-family:var(--fd);margin-bottom:1px}
-
-/* ═══ EVENTS — bigger cards, readable ═══ */
-.ev-row{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}.ev-row::-webkit-scrollbar{display:none}
-.ev-c{flex-shrink:0;display:flex;gap:12px;align-items:center;border-radius:12px;border:1px solid rgba(249,115,22,.12);background:rgba(249,115,22,.03);padding:14px 18px;cursor:pointer;transition:.2s;min-width:240px}
-.ev-c:hover{border-color:rgba(249,115,22,.22);background:rgba(249,115,22,.06)}
-.ev-dd{text-align:center;min-width:44px;background:rgba(249,115,22,.1);border-radius:8px;padding:6px 4px}
-.ev-mo{font-size:9px;font-weight:700;color:var(--or);text-transform:capitalize;line-height:1.2}
-.ev-day{font-size:22px;font-weight:900;color:#fff;font-family:var(--fd);line-height:1}
-.ev-info{flex:1;min-width:0}
-.ev-t{font-size:13px;font-weight:700;color:#fff;line-height:1.25}
-.ev-v{font-size:11px;color:var(--t2);margin-top:2px}
-
-/* ═══ MUSIC ROW ═══ */
+/* Music */
 .mr{margin-bottom:14px}
 .mr-lbl{font-family:var(--fd);font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:var(--or);margin-bottom:6px}
 .mr-box{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);border-radius:10px;overflow:hidden;border:1px solid var(--bd);background:rgba(0,0,0,.25)}
-.mr-vid{background:#000;display:flex;flex-direction:column}
-.mr-vid iframe{width:100%;aspect-ratio:16/9;border:none;display:block}
+.mr-vid{background:#000}.mr-vid iframe{width:100%;aspect-ratio:16/9;border:none;display:block}
 .mr-th{position:relative;aspect-ratio:16/9;overflow:hidden;cursor:pointer}.mr-th img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s}.mr-th:hover img{transform:scale(1.03)}
 .mr-noth{width:100%;aspect-ratio:16/9;background:#111}
 .mr-ply{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
-.mr-pbtn{width:48px;height:48px;border-radius:50%;background:rgba(249,115,22,.85);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(249,115,22,.3);transition:.15s}.mr-th:hover .mr-pbtn{transform:scale(1.08)}
+.mr-pb{width:48px;height:48px;border-radius:50%;background:rgba(249,115,22,.85);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(249,115,22,.35);transition:.15s}.mr-th:hover .mr-pb{transform:scale(1.1)}
 .mr-cur{padding:7px 12px;font-size:12px;font-weight:800;color:var(--t);background:rgba(249,115,22,.03);border-top:1px solid rgba(249,115,22,.04)}
-.mr-pl{max-height:340px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.06) transparent}
-.pl-r{display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid rgba(255,255,255,.03);cursor:pointer;transition:.12s}.pl-r:last-child{border-bottom:none}.pl-r:hover{background:rgba(255,255,255,.03)}
-.pl-on{background:rgba(249,115,22,.05)!important}
-.pl-n{width:16px;font-size:10px;font-weight:600;color:var(--t4);text-align:center;flex-shrink:0;font-family:var(--fd)}.pl-on .pl-n{color:var(--or)}
-.pl-img{width:34px;height:34px;border-radius:4px;object-fit:cover;flex-shrink:0;background:var(--bg2)}.pl-ni{display:flex;align-items:center;justify-content:center;font-size:10px;color:rgba(255,255,255,.05)}
-.pl-info{flex:1;min-width:0}.pl-name{font-size:12px;font-weight:700;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pl-on .pl-name{color:var(--or)}
-.pl-play{width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;color:var(--t4);flex-shrink:0}.pl-on .pl-play{background:var(--or);color:#fff}
+.mr-pl{max-height:340px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.05) transparent}
+.pl{display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid rgba(255,255,255,.03);cursor:pointer;transition:.12s}.pl:last-child{border-bottom:none}.pl:hover{background:rgba(255,255,255,.03)}
+.pla{background:rgba(249,115,22,.05)!important}
+.pln{width:16px;font-size:10px;font-weight:600;color:var(--t4);text-align:center;flex-shrink:0;font-family:var(--fd)}.pla .pln{color:var(--or)}
+.pli{width:34px;height:34px;border-radius:4px;object-fit:cover;flex-shrink:0;background:var(--bg2)}.plni{display:flex;align-items:center;justify-content:center;font-size:10px;color:rgba(255,255,255,.05)}
+.plx{flex:1;min-width:0}.plnm{font-size:12px;font-weight:700;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pla .plnm{color:var(--or)}
+.plp{width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;color:var(--t4);flex-shrink:0}.pla .plp{background:var(--or);color:#fff}
 
-/* ═══ DISC — year contrast fixed ═══ */
-.df-row{display:flex;gap:3px;margin-bottom:10px;flex-wrap:wrap}
-.df{padding:3px 9px;border-radius:100px;font-size:9px;font-weight:700;border:1px solid var(--bd);background:none;color:var(--t4);cursor:pointer;font-family:var(--fd);transition:.2s}.df:hover{color:var(--t)}.df-on{background:var(--or);border-color:var(--or);color:#fff}
-.disc-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+/* Disc */
+.dfr{display:flex;gap:3px;margin-bottom:10px;flex-wrap:wrap}
+.dft{padding:3px 9px;border-radius:100px;font-size:9px;font-weight:700;border:1px solid var(--bd);background:none;color:var(--t4);cursor:pointer;font-family:var(--fd);transition:.2s}.dft:hover{color:var(--t)}.dfa{background:var(--or);border-color:var(--or);color:#fff}
+.dg{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
 .dc{border-radius:8px;overflow:hidden;border:1px solid var(--bd);background:rgba(255,255,255,.02);transition:.2s;cursor:pointer}.dc:hover{transform:translateY(-2px);border-color:rgba(255,255,255,.1)}
-.dc-cv{aspect-ratio:1;background:var(--bg2);overflow:hidden;position:relative}.dc-cv img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s}.dc:hover .dc-cv img{transform:scale(1.04)}
-.dc-no{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:14px;color:rgba(255,255,255,.03)}
-.dc-tp{position:absolute;top:4px;right:4px;font-size:7px;font-weight:800;text-transform:uppercase;padding:2px 4px;border-radius:2px;background:rgba(0,0,0,.6);color:var(--t2)}
-.dc-i{padding:7px 8px}
-.dc-t{font-family:var(--fd);font-size:11px;font-weight:700;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.dc-y{font-size:10px;color:var(--t2);margin-top:2px;font-weight:600}
+.dcv{aspect-ratio:1;background:var(--bg2);overflow:hidden;position:relative}.dcv img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s}.dc:hover .dcv img{transform:scale(1.04)}
+.dcn{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:14px;color:rgba(255,255,255,.03)}
+.dct{position:absolute;top:4px;right:4px;font-size:7px;font-weight:800;text-transform:uppercase;padding:2px 4px;border-radius:2px;background:rgba(0,0,0,.6);color:var(--t2)}
+.dci{padding:7px 8px}.dctt{font-family:var(--fd);font-size:11px;font-weight:700;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dcy{font-size:10px;color:var(--t2);margin-top:2px;font-weight:600}
 
-/* ═══ BIO + NEWS ═══ */
-.two-col{display:grid;grid-template-columns:1fr 320px;gap:28px;align-items:start}
-.bio-row-top{margin-bottom:12px}
-.bio-chips{display:inline-flex;flex-wrap:wrap;gap:6px;padding:8px 12px;border-radius:8px;background:rgba(255,255,255,.02);border:1px solid var(--bd)}
-.bch{display:flex;flex-direction:column;min-width:50px}.bch-v{font-family:var(--fd);font-size:12px;font-weight:800;color:var(--t)}.bch-l{font-size:7px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-top:1px}
-.bio{color:var(--t2)!important;font-size:14px;line-height:1.85}
-.bio *{color:inherit!important;font-family:inherit!important;font-size:inherit!important}
-.bio p{margin-bottom:10px}.bio a{color:var(--or)!important;text-decoration:underline}.bio b,.bio strong{color:var(--t)!important;font-weight:700}
-.soc-row{display:flex;flex-wrap:wrap;gap:4px;margin-top:12px}
-.soc-a{display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:100px;border:1px solid var(--bd);background:rgba(255,255,255,.02);text-decoration:none;transition:.2s;font-family:var(--fd)}.soc-a:hover{background:rgba(255,255,255,.05);transform:translateY(-1px)}.soc-a span{font-size:9px;font-weight:700;color:var(--t2)}
-.mem-row{display:flex;flex-wrap:wrap;gap:6px}
-.mem{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.02);border:1px solid var(--bd);border-radius:8px;padding:5px 9px;text-decoration:none;transition:.2s}.mem:hover{border-color:rgba(255,255,255,.1)}
-.mem-img{width:26px;height:26px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--bg2)}.mem-ni{display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;color:rgba(255,255,255,.05);font-family:var(--fd)}
-.mem-name{font-size:10px;font-weight:700;color:var(--t)}.mem-yr{font-size:8px;color:var(--t3)}
-.card{border-radius:10px;border:1px solid var(--bd);background:rgba(255,255,255,.02);padding:10px;margin-bottom:8px}
+/* Bio */
+.tc{display:grid;grid-template-columns:1fr 320px;gap:28px;align-items:start}
+.bch{display:inline-flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;padding:8px 12px;border-radius:8px;background:rgba(255,255,255,.02);border:1px solid var(--bd)}
+.bc{display:flex;flex-direction:column;min-width:50px}.bcv{font-family:var(--fd);font-size:12px;font-weight:800;color:var(--t)}.bcl{font-size:7px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-top:1px}
+.bio{color:var(--t2)!important;font-size:14px;line-height:1.85}.bio *{color:inherit!important;font-family:inherit!important;font-size:inherit!important}.bio p{margin-bottom:10px}.bio a{color:var(--or)!important;text-decoration:underline}.bio b,.bio strong{color:var(--t)!important;font-weight:700}
+.sr2{display:flex;flex-wrap:wrap;gap:4px;margin-top:12px}
+.sc{display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:100px;border:1px solid var(--bd);background:rgba(255,255,255,.02);text-decoration:none;transition:.2s;font-family:var(--fd)}.sc:hover{background:rgba(255,255,255,.05);transform:translateY(-1px)}.sc span{font-size:9px;font-weight:700;color:var(--t2)}
+.mmr{display:flex;flex-wrap:wrap;gap:6px}
+.mm{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.02);border:1px solid var(--bd);border-radius:8px;padding:5px 9px;text-decoration:none;transition:.2s}.mm:hover{border-color:rgba(255,255,255,.1)}
+.mmi{width:26px;height:26px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--bg2)}.mmni{display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;color:rgba(255,255,255,.05);font-family:var(--fd)}
+.mmn{font-size:10px;font-weight:700;color:var(--t)}.mmy{font-size:8px;color:var(--t3)}
+.cd{border-radius:10px;border:1px solid var(--bd);background:rgba(255,255,255,.02);padding:10px;margin-bottom:8px}
 .ni{display:flex;gap:7px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.03);text-decoration:none;transition:opacity .15s}.ni:last-child{border-bottom:none}.ni:hover{opacity:.8}
-.ni-img{width:36px;height:36px;border-radius:5px;object-fit:cover;flex-shrink:0;background:var(--bg2)}.ni-t{font-size:10px;font-weight:700;color:var(--t2);line-height:1.25}.ni-d{font-size:8px;color:var(--t3);margin-top:1px}
+.nii{width:36px;height:36px;border-radius:5px;object-fit:cover;flex-shrink:0;background:var(--bg2)}.nit{font-size:10px;font-weight:700;color:var(--t2);line-height:1.25}.nid{font-size:8px;color:var(--t3);margin-top:1px}
 
-/* ═══ GALLERY ═══ */
+/* Gallery */
 .gal{display:flex;flex-wrap:wrap;gap:3px;border-radius:10px;overflow:hidden}
-.gc{position:relative;height:170px;flex:1 1 200px;max-width:33%;overflow:hidden;cursor:zoom-in}
-.gc-big{flex:2 1 400px;max-width:50%;height:340px}
+.gc{position:relative;height:170px;flex:1 1 200px;max-width:33%;overflow:hidden;cursor:zoom-in}.gcb{flex:2 1 400px;max-width:50%;height:340px}
 .gc img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s}.gc:hover img{transform:scale(1.04)}
-.gc-ov{position:absolute;inset:0;background:rgba(0,0,0,0);transition:.2s}.gc:hover .gc-ov{background:rgba(0,0,0,.15)}
+.gco{position:absolute;inset:0;background:rgba(0,0,0,0);transition:.2s}.gc:hover .gco{background:rgba(0,0,0,.15)}
 .lb{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.95);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:center}
-.lb-m{max-width:90vw;max-height:90vh;display:flex;flex-direction:column;align-items:center}.lb-m img{max-width:100%;max-height:82vh;object-fit:contain;border-radius:4px}.lb-m p{font-size:10px;color:rgba(255,255,255,.25);margin-top:5px}
-.lb-x{position:absolute;top:12px;right:16px;background:rgba(255,255,255,.08);border:none;color:rgba(255,255,255,.5);font-size:14px;cursor:pointer;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center}
-.lb-a{position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.05);border:none;color:rgba(255,255,255,.4);font-size:26px;cursor:pointer;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center}.lb-p{left:8px}.lb-n{right:8px}
-.lb-ct{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);font-size:9px;color:rgba(255,255,255,.15);font-weight:600}
+.lbm{max-width:90vw;max-height:90vh;display:flex;flex-direction:column;align-items:center}.lbm img{max-width:100%;max-height:82vh;object-fit:contain;border-radius:4px}.lbm p{font-size:10px;color:rgba(255,255,255,.25);margin-top:5px}
+.lbx{position:absolute;top:12px;right:16px;background:rgba(255,255,255,.08);border:none;color:rgba(255,255,255,.5);font-size:14px;cursor:pointer;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.lba{position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.05);border:none;color:rgba(255,255,255,.4);font-size:26px;cursor:pointer;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center}.lbp{left:8px}.lbn{right:8px}
+.lbc{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);font-size:9px;color:rgba(255,255,255,.15);font-weight:600}
 
-/* Bottom sections */
-.disc-empty{border:1px dashed var(--bd);border-radius:10px;padding:24px;text-align:center}
-.de-t{font-size:12px;font-weight:700;color:var(--t3);margin-bottom:2px}.de-s{font-size:10px;color:var(--t4)}
-.de-btn{margin-top:8px;padding:6px 16px;border-radius:100px;border:1px solid var(--bd);background:rgba(255,255,255,.02);color:var(--t2);font-size:10px;font-weight:700;cursor:pointer;font-family:var(--fd);transition:.2s}.de-btn:hover{background:rgba(255,255,255,.05)}
-.sim-row{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}.sim-row::-webkit-scrollbar{display:none}
-.sim-c{flex-shrink:0;width:86px;text-align:center;text-decoration:none;transition:.2s}.sim-c:hover{transform:translateY(-2px)}
-.sim-img{width:60px;height:60px;border-radius:50%;object-fit:cover;margin:0 auto 4px;border:2px solid var(--bd);background:var(--bg2)}.sim-ni{display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:rgba(255,255,255,.04);font-family:var(--fd)}
-.sim-n{font-size:9px;font-weight:700;color:var(--t2)}
+.de{border:1px dashed var(--bd);border-radius:10px;padding:24px;text-align:center}.det{font-size:12px;font-weight:700;color:var(--t3);margin-bottom:2px}.des{font-size:10px;color:var(--t4)}
+.deb{margin-top:8px;padding:6px 16px;border-radius:100px;border:1px solid var(--bd);background:rgba(255,255,255,.02);color:var(--t2);font-size:10px;font-weight:700;cursor:pointer;font-family:var(--fd);transition:.2s}.deb:hover{background:rgba(255,255,255,.05)}
+.smr{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}.smr::-webkit-scrollbar{display:none}
+.smc{flex-shrink:0;width:86px;text-align:center;text-decoration:none;transition:.2s}.smc:hover{transform:translateY(-2px)}
+.smi{width:60px;height:60px;border-radius:50%;object-fit:cover;margin:0 auto 4px;border:2px solid var(--bd);background:var(--bg2)}.smni{display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:rgba(255,255,255,.04);font-family:var(--fd)}
+.smn{font-size:9px;font-weight:700;color:var(--t2)}
 
-@media(max-width:1024px){
-  .hero-wrap{height:auto;min-height:280px}
-  .hero-photo{position:relative;width:100%;height:200px;justify-content:center}
-  .hero-photo-fade{display:none}
-  .hero{flex-direction:column;align-items:flex-start;padding:16px 24px}
-  .hero-left{max-width:100%}
-  .mr-box{grid-template-columns:1fr}
-  .two-col{grid-template-columns:1fr}
-  .srch{display:none}
-  .gc{max-width:50%}.gc-big{max-width:100%}
-}
-@media(max-width:640px){
-  .nav{display:none}
-  .disc-g{grid-template-columns:repeat(2,1fr)}
-  .gc{max-width:100%;height:140px}.gc-big{height:200px}
-  .hero-left{padding:12px 16px}
-}
+@media(max-width:1024px){.mr-box{grid-template-columns:1fr}.tc{grid-template-columns:1fr}.sr{display:none}.gc{max-width:50%}.gcb{max-width:100%}.hero{height:320px}}
+@media(max-width:640px){.nv{display:none}.dg{grid-template-columns:repeat(2,1fr)}.gc{max-width:100%;height:140px}.gcb{height:200px}.hero{height:280px}.hero-nm{font-size:1.8rem}}
 `
