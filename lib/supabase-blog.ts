@@ -163,10 +163,15 @@ export async function deletePost(postId: string, userId: string) {
 
 export async function incrementPostViews(postId: string) {
   const sb = createAdminClient()
-  await sb.rpc('increment_post_views', { post_id: postId }).catch(() => {
-    // Fallback if rpc doesn't exist yet
-    sb.from('blog_posts').update({ view_count: sb.from('blog_posts').select('view_count').eq('id', postId) }).eq('id', postId)
-  })
+  try {
+    await sb.rpc('increment_post_views', { post_id: postId })
+  } catch {
+    // Fallback: simple increment via raw update
+    const { data } = await sb.from('blog_posts').select('view_count').eq('id', postId).single()
+    if (data) {
+      await sb.from('blog_posts').update({ view_count: (data.view_count || 0) + 1 }).eq('id', postId)
+    }
+  }
 }
 
 // ── POST RELATIONS ──────────────────────────────────────────
