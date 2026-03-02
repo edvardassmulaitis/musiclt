@@ -9,7 +9,7 @@ type EventArtist = {
   artist_id: number
   is_headliner: boolean
   sort_order: number
-  artists: { id: number; name: string; slug: string; photo_url: string | null } | { id: number; name: string; slug: string; photo_url: string | null }[]
+  artists: { id: number; name: string; slug: string; cover_image_url: string | null } | { id: number; name: string; slug: string; cover_image_url: string | null }[]
 }
 
 type Event = {
