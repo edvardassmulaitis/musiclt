@@ -9,7 +9,7 @@ export async function GET(
   const blog = await getBlogBySlug(username)
   if (!blog) return new NextResponse('Blog not found', { status: 404 })
 
-  const posts = await getBlogPosts(blog.id, 20, 0)
+  const { posts } = await getBlogPosts(blog.id, 20, 0)
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://musiclt.vercel.app'
 
   const items = posts.map((p: any) => `
