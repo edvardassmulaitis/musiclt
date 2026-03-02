@@ -7,10 +7,8 @@ import { headers } from 'next/headers'
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const status = searchParams.get('status') || 'pending'
-  const { getServerSession } = await import('next-auth')
-  const { authOptions } = await import('@/lib/auth')
   const session = await getServerSession(authOptions)
-  if (!session?.user?.role || !['admin','super_admin'].includes(session.user.role))
+  if (!session?.user?.role || !['admin', 'super_admin'].includes(session.user.role))
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const supabase = createAdminClient()
@@ -28,7 +26,7 @@ export async function POST(req: Request) {
   const session = await getServerSession(authOptions)
   const body = await req.json()
   const { top_type, track_id, manual_title, manual_artist } = body
-  const headersList = headers()
+  const headersList = await headers()
   const ip = headersList.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
   const supabase = createAdminClient()
 
@@ -46,12 +44,9 @@ export async function POST(req: Request) {
   return NextResponse.json({ suggestion: data })
 }
 
-// Admin: patvirtinti / atmesti
 export async function PATCH(req: Request) {
-  const { getServerSession } = await import('next-auth')
-  const { authOptions } = await import('@/lib/auth')
   const session = await getServerSession(authOptions)
-  if (!session?.user?.role || !['admin','super_admin'].includes(session.user.role))
+  if (!session?.user?.role || !['admin', 'super_admin'].includes(session.user.role))
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
