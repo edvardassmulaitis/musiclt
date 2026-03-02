@@ -2,7 +2,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { RichEditor } from '@/components/RichEditor'
+import { BlogEditor } from '@/components/BlogEditor'
 
 function EditorInner() {
   const router = useRouter()
@@ -124,10 +124,10 @@ function EditorInner() {
         style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: '#5e7290' }}
       />
 
-      <RichEditor
+      <BlogEditor
         value={content}
         onChange={setContent}
-        placeholder="Pradėk rašyti savo straipsnį... Naudok toolbar'ą formatavimui ir 🎵 Embed mygtuką muzikos įterpimui."
+        placeholder="Pradėk rašyti savo straipsnį... Naudok toolbar'ą formatavimui ir 🎵 mygtuką muzikos įterpimui."
       />
 
       <p className="text-[10px] mt-3" style={{ color: '#334058' }}>
