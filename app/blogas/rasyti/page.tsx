@@ -2,6 +2,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { RichEditor } from '@/components/RichEditor'
 
 function EditorInner() {
   const router = useRouter()
@@ -15,19 +16,15 @@ function EditorInner() {
   const [status, setStatus] = useState<'draft' | 'published'>('draft')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [hasBlog, setHasBlog] = useState<boolean | null>(null)
+  const [ready, setReady] = useState(false)
 
   useEffect(() => {
     fetch('/api/profile').then(r => r.json()).then(p => {
       if (!p?.username) {
         setError('Pirma nustatyk username savo profilyje')
-        setHasBlog(false)
         return
       }
-      fetch('/api/blog/my').then(r => {
-        if (r.ok) setHasBlog(true)
-        else setHasBlog(false)
-      }).catch(() => setHasBlog(false))
+      setReady(true)
     }).catch(() => setError('Prisijunk'))
   }, [])
 
@@ -69,78 +66,80 @@ function EditorInner() {
     }
   }
 
-  if (hasBlog === false) {
+  if (!ready && !error) {
+    return <div className="min-h-[50vh] flex items-center justify-center text-sm" style={{ color: '#334058' }}>Kraunasi...</div>
+  }
+
+  if (error && !ready) {
     return (
-      <div className="min-h-screen bg-[#080c12] text-[#f0f2f5] flex items-center justify-center">
+      <div className="min-h-[50vh] flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-xl font-bold mb-2" style={{ fontFamily: "'Outfit', sans-serif" }}>Pirma sukurk blogą</h2>
-          <p className="text-sm text-[#5e7290] mb-4">Eik į blogo nustatymus ir sukurk savo muzikos blogą</p>
-          <Link href="/blogas/nustatymai" className="px-4 py-2 bg-[#f97316] text-white rounded-full text-sm font-bold hover:bg-[#ea580c] transition">
-            Sukurti blogą
-          </Link>
+          <p className="text-sm text-red-400 mb-4">{error}</p>
+          <Link href="/" className="text-xs text-[#4a6fa5] hover:text-white transition">← Grįžti</Link>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#080c12] text-[#f0f2f5]">
-      <div className="max-w-3xl mx-auto px-6 py-8">
-        <div className="flex items-center justify-between mb-8">
-          <Link href="/blogas/mano" className="text-xs text-[#5e7290] hover:text-white transition">← Atgal</Link>
-          <div className="flex gap-2">
-            <button onClick={() => handleSave('draft')} disabled={saving} className="px-4 py-1.5 rounded-full text-xs font-bold text-[#b0bdd4] bg-white/[.04] border border-white/[.06] hover:bg-white/[.06] transition disabled:opacity-40" style={{ fontFamily: "'Outfit', sans-serif" }}>
-              {saving ? '...' : 'Išsaugoti juodraštį'}
-            </button>
-            <button onClick={() => handleSave('published')} disabled={saving} className="px-4 py-1.5 rounded-full text-xs font-bold text-white bg-[#f97316] hover:bg-[#ea580c] transition disabled:opacity-40" style={{ fontFamily: "'Outfit', sans-serif" }}>
-              {saving ? '...' : 'Publikuoti'}
-            </button>
-          </div>
+    <div className="max-w-3xl mx-auto px-6 py-8">
+      <div className="flex items-center justify-between mb-8">
+        <Link href="/blogas/mano" className="text-xs hover:text-white transition" style={{ color: '#5e7290' }}>← Mano straipsniai</Link>
+        <div className="flex gap-2">
+          <button onClick={() => handleSave('draft')} disabled={saving}
+            className="px-4 py-1.5 rounded-full text-xs font-bold transition disabled:opacity-40"
+            style={{ color: '#b0bdd4', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            {saving ? '...' : 'Išsaugoti juodraštį'}
+          </button>
+          <button onClick={() => handleSave('published')} disabled={saving}
+            className="px-4 py-1.5 rounded-full text-xs font-bold text-white bg-[#f97316] hover:bg-[#ea580c] transition disabled:opacity-40">
+            {saving ? '...' : 'Publikuoti'}
+          </button>
         </div>
-
-        {error && <div className="text-xs text-red-400 mb-4 p-2 bg-red-900/20 rounded">{error}</div>}
-
-        <input
-          value={title}
-          onChange={e => setTitle(e.target.value)}
-          placeholder="Straipsnio pavadinimas"
-          className="w-full text-3xl font-black bg-transparent border-none outline-none placeholder:text-[#1e293b] mb-4"
-          style={{ fontFamily: "'Outfit', sans-serif", letterSpacing: '-.03em' }}
-        />
-
-        <input
-          value={summary}
-          onChange={e => setSummary(e.target.value)}
-          placeholder="Trumpa santrauka (rodoma sąraše)"
-          className="w-full text-sm bg-transparent border-none outline-none placeholder:text-[#1e293b] text-[#5e7290] mb-4"
-        />
-
-        <input
-          value={coverUrl}
-          onChange={e => setCoverUrl(e.target.value)}
-          placeholder="Cover nuotraukos URL (neprivaloma)"
-          className="w-full text-xs bg-white/[.03] border border-white/[.06] rounded-lg px-3 py-2 outline-none placeholder:text-[#1e293b] text-[#5e7290] mb-6 focus:border-[#f97316]/30"
-        />
-
-        <textarea
-          value={content}
-          onChange={e => setContent(e.target.value)}
-          placeholder="Rašyk straipsnį... (HTML palaikomas)"
-          rows={20}
-          className="w-full bg-white/[.02] border border-white/[.04] rounded-xl px-4 py-3 text-[15px] text-[#b0bdd4] leading-relaxed placeholder:text-[#1e293b] focus:outline-none focus:border-white/[.08] resize-y"
-        />
-
-        <p className="text-[10px] text-[#334058] mt-2">
-          💡 Ateityje čia bus pilnas Tiptap redaktorius su muzikos embed&apos;ais. Kol kas gali rašyti HTML.
-        </p>
       </div>
+
+      {error && ready && <div className="text-xs text-red-400 mb-4 p-2 bg-red-900/20 rounded">{error}</div>}
+
+      <input
+        value={title}
+        onChange={e => setTitle(e.target.value)}
+        placeholder="Straipsnio pavadinimas"
+        className="w-full text-3xl font-black bg-transparent border-none outline-none mb-4"
+        style={{ fontFamily: "'Outfit', sans-serif", letterSpacing: '-.03em', color: '#f2f4f8' }}
+      />
+
+      <input
+        value={summary}
+        onChange={e => setSummary(e.target.value)}
+        placeholder="Trumpa santrauka (rodoma sąraše)"
+        className="w-full text-sm bg-transparent border-none outline-none mb-4"
+        style={{ color: '#5e7290' }}
+      />
+
+      <input
+        value={coverUrl}
+        onChange={e => setCoverUrl(e.target.value)}
+        placeholder="Cover nuotraukos URL (neprivaloma)"
+        className="w-full text-xs rounded-lg px-3 py-2 outline-none mb-6 focus:border-[#f97316]/30"
+        style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: '#5e7290' }}
+      />
+
+      <RichEditor
+        value={content}
+        onChange={setContent}
+        placeholder="Pradėk rašyti savo straipsnį... Naudok toolbar'ą formatavimui ir 🎵 Embed mygtuką muzikos įterpimui."
+      />
+
+      <p className="text-[10px] mt-3" style={{ color: '#334058' }}>
+        💡 Naudok toolbar&apos;ą teksto formatavimui. Spausk &quot;🎵 Embed&quot; norėdamas įterpti YouTube ar Spotify grotuvo.
+      </p>
     </div>
   )
 }
 
 export default function BlogEditorPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#080c12] flex items-center justify-center text-[#334058] text-sm">Kraunasi...</div>}>
+    <Suspense fallback={<div className="min-h-[50vh] flex items-center justify-center text-sm" style={{ color: '#334058' }}>Kraunasi...</div>}>
       <EditorInner />
     </Suspense>
   )
