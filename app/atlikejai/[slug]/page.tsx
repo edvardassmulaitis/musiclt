@@ -39,8 +39,8 @@ function stripStyles(html: string) { return (html || '').replace(/style="[^"]*"/
 function plain(html: string) { return (html || '').replace(/<[^>]+>/g, '').slice(0, 200) }
 function mockChart(albums: any[]) {
   const cy = new Date().getFullYear(); const pts: { year: number; value: number }[] = []
-  const start = Math.max(1985, (albums[albums.length-1]?.year || 2000) - 2)
-  for (let y = start; y <= cy; y++) { const has = albums.some((a: any) => a.year === y); pts.push({ year: y, value: Math.round(20 + Math.random()*30 + (has ? 40+Math.random()*30 : 0)) }) }
+  const start = Math.max(1985, (albums[albums.length - 1]?.year || 2000) - 2)
+  for (let y = start; y <= cy; y++) { const has = albums.some((a: any) => a.year === y); pts.push({ year: y, value: Math.round(20 + Math.random() * 30 + (has ? 40 + Math.random() * 30 : 0)) }) }
   return pts
 }
 
@@ -58,14 +58,11 @@ export default async function ArtistPage({ params }: Props) {
   ])
   const similar = await getSimilar(artist.id, genres.map((g: any) => g.id))
 
-  // Photos merge
   let photos: { url: string; caption?: string }[] = dbPhotos.map((p: any) => ({ url: p.url, caption: p.caption }))
   if (artist.photos && Array.isArray(artist.photos)) { for (const p of artist.photos as any[]) { if (p.url && !photos.some(x => x.url === p.url)) photos.push({ url: p.url, caption: p.caption || '' }) } }
 
-  // Hero image: wide > first photo > avatar
   const heroImage = artist.cover_image_wide_url || (photos.length > 0 ? photos[0].url : null)
 
-  // New music detection (16 months)
   const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth() - 16)
   const cutY = cutoff.getFullYear(); const cutM = cutoff.getMonth() + 1
   const newTracks = tracks.filter((t: any) => {
@@ -74,26 +71,20 @@ export default async function ArtistPage({ params }: Props) {
     if (t.release_year && t.release_month) return t.release_year > cutY || (t.release_year === cutY && t.release_month >= cutM)
     if (t.release_year) return t.release_year >= cutY; return false
   })
-  const newAlbums = albums.filter((a: any) => {
-    if (a.year && a.month) return a.year > cutY || (a.year === cutY && a.month >= cutM)
-    if (a.year) return a.year >= cutY; return false
-  })
   const topVideos = tracks.filter((t: any) => t.video_url).slice(0, 8)
 
-  // Mock events for design if empty
   const events = rawEvents.length > 0 ? rawEvents : [
-    { id: 901, slug: 'mock', title: `${artist.name} koncertas Vilniuje`, event_date: new Date(Date.now() + 30*86400000).toISOString(), venue_custom: 'Compensa koncertų salė', venues: { name: 'Compensa', city: 'Vilnius' } },
-    { id: 902, slug: 'mock2', title: `${artist.name} @ Kauno arena`, event_date: new Date(Date.now() + 60*86400000).toISOString(), venues: { name: 'Žalgirio arena', city: 'Kaunas' } },
+    { id: 901, slug: 'mock', title: `${artist.name} koncertas Vilniuje`, event_date: new Date(Date.now() + 30 * 86400000).toISOString(), venue_custom: 'Compensa koncertų salė', venues: { name: 'Compensa', city: 'Vilnius' } },
+    { id: 902, slug: 'mock2', title: `${artist.name} @ Kauno arena`, event_date: new Date(Date.now() + 60 * 86400000).toISOString(), venues: { name: 'Žalgirio arena', city: 'Kaunas' } },
   ]
 
   return (
     <ArtistProfileClient
       artist={{ id: artist.id, slug: artist.slug, name: artist.name, type: artist.type || 'group', country: artist.country, active_from: artist.active_from, active_until: artist.active_until, description: stripStyles(artist.description || ''), cover_image_url: artist.cover_image_url, website: artist.website, spotify_id: artist.spotify_id, is_verified: artist.is_verified, gender: artist.gender, birth_date: artist.birth_date, death_date: artist.death_date }}
-      heroImage={heroImage}
-      genres={genres} links={links} photos={photos} albums={albums as any} tracks={tracks as any}
+      heroImage={heroImage} genres={genres} links={links} photos={photos} albums={albums as any} tracks={tracks as any}
       members={members} followers={followers} likeCount={likeCount} news={news as any} events={events}
-      similar={similar} newTracks={newTracks as any} newAlbums={newAlbums as any} topVideos={topVideos as any}
-      chartData={mockChart(albums)} hasNewMusic={newTracks.length > 0 || newAlbums.length > 0}
+      similar={similar} newTracks={newTracks as any} topVideos={topVideos as any}
+      chartData={mockChart(albums)} hasNewMusic={newTracks.length > 0}
     />
   )
 }
