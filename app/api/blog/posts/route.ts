@@ -1,8 +1,8 @@
-// app/api/blog/posts/route.ts — List + Create posts
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { getBlogByUserId, createPost, getAllUserPosts } from '@/lib/supabase-blog'
+import { createPost, getAllUserPosts } from '@/lib/supabase-blog'
+import { ensureUserBlog } from '@/lib/ensure-blog'
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -19,8 +19,8 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   
-  const blog = await getBlogByUserId(session.user.id)
-  if (!blog) return NextResponse.json({ error: 'Pirma sukurk blogą' }, { status: 400 })
+  const blog = await ensureUserBlog(session.user.id)
+  if (!blog) return NextResponse.json({ error: 'Nepavyko sukurti blogo' }, { status: 500 })
 
   const body = await req.json()
   const { title, content, summary, cover_image_url, status: postStatus } = body
