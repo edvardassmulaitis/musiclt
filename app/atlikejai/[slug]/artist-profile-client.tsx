@@ -313,11 +313,11 @@ const styles = `
 .srch input{flex:1;padding:0 14px;font-size:12px;background:none;border:none;outline:none;color:var(--t2);font-family:var(--fb)}.srch input::placeholder{color:var(--t4)}
 .nav{display:flex;gap:1px;margin-left:auto}.nav a{padding:4px 10px;font-size:11px;font-weight:600;color:var(--t3);border-radius:4px;text-decoration:none;font-family:var(--fd);transition:.15s}.nav a:hover{color:var(--t);background:rgba(255,255,255,.04)}.nav a.on{color:var(--or)}
 
-/* ═══ HERO — 30/70 split ═══ */
-.hero{display:grid;grid-template-columns:minmax(320px,30%) 1fr;min-height:340px}
-.hero-left{background:var(--bg);display:flex;flex-direction:column;justify-content:flex-end;padding:24px 28px 24px 24px}
-.hero-right{position:relative;overflow:hidden}
-.hero-right>img{width:100%;height:100%;object-fit:cover;object-position:center 20%;display:block}
+/* ═══ HERO — 30/70 split, fixed height ═══ */
+.hero{display:grid;grid-template-columns:minmax(300px,30%) 1fr;height:320px}
+.hero-left{background:var(--bg);display:flex;flex-direction:column;justify-content:flex-end;padding:20px 24px 20px 24px;overflow:hidden}
+.hero-right{position:relative;overflow:hidden;height:320px}
+.hero-right>img{width:100%;height:100%;object-fit:cover;object-position:center 15%;display:block}
 .hero-blur{position:absolute;inset:0}.hero-blur img{width:100%;height:100%;object-fit:cover;filter:blur(50px) brightness(.2) saturate(1.3);transform:scale(1.4)}
 .hero-fb{background:linear-gradient(135deg,#0f1825,#090d13);width:100%;height:100%}
 .hero-fade{position:absolute;left:0;top:0;bottom:0;width:60px;background:linear-gradient(to right,var(--bg),transparent);z-index:1}
@@ -419,9 +419,9 @@ const styles = `
 .sim-n{font-size:9px;font-weight:700;color:var(--t2)}
 
 @media(max-width:1024px){
-  .hero{grid-template-columns:1fr;min-height:auto}
+  .hero{grid-template-columns:1fr;height:auto}
   .hero-left{padding:16px 24px}
-  .hero-right{height:260px;order:-1}
+  .hero-right{height:220px;order:-1}
   .hero-fade{display:none}
   .mr-box{grid-template-columns:1fr}
   .two-col{grid-template-columns:1fr}
