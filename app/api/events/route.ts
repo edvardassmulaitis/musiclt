@@ -35,7 +35,15 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const event = await createEvent(body, session.user.id)
+    const { artists, ...eventData } = body
+    const event = await createEvent(eventData, session.user.id)
+
+    // Link artists if provided
+    if (artists && Array.isArray(artists) && event?.id) {
+      const { setEventArtists } = await import('@/lib/supabase-events')
+      await setEventArtists(event.id, artists)
+    }
+
     return NextResponse.json(event, { status: 201 })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
