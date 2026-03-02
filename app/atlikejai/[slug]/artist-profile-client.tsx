@@ -127,6 +127,7 @@ export default function ArtistProfileClient({
         </div></header>
 
         {/* ═══ HERO — 30% info left, 70% image right ═══ */}
+        <div className="hero-wrap">
         <section className="hero">
           <div className="hero-left">
             {/* Title + like */}
@@ -173,6 +174,7 @@ export default function ArtistProfileClient({
             <div className="hero-fade" />
           </div>
         </section>
+        </div>
 
         <div className="content">
           {/* ═══ EVENTS ═══ */}
@@ -314,10 +316,11 @@ const styles = `
 .nav{display:flex;gap:1px;margin-left:auto}.nav a{padding:4px 10px;font-size:11px;font-weight:600;color:var(--t3);border-radius:4px;text-decoration:none;font-family:var(--fd);transition:.15s}.nav a:hover{color:var(--t);background:rgba(255,255,255,.04)}.nav a.on{color:var(--or)}
 
 /* ═══ HERO — 30/70 split, fixed height ═══ */
-.hero{display:grid;grid-template-columns:minmax(300px,30%) 1fr;height:320px}
-.hero-left{background:var(--bg);display:flex;flex-direction:column;justify-content:flex-end;padding:20px 24px 20px 24px;overflow:hidden}
-.hero-right{position:relative;overflow:hidden;height:320px}
-.hero-right>img{width:100%;height:100%;object-fit:cover;object-position:center 15%;display:block}
+.hero{display:grid;grid-template-columns:minmax(300px,30%) 1fr;height:320px;max-width:1400px;margin:0 auto}
+.hero-wrap{background:var(--bg)}
+.hero-left{display:flex;flex-direction:column;justify-content:flex-end;padding:20px 24px 20px 24px;overflow:hidden}
+.hero-right{position:relative;overflow:hidden;height:320px;background:#000}
+.hero-right>img{width:100%;height:100%;object-fit:contain;object-position:right center;display:block}
 .hero-blur{position:absolute;inset:0}.hero-blur img{width:100%;height:100%;object-fit:cover;filter:blur(50px) brightness(.2) saturate(1.3);transform:scale(1.4)}
 .hero-fb{background:linear-gradient(135deg,#0f1825,#090d13);width:100%;height:100%}
 .hero-fade{position:absolute;left:0;top:0;bottom:0;width:60px;background:linear-gradient(to right,var(--bg),transparent);z-index:1}
@@ -423,6 +426,7 @@ const styles = `
   .hero-left{padding:16px 24px}
   .hero-right{height:220px;order:-1}
   .hero-fade{display:none}
+  .hero-right>img{object-fit:cover;object-position:center 20%}
   .mr-box{grid-template-columns:1fr}
   .two-col{grid-template-columns:1fr}
   .srch{display:none}
