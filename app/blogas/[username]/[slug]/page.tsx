@@ -120,7 +120,7 @@ export default async function PostPage({ params }: { params: Promise<{ username:
           </div>
         )}
 
-        <PostInteractions postId={post.id} initialLikes={post.like_count || 0} />
+        <PostInteractions postId={post.id} initialLikeCount={post.like_count || 0} initialComments={[]} />
       </article>
 
     </>
