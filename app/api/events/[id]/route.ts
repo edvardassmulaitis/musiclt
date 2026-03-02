@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/server'
 import { getEventById, updateEvent, deleteEvent, setEventArtists } from '@/lib/supabase-events'
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
