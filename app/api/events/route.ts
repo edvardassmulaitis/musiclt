@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/utils/supabase/server'
+import { createAdminClient } from '@/lib/supabase'
 import { getEvents, createEvent, searchEvents } from '@/lib/supabase-events'
 
 export async function GET(req: NextRequest) {
