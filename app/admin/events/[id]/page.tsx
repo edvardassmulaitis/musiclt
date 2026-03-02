@@ -65,9 +65,9 @@ export default function AdminEventEditPage() {
   useEffect(() => {
     if (artistSearch.length < 2) { setArtistResults([]); return }
     const t = setTimeout(() => {
-      fetch(`/api/admin/artists/search?q=${encodeURIComponent(artistSearch)}`)
+      fetch(`/api/artists?search=${encodeURIComponent(artistSearch)}&limit=10`)
         .then(r => r.json())
-        .then(data => setArtistResults(Array.isArray(data) ? data : []))
+        .then(data => setArtistResults(data.artists || []))
         .catch(() => setArtistResults([]))
     }, 300)
     return () => clearTimeout(t)
@@ -244,7 +244,7 @@ export default function AdminEventEditPage() {
                 {artistResults.map((a: any) => (
                   <button key={a.id} onClick={() => addArtist(a)}
                     className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition flex items-center gap-2 text-gray-700">
-                    {a.photo_url && <img src={a.photo_url} alt="" className="w-6 h-6 rounded-full object-cover" />}
+                    {a.cover_image_url && <img src={a.cover_image_url} alt="" className="w-6 h-6 rounded-full object-cover" />}
                     {a.name}
                   </button>
                 ))}
