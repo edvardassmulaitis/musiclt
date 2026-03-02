@@ -1,4 +1,4 @@
-import { createAdminClient } from './supabase'
+import { createAdminClient } from '@/lib/supabase'
 
 // ── Slug helper ──────────────────────────────────────────────────
 function slugify(text: string): string {
@@ -19,7 +19,7 @@ export async function getEvents(opts: {
   limit?: number
   offset?: number
 } = {}) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const { city, status, period, showPast = false, limit = 20, offset = 0 } = opts
 
   let q = supabase
@@ -60,7 +60,7 @@ export async function getEvents(opts: {
 
 // ── Get featured events ──────────────────────────────────────────
 export async function getFeaturedEvents(limit = 3) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const { data, error } = await supabase
     .from('events')
     .select(`
@@ -83,7 +83,7 @@ export async function getFeaturedEvents(limit = 3) {
 
 // ── Get single event by slug ─────────────────────────────────────
 export async function getEventBySlug(slug: string) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const { data, error } = await supabase
     .from('events')
     .select(`
@@ -105,7 +105,7 @@ export async function getEventBySlug(slug: string) {
 
 // ── Get single event by id ───────────────────────────────────────
 export async function getEventById(id: string) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const { data, error } = await supabase
     .from('events')
     .select(`
@@ -127,7 +127,7 @@ export async function getEventById(id: string) {
 
 // ── Get events by artist ─────────────────────────────────────────
 export async function getEventsByArtist(artistId: number, limit = 5) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const { data, error } = await supabase
     .from('event_artists')
     .select(`
@@ -157,10 +157,9 @@ export async function createEvent(eventData: {
   price_to?: number
   is_featured?: boolean
 }, userId: string) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   let slug = slugify(eventData.title)
-  // Ensure unique slug
   const { data: existing } = await supabase.from('events').select('id').eq('slug', slug).maybeSingle()
   if (existing) slug = slug + '-' + Date.now().toString(36)
 
@@ -181,23 +180,22 @@ export async function createEvent(eventData: {
 
 // ── Update event (admin) ─────────────────────────────────────────
 export async function updateEvent(id: string, updates: Record<string, any>) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const { error } = await supabase.from('events').update(updates).eq('id', id)
   if (error) throw error
 }
 
 // ── Delete event (admin) ─────────────────────────────────────────
 export async function deleteEvent(id: string) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const { error } = await supabase.from('events').delete().eq('id', id)
   if (error) throw error
 }
 
 // ── Set event artists (admin) ────────────────────────────────────
 export async function setEventArtists(eventId: string, artists: { artist_id: number; is_headliner?: boolean }[]) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
-  // Delete existing
   await supabase.from('event_artists').delete().eq('event_id', eventId)
 
   if (artists.length === 0) return
@@ -215,7 +213,7 @@ export async function setEventArtists(eventId: string, artists: { artist_id: num
 
 // ── Get upcoming events for homepage ─────────────────────────────
 export async function getUpcomingEvents(limit = 5) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const { data, error } = await supabase
     .from('events')
     .select(`
@@ -233,7 +231,7 @@ export async function getUpcomingEvents(limit = 5) {
 
 // ── Search events (admin) ────────────────────────────────────────
 export async function searchEvents(query: string, limit = 20) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const { data, error } = await supabase
     .from('events')
     .select('id, title, slug, start_date, city, status, is_featured')
@@ -247,7 +245,7 @@ export async function searchEvents(query: string, limit = 20) {
 
 // ── Get distinct cities ──────────────────────────────────────────
 export async function getEventCities() {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const { data, error } = await supabase
     .from('events')
     .select('city')
