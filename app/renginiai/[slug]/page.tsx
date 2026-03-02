@@ -41,164 +41,155 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
   const startDate = new Date(ev.start_date)
   const endDate = ev.end_date ? new Date(ev.end_date) : null
 
-  // Schema.org Event
   const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'MusicEvent',
-    name: ev.title,
-    startDate: ev.start_date,
-    ...(ev.end_date ? { endDate: ev.end_date } : {}),
-    description: ev.description || '',
-    eventStatus: isCancelled
-      ? 'https://schema.org/EventCancelled'
-      : isPast
-        ? 'https://schema.org/EventPostponed'
-        : 'https://schema.org/EventScheduled',
+    '@context': 'https://schema.org', '@type': 'MusicEvent', name: ev.title, startDate: ev.start_date,
+    ...(ev.end_date ? { endDate: ev.end_date } : {}), description: ev.description || '',
+    eventStatus: isCancelled ? 'https://schema.org/EventCancelled' : isPast ? 'https://schema.org/EventPostponed' : 'https://schema.org/EventScheduled',
     eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
-    location: {
-      '@type': 'Place',
-      name: ev.venue_name || '',
-      address: {
-        '@type': 'PostalAddress',
-        addressLocality: ev.city || '',
-        streetAddress: ev.address || '',
-        addressCountry: 'LT',
-      },
-    },
+    location: { '@type': 'Place', name: ev.venue_name || '', address: { '@type': 'PostalAddress', addressLocality: ev.city || '', streetAddress: ev.address || '', addressCountry: 'LT' } },
     ...(ev.cover_image_url ? { image: ev.cover_image_url } : {}),
-    ...(ev.ticket_url ? {
-      offers: {
-        '@type': 'Offer',
-        url: ev.ticket_url,
-        ...(ev.price_from ? { lowPrice: ev.price_from } : {}),
-        ...(ev.price_to ? { highPrice: ev.price_to } : {}),
-        priceCurrency: 'EUR',
-        availability: isPast ? 'https://schema.org/SoldOut' : 'https://schema.org/InStock',
-      },
-    } : {}),
-    performer: allArtists.map(ea => {
-      const a = getArtist(ea)
-      return a ? { '@type': 'MusicGroup', name: a.name, url: `${siteUrl}/atlikejas/${a.slug || a.id}` } : null
-    }).filter(Boolean),
+    ...(ev.ticket_url ? { offers: { '@type': 'Offer', url: ev.ticket_url, ...(ev.price_from ? { lowPrice: ev.price_from } : {}), ...(ev.price_to ? { highPrice: ev.price_to } : {}), priceCurrency: 'EUR', availability: isPast ? 'https://schema.org/SoldOut' : 'https://schema.org/InStock' } } : {}),
+    performer: allArtists.map(ea => { const a = getArtist(ea); return a ? { '@type': 'MusicGroup', name: a.name, url: `${siteUrl}/atlikejas/${a.slug || a.id}` } : null }).filter(Boolean),
     organizer: { '@type': 'Organization', name: 'Music.lt', url: siteUrl },
   }
 
   function formatPrice(from: number | null, to: number | null) {
     if (!from && !to) return null
-    if (from && to && from !== to) return `${from}–${to} €`
-    return `${from || to} €`
+    if (from && to && from !== to) return `${from}–${to} \u20AC`
+    return `${from || to} \u20AC`
   }
 
   const price = formatPrice(ev.price_from, ev.price_to)
+  const dayNum = startDate.getDate().toString().padStart(2, '0')
+  const monthStr = startDate.toLocaleDateString('lt-LT', { month: 'short' }).toUpperCase().replace('.', '')
+  const yearStr = startDate.getFullYear()
+  const weekday = startDate.toLocaleDateString('lt-LT', { weekday: 'long' })
+  const timeStr = startDate.toLocaleTimeString('lt-LT', { hour: '2-digit', minute: '2-digit' })
 
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <div className="max-w-3xl mx-auto px-6 py-10">
+      <div className="max-w-[1360px] mx-auto px-5 lg:px-8">
+
         {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-xs mb-6" style={{ color: '#3d5878' }}>
+        <div className="flex items-center gap-2 text-xs py-4" style={{ color: '#3d5878' }}>
           <Link href="/renginiai" className="hover:text-blue-400 transition">Renginiai</Link>
-          <span>/</span>
-          <span style={{ color: '#5e7290' }}>{ev.title}</span>
+          <span style={{ color: '#1e2e42' }}>/</span>
+          <span className="truncate" style={{ color: '#5e7290' }}>{ev.title}</span>
         </div>
 
-        {/* Cover */}
-        {ev.cover_image_url && (
-          <div className="rounded-2xl overflow-hidden mb-8 aspect-[2.2/1]">
-            <img src={ev.cover_image_url} alt={ev.title} className="w-full h-full object-cover" />
-          </div>
-        )}
+        {/* HERO: image left, info right */}
+        <div className="flex flex-col lg:flex-row gap-8 mb-10">
 
-        {/* Status badges */}
-        <div className="flex items-center gap-2 mb-3">
-          {isCancelled && <span className="px-2.5 py-1 rounded-full text-xs font-black bg-red-500/20 text-red-400 border border-red-500/20">Atšauktas</span>}
-          {isPast && <span className="px-2.5 py-1 rounded-full text-xs font-black border" style={{ background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.08)', color: '#4a6580' }}>Praėjęs renginys</span>}
-          {ev.is_featured && !isCancelled && !isPast && <span className="px-2.5 py-1 rounded-full text-xs font-black bg-orange-500/20 text-orange-400 border border-orange-500/20">★ Featured</span>}
-        </div>
-
-        {/* Title */}
-        <h1 className={`text-3xl sm:text-4xl font-black leading-tight tracking-tight mb-4 ${isCancelled ? 'line-through' : ''}`}
-          style={{ fontFamily: "'Outfit', sans-serif", color: '#f2f4f8' }}>
-          {ev.title}
-        </h1>
-
-        {/* Date + venue info */}
-        <div className="flex flex-wrap gap-6 mb-8 p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.12em] mb-1" style={{ color: '#334058' }}>Data</p>
-            <p className="text-sm font-bold" style={{ color: '#c8d8f0' }}>
-              {startDate.toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
-            </p>
-            {endDate && (
-              <p className="text-xs mt-0.5" style={{ color: '#4a6580' }}>
-                iki {endDate.toLocaleDateString('lt-LT', { month: 'long', day: 'numeric' })}
-              </p>
+          {/* Left: Cover */}
+          <div className="lg:w-[55%] flex-shrink-0">
+            {ev.cover_image_url ? (
+              <div className="rounded-2xl overflow-hidden aspect-[4/3] lg:aspect-auto lg:h-full relative">
+                <img src={ev.cover_image_url} alt={ev.title} className="w-full h-full object-cover" />
+                <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(transparent 60%, rgba(8,12,18,0.4))' }} />
+              </div>
+            ) : (
+              <div className="rounded-2xl aspect-[4/3] flex items-center justify-center" style={{ background: 'linear-gradient(135deg, rgba(29,78,216,0.1), rgba(249,115,22,0.06))' }}>
+                <span className="text-7xl opacity-20">&#127908;</span>
+              </div>
             )}
           </div>
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.12em] mb-1" style={{ color: '#334058' }}>Vieta</p>
-            <p className="text-sm font-bold" style={{ color: '#c8d8f0' }}>{ev.venue_name}</p>
-            <p className="text-xs" style={{ color: '#4a6580' }}>{[ev.address, ev.city].filter(Boolean).join(', ')}</p>
-          </div>
-          {price && (
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.12em] mb-1" style={{ color: '#334058' }}>Kaina</p>
-              <p className="text-sm font-bold" style={{ color: '#fb923c' }}>{price}</p>
+
+          {/* Right: Info */}
+          <div className="lg:w-[45%] flex flex-col justify-center">
+
+            {/* Badges */}
+            <div className="flex items-center gap-2 mb-3">
+              {isCancelled && <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-red-500/20 text-red-400 border border-red-500/20">ATŠAUKTAS</span>}
+              {isPast && <span className="px-2.5 py-1 rounded-full text-[10px] font-black" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#4a6580' }}>PRAĖJĘS</span>}
+              {ev.is_featured && !isCancelled && !isPast && <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-orange-500/15 text-orange-400 border border-orange-500/20">&#9733; FEATURED</span>}
             </div>
-          )}
+
+            {/* Title */}
+            <h1 className={`text-3xl sm:text-4xl font-black leading-[1.1] tracking-tight mb-5 ${isCancelled ? 'line-through' : ''}`}
+              style={{ fontFamily: "'Outfit', sans-serif", color: '#f2f4f8' }}>
+              {ev.title}
+            </h1>
+
+            {/* Date */}
+            <div className="flex items-start gap-4 mb-5">
+              <div className="text-center px-3 py-2 rounded-xl flex-shrink-0" style={{ background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.15)' }}>
+                <p className="text-2xl font-black leading-none" style={{ color: '#f97316' }}>{dayNum}</p>
+                <p className="text-[10px] font-black tracking-wider mt-0.5" style={{ color: '#c2410c' }}>{monthStr}</p>
+                <p className="text-[10px] mt-0.5" style={{ color: '#7c2d12' }}>{yearStr}</p>
+              </div>
+              <div className="pt-1">
+                <p className="text-sm font-bold capitalize" style={{ color: '#c8d8f0' }}>{weekday}, {timeStr}</p>
+                {endDate && <p className="text-xs mt-0.5" style={{ color: '#4a6580' }}>iki {endDate.toLocaleDateString('lt-LT', { month: 'long', day: 'numeric' })}</p>}
+                <div className="flex items-center gap-1.5 mt-2">
+                  <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="#4a6580" strokeWidth="2">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-semibold" style={{ color: '#c8d8f0' }}>{ev.venue_name}</p>
+                    <p className="text-xs" style={{ color: '#4a6580' }}>{[ev.address, ev.city].filter(Boolean).join(', ')}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Price */}
+            {price && <p className="text-xl font-black mb-5" style={{ color: '#fb923c' }}>{price}</p>}
+
+            {/* Ticket CTA */}
+            {ev.ticket_url && !isPast && !isCancelled && (
+              <a href={ev.ticket_url} target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 w-full sm:w-auto text-center font-black px-8 py-3.5 rounded-xl text-sm transition-all hover:scale-[1.02] mb-5"
+                style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)', color: '#fff', boxShadow: '0 8px 32px rgba(249,115,22,0.3)' }}>
+                &#127903; Pirkti bilieta
+              </a>
+            )}
+
+            {/* Artists */}
+            {allArtists.length > 0 && (
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.12em] mb-2" style={{ color: '#334058' }}>Atlikejai</p>
+                <div className="flex flex-wrap gap-2">
+                  {allArtists.map((ea: any) => {
+                    const a = getArtist(ea)
+                    if (!a) return null
+                    return (
+                      <Link key={a.id} href={`/atlikejas/${a.slug || a.id}`}
+                        className="flex items-center gap-2 pl-1 pr-3 py-1 rounded-full transition-all hover:bg-white/[.06] group"
+                        style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                        <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
+                          style={{ background: `hsl(${(a.name.charCodeAt(0) || 65) * 17 % 360},30%,16%)` }}>
+                          {a.cover_image_url
+                            ? <img src={a.cover_image_url} alt={a.name} className="w-full h-full object-cover" />
+                            : <span className="text-xs font-bold" style={{ color: 'rgba(255,255,255,0.2)' }}>{a.name[0]}</span>}
+                        </div>
+                        <span className="text-xs font-bold group-hover:text-blue-300 transition" style={{ color: '#c8d8f0' }}>{a.name}</span>
+                        {ea.is_headliner && <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-400">&#9733;</span>}
+                      </Link>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Ticket CTA */}
-        {ev.ticket_url && !isPast && !isCancelled && (
-          <a href={ev.ticket_url} target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 bg-orange-500 hover:bg-orange-400 text-white font-black px-6 py-3 rounded-full text-sm transition-all shadow-lg shadow-orange-900/40 hover:scale-[1.02] mb-8">
-            🎟️ Pirkti bilietą
-          </a>
-        )}
-
-        {/* Description */}
+        {/* DESCRIPTION */}
         {ev.description && (
-          <div className="text-[15px] leading-relaxed mb-10" style={{ color: '#b0bdd4' }}
-            dangerouslySetInnerHTML={{ __html: ev.description }} />
-        )}
-
-        {/* Artists */}
-        {allArtists.length > 0 && (
-          <div className="mb-8">
-            <p className="text-[10px] font-black uppercase tracking-[0.12em] mb-4" style={{ color: '#334058' }}>Atlikėjai</p>
-            <div className="space-y-2">
-              {allArtists.map((ea: any) => {
-                const a = getArtist(ea)
-                if (!a) return null
-                return (
-                  <Link key={a.id} href={`/atlikejas/${a.slug || a.id}`}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all hover:bg-white/[.04] group"
-                    style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
-                      style={{ background: `hsl(${(a.name.charCodeAt(0) || 65) * 17 % 360},30%,16%)` }}>
-                      {a.cover_image_url
-                        ? <img src={a.cover_image_url} alt={a.name} className="w-full h-full object-cover" />
-                        : <span className="text-lg font-bold" style={{ color: 'rgba(255,255,255,0.15)' }}>{a.name[0]}</span>
-                      }
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold group-hover:text-blue-300 transition" style={{ color: '#c8d8f0' }}>{a.name}</p>
-                    </div>
-                    {ea.is_headliner && (
-                      <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-orange-500/15 text-orange-400 border border-orange-500/20">HEADLINER</span>
-                    )}
-                  </Link>
-                )
-              })}
-            </div>
+          <div className="max-w-3xl mb-12">
+            <p className="text-[10px] font-black uppercase tracking-[0.12em] mb-3" style={{ color: '#334058' }}>Apie rengini</p>
+            <div className="text-[15px] leading-relaxed" style={{ color: '#8a9bba' }}
+              dangerouslySetInnerHTML={{ __html: ev.description }} />
           </div>
         )}
 
         {/* Back */}
-        <Link href="/renginiai" className="text-xs hover:text-blue-400 transition" style={{ color: '#4a6580' }}>
-          ← Visi renginiai
-        </Link>
+        <div className="pb-10">
+          <Link href="/renginiai" className="text-xs font-bold hover:text-blue-400 transition" style={{ color: '#334058' }}>
+            &larr; Visi renginiai
+          </Link>
+        </div>
       </div>
     </>
   )
