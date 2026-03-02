@@ -12,14 +12,13 @@ export async function POST(req: Request) {
   const body = await req.json()
   const { track_id, week_id, vote_type = 'like', top10_position, fingerprint } = body
 
-  const headersList = headers()
+  const headersList = await headers()
   const ip = headersList.get('x-forwarded-for')?.split(',')[0]?.trim()
     || headersList.get('x-real-ip')
     || 'unknown'
 
   const supabase = createAdminClient()
 
-  // Gauti savaitę
   const { data: week } = await supabase
     .from('top_weeks').select('*').eq('id', week_id).single()
   if (!week) return NextResponse.json({ error: 'Savaitė nerasta' }, { status: 404 })
@@ -38,7 +37,6 @@ export async function POST(req: Request) {
       .maybeSingle()
     if (existing) return NextResponse.json({ error: 'Jau balsavai už šią dainą' }, { status: 400 })
   } else {
-    // Anonymous: tikrinti IP + fingerprint
     const { data: existing } = await supabase
       .from('top_votes')
       .select('id')
@@ -67,11 +65,15 @@ export async function POST(req: Request) {
       .eq('voter_ip', ip)
       .eq('vote_type', 'like')
     if ((count || 0) >= ANON_WEEKLY_LIMIT)
-      return NextResponse.json({ error: 'Savaitinis balsų limitas pasiektas. Registruokis ir gauk daugiau!', limit: ANON_WEEKLY_LIMIT }, { status: 429 })
+      return NextResponse.json({
+        error: 'Savaitinis balsų limitas pasiektas. Registruokis ir gauk daugiau!',
+        limit: ANON_WEEKLY_LIMIT,
+      }, { status: 429 })
   }
 
   const { data, error } = await supabase.from('top_votes').insert({
-    week_id, track_id,
+    week_id,
+    track_id,
     user_id: userId,
     voter_ip: ip,
     voter_fingerprint: fingerprint || null,
@@ -82,7 +84,6 @@ export async function POST(req: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Grąžinti likusius balsus
   const limit = userId ? USER_WEEKLY_LIMIT : ANON_WEEKLY_LIMIT
   const { count: used } = await supabase
     .from('top_votes')
@@ -94,12 +95,11 @@ export async function POST(req: Request) {
   return NextResponse.json({ vote: data, votes_remaining: limit - (used || 0) })
 }
 
-// Gauti balsavimo statusą (kiek liko)
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const weekId = searchParams.get('week_id')
   const session = await getServerSession(authOptions)
-  const headersList = headers()
+  const headersList = await headers()
   const ip = headersList.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
   const supabase = createAdminClient()
   const userId = session?.user?.id ?? null
@@ -118,7 +118,7 @@ export async function GET(req: Request) {
   return NextResponse.json({
     votes_used: count || 0,
     votes_remaining: limit - (count || 0),
-    voted_track_ids: (myVotes || []).map(v => v.track_id),
+    voted_track_ids: (myVotes || []).map((v: any) => v.track_id),
     is_authenticated: !!userId,
   })
 }
