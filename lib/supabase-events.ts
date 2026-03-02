@@ -169,7 +169,6 @@ export async function createEvent(eventData: {
       ...eventData,
       slug,
       status: 'upcoming',
-      created_by: userId,
     })
     .select('id, slug')
     .single()
