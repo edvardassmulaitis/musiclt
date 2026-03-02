@@ -5,7 +5,7 @@ import { HeaderAuth } from '@/components/HeaderAuth'
 import { useSite } from '@/components/SiteContext'
 
 const NAV = [
-  { label: 'Topai', href: '/#topai' },
+  { label: 'Topai', href: '/topas' },
   { label: 'Muzika', href: '/#muzika' },
   { label: 'Renginiai', href: '/#renginiai' },
   { label: 'Atlikėjai', href: '/atlikejai' },
