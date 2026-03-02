@@ -31,7 +31,7 @@ export async function getEvents(opts: {
       status, is_featured, created_at,
       event_artists(
         artist_id, is_headliner, sort_order,
-        artists(id, name, slug, photo_url)
+        artists(id, name, slug, cover_image_url)
       )
     `, { count: 'exact' })
     .order('start_date', { ascending: true })
@@ -69,7 +69,7 @@ export async function getFeaturedEvents(limit = 3) {
       ticket_url, price_from, price_to, status, is_featured,
       event_artists(
         artist_id, is_headliner, sort_order,
-        artists(id, name, slug, photo_url)
+        artists(id, name, slug, cover_image_url)
       )
     `)
     .eq('is_featured', true)
@@ -93,7 +93,7 @@ export async function getEventBySlug(slug: string) {
       status, is_featured, created_at, updated_at,
       event_artists(
         artist_id, is_headliner, sort_order,
-        artists(id, name, slug, photo_url)
+        artists(id, name, slug, cover_image_url)
       )
     `)
     .eq('slug', slug)
@@ -115,7 +115,7 @@ export async function getEventById(id: string) {
       status, is_featured, created_at, updated_at,
       event_artists(
         artist_id, is_headliner, sort_order,
-        artists(id, name, slug, photo_url)
+        artists(id, name, slug, cover_image_url)
       )
     `)
     .eq('id', id)
