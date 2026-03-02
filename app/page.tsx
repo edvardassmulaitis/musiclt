@@ -1,8 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import Link from 'next/link'
-import { HeaderAuth } from '@/components/HeaderAuth'
+import { useSite } from '@/components/SiteContext'
 
 
 // ── MOCK DATA ──────────────────────────────────────────────────────────────────
@@ -99,7 +98,6 @@ const CHARTS_WORLD = [
   { pos: 7, artist: 'SZA', title: 'Saturn', lt: false, trend: 'down' },
 ]
 
-// genre: used for filtering both singles and albums
 const SINGLES = [
   { artist: 'Monika Liu', title: 'Palauk', lt: true, hue: 280, genre: 'Pop' },
   { artist: 'Silvester Belt', title: 'Bend The Lie', lt: true, hue: 225, genre: 'Pop' },
@@ -117,7 +115,6 @@ const SINGLES = [
   { artist: 'Sūduviai', title: 'Ąžuolas', lt: true, hue: 95, genre: 'Folk' },
 ]
 
-// status: 'out' = išleista, 'soon' = greitai pasirodys
 const ALBUMS = [
   { artist: 'Jurga', title: 'Vasaros Naktys', lt: true, hue: 155, tracks: 11, genre: 'Pop', status: 'out', date: 'Saus. 12' },
   { artist: 'Galerija', title: 'Naktis', lt: true, hue: 42, tracks: 8, genre: 'Elektronika', status: 'out', date: 'Saus. 20' },
@@ -190,7 +187,6 @@ const DISCOVER = [
 
 const CITIES = ['Visi', 'Vilnius', 'Kaunas', 'Klaipėda', 'Šiauliai']
 const GENRES = ['Visi', 'Pop', 'Rokas', 'Hip-hop', 'Elektronika', 'Folk', 'Jazz']
-const NAV = ['Topai', 'Muzika', 'Renginiai', 'Atlikėjai', 'Bendruomenė']
 
 // ── ATOMS ──────────────────────────────────────────────────────────────────────
 
@@ -212,14 +208,6 @@ function TrendIcon({ t }: { t: string }) {
   return <span className="text-[#2a3a50] text-xs">—</span>
 }
 
-function PlayCircle({ sz = 10 }: { sz?: number }) {
-  return (
-    <div className={`w-${sz} h-${sz} rounded-full bg-orange-500 hover:bg-orange-400 flex items-center justify-center shadow-xl transition-all hover:scale-105 cursor-pointer`}>
-      <span className="text-white ml-0.5" style={{ fontSize: sz <= 8 ? 12 : sz <= 10 ? 14 : 18 }}>▶</span>
-    </div>
-  )
-}
-
 function SecHead({ label, cta }: { label: React.ReactNode; cta?: string }) {
   return (
     <div className="flex items-center justify-between mb-6">
@@ -229,16 +217,11 @@ function SecHead({ label, cta }: { label: React.ReactNode; cta?: string }) {
   )
 }
 
-// inline card styles - computed in component based on theme
-// CS and CH are defined inside the component
-
 
 // ── MAIN ───────────────────────────────────────────────────────────────────────
 
 export default function Home() {
-  const [lens, setLens] = useState<'lt' | 'world' | 'all'>('lt')
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark')
-  const dk = theme === 'dark'
+  const { lens, dk } = useSite()
   const CS = dk ? { background: 'rgba(255,255,255,0.028)', border: '1px solid rgba(255,255,255,0.075)' } : { background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(0,0,0,0.09)', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }
   const CH = {
     onMouseEnter: (e: React.MouseEvent<HTMLElement>) => { (e.currentTarget as HTMLElement).style.borderColor = dk ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.2)' },
@@ -271,87 +254,11 @@ export default function Home() {
   const events = city === 'Visi' ? EVENTS : EVENTS.filter(e => e.city === city)
 
   return (
-    <div className="min-h-screen" style={{ background: dk ? '#0d1117' : '#f0f4fa', color: dk ? '#f2f4f8' : '#1a2540', transition: 'background 0.3s, color 0.3s' }}>
-
-      {/* ━━ HEADER ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <header className="sticky top-0 z-50" style={{ background: dk ? 'rgba(13,17,23,0.97)' : 'rgba(245,248,255,0.97)', backdropFilter: 'blur(24px)', borderBottom: dk ? 'none' : '1px solid rgba(0,0,0,0.08)' }}>
-
-        {/* ── Row 1: Logo + Search + Lens + Auth ── */}
-        <div className="max-w-[1360px] mx-auto px-5 lg:px-8 h-14 flex items-center gap-6">
-          <Link href="/" className="flex-shrink-0">
-            <span className="font-black text-[22px] tracking-tight" style={{ color: dk ? '#f2f4f8' : '#0f1a2e' }}>music</span>
-            <span className="font-black text-[22px] tracking-tight text-orange-400">.lt</span>
-          </Link>
-
-          {/* Search with icon button */}
-          <div className="flex-1 hidden md:flex items-center rounded-full overflow-hidden transition-all"
-            style={{ background: 'rgba(255,255,255,0.055)', border: '1px solid rgba(255,255,255,0.09)' }}
-            onFocus={() => {}} >
-            <input type="text" placeholder="Ieškok atlikėjų, albumų, dainų, renginių…"
-              className="flex-1 h-9 px-4 text-sm bg-transparent focus:outline-none"
-              style={{ color: '#c8d8f0' }} />
-            <button className="flex-shrink-0 w-9 h-9 flex items-center justify-center transition-colors hover:text-white"
-              style={{ color: dk ? '#6a88b0' : '#4a6080' }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-              </svg>
-            </button>
-          </div>
-
-          {/* Lens switch */}
-          <div className="flex-shrink-0 flex items-center rounded-full p-0.5" style={{ background: 'rgba(255,255,255,0.055)', border: '1px solid rgba(255,255,255,0.08)' }}>
-            {([
-              ['lt',    '🇱🇹 LT'],
-              ['world', 'Pasaulis'],
-              ['all',   'Visi'],
-            ] as const).map(([v, l]) => (
-              <button key={v} onClick={() => setLens(v)}
-                className={`px-3.5 py-1.5 rounded-full text-[12px] font-bold tracking-wide transition-all ${
-                  lens === v ? 'bg-[#1d4ed8] text-white shadow-md' : 'hover:text-white'
-                }`}
-                style={{ color: lens === v ? 'white' : '#8aa8cc' }}>
-                {l}
-              </button>
-            ))}
-          </div>
-
-          <HeaderAuth />
-        </div>
-
-        {/* ── Row 2: Navigation ── */}
-        <div style={{ borderTop: dk ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.07)', background: dk ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.025)' }}>
-          <div className="max-w-[1360px] mx-auto px-5 lg:px-8 h-9 flex items-center gap-1">
-            {NAV.map(n => (
-              <a key={n} href="#"
-                className="px-3.5 py-1 text-[12px] font-semibold rounded-md transition-all"
-                style={{ color: dk ? '#8aa8cc' : '#4a6080' }}
-                onMouseEnter={e => { e.currentTarget.style.color = dk ? '#e2eaf8' : '#0f1a2e'; e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}
-                onMouseLeave={e => { e.currentTarget.style.color = dk ? '#8aa8cc' : '#4a6080'; e.currentTarget.style.background = 'transparent' }}>
-                {n}
-              </a>
-            ))}
-            {/* Theme toggle — right side of nav, minimal icon */}
-            <button onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
-              className="ml-auto w-8 h-8 flex items-center justify-center rounded-lg transition-all"
-              style={{ color: dk ? '#4a6580' : '#6a85a8', background: 'transparent' }}
-              onMouseEnter={e => { e.currentTarget.style.background = dk ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)'; e.currentTarget.style.color = dk ? '#c8d8f0' : '#1a2540' }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = dk ? '#4a6580' : '#6a85a8' }}
-              title={dk ? 'Perjungti i sviesa' : 'Perjungti i tamsa'}>
-              {dk
-                ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-                : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-              }
-            </button>
-          </div>
-        </div>
-
-      </header>
+    <div>
 
       {/* ━━ HERO + TOPAI ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <section className="relative overflow-hidden" style={{ background: s.bg, transition: 'background 0.9s ease' }}>
-        {/* Ambient glow */}
         <div className="absolute inset-0 pointer-events-none transition-all duration-700" style={{ background: s.glow }} />
-        {/* Grid texture */}
         <div className="absolute inset-0 opacity-[0.022] pointer-events-none"
           style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.2) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.2) 1px, transparent 1px)', backgroundSize: '52px 52px' }} />
 
@@ -360,13 +267,10 @@ export default function Home() {
 
             {/* ── HERO (65%) ── */}
             <div className="flex-1 py-10 lg:py-12 lg:pr-8 flex flex-col sm:flex-row items-center gap-8 sm:gap-10">
-              {/* Cover / Video embed mock */}
               <div className="relative group cursor-pointer flex-shrink-0">
                 <div className="w-44 h-44 sm:w-52 sm:h-52 rounded-2xl overflow-hidden shadow-2xl transition-transform duration-300 group-hover:scale-[1.02] select-none relative"
                   style={{ background: s.cover, boxShadow: `0 24px 64px ${s.cover}88, 0 6px 20px rgba(0,0,0,0.8)` }}>
-                  {/* Simulated video/cover art */}
                   <div className="absolute inset-0 flex items-center justify-center text-7xl" style={{ color: 'rgba(255,255,255,0.08)' }}>♪</div>
-                  {/* Spotify-style bottom bar */}
                   <div className="absolute bottom-0 left-0 right-0 px-3 py-2.5 flex items-center gap-2"
                     style={{ background: 'linear-gradient(transparent, rgba(0,0,0,0.75))' }}>
                     <div className="flex-1 h-1 rounded-full" style={{ background: 'rgba(255,255,255,0.2)' }}>
@@ -375,7 +279,6 @@ export default function Home() {
                     <span className="text-[10px] font-bold text-white/60">1:47</span>
                   </div>
                 </div>
-                {/* Play overlay */}
                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-2xl"
                   style={{ background: 'rgba(0,0,0,0.35)' }}>
                   <div className="w-14 h-14 rounded-full flex items-center justify-center shadow-2xl transition-transform hover:scale-105"
@@ -385,22 +288,16 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Text — dark overlay for readability */}
               <div className="flex-1 min-w-0 text-center sm:text-left">
                 <div className="flex items-center gap-2 justify-center sm:justify-start mb-4">
                   <span className="px-3 py-1 rounded-full text-xs font-black text-white" style={{ background: s.chipBg }}>{s.chip}</span>
                   <span className="text-sm font-medium" style={{ color: 'rgba(210,220,240,0.55)' }}>{s.kicker}</span>
                 </div>
-                {/* Artist name — heavy weight, near-white */}
                 <h1 className="text-4xl sm:text-5xl lg:text-[52px] font-black leading-[1.05] tracking-tight mb-1.5" style={{ color: '#f2f4f8', textShadow: '0 2px 16px rgba(0,0,0,0.6)' }}>
                   {s.artist}
                 </h1>
                 <p className="text-xl sm:text-2xl font-light mb-5 tracking-wide" style={{ color: 'rgba(200,215,240,0.55)' }}>{s.title}</p>
-                {/* Desc on dark pill background for readability */}
-                <p className="text-sm leading-relaxed mb-7 max-w-md"
-                  style={{ color: 'rgba(210,225,248,0.75)' }}>
-                  {s.desc}
-                </p>
+                <p className="text-sm leading-relaxed mb-7 max-w-md" style={{ color: 'rgba(210,225,248,0.75)' }}>{s.desc}</p>
                 <div className="flex items-center gap-3 flex-wrap justify-center sm:justify-start">
                   <button className="flex items-center gap-2.5 bg-orange-500 hover:bg-orange-400 text-white font-black px-6 py-3 rounded-full text-sm transition-all shadow-lg shadow-orange-900/50 hover:scale-[1.02]">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
@@ -414,7 +311,6 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Nav arrows */}
               <div className="hidden sm:flex flex-col gap-2 flex-shrink-0">
                 {[-1, 1].map(dir => (
                   <button key={dir} onClick={() => goTo(idx + dir, slides.length)}
@@ -426,7 +322,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Vertical divider */}
             <div className="hidden lg:block w-px my-8 flex-shrink-0" style={{ background: 'rgba(255,255,255,0.08)' }} />
 
             {/* ── TOPAI SIDEBAR (35%) ── */}
@@ -472,7 +367,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Slide dots */}
           <div className="absolute bottom-4 left-[calc(50%*65/100)] -translate-x-1/2 flex gap-2 items-center hidden lg:flex">
             {slides.map((_, i) => (
               <button key={i} onClick={() => goTo(i, slides.length)}
@@ -489,7 +383,6 @@ export default function Home() {
         <section>
           <div className="flex flex-col lg:flex-row gap-8">
 
-            {/* ── Left sidebar: genre filter ── */}
             <div className="lg:w-32 flex-shrink-0">
               <p className="text-[10px] font-black uppercase tracking-[0.12em] mb-2" style={{ color: dk ? '#3d5878' : '#6a85a8' }}>Stilius</p>
               <div className="flex lg:flex-col gap-1.5 flex-wrap">
@@ -505,7 +398,6 @@ export default function Home() {
                     {g}
                   </button>
                 ))}
-                {/* Man patinka — below genres, clearly separate */}
                 <div className="hidden lg:block w-full h-px mt-1 mb-1" style={{ background: 'rgba(255,255,255,0.06)' }} />
                 <button
                   onClick={() => setGenre('forYou')}
@@ -521,10 +413,8 @@ export default function Home() {
               </div>
             </div>
 
-            {/* ── Right: both rows ── */}
             <div className="flex-1 min-w-0 space-y-8">
 
-              {/* ── Naujos dainos — compact inline cards ── */}
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <h2 className="text-[19px] font-black tracking-tight" style={{ color: dk ? '#f2f4f8' : '#0f1a2e' }}>Naujos dainos</h2>
@@ -535,7 +425,6 @@ export default function Home() {
                     .filter(r => genre === 'Visi' || genre === 'forYou' || r.genre === genre)
                     .map((r, i) => (
                     <div key={i} className="group cursor-pointer flex-shrink-0 flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all w-[210px]" style={CS} {...CH}>
-                      {/* Small square cover */}
                       <div className="flex-shrink-0 w-11 h-11 rounded-lg relative overflow-hidden"
                         style={{ background: `hsl(${r.hue},38%,18%)` }}>
                         <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 30% 30%, hsl(${r.hue},50%,30%) 0%, transparent 65%)` }} />
@@ -544,7 +433,6 @@ export default function Home() {
                           <span className="text-white text-xs ml-0.5">▶</span>
                         </div>
                       </div>
-                      {/* Text */}
                       <div className="flex-1 min-w-0">
                         <h4 className="text-[13px] font-bold truncate leading-tight group-hover:text-blue-300 transition-colors" style={{ color: dk ? '#eef2fa' : '#0f1a2e' }}>{r.title}</h4>
                         <p className="text-[11px] truncate font-medium mt-0.5" style={{ color: dk ? '#7a93b5' : '#4a6080' }}>{r.artist}</p>
@@ -555,14 +443,12 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* ── Nauji albumai — same compact inline style, split by status ── */}
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <h2 className="text-[19px] font-black tracking-tight" style={{ color: dk ? '#f2f4f8' : '#0f1a2e' }}>Nauji albumai</h2>
                   <a href="#" className="text-sm font-semibold transition-colors" style={{ color: '#4a6fa5' }}>Visi →</a>
                 </div>
 
-                {/* Neseniai išleista */}
                 {(() => {
                   const out = ALBUMS.filter(a => a.status === 'out' && (genre === 'Visi' || genre === 'forYou' || a.genre === genre))
                   if (!out.length) return null
@@ -593,7 +479,6 @@ export default function Home() {
                   )
                 })()}
 
-                {/* Greitai pasirodys */}
                 {(() => {
                   const soon = ALBUMS.filter(a => a.status === 'soon' && (genre === 'Visi' || genre === 'forYou' || a.genre === genre))
                   if (!soon.length) return null
@@ -636,14 +521,12 @@ export default function Home() {
         <section>
           <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-5">
 
-            {/* ── Dienos daina: kompaktiškas blokas su viskuo ── */}
             <div>
               <SecHead label="🎵 Dienos daina" />
               <div className="rounded-2xl overflow-hidden relative"
                 style={{ background: 'linear-gradient(160deg, rgba(29,78,216,0.22) 0%, rgba(13,17,23,0.98) 100%)', border: '1px solid rgba(29,78,216,0.2)' }}>
                 <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse at 5% 85%, rgba(29,78,216,0.1) 0%, transparent 50%)' }} />
 
-                {/* Main song info */}
                 <div className="relative flex items-center gap-4 p-5 border-b border-white/[0.06]">
                   <div className="relative group flex-shrink-0 cursor-pointer">
                     <div className="w-16 h-16 rounded-xl flex items-center justify-center text-2xl"
@@ -664,7 +547,6 @@ export default function Home() {
                   </button>
                 </div>
 
-                {/* Reactions */}
                 <div className="relative flex items-center gap-2 px-5 py-3 border-b border-white/[0.05]">
                   {([['fire', '🔥', rx.fire], ['heart', '❤️', rx.heart], ['star', '⭐', rx.star]] as const).map(([k, e, c]) => (
                     <button key={k} onClick={() => setRx(r => ({ ...r, [k]: r[k as keyof typeof r] + 1 }))}
@@ -676,7 +558,6 @@ export default function Home() {
                   <p className="ml-auto text-[11px]" style={{ color: '#2a3a50' }}>Vakar: {SOTD.yesterday}</p>
                 </div>
 
-                {/* Voting list */}
                 <div className="relative">
                   <div className="px-5 py-2.5 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                     <p className="text-[10px] font-black uppercase tracking-[0.1em]" style={{ color: '#2a3a50' }}>Rytdienos balsavimas</p>
@@ -705,24 +586,23 @@ export default function Home() {
               </div>
             </div>
 
-            {/* ── Gyvi pokalbiai ── */}
             <div>
               <SecHead label="💬 Gyvi pokalbiai" cta="Visi" />
               <div className="rounded-2xl overflow-hidden h-[calc(100%-3rem)]" style={CS}>
                 <div>
-                  {SHOUTBOX.map((s, i) => (
+                  {SHOUTBOX.map((sb, i) => (
                     <div key={i} className="flex items-start gap-3 px-4 py-3 hover:bg-white/[0.025] transition-colors"
                       style={{ borderBottom: i < SHOUTBOX.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
                       <div className="w-7 h-7 rounded-full flex items-center justify-center font-black text-xs flex-shrink-0 mt-0.5"
-                        style={{ background: `hsl(${s.user.charCodeAt(0) * 19 % 360},28%,16%)`, color: 'rgba(255,255,255,0.25)' }}>
-                        {s.user[0].toUpperCase()}
+                        style={{ background: `hsl(${sb.user.charCodeAt(0) * 19 % 360},28%,16%)`, color: 'rgba(255,255,255,0.25)' }}>
+                        {sb.user[0].toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
-                          <span className="text-xs font-bold text-blue-400">{s.user}</span>
-                          <span className="text-[10px]" style={{ color: '#1e2e42' }}>{s.ago}</span>
+                          <span className="text-xs font-bold text-blue-400">{sb.user}</span>
+                          <span className="text-[10px]" style={{ color: '#1e2e42' }}>{sb.ago}</span>
                         </div>
-                        <p className="text-[13px] leading-relaxed" style={{ color: 'rgba(200,218,245,0.65)' }}>{s.msg}</p>
+                        <p className="text-[13px] leading-relaxed" style={{ color: 'rgba(200,218,245,0.65)' }}>{sb.msg}</p>
                       </div>
                     </div>
                   ))}
@@ -854,38 +734,6 @@ export default function Home() {
         </section>
 
       </div>
-
-      {/* ━━ FOOTER ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <footer style={{ borderTop: dk ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(0,0,0,0.1)', background: dk ? '#080b11' : '#e4eaf5' }}>
-        <div className="max-w-[1360px] mx-auto px-5 lg:px-8 py-12">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 mb-10">
-            <div>
-              <div className="font-black text-xl mb-3"><span style={{ color: dk ? '#f2f4f8' : '#0f1a2e' }}>music</span><span className="text-orange-400">.lt</span></div>
-              <p className="text-sm leading-relaxed" style={{ color: '#2a3a50' }}>Lietuvos muzikos ekosistemos platforma nuo 1999 m.</p>
-            </div>
-            {[
-              { t: 'Platforma', l: ['Topai', 'Nauja muzika', 'Renginiai', 'Atlikėjai', 'Albumai'] },
-              { t: 'Bendruomenė', l: ['Diskusijos', 'Blogai', 'Gyvi pokalbiai', 'Dienos daina'] },
-              { t: 'Informacija', l: ['Apie mus', 'Atlikėjams', 'Reklama', 'Kontaktai', 'Privatumas'] },
-            ].map(col => (
-              <div key={col.t}>
-                <h4 className="text-[10px] font-black uppercase tracking-[0.12em] mb-4" style={{ color: '#1e2e42' }}>{col.t}</h4>
-                <ul className="space-y-2.5">
-                  {col.l.map(l => <li key={l}><a href="#" className="text-sm transition-colors hover:text-white" style={{ color: '#2a3a50' }}>{l}</a></li>)}
-                </ul>
-              </div>
-            ))}
-          </div>
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-8" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-            <span className="text-xs" style={{ color: '#1a2535' }}>© 2026 Music.lt — Visos teisės saugomos</span>
-            <div className="flex gap-5">
-              {['Facebook', 'Instagram', 'YouTube', 'Spotify'].map(sn => (
-                <a key={sn} href="#" className="text-xs transition-colors hover:text-white" style={{ color: '#1a2535' }}>{sn}</a>
-              ))}
-            </div>
-          </div>
-        </div>
-      </footer>
     </div>
   )
 }
