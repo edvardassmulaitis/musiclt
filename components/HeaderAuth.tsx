@@ -61,7 +61,6 @@ function AuthModal({ onClose }: { onClose: () => void }) {
         style={{ background: '#0d1320', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 32px 80px rgba(0,0,0,0.6)' }}
         onClick={e => e.stopPropagation()}
       >
-        {/* Close */}
         <button
           onClick={onClose}
           className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded-full text-sm transition-all"
@@ -70,13 +69,12 @@ function AuthModal({ onClose }: { onClose: () => void }) {
           onMouseLeave={e => (e.currentTarget.style.color = '#4a6580')}
         >✕</button>
 
-        {/* Logo */}
         <div className="px-7 pt-7 pb-5">
           <div className="font-black text-2xl mb-1">
             <span style={{ color: '#f2f4f8' }}>music</span>
             <span className="text-orange-400">.lt</span>
           </div>
-          <p className="text-[13px]" style={{ color: '#4a6580' }}>Prisijunk prie Lietuvos muzikos bendruomenes</p>
+          <p className="text-[13px]" style={{ color: '#4a6580' }}>Prisijunk prie Lietuvos muzikos bendruomenės</p>
         </div>
 
         {emailSent ? (
@@ -96,7 +94,6 @@ function AuthModal({ onClose }: { onClose: () => void }) {
           </div>
         ) : (
           <div className="px-7 pb-7 space-y-2.5">
-            {/* Google — pirmas */}
             <button
               onClick={() => handleOAuth('google')}
               disabled={loading !== null}
@@ -115,10 +112,9 @@ function AuthModal({ onClose }: { onClose: () => void }) {
                   <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                 </svg>
               )}
-              Testi su Google
+              Tęsti su Google
             </button>
 
-            {/* Facebook — antras */}
             <button
               onClick={() => handleOAuth('facebook')}
               disabled={loading !== null}
@@ -134,17 +130,15 @@ function AuthModal({ onClose }: { onClose: () => void }) {
                   <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
                 </svg>
               )}
-              Testi su Facebook
+              Tęsti su Facebook
             </button>
 
-            {/* Divider */}
             <div className="flex items-center gap-3 py-1">
               <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
               <span className="text-[11px]" style={{ color: '#2a3a50' }}>arba el. paštu</span>
               <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
             </div>
 
-            {/* Magic link email */}
             <form onSubmit={handleEmail} className="space-y-2.5">
               <input
                 type="email"
@@ -164,7 +158,7 @@ function AuthModal({ onClose }: { onClose: () => void }) {
               >
                 {loading === 'email'
                   ? <span className="w-4 h-4 border-2 border-orange-200 border-t-white rounded-full animate-spin" />
-                  : 'Gauti prisijungimo nuoroda'}
+                  : 'Gauti prisijungimo nuorodą'}
               </button>
             </form>
 
@@ -197,6 +191,19 @@ function UserMenu() {
   if (!session?.user) return null
   const isAdmin = session.user.role === 'admin' || session.user.role === 'super_admin'
 
+  const menuItem = (href: string, icon: string, label: string, color?: string) => (
+    <Link
+      href={href}
+      onClick={() => setOpen(false)}
+      className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors"
+      style={{ color: color || '#8aa8cc' }}
+      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = color || '#f2f4f8'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)' }}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = color || '#8aa8cc'; (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+    >
+      {icon} {label}
+    </Link>
+  )
+
   return (
     <div ref={ref} className="relative">
       <button
@@ -226,9 +233,10 @@ function UserMenu() {
 
       {open && (
         <div
-          className="absolute right-0 top-full mt-2 w-52 rounded-xl overflow-hidden shadow-2xl z-50"
+          className="absolute right-0 top-full mt-2 w-56 rounded-xl overflow-hidden shadow-2xl z-50"
           style={{ background: '#0d1320', border: '1px solid rgba(255,255,255,0.1)' }}
         >
+          {/* User info */}
           <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
             <div className="text-sm font-semibold truncate" style={{ color: '#f2f4f8' }}>{session.user.name}</div>
             <div className="text-xs truncate mt-0.5" style={{ color: '#4a6580' }}>{session.user.email}</div>
@@ -241,40 +249,34 @@ function UserMenu() {
               </span>
             )}
           </div>
+
+          {/* Main links */}
           <div className="py-1">
-            <Link
-              href="/auth/profile"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors"
-              style={{ color: '#8aa8cc' }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#f2f4f8'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)' }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#8aa8cc'; (e.currentTarget as HTMLElement).style.background = 'transparent' }}
-            >
-              👤 Mano profilis
-            </Link>
-            {isAdmin && (
-              <Link
-                href="/admin/dashboard"
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors"
-                style={{ color: '#fb923c' }}
-                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)')}
-                onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}
-              >
-                ⚙️ Admin panele
-              </Link>
-            )}
-            <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }} className="mt-1 pt-1">
-              <button
-                onClick={() => { setOpen(false); signOut({ callbackUrl: '/' }) }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-left"
-                style={{ color: '#f87171' }}
-                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)')}
-                onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}
-              >
-                🚪 Atsijungti
-              </button>
+            {menuItem('/auth/profile', '👤', 'Mano profilis')}
+            {menuItem('/blogas/mano', '✍️', 'Mano blogas')}
+            {menuItem('/blogas/rasyti', '📝', 'Rašyti straipsnį')}
+          </div>
+
+          {/* Admin section */}
+          {isAdmin && (
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+              <div className="py-1">
+                {menuItem('/admin/dashboard', '⚙️', 'Admin panelė', '#fb923c')}
+              </div>
             </div>
+          )}
+
+          {/* Logout */}
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }} className="py-1">
+            <button
+              onClick={() => { setOpen(false); signOut({ callbackUrl: '/' }) }}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-left"
+              style={{ color: '#f87171' }}
+              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)')}
+              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}
+            >
+              🚪 Atsijungti
+            </button>
           </div>
         </div>
       )}
