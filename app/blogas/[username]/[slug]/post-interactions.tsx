@@ -1,4 +1,3 @@
-// app/blogas/[username]/[slug]/post-interactions.tsx
 'use client'
 import { useState } from 'react'
 
@@ -6,7 +5,7 @@ type Comment = {
   id: string
   content: string
   created_at: string
-  profiles: { id: string; full_name: string; username: string; avatar_url?: string }
+  profiles: any
 }
 
 export default function PostInteractions({ postId, initialLikeCount, initialComments }: { postId: string; initialLikeCount: number; initialComments: Comment[] }) {
@@ -15,6 +14,12 @@ export default function PostInteractions({ postId, initialLikeCount, initialComm
   const [comments, setComments] = useState<Comment[]>(initialComments || [])
   const [newComment, setNewComment] = useState('')
   const [posting, setPosting] = useState(false)
+
+  const getProfile = (c: Comment) => {
+    const p = c.profiles
+    if (Array.isArray(p)) return p[0] || {}
+    return p || {}
+  }
 
   async function handleLike() {
     const res = await fetch(`/api/blog/posts/${postId}/like`, { method: 'POST' })
@@ -68,7 +73,6 @@ export default function PostInteractions({ postId, initialLikeCount, initialComm
       <div className="mt-6">
         <h3 className="text-[10px] font-extrabold uppercase tracking-wider text-[#334058] mb-4" style={{ fontFamily: "'Outfit', sans-serif" }}>Komentarai</h3>
         
-        {/* Comment form */}
         <form onSubmit={handleComment} className="mb-6">
           <textarea
             value={newComment}
@@ -84,27 +88,29 @@ export default function PostInteractions({ postId, initialLikeCount, initialComm
           </div>
         </form>
 
-        {/* Comment list */}
         {comments.length > 0 ? (
           <div className="space-y-4">
-            {comments.map(c => (
-              <div key={c.id} className="flex gap-3">
-                {c.profiles?.avatar_url ? (
-                  <img src={c.profiles.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
-                ) : (
-                  <div className="w-7 h-7 rounded-full bg-[#111822] flex-shrink-0 flex items-center justify-center text-[9px] font-bold text-[#334058]">
-                    {(c.profiles?.full_name || '?')[0]}
+            {comments.map(c => {
+              const profile = getProfile(c)
+              return (
+                <div key={c.id} className="flex gap-3">
+                  {profile?.avatar_url ? (
+                    <img src={profile.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
+                  ) : (
+                    <div className="w-7 h-7 rounded-full bg-[#111822] flex-shrink-0 flex items-center justify-center text-[9px] font-bold text-[#334058]">
+                      {(profile?.full_name || '?')[0]}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-[#b0bdd4]">{profile?.full_name || profile?.username || 'Vartotojas'}</span>
+                      <span className="text-[10px] text-[#334058]">{new Date(c.created_at).toLocaleDateString('lt-LT')}</span>
+                    </div>
+                    <p className="text-sm text-[#5e7290] mt-0.5 leading-relaxed">{c.content}</p>
                   </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-[#b0bdd4]">{c.profiles?.full_name || c.profiles?.username || 'Vartotojas'}</span>
-                    <span className="text-[10px] text-[#334058]">{new Date(c.created_at).toLocaleDateString('lt-LT')}</span>
-                  </div>
-                  <p className="text-sm text-[#5e7290] mt-0.5 leading-relaxed">{c.content}</p>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         ) : (
           <p className="text-xs text-[#334058] text-center py-4">Būk pirmas — palik komentarą!</p>
