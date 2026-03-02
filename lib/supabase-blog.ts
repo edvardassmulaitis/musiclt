@@ -7,7 +7,7 @@ export async function getProfileByUsername(username: string) {
   const { data } = await sb
     .from('profiles')
     .select('id, email, full_name, username, avatar_url, bio, website, social_instagram, social_twitter, social_spotify, social_youtube, social_tiktok, is_public, cover_image_url, created_at')
-    .eq('username', username)
+    .ilike('username', username)
     .single()
   return data
 }
