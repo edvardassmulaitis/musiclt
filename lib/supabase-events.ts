@@ -1,4 +1,4 @@
-import { createClient } from '@/utils/supabase/server'
+import { createAdminClient } from './supabase'
 
 // ── Slug helper ──────────────────────────────────────────────────
 function slugify(text: string): string {
