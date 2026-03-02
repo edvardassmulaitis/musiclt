@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSite } from '@/components/SiteContext'
+import { CommunityPosts } from '@/components/CommunityPosts'
 
 
 // ── MOCK DATA ──────────────────────────────────────────────────────────────────
@@ -617,6 +618,7 @@ export default function Home() {
             </div>
           </div>
         </section>
+        <CommunityPosts />
 
         {/* ━━ BENDRUOMENĖ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         <section>
