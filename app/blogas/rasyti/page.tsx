@@ -1,13 +1,12 @@
-// app/blogas/rasyti/page.tsx (also used for editing: /blogas/redaguoti/[id])
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
-export default function BlogEditorPage() {
+function EditorInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const editId = searchParams.get('id') // ?id=xxx for editing
+  const editId = searchParams.get('id')
 
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
@@ -18,7 +17,6 @@ export default function BlogEditorPage() {
   const [error, setError] = useState('')
   const [hasBlog, setHasBlog] = useState<boolean | null>(null)
 
-  // Check if user has a blog
   useEffect(() => {
     fetch('/api/profile').then(r => r.json()).then(p => {
       if (!p?.username) {
@@ -26,14 +24,13 @@ export default function BlogEditorPage() {
         setHasBlog(false)
         return
       }
-      fetch('/api/blog').then(r => {
-        if (r.status === 404) setHasBlog(false)
-        else setHasBlog(true)
+      fetch('/api/blog/my').then(r => {
+        if (r.ok) setHasBlog(true)
+        else setHasBlog(false)
       }).catch(() => setHasBlog(false))
     }).catch(() => setError('Prisijunk'))
   }, [])
 
-  // Load existing post if editing
   useEffect(() => {
     if (editId) {
       fetch(`/api/blog/posts/${editId}`).then(r => r.json()).then(p => {
@@ -89,7 +86,6 @@ export default function BlogEditorPage() {
   return (
     <div className="min-h-screen bg-[#080c12] text-[#f0f2f5]">
       <div className="max-w-3xl mx-auto px-6 py-8">
-        {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <Link href="/blogas/mano" className="text-xs text-[#5e7290] hover:text-white transition">← Atgal</Link>
           <div className="flex gap-2">
@@ -104,7 +100,6 @@ export default function BlogEditorPage() {
 
         {error && <div className="text-xs text-red-400 mb-4 p-2 bg-red-900/20 rounded">{error}</div>}
 
-        {/* Title */}
         <input
           value={title}
           onChange={e => setTitle(e.target.value)}
@@ -113,7 +108,6 @@ export default function BlogEditorPage() {
           style={{ fontFamily: "'Outfit', sans-serif", letterSpacing: '-.03em' }}
         />
 
-        {/* Summary */}
         <input
           value={summary}
           onChange={e => setSummary(e.target.value)}
@@ -121,7 +115,6 @@ export default function BlogEditorPage() {
           className="w-full text-sm bg-transparent border-none outline-none placeholder:text-[#1e293b] text-[#5e7290] mb-4"
         />
 
-        {/* Cover URL */}
         <input
           value={coverUrl}
           onChange={e => setCoverUrl(e.target.value)}
@@ -129,7 +122,6 @@ export default function BlogEditorPage() {
           className="w-full text-xs bg-white/[.03] border border-white/[.06] rounded-lg px-3 py-2 outline-none placeholder:text-[#1e293b] text-[#5e7290] mb-6 focus:border-[#f97316]/30"
         />
 
-        {/* Content editor (basic textarea — Tiptap integration later) */}
         <textarea
           value={content}
           onChange={e => setContent(e.target.value)}
@@ -139,9 +131,17 @@ export default function BlogEditorPage() {
         />
 
         <p className="text-[10px] text-[#334058] mt-2">
-          💡 Ateityje čia bus pilnas Tiptap redaktorius su muzikos embed'ais. Kol kas gali rašyti HTML.
+          💡 Ateityje čia bus pilnas Tiptap redaktorius su muzikos embed&apos;ais. Kol kas gali rašyti HTML.
         </p>
       </div>
     </div>
+  )
+}
+
+export default function BlogEditorPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#080c12] flex items-center justify-center text-[#334058] text-sm">Kraunasi...</div>}>
+      <EditorInner />
+    </Suspense>
   )
 }
