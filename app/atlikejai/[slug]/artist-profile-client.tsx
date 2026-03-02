@@ -126,54 +126,51 @@ export default function ArtistProfileClient({
           <HeaderAuth />
         </div></header>
 
-        {/* ═══ HERO — 30% info left, 70% image right ═══ */}
+        {/* ═══ HERO — immersive full-width ═══ */}
         <div className="hero-wrap">
-        <section className="hero">
-          <div className="hero-left">
-            {/* Title + like */}
-            <div className="hero-title-row">
-              <h1 className="hero-name">
-                {flag && <span className="hero-flag">{flag}</span>}
-                {artist.name}
-                {artist.is_verified && <span className="vf"><svg width="10" height="10" viewBox="0 0 24 24" fill="#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg></span>}
-              </h1>
-              <button className="hlike">
-                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
-                {totalLikes > 0 ? totalLikes : '0'}
-              </button>
-            </div>
-            {/* Genre tags */}
-            <div className="hero-tags">
-              {genres.map(g => <span key={g.id} className="htag">{g.name}</span>)}
-            </div>
-            {/* Groups (solo) */}
-            {isSolo && members.length > 0 && (
-              <div className="hero-mems">
-                {members.map(m => (
-                  <Link key={m.id} href={`/atlikejai/${m.slug}`} className="hmem">
-                    {m.cover_image_url ? <img src={m.cover_image_url} alt={m.name} /> : <span className="hmem-fb">{m.name[0]}</span>}
-                    <span>{m.name}</span>
-                  </Link>
-                ))}
-              </div>
-            )}
-            {/* Sparkline */}
-            {chartData.length > 5 && (
-              <div className="hero-chart">
-                <div className="hch-lbl">Populiarumas</div>
-                <Spark data={chartData} />
-              </div>
-            )}
-          </div>
-          <div className="hero-right">
+          <div className="hero-bg">
             {heroImage
               ? <img src={heroImage} alt={artist.name} />
               : artist.cover_image_url
                 ? <div className="hero-blur"><img src={artist.cover_image_url} alt="" /></div>
                 : <div className="hero-fb" />}
-            <div className="hero-fade" />
           </div>
-        </section>
+          <div className="hero-grad" />
+          <div className="hero-grad-b" />
+          <div className="hero">
+            <div className="hero-left">
+              <div className="hero-title-row">
+                <h1 className="hero-name">
+                  {flag && <span className="hero-flag">{flag}</span>}
+                  {artist.name}
+                  {artist.is_verified && <span className="vf"><svg width="10" height="10" viewBox="0 0 24 24" fill="#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg></span>}
+                </h1>
+                <button className="hlike">
+                  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
+                  {totalLikes > 0 ? totalLikes : '0'}
+                </button>
+              </div>
+              <div className="hero-tags">
+                {genres.map(g => <span key={g.id} className="htag">{g.name}</span>)}
+              </div>
+              {isSolo && members.length > 0 && (
+                <div className="hero-mems">
+                  {members.map(m => (
+                    <Link key={m.id} href={`/atlikejai/${m.slug}`} className="hmem">
+                      {m.cover_image_url ? <img src={m.cover_image_url} alt={m.name} /> : <span className="hmem-fb">{m.name[0]}</span>}
+                      <span>{m.name}</span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+              {chartData.length > 5 && (
+                <div className="hero-chart">
+                  <div className="hch-lbl">Populiarumas</div>
+                  <Spark data={chartData} />
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="content">
@@ -315,15 +312,16 @@ const styles = `
 .srch input{flex:1;padding:0 14px;font-size:12px;background:none;border:none;outline:none;color:var(--t2);font-family:var(--fb)}.srch input::placeholder{color:var(--t4)}
 .nav{display:flex;gap:1px;margin-left:auto}.nav a{padding:4px 10px;font-size:11px;font-weight:600;color:var(--t3);border-radius:4px;text-decoration:none;font-family:var(--fd);transition:.15s}.nav a:hover{color:var(--t);background:rgba(255,255,255,.04)}.nav a.on{color:var(--or)}
 
-/* ═══ HERO — 30/70 split, fixed height ═══ */
-.hero{display:grid;grid-template-columns:minmax(300px,30%) 1fr;height:320px;max-width:1400px;margin:0 auto}
-.hero-wrap{background:var(--bg)}
-.hero-left{display:flex;flex-direction:column;justify-content:flex-end;padding:20px 24px 20px 24px;overflow:hidden}
-.hero-right{position:relative;overflow:hidden;height:320px;background:#000}
-.hero-right>img{width:100%;height:100%;object-fit:contain;object-position:right center;display:block}
-.hero-blur{position:absolute;inset:0}.hero-blur img{width:100%;height:100%;object-fit:cover;filter:blur(50px) brightness(.2) saturate(1.3);transform:scale(1.4)}
-.hero-fb{background:linear-gradient(135deg,#0f1825,#090d13);width:100%;height:100%}
-.hero-fade{position:absolute;left:0;top:0;bottom:0;width:60px;background:linear-gradient(to right,var(--bg),transparent);z-index:1}
+/* ═══ HERO — immersive full-width, fixed height ═══ */
+.hero-wrap{position:relative;height:340px;overflow:hidden;background:#000}
+.hero-bg{position:absolute;inset:0}
+.hero-bg>img{width:100%;height:100%;object-fit:cover;object-position:center 20%;display:block}
+.hero-bg .hero-blur{position:absolute;inset:0}.hero-blur img{width:100%;height:100%;object-fit:cover;filter:blur(50px) brightness(.2) saturate(1.3);transform:scale(1.4)}
+.hero-fb{position:absolute;inset:0;background:linear-gradient(135deg,#0f1825,#090d13)}
+.hero-grad{position:absolute;inset:0;background:linear-gradient(to right,var(--bg) 0%,var(--bg) 20%,rgba(9,13,19,.75) 45%,rgba(9,13,19,.25) 70%,rgba(9,13,19,.1) 100%)}
+.hero-grad-b{position:absolute;inset:0;background:linear-gradient(to top,var(--bg),transparent 40%)}
+.hero{position:relative;max-width:1400px;margin:0 auto;height:100%;display:flex;align-items:flex-end;padding:0 24px 24px}
+.hero-left{max-width:480px}
 
 .hero-title-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
 .hero-name{font-family:var(--fd);font-size:clamp(1.5rem,3.5vw,2.4rem);font-weight:900;line-height:1.1;letter-spacing:-.04em;color:#fff;flex:1;min-width:0}
@@ -427,6 +425,7 @@ const styles = `
   .hero-right{height:220px;order:-1}
   .hero-fade{display:none}
   .hero-right>img{object-fit:cover;object-position:center 20%}
+  .hero-wrap{height:auto;min-height:280px}
   .mr-box{grid-template-columns:1fr}
   .two-col{grid-template-columns:1fr}
   .srch{display:none}
