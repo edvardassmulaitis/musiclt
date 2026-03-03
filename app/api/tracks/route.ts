@@ -38,6 +38,44 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ tracks, total: tracks.length })
   }
 
+  // Jei search yra — ieškoti ir pagal dainos pavadinimą IR pagal atlikėjo vardą
+  if (search) {
+    // Pirma ieškome atlikėjų pagal vardą
+    const { data: artistMatches } = await supabase
+      .from('artists')
+      .select('id')
+      .ilike('name', `%${search}%`)
+      .limit(20)
+
+    const artistIds = (artistMatches || []).map((a: any) => a.id)
+
+    let query = supabase
+      .from('tracks')
+      .select(`
+        id, title, type, release_date, video_url, spotify_id, is_new, is_new_date, cover_url,
+        artists!tracks_artist_id_fkey(id, name, slug),
+        album_tracks(position, albums(id, title, year))
+      `, { count: 'exact' })
+      .order('title', { ascending: true })
+      .range(offset, offset + limit - 1)
+
+    if (artistIds.length > 0) {
+      // Ieškoti pagal pavadinimą ARBA pagal atlikėjo id
+      query = query.or(`title.ilike.%${search}%,artist_id.in.(${artistIds.join(',')})`)
+    } else {
+      query = query.ilike('title', `%${search}%`)
+    }
+
+    if (artist_id) query = query.eq('artist_id', parseInt(artist_id))
+
+    const { data, error, count } = await query
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    const tracks = (data || []).map((t: any) => mapTrack(t))
+    return NextResponse.json({ tracks, total: count || 0 })
+  }
+
+  // Be search — standartinis query
   let query = supabase
     .from('tracks')
     .select(`
@@ -49,41 +87,41 @@ export async function GET(req: NextRequest) {
     .order('title', { ascending: true })
     .range(offset, offset + limit - 1)
 
-  if (search) query = query.ilike('title', `%${search}%`)
   if (artist_id) query = query.eq('artist_id', parseInt(artist_id))
 
   const { data, error, count } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  const tracks = (data || []).map((t: any) => {
-    const albumList = (t.album_tracks || [])
-      .map((at: any) => at.albums ? {
-        id: at.albums.id, title: at.albums.title, year: at.albums.year, position: at.position,
-      } : null).filter(Boolean)
-    return {
-      id: t.id,
-      title: t.title,
-      type: t.type,
-      release_date: t.release_date,
-      video_url: t.video_url,
-      spotify_id: t.spotify_id,
-      is_new: t.is_new,
-      is_new_date: t.is_new_date,
-      cover_url: t.cover_url || null,
-      has_lyrics: !!(t.lyrics),
-      artists: t.artists,
-      artist_name: t.artists?.name || '',
-      artist_slug: t.artists?.slug || '',
-      featuring_count: (t.track_artists || []).length,
-      album_count: albumList.length,
-      albums_list: albumList,
-      release_year: t.release_date
-        ? new Date(t.release_date).getFullYear()
-        : (albumList[0]?.year || null),
-    }
-  })
-
+  const tracks = (data || []).map((t: any) => mapTrack(t))
   return NextResponse.json({ tracks, total: count || 0 })
+}
+
+function mapTrack(t: any) {
+  const albumList = (t.album_tracks || [])
+    .map((at: any) => at.albums ? {
+      id: at.albums.id, title: at.albums.title, year: at.albums.year, position: at.position,
+    } : null).filter(Boolean)
+  return {
+    id: t.id,
+    title: t.title,
+    type: t.type,
+    release_date: t.release_date,
+    video_url: t.video_url,
+    spotify_id: t.spotify_id,
+    is_new: t.is_new,
+    is_new_date: t.is_new_date,
+    cover_url: t.cover_url || null,
+    has_lyrics: !!(t.lyrics),
+    artists: t.artists,
+    artist_name: t.artists?.name || '',
+    artist_slug: t.artists?.slug || '',
+    featuring_count: (t.track_artists || []).length,
+    album_count: albumList.length,
+    albums_list: albumList,
+    release_year: t.release_date
+      ? new Date(t.release_date).getFullYear()
+      : (albumList[0]?.year || null),
+  }
 }
 
 export async function POST(req: NextRequest) {
