@@ -2,13 +2,95 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── DARK THEME BASE ─────────────────────────────────────────── */
-html, body {
-  background: #080d14;
-  color: #eef2fa;
+/* ═══════════════════════════════════════════════════════════════════
+   THEME SYSTEM — CSS Custom Properties
+   
+   Uses [data-theme] attribute on <html> set by SiteContext.
+   Every component should reference these vars for theme consistency.
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root,
+[data-theme="dark"] {
+  --bg-body:         #080d14;
+  --bg-surface:      #0d1320;
+  --bg-elevated:     #111827;
+  --bg-hover:        rgba(255,255,255,0.04);
+  --bg-active:       rgba(255,255,255,0.06);
+
+  --border-subtle:   rgba(255,255,255,0.06);
+  --border-default:  rgba(255,255,255,0.09);
+  --border-strong:   rgba(255,255,255,0.14);
+
+  --text-primary:    #f0f4fc;
+  --text-secondary:  #b0c4d8;
+  --text-muted:      #4a6888;
+  --text-faint:      #1e3050;
+
+  --accent-orange:   #f97316;
+  --accent-blue:     #1d4ed8;
+  --accent-link:     #4a7ab5;
+  --accent-green:    #22c55e;
+
+  color-scheme: dark;
 }
 
-/* Tiptap placeholder */
+[data-theme="light"] {
+  --bg-body:         #f0f4fa;
+  --bg-surface:      #ffffff;
+  --bg-elevated:     #f8faff;
+  --bg-hover:        rgba(0,0,0,0.03);
+  --bg-active:       rgba(0,0,0,0.05);
+
+  --border-subtle:   rgba(0,0,0,0.06);
+  --border-default:  rgba(0,0,0,0.10);
+  --border-strong:   rgba(0,0,0,0.16);
+
+  --text-primary:    #0f1a2e;
+  --text-secondary:  #3a4f6a;
+  --text-muted:      #6a85a8;
+  --text-faint:      #b0bdd0;
+
+  --accent-orange:   #ea6c0a;
+  --accent-blue:     #1d4ed8;
+  --accent-link:     #2563eb;
+  --accent-green:    #16a34a;
+
+  color-scheme: light;
+}
+
+/* ── Base ── */
+html, body {
+  background: var(--bg-body);
+  color: var(--text-primary);
+  transition: background .25s ease, color .25s ease;
+}
+
+/* ── Selection ── */
+::selection {
+  background: rgba(29,78,216,0.3);
+  color: #fff;
+}
+[data-theme="light"] ::selection {
+  background: rgba(29,78,216,0.2);
+  color: #0f1a2e;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
+
+/* ── Focus ring ── */
+:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   EDITOR STYLES (Tiptap / EditorJS)
+   ═══════════════════════════════════════════════════════════════════ */
+
 .tiptap p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
@@ -25,14 +107,12 @@ html, body {
 .tiptap.prose blockquote { border-left: 3px solid #e5e7eb; padding-left: 0.75rem; color: #6b7280; font-style: italic; }
 .tiptap.prose a { color: #2563eb; text-decoration: underline; }
 .tiptap.prose a:hover { color: #1d4ed8; }
-.ce-block__content { max-width: 100% !important; }
-.ce-toolbar__content { max-width: 100% !important; }
-.codex-editor { font-family: inherit; }
-.cdx-quote__text { border-left: 3px solid #e5e7eb; padding-left: 12px; }
-.codex-editor { position: relative; font-family: inherit !important; }
-.codex-editor__redactor { padding-bottom: 80px !important; }
+
+/* EditorJS */
 .ce-block__content { max-width: 100% !important; margin: 0 !important; }
 .ce-toolbar__content { max-width: 100% !important; }
+.codex-editor { position: relative; font-family: inherit !important; }
+.codex-editor__redactor { padding-bottom: 80px !important; }
 .codex-editor .ce-paragraph,
 .codex-editor .ce-paragraph p,
 .codex-editor .ce-block,
