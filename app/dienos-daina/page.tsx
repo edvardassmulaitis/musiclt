@@ -35,47 +35,31 @@ async function getData() {
   const today = todayLT()
   const yesterday = yesterdayLT()
 
-  console.log('DIENOS DAINA TODAY:', today)
-
-  // Pirma paprastas query be join'ų
-  const simpleRes = await supabase
-    .from('daily_song_nominations')
-    .select('id, date, comment, created_at, user_id, track_id')
-    .eq('date', today)
-    .is('removed_at', null)
-    .order('created_at', { ascending: true })
-
-  console.log('SIMPLE ERROR:', JSON.stringify(simpleRes.error))
-  console.log('SIMPLE DATA:', JSON.stringify(simpleRes.data))
-
-  // Tada su tracks join'u
-  const nominationsRes = await supabase
-    .from('daily_song_nominations')
-    .select(`
-      id, date, comment, created_at, user_id,
-      tracks:track_id (
-        id, slug, title, cover_url, spotify_id, video_url,
-        artists:artist_id ( id, slug, name, cover_image_url )
-      )
-    `)
-    .eq('date', today)
-    .is('removed_at', null)
-    .order('created_at', { ascending: true })
-
-  console.log('NOMINATIONS ERROR:', JSON.stringify(nominationsRes.error))
-  console.log('NOMINATIONS DATA:', JSON.stringify(nominationsRes.data))
-
-  const winnersRes = await supabase
-    .from('daily_song_winners')
-    .select(`
-      id, date, total_votes, weighted_votes, winning_comment, winning_user_id,
-      tracks:track_id (
-        id, slug, title, cover_url, spotify_id, video_url,
-        artists:artist_id ( id, slug, name, cover_image_url )
-      )
-    `)
-    .order('date', { ascending: false })
-    .limit(15)
+  const [nominationsRes, winnersRes] = await Promise.all([
+    supabase
+      .from('daily_song_nominations')
+      .select(`
+        id, date, comment, created_at, user_id,
+        tracks:track_id (
+          id, slug, title, cover_url, spotify_id, video_url,
+          artists:artist_id ( id, slug, name, cover_image_url )
+        )
+      `)
+      .eq('date', today)
+      .is('removed_at', null)
+      .order('created_at', { ascending: true }),
+    supabase
+      .from('daily_song_winners')
+      .select(`
+        id, date, total_votes, weighted_votes, winning_comment, winning_user_id,
+        tracks:track_id (
+          id, slug, title, cover_url, spotify_id, video_url,
+          artists:artist_id ( id, slug, name, cover_image_url )
+        )
+      `)
+      .order('date', { ascending: false })
+      .limit(15),
+  ])
 
   const nominations = nominationsRes.data || []
   const nominationIds = nominations.map((n: any) => n.id)
@@ -123,7 +107,7 @@ export async function generateMetadata(): Promise<Metadata> {
     const track = latest.tracks as any
     return {
       title: `Dienos daina: ${track.title} — ${track.artists?.name} | music.lt`,
-      description: `Vakarykštė dienos daina: ${track.title}. Balsuok už šiandienos geriausią dainą!`,
+      description: `Vakarykstė dienos daina: ${track.title}. Balsuok už šiandienos geriausią dainą!`,
       openGraph: {
         title: `Dienos daina: ${track.title}`,
         description: latest.winning_comment || `${track.title} — ${track.artists?.name}`,
