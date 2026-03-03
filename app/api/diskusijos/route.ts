@@ -6,20 +6,35 @@ import { authOptions } from '@/lib/auth'
 function slugify(text: string): string {
   return text
     .toLowerCase()
-    .replace(/[ąčęėįšųūž]/g, c => ({ ą:'a',č:'c',ę:'e',ė:'e',į:'i',š:'s',ų:'u',ū:'u',ž:'z' }[c] || c))
+    .replace(/[aceeisUuz]/g, c => ({a:'a',c:'c',e:'e',e2:'e',i:'i',s:'s',u:'u',u2:'u',z:'z'}[c] || c))
     .replace(/[^a-z0-9\s-]/g, '')
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
     .slice(0, 80)
 }
 
+async function logActivity(supabase: any, session: any, entityId: number, title: string, slug: string) {
+  try {
+    await supabase.from('activity_events').insert({
+      event_type: 'discussion_post',
+      user_id: session.user.id,
+      actor_name: session.user.name || session.user.email || 'Vartotojas',
+      actor_avatar: session.user.image || null,
+      entity_type: 'discussion',
+      entity_id: entityId,
+      entity_title: title,
+      entity_url: `/diskusijos/${slug}`,
+      is_public: true,
+    })
+  } catch (e) {}
+}
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
-  const sort = searchParams.get('sort') || 'activity'  // activity | newest | popular
+  const sort = searchParams.get('sort') || 'activity'
   const tag = searchParams.get('tag')
   const limit = parseInt(searchParams.get('limit') || '20')
   const offset = parseInt(searchParams.get('offset') || '0')
-
   const supabase = createAdminClient()
 
   let query = supabase
@@ -29,7 +44,6 @@ export async function GET(req: Request) {
     .range(offset, offset + limit - 1)
 
   if (tag) query = query.contains('tags', [tag])
-
   if (sort === 'newest') query = query.order('is_pinned', { ascending: false }).order('created_at', { ascending: false })
   else if (sort === 'popular') query = query.order('is_pinned', { ascending: false }).order('like_count', { ascending: false })
   else query = query.order('is_pinned', { ascending: false }).order('last_comment_at', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false })
@@ -53,8 +67,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Turinys per trumpas' }, { status: 400 })
 
   const supabase = createAdminClient()
-
-  // Generuoti unikalų slug
   const baseSlug = slugify(title.trim())
   let slug = baseSlug
   let counter = 0
@@ -81,5 +93,9 @@ export async function POST(req: Request) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Log activity
+  await logActivity(supabase, session, (data as any).id, title.trim(), slug)
+
   return NextResponse.json({ discussion: data })
 }
