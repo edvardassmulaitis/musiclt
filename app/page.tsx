@@ -12,7 +12,7 @@ type TopEntry = { pos: number; track_id: number; title: string; artist: string; 
 type Nomination = { id: number; votes: number; weighted_votes: number; tracks: { id: number; title: string; cover_url: string | null; artists: { name: string } | null } | null }
 type Discussion = { id: number; slug: string; title: string; author_name: string | null; comment_count: number; created_at: string; tags: string[] }
 type ShoutMsg = { id: number; author_name: string; author_avatar: string | null; body: string; created_at: string; user_id: string }
-type HeroSlide = { type: string; chip: string; chipBg: string; kicker: string; title: string; subtitle: string; cover: string | null; href: string; bg: string; glow: string }
+type HeroSlide = { type: string; chip: string; chipBg: string; kicker: string; title: string; subtitle: string; cover: string | null; href: string; bg: string; glow: string; bgImg?: string | null; videoId?: string | null }
 
 const MONTHS_LT = ['Sau','Vas','Kov','Bal','Geg','Bir','Lie','Rgp','Rgs','Spa','Lap','Gru']
 
@@ -208,9 +208,9 @@ export default function Home() {
 
   useEffect(() => {
     const slides: HeroSlide[] = []
-    news.slice(0,2).forEach(n => { const h=strHue(n.title); slides.push({ type:'news', chip:n.type||'Naujiena', chipBg:'#1d4ed8', kicker:timeAgo(n.published_at), title:n.artist?.name||'music.lt', subtitle:n.title, cover:n.image_small_url, href:`/naujienos/${n.slug}`, bg:`linear-gradient(135deg,hsl(${h},38%,5%) 0%,hsl(${(h+30)%360},45%,8%) 55%,hsl(${h},38%,5%) 100%)`, glow:`radial-gradient(ellipse at 28% 58%,hsla(${h},55%,38%,0.22) 0%,transparent 55%)` }) })
-    albums.slice(0,2).forEach(a => { const h=strHue(a.title); slides.push({ type:'album', chip:'Albumas', chipBg:'#6d28d9', kicker:a.year?`${a.year} m.`:'Naujas', title:a.artists?.name||'', subtitle:a.title, cover:a.cover_image_url, href:`/muzika/${a.slug}`, bg:`linear-gradient(135deg,hsl(${h},38%,5%) 0%,hsl(${(h+40)%360},45%,9%) 55%,hsl(${h},38%,5%) 100%)`, glow:`radial-gradient(ellipse at 28% 58%,hsla(${h},50%,36%,0.26) 0%,transparent 55%)` }) })
-    events.slice(0,1).forEach(ev => { const d=new Date(ev.event_date); slides.push({ type:'event', chip:'Renginys', chipBg:'#047857', kicker:`${d.getDate()} ${MONTHS_LT[d.getMonth()]}. · ${ev.venues?.city||''}`, title:ev.title, subtitle:ev.venues?.name||ev.venue_custom||'', cover:ev.image_small_url, href:`/renginiai/${ev.slug}`, bg:'linear-gradient(135deg,#040e08 0%,#071812 55%,#040e08 100%)', glow:'radial-gradient(ellipse at 28% 58%,rgba(4,120,87,0.26) 0%,transparent 55%)' }) })
+    news.slice(0,2).forEach(n => { const h=strHue(n.title); const artistName=n.artist?.name||''; slides.push({ type:'news', chip:n.type||'Naujiena', chipBg:'#1d4ed8', kicker:artistName||timeAgo(n.published_at), title:n.title, subtitle:artistName, cover:n.image_small_url, bgImg:n.image_small_url, href:`/naujienos/${n.slug}`, bg:`linear-gradient(135deg,hsl(${h},38%,5%) 0%,hsl(${(h+30)%360},45%,8%) 55%,hsl(${h},38%,5%) 100%)`, glow:`radial-gradient(ellipse at 28% 58%,hsla(${h},55%,38%,0.22) 0%,transparent 55%)` }) })
+    albums.slice(0,2).forEach(a => { const h=strHue(a.title); slides.push({ type:'album', chip:'Albumas', chipBg:'#6d28d9', kicker:a.year?`${a.year} m.`:'Naujas', title:a.title, subtitle:a.artists?.name||'', cover:a.cover_image_url, bgImg:a.cover_image_url, href:`/muzika/${a.slug}`, bg:`linear-gradient(135deg,hsl(${h},38%,5%) 0%,hsl(${(h+40)%360},45%,9%) 55%,hsl(${h},38%,5%) 100%)`, glow:`radial-gradient(ellipse at 28% 58%,hsla(${h},50%,36%,0.26) 0%,transparent 55%)` }) })
+    events.slice(0,1).forEach(ev => { const d=new Date(ev.event_date); slides.push({ type:'event', chip:'Renginys', chipBg:'#047857', kicker:`${d.getDate()} ${MONTHS_LT[d.getMonth()]}. · ${ev.venues?.city||''}`, title:ev.title, subtitle:ev.venues?.name||ev.venue_custom||'', cover:ev.image_small_url, bgImg:ev.image_small_url, href:`/renginiai/${ev.slug}`, bg:'linear-gradient(135deg,#040e08 0%,#071812 55%,#040e08 100%)', glow:'radial-gradient(ellipse at 28% 58%,rgba(4,120,87,0.26) 0%,transparent 55%)' }) })
     if (!slides.length) slides.push({ type:'promo', chip:'🇱🇹 Lietuviška muzika', chipBg:'#f97316', kicker:'Platforma', title:'music.lt', subtitle:'Visi Lietuvos atlikėjai vienoje vietoje', cover:null, href:'/atlikejai', bg:'linear-gradient(135deg,#08101e 0%,#0f1830 55%,#08101e 100%)', glow:'radial-gradient(ellipse at 28% 58%,rgba(90,102,220,0.3) 0%,transparent 55%)' })
     setHeroSlides(slides); setHeroIdx(0)
   }, [news, albums, events])
@@ -276,6 +276,13 @@ export default function Home() {
 
         {hero && (
           <section style={{ position:'relative', overflow:'hidden', background:hero.bg, transition:'background .9s ease' }}>
+            {/* Background image with blur for news/events */}
+            {hero.bgImg && (
+              <div style={{ position:'absolute', inset:0, overflow:'hidden', pointerEvents:'none' }}>
+                <img src={hero.bgImg} alt="" style={{ width:'100%', height:'100%', objectFit:'cover', objectPosition:'center 20%', filter:'blur(32px) saturate(0.7)', transform:'scale(1.12)', opacity:0.28 }} />
+                <div style={{ position:'absolute', inset:0, background:'linear-gradient(to right, rgba(8,13,20,0.92) 0%, rgba(8,13,20,0.65) 60%, rgba(8,13,20,0.4) 100%)' }} />
+              </div>
+            )}
             <div style={{ position:'absolute', inset:0, background:hero.glow, pointerEvents:'none' }} />
             <div style={{ position:'relative', maxWidth:1360, margin:'0 auto', padding:'0 20px', display:'flex', alignItems:'stretch' }} className="hp-hl">
 
@@ -286,10 +293,10 @@ export default function Home() {
                 <div key={heroIdx} style={{ flex:1, minWidth:0, animation:'hp-in .45s ease' }}>
                   <div style={{ display:'flex', alignItems:'center', gap:9, marginBottom:11 }}>
                     <span style={{ padding:'3px 11px', borderRadius:18, fontSize:10, fontWeight:800, color:'#fff', background:hero.chipBg, fontFamily:'Outfit,sans-serif' }}>{hero.chip}</span>
-                    <span style={{ fontSize:11, color:'rgba(180,200,235,.4)', fontWeight:500 }}>{hero.kicker}</span>
+                    {hero.kicker && <span style={{ fontSize:11, color:'rgba(180,200,235,.5)', fontWeight:600 }}>{hero.kicker}</span>}
                   </div>
-                  <h1 className="hp-htitle" style={{ fontFamily:'Outfit,sans-serif', fontSize:38, fontWeight:900, color:'#f0f4fc', lineHeight:1.05, margin:'0 0 5px', letterSpacing:'-0.02em' }}>{hero.title}</h1>
-                  <p className="hp-hsub" style={{ fontSize:16, color:'rgba(180,200,235,.38)', margin:'0 0 18px', lineHeight:1.3, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:400 }}>{hero.subtitle}</p>
+                  <h1 className="hp-htitle" style={{ fontFamily:'Outfit,sans-serif', fontSize:38, fontWeight:900, color:'#f0f4fc', lineHeight:1.08, margin:'0 0 8px', letterSpacing:'-0.02em' }}>{hero.title}</h1>
+                  {hero.subtitle && <p className="hp-hsub" style={{ fontSize:14, color:'rgba(180,200,235,.45)', margin:'0 0 18px', lineHeight:1.4, maxWidth:420 }}>{hero.subtitle}</p>}
                   <div style={{ display:'flex', gap:8 }}>
                     <Link href={hero.href} style={{ display:'inline-flex', alignItems:'center', gap:6, background:'#f97316', color:'#fff', fontWeight:800, fontSize:13, padding:'9px 20px', borderRadius:22, textDecoration:'none', boxShadow:'0 4px 18px rgba(249,115,22,.35)', fontFamily:'Outfit,sans-serif' }}>▶ Atidaryti</Link>
                     <Link href={hero.href} style={{ display:'inline-flex', alignItems:'center', color:'rgba(180,200,235,.45)', fontWeight:700, fontSize:13, padding:'9px 16px', borderRadius:22, textDecoration:'none', border:'1px solid rgba(255,255,255,.1)' }}>Daugiau info</Link>
