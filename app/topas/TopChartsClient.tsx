@@ -1,169 +1,110 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 
 type Artist = { id: number; slug: string; name: string; cover_image_url: string | null }
-type Track = {
-  id: number; slug: string; title: string; cover_url: string | null
-  spotify_id: string | null; video_url: string | null; artists: Artist
-}
-type Entry = {
-  id: number; position: number; prev_position: number | null
-  weeks_in_top: number; total_votes: number; is_new: boolean; peak_position: number | null
-  tracks: Track
-}
+type Track = { id: number; slug: string; title: string; cover_url: string | null; spotify_id: string | null; video_url: string | null; artists: Artist }
+type Entry = { id: number; position: number; prev_position: number | null; weeks_in_top: number; total_votes: number; is_new: boolean; peak_position: number | null; tracks: Track }
 type Week = { id: number; top_type: string; week_start: string; is_active: boolean; vote_close?: string }
 type TopData = { entries: Entry[]; week: Week | null }
 
-// Extract YouTube video ID from URL
 function getYouTubeId(url: string | null): string | null {
   if (!url) return null
   const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/)
   return m ? m[1] : null
 }
 
-function TrendBadge({ curr, prev, isNew }: { curr: number; prev: number | null; isNew: boolean }) {
-  if (isNew || prev === null)
-    return <span style={{ fontSize: 9, fontWeight: 900, padding: '2px 5px', borderRadius: 4, background: 'rgba(251,191,36,0.15)', color: '#fbbf24', letterSpacing: '0.05em' }}>NEW</span>
-  if (curr < prev) return <span style={{ color: '#34d399', fontWeight: 900, fontSize: 11 }}>↑{prev - curr}</span>
-  if (curr > prev) return <span style={{ color: '#f87171', fontWeight: 900, fontSize: 11 }}>↓{curr - prev}</span>
-  return <span style={{ color: '#374151', fontSize: 14 }}>—</span>
-}
-
 function Countdown({ targetDate }: { targetDate: string }) {
-  const [timeLeft, setTimeLeft] = useState('')
+  const [t, setT] = useState('')
   useEffect(() => {
     const calc = () => {
       const diff = new Date(targetDate).getTime() - Date.now()
-      if (diff <= 0) { setTimeLeft('Baigėsi'); return }
-      const d = Math.floor(diff / 86400000)
-      const h = Math.floor((diff % 86400000) / 3600000)
-      const m = Math.floor((diff % 3600000) / 60000)
-      setTimeLeft(d > 0 ? `${d}d ${h}h` : `${h}h ${m}m`)
+      if (diff <= 0) { setT('Baigėsi'); return }
+      const d = Math.floor(diff / 86400000), h = Math.floor((diff % 86400000) / 3600000), m = Math.floor((diff % 3600000) / 60000)
+      setT(d > 0 ? `${d}d ${h}h` : `${h}h ${m}m`)
     }
-    calc(); const t = setInterval(calc, 30000); return () => clearInterval(t)
+    calc(); const id = setInterval(calc, 30000); return () => clearInterval(id)
   }, [targetDate])
-  return <span>{timeLeft}</span>
+  return <>{t}</>
 }
 
-function YouTubePlayer({ videoId, title, cover }: { videoId: string | null; title: string; cover: string | null }) {
+function TrendIndicator({ curr, prev, isNew }: { curr: number; prev: number | null; isNew: boolean }) {
+  if (isNew || prev === null) return <span className="tc-new">NEW</span>
+  if (curr < prev) return <span className="tc-up">+{prev - curr}</span>
+  if (curr > prev) return <span className="tc-down">−{curr - prev}</span>
+  return <span className="tc-same">—</span>
+}
+
+function Player({ entry }: { entry: Entry | null }) {
   const [playing, setPlaying] = useState(false)
+  const [imgErr, setImgErr] = useState(false)
 
-  if (!videoId) {
-    return (
-      <div style={{
-        width: '100%', aspectRatio: '16/9', borderRadius: 12, overflow: 'hidden',
-        background: 'linear-gradient(135deg, #0f1923 0%, #1a2535 100%)',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        border: '1px solid rgba(255,255,255,0.06)', position: 'relative',
-      }}>
-        {cover && <img src={cover} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.3 }} />}
-        <div style={{ position: 'relative', textAlign: 'center' }}>
-          <div style={{ fontSize: 40, marginBottom: 8, opacity: 0.4 }}>♪</div>
-          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>Video nėra</p>
-        </div>
-      </div>
-    )
-  }
+  useEffect(() => { setPlaying(false); setImgErr(false) }, [entry?.id])
+
+  if (!entry) return null
+  const vid = getYouTubeId(entry.tracks?.video_url)
+  const cover = entry.tracks?.cover_url
 
   return (
-    <div style={{ width: '100%', aspectRatio: '16/9', borderRadius: 12, overflow: 'hidden', position: 'relative', background: '#000' }}>
-      {!playing ? (
-        <div
-          onClick={() => setPlaying(true)}
-          style={{ cursor: 'pointer', position: 'absolute', inset: 0 }}
-        >
-          <img
-            src={`https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`}
-            alt={title}
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            onError={e => { (e.target as HTMLImageElement).src = cover || `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` }}
+    <div className="tc-player">
+      <div className="tc-player-video">
+        {playing && vid ? (
+          <iframe
+            src={`https://www.youtube.com/embed/${vid}?autoplay=1&rel=0&modestbranding=1&color=white`}
+            style={{ width: '100%', height: '100%', border: 'none' }}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
           />
-          <div style={{
-            position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 50%)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <div style={{
-              width: 56, height: 56, borderRadius: '50%', background: 'rgba(255,0,0,0.9)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 0 0 8px rgba(255,0,0,0.2)',
-              transition: 'transform 0.2s',
-            }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="white" style={{ marginLeft: 3 }}>
-                <polygon points="5 3 19 12 5 21 5 3" />
-              </svg>
-            </div>
+        ) : (
+          <div className="tc-player-thumb" onClick={() => vid && setPlaying(true)} style={{ cursor: vid ? 'pointer' : 'default' }}>
+            {vid && !imgErr ? (
+              <img
+                src={`https://img.youtube.com/vi/${vid}/maxresdefault.jpg`}
+                alt=""
+                className="tc-thumb-img"
+                onError={() => setImgErr(true)}
+              />
+            ) : cover ? (
+              <img src={cover} alt="" className="tc-thumb-img" style={{ filter: 'brightness(0.4)' }} />
+            ) : (
+              <div className="tc-thumb-empty" />
+            )}
+            {vid && (
+              <div className="tc-play-btn">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              </div>
+            )}
           </div>
+        )}
+      </div>
+      <div className="tc-player-info">
+        <div className="tc-player-pos">
+          <span className="tc-pos-num" style={{ color: entry.position <= 3 ? '#f97316' : '#fff' }}>#{entry.position}</span>
+          <TrendIndicator curr={entry.position} prev={entry.prev_position} isNew={entry.is_new} />
         </div>
-      ) : (
-        <iframe
-          src={`https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1`}
-          style={{ width: '100%', height: '100%', border: 'none' }}
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-        />
-      )}
-    </div>
-  )
-}
-
-function VoteButton({ entry, weekId, onVoted, votedIds, votesRemaining }: {
-  entry: Entry; weekId: number
-  onVoted: (trackId: number) => void
-  votedIds: number[]; votesRemaining: number
-}) {
-  const [loading, setLoading] = useState(false)
-  const [tooltip, setTooltip] = useState('')
-  const voted = votedIds.includes(entry.tracks.id)
-
-  const handleVote = async (e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (voted || votesRemaining <= 0) return
-    setLoading(true)
-    const res = await fetch('/api/top/vote', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ track_id: entry.tracks.id, week_id: weekId, vote_type: 'like' }),
-    })
-    const data = await res.json()
-    if (res.ok) onVoted(entry.tracks.id)
-    else { setTooltip(data.error || 'Klaida'); setTimeout(() => setTooltip(''), 3000) }
-    setLoading(false)
-  }
-
-  return (
-    <div style={{ position: 'relative', flexShrink: 0 }}>
-      {tooltip && (
-        <div style={{
-          position: 'absolute', bottom: '100%', right: 0, marginBottom: 8,
-          padding: '6px 12px', background: 'rgba(127,29,29,0.95)', color: '#fca5a5',
-          fontSize: 11, borderRadius: 8, whiteSpace: 'nowrap', zIndex: 10,
-        }}>{tooltip}</div>
-      )}
-      <button
-        onClick={handleVote}
-        disabled={voted || loading || (votesRemaining <= 0 && !voted)}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 6,
-          padding: '6px 14px', borderRadius: 20, fontSize: 11, fontWeight: 700,
-          cursor: voted ? 'default' : votesRemaining > 0 ? 'pointer' : 'not-allowed',
-          transition: 'all 0.15s',
-          border: voted ? '1px solid rgba(239,68,68,0.4)' : '1px solid rgba(255,255,255,0.1)',
-          background: voted ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.05)',
-          color: voted ? '#f87171' : votesRemaining > 0 ? '#9ca3af' : 'rgba(75,85,99,0.5)',
-          opacity: (!voted && votesRemaining <= 0) ? 0.4 : 1,
-        }}
-      >
-        {loading
-          ? <span style={{ width: 10, height: 10, border: '1.5px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.6s linear infinite' }} />
-          : <svg width="10" height="10" viewBox="0 0 24 24" fill={voted ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.5">
-              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+        <p className="tc-player-title">{entry.tracks?.title}</p>
+        <Link href={`/atlikejai/${entry.tracks?.artists?.slug}`} className="tc-player-artist">
+          {entry.tracks?.artists?.name}
+        </Link>
+        <div className="tc-player-meta">
+          <span>{entry.weeks_in_top} sav. tope</span>
+          {entry.peak_position && entry.peak_position <= 5 && <span>rekordas #{entry.peak_position}</span>}
+        </div>
+        {entry.tracks?.spotify_id && (
+          <a
+            href={`https://open.spotify.com/track/${entry.tracks.spotify_id}`}
+            target="_blank" rel="noopener noreferrer"
+            className="tc-spotify-btn"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
             </svg>
-        }
-        Patinka
-      </button>
+            Spotify
+          </a>
+        )}
+      </div>
     </div>
   )
 }
@@ -199,71 +140,105 @@ function SuggestModal({ onClose, weekId, topType }: { onClose: () => void; weekI
   }
 
   return (
-    <div onClick={e => { if (e.target === e.currentTarget) onClose() }}
-      style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)' }}>
-      <div style={{ width: '100%', maxWidth: 440, borderRadius: 20, overflow: 'hidden', background: '#0a0f1a', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 25px 60px rgba(0,0,0,0.6)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-          <h3 style={{ fontWeight: 900, color: '#fff', fontSize: 17, margin: 0 }}>💡 Siūlyti dainą</h3>
-          <button onClick={onClose} style={{ color: '#6b7280', background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: 4 }}>✕</button>
+    <div className="tc-modal-bg" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="tc-modal">
+        <div className="tc-modal-head">
+          <span>Siūlyti dainą</span>
+          <button onClick={onClose} className="tc-modal-close">✕</button>
         </div>
         {sent ? (
-          <div style={{ padding: 40, textAlign: 'center' }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
-            <p style={{ color: '#fff', fontWeight: 800, fontSize: 18, marginBottom: 6 }}>Pasiūlymas išsiųstas!</p>
-            <p style={{ color: '#6b7280', fontSize: 13, marginBottom: 20 }}>Adminas peržiūrės ir patvirtins arba atmes.</p>
-            <button onClick={onClose} style={{ padding: '10px 24px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 20, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Uždaryti</button>
+          <div className="tc-modal-sent">
+            <p className="tc-sent-title">Pasiūlymas išsiųstas</p>
+            <p className="tc-sent-sub">Adminas peržiūrės artimiausiu metu.</p>
+            <button onClick={onClose} className="tc-btn-primary">Uždaryti</button>
           </div>
         ) : (
-          <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ display: 'flex', gap: 8 }}>
+          <div className="tc-modal-body">
+            <div className="tc-mode-tabs">
               {(['search', 'manual'] as const).map(m => (
-                <button key={m} onClick={() => setMode(m)} style={{
-                  padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s',
-                  background: mode === m ? '#2563eb' : 'rgba(255,255,255,0.05)',
-                  color: mode === m ? '#fff' : '#9ca3af',
-                  border: mode === m ? 'none' : '1px solid rgba(255,255,255,0.08)',
-                }}>
-                  {m === 'search' ? '🔍 Ieškoti DB' : '✏️ Rankiniu būdu'}
+                <button key={m} onClick={() => setMode(m)} className={`tc-mode-tab${mode === m ? ' active' : ''}`}>
+                  {m === 'search' ? 'Ieškoti' : 'Įvesti rankiniu būdu'}
                 </button>
               ))}
             </div>
             {mode === 'search' ? (
               <div>
-                <input type="text" value={query} onChange={e => setQuery(e.target.value)} placeholder="Dainos pavadinimas arba atlikėjas…"
-                  style={{ width: '100%', padding: '10px 14px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, color: '#fff', fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
+                <input
+                  type="text" value={query} onChange={e => setQuery(e.target.value)}
+                  placeholder="Dainos pavadinimas arba atlikėjas…"
+                  className="tc-input"
+                />
                 {results.length > 0 && (
-                  <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div className="tc-results">
                     {results.map((t: any) => (
-                      <button key={t.id} onClick={() => submit(t.id)} disabled={sending}
-                        style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10, cursor: 'pointer', textAlign: 'left', transition: 'background 0.15s' }}>
-                        <div style={{ width: 32, height: 32, borderRadius: 6, background: 'rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>
-                          {t.cover_url ? <img src={t.cover_url} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6 }} alt="" /> : '♪'}
+                      <button key={t.id} onClick={() => submit(t.id)} disabled={sending} className="tc-result-row">
+                        <div className="tc-result-cover">
+                          {t.cover_url ? <img src={t.cover_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6 }} /> : '♪'}
                         </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ color: '#fff', fontSize: 13, fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</p>
-                          <p style={{ color: '#6b7280', fontSize: 11, margin: 0 }}>{t.artist_name || t.artists?.name}</p>
+                        <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                          <p className="tc-result-title">{t.title}</p>
+                          <p className="tc-result-artist">{t.artist_name || t.artists?.name}</p>
                         </div>
-                        <span style={{ color: '#60a5fa', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>Siūlyti →</span>
+                        <span className="tc-result-cta">Siūlyti</span>
                       </button>
                     ))}
                   </div>
                 )}
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <input type="text" value={manualTitle} onChange={e => setManualTitle(e.target.value)} placeholder="Dainos pavadinimas"
-                  style={{ width: '100%', padding: '10px 14px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, color: '#fff', fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
-                <input type="text" value={manualArtist} onChange={e => setManualArtist(e.target.value)} placeholder="Atlikėjas"
-                  style={{ width: '100%', padding: '10px 14px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, color: '#fff', fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
-                <button onClick={() => submit()} disabled={sending || !manualTitle || !manualArtist}
-                  style={{ padding: '11px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer', opacity: (!manualTitle || !manualArtist) ? 0.5 : 1 }}>
-                  {sending ? 'Siunčiama…' : 'Siųsti pasiūlymą'}
+              <div className="tc-manual">
+                <input type="text" value={manualTitle} onChange={e => setManualTitle(e.target.value)} placeholder="Dainos pavadinimas" className="tc-input" />
+                <input type="text" value={manualArtist} onChange={e => setManualArtist(e.target.value)} placeholder="Atlikėjas" className="tc-input" />
+                <button onClick={() => submit()} disabled={sending || !manualTitle || !manualArtist} className="tc-btn-primary" style={{ opacity: (!manualTitle || !manualArtist) ? 0.4 : 1 }}>
+                  {sending ? 'Siunčiama…' : 'Siųsti'}
                 </button>
               </div>
             )}
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function VoteButton({ entry, weekId, onVoted, votedIds, votesRemaining }: {
+  entry: Entry; weekId: number; onVoted: (id: number) => void; votedIds: number[]; votesRemaining: number
+}) {
+  const [loading, setLoading] = useState(false)
+  const [err, setErr] = useState('')
+  const voted = votedIds.includes(entry.tracks.id)
+
+  const handleVote = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (voted || votesRemaining <= 0) return
+    setLoading(true)
+    const res = await fetch('/api/top/vote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ track_id: entry.tracks.id, week_id: weekId, vote_type: 'like' }),
+    })
+    const data = await res.json()
+    if (res.ok) onVoted(entry.tracks.id)
+    else { setErr(data.error || 'Klaida'); setTimeout(() => setErr(''), 3000) }
+    setLoading(false)
+  }
+
+  return (
+    <div style={{ position: 'relative', flexShrink: 0 }}>
+      {err && <div className="tc-vote-err">{err}</div>}
+      <button
+        onClick={handleVote}
+        disabled={voted || loading || (votesRemaining <= 0 && !voted)}
+        className={`tc-vote-btn${voted ? ' voted' : ''}${!voted && votesRemaining <= 0 ? ' disabled' : ''}`}
+      >
+        {loading
+          ? <span className="tc-spinner" />
+          : <svg width="11" height="11" viewBox="0 0 24 24" fill={voted ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.5">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+            </svg>
+        }
+        Patinka
+      </button>
     </div>
   )
 }
@@ -278,10 +253,9 @@ export default function TopChartsClient({ top40, ltTop30 }: { top40: TopData; lt
 
   const currentData = activeTab === 'top40' ? top40 : ltTop30
 
-  // Set first entry as active by default
   useEffect(() => {
-    if (currentData.entries.length > 0) setActiveEntry(currentData.entries[0])
-  }, [activeTab, currentData.entries])
+    setActiveEntry(currentData.entries[0] ?? null)
+  }, [activeTab]) // eslint-disable-line
 
   const loadVoteStatus = useCallback(async () => {
     if (!currentData.week) return
@@ -289,283 +263,245 @@ export default function TopChartsClient({ top40, ltTop30 }: { top40: TopData; lt
     const data = await res.json()
     setVotedIds(data.voted_track_ids || [])
     setVotesRemaining(data.votes_remaining ?? (session ? 10 : 5))
-  }, [currentData.week, session])
+  }, [currentData.week?.id, session]) // eslint-disable-line
 
   useEffect(() => { loadVoteStatus() }, [loadVoteStatus])
 
-  const handleVoted = (trackId: number) => {
-    setVotedIds(p => [...p, trackId])
+  const handleVoted = (id: number) => {
+    setVotedIds(p => [...p, id])
     setVotesRemaining(p => Math.max(0, p - 1))
   }
 
-  const weekLabel = currentData.week
-    ? (() => {
-        const d = new Date(currentData.week.week_start)
-        const end = new Date(d); end.setDate(end.getDate() + 6)
-        return `${d.toLocaleDateString('lt-LT', { month: 'short', day: 'numeric' }).replace(' ', '\u00a0')} – ${end.toLocaleDateString('lt-LT', { month: 'short', day: 'numeric' }).replace(' ', '\u00a0')}`
-      })()
-    : null
-
-  const activeVideoId = activeEntry ? getYouTubeId(activeEntry.tracks?.video_url) : null
+  const weekLabel = currentData.week ? (() => {
+    const d = new Date(currentData.week.week_start)
+    const e = new Date(d); e.setDate(e.getDate() + 6)
+    const fmt = (d: Date) => `${d.getDate()} ${d.toLocaleDateString('lt-LT', { month: 'short' })}`
+    return `${fmt(d)} – ${fmt(e)}`
+  })() : null
 
   return (
     <>
       <style>{`
-        @keyframes spin { to { transform: rotate(360deg) } }
-        .top-row:hover { background: rgba(255,255,255,0.04) !important; }
-        .top-row.active { background: rgba(255,255,255,0.07) !important; border-color: rgba(255,255,255,0.1) !important; }
-        .top-row { cursor: pointer; transition: background 0.15s, border-color 0.15s; }
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+        .tc-wrap { max-width: 1160px; margin: 0 auto; padding: 48px 24px; font-family: 'DM Sans', sans-serif; }
+
+        .tc-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 36px; gap: 16px; flex-wrap: wrap; }
+        .tc-heading { font-family: 'Syne', sans-serif; font-size: 42px; font-weight: 800; color: #fff; margin: 0 0 4px; letter-spacing: -0.03em; line-height: 1; }
+        .tc-subhead { color: #4b5563; font-size: 13px; margin: 0; font-weight: 400; }
+        .tc-suggest-link { color: #6b7280; font-size: 12px; font-weight: 600; cursor: pointer; background: none; border: none; padding: 0; text-decoration: underline; text-underline-offset: 3px; transition: color 0.15s; }
+        .tc-suggest-link:hover { color: #d1d5db; }
+
+        .tc-controls { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; gap: 12px; flex-wrap: wrap; }
+        .tc-tabs { display: flex; gap: 0; background: rgba(255,255,255,0.03); border-radius: 10px; padding: 3px; border: 1px solid rgba(255,255,255,0.06); }
+        .tc-tab { padding: 7px 18px; border-radius: 7px; font-weight: 600; font-size: 13px; cursor: pointer; border: none; transition: all 0.2s; background: transparent; color: #4b5563; font-family: 'DM Sans', sans-serif; }
+        .tc-tab.active { background: #1a1a2e; color: #fff; box-shadow: 0 1px 6px rgba(0,0,0,0.4); }
+        .tc-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .tc-week-label { color: #374151; font-size: 12px; font-weight: 500; }
+        .tc-countdown { display: flex; align-items: center; gap: 5px; padding: 5px 11px; background: rgba(234,88,12,0.08); border: 1px solid rgba(234,88,12,0.18); border-radius: 7px; font-size: 11px; font-weight: 700; color: #ea580c; }
+        .tc-votes-left { display: flex; align-items: center; gap: 6px; padding: 5px 11px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); border-radius: 7px; font-size: 11px; font-weight: 600; color: #6b7280; }
+        .tc-votes-left strong { color: #e5e7eb; }
+
+        .tc-guest-bar { margin-bottom: 20px; padding: 10px 16px; border-radius: 8px; background: rgba(30,64,175,0.07); border: 1px solid rgba(30,64,175,0.15); font-size: 12px; color: #93c5fd; }
+        .tc-guest-bar a { color: #60a5fa; font-weight: 700; }
+
+        .tc-body { display: grid; grid-template-columns: 1fr 320px; gap: 24px; align-items: start; }
+        @media (max-width: 800px) { .tc-body { grid-template-columns: 1fr; } .tc-sticky { display: none; } }
+
+        .tc-list { display: flex; flex-direction: column; gap: 1px; }
+        .tc-row { display: flex; align-items: center; gap: 12px; padding: 11px 12px; border-radius: 9px; cursor: pointer; border: 1px solid transparent; transition: all 0.15s; }
+        .tc-row:hover { background: rgba(255,255,255,0.04); }
+        .tc-row.active { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.09); }
+        .tc-row.top3 { background: rgba(234,88,12,0.04); }
+        .tc-row.top3.active { background: rgba(234,88,12,0.08); border-color: rgba(234,88,12,0.15); }
+
+        .tc-pos { width: 26px; text-align: center; flex-shrink: 0; font-family: 'Syne', sans-serif; font-weight: 800; font-size: 15px; color: #374151; }
+        .tc-pos.top { color: #f97316; }
+
+        .tc-trend { width: 32px; flex-shrink: 0; display: flex; justify-content: center; }
+        .tc-new { font-size: 8px; font-weight: 800; padding: 2px 5px; border-radius: 3px; background: rgba(251,191,36,0.12); color: #f59e0b; letter-spacing: 0.06em; }
+        .tc-up { font-size: 10px; font-weight: 700; color: #34d399; }
+        .tc-down { font-size: 10px; font-weight: 700; color: #f87171; }
+        .tc-same { font-size: 13px; color: #1f2937; }
+
+        .tc-cover { width: 40px; height: 40px; border-radius: 6px; overflow: hidden; flex-shrink: 0; background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: center; font-size: 14px; color: rgba(255,255,255,0.08); }
+        .tc-cover img { width: 100%; height: 100%; object-fit: cover; }
+        .tc-row.active .tc-cover { box-shadow: 0 0 0 2px rgba(99,102,241,0.5); }
+
+        .tc-info { flex: 1; min-width: 0; }
+        .tc-title { margin: 0 0 2px; font-size: 13px; font-weight: 600; color: #e5e7eb; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: 'DM Sans', sans-serif; }
+        .tc-row.top3 .tc-title { color: #fff; }
+        .tc-row.active .tc-title { color: #fff; }
+        .tc-detail { display: flex; align-items: center; gap: 5px; }
+        .tc-artist { font-size: 11px; color: #4b5563; font-weight: 500; text-decoration: none; transition: color 0.15s; }
+        .tc-artist:hover { color: #818cf8; }
+        .tc-dot { color: #1f2937; font-size: 10px; }
+        .tc-weeks { font-size: 11px; color: #374151; }
+
+        .tc-spotify-icon { color: #1db954; opacity: 0.5; flex-shrink: 0; display: flex; transition: opacity 0.15s; }
+        .tc-spotify-icon:hover { opacity: 1; }
+
+        .tc-vote-btn { display: flex; align-items: center; gap: 5px; padding: 6px 13px; border-radius: 20px; font-size: 11px; font-weight: 600; cursor: pointer; border: 1px solid rgba(255,255,255,0.09); background: rgba(255,255,255,0.04); color: #6b7280; transition: all 0.15s; flex-shrink: 0; font-family: 'DM Sans', sans-serif; }
+        .tc-vote-btn:hover:not(.voted):not(.disabled) { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.3); color: #f87171; }
+        .tc-vote-btn.voted { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.3); color: #f87171; cursor: default; }
+        .tc-vote-btn.disabled { opacity: 0.3; cursor: not-allowed; }
+        .tc-vote-err { position: absolute; bottom: calc(100% + 6px); right: 0; padding: 5px 10px; background: #450a0a; color: #fca5a5; font-size: 11px; border-radius: 6px; white-space: nowrap; z-index: 10; }
+        .tc-spinner { width: 10px; height: 10px; border: 1.5px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: tc-spin 0.6s linear infinite; display: inline-block; }
+        @keyframes tc-spin { to { transform: rotate(360deg) } }
+
+        .tc-sticky { position: sticky; top: 72px; }
+        .tc-player { background: #0c111b; border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; overflow: hidden; }
+        .tc-player-video { aspect-ratio: 16/9; position: relative; background: #060a12; }
+        .tc-player-thumb { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+        .tc-thumb-img { width: 100%; height: 100%; object-fit: cover; }
+        .tc-thumb-empty { width: 100%; height: 100%; background: #060a12; }
+        .tc-play-btn { position: absolute; width: 48px; height: 48px; border-radius: 50%; background: rgba(0,0,0,0.7); border: 1.5px solid rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; transition: transform 0.15s, background 0.15s; backdrop-filter: blur(4px); }
+        .tc-player-thumb:hover .tc-play-btn { transform: scale(1.08); background: rgba(0,0,0,0.85); }
+
+        .tc-player-info { padding: 16px; }
+        .tc-player-pos { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .tc-pos-num { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 800; }
+        .tc-player-title { margin: 0 0 4px; font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; color: #fff; letter-spacing: -0.02em; line-height: 1.2; }
+        .tc-player-artist { font-size: 12px; color: #4b5563; text-decoration: none; font-weight: 500; transition: color 0.15s; display: block; margin-bottom: 12px; }
+        .tc-player-artist:hover { color: #818cf8; }
+        .tc-player-meta { display: flex; gap: 12px; margin-bottom: 12px; }
+        .tc-player-meta span { font-size: 11px; color: #374151; background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.05); }
+        .tc-spotify-btn { display: flex; align-items: center; justify-content: center; gap: 7px; padding: 9px; border-radius: 8px; background: rgba(29,185,84,0.07); border: 1px solid rgba(29,185,84,0.15); color: #1db954; font-size: 12px; font-weight: 700; text-decoration: none; transition: background 0.15s; }
+        .tc-spotify-btn:hover { background: rgba(29,185,84,0.12); }
+
+        .tc-exhausted { margin-top: 12px; padding: 16px; border-radius: 10px; background: rgba(30,64,175,0.07); border: 1px solid rgba(30,64,175,0.14); text-align: center; }
+        .tc-exhausted p { margin: 0 0 8px; font-size: 13px; color: #e5e7eb; font-weight: 600; }
+        .tc-exhausted small { display: block; font-size: 11px; color: #4b5563; margin-bottom: 12px; }
+
+        .tc-empty { padding: 80px 0; text-align: center; }
+        .tc-empty-title { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 700; color: #374151; margin: 0 0 8px; }
+        .tc-empty-sub { font-size: 13px; color: #1f2937; margin: 0 0 20px; }
+
+        .tc-btn-primary { padding: 10px 22px; background: #1d4ed8; color: #fff; border: none; border-radius: 20px; font-weight: 700; font-size: 12px; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: background 0.15s; }
+        .tc-btn-primary:hover { background: #1e40af; }
+
+        .tc-modal-bg { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,0.82); backdrop-filter: blur(10px); }
+        .tc-modal { width: 100%; max-width: 420px; border-radius: 16px; background: #0a0f1a; border: 1px solid rgba(255,255,255,0.09); overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,0.7); }
+        .tc-modal-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px; border-bottom: 1px solid rgba(255,255,255,0.06); font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; color: #fff; }
+        .tc-modal-close { background: none; border: none; color: #4b5563; cursor: pointer; font-size: 16px; padding: 2px; transition: color 0.15s; }
+        .tc-modal-close:hover { color: #fff; }
+        .tc-modal-body { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+        .tc-modal-sent { padding: 36px 20px; text-align: center; }
+        .tc-sent-title { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; color: #fff; margin: 0 0 6px; }
+        .tc-sent-sub { font-size: 13px; color: #4b5563; margin: 0 0 20px; }
+
+        .tc-mode-tabs { display: flex; gap: 6px; }
+        .tc-mode-tab { padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04); color: #4b5563; font-family: 'DM Sans', sans-serif; transition: all 0.15s; }
+        .tc-mode-tab.active { background: #1d4ed8; color: #fff; border-color: transparent; }
+
+        .tc-input { width: 100%; padding: 10px 13px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 9px; color: #e5e7eb; font-size: 13px; outline: none; box-sizing: border-box; font-family: 'DM Sans', sans-serif; transition: border-color 0.15s; }
+        .tc-input::placeholder { color: #374151; }
+        .tc-input:focus { border-color: rgba(99,102,241,0.4); }
+
+        .tc-results { margin-top: 8px; display: flex; flex-direction: column; gap: 3px; }
+        .tc-result-row { display: flex; align-items: center; gap: 10px; padding: 9px 11px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; cursor: pointer; transition: background 0.15s; width: 100%; }
+        .tc-result-row:hover { background: rgba(255,255,255,0.06); }
+        .tc-result-cover { width: 30px; height: 30px; border-radius: 5px; background: rgba(255,255,255,0.07); display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; overflow: hidden; color: #4b5563; }
+        .tc-result-title { font-size: 12px; font-weight: 600; color: #e5e7eb; margin: 0 0 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tc-result-artist { font-size: 11px; color: #4b5563; margin: 0; }
+        .tc-result-cta { font-size: 11px; font-weight: 700; color: #6366f1; flex-shrink: 0; }
+        .tc-manual { display: flex; flex-direction: column; gap: 8px; }
       `}</style>
 
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '32px 20px', fontFamily: 'inherit' }}>
-
-        {/* Header */}
-        <div style={{ marginBottom: 28, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+      <div className="tc-wrap">
+        <div className="tc-header">
           <div>
-            <h1 style={{ fontSize: 32, fontWeight: 900, color: '#fff', margin: '0 0 4px', letterSpacing: '-0.02em' }}>🏆 Muzikos topai</h1>
-            <p style={{ color: '#4b5563', fontSize: 13, margin: 0 }}>Balsuok už mėgstamas dainas ir formuok lietuviškos muzikos istoriją.</p>
+            <h1 className="tc-heading">Muzikos topai</h1>
+            <p className="tc-subhead">Balsuok už mėgstamas dainas ir formuok lietuviškos muzikos istoriją.</p>
           </div>
-          <button onClick={() => setShowSuggest(true)}
-            style={{ padding: '9px 18px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: '#d1d5db', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-            💡 Siūlyti dainą
-          </button>
+          <button className="tc-suggest-link" onClick={() => setShowSuggest(true)}>Siūlyti dainą</button>
         </div>
 
-        {/* Tabs + meta */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-          <div style={{ display: 'flex', gap: 0, background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 3, border: '1px solid rgba(255,255,255,0.07)' }}>
-            {([['top40', '🌍 TOP 40'], ['lt_top30', '🇱🇹 LT TOP 30']] as const).map(([k, l]) => (
-              <button key={k} onClick={() => setActiveTab(k)}
-                style={{
-                  padding: '8px 20px', borderRadius: 9, fontWeight: 700, fontSize: 13,
-                  transition: 'all 0.2s', cursor: 'pointer', border: 'none',
-                  background: activeTab === k ? '#1d4ed8' : 'transparent',
-                  color: activeTab === k ? '#fff' : '#6b7280',
-                  boxShadow: activeTab === k ? '0 2px 8px rgba(29,78,216,0.4)' : 'none',
-                }}>
-                {l}
-              </button>
+        <div className="tc-controls">
+          <div className="tc-tabs">
+            {([['top40', 'TOP 40'], ['lt_top30', 'LT TOP 30']] as const).map(([k, l]) => (
+              <button key={k} onClick={() => setActiveTab(k)} className={`tc-tab${activeTab === k ? ' active' : ''}`}>{l}</button>
             ))}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            {weekLabel && (
-              <span style={{ color: '#374151', fontSize: 12, fontWeight: 600 }}>{weekLabel}</span>
-            )}
+          <div className="tc-meta">
+            {weekLabel && <span className="tc-week-label">{weekLabel}</span>}
             {currentData.week?.vote_close && (
-              <span style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: 'rgba(251,146,60,0.1)', border: '1px solid rgba(251,146,60,0.2)', borderRadius: 8, fontSize: 11, fontWeight: 700, color: '#fb923c' }}>
-                ⏱ <Countdown targetDate={currentData.week.vote_close} />
+              <span className="tc-countdown">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <Countdown targetDate={currentData.week.vote_close} />
               </span>
             )}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, fontSize: 11, fontWeight: 700 }}>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" style={{ color: '#f87171', flexShrink: 0 }}>
-                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+            <div className="tc-votes-left">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style={{ color: '#f87171' }}>
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
               </svg>
-              <span style={{ color: '#d1d5db' }}>Liko <strong style={{ color: '#fff' }}>{votesRemaining}</strong>/{session ? 10 : 5}</span>
+              <span>Liko <strong>{votesRemaining}</strong>/{session ? 10 : 5}</span>
             </div>
           </div>
         </div>
 
         {!session && (
-          <div style={{ marginBottom: 16, padding: '10px 16px', borderRadius: 10, background: 'rgba(29,78,216,0.08)', border: '1px solid rgba(29,78,216,0.18)', display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
-            <span>ℹ️</span>
-            <span style={{ color: '#93c5fd' }}>
-              Balsuoji kaip svečias (5 balsai/sav.).{' '}
-              <Link href="/auth/signin" style={{ fontWeight: 800, color: '#60a5fa', textDecoration: 'underline' }}>Prisijunk</Link>
-              {' '}ir gauk 10 balsų.
-            </span>
+          <div className="tc-guest-bar">
+            Balsuoji kaip svečias (5 balsai/sav.).{' '}
+            <Link href="/auth/signin">Prisijunk</Link> ir gauk 10 balsų.
           </div>
         )}
 
         {currentData.entries.length === 0 ? (
-          <div style={{ padding: '80px 0', textAlign: 'center' }}>
-            <p style={{ fontSize: 56, marginBottom: 16 }}>🏆</p>
-            <p style={{ color: '#9ca3af', fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Sąrašas dar tuščias</p>
-            <p style={{ color: '#4b5563', fontSize: 13, marginBottom: 20 }}>Patvirtinti pasiūlymai pateks čia kitą savaitę.</p>
-            <button onClick={() => setShowSuggest(true)}
-              style={{ padding: '11px 24px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 20, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-              💡 Siūlyti dainą
-            </button>
+          <div className="tc-empty">
+            <p className="tc-empty-title">Sąrašas dar tuščias</p>
+            <p className="tc-empty-sub">Patvirtinti pasiūlymai pateks čia kitą savaitę.</p>
+            <button className="tc-btn-primary" onClick={() => setShowSuggest(true)}>Siūlyti dainą</button>
           </div>
         ) : (
-          /* Two column layout: list + player */
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20, alignItems: 'start' }}>
-
-            {/* Chart list */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {currentData.entries.map((entry, i) => {
-                const isTop3 = entry.position <= 3
+          <div className="tc-body">
+            <div className="tc-list">
+              {currentData.entries.map(entry => {
+                const top3 = entry.position <= 3
                 const isActive = activeEntry?.id === entry.id
                 return (
                   <div
                     key={entry.id}
-                    className={`top-row${isActive ? ' active' : ''}`}
+                    className={`tc-row${top3 ? ' top3' : ''}${isActive ? ' active' : ''}`}
                     onClick={() => setActiveEntry(entry)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 12,
-                      padding: '10px 14px', borderRadius: 10,
-                      border: `1px solid ${isActive ? 'rgba(255,255,255,0.1)' : isTop3 ? 'rgba(251,146,60,0.12)' : 'transparent'}`,
-                      background: isActive ? 'rgba(255,255,255,0.07)' : isTop3 ? 'rgba(251,146,60,0.05)' : 'transparent',
-                    }}
                   >
-                    {/* Position */}
-                    <div style={{ width: 28, textAlign: 'center', flexShrink: 0 }}>
-                      <span style={{ fontSize: 15, fontWeight: 900, color: isTop3 ? '#fb923c' : '#374151', fontVariantNumeric: 'tabular-nums' }}>
-                        {entry.position}
-                      </span>
+                    <div className={`tc-pos${top3 ? ' top' : ''}`}>{entry.position}</div>
+                    <div className="tc-trend">
+                      <TrendIndicator curr={entry.position} prev={entry.prev_position} isNew={entry.is_new} />
                     </div>
-
-                    {/* Trend */}
-                    <div style={{ width: 28, display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
-                      <TrendBadge curr={entry.position} prev={entry.prev_position} isNew={entry.is_new} />
+                    <div className="tc-cover">
+                      {entry.tracks?.cover_url ? <img src={entry.tracks.cover_url} alt="" /> : '♪'}
                     </div>
-
-                    {/* Cover */}
-                    <div style={{
-                      width: 42, height: 42, borderRadius: 8, overflow: 'hidden', flexShrink: 0,
-                      background: 'rgba(255,255,255,0.06)',
-                      boxShadow: isTop3 ? '0 2px 12px rgba(251,146,60,0.25)' : isActive ? '0 0 0 2px rgba(29,78,216,0.6)' : 'none',
-                    }}>
-                      {entry.tracks?.cover_url
-                        ? <img src={entry.tracks.cover_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.1)', fontSize: 16 }}>♪</div>}
-                    </div>
-
-                    {/* Info */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{
-                        margin: '0 0 2px', fontSize: 13, fontWeight: 700,
-                        color: isTop3 ? '#fff' : '#e5e7eb',
-                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                      }}>
-                        {entry.tracks?.title}
-                      </p>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                        <Link href={`/atlikejai/${entry.tracks?.artists?.slug}`}
-                          onClick={e => e.stopPropagation()}
-                          style={{ fontSize: 11, color: '#6b7280', textDecoration: 'none', fontWeight: 500 }}>
+                    <div className="tc-info">
+                      <p className="tc-title">{entry.tracks?.title}</p>
+                      <div className="tc-detail">
+                        <Link href={`/atlikejai/${entry.tracks?.artists?.slug}`} className="tc-artist" onClick={e => e.stopPropagation()}>
                           {entry.tracks?.artists?.name}
                         </Link>
-                        <span style={{ color: '#1f2937', fontSize: 10 }}>·</span>
-                        <span style={{ fontSize: 11, color: '#374151' }}>{entry.weeks_in_top}/12 sav.</span>
-                        {entry.peak_position && entry.peak_position <= 5 && (
-                          <>
-                            <span style={{ color: '#1f2937', fontSize: 10 }}>·</span>
-                            <span style={{ fontSize: 11, color: '#92400e' }}>↑#{entry.peak_position}</span>
-                          </>
-                        )}
+                        <span className="tc-dot">·</span>
+                        <span className="tc-weeks">{entry.weeks_in_top}/12 sav.</span>
                       </div>
                     </div>
-
-                    {/* Spotify */}
                     {entry.tracks?.spotify_id && (
-                      <a href={`https://open.spotify.com/track/${entry.tracks.spotify_id}`}
-                        target="_blank" rel="noopener noreferrer"
-                        onClick={e => e.stopPropagation()}
-                        style={{ color: '#1db954', opacity: 0.5, flexShrink: 0, display: 'flex' }}
-                        title="Klausyti Spotify">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" />
-                        </svg>
+                      <a href={`https://open.spotify.com/track/${entry.tracks.spotify_id}`} target="_blank" rel="noopener noreferrer" className="tc-spotify-icon" onClick={e => e.stopPropagation()}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
                       </a>
                     )}
-
-                    {/* Vote */}
                     {currentData.week && (
-                      <VoteButton
-                        entry={entry}
-                        weekId={currentData.week.id}
-                        onVoted={handleVoted}
-                        votedIds={votedIds}
-                        votesRemaining={votesRemaining}
-                      />
+                      <VoteButton entry={entry} weekId={currentData.week.id} onVoted={handleVoted} votedIds={votedIds} votesRemaining={votesRemaining} />
                     )}
                   </div>
                 )
               })}
             </div>
 
-            {/* Sticky player */}
-            <div style={{ position: 'sticky', top: 80 }}>
-              {activeEntry && (
-                <div style={{
-                  background: 'linear-gradient(160deg, #0d1520 0%, #0a1018 100%)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  borderRadius: 16, overflow: 'hidden',
-                  boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
-                }}>
-                  {/* Player */}
-                  <div style={{ padding: 12 }}>
-                    <YouTubePlayer
-                      videoId={activeVideoId}
-                      title={activeEntry.tracks?.title}
-                      cover={activeEntry.tracks?.cover_url}
-                    />
-                  </div>
-
-                  {/* Track info */}
-                  <div style={{ padding: '0 16px 16px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                      <span style={{
-                        fontSize: 11, fontWeight: 900, padding: '3px 8px', borderRadius: 6,
-                        background: activeEntry.position <= 3 ? 'rgba(251,146,60,0.15)' : 'rgba(255,255,255,0.07)',
-                        color: activeEntry.position <= 3 ? '#fb923c' : '#6b7280',
-                      }}>#{activeEntry.position}</span>
-                      <TrendBadge curr={activeEntry.position} prev={activeEntry.prev_position} isNew={activeEntry.is_new} />
-                    </div>
-                    <p style={{ margin: '0 0 4px', fontWeight: 800, color: '#fff', fontSize: 16, letterSpacing: '-0.01em', lineHeight: 1.3 }}>
-                      {activeEntry.tracks?.title}
-                    </p>
-                    <Link href={`/atlikejai/${activeEntry.tracks?.artists?.slug}`}
-                      style={{ color: '#6b7280', fontSize: 12, textDecoration: 'none', fontWeight: 500 }}>
-                      {activeEntry.tracks?.artists?.name}
-                    </Link>
-
-                    <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-                      <div style={{ flex: 1, minWidth: 70, padding: '8px 10px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, textAlign: 'center' }}>
-                        <p style={{ margin: 0, fontSize: 18, fontWeight: 900, color: '#fff' }}>{activeEntry.total_votes}</p>
-                        <p style={{ margin: 0, fontSize: 10, color: '#4b5563', marginTop: 1 }}>balsų</p>
-                      </div>
-                      <div style={{ flex: 1, minWidth: 70, padding: '8px 10px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, textAlign: 'center' }}>
-                        <p style={{ margin: 0, fontSize: 18, fontWeight: 900, color: '#fff' }}>{activeEntry.weeks_in_top}</p>
-                        <p style={{ margin: 0, fontSize: 10, color: '#4b5563', marginTop: 1 }}>sav. tope</p>
-                      </div>
-                      {activeEntry.peak_position && (
-                        <div style={{ flex: 1, minWidth: 70, padding: '8px 10px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, textAlign: 'center' }}>
-                          <p style={{ margin: 0, fontSize: 18, fontWeight: 900, color: '#fb923c' }}>#{activeEntry.peak_position}</p>
-                          <p style={{ margin: 0, fontSize: 10, color: '#4b5563', marginTop: 1 }}>rekordas</p>
-                        </div>
-                      )}
-                    </div>
-
-                    {activeEntry.tracks?.spotify_id && (
-                      <a href={`https://open.spotify.com/track/${activeEntry.tracks.spotify_id}`}
-                        target="_blank" rel="noopener noreferrer"
-                        style={{
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                          marginTop: 10, padding: '9px', borderRadius: 9,
-                          background: 'rgba(29,185,84,0.1)', border: '1px solid rgba(29,185,84,0.2)',
-                          color: '#1db954', fontSize: 12, fontWeight: 700, textDecoration: 'none',
-                          transition: 'background 0.15s',
-                        }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" />
-                        </svg>
-                        Klausyti Spotify
-                      </a>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Votes exhausted */}
+            <div className="tc-sticky">
+              <Player entry={activeEntry} />
               {!session && votesRemaining === 0 && (
-                <div style={{ marginTop: 12, padding: '16px', borderRadius: 12, background: 'rgba(29,78,216,0.08)', border: '1px solid rgba(29,78,216,0.15)', textAlign: 'center' }}>
-                  <p style={{ color: '#fff', fontWeight: 700, marginBottom: 6, fontSize: 13 }}>Panaudojai visus balsus!</p>
-                  <p style={{ color: '#60a5fa', fontSize: 12, marginBottom: 12 }}>Registruokis ir gauk 10 balsų per savaitę</p>
-                  <Link href="/auth/signin"
-                    style={{ display: 'inline-block', padding: '9px 20px', background: '#2563eb', color: '#fff', borderRadius: 20, fontWeight: 700, fontSize: 12, textDecoration: 'none' }}>
-                    Registruotis
-                  </Link>
+                <div className="tc-exhausted">
+                  <p>Panaudojai visus balsus!</p>
+                  <small>Registruokis ir gauk 10 balsų per savaitę</small>
+                  <Link href="/auth/signin" className="tc-btn-primary" style={{ display: 'inline-block', textDecoration: 'none' }}>Registruotis</Link>
                 </div>
               )}
             </div>
