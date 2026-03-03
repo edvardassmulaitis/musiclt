@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
@@ -7,8 +9,8 @@ export async function GET(req: Request) {
   const weekId = searchParams.get('week_id')
   const supabase = createAdminClient()
 
-  // Rasti aktyvią savaitę jei week_id nenurodytas
   let targetWeekId = weekId ? parseInt(weekId) : null
+
   if (!targetWeekId) {
     const { data: week } = await supabase
       .from('top_weeks')
@@ -23,7 +25,10 @@ export async function GET(req: Request) {
     return NextResponse.json({ entries: [], week: null })
 
   const { data: week } = await supabase
-    .from('top_weeks').select('*').eq('id', targetWeekId).single()
+    .from('top_weeks')
+    .select('*')
+    .eq('id', targetWeekId)
+    .single()
 
   const { data: entries, error } = await supabase
     .from('top_entries')
@@ -41,12 +46,9 @@ export async function GET(req: Request) {
   return NextResponse.json({ entries: entries || [], week })
 }
 
-// Admin: pridėti dainą į TOP
 export async function POST(req: Request) {
-  const { getServerSession } = await import('next-auth')
-  const { authOptions } = await import('@/lib/auth')
   const session = await getServerSession(authOptions)
-  if (!session?.user?.role || !['admin','super_admin'].includes(session.user.role))
+  if (!session?.user?.role || !['admin', 'super_admin'].includes(session.user.role))
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
@@ -54,11 +56,23 @@ export async function POST(req: Request) {
   const supabase = createAdminClient()
 
   const { data: week } = await supabase
-    .from('top_weeks').select('top_type').eq('id', week_id).single()
+    .from('top_weeks')
+    .select('top_type')
+    .eq('id', week_id)
+    .single()
 
   const { data, error } = await supabase
     .from('top_entries')
-    .upsert({ week_id, track_id, position, top_type: week?.top_type || 'top40', weeks_in_top: 1, total_votes: 0, is_new: true, peak_position: position })
+    .upsert({
+      week_id,
+      track_id,
+      position,
+      top_type: week?.top_type || 'top40',
+      weeks_in_top: 1,
+      total_votes: 0,
+      is_new: true,
+      peak_position: position,
+    })
     .select()
     .single()
 
