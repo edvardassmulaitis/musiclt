@@ -412,8 +412,8 @@ function AdminTopInner() {
               </div>
             ) : entries.length === 0 ? (
               <div className="bg-white border border-gray-100 rounded-xl p-8 text-center shadow-sm">
-                <p className="text-gray-400 text-sm mb-1">Topas tuščias.</p>
-                <p className="text-xs text-gray-300">Patvirtinkite pasiūlymus — jie automatiškai pateks čia.</p>
+                <p className="text-gray-400 text-sm mb-1">Šios savaitės topas tuščias.</p>
+                <p className="text-xs text-gray-300">Patvirtinti pasiūlymai pateks čia kitą pirmadienį kai prasidės nauja savaitė.</p>
               </div>
             ) : (
               <div className="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm">
