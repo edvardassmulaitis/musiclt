@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -53,7 +53,7 @@ function TrendBadge({ curr, prev }: { curr: number; prev: number | null }) {
   return <span className="text-gray-600 text-xs">—</span>
 }
 
-export default function AdminTop() {
+function AdminTopInner() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -184,91 +184,68 @@ export default function AdminTop() {
     <div className="min-h-screen p-6">
       <div className="max-w-6xl mx-auto">
 
-        {/* Header */}
         <div className="flex items-center gap-3 mb-6">
-          <Link href="/admin" className="text-gray-500 hover:text-white text-sm transition-colors">
-            ← Admin
-          </Link>
+          <Link href="/admin" className="text-gray-500 hover:text-white text-sm transition-colors">← Admin</Link>
           <span className="text-gray-600">/</span>
           <h1 className="text-2xl font-black text-white">🏆 TOP Sąrašai</h1>
         </div>
 
         {msg && (
-          <div className="mb-4 px-4 py-2.5 rounded-xl bg-green-500/15 border border-green-500/25 text-green-400 text-sm">
-            {msg}
-          </div>
+          <div className="mb-4 px-4 py-2.5 rounded-xl bg-green-500/15 border border-green-500/25 text-green-400 text-sm">{msg}</div>
         )}
 
-        {/* TOP Type switcher */}
         <div className="flex gap-2 mb-6">
           {(['top40', 'lt_top30'] as const).map(t => (
             <button key={t} onClick={() => setTopType(t)}
               className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all ${
-                topType === t
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10'
+                topType === t ? 'bg-blue-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10'
               }`}>
               {t === 'top40' ? '🌍 TOP 40' : '🇱🇹 LT TOP 30'}
             </button>
           ))}
         </div>
 
-        {/* Tabs */}
         <div className="flex gap-1 mb-6 border-b border-white/10">
           {([
             ['entries', '📋 Sąrašas'],
-            ['suggestions', `💡 Pasiūlymai${tab === 'suggestions' && suggestions.length > 0 ? ` (${suggestions.length})` : ''}`],
+            ['suggestions', '💡 Pasiūlymai'],
             ['weeks', '📅 Savaitės'],
             ['stats', '📊 Statistika'],
           ] as const).map(([k, l]) => (
             <button key={k} onClick={() => setTab(k as TabType)}
               className={`px-4 py-2 text-sm font-semibold transition-colors border-b-2 -mb-px ${
-                tab === k
-                  ? 'border-blue-500 text-white'
-                  : 'border-transparent text-gray-500 hover:text-gray-300'
+                tab === k ? 'border-blue-500 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'
               }`}>
               {l}
             </button>
           ))}
         </div>
 
-        {/* ── ENTRIES TAB ── */}
+        {/* ENTRIES */}
         {tab === 'entries' && (
           <div className="space-y-4">
-            {/* Week selector */}
             <div className="flex items-center gap-3 flex-wrap">
               <span className="text-sm text-gray-400 font-medium">Savaitė:</span>
               <div className="flex gap-2 flex-wrap">
                 {weeks.map(w => (
                   <button key={w.id} onClick={() => setActiveWeek(w)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                      activeWeek?.id === w.id
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10'
+                      activeWeek?.id === w.id ? 'bg-blue-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10'
                     }`}>
                     {new Date(w.week_start).toLocaleDateString('lt-LT', { month: 'short', day: 'numeric' })}
                     {w.is_active && <span className="ml-1 text-green-400">●</span>}
                   </button>
                 ))}
-                {weeks.length === 0 && (
-                  <span className="text-xs text-gray-600">Nėra savaičių — sukurkite skirtuke „Savaitės"</span>
-                )}
+                {weeks.length === 0 && <span className="text-xs text-gray-600">Nėra savaičių — sukurkite skirtuke „Savaitės"</span>}
               </div>
             </div>
 
-            {/* Add track */}
             <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
-              <p className="text-sm font-bold text-white mb-3">
-                + Pridėti dainą į {topType === 'top40' ? 'TOP 40' : 'LT TOP 30'}
-              </p>
+              <p className="text-sm font-bold text-white mb-3">+ Pridėti dainą</p>
               <div className="relative">
-                <input
-                  type="text"
-                  value={trackSearch}
-                  onChange={e => setTrackSearch(e.target.value)}
-                  placeholder="Ieškoti dainos pagal pavadinimą ar atlikėją…"
-                  className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-gray-500 focus:outline-none focus:border-blue-500 text-sm"
-                />
+                <input type="text" value={trackSearch} onChange={e => setTrackSearch(e.target.value)}
+                  placeholder="Ieškoti dainos…"
+                  className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-gray-500 focus:outline-none focus:border-blue-500 text-sm" />
                 {trackResults.length > 0 && (
                   <div className="absolute top-full left-0 right-0 mt-1 bg-[#0d1117] border border-white/15 rounded-xl overflow-hidden shadow-2xl z-20">
                     {trackResults.map((t: any) => (
@@ -287,15 +264,11 @@ export default function AdminTop() {
               </div>
             </div>
 
-            {/* Entries list */}
             {loading ? (
-              <div className="flex justify-center py-12">
-                <div className="w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-              </div>
+              <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" /></div>
             ) : entries.length === 0 ? (
               <div className="bg-white/5 border border-white/10 rounded-2xl p-12 text-center">
-                <p className="text-4xl mb-3">🏆</p>
-                <p className="text-gray-400">Sąrašas tuščias. Pridėkite dainų arba sukurkite naują savaitę.</p>
+                <p className="text-gray-400">Sąrašas tuščias.</p>
               </div>
             ) : (
               <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
@@ -314,13 +287,9 @@ export default function AdminTop() {
                     {entries.map(e => (
                       <tr key={e.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                         <td className="px-4 py-3">
-                          <span className={`text-sm font-black ${e.position <= 3 ? 'text-orange-400' : 'text-gray-400'}`}>
-                            {e.position}
-                          </span>
+                          <span className={`text-sm font-black ${e.position <= 3 ? 'text-orange-400' : 'text-gray-400'}`}>{e.position}</span>
                         </td>
-                        <td className="px-4 py-3">
-                          <TrendBadge curr={e.position} prev={e.prev_position} />
-                        </td>
+                        <td className="px-4 py-3"><TrendBadge curr={e.position} prev={e.prev_position} /></td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
                             <div className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center text-xs flex-shrink-0">♪</div>
@@ -342,29 +311,23 @@ export default function AdminTop() {
           </div>
         )}
 
-        {/* ── SUGGESTIONS TAB ── */}
+        {/* SUGGESTIONS */}
         {tab === 'suggestions' && (
           <div className="space-y-4">
             <div className="flex gap-2">
               {(['pending', 'approved', 'rejected'] as const).map(s => (
                 <button key={s} onClick={() => setSuggestionStatus(s)}
                   className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
-                    suggestionStatus === s
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10'
+                    suggestionStatus === s ? 'bg-blue-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10'
                   }`}>
                   {s === 'pending' ? '⏳ Laukia' : s === 'approved' ? '✓ Patvirtinta' : '✕ Atmesta'}
                 </button>
               ))}
             </div>
             {loading ? (
-              <div className="flex justify-center py-12">
-                <div className="w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-              </div>
+              <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" /></div>
             ) : suggestions.length === 0 ? (
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-12 text-center">
-                <p className="text-gray-400">Nėra pasiūlymų šioje kategorijoje.</p>
-              </div>
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-12 text-center"><p className="text-gray-400">Nėra pasiūlymų.</p></div>
             ) : (
               <div className="space-y-2">
                 {suggestions.map(s => {
@@ -375,23 +338,14 @@ export default function AdminTop() {
                       <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center text-sm flex-shrink-0">♪</div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-white">{title}</p>
-                        <p className="text-xs text-gray-500">
-                          {artist} · {s.top_type === 'top40' ? 'TOP 40' : 'LT TOP 30'}
-                        </p>
-                        <p className="text-xs text-gray-600 mt-0.5">
-                          {new Date(s.created_at).toLocaleDateString('lt-LT')}
-                        </p>
+                        <p className="text-xs text-gray-500">{artist} · {s.top_type === 'top40' ? 'TOP 40' : 'LT TOP 30'}</p>
                       </div>
                       {suggestionStatus === 'pending' && (
                         <div className="flex gap-2 flex-shrink-0">
                           <button onClick={() => reviewSuggestion(s.id, 'approved')}
-                            className="px-3 py-1.5 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded-lg text-xs font-bold transition-colors">
-                            ✓ Patvirtinti
-                          </button>
+                            className="px-3 py-1.5 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded-lg text-xs font-bold transition-colors">✓ Patvirtinti</button>
                           <button onClick={() => reviewSuggestion(s.id, 'rejected')}
-                            className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-xs font-bold transition-colors">
-                            ✕ Atmesti
-                          </button>
+                            className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-xs font-bold transition-colors">✕ Atmesti</button>
                         </div>
                       )}
                     </div>
@@ -402,24 +356,19 @@ export default function AdminTop() {
           </div>
         )}
 
-        {/* ── WEEKS TAB ── */}
+        {/* WEEKS */}
         {tab === 'weeks' && (
           <div className="space-y-4">
             <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
               <p className="text-sm font-bold text-white mb-3">Sukurti naują savaitę</p>
               <div className="flex gap-3">
-                <input
-                  type="date"
-                  value={newWeekDate}
-                  onChange={e => setNewWeekDate(e.target.value)}
-                  className="px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-blue-500 text-sm"
-                />
+                <input type="date" value={newWeekDate} onChange={e => setNewWeekDate(e.target.value)}
+                  className="px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-blue-500 text-sm" />
                 <button onClick={createWeek} disabled={saving || !newWeekDate}
                   className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition-colors disabled:opacity-50">
                   {saving ? 'Kuriama…' : '+ Sukurti'}
                 </button>
               </div>
-              <p className="text-xs text-gray-500 mt-2">Nauja savaitė automatiškai taps aktyvia.</p>
             </div>
             <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
               <table className="w-full">
@@ -437,9 +386,7 @@ export default function AdminTop() {
                       <td className="px-4 py-3 text-sm text-white font-medium">
                         {new Date(w.week_start).toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' })}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-400">
-                        {w.top_type === 'top40' ? '🌍 TOP 40' : '🇱🇹 LT TOP 30'}
-                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-400">{w.top_type === 'top40' ? '🌍 TOP 40' : '🇱🇹 LT TOP 30'}</td>
                       <td className="px-4 py-3">
                         {w.is_active
                           ? <span className="text-xs font-bold text-green-400 bg-green-400/10 px-2 py-1 rounded-full">● Aktyvi</span>
@@ -447,18 +394,12 @@ export default function AdminTop() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <button onClick={() => { setActiveWeek(w); setTab('entries') }}
-                          className="text-xs text-blue-400 hover:text-blue-300 font-medium transition-colors">
-                          Žiūrėti →
-                        </button>
+                          className="text-xs text-blue-400 hover:text-blue-300 font-medium transition-colors">Žiūrėti →</button>
                       </td>
                     </tr>
                   ))}
                   {weeks.length === 0 && (
-                    <tr>
-                      <td colSpan={4} className="px-4 py-8 text-center text-gray-600 text-sm">
-                        Nėra savaičių. Sukurkite pirmą.
-                      </td>
-                    </tr>
+                    <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-600 text-sm">Nėra savaičių.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -466,7 +407,7 @@ export default function AdminTop() {
           </div>
         )}
 
-        {/* ── STATS TAB ── */}
+        {/* STATS */}
         {tab === 'stats' && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
@@ -485,5 +426,17 @@ export default function AdminTop() {
 
       </div>
     </div>
+  )
+}
+
+export default function AdminTop() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <AdminTopInner />
+    </Suspense>
   )
 }
