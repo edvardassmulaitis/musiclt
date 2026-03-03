@@ -82,9 +82,9 @@ export async function POST(req: Request) {
     .upsert({
       top_type,
       track_id,
-      user_id: session.user.id,
+      suggested_by_user_id: session.user.id,
       status: 'pending',
-    }, { onConflict: 'top_type,track_id,user_id' })
+    }, { onConflict: 'top_type,track_id,suggested_by_user_id' })
     .select()
     .single()
 
