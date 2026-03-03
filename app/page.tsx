@@ -1,741 +1,710 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import Link from 'next/link'
 import { useSite } from '@/components/SiteContext'
-import { CommunityPosts } from '@/components/CommunityPosts'
 
+// ── TYPES ──────────────────────────────────────────────────────────────────────
 
-// ── MOCK DATA ──────────────────────────────────────────────────────────────────
+type Track = { id: number; slug: string; title: string; cover_url: string | null; video_url: string | null; release_date: string | null; created_at: string; artists: { id: number; slug: string; name: string; cover_image_url: string | null } | null }
+type Album = { id: number; slug: string; title: string; year: number | null; cover_image_url: string | null; created_at: string; artists: { id: number; slug: string; name: string } | null }
+type Artist = { id: number; slug: string; name: string; cover_image_url: string | null; genres?: string }
+type Event = { id: number; slug: string; title: string; event_date: string; venue_custom: string | null; image_small_url: string | null; venues: { name: string; city: string } | null }
+type NewsItem = { id: number; slug: string; title: string; image_small_url: string | null; published_at: string; type: string | null; artists: { name: string } | null }
+type TopEntry = { pos: number; track_id: number; title: string; artist: string; cover_url: string | null; trend: string; wks?: number }
+type Nomination = { id: number; tracks: { id: number; title: string; cover_url: string | null; artists: { name: string } | null } | null; votes: number; weighted_votes: number }
+type Discussion = { id: number; slug: string; title: string; author_name: string | null; comment_count: number; created_at: string; tags: string[] }
+type ShoutMsg = { id: number; author_name: string; author_avatar: string | null; body: string; created_at: string; user_id: string }
 
-const SLIDES_LT = [
-  {
-    type: 'release',
-    chip: '#1 Lietuvoje', chipBg: '#f97316',
-    kicker: '3 savaitė iš eilės',
-    artist: 'Silvester Belt', title: 'Bend The Lie',
-    desc: 'Oficiali Lietuvos daina „Eurovision 2026" — jau viršuje visoje Europoje.',
-    cta: 'Klausyti', ctaSecondary: 'Atlikėjo profilis',
-    bg: 'linear-gradient(135deg, #0c1524 0%, #19103a 55%, #0c1524 100%)',
-    glow: 'radial-gradient(ellipse at 25% 55%, rgba(99,102,241,0.4) 0%, transparent 55%)',
-    cover: '#312e81',
-  },
-  {
-    type: 'release',
-    chip: 'Premjera', chipBg: '#2563eb',
-    kicker: 'Albumas jau pasiekiamas',
-    artist: 'Jurga', title: 'Vasaros Naktys',
-    desc: 'Jau 5 savaitė TOP 10 — klausytojų mėgstamiausias šio sezono albumas.',
-    cta: 'Klausyti albumą', ctaSecondary: 'Peržiūrėti',
-    bg: 'linear-gradient(135deg, #071422 0%, #092a1e 55%, #071422 100%)',
-    glow: 'radial-gradient(ellipse at 25% 55%, rgba(16,185,129,0.32) 0%, transparent 55%)',
-    cover: '#064e3b',
-  },
-  {
-    type: 'event',
-    chip: 'Renginys', chipBg: '#059669',
-    kicker: 'Vasario 22 d. • Kaunas',
-    artist: 'Kęstutis Antanėlis', title: 'Žalgirio Arena',
-    desc: 'Didžiausias šių metų koncertas Lietuvoje. Bilietų lieka nedaug.',
-    cta: 'Pirkti bilietą', ctaSecondary: 'Daugiau info',
-    bg: 'linear-gradient(135deg, #0a1422 0%, #1a1005 55%, #0a1422 100%)',
-    glow: 'radial-gradient(ellipse at 25% 55%, rgba(245,158,11,0.3) 0%, transparent 55%)',
-    cover: '#78350f',
-  },
-  {
-    type: 'artist',
-    chip: 'Atlikėjas', chipBg: '#7c3aed',
-    kicker: '1.2M klausytojų šiandien',
-    artist: 'Monika Liu', title: 'Lietuvos balso veidas',
-    desc: 'Nuo „Eurovision" iki pasaulio scenų — sekite naujausias žinias.',
-    cta: 'Peržiūrėti profilį', ctaSecondary: 'Klausyti',
-    bg: 'linear-gradient(135deg, #0d0a1e 0%, #180a2e 55%, #0d0a1e 100%)',
-    glow: 'radial-gradient(ellipse at 25% 55%, rgba(139,92,246,0.35) 0%, transparent 55%)',
-    cover: '#3b0764',
-  },
-]
+// ── HELPERS ────────────────────────────────────────────────────────────────────
 
-const SLIDES_WORLD = [
-  {
-    type: 'release',
-    chip: '#1 Pasaulyje', chipBg: '#dc2626',
-    kicker: '6 savaitė iš eilės',
-    artist: 'Rose & Bruno Mars', title: 'APT.',
-    desc: 'Hitas valdantis pasaulio charts — virusinė kūrinys iš Korėjos iki Europos.',
-    cta: 'Klausyti', ctaSecondary: 'Daugiau',
-    bg: 'linear-gradient(135deg, #180a0a 0%, #280a1e 55%, #180a0a 100%)',
-    glow: 'radial-gradient(ellipse at 25% 55%, rgba(220,38,38,0.3) 0%, transparent 55%)',
-    cover: '#7f1d1d',
-  },
-  {
-    type: 'release',
-    chip: 'Premjera', chipBg: '#0891b2',
-    kicker: 'Naujausias singlas',
-    artist: 'Billie Eilish', title: 'Birds of a Feather',
-    desc: 'Iš albumo „Hit Me Hard and Soft" — jautrus ir galingas kūrinys.',
-    cta: 'Klausyti', ctaSecondary: 'Profilis',
-    bg: 'linear-gradient(135deg, #04101a 0%, #061828 55%, #04101a 100%)',
-    glow: 'radial-gradient(ellipse at 25% 55%, rgba(8,145,178,0.3) 0%, transparent 55%)',
-    cover: '#0c4a6e',
-  },
-]
-
-const CHARTS_LT = [
-  { pos: 1, artist: 'Monika Liu', title: 'Sentimentai', wks: 4, lt: true, trend: 'same' },
-  { pos: 2, artist: 'Silvester Belt', title: 'Bend The Lie', wks: 2, lt: true, trend: 'up' },
-  { pos: 3, artist: 'Jazzu', title: 'Kur Eisi', wks: 7, lt: true, trend: 'down' },
-  { pos: 4, artist: 'Galerija', title: 'Naktis', wks: 3, lt: true, trend: 'up' },
-  { pos: 5, artist: 'Dž. Džo', title: 'Vilniaus Vakaras', wks: 1, lt: true, trend: 'new' },
-  { pos: 6, artist: 'Andrius Mamontovas', title: 'Laikas', wks: 9, lt: true, trend: 'down' },
-  { pos: 7, artist: 'Jurga', title: 'Vasaros Naktys', wks: 5, lt: true, trend: 'up' },
-]
-
-const CHARTS_WORLD = [
-  { pos: 1, artist: 'Rose & Bruno Mars', title: 'APT.', lt: false, trend: 'same' },
-  { pos: 2, artist: 'Lady Gaga', title: 'Disease', lt: false, trend: 'up' },
-  { pos: 3, artist: 'Sabrina Carpenter', title: 'Espresso', lt: false, trend: 'down' },
-  { pos: 4, artist: 'Billie Eilish', title: 'Birds of a Feather', lt: false, trend: 'up' },
-  { pos: 5, artist: 'Chappell Roan', title: 'Good Luck, Babe!', lt: false, trend: 'new' },
-  { pos: 6, artist: 'Kendrick Lamar', title: 'Luther', lt: false, trend: 'up' },
-  { pos: 7, artist: 'SZA', title: 'Saturn', lt: false, trend: 'down' },
-]
-
-const SINGLES = [
-  { artist: 'Monika Liu', title: 'Palauk', lt: true, hue: 280, genre: 'Pop' },
-  { artist: 'Silvester Belt', title: 'Bend The Lie', lt: true, hue: 225, genre: 'Pop' },
-  { artist: 'Dž. Džo', title: 'Vilniaus Vakaras', lt: true, hue: 200, genre: 'Hip-hop' },
-  { artist: 'Andrius Mamontovas', title: 'Laikas', lt: true, hue: 155, genre: 'Rokas' },
-  { artist: 'Saulės Kliošas', title: 'Ruduo', lt: true, hue: 320, genre: 'Folk' },
-  { artist: 'Jazzu', title: 'Šviesa', lt: true, hue: 38, genre: 'Jazz' },
-  { artist: 'Inculto', title: 'Grįžau', lt: true, hue: 5, genre: 'Rokas' },
-  { artist: 'Skamp', title: 'Again', lt: true, hue: 260, genre: 'Pop' },
-  { artist: 'Galerija', title: 'Aušra', lt: true, hue: 42, genre: 'Elektronika' },
-  { artist: 'Dainava', title: 'Šaltinis', lt: true, hue: 190, genre: 'Folk' },
-  { artist: 'Foje', title: 'Medžiai', lt: true, hue: 130, genre: 'Rokas' },
-  { artist: 'G&G Sindikatas', title: 'Miestas', lt: true, hue: 25, genre: 'Hip-hop' },
-  { artist: 'Birutė Mar', title: 'Jūra', lt: true, hue: 210, genre: 'Pop' },
-  { artist: 'Sūduviai', title: 'Ąžuolas', lt: true, hue: 95, genre: 'Folk' },
-]
-
-const ALBUMS = [
-  { artist: 'Jurga', title: 'Vasaros Naktys', lt: true, hue: 155, tracks: 11, genre: 'Pop', status: 'out', date: 'Saus. 12' },
-  { artist: 'Galerija', title: 'Naktis', lt: true, hue: 42, tracks: 8, genre: 'Elektronika', status: 'out', date: 'Saus. 20' },
-  { artist: 'Dainava', title: 'Tamsoje', lt: true, hue: 260, tracks: 9, genre: 'Folk', status: 'out', date: 'Vas. 1' },
-  { artist: 'Inculto', title: 'Retro', lt: true, hue: 5, tracks: 13, genre: 'Rokas', status: 'out', date: 'Vas. 8' },
-  { artist: 'Skamp', title: 'Sugrįžimas', lt: true, hue: 180, tracks: 12, genre: 'Pop', status: 'out', date: 'Vas. 14' },
-  { artist: 'Foje', title: 'Amžinai', lt: true, hue: 130, tracks: 10, genre: 'Rokas', status: 'out', date: 'Vas. 21' },
-  { artist: 'Silvester Belt', title: 'European Tour', lt: true, hue: 225, tracks: 14, genre: 'Pop', status: 'soon', date: 'Kov. 7' },
-  { artist: 'Monika Liu', title: 'Spalvos', lt: true, hue: 280, tracks: 9, genre: 'Pop', status: 'soon', date: 'Kov. 14' },
-  { artist: 'Andrius Mamontovas', title: 'Akustinis', lt: true, hue: 155, tracks: 11, genre: 'Rokas', status: 'soon', date: 'Kov. 28' },
-  { artist: 'Saulės Kliošas', title: 'Pavasaris', lt: true, hue: 320, tracks: 7, genre: 'Folk', status: 'soon', date: 'Bal. 4' },
-]
-
-const SOTD = {
-  artist: 'Foje', title: 'Žmogus Kuris Nemoka Šokti',
-  by: 'rokaslt', hue: 220,
-  rx: { fire: 124, heart: 89, star: 56 },
-  yesterday: 'Monika Liu — Sentimentai',
+function timeAgo(d: string) {
+  const m = Math.floor((Date.now() - new Date(d).getTime()) / 60000)
+  if (m < 1) return 'ką tik'
+  if (m < 60) return `${m} min.`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h} val.`
+  const days = Math.floor(h / 24)
+  if (days < 7) return `${days} d.`
+  return new Date(d).toLocaleDateString('lt-LT', { month: 'short', day: 'numeric' })
 }
 
-const SOTD_CANDIDATES = [
-  { artist: 'Monika Liu', title: 'Sentimentai', votes: 31 },
-  { artist: 'Andrius Mamontovas', title: 'Laikas', votes: 28 },
-  { artist: 'Jazzu', title: 'Kur Eisi', votes: 24 },
-  { artist: 'Jurga', title: 'Vasaros Naktys', votes: 19 },
-  { artist: 'Galerija', title: 'Naktis', votes: 17 },
-  { artist: 'Skamp', title: 'Come Back To Me', votes: 14 },
-  { artist: 'Silvester Belt', title: 'Bend The Lie', votes: 12 },
-  { artist: 'Dž. Džo', title: 'Vilniaus Vakaras', votes: 9 },
-]
+function fmtDate(d: string) {
+  return new Date(d).toLocaleDateString('lt-LT', { month: 'short', day: 'numeric' })
+}
 
-const SHOUTBOX = [
-  { user: 'muzikoslt', msg: 'Kas žino kada bus kitas Skamp koncertas?', ago: '2 min.' },
-  { user: 'rockfanas', msg: 'Mamontovas 🔥 visiška legenda', ago: '5 min.' },
-  { user: 'jazzlover', msg: 'Ieškau bilieto į Jurgą 03-01', ago: '12 min.' },
-  { user: 'indie_lt', msg: 'Saulės Kliošo EP yra fire 🎶', ago: '18 min.' },
-  { user: 'vertejas', msg: 'Padėkite išversti Arctic Monkeys', ago: '24 min.' },
-]
+function hue(str: string) {
+  let h = 0
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) % 360
+  return h
+}
 
-const COMMUNITY = [
-  { type: 'Diskusija', user: 'muzikoslt', title: 'Kaip vertinate naują Skamp albumą?', replies: 47, ago: '2 val.' },
-  { type: 'Blogas', user: 'rockfanas', title: 'Mano top 10 LT albumų 2025 metais', replies: 12, ago: '5 val.' },
-  { type: 'Recenzija', user: 'jazzlover', title: 'Jurga „Vasaros Naktys" — recenzija', replies: 8, ago: '1 d.' },
-  { type: 'Diskusija', user: 'indie_lt', title: 'Geriausias LT indie albumas šiais metais?', replies: 23, ago: '1 d.' },
-]
-
-const EVENTS = [
-  { d: '22', m: 'VAS', title: 'Kęstutis Antanėlis', venue: 'Žalgirio Arena', city: 'Kaunas', sold: false },
-  { d: '28', m: 'VAS', title: 'Monika Liu Acoustic', venue: 'Tamsta Club', city: 'Vilnius', sold: false },
-  { d: '01', m: 'KOV', title: 'Jurga & Orkestras', venue: 'LNFO', city: 'Vilnius', sold: false },
-  { d: '15', m: 'KOV', title: 'Donatas Montvydas', venue: 'Compensa', city: 'Vilnius', sold: true },
-  { d: '22', m: 'KOV', title: 'Andrius Mamontovas', venue: 'Forum Palace', city: 'Vilnius', sold: false },
-]
-
-const PRESS = [
-  { artist: 'Silvester Belt', hue: 225, chip: 'Oficialus pranešimas', title: 'Oficiali Lietuvos daina „Eurovision 2026" pristatyta Bazelyje', ago: '2 val.' },
-  { artist: 'Skamp', hue: 38, chip: 'Premjera', title: 'Skamp anunsavo pirmąjį albumą per 15 metų — „Sugrįžimas"', ago: '5 val.' },
-  { artist: 'Granatas', hue: 155, chip: 'Renginys', title: 'Granatas paskelbė Vilniaus arenos koncertą spalio 18 d.', ago: '1 d.' },
-  { artist: 'Andrius Mamontovas', hue: 280, chip: 'Interviu', title: 'Mamontovas: „Muzika visada randa kelią net tyliausiuose namuose"', ago: '2 d.' },
-]
-
-const DISCOVER = [
-  { name: 'Monika Liu', genre: 'Pop / Soul', hue: 280, isNew: false },
-  { name: 'Dž. Džo', genre: 'Hip-hop', hue: 30, isNew: true },
-  { name: 'Saulės Kliošas', genre: 'Indie', hue: 320, isNew: true },
-  { name: 'Galerija', genre: 'Elektronika', hue: 155, isNew: false },
-  { name: 'Jazzu', genre: 'R&B / Soul', hue: 200, isNew: false },
-  { name: 'Skamp', genre: 'Pop', hue: 180, isNew: false },
-]
-
-const CITIES = ['Visi', 'Vilnius', 'Kaunas', 'Klaipėda', 'Šiauliai']
-const GENRES = ['Visi', 'Pop', 'Rokas', 'Hip-hop', 'Elektronika', 'Folk', 'Jazz']
-
-// ── ATOMS ──────────────────────────────────────────────────────────────────────
-
-function Pill({ label, active, onClick }: { label: React.ReactNode; active?: boolean; onClick?: () => void }) {
-  return (
-    <button onClick={onClick}
-      className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap select-none ${
-        active ? 'bg-[#1d4ed8] text-white shadow-md shadow-blue-900/50'
-               : 'text-[#7a90b0] border border-white/[0.08] hover:text-[#e2e8f0] hover:border-white/[0.16]'}`}>
-      {label}
-    </button>
-  )
+function Cover({ src, alt, size = 44, radius = 10 }: { src?: string | null; alt: string; size?: number; radius?: number }) {
+  const h = hue(alt)
+  return src
+    ? <img src={src} alt={alt} style={{ width: size, height: size, borderRadius: radius, objectFit: 'cover', flexShrink: 0 }} />
+    : <div style={{ width: size, height: size, borderRadius: radius, flexShrink: 0, background: `linear-gradient(135deg, hsl(${h},45%,18%), hsl(${h+40},35%,12%))`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: `hsl(${h},50%,40%)`, fontSize: size * 0.35, fontWeight: 900 }}>
+        {alt[0]?.toUpperCase()}
+      </div>
 }
 
 function TrendIcon({ t }: { t: string }) {
-  if (t === 'up') return <span className="text-emerald-400 font-black text-xs">↑</span>
-  if (t === 'down') return <span className="text-red-400 font-black text-xs">↓</span>
-  if (t === 'new') return <span className="text-[9px] font-black text-amber-300 bg-amber-400/10 px-1 py-0.5 rounded">N</span>
-  return <span className="text-[#2a3a50] text-xs">—</span>
+  if (t === 'up') return <span style={{ color: '#34d399', fontSize: 11, fontWeight: 900 }}>↑</span>
+  if (t === 'down') return <span style={{ color: '#f87171', fontSize: 11, fontWeight: 900 }}>↓</span>
+  if (t === 'new') return <span style={{ fontSize: 8, fontWeight: 900, color: '#fbbf24', background: 'rgba(251,191,36,0.12)', padding: '2px 5px', borderRadius: 4 }}>N</span>
+  return <span style={{ color: '#1e2e42', fontSize: 11 }}>—</span>
 }
 
-function SecHead({ label, cta }: { label: React.ReactNode; cta?: string }) {
+// ── WORLD MOCK (nera DB) ───────────────────────────────────────────────────────
+
+const WORLD_TOP: TopEntry[] = [
+  { pos: 1, track_id: 0, title: 'APT.', artist: 'Rose & Bruno Mars', cover_url: null, trend: 'same' },
+  { pos: 2, track_id: 0, title: 'Disease', artist: 'Lady Gaga', cover_url: null, trend: 'up' },
+  { pos: 3, track_id: 0, title: 'Espresso', artist: 'Sabrina Carpenter', cover_url: null, trend: 'down' },
+  { pos: 4, track_id: 0, title: 'Birds of a Feather', artist: 'Billie Eilish', cover_url: null, trend: 'up' },
+  { pos: 5, track_id: 0, title: 'Good Luck, Babe!', artist: 'Chappell Roan', cover_url: null, trend: 'new' },
+  { pos: 6, track_id: 0, title: 'Luther', artist: 'Kendrick Lamar', cover_url: null, trend: 'up' },
+  { pos: 7, track_id: 0, title: 'Saturn', artist: 'SZA', cover_url: null, trend: 'down' },
+]
+
+const MONTHS_LT = ['Sau', 'Vas', 'Kov', 'Bal', 'Geg', 'Bir', 'Lie', 'Rgp', 'Rgs', 'Spa', 'Lap', 'Gru']
+
+// ── SUB-COMPONENTS ─────────────────────────────────────────────────────────────
+
+function SectionHead({ label, href, cta = 'Visi →' }: { label: React.ReactNode; href?: string; cta?: string }) {
   return (
-    <div className="flex items-center justify-between mb-6">
-      <h2 className="text-[19px] font-black tracking-tight" style={{ color: '#f2f4f8' }}>{label}</h2>
-      {cta && <a href="#" className="text-sm text-[#4a6fa5] hover:text-[#93b4e0] font-semibold transition-colors">{cta} →</a>}
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+      <h2 style={{ fontSize: 18, fontWeight: 900, color: '#eef2fa', letterSpacing: '-0.02em', margin: 0 }}>{label}</h2>
+      {href && <Link href={href} style={{ fontSize: 12, color: '#4a6fa5', fontWeight: 700, textDecoration: 'none' }}>{cta}</Link>}
     </div>
   )
 }
 
-
-// ── MAIN ───────────────────────────────────────────────────────────────────────
-
-export default function Home() {
-  const { lens, dk } = useSite()
-  const CS = dk ? { background: 'rgba(255,255,255,0.028)', border: '1px solid rgba(255,255,255,0.075)' } : { background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(0,0,0,0.09)', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }
-  const CH = {
-    onMouseEnter: (e: React.MouseEvent<HTMLElement>) => { (e.currentTarget as HTMLElement).style.borderColor = dk ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.2)' },
-    onMouseLeave: (e: React.MouseEvent<HTMLElement>) => { (e.currentTarget as HTMLElement).style.borderColor = dk ? 'rgba(255,255,255,0.075)' : 'rgba(0,0,0,0.09)' },
+function Card({ children, style, href }: { children: React.ReactNode; style?: React.CSSProperties; href?: string }) {
+  const base: React.CSSProperties = {
+    background: 'rgba(255,255,255,0.03)',
+    border: '1px solid rgba(255,255,255,0.07)',
+    borderRadius: 14,
+    transition: 'border-color 0.15s',
+    cursor: 'pointer',
+    ...style,
   }
-  const [idx, setIdx] = useState(0)
-  const [chartTab, setChartTab] = useState<'lt' | 'world'>('lt')
-  const [genre, setGenre] = useState('Visi')
-  const [city, setCity] = useState('Visi')
-  const [rx, setRx] = useState(SOTD.rx)
+  if (href) return <Link href={href} style={{ ...base, display: 'block', textDecoration: 'none' }}>{children}</Link>
+  return <div style={base}>{children}</div>
+}
+
+// ── DIENOS DAINA WIDGET ────────────────────────────────────────────────────────
+
+function DienosDainaWidget() {
+  const [nominations, setNominations] = useState<Nomination[]>([])
   const [voted, setVoted] = useState<number | null>(null)
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const slides = lens === 'world' ? SLIDES_WORLD : SLIDES_LT
-  const chartData = lens === 'world' || chartTab === 'world' ? CHARTS_WORLD : CHARTS_LT
-
-  const goTo = useCallback((i: number, len: number) => {
-    setIdx(((i % len) + len) % len)
-    if (timerRef.current) clearTimeout(timerRef.current)
-  }, [])
-
-  useEffect(() => { setIdx(0) }, [lens])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    timerRef.current = setTimeout(() => setIdx(p => (p + 1) % slides.length), 7000)
-    return () => { if (timerRef.current) clearTimeout(timerRef.current) }
-  }, [idx, slides.length])
+    fetch('/api/dienos-daina/nominations')
+      .then(r => r.json())
+      .then(d => { setNominations(d.nominations || []); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [])
 
-  const s = slides[Math.min(idx, slides.length - 1)]
-  const events = city === 'Visi' ? EVENTS : EVENTS.filter(e => e.city === city)
+  const winner = nominations[0]
 
   return (
-    <div>
-
-      {/* ━━ HERO + TOPAI ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <section className="relative overflow-hidden" style={{ background: s.bg, transition: 'background 0.9s ease' }}>
-        <div className="absolute inset-0 pointer-events-none transition-all duration-700" style={{ background: s.glow }} />
-        <div className="absolute inset-0 opacity-[0.022] pointer-events-none"
-          style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.2) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.2) 1px, transparent 1px)', backgroundSize: '52px 52px' }} />
-
-        <div className="relative max-w-[1360px] mx-auto px-5 lg:px-8">
-          <div className="flex flex-col lg:flex-row gap-0 items-stretch">
-
-            {/* ── HERO (65%) ── */}
-            <div className="flex-1 py-10 lg:py-12 lg:pr-8 flex flex-col sm:flex-row items-center gap-8 sm:gap-10">
-              <div className="relative group cursor-pointer flex-shrink-0">
-                <div className="w-44 h-44 sm:w-52 sm:h-52 rounded-2xl overflow-hidden shadow-2xl transition-transform duration-300 group-hover:scale-[1.02] select-none relative"
-                  style={{ background: s.cover, boxShadow: `0 24px 64px ${s.cover}88, 0 6px 20px rgba(0,0,0,0.8)` }}>
-                  <div className="absolute inset-0 flex items-center justify-center text-7xl" style={{ color: 'rgba(255,255,255,0.08)' }}>♪</div>
-                  <div className="absolute bottom-0 left-0 right-0 px-3 py-2.5 flex items-center gap-2"
-                    style={{ background: 'linear-gradient(transparent, rgba(0,0,0,0.75))' }}>
-                    <div className="flex-1 h-1 rounded-full" style={{ background: 'rgba(255,255,255,0.2)' }}>
-                      <div className="h-full w-2/5 rounded-full bg-white" />
-                    </div>
-                    <span className="text-[10px] font-bold text-white/60">1:47</span>
-                  </div>
-                </div>
-                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-2xl"
-                  style={{ background: 'rgba(0,0,0,0.35)' }}>
-                  <div className="w-14 h-14 rounded-full flex items-center justify-center shadow-2xl transition-transform hover:scale-105"
-                    style={{ background: 'rgba(249,115,22,0.95)', backdropFilter: 'blur(4px)' }}>
-                    <span className="text-white text-xl ml-0.5">▶</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex-1 min-w-0 text-center sm:text-left">
-                <div className="flex items-center gap-2 justify-center sm:justify-start mb-4">
-                  <span className="px-3 py-1 rounded-full text-xs font-black text-white" style={{ background: s.chipBg }}>{s.chip}</span>
-                  <span className="text-sm font-medium" style={{ color: 'rgba(210,220,240,0.55)' }}>{s.kicker}</span>
-                </div>
-                <h1 className="text-4xl sm:text-5xl lg:text-[52px] font-black leading-[1.05] tracking-tight mb-1.5" style={{ color: '#f2f4f8', textShadow: '0 2px 16px rgba(0,0,0,0.6)' }}>
-                  {s.artist}
-                </h1>
-                <p className="text-xl sm:text-2xl font-light mb-5 tracking-wide" style={{ color: 'rgba(200,215,240,0.55)' }}>{s.title}</p>
-                <p className="text-sm leading-relaxed mb-7 max-w-md" style={{ color: 'rgba(210,225,248,0.75)' }}>{s.desc}</p>
-                <div className="flex items-center gap-3 flex-wrap justify-center sm:justify-start">
-                  <button className="flex items-center gap-2.5 bg-orange-500 hover:bg-orange-400 text-white font-black px-6 py-3 rounded-full text-sm transition-all shadow-lg shadow-orange-900/50 hover:scale-[1.02]">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                    {s.cta}
-                  </button>
-                  <button className="flex items-center gap-2 font-semibold px-5 py-3 rounded-full text-sm transition-all border hover:scale-[1.01]"
-                    style={{ color: 'rgba(200,215,240,0.6)', borderColor: 'rgba(255,255,255,0.14)' }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 8 16 12 12 16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-                    {s.ctaSecondary}
-                  </button>
-                </div>
-              </div>
-
-              <div className="hidden sm:flex flex-col gap-2 flex-shrink-0">
-                {[-1, 1].map(dir => (
-                  <button key={dir} onClick={() => goTo(idx + dir, slides.length)}
-                    className="w-9 h-9 rounded-full flex items-center justify-center transition-all hover:bg-white/10"
-                    style={{ color: 'rgba(200,215,240,0.4)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                    {dir === -1 ? '←' : '→'}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="hidden lg:block w-px my-8 flex-shrink-0" style={{ background: 'rgba(255,255,255,0.08)' }} />
-
-            {/* ── TOPAI SIDEBAR (35%) ── */}
-            <div className="lg:w-[350px] xl:w-[380px] flex-shrink-0 py-8 lg:pl-6 flex flex-col">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex rounded-full p-0.5" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)' }}>
-                  {[{ k: 'lt', l: '🇱🇹 LT Top 30' }, { k: 'world', l: '🌍 Top 40' }].map(tab => (
-                    <button key={tab.k} onClick={() => setChartTab(tab.k as 'lt' | 'world')}
-                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${chartTab === tab.k ? 'bg-[#1d4ed8] text-white' : 'text-[#4a6080] hover:text-[#c8d8f0]'}`}>
-                      {tab.l}
-                    </button>
-                  ))}
-                </div>
-                <a href="#" className="text-xs text-[#4a6fa5] hover:text-[#93b4e0] font-bold transition-colors">Visi →</a>
-              </div>
-
-              <div className="flex-1">
-                {chartData.map((t, i) => (
-                  <div key={t.pos}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/[0.04] transition-colors cursor-pointer group"
-                    style={{ borderBottom: i < chartData.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
-                    <span className={`w-5 text-center text-sm font-black flex-shrink-0 ${t.pos <= 3 ? 'text-orange-400' : 'text-[#2a3a50]'}`}>{t.pos}</span>
-                    <div className="w-4 flex items-center justify-center flex-shrink-0"><TrendIcon t={t.trend} /></div>
-                    <div className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-[10px]" style={{ background: `hsl(${t.pos * 43},30%,14%)`, color: 'rgba(255,255,255,0.12)' }}>♪</div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[13px] font-semibold truncate group-hover:text-blue-300 transition-colors" style={{ color: dk ? '#eef2fa' : '#0f1a2e' }}>{t.title}</span>
-                        {t.lt && chartTab === 'world' && <span className="text-[10px] opacity-60 flex-shrink-0">🇱🇹</span>}
-                      </div>
-                      <span className="text-[11px] truncate block" style={{ color: dk ? '#7a90b0' : '#4a6080' }}>{t.artist}</span>
-                    </div>
-                    {'wks' in t && typeof (t as {wks?: number}).wks === 'number' && (
-                      <span className="text-[10px] flex-shrink-0" style={{ color: '#1e2e42' }}>{(t as {wks: number}).wks}w</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              <button className="mt-4 w-full py-2.5 rounded-xl text-sm font-bold transition-all hover:bg-white/[0.04]"
-                style={{ border: '1px solid rgba(255,255,255,0.08)', color: '#4a6fa5' }}>
-                Žiūrėti visą topą →
-              </button>
-            </div>
-          </div>
-
-          <div className="absolute bottom-4 left-[calc(50%*65/100)] -translate-x-1/2 flex gap-2 items-center hidden lg:flex">
-            {slides.map((_, i) => (
-              <button key={i} onClick={() => goTo(i, slides.length)}
-                className={`rounded-full transition-all duration-300 ${i === idx ? 'w-6 h-1.5 bg-orange-400' : 'w-1.5 h-1.5 bg-white/20 hover:bg-white/40'}`} />
-            ))}
-          </div>
+    <div style={{ background: 'linear-gradient(160deg, rgba(29,78,216,0.18) 0%, rgba(8,13,20,0.98) 100%)', border: '1px solid rgba(29,78,216,0.2)', borderRadius: 18, overflow: 'hidden' }}>
+      {/* Winner */}
+      <div style={{ padding: '16px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 14 }}>
+        <Cover src={winner?.tracks?.cover_url} alt={winner?.tracks?.title || '?'} size={60} radius={12} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontSize: 10, color: '#3d5878', marginBottom: 2 }}>Šiandien pirmauja</p>
+          <h3 style={{ fontSize: 16, fontWeight: 900, color: '#f2f4f8', margin: 0, lineHeight: 1.2 }}>
+            {loading ? '...' : (winner?.tracks?.title || 'Dar nėra')}
+          </h3>
+          <p style={{ fontSize: 12, color: 'rgba(200,215,240,0.5)', margin: 0 }}>
+            {winner?.tracks?.artists?.name || ''}
+          </p>
         </div>
-      </section>
+        <Link href="/dienos-daina" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, background: '#f97316', color: '#fff', fontWeight: 900, fontSize: 11, padding: '7px 14px', borderRadius: 20, textDecoration: 'none' }}>
+          ▶ Balsuoti
+        </Link>
+      </div>
 
-      {/* ━━ MAIN CONTENT ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <div className="max-w-[1360px] mx-auto px-5 lg:px-8 py-12 space-y-16">
-
-        {/* ━━ NAUJOS DAINOS + NAUJI ALBUMAI ━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-        <section>
-          <div className="flex flex-col lg:flex-row gap-8">
-
-            <div className="lg:w-32 flex-shrink-0">
-              <p className="text-[10px] font-black uppercase tracking-[0.12em] mb-2" style={{ color: dk ? '#3d5878' : '#6a85a8' }}>Stilius</p>
-              <div className="flex lg:flex-col gap-1.5 flex-wrap">
-                {GENRES.map(g => (
-                  <button key={g}
-                    onClick={() => setGenre(g)}
-                    className="px-3 py-2 rounded-lg text-xs font-bold transition-all text-left"
-                    style={{
-                      color: genre === g ? (dk ? '#f2f4f8' : '#0f1a2e') : (dk ? '#5a7898' : '#4a6080'),
-                      background: genre === g ? 'rgba(29,78,216,0.18)' : 'transparent',
-                      border: genre === g ? '1px solid rgba(29,78,216,0.28)' : '1px solid transparent',
-                    }}>
-                    {g}
-                  </button>
-                ))}
-                <div className="hidden lg:block w-full h-px mt-1 mb-1" style={{ background: 'rgba(255,255,255,0.06)' }} />
-                <button
-                  onClick={() => setGenre('forYou')}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all text-left"
-                  style={{
-                    color: genre === 'forYou' ? '#fb923c' : '#5a7898',
-                    background: genre === 'forYou' ? 'rgba(249,115,22,0.12)' : 'transparent',
-                    border: genre === 'forYou' ? '1px solid rgba(249,115,22,0.22)' : '1px solid transparent',
-                  }}>
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-                  Man patinka
-                </button>
-              </div>
+      {/* Candidates */}
+      <div style={{ padding: '8px 0' }}>
+        <div style={{ padding: '4px 18px 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: 9, fontWeight: 900, color: '#2a3a50', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Rytdienos kandidatai</span>
+          <Link href="/dienos-daina" style={{ fontSize: 9, color: '#4a6fa5', fontWeight: 700, textDecoration: 'none' }}>+ Siūlyti</Link>
+        </div>
+        {loading
+          ? <div style={{ padding: '12px 18px', color: '#3d5878', fontSize: 12 }}>Kraunama...</div>
+          : nominations.slice(0, 5).map((n, i) => (
+          <div key={n.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 18px', borderTop: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer' }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.025)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+            <span style={{ fontSize: 10, fontWeight: 900, color: '#1e2e42', width: 16, textAlign: 'center', flexShrink: 0 }}>#{i + 1}</span>
+            <Cover src={n.tracks?.cover_url} alt={n.tracks?.title || '?'} size={28} radius={6} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: '#dde8f8', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.tracks?.title}</p>
+              <p style={{ fontSize: 10, color: '#3d5878', margin: 0 }}>{n.tracks?.artists?.name}</p>
             </div>
+            <span style={{ fontSize: 10, fontWeight: 900, color: 'rgba(200,215,240,0.3)', flexShrink: 0, minWidth: 20, textAlign: 'right' }}>{voted === i ? n.votes + 1 : n.votes}</span>
+            <button onClick={() => voted === null && setVoted(i)} disabled={voted !== null}
+              style={{ fontSize: 10, fontWeight: 900, padding: '3px 10px', borderRadius: 12, flexShrink: 0, cursor: voted !== null ? 'default' : 'pointer', border: voted === i ? '1px solid rgba(52,211,153,0.3)' : '1px solid rgba(29,78,216,0.3)', background: voted === i ? 'rgba(52,211,153,0.1)' : 'transparent', color: voted === i ? '#34d399' : voted !== null ? 'rgba(255,255,255,0.15)' : '#60a5fa', transition: 'all 0.15s' }}>
+              {voted === i ? '✓' : 'Balsuoti'}
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
 
-            <div className="flex-1 min-w-0 space-y-8">
+// ── SHOUTBOX WIDGET ────────────────────────────────────────────────────────────
 
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-[19px] font-black tracking-tight" style={{ color: dk ? '#f2f4f8' : '#0f1a2e' }}>Naujos dainos</h2>
-                  <a href="#" className="text-sm font-semibold transition-colors" style={{ color: '#4a6fa5' }}>Visos →</a>
-                </div>
-                <div className="flex gap-2.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-                  {SINGLES
-                    .filter(r => genre === 'Visi' || genre === 'forYou' || r.genre === genre)
-                    .map((r, i) => (
-                    <div key={i} className="group cursor-pointer flex-shrink-0 flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all w-[210px]" style={CS} {...CH}>
-                      <div className="flex-shrink-0 w-11 h-11 rounded-lg relative overflow-hidden"
-                        style={{ background: `hsl(${r.hue},38%,18%)` }}>
-                        <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 30% 30%, hsl(${r.hue},50%,30%) 0%, transparent 65%)` }} />
-                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
-                          style={{ background: 'rgba(0,0,0,0.55)' }}>
-                          <span className="text-white text-xs ml-0.5">▶</span>
-                        </div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-[13px] font-bold truncate leading-tight group-hover:text-blue-300 transition-colors" style={{ color: dk ? '#eef2fa' : '#0f1a2e' }}>{r.title}</h4>
-                        <p className="text-[11px] truncate font-medium mt-0.5" style={{ color: dk ? '#7a93b5' : '#4a6080' }}>{r.artist}</p>
-                      </div>
-                      {genre === 'forYou' && <div className="w-1 h-5 rounded-full flex-shrink-0" style={{ background: 'rgba(249,115,22,0.6)' }} />}
-                    </div>
-                  ))}
-                </div>
+function ShoutboxWidget() {
+  const [msgs, setMsgs] = useState<ShoutMsg[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const load = useCallback(async (since?: string) => {
+    const url = since ? `/api/live/shoutbox?since=${encodeURIComponent(since)}&limit=10` : '/api/live/shoutbox?limit=10'
+    const r = await fetch(url)
+    const d = await r.json()
+    if (d.messages?.length) {
+      if (!since) setMsgs([...d.messages].reverse())
+      else setMsgs(prev => {
+        const ids = new Set(prev.map(m => m.id))
+        const n = d.messages.filter((m: ShoutMsg) => !ids.has(m.id))
+        return n.length ? [...prev, ...n].slice(-10) : prev
+      })
+    }
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    load()
+    const iv = setInterval(() => setMsgs(prev => { const l = prev[prev.length - 1]; if (l) load(l.created_at); return prev }), 8000)
+    return () => clearInterval(iv)
+  }, [load])
+
+  return (
+    <div style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 18, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 13 }}>💬</span>
+          <span style={{ fontSize: 12, fontWeight: 900, color: '#eef2fa' }}>Gyvi pokalbiai</span>
+          <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 5px #22c55e', animation: 'hp-blink 2s infinite' }} />
+        </div>
+        <Link href="/bendruomene" style={{ fontSize: 10, color: '#4a6fa5', fontWeight: 700, textDecoration: 'none' }}>Visi →</Link>
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
+        {loading
+          ? <div style={{ padding: '16px', color: '#3d5878', fontSize: 12, textAlign: 'center' }}>Kraunama...</div>
+          : msgs.length === 0
+          ? <div style={{ padding: '16px', color: '#3d5878', fontSize: 12, textAlign: 'center' }}>Dar nėra žinučių</div>
+          : msgs.map((m, i) => (
+          <div key={m.id} style={{ display: 'flex', gap: 10, padding: '7px 16px', borderBottom: i < msgs.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none' }}>
+            <div style={{ width: 26, height: 26, borderRadius: '50%', flexShrink: 0, background: `hsl(${hue(m.author_name)},30%,16%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 900, color: `hsl(${hue(m.author_name)},50%,50%)` }}>
+              {m.author_name[0]?.toUpperCase()}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 1 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#60a5fa' }}>{m.author_name}</span>
+                <span style={{ fontSize: 9, color: '#1e2e42' }}>{timeAgo(m.created_at)}</span>
               </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-[19px] font-black tracking-tight" style={{ color: dk ? '#f2f4f8' : '#0f1a2e' }}>Nauji albumai</h2>
-                  <a href="#" className="text-sm font-semibold transition-colors" style={{ color: '#4a6fa5' }}>Visi →</a>
-                </div>
-
-                {(() => {
-                  const out = ALBUMS.filter(a => a.status === 'out' && (genre === 'Visi' || genre === 'forYou' || a.genre === genre))
-                  if (!out.length) return null
-                  return (
-                    <div className="mb-4">
-                      <p className="text-[10px] font-black uppercase tracking-[0.14em] mb-2" style={{ color: dk ? '#3d5878' : '#7a93b5' }}>Neseniai išleista</p>
-                      <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-                        {out.map((r, i) => (
-                          <div key={i} className="group cursor-pointer flex-shrink-0 flex items-center gap-3 px-3 py-3 rounded-xl transition-all w-[240px]" style={CS} {...CH}>
-                            <div className="flex-shrink-0 w-14 h-14 rounded-xl relative overflow-hidden"
-                              style={{ background: `hsl(${r.hue},42%,18%)`, boxShadow: `0 4px 14px hsl(${r.hue},42%,6%)` }}>
-                              <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 28% 28%, hsl(${r.hue},55%,34%) 0%, transparent 60%)` }} />
-                              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
-                                style={{ background: 'rgba(0,0,0,0.5)' }}>
-                                <span className="text-white text-xs ml-0.5">▶</span>
-                              </div>
-                              {r.lt && <span className="absolute top-0.5 left-0.5 text-[9px] opacity-60">🇱🇹</span>}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="text-[13px] font-bold truncate leading-tight group-hover:text-blue-300 transition-colors" style={{ color: dk ? '#eef2fa' : '#0f1a2e' }}>{r.title}</h4>
-                              <p className="text-[12px] truncate font-medium mt-0.5" style={{ color: dk ? '#7a93b5' : '#4a6080' }}>{r.artist}</p>
-                              <p className="text-[11px] font-medium mt-1" style={{ color: dk ? '#4a6580' : '#6a85a8' }}>{r.date}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )
-                })()}
-
-                {(() => {
-                  const soon = ALBUMS.filter(a => a.status === 'soon' && (genre === 'Visi' || genre === 'forYou' || a.genre === genre))
-                  if (!soon.length) return null
-                  return (
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.14em] mb-2" style={{ color: dk ? '#3d5878' : '#7a93b5' }}>Greitai pasirodys</p>
-                      <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-                        {soon.map((r, i) => (
-                          <div key={i} className="group cursor-pointer flex-shrink-0 flex items-center gap-3 px-3 py-3 rounded-xl transition-all w-[240px]"
-                            style={{ background: 'rgba(255,255,255,0.018)', border: '1px solid rgba(255,255,255,0.055)' }} {...CH}>
-                            <div className="flex-shrink-0 w-14 h-14 rounded-xl relative overflow-hidden"
-                              style={{ background: `hsl(${r.hue},28%,13%)` }}>
-                              <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 28% 28%, hsl(${r.hue},35%,20%) 0%, transparent 55%)` }} />
-                              <div className="absolute inset-0" style={{ background: 'rgba(13,17,23,0.4)' }} />
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <span className="text-sm" style={{ color: 'rgba(255,255,255,0.2)' }}>⏳</span>
-                              </div>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="text-[13px] font-bold truncate leading-tight" style={{ color: '#c8d8f0' }}>{r.title}</h4>
-                              <p className="text-[12px] truncate font-medium mt-0.5" style={{ color: '#5a7898' }}>{r.artist}</p>
-                              <div className="flex items-center gap-1.5 mt-1">
-                                <span className="text-[9px] font-black px-1.5 py-0.5 rounded" style={{ background: 'rgba(245,158,11,0.18)', color: '#fbbf24' }}>GREITAI</span>
-                                <span className="text-[11px] font-medium" style={{ color: '#4a6580' }}>{r.date}</span>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )
-                })()}
-              </div>
-
+              <p style={{ fontSize: 12, color: 'rgba(200,218,245,0.65)', margin: 0, lineHeight: 1.4 }}>{m.body}</p>
             </div>
           </div>
-        </section>
+        ))}
+      </div>
+      <div style={{ padding: '10px 12px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        <Link href="/bendruomene" style={{ display: 'block', textAlign: 'center', padding: '7px', borderRadius: 12, background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)', color: '#818cf8', fontSize: 11, fontWeight: 700, textDecoration: 'none' }}>
+          Prisijungti prie pokalbio →
+        </Link>
+      </div>
+    </div>
+  )
+}
 
-        {/* ━━ DIENOS DAINA + POKALBIAI ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-        <section>
-          <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-5">
+// ── DISCUSSIONS WIDGET ─────────────────────────────────────────────────────────
 
-            <div>
-              <SecHead label="🎵 Dienos daina" />
-              <div className="rounded-2xl overflow-hidden relative"
-                style={{ background: 'linear-gradient(160deg, rgba(29,78,216,0.22) 0%, rgba(13,17,23,0.98) 100%)', border: '1px solid rgba(29,78,216,0.2)' }}>
-                <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse at 5% 85%, rgba(29,78,216,0.1) 0%, transparent 50%)' }} />
+function DiscussionsWidget() {
+  const [discussions, setDiscussions] = useState<Discussion[]>([])
 
-                <div className="relative flex items-center gap-4 p-5 border-b border-white/[0.06]">
-                  <div className="relative group flex-shrink-0 cursor-pointer">
-                    <div className="w-16 h-16 rounded-xl flex items-center justify-center text-2xl"
-                      style={{ background: `hsl(${SOTD.hue},45%,14%)`, boxShadow: `0 8px 24px hsl(${SOTD.hue},45%,6%)` }}>🎵</div>
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-xl"
-                      style={{ background: 'rgba(0,0,0,0.45)' }}>
-                      <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center"><span className="text-white text-sm ml-0.5">▶</span></div>
+  useEffect(() => {
+    fetch('/api/diskusijos?sort=activity&limit=4')
+      .then(r => r.json())
+      .then(d => setDiscussions(d.discussions || []))
+  }, [])
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+      {discussions.map(d => (
+        <Card key={d.id} href={`/diskusijos/${d.slug}`} style={{ padding: '14px 16px' }}>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
+            {(d.tags || []).slice(0, 1).map(t => (
+              <span key={t} style={{ fontSize: 9, fontWeight: 900, padding: '2px 7px', borderRadius: 4, background: 'rgba(99,102,241,0.12)', color: '#a5b4fc' }}>{t}</span>
+            ))}
+            <span style={{ fontSize: 9, color: '#2a3a50' }}>{timeAgo(d.created_at)}</span>
+          </div>
+          <p style={{ fontSize: 13, fontWeight: 700, color: '#c8d8f0', margin: '0 0 4px', lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' } as any}>{d.title}</p>
+          <p style={{ fontSize: 10, color: '#3d5878', margin: 0 }}>{d.author_name} · 💬 {d.comment_count}</p>
+        </Card>
+      ))}
+    </div>
+  )
+}
+
+// ── MAIN HOME ──────────────────────────────────────────────────────────────────
+
+export default function Home() {
+  const { lens } = useSite()
+  const [chartTab, setChartTab] = useState<'lt' | 'world'>('lt')
+  const [ltTop, setLtTop] = useState<TopEntry[]>([])
+  const [tracks, setTracks] = useState<Track[]>([])
+  const [albums, setAlbums] = useState<Album[]>([])
+  const [artists, setArtists] = useState<Artist[]>([])
+  const [events, setEvents] = useState<Event[]>([])
+  const [news, setNews] = useState<NewsItem[]>([])
+  const [genreFilter, setGenreFilter] = useState('Visi')
+  const [cityFilter, setCityFilter] = useState('Visi')
+  const [heroIdx, setHeroIdx] = useState(0)
+  const [heroItems, setHeroItems] = useState<any[]>([])
+  const timerRef = useRef<any>(null)
+
+  // Fetch all data
+  useEffect(() => {
+    // LT Top
+    fetch('/api/top?type=lt_top30&limit=7')
+      .then(r => r.json())
+      .then(d => {
+        const entries = (d.tracks || d.entries || d.top || []).slice(0, 7).map((t: any, i: number) => ({
+          pos: i + 1,
+          track_id: t.track_id || t.id,
+          title: t.title || t.tracks?.title || '',
+          artist: t.artist || t.artists?.name || t.tracks?.artists?.name || '',
+          cover_url: t.cover_url || t.tracks?.cover_url || null,
+          trend: i === 0 ? 'same' : i % 3 === 1 ? 'up' : i % 3 === 2 ? 'down' : 'same',
+          wks: Math.floor(Math.random() * 8) + 1,
+        }))
+        setLtTop(entries)
+      }).catch(() => {})
+
+    // New tracks
+    fetch('/api/search?type=tracks&sort=newest&limit=16')
+      .then(r => r.json())
+      .then(d => setTracks(d.tracks || d.results || []))
+      .catch(() => {})
+
+    // New albums
+    fetch('/api/search?type=albums&sort=newest&limit=10')
+      .then(r => r.json())
+      .then(d => setAlbums(d.albums || d.results || []))
+      .catch(() => {})
+
+    // Artists
+    fetch('/api/search?type=artists&sort=newest&limit=12')
+      .then(r => r.json())
+      .then(d => setArtists(d.artists || d.results || []))
+      .catch(() => {})
+
+    // Events
+    fetch('/api/events?upcoming=true&limit=6')
+      .then(r => r.json())
+      .then(d => setEvents(d.events || []))
+      .catch(() => {})
+
+    // News
+    fetch('/api/news?limit=5')
+      .then(r => r.json())
+      .then(d => setNews(d.news || d.articles || []))
+      .catch(() => {})
+  }, [])
+
+  // Hero items from news + albums
+  useEffect(() => {
+    const items: any[] = []
+    news.slice(0, 2).forEach(n => {
+      items.push({
+        type: 'news', chip: n.type || 'Naujiena', chipBg: '#2563eb',
+        kicker: timeAgo(n.published_at),
+        title: n.artists?.name || 'music.lt',
+        subtitle: n.title,
+        cover: n.image_small_url,
+        href: `/naujienos/${n.slug}`,
+        bg: 'linear-gradient(135deg, #071422 0%, #0c1a2e 55%, #071422 100%)',
+        glow: 'radial-gradient(ellipse at 25% 55%, rgba(37,99,235,0.3) 0%, transparent 55%)',
+      })
+    })
+    albums.slice(0, 2).forEach(a => {
+      const h = hue(a.title)
+      items.push({
+        type: 'album', chip: 'Albumas', chipBg: '#7c3aed',
+        kicker: a.year ? `${a.year} m.` : '',
+        title: a.artists?.name || '',
+        subtitle: a.title,
+        cover: a.cover_image_url,
+        href: `/muzika/${a.slug}`,
+        bg: `linear-gradient(135deg, hsl(${h},40%,6%) 0%, hsl(${h},50%,10%) 55%, hsl(${h},40%,6%) 100%)`,
+        glow: `radial-gradient(ellipse at 25% 55%, hsla(${h},60%,40%,0.28) 0%, transparent 55%)`,
+      })
+    })
+    events.slice(0, 1).forEach(e => {
+      const d = new Date(e.event_date)
+      items.push({
+        type: 'event', chip: 'Renginys', chipBg: '#059669',
+        kicker: `${d.getDate()} ${MONTHS_LT[d.getMonth()]}. • ${e.venues?.city || ''}`,
+        title: e.title,
+        subtitle: e.venues?.name || e.venue_custom || '',
+        cover: e.image_small_url,
+        href: `/renginiai/${e.slug}`,
+        bg: 'linear-gradient(135deg, #0a1422 0%, #0d1f10 55%, #0a1422 100%)',
+        glow: 'radial-gradient(ellipse at 25% 55%, rgba(5,150,105,0.28) 0%, transparent 55%)',
+      })
+    })
+    if (items.length === 0) {
+      // Fallback
+      items.push({ type: 'promo', chip: 'Lietuviška muzika', chipBg: '#f97316', kicker: 'Platforma', title: 'music.lt', subtitle: 'Visi Lietuvos atlikėjai vienoje vietoje', cover: null, href: '/atlikejai', bg: 'linear-gradient(135deg, #0c1524 0%, #19103a 55%, #0c1524 100%)', glow: 'radial-gradient(ellipse at 25% 55%, rgba(99,102,241,0.4) 0%, transparent 55%)' })
+    }
+    setHeroItems(items)
+    setHeroIdx(0)
+  }, [news, albums, events])
+
+  // Hero auto-advance
+  useEffect(() => {
+    if (!heroItems.length) return
+    timerRef.current = setTimeout(() => setHeroIdx(p => (p + 1) % heroItems.length), 7000)
+    return () => clearTimeout(timerRef.current)
+  }, [heroIdx, heroItems.length])
+
+  const hero = heroItems[heroIdx] || heroItems[0]
+  const chartData = chartTab === 'lt' ? ltTop : WORLD_TOP
+  const filteredTracks = tracks.filter(t => genreFilter === 'Visi' || !genreFilter)
+  const filteredEvents = cityFilter === 'Visi' ? events : events.filter(e => e.venues?.city === cityFilter)
+  const cities = ['Visi', ...Array.from(new Set(events.map(e => e.venues?.city).filter(Boolean) as string[]))]
+
+  return (
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=DM+Sans:ital,wght@0,400;0,500;0,700;0,900;1,400&display=swap');
+        .hp-wrap { font-family: 'DM Sans', sans-serif; }
+        @keyframes hp-blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+        @keyframes hp-fade { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+        .hp-card:hover { border-color: rgba(255,255,255,0.14) !important; }
+        .hp-track:hover { background: rgba(255,255,255,0.05) !important; }
+        .hp-artist:hover .hp-artist-img { transform: scale(1.06); }
+        .hp-scroll { overflow-x: auto; scrollbar-width: none; }
+        .hp-scroll::-webkit-scrollbar { display: none; }
+        .hp-pill { cursor: pointer; padding: 5px 14px; border-radius: 20px; font-size: 11px; font-weight: 700; border: 1px solid rgba(255,255,255,0.07); color: #5a7898; background: transparent; transition: all 0.15s; white-space: nowrap; }
+        .hp-pill.active { background: rgba(29,78,216,0.2); border-color: rgba(29,78,216,0.35); color: #93c5fd; }
+        .hp-pill:hover { color: #c8d8f0; border-color: rgba(255,255,255,0.14); }
+      `}</style>
+
+      <div className="hp-wrap">
+
+        {/* ── HERO ── */}
+        {hero && (
+          <section style={{ position: 'relative', overflow: 'hidden', background: hero.bg, transition: 'background 1s ease', minHeight: 320 }}>
+            <div style={{ position: 'absolute', inset: 0, background: hero.glow, transition: 'all 0.8s', pointerEvents: 'none' }} />
+            {/* subtle grid */}
+            <div style={{ position: 'absolute', inset: 0, opacity: 0.02, backgroundImage: 'linear-gradient(rgba(255,255,255,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.3) 1px, transparent 1px)', backgroundSize: '48px 48px', pointerEvents: 'none' }} />
+
+            <div style={{ position: 'relative', maxWidth: 1360, margin: '0 auto', padding: '0 20px', display: 'flex', alignItems: 'stretch' }}>
+
+              {/* Hero content */}
+              <div style={{ flex: 1, padding: '44px 40px 44px 0', display: 'flex', alignItems: 'center', gap: 36, borderRight: '1px solid rgba(255,255,255,0.07)' }}>
+                {/* Cover */}
+                <div style={{ position: 'relative', flexShrink: 0, cursor: 'pointer' }}>
+                  <div style={{ width: 180, height: 180, borderRadius: 20, overflow: 'hidden', boxShadow: '0 24px 60px rgba(0,0,0,0.7)', transition: 'transform 0.3s' }}
+                    onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.03)')}
+                    onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}>
+                    <Cover src={hero.cover} alt={hero.title} size={180} radius={20} />
+                  </div>
+                  <div style={{ position: 'absolute', inset: 0, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0)', transition: 'background 0.2s', cursor: 'pointer' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.35)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0)')}>
+                    <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'rgba(249,115,22,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.2s' }}
+                      onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+                      onMouseLeave={e => (e.currentTarget.style.opacity = '0')}>
+                      <span style={{ color: '#fff', fontSize: 20, marginLeft: 3 }}>▶</span>
                     </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[11px] mb-0.5" style={{ color: '#3d5878' }}>Siūlo <span className="text-blue-400 font-bold">{SOTD.by}</span></p>
-                    <h3 className="font-black text-lg leading-tight" style={{ color: dk ? '#f2f4f8' : '#0f1a2e' }}>{SOTD.artist}</h3>
-                    <p className="text-sm" style={{ color: 'rgba(200,215,240,0.55)' }}>{SOTD.title}</p>
-                  </div>
-                  <button className="flex-shrink-0 flex items-center gap-1.5 bg-orange-500 hover:bg-orange-400 text-white font-black px-4 py-2 rounded-full text-xs transition-all shadow-md">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                    Klausyti
-                  </button>
                 </div>
 
-                <div className="relative flex items-center gap-2 px-5 py-3 border-b border-white/[0.05]">
-                  {([['fire', '🔥', rx.fire], ['heart', '❤️', rx.heart], ['star', '⭐', rx.star]] as const).map(([k, e, c]) => (
-                    <button key={k} onClick={() => setRx(r => ({ ...r, [k]: r[k as keyof typeof r] + 1 }))}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold transition-all hover:scale-105 active:scale-95"
-                      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                      {e} <span style={{ color: '#dde8f8' }}>{c}</span>
+                {/* Text */}
+                <div style={{ flex: 1, minWidth: 0, animation: 'hp-fade 0.5s ease' }} key={heroIdx}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                    <span style={{ padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 900, color: '#fff', background: hero.chipBg }}>{hero.chip}</span>
+                    <span style={{ fontSize: 12, color: 'rgba(200,215,240,0.45)', fontWeight: 500 }}>{hero.kicker}</span>
+                  </div>
+                  <h1 style={{ fontFamily: 'Syne, sans-serif', fontSize: 46, fontWeight: 900, color: '#f2f4f8', lineHeight: 1.05, margin: '0 0 6px', letterSpacing: '-0.02em' }}>{hero.title}</h1>
+                  <p style={{ fontSize: 20, fontWeight: 400, color: 'rgba(200,215,240,0.45)', margin: '0 0 20px', lineHeight: 1.3 }}>{hero.subtitle}</p>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                    <Link href={hero.href || '#'} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#f97316', color: '#fff', fontWeight: 900, fontSize: 13, padding: '10px 22px', borderRadius: 24, textDecoration: 'none', boxShadow: '0 4px 20px rgba(249,115,22,0.4)' }}>
+                      <span style={{ fontSize: 12 }}>▶</span> Atidaryti
+                    </Link>
+                    <Link href={hero.href || '#'} style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'rgba(200,215,240,0.55)', fontWeight: 700, fontSize: 13, padding: '10px 18px', borderRadius: 24, textDecoration: 'none', border: '1px solid rgba(255,255,255,0.12)' }}>
+                      Daugiau info
+                    </Link>
+                  </div>
+                </div>
+
+                {/* Nav arrows */}
+                {heroItems.length > 1 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
+                    <button onClick={() => setHeroIdx(p => ((p - 1) + heroItems.length) % heroItems.length)}
+                      style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'rgba(200,215,240,0.35)', cursor: 'pointer', fontSize: 14 }}>←</button>
+                    <button onClick={() => setHeroIdx(p => (p + 1) % heroItems.length)}
+                      style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'rgba(200,215,240,0.35)', cursor: 'pointer', fontSize: 14 }}>→</button>
+                  </div>
+                )}
+              </div>
+
+              {/* Chart sidebar */}
+              <div style={{ width: 360, flexShrink: 0, padding: '32px 0 32px 28px', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                  <div style={{ display: 'flex', borderRadius: 20, padding: 3, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', gap: 2 }}>
+                    {[{ k: 'lt', l: '🇱🇹 LT Top 30' }, { k: 'world', l: '🌍 Top 40' }].map(tab => (
+                      <button key={tab.k} onClick={() => setChartTab(tab.k as any)}
+                        style={{ padding: '5px 12px', borderRadius: 16, fontSize: 11, fontWeight: 700, border: 'none', cursor: 'pointer', transition: 'all 0.15s', background: chartTab === tab.k ? '#1d4ed8' : 'transparent', color: chartTab === tab.k ? '#fff' : '#3a5070' }}>
+                        {tab.l}
+                      </button>
+                    ))}
+                  </div>
+                  <Link href="/topas" style={{ fontSize: 11, color: '#4a6fa5', fontWeight: 700, textDecoration: 'none' }}>Visi →</Link>
+                </div>
+
+                <div style={{ flex: 1 }}>
+                  {chartData.length === 0
+                    ? Array.from({ length: 7 }).map((_, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 8px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                        <div style={{ width: 5, height: 28, borderRadius: 4, background: 'rgba(255,255,255,0.04)' }} />
+                        <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(255,255,255,0.04)' }} />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ height: 10, borderRadius: 4, background: 'rgba(255,255,255,0.04)', marginBottom: 4, width: '70%' }} />
+                          <div style={{ height: 8, borderRadius: 4, background: 'rgba(255,255,255,0.03)', width: '50%' }} />
+                        </div>
+                      </div>
+                    ))
+                    : chartData.map((t, i) => (
+                    <div key={t.pos} className="hp-track" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 8px', borderRadius: 8, cursor: 'pointer', transition: 'background 0.1s', borderBottom: i < chartData.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none' }}>
+                      <span style={{ width: 18, textAlign: 'center', fontSize: 13, fontWeight: 900, color: t.pos <= 3 ? '#f97316' : '#1e2e42', flexShrink: 0 }}>{t.pos}</span>
+                      <div style={{ width: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><TrendIcon t={t.trend} /></div>
+                      <Cover src={t.cover_url} alt={t.title} size={30} radius={7} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 12, fontWeight: 700, color: '#eef2fa', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</p>
+                        <p style={{ fontSize: 10, color: '#5a7898', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.artist}</p>
+                      </div>
+                      {t.wks && <span style={{ fontSize: 9, color: '#1e2e42', flexShrink: 0 }}>{t.wks}w</span>}
+                    </div>
+                  ))}
+                </div>
+
+                <Link href="/topas" style={{ marginTop: 12, display: 'block', textAlign: 'center', padding: '8px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.07)', color: '#4a6fa5', fontSize: 12, fontWeight: 700, textDecoration: 'none', transition: 'background 0.15s' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                  Žiūrėti visą topą →
+                </Link>
+              </div>
+            </div>
+
+            {/* Dots */}
+            {heroItems.length > 1 && (
+              <div style={{ position: 'absolute', bottom: 12, left: '35%', display: 'flex', gap: 6, alignItems: 'center' }}>
+                {heroItems.map((_, i) => (
+                  <button key={i} onClick={() => setHeroIdx(i)}
+                    style={{ borderRadius: 4, border: 'none', cursor: 'pointer', background: i === heroIdx ? '#f97316' : 'rgba(255,255,255,0.2)', width: i === heroIdx ? 20 : 6, height: 6, transition: 'all 0.25s', padding: 0 }} />
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* ── MAIN CONTENT ── */}
+        <div style={{ maxWidth: 1360, margin: '0 auto', padding: '48px 20px', display: 'flex', flexDirection: 'column', gap: 56 }}>
+
+          {/* ── NAUJOS DAINOS + ALBUMAI ── */}
+          <section>
+            <div style={{ display: 'flex', gap: 32, alignItems: 'flex-start' }}>
+              {/* Genre filter */}
+              <div style={{ width: 120, flexShrink: 0 }}>
+                <p style={{ fontSize: 9, fontWeight: 900, color: '#2a3a50', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 10 }}>Stilius</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {['Visi', 'Pop', 'Rokas', 'Hip-hop', 'Elektronika', 'Folk', 'Jazz'].map(g => (
+                    <button key={g} onClick={() => setGenreFilter(g)}
+                      style={{ padding: '6px 10px', borderRadius: 8, fontSize: 12, fontWeight: 700, textAlign: 'left', border: genreFilter === g ? '1px solid rgba(29,78,216,0.3)' : '1px solid transparent', background: genreFilter === g ? 'rgba(29,78,216,0.15)' : 'transparent', color: genreFilter === g ? '#93c5fd' : '#3a5878', cursor: 'pointer', transition: 'all 0.15s' }}>
+                      {g}
                     </button>
                   ))}
-                  <p className="ml-auto text-[11px]" style={{ color: '#2a3a50' }}>Vakar: {SOTD.yesterday}</p>
+                </div>
+              </div>
+
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 28 }}>
+                {/* Tracks */}
+                <div>
+                  <SectionHead label="Naujos dainos" href="/muzika" />
+                  <div className="hp-scroll" style={{ display: 'flex', gap: 10 }}>
+                    {filteredTracks.length === 0
+                      ? tracks.concat(Array(8).fill(null)).slice(0, 8).map((t, i) => (
+                        <div key={i} style={{ width: 200, flexShrink: 0, padding: '10px 12px', borderRadius: 14, background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(255,255,255,0.05)', flexShrink: 0 }} />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ height: 10, borderRadius: 4, background: 'rgba(255,255,255,0.05)', marginBottom: 5, width: '80%' }} />
+                            <div style={{ height: 8, borderRadius: 4, background: 'rgba(255,255,255,0.03)', width: '60%' }} />
+                          </div>
+                        </div>
+                      ))
+                      : filteredTracks.slice(0, 14).map(t => (
+                      <Link key={t.id} href={`/muzika/${t.slug}`} className="hp-card" style={{ width: 200, flexShrink: 0, padding: '10px 12px', borderRadius: 14, background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', transition: 'border-color 0.15s' }}>
+                        <Cover src={t.cover_url} alt={t.title} size={42} radius={10} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontSize: 12, fontWeight: 700, color: '#eef2fa', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</p>
+                          <p style={{ fontSize: 11, color: '#5a7898', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.artists?.name}</p>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
                 </div>
 
-                <div className="relative">
-                  <div className="px-5 py-2.5 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <p className="text-[10px] font-black uppercase tracking-[0.1em]" style={{ color: '#2a3a50' }}>Rytdienos balsavimas</p>
-                    <a href="#" className="text-[10px] font-bold" style={{ color: '#4a6fa5' }}>+ Siūlyti</a>
-                  </div>
-                  <div className="divide-y divide-white/[0.04]">
-                    {SOTD_CANDIDATES.slice(0, 6).map((c, i) => (
-                      <div key={i} className="flex items-center gap-3 px-5 py-2.5 hover:bg-white/[0.03] transition-colors">
-                        <span className="font-black text-xs w-4 text-center flex-shrink-0" style={{ color: '#1e2e42' }}>#{i + 1}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[12px] font-semibold truncate" style={{ color: '#dde8f8' }}>{c.artist}</p>
-                          <p className="text-[10px] truncate" style={{ color: '#3d5878' }}>{c.title}</p>
+                {/* Albums */}
+                <div>
+                  <SectionHead label="Nauji albumai" href="/muzika?tab=albums" />
+                  <div className="hp-scroll" style={{ display: 'flex', gap: 12 }}>
+                    {albums.slice(0, 10).map(a => (
+                      <Link key={a.id} href={`/muzika/${a.slug}`} className="hp-card" style={{ width: 230, flexShrink: 0, padding: '12px 14px', borderRadius: 14, background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none', transition: 'border-color 0.15s' }}>
+                        <Cover src={a.cover_image_url} alt={a.title} size={52} radius={12} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontSize: 13, fontWeight: 700, color: '#eef2fa', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.title}</p>
+                          <p style={{ fontSize: 11, color: '#5a7898', margin: '0 0 3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.artists?.name}</p>
+                          {a.year && <p style={{ fontSize: 10, color: '#2a3a50', margin: 0 }}>{a.year}</p>}
                         </div>
-                        <span className="text-xs font-black w-6 text-right flex-shrink-0" style={{ color: 'rgba(200,215,240,0.4)' }}>{voted === i ? c.votes + 1 : c.votes}</span>
-                        <button onClick={() => voted === null && setVoted(i)} disabled={voted !== null}
-                          className={`text-[11px] font-black px-2.5 py-1 rounded-full flex-shrink-0 transition-all ${
-                            voted === i ? 'text-emerald-400 bg-emerald-900/20 border border-emerald-700/25'
-                            : voted !== null ? 'opacity-25 border border-white/5'
-                            : 'text-blue-400 border border-blue-800/30 hover:bg-blue-900/15'}`}>
-                          {voted === i ? '✓' : 'Balsuoti'}
-                        </button>
-                      </div>
+                      </Link>
                     ))}
                   </div>
                 </div>
               </div>
             </div>
+          </section>
 
-            <div>
-              <SecHead label="💬 Gyvi pokalbiai" cta="Visi" />
-              <div className="rounded-2xl overflow-hidden h-[calc(100%-3rem)]" style={CS}>
+          {/* ── DIENOS DAINA + SHOUTBOX ── */}
+          <section>
+            <div style={{ display: 'grid', gridTemplateColumns: '420px 1fr', gap: 20, alignItems: 'start' }}>
+              <div>
+                <SectionHead label="🎵 Dienos daina" href="/dienos-daina" cta="Visi →" />
+                <DienosDainaWidget />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                 <div>
-                  {SHOUTBOX.map((sb, i) => (
-                    <div key={i} className="flex items-start gap-3 px-4 py-3 hover:bg-white/[0.025] transition-colors"
-                      style={{ borderBottom: i < SHOUTBOX.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
-                      <div className="w-7 h-7 rounded-full flex items-center justify-center font-black text-xs flex-shrink-0 mt-0.5"
-                        style={{ background: `hsl(${sb.user.charCodeAt(0) * 19 % 360},28%,16%)`, color: 'rgba(255,255,255,0.25)' }}>
-                        {sb.user[0].toUpperCase()}
+                  <SectionHead label="💬 Gyvi pokalbiai" href="/bendruomene" cta="Bendruomenė →" />
+                  <ShoutboxWidget />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* ── BENDRUOMENĖ DISKUSIJOS ── */}
+          <section>
+            <SectionHead label="Bendruomenė" href="/diskusijos" cta="Visos diskusijos →" />
+            <DiscussionsWidget />
+          </section>
+
+          {/* ── RENGINIAI + NAUJIENOS ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
+
+            <section>
+              <SectionHead label="Renginiai" href="/renginiai" />
+              {/* City filter */}
+              <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
+                {cities.slice(0, 6).map(c => (
+                  <button key={c} className={`hp-pill${cityFilter === c ? ' active' : ''}`} onClick={() => setCityFilter(c)}>{c}</button>
+                ))}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {filteredEvents.length === 0
+                  ? <div style={{ padding: '24px', textAlign: 'center', color: '#3d5878', fontSize: 13 }}>Renginių nerasta</div>
+                  : filteredEvents.slice(0, 5).map(e => {
+                  const d = new Date(e.event_date)
+                  return (
+                    <Link key={e.id} href={`/renginiai/${e.slug}`} className="hp-card" style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 16px', borderRadius: 14, background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', textDecoration: 'none', transition: 'border-color 0.15s' }}>
+                      <div style={{ textAlign: 'center', width: 36, flexShrink: 0 }}>
+                        <p style={{ fontSize: 22, fontWeight: 900, color: '#f2f4f8', margin: 0, lineHeight: 1 }}>{d.getDate()}</p>
+                        <p style={{ fontSize: 9, fontWeight: 900, color: '#f97316', margin: 0, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{MONTHS_LT[d.getMonth()]}</p>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <span className="text-xs font-bold text-blue-400">{sb.user}</span>
-                          <span className="text-[10px]" style={{ color: '#1e2e42' }}>{sb.ago}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 13, fontWeight: 700, color: '#dde8f8', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.title}</p>
+                        <p style={{ fontSize: 11, color: '#3d5878', margin: 0 }}>{e.venues?.name || e.venue_custom} · {e.venues?.city}</p>
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: '#f97316', flexShrink: 0 }}>Bilietai →</span>
+                    </Link>
+                  )
+                })}
+              </div>
+            </section>
+
+            <section>
+              <SectionHead label="Naujienos" href="/naujienos" />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {news.length === 0
+                  ? Array(4).fill(null).map((_, i) => (
+                    <div key={i} style={{ display: 'flex', gap: 12, padding: '12px 16px', borderRadius: 14, background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(255,255,255,0.05)', flexShrink: 0 }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ height: 10, borderRadius: 4, background: 'rgba(255,255,255,0.05)', marginBottom: 5, width: '90%' }} />
+                        <div style={{ height: 8, borderRadius: 4, background: 'rgba(255,255,255,0.03)', width: '50%' }} />
+                      </div>
+                    </div>
+                  ))
+                  : news.slice(0, 5).map(n => {
+                  const h = hue(n.title)
+                  return (
+                    <Link key={n.id} href={`/naujienos/${n.slug}`} className="hp-card" style={{ display: 'flex', gap: 14, padding: '12px 16px', borderRadius: 14, background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', textDecoration: 'none', transition: 'border-color 0.15s' }}>
+                      <div style={{ width: 36, height: 36, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
+                        <Cover src={n.image_small_url} alt={n.title} size={36} radius={8} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                          {n.type && <span style={{ fontSize: 9, fontWeight: 900, padding: '2px 6px', borderRadius: 4, background: `hsl(${h},40%,12%)`, color: `hsl(${h},60%,60%)`, border: `1px solid hsl(${h},40%,18%)` }}>{n.type}</span>}
+                          <span style={{ fontSize: 9, color: '#2a3a50' }}>{timeAgo(n.published_at)}</span>
                         </div>
-                        <p className="text-[13px] leading-relaxed" style={{ color: 'rgba(200,218,245,0.65)' }}>{sb.msg}</p>
+                        <p style={{ fontSize: 13, fontWeight: 600, color: '#c8d8f0', margin: 0, lineHeight: 1.35, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' } as any}>{n.title}</p>
                       </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex gap-2.5 p-3.5" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.015)' }}>
-                  <input type="text" placeholder="Rašyk žinutę… (reikia prisijungti)"
-                    className="flex-1 h-8 rounded-full px-3.5 text-xs focus:outline-none"
-                    style={{ background: 'rgba(255,255,255,0.055)', border: '1px solid rgba(255,255,255,0.08)', color: '#c8d8f0' }} />
-                  <button className="bg-[#1d4ed8] hover:bg-blue-500 text-white font-bold px-4 h-8 rounded-full text-xs transition-all flex-shrink-0">Siųsti</button>
-                </div>
+                    </Link>
+                  )
+                })}
               </div>
-            </div>
+            </section>
           </div>
-        </section>
-        <CommunityPosts />
 
-        {/* ━━ BENDRUOMENĖ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-        <section>
-          <SecHead label="Bendruomenė" cta="Visos diskusijos" />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {COMMUNITY.map((c, i) => (
-              <div key={i} className="flex gap-3.5 px-4 py-3.5 rounded-xl cursor-pointer group transition-all" style={CS} {...CH}>
-                <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0"
-                  style={{ background: `hsl(${c.user.charCodeAt(0) * 17 % 360},28%,15%)`, color: 'rgba(255,255,255,0.22)' }}>
-                  {c.user[0].toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,255,255,0.07)', color: '#4a6080' }}>{c.type}</span>
-                    <span className="text-[10px]" style={{ color: '#2a3a50' }}>{c.ago}</span>
-                  </div>
-                  <p className="text-[13px] font-semibold group-hover:text-blue-300 transition-colors leading-snug" style={{ color: dk ? '#c8d8f0' : '#0f1a2e' }}>{c.title}</p>
-                  <p className="text-[11px] mt-1" style={{ color: '#3d5878' }}>{c.user} · {c.replies} ats.</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ━━ RENGINIAI + PRANEŠIMAI ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-
+          {/* ── ATRASK ATLIKĖJUS ── */}
           <section>
-            <SecHead label="Renginiai" cta="Visi renginiai" />
-            <div className="flex gap-2 mb-4 flex-wrap">
-              {CITIES.map(c => <Pill key={c} label={c} active={city === c} onClick={() => setCity(c)} />)}
-            </div>
-            <div className="space-y-2">
-              {events.slice(0, 5).map((e, i) => (
-                <div key={i} className="flex items-center gap-4 px-4 py-3.5 rounded-xl cursor-pointer group transition-all" style={CS} {...CH}>
-                  <div className="text-center w-9 flex-shrink-0">
-                    <p className="text-xl font-black leading-none" style={{ color: '#f2f4f8' }}>{e.d}</p>
-                    <p className="text-[9px] font-black uppercase tracking-wide text-orange-400">{e.m}</p>
+            <SectionHead label="Atrask atlikėjus" href="/atlikejai" />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 20 }}>
+              {artists.slice(0, 12).map(a => (
+                <Link key={a.id} href={`/atlikejai/${a.slug}`} className="hp-artist" style={{ textAlign: 'center', textDecoration: 'none', display: 'block' }}>
+                  <div className="hp-artist-img" style={{ width: 80, height: 80, borderRadius: '50%', margin: '0 auto 10px', overflow: 'hidden', transition: 'transform 0.3s', boxShadow: `0 8px 20px hsla(${hue(a.name)},40%,6%,0.8)` }}>
+                    <Cover src={a.cover_image_url} alt={a.name} size={80} radius={40} />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate group-hover:text-blue-300 transition-colors" style={{ color: dk ? '#dde8f8' : '#0f1a2e' }}>{e.title}</p>
-                    <p className="text-xs" style={{ color: '#3d5878' }}>{e.venue} · {e.city}</p>
-                  </div>
-                  {e.sold
-                    ? <span className="text-[11px] font-black text-red-400 px-2.5 py-1 rounded-full flex-shrink-0" style={{ background: 'rgba(127,29,29,0.2)', border: '1px solid rgba(127,29,29,0.3)' }}>Parduota</span>
-                    : <button className="text-xs font-bold text-orange-400 hover:text-orange-300 flex-shrink-0">Bilietai →</button>}
-                </div>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: '#c8d8f0', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</p>
+                </Link>
               ))}
             </div>
           </section>
 
+          {/* ── ATLIKĖJAMS CTA ── */}
           <section>
-            <SecHead label="Atlikėjų pranešimai" cta="Visi pranešimai" />
-            <div className="space-y-2">
-              {PRESS.map((p, i) => (
-                <div key={i} className="flex gap-3.5 px-4 py-3.5 rounded-xl cursor-pointer group transition-all" style={CS} {...CH}>
-                  <div className="w-9 h-9 rounded-full flex items-center justify-center font-black text-sm flex-shrink-0"
-                    style={{ background: `hsl(${p.hue},35%,12%)`, color: 'rgba(255,255,255,0.22)' }}>
-                    {p.artist[0]}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full"
-                        style={{ background: `hsl(${p.hue},40%,12%)`, color: `hsl(${p.hue},60%,62%)`, border: `1px solid hsl(${p.hue},40%,19%)` }}>
-                        {p.chip}
-                      </span>
-                      <span className="text-[10px]" style={{ color: '#2a3a50' }}>{p.ago}</span>
-                    </div>
-                    <p className="text-[13px] font-semibold group-hover:text-blue-300 transition-colors leading-snug" style={{ color: dk ? '#c8d8f0' : '#0f1a2e' }}>{p.title}</p>
-                  </div>
-                </div>
-              ))}
+            <div style={{ padding: '40px 48px', borderRadius: 24, background: 'linear-gradient(135deg, rgba(29,78,216,0.1) 0%, rgba(255,255,255,0.02) 100%)', border: '1px solid rgba(29,78,216,0.18)', display: 'flex', alignItems: 'center', gap: 28, position: 'relative', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 0% 50%, rgba(29,78,216,0.07) 0%, transparent 55%)', pointerEvents: 'none' }} />
+              <div style={{ width: 64, height: 64, borderRadius: 18, flexShrink: 0, background: 'rgba(29,78,216,0.18)', border: '1px solid rgba(29,78,216,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>🎤</div>
+              <div style={{ flex: 1 }}>
+                <h3 style={{ fontFamily: 'Syne, sans-serif', fontSize: 22, fontWeight: 900, color: '#f2f4f8', margin: '0 0 6px' }}>Atlikėjams</h3>
+                <p style={{ fontSize: 13, color: '#4a6080', margin: 0, lineHeight: 1.6, maxWidth: 520 }}>Sukurk arba perimk savo profilį Music.lt platformoje. Skelk naujienas, renginius ir naują muziką tiesiai savo gerbėjams — nemokamai.</p>
+              </div>
+              <Link href="/atlikejai" style={{ flexShrink: 0, background: '#f97316', color: '#fff', fontWeight: 900, fontSize: 13, padding: '12px 28px', borderRadius: 24, textDecoration: 'none', boxShadow: '0 4px 20px rgba(249,115,22,0.35)', whiteSpace: 'nowrap' }}>
+                Pradėti nemokamai →
+              </Link>
             </div>
           </section>
+
         </div>
-
-        {/* ━━ ATRASK ATLIKĖJUS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-        <section>
-          <SecHead label="Atrask atlikėjus" cta="Visi atlikėjai" />
-          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-5">
-            {DISCOVER.map((a, i) => (
-              <div key={i} className="group cursor-pointer text-center relative">
-                {a.isNew && (
-                  <span className="absolute -top-0.5 -right-0.5 text-[9px] font-black bg-orange-500 text-white w-5 h-5 rounded-full flex items-center justify-center z-10">N</span>
-                )}
-                <div className="aspect-square rounded-full mx-auto mb-3 overflow-hidden transition-transform duration-300 group-hover:scale-105 max-w-[80px] flex items-center justify-center"
-                  style={{ background: `hsl(${a.hue},40%,16%)`, boxShadow: `0 8px 20px hsl(${a.hue},40%,6%)` }}>
-                  <span className="text-3xl font-black" style={{ color: 'rgba(255,255,255,0.1)' }}>{a.name[0]}</span>
-                </div>
-                <p className="text-[13px] font-bold group-hover:text-blue-300 transition-colors truncate" style={{ color: dk ? '#c8d8f0' : '#0f1a2e' }}>{a.name}</p>
-                <p className="text-[11px] truncate" style={{ color: '#3d5878' }}>{a.genre}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ━━ ATLIKĖJAMS CTA ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-        <section>
-          <div className="rounded-2xl p-8 sm:p-10 flex flex-col sm:flex-row items-center gap-7 relative overflow-hidden"
-            style={{ background: 'linear-gradient(135deg, rgba(29,78,216,0.11) 0%, rgba(255,255,255,0.02) 100%)', border: '1px solid rgba(29,78,216,0.18)' }}>
-            <div className="absolute inset-0 pointer-events-none"
-              style={{ background: 'radial-gradient(ellipse at 0% 50%, rgba(29,78,216,0.07) 0%, transparent 55%)' }} />
-            <div className="relative flex-shrink-0 w-16 h-16 rounded-2xl flex items-center justify-center text-3xl"
-              style={{ background: 'rgba(29,78,216,0.18)', border: '1px solid rgba(29,78,216,0.25)' }}>🎤</div>
-            <div className="relative flex-1 text-center sm:text-left">
-              <h3 className="text-[22px] font-black mb-1.5" style={{ color: dk ? '#f2f4f8' : '#0f1a2e' }}>Atlikėjams</h3>
-              <p className="text-sm leading-relaxed max-w-lg" style={{ color: '#4a6080' }}>
-                Sukurk arba perimk savo profilį Music.lt platformoje. Skelk naujienas, renginius ir naują muziką tiesiai savo gerbėjams — nemokamai.
-              </p>
-            </div>
-            <button className="relative flex-shrink-0 bg-orange-500 hover:bg-orange-400 text-white font-black px-8 py-3.5 rounded-full text-sm transition-all shadow-lg shadow-orange-900/40 hover:scale-[1.02] whitespace-nowrap">
-              Pradėti nemokamai →
-            </button>
-          </div>
-        </section>
-
       </div>
-    </div>
+    </>
   )
 }
