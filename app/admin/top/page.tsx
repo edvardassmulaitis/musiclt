@@ -12,9 +12,10 @@ type Week = {
   top_type: TopType
   week_start: string
   vote_open: string
-  vote_close: string
+  vote_close: string | null
   is_active: boolean
   is_finalized: boolean
+  vote_open: string | null
   total_votes: number
 }
 
@@ -46,7 +47,8 @@ function TrendBadge({ curr, prev }: { curr: number | null; prev: number | null }
   return <span className="text-gray-300 text-xs">—</span>
 }
 
-function Countdown({ targetDate }: { targetDate: string }) {
+function Countdown({ targetDate }: { targetDate: string | null }) {
+  if (!targetDate) return <span className="font-mono font-bold text-gray-400">—</span>
   const [timeLeft, setTimeLeft] = useState('')
 
   useEffect(() => {
@@ -258,17 +260,19 @@ function AdminTopInner() {
                 <p className="text-sm font-semibold text-gray-800">
                   {new Date(activeWeek.week_start).toLocaleDateString('lt-LT', { month: 'long', day: 'numeric' })}
                   {' – '}
-                  {new Date(activeWeek.vote_close).toLocaleDateString('lt-LT', { month: 'long', day: 'numeric' })}
+                  {activeWeek.vote_close ? new Date(activeWeek.vote_close).toLocaleDateString('lt-LT', { month: 'long', day: 'numeric' }) : '—'}
                 </p>
               </div>
               <div>
                 <span className="text-xs text-gray-400 uppercase tracking-wide">
-                  {activeWeek.is_finalized ? 'Finalizuota' : 'Iki pabaigos'}
+                  {activeWeek.is_finalized ? 'Finalizuota' : activeWeek.vote_close ? 'Iki pabaigos' : 'Prasideda'}
                 </span>
                 <p className="text-sm font-semibold">
                   {activeWeek.is_finalized
                     ? <span className="text-gray-500">✓ Baigta · {activeWeek.total_votes} balsų</span>
-                    : <Countdown targetDate={activeWeek.vote_close} />}
+                    : activeWeek.vote_close
+                      ? <Countdown targetDate={activeWeek.vote_close} />
+                      : <span className="text-gray-400 text-xs">Data nenustatyta</span>}
                 </p>
               </div>
               <div>
@@ -391,7 +395,16 @@ function AdminTopInner() {
           {/* RIGHT: Topas */}
           <div className="space-y-4">
             <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide">
-              📋 {activeWeek?.is_finalized ? 'Finalinis topas' : 'Kandidatai (balsavimas vyksta)'}
+              {(() => {
+                if (!activeWeek) return '📋 Topas'
+                if (activeWeek.is_finalized) return '📋 Finalinis topas'
+                const voteOpen = activeWeek.vote_open ? new Date(activeWeek.vote_open) : null
+                const voteClose = activeWeek.vote_close ? new Date(activeWeek.vote_close) : null
+                const now = new Date()
+                if (voteClose && now > voteClose) return '📋 Balsavimas baigėsi'
+                if (voteOpen && now < voteOpen) return '📋 Kandidatai kitam topui'
+                return '📋 Topas · balsavimas vyksta'
+              })()}
             </h2>
 
             {loadingEntries ? (
