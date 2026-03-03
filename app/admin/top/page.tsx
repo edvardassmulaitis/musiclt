@@ -13,7 +13,6 @@ type Week = {
   top_type: TopType
   week_start: string
   is_active: boolean
-  created_at: string
 }
 
 type Entry = {
@@ -25,10 +24,7 @@ type Entry = {
   is_new: boolean
   peak_position: number | null
   tracks: {
-    id: number
-    slug: string
-    title: string
-    cover_url: string | null
+    id: number; slug: string; title: string; cover_url: string | null
     artists: { id: number; slug: string; name: string }
   }
 }
@@ -45,12 +41,12 @@ type Suggestion = {
 
 function TrendBadge({ curr, prev }: { curr: number; prev: number | null }) {
   if (prev === null)
-    return <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-400/15 text-amber-300">NEW</span>
+    return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200">NEW</span>
   if (curr < prev)
-    return <span className="text-emerald-400 font-black text-xs">↑{prev - curr}</span>
+    return <span className="text-emerald-600 font-bold text-xs">↑{prev - curr}</span>
   if (curr > prev)
-    return <span className="text-red-400 font-black text-xs">↓{curr - prev}</span>
-  return <span className="text-gray-600 text-xs">—</span>
+    return <span className="text-red-500 font-bold text-xs">↓{curr - prev}</span>
+  return <span className="text-gray-300 text-xs">—</span>
 }
 
 function AdminTopInner() {
@@ -116,6 +112,7 @@ function AdminTopInner() {
     if (tab === 'suggestions') loadSuggestions()
   }, [tab, suggestionStatus, loadSuggestions])
 
+  // Track search
   useEffect(() => {
     if (trackSearch.length < 2) { setTrackResults([]); return }
     const t = setTimeout(async () => {
@@ -175,37 +172,42 @@ function AdminTopInner() {
   }
 
   if (status === 'loading') return (
-    <div className="min-h-screen flex items-center justify-center">
+    <div className="min-h-screen bg-[#f8f7f5] flex items-center justify-center">
       <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
     </div>
   )
 
   return (
-    <div className="min-h-screen p-6">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-[#f8f7f5] p-4 sm:p-6">
+      <div className="max-w-5xl mx-auto">
 
-        <div className="flex items-center gap-3 mb-6">
-          <Link href="/admin" className="text-gray-500 hover:text-white text-sm transition-colors">← Admin</Link>
-          <span className="text-gray-600">/</span>
-          <h1 className="text-2xl font-black text-white">🏆 TOP Sąrašai</h1>
+        {/* Header */}
+        <div className="flex items-center gap-2 mb-6 text-sm">
+          <Link href="/admin" className="text-gray-400 hover:text-gray-700 transition-colors">Admin</Link>
+          <span className="text-gray-300">/</span>
+          <span className="text-gray-800 font-semibold">🏆 TOP Sąrašai</span>
         </div>
 
         {msg && (
-          <div className="mb-4 px-4 py-2.5 rounded-xl bg-green-500/15 border border-green-500/25 text-green-400 text-sm">{msg}</div>
+          <div className="mb-4 px-4 py-2.5 rounded-xl bg-green-50 border border-green-200 text-green-700 text-sm font-medium">{msg}</div>
         )}
 
-        <div className="flex gap-2 mb-6">
+        {/* TOP type switcher */}
+        <div className="flex gap-2 mb-5">
           {(['top40', 'lt_top30'] as const).map(t => (
             <button key={t} onClick={() => setTopType(t)}
-              className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all ${
-                topType === t ? 'bg-blue-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10'
+              className={`px-5 py-2 rounded-xl font-semibold text-sm transition-all ${
+                topType === t
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
               }`}>
               {t === 'top40' ? '🌍 TOP 40' : '🇱🇹 LT TOP 30'}
             </button>
           ))}
         </div>
 
-        <div className="flex gap-1 mb-6 border-b border-white/10">
+        {/* Tabs */}
+        <div className="flex gap-0 mb-5 border-b border-gray-200 bg-white rounded-t-xl overflow-hidden">
           {([
             ['entries', '📋 Sąrašas'],
             ['suggestions', '💡 Pasiūlymai'],
@@ -213,50 +215,60 @@ function AdminTopInner() {
             ['stats', '📊 Statistika'],
           ] as const).map(([k, l]) => (
             <button key={k} onClick={() => setTab(k as TabType)}
-              className={`px-4 py-2 text-sm font-semibold transition-colors border-b-2 -mb-px ${
-                tab === k ? 'border-blue-500 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'
+              className={`px-5 py-3 text-sm font-semibold transition-colors border-b-2 -mb-px ${
+                tab === k
+                  ? 'text-blue-600 border-blue-600 bg-blue-50/50'
+                  : 'text-gray-500 border-transparent hover:text-gray-700 hover:bg-gray-50'
               }`}>
               {l}
             </button>
           ))}
         </div>
 
-        {/* ENTRIES */}
+        {/* ── ENTRIES ── */}
         {tab === 'entries' && (
           <div className="space-y-4">
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-sm text-gray-400 font-medium">Savaitė:</span>
-              <div className="flex gap-2 flex-wrap">
-                {weeks.map(w => (
-                  <button key={w.id} onClick={() => setActiveWeek(w)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                      activeWeek?.id === w.id ? 'bg-blue-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10'
-                    }`}>
-                    {new Date(w.week_start).toLocaleDateString('lt-LT', { month: 'short', day: 'numeric' })}
-                    {w.is_active && <span className="ml-1 text-green-400">●</span>}
-                  </button>
-                ))}
-                {weeks.length === 0 && <span className="text-xs text-gray-600">Nėra savaičių — sukurkite skirtuke „Savaitės"</span>}
-              </div>
+            {/* Week selector */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm text-gray-500 font-medium">Savaitė:</span>
+              {weeks.map(w => (
+                <button key={w.id} onClick={() => setActiveWeek(w)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                    activeWeek?.id === w.id
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600'
+                  }`}>
+                  {new Date(w.week_start).toLocaleDateString('lt-LT', { month: 'short', day: 'numeric' })}
+                  {w.is_active && <span className="ml-1 text-green-400">●</span>}
+                </button>
+              ))}
+              {weeks.length === 0 && (
+                <span className="text-xs text-gray-400">Nėra savaičių — sukurkite skirtuke „Savaitės"</span>
+              )}
             </div>
 
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
-              <p className="text-sm font-bold text-white mb-3">+ Pridėti dainą</p>
+            {/* Add track */}
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+              <p className="text-sm font-semibold text-gray-700 mb-3">+ Pridėti dainą į sąrašą</p>
               <div className="relative">
                 <input type="text" value={trackSearch} onChange={e => setTrackSearch(e.target.value)}
-                  placeholder="Ieškoti dainos…"
-                  className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-gray-500 focus:outline-none focus:border-blue-500 text-sm" />
+                  placeholder="Ieškoti pagal dainos pavadinimą arba atlikėją…"
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-blue-400 focus:bg-white text-sm transition-colors" />
                 {trackResults.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-[#0d1117] border border-white/15 rounded-xl overflow-hidden shadow-2xl z-20">
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl overflow-hidden shadow-xl z-20">
                     {trackResults.map((t: any) => (
                       <button key={t.id} onClick={() => addToTop(t.id)} disabled={saving}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 transition-colors text-left">
-                        <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-xs flex-shrink-0">♪</div>
+                        className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-blue-50 transition-colors text-left border-b border-gray-50 last:border-0">
+                        <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+                          {t.cover_url
+                            ? <img src={t.cover_url} alt="" className="w-full h-full object-cover" />
+                            : <div className="w-full h-full flex items-center justify-center text-gray-300 text-sm">♪</div>}
+                        </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-white truncate">{t.title}</p>
+                          <p className="text-sm font-semibold text-gray-900 truncate">{t.title}</p>
                           <p className="text-xs text-gray-500 truncate">{t.artist_name || t.artists?.name}</p>
                         </div>
-                        <span className="text-xs text-blue-400 flex-shrink-0">+ Pridėti</span>
+                        <span className="text-xs text-blue-600 font-semibold flex-shrink-0 bg-blue-50 px-2 py-1 rounded-lg">+ Pridėti</span>
                       </button>
                     ))}
                   </div>
@@ -264,17 +276,20 @@ function AdminTopInner() {
               </div>
             </div>
 
+            {/* Entries table */}
             {loading ? (
-              <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" /></div>
+              <div className="flex justify-center py-12">
+                <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+              </div>
             ) : entries.length === 0 ? (
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-12 text-center">
-                <p className="text-gray-400">Sąrašas tuščias.</p>
+              <div className="bg-white border border-gray-100 rounded-xl p-12 text-center shadow-sm">
+                <p className="text-gray-400 text-sm">Sąrašas tuščias. Ieškokite dainos aukščiau.</p>
               </div>
             ) : (
-              <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+              <div className="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-white/10 text-left text-xs text-gray-500 uppercase tracking-wide">
+                    <tr className="border-b border-gray-100 text-left text-xs text-gray-400 uppercase tracking-wide bg-gray-50/80">
                       <th className="px-4 py-3 w-10">#</th>
                       <th className="px-4 py-3 w-12">±</th>
                       <th className="px-4 py-3">Daina</th>
@@ -285,23 +300,29 @@ function AdminTopInner() {
                   </thead>
                   <tbody>
                     {entries.map(e => (
-                      <tr key={e.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                      <tr key={e.id} className="border-b border-gray-50 hover:bg-gray-50/80 transition-colors last:border-0">
                         <td className="px-4 py-3">
-                          <span className={`text-sm font-black ${e.position <= 3 ? 'text-orange-400' : 'text-gray-400'}`}>{e.position}</span>
+                          <span className={`text-sm font-black tabular-nums ${e.position <= 3 ? 'text-orange-500' : 'text-gray-700'}`}>
+                            {e.position}
+                          </span>
                         </td>
                         <td className="px-4 py-3"><TrendBadge curr={e.position} prev={e.prev_position} /></td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center text-xs flex-shrink-0">♪</div>
+                            <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+                              {e.tracks?.cover_url
+                                ? <img src={e.tracks.cover_url} alt="" className="w-full h-full object-cover" />
+                                : <div className="w-full h-full flex items-center justify-center text-gray-300 text-sm">♪</div>}
+                            </div>
                             <div>
-                              <p className="text-sm font-semibold text-white">{e.tracks?.title}</p>
-                              <p className="text-xs text-gray-500">{e.tracks?.artists?.name}</p>
+                              <p className="text-sm font-semibold text-gray-900">{e.tracks?.title}</p>
+                              <p className="text-xs text-gray-400">{e.tracks?.artists?.name}</p>
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-center text-xs text-gray-400">{e.weeks_in_top}/12</td>
-                        <td className="px-4 py-3 text-center text-xs text-gray-400">#{e.peak_position || e.position}</td>
-                        <td className="px-4 py-3 text-right text-sm font-bold text-white">{e.total_votes}</td>
+                        <td className="px-4 py-3 text-center text-xs text-gray-400 tabular-nums">{e.weeks_in_top}/12</td>
+                        <td className="px-4 py-3 text-center text-xs text-gray-400 tabular-nums">#{e.peak_position || e.position}</td>
+                        <td className="px-4 py-3 text-right text-sm font-bold text-gray-700 tabular-nums">{e.total_votes}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -311,41 +332,51 @@ function AdminTopInner() {
           </div>
         )}
 
-        {/* SUGGESTIONS */}
+        {/* ── SUGGESTIONS ── */}
         {tab === 'suggestions' && (
           <div className="space-y-4">
             <div className="flex gap-2">
               {(['pending', 'approved', 'rejected'] as const).map(s => (
                 <button key={s} onClick={() => setSuggestionStatus(s)}
-                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
-                    suggestionStatus === s ? 'bg-blue-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10'
+                  className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all border ${
+                    suggestionStatus === s
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
                   }`}>
                   {s === 'pending' ? '⏳ Laukia' : s === 'approved' ? '✓ Patvirtinta' : '✕ Atmesta'}
                 </button>
               ))}
             </div>
             {loading ? (
-              <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" /></div>
+              <div className="flex justify-center py-12">
+                <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+              </div>
             ) : suggestions.length === 0 ? (
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-12 text-center"><p className="text-gray-400">Nėra pasiūlymų.</p></div>
+              <div className="bg-white border border-gray-100 rounded-xl p-12 text-center shadow-sm">
+                <p className="text-gray-400 text-sm">Nėra pasiūlymų.</p>
+              </div>
             ) : (
               <div className="space-y-2">
                 {suggestions.map(s => {
                   const title = s.tracks?.title || s.manual_title || '?'
                   const artist = s.tracks?.artists?.[0]?.name || s.manual_artist || '?'
                   return (
-                    <div key={s.id} className="flex items-center gap-4 px-4 py-3.5 bg-white/5 border border-white/10 rounded-xl">
-                      <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center text-sm flex-shrink-0">♪</div>
+                    <div key={s.id} className="flex items-center gap-3 px-4 py-3 bg-white border border-gray-100 rounded-xl shadow-sm">
+                      <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-base flex-shrink-0">♪</div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-white">{title}</p>
-                        <p className="text-xs text-gray-500">{artist} · {s.top_type === 'top40' ? 'TOP 40' : 'LT TOP 30'}</p>
+                        <p className="text-sm font-semibold text-gray-900">{title}</p>
+                        <p className="text-xs text-gray-400">{artist} · {s.top_type === 'top40' ? 'TOP 40' : 'LT TOP 30'}</p>
                       </div>
                       {suggestionStatus === 'pending' && (
                         <div className="flex gap-2 flex-shrink-0">
                           <button onClick={() => reviewSuggestion(s.id, 'approved')}
-                            className="px-3 py-1.5 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded-lg text-xs font-bold transition-colors">✓ Patvirtinti</button>
+                            className="px-3 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 rounded-lg text-xs font-semibold transition-colors">
+                            ✓ Patvirtinti
+                          </button>
                           <button onClick={() => reviewSuggestion(s.id, 'rejected')}
-                            className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-xs font-bold transition-colors">✕ Atmesti</button>
+                            className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-lg text-xs font-semibold transition-colors">
+                            ✕ Atmesti
+                          </button>
                         </div>
                       )}
                     </div>
@@ -356,24 +387,24 @@ function AdminTopInner() {
           </div>
         )}
 
-        {/* WEEKS */}
+        {/* ── WEEKS ── */}
         {tab === 'weeks' && (
           <div className="space-y-4">
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
-              <p className="text-sm font-bold text-white mb-3">Sukurti naują savaitę</p>
-              <div className="flex gap-3">
+            <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-4">
+              <p className="text-sm font-semibold text-gray-700 mb-3">Sukurti naują savaitę</p>
+              <div className="flex gap-3 flex-wrap">
                 <input type="date" value={newWeekDate} onChange={e => setNewWeekDate(e.target.value)}
-                  className="px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-blue-500 text-sm" />
+                  className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 focus:outline-none focus:border-blue-400 text-sm" />
                 <button onClick={createWeek} disabled={saving || !newWeekDate}
-                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition-colors disabled:opacity-50">
+                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-colors shadow-sm disabled:opacity-50">
                   {saving ? 'Kuriama…' : '+ Sukurti'}
                 </button>
               </div>
             </div>
-            <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+            <div className="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-white/10 text-left text-xs text-gray-500 uppercase tracking-wide">
+                  <tr className="border-b border-gray-100 text-left text-xs text-gray-400 uppercase tracking-wide bg-gray-50/80">
                     <th className="px-4 py-3">Savaitė nuo</th>
                     <th className="px-4 py-3">Tipas</th>
                     <th className="px-4 py-3">Statusas</th>
@@ -382,24 +413,26 @@ function AdminTopInner() {
                 </thead>
                 <tbody>
                   {weeks.map(w => (
-                    <tr key={w.id} className="border-b border-white/5 hover:bg-white/5">
-                      <td className="px-4 py-3 text-sm text-white font-medium">
+                    <tr key={w.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/80 transition-colors">
+                      <td className="px-4 py-3 text-sm text-gray-800 font-medium">
                         {new Date(w.week_start).toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' })}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-400">{w.top_type === 'top40' ? '🌍 TOP 40' : '🇱🇹 LT TOP 30'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-500">{w.top_type === 'top40' ? '🌍 TOP 40' : '🇱🇹 LT TOP 30'}</td>
                       <td className="px-4 py-3">
                         {w.is_active
-                          ? <span className="text-xs font-bold text-green-400 bg-green-400/10 px-2 py-1 rounded-full">● Aktyvi</span>
-                          : <span className="text-xs text-gray-600">Archyvas</span>}
+                          ? <span className="text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-1 rounded-full">● Aktyvi</span>
+                          : <span className="text-xs text-gray-400">Archyvas</span>}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <button onClick={() => { setActiveWeek(w); setTab('entries') }}
-                          className="text-xs text-blue-400 hover:text-blue-300 font-medium transition-colors">Žiūrėti →</button>
+                          className="text-xs text-blue-600 hover:text-blue-800 font-semibold transition-colors">
+                          Žiūrėti →
+                        </button>
                       </td>
                     </tr>
                   ))}
                   {weeks.length === 0 && (
-                    <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-600 text-sm">Nėra savaičių.</td></tr>
+                    <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-400 text-sm">Nėra savaičių.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -407,17 +440,17 @@ function AdminTopInner() {
           </div>
         )}
 
-        {/* STATS */}
+        {/* ── STATS ── */}
         {tab === 'stats' && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
-              { label: 'Dainų sąraše', value: entries.length, icon: '🎵' },
-              { label: 'Aktyvios savaitės', value: weeks.filter(w => w.is_active).length, icon: '📅' },
-              { label: 'Viso savaičių', value: weeks.length, icon: '📊' },
+              { label: 'Dainų sąraše', value: entries.length, icon: '🎵', color: 'blue' },
+              { label: 'Aktyvios savaitės', value: weeks.filter(w => w.is_active).length, icon: '📅', color: 'green' },
+              { label: 'Viso savaičių', value: weeks.length, icon: '📊', color: 'purple' },
             ].map((stat, i) => (
-              <div key={i} className="bg-white/5 border border-white/10 rounded-2xl p-5">
-                <div className="text-3xl mb-2">{stat.icon}</div>
-                <div className="text-3xl font-black text-white">{stat.value}</div>
+              <div key={i} className="bg-white border border-gray-100 rounded-xl shadow-sm p-5">
+                <div className="text-2xl mb-2">{stat.icon}</div>
+                <div className="text-3xl font-black text-gray-900">{stat.value}</div>
                 <div className="text-sm text-gray-400 mt-1">{stat.label}</div>
               </div>
             ))}
@@ -432,7 +465,7 @@ function AdminTopInner() {
 export default function AdminTop() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen bg-[#f8f7f5] flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
       </div>
     }>
