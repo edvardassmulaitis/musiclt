@@ -11,7 +11,7 @@ export async function GET(req: Request) {
 
   let query = supabase
     .from('top_suggestions')
-    .select('id, top_type, status, created_at, user_id, track_id')
+    .select('id, top_type, status, created_at, suggested_by_user_id, track_id')
     .eq('status', status)
     .order('created_at', { ascending: false })
     .limit(100)
