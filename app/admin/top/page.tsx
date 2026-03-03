@@ -2,11 +2,11 @@
 
 import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useSession } from 'next-auth/react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 type TopType = 'top40' | 'lt_top30'
-type TabType = 'entries' | 'suggestions' | 'weeks' | 'stats'
+type TabType = 'entries' | 'suggestions'
 
 type Week = {
   id: number
@@ -52,14 +52,10 @@ function TrendBadge({ curr, prev }: { curr: number; prev: number | null }) {
 function AdminTopInner() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const searchParams = useSearchParams()
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
 
-  const [topType, setTopType] = useState<TopType>(
-    (searchParams.get('type') as TopType) || 'top40'
-  )
+  const [topType, setTopType] = useState<TopType>('top40')
   const [tab, setTab] = useState<TabType>('entries')
-  const [weeks, setWeeks] = useState<Week[]>([])
   const [activeWeek, setActiveWeek] = useState<Week | null>(null)
   const [entries, setEntries] = useState<Entry[]>([])
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
@@ -67,7 +63,6 @@ function AdminTopInner() {
   const [loading, setLoading] = useState(false)
   const [trackSearch, setTrackSearch] = useState('')
   const [trackResults, setTrackResults] = useState<any[]>([])
-  const [newWeekDate, setNewWeekDate] = useState('')
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
 
@@ -76,17 +71,20 @@ function AdminTopInner() {
     if (status === 'authenticated' && !isAdmin) { router.push('/'); return }
   }, [status, isAdmin, router])
 
-  const loadWeeks = useCallback(async () => {
-    const res = await fetch(`/api/top/weeks?type=${topType}&limit=20`)
+  // Gauti aktyvią savaitę (auto-kuriama serverio pusėje)
+  const loadActiveWeek = useCallback(async () => {
+    const res = await fetch(`/api/top/weeks?type=${topType}&limit=1`)
     const data = await res.json()
-    setWeeks(data.weeks || [])
-    setActiveWeek(data.weeks?.find((w: Week) => w.is_active) || data.weeks?.[0] || null)
+    const active = (data.weeks || []).find((w: Week) => w.is_active) || data.weeks?.[0] || null
+    setActiveWeek(active)
+    return active
   }, [topType])
 
-  const loadEntries = useCallback(async () => {
-    if (!activeWeek) return
+  const loadEntries = useCallback(async (week?: Week | null) => {
+    const w = week ?? activeWeek
+    if (!w) return
     setLoading(true)
-    const res = await fetch(`/api/top/entries?type=${topType}&week_id=${activeWeek.id}`)
+    const res = await fetch(`/api/top/entries?type=${topType}&week_id=${w.id}`)
     const data = await res.json()
     setEntries(data.entries || [])
     setLoading(false)
@@ -101,16 +99,17 @@ function AdminTopInner() {
   }, [suggestionStatus])
 
   useEffect(() => {
-    if (status === 'authenticated' && isAdmin) loadWeeks()
-  }, [status, isAdmin, loadWeeks])
+    if (status !== 'authenticated' || !isAdmin) return
+    loadActiveWeek().then(week => {
+      if (tab === 'entries') loadEntries(week)
+    })
+  }, [status, isAdmin, topType]) // eslint-disable-line
 
   useEffect(() => {
-    if (activeWeek && tab === 'entries') loadEntries()
-  }, [activeWeek, tab, loadEntries])
-
-  useEffect(() => {
+    if (status !== 'authenticated' || !isAdmin) return
+    if (tab === 'entries') loadEntries()
     if (tab === 'suggestions') loadSuggestions()
-  }, [tab, suggestionStatus, loadSuggestions])
+  }, [tab, suggestionStatus]) // eslint-disable-line
 
   // Track search
   useEffect(() => {
@@ -119,7 +118,9 @@ function AdminTopInner() {
       const res = await fetch(`/api/tracks?search=${encodeURIComponent(trackSearch)}&limit=10`)
       const data = await res.json()
       // Filtruoti - tik tikros dainos (ne atlikėjai)
-      const filtered = (data.tracks || []).filter((t: any) => t.id && t.title && t.title !== t.artist_name)
+      const filtered = (data.tracks || []).filter((t: any) =>
+        t.id && t.title && t.title !== t.artist_name
+      )
       setTrackResults(filtered)
     }, 300)
     return () => clearTimeout(t)
@@ -127,8 +128,8 @@ function AdminTopInner() {
 
   const addToTop = async (trackId: number) => {
     if (!activeWeek) {
-      setMsg('Pirmiausia sukurkite savaitę skirtuke „Savaitės"')
-      setTimeout(() => setMsg(''), 4000)
+      setMsg('Klaida: nėra aktyvios savaitės')
+      setTimeout(() => setMsg(''), 3000)
       return
     }
     setSaving(true)
@@ -138,43 +139,26 @@ function AdminTopInner() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ week_id: activeWeek.id, track_id: trackId, position: nextPos }),
     })
+    const d = await res.json()
     if (res.ok) {
       setMsg('Daina pridėta ✓')
       loadEntries()
       setTrackSearch('')
       setTrackResults([])
     } else {
-      const d = await res.json()
       setMsg('Klaida: ' + d.error)
     }
     setSaving(false)
     setTimeout(() => setMsg(''), 3000)
   }
 
-  const createWeek = async () => {
-    if (!newWeekDate) return
-    setSaving(true)
-    const res = await fetch('/api/top/weeks', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ top_type: topType, week_start: newWeekDate }),
-    })
-    if (res.ok) {
-      setMsg('Savaitė sukurta ✓')
-      loadWeeks()
-      setNewWeekDate('')
-    }
-    setSaving(false)
-    setTimeout(() => setMsg(''), 3000)
-  }
-
   const reviewSuggestion = async (id: number, newStatus: string) => {
-    const res = await fetch('/api/top/suggestions', {
+    await fetch('/api/top/suggestions', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, status: newStatus }),
     })
-    if (res.ok) loadSuggestions()
+    loadSuggestions()
   }
 
   if (status === 'loading') return (
@@ -183,19 +167,34 @@ function AdminTopInner() {
     </div>
   )
 
+  const weekLabel = activeWeek
+    ? new Date(activeWeek.week_start).toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' })
+    : null
+
   return (
     <div className="min-h-screen bg-[#f8f7f5] p-4 sm:p-6">
       <div className="max-w-5xl mx-auto">
 
         {/* Header */}
-        <div className="flex items-center gap-2 mb-6 text-sm">
-          <Link href="/admin" className="text-gray-400 hover:text-gray-700 transition-colors">Admin</Link>
-          <span className="text-gray-300">/</span>
-          <span className="text-gray-800 font-semibold">🏆 TOP Sąrašai</span>
+        <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
+          <div className="flex items-center gap-2 text-sm">
+            <Link href="/admin" className="text-gray-400 hover:text-gray-700 transition-colors">Admin</Link>
+            <span className="text-gray-300">/</span>
+            <span className="text-gray-800 font-semibold">🏆 TOP Sąrašai</span>
+          </div>
+          {weekLabel && (
+            <span className="text-xs text-gray-400 bg-white border border-gray-200 px-3 py-1.5 rounded-full">
+              📅 Savaitė nuo {weekLabel}
+            </span>
+          )}
         </div>
 
         {msg && (
-          <div className="mb-4 px-4 py-2.5 rounded-xl bg-green-50 border border-green-200 text-green-700 text-sm font-medium">{msg}</div>
+          <div className={`mb-4 px-4 py-2.5 rounded-xl text-sm font-medium ${
+            msg.startsWith('Klaida')
+              ? 'bg-red-50 border border-red-200 text-red-700'
+              : 'bg-green-50 border border-green-200 text-green-700'
+          }`}>{msg}</div>
         )}
 
         {/* TOP type switcher */}
@@ -212,19 +211,17 @@ function AdminTopInner() {
           ))}
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-0 mb-5 border-b border-gray-200 bg-white rounded-t-xl overflow-hidden">
+        {/* Tabs — tik 2 */}
+        <div className="flex gap-0 mb-5 border-b border-gray-200">
           {([
             ['entries', '📋 Sąrašas'],
             ['suggestions', '💡 Pasiūlymai'],
-            ['weeks', '📅 Savaitės'],
-            ['stats', '📊 Statistika'],
           ] as const).map(([k, l]) => (
             <button key={k} onClick={() => setTab(k as TabType)}
               className={`px-5 py-3 text-sm font-semibold transition-colors border-b-2 -mb-px ${
                 tab === k
-                  ? 'text-blue-600 border-blue-600 bg-blue-50/50'
-                  : 'text-gray-500 border-transparent hover:text-gray-700 hover:bg-gray-50'
+                  ? 'text-blue-600 border-blue-600'
+                  : 'text-gray-500 border-transparent hover:text-gray-700'
               }`}>
               {l}
             </button>
@@ -234,36 +231,24 @@ function AdminTopInner() {
         {/* ── ENTRIES ── */}
         {tab === 'entries' && (
           <div className="space-y-4">
-            {/* Week selector */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm text-gray-500 font-medium">Savaitė:</span>
-              {weeks.map(w => (
-                <button key={w.id} onClick={() => setActiveWeek(w)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
-                    activeWeek?.id === w.id
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600'
-                  }`}>
-                  {new Date(w.week_start).toLocaleDateString('lt-LT', { month: 'short', day: 'numeric' })}
-                  {w.is_active && <span className="ml-1 text-green-400">●</span>}
-                </button>
-              ))}
-              {weeks.length === 0 && (
-                <span className="text-xs text-gray-400">Nėra savaičių — sukurkite skirtuke „Savaitės"</span>
-              )}
-            </div>
-
             {/* Add track */}
             <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
               <p className="text-sm font-semibold text-gray-700 mb-3">+ Pridėti dainą į sąrašą</p>
               <div className="relative">
-                <input type="text" value={trackSearch} onChange={e => setTrackSearch(e.target.value)}
+                <input
+                  type="text"
+                  value={trackSearch}
+                  onChange={e => setTrackSearch(e.target.value)}
                   placeholder="Ieškoti pagal dainos pavadinimą arba atlikėją…"
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-blue-400 focus:bg-white text-sm transition-colors" />
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-blue-400 focus:bg-white text-sm transition-colors"
+                />
                 {trackResults.length > 0 && (
                   <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl overflow-hidden shadow-xl z-20">
                     {trackResults.map((t: any) => (
-                      <button key={t.id} onClick={() => addToTop(t.id)} disabled={saving}
+                      <button
+                        key={t.id}
+                        onClick={() => addToTop(t.id)}
+                        disabled={saving}
                         className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-blue-50 transition-colors text-left border-b border-gray-50 last:border-0">
                         <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
                           {t.cover_url
@@ -274,7 +259,9 @@ function AdminTopInner() {
                           <p className="text-sm font-semibold text-gray-900 truncate">{t.title}</p>
                           <p className="text-xs text-gray-500 truncate">{t.artist_name || t.artists?.name}</p>
                         </div>
-                        <span className="text-xs text-blue-600 font-semibold flex-shrink-0 bg-blue-50 px-2 py-1 rounded-lg">+ Pridėti</span>
+                        <span className="text-xs text-blue-600 font-semibold flex-shrink-0 bg-blue-50 px-2 py-1 rounded-lg">
+                          {saving ? '…' : '+ Pridėti'}
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -299,20 +286,21 @@ function AdminTopInner() {
                       <th className="px-4 py-3 w-10">#</th>
                       <th className="px-4 py-3 w-12">±</th>
                       <th className="px-4 py-3">Daina</th>
-                      <th className="px-4 py-3 text-center w-16">Sav.</th>
-                      <th className="px-4 py-3 text-center w-16">Aukšč.</th>
+                      <th className="px-4 py-3 text-center w-16 hidden sm:table-cell">Sav.</th>
                       <th className="px-4 py-3 text-right w-20">Balsai</th>
                     </tr>
                   </thead>
                   <tbody>
                     {entries.map(e => (
-                      <tr key={e.id} className="border-b border-gray-50 hover:bg-gray-50/80 transition-colors last:border-0">
+                      <tr key={e.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/80 transition-colors">
                         <td className="px-4 py-3">
                           <span className={`text-sm font-black tabular-nums ${e.position <= 3 ? 'text-orange-500' : 'text-gray-700'}`}>
                             {e.position}
                           </span>
                         </td>
-                        <td className="px-4 py-3"><TrendBadge curr={e.position} prev={e.prev_position} /></td>
+                        <td className="px-4 py-3">
+                          <TrendBadge curr={e.position} prev={e.prev_position} />
+                        </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
                             <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
@@ -326,9 +314,12 @@ function AdminTopInner() {
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-center text-xs text-gray-400 tabular-nums">{e.weeks_in_top}/12</td>
-                        <td className="px-4 py-3 text-center text-xs text-gray-400 tabular-nums">#{e.peak_position || e.position}</td>
-                        <td className="px-4 py-3 text-right text-sm font-bold text-gray-700 tabular-nums">{e.total_votes}</td>
+                        <td className="px-4 py-3 text-center text-xs text-gray-400 tabular-nums hidden sm:table-cell">
+                          {e.weeks_in_top}
+                        </td>
+                        <td className="px-4 py-3 text-right text-sm font-bold text-gray-700 tabular-nums">
+                          {e.total_votes}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -390,76 +381,6 @@ function AdminTopInner() {
                 })}
               </div>
             )}
-          </div>
-        )}
-
-        {/* ── WEEKS ── */}
-        {tab === 'weeks' && (
-          <div className="space-y-4">
-            <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-4">
-              <p className="text-sm font-semibold text-gray-700 mb-3">Sukurti naują savaitę</p>
-              <div className="flex gap-3 flex-wrap">
-                <input type="date" value={newWeekDate} onChange={e => setNewWeekDate(e.target.value)}
-                  className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 focus:outline-none focus:border-blue-400 text-sm" />
-                <button onClick={createWeek} disabled={saving || !newWeekDate}
-                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-colors shadow-sm disabled:opacity-50">
-                  {saving ? 'Kuriama…' : '+ Sukurti'}
-                </button>
-              </div>
-            </div>
-            <div className="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-100 text-left text-xs text-gray-400 uppercase tracking-wide bg-gray-50/80">
-                    <th className="px-4 py-3">Savaitė nuo</th>
-                    <th className="px-4 py-3">Tipas</th>
-                    <th className="px-4 py-3">Statusas</th>
-                    <th className="px-4 py-3 text-right">Veiksmai</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {weeks.map(w => (
-                    <tr key={w.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/80 transition-colors">
-                      <td className="px-4 py-3 text-sm text-gray-800 font-medium">
-                        {new Date(w.week_start).toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' })}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-500">{w.top_type === 'top40' ? '🌍 TOP 40' : '🇱🇹 LT TOP 30'}</td>
-                      <td className="px-4 py-3">
-                        {w.is_active
-                          ? <span className="text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-1 rounded-full">● Aktyvi</span>
-                          : <span className="text-xs text-gray-400">Archyvas</span>}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <button onClick={() => { setActiveWeek(w); setTab('entries') }}
-                          className="text-xs text-blue-600 hover:text-blue-800 font-semibold transition-colors">
-                          Žiūrėti →
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                  {weeks.length === 0 && (
-                    <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-400 text-sm">Nėra savaičių.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* ── STATS ── */}
-        {tab === 'stats' && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {[
-              { label: 'Dainų sąraše', value: entries.length, icon: '🎵', color: 'blue' },
-              { label: 'Aktyvios savaitės', value: weeks.filter(w => w.is_active).length, icon: '📅', color: 'green' },
-              { label: 'Viso savaičių', value: weeks.length, icon: '📊', color: 'purple' },
-            ].map((stat, i) => (
-              <div key={i} className="bg-white border border-gray-100 rounded-xl shadow-sm p-5">
-                <div className="text-2xl mb-2">{stat.icon}</div>
-                <div className="text-3xl font-black text-gray-900">{stat.value}</div>
-                <div className="text-sm text-gray-400 mt-1">{stat.label}</div>
-              </div>
-            ))}
           </div>
         )}
 
