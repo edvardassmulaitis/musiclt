@@ -169,7 +169,6 @@ function AdminTopInner() {
       })
       if (approveRes.ok) {
         showMsg('Daina pridėta ✓')
-        setSuggestionStatus('approved')
       } else {
         const ad = await approveRes.json()
         showMsg(ad.error || 'Klaida patvirtinant', 'err')
