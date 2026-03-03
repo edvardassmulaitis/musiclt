@@ -116,15 +116,21 @@ function AdminTopInner() {
   useEffect(() => {
     if (trackSearch.length < 2) { setTrackResults([]); return }
     const t = setTimeout(async () => {
-      const res = await fetch(`/api/tracks?search=${encodeURIComponent(trackSearch)}&limit=8`)
+      const res = await fetch(`/api/tracks?search=${encodeURIComponent(trackSearch)}&limit=10`)
       const data = await res.json()
-      setTrackResults(data.tracks || [])
+      // Filtruoti - tik tikros dainos (ne atlikėjai)
+      const filtered = (data.tracks || []).filter((t: any) => t.id && t.title && t.title !== t.artist_name)
+      setTrackResults(filtered)
     }, 300)
     return () => clearTimeout(t)
   }, [trackSearch])
 
   const addToTop = async (trackId: number) => {
-    if (!activeWeek) return
+    if (!activeWeek) {
+      setMsg('Pirmiausia sukurkite savaitę skirtuke „Savaitės"')
+      setTimeout(() => setMsg(''), 4000)
+      return
+    }
     setSaving(true)
     const nextPos = entries.length + 1
     const res = await fetch('/api/top/entries', {
