@@ -19,9 +19,9 @@ export async function GET(req: Request) {
     .from('daily_song_nominations')
     .select(`
       id, date, comment, created_at,
-      tracks (
+      tracks!track_id (
         id, slug, title, cover_url, spotify_id, video_url,
-        artists ( id, slug, name, cover_image_url )
+        artists!artist_id ( id, slug, name, cover_image_url )
       ),
       user_id
     `)
@@ -90,7 +90,7 @@ export async function POST(req: Request) {
     })
     .select(`
       id, date, comment, created_at,
-      tracks ( id, slug, title, cover_url, artists ( id, slug, name ) )
+      tracks!track_id ( id, slug, title, cover_url, artists!artist_id ( id, slug, name ) )
     `)
     .single()
 
