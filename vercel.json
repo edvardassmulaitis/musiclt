@@ -1,4 +1,14 @@
 {
   "buildCommand": "npm run build",
-  "outputDirectory": ".next"
+  "outputDirectory": ".next",
+  "crons": [
+    {
+      "path": "/api/top/cron",
+      "schedule": "0 13 * * 6"
+    },
+    {
+      "path": "/api/top/cron",
+      "schedule": "0 13 * * 0"
+    }
+  ]
 }
