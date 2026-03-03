@@ -2,6 +2,8 @@ import { Metadata } from 'next'
 import { createAdminClient } from '@/lib/supabase'
 import DienesDainaClient from './DienesDainaClient'
 
+export const dynamic = 'force-dynamic'
+
 function todayLT(): string {
   return new Date().toLocaleDateString('lt-LT', {
     timeZone: 'Europe/Vilnius',
