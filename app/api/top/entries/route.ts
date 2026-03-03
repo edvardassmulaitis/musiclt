@@ -31,9 +31,9 @@ export async function GET(req: Request) {
 
   const { data: entries, error } = await supabase
     .from('top_entries')
-    .select('id, position, prev_position, weeks_in_top, vote_count, is_new, peak_position, track_id')
+    .select('id, position, prev_position, weeks_in_top, total_votes, is_new, peak_position, track_id')
     .eq('week_id', targetWeekId)
-    .order(week?.is_finalized ? 'position' : 'vote_count', { ascending: week?.is_finalized ? true : false })
+    .order(week?.is_finalized ? 'position' : 'total_votes', { ascending: week?.is_finalized ? true : false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   if (!entries?.length) return NextResponse.json({ entries: [], week })
@@ -94,7 +94,7 @@ export async function POST(req: Request) {
       track_id,
       top_type: week?.top_type || 'top40',
       position: (count || 0) + 1,
-      vote_count: 0,
+      total_votes: 0,
       is_new: true,
       weeks_in_top: 1,
       peak_position: (count || 0) + 1,
