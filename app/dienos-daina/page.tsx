@@ -18,6 +18,16 @@ function yesterdayLT(): string {
   }).split('.').reverse().join('-')
 }
 
+function normalizeTrack(raw: any) {
+  if (!raw) return null
+  const track = Array.isArray(raw) ? raw[0] ?? null : raw
+  if (!track) return null
+  return {
+    ...track,
+    artists: Array.isArray(track.artists) ? track.artists[0] ?? null : track.artists,
+  }
+}
+
 async function getData() {
   const supabase = createAdminClient()
   const today = todayLT()
@@ -36,7 +46,6 @@ async function getData() {
       .eq('date', today)
       .is('removed_at', null)
       .order('created_at', { ascending: true }),
-
     supabase
       .from('daily_song_winners')
       .select(`
@@ -50,7 +59,6 @@ async function getData() {
       .limit(15),
   ])
 
-  // Pridėti balsų skaičius prie nominacijų
   const nominations = nominationsRes.data || []
   const nominationIds = nominations.map(n => n.id)
   let voteCounts: Record<number, { total: number; weighted: number }> = {}
@@ -61,7 +69,6 @@ async function getData() {
       .select('nomination_id, weight')
       .eq('date', today)
       .in('nomination_id', nominationIds)
-
     for (const v of votes || []) {
       if (!voteCounts[v.nomination_id]) voteCounts[v.nomination_id] = { total: 0, weighted: 0 }
       voteCounts[v.nomination_id].total += 1
@@ -72,14 +79,20 @@ async function getData() {
   const enrichedNominations = nominations
     .map(n => ({
       ...n,
+      tracks: normalizeTrack(n.tracks),
       votes: voteCounts[n.id]?.total || 0,
       weighted_votes: voteCounts[n.id]?.weighted || 0,
     }))
     .sort((a, b) => b.weighted_votes - a.weighted_votes)
 
+  const enrichedWinners = (winnersRes.data || []).map(w => ({
+    ...w,
+    tracks: normalizeTrack(w.tracks),
+  }))
+
   return {
-    nominations: enrichedNominations,
-    winners: winnersRes.data || [],
+    nominations: enrichedNominations as any,
+    winners: enrichedWinners as any,
     today,
     yesterday,
   }
@@ -87,21 +100,19 @@ async function getData() {
 
 export async function generateMetadata(): Promise<Metadata> {
   const { winners } = await getData()
-  const yesterday = winners[0]
-
-  if (yesterday?.tracks) {
-    const track = yesterday.tracks as any
+  const latest = winners[0]
+  if (latest?.tracks) {
+    const track = latest.tracks as any
     return {
       title: `Dienos daina: ${track.title} — ${track.artists?.name} | music.lt`,
       description: `Vakarykštė dienos daina: ${track.title}. Balsuok už šiandienos geriausią dainą!`,
       openGraph: {
-        title: `🎵 Dienos daina: ${track.title}`,
-        description: yesterday.winning_comment || `${track.title} — ${track.artists?.name}`,
+        title: `Dienos daina: ${track.title}`,
+        description: latest.winning_comment || `${track.title} — ${track.artists?.name}`,
         images: track.cover_url ? [track.cover_url] : [],
       },
     }
   }
-
   return {
     title: 'Dienos daina | music.lt',
     description: 'Kasdien balsuok už geriausią dainą ir siūlyk savo favoritą!',
