@@ -135,18 +135,25 @@ function AdminTopInner() {
       body: JSON.stringify({ top_type: topType, track_id: trackId }),
     })
     const d = await res.json()
+    // Visada uždaryti paiešką
+    setTrackSearch('')
+    setTrackResults([])
+
     if (res.ok) {
       // Auto-approve admin pasiūlymus
-      await fetch('/api/top/suggestions', {
+      const approveRes = await fetch('/api/top/suggestions', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: d.suggestion.id, status: 'approved' }),
       })
-      showMsg('Daina pridėta į pasiūlymus ✓')
-      setTrackSearch('')
-      setTrackResults([])
-      setSuggestionStatus('approved')
-      loadSuggestions()
+      if (approveRes.ok) {
+        showMsg('Daina pridėta ✓')
+        setSuggestionStatus('approved')
+        loadSuggestions()
+      } else {
+        const ad = await approveRes.json()
+        showMsg(ad.error || 'Klaida patvirtinant', 'err')
+      }
     } else {
       showMsg(d.error || 'Klaida', 'err')
     }
