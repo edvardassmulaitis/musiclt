@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase'
 
 // Vercel automatiškai siunčia Authorization: Bearer $CRON_SECRET
 export async function GET(req: Request) {
+  // Vercel siunčia Authorization header automatiškai kai paleidžia cron
   const auth = req.headers.get('authorization')
   if (auth !== `Bearer ${process.env.CRON_SECRET}`)
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
