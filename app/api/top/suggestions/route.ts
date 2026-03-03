@@ -77,22 +77,31 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Daina jau šios savaitės kandidatė' }, { status: 409 })
   }
 
+  // Patikrinti ar jau yra toks pasiūlymas
+  const { data: existing } = await supabase
+    .from('top_suggestions')
+    .select('id, status')
+    .eq('top_type', top_type)
+    .eq('track_id', track_id)
+    .maybeSingle()
+
+  if (existing) {
+    // Grąžinti esamą (kad PATCH galėtų approve)
+    return NextResponse.json({ suggestion: existing })
+  }
+
   const { data, error } = await supabase
     .from('top_suggestions')
-    .upsert({
+    .insert({
       top_type,
       track_id,
       suggested_by_user_id: session.user.id,
       status: 'pending',
-    }, { onConflict: 'top_type,track_id,suggested_by_user_id' })
+    })
     .select()
     .single()
 
-  if (error) {
-    if (error.code === '23505')
-      return NextResponse.json({ error: 'Jau siūlėte šią dainą' }, { status: 409 })
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   return NextResponse.json({ suggestion: data })
 }
