@@ -470,7 +470,7 @@ export default function CommentsSection({ entityType, entityId, title = 'Diskusi
           {/* Write comment */}
           {session ? (
             <div className="flex items-start gap-3 mb-6">
-              <Avatar name={session.user.name} src={session.user.image || null} size={8} />
+              <Avatar name={session.user.name ?? null} src={session.user.image ?? null} size={8} />
               <div className="flex-1">
                 {editTarget ? (
                   <CommentForm
