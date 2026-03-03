@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
@@ -19,17 +21,15 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const { getServerSession } = await import('next-auth')
-  const { authOptions } = await import('@/lib/auth')
   const session = await getServerSession(authOptions)
-  if (!session?.user?.role || !['admin','super_admin'].includes(session.user.role))
+  if (!session?.user?.role || !['admin', 'super_admin'].includes(session.user.role))
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
   const { top_type, week_start } = body
   const supabase = createAdminClient()
 
-  // Deaktyvuoti kitas aktyvias
+  // Deaktyvuoti kitas aktyvias to tipo savaites
   await supabase.from('top_weeks').update({ is_active: false }).eq('top_type', top_type)
 
   const { data, error } = await supabase
