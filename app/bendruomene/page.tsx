@@ -53,7 +53,7 @@ function Shoutbox() {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   const load = useCallback(async (since?: string) => {
-    const url = since ? '/api/live/shoutbox?since=' + since + '&limit=20' : '/api/live/shoutbox?limit=60'
+    const url = since ? '/api/live/shoutbox?since=' + encodeURIComponent(since) + '&limit=20' : '/api/live/shoutbox?limit=60'
     const res = await fetch(url)
     const data = await res.json()
     if (data.messages?.length) {
@@ -124,7 +124,7 @@ function Shoutbox() {
         {error && <p style={{ fontSize: 11, color: '#f87171', marginBottom: 6 }}>{error}</p>}
         {session ? (
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <input value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send()}
+            <input value={text} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
               placeholder="Rašyk žinute..." maxLength={255}
               style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: '8px 14px', color: '#fff', fontSize: 13, outline: 'none' }} />
             <button onClick={send} disabled={sending || !text.trim()}
