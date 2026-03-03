@@ -7,7 +7,7 @@ import Link from 'next/link'
 type Artist = { id: number; slug: string; name: string; cover_image_url: string | null }
 type Track = { id: number; slug: string; title: string; cover_url: string | null; spotify_id: string | null; video_url: string | null; artists: Artist }
 type Nomination = {
-  id: number; date: string; comment: string; created_at: string; user_id: string
+  id: number; date: string; comment: string | null; created_at: string; user_id: string
   votes: number; weighted_votes: number
   tracks: Track
 }
@@ -54,13 +54,13 @@ function NominateModal({ onClose, onNominated }: { onClose: () => void; onNomina
   }, [query])
 
   const submit = async () => {
-    if (!selected || comment.trim().length < 10) return
+    if (!selected) return
     setSending(true)
     setError('')
     const res = await fetch('/api/dienos-daina/nominations', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ track_id: selected.id, comment: comment.trim() }),
+      body: JSON.stringify({ track_id: selected.id, comment: comment.trim() || null }),
     })
     const data = await res.json()
     if (res.ok) {
@@ -81,7 +81,7 @@ function NominateModal({ onClose, onNominated }: { onClose: () => void; onNomina
 
         <div className="px-6 py-5 border-b border-white/10 flex items-center justify-between">
           <div>
-            <h3 className="font-black text-white text-xl">🎵 Siūlyti dainą</h3>
+            <h3 className="font-black text-white text-xl">Siūlyti dainą</h3>
             <p className="text-gray-500 text-sm mt-0.5">Papasakok kodėl ši daina ypatinga</p>
           </div>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-all text-lg">✕</button>
@@ -119,7 +119,6 @@ function NominateModal({ onClose, onNominated }: { onClose: () => void; onNomina
             </>
           ) : (
             <>
-              {/* Selected track */}
               <div className="flex items-center gap-3 p-3 rounded-2xl"
                 style={{ background: 'rgba(29,78,216,0.1)', border: '1px solid rgba(29,78,216,0.25)' }}>
                 <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0">
@@ -134,15 +133,14 @@ function NominateModal({ onClose, onNominated }: { onClose: () => void; onNomina
                 <button onClick={() => setSelected(null)} className="text-xs text-gray-500 hover:text-white ml-2">Keisti</button>
               </div>
 
-              {/* Comment */}
               <div>
                 <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">
-                  Kodėl ši daina? *
+                  Kodėl ši daina? (neprivaloma)
                 </label>
                 <textarea
                   value={comment}
                   onChange={e => setComment(e.target.value)}
-                  placeholder="Papasakok ką ši daina tau reiškia, kokia nuotaika, kontekstas... (min. 10 simbolių)"
+                  placeholder="Papasakok ką ši daina tau reiškia, kokia nuotaika, kontekstas..."
                   rows={4}
                   autoFocus
                   className="w-full px-4 py-3 rounded-2xl text-white placeholder:text-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
@@ -158,10 +156,10 @@ function NominateModal({ onClose, onNominated }: { onClose: () => void; onNomina
               )}
 
               <button onClick={submit}
-                disabled={sending || comment.trim().length < 10}
+                disabled={sending}
                 className="w-full py-3.5 rounded-2xl font-black text-white text-base transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40"
                 style={{ background: 'linear-gradient(135deg, #1d4ed8, #7c3aed)' }}>
-                {sending ? '⏳ Siunčiama...' : '🎵 Siūlyti dainą'}
+                {sending ? 'Siunčiama...' : 'Siūlyti dainą'}
               </button>
             </>
           )}
@@ -189,9 +187,7 @@ function NominationCard({
 
   return (
     <div className={`group relative rounded-2xl overflow-hidden transition-all duration-300 ${
-      isVotedThis
-        ? 'ring-2 ring-orange-400/60'
-        : 'hover:translate-y-[-2px]'
+      isVotedThis ? 'ring-2 ring-orange-400/60' : 'hover:translate-y-[-2px]'
     }`}
       style={{
         background: isVotedThis
@@ -208,7 +204,6 @@ function NominationCard({
       )}
 
       <div className="p-4">
-        {/* Track info */}
         <div className="flex items-center gap-3 mb-3">
           <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 shadow-lg">
             {track?.cover_url
@@ -227,22 +222,20 @@ function NominationCard({
           </div>
         </div>
 
-        {/* Comment */}
-        <blockquote className="text-sm text-gray-300 italic leading-relaxed mb-4 pl-3"
-          style={{ borderLeft: '2px solid rgba(255,255,255,0.15)' }}>
-          "{nomination.comment}"
-        </blockquote>
+        {nomination.comment && (
+          <blockquote className="text-sm text-gray-300 italic leading-relaxed mb-4 pl-3"
+            style={{ borderLeft: '2px solid rgba(255,255,255,0.15)' }}>
+            "{nomination.comment}"
+          </blockquote>
+        )}
 
-        {/* Footer */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <span className="text-xs text-gray-600">
               {new Date(nomination.created_at).toLocaleTimeString('lt-LT', { hour: '2-digit', minute: '2-digit' })}
             </span>
             <span className="text-xs text-gray-600">
-              {nomination.weighted_votes > 0
-                ? `${nomination.weighted_votes} svert. balsai`
-                : 'Dar nėra balsų'}
+              {nomination.weighted_votes > 0 ? `${nomination.weighted_votes} balsai` : 'Dar nėra balsų'}
             </span>
           </div>
 
@@ -250,26 +243,14 @@ function NominationCard({
             onClick={() => !hasVoted && onVote(nomination.id)}
             disabled={hasVoted || isVoting}
             className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-black transition-all ${
-              isVotedThis
-                ? 'cursor-default'
-                : hasVoted
-                ? 'opacity-30 cursor-not-allowed'
-                : 'hover:scale-105 active:scale-95 cursor-pointer'
+              isVotedThis ? 'cursor-default' : hasVoted ? 'opacity-30 cursor-not-allowed' : 'hover:scale-105 active:scale-95 cursor-pointer'
             }`}
             style={{
-              background: isVotedThis
-                ? 'rgba(251,146,60,0.15)'
-                : hasVoted
-                ? 'rgba(255,255,255,0.05)'
-                : 'linear-gradient(135deg, #1d4ed8, #7c3aed)',
+              background: isVotedThis ? 'rgba(251,146,60,0.15)' : hasVoted ? 'rgba(255,255,255,0.05)' : 'linear-gradient(135deg, #1d4ed8, #7c3aed)',
               color: isVotedThis ? '#fb923c' : 'white',
               border: isVotedThis ? '1px solid rgba(251,146,60,0.3)' : 'none',
             }}>
-            {isVotedThis
-              ? '❤️ Balsavai'
-              : isVoting
-              ? '⏳'
-              : '🗳️ Balsuoti'}
+            {isVotedThis ? '❤️ Balsavai' : isVoting ? '...' : 'Balsuoti'}
           </button>
         </div>
       </div>
@@ -301,7 +282,6 @@ export default function DienesDainaClient({
   const yesterdayWinner = winners[0]
   const historyWinners = winners.slice(1, 8)
 
-  // Gauti balsavimo statusą
   useEffect(() => {
     fetch('/api/dienos-daina/votes')
       .then(r => r.json())
@@ -312,7 +292,6 @@ export default function DienesDainaClient({
       })
   }, [])
 
-  // Patikrinti ar jau nominavo šiandien
   useEffect(() => {
     if (!session?.user?.id) return
     const alreadyNominated = nominations.some(n => n.user_id === session.user!.id)
@@ -331,14 +310,11 @@ export default function DienesDainaClient({
     if (res.ok) {
       setHasVoted(true)
       setVotedNominationId(nominationId)
-      // Atnaujinti balsų skaičių
-      setNominations(prev => prev.map(n =>
+      setNominations(prev => [...prev.map(n =>
         n.id === nominationId
           ? { ...n, votes: n.votes + 1, weighted_votes: n.weighted_votes + (session ? 2 : 1) }
           : n
-      ))
-      // Resort
-      setNominations(prev => [...prev].sort((a, b) => b.weighted_votes - a.weighted_votes))
+      )].sort((a, b) => b.weighted_votes - a.weighted_votes))
     } else {
       setVoteError(data.error || 'Klaida')
       setTimeout(() => setVoteError(''), 3000)
@@ -355,12 +331,10 @@ export default function DienesDainaClient({
     <div className="min-h-screen" style={{ background: 'linear-gradient(180deg, #070b14 0%, #0d1117 60%)' }}>
       <div className="max-w-[860px] mx-auto px-5 py-10">
 
-        {/* Header */}
         <div className="mb-10">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-2xl">🎵</span>
                 <span className="text-sm font-bold uppercase tracking-widest"
                   style={{ color: 'rgba(249,115,22,0.8)' }}>Dienos daina</span>
               </div>
@@ -373,8 +347,6 @@ export default function DienesDainaClient({
                   : `${nominations.length} ${nominations.length === 1 ? 'daina' : 'dainos'} laukia tavo balso`}
               </p>
             </div>
-
-            {/* Streak badge */}
             {streak > 1 && (
               <div className="flex items-center gap-2 px-4 py-3 rounded-2xl"
                 style={{ background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.2)' }}>
@@ -388,22 +360,16 @@ export default function DienesDainaClient({
           </div>
         </div>
 
-        {/* ── VAKARYKŠTĖ NUGALĖTOJA ── */}
         {yesterdayWinner && (
           <div className="mb-10 rounded-3xl overflow-hidden"
-            style={{
-              background: 'linear-gradient(135deg, rgba(249,115,22,0.12) 0%, rgba(168,85,247,0.06) 100%)',
-              border: '1px solid rgba(249,115,22,0.2)',
-            }}>
+            style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.12) 0%, rgba(168,85,247,0.06) 100%)', border: '1px solid rgba(249,115,22,0.2)' }}>
             <div className="p-6">
               <div className="flex items-center gap-2 mb-5">
-                <span className="text-xl">🏆</span>
                 <span className="text-sm font-black uppercase tracking-widest"
                   style={{ color: 'rgba(249,115,22,0.9)' }}>
                   Vakarykštė dienos daina · {formatDate(yesterdayWinner.date)}
                 </span>
               </div>
-
               <div className="flex items-start gap-5 flex-wrap">
                 <div className="w-24 h-24 rounded-2xl overflow-hidden flex-shrink-0 shadow-2xl"
                   style={{ boxShadow: '0 8px 32px rgba(249,115,22,0.25)' }}>
@@ -411,7 +377,6 @@ export default function DienesDainaClient({
                     ? <img src={yesterdayWinner.tracks.cover_url} alt="" className="w-full h-full object-cover" />
                     : <div className="w-full h-full bg-orange-900/30 flex items-center justify-center text-3xl">♪</div>}
                 </div>
-
                 <div className="flex-1 min-w-0">
                   <Link href={`/dainos/${yesterdayWinner.tracks?.slug}`}
                     className="text-2xl font-black text-white hover:text-orange-300 transition-colors block leading-tight mb-1">
@@ -425,7 +390,6 @@ export default function DienesDainaClient({
                   <p className="text-sm text-gray-500 mt-1">
                     {yesterdayWinner.total_votes} {yesterdayWinner.total_votes === 1 ? 'balsas' : 'balsai'}
                   </p>
-
                   {yesterdayWinner.winning_comment && (
                     <blockquote className="mt-3 text-sm text-gray-300 italic leading-relaxed"
                       style={{ borderLeft: '3px solid rgba(249,115,22,0.5)', paddingLeft: '1rem' }}>
@@ -434,8 +398,6 @@ export default function DienesDainaClient({
                   )}
                 </div>
               </div>
-
-              {/* Spotify embed */}
               {yesterdayWinner.tracks?.spotify_id && (
                 <div className="mt-5">
                   <SpotifyEmbed trackId={yesterdayWinner.tracks.spotify_id} />
@@ -445,26 +407,16 @@ export default function DienesDainaClient({
           </div>
         )}
 
-        {/* ── ŠIANDIEN ── */}
         <div className="mb-6">
           <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
-            <h2 className="text-xl font-black text-white">
-              🗳️ Šiandien balsuojame
-            </h2>
-
+            <h2 className="text-xl font-black text-white">Šiandien balsuojame</h2>
             <div className="flex items-center gap-3">
-              {hasVoted && !hasNominatedToday && (
-                <span className="text-xs text-green-400 font-bold flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 bg-green-400 rounded-full" /> Balsavai šiandien
-                </span>
-              )}
-
               {session ? (
                 !hasNominatedToday ? (
                   <button onClick={() => setShowNominate(true)}
                     className="px-4 py-2.5 rounded-2xl text-sm font-bold text-white transition-all hover:scale-105 active:scale-95"
                     style={{ background: 'linear-gradient(135deg, #1d4ed8, #7c3aed)' }}>
-                    🎵 Siūlyti dainą
+                    Siūlyti dainą
                   </button>
                 ) : (
                   <span className="text-xs text-gray-500 px-3 py-2 rounded-full"
@@ -492,13 +444,10 @@ export default function DienesDainaClient({
           {!session && !hasVoted && nominations.length > 0 && (
             <div className="mb-4 px-4 py-3 rounded-2xl text-sm flex items-center gap-3"
               style={{ background: 'rgba(29,78,216,0.08)', border: '1px solid rgba(29,78,216,0.15)' }}>
-              <span>ℹ️</span>
               <span className="text-blue-300">
                 Balsuoji kaip svečias (1x svoris).{' '}
-                <Link href="/auth/signin" className="font-bold underline underline-offset-2 hover:text-white">
-                  Prisijunk
-                </Link>{' '}
-                ir tavo balsas svers 2x daugiau!
+                <Link href="/auth/signin" className="font-bold underline underline-offset-2 hover:text-white">Prisijunk</Link>
+                {' '}ir tavo balsas svers 2x daugiau!
               </span>
             </div>
           )}
@@ -506,14 +455,13 @@ export default function DienesDainaClient({
           {nominations.length === 0 ? (
             <div className="rounded-3xl p-12 text-center"
               style={{ background: 'rgba(255,255,255,0.03)', border: '2px dashed rgba(255,255,255,0.08)' }}>
-              <p className="text-5xl mb-4">🎵</p>
               <p className="text-xl font-black text-white mb-2">Šiandien dar niekas nepasiūlė!</p>
               <p className="text-gray-500 mb-6">Būk pirmas — pasiūlyk dainą ir pradėk šiandienos balsavimą.</p>
               {session ? (
                 <button onClick={() => setShowNominate(true)}
                   className="px-8 py-3.5 rounded-2xl font-black text-white text-base transition-all hover:scale-105"
                   style={{ background: 'linear-gradient(135deg, #1d4ed8, #7c3aed)' }}>
-                  🎵 Siūlyti dainą
+                  Siūlyti dainą
                 </button>
               ) : (
                 <Link href="/auth/signin"
@@ -539,10 +487,9 @@ export default function DienesDainaClient({
           )}
         </div>
 
-        {/* ── ISTORIJA ── */}
         {historyWinners.length > 0 && (
           <div className="mt-12">
-            <h2 className="text-lg font-black text-white mb-4">📅 Praėjusių dienų nugalėtojos</h2>
+            <h2 className="text-lg font-black text-white mb-4">Praėjusių dienų nugalėtojos</h2>
             <div className="space-y-2">
               {historyWinners.map(w => (
                 <div key={w.id}
@@ -571,14 +518,10 @@ export default function DienesDainaClient({
             </div>
           </div>
         )}
-
       </div>
 
       {showNominate && (
-        <NominateModal
-          onClose={() => setShowNominate(false)}
-          onNominated={handleNominated}
-        />
+        <NominateModal onClose={() => setShowNominate(false)} onNominated={handleNominated} />
       )}
     </div>
   )
