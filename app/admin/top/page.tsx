@@ -78,6 +78,9 @@ function AdminTopInner() {
   const [loading, setLoading] = useState(false)
   const [msg, setMsg] = useState('')
   const [msgType, setMsgType] = useState<'ok' | 'err'>('ok')
+  const [trackSearch, setTrackSearch] = useState('')
+  const [trackResults, setTrackResults] = useState<any[]>([])
+  const [addingSuggestion, setAddingSuggestion] = useState(false)
 
   useEffect(() => {
     if (status === 'unauthenticated') { router.push('/auth/signin'); return }
@@ -111,6 +114,43 @@ function AdminTopInner() {
     setSuggestions(data.suggestions || [])
     setLoading(false)
   }, [suggestionStatus, topType])
+
+  // Admin paieška pasiūlymams
+  useEffect(() => {
+    if (trackSearch.length < 2) { setTrackResults([]); return }
+    const t = setTimeout(async () => {
+      const res = await fetch(`/api/tracks?search=${encodeURIComponent(trackSearch)}&limit=10`)
+      const data = await res.json()
+      const filtered = (data.tracks || []).filter((t: any) => t.id && t.title && t.title !== t.artist_name)
+      setTrackResults(filtered)
+    }, 300)
+    return () => clearTimeout(t)
+  }, [trackSearch])
+
+  const addAdminSuggestion = async (trackId: number) => {
+    setAddingSuggestion(true)
+    const res = await fetch('/api/top/suggestions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ top_type: topType, track_id: trackId }),
+    })
+    const d = await res.json()
+    if (res.ok) {
+      // Auto-approve admin pasiūlymus
+      await fetch('/api/top/suggestions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: d.suggestion.id, status: 'approved' }),
+      })
+      showMsg('Daina pridėta į pasiūlymus ✓')
+      setTrackSearch('')
+      setTrackResults([])
+      loadSuggestions()
+    } else {
+      showMsg(d.error || 'Klaida', 'err')
+    }
+    setAddingSuggestion(false)
+  }
 
   useEffect(() => {
     if (status !== 'authenticated' || !isAdmin) return
@@ -323,8 +363,43 @@ function AdminTopInner() {
         {/* ── PASIŪLYMAI ── */}
         {tab === 'suggestions' && (
           <div className="space-y-4">
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-700">
-              💡 Patvirtinus pasiūlymą — daina automatiškai pridedama į <strong>šios savaitės</strong> topą kaip kandidatė balsavimui.
+            {/* Admin: pridėti dainą į pasiūlymus */}
+            <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-4">
+              <p className="text-sm font-semibold text-gray-700 mb-1">+ Pridėti dainą į pasiūlymus</p>
+              <p className="text-xs text-gray-400 mb-3">Admin pridėtos dainos automatiškai patvirtinamos</p>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={trackSearch}
+                  onChange={e => setTrackSearch(e.target.value)}
+                  placeholder="Ieškoti pagal dainos pavadinimą arba atlikėją…"
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-blue-400 focus:bg-white text-sm transition-colors"
+                />
+                {trackResults.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl overflow-hidden shadow-xl z-20">
+                    {trackResults.map((t: any) => (
+                      <button
+                        key={t.id}
+                        onClick={() => addAdminSuggestion(t.id)}
+                        disabled={addingSuggestion}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-blue-50 transition-colors text-left border-b border-gray-50 last:border-0">
+                        <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+                          {t.cover_url
+                            ? <img src={t.cover_url} alt="" className="w-full h-full object-cover" />
+                            : <div className="w-full h-full flex items-center justify-center text-gray-300 text-sm">♪</div>}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 truncate">{t.title}</p>
+                          <p className="text-xs text-gray-500 truncate">{t.artist_name || t.artists?.name}</p>
+                        </div>
+                        <span className="text-xs text-blue-600 font-semibold flex-shrink-0 bg-blue-50 px-2 py-1 rounded-lg">
+                          {addingSuggestion ? '…' : '+ Pridėti'}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="flex gap-2">
