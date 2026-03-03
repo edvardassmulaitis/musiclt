@@ -10,11 +10,28 @@ function todayLT(): string {
   }).split('.').reverse().join('-')
 }
 
+async function logActivity(supabase: any, session: any, eventType: string, entityType: string, entityId: number, entityTitle: string, entityUrl: string | null) {
+  try {
+    await supabase.from('activity_events').insert({
+      event_type: eventType,
+      user_id: session.user.id,
+      actor_name: session.user.name || session.user.email || 'Vartotojas',
+      actor_avatar: session.user.image || null,
+      entity_type: entityType,
+      entity_id: entityId,
+      entity_title: entityTitle,
+      entity_url: entityUrl,
+      is_public: true,
+    })
+  } catch (e) {
+    // Nesustabdo pagrindinio flow
+  }
+}
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const date = searchParams.get('date') || todayLT()
   const supabase = createAdminClient()
-
   const { data, error } = await supabase
     .from('daily_song_nominations')
     .select(`
@@ -28,12 +45,9 @@ export async function GET(req: Request) {
     .eq('date', date)
     .is('removed_at', null)
     .order('created_at', { ascending: true })
-
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
   const nominationIds = (data || []).map(n => n.id)
   let voteCounts: Record<number, { total: number; weighted: number }> = {}
-
   if (nominationIds.length > 0) {
     const { data: votes } = await supabase
       .from('daily_song_votes')
@@ -46,13 +60,11 @@ export async function GET(req: Request) {
       voteCounts[v.nomination_id].weighted += v.weight
     }
   }
-
   const enriched = (data || []).map(n => ({
     ...n,
     votes: voteCounts[n.id]?.total || 0,
     weighted_votes: voteCounts[n.id]?.weighted || 0,
   })).sort((a, b) => b.weighted_votes - a.weighted_votes)
-
   return NextResponse.json({ nominations: enriched, date })
 }
 
@@ -63,9 +75,8 @@ export async function POST(req: Request) {
 
   const body = await req.json()
   const { track_id, comment } = body
-
   if (!track_id)
-    return NextResponse.json({ error: 'Trūksta dainos' }, { status: 400 })
+    return NextResponse.json({ error: 'Truksta dainos' }, { status: 400 })
 
   const date = todayLT()
   const supabase = createAdminClient()
@@ -76,9 +87,8 @@ export async function POST(req: Request) {
     .eq('date', date)
     .eq('user_id', session.user.id)
     .maybeSingle()
-
   if (existing)
-    return NextResponse.json({ error: 'Jau pasiūlei dainą šiandien' }, { status: 400 })
+    return NextResponse.json({ error: 'Jau pasiulei daina siandien' }, { status: 400 })
 
   const { data, error } = await supabase
     .from('daily_song_nominations')
@@ -95,6 +105,14 @@ export async function POST(req: Request) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Log activity
+  const track = (data as any).tracks
+  const trackTitle = track?.title || 'Daina'
+  const artistName = track?.artists?.name
+  const label = artistName ? `${trackTitle} — ${artistName}` : trackTitle
+  await logActivity(supabase, session, 'nomination', 'track', track_id, label, '/dienos-daina')
+
   return NextResponse.json({ nomination: data })
 }
 
@@ -106,12 +124,10 @@ export async function DELETE(req: Request) {
   const { searchParams } = new URL(req.url)
   const id = searchParams.get('id')
   const supabase = createAdminClient()
-
   const { error } = await supabase
     .from('daily_song_nominations')
     .update({ removed_at: new Date().toISOString() })
     .eq('id', id!)
-
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })
 }
