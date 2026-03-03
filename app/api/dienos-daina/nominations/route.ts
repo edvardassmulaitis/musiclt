@@ -31,7 +31,6 @@ export async function GET(req: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Pridėti balsų skaičius
   const nominationIds = (data || []).map(n => n.id)
   let voteCounts: Record<number, { total: number; weighted: number }> = {}
 
@@ -41,7 +40,6 @@ export async function GET(req: Request) {
       .select('nomination_id, weight')
       .eq('date', date)
       .in('nomination_id', nominationIds)
-
     for (const v of votes || []) {
       if (!voteCounts[v.nomination_id]) voteCounts[v.nomination_id] = { total: 0, weighted: 0 }
       voteCounts[v.nomination_id].total += 1
@@ -66,16 +64,12 @@ export async function POST(req: Request) {
   const body = await req.json()
   const { track_id, comment } = body
 
-  if (!track_id || !comment?.trim())
-    return NextResponse.json({ error: 'Trūksta duomenų' }, { status: 400 })
-
-  if (comment.trim().length < 10)
-    return NextResponse.json({ error: 'Komentaras per trumpas (min. 10 simbolių)' }, { status: 400 })
+  if (!track_id)
+    return NextResponse.json({ error: 'Trūksta dainos' }, { status: 400 })
 
   const date = todayLT()
   const supabase = createAdminClient()
 
-  // Patikrinti ar jau siūlė šiandien
   const { data: existing } = await supabase
     .from('daily_song_nominations')
     .select('id')
@@ -88,7 +82,12 @@ export async function POST(req: Request) {
 
   const { data, error } = await supabase
     .from('daily_song_nominations')
-    .insert({ date, track_id, user_id: session.user.id, comment: comment.trim() })
+    .insert({
+      date,
+      track_id,
+      user_id: session.user.id,
+      comment: comment?.trim() || null,
+    })
     .select(`
       id, date, comment, created_at,
       tracks ( id, slug, title, cover_url, artists ( id, slug, name ) )
