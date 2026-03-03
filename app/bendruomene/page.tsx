@@ -53,7 +53,7 @@ function Shoutbox() {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   const load = useCallback(async (since?: string) => {
-    const url = since ? '/api/shoutbox?since=' + since + '&limit=20' : '/api/shoutbox?limit=60'
+    const url = since ? '/api/live/shoutbox?since=' + since + '&limit=20' : '/api/live/shoutbox?limit=60'
     const res = await fetch(url)
     const data = await res.json()
     if (data.messages?.length) {
@@ -82,12 +82,12 @@ function Shoutbox() {
     return () => clearInterval(interval)
   }, [load])
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
+  useEffect(() => { if (!loading) bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, loading])
 
   const send = async () => {
     if (!text.trim() || sending) return
     setSending(true); setError('')
-    const res = await fetch('/api/shoutbox', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text.trim() }) })
+    const res = await fetch('/api/live/shoutbox', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text.trim() }) })
     const data = await res.json()
     if (res.ok) { setMessages(prev => [...prev, data.message]); setText('') }
     else { setError(data.error || 'Klaida'); setTimeout(() => setError(''), 4000) }
@@ -147,7 +147,7 @@ function ActivityFeed() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/activity?limit=40').then(r => r.json()).then(d => { setEvents(d.events || []); setLoading(false) })
+    fetch('/api/live/activity?limit=40').then(r => r.json()).then(d => { setEvents(d.events || []); setLoading(false) })
   }, [])
 
   const getLabel = (e: ActivityEvent) => {
