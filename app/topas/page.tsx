@@ -9,16 +9,13 @@ export const metadata: Metadata = {
 
 async function getTopData(topType: string) {
   const supabase = createAdminClient()
-
   const { data: week } = await supabase
     .from('top_weeks')
     .select('*')
     .eq('top_type', topType)
     .eq('is_active', true)
     .single()
-
   if (!week) return { entries: [], week: null }
-
   const { data: entries } = await supabase
     .from('top_entries')
     .select(`
@@ -33,7 +30,6 @@ async function getTopData(topType: string) {
     .eq('week_id', week.id)
     .order('position', { ascending: true })
 
-  // Supabase grąžina tracks/artists kaip masyvus — normalizuoti į objektus
   const normalized = (entries || []).map(e => ({
     ...e,
     tracks: Array.isArray(e.tracks) ? e.tracks[0] ?? null : e.tracks,
@@ -44,7 +40,6 @@ async function getTopData(topType: string) {
       artists: Array.isArray(e.tracks.artists) ? e.tracks.artists[0] ?? null : e.tracks.artists,
     } : null,
   }))
-
   return { entries: normalized, week }
 }
 
@@ -53,6 +48,9 @@ export default async function TopPage() {
     getTopData('top40'),
     getTopData('lt_top30'),
   ])
-
-  return <TopChartsClient top40={top40 as any} ltTop30={ltTop30 as any} />
+  return (
+    <div style={{ background: '#080d14', minHeight: '100vh' }}>
+      <TopChartsClient top40={top40 as any} ltTop30={ltTop30 as any} />
+    </div>
+  )
 }
