@@ -118,46 +118,8 @@ export async function PATCH(req: Request) {
 
   if (fetchErr) return NextResponse.json({ error: fetchErr.message }, { status: 500 })
 
-  // Jei approve — automatiškai pridėti į kitą savaitę
-  if (status === 'approved' && suggestion.track_id) {
-    // Gauti aktyvią savaitę
-    const { data: activeWeek } = await supabase
-      .from('top_weeks')
-      .select('id, top_type')
-      .eq('top_type', suggestion.top_type)
-      .eq('is_active', true)
-      .single()
-
-    if (activeWeek) {
-      // Patikrinti ar jau yra
-      const { data: existing } = await supabase
-        .from('top_entries')
-        .select('id')
-        .eq('week_id', activeWeek.id)
-        .eq('track_id', suggestion.track_id)
-        .maybeSingle()
-
-      if (!existing) {
-        const { count } = await supabase
-          .from('top_entries')
-          .select('id', { count: 'exact', head: true })
-          .eq('week_id', activeWeek.id)
-
-        await supabase
-          .from('top_entries')
-          .insert({
-            week_id: activeWeek.id,
-            track_id: suggestion.track_id,
-            top_type: suggestion.top_type,
-            position: (count || 0) + 1,
-            total_votes: 0,
-            is_new: true,
-            weeks_in_top: 1,
-            peak_position: (count || 0) + 1,
-          })
-      }
-    }
-  }
+  // Approved pasiūlymai pateks į top_entries kai prasidės NAUJA savaitė
+  // (per /api/top/weeks GET kuris kviečia get_or_create_active_week)
 
   return NextResponse.json({ ok: true, suggestion })
 }
