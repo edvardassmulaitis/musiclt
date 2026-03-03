@@ -4,13 +4,19 @@ import { createAdminClient } from '@/lib/supabase'
 
 export const metadata: Metadata = {
   title: 'TOP 40 ir LT TOP 30 | music.lt',
-  description: 'Populiariausios dainos Lietuvoje ir pasaulyje šią savaitę.',
+  description: 'Populiariausios dainos Lietuvoje ir pasaulyje šią savaitę. Balsuok už mėgstamas dainas.',
 }
 
 async function getTopData(topType: string) {
   const supabase = createAdminClient()
+
   const { data: week } = await supabase
-    .from('top_weeks').select('*').eq('top_type', topType).eq('is_active', true).single()
+    .from('top_weeks')
+    .select('*')
+    .eq('top_type', topType)
+    .eq('is_active', true)
+    .single()
+
   if (!week) return { entries: [], week: null }
 
   const { data: entries } = await supabase
