@@ -35,31 +35,35 @@ async function getData() {
   const today = todayLT()
   const yesterday = yesterdayLT()
 
-  const [nominationsRes, winnersRes] = await Promise.all([
-    supabase
-      .from('daily_song_nominations')
-      .select(`
-        id, date, comment, created_at, user_id,
-        tracks (
-          id, slug, title, cover_url, spotify_id, video_url,
-          artists ( id, slug, name, cover_image_url )
-        )
-      `)
-      .eq('date', today)
-      .is('removed_at', null)
-      .order('created_at', { ascending: true }),
-    supabase
-      .from('daily_song_winners')
-      .select(`
-        id, date, total_votes, weighted_votes, winning_comment, winning_user_id,
-        tracks (
-          id, slug, title, cover_url, spotify_id, video_url,
-          artists ( id, slug, name, cover_image_url )
-        )
-      `)
-      .order('date', { ascending: false })
-      .limit(15),
-  ])
+  console.log('DIENOS DAINA TODAY:', today)
+
+  const nominationsRes = await supabase
+    .from('daily_song_nominations')
+    .select(`
+      id, date, comment, created_at, user_id,
+      tracks (
+        id, slug, title, cover_url, spotify_id, video_url,
+        artists ( id, slug, name, cover_image_url )
+      )
+    `)
+    .eq('date', today)
+    .is('removed_at', null)
+    .order('created_at', { ascending: true })
+
+  console.log('NOMINATIONS ERROR:', JSON.stringify(nominationsRes.error))
+  console.log('NOMINATIONS DATA:', JSON.stringify(nominationsRes.data))
+
+  const winnersRes = await supabase
+    .from('daily_song_winners')
+    .select(`
+      id, date, total_votes, weighted_votes, winning_comment, winning_user_id,
+      tracks (
+        id, slug, title, cover_url, spotify_id, video_url,
+        artists ( id, slug, name, cover_image_url )
+      )
+    `)
+    .order('date', { ascending: false })
+    .limit(15)
 
   const nominations = nominationsRes.data || []
   const nominationIds = nominations.map(n => n.id)
