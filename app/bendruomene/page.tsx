@@ -53,7 +53,9 @@ function Shoutbox() {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   const load = useCallback(async (since?: string) => {
-    const url = since ? '/api/live/shoutbox?since=' + encodeURIComponent(since) + '&limit=20' : '/api/live/shoutbox?limit=60'
+    const url = since
+      ? '/api/live/shoutbox?since=' + encodeURIComponent(since) + '&limit=20'
+      : '/api/live/shoutbox?limit=60'
     const res = await fetch(url)
     const data = await res.json()
     if (data.messages?.length) {
@@ -78,16 +80,22 @@ function Shoutbox() {
         if (last) load(last.created_at)
         return prev
       })
-    }, 8000)
+    }, 5000)
     return () => clearInterval(interval)
   }, [load])
 
-  useEffect(() => { if (!loading) bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, loading])
+  useEffect(() => {
+    if (!loading) bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, loading])
 
   const send = async () => {
     if (!text.trim() || sending) return
     setSending(true); setError('')
-    const res = await fetch('/api/live/shoutbox', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text.trim() }) })
+    const res = await fetch('/api/live/shoutbox', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: text.trim() }),
+    })
     const data = await res.json()
     if (res.ok) { setMessages(prev => [...prev, data.message]); setText('') }
     else { setError(data.error || 'Klaida'); setTimeout(() => setError(''), 4000) }
@@ -124,7 +132,8 @@ function Shoutbox() {
         {error && <p style={{ fontSize: 11, color: '#f87171', marginBottom: 6 }}>{error}</p>}
         {session ? (
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <input value={text} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
+            <input value={text} onChange={e => setText(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
               placeholder="Rašyk žinute..." maxLength={255}
               style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: '8px 14px', color: '#fff', fontSize: 13, outline: 'none' }} />
             <button onClick={send} disabled={sending || !text.trim()}
@@ -146,9 +155,18 @@ function ActivityFeed() {
   const [events, setEvents] = useState<ActivityEvent[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetch('/api/live/activity?limit=40').then(r => r.json()).then(d => { setEvents(d.events || []); setLoading(false) })
+  const loadActivity = useCallback(async () => {
+    const res = await fetch('/api/live/activity?limit=40')
+    const d = await res.json()
+    setEvents(d.events || [])
+    setLoading(false)
   }, [])
+
+  useEffect(() => {
+    loadActivity()
+    const interval = setInterval(loadActivity, 15000)
+    return () => clearInterval(interval)
+  }, [loadActivity])
 
   const getLabel = (e: ActivityEvent) => {
     const map: Record<string, string> = {
@@ -181,7 +199,9 @@ function ActivityFeed() {
           <div style={{ flex: 1, minWidth: 0 }}>
             <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', lineHeight: 1.4 }}>
               <span style={{ fontWeight: 700, color: '#fff' }}>{e.actor_name}</span>{' '}
-              {e.entity_url ? <Link href={e.entity_url} style={{ color: 'rgba(255,255,255,0.7)', textDecoration: 'none' }}>{getLabel(e)}</Link> : getLabel(e)}
+              {e.entity_url
+                ? <Link href={e.entity_url} style={{ color: 'rgba(255,255,255,0.7)', textDecoration: 'none' }}>{getLabel(e)}</Link>
+                : getLabel(e)}
             </p>
             <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', marginTop: 2 }}>{timeAgo(e.created_at)}</p>
           </div>
