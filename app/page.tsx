@@ -284,7 +284,7 @@ function Skel({ w, h, r = 6 }: { w: number | string; h: number; r?: number }) {
 // ── MAIN ───────────────────────────────────────────────────────────────────────
 
 export default function Home() {
-  const { lens } = useSite()
+  const { lens } = useSite() // homepage always dark
   const [chartTab, setChartTab] = useState<'lt' | 'world'>('lt')
   const [ltTop, setLtTop] = useState<TopEntry[]>([])
   const [worldTop, setWorldTop] = useState<TopEntry[]>([])
@@ -451,7 +451,7 @@ export default function Home() {
         .hp-hero-in { animation: hp-in 0.5s ease; }
       `}</style>
 
-      <div className="hp-wrap">
+      <div className="hp-wrap" style={{ background: '#080d14', minHeight: '100vh' }}>
 
         {/* ━━━━━ HERO ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         {hero && (
@@ -570,7 +570,7 @@ export default function Home() {
         )}
 
         {/* ━━━━━ CONTENT ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-        <div style={{ maxWidth: 1360, margin: '0 auto', padding: '52px 24px', display: 'flex', flexDirection: 'column', gap: 60 }}>
+        <div style={{ maxWidth: 1360, margin: '0 auto', background: '#080d14', padding: '52px 24px', display: 'flex', flexDirection: 'column', gap: 60 }}>
 
           {/* ─── DAINOS + ALBUMAI ─────────────────────────────────── */}
           <section>
@@ -768,3 +768,4 @@ export default function Home() {
     </>
   )
 }
+// APPENDED - ignore
