@@ -71,8 +71,8 @@ export async function GET(req: NextRequest) {
     const { data, error, count } = await query
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    const tracks = (data || []).map((t: any) => mapTrack(t))
-    return NextResponse.json({ tracks, total: count || 0 })
+    const tracks = (data || []).map((t: any) => mapTrack(t)).filter(isRealTrack)
+    return NextResponse.json({ tracks: tracks, total: tracks.length })
   }
 
   // Be search — standartinis query
@@ -94,6 +94,14 @@ export async function GET(req: NextRequest) {
 
   const tracks = (data || []).map((t: any) => mapTrack(t))
   return NextResponse.json({ tracks, total: count || 0 })
+}
+
+// Papildomas filtras - tikrinti ar tai tikra daina (turi release_date arba album)
+// Atlikėjai gali patekti į rezultatus per artist_id join
+function isRealTrack(t: any): boolean {
+  // Jei title yra identiška atlikėjo vardui - greičiausiai ne daina
+  if (t.title === t.artists?.name) return false
+  return true
 }
 
 function mapTrack(t: any) {
