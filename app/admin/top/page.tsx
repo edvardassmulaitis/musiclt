@@ -35,6 +35,7 @@ type Suggestion = {
   status: string
   created_at: string
   track: { id: number; title: string; artist_name: string } | null
+  _group?: string
 }
 
 function TrendBadge({ curr, prev }: { curr: number | null; prev: number | null }) {
