@@ -145,6 +145,7 @@ function AdminTopInner() {
       showMsg('Daina pridėta į pasiūlymus ✓')
       setTrackSearch('')
       setTrackResults([])
+      setSuggestionStatus('approved')
       loadSuggestions()
     } else {
       showMsg(d.error || 'Klaida', 'err')
