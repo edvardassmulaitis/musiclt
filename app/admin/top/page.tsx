@@ -2,38 +2,66 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
 type TopType = 'top40' | 'lt_top30'
 type TabType = 'entries' | 'suggestions' | 'weeks' | 'stats'
 
-type Week = { id: number; top_type: TopType; week_start: string; is_active: boolean; created_at: string }
-type Entry = {
-  id: number; position: number; prev_position: number | null
-  weeks_in_top: number; total_votes: number; is_new: boolean; peak_position: number | null
-  tracks: { id: number; slug: string; title: string; cover_url: string | null
-    artists: { id: number; slug: string; name: string } }
+type Week = {
+  id: number
+  top_type: TopType
+  week_start: string
+  is_active: boolean
+  created_at: string
 }
+
+type Entry = {
+  id: number
+  position: number
+  prev_position: number | null
+  weeks_in_top: number
+  total_votes: number
+  is_new: boolean
+  peak_position: number | null
+  tracks: {
+    id: number
+    slug: string
+    title: string
+    cover_url: string | null
+    artists: { id: number; slug: string; name: string }
+  }
+}
+
 type Suggestion = {
-  id: number; top_type: TopType; status: string; created_at: string
-  manual_title: string | null; manual_artist: string | null
+  id: number
+  top_type: TopType
+  status: string
+  created_at: string
+  manual_title: string | null
+  manual_artist: string | null
   tracks: { id: number; title: string; artists: { name: string }[] } | null
 }
 
 function TrendBadge({ curr, prev }: { curr: number; prev: number | null }) {
-  if (prev === null) return <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-400/15 text-amber-300">NEW</span>
-  if (curr < prev) return <span className="text-emerald-400 font-black text-xs">↑{prev - curr}</span>
-  if (curr > prev) return <span className="text-red-400 font-black text-xs">↓{curr - prev}</span>
+  if (prev === null)
+    return <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-400/15 text-amber-300">NEW</span>
+  if (curr < prev)
+    return <span className="text-emerald-400 font-black text-xs">↑{prev - curr}</span>
+  if (curr > prev)
+    return <span className="text-red-400 font-black text-xs">↓{curr - prev}</span>
   return <span className="text-gray-600 text-xs">—</span>
 }
 
 export default function AdminTop() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
 
-  const [topType, setTopType] = useState<TopType>('top40')
+  const [topType, setTopType] = useState<TopType>(
+    (searchParams.get('type') as TopType) || 'top40'
+  )
   const [tab, setTab] = useState<TabType>('entries')
   const [weeks, setWeeks] = useState<Week[]>([])
   const [activeWeek, setActiveWeek] = useState<Week | null>(null)
@@ -76,21 +104,27 @@ export default function AdminTop() {
     setLoading(false)
   }, [suggestionStatus])
 
-  useEffect(() => { if (status === 'authenticated' && isAdmin) loadWeeks() }, [status, isAdmin, loadWeeks])
-  useEffect(() => { if (activeWeek && tab === 'entries') loadEntries() }, [activeWeek, tab, loadEntries])
-  useEffect(() => { if (tab === 'suggestions') loadSuggestions() }, [tab, suggestionStatus, loadSuggestions])
-
-  const searchTracks = useCallback(async (q: string) => {
-    if (q.length < 2) { setTrackResults([]); return }
-    const res = await fetch(`/api/tracks?search=${encodeURIComponent(q)}&limit=8`)
-    const data = await res.json()
-    setTrackResults(data.tracks || [])
-  }, [])
+  useEffect(() => {
+    if (status === 'authenticated' && isAdmin) loadWeeks()
+  }, [status, isAdmin, loadWeeks])
 
   useEffect(() => {
-    const t = setTimeout(() => searchTracks(trackSearch), 300)
+    if (activeWeek && tab === 'entries') loadEntries()
+  }, [activeWeek, tab, loadEntries])
+
+  useEffect(() => {
+    if (tab === 'suggestions') loadSuggestions()
+  }, [tab, suggestionStatus, loadSuggestions])
+
+  useEffect(() => {
+    if (trackSearch.length < 2) { setTrackResults([]); return }
+    const t = setTimeout(async () => {
+      const res = await fetch(`/api/tracks?search=${encodeURIComponent(trackSearch)}&limit=8`)
+      const data = await res.json()
+      setTrackResults(data.tracks || [])
+    }, 300)
     return () => clearTimeout(t)
-  }, [trackSearch, searchTracks])
+  }, [trackSearch])
 
   const addToTop = async (trackId: number) => {
     if (!activeWeek) return
@@ -101,8 +135,15 @@ export default function AdminTop() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ week_id: activeWeek.id, track_id: trackId, position: nextPos }),
     })
-    if (res.ok) { setMsg('Daina pridėta ✓'); loadEntries(); setTrackSearch(''); setTrackResults([]) }
-    else { const d = await res.json(); setMsg('Klaida: ' + d.error) }
+    if (res.ok) {
+      setMsg('Daina pridėta ✓')
+      loadEntries()
+      setTrackSearch('')
+      setTrackResults([])
+    } else {
+      const d = await res.json()
+      setMsg('Klaida: ' + d.error)
+    }
     setSaving(false)
     setTimeout(() => setMsg(''), 3000)
   }
@@ -115,16 +156,20 @@ export default function AdminTop() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ top_type: topType, week_start: newWeekDate }),
     })
-    if (res.ok) { setMsg('Savaitė sukurta ✓'); loadWeeks(); setNewWeekDate('') }
+    if (res.ok) {
+      setMsg('Savaitė sukurta ✓')
+      loadWeeks()
+      setNewWeekDate('')
+    }
     setSaving(false)
     setTimeout(() => setMsg(''), 3000)
   }
 
-  const reviewSuggestion = async (id: number, status: string) => {
+  const reviewSuggestion = async (id: number, newStatus: string) => {
     const res = await fetch('/api/top/suggestions', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, status }),
+      body: JSON.stringify({ id, status: newStatus }),
     })
     if (res.ok) loadSuggestions()
   }
@@ -141,20 +186,28 @@ export default function AdminTop() {
 
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
-          <Link href="/admin" className="text-gray-500 hover:text-white text-sm">← Admin</Link>
+          <Link href="/admin" className="text-gray-500 hover:text-white text-sm transition-colors">
+            ← Admin
+          </Link>
           <span className="text-gray-600">/</span>
           <h1 className="text-2xl font-black text-white">🏆 TOP Sąrašai</h1>
         </div>
 
         {msg && (
-          <div className="mb-4 px-4 py-2.5 rounded-xl bg-green-500/15 border border-green-500/25 text-green-400 text-sm">{msg}</div>
+          <div className="mb-4 px-4 py-2.5 rounded-xl bg-green-500/15 border border-green-500/25 text-green-400 text-sm">
+            {msg}
+          </div>
         )}
 
         {/* TOP Type switcher */}
         <div className="flex gap-2 mb-6">
           {(['top40', 'lt_top30'] as const).map(t => (
             <button key={t} onClick={() => setTopType(t)}
-              className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all ${topType === t ? 'bg-blue-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10'}`}>
+              className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all ${
+                topType === t
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10'
+              }`}>
               {t === 'top40' ? '🌍 TOP 40' : '🇱🇹 LT TOP 30'}
             </button>
           ))}
@@ -164,12 +217,16 @@ export default function AdminTop() {
         <div className="flex gap-1 mb-6 border-b border-white/10">
           {([
             ['entries', '📋 Sąrašas'],
-            ['suggestions', `💡 Pasiūlymai ${suggestionStatus === 'pending' && suggestions.length > 0 ? `(${suggestions.length})` : ''}`],
+            ['suggestions', `💡 Pasiūlymai${tab === 'suggestions' && suggestions.length > 0 ? ` (${suggestions.length})` : ''}`],
             ['weeks', '📅 Savaitės'],
             ['stats', '📊 Statistika'],
           ] as const).map(([k, l]) => (
             <button key={k} onClick={() => setTab(k as TabType)}
-              className={`px-4 py-2 text-sm font-semibold transition-colors border-b-2 -mb-px ${tab === k ? 'border-blue-500 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}>
+              className={`px-4 py-2 text-sm font-semibold transition-colors border-b-2 -mb-px ${
+                tab === k
+                  ? 'border-blue-500 text-white'
+                  : 'border-transparent text-gray-500 hover:text-gray-300'
+              }`}>
               {l}
             </button>
           ))}
@@ -184,20 +241,30 @@ export default function AdminTop() {
               <div className="flex gap-2 flex-wrap">
                 {weeks.map(w => (
                   <button key={w.id} onClick={() => setActiveWeek(w)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${activeWeek?.id === w.id ? 'bg-blue-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10'}`}>
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      activeWeek?.id === w.id
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10'
+                    }`}>
                     {new Date(w.week_start).toLocaleDateString('lt-LT', { month: 'short', day: 'numeric' })}
                     {w.is_active && <span className="ml-1 text-green-400">●</span>}
                   </button>
                 ))}
+                {weeks.length === 0 && (
+                  <span className="text-xs text-gray-600">Nėra savaičių — sukurkite skirtuke „Savaitės"</span>
+                )}
               </div>
             </div>
 
             {/* Add track */}
             <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
-              <p className="text-sm font-bold text-white mb-3">+ Pridėti dainą į {topType === 'top40' ? 'TOP 40' : 'LT TOP 30'}</p>
+              <p className="text-sm font-bold text-white mb-3">
+                + Pridėti dainą į {topType === 'top40' ? 'TOP 40' : 'LT TOP 30'}
+              </p>
               <div className="relative">
                 <input
-                  type="text" value={trackSearch}
+                  type="text"
+                  value={trackSearch}
                   onChange={e => setTrackSearch(e.target.value)}
                   placeholder="Ieškoti dainos pagal pavadinimą ar atlikėją…"
                   className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-gray-500 focus:outline-none focus:border-blue-500 text-sm"
@@ -279,9 +346,13 @@ export default function AdminTop() {
         {tab === 'suggestions' && (
           <div className="space-y-4">
             <div className="flex gap-2">
-              {['pending', 'approved', 'rejected'].map(s => (
+              {(['pending', 'approved', 'rejected'] as const).map(s => (
                 <button key={s} onClick={() => setSuggestionStatus(s)}
-                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${suggestionStatus === s ? 'bg-blue-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10'}`}>
+                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                    suggestionStatus === s
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10'
+                  }`}>
                   {s === 'pending' ? '⏳ Laukia' : s === 'approved' ? '✓ Patvirtinta' : '✕ Atmesta'}
                 </button>
               ))}
@@ -304,8 +375,12 @@ export default function AdminTop() {
                       <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center text-sm flex-shrink-0">♪</div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-white">{title}</p>
-                        <p className="text-xs text-gray-500">{artist} · {s.top_type === 'top40' ? 'TOP 40' : 'LT TOP 30'}</p>
-                        <p className="text-xs text-gray-600 mt-0.5">{new Date(s.created_at).toLocaleDateString('lt-LT')}</p>
+                        <p className="text-xs text-gray-500">
+                          {artist} · {s.top_type === 'top40' ? 'TOP 40' : 'LT TOP 30'}
+                        </p>
+                        <p className="text-xs text-gray-600 mt-0.5">
+                          {new Date(s.created_at).toLocaleDateString('lt-LT')}
+                        </p>
                       </div>
                       {suggestionStatus === 'pending' && (
                         <div className="flex gap-2 flex-shrink-0">
@@ -333,8 +408,12 @@ export default function AdminTop() {
             <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
               <p className="text-sm font-bold text-white mb-3">Sukurti naują savaitę</p>
               <div className="flex gap-3">
-                <input type="date" value={newWeekDate} onChange={e => setNewWeekDate(e.target.value)}
-                  className="px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-blue-500 text-sm" />
+                <input
+                  type="date"
+                  value={newWeekDate}
+                  onChange={e => setNewWeekDate(e.target.value)}
+                  className="px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-blue-500 text-sm"
+                />
                 <button onClick={createWeek} disabled={saving || !newWeekDate}
                   className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition-colors disabled:opacity-50">
                   {saving ? 'Kuriama…' : '+ Sukurti'}
@@ -367,13 +446,20 @@ export default function AdminTop() {
                           : <span className="text-xs text-gray-600">Archyvas</span>}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <button onClick={() => setActiveWeek(w)}
-                          className="text-xs text-blue-400 hover:text-blue-300 font-medium">
+                        <button onClick={() => { setActiveWeek(w); setTab('entries') }}
+                          className="text-xs text-blue-400 hover:text-blue-300 font-medium transition-colors">
                           Žiūrėti →
                         </button>
                       </td>
                     </tr>
                   ))}
+                  {weeks.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-8 text-center text-gray-600 text-sm">
+                        Nėra savaičių. Sukurkite pirmą.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -382,11 +468,11 @@ export default function AdminTop() {
 
         {/* ── STATS TAB ── */}
         {tab === 'stats' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
-              { label: 'Aktyvios savaitės', value: weeks.filter(w => w.is_active).length, icon: '📅' },
               { label: 'Dainų sąraše', value: entries.length, icon: '🎵' },
-              { label: 'Laukia patvirtinimo', value: suggestions.filter(s => s.status === 'pending').length, icon: '💡' },
+              { label: 'Aktyvios savaitės', value: weeks.filter(w => w.is_active).length, icon: '📅' },
+              { label: 'Viso savaičių', value: weeks.length, icon: '📊' },
             ].map((stat, i) => (
               <div key={i} className="bg-white/5 border border-white/10 rounded-2xl p-5">
                 <div className="text-3xl mb-2">{stat.icon}</div>
@@ -396,6 +482,7 @@ export default function AdminTop() {
             ))}
           </div>
         )}
+
       </div>
     </div>
   )
