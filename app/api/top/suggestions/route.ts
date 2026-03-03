@@ -65,17 +65,7 @@ export async function POST(req: Request) {
     .eq('is_active', true)
     .single()
 
-  if (week) {
-    const { data: alreadyIn } = await supabase
-      .from('top_entries')
-      .select('id')
-      .eq('week_id', week.id)
-      .eq('track_id', track_id)
-      .maybeSingle()
-
-    if (alreadyIn)
-      return NextResponse.json({ error: 'Daina jau šios savaitės kandidatė' }, { status: 409 })
-  }
+  // (Leidžiame siūlyti net jei daina jau kandidatė - siūlymas bus atmestas admin)
 
   // Patikrinti ar jau yra toks pasiūlymas
   const { data: existing } = await supabase
@@ -139,23 +129,33 @@ export async function PATCH(req: Request) {
       .single()
 
     if (activeWeek) {
-      const { count } = await supabase
+      // Patikrinti ar jau yra
+      const { data: existing } = await supabase
         .from('top_entries')
-        .select('id', { count: 'exact', head: true })
+        .select('id')
         .eq('week_id', activeWeek.id)
+        .eq('track_id', suggestion.track_id)
+        .maybeSingle()
 
-      await supabase
-        .from('top_entries')
-        .upsert({
-          week_id: activeWeek.id,
-          track_id: suggestion.track_id,
-          top_type: suggestion.top_type,
-          position: (count || 0) + 1,
-          vote_count: 0,
-          is_new: true,
-          weeks_in_top: 1,
-          peak_position: (count || 0) + 1,
-        }, { onConflict: 'week_id,track_id' })
+      if (!existing) {
+        const { count } = await supabase
+          .from('top_entries')
+          .select('id', { count: 'exact', head: true })
+          .eq('week_id', activeWeek.id)
+
+        await supabase
+          .from('top_entries')
+          .insert({
+            week_id: activeWeek.id,
+            track_id: suggestion.track_id,
+            top_type: suggestion.top_type,
+            position: (count || 0) + 1,
+            total_votes: 0,
+            is_new: true,
+            weeks_in_top: 1,
+            peak_position: (count || 0) + 1,
+          })
+      }
     }
   }
 
