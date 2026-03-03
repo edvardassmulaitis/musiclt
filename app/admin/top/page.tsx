@@ -11,11 +11,10 @@ type Week = {
   id: number
   top_type: TopType
   week_start: string
-  vote_open: string
+  vote_open: string | null
   vote_close: string | null
   is_active: boolean
   is_finalized: boolean
-  vote_open: string | null
   total_votes: number
 }
 
