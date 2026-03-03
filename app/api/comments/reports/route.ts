@@ -28,12 +28,11 @@ export async function POST(req: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   // Padidinti reported_count
-  await supabase.rpc('increment_reported_count', { comment_id_arg: comment_id }).catch(() => {
-    // Fallback jei funkcija neegzistuoja
-    supabase.from('comments')
-      .update({ reported_count: supabase.rpc('greatest', {}) })
-      .eq('id', comment_id)
-  })
+  try {
+    await supabase.rpc('increment_reported_count', { comment_id_arg: comment_id })
+  } catch {
+    // Fallback jei funkcija neegzistuoja — tiesiog ignoruoti
+  }
 
   return NextResponse.json({ ok: true })
 }
