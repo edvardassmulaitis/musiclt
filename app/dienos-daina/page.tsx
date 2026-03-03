@@ -37,13 +37,25 @@ async function getData() {
 
   console.log('DIENOS DAINA TODAY:', today)
 
+  // Pirma paprastas query be join'ų
+  const simpleRes = await supabase
+    .from('daily_song_nominations')
+    .select('id, date, comment, created_at, user_id, track_id')
+    .eq('date', today)
+    .is('removed_at', null)
+    .order('created_at', { ascending: true })
+
+  console.log('SIMPLE ERROR:', JSON.stringify(simpleRes.error))
+  console.log('SIMPLE DATA:', JSON.stringify(simpleRes.data))
+
+  // Tada su tracks join'u
   const nominationsRes = await supabase
     .from('daily_song_nominations')
     .select(`
       id, date, comment, created_at, user_id,
-      tracks (
+      tracks:track_id (
         id, slug, title, cover_url, spotify_id, video_url,
-        artists ( id, slug, name, cover_image_url )
+        artists:artist_id ( id, slug, name, cover_image_url )
       )
     `)
     .eq('date', today)
@@ -57,16 +69,16 @@ async function getData() {
     .from('daily_song_winners')
     .select(`
       id, date, total_votes, weighted_votes, winning_comment, winning_user_id,
-      tracks (
+      tracks:track_id (
         id, slug, title, cover_url, spotify_id, video_url,
-        artists ( id, slug, name, cover_image_url )
+        artists:artist_id ( id, slug, name, cover_image_url )
       )
     `)
     .order('date', { ascending: false })
     .limit(15)
 
   const nominations = nominationsRes.data || []
-  const nominationIds = nominations.map(n => n.id)
+  const nominationIds = nominations.map((n: any) => n.id)
   let voteCounts: Record<number, { total: number; weighted: number }> = {}
 
   if (nominationIds.length > 0) {
@@ -83,15 +95,15 @@ async function getData() {
   }
 
   const enrichedNominations = nominations
-    .map(n => ({
+    .map((n: any) => ({
       ...n,
       tracks: normalizeTrack(n.tracks),
       votes: voteCounts[n.id]?.total || 0,
       weighted_votes: voteCounts[n.id]?.weighted || 0,
     }))
-    .sort((a, b) => b.weighted_votes - a.weighted_votes)
+    .sort((a: any, b: any) => b.weighted_votes - a.weighted_votes)
 
-  const enrichedWinners = (winnersRes.data || []).map(w => ({
+  const enrichedWinners = (winnersRes.data || []).map((w: any) => ({
     ...w,
     tracks: normalizeTrack(w.tracks),
   }))
