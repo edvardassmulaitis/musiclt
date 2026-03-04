@@ -9,14 +9,14 @@ export async function GET(req: NextRequest) {
   const offset = parseInt(searchParams.get('offset') || '0')
   const search = searchParams.get('search') || ''
   const type = searchParams.get('type') || ''
-
   const supabase = createAdminClient()
+
   let query = supabase
     .from('news')
     .select(`
-      id, slug, title, type, is_featured, is_hidden_home,
-      image_small_url, published_at, created_at,
-      artist:artists!news_artist_id_fkey(id, name, slug)
+      id, slug, title, body, type, is_featured, is_hidden_home,
+      image_small_url, image_title_url, published_at, created_at,
+      artist:artists!news_artist_id_fkey(id, name, slug, cover_image_url)
     `, { count: 'exact' })
     .order('published_at', { ascending: false })
     .range(offset, offset + limit - 1)
@@ -26,7 +26,19 @@ export async function GET(req: NextRequest) {
 
   const { data, error, count } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ news: data || [], total: count || 0 })
+
+  // Map: truncate body to excerpt for listing, keep full for detail
+  const news = (data || []).map((n: any) => ({
+    ...n,
+    // Strip HTML from body and create excerpt (first ~160 chars)
+    excerpt: n.body
+      ? n.body.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160)
+      : null,
+    // Don't send full body in listing to save bandwidth
+    body: undefined,
+  }))
+
+  return NextResponse.json({ news, total: count || 0 })
 }
 
 export async function POST(req: NextRequest) {
@@ -34,6 +46,7 @@ export async function POST(req: NextRequest) {
   if (!session?.user || !['admin', 'super_admin'].includes(session.user.role || '')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+
   try {
     const data = await req.json()
     const supabase = createAdminClient()
