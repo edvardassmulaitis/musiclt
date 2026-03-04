@@ -270,14 +270,22 @@ export default function Home() {
     fetch('/api/news?limit=6').then(r => r.json()).then(d => setNews(d.news || [])).catch(() => {})
   }, [])
 
-  // Fetch songs for hero news items
+  // Fetch songs for hero news items using existing per-news endpoint
   useEffect(() => {
     if (!news.length) return
-    const ids = news.slice(0, 3).map(n => n.id).join(',')
-    fetch(`/api/news/songs?ids=${ids}`)
-      .then(r => r.json())
-      .then(d => setNewsSongs(d.songs || {}))
-      .catch(() => {})
+    const heroNews = news.slice(0, 3)
+    Promise.all(
+      heroNews.map(n =>
+        fetch(`/api/news/${n.id}/songs`)
+          .then(r => r.json())
+          .then(songs => ({ id: n.id, songs: Array.isArray(songs) ? songs : [] }))
+          .catch(() => ({ id: n.id, songs: [] }))
+      )
+    ).then(results => {
+      const map: Record<number, any[]> = {}
+      results.forEach(r => { map[r.id] = r.songs })
+      setNewsSongs(map)
+    })
   }, [news])
 
   /* ── Hero slides from real data ── */
@@ -288,14 +296,14 @@ export default function Home() {
       const typeLT = n.type === 'review' ? 'Recenzija' : n.type === 'interview' ? 'Interviu' : n.type === 'report' ? 'Reportažas' : 'Naujiena'
       // Get songs from separate fetch
       const songs = newsSongs[n.id] || []
-      const song = songs.find(s => s.youtube_url)
+      const song = songs.find((s: any) => s.youtube_url)
       slides.push({
         type: 'news', chip: typeLT.toUpperCase(), chipBg: '#1d4ed8',
         title: sanitizeTitle(n.title),
         subtitle: n.excerpt ? smartTruncate(n.excerpt, 180) : '',
         bgImg: n.image_title_url || n.image_small_url,
         href: `/naujienos/${n.slug}`,
-        videoId: extractYouTubeId(song?.youtube_url),
+        videoId: extractYouTubeId(song?.youtube_url || null),
         songTitle: song?.title || null,
         songArtist: song?.artist_name || n.artist?.name || null,
         songCover: null,
