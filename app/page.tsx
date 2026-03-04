@@ -421,7 +421,8 @@ export default function Home() {
           .hp-hero-right{width:100%!important;padding:18px 0 24px!important;border-left:none;border-top:1px solid rgba(255,255,255,.08);background:transparent!important}
           .hp-hero-title{font-size:28px!important}
           .hp-hero-excerpt{font-size:13px!important}
-          .hp-hero-video{max-width:100%!important}
+          .hp-hero-vidcard{position:relative!important;bottom:auto!important;right:auto!important;margin-top:14px!important}
+          .hp-hero-video{position:relative!important;bottom:auto!important;right:auto!important;width:100%!important;margin-top:14px!important}
         }
         @media(max-width:600px){
           .hp-hero{min-height:320px}
@@ -506,93 +507,86 @@ export default function Home() {
                     )}
                   </div>
 
-                  {/* Title */}
-                  <h1 className="hp-hero-title" style={{
+                  {/* Title — clickable link */}
+                  <Link href={hero.href} className="hp-hero-title" style={{
                     fontFamily: 'Outfit,sans-serif', fontSize: 42, fontWeight: 900,
                     color: '#fff', lineHeight: 1.06, margin: '0 0 12px',
-                    letterSpacing: '-0.025em', maxWidth: 580,
-                    textShadow: '0 2px 20px rgba(0,0,0,0.4)'
-                  }}>
+                    letterSpacing: '-0.025em', maxWidth: 580, display: 'block',
+                    textShadow: '0 2px 20px rgba(0,0,0,0.4)', textDecoration: 'none',
+                    transition: 'opacity .15s',
+                  }}
+                    onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
+                    onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
                     {hero.title}
-                  </h1>
+                  </Link>
 
                   {/* Excerpt */}
                   {hero.subtitle && (
                     <p className="hp-hero-excerpt" style={{
-                      fontSize: 14, color: 'rgba(210,225,245,0.65)', margin: '0 0 18px',
+                      fontSize: 14, color: 'rgba(210,225,245,0.65)', margin: 0,
                       lineHeight: 1.55, maxWidth: 480,
                     }}>
                       {hero.subtitle}
                     </p>
                   )}
-
-                  {/* CTA + Video card */}
-                  <div style={{ display: 'flex', gap: 14, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                    <Link href={hero.href} style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 6,
-                      background: '#f97316', color: '#fff', fontWeight: 800, fontSize: 13,
-                      padding: '10px 22px', borderRadius: 22, textDecoration: 'none',
-                      boxShadow: '0 4px 20px rgba(249,115,22,.4)', fontFamily: 'Outfit,sans-serif',
-                      transition: 'transform .15s, box-shadow .15s'
-                    }}
-                      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 28px rgba(249,115,22,.5)' }}
-                      onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(249,115,22,.4)' }}>
-                      Skaityti →
-                    </Link>
-
-                    {/* Video thumbnail card */}
-                    {hero.videoId && !heroVideoPlaying && (
-                      <button onClick={() => setHeroVideoPlaying(true)} style={{
-                        display: 'flex', alignItems: 'center', gap: 10, padding: 0,
-                        background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(12px)',
-                        border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12,
-                        cursor: 'pointer', overflow: 'hidden', transition: 'all .2s',
-                        maxWidth: 260,
-                      }}
-                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,.25)'; e.currentTarget.style.background = 'rgba(0,0,0,0.5)' }}
-                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,.12)'; e.currentTarget.style.background = 'rgba(0,0,0,0.35)' }}>
-                        {/* Thumbnail */}
-                        <div style={{ width: 56, height: 56, flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
-                          <img src={`https://img.youtube.com/vi/${hero.videoId}/mqdefault.jpg`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.3)' }}>
-                            <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(255,255,255,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              <svg width="10" height="10" viewBox="0 0 24 24" fill="#111"><path d="M8 5v14l11-7z"/></svg>
-                            </div>
-                          </div>
-                        </div>
-                        {/* Song info */}
-                        <div style={{ flex: 1, minWidth: 0, padding: '6px 12px 6px 0', textAlign: 'left' }}>
-                          <p style={{ fontSize: 9, fontWeight: 800, color: 'rgba(255,255,255,0.4)', margin: '0 0 2px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Susijusi muzika</p>
-                          <p style={{ fontSize: 12, fontWeight: 700, color: '#fff', margin: '0 0 1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hero.songTitle || 'Klausyti'}</p>
-                          {hero.songArtist && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hero.songArtist}</p>}
-                        </div>
-                      </button>
-                    )}
-                  </div>
-
-                  {/* YouTube embed (inline, replaces thumbnail when playing) */}
-                  {hero.videoId && heroVideoPlaying && (
-                    <div className="hp-hero-video" style={{ marginTop: 16, borderRadius: 12, overflow: 'hidden', maxWidth: 440, aspectRatio: '16/9', background: '#000', boxShadow: '0 8px 32px rgba(0,0,0,0.6)', position: 'relative', animation: 'hp-in .3s ease both' }}>
-                      <iframe
-                        src={`https://www.youtube.com/embed/${hero.videoId}?autoplay=1&rel=0`}
-                        style={{ width: '100%', height: '100%', border: 'none' }}
-                        allow="autoplay; encrypted-media"
-                        allowFullScreen
-                      />
-                      <button onClick={() => setHeroVideoPlaying(false)} style={{
-                        position: 'absolute', top: 8, right: 8, width: 28, height: 28, borderRadius: '50%',
-                        background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.2)',
-                        color: '#fff', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        transition: 'background .15s'
-                      }}
-                        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.8)')}
-                        onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.6)')}>
-                        ✕
-                      </button>
-                    </div>
-                  )}
                 </div>
               </div>
+
+              {/* ── Floating video card (over the image area, bottom-right) ── */}
+              {hero.videoId && !heroVideoPlaying && (
+                <button className="hp-hero-vidcard" key={`vid-${heroIdx}`} onClick={() => setHeroVideoPlaying(true)} style={{
+                  position: 'absolute', bottom: 52, right: 360, zIndex: 4,
+                  display: 'flex', alignItems: 'center', gap: 0, padding: 0,
+                  background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(16px)',
+                  border: '1px solid rgba(255,255,255,0.14)', borderRadius: 14,
+                  cursor: 'pointer', overflow: 'hidden', transition: 'all .2s',
+                  animation: 'hp-in .5s ease .3s both',
+                }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,.3)'; e.currentTarget.style.background = 'rgba(0,0,0,0.7)'; e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(0,0,0,0.5)' }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,.14)'; e.currentTarget.style.background = 'rgba(0,0,0,0.55)'; e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none' }}>
+                  <div style={{ width: 64, height: 64, flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
+                    <img src={`https://img.youtube.com/vi/${hero.videoId}/mqdefault.jpg`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.25)' }}>
+                      <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(255,255,255,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="#111"><path d="M8 5v14l11-7z"/></svg>
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0, padding: '8px 14px 8px 10px', textAlign: 'left' }}>
+                    <p style={{ fontSize: 9, fontWeight: 800, color: 'rgba(255,255,255,0.4)', margin: '0 0 3px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Susijusi muzika</p>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: '#fff', margin: '0 0 1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hero.songTitle || 'Klausyti'}</p>
+                    {hero.songArtist && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', margin: 0 }}>{hero.songArtist}</p>}
+                  </div>
+                </button>
+              )}
+
+              {/* YouTube embed (floating, replaces card when playing) */}
+              {hero.videoId && heroVideoPlaying && (
+                <div className="hp-hero-video" style={{
+                  position: 'absolute', bottom: 52, right: 360, zIndex: 4,
+                  width: 380, aspectRatio: '16/9',
+                  borderRadius: 14, overflow: 'hidden', background: '#000',
+                  boxShadow: '0 12px 48px rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.1)',
+                  animation: 'hp-in .3s ease both',
+                }}>
+                  <iframe
+                    src={`https://www.youtube.com/embed/${hero.videoId}?autoplay=1&rel=0`}
+                    style={{ width: '100%', height: '100%', border: 'none' }}
+                    allow="autoplay; encrypted-media"
+                    allowFullScreen
+                  />
+                  <button onClick={() => setHeroVideoPlaying(false)} style={{
+                    position: 'absolute', top: 8, right: 8, width: 28, height: 28, borderRadius: '50%',
+                    background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.2)',
+                    color: '#fff', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    transition: 'background .15s'
+                  }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.8)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.6)')}>
+                    ✕
+                  </button>
+                </div>
+              )}
 
               {/* ── Right: Chart ── */}
               <div className="hp-hero-right">
