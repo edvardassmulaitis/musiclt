@@ -292,11 +292,16 @@ export default function Home() {
     })
 
     events.slice(0, 1).forEach(ev => {
-      const d = new Date(ev.event_date)
+      const d = ev.event_date ? new Date(ev.event_date) : null
+      const dateStr = d && !isNaN(d.getTime())
+        ? `${d.getDate()} ${MONTHS_LT[d.getMonth()]}. · `
+        : ''
+      const venue = ev.venues?.name || ev.venue_custom || ''
+      const city = ev.venues?.city || ''
       slides.push({
         type: 'event', chip: 'RENGINYS', chipBg: '#047857',
         title: sanitizeTitle(ev.title),
-        subtitle: `${d.getDate()} ${MONTHS_LT[d.getMonth()]}. · ${ev.venues?.name || ev.venue_custom || ''} · ${ev.venues?.city || ''}`,
+        subtitle: `${dateStr}${venue}${city ? ` · ${city}` : ''}`.replace(/· $/, ''),
         bgImg: ev.image_small_url,
         href: `/renginiai/${ev.slug}`,
       })
