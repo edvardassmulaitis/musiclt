@@ -14,6 +14,14 @@ const NAV = [
   { label: 'Diskusijos',        href: '/diskusijos' },
 ]
 
+const DRAWER_EXTRA = [
+  { label: 'Atlikėjai', href: '/atlikejai' },
+  { label: 'Albumai', href: '/albumai' },
+  { label: 'Dainos', href: '/muzika' },
+  { label: 'Galerija', href: '/galerija' },
+  { label: 'Apie mus', href: '/apie' },
+]
+
 /* ── Icons ── */
 const SunIcon = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -48,17 +56,16 @@ export function SiteHeader() {
   const navHoverBg = dk ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)'
   const activeColor = '#60a5fa'
   const activeBg = 'rgba(96,165,250,0.1)'
-  const logoColor = dk ? '#f2f4f8' : '#0f1a2e'
-  const inputBg = dk ? 'rgba(255,255,255,0.055)' : 'rgba(0,0,0,0.04)'
-  const inputBdr = dk ? '1px solid rgba(255,255,255,0.09)' : '1px solid rgba(0,0,0,0.09)'
-  const inputColor = dk ? '#c8d8f0' : '#1a2540'
-  const mutedIcon = dk ? '#4a6580' : '#6a85a8'
-  const drawerBg = dk ? '#0d1118' : '#f5f8ff'
+  const logoColor = dk ? '#f3f6fc' : '#0f1a2e'
+  const inputBg = dk ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)'
+  const inputBdr = dk ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.1)'
+  const inputColor = dk ? '#c8d8f0' : '#1a2a40'
+  const mutedIcon = dk ? '#4a6888' : '#8899aa'
+  const drawerBg = dk ? '#0c1220' : '#f8faff'
+  const hamColor = dk ? '#5a7898' : '#7a90a8'
+  const sectionLabel = dk ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.3)'
 
-  const isActive = (href: string) => {
-    if (href === '/') return pathname === '/'
-    return pathname?.startsWith(href)
-  }
+  const isActive = (href: string) => href === '/' ? pathname === '/' : pathname.startsWith(href)
 
   return (
     <>
@@ -68,11 +75,11 @@ export function SiteHeader() {
           border-radius: 7px; text-decoration: none;
           transition: color .13s, background .13s; white-space: nowrap;
         }
-        .sh-ham { display: none !important; }
+        .sh-desktop-search { display: flex; }
+        .sh-desktop-nav    { display: flex; }
         @media (max-width: 900px) {
           .sh-desktop-search { display: none !important; }
           .sh-desktop-nav    { display: none !important; }
-          .sh-ham            { display: flex !important; }
         }
         .sh-overlay {
           position: fixed; inset: 0; z-index: 200;
@@ -82,7 +89,7 @@ export function SiteHeader() {
         .sh-overlay.open { opacity: 1; pointer-events: all; }
         .sh-drawer {
           position: fixed; top: 0; left: 0; bottom: 0; z-index: 201;
-          width: 268px;
+          width: 280px;
           transform: translateX(-100%);
           transition: transform .22s cubic-bezier(.4,0,.2,1);
           display: flex; flex-direction: column;
@@ -90,14 +97,16 @@ export function SiteHeader() {
         .sh-drawer.open { transform: translateX(0); }
       `}</style>
 
-      {/* ─── HEADER ──────────────────────────────────────────────── */}
+      {/* ─── HEADER BAR ─────────────────────────────────────────── */}
       <header className="sticky top-0 z-50" style={{ background: bg, backdropFilter: 'blur(22px)', borderBottom: bdr }}>
         <div style={{ maxWidth: 1360, margin: '0 auto', padding: '0 20px', height: 56, display: 'flex', alignItems: 'center', gap: 10 }}>
 
-          {/* Hamburger — mobile */}
-          <button className="sh-ham" onClick={() => setMenuOpen(true)} aria-label="Meniu"
-            style={{ flexShrink: 0, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', background: 'transparent', cursor: 'pointer', color: navColor, borderRadius: 8 }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+          {/* Hamburger — always visible */}
+          <button onClick={() => setMenuOpen(true)} aria-label="Meniu"
+            style={{ flexShrink: 0, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', background: 'transparent', cursor: 'pointer', color: hamColor, borderRadius: 8, transition: 'color .15s, background .15s' }}
+            onMouseEnter={e => { e.currentTarget.style.color = navHover; e.currentTarget.style.background = navHoverBg }}
+            onMouseLeave={e => { e.currentTarget.style.color = hamColor; e.currentTarget.style.background = 'transparent' }}>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
               <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
             </svg>
           </button>
@@ -109,7 +118,7 @@ export function SiteHeader() {
           </Link>
 
           {/* Search bar — desktop */}
-          <div className="sh-desktop-search" style={{ flex: 1, maxWidth: 440, margin: '0 8px', display: 'flex', alignItems: 'center', borderRadius: 22, overflow: 'hidden', background: inputBg, border: inputBdr, transition: 'border-color .15s' }}>
+          <div className="sh-desktop-search" style={{ flex: '0 1 420px', margin: '0 4px', alignItems: 'center', borderRadius: 22, overflow: 'hidden', background: inputBg, border: inputBdr, transition: 'border-color .15s' }}>
             <input type="text" placeholder="Ieškok atlikėjų, albumų, dainų, renginių…"
               style={{ flex: 1, height: 36, padding: '0 16px', fontSize: 13, background: 'transparent', border: 'none', outline: 'none', color: inputColor, fontFamily: 'DM Sans, sans-serif' }} />
             <button style={{ flexShrink: 0, width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', background: 'transparent', cursor: 'pointer', color: mutedIcon }}>
@@ -117,8 +126,8 @@ export function SiteHeader() {
             </button>
           </div>
 
-          {/* Desktop nav */}
-          <nav className="sh-desktop-nav" style={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+          {/* Desktop nav — pushed right after search */}
+          <nav className="sh-desktop-nav" style={{ alignItems: 'center', gap: 1, flexShrink: 0, marginLeft: 'auto' }}>
             {NAV.map(n => {
               const active = isActive(n.href)
               return (
@@ -132,24 +141,14 @@ export function SiteHeader() {
             })}
           </nav>
 
-          {/* Spacer to push right items */}
-          <div style={{ flex: '0 0 auto' }} />
-
-          {/* Theme toggle */}
-          <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            style={{ flexShrink: 0, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: mutedIcon, transition: 'color .15s, background .15s' }}
-            onMouseEnter={e => { e.currentTarget.style.background = navHoverBg; e.currentTarget.style.color = navHover }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = mutedIcon }}
-            title={dk ? 'Šviesi tema' : 'Tamsi tema'}>
-            {dk ? <SunIcon /> : <MoonIcon />}
-          </button>
-
-          {/* Auth (avatar / login) */}
-          <HeaderAuth />
+          {/* Auth (avatar / login) — far right with gap */}
+          <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
+            <HeaderAuth />
+          </div>
         </div>
       </header>
 
-      {/* ─── MOBILE DRAWER ───────────────────────────────────────── */}
+      {/* ─── DRAWER ───────────────────────────────────────────────── */}
       <div className={`sh-overlay${menuOpen ? ' open' : ''}`} onClick={() => setMenuOpen(false)} />
 
       <div className={`sh-drawer${menuOpen ? ' open' : ''}`} style={{ background: drawerBg, borderRight: bdr }}>
@@ -180,11 +179,27 @@ export function SiteHeader() {
 
         {/* Drawer nav */}
         <nav style={{ flex: 1, padding: '8px 10px', overflowY: 'auto' }}>
+          {/* Main section */}
+          <div style={{ padding: '4px 14px 8px', fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: sectionLabel }}>Meniu</div>
           {NAV.map(n => {
             const active = isActive(n.href)
             return (
               <Link key={n.label} href={n.href} onClick={() => setMenuOpen(false)}
-                style={{ display: 'block', padding: '11px 14px', borderRadius: 10, fontSize: 14, fontWeight: 700, textDecoration: 'none', marginBottom: 2, color: active ? activeColor : navColor, background: active ? activeBg : 'transparent', transition: 'background .12s, color .12s' }}
+                style={{ display: 'block', padding: '10px 14px', borderRadius: 10, fontSize: 14, fontWeight: 700, textDecoration: 'none', marginBottom: 1, color: active ? activeColor : navColor, background: active ? activeBg : 'transparent', transition: 'background .12s, color .12s' }}
+                onMouseEnter={e => { if (!active) { e.currentTarget.style.background = navHoverBg; e.currentTarget.style.color = navHover } }}
+                onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = navColor } }}>
+                {n.label}
+              </Link>
+            )
+          })}
+
+          {/* Extra section */}
+          <div style={{ padding: '16px 14px 8px', fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: sectionLabel }}>Naršyti</div>
+          {DRAWER_EXTRA.map(n => {
+            const active = isActive(n.href)
+            return (
+              <Link key={n.label + n.href} href={n.href} onClick={() => setMenuOpen(false)}
+                style={{ display: 'block', padding: '10px 14px', borderRadius: 10, fontSize: 14, fontWeight: 600, textDecoration: 'none', marginBottom: 1, color: active ? activeColor : navColor, background: active ? activeBg : 'transparent', transition: 'background .12s, color .12s' }}
                 onMouseEnter={e => { if (!active) { e.currentTarget.style.background = navHoverBg; e.currentTarget.style.color = navHover } }}
                 onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = navColor } }}>
                 {n.label}
@@ -193,10 +208,12 @@ export function SiteHeader() {
           })}
         </nav>
 
-        {/* Drawer bottom: theme */}
+        {/* Drawer bottom: theme toggle */}
         <div style={{ padding: '12px 14px', borderTop: bdr }}>
           <button onClick={() => { setTheme(theme === 'dark' ? 'light' : 'dark'); setMenuOpen(false) }}
-            style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 14px', borderRadius: 10, border: 'none', background: dk ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)', color: navColor, fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'background .12s' }}>
+            style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 14px', borderRadius: 10, border: 'none', background: dk ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)', color: navColor, fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'background .12s' }}
+            onMouseEnter={e => (e.currentTarget.style.background = navHoverBg)}
+            onMouseLeave={e => (e.currentTarget.style.background = dk ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)')}>
             {dk ? <><SunIcon /> Šviesi tema</> : <><MoonIcon /> Tamsi tema</>}
           </button>
         </div>
