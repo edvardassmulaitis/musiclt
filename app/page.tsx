@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
+import { useSite } from '@/components/SiteContext'
 
 /* ────────────────────────────── Types ────────────────────────────── */
 type Track = { id: number; slug: string; title: string; cover_url: string | null; created_at: string; artists: { id: number; slug: string; name: string } | null }
@@ -93,8 +94,8 @@ function Skel({ w, h, r = 6 }: { w: number | string; h: number; r?: number }) {
 function SH({ label, href, cta = 'Visi →' }: { label: React.ReactNode; href?: string; cta?: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-      <h2 style={{ fontFamily: 'Outfit, sans-serif', fontSize: 17, fontWeight: 800, color: '#e8edf6', letterSpacing: '-0.01em', margin: 0 }}>{label}</h2>
-      {href && <Link href={href} style={{ fontSize: 12, color: '#4a7ab5', fontWeight: 700, textDecoration: 'none', transition: 'color .15s' }} onMouseEnter={e => (e.currentTarget.style.color = '#7ab8f0')} onMouseLeave={e => (e.currentTarget.style.color = '#4a7ab5')}>{cta}</Link>}
+      <h2 style={{ fontFamily: 'Outfit, sans-serif', fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em', margin: 0 }}>{label}</h2>
+      {href && <Link href={href} style={{ fontSize: 12, color: 'var(--accent-link)', fontWeight: 700, textDecoration: 'none', transition: 'color .15s' }} onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')} onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>{cta}</Link>}
     </div>
   )
 }
@@ -110,11 +111,11 @@ function DienosDainaWidget() {
   }, [])
   const w = noms[0]
   return (
-    <div style={{ background: 'linear-gradient(145deg, rgba(22,55,140,0.18) 0%, rgba(8,13,22,0.98) 100%)', border: '1px solid rgba(30,80,200,0.15)', borderRadius: 16, overflow: 'hidden' }}>
-      <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 12 }}>
+    <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 16, overflow: 'hidden' }}>
+      <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 12 }}>
         <Cover src={w?.tracks?.cover_url} alt={w?.tracks?.title || 'daina'} size={54} radius={10} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ fontSize: 10, color: '#3a5878', fontWeight: 700, margin: '0 0 2px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Šiandien pirmauja</p>
+          <p style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 700, margin: '0 0 2px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Šiandien pirmauja</p>
           <h3 style={{ fontFamily: 'Outfit, sans-serif', fontSize: 15, fontWeight: 800, color: '#eef2fa', margin: '0 0 1px', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {loading ? '...' : sanitizeTitle(w?.tracks?.title || 'Dar nėra')}
           </h3>
@@ -127,17 +128,17 @@ function DienosDainaWidget() {
       <div>
         <div style={{ padding: '8px 16px 6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontSize: 9, fontWeight: 800, color: '#1e3050', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Rytdienos kandidatai</span>
-          <Link href="/dienos-daina" style={{ fontSize: 9, color: '#4a7ab5', fontWeight: 700, textDecoration: 'none' }}>+ Siūlyti</Link>
+          <Link href="/dienos-daina" style={{ fontSize: 9, color: "var(--accent-link)", fontWeight: 700, textDecoration: 'none' }}>+ Siūlyti</Link>
         </div>
-        {loading ? <div style={{ padding: '10px 16px', color: '#2a4060', fontSize: 12 }}>Kraunama...</div>
-          : noms.length === 0 ? <div style={{ padding: '14px 16px', color: '#2a4060', fontSize: 12, textAlign: 'center' }}>Kol kas nėra nominacijų</div>
+        {loading ? <div style={{ padding: '10px 16px', color: "var(--text-muted)", fontSize: 12 }}>Kraunama...</div>
+          : noms.length === 0 ? <div style={{ padding: '14px 16px', color: "var(--text-muted)", fontSize: 12, textAlign: 'center' }}>Kol kas nėra nominacijų</div>
           : noms.slice(0, 5).map((n, i) => (
             <div key={n.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 16px', borderTop: '1px solid rgba(255,255,255,0.04)', transition: 'background .12s' }} onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-              <span style={{ fontSize: 10, fontWeight: 800, color: '#1a2a3c', width: 14, textAlign: 'center', flexShrink: 0 }}>{i + 1}</span>
+              <span style={{ fontSize: 10, fontWeight: 800, color: "var(--text-faint)", width: 14, textAlign: 'center', flexShrink: 0 }}>{i + 1}</span>
               <Cover src={n.tracks?.cover_url} alt={n.tracks?.title || '?'} size={26} radius={6} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{ fontSize: 11, fontWeight: 700, color: '#d0ddf0', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(n.tracks?.title || '')}</p>
-                <p style={{ fontSize: 10, color: '#2a4060', margin: 0 }}>{n.tracks?.artists?.name}</p>
+                <p style={{ fontSize: 10, color: "var(--text-muted)", margin: 0 }}>{n.tracks?.artists?.name}</p>
               </div>
               <span style={{ fontSize: 10, color: 'rgba(180,200,235,0.22)', flexShrink: 0, minWidth: 16, textAlign: 'right' }}>{voted === i ? n.votes + 1 : n.votes}</span>
               <button onClick={() => voted === null && setVoted(i)} disabled={voted !== null}
@@ -173,25 +174,25 @@ function ShoutboxWidget() {
     return () => clearInterval(iv)
   }, [load])
   return (
-    <div style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ background: 'var(--bg-surface)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <div style={{ padding: '11px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           <span style={{ fontSize: 14 }}>💬</span>
-          <span style={{ fontFamily: 'Outfit, sans-serif', fontSize: 13, fontWeight: 800, color: '#e8edf6' }}>Gyvi pokalbiai</span>
+          <span style={{ fontFamily: 'Outfit, sans-serif', fontSize: 13, fontWeight: 800, color: "var(--text-primary)" }}>Gyvi pokalbiai</span>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 6px #22c55e' }} />
         </div>
-        <Link href="/bendruomene" style={{ fontSize: 10, color: '#4a7ab5', fontWeight: 700, textDecoration: 'none' }}>Visi →</Link>
+        <Link href="/bendruomene" style={{ fontSize: 10, color: "var(--accent-link)", fontWeight: 700, textDecoration: 'none' }}>Visi →</Link>
       </div>
       <div style={{ flex: 1 }}>
-        {loading ? <div style={{ padding: '18px', color: '#2a4060', fontSize: 12, textAlign: 'center' }}>Kraunama...</div>
-          : msgs.length === 0 ? <div style={{ padding: '18px', color: '#2a4060', fontSize: 12, textAlign: 'center' }}>Dar nėra žinučių</div>
+        {loading ? <div style={{ padding: '18px', color: "var(--text-muted)", fontSize: 12, textAlign: 'center' }}>Kraunama...</div>
+          : msgs.length === 0 ? <div style={{ padding: '18px', color: "var(--text-muted)", fontSize: 12, textAlign: 'center' }}>Dar nėra žinučių</div>
           : msgs.slice(-6).map((m, i, arr) => (
             <div key={m.id} style={{ display: 'flex', gap: 9, padding: '8px 14px', borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none' }}>
               <div style={{ width: 24, height: 24, borderRadius: '50%', flexShrink: 0, background: `hsl(${strHue(m.author_name)},28%,14%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: `hsl(${strHue(m.author_name)},45%,52%)`, fontFamily: 'Outfit, sans-serif' }}>{m.author_name[0]?.toUpperCase()}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', gap: 5, alignItems: 'center', marginBottom: 1 }}>
                   <span style={{ fontSize: 11, fontWeight: 700, color: '#5a90cc' }}>{m.author_name}</span>
-                  <span style={{ fontSize: 9, color: '#1a2a3c' }}>{timeAgo(m.created_at)}</span>
+                  <span style={{ fontSize: 9, color: "var(--text-faint)" }}>{timeAgo(m.created_at)}</span>
                 </div>
                 <p style={{ fontSize: 12, color: 'rgba(190,210,240,0.6)', margin: 0, lineHeight: 1.4 }}>{m.body}</p>
               </div>
@@ -217,15 +218,15 @@ function DiscussionsWidget() {
     <div className="hp-disc-grid">
       {discs.map(d => (
         <Link key={d.id} href={`/diskusijos/${d.slug}`}
-          style={{ padding: '12px 14px', borderRadius: 12, background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', textDecoration: 'none', display: 'block', transition: 'border-color 0.15s, background .15s' }}
+          style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--bg-surface)', border: '1px solid rgba(255,255,255,0.07)', textDecoration: 'none', display: 'block', transition: 'border-color 0.15s, background .15s' }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.14)'; e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.background = 'rgba(255,255,255,0.025)' }}>
           <div style={{ display: 'flex', gap: 5, marginBottom: 5, alignItems: 'center' }}>
             {(d.tags || []).slice(0, 1).map(t => <span key={t} style={{ fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 4, background: 'rgba(90,102,200,0.12)', color: '#8090c0' }}>{t}</span>)}
-            <span style={{ fontSize: 9, color: '#1a2a3c', marginLeft: 'auto' }}>{timeAgo(d.created_at)}</span>
+            <span style={{ fontSize: 9, color: "var(--text-faint)", marginLeft: 'auto' }}>{timeAgo(d.created_at)}</span>
           </div>
           <p style={{ fontFamily: 'Outfit, sans-serif', fontSize: 13, fontWeight: 700, color: '#c0d0e8', margin: '0 0 5px', lineHeight: 1.35, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' } as any}>{d.title}</p>
-          <p style={{ fontSize: 10, color: '#2a4060', margin: 0 }}>{d.author_name} · 💬 {d.comment_count}</p>
+          <p style={{ fontSize: 10, color: "var(--text-muted)", margin: 0 }}>{d.author_name} · 💬 {d.comment_count}</p>
         </Link>
       ))}
     </div>
@@ -237,6 +238,54 @@ function DiscussionsWidget() {
    ════════════════════════════════════════════════════════════════════ */
 
 export default function Home() {
+  const { dk } = useSite()
+
+  /* ── Theme tokens ── */
+  const T = {
+    bg:         dk ? '#080d14' : '#f0f4fa',
+    bgCard:     dk ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0.03)',
+    bgCardH:    dk ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.05)',
+    bgPill:     dk ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+    bgPillAct:  dk ? 'rgba(29,78,216,0.18)' : 'rgba(29,78,216,0.12)',
+    bgHover:    dk ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
+    bgSkel:     dk ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)',
+    bgInput:    dk ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+    border:     dk ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)',
+    borderH:    dk ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.14)',
+    borderSub:  dk ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)',
+    text:       dk ? '#e0eaf8' : '#0f1a2e',
+    textSec:    dk ? '#90b8e8' : '#3a5a80',
+    textMuted:  dk ? '#3a5878' : '#8899aa',
+    textFaint:  dk ? '#1a2a3c' : '#bbc8d8',
+    textPill:   dk ? '#4a6888' : '#6a85a0',
+    textPillAct:dk ? '#90b8e8' : '#1d4ed8',
+    link:       dk ? '#4a7ab5' : '#2563eb',
+    title:      dk ? '#f3f6fc' : '#0f1a2e',
+    subtitle:   dk ? '#5a7898' : '#6a85a0',
+    accent:     '#f97316',
+    accentBlue: '#1d4ed8',
+    heroBg:     dk ? '#080d14' : '#e8edf6',
+    heroText:   dk ? 'rgba(210,225,245,0.65)' : 'rgba(15,26,46,0.65)',
+    heroOverlay:dk
+      ? 'linear-gradient(to right, rgba(8,13,20,0.92) 0%, rgba(8,13,20,0.72) 40%, rgba(8,13,20,0.3) 70%, rgba(8,13,20,0.15) 100%), linear-gradient(to top, rgba(8,13,20,1) 0%, rgba(8,13,20,0.4) 35%, transparent 65%), linear-gradient(to bottom, rgba(8,13,20,0.6) 0%, transparent 18%)'
+      : 'linear-gradient(to right, rgba(232,237,246,0.95) 0%, rgba(232,237,246,0.8) 40%, rgba(232,237,246,0.4) 70%, rgba(232,237,246,0.15) 100%), linear-gradient(to top, rgba(240,244,250,1) 0%, rgba(240,244,250,0.4) 35%, transparent 65%), linear-gradient(to bottom, rgba(240,244,250,0.6) 0%, transparent 18%)',
+    heroGrad:   dk ? 'linear-gradient(135deg,#08101e 0%,#0f1830 55%,#08101e 100%)' : 'linear-gradient(135deg,#dde5f0 0%,#e8eef8 55%,#dde5f0 100%)',
+    heroTitleC: dk ? '#fff' : '#0f1a2e',
+    chartBg:    dk ? '#080d14' : '#f0f4fa',
+    chartBdr:   dk ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+    pos123:     dk ? '#f97316' : '#ea6c0a',
+    coverBg:    dk ? '#0e1626' : '#e0e8f2',
+    coverText:  dk ? '#1a3050' : '#8899aa',
+    chipBg:     dk ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+    chipBdr:    dk ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)',
+    chipText:   dk ? '#e8edf6' : '#1a2a40',
+    vidOverlay: dk ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.7)',
+    ctaBg:      dk ? 'rgba(29,78,216,0.08)' : 'rgba(29,78,216,0.06)',
+    ctaBdr:     dk ? 'rgba(96,165,250,0.15)' : 'rgba(29,78,216,0.15)',
+    ctaText:    dk ? '#c8d8f4' : '#1a2a40',
+    shoutBg:    dk ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0.03)',
+  }
+
   const [chartTab, setChartTab] = useState<'lt' | 'world'>('lt')
   const [ltTop, setLtTop] = useState<TopEntry[]>([])
   const [worldTop, setWorldTop] = useState<TopEntry[]>([])
@@ -386,31 +435,31 @@ export default function Home() {
   return (
     <>
       <style>{`
-        .hp{font-family:'DM Sans',sans-serif;background:#080d14;min-height:100vh}
+        .hp{font-family:'DM Sans',sans-serif;background:var(--bg-body);min-height:100vh}
         @keyframes hp-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
         @keyframes hp-img-in{from{opacity:0;transform:scale(1.04)}to{opacity:1;transform:scale(1)}}
         @keyframes hp-pulse{0%,100%{opacity:.05}50%{opacity:.08}}
-        .hp-skel{background:rgba(255,255,255,0.05);animation:hp-pulse 1.8s ease-in-out infinite}
+        .hp-skel{background:${T.bgSkel};animation:hp-pulse 1.8s ease-in-out infinite}
         .hp-scroll{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
         .hp-scroll::-webkit-scrollbar{display:none}
-        .hp-pill{cursor:pointer;padding:5px 13px;border-radius:18px;font-size:11px;font-weight:700;border:1px solid rgba(255,255,255,.07);color:#4a6888;background:transparent;transition:all .15s;white-space:nowrap;font-family:'DM Sans',sans-serif}
-        .hp-pill.hp-act{background:rgba(29,78,216,.18);border-color:rgba(29,78,216,.32);color:#90b8e8}
-        .hp-pill:hover{color:#b8d0e8;border-color:rgba(255,255,255,.14)}
+        .hp-pill{cursor:pointer;padding:5px 13px;border-radius:18px;font-size:11px;font-weight:700;border:1px solid ${T.border};color:${T.textPill};background:transparent;transition:all .15s;white-space:nowrap;font-family:'DM Sans',sans-serif}
+        .hp-pill.hp-act{background:${T.bgPillAct};border-color:${dk ? 'rgba(29,78,216,.32)' : 'rgba(29,78,216,.2)'};color:${T.textPillAct}}
+        .hp-pill:hover{color:${dk ? '#b8d0e8' : '#1a2a40'};border-color:${T.borderH}}
         .hp-tr{transition:background .1s}
-        .hp-tr:hover{background:rgba(255,255,255,.04)!important}
-        .hp-card{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);border-radius:11px;text-decoration:none;transition:border-color .15s,background .15s}
-        .hp-card:hover{border-color:rgba(255,255,255,.15);background:rgba(255,255,255,.04)}
+        .hp-tr:hover{background:${T.bgHover}!important}
+        .hp-card{background:${T.bgCard};border:1px solid ${T.border};border-radius:11px;text-decoration:none;transition:border-color .15s,background .15s}
+        .hp-card:hover{border-color:${T.borderH};background:${T.bgCardH}}
         .hp-art:hover .hp-art-img{transform:scale(1.06)}
         .hp-disc-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 
         /* ── Hero cinematic ── */
-        .hp-hero{position:relative;overflow:hidden;min-height:420px;display:flex;background:#080d14}
+        .hp-hero{position:relative;overflow:hidden;min-height:420px;display:flex;background:${T.heroBg}}
         .hp-hero-bg{position:absolute;top:0;bottom:0;left:0;right:340px;z-index:0;overflow:hidden}
         .hp-hero-bg img{width:100%;height:100%;object-fit:cover;object-position:center 25%;animation:hp-img-in .8s ease both}
         .hp-hero-grad{position:absolute;top:0;bottom:0;left:0;right:340px;z-index:1}
         .hp-hero-content{position:relative;z-index:2;display:flex;align-items:stretch;max-width:1360px;margin:0 auto;padding:0 20px;width:100%;flex:1}
         .hp-hero-left{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:36px 0 40px;min-width:0}
-        .hp-hero-right{width:332px;flex-shrink:0;padding:24px 0 24px 20px;display:flex;flex-direction:column;border-left:1px solid rgba(255,255,255,.08);background:#080d14;position:relative;z-index:3}
+        .hp-hero-right{width:332px;flex-shrink:0;padding:24px 0 24px 20px;display:flex;flex-direction:column;border-left:1px solid ${T.chartBdr};background:${T.chartBg};position:relative;z-index:3}
 
         @media(max-width:960px){
           .hp-hero{min-height:360px}
@@ -459,18 +508,12 @@ export default function Home() {
                   style={{ opacity: heroImgLoaded ? 1 : 0 }}
                 />
               ) : (
-                <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#08101e 0%,#0f1830 55%,#08101e 100%)' }} />
+                <div style={{ width: '100%', height: '100%', background: T.heroGrad }} />
               )}
             </div>
 
             {/* Gradient overlays */}
-            <div className="hp-hero-grad" style={{
-              background: `
-                linear-gradient(to right, rgba(8,13,20,0.92) 0%, rgba(8,13,20,0.72) 40%, rgba(8,13,20,0.3) 70%, rgba(8,13,20,0.15) 100%),
-                linear-gradient(to top, rgba(8,13,20,1) 0%, rgba(8,13,20,0.4) 35%, transparent 65%),
-                linear-gradient(to bottom, rgba(8,13,20,0.6) 0%, transparent 18%)
-              `
-            }} />
+            <div className="hp-hero-grad" style={{ background: T.heroOverlay }} />
 
             {/* Content */}
             <div className="hp-hero-content">
@@ -500,7 +543,7 @@ export default function Home() {
                             {hero.artist.name[0]?.toUpperCase()}
                           </div>
                         )}
-                        <span style={{ fontSize: 12, fontWeight: 700, color: '#e8edf6' }}>{hero.artist.name}</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-primary)" }}>{hero.artist.name}</span>
                       </Link>
                     )}
                   </div>
@@ -508,7 +551,7 @@ export default function Home() {
                   {/* Title — clickable */}
                   <Link href={hero.href} className="hp-hero-title" style={{
                     fontFamily: 'Outfit,sans-serif', fontSize: 42, fontWeight: 900,
-                    color: '#fff', lineHeight: 1.06, margin: '0 0 10px',
+                    color: T.heroTitleC, lineHeight: 1.06, margin: '0 0 10px',
                     letterSpacing: '-0.025em', maxWidth: 580, display: 'block',
                     textShadow: '0 2px 20px rgba(0,0,0,0.4)', textDecoration: 'none',
                     transition: 'opacity .15s',
@@ -521,7 +564,7 @@ export default function Home() {
                   {/* Excerpt */}
                   {hero.subtitle && (
                     <p className="hp-hero-excerpt" style={{
-                      fontSize: 14, color: 'rgba(210,225,245,0.65)', margin: '0 0 14px',
+                      fontSize: 14, color: T.heroText, margin: '0 0 14px',
                       lineHeight: 1.55, maxWidth: 480,
                     }}>
                       {hero.subtitle}
@@ -600,12 +643,12 @@ export default function Home() {
                         style={{ padding: '5px 10px', borderRadius: 14, fontSize: 11, fontWeight: 800, border: 'none', cursor: 'pointer', transition: 'all .15s', fontFamily: 'Outfit,sans-serif', background: chartTab === k ? '#1d4ed8' : 'transparent', color: chartTab === k ? '#fff' : '#2a4060' }}>{l}</button>
                     ))}
                   </div>
-                  <Link href="/topas" style={{ fontSize: 11, color: '#4a7ab5', fontWeight: 700, textDecoration: 'none' }}>Visi →</Link>
+                  <Link href="/topas" style={{ fontSize: 11, color: "var(--accent-link)", fontWeight: 700, textDecoration: 'none' }}>Visi →</Link>
                 </div>
                 <div style={{ flex: 1 }}>
                   {chartData.length === 0
                     ? Array.from({ length: 7 }).map((_, i) => (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 6px', borderBottom: '1px solid rgba(255,255,255,.04)' }}>
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 6px', borderBottom: `1px solid ${T.borderSub}` }}>
                         <Skel w={18} h={12} /><Skel w={12} h={10} /><Skel w={28} h={28} r={7} />
                         <div style={{ flex: 1 }}><Skel w="68%" h={10} /><div style={{ marginTop: 4 }}><Skel w="48%" h={8} /></div></div>
                       </div>
@@ -613,18 +656,18 @@ export default function Home() {
                     : chartData.map((t, i) => (
                       <Link key={t.track_id || i} href={t.slug ? `/muzika/${t.slug}` : '/topas'} className="hp-tr"
                         style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '6px 6px', borderRadius: 7, cursor: 'pointer', textDecoration: 'none', borderBottom: i < chartData.length - 1 ? '1px solid rgba(255,255,255,.03)' : 'none' }}>
-                        <span style={{ width: 18, textAlign: 'center', fontSize: 12, fontWeight: 900, fontFamily: 'Outfit,sans-serif', color: t.pos <= 3 ? '#f97316' : '#1a2a3c', flexShrink: 0 }}>{t.pos}</span>
+                        <span style={{ width: 18, textAlign: 'center', fontSize: 12, fontWeight: 900, fontFamily: 'Outfit,sans-serif', color: t.pos <= 3 ? T.pos123 : T.textFaint, flexShrink: 0 }}>{t.pos}</span>
                         <div style={{ width: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><TrendIcon t={t.trend} /></div>
                         <Cover src={t.cover_url} alt={t.title} size={28} radius={6} />
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ fontSize: 12, fontWeight: 700, color: '#e0eaf8', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</p>
-                          <p style={{ fontSize: 10, color: '#3a5878', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.artist}</p>
+                          <p style={{ fontSize: 12, fontWeight: 700, color: "var(--text-primary)", margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</p>
+                          <p style={{ fontSize: 10, color: "var(--text-muted)", margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.artist}</p>
                         </div>
-                        {t.wks != null && t.wks > 0 && <span style={{ fontSize: 9, color: '#1a2a3c', flexShrink: 0 }}>{t.wks}sav</span>}
+                        {t.wks != null && t.wks > 0 && <span style={{ fontSize: 9, color: "var(--text-faint)", flexShrink: 0 }}>{t.wks}sav</span>}
                       </Link>
                     ))}
                 </div>
-                <Link href="/topas" style={{ marginTop: 10, display: 'block', textAlign: 'center', padding: '8px', borderRadius: 10, border: '1px solid rgba(255,255,255,.07)', color: '#4a7ab5', fontSize: 12, fontWeight: 700, textDecoration: 'none', transition: 'all .15s' }}
+                <Link href="/topas" style={{ marginTop: 10, display: 'block', textAlign: 'center', padding: '8px', borderRadius: 10, border: `1px solid ${T.border}`, color: "var(--accent-link)", fontSize: 12, fontWeight: 700, textDecoration: 'none', transition: 'all .15s' }}
                   onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,.04)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,.12)' }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'rgba(255,255,255,.07)' }}>
                   Žiūrėti visą topą →
@@ -637,7 +680,7 @@ export default function Home() {
               <div style={{ position: 'absolute', bottom: 18, left: 0, right: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, zIndex: 3 }}>
                 <button onClick={() => { setHeroImgLoaded(false); setHeroVideoPlaying(false); setHeroIdx(p => (p - 1 + heroSlides.length) % heroSlides.length) }}
                   aria-label="Ankstesnis"
-                  style={{ width: 30, height: 30, borderRadius: '50%', border: '1px solid rgba(255,255,255,.12)', background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,.5)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .15s', backdropFilter: 'blur(4px)' }}
+                  style={{ width: 30, height: 30, borderRadius: '50%', border: '1px solid rgba(255,255,255,.12)', background: 'var(--bg-hover)', color: 'rgba(255,255,255,.5)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .15s', backdropFilter: 'blur(4px)' }}
                   onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; e.currentTarget.style.color = '#fff' }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'rgba(255,255,255,.5)' }}>
                   ‹
@@ -651,7 +694,7 @@ export default function Home() {
                 </div>
                 <button onClick={() => { setHeroImgLoaded(false); setHeroVideoPlaying(false); setHeroIdx(p => (p + 1) % heroSlides.length) }}
                   aria-label="Kitas"
-                  style={{ width: 30, height: 30, borderRadius: '50%', border: '1px solid rgba(255,255,255,.12)', background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,.5)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .15s', backdropFilter: 'blur(4px)' }}
+                  style={{ width: 30, height: 30, borderRadius: '50%', border: '1px solid rgba(255,255,255,.12)', background: 'var(--bg-hover)', color: 'rgba(255,255,255,.5)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .15s', backdropFilter: 'blur(4px)' }}
                   onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; e.currentTarget.style.color = '#fff' }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'rgba(255,255,255,.5)' }}>
                   ›
@@ -670,7 +713,7 @@ export default function Home() {
               <SH label="Naujos dainos" href="/muzika" />
               <div className="hp-scroll" style={{ display: 'flex', gap: 8, paddingBottom: 2 }}>
                 {tracks.length === 0 ? Array(8).fill(null).map((_, i) => (
-                  <div key={i} style={{ width: 182, flexShrink: 0, padding: '9px 11px', borderRadius: 11, background: 'rgba(255,255,255,.025)', border: '1px solid rgba(255,255,255,.06)', display: 'flex', alignItems: 'center', gap: 9 }}>
+                  <div key={i} style={{ width: 182, flexShrink: 0, padding: '9px 11px', borderRadius: 11, background: 'var(--bg-surface)', border: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', gap: 9 }}>
                     <Skel w={38} h={38} r={8} /><div style={{ flex: 1 }}><Skel w="76%" h={10} /><div style={{ marginTop: 5 }}><Skel w="54%" h={8} /></div></div>
                   </div>
                 )) : tracks.slice(0, 14).map(t => (
@@ -678,8 +721,8 @@ export default function Home() {
                     style={{ width: 182, flexShrink: 0, padding: '9px 11px', display: 'flex', alignItems: 'center', gap: 9 }}>
                     <Cover src={t.cover_url} alt={sanitizeTitle(t.title)} size={38} radius={8} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 700, color: '#e0eaf8', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(t.title)}</p>
-                      <p style={{ fontSize: 11, color: '#3a5878', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.artists?.name}</p>
+                      <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 700, color: "var(--text-primary)", margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(t.title)}</p>
+                      <p style={{ fontSize: 11, color: "var(--text-muted)", margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.artists?.name}</p>
                     </div>
                   </Link>
                 ))}
@@ -689,7 +732,7 @@ export default function Home() {
               <SH label="Nauji albumai" href="/muzika?tab=albums" />
               <div className="hp-scroll" style={{ display: 'flex', gap: 9, paddingBottom: 2 }}>
                 {albums.length === 0 ? Array(5).fill(null).map((_, i) => (
-                  <div key={i} style={{ width: 212, flexShrink: 0, padding: '10px 12px', borderRadius: 11, background: 'rgba(255,255,255,.025)', border: '1px solid rgba(255,255,255,.06)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div key={i} style={{ width: 212, flexShrink: 0, padding: '10px 12px', borderRadius: 11, background: 'var(--bg-surface)', border: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', gap: 10 }}>
                     <Skel w={46} h={46} r={9} /><div style={{ flex: 1 }}><Skel w="70%" h={10} /><div style={{ marginTop: 5 }}><Skel w="50%" h={9} /></div></div>
                   </div>
                 )) : albums.slice(0, 10).map(a => (
@@ -697,9 +740,9 @@ export default function Home() {
                     style={{ width: 212, flexShrink: 0, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
                     <Cover src={a.cover_image_url} alt={sanitizeTitle(a.title)} size={46} radius={9} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 700, color: '#e0eaf8', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(a.title)}</p>
-                      <p style={{ fontSize: 11, color: '#3a5878', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.artists?.name}</p>
-                      {a.year && <p style={{ fontSize: 10, color: '#1a2a3c', margin: 0 }}>{a.year}</p>}
+                      <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 700, color: "var(--text-primary)", margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(a.title)}</p>
+                      <p style={{ fontSize: 11, color: "var(--text-muted)", margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.artists?.name}</p>
+                      {a.year && <p style={{ fontSize: 10, color: "var(--text-faint)", margin: 0 }}>{a.year}</p>}
                     </div>
                   </Link>
                 ))}
@@ -731,7 +774,7 @@ export default function Home() {
                 </div>
               )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                {filtEvt.length === 0 ? <div style={{ padding: '18px', textAlign: 'center', color: '#2a4060', fontSize: 13, borderRadius: 11, border: '1px solid rgba(255,255,255,.05)' }}>Renginių nerasta</div>
+                {filtEvt.length === 0 ? <div style={{ padding: '18px', textAlign: 'center', color: "var(--text-muted)", fontSize: 13, borderRadius: 11, border: '1px solid rgba(255,255,255,.05)' }}>Renginių nerasta</div>
                   : filtEvt.slice(0, 5).map(ev => {
                     const d = new Date(ev.event_date)
                     return (
@@ -743,7 +786,7 @@ export default function Home() {
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 700, color: '#d0ddf0', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(ev.title)}</p>
-                          <p style={{ fontSize: 11, color: '#2a4060', margin: 0 }}>{ev.venues?.name || ev.venue_custom}{ev.venues?.city ? ` · ${ev.venues.city}` : ''}</p>
+                          <p style={{ fontSize: 11, color: "var(--text-muted)", margin: 0 }}>{ev.venues?.name || ev.venue_custom}{ev.venues?.city ? ` · ${ev.venues.city}` : ''}</p>
                         </div>
                         <span style={{ fontSize: 11, fontWeight: 800, color: '#f97316', flexShrink: 0, fontFamily: 'Outfit,sans-serif' }}>Bilietai →</span>
                       </Link>
@@ -755,7 +798,7 @@ export default function Home() {
               <SH label="Naujienos" href="/naujienos" />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                 {news.length === 0 ? Array(4).fill(null).map((_, i) => (
-                  <div key={i} style={{ display: 'flex', gap: 10, padding: '10px 14px', borderRadius: 11, background: 'rgba(255,255,255,.025)', border: '1px solid rgba(255,255,255,.06)', alignItems: 'center' }}>
+                  <div key={i} style={{ display: 'flex', gap: 10, padding: '10px 14px', borderRadius: 11, background: 'var(--bg-surface)', border: `1px solid ${T.border}`, alignItems: 'center' }}>
                     <Skel w={32} h={32} r={7} /><div style={{ flex: 1 }}><Skel w="86%" h={10} /><div style={{ marginTop: 5 }}><Skel w="46%" h={8} /></div></div>
                   </div>
                 )) : news.slice(0, 5).map(n => {
@@ -767,10 +810,10 @@ export default function Home() {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
                           {n.type && <span style={{ fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 4, background: `hsl(${h},35%,10%)`, color: `hsl(${h},55%,58%)`, border: `1px solid hsl(${h},35%,16%)` }}>{n.type === 'news' ? 'Naujiena' : n.type === 'review' ? 'Recenzija' : n.type === 'interview' ? 'Interviu' : n.type}</span>}
-                          <span style={{ fontSize: 9, color: '#1a2a3c' }}>{timeAgo(n.published_at)}</span>
+                          <span style={{ fontSize: 9, color: "var(--text-faint)" }}>{timeAgo(n.published_at)}</span>
                         </div>
                         <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 600, color: '#b8ccde', margin: 0, lineHeight: 1.35, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' } as any}>{sanitizeTitle(n.title)}</p>
-                        {n.artist && <p style={{ fontSize: 10, color: '#2a4060', margin: '3px 0 0' }}>{n.artist.name}</p>}
+                        {n.artist && <p style={{ fontSize: 10, color: "var(--text-muted)", margin: '3px 0 0' }}>{n.artist.name}</p>}
                       </div>
                     </Link>
                   )
@@ -806,8 +849,8 @@ export default function Home() {
               <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 0% 50%,rgba(29,78,216,.06) 0%,transparent 55%)', pointerEvents: 'none' }} />
               <div style={{ width: 52, height: 52, borderRadius: 14, flexShrink: 0, background: 'rgba(29,78,216,.15)', border: '1px solid rgba(29,78,216,.22)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>🎤</div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <h3 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 19, fontWeight: 900, color: '#e8edf6', margin: '0 0 4px' }}>Atlikėjams</h3>
-                <p style={{ fontSize: 13, color: '#3a5878', margin: 0, lineHeight: 1.55, maxWidth: 480 }}>Sukurk arba perimk savo profilį Music.lt platformoje. Skelk naujienas, renginius ir naują muziką tiesiai savo gerbėjams — nemokamai.</p>
+                <h3 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 19, fontWeight: 900, color: "var(--text-primary)", margin: '0 0 4px' }}>Atlikėjams</h3>
+                <p style={{ fontSize: 13, color: "var(--text-muted)", margin: 0, lineHeight: 1.55, maxWidth: 480 }}>Sukurk arba perimk savo profilį Music.lt platformoje. Skelk naujienas, renginius ir naują muziką tiesiai savo gerbėjams — nemokamai.</p>
               </div>
               <Link href="/atlikejai" className="hp-ctabtn"
                 style={{ flexShrink: 0, background: '#f97316', color: '#fff', fontWeight: 800, fontSize: 13, padding: '10px 24px', borderRadius: 20, textDecoration: 'none', boxShadow: '0 4px 16px rgba(249,115,22,.3)', whiteSpace: 'nowrap', fontFamily: 'Outfit,sans-serif', display: 'inline-flex', alignItems: 'center', transition: 'transform .15s, box-shadow .15s' }}
