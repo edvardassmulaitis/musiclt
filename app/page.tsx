@@ -8,7 +8,7 @@ type Track = { id: number; slug: string; title: string; cover_url: string | null
 type Album = { id: number; slug: string; title: string; year: number | null; cover_image_url: string | null; created_at: string; artists: { id: number; slug: string; name: string } | null }
 type Artist = { id: number; slug: string; name: string; cover_image_url: string | null }
 type Event = { id: number; slug: string; title: string; event_date: string; venue_custom: string | null; image_small_url: string | null; venues: { name: string; city: string } | null }
-type NewsItem = { id: number; slug: string; title: string; image_small_url: string | null; image_title_url?: string | null; published_at: string; type: string | null; excerpt?: string | null; songs?: { youtube_url?: string | null }[]; artist: { name: string; slug: string; cover_image_url?: string | null } | null }
+type NewsItem = { id: number; slug: string; title: string; image_small_url: string | null; image_title_url?: string | null; published_at: string; type: string | null; excerpt?: string | null; songs?: { youtube_url?: string | null; title?: string | null; artist_name?: string | null; cover_url?: string | null }[]; artist: { name: string; slug: string; cover_image_url?: string | null } | null }
 type TopEntry = { pos: number; track_id: number; title: string; artist: string; cover_url: string | null; trend: string; wks?: number; slug?: string; artist_slug?: string }
 type Nomination = { id: number; votes: number; weighted_votes: number; tracks: { id: number; title: string; cover_url: string | null; artists: { name: string } | null } | null }
 type Discussion = { id: number; slug: string; title: string; author_name: string | null; comment_count: number; created_at: string; tags: string[] }
@@ -16,6 +16,7 @@ type ShoutMsg = { id: number; author_name: string; author_avatar: string | null;
 type HeroSlide = {
   type: string; chip: string; chipBg: string; title: string; subtitle: string
   href: string; bgImg?: string | null; videoId?: string | null
+  songTitle?: string | null; songArtist?: string | null; songCover?: string | null
   artist?: { name: string; slug: string; image?: string | null } | null
 }
 
@@ -275,14 +276,17 @@ export default function Home() {
     news.slice(0, 3).forEach(n => {
       const typeLT = n.type === 'review' ? 'Recenzija' : n.type === 'interview' ? 'Interviu' : n.type === 'report' ? 'Reportažas' : 'Naujiena'
       // Find first youtube video from associated songs
-      const ytUrl = n.songs?.find(s => s.youtube_url)?.youtube_url
+      const song = n.songs?.find(s => s.youtube_url)
       slides.push({
         type: 'news', chip: typeLT.toUpperCase(), chipBg: '#1d4ed8',
         title: sanitizeTitle(n.title),
         subtitle: n.excerpt ? smartTruncate(n.excerpt, 180) : '',
         bgImg: n.image_title_url || n.image_small_url,
         href: `/naujienos/${n.slug}`,
-        videoId: extractYouTubeId(ytUrl),
+        videoId: extractYouTubeId(song?.youtube_url),
+        songTitle: song?.title || null,
+        songArtist: song?.artist_name || n.artist?.name || null,
+        songCover: song?.cover_url || null,
         artist: n.artist ? { name: n.artist.name, slug: n.artist.slug, image: n.artist.cover_image_url || null } : null,
       })
     })
@@ -392,6 +396,7 @@ export default function Home() {
           .hp-hero-right{width:100%!important;padding:18px 0 24px!important;border-left:none;border-top:1px solid rgba(255,255,255,.08);background:transparent!important}
           .hp-hero-title{font-size:28px!important}
           .hp-hero-excerpt{font-size:13px!important}
+          .hp-hero-video{max-width:100%!important}
         }
         @media(max-width:600px){
           .hp-hero{min-height:320px}
@@ -496,8 +501,8 @@ export default function Home() {
                     </p>
                   )}
 
-                  {/* CTA + YouTube player */}
-                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                  {/* CTA + Video card */}
+                  <div style={{ display: 'flex', gap: 14, alignItems: 'flex-end', flexWrap: 'wrap' }}>
                     <Link href={hero.href} style={{
                       display: 'inline-flex', alignItems: 'center', gap: 6,
                       background: '#f97316', color: '#fff', fontWeight: 800, fontSize: 13,
@@ -509,25 +514,40 @@ export default function Home() {
                       onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(249,115,22,.4)' }}>
                       Skaityti →
                     </Link>
-                    {hero.videoId && (
+
+                    {/* Video thumbnail card */}
+                    {hero.videoId && !heroVideoPlaying && (
                       <button onClick={() => setHeroVideoPlaying(true)} style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 7,
-                        padding: '9px 18px', borderRadius: 22, border: '1px solid rgba(255,255,255,.15)',
-                        background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(6px)',
-                        color: 'rgba(255,255,255,.7)', fontSize: 13, fontWeight: 700,
-                        cursor: 'pointer', transition: 'all .15s', fontFamily: 'Outfit,sans-serif',
+                        display: 'flex', alignItems: 'center', gap: 10, padding: 0,
+                        background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(12px)',
+                        border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12,
+                        cursor: 'pointer', overflow: 'hidden', transition: 'all .2s',
+                        maxWidth: 260,
                       }}
-                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,.25)'; e.currentTarget.style.color = '#fff' }}
-                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,.15)'; e.currentTarget.style.color = 'rgba(255,255,255,.7)' }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                        Klausyti
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,.25)'; e.currentTarget.style.background = 'rgba(0,0,0,0.5)' }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,.12)'; e.currentTarget.style.background = 'rgba(0,0,0,0.35)' }}>
+                        {/* Thumbnail */}
+                        <div style={{ width: 56, height: 56, flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
+                          <img src={`https://img.youtube.com/vi/${hero.videoId}/mqdefault.jpg`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.3)' }}>
+                            <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(255,255,255,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="#111"><path d="M8 5v14l11-7z"/></svg>
+                            </div>
+                          </div>
+                        </div>
+                        {/* Song info */}
+                        <div style={{ flex: 1, minWidth: 0, padding: '6px 12px 6px 0', textAlign: 'left' }}>
+                          <p style={{ fontSize: 9, fontWeight: 800, color: 'rgba(255,255,255,0.4)', margin: '0 0 2px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Susijusi muzika</p>
+                          <p style={{ fontSize: 12, fontWeight: 700, color: '#fff', margin: '0 0 1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hero.songTitle || 'Klausyti'}</p>
+                          {hero.songArtist && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hero.songArtist}</p>}
+                        </div>
                       </button>
                     )}
                   </div>
 
-                  {/* YouTube embed (shown when playing) */}
+                  {/* YouTube embed (inline, replaces thumbnail when playing) */}
                   {hero.videoId && heroVideoPlaying && (
-                    <div style={{ marginTop: 16, borderRadius: 12, overflow: 'hidden', maxWidth: 420, aspectRatio: '16/9', background: '#000', boxShadow: '0 8px 32px rgba(0,0,0,0.6)', position: 'relative' }}>
+                    <div className="hp-hero-video" style={{ marginTop: 16, borderRadius: 12, overflow: 'hidden', maxWidth: 440, aspectRatio: '16/9', background: '#000', boxShadow: '0 8px 32px rgba(0,0,0,0.6)', position: 'relative', animation: 'hp-in .3s ease both' }}>
                       <iframe
                         src={`https://www.youtube.com/embed/${hero.videoId}?autoplay=1&rel=0`}
                         style={{ width: '100%', height: '100%', border: 'none' }}
