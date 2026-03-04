@@ -561,13 +561,14 @@ export default function Home() {
                 <div style={{
                   position: 'absolute', inset: 0, zIndex: 10,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)',
+                  padding: '50px 20px',
+                  background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)',
                   animation: 'hp-in .2s ease both',
                 }} onClick={() => setHeroVideoPlaying(false)}>
-                  <div className="hp-hero-video" style={{
-                    width: '90%', maxWidth: 640, aspectRatio: '16/9',
-                    borderRadius: 14, overflow: 'hidden', background: '#000',
-                    boxShadow: '0 16px 64px rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.1)',
+                  <div style={{
+                    width: '100%', maxWidth: 560, aspectRatio: '16/9',
+                    borderRadius: 12, overflow: 'hidden', background: '#000',
+                    boxShadow: '0 16px 64px rgba(0,0,0,0.9)', border: '1px solid rgba(255,255,255,0.1)',
                     position: 'relative',
                   }} onClick={e => e.stopPropagation()}>
                     <iframe
@@ -577,13 +578,13 @@ export default function Home() {
                       allowFullScreen
                     />
                     <button onClick={() => setHeroVideoPlaying(false)} style={{
-                      position: 'absolute', top: -14, right: -14, width: 32, height: 32, borderRadius: '50%',
-                      background: '#1a1a2e', border: '2px solid rgba(255,255,255,0.2)',
+                      position: 'absolute', top: 8, right: 8, width: 30, height: 30, borderRadius: '50%',
+                      background: 'rgba(0,0,0,0.75)', border: '1px solid rgba(255,255,255,0.25)',
                       color: '#fff', fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      transition: 'background .15s', fontWeight: 600, zIndex: 1,
+                      transition: 'background .15s', fontWeight: 600,
                     }}
-                      onMouseEnter={e => (e.currentTarget.style.background = '#2a2a40')}
-                      onMouseLeave={e => (e.currentTarget.style.background = '#1a1a2e')}>
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.95)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.75)')}>
                       ✕
                     </button>
                   </div>
