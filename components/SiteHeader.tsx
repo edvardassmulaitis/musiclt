@@ -104,8 +104,8 @@ export function SiteHeader() {
 
           {/* Logo */}
           <Link href="/" style={{ flexShrink: 0, textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
-            <span style={{ fontWeight: 900, fontSize: 21, letterSpacing: '-0.02em', color: logoColor, fontFamily: 'Outfit, sans-serif' }}>music</span>
-            <span style={{ fontWeight: 900, fontSize: 21, letterSpacing: '-0.02em', color: '#fb923c', fontFamily: 'Outfit, sans-serif' }}>.lt</span>
+            <span style={{ fontWeight: 900, fontSize: 21, letterSpacing: '-0.02em', color: logoColor }}>music</span>
+            <span style={{ fontWeight: 900, fontSize: 21, letterSpacing: '-0.02em', color: '#fb923c' }}>.lt</span>
           </Link>
 
           {/* Search bar — desktop */}
@@ -156,8 +156,8 @@ export function SiteHeader() {
         {/* Drawer top */}
         <div style={{ height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 18px', borderBottom: bdr, flexShrink: 0 }}>
           <Link href="/" onClick={() => setMenuOpen(false)} style={{ textDecoration: 'none' }}>
-            <span style={{ fontWeight: 900, fontSize: 20, color: logoColor, fontFamily: 'Outfit, sans-serif' }}>music</span>
-            <span style={{ fontWeight: 900, fontSize: 20, color: '#fb923c', fontFamily: 'Outfit, sans-serif' }}>.lt</span>
+            <span style={{ fontWeight: 900, fontSize: 20, color: logoColor }}>music</span>
+            <span style={{ fontWeight: 900, fontSize: 20, color: '#fb923c' }}>.lt</span>
           </Link>
           <button onClick={() => setMenuOpen(false)}
             style={{ width: 28, height: 28, borderRadius: 7, border: 'none', background: 'transparent', color: mutedIcon, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
