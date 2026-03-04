@@ -16,7 +16,8 @@ export async function GET(req: NextRequest) {
     .select(`
       id, slug, title, body, type, is_featured, is_hidden_home,
       image_small_url, image_title_url, published_at, created_at,
-      artist:artists!news_artist_id_fkey(id, name, slug, cover_image_url)
+      artist:artists!news_artist_id_fkey(id, name, slug, cover_image_url),
+      songs:news_songs(youtube_url, sort_order)
     `, { count: 'exact' })
     .order('published_at', { ascending: false })
     .range(offset, offset + limit - 1)
@@ -27,13 +28,14 @@ export async function GET(req: NextRequest) {
   const { data, error, count } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Map: truncate body to excerpt for listing, keep full for detail
   const news = (data || []).map((n: any) => ({
     ...n,
-    // Strip HTML from body and create excerpt (first ~160 chars)
+    // Strip HTML from body and create excerpt (first ~200 chars)
     excerpt: n.body
-      ? n.body.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160)
+      ? n.body.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200)
       : null,
+    // Sort songs by sort_order
+    songs: (n.songs || []).sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0)),
     // Don't send full body in listing to save bandwidth
     body: undefined,
   }))
