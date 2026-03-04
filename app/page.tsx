@@ -8,19 +8,28 @@ type Track = { id: number; slug: string; title: string; cover_url: string | null
 type Album = { id: number; slug: string; title: string; year: number | null; cover_image_url: string | null; created_at: string; artists: { id: number; slug: string; name: string } | null }
 type Artist = { id: number; slug: string; name: string; cover_image_url: string | null }
 type Event = { id: number; slug: string; title: string; event_date: string; venue_custom: string | null; image_small_url: string | null; venues: { name: string; city: string } | null }
-type NewsItem = { id: number; slug: string; title: string; image_small_url: string | null; published_at: string; type: string | null; artist: { name: string; slug: string } | null }
+type NewsItem = { id: number; slug: string; title: string; image_small_url: string | null; image_title_url?: string | null; published_at: string; type: string | null; excerpt?: string | null; artist: { name: string; slug: string; cover_image_url?: string | null } | null }
 type TopEntry = { pos: number; track_id: number; title: string; artist: string; cover_url: string | null; trend: string; wks?: number; slug?: string; artist_slug?: string }
 type Nomination = { id: number; votes: number; weighted_votes: number; tracks: { id: number; title: string; cover_url: string | null; artists: { name: string } | null } | null }
 type Discussion = { id: number; slug: string; title: string; author_name: string | null; comment_count: number; created_at: string; tags: string[] }
 type ShoutMsg = { id: number; author_name: string; author_avatar: string | null; body: string; created_at: string; user_id: string }
-type HeroSlide = { type: string; chip: string; chipBg: string; kicker: string; title: string; subtitle: string; cover: string | null; href: string; bg: string; glow: string; bgImg?: string | null }
+type HeroSlide = {
+  type: string; chip: string; chipBg: string; title: string; subtitle: string
+  href: string; bgImg?: string | null; date?: string
+  artist?: { name: string; slug: string; image?: string | null } | null
+}
 
 /* ────────────────────────────── Helpers ────────────────────────────── */
 const MONTHS_LT = ['Sau', 'Vas', 'Kov', 'Bal', 'Geg', 'Bir', 'Lie', 'Rgp', 'Rgs', 'Spa', 'Lap', 'Gru']
+const MONTHS_FULL_LT = ['sausio', 'vasario', 'kovo', 'balandžio', 'gegužės', 'birželio', 'liepos', 'rugpjūčio', 'rugsėjo', 'spalio', 'lapkričio', 'gruodžio']
 
 function sanitizeTitle(raw: string): string {
-  // Strip HTML tags and entities that leak from wiki/import
   return raw.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+function formatDateLT(d: string) {
+  const date = new Date(d)
+  return `${date.getFullYear()} m. ${MONTHS_FULL_LT[date.getMonth()]} ${date.getDate()} d.`
 }
 
 function timeAgo(d: string) {
@@ -82,7 +91,6 @@ function DienosDainaWidget() {
   const w = noms[0]
   return (
     <div style={{ background: 'linear-gradient(145deg, rgba(22,55,140,0.18) 0%, rgba(8,13,22,0.98) 100%)', border: '1px solid rgba(30,80,200,0.15)', borderRadius: 16, overflow: 'hidden' }}>
-      {/* Winner */}
       <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 12 }}>
         <Cover src={w?.tracks?.cover_url} alt={w?.tracks?.title || 'daina'} size={54} radius={10} />
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -96,7 +104,6 @@ function DienosDainaWidget() {
           ▶ Balsuoti
         </Link>
       </div>
-      {/* Candidates */}
       <div>
         <div style={{ padding: '8px 16px 6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontSize: 9, fontWeight: 800, color: '#1e3050', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Rytdienos kandidatai</span>
@@ -205,9 +212,9 @@ function DiscussionsWidget() {
   )
 }
 
-/* ════════════════════════════════════════════════════════════════════ */
-/*                           HOMEPAGE                                */
-/* ════════════════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════════════
+                            HOMEPAGE
+   ════════════════════════════════════════════════════════════════════ */
 
 export default function Home() {
   const [chartTab, setChartTab] = useState<'lt' | 'world'>('lt')
@@ -221,6 +228,7 @@ export default function Home() {
   const [cityFilter, setCityFilter] = useState('Visi')
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>([])
   const [heroIdx, setHeroIdx] = useState(0)
+  const [heroImgLoaded, setHeroImgLoaded] = useState(false)
   const timerRef = useRef<any>(null)
 
   const parseTop = (entries: any[]): TopEntry[] => entries.slice(0, 7).map(e => {
@@ -242,64 +250,60 @@ export default function Home() {
   /* ── Hero slides from real data ── */
   useEffect(() => {
     const slides: HeroSlide[] = []
-    news.slice(0, 2).forEach(n => {
-      const h = strHue(n.title)
-      const artistName = n.artist?.name || ''
+
+    news.slice(0, 3).forEach(n => {
+      const typeLT = n.type === 'review' ? 'Recenzija' : n.type === 'interview' ? 'Interviu' : n.type === 'report' ? 'Reportažas' : 'Naujiena'
       slides.push({
-        type: 'news', chip: n.type === 'review' ? 'Recenzija' : n.type === 'interview' ? 'Interviu' : 'Naujiena',
-        chipBg: '#1d4ed8',
-        kicker: artistName || timeAgo(n.published_at),
+        type: 'news', chip: typeLT.toUpperCase(), chipBg: '#1d4ed8',
         title: sanitizeTitle(n.title),
-        subtitle: artistName && artistName !== n.title ? artistName : '',
-        cover: n.image_small_url, bgImg: n.image_small_url,
+        subtitle: n.excerpt || '',
+        date: formatDateLT(n.published_at),
+        bgImg: n.image_title_url || n.image_small_url,
         href: `/naujienos/${n.slug}`,
-        bg: `linear-gradient(135deg,hsl(${h},38%,5%) 0%,hsl(${(h + 30) % 360},45%,8%) 55%,hsl(${h},38%,5%) 100%)`,
-        glow: `radial-gradient(ellipse at 28% 58%,hsla(${h},55%,38%,0.22) 0%,transparent 55%)`
+        artist: n.artist ? { name: n.artist.name, slug: n.artist.slug, image: n.artist.cover_image_url || null } : null,
       })
     })
-    albums.slice(0, 2).forEach(a => {
-      const h = strHue(a.title)
-      slides.push({
-        type: 'album', chip: 'Albumas', chipBg: '#6d28d9',
-        kicker: a.year ? `${a.year} m.` : 'Naujas',
-        title: sanitizeTitle(a.title),
-        subtitle: a.artists?.name || '',
-        cover: a.cover_image_url, bgImg: a.cover_image_url,
-        href: `/muzika/${a.slug}`,
-        bg: `linear-gradient(135deg,hsl(${h},38%,5%) 0%,hsl(${(h + 40) % 360},45%,9%) 55%,hsl(${h},38%,5%) 100%)`,
-        glow: `radial-gradient(ellipse at 28% 58%,hsla(${h},50%,36%,0.26) 0%,transparent 55%)`
-      })
-    })
+
     events.slice(0, 1).forEach(ev => {
       const d = new Date(ev.event_date)
       slides.push({
-        type: 'event', chip: 'Renginys', chipBg: '#047857',
-        kicker: `${d.getDate()} ${MONTHS_LT[d.getMonth()]}. · ${ev.venues?.city || ''}`,
+        type: 'event', chip: 'RENGINYS', chipBg: '#047857',
         title: sanitizeTitle(ev.title),
-        subtitle: ev.venues?.name || ev.venue_custom || '',
-        cover: ev.image_small_url, bgImg: ev.image_small_url,
+        subtitle: `${d.getDate()} ${MONTHS_LT[d.getMonth()]}. · ${ev.venues?.name || ev.venue_custom || ''} · ${ev.venues?.city || ''}`,
+        bgImg: ev.image_small_url,
         href: `/renginiai/${ev.slug}`,
-        bg: 'linear-gradient(135deg,#040e08 0%,#071812 55%,#040e08 100%)',
-        glow: 'radial-gradient(ellipse at 28% 58%,rgba(4,120,87,0.26) 0%,transparent 55%)'
       })
     })
+
     if (!slides.length) slides.push({
-      type: 'promo', chip: '🇱🇹 Lietuviška muzika', chipBg: '#f97316',
-      kicker: 'Platforma', title: 'music.lt',
+      type: 'promo', chip: '🇱🇹 LIETUVIŠKA MUZIKA', chipBg: '#f97316',
+      title: 'music.lt',
       subtitle: 'Visi Lietuvos atlikėjai vienoje vietoje',
-      cover: null, href: '/atlikejai',
-      bg: 'linear-gradient(135deg,#08101e 0%,#0f1830 55%,#08101e 100%)',
-      glow: 'radial-gradient(ellipse at 28% 58%,rgba(90,102,220,0.3) 0%,transparent 55%)'
+      href: '/atlikejai',
     })
+
     setHeroSlides(slides)
     setHeroIdx(0)
-  }, [news, albums, events])
+  }, [news, events])
 
   useEffect(() => {
     if (!heroSlides.length) return
-    timerRef.current = setTimeout(() => setHeroIdx(p => (p + 1) % heroSlides.length), 7000)
+    timerRef.current = setTimeout(() => {
+      setHeroImgLoaded(false)
+      setHeroIdx(p => (p + 1) % heroSlides.length)
+    }, 8000)
     return () => clearTimeout(timerRef.current)
   }, [heroIdx, heroSlides.length])
+
+  // Preload next hero image
+  useEffect(() => {
+    if (!heroSlides.length) return
+    const next = heroSlides[(heroIdx + 1) % heroSlides.length]
+    if (next?.bgImg) {
+      const img = new Image()
+      img.src = next.bgImg
+    }
+  }, [heroIdx, heroSlides])
 
   const hero = heroSlides[heroIdx]
   const chartData = chartTab === 'lt' ? ltTop : worldTop
@@ -310,7 +314,8 @@ export default function Home() {
     <>
       <style>{`
         .hp{font-family:'DM Sans',sans-serif;background:#080d14;min-height:100vh}
-        @keyframes hp-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+        @keyframes hp-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+        @keyframes hp-img-in{from{opacity:0;transform:scale(1.04)}to{opacity:1;transform:scale(1)}}
         @keyframes hp-pulse{0%,100%{opacity:.05}50%{opacity:.08}}
         .hp-skel{background:rgba(255,255,255,0.05);animation:hp-pulse 1.8s ease-in-out infinite}
         .hp-scroll{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
@@ -324,14 +329,32 @@ export default function Home() {
         .hp-card:hover{border-color:rgba(255,255,255,.15);background:rgba(255,255,255,.04)}
         .hp-art:hover .hp-art-img{transform:scale(1.06)}
         .hp-disc-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+        /* ── Hero cinematic ── */
+        .hp-hero{position:relative;overflow:hidden;min-height:420px;display:flex}
+        .hp-hero-bg{position:absolute;inset:0;z-index:0}
+        .hp-hero-bg img{width:100%;height:100%;object-fit:cover;object-position:center 25%;animation:hp-img-in .8s ease both}
+        .hp-hero-grad{position:absolute;inset:0;z-index:1}
+        .hp-hero-content{position:relative;z-index:2;display:flex;align-items:stretch;max-width:1360px;margin:0 auto;padding:0 20px;width:100%;flex:1}
+        .hp-hero-left{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:48px 0 44px;min-width:0}
+        .hp-hero-right{width:332px;flex-shrink:0;padding:24px 0 24px 20px;display:flex;flex-direction:column;border-left:1px solid rgba(255,255,255,.08)}
+
+        @media(max-width:960px){
+          .hp-hero{min-height:360px}
+          .hp-hero-content{flex-direction:column}
+          .hp-hero-left{padding:32px 0 28px}
+          .hp-hero-right{width:100%!important;padding:18px 0 24px!important;border-left:none;border-top:1px solid rgba(255,255,255,.08)}
+          .hp-hero-title{font-size:28px!important}
+          .hp-hero-excerpt{font-size:13px!important;-webkit-line-clamp:2!important}
+          .hp-hero-nav{display:none!important}
+        }
+        @media(max-width:600px){
+          .hp-hero{min-height:320px}
+          .hp-hero-left{padding:24px 0 22px}
+          .hp-hero-title{font-size:22px!important}
+        }
+
         @media(max-width:900px){
-          .hp-hl{flex-direction:column!important}
-          .hp-hleft{padding:22px 16px 18px!important;border-right:none!important;gap:16px!important}
-          .hp-hcover{width:100px!important;height:100px!important}
-          .hp-htitle{font-size:24px!important}
-          .hp-hsub{font-size:13px!important;max-width:100%!important}
-          .hp-hnav{display:none!important}
-          .hp-hright{width:100%!important;padding:18px 16px!important;border-top:1px solid rgba(255,255,255,.07)}
           .hp-dds{grid-template-columns:1fr!important}
           .hp-ne{grid-template-columns:1fr!important}
         }
@@ -344,59 +367,131 @@ export default function Home() {
         }
         @media(max-width:480px){
           .hp-ag{grid-template-columns:repeat(3,1fr)!important}
-          .hp-htitle{font-size:20px!important}
-          .hp-hleft{flex-direction:column!important;align-items:flex-start!important}
-          .hp-hcover{width:84px!important;height:84px!important}
         }
       `}</style>
       <div className="hp">
 
-        {/* ═══════════════════════ HERO ═══════════════════════ */}
+        {/* ═══════════════════════ CINEMATIC HERO ═══════════════════════ */}
         {hero && (
-          <section style={{ position: 'relative', overflow: 'hidden', background: hero.bg, transition: 'background .9s ease' }}>
-            {hero.bgImg && (
-              <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
-                <img src={hero.bgImg} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%', filter: 'blur(40px) saturate(0.6)', transform: 'scale(1.15)', opacity: 0.22 }} />
-                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, rgba(8,13,20,0.94) 0%, rgba(8,13,20,0.7) 55%, rgba(8,13,20,0.45) 100%)' }} />
-              </div>
-            )}
-            <div style={{ position: 'absolute', inset: 0, background: hero.glow, pointerEvents: 'none' }} />
-            <div style={{ position: 'relative', maxWidth: 1360, margin: '0 auto', padding: '0 20px', display: 'flex', alignItems: 'stretch' }} className="hp-hl">
+          <section className="hp-hero">
+            {/* Background Image */}
+            <div className="hp-hero-bg">
+              {hero.bgImg ? (
+                <img
+                  key={heroIdx}
+                  src={hero.bgImg}
+                  alt=""
+                  onLoad={() => setHeroImgLoaded(true)}
+                  style={{ opacity: heroImgLoaded ? 1 : 0 }}
+                />
+              ) : (
+                <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#08101e 0%,#0f1830 55%,#08101e 100%)' }} />
+              )}
+            </div>
 
-              {/* ── Hero Left ── */}
-              <div className="hp-hleft" style={{ flex: 1, padding: '36px 28px 36px 0', display: 'flex', alignItems: 'center', gap: 24, borderRight: '1px solid rgba(255,255,255,.07)', minWidth: 0 }}>
-                <div className="hp-hcover" style={{ flexShrink: 0, width: 152, height: 152, borderRadius: 16, overflow: 'hidden', boxShadow: '0 18px 52px rgba(0,0,0,.75)' }}>
-                  <Cover src={hero.cover} alt={hero.title || '?'} size={152} radius={16} />
-                </div>
-                <div key={heroIdx} style={{ flex: 1, minWidth: 0, animation: 'hp-in .45s ease' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 11 }}>
-                    <span style={{ padding: '3px 11px', borderRadius: 18, fontSize: 10, fontWeight: 800, color: '#fff', background: hero.chipBg, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.02em' }}>{hero.chip}</span>
-                    {hero.kicker && <span style={{ fontSize: 11, color: 'rgba(180,200,235,.5)', fontWeight: 600 }}>{hero.kicker}</span>}
+            {/* Gradient overlays */}
+            <div className="hp-hero-grad" style={{
+              background: `
+                linear-gradient(to right, rgba(8,13,20,0.92) 0%, rgba(8,13,20,0.72) 40%, rgba(8,13,20,0.3) 70%, rgba(8,13,20,0.15) 100%),
+                linear-gradient(to top, rgba(8,13,20,1) 0%, rgba(8,13,20,0.4) 35%, transparent 65%),
+                linear-gradient(to bottom, rgba(8,13,20,0.6) 0%, transparent 18%)
+              `
+            }} />
+
+            {/* Content */}
+            <div className="hp-hero-content">
+              {/* ── Left: Article info ── */}
+              <div className="hp-hero-left">
+                <div key={heroIdx} style={{ animation: 'hp-in .5s ease both' }}>
+                  {/* Chip */}
+                  <div style={{ marginBottom: 16 }}>
+                    <span style={{ padding: '4px 14px', borderRadius: 20, fontSize: 10, fontWeight: 900, color: '#fff', background: hero.chipBg, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                      {hero.chip}
+                    </span>
                   </div>
-                  <h1 className="hp-htitle" style={{ fontFamily: 'Outfit,sans-serif', fontSize: 36, fontWeight: 900, color: '#f0f4fc', lineHeight: 1.08, margin: '0 0 8px', letterSpacing: '-0.02em' }}>{hero.title}</h1>
-                  {hero.subtitle && <p className="hp-hsub" style={{ fontSize: 14, color: 'rgba(180,200,235,.45)', margin: '0 0 18px', lineHeight: 1.4, maxWidth: 420 }}>{hero.subtitle}</p>}
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <Link href={hero.href} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f97316', color: '#fff', fontWeight: 800, fontSize: 13, padding: '9px 20px', borderRadius: 22, textDecoration: 'none', boxShadow: '0 4px 18px rgba(249,115,22,.35)', fontFamily: 'Outfit,sans-serif', transition: 'transform .15s, box-shadow .15s' }} onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 24px rgba(249,115,22,.45)' }} onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 18px rgba(249,115,22,.35)' }}>
+
+                  {/* Title */}
+                  <h1 className="hp-hero-title" style={{
+                    fontFamily: 'Outfit,sans-serif', fontSize: 42, fontWeight: 900,
+                    color: '#fff', lineHeight: 1.06, margin: '0 0 14px',
+                    letterSpacing: '-0.025em', maxWidth: 580,
+                    textShadow: '0 2px 20px rgba(0,0,0,0.4)'
+                  }}>
+                    {hero.title}
+                  </h1>
+
+                  {/* Excerpt */}
+                  {hero.subtitle && (
+                    <p className="hp-hero-excerpt" style={{
+                      fontSize: 14, color: 'rgba(210,225,245,0.7)', margin: '0 0 20px',
+                      lineHeight: 1.55, maxWidth: 480,
+                      overflow: 'hidden', display: '-webkit-box',
+                      WebkitLineClamp: 3, WebkitBoxOrient: 'vertical'
+                    } as any}>
+                      {hero.subtitle}
+                    </p>
+                  )}
+
+                  {/* Meta row: date + artist chip */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 22, flexWrap: 'wrap' }}>
+                    {hero.date && (
+                      <span style={{ fontSize: 12, color: 'rgba(180,200,235,0.45)', fontWeight: 500 }}>{hero.date}</span>
+                    )}
+                    {hero.artist && (
+                      <Link href={`/atlikejai/${hero.artist.slug}`} style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 7,
+                        padding: '4px 12px 4px 4px', borderRadius: 20,
+                        background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(8px)',
+                        border: '1px solid rgba(255,255,255,0.12)',
+                        textDecoration: 'none', transition: 'all .15s'
+                      }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.16)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.22)' }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)' }}
+                      >
+                        {hero.artist.image ? (
+                          <img src={hero.artist.image} alt={hero.artist.name} style={{ width: 22, height: 22, borderRadius: '50%', objectFit: 'cover' }} />
+                        ) : (
+                          <div style={{ width: 22, height: 22, borderRadius: '50%', background: `hsl(${strHue(hero.artist.name)},35%,18%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 800, color: `hsl(${strHue(hero.artist.name)},50%,55%)` }}>
+                            {hero.artist.name[0]?.toUpperCase()}
+                          </div>
+                        )}
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#e8edf6' }}>{hero.artist.name}</span>
+                      </Link>
+                    )}
+                  </div>
+
+                  {/* CTA */}
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                    <Link href={hero.href} style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      background: '#f97316', color: '#fff', fontWeight: 800, fontSize: 13,
+                      padding: '10px 22px', borderRadius: 22, textDecoration: 'none',
+                      boxShadow: '0 4px 20px rgba(249,115,22,.4)', fontFamily: 'Outfit,sans-serif',
+                      transition: 'transform .15s, box-shadow .15s'
+                    }}
+                      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 28px rgba(249,115,22,.5)' }}
+                      onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(249,115,22,.4)' }}>
                       Skaityti →
                     </Link>
+                    {/* Nav arrows */}
+                    {heroSlides.length > 1 && (
+                      <div className="hp-hero-nav" style={{ display: 'flex', gap: 5, marginLeft: 6 }}>
+                        {['‹', '›'].map((ch, di) => (
+                          <button key={ch} onClick={() => { setHeroImgLoaded(false); setHeroIdx(p => ((p + (di === 0 ? -1 : 1)) + heroSlides.length) % heroSlides.length) }}
+                            style={{ width: 34, height: 34, borderRadius: '50%', border: '1px solid rgba(255,255,255,.15)', background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(6px)', color: 'rgba(255,255,255,.6)', cursor: 'pointer', fontSize: 16, fontWeight: 600, transition: 'all .15s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,.3)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.12)' }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,.15)'; e.currentTarget.style.color = 'rgba(255,255,255,.6)'; e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}>
+                            {ch}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
-                {heroSlides.length > 1 && (
-                  <div className="hp-hnav" style={{ display: 'flex', flexDirection: 'column', gap: 7, flexShrink: 0 }}>
-                    {['←', '→'].map((ch, di) => (
-                      <button key={ch} onClick={() => setHeroIdx(p => ((p + (di === 0 ? -1 : 1)) + heroSlides.length) % heroSlides.length)}
-                        style={{ width: 32, height: 32, borderRadius: '50%', border: '1px solid rgba(255,255,255,.1)', background: 'transparent', color: 'rgba(180,200,235,.3)', cursor: 'pointer', fontSize: 13, transition: 'all .15s' }}
-                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,.25)'; e.currentTarget.style.color = 'rgba(255,255,255,.7)' }}
-                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,.1)'; e.currentTarget.style.color = 'rgba(180,200,235,.3)' }}>
-                        {ch}
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
 
-              {/* ── Hero Right — Chart ── */}
-              <div className="hp-hright" style={{ width: 332, flexShrink: 0, padding: '24px 0 24px 20px', display: 'flex', flexDirection: 'column' }}>
+              {/* ── Right: Chart ── */}
+              <div className="hp-hero-right">
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 11 }}>
                   <div style={{ display: 'flex', borderRadius: 18, padding: 3, background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.08)', gap: 2 }}>
                     {([['lt', '🇱🇹 LT Top 30'], ['world', '🌍 Top 40']] as const).map(([k, l]) => (
@@ -435,12 +530,13 @@ export default function Home() {
                 </Link>
               </div>
             </div>
+
             {/* Hero dots */}
             {heroSlides.length > 1 && (
-              <div style={{ position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 5, alignItems: 'center' }}>
+              <div style={{ position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 6, alignItems: 'center', zIndex: 3 }}>
                 {heroSlides.map((_, i) => (
-                  <button key={i} onClick={() => setHeroIdx(i)}
-                    style={{ borderRadius: 3, border: 'none', cursor: 'pointer', padding: 0, background: i === heroIdx ? '#f97316' : 'rgba(255,255,255,.16)', width: i === heroIdx ? 20 : 6, height: 5, transition: 'all .25s' }} />
+                  <button key={i} onClick={() => { setHeroImgLoaded(false); setHeroIdx(i) }}
+                    style={{ borderRadius: 3, border: 'none', cursor: 'pointer', padding: 0, background: i === heroIdx ? '#f97316' : 'rgba(255,255,255,.2)', width: i === heroIdx ? 22 : 6, height: 5, transition: 'all .3s', boxShadow: i === heroIdx ? '0 0 8px rgba(249,115,22,0.5)' : 'none' }} />
                 ))}
               </div>
             )}
