@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
       id, slug, title, body, type, is_featured, is_hidden_home,
       image_small_url, image_title_url, published_at, created_at,
       artist:artists!news_artist_id_fkey(id, name, slug, cover_image_url),
-      songs:news_songs(youtube_url, sort_order)
+      songs:news_songs(youtube_url, sort_order, tracks(title, cover_url, artists(name)))
     `, { count: 'exact' })
     .order('published_at', { ascending: false })
     .range(offset, offset + limit - 1)
@@ -34,8 +34,15 @@ export async function GET(req: NextRequest) {
     excerpt: n.body
       ? n.body.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200)
       : null,
-    // Sort songs by sort_order
-    songs: (n.songs || []).sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0)),
+    // Flatten songs with track info
+    songs: (n.songs || [])
+      .sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0))
+      .map((s: any) => ({
+        youtube_url: s.youtube_url,
+        title: s.tracks?.title || null,
+        artist_name: s.tracks?.artists?.name || null,
+        cover_url: s.tracks?.cover_url || null,
+      })),
     // Don't send full body in listing to save bandwidth
     body: undefined,
   }))
