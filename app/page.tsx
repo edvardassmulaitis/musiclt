@@ -8,14 +8,14 @@ type Track = { id: number; slug: string; title: string; cover_url: string | null
 type Album = { id: number; slug: string; title: string; year: number | null; cover_image_url: string | null; created_at: string; artists: { id: number; slug: string; name: string } | null }
 type Artist = { id: number; slug: string; name: string; cover_image_url: string | null }
 type Event = { id: number; slug: string; title: string; event_date: string; venue_custom: string | null; image_small_url: string | null; venues: { name: string; city: string } | null }
-type NewsItem = { id: number; slug: string; title: string; image_small_url: string | null; image_title_url?: string | null; published_at: string; type: string | null; excerpt?: string | null; artist: { name: string; slug: string; cover_image_url?: string | null } | null }
+type NewsItem = { id: number; slug: string; title: string; image_small_url: string | null; image_title_url?: string | null; published_at: string; type: string | null; excerpt?: string | null; songs?: { youtube_url?: string | null }[]; artist: { name: string; slug: string; cover_image_url?: string | null } | null }
 type TopEntry = { pos: number; track_id: number; title: string; artist: string; cover_url: string | null; trend: string; wks?: number; slug?: string; artist_slug?: string }
 type Nomination = { id: number; votes: number; weighted_votes: number; tracks: { id: number; title: string; cover_url: string | null; artists: { name: string } | null } | null }
 type Discussion = { id: number; slug: string; title: string; author_name: string | null; comment_count: number; created_at: string; tags: string[] }
 type ShoutMsg = { id: number; author_name: string; author_avatar: string | null; body: string; created_at: string; user_id: string }
 type HeroSlide = {
   type: string; chip: string; chipBg: string; title: string; subtitle: string
-  href: string; bgImg?: string | null; date?: string
+  href: string; bgImg?: string | null; videoId?: string | null
   artist?: { name: string; slug: string; image?: string | null } | null
 }
 
@@ -25,6 +25,25 @@ const MONTHS_FULL_LT = ['sausio', 'vasario', 'kovo', 'balandžio', 'gegužės', 
 
 function sanitizeTitle(raw: string): string {
   return raw.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+/** Truncate text at the nearest sentence boundary (., !, ?) */
+function smartTruncate(text: string, maxLen: number): string {
+  if (!text || text.length <= maxLen) return text
+  const cut = text.slice(0, maxLen)
+  // Find last sentence-ending punctuation
+  const lastEnd = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('! '), cut.lastIndexOf('? '), cut.lastIndexOf('.„'), cut.lastIndexOf('."'))
+  if (lastEnd > maxLen * 0.4) return cut.slice(0, lastEnd + 1)
+  // Fallback: cut at last space and add ellipsis
+  const lastSpace = cut.lastIndexOf(' ')
+  return lastSpace > 0 ? cut.slice(0, lastSpace) + '…' : cut + '…'
+}
+
+/** Extract YouTube video ID from URL */
+function extractYouTubeId(url: string | null | undefined): string | null {
+  if (!url) return null
+  const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?\s]{11})/)
+  return m?.[1] || null
 }
 
 function formatDateLT(d: string) {
@@ -229,7 +248,9 @@ export default function Home() {
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>([])
   const [heroIdx, setHeroIdx] = useState(0)
   const [heroImgLoaded, setHeroImgLoaded] = useState(false)
+  const [heroVideoPlaying, setHeroVideoPlaying] = useState(false)
   const timerRef = useRef<any>(null)
+  const heroRef = useRef<HTMLElement>(null)
 
   const parseTop = (entries: any[]): TopEntry[] => entries.slice(0, 7).map(e => {
     const prev = e.prev_position; const cur = e.position
@@ -253,13 +274,15 @@ export default function Home() {
 
     news.slice(0, 3).forEach(n => {
       const typeLT = n.type === 'review' ? 'Recenzija' : n.type === 'interview' ? 'Interviu' : n.type === 'report' ? 'Reportažas' : 'Naujiena'
+      // Find first youtube video from associated songs
+      const ytUrl = n.songs?.find(s => s.youtube_url)?.youtube_url
       slides.push({
         type: 'news', chip: typeLT.toUpperCase(), chipBg: '#1d4ed8',
         title: sanitizeTitle(n.title),
-        subtitle: n.excerpt || '',
-        date: formatDateLT(n.published_at),
+        subtitle: n.excerpt ? smartTruncate(n.excerpt, 180) : '',
         bgImg: n.image_title_url || n.image_small_url,
         href: `/naujienos/${n.slug}`,
+        videoId: extractYouTubeId(ytUrl),
         artist: n.artist ? { name: n.artist.name, slug: n.artist.slug, image: n.artist.cover_image_url || null } : null,
       })
     })
@@ -287,13 +310,34 @@ export default function Home() {
   }, [news, events])
 
   useEffect(() => {
-    if (!heroSlides.length) return
+    if (!heroSlides.length || heroVideoPlaying) return
     timerRef.current = setTimeout(() => {
       setHeroImgLoaded(false)
+      setHeroVideoPlaying(false)
       setHeroIdx(p => (p + 1) % heroSlides.length)
     }, 8000)
     return () => clearTimeout(timerRef.current)
-  }, [heroIdx, heroSlides.length])
+  }, [heroIdx, heroSlides.length, heroVideoPlaying])
+
+  // Keyboard navigation for hero
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (!heroSlides.length) return
+      // Only when hero is in viewport or no input focused
+      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        setHeroImgLoaded(false); setHeroVideoPlaying(false)
+        setHeroIdx(p => (p - 1 + heroSlides.length) % heroSlides.length)
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault()
+        setHeroImgLoaded(false); setHeroVideoPlaying(false)
+        setHeroIdx(p => (p + 1) % heroSlides.length)
+      }
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [heroSlides.length])
 
   // Preload next hero image
   useEffect(() => {
@@ -347,8 +391,7 @@ export default function Home() {
           .hp-hero-left{padding:32px 0 28px}
           .hp-hero-right{width:100%!important;padding:18px 0 24px!important;border-left:none;border-top:1px solid rgba(255,255,255,.08);background:transparent!important}
           .hp-hero-title{font-size:28px!important}
-          .hp-hero-excerpt{font-size:13px!important;-webkit-line-clamp:2!important}
-          .hp-hero-nav{display:none!important}
+          .hp-hero-excerpt{font-size:13px!important}
         }
         @media(max-width:600px){
           .hp-hero{min-height:320px}
@@ -405,44 +448,15 @@ export default function Home() {
               {/* ── Left: Article info ── */}
               <div className="hp-hero-left">
                 <div key={heroIdx} style={{ animation: 'hp-in .5s ease both' }}>
-                  {/* Chip */}
-                  <div style={{ marginBottom: 16 }}>
+                  {/* Chip + Artist */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
                     <span style={{ padding: '4px 14px', borderRadius: 20, fontSize: 10, fontWeight: 900, color: '#fff', background: hero.chipBg, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                       {hero.chip}
                     </span>
-                  </div>
-
-                  {/* Title */}
-                  <h1 className="hp-hero-title" style={{
-                    fontFamily: 'Outfit,sans-serif', fontSize: 42, fontWeight: 900,
-                    color: '#fff', lineHeight: 1.06, margin: '0 0 14px',
-                    letterSpacing: '-0.025em', maxWidth: 580,
-                    textShadow: '0 2px 20px rgba(0,0,0,0.4)'
-                  }}>
-                    {hero.title}
-                  </h1>
-
-                  {/* Excerpt */}
-                  {hero.subtitle && (
-                    <p className="hp-hero-excerpt" style={{
-                      fontSize: 14, color: 'rgba(210,225,245,0.7)', margin: '0 0 20px',
-                      lineHeight: 1.55, maxWidth: 480,
-                      overflow: 'hidden', display: '-webkit-box',
-                      WebkitLineClamp: 3, WebkitBoxOrient: 'vertical'
-                    } as any}>
-                      {hero.subtitle}
-                    </p>
-                  )}
-
-                  {/* Meta row: date + artist chip */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 22, flexWrap: 'wrap' }}>
-                    {hero.date && (
-                      <span style={{ fontSize: 12, color: 'rgba(180,200,235,0.45)', fontWeight: 500 }}>{hero.date}</span>
-                    )}
                     {hero.artist && (
                       <Link href={`/atlikejai/${hero.artist.slug}`} style={{
                         display: 'inline-flex', alignItems: 'center', gap: 7,
-                        padding: '4px 12px 4px 4px', borderRadius: 20,
+                        padding: '3px 12px 3px 3px', borderRadius: 20,
                         background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(8px)',
                         border: '1px solid rgba(255,255,255,0.12)',
                         textDecoration: 'none', transition: 'all .15s'
@@ -462,7 +476,27 @@ export default function Home() {
                     )}
                   </div>
 
-                  {/* CTA */}
+                  {/* Title */}
+                  <h1 className="hp-hero-title" style={{
+                    fontFamily: 'Outfit,sans-serif', fontSize: 42, fontWeight: 900,
+                    color: '#fff', lineHeight: 1.06, margin: '0 0 12px',
+                    letterSpacing: '-0.025em', maxWidth: 580,
+                    textShadow: '0 2px 20px rgba(0,0,0,0.4)'
+                  }}>
+                    {hero.title}
+                  </h1>
+
+                  {/* Excerpt */}
+                  {hero.subtitle && (
+                    <p className="hp-hero-excerpt" style={{
+                      fontSize: 14, color: 'rgba(210,225,245,0.65)', margin: '0 0 18px',
+                      lineHeight: 1.55, maxWidth: 480,
+                    }}>
+                      {hero.subtitle}
+                    </p>
+                  )}
+
+                  {/* CTA + YouTube player */}
                   <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                     <Link href={hero.href} style={{
                       display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -475,20 +509,43 @@ export default function Home() {
                       onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(249,115,22,.4)' }}>
                       Skaityti →
                     </Link>
-                    {/* Nav arrows */}
-                    {heroSlides.length > 1 && (
-                      <div className="hp-hero-nav" style={{ display: 'flex', gap: 5, marginLeft: 6 }}>
-                        {['‹', '›'].map((ch, di) => (
-                          <button key={ch} onClick={() => { setHeroImgLoaded(false); setHeroIdx(p => ((p + (di === 0 ? -1 : 1)) + heroSlides.length) % heroSlides.length) }}
-                            style={{ width: 34, height: 34, borderRadius: '50%', border: '1px solid rgba(255,255,255,.15)', background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(6px)', color: 'rgba(255,255,255,.6)', cursor: 'pointer', fontSize: 16, fontWeight: 600, transition: 'all .15s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                            onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,.3)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.12)' }}
-                            onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,.15)'; e.currentTarget.style.color = 'rgba(255,255,255,.6)'; e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}>
-                            {ch}
-                          </button>
-                        ))}
-                      </div>
+                    {hero.videoId && (
+                      <button onClick={() => setHeroVideoPlaying(true)} style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 7,
+                        padding: '9px 18px', borderRadius: 22, border: '1px solid rgba(255,255,255,.15)',
+                        background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(6px)',
+                        color: 'rgba(255,255,255,.7)', fontSize: 13, fontWeight: 700,
+                        cursor: 'pointer', transition: 'all .15s', fontFamily: 'Outfit,sans-serif',
+                      }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,.25)'; e.currentTarget.style.color = '#fff' }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,.15)'; e.currentTarget.style.color = 'rgba(255,255,255,.7)' }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                        Klausyti
+                      </button>
                     )}
                   </div>
+
+                  {/* YouTube embed (shown when playing) */}
+                  {hero.videoId && heroVideoPlaying && (
+                    <div style={{ marginTop: 16, borderRadius: 12, overflow: 'hidden', maxWidth: 420, aspectRatio: '16/9', background: '#000', boxShadow: '0 8px 32px rgba(0,0,0,0.6)', position: 'relative' }}>
+                      <iframe
+                        src={`https://www.youtube.com/embed/${hero.videoId}?autoplay=1&rel=0`}
+                        style={{ width: '100%', height: '100%', border: 'none' }}
+                        allow="autoplay; encrypted-media"
+                        allowFullScreen
+                      />
+                      <button onClick={() => setHeroVideoPlaying(false)} style={{
+                        position: 'absolute', top: 8, right: 8, width: 28, height: 28, borderRadius: '50%',
+                        background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.2)',
+                        color: '#fff', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        transition: 'background .15s'
+                      }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.8)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.6)')}>
+                        ✕
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -533,13 +590,30 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Hero dots */}
+            {/* Hero navigation — dots + arrows */}
             {heroSlides.length > 1 && (
-              <div style={{ position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 6, alignItems: 'center', zIndex: 3 }}>
-                {heroSlides.map((_, i) => (
-                  <button key={i} onClick={() => { setHeroImgLoaded(false); setHeroIdx(i) }}
-                    style={{ borderRadius: 3, border: 'none', cursor: 'pointer', padding: 0, background: i === heroIdx ? '#f97316' : 'rgba(255,255,255,.2)', width: i === heroIdx ? 22 : 6, height: 5, transition: 'all .3s', boxShadow: i === heroIdx ? '0 0 8px rgba(249,115,22,0.5)' : 'none' }} />
-                ))}
+              <div style={{ position: 'absolute', bottom: 18, left: 0, right: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, zIndex: 3 }}>
+                <button onClick={() => { setHeroImgLoaded(false); setHeroVideoPlaying(false); setHeroIdx(p => (p - 1 + heroSlides.length) % heroSlides.length) }}
+                  aria-label="Ankstesnis"
+                  style={{ width: 30, height: 30, borderRadius: '50%', border: '1px solid rgba(255,255,255,.12)', background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,.5)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .15s', backdropFilter: 'blur(4px)' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; e.currentTarget.style.color = '#fff' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'rgba(255,255,255,.5)' }}>
+                  ‹
+                </button>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  {heroSlides.map((_, i) => (
+                    <button key={i} onClick={() => { setHeroImgLoaded(false); setHeroVideoPlaying(false); setHeroIdx(i) }}
+                      aria-label={`Naujiena ${i + 1}`}
+                      style={{ borderRadius: 4, border: 'none', cursor: 'pointer', padding: 0, background: i === heroIdx ? '#f97316' : 'rgba(255,255,255,.18)', width: i === heroIdx ? 28 : 10, height: 6, transition: 'all .3s', boxShadow: i === heroIdx ? '0 0 10px rgba(249,115,22,0.5)' : 'none' }} />
+                  ))}
+                </div>
+                <button onClick={() => { setHeroImgLoaded(false); setHeroVideoPlaying(false); setHeroIdx(p => (p + 1) % heroSlides.length) }}
+                  aria-label="Kitas"
+                  style={{ width: 30, height: 30, borderRadius: '50%', border: '1px solid rgba(255,255,255,.12)', background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,.5)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .15s', backdropFilter: 'blur(4px)' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; e.currentTarget.style.color = '#fff' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'rgba(255,255,255,.5)' }}>
+                  ›
+                </button>
               </div>
             )}
           </section>
