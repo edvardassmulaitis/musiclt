@@ -421,7 +421,6 @@ export default function Home() {
           .hp-hero-right{width:100%!important;padding:18px 0 24px!important;border-left:none;border-top:1px solid rgba(255,255,255,.08);background:transparent!important}
           .hp-hero-title{font-size:28px!important}
           .hp-hero-excerpt{font-size:13px!important}
-          .hp-hero-video{position:relative!important;top:auto!important;right:auto!important;transform:none!important;width:100%!important;margin-top:14px!important}
         }
         @media(max-width:600px){
           .hp-hero{min-height:320px}
@@ -557,32 +556,37 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* YouTube iframe — absolute overlay on image, doesn't push content */}
+              {/* YouTube iframe — centered overlay within hero */}
               {hero.videoId && heroVideoPlaying && (
-                <div className="hp-hero-video" style={{
-                  position: 'absolute', top: '50%', transform: 'translateY(-50%)',
-                  right: 370, zIndex: 4,
-                  width: 420, aspectRatio: '16/9',
-                  borderRadius: 14, overflow: 'hidden', background: '#000',
-                  boxShadow: '0 16px 64px rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.12)',
-                  animation: 'hp-in .3s ease both',
-                }}>
-                  <iframe
-                    src={`https://www.youtube.com/embed/${hero.videoId}?autoplay=1&rel=0`}
-                    style={{ width: '100%', height: '100%', border: 'none' }}
-                    allow="autoplay; encrypted-media"
-                    allowFullScreen
-                  />
-                  <button onClick={() => setHeroVideoPlaying(false)} style={{
-                    position: 'absolute', top: 8, right: 8, width: 30, height: 30, borderRadius: '50%',
-                    background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.25)',
-                    color: '#fff', fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    transition: 'background .15s', fontWeight: 600,
-                  }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.9)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.7)')}>
-                    ✕
-                  </button>
+                <div style={{
+                  position: 'absolute', inset: 0, zIndex: 10,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)',
+                  animation: 'hp-in .2s ease both',
+                }} onClick={() => setHeroVideoPlaying(false)}>
+                  <div className="hp-hero-video" style={{
+                    width: '90%', maxWidth: 640, aspectRatio: '16/9',
+                    borderRadius: 14, overflow: 'hidden', background: '#000',
+                    boxShadow: '0 16px 64px rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.1)',
+                    position: 'relative',
+                  }} onClick={e => e.stopPropagation()}>
+                    <iframe
+                      src={`https://www.youtube.com/embed/${hero.videoId}?autoplay=1&rel=0`}
+                      style={{ width: '100%', height: '100%', border: 'none' }}
+                      allow="autoplay; encrypted-media"
+                      allowFullScreen
+                    />
+                    <button onClick={() => setHeroVideoPlaying(false)} style={{
+                      position: 'absolute', top: -14, right: -14, width: 32, height: 32, borderRadius: '50%',
+                      background: '#1a1a2e', border: '2px solid rgba(255,255,255,0.2)',
+                      color: '#fff', fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      transition: 'background .15s', fontWeight: 600, zIndex: 1,
+                    }}
+                      onMouseEnter={e => (e.currentTarget.style.background = '#2a2a40')}
+                      onMouseLeave={e => (e.currentTarget.style.background = '#1a1a2e')}>
+                      ✕
+                    </button>
+                  </div>
                 </div>
               )}
 
