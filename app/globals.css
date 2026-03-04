@@ -5,7 +5,7 @@
 /* ═══════════════════════════════════════════════════════════════════
    THEME SYSTEM — CSS Custom Properties
    
-   Uses [data-theme] attribute on <html> set by SiteContext.
+   Uses [data-theme] attribute on <html> set by SiteContext
    Every component should reference these vars for theme consistency.
    ═══════════════════════════════════════════════════════════════════ */
 
