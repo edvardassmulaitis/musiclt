@@ -16,8 +16,7 @@ export async function GET(req: NextRequest) {
     .select(`
       id, slug, title, body, type, is_featured, is_hidden_home,
       image_small_url, image_title_url, published_at, created_at,
-      artist:artists!news_artist_id_fkey(id, name, slug, cover_image_url),
-      songs:news_songs(youtube_url, sort_order, track_id)
+      artist:artists!news_artist_id_fkey(id, name, slug, cover_image_url)
     `, { count: 'exact' })
     .order('published_at', { ascending: false })
     .range(offset, offset + limit - 1)
@@ -28,44 +27,11 @@ export async function GET(req: NextRequest) {
   const { data, error, count } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Collect track IDs from songs to fetch titles
-  const allTrackIds = new Set<number>()
-  ;(data || []).forEach((n: any) => {
-    (n.songs || []).forEach((s: any) => {
-      if (s.track_id) allTrackIds.add(s.track_id)
-    })
-  })
-
-  // Fetch track details in one go
-  let trackMap: Record<number, { title: string; cover_url: string | null; artist_name: string | null }> = {}
-  if (allTrackIds.size > 0) {
-    const { data: tracks } = await supabase
-      .from('tracks')
-      .select('id, title, cover_url, artists(name)')
-      .in('id', Array.from(allTrackIds))
-    if (tracks) {
-      tracks.forEach((t: any) => {
-        trackMap[t.id] = { title: t.title, cover_url: t.cover_url, artist_name: t.artists?.name || null }
-      })
-    }
-  }
-
   const news = (data || []).map((n: any) => ({
     ...n,
     excerpt: n.body
       ? n.body.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200)
       : null,
-    songs: (n.songs || [])
-      .sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0))
-      .map((s: any) => {
-        const track = s.track_id ? trackMap[s.track_id] : null
-        return {
-          youtube_url: s.youtube_url,
-          title: track?.title || null,
-          artist_name: track?.artist_name || null,
-          cover_url: track?.cover_url || null,
-        }
-      }),
     body: undefined,
   }))
 
