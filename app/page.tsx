@@ -133,7 +133,7 @@ function DienosDainaWidget() {
         {loading ? <div style={{ padding: '10px 16px', color: "var(--text-muted)", fontSize: 12 }}>Kraunama...</div>
           : noms.length === 0 ? <div style={{ padding: '14px 16px', color: "var(--text-muted)", fontSize: 12, textAlign: 'center' }}>Kol kas nėra nominacijų</div>
           : noms.slice(0, 5).map((n, i) => (
-            <div key={n.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 16px', borderTop: '1px solid rgba(255,255,255,0.04)', transition: 'background .12s' }} onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+            <div key={n.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 16px', borderTop: '1px solid var(--border-subtle)', transition: 'background .12s' }} onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
               <span style={{ fontSize: 10, fontWeight: 800, color: "var(--text-faint)", width: 14, textAlign: 'center', flexShrink: 0 }}>{i + 1}</span>
               <Cover src={n.tracks?.cover_url} alt={n.tracks?.title || '?'} size={26} radius={6} />
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -174,8 +174,8 @@ function ShoutboxWidget() {
     return () => clearInterval(iv)
   }, [load])
   return (
-    <div style={{ background: 'var(--bg-surface)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ padding: '11px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+    <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ padding: '11px 14px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           <span style={{ fontSize: 14 }}>💬</span>
           <span style={{ fontFamily: 'Outfit, sans-serif', fontSize: 13, fontWeight: 800, color: "var(--text-primary)" }}>Gyvi pokalbiai</span>
@@ -187,7 +187,7 @@ function ShoutboxWidget() {
         {loading ? <div style={{ padding: '18px', color: "var(--text-muted)", fontSize: 12, textAlign: 'center' }}>Kraunama...</div>
           : msgs.length === 0 ? <div style={{ padding: '18px', color: "var(--text-muted)", fontSize: 12, textAlign: 'center' }}>Dar nėra žinučių</div>
           : msgs.slice(-6).map((m, i, arr) => (
-            <div key={m.id} style={{ display: 'flex', gap: 9, padding: '8px 14px', borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none' }}>
+            <div key={m.id} style={{ display: 'flex', gap: 9, padding: '8px 14px', borderBottom: i < arr.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
               <div style={{ width: 24, height: 24, borderRadius: '50%', flexShrink: 0, background: `hsl(${strHue(m.author_name)},28%,14%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: `hsl(${strHue(m.author_name)},45%,52%)`, fontFamily: 'Outfit, sans-serif' }}>{m.author_name[0]?.toUpperCase()}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', gap: 5, alignItems: 'center', marginBottom: 1 }}>
@@ -199,7 +199,7 @@ function ShoutboxWidget() {
             </div>
           ))}
       </div>
-      <div style={{ padding: '9px 12px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+      <div style={{ padding: '9px 12px', borderTop: '1px solid var(--border-subtle)' }}>
         <Link href="/bendruomene" style={{ display: 'block', textAlign: 'center', padding: '7px', borderRadius: 10, background: 'rgba(90,102,200,0.08)', border: '1px solid rgba(90,102,200,0.18)', color: '#7080c0', fontSize: 11, fontWeight: 700, textDecoration: 'none', transition: 'background .15s' }} onMouseEnter={e => (e.currentTarget.style.background = 'rgba(90,102,200,0.14)')} onMouseLeave={e => (e.currentTarget.style.background = 'rgba(90,102,200,0.08)')}>
           Prisijungti prie pokalbio →
         </Link>
@@ -218,9 +218,9 @@ function DiscussionsWidget() {
     <div className="hp-disc-grid">
       {discs.map(d => (
         <Link key={d.id} href={`/diskusijos/${d.slug}`}
-          style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--bg-surface)', border: '1px solid rgba(255,255,255,0.07)', textDecoration: 'none', display: 'block', transition: 'border-color 0.15s, background .15s' }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.14)'; e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.background = 'rgba(255,255,255,0.025)' }}>
+          style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--bg-surface)', border: '1px solid var(--border-default)', textDecoration: 'none', display: 'block', transition: 'border-color 0.15s, background .15s' }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.background = 'var(--bg-hover)' }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-default)'; e.currentTarget.style.background = 'var(--bg-surface)' }}>
           <div style={{ display: 'flex', gap: 5, marginBottom: 5, alignItems: 'center' }}>
             {(d.tags || []).slice(0, 1).map(t => <span key={t} style={{ fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 4, background: 'rgba(90,102,200,0.12)', color: '#8090c0' }}>{t}</span>)}
             <span style={{ fontSize: 9, color: "var(--text-faint)", marginLeft: 'auto' }}>{timeAgo(d.created_at)}</span>
@@ -467,7 +467,7 @@ export default function Home() {
           .hp-hero-grad{right:0!important}
           .hp-hero-content{flex-direction:column}
           .hp-hero-left{padding:32px 0 28px}
-          .hp-hero-right{width:100%!important;padding:18px 0 24px!important;border-left:none;border-top:1px solid rgba(255,255,255,.08);background:transparent!important}
+          .hp-hero-right{width:100%!important;padding:18px 0 24px!important;border-left:none;border-top:1px solid var(--border-default);background:transparent!important}
           .hp-hero-title{font-size:28px!important}
           .hp-hero-excerpt{font-size:13px!important}
         }
@@ -637,10 +637,10 @@ export default function Home() {
               {/* ── Right: Chart ── */}
               <div className="hp-hero-right">
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 11 }}>
-                  <div style={{ display: 'flex', borderRadius: 18, padding: 3, background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.08)', gap: 2 }}>
+                  <div style={{ display: 'flex', borderRadius: 18, padding: 3, background: dk ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.04)', border: `1px solid ${T.border}`, gap: 2 }}>
                     {([['lt', '🇱🇹 LT Top 30'], ['world', '🌍 Top 40']] as const).map(([k, l]) => (
                       <button key={k} onClick={() => setChartTab(k)}
-                        style={{ padding: '5px 10px', borderRadius: 14, fontSize: 11, fontWeight: 800, border: 'none', cursor: 'pointer', transition: 'all .15s', fontFamily: 'Outfit,sans-serif', background: chartTab === k ? '#1d4ed8' : 'transparent', color: chartTab === k ? '#fff' : '#2a4060' }}>{l}</button>
+                        style={{ padding: '5px 10px', borderRadius: 14, fontSize: 11, fontWeight: 800, border: 'none', cursor: 'pointer', transition: 'all .15s', fontFamily: 'Outfit,sans-serif', background: chartTab === k ? '#1d4ed8' : 'transparent', color: chartTab === k ? '#fff' : dk ? '#6a88aa' : '#4a6080' }}>{l}</button>
                     ))}
                   </div>
                   <Link href="/topas" style={{ fontSize: 11, color: "var(--accent-link)", fontWeight: 700, textDecoration: 'none' }}>Visi →</Link>
@@ -655,7 +655,7 @@ export default function Home() {
                     ))
                     : chartData.map((t, i) => (
                       <Link key={t.track_id || i} href={t.slug ? `/muzika/${t.slug}` : '/topas'} className="hp-tr"
-                        style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '6px 6px', borderRadius: 7, cursor: 'pointer', textDecoration: 'none', borderBottom: i < chartData.length - 1 ? '1px solid rgba(255,255,255,.03)' : 'none' }}>
+                        style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '6px 6px', borderRadius: 7, cursor: 'pointer', textDecoration: 'none', borderBottom: i < chartData.length - 1 ? `1px solid ${T.borderSub}` : 'none' }}>
                         <span style={{ width: 18, textAlign: 'center', fontSize: 12, fontWeight: 900, fontFamily: 'Outfit,sans-serif', color: t.pos <= 3 ? T.pos123 : T.textFaint, flexShrink: 0 }}>{t.pos}</span>
                         <div style={{ width: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><TrendIcon t={t.trend} /></div>
                         <Cover src={t.cover_url} alt={t.title} size={28} radius={6} />
@@ -668,8 +668,8 @@ export default function Home() {
                     ))}
                 </div>
                 <Link href="/topas" style={{ marginTop: 10, display: 'block', textAlign: 'center', padding: '8px', borderRadius: 10, border: `1px solid ${T.border}`, color: "var(--accent-link)", fontSize: 12, fontWeight: 700, textDecoration: 'none', transition: 'all .15s' }}
-                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,.04)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,.12)' }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'rgba(255,255,255,.07)' }}>
+                  onMouseEnter={e => { e.currentTarget.style.background = dk ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.04)'; e.currentTarget.style.borderColor = dk ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.12)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = dk ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.08)' }}>
                   Žiūrėti visą topą →
                 </Link>
               </div>
@@ -680,23 +680,23 @@ export default function Home() {
               <div style={{ position: 'absolute', bottom: 18, left: 0, right: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, zIndex: 3 }}>
                 <button onClick={() => { setHeroImgLoaded(false); setHeroVideoPlaying(false); setHeroIdx(p => (p - 1 + heroSlides.length) % heroSlides.length) }}
                   aria-label="Ankstesnis"
-                  style={{ width: 30, height: 30, borderRadius: '50%', border: '1px solid rgba(255,255,255,.12)', background: 'var(--bg-hover)', color: 'rgba(255,255,255,.5)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .15s', backdropFilter: 'blur(4px)' }}
-                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; e.currentTarget.style.color = '#fff' }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'rgba(255,255,255,.5)' }}>
+                  style={{ width: 30, height: 30, borderRadius: '50%', border: `1px solid ${dk ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.12)'}`, background: dk ? 'rgba(0,0,0,.3)' : 'rgba(255,255,255,.5)', color: dk ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.4)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .15s', backdropFilter: 'blur(4px)' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = dk ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,.12)'; e.currentTarget.style.color = dk ? '#fff' : '#000' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = dk ? 'rgba(0,0,0,.3)' : 'rgba(255,255,255,.5)'; e.currentTarget.style.color = dk ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.4)' }}>
                   ‹
                 </button>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                   {heroSlides.map((_, i) => (
                     <button key={i} onClick={() => { setHeroImgLoaded(false); setHeroVideoPlaying(false); setHeroIdx(i) }}
                       aria-label={`Naujiena ${i + 1}`}
-                      style={{ borderRadius: 4, border: 'none', cursor: 'pointer', padding: 0, background: i === heroIdx ? '#f97316' : 'rgba(255,255,255,.18)', width: i === heroIdx ? 28 : 10, height: 6, transition: 'all .3s', boxShadow: i === heroIdx ? '0 0 10px rgba(249,115,22,0.5)' : 'none' }} />
+                      style={{ borderRadius: 4, border: 'none', cursor: 'pointer', padding: 0, background: i === heroIdx ? '#f97316' : dk ? 'rgba(255,255,255,.18)' : 'rgba(0,0,0,.18)', width: i === heroIdx ? 28 : 10, height: 6, transition: 'all .3s', boxShadow: i === heroIdx ? '0 0 10px rgba(249,115,22,0.5)' : 'none' }} />
                   ))}
                 </div>
                 <button onClick={() => { setHeroImgLoaded(false); setHeroVideoPlaying(false); setHeroIdx(p => (p + 1) % heroSlides.length) }}
                   aria-label="Kitas"
-                  style={{ width: 30, height: 30, borderRadius: '50%', border: '1px solid rgba(255,255,255,.12)', background: 'var(--bg-hover)', color: 'rgba(255,255,255,.5)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .15s', backdropFilter: 'blur(4px)' }}
-                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; e.currentTarget.style.color = '#fff' }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'rgba(255,255,255,.5)' }}>
+                  style={{ width: 30, height: 30, borderRadius: '50%', border: `1px solid ${dk ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.12)'}`, background: dk ? 'rgba(0,0,0,.3)' : 'rgba(255,255,255,.5)', color: dk ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.4)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .15s', backdropFilter: 'blur(4px)' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = dk ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,.12)'; e.currentTarget.style.color = dk ? '#fff' : '#000' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = dk ? 'rgba(0,0,0,.3)' : 'rgba(255,255,255,.5)'; e.currentTarget.style.color = dk ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.4)' }}>
                   ›
                 </button>
               </div>
@@ -705,66 +705,52 @@ export default function Home() {
         )}
 
         {/* ═══════════════════════ MAIN CONTENT ═══════════════════════ */}
-        <div className="hp-cnt" style={{ maxWidth: 1360, margin: '0 auto', padding: '42px 20px', display: 'flex', flexDirection: 'column', gap: 48 }}>
+        <div className="hp-cnt" style={{ maxWidth: 1360, margin: '0 auto', padding: '42px 20px', display: 'flex', flexDirection: 'column', gap: 44 }}>
 
-          {/* ── Naujos dainos + Albumai ── */}
+          {/* ── ROW 1: Naujos dainos ── */}
           <section>
-            <div>
-              <SH label="Naujos dainos" href="/muzika" />
-              <div className="hp-scroll" style={{ display: 'flex', gap: 8, paddingBottom: 2 }}>
-                {tracks.length === 0 ? Array(8).fill(null).map((_, i) => (
-                  <div key={i} style={{ width: 182, flexShrink: 0, padding: '9px 11px', borderRadius: 11, background: 'var(--bg-surface)', border: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', gap: 9 }}>
-                    <Skel w={38} h={38} r={8} /><div style={{ flex: 1 }}><Skel w="76%" h={10} /><div style={{ marginTop: 5 }}><Skel w="54%" h={8} /></div></div>
+            <SH label="Naujos dainos" href="/muzika" />
+            <div className="hp-scroll" style={{ display: 'flex', gap: 8, paddingBottom: 2 }}>
+              {tracks.length === 0 ? Array(8).fill(null).map((_, i) => (
+                <div key={i} style={{ width: 182, flexShrink: 0, padding: '9px 11px', borderRadius: 11, background: 'var(--bg-surface)', border: `1px solid var(--border-default)`, display: 'flex', alignItems: 'center', gap: 9 }}>
+                  <Skel w={38} h={38} r={8} /><div style={{ flex: 1 }}><Skel w="76%" h={10} /><div style={{ marginTop: 5 }}><Skel w="54%" h={8} /></div></div>
+                </div>
+              )) : tracks.slice(0, 14).map(t => (
+                <Link key={t.id} href={`/muzika/${t.slug}`} className="hp-card"
+                  style={{ width: 182, flexShrink: 0, padding: '9px 11px', display: 'flex', alignItems: 'center', gap: 9 }}>
+                  <Cover src={t.cover_url} alt={sanitizeTitle(t.title)} size={38} radius={8} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(t.title)}</p>
+                    <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.artists?.name}</p>
                   </div>
-                )) : tracks.slice(0, 14).map(t => (
-                  <Link key={t.id} href={`/muzika/${t.slug}`} className="hp-card"
-                    style={{ width: 182, flexShrink: 0, padding: '9px 11px', display: 'flex', alignItems: 'center', gap: 9 }}>
-                    <Cover src={t.cover_url} alt={sanitizeTitle(t.title)} size={38} radius={8} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 700, color: "var(--text-primary)", margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(t.title)}</p>
-                      <p style={{ fontSize: 11, color: "var(--text-muted)", margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.artists?.name}</p>
-                    </div>
-                  </Link>
-                ))}
-              </div>
+                </Link>
+              ))}
             </div>
-            <div style={{ marginTop: 24 }}>
-              <SH label="Nauji albumai" href="/muzika?tab=albums" />
-              <div className="hp-scroll" style={{ display: 'flex', gap: 9, paddingBottom: 2 }}>
-                {albums.length === 0 ? Array(5).fill(null).map((_, i) => (
-                  <div key={i} style={{ width: 212, flexShrink: 0, padding: '10px 12px', borderRadius: 11, background: 'var(--bg-surface)', border: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <Skel w={46} h={46} r={9} /><div style={{ flex: 1 }}><Skel w="70%" h={10} /><div style={{ marginTop: 5 }}><Skel w="50%" h={9} /></div></div>
+          </section>
+
+          {/* ── ROW 2: Albumai ── */}
+          <section>
+            <SH label="Nauji albumai" href="/muzika?tab=albums" />
+            <div className="hp-scroll" style={{ display: 'flex', gap: 9, paddingBottom: 2 }}>
+              {albums.length === 0 ? Array(5).fill(null).map((_, i) => (
+                <div key={i} style={{ width: 212, flexShrink: 0, padding: '10px 12px', borderRadius: 11, background: 'var(--bg-surface)', border: '1px solid var(--border-default)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <Skel w={46} h={46} r={9} /><div style={{ flex: 1 }}><Skel w="70%" h={10} /><div style={{ marginTop: 5 }}><Skel w="50%" h={9} /></div></div>
+                </div>
+              )) : albums.slice(0, 10).map(a => (
+                <Link key={a.id} href={`/muzika/${a.slug}`} className="hp-card"
+                  style={{ width: 212, flexShrink: 0, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <Cover src={a.cover_image_url} alt={sanitizeTitle(a.title)} size={46} radius={9} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(a.title)}</p>
+                    <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.artists?.name}</p>
+                    {a.year && <p style={{ fontSize: 10, color: 'var(--text-faint)', margin: 0 }}>{a.year}</p>}
                   </div>
-                )) : albums.slice(0, 10).map(a => (
-                  <Link key={a.id} href={`/muzika/${a.slug}`} className="hp-card"
-                    style={{ width: 212, flexShrink: 0, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <Cover src={a.cover_image_url} alt={sanitizeTitle(a.title)} size={46} radius={9} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 700, color: "var(--text-primary)", margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(a.title)}</p>
-                      <p style={{ fontSize: 11, color: "var(--text-muted)", margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.artists?.name}</p>
-                      {a.year && <p style={{ fontSize: 10, color: "var(--text-faint)", margin: 0 }}>{a.year}</p>}
-                    </div>
-                  </Link>
-                ))}
-              </div>
+                </Link>
+              ))}
             </div>
           </section>
 
-          {/* ── Dienos daina + Shoutbox ── */}
-          <section>
-            <div className="hp-dds" style={{ display: 'grid', gridTemplateColumns: '392px 1fr', gap: 16, alignItems: 'start' }}>
-              <div><SH label="🎵 Dienos daina" href="/dienos-daina" /><DienosDainaWidget /></div>
-              <div><SH label="💬 Gyvi pokalbiai" href="/bendruomene" cta="Bendruomenė →" /><ShoutboxWidget /></div>
-            </div>
-          </section>
-
-          {/* ── Diskusijos ── */}
-          <section>
-            <SH label="Bendruomenė" href="/diskusijos" cta="Visos diskusijos →" />
-            <DiscussionsWidget />
-          </section>
-
-          {/* ── Renginiai + Naujienos ── */}
+          {/* ── ROW 3: Two-column — Renginiai + Naujienos ── */}
           <div className="hp-ne" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
             <section>
               <SH label="Renginiai" href="/renginiai" />
@@ -774,19 +760,19 @@ export default function Home() {
                 </div>
               )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                {filtEvt.length === 0 ? <div style={{ padding: '18px', textAlign: 'center', color: "var(--text-muted)", fontSize: 13, borderRadius: 11, border: '1px solid rgba(255,255,255,.05)' }}>Renginių nerasta</div>
+                {filtEvt.length === 0 ? <div style={{ padding: '18px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, borderRadius: 11, border: '1px solid var(--border-subtle)' }}>Renginių nerasta</div>
                   : filtEvt.slice(0, 5).map(ev => {
                     const d = new Date(ev.event_date)
                     return (
                       <Link key={ev.id} href={`/renginiai/${ev.slug}`} className="hp-card"
                         style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '10px 14px' }}>
                         <div style={{ textAlign: 'center', width: 36, flexShrink: 0 }}>
-                          <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 20, fontWeight: 900, color: '#f0f4fc', margin: 0, lineHeight: 1 }}>{d.getDate()}</p>
+                          <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 20, fontWeight: 900, color: 'var(--text-primary)', margin: 0, lineHeight: 1 }}>{d.getDate()}</p>
                           <p style={{ fontSize: 9, fontWeight: 800, color: '#f97316', margin: 0, textTransform: 'uppercase', letterSpacing: '.06em' }}>{MONTHS_LT[d.getMonth()]}</p>
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 700, color: '#d0ddf0', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(ev.title)}</p>
-                          <p style={{ fontSize: 11, color: "var(--text-muted)", margin: 0 }}>{ev.venues?.name || ev.venue_custom}{ev.venues?.city ? ` · ${ev.venues.city}` : ''}</p>
+                          <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(ev.title)}</p>
+                          <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0 }}>{ev.venues?.name || ev.venue_custom}{ev.venues?.city ? ` · ${ev.venues.city}` : ''}</p>
                         </div>
                         <span style={{ fontSize: 11, fontWeight: 800, color: '#f97316', flexShrink: 0, fontFamily: 'Outfit,sans-serif' }}>Bilietai →</span>
                       </Link>
@@ -798,7 +784,7 @@ export default function Home() {
               <SH label="Naujienos" href="/naujienos" />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                 {news.length === 0 ? Array(4).fill(null).map((_, i) => (
-                  <div key={i} style={{ display: 'flex', gap: 10, padding: '10px 14px', borderRadius: 11, background: 'var(--bg-surface)', border: `1px solid ${T.border}`, alignItems: 'center' }}>
+                  <div key={i} style={{ display: 'flex', gap: 10, padding: '10px 14px', borderRadius: 11, background: 'var(--bg-surface)', border: '1px solid var(--border-default)', alignItems: 'center' }}>
                     <Skel w={32} h={32} r={7} /><div style={{ flex: 1 }}><Skel w="86%" h={10} /><div style={{ marginTop: 5 }}><Skel w="46%" h={8} /></div></div>
                   </div>
                 )) : news.slice(0, 5).map(n => {
@@ -809,11 +795,11 @@ export default function Home() {
                       <div style={{ width: 34, height: 34, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}><Cover src={n.image_small_url} alt={sanitizeTitle(n.title)} size={34} radius={8} /></div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
-                          {n.type && <span style={{ fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 4, background: `hsl(${h},35%,10%)`, color: `hsl(${h},55%,58%)`, border: `1px solid hsl(${h},35%,16%)` }}>{n.type === 'news' ? 'Naujiena' : n.type === 'review' ? 'Recenzija' : n.type === 'interview' ? 'Interviu' : n.type}</span>}
-                          <span style={{ fontSize: 9, color: "var(--text-faint)" }}>{timeAgo(n.published_at)}</span>
+                          {n.type && <span style={{ fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 4, background: dk ? `hsl(${h},35%,10%)` : `hsl(${h},40%,92%)`, color: dk ? `hsl(${h},55%,58%)` : `hsl(${h},50%,35%)`, border: `1px solid ${dk ? `hsl(${h},35%,16%)` : `hsl(${h},35%,82%)`}` }}>{n.type === 'news' ? 'Naujiena' : n.type === 'review' ? 'Recenzija' : n.type === 'interview' ? 'Interviu' : n.type}</span>}
+                          <span style={{ fontSize: 9, color: 'var(--text-faint)' }}>{timeAgo(n.published_at)}</span>
                         </div>
-                        <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 600, color: '#b8ccde', margin: 0, lineHeight: 1.35, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' } as any}>{sanitizeTitle(n.title)}</p>
-                        {n.artist && <p style={{ fontSize: 10, color: "var(--text-muted)", margin: '3px 0 0' }}>{n.artist.name}</p>}
+                        <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', margin: 0, lineHeight: 1.35, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' } as any}>{sanitizeTitle(n.title)}</p>
+                        {n.artist && <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: '3px 0 0' }}>{n.artist.name}</p>}
                       </div>
                     </Link>
                   )
@@ -822,35 +808,49 @@ export default function Home() {
             </section>
           </div>
 
-          {/* ── Atlikėjai ── */}
+          {/* ── ROW 4: Two-column — Dienos daina + Gyvi pokalbiai ── */}
           <section>
-            <SH label="Atrask atlikėjus" href="/atlikejai" />
-            <div className="hp-ag" style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 18 }}>
-              {artists.length === 0 ? Array(12).fill(null).map((_, i) => (
-                <div key={i} style={{ textAlign: 'center' }}>
-                  <div style={{ width: 66, height: 66, borderRadius: 33, margin: '0 auto' }}><Skel w={66} h={66} r={33} /></div>
-                  <div style={{ margin: '8px auto 0', maxWidth: 66 }}><Skel w="100%" h={9} /></div>
-                </div>
-              )) : artists.slice(0, 12).map(a => (
-                <Link key={a.id} href={`/atlikejai/${a.slug}`} className="hp-art"
-                  style={{ textAlign: 'center', textDecoration: 'none', display: 'block' }}>
-                  <div className="hp-art-img" style={{ width: 66, height: 66, borderRadius: '50%', margin: '0 auto 8px', overflow: 'hidden', transition: 'transform .3s', boxShadow: `0 5px 18px hsla(${strHue(a.name)},35%,5%,.9)` }}>
-                    <Cover src={a.cover_image_url} alt={a.name} size={66} radius={33} />
-                  </div>
-                  <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 11, fontWeight: 700, color: '#b0c4d8', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</p>
-                </Link>
-              ))}
+            <div className="hp-dds" style={{ display: 'grid', gridTemplateColumns: '392px 1fr', gap: 16, alignItems: 'start' }}>
+              <div><SH label="🎵 Dienos daina" href="/dienos-daina" /><DienosDainaWidget /></div>
+              <div><SH label="💬 Gyvi pokalbiai" href="/bendruomene" cta="Bendruomenė →" /><ShoutboxWidget /></div>
             </div>
           </section>
 
-          {/* ── CTA Atlikėjams ── */}
+          {/* ── ROW 5: Two-column — Diskusijos + Atlikėjai ── */}
+          <div className="hp-ne" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+            <section>
+              <SH label="Bendruomenė" href="/diskusijos" cta="Visos diskusijos →" />
+              <DiscussionsWidget />
+            </section>
+            <section>
+              <SH label="Atrask atlikėjus" href="/atlikejai" />
+              <div className="hp-ag" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14 }}>
+                {artists.length === 0 ? Array(8).fill(null).map((_, i) => (
+                  <div key={i} style={{ textAlign: 'center' }}>
+                    <div style={{ width: 56, height: 56, borderRadius: 28, margin: '0 auto' }}><Skel w={56} h={56} r={28} /></div>
+                    <div style={{ margin: '8px auto 0', maxWidth: 56 }}><Skel w="100%" h={9} /></div>
+                  </div>
+                )) : artists.slice(0, 8).map(a => (
+                  <Link key={a.id} href={`/atlikejai/${a.slug}`} className="hp-art"
+                    style={{ textAlign: 'center', textDecoration: 'none', display: 'block' }}>
+                    <div className="hp-art-img" style={{ width: 56, height: 56, borderRadius: '50%', margin: '0 auto 8px', overflow: 'hidden', transition: 'transform .3s', boxShadow: `0 5px 18px ${dk ? `hsla(${strHue(a.name)},35%,5%,.9)` : `hsla(${strHue(a.name)},25%,40%,.15)`}` }}>
+                      <Cover src={a.cover_image_url} alt={a.name} size={56} radius={28} />
+                    </div>
+                    <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</p>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          </div>
+
+          {/* ── ROW 6: CTA Atlikėjams ── */}
           <section>
-            <div className="hp-cta" style={{ padding: '32px 40px', borderRadius: 18, background: 'linear-gradient(135deg,rgba(29,78,216,.09) 0%,rgba(255,255,255,.015) 100%)', border: '1px solid rgba(29,78,216,.15)', display: 'flex', alignItems: 'center', gap: 22, position: 'relative', overflow: 'hidden' }}>
+            <div className="hp-cta" style={{ padding: '32px 40px', borderRadius: 18, background: dk ? 'linear-gradient(135deg,rgba(29,78,216,.09) 0%,rgba(255,255,255,.015) 100%)' : 'linear-gradient(135deg,rgba(29,78,216,.06) 0%,rgba(255,255,255,.5) 100%)', border: `1px solid ${dk ? 'rgba(29,78,216,.15)' : 'rgba(29,78,216,.12)'}`, display: 'flex', alignItems: 'center', gap: 22, position: 'relative', overflow: 'hidden' }}>
               <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 0% 50%,rgba(29,78,216,.06) 0%,transparent 55%)', pointerEvents: 'none' }} />
-              <div style={{ width: 52, height: 52, borderRadius: 14, flexShrink: 0, background: 'rgba(29,78,216,.15)', border: '1px solid rgba(29,78,216,.22)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>🎤</div>
+              <div style={{ width: 52, height: 52, borderRadius: 14, flexShrink: 0, background: dk ? 'rgba(29,78,216,.15)' : 'rgba(29,78,216,.1)', border: `1px solid ${dk ? 'rgba(29,78,216,.22)' : 'rgba(29,78,216,.15)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>🎤</div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <h3 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 19, fontWeight: 900, color: "var(--text-primary)", margin: '0 0 4px' }}>Atlikėjams</h3>
-                <p style={{ fontSize: 13, color: "var(--text-muted)", margin: 0, lineHeight: 1.55, maxWidth: 480 }}>Sukurk arba perimk savo profilį Music.lt platformoje. Skelk naujienas, renginius ir naują muziką tiesiai savo gerbėjams — nemokamai.</p>
+                <h3 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 19, fontWeight: 900, color: 'var(--text-primary)', margin: '0 0 4px' }}>Atlikėjams</h3>
+                <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.55, maxWidth: 480 }}>Sukurk arba perimk savo profilį Music.lt platformoje. Skelk naujienas, renginius ir naują muziką tiesiai savo gerbėjams — nemokamai.</p>
               </div>
               <Link href="/atlikejai" className="hp-ctabtn"
                 style={{ flexShrink: 0, background: '#f97316', color: '#fff', fontWeight: 800, fontSize: 13, padding: '10px 24px', borderRadius: 20, textDecoration: 'none', boxShadow: '0 4px 16px rgba(249,115,22,.3)', whiteSpace: 'nowrap', fontFamily: 'Outfit,sans-serif', display: 'inline-flex', alignItems: 'center', transition: 'transform .15s, box-shadow .15s' }}
