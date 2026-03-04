@@ -409,7 +409,7 @@ export default function Home() {
         .hp-hero-bg img{width:100%;height:100%;object-fit:cover;object-position:center 25%;animation:hp-img-in .8s ease both}
         .hp-hero-grad{position:absolute;top:0;bottom:0;left:0;right:340px;z-index:1}
         .hp-hero-content{position:relative;z-index:2;display:flex;align-items:stretch;max-width:1360px;margin:0 auto;padding:0 20px;width:100%;flex:1}
-        .hp-hero-left{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:48px 0 44px;min-width:0}
+        .hp-hero-left{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:36px 0 40px;min-width:0}
         .hp-hero-right{width:332px;flex-shrink:0;padding:24px 0 24px 20px;display:flex;flex-direction:column;border-left:1px solid rgba(255,255,255,.08);background:#080d14;position:relative;z-index:3}
 
         @media(max-width:960px){
@@ -421,8 +421,7 @@ export default function Home() {
           .hp-hero-right{width:100%!important;padding:18px 0 24px!important;border-left:none;border-top:1px solid rgba(255,255,255,.08);background:transparent!important}
           .hp-hero-title{font-size:28px!important}
           .hp-hero-excerpt{font-size:13px!important}
-          .hp-hero-video{max-width:100%!important}
-          .hp-hero-vidcard{width:100%!important}
+          .hp-hero-video{position:relative!important;top:auto!important;right:auto!important;transform:none!important;width:100%!important;margin-top:14px!important}
         }
         @media(max-width:600px){
           .hp-hero{min-height:320px}
@@ -480,7 +479,7 @@ export default function Home() {
               <div className="hp-hero-left">
                 <div key={heroIdx} style={{ animation: 'hp-in .5s ease both' }}>
                   {/* Chip + Artist */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
                     <span style={{ padding: '4px 14px', borderRadius: 20, fontSize: 10, fontWeight: 900, color: '#fff', background: hero.chipBg, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                       {hero.chip}
                     </span>
@@ -520,73 +519,72 @@ export default function Home() {
                     {hero.title}
                   </Link>
 
-                  {/* Excerpt + Video card in a row */}
-                  <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', maxWidth: 580 }}>
-                    {hero.subtitle && (
-                      <p className="hp-hero-excerpt" style={{
-                        fontSize: 14, color: 'rgba(210,225,245,0.65)', margin: 0,
-                        lineHeight: 1.55, flex: 1, minWidth: 0,
-                      }}>
-                        {hero.subtitle}
-                      </p>
-                    )}
+                  {/* Excerpt */}
+                  {hero.subtitle && (
+                    <p className="hp-hero-excerpt" style={{
+                      fontSize: 14, color: 'rgba(210,225,245,0.65)', margin: '0 0 14px',
+                      lineHeight: 1.55, maxWidth: 480,
+                    }}>
+                      {hero.subtitle}
+                    </p>
+                  )}
 
-                    {/* Video thumbnail card — inline, compact */}
-                    {hero.videoId && !heroVideoPlaying && (
-                      <button className="hp-hero-vidcard" onClick={() => setHeroVideoPlaying(true)} style={{
-                        flexShrink: 0, display: 'flex', alignItems: 'center', gap: 0, padding: 0,
-                        background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(16px)',
-                        border: '1px solid rgba(255,255,255,0.14)', borderRadius: 12,
-                        cursor: 'pointer', overflow: 'hidden', transition: 'all .2s',
-                        width: 200,
-                      }}
-                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,.3)'; e.currentTarget.style.background = 'rgba(0,0,0,0.65)'; e.currentTarget.style.transform = 'translateY(-1px)' }}
-                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,.14)'; e.currentTarget.style.background = 'rgba(0,0,0,0.45)'; e.currentTarget.style.transform = 'none' }}>
-                        <div style={{ width: 52, height: 52, flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
-                          <img src={`https://img.youtube.com/vi/${hero.videoId}/mqdefault.jpg`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.25)' }}>
-                            <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(255,255,255,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              <svg width="10" height="10" viewBox="0 0 24 24" fill="#111"><path d="M8 5v14l11-7z"/></svg>
-                            </div>
+                  {/* Video thumbnail card — below text */}
+                  {hero.videoId && !heroVideoPlaying && (
+                    <button className="hp-hero-vidcard" onClick={() => setHeroVideoPlaying(true)} style={{
+                      display: 'flex', alignItems: 'center', gap: 0, padding: 0,
+                      background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(16px)',
+                      border: '1px solid rgba(255,255,255,0.14)', borderRadius: 12,
+                      cursor: 'pointer', overflow: 'hidden', transition: 'all .2s',
+                      width: 220,
+                    }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,.3)'; e.currentTarget.style.background = 'rgba(0,0,0,0.65)'; e.currentTarget.style.transform = 'translateY(-1px)' }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,.14)'; e.currentTarget.style.background = 'rgba(0,0,0,0.45)'; e.currentTarget.style.transform = 'none' }}>
+                      <div style={{ width: 48, height: 48, flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
+                        <img src={`https://img.youtube.com/vi/${hero.videoId}/mqdefault.jpg`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.25)' }}>
+                          <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(255,255,255,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <svg width="9" height="9" viewBox="0 0 24 24" fill="#111"><path d="M8 5v14l11-7z"/></svg>
                           </div>
                         </div>
-                        <div style={{ flex: 1, minWidth: 0, padding: '6px 10px', textAlign: 'left' }}>
-                          <p style={{ fontSize: 8, fontWeight: 800, color: 'rgba(255,255,255,0.35)', margin: '0 0 2px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Muzika</p>
-                          <p style={{ fontSize: 11, fontWeight: 700, color: '#fff', margin: '0 0 1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hero.songTitle || 'Klausyti'}</p>
-                          {hero.songArtist && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hero.songArtist}</p>}
-                        </div>
-                      </button>
-                    )}
-                  </div>
-
-                  {/* YouTube embed (replaces card when playing) */}
-                  {hero.videoId && heroVideoPlaying && (
-                    <div className="hp-hero-video" style={{
-                      marginTop: 14, borderRadius: 12, overflow: 'hidden',
-                      maxWidth: 400, aspectRatio: '16/9', background: '#000',
-                      boxShadow: '0 8px 32px rgba(0,0,0,0.6)', position: 'relative',
-                      animation: 'hp-in .3s ease both',
-                    }}>
-                      <iframe
-                        src={`https://www.youtube.com/embed/${hero.videoId}?autoplay=1&rel=0`}
-                        style={{ width: '100%', height: '100%', border: 'none' }}
-                        allow="autoplay; encrypted-media"
-                        allowFullScreen
-                      />
-                      <button onClick={() => setHeroVideoPlaying(false)} style={{
-                        position: 'absolute', top: 8, right: 8, width: 28, height: 28, borderRadius: '50%',
-                        background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.2)',
-                        color: '#fff', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        transition: 'background .15s'
-                      }}
-                        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.8)')}
-                        onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.6)')}>
-                        ✕
-                      </button>
-                    </div>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0, padding: '5px 10px', textAlign: 'left' }}>
+                        <p style={{ fontSize: 11, fontWeight: 700, color: '#fff', margin: '0 0 1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hero.songTitle || 'Klausyti'}</p>
+                        {hero.songArtist && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hero.songArtist}</p>}
+                      </div>
+                    </button>
                   )}
                 </div>
               </div>
+
+              {/* YouTube iframe — absolute overlay on image, doesn't push content */}
+              {hero.videoId && heroVideoPlaying && (
+                <div className="hp-hero-video" style={{
+                  position: 'absolute', top: '50%', transform: 'translateY(-50%)',
+                  right: 370, zIndex: 4,
+                  width: 420, aspectRatio: '16/9',
+                  borderRadius: 14, overflow: 'hidden', background: '#000',
+                  boxShadow: '0 16px 64px rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.12)',
+                  animation: 'hp-in .3s ease both',
+                }}>
+                  <iframe
+                    src={`https://www.youtube.com/embed/${hero.videoId}?autoplay=1&rel=0`}
+                    style={{ width: '100%', height: '100%', border: 'none' }}
+                    allow="autoplay; encrypted-media"
+                    allowFullScreen
+                  />
+                  <button onClick={() => setHeroVideoPlaying(false)} style={{
+                    position: 'absolute', top: 8, right: 8, width: 30, height: 30, borderRadius: '50%',
+                    background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.25)',
+                    color: '#fff', fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    transition: 'background .15s', fontWeight: 600,
+                  }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.9)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.7)')}>
+                    ✕
+                  </button>
+                </div>
+              )}
 
               {/* ── Right: Chart ── */}
               <div className="hp-hero-right">
