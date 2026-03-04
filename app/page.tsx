@@ -331,19 +331,21 @@ export default function Home() {
         .hp-disc-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 
         /* ── Hero cinematic ── */
-        .hp-hero{position:relative;overflow:hidden;min-height:420px;display:flex}
-        .hp-hero-bg{position:absolute;inset:0;z-index:0}
+        .hp-hero{position:relative;overflow:hidden;min-height:420px;display:flex;background:#080d14}
+        .hp-hero-bg{position:absolute;top:0;bottom:0;left:0;right:340px;z-index:0;overflow:hidden}
         .hp-hero-bg img{width:100%;height:100%;object-fit:cover;object-position:center 25%;animation:hp-img-in .8s ease both}
-        .hp-hero-grad{position:absolute;inset:0;z-index:1}
+        .hp-hero-grad{position:absolute;top:0;bottom:0;left:0;right:340px;z-index:1}
         .hp-hero-content{position:relative;z-index:2;display:flex;align-items:stretch;max-width:1360px;margin:0 auto;padding:0 20px;width:100%;flex:1}
         .hp-hero-left{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:48px 0 44px;min-width:0}
-        .hp-hero-right{width:332px;flex-shrink:0;padding:24px 0 24px 20px;display:flex;flex-direction:column;border-left:1px solid rgba(255,255,255,.08)}
+        .hp-hero-right{width:332px;flex-shrink:0;padding:24px 0 24px 20px;display:flex;flex-direction:column;border-left:1px solid rgba(255,255,255,.08);background:#080d14;position:relative;z-index:3}
 
         @media(max-width:960px){
           .hp-hero{min-height:360px}
+          .hp-hero-bg{right:0!important}
+          .hp-hero-grad{right:0!important}
           .hp-hero-content{flex-direction:column}
           .hp-hero-left{padding:32px 0 28px}
-          .hp-hero-right{width:100%!important;padding:18px 0 24px!important;border-left:none;border-top:1px solid rgba(255,255,255,.08)}
+          .hp-hero-right{width:100%!important;padding:18px 0 24px!important;border-left:none;border-top:1px solid rgba(255,255,255,.08);background:transparent!important}
           .hp-hero-title{font-size:28px!important}
           .hp-hero-excerpt{font-size:13px!important;-webkit-line-clamp:2!important}
           .hp-hero-nav{display:none!important}
