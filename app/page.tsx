@@ -250,6 +250,7 @@ export default function Home() {
   const [heroIdx, setHeroIdx] = useState(0)
   const [heroImgLoaded, setHeroImgLoaded] = useState(false)
   const [heroVideoPlaying, setHeroVideoPlaying] = useState(false)
+  const [newsSongs, setNewsSongs] = useState<Record<number, { youtube_url: string; title: string | null; artist_name: string | null }[]>>({})
   const timerRef = useRef<any>(null)
   const heroRef = useRef<HTMLElement>(null)
 
@@ -269,14 +270,25 @@ export default function Home() {
     fetch('/api/news?limit=6').then(r => r.json()).then(d => setNews(d.news || [])).catch(() => {})
   }, [])
 
+  // Fetch songs for hero news items
+  useEffect(() => {
+    if (!news.length) return
+    const ids = news.slice(0, 3).map(n => n.id).join(',')
+    fetch(`/api/news/songs?ids=${ids}`)
+      .then(r => r.json())
+      .then(d => setNewsSongs(d.songs || {}))
+      .catch(() => {})
+  }, [news])
+
   /* ── Hero slides from real data ── */
   useEffect(() => {
     const slides: HeroSlide[] = []
 
     news.slice(0, 3).forEach(n => {
       const typeLT = n.type === 'review' ? 'Recenzija' : n.type === 'interview' ? 'Interviu' : n.type === 'report' ? 'Reportažas' : 'Naujiena'
-      // Find first youtube video from associated songs
-      const song = n.songs?.find(s => s.youtube_url)
+      // Get songs from separate fetch
+      const songs = newsSongs[n.id] || []
+      const song = songs.find(s => s.youtube_url)
       slides.push({
         type: 'news', chip: typeLT.toUpperCase(), chipBg: '#1d4ed8',
         title: sanitizeTitle(n.title),
@@ -286,7 +298,7 @@ export default function Home() {
         videoId: extractYouTubeId(song?.youtube_url),
         songTitle: song?.title || null,
         songArtist: song?.artist_name || n.artist?.name || null,
-        songCover: song?.cover_url || null,
+        songCover: null,
         artist: n.artist ? { name: n.artist.name, slug: n.artist.slug, image: n.artist.cover_image_url || null } : null,
       })
     })
@@ -316,7 +328,7 @@ export default function Home() {
 
     setHeroSlides(slides)
     setHeroIdx(0)
-  }, [news, events])
+  }, [news, events, newsSongs])
 
   useEffect(() => {
     if (!heroSlides.length || heroVideoPlaying) return
