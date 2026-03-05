@@ -265,11 +265,11 @@ export default function Home() {
     accent:     '#f97316',
     accentBlue: '#1d4ed8',
     heroBg:     dk ? '#080d14' : '#e8edf6',
-    heroText:   dk ? 'rgba(210,225,245,0.65)' : 'rgba(15,26,46,0.65)',
+    heroText:   dk ? 'rgba(210,225,245,0.65)' : 'rgba(15,26,46,0.6)',
     heroOverlay:dk
       ? 'linear-gradient(to right, rgba(8,13,20,0.92) 0%, rgba(8,13,20,0.72) 40%, rgba(8,13,20,0.3) 70%, rgba(8,13,20,0.15) 100%), linear-gradient(to top, rgba(8,13,20,1) 0%, rgba(8,13,20,0.4) 35%, transparent 65%), linear-gradient(to bottom, rgba(8,13,20,0.6) 0%, transparent 18%)'
-      : 'linear-gradient(to right, rgba(232,237,246,0.95) 0%, rgba(232,237,246,0.8) 40%, rgba(232,237,246,0.4) 70%, rgba(232,237,246,0.15) 100%), linear-gradient(to top, rgba(240,244,250,1) 0%, rgba(240,244,250,0.4) 35%, transparent 65%), linear-gradient(to bottom, rgba(240,244,250,0.6) 0%, transparent 18%)',
-    heroGrad:   dk ? 'linear-gradient(135deg,#08101e 0%,#0f1830 55%,#08101e 100%)' : 'linear-gradient(135deg,#dde5f0 0%,#e8eef8 55%,#dde5f0 100%)',
+      : 'linear-gradient(to right, rgba(255,255,255,0.97) 0%, rgba(255,255,255,0.85) 38%, rgba(255,255,255,0.4) 65%, transparent 100%), linear-gradient(to top, rgba(240,244,250,1) 0%, rgba(240,244,250,0.3) 40%, transparent 70%)',
+    heroGrad:   dk ? 'linear-gradient(135deg,#08101e 0%,#0f1830 55%,#08101e 100%)' : '#f0f4fa',
     heroTitleC: dk ? '#fff' : '#0f1a2e',
     chartBg:    dk ? '#080d14' : '#f0f4fa',
     chartBdr:   dk ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
