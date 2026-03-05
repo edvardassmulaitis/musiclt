@@ -309,6 +309,8 @@ export default function Home() {
   const [albumTab, setAlbumTab] = useState<'lt' | 'world'>('lt')
   const [reelsOpen, setReelsOpen] = useState(false)
   const [reelsVideoIdx, setReelsVideoIdx] = useState<number | null>(null)
+  const [reelsIdx, setReelsIdx] = useState(0)
+  const reelsScrollRef = useRef<HTMLDivElement>(null)
   const [ltTop, setLtTop] = useState<TopEntry[]>([])
   const [worldTop, setWorldTop] = useState<TopEntry[]>([])
   const [tracks, setTracks] = useState<Track[]>([])
@@ -753,24 +755,19 @@ export default function Home() {
           </section>
         )}
 
-        {/* Mobile "Explore" button */}
+        {/* Mobile feed button */}
         {heroSlides.length > 0 && (
           <div className="hp-reels-btn" style={{ justifyContent: 'center', padding: '16px 20px 0' }}>
-            <button onClick={() => setReelsOpen(true)} style={{
-              width: 56, height: 56, borderRadius: '50%', margin: '0 auto',
+            <button onClick={() => { setReelsOpen(true); setReelsIdx(0); setReelsVideoIdx(null) }} style={{
+              width: 52, height: 52, borderRadius: '50%', margin: '0 auto',
               background: '#f97316', border: 'none',
               color: '#fff', cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               boxShadow: '0 4px 20px rgba(249,115,22,.4)',
-              transition: 'transform .15s, box-shadow .15s',
-            }}
-              onTouchStart={e => { e.currentTarget.style.transform = 'scale(0.95)' }}
-              onTouchEnd={e => { e.currentTarget.style.transform = 'scale(1)' }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="2" y="2" width="20" height="20" rx="3"/><line x1="8" y1="2" x2="8" y2="22"/><line x1="16" y1="2" x2="16" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/>
-              </svg>
+              transition: 'transform .15s',
+            }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff" style={{ marginLeft: 2 }}><path d="M8 5v14l11-7z"/></svg>
             </button>
-            <p style={{ textAlign: 'center', marginTop: 6, fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'Outfit,sans-serif' }}>Naršyti</p>
           </div>
         )}
 
@@ -839,15 +836,18 @@ export default function Home() {
             {/* Slide counter */}
             <div style={{
               position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 310,
-              padding: '4px 12px', borderRadius: 20, background: 'rgba(0,0,0,0.4)',
-              backdropFilter: 'blur(8px)', color: '#fff', fontSize: 11, fontWeight: 700,
-              fontFamily: 'Outfit,sans-serif',
+              padding: '5px 14px', borderRadius: 20, background: 'rgba(0,0,0,0.4)',
+              backdropFilter: 'blur(8px)', color: '#fff', fontSize: 12, fontWeight: 700,
+              fontFamily: 'Outfit,sans-serif', minWidth: 44, textAlign: 'center',
             }}>
-              Naujienos
+              {reelsIdx + 1} / {heroSlides.length}
             </div>
 
             {/* Vertical snap scroll */}
-            <div className="hp-reels-scroll">
+            <div className="hp-reels-scroll" ref={reelsScrollRef} onScroll={() => {
+              const el = reelsScrollRef.current
+              if (el) { const idx = Math.round(el.scrollTop / el.clientHeight); setReelsIdx(idx); if (idx !== reelsVideoIdx) setReelsVideoIdx(null) }
+            }}>
               {heroSlides.map((slide, i) => (
                 <div key={i} className="hp-reels-slide">
                   {/* Top: Image */}
@@ -892,23 +892,24 @@ export default function Home() {
                         </div>
                       ) : (
                         <button onClick={() => setReelsVideoIdx(i)} style={{
-                          display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px 8px 8px',
+                          display: 'flex', alignItems: 'center', gap: 10, padding: '8px',
                           background: 'rgba(255,255,255,0.08)', borderRadius: 12,
                           border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', width: '100%',
                         }}>
-                          <div style={{ width: 42, height: 42, borderRadius: 10, overflow: 'hidden', position: 'relative', flexShrink: 0 }}>
+                          <div style={{ width: 44, height: 44, borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
                             <img src={`https://img.youtube.com/vi/${slide.videoId}/mqdefault.jpg`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.3)' }}>
-                              <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(255,255,255,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <svg width="9" height="9" viewBox="0 0 24 24" fill="#111"><path d="M8 5v14l11-7z"/></svg>
-                              </div>
-                            </div>
                           </div>
                           <div style={{ textAlign: 'left', flex: 1, minWidth: 0 }}>
                             <p style={{ fontSize: 13, fontWeight: 700, color: '#fff', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{slide.songTitle || 'Klausyti'}</p>
                             {slide.songArtist && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', margin: '2px 0 0' }}>{slide.songArtist}</p>}
                           </div>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="#fff" style={{ flexShrink: 0, opacity: 0.5 }}><path d="M8 5v14l11-7z"/></svg>
+                          <div style={{
+                            width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+                            background: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            boxShadow: '0 2px 10px rgba(249,115,22,.4)',
+                          }}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="#fff" style={{ marginLeft: 2 }}><path d="M8 5v14l11-7z"/></svg>
+                          </div>
                         </button>
                       )
                     )}
