@@ -267,8 +267,8 @@ export default function Home() {
     heroBg:     dk ? '#080d14' : '#f0f4fa',
     heroText:   dk ? 'rgba(210,225,245,0.65)' : 'rgba(15,26,46,0.6)',
     heroOverlay:dk
-      ? 'linear-gradient(to right, rgba(8,13,20,1) 0%, rgba(8,13,20,0.5) 30%, transparent 60%), linear-gradient(to top, rgba(8,13,20,0.8) 0%, rgba(8,13,20,0.2) 30%, transparent 55%)'
-      : 'linear-gradient(to right, rgba(240,244,250,1) 0%, rgba(240,244,250,0.5) 30%, transparent 60%), linear-gradient(to top, rgba(240,244,250,0.8) 0%, rgba(240,244,250,0.2) 30%, transparent 55%)',
+      ? 'linear-gradient(to right, rgba(8,13,20,1) 0%, rgba(8,13,20,0.4) 25%, transparent 50%), linear-gradient(to top, rgba(8,13,20,0.7) 0%, transparent 40%)'
+      : 'linear-gradient(to right, rgba(240,244,250,1) 0%, rgba(240,244,250,0.4) 25%, transparent 50%), linear-gradient(to top, rgba(240,244,250,0.7) 0%, transparent 40%)',
     heroGrad:   dk ? 'linear-gradient(135deg,#08101e 0%,#0f1830 55%,#08101e 100%)' : '#f0f4fa',
     heroTitleC: dk ? '#fff' : '#0f1a2e',
     chartBg:    dk ? '#080d14' : '#f0f4fa',
