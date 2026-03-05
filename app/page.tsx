@@ -345,13 +345,12 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, dk }: {
     setDragOffset(0)
 
     if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
-      // Horizontal swipe
-      if (dx < 0) goTo(idx + 1) // swipe left → next
-      else goTo(idx - 1)         // swipe right → prev
-    } else if (dy < -80 && Math.abs(dy) > Math.abs(dx)) {
-      // Swipe up → open article
+      // Horizontal swipe → navigate slides
+      if (dx < 0) goTo(idx + 1)
+      else goTo(idx - 1)
+    } else if (dy > 80 && Math.abs(dy) > Math.abs(dx)) {
+      // Swipe DOWN → close feed
       onClose()
-      window.location.href = slide.href
     } else {
       // No significant swipe — resume progress
       startProgress()
@@ -451,18 +450,33 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, dk }: {
               {/* Video popup — on top of image */}
               {s.videoId && videoOpen && i === idx && (
                 <div className="hp-reels-video-popup" onClick={e => e.stopPropagation()}>
+                  {/* Close bar — always visible at top */}
+                  <div style={{
+                    flexShrink: 0, height: 52, display: 'flex', alignItems: 'center',
+                    justifyContent: 'space-between', padding: '0 16px',
+                    borderBottom: '1px solid rgba(255,255,255,0.08)',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
+                        <img src={`https://img.youtube.com/vi/${s.videoId}/mqdefault.jpg`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      </div>
+                      <div>
+                        <p style={{ fontSize: 12, fontWeight: 700, color: '#fff', margin: 0, lineHeight: 1.2 }}>{s.songTitle || 'Video'}</p>
+                        {s.songArtist && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', margin: 0 }}>{s.songArtist}</p>}
+                      </div>
+                    </div>
+                    <button onClick={(e) => { e.stopPropagation(); setVideoOpen(false) }} style={{
+                      width: 32, height: 32, borderRadius: '50%',
+                      background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.15)',
+                      color: '#fff', fontSize: 14, cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                    }}>✕</button>
+                  </div>
                   <iframe
                     src={`https://www.youtube.com/embed/${s.videoId}?autoplay=1&rel=0&playsinline=1`}
                     allow="autoplay; encrypted-media"
                     allowFullScreen
                   />
-                  <button onClick={(e) => { e.stopPropagation(); setVideoOpen(false) }} style={{
-                    position: 'absolute', top: 24, right: 24,
-                    width: 30, height: 30, borderRadius: '50%',
-                    background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.2)',
-                    color: '#fff', fontSize: 13, cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>✕</button>
                 </div>
               )}
             </div>
@@ -619,13 +633,13 @@ export default function Home() {
     fetch('/api/tracks?limit=16').then(r => r.json()).then(d => setTracks(d.tracks || [])).catch(() => {})
     fetch('/api/albums?limit=10').then(r => r.json()).then(d => setAlbums(d.albums || [])).catch(() => {})
     fetch('/api/artists?limit=12').then(r => r.json()).then(d => setArtists(d.artists || [])).catch(() => {})
-    fetch('/api/events?limit=6').then(r => r.json()).then(d => setEvents(d.events || [])).catch(() => {})
-    fetch('/api/news?limit=6').then(r => r.json()).then(d => setNews(d.news || [])).catch(() => {})
+    fetch('/api/events?limit=12').then(r => r.json()).then(d => setEvents(d.events || [])).catch(() => {})
+    fetch('/api/news?limit=10').then(r => r.json()).then(d => setNews(d.news || [])).catch(() => {})
   }, [])
 
   useEffect(() => {
     if (!news.length) return
-    const heroNews = news.slice(0, 3)
+    const heroNews = news.slice(0, 8)
     Promise.all(
       heroNews.map(n =>
         fetch(`/api/news/${n.id}/songs`)
@@ -643,7 +657,7 @@ export default function Home() {
   /* ── Hero slides ── */
   useEffect(() => {
     const slides: HeroSlide[] = []
-    news.slice(0, 3).forEach(n => {
+    news.slice(0, 8).forEach(n => {
       const typeLT = n.type === 'review' ? 'Recenzija' : n.type === 'interview' ? 'Interviu' : n.type === 'report' ? 'Reportažas' : 'Naujiena'
       const songs = newsSongs[n.id] || []
       const song = songs.find((s: any) => s.youtube_url)
@@ -660,7 +674,7 @@ export default function Home() {
         artist: n.artist ? { name: n.artist.name, slug: n.artist.slug, image: n.artist.cover_image_url || null } : null,
       })
     })
-    events.slice(0, 1).forEach(ev => {
+    events.slice(0, 3).forEach(ev => {
       const d = ev.event_date ? new Date(ev.event_date) : null
       const dateStr = d && !isNaN(d.getTime()) ? `${d.getDate()} ${MONTHS_LT[d.getMonth()]}. · ` : ''
       const venue = ev.venues?.name || ev.venue_custom || ''
@@ -759,8 +773,8 @@ export default function Home() {
         .hp-reels-img{flex:0 0 55%;position:relative;overflow:hidden}
         .hp-reels-img img{width:100%;height:100%;object-fit:cover}
         .hp-reels-img::after{content:'';position:absolute;bottom:0;left:0;right:0;height:40%;background:linear-gradient(to top,#000,transparent)}
-        .hp-reels-video-popup{position:absolute;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,0.85);animation:hp-in .2s ease both}
-        .hp-reels-video-popup iframe{width:100%;height:100%;border:none;border-radius:10px}
+        .hp-reels-video-popup{position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;background:rgba(0,0,0,0.92);animation:hp-in .2s ease both}
+        .hp-reels-video-popup iframe{width:100%;flex:1;border:none}
 
         .hp-reels-info{flex:1;padding:0 20px 28px;display:flex;flex-direction:column;justify-content:flex-start;position:relative;margin-top:-32px;z-index:1}
 
@@ -983,68 +997,61 @@ export default function Home() {
 
         {/* ═══════════════════════ FIX #3: THUMBNAIL STRIP (mobile) ═══════════════════════ */}
         {heroSlides.length > 0 && (
-          <div className="hp-feed-strip" style={{ padding: '14px 16px 0', gap: 8, alignItems: 'stretch' }}>
-            {heroSlides.map((slide, i) => {
-              const isSeen = seenSlides.has(slide.href)
-              return (
-                <button
-                  key={i}
-                  onClick={() => {
-                    setReelsIdx(i)
-                    setReelsOpen(true)
-                  }}
-                  style={{
-                    flex: 1, position: 'relative', borderRadius: 12, overflow: 'hidden',
-                    border: isSeen
-                      ? `2px solid ${dk ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)'}`
-                      : '2px solid #f97316',
-                    background: '#000', cursor: 'pointer', padding: 0,
-                    aspectRatio: '9/14', maxHeight: 120,
-                    boxShadow: isSeen ? 'none' : '0 0 0 1px rgba(249,115,22,0.3)',
-                    transition: 'opacity .15s',
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
-                  onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
-                >
-                  {/* Thumbnail image */}
-                  {slide.bgImg ? (
-                    <img src={slide.bgImg} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                  ) : (
-                    <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#0a1428,#162040)' }} />
-                  )}
-                  {/* Dark overlay */}
-                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.1) 60%)' }} />
-                  {/* Play icon */}
-                  <div style={{
-                    position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-                    width: 28, height: 28, borderRadius: '50%',
-                    background: isSeen ? 'rgba(255,255,255,0.25)' : 'rgba(249,115,22,0.9)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    backdropFilter: 'blur(4px)',
-                  }}>
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="#fff" style={{ marginLeft: 1 }}><path d="M8 5v14l11-7z"/></svg>
-                  </div>
-                  {/* Chip label */}
-                  <div style={{ position: 'absolute', bottom: 6, left: 6, right: 6 }}>
-                    <span style={{
-                      fontSize: 8, fontWeight: 800, color: '#fff',
-                      background: slide.chipBg, padding: '2px 6px', borderRadius: 4,
-                      fontFamily: 'Outfit,sans-serif', letterSpacing: '0.06em',
-                      textTransform: 'uppercase', display: 'inline-block',
-                    }}>{slide.chip}</span>
-                  </div>
-                  {/* "New" dot */}
-                  {!isSeen && (
+          <div className="hp-feed-strip" style={{ padding: '14px 16px 0', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 7, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 2 }}>
+              {heroSlides.map((slide, i) => {
+                const isSeen = seenSlides.has(slide.href)
+                return (
+                  <button
+                    key={i}
+                    onClick={() => { setReelsIdx(i); setReelsOpen(true) }}
+                    style={{
+                      flexShrink: 0, position: 'relative', borderRadius: 12, overflow: 'hidden',
+                      border: isSeen
+                        ? `2px solid ${dk ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)'}`
+                        : '2px solid #f97316',
+                      background: '#000', cursor: 'pointer', padding: 0,
+                      width: 72, height: 108,
+                      boxShadow: isSeen ? 'none' : '0 0 0 1px rgba(249,115,22,0.3)',
+                      transition: 'opacity .15s',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
+                    onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                  >
+                    {slide.bgImg
+                      ? <img src={slide.bgImg} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#0a1428,#162040)' }} />
+                    }
+                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.05) 55%)' }} />
                     <div style={{
-                      position: 'absolute', top: 6, right: 6,
-                      width: 8, height: 8, borderRadius: '50%',
-                      background: '#f97316', boxShadow: '0 0 6px rgba(249,115,22,0.8)',
-                      border: '1.5px solid #000',
-                    }} />
-                  )}
-                </button>
-              )
-            })}
+                      position: 'absolute', top: '38%', left: '50%', transform: 'translate(-50%,-50%)',
+                      width: 26, height: 26, borderRadius: '50%',
+                      background: isSeen ? 'rgba(255,255,255,0.22)' : 'rgba(249,115,22,0.9)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="#fff" style={{ marginLeft: 1 }}><path d="M8 5v14l11-7z"/></svg>
+                    </div>
+                    <div style={{ position: 'absolute', bottom: 5, left: 5, right: 5 }}>
+                      <span style={{
+                        fontSize: 7, fontWeight: 800, color: '#fff',
+                        background: slide.chipBg, padding: '2px 5px', borderRadius: 3,
+                        fontFamily: 'Outfit,sans-serif', letterSpacing: '0.05em',
+                        textTransform: 'uppercase', display: 'inline-block',
+                        maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }}>{slide.chip}</span>
+                    </div>
+                    {!isSeen && (
+                      <div style={{
+                        position: 'absolute', top: 5, right: 5,
+                        width: 7, height: 7, borderRadius: '50%',
+                        background: '#f97316', boxShadow: '0 0 5px rgba(249,115,22,0.9)',
+                        border: '1.5px solid #000',
+                      }} />
+                    )}
+                  </button>
+                )
+              })}
+            </div>
           </div>
         )}
 
