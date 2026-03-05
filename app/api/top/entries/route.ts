@@ -46,7 +46,7 @@ export async function GET(req: Request) {
 
   const artistIds = [...new Set((tracks || []).map((t: any) => t.artist_id).filter(Boolean))]
   const { data: artists } = artistIds.length > 0
-    ? await supabase.from('artists').select('id, slug, name').in('id', artistIds)
+    ? await supabase.from('artists').select('id, slug, name, cover_image_url').in('id', artistIds)
     : { data: [] }
 
   const artistMap = new Map((artists || []).map((a: any) => [a.id, a]))
@@ -56,7 +56,7 @@ export async function GET(req: Request) {
 
   const merged = entries.map((e, i) => ({
     ...e,
-    position: e.position ?? (i + 1), // jei nefinalizuota — rikiuoti pagal balsus
+    position: e.position ?? (i + 1),
     tracks: trackMap.get(e.track_id) ?? null,
   }))
 
@@ -81,7 +81,6 @@ export async function POST(req: Request) {
   if (week?.is_finalized)
     return NextResponse.json({ error: 'Savaitė jau uždaryta' }, { status: 400 })
 
-  // Kiek jau yra įrašų — pozicijai (laikina, bus pakeista po finalizavimo)
   const { count } = await supabase
     .from('top_entries')
     .select('id', { count: 'exact', head: true })
