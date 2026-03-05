@@ -478,7 +478,7 @@ export default function Home() {
         }
 
         @media(max-width:900px){
-          .hp-dds{grid-template-columns:1fr!important}
+          .hp-triple{grid-template-columns:1fr!important}
           .hp-ne{grid-template-columns:1fr!important}
         }
         @media(max-width:768px){
@@ -726,7 +726,7 @@ export default function Home() {
                 <div key={i} style={{ width: 182, flexShrink: 0, padding: '9px 11px', borderRadius: 11, background: 'var(--bg-surface)', border: `1px solid var(--border-default)`, display: 'flex', alignItems: 'center', gap: 9 }}>
                   <Skel w={38} h={38} r={8} /><div style={{ flex: 1 }}><Skel w="76%" h={10} /><div style={{ marginTop: 5 }}><Skel w="54%" h={8} /></div></div>
                 </div>
-              )) : tracks.slice(0, 14).map(t => (
+              )) : tracks.slice(0, 14).filter(t => sanitizeTitle(t.title)).map(t => (
                 <Link key={t.id} href={`/muzika/${t.slug}`} className="hp-card"
                   style={{ width: 182, flexShrink: 0, padding: '9px 11px', display: 'flex', alignItems: 'center', gap: 9 }}>
                   <Cover src={t.cover_url} alt={sanitizeTitle(t.title)} size={38} radius={8} />
@@ -771,8 +771,12 @@ export default function Home() {
                 </div>
               )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                {filtEvt.length === 0 ? <div style={{ padding: '18px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, borderRadius: 11, border: '1px solid var(--border-subtle)' }}>Renginių nerasta</div>
-                  : filtEvt.slice(0, 5).map(ev => {
+                {filtEvt.length === 0 ? Array(4).fill(null).map((_, i) => (
+                  <div key={i} className="hp-card" style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '10px 14px' }}>
+                    <div style={{ width: 36, textAlign: 'center' }}><Skel w={24} h={20} /><div style={{ marginTop: 3 }}><Skel w={30} h={8} /></div></div>
+                    <div style={{ flex: 1 }}><Skel w="80%" h={11} /><div style={{ marginTop: 4 }}><Skel w="50%" h={9} /></div></div>
+                  </div>
+                )) : filtEvt.slice(0, 5).map(ev => {
                     const d = new Date(ev.event_date)
                     return (
                       <Link key={ev.id} href={`/renginiai/${ev.slug}`} className="hp-card"
@@ -819,11 +823,23 @@ export default function Home() {
             </section>
           </div>
 
-          {/* ── ROW 4: Two-column — Dienos daina + Gyvi pokalbiai ── */}
+          {/* ── ROW 4: Three-column — Dienos daina + Pokalbiai + Veikla ── */}
           <section>
-            <div className="hp-dds" style={{ display: 'grid', gridTemplateColumns: '392px 1fr', gap: 16, alignItems: 'start' }}>
-              <div><SH label="🎵 Dienos daina" href="/dienos-daina" /><DienosDainaWidget /></div>
-              <div><SH label="💬 Gyvi pokalbiai" href="/bendruomene" cta="Bendruomenė →" /><ShoutboxWidget /></div>
+            <div className="hp-triple" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, alignItems: 'start' }}>
+              <div><SH label="Dienos daina" href="/dienos-daina" /><DienosDainaWidget /></div>
+              <div><SH label="Gyvi pokalbiai" href="/bendruomene" cta="Bendruomenė →" /><ShoutboxWidget /></div>
+              <div>
+                <SH label="Veikla" />
+                <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 16, padding: '14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {Array(5).fill(null).map((_, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <Skel w={28} h={28} r={14} />
+                      <div style={{ flex: 1 }}><Skel w="85%" h={9} /><div style={{ marginTop: 4 }}><Skel w="55%" h={8} /></div></div>
+                    </div>
+                  ))}
+                  <p style={{ fontSize: 11, color: 'var(--text-faint)', textAlign: 'center', margin: '4px 0 0' }}>Greitai...</p>
+                </div>
+              </div>
             </div>
           </section>
 
