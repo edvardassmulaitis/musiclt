@@ -267,8 +267,8 @@ export default function Home() {
     heroBg:     dk ? '#080d14' : '#f0f4fa',
     heroText:   dk ? 'rgba(210,225,245,0.65)' : 'rgba(15,26,46,0.6)',
     heroOverlay:dk
-      ? 'linear-gradient(to right, rgba(8,13,20,1) 0%, rgba(8,13,20,0.97) 35%, rgba(8,13,20,0.7) 50%, rgba(8,13,20,0.25) 68%, transparent 100%), linear-gradient(to top, rgba(8,13,20,1) 0%, rgba(8,13,20,0.35) 35%, transparent 65%), linear-gradient(to bottom, rgba(8,13,20,0.5) 0%, transparent 15%)'
-      : 'linear-gradient(to right, rgba(240,244,250,1) 0%, rgba(240,244,250,1) 35%, rgba(240,244,250,0.75) 50%, rgba(240,244,250,0.25) 68%, transparent 100%), linear-gradient(to top, rgba(240,244,250,1) 0%, rgba(240,244,250,0.4) 35%, transparent 60%)',
+      ? 'linear-gradient(to right, rgba(8,13,20,1) 0%, rgba(8,13,20,0.5) 30%, transparent 60%), linear-gradient(to top, rgba(8,13,20,0.8) 0%, rgba(8,13,20,0.2) 30%, transparent 55%)'
+      : 'linear-gradient(to right, rgba(240,244,250,1) 0%, rgba(240,244,250,0.5) 30%, transparent 60%), linear-gradient(to top, rgba(240,244,250,0.8) 0%, rgba(240,244,250,0.2) 30%, transparent 55%)',
     heroGrad:   dk ? 'linear-gradient(135deg,#08101e 0%,#0f1830 55%,#08101e 100%)' : '#f0f4fa',
     heroTitleC: dk ? '#fff' : '#0f1a2e',
     chartBg:    dk ? '#080d14' : '#f0f4fa',
@@ -454,9 +454,9 @@ export default function Home() {
 
         /* ── Hero cinematic ── */
         .hp-hero{position:relative;overflow:hidden;min-height:420px;display:flex;background:var(--bg-body)}
-        .hp-hero-bg{position:absolute;top:0;bottom:0;left:0;right:340px;z-index:0;overflow:hidden}
+        .hp-hero-bg{position:absolute;top:0;bottom:0;left:40%;right:340px;z-index:0;overflow:hidden}
         .hp-hero-bg img{width:100%;height:100%;object-fit:cover;object-position:center 25%;animation:hp-img-in .8s ease both}
-        .hp-hero-grad{position:absolute;top:0;bottom:0;left:0;right:340px;z-index:1}
+        .hp-hero-grad{position:absolute;top:0;bottom:0;left:40%;right:340px;z-index:1}
         .hp-hero-content{position:relative;z-index:2;display:flex;align-items:stretch;max-width:1360px;margin:0 auto;padding:0 20px;width:100%;flex:1}
         .hp-hero-left{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:36px 0 40px;min-width:0}
         .hp-hero-right{width:332px;flex-shrink:0;padding:20px 16px 20px 20px;display:flex;flex-direction:column;border-left:1px solid ${T.chartBdr};background:${T.chartBg};position:relative;z-index:3}
