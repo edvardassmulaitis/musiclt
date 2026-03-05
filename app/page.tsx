@@ -496,19 +496,21 @@ export default function Home() {
 
         @media(max-width:960px){
           .hp-hero{min-height:auto;overflow:visible}
-          .hp-hero-bg{left:0!important;right:0!important;height:260px;bottom:auto!important;z-index:0}
+          .hp-hero-bg{left:0!important;right:0!important;height:280px;bottom:auto!important;z-index:0}
           .hp-hero-bg img{-webkit-mask-image:linear-gradient(to bottom, black 55%, transparent 100%)!important;mask-image:linear-gradient(to bottom, black 55%, transparent 100%)!important}
           .hp-hero-content{flex-direction:column;position:relative}
-          .hp-hero-left{padding:220px 0 20px!important;position:relative;z-index:2;background:linear-gradient(to top, var(--bg-body) 60%, transparent 100%)}
-          .hp-hero-right{width:100%!important;padding:0!important;border-left:none;display:none!important}
+          .hp-hero-left{padding:240px 0 24px!important;position:relative;z-index:2}
+          .hp-hero-right{display:none!important}
           .hp-hero-title{font-size:26px!important}
-          .hp-hero-excerpt{font-size:13px!important}
+          .hp-hero-excerpt{font-size:14px!important;margin-bottom:16px!important}
+          .hp-hero-dots{display:none!important}
+          .hp-hero-vidcard{width:100%!important}
           .hp-disc-grid{grid-template-columns:1fr!important}
           .hp-triple{grid-template-columns:1fr!important}
         }
         @media(max-width:600px){
-          .hp-hero-bg{height:200px}
-          .hp-hero-left{padding:170px 0 16px!important}
+          .hp-hero-bg{height:220px}
+          .hp-hero-left{padding:190px 0 20px!important}
           .hp-hero-title{font-size:22px!important}
         }
 
@@ -723,7 +725,7 @@ export default function Home() {
 
             {/* Hero navigation — dots + arrows */}
             {heroSlides.length > 1 && (
-              <div style={{ position: 'absolute', bottom: 18, left: 0, right: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, zIndex: 3 }}>
+              <div className="hp-hero-dots" style={{ position: 'absolute', bottom: 18, left: 0, right: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, zIndex: 3 }}>
                 <button onClick={() => { setHeroImgLoaded(false); setHeroVideoPlaying(false); setHeroIdx(p => (p - 1 + heroSlides.length) % heroSlides.length) }}
                   aria-label="Ankstesnis"
                   style={{ width: 30, height: 30, borderRadius: '50%', border: `1px solid ${dk ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.12)'}`, background: dk ? 'rgba(0,0,0,.3)' : 'rgba(255,255,255,.5)', color: dk ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.4)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .15s', backdropFilter: 'blur(4px)' }}
@@ -750,20 +752,24 @@ export default function Home() {
           </section>
         )}
 
-        {/* Mobile "Naršyk" button */}
+        {/* Mobile "Explore" button */}
         {heroSlides.length > 0 && (
-          <div className="hp-reels-btn" style={{ justifyContent: 'center', padding: '12px 20px 0' }}>
+          <div className="hp-reels-btn" style={{ justifyContent: 'center', padding: '16px 20px 0' }}>
             <button onClick={() => setReelsOpen(true)} style={{
-              width: '100%', maxWidth: 400, margin: '0 auto', padding: '12px', borderRadius: 12,
-              background: '#f97316',
-              border: 'none',
-              color: '#fff', fontSize: 13, fontWeight: 700, fontFamily: 'Outfit,sans-serif',
-              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              transition: 'all .15s', boxShadow: '0 2px 12px rgba(249,115,22,.3)',
-            }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
-              Daugiau naujienų
+              width: 56, height: 56, borderRadius: '50%', margin: '0 auto',
+              background: '#f97316', border: 'none',
+              color: '#fff', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 20px rgba(249,115,22,.4)',
+              transition: 'transform .15s, box-shadow .15s',
+            }}
+              onTouchStart={e => { e.currentTarget.style.transform = 'scale(0.95)' }}
+              onTouchEnd={e => { e.currentTarget.style.transform = 'scale(1)' }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="2" width="20" height="20" rx="3"/><line x1="8" y1="2" x2="8" y2="22"/><line x1="16" y1="2" x2="16" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/>
+              </svg>
             </button>
+            <p style={{ textAlign: 'center', marginTop: 6, fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'Outfit,sans-serif' }}>Naršyti</p>
           </div>
         )}
 
