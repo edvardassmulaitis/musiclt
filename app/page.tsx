@@ -453,28 +453,24 @@ export default function Home() {
         .hp-disc-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 
         /* ── Hero cinematic ── */
-        .hp-hero{position:relative;overflow:hidden;min-height:420px;display:flex;background:${T.heroBg}}
-        .hp-hero-bg{position:absolute;top:0;bottom:0;left:0;right:340px;z-index:0;overflow:hidden}
-        .hp-hero-bg img{width:100%;height:100%;object-fit:cover;object-position:center 25%;animation:hp-img-in .8s ease both}
-        .hp-hero-grad{position:absolute;top:0;bottom:0;left:0;right:340px;z-index:1}
+        .hp-hero{position:relative;overflow:hidden;min-height:420px;display:flex;background:var(--bg-body)}
         .hp-hero-content{position:relative;z-index:2;display:flex;align-items:stretch;max-width:1360px;margin:0 auto;padding:0 20px;width:100%;flex:1}
-        .hp-hero-left{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:36px 0 40px;min-width:0}
+        .hp-hero-left{flex:1;display:flex;flex-direction:column;justify-content:center;padding:36px 0 40px;min-width:0;max-width:480px}
+        .hp-hero-media{flex:0 0 auto;width:380px;padding:24px 0;display:flex;align-items:center;overflow:hidden}
         .hp-hero-right{width:332px;flex-shrink:0;padding:20px 16px 20px 20px;display:flex;flex-direction:column;border-left:1px solid ${T.chartBdr};background:${T.chartBg};position:relative;z-index:3}
 
         @media(max-width:960px){
-          .hp-hero{min-height:360px}
-          .hp-hero-bg{right:0!important}
-          .hp-hero-grad{right:0!important}
+          .hp-hero{min-height:auto}
           .hp-hero-content{flex-direction:column}
-          .hp-hero-left{padding:32px 0 28px}
+          .hp-hero-left{max-width:100%!important;padding:24px 0 16px!important}
+          .hp-hero-media{width:100%!important;height:220px!important;padding:0 0 12px!important}
           .hp-hero-right{width:100%!important;padding:18px 0 24px!important;border-left:none;border-top:1px solid var(--border-default);background:transparent!important}
           .hp-hero-title{font-size:28px!important}
           .hp-hero-excerpt{font-size:13px!important}
-          .hp-hero-img-light{display:none!important}
         }
         @media(max-width:600px){
-          .hp-hero{min-height:320px}
-          .hp-hero-left{padding:24px 0 22px}
+          .hp-hero-left{padding:18px 0 12px!important}
+          .hp-hero-media{height:180px!important}
           .hp-hero-title{font-size:22px!important}
         }
 
@@ -497,49 +493,9 @@ export default function Home() {
 
         {/* ═══════════════════════ CINEMATIC HERO ═══════════════════════ */}
         {hero && (
-          <section className="hp-hero">
-            {/* Background Image — only in dark mode */}
-            {dk && (
-              <>
-                <div className="hp-hero-bg">
-                  {hero.bgImg ? (
-                    <img
-                      key={heroIdx}
-                      src={hero.bgImg}
-                      alt=""
-                      onLoad={() => setHeroImgLoaded(true)}
-                      style={{ opacity: heroImgLoaded ? 1 : 0 }}
-                    />
-                  ) : (
-                    <div style={{ width: '100%', height: '100%', background: T.heroGrad }} />
-                  )}
-                </div>
-                <div className="hp-hero-grad" style={{ background: T.heroOverlay }} />
-              </>
-            )}
+          <section className="hp-hero" ref={heroRef}>
 
-            {/* Light mode: contained image on the right */}
-            {!dk && hero.bgImg && (
-              <div className="hp-hero-img-light" style={{
-                position: 'absolute', top: 0, bottom: 0, right: 332, width: '45%',
-                overflow: 'hidden', zIndex: 0,
-              }}>
-                <img
-                  key={heroIdx}
-                  src={hero.bgImg}
-                  alt=""
-                  onLoad={() => setHeroImgLoaded(true)}
-                  style={{
-                    width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 25%',
-                    opacity: heroImgLoaded ? 1 : 0, transition: 'opacity .4s',
-                    maskImage: 'linear-gradient(to right, transparent 0%, black 25%, black 100%)',
-                    WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 25%, black 100%)',
-                  }}
-                />
-              </div>
-            )}
-
-            {/* Content */}
+            {/* Content — 3 zones: text | image | chart */}
             <div className="hp-hero-content">
               {/* ── Left: Article info ── */}
               <div className="hp-hero-left">
@@ -553,21 +509,21 @@ export default function Home() {
                       <Link href={`/atlikejai/${hero.artist.slug}`} style={{
                         display: 'inline-flex', alignItems: 'center', gap: 7,
                         padding: '3px 12px 3px 3px', borderRadius: 20,
-                        background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(8px)',
-                        border: '1px solid rgba(255,255,255,0.12)',
+                        background: dk ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+                        border: `1px solid ${dk ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}`,
                         textDecoration: 'none', transition: 'all .15s'
                       }}
-                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.16)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.22)' }}
-                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)' }}
+                        onMouseEnter={e => { e.currentTarget.style.background = dk ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.08)' }}
+                        onMouseLeave={e => { e.currentTarget.style.background = dk ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }}
                       >
                         {hero.artist.image ? (
                           <img src={hero.artist.image} alt={hero.artist.name} style={{ width: 22, height: 22, borderRadius: '50%', objectFit: 'cover' }} />
                         ) : (
-                          <div style={{ width: 22, height: 22, borderRadius: '50%', background: `hsl(${strHue(hero.artist.name)},35%,18%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 800, color: `hsl(${strHue(hero.artist.name)},50%,55%)` }}>
+                          <div style={{ width: 22, height: 22, borderRadius: '50%', background: `hsl(${strHue(hero.artist.name)},35%,${dk ? 18 : 88}%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 800, color: `hsl(${strHue(hero.artist.name)},50%,${dk ? 55 : 40}%)` }}>
                             {hero.artist.name[0]?.toUpperCase()}
                           </div>
                         )}
-                        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-primary)" }}>{hero.artist.name}</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>{hero.artist.name}</span>
                       </Link>
                     )}
                   </div>
@@ -575,10 +531,10 @@ export default function Home() {
                   {/* Title — clickable */}
                   <Link href={hero.href} className="hp-hero-title" style={{
                     fontFamily: 'Outfit,sans-serif', fontSize: 42, fontWeight: 900,
-                    color: T.heroTitleC, lineHeight: 1.06, margin: '0 0 10px',
-                    letterSpacing: '-0.025em', maxWidth: 580, display: 'block',
-                    textShadow: '0 2px 20px rgba(0,0,0,0.4)', textDecoration: 'none',
-                    transition: 'opacity .15s',
+                    color: 'var(--text-primary)', lineHeight: 1.06, margin: '0 0 10px',
+                    letterSpacing: '-0.025em', maxWidth: 480, display: 'block',
+                    textShadow: dk ? '0 2px 20px rgba(0,0,0,0.4)' : 'none',
+                    textDecoration: 'none', transition: 'opacity .15s',
                   }}
                     onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
                     onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
@@ -588,56 +544,49 @@ export default function Home() {
                   {/* Excerpt */}
                   {hero.subtitle && (
                     <p className="hp-hero-excerpt" style={{
-                      fontSize: 14, color: T.heroText, margin: '0 0 14px',
-                      lineHeight: 1.55, maxWidth: 480,
+                      fontSize: 14, color: 'var(--text-muted)', margin: '0 0 14px',
+                      lineHeight: 1.55, maxWidth: 420,
                     }}>
                       {hero.subtitle}
                     </p>
                   )}
 
-                  {/* Video thumbnail card — below text */}
+                  {/* Video thumbnail card */}
                   {hero.videoId && !heroVideoPlaying && (
                     <button className="hp-hero-vidcard" onClick={() => setHeroVideoPlaying(true)} style={{
                       display: 'flex', alignItems: 'center', gap: 0, padding: 0,
-                      background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(16px)',
-                      border: '1px solid rgba(255,255,255,0.14)', borderRadius: 12,
-                      cursor: 'pointer', overflow: 'hidden', transition: 'all .2s',
-                      width: 220,
+                      background: dk ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+                      border: `1px solid ${dk ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}`,
+                      borderRadius: 12, cursor: 'pointer', overflow: 'hidden', transition: 'all .2s', width: 220,
                     }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,.3)'; e.currentTarget.style.background = 'rgba(0,0,0,0.65)'; e.currentTarget.style.transform = 'translateY(-1px)' }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,.14)'; e.currentTarget.style.background = 'rgba(0,0,0,0.45)'; e.currentTarget.style.transform = 'none' }}>
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = dk ? 'rgba(255,255,255,.2)' : 'rgba(0,0,0,.15)'; e.currentTarget.style.background = dk ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)' }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = dk ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.08)'; e.currentTarget.style.background = dk ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }}>
                       <div style={{ width: 48, height: 48, flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
                         <img src={`https://img.youtube.com/vi/${hero.videoId}/mqdefault.jpg`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.25)' }}>
+                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.3)' }}>
                           <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(255,255,255,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <svg width="9" height="9" viewBox="0 0 24 24" fill="#111"><path d="M8 5v14l11-7z"/></svg>
                           </div>
                         </div>
                       </div>
                       <div style={{ flex: 1, minWidth: 0, padding: '5px 10px', textAlign: 'left' }}>
-                        <p style={{ fontSize: 11, fontWeight: 700, color: '#fff', margin: '0 0 1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hero.songTitle || 'Klausyti'}</p>
-                        {hero.songArtist && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hero.songArtist}</p>}
+                        <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hero.songTitle || 'Klausyti'}</p>
+                        {hero.songArtist && <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hero.songArtist}</p>}
                       </div>
                     </button>
                   )}
                 </div>
               </div>
 
-              {/* YouTube iframe — centered overlay within hero */}
-              {hero.videoId && heroVideoPlaying && (
-                <div style={{
-                  position: 'absolute', inset: 0, zIndex: 10,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  padding: '50px 20px',
-                  background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)',
-                  animation: 'hp-in .2s ease both',
-                }} onClick={() => setHeroVideoPlaying(false)}>
+              {/* ── Middle: Image / Video zone ── */}
+              <div className="hp-hero-media">
+                {heroVideoPlaying && hero.videoId ? (
+                  /* Video player — replaces image */
                   <div style={{
-                    width: '100%', maxWidth: 560, aspectRatio: '16/9',
-                    borderRadius: 12, overflow: 'hidden', background: '#000',
-                    boxShadow: '0 16px 64px rgba(0,0,0,0.9)', border: '1px solid rgba(255,255,255,0.1)',
-                    position: 'relative',
-                  }} onClick={e => e.stopPropagation()}>
+                    width: '100%', height: '100%', borderRadius: dk ? 0 : 16,
+                    overflow: 'hidden', background: '#000', position: 'relative',
+                    animation: 'hp-in .3s ease both',
+                  }}>
                     <iframe
                       src={`https://www.youtube.com/embed/${hero.videoId}?autoplay=1&rel=0`}
                       style={{ width: '100%', height: '100%', border: 'none' }}
@@ -645,18 +594,33 @@ export default function Home() {
                       allowFullScreen
                     />
                     <button onClick={() => setHeroVideoPlaying(false)} style={{
-                      position: 'absolute', top: 8, right: 8, width: 30, height: 30, borderRadius: '50%',
-                      background: 'rgba(0,0,0,0.75)', border: '1px solid rgba(255,255,255,0.25)',
-                      color: '#fff', fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      position: 'absolute', top: 10, right: 10, width: 30, height: 30, borderRadius: '50%',
+                      background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.2)',
+                      color: '#fff', fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                       transition: 'background .15s', fontWeight: 600,
                     }}
-                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.95)')}
-                      onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.75)')}>
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.9)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.7)')}>
                       ✕
                     </button>
                   </div>
-                </div>
-              )}
+                ) : hero.bgImg ? (
+                  /* Image */
+                  <img
+                    key={heroIdx}
+                    src={hero.bgImg}
+                    alt=""
+                    onLoad={() => setHeroImgLoaded(true)}
+                    style={{
+                      width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 25%',
+                      opacity: heroImgLoaded ? 1 : 0, transition: 'opacity .4s',
+                      borderRadius: dk ? 0 : 16,
+                    }}
+                  />
+                ) : (
+                  <div style={{ width: '100%', height: '100%', background: T.heroGrad, borderRadius: dk ? 0 : 16 }} />
+                )}
+              </div>
 
               {/* ── Right: Chart ── */}
               <div className="hp-hero-right">
