@@ -307,6 +307,7 @@ export default function Home() {
   const [chartTab, setChartTab] = useState<'lt' | 'world'>('lt')
   const [trackTab, setTrackTab] = useState<'lt' | 'world'>('lt')
   const [albumTab, setAlbumTab] = useState<'lt' | 'world'>('lt')
+  const [reelsOpen, setReelsOpen] = useState(false)
   const [ltTop, setLtTop] = useState<TopEntry[]>([])
   const [worldTop, setWorldTop] = useState<TopEntry[]>([])
   const [tracks, setTracks] = useState<Track[]>([])
@@ -471,6 +472,16 @@ export default function Home() {
         .hp-card:hover{border-color:${T.borderH};background:${T.bgCardH}}
         .hp-art:hover .hp-art-img{transform:scale(1.06)}
         .hp-disc-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+        .hp-reels-btn{display:none!important}
+        @media(max-width:960px){.hp-reels-btn{display:flex!important}}
+
+        /* ── Reels overlay ── */
+        .hp-reels{position:fixed;inset:0;z-index:300;background:var(--bg-body);overflow:hidden}
+        .hp-reels-scroll{height:100%;overflow-y:auto;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;scroll-behavior:smooth}
+        .hp-reels-slide{height:100vh;width:100%;scroll-snap-align:start;position:relative;display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden}
+        .hp-reels-slide img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+        .hp-reels-slide .hp-reels-grad{position:absolute;inset:0;background:linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.3) 40%, transparent 65%);z-index:1}
+        .hp-reels-info{position:relative;z-index:2;padding:20px 20px 32px}
 
         /* ── Hero cinematic ── */
         .hp-hero{position:relative;overflow:hidden;min-height:420px;display:flex;background:var(--bg-body)}
@@ -734,6 +745,126 @@ export default function Home() {
               </div>
             )}
           </section>
+        )}
+
+        {/* Mobile "Naršyk" button */}
+        {heroSlides.length > 1 && (
+          <div className="hp-reels-btn" style={{ justifyContent: 'center', padding: '12px 20px 0' }}>
+            <button onClick={() => setReelsOpen(true)} style={{
+              width: '100%', maxWidth: 400, margin: '0 auto', padding: '12px', borderRadius: 12,
+              background: dk ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+              border: `1px solid ${dk ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}`,
+              color: 'var(--text-primary)', fontSize: 13, fontWeight: 700, fontFamily: 'Outfit,sans-serif',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              transition: 'all .15s',
+            }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M7 4v16M17 4v16M3 8h4M17 8h4M3 12h18M3 16h4M17 16h4M4 20h16a2 2 0 002-2V6a2 2 0 00-2-2H4a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+              Naršyk naujienas
+            </button>
+          </div>
+        )}
+
+        {/* ═══════════════════════ REELS OVERLAY (mobile) ═══════════════════════ */}
+        {reelsOpen && (
+          <div className="hp-reels">
+            {/* Close button */}
+            <button onClick={() => setReelsOpen(false)} style={{
+              position: 'fixed', top: 16, right: 16, zIndex: 310,
+              width: 36, height: 36, borderRadius: '50%',
+              background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)',
+              color: '#fff', fontSize: 16, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              backdropFilter: 'blur(8px)',
+            }}>✕</button>
+
+            {/* Slide counter */}
+            <div style={{
+              position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 310,
+              padding: '4px 12px', borderRadius: 20, background: 'rgba(0,0,0,0.4)',
+              backdropFilter: 'blur(8px)', color: '#fff', fontSize: 11, fontWeight: 700,
+              fontFamily: 'Outfit,sans-serif',
+            }}>
+              Naujienos
+            </div>
+
+            {/* Vertical snap scroll */}
+            <div className="hp-reels-scroll">
+              {heroSlides.map((slide, i) => (
+                <div key={i} className="hp-reels-slide">
+                  {/* Background image */}
+                  {slide.bgImg && <img src={slide.bgImg} alt="" />}
+                  <div className="hp-reels-grad" />
+
+                  {/* Content */}
+                  <div className="hp-reels-info">
+                    {/* Type chip */}
+                    <span style={{
+                      display: 'inline-block', padding: '4px 12px', borderRadius: 16,
+                      fontSize: 10, fontWeight: 900, color: '#fff', background: slide.chipBg,
+                      fontFamily: 'Outfit,sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase',
+                      marginBottom: 10,
+                    }}>
+                      {slide.chip}
+                    </span>
+
+                    {/* Title */}
+                    <Link href={slide.href} onClick={() => setReelsOpen(false)} style={{
+                      fontFamily: 'Outfit,sans-serif', fontSize: 28, fontWeight: 900,
+                      color: '#fff', lineHeight: 1.08, margin: '0 0 8px', display: 'block',
+                      textDecoration: 'none', letterSpacing: '-0.02em',
+                      textShadow: '0 2px 16px rgba(0,0,0,0.5)',
+                    }}>
+                      {slide.title}
+                    </Link>
+
+                    {/* Excerpt */}
+                    {slide.subtitle && (
+                      <p style={{
+                        fontSize: 13, color: 'rgba(255,255,255,0.65)', margin: '0 0 12px',
+                        lineHeight: 1.5, maxWidth: '90%',
+                      }}>
+                        {slide.subtitle}
+                      </p>
+                    )}
+
+                    {/* Video card if available */}
+                    {slide.videoId && (
+                      <div style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 12px 6px 6px',
+                        background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(12px)',
+                        borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)',
+                      }}>
+                        <div style={{
+                          width: 36, height: 36, borderRadius: 8, overflow: 'hidden', position: 'relative', flexShrink: 0,
+                        }}>
+                          <img src={`https://img.youtube.com/vi/${slide.videoId}/mqdefault.jpg`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.3)' }}>
+                            <div style={{ width: 18, height: 18, borderRadius: '50%', background: 'rgba(255,255,255,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <svg width="7" height="7" viewBox="0 0 24 24" fill="#111"><path d="M8 5v14l11-7z"/></svg>
+                            </div>
+                          </div>
+                        </div>
+                        <div>
+                          <p style={{ fontSize: 11, fontWeight: 700, color: '#fff', margin: 0 }}>{slide.songTitle || 'Klausyti'}</p>
+                          {slide.songArtist && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', margin: 0 }}>{slide.songArtist}</p>}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Swipe hint on first slide */}
+                    {i === 0 && (
+                      <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
+                        <div style={{ animation: 'hp-in 1s ease infinite alternate', color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+                          Braukite aukštyn
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* ═══════════════════════ MAIN CONTENT ═══════════════════════ */}
