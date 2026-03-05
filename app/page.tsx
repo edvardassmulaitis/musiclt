@@ -474,7 +474,8 @@ export default function Home() {
         .hp-art:hover .hp-art-img{transform:scale(1.06)}
         .hp-disc-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
         .hp-reels-btn{display:none}
-        @media(max-width:960px){.hp-reels-btn{display:flex}}
+        .hp-mobile-chart{display:none}
+        @media(max-width:960px){.hp-reels-btn{display:flex}.hp-mobile-chart{display:block}}
 
         /* ── Reels overlay ── */
         .hp-reels{position:fixed;inset:0;z-index:300;background:var(--bg-body);overflow:hidden}
@@ -499,7 +500,7 @@ export default function Home() {
           .hp-hero-bg img{-webkit-mask-image:linear-gradient(to bottom, black 55%, transparent 100%)!important;mask-image:linear-gradient(to bottom, black 55%, transparent 100%)!important}
           .hp-hero-content{flex-direction:column;position:relative}
           .hp-hero-left{padding:220px 0 20px!important;position:relative;z-index:2;background:linear-gradient(to top, var(--bg-body) 60%, transparent 100%)}
-          .hp-hero-right{width:100%!important;padding:12px 0 20px!important;border-left:none;border-top:1px solid var(--border-default);background:var(--bg-body)!important;position:relative;z-index:5}
+          .hp-hero-right{width:100%!important;padding:0!important;border-left:none;display:none!important}
           .hp-hero-title{font-size:26px!important}
           .hp-hero-excerpt{font-size:13px!important}
           .hp-disc-grid{grid-template-columns:1fr!important}
@@ -765,6 +766,55 @@ export default function Home() {
             </button>
           </div>
         )}
+
+        {/* ═══════════════════════ MOBILE CHART (hidden on desktop) ═══════════════════════ */}
+        <div className="hp-mobile-chart" style={{ maxWidth: 1360, margin: '0 auto', padding: '20px 20px 0' }}>
+          <div style={{ display: 'flex', marginBottom: 12 }}>
+            <div style={{ display: 'flex', flex: 1, borderRadius: 10, padding: 3, background: dk ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.03)', gap: 3 }}>
+              {([['lt', 'LT TOP 30'], ['world', 'TOP 40']] as const).map(([k, l]) => (
+                <button key={k} onClick={() => setChartTab(k)}
+                  style={{
+                    flex: 1, padding: '9px 0', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                    border: 'none', cursor: 'pointer', transition: 'all .15s', fontFamily: 'Outfit,sans-serif',
+                    background: chartTab === k ? (dk ? 'rgba(255,255,255,.1)' : '#fff') : 'transparent',
+                    color: chartTab === k ? (dk ? '#fff' : '#0f1a2e') : (dk ? '#6a88aa' : '#8899aa'),
+                    boxShadow: chartTab === k ? (dk ? 'none' : '0 1px 3px rgba(0,0,0,.08)') : 'none',
+                  }}>{l}</button>
+              ))}
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {chartData.slice(0, 5).map((t, i) => (
+              <Link key={t.track_id || i} href={t.slug ? `/muzika/${t.slug}` : '/topas'}
+                className="hp-card"
+                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', textDecoration: 'none' }}>
+                <div style={{ width: 28, flexShrink: 0, textAlign: 'center' }}>
+                  <span style={{ fontSize: 16, fontWeight: 900, fontFamily: 'Outfit,sans-serif', display: 'block', lineHeight: 1, color: t.pos <= 3 ? T.pos123 : (dk ? '#4a6888' : '#c0ccd8') }}>{t.pos}</span>
+                  <div style={{ marginTop: 2 }}><TrendIcon t={t.trend} /></div>
+                </div>
+                <div style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 8, overflow: 'hidden' }}>
+                  <Cover src={t.cover_url || t.artist_image} alt={t.title} size={40} radius={8} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</p>
+                  <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.artist}</p>
+                </div>
+                <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: dk ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill={dk ? '#fff' : '#0f1a2e'} style={{ marginLeft: 1 }}><path d="M8 5v14l11-7z"/></svg>
+                </div>
+              </Link>
+            ))}
+          </div>
+          <Link href="/topas/balsuoti" style={{
+            marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '10px', borderRadius: 10,
+            background: '#f97316', color: '#fff',
+            fontSize: 12, fontWeight: 800, textDecoration: 'none',
+            fontFamily: 'Outfit,sans-serif', boxShadow: '0 2px 12px rgba(249,115,22,.3)',
+          }}>
+            Balsuok
+          </Link>
+        </div>
 
         {/* ═══════════════════════ REELS OVERLAY (mobile) ═══════════════════════ */}
         {reelsOpen && (
