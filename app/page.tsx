@@ -254,10 +254,10 @@ export default function Home() {
     borderH:    dk ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.14)',
     borderSub:  dk ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)',
     text:       dk ? '#e0eaf8' : '#0f1a2e',
-    textSec:    dk ? '#90b8e8' : '#3a5a80',
-    textMuted:  dk ? '#3a5878' : '#8899aa',
-    textFaint:  dk ? '#1a2a3c' : '#bbc8d8',
-    textPill:   dk ? '#4a6888' : '#6a85a0',
+    textSec:    dk ? '#9cb5d0' : '#3a5a80',
+    textMuted:  dk ? '#6889a8' : '#8899aa',
+    textFaint:  dk ? '#3a5878' : '#bbc8d8',
+    textPill:   dk ? '#6889a8' : '#6a85a0',
     textPillAct:dk ? '#90b8e8' : '#1d4ed8',
     link:       dk ? '#4a7ab5' : '#2563eb',
     title:      dk ? '#f3f6fc' : '#0f1a2e',
@@ -639,13 +639,13 @@ export default function Home() {
                 {/* Tab bar */}
                 <div style={{ display: 'flex', marginBottom: 12 }}>
                   <div style={{ display: 'flex', flex: 1, borderRadius: 10, padding: 3, background: dk ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.03)', gap: 3 }}>
-                    {([['lt', 'LT Top 30'], ['world', 'Pasaulio Top 40']] as const).map(([k, l]) => (
+                    {([['lt', 'LT TOP 30'], ['world', 'TOP 40']] as const).map(([k, l]) => (
                       <button key={k} onClick={() => setChartTab(k)}
                         style={{
                           flex: 1, padding: '7px 0', borderRadius: 8, fontSize: 11, fontWeight: 700,
                           border: 'none', cursor: 'pointer', transition: 'all .15s', fontFamily: 'Outfit,sans-serif',
                           background: chartTab === k ? (dk ? 'rgba(255,255,255,.1)' : '#fff') : 'transparent',
-                          color: chartTab === k ? (dk ? '#fff' : '#0f1a2e') : (dk ? '#5a7898' : '#8899aa'),
+                          color: chartTab === k ? (dk ? '#fff' : '#0f1a2e') : (dk ? '#6a88aa' : '#8899aa'),
                           boxShadow: chartTab === k ? (dk ? 'none' : '0 1px 3px rgba(0,0,0,.08)') : 'none',
                         }}>{l}</button>
                     ))}
@@ -672,7 +672,7 @@ export default function Home() {
                         <div style={{ width: 28, flexShrink: 0, textAlign: 'center' }}>
                           <span style={{
                             fontSize: 16, fontWeight: 900, fontFamily: 'Outfit,sans-serif', display: 'block',
-                            lineHeight: 1, color: t.pos <= 3 ? T.pos123 : (dk ? '#2a4060' : '#c0ccd8'),
+                            lineHeight: 1, color: t.pos <= 3 ? T.pos123 : (dk ? '#4a6888' : '#c0ccd8'),
                           }}>{t.pos}</span>
                           <div style={{ marginTop: 2 }}><TrendIcon t={t.trend} /></div>
                         </div>
