@@ -5,7 +5,7 @@
 /* ═══════════════════════════════════════════════════════════════════
    THEME SYSTEM — CSS Custom Properties
    
-   Uses [data-theme] attribute on <html> set by SiteContext
+   Uses [data-theme] attribute on <html> set by SiteContext.
    Every component should reference these vars for theme consistency.
    ═══════════════════════════════════════════════════════════════════ */
 
@@ -22,13 +22,13 @@
   --border-strong:   rgba(255,255,255,0.14);
 
   --text-primary:    #f0f4fc;
-  --text-secondary:  #b0c4d8;
-  --text-muted:      #4a6888;
-  --text-faint:      #1e3050;
+  --text-secondary:  #9cb5d0;
+  --text-muted:      #6889a8;
+  --text-faint:      #3a5878;
 
   --accent-orange:   #f97316;
   --accent-blue:     #1d4ed8;
-  --accent-link:     #4a7ab5;
+  --accent-link:     #5a8ec8;
   --accent-green:    #22c55e;
 
   color-scheme: dark;
