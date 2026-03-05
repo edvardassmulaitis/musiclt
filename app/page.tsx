@@ -264,11 +264,11 @@ export default function Home() {
     subtitle:   dk ? '#5a7898' : '#6a85a0',
     accent:     '#f97316',
     accentBlue: '#1d4ed8',
-    heroBg:     dk ? '#080d14' : '#e8edf6',
+    heroBg:     dk ? '#080d14' : '#f0f4fa',
     heroText:   dk ? 'rgba(210,225,245,0.65)' : 'rgba(15,26,46,0.6)',
     heroOverlay:dk
       ? 'linear-gradient(to right, rgba(8,13,20,0.92) 0%, rgba(8,13,20,0.72) 40%, rgba(8,13,20,0.3) 70%, rgba(8,13,20,0.15) 100%), linear-gradient(to top, rgba(8,13,20,1) 0%, rgba(8,13,20,0.4) 35%, transparent 65%), linear-gradient(to bottom, rgba(8,13,20,0.6) 0%, transparent 18%)'
-      : 'linear-gradient(to right, rgba(255,255,255,0.97) 0%, rgba(255,255,255,0.85) 38%, rgba(255,255,255,0.4) 65%, transparent 100%), linear-gradient(to top, rgba(240,244,250,1) 0%, rgba(240,244,250,0.3) 40%, transparent 70%)',
+      : 'linear-gradient(to right, #f0f4fa 0%, rgba(240,244,250,0.92) 35%, rgba(255,255,255,0.45) 60%, transparent 100%), linear-gradient(to top, #f0f4fa 0%, rgba(240,244,250,0.35) 35%, transparent 65%)',
     heroGrad:   dk ? 'linear-gradient(135deg,#08101e 0%,#0f1830 55%,#08101e 100%)' : '#f0f4fa',
     heroTitleC: dk ? '#fff' : '#0f1a2e',
     chartBg:    dk ? '#080d14' : '#f0f4fa',
