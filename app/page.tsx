@@ -110,43 +110,47 @@ function DienosDainaWidget() {
     fetch('/api/dienos-daina/nominations').then(r => r.json()).then(d => { setNoms(d.nominations || []); setLoading(false) }).catch(() => setLoading(false))
   }, [])
   const w = noms[0]
+  if (loading) return (
+    <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 16, padding: 16 }}>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 14 }}><Skel w={54} h={54} r={10} /><div style={{ flex: 1 }}><Skel w="40%" h={9} /><div style={{ marginTop: 5 }}><Skel w="70%" h={12} /></div><div style={{ marginTop: 4 }}><Skel w="45%" h={9} /></div></div></div>
+      {Array(3).fill(null).map((_, i) => <div key={i} style={{ display: 'flex', gap: 8, padding: '7px 0', alignItems: 'center' }}><Skel w={14} h={10} /><Skel w={26} h={26} r={6} /><div style={{ flex: 1 }}><Skel w="65%" h={10} /></div></div>)}
+    </div>
+  )
   return (
     <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 16, overflow: 'hidden' }}>
       <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 12 }}>
         <Cover src={w?.tracks?.cover_url} alt={w?.tracks?.title || 'daina'} size={54} radius={10} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 700, margin: '0 0 2px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Šiandien pirmauja</p>
-          <h3 style={{ fontFamily: 'Outfit, sans-serif', fontSize: 15, fontWeight: 800, color: '#eef2fa', margin: '0 0 1px', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {loading ? '...' : sanitizeTitle(w?.tracks?.title || 'Dar nėra')}
+          <p style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 700, margin: '0 0 2px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Šiandien pirmauja</p>
+          <h3 style={{ fontFamily: 'Outfit, sans-serif', fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 1px', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {sanitizeTitle(w?.tracks?.title || 'Dar nėra')}
           </h3>
-          <p style={{ fontSize: 11, color: 'rgba(180,200,235,0.45)', margin: 0 }}>{w?.tracks?.artists?.name || ''}</p>
+          <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0 }}>{w?.tracks?.artists?.name || ''}</p>
         </div>
-        <Link href="/dienos-daina" style={{ flexShrink: 0, background: '#f97316', color: '#fff', fontWeight: 800, fontSize: 11, padding: '7px 14px', borderRadius: 20, textDecoration: 'none', boxShadow: '0 3px 14px rgba(249,115,22,0.35)', transition: 'transform .15s, box-shadow .15s' }} onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 5px 20px rgba(249,115,22,0.45)' }} onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 3px 14px rgba(249,115,22,0.35)' }}>
-          ▶ Balsuoti
+        <Link href="/dienos-daina" style={{ flexShrink: 0, background: '#f97316', color: '#fff', fontWeight: 800, fontSize: 11, padding: '7px 14px', borderRadius: 20, textDecoration: 'none', boxShadow: '0 3px 14px rgba(249,115,22,0.35)', transition: 'transform .15s' }} onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-1px)')} onMouseLeave={e => (e.currentTarget.style.transform = 'none')}>
+          Balsuoti
         </Link>
       </div>
       <div>
         <div style={{ padding: '8px 16px 6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: 9, fontWeight: 800, color: '#1e3050', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Rytdienos kandidatai</span>
-          <Link href="/dienos-daina" style={{ fontSize: 9, color: "var(--accent-link)", fontWeight: 700, textDecoration: 'none' }}>+ Siūlyti</Link>
+          <span style={{ fontSize: 9, fontWeight: 800, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Rytdienos kandidatai</span>
+          <Link href="/dienos-daina" style={{ fontSize: 9, color: 'var(--accent-link)', fontWeight: 700, textDecoration: 'none' }}>+ Siūlyti</Link>
         </div>
-        {loading ? <div style={{ padding: '10px 16px', color: "var(--text-muted)", fontSize: 12 }}>Kraunama...</div>
-          : noms.length === 0 ? <div style={{ padding: '14px 16px', color: "var(--text-muted)", fontSize: 12, textAlign: 'center' }}>Kol kas nėra nominacijų</div>
-          : noms.slice(0, 5).map((n, i) => (
-            <div key={n.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 16px', borderTop: '1px solid var(--border-subtle)', transition: 'background .12s' }} onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-              <span style={{ fontSize: 10, fontWeight: 800, color: "var(--text-faint)", width: 14, textAlign: 'center', flexShrink: 0 }}>{i + 1}</span>
-              <Cover src={n.tracks?.cover_url} alt={n.tracks?.title || '?'} size={26} radius={6} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: '#d0ddf0', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(n.tracks?.title || '')}</p>
-                <p style={{ fontSize: 10, color: "var(--text-muted)", margin: 0 }}>{n.tracks?.artists?.name}</p>
-              </div>
-              <span style={{ fontSize: 10, color: 'rgba(180,200,235,0.22)', flexShrink: 0, minWidth: 16, textAlign: 'right' }}>{voted === i ? n.votes + 1 : n.votes}</span>
-              <button onClick={() => voted === null && setVoted(i)} disabled={voted !== null}
-                style={{ fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 10, flexShrink: 0, cursor: voted !== null ? 'default' : 'pointer', border: voted === i ? '1px solid rgba(52,211,153,0.3)' : '1px solid rgba(29,78,216,0.25)', background: voted === i ? 'rgba(52,211,153,0.1)' : 'transparent', color: voted === i ? '#34d399' : voted !== null ? 'rgba(255,255,255,0.12)' : '#60a5fa', transition: 'all 0.15s' }}>
-                {voted === i ? '✓' : 'Balsuoti'}
-              </button>
+        {noms.length === 0 ? <div style={{ padding: '14px 16px', color: 'var(--text-muted)', fontSize: 12, textAlign: 'center' }}>Kol kas nėra nominacijų</div>
+        : noms.slice(0, 5).map((n, i) => (
+          <div key={n.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 16px', borderTop: '1px solid var(--border-subtle)', transition: 'background .12s' }} onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+            <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-faint)', width: 14, textAlign: 'center', flexShrink: 0 }}>{i + 1}</span>
+            <Cover src={n.tracks?.cover_url} alt={n.tracks?.title || '?'} size={26} radius={6} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(n.tracks?.title || '')}</p>
+              <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: 0 }}>{n.tracks?.artists?.name}</p>
             </div>
-          ))}
+            <button onClick={() => voted === null && setVoted(i)} disabled={voted !== null}
+              style={{ fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 10, flexShrink: 0, cursor: voted !== null ? 'default' : 'pointer', border: voted === i ? '1px solid rgba(52,211,153,0.3)' : '1px solid var(--border-default)', background: voted === i ? 'rgba(52,211,153,0.1)' : 'transparent', color: voted === i ? '#34d399' : voted !== null ? 'var(--text-faint)' : 'var(--accent-link)', transition: 'all 0.15s' }}>
+              {voted === i ? '✓' : 'Balsuoti'}
+            </button>
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -177,30 +181,33 @@ function ShoutboxWidget() {
     <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <div style={{ padding: '11px 14px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-          <span style={{ fontSize: 14 }}>💬</span>
-          <span style={{ fontFamily: 'Outfit, sans-serif', fontSize: 13, fontWeight: 800, color: "var(--text-primary)" }}>Gyvi pokalbiai</span>
+          <span style={{ fontFamily: 'Outfit, sans-serif', fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>Gyvi pokalbiai</span>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 6px #22c55e' }} />
         </div>
-        <Link href="/bendruomene" style={{ fontSize: 10, color: "var(--accent-link)", fontWeight: 700, textDecoration: 'none' }}>Visi →</Link>
+        <Link href="/bendruomene" style={{ fontSize: 10, color: 'var(--accent-link)', fontWeight: 700, textDecoration: 'none' }}>Visi →</Link>
       </div>
       <div style={{ flex: 1 }}>
-        {loading ? <div style={{ padding: '18px', color: "var(--text-muted)", fontSize: 12, textAlign: 'center' }}>Kraunama...</div>
-          : msgs.length === 0 ? <div style={{ padding: '18px', color: "var(--text-muted)", fontSize: 12, textAlign: 'center' }}>Dar nėra žinučių</div>
-          : msgs.slice(-6).map((m, i, arr) => (
-            <div key={m.id} style={{ display: 'flex', gap: 9, padding: '8px 14px', borderBottom: i < arr.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
-              <div style={{ width: 24, height: 24, borderRadius: '50%', flexShrink: 0, background: `hsl(${strHue(m.author_name)},28%,14%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: `hsl(${strHue(m.author_name)},45%,52%)`, fontFamily: 'Outfit, sans-serif' }}>{m.author_name[0]?.toUpperCase()}</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', gap: 5, alignItems: 'center', marginBottom: 1 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: '#5a90cc' }}>{m.author_name}</span>
-                  <span style={{ fontSize: 9, color: "var(--text-faint)" }}>{timeAgo(m.created_at)}</span>
-                </div>
-                <p style={{ fontSize: 12, color: 'rgba(190,210,240,0.6)', margin: 0, lineHeight: 1.4 }}>{m.body}</p>
+        {loading ? Array(4).fill(null).map((_, i) => (
+          <div key={i} style={{ display: 'flex', gap: 9, padding: '9px 14px', borderBottom: i < 3 ? '1px solid var(--border-subtle)' : 'none' }}>
+            <Skel w={24} h={24} r={12} /><div style={{ flex: 1 }}><Skel w="40%" h={9} /><div style={{ marginTop: 4 }}><Skel w="75%" h={10} /></div></div>
+          </div>
+        ))
+        : msgs.length === 0 ? <div style={{ padding: '18px', color: 'var(--text-muted)', fontSize: 12, textAlign: 'center' }}>Dar nėra žinučių</div>
+        : msgs.slice(-6).map((m, i, arr) => (
+          <div key={m.id} style={{ display: 'flex', gap: 9, padding: '8px 14px', borderBottom: i < arr.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
+            <div style={{ width: 24, height: 24, borderRadius: '50%', flexShrink: 0, background: `hsl(${strHue(m.author_name)},28%,14%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: `hsl(${strHue(m.author_name)},45%,52%)`, fontFamily: 'Outfit, sans-serif' }}>{m.author_name[0]?.toUpperCase()}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', gap: 5, alignItems: 'center', marginBottom: 1 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-link)' }}>{m.author_name}</span>
+                <span style={{ fontSize: 9, color: 'var(--text-faint)' }}>{timeAgo(m.created_at)}</span>
               </div>
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>{m.body}</p>
             </div>
-          ))}
+          </div>
+        ))}
       </div>
       <div style={{ padding: '9px 12px', borderTop: '1px solid var(--border-subtle)' }}>
-        <Link href="/bendruomene" style={{ display: 'block', textAlign: 'center', padding: '7px', borderRadius: 10, background: 'rgba(90,102,200,0.08)', border: '1px solid rgba(90,102,200,0.18)', color: '#7080c0', fontSize: 11, fontWeight: 700, textDecoration: 'none', transition: 'background .15s' }} onMouseEnter={e => (e.currentTarget.style.background = 'rgba(90,102,200,0.14)')} onMouseLeave={e => (e.currentTarget.style.background = 'rgba(90,102,200,0.08)')}>
+        <Link href="/bendruomene" style={{ display: 'block', textAlign: 'center', padding: '7px', borderRadius: 10, background: 'var(--bg-hover)', border: '1px solid var(--border-default)', color: 'var(--accent-link)', fontSize: 11, fontWeight: 700, textDecoration: 'none', transition: 'background .15s' }} onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-active)')} onMouseLeave={e => (e.currentTarget.style.background = 'var(--bg-hover)')}>
           Prisijungti prie pokalbio →
         </Link>
       </div>
@@ -212,8 +219,19 @@ function ShoutboxWidget() {
 
 function DiscussionsWidget() {
   const [discs, setDiscs] = useState<Discussion[]>([])
-  useEffect(() => { fetch('/api/diskusijos?sort=activity&limit=4').then(r => r.json()).then(d => setDiscs(d.discussions || [])).catch(() => {}) }, [])
-  if (!discs.length) return null
+  const [loading, setLoading] = useState(true)
+  useEffect(() => { fetch('/api/diskusijos?sort=activity&limit=4').then(r => r.json()).then(d => { setDiscs(d.discussions || []); setLoading(false) }).catch(() => setLoading(false)) }, [])
+  if (loading || !discs.length) return (
+    <div className="hp-disc-grid">
+      {Array(4).fill(null).map((_, i) => (
+        <div key={i} style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
+          <div style={{ marginBottom: 8 }}><Skel w="30%" h={8} /></div>
+          <Skel w="90%" h={11} /><div style={{ marginTop: 4 }}><Skel w="60%" h={11} /></div>
+          <div style={{ marginTop: 8 }}><Skel w="45%" h={8} /></div>
+        </div>
+      ))}
+    </div>
+  )
   return (
     <div className="hp-disc-grid">
       {discs.map(d => (
@@ -222,11 +240,11 @@ function DiscussionsWidget() {
           onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.background = 'var(--bg-hover)' }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-default)'; e.currentTarget.style.background = 'var(--bg-surface)' }}>
           <div style={{ display: 'flex', gap: 5, marginBottom: 5, alignItems: 'center' }}>
-            {(d.tags || []).slice(0, 1).map(t => <span key={t} style={{ fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 4, background: 'rgba(90,102,200,0.12)', color: '#8090c0' }}>{t}</span>)}
-            <span style={{ fontSize: 9, color: "var(--text-faint)", marginLeft: 'auto' }}>{timeAgo(d.created_at)}</span>
+            {(d.tags || []).slice(0, 1).map(t => <span key={t} style={{ fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 4, background: 'var(--bg-active)', color: 'var(--accent-link)' }}>{t}</span>)}
+            <span style={{ fontSize: 9, color: 'var(--text-faint)', marginLeft: 'auto' }}>{timeAgo(d.created_at)}</span>
           </div>
-          <p style={{ fontFamily: 'Outfit, sans-serif', fontSize: 13, fontWeight: 700, color: '#c0d0e8', margin: '0 0 5px', lineHeight: 1.35, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' } as any}>{d.title}</p>
-          <p style={{ fontSize: 10, color: "var(--text-muted)", margin: 0 }}>{d.author_name} · 💬 {d.comment_count}</p>
+          <p style={{ fontFamily: 'Outfit, sans-serif', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 5px', lineHeight: 1.35, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' } as any}>{d.title}</p>
+          <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: 0 }}>{d.author_name} · {d.comment_count} atsak.</p>
         </Link>
       ))}
     </div>
