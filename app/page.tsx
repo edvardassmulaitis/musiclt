@@ -478,12 +478,13 @@ export default function Home() {
         @media(max-width:960px){.hp-reels-btn{display:flex}.hp-mobile-chart{display:block}}
 
         /* ── Reels overlay ── */
-        .hp-reels{position:fixed;inset:0;z-index:300;background:var(--bg-body);overflow:hidden}
+        .hp-reels{position:fixed;inset:0;z-index:300;background:#000;overflow:hidden}
         .hp-reels-scroll{height:100%;overflow-y:auto;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;scroll-behavior:smooth}
-        .hp-reels-slide{height:100vh;width:100%;scroll-snap-align:start;position:relative;display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden}
-        .hp-reels-slide img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-        .hp-reels-slide .hp-reels-grad{position:absolute;inset:0;background:linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.3) 40%, transparent 65%);z-index:1}
-        .hp-reels-info{position:relative;z-index:2;padding:20px 20px 32px}
+        .hp-reels-slide{height:100vh;width:100%;scroll-snap-align:start;display:flex;flex-direction:column;background:#000}
+        .hp-reels-img{flex:0 0 55%;position:relative;overflow:hidden}
+        .hp-reels-img img{width:100%;height:100%;object-fit:cover}
+        .hp-reels-img::after{content:'';position:absolute;bottom:0;left:0;right:0;height:40%;background:linear-gradient(to top,#000,transparent)}
+        .hp-reels-info{flex:1;padding:0 20px 28px;display:flex;flex-direction:column;justify-content:flex-start;position:relative;margin-top:-32px;z-index:1}
 
         /* ── Hero cinematic ── */
         .hp-hero{position:relative;overflow:hidden;min-height:420px;display:flex;background:var(--bg-body)}
@@ -849,76 +850,74 @@ export default function Home() {
             <div className="hp-reels-scroll">
               {heroSlides.map((slide, i) => (
                 <div key={i} className="hp-reels-slide">
-                  {/* Background image */}
-                  {slide.bgImg && <img src={slide.bgImg} alt="" />}
-                  <div className="hp-reels-grad" />
+                  {/* Top: Image */}
+                  <div className="hp-reels-img">
+                    {slide.bgImg ? (
+                      <img src={slide.bgImg} alt="" />
+                    ) : (
+                      <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#0a1428,#162040)' }} />
+                    )}
+                  </div>
 
-                  {/* Content */}
+                  {/* Bottom: Content */}
                   <div className="hp-reels-info">
-                    {/* Type chip */}
                     <span style={{
                       display: 'inline-block', padding: '4px 12px', borderRadius: 16,
                       fontSize: 10, fontWeight: 900, color: '#fff', background: slide.chipBg,
                       fontFamily: 'Outfit,sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase',
-                      marginBottom: 10,
+                      marginBottom: 10, alignSelf: 'flex-start',
                     }}>
                       {slide.chip}
                     </span>
 
-                    {/* Title */}
                     <Link href={slide.href} onClick={() => setReelsOpen(false)} style={{
-                      fontFamily: 'Outfit,sans-serif', fontSize: 28, fontWeight: 900,
-                      color: '#fff', lineHeight: 1.08, margin: '0 0 8px', display: 'block',
+                      fontFamily: 'Outfit,sans-serif', fontSize: 26, fontWeight: 900,
+                      color: '#fff', lineHeight: 1.1, margin: '0 0 8px', display: 'block',
                       textDecoration: 'none', letterSpacing: '-0.02em',
-                      textShadow: '0 2px 16px rgba(0,0,0,0.5)',
                     }}>
                       {slide.title}
                     </Link>
 
-                    {/* Excerpt */}
                     {slide.subtitle && (
-                      <p style={{
-                        fontSize: 13, color: 'rgba(255,255,255,0.65)', margin: '0 0 12px',
-                        lineHeight: 1.5, maxWidth: '90%',
-                      }}>
+                      <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', margin: '0 0 14px', lineHeight: 1.5 }}>
                         {slide.subtitle}
                       </p>
                     )}
 
-                    {/* Video — inline player or thumbnail */}
+                    {/* Video */}
                     {slide.videoId && (
                       reelsVideoIdx === i ? (
-                        <div style={{ width: '100%', aspectRatio: '16/9', borderRadius: 12, overflow: 'hidden', background: '#000', marginBottom: 4 }}>
+                        <div style={{ width: '100%', aspectRatio: '16/9', borderRadius: 12, overflow: 'hidden', background: '#000' }}>
                           <iframe src={`https://www.youtube.com/embed/${slide.videoId}?autoplay=1&rel=0&playsinline=1`} style={{ width: '100%', height: '100%', border: 'none' }} allow="autoplay; encrypted-media" allowFullScreen />
                         </div>
                       ) : (
                         <button onClick={() => setReelsVideoIdx(i)} style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 12px 6px 6px',
-                          background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(12px)',
-                          borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)',
-                          cursor: 'pointer', transition: 'background .15s',
+                          display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px 8px 8px',
+                          background: 'rgba(255,255,255,0.08)', borderRadius: 12,
+                          border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', width: '100%',
                         }}>
-                          <div style={{ width: 36, height: 36, borderRadius: 8, overflow: 'hidden', position: 'relative', flexShrink: 0 }}>
+                          <div style={{ width: 42, height: 42, borderRadius: 10, overflow: 'hidden', position: 'relative', flexShrink: 0 }}>
                             <img src={`https://img.youtube.com/vi/${slide.videoId}/mqdefault.jpg`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.3)' }}>
-                              <div style={{ width: 18, height: 18, borderRadius: '50%', background: 'rgba(255,255,255,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <svg width="7" height="7" viewBox="0 0 24 24" fill="#111"><path d="M8 5v14l11-7z"/></svg>
+                              <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(255,255,255,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <svg width="9" height="9" viewBox="0 0 24 24" fill="#111"><path d="M8 5v14l11-7z"/></svg>
                               </div>
                             </div>
                           </div>
-                          <div style={{ textAlign: 'left' }}>
-                            <p style={{ fontSize: 11, fontWeight: 700, color: '#fff', margin: 0 }}>{slide.songTitle || 'Klausyti'}</p>
-                            {slide.songArtist && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', margin: 0 }}>{slide.songArtist}</p>}
+                          <div style={{ textAlign: 'left', flex: 1, minWidth: 0 }}>
+                            <p style={{ fontSize: 13, fontWeight: 700, color: '#fff', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{slide.songTitle || 'Klausyti'}</p>
+                            {slide.songArtist && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', margin: '2px 0 0' }}>{slide.songArtist}</p>}
                           </div>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="#fff" style={{ flexShrink: 0, opacity: 0.5 }}><path d="M8 5v14l11-7z"/></svg>
                         </button>
                       )
                     )}
 
-                    {/* Swipe hint on first slide */}
-                    {i === 0 && (
-                      <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
-                        <div style={{ animation: 'hp-in 1s ease infinite alternate', color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+                    {/* Swipe hint */}
+                    {i === 0 && heroSlides.length > 1 && (
+                      <div style={{ marginTop: 'auto', paddingTop: 12, display: 'flex', justifyContent: 'center' }}>
+                        <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
                           Braukite aukštyn
                         </div>
                       </div>
