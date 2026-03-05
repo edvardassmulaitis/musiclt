@@ -267,8 +267,8 @@ export default function Home() {
     heroBg:     dk ? '#080d14' : '#f0f4fa',
     heroText:   dk ? 'rgba(210,225,245,0.65)' : 'rgba(15,26,46,0.6)',
     heroOverlay:dk
-      ? 'linear-gradient(to right, rgba(8,13,20,1) 0%, rgba(8,13,20,0.2) 35%, rgba(8,13,20,0.05) 55%, transparent 75%, rgba(8,13,20,0.1) 90%, rgba(8,13,20,0.3) 100%), linear-gradient(to top, rgba(8,13,20,0.5) 0%, transparent 30%)'
-      : 'linear-gradient(to right, rgba(240,244,250,1) 0%, rgba(240,244,250,0.2) 35%, rgba(240,244,250,0.05) 55%, transparent 75%, rgba(240,244,250,0.1) 90%, rgba(240,244,250,0.3) 100%), linear-gradient(to top, rgba(240,244,250,0.5) 0%, transparent 30%)',
+      ? 'linear-gradient(to right, rgba(8,13,20,1) 0%, rgba(8,13,20,0.2) 35%, rgba(8,13,20,0.05) 55%, transparent 70%, rgba(8,13,20,0.15) 82%, rgba(8,13,20,0.7) 94%, rgba(8,13,20,1) 100%), linear-gradient(to top, rgba(8,13,20,0.5) 0%, transparent 30%)'
+      : 'linear-gradient(to right, rgba(240,244,250,1) 0%, rgba(240,244,250,0.2) 35%, rgba(240,244,250,0.05) 55%, transparent 70%, rgba(240,244,250,0.15) 82%, rgba(240,244,250,0.7) 94%, rgba(240,244,250,1) 100%), linear-gradient(to top, rgba(240,244,250,0.5) 0%, transparent 30%)',
     heroGrad:   dk ? 'linear-gradient(135deg,#08101e 0%,#0f1830 55%,#08101e 100%)' : '#f0f4fa',
     heroTitleC: dk ? '#fff' : '#0f1a2e',
     chartBg:    dk ? '#080d14' : '#f0f4fa',
