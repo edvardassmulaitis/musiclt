@@ -29,19 +29,15 @@ function sanitizeTitle(raw: string): string {
   return raw.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
-/** Truncate text at the nearest sentence boundary (., !, ?) */
 function smartTruncate(text: string, maxLen: number): string {
   if (!text || text.length <= maxLen) return text
   const cut = text.slice(0, maxLen)
-  // Find last sentence-ending punctuation
   const lastEnd = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('! '), cut.lastIndexOf('? '), cut.lastIndexOf('.„'), cut.lastIndexOf('."'))
   if (lastEnd > maxLen * 0.4) return cut.slice(0, lastEnd + 1)
-  // Fallback: cut at last space and add ellipsis
   const lastSpace = cut.lastIndexOf(' ')
   return lastSpace > 0 ? cut.slice(0, lastSpace) + '…' : cut + '…'
 }
 
-/** Extract YouTube video ID from URL */
 function extractYouTubeId(url: string | null | undefined): string | null {
   if (!url) return null
   const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?\s]{11})/)
@@ -307,10 +303,25 @@ export default function Home() {
   const [chartTab, setChartTab] = useState<'lt' | 'world'>('lt')
   const [trackTab, setTrackTab] = useState<'lt' | 'world'>('lt')
   const [albumTab, setAlbumTab] = useState<'lt' | 'world'>('lt')
+
+  /* ── Reels state ── */
   const [reelsOpen, setReelsOpen] = useState(false)
   const [reelsVideoIdx, setReelsVideoIdx] = useState<number | null>(null)
   const [reelsIdx, setReelsIdx] = useState(0)
   const reelsScrollRef = useRef<HTMLDivElement>(null)
+
+  /* ── FIX #1: "seen" tracking per slide + progress bar state ── */
+  const [seenSlides, setSeenSlides] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('reels_seen') || '[]') as string[]) }
+    catch { return new Set() }
+  })
+  // progress 0..1 for current reels slide auto-advance
+  const [reelsProgress, setReelsProgress] = useState(0)
+  const reelsProgressRef = useRef<any>(null)
+  const reelsProgressStartRef = useRef<number>(0)
+  const REELS_DURATION = 8000
+
+  /* ── Hero state ── */
   const [ltTop, setLtTop] = useState<TopEntry[]>([])
   const [worldTop, setWorldTop] = useState<TopEntry[]>([])
   const [tracks, setTracks] = useState<Track[]>([])
@@ -343,7 +354,6 @@ export default function Home() {
     fetch('/api/news?limit=6').then(r => r.json()).then(d => setNews(d.news || [])).catch(() => {})
   }, [])
 
-  // Fetch songs for hero news items using existing per-news endpoint
   useEffect(() => {
     if (!news.length) return
     const heroNews = news.slice(0, 3)
@@ -361,13 +371,11 @@ export default function Home() {
     })
   }, [news])
 
-  /* ── Hero slides from real data ── */
+  /* ── Hero slides ── */
   useEffect(() => {
     const slides: HeroSlide[] = []
-
     news.slice(0, 3).forEach(n => {
       const typeLT = n.type === 'review' ? 'Recenzija' : n.type === 'interview' ? 'Interviu' : n.type === 'report' ? 'Reportažas' : 'Naujiena'
-      // Get songs from separate fetch
       const songs = newsSongs[n.id] || []
       const song = songs.find((s: any) => s.youtube_url)
       slides.push({
@@ -383,12 +391,9 @@ export default function Home() {
         artist: n.artist ? { name: n.artist.name, slug: n.artist.slug, image: n.artist.cover_image_url || null } : null,
       })
     })
-
     events.slice(0, 1).forEach(ev => {
       const d = ev.event_date ? new Date(ev.event_date) : null
-      const dateStr = d && !isNaN(d.getTime())
-        ? `${d.getDate()} ${MONTHS_LT[d.getMonth()]}. · `
-        : ''
+      const dateStr = d && !isNaN(d.getTime()) ? `${d.getDate()} ${MONTHS_LT[d.getMonth()]}. · ` : ''
       const venue = ev.venues?.name || ev.venue_custom || ''
       const city = ev.venues?.city || ''
       slides.push({
@@ -399,14 +404,12 @@ export default function Home() {
         href: `/renginiai/${ev.slug}`,
       })
     })
-
     if (!slides.length) slides.push({
       type: 'promo', chip: '🇱🇹 LIETUVIŠKA MUZIKA', chipBg: '#f97316',
       title: 'music.lt',
       subtitle: 'Visi Lietuvos atlikėjai vienoje vietoje',
       href: '/atlikejai',
     })
-
     setHeroSlides(slides)
     setHeroIdx(0)
   }, [news, events, newsSongs])
@@ -421,11 +424,9 @@ export default function Home() {
     return () => clearTimeout(timerRef.current)
   }, [heroIdx, heroSlides.length, heroVideoPlaying])
 
-  // Keyboard navigation for hero
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (!heroSlides.length) return
-      // Only when hero is in viewport or no input focused
       if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return
       if (e.key === 'ArrowLeft') {
         e.preventDefault()
@@ -441,15 +442,58 @@ export default function Home() {
     return () => window.removeEventListener('keydown', handleKey)
   }, [heroSlides.length])
 
-  // Preload next hero image
   useEffect(() => {
     if (!heroSlides.length) return
     const next = heroSlides[(heroIdx + 1) % heroSlides.length]
-    if (next?.bgImg) {
-      const img = new Image()
-      img.src = next.bgImg
-    }
+    if (next?.bgImg) { const img = new Image(); img.src = next.bgImg }
   }, [heroIdx, heroSlides])
+
+  /* ── FIX #1: Reels progress bar animation ── */
+  const startReelsProgress = useCallback(() => {
+    cancelAnimationFrame(reelsProgressRef.current)
+    reelsProgressStartRef.current = Date.now()
+    setReelsProgress(0)
+    const tick = () => {
+      const elapsed = Date.now() - reelsProgressStartRef.current
+      const p = Math.min(elapsed / REELS_DURATION, 1)
+      setReelsProgress(p)
+      if (p < 1) reelsProgressRef.current = requestAnimationFrame(tick)
+    }
+    reelsProgressRef.current = requestAnimationFrame(tick)
+  }, [])
+
+  const stopReelsProgress = useCallback(() => {
+    cancelAnimationFrame(reelsProgressRef.current)
+  }, [])
+
+  /* Mark slide as seen + start/stop progress when reels open/close or slide changes */
+  useEffect(() => {
+    if (!reelsOpen) { stopReelsProgress(); return }
+    const slide = heroSlides[reelsIdx]
+    if (slide) {
+      const key = slide.href
+      setSeenSlides(prev => {
+        const next = new Set(prev)
+        next.add(key)
+        try { localStorage.setItem('reels_seen', JSON.stringify(Array.from(next))) } catch {}
+        return next
+      })
+    }
+    startReelsProgress()
+    return () => stopReelsProgress()
+  }, [reelsOpen, reelsIdx, heroSlides, startReelsProgress, stopReelsProgress])
+
+  /* Auto-advance reels when progress hits 1 and no video playing */
+  useEffect(() => {
+    if (reelsProgress >= 1 && reelsOpen && reelsVideoIdx === null) {
+      const next = (reelsIdx + 1) % heroSlides.length
+      setReelsIdx(next)
+      // scroll snap container
+      if (reelsScrollRef.current) {
+        reelsScrollRef.current.scrollTo({ top: next * reelsScrollRef.current.clientHeight, behavior: 'smooth' })
+      }
+    }
+  }, [reelsProgress])
 
   const hero = heroSlides[heroIdx]
   const chartData = chartTab === 'lt' ? ltTop : worldTop
@@ -475,17 +519,21 @@ export default function Home() {
         .hp-card:hover{border-color:${T.borderH};background:${T.bgCardH}}
         .hp-art:hover .hp-art-img{transform:scale(1.06)}
         .hp-disc-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-        .hp-reels-btn{display:none}
-        .hp-mobile-chart{display:none}
-        @media(max-width:960px){.hp-reels-btn{display:flex}.hp-mobile-chart{display:block}}
+        .hp-feed-strip{display:none}
+        @media(max-width:960px){.hp-feed-strip{display:flex}}
 
         /* ── Reels overlay ── */
         .hp-reels{position:fixed;inset:0;z-index:300;background:#000;overflow:hidden}
         .hp-reels-scroll{height:100%;overflow-y:auto;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;scroll-behavior:smooth}
-        .hp-reels-slide{height:100vh;width:100%;scroll-snap-align:start;display:flex;flex-direction:column;background:#000}
+        .hp-reels-slide{height:100vh;width:100%;scroll-snap-align:start;display:flex;flex-direction:column;background:#000;position:relative}
+
+        /* FIX #2: image zone is relative, video pops on top of it */
         .hp-reels-img{flex:0 0 55%;position:relative;overflow:hidden}
         .hp-reels-img img{width:100%;height:100%;object-fit:cover}
         .hp-reels-img::after{content:'';position:absolute;bottom:0;left:0;right:0;height:40%;background:linear-gradient(to top,#000,transparent)}
+        .hp-reels-video-popup{position:absolute;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,0.85);animation:hp-in .2s ease both}
+        .hp-reels-video-popup iframe{width:100%;height:100%;border:none;border-radius:10px}
+
         .hp-reels-info{flex:1;padding:0 20px 28px;display:flex;flex-direction:column;justify-content:flex-start;position:relative;margin-top:-32px;z-index:1}
 
         /* ── Hero cinematic ── */
@@ -537,7 +585,6 @@ export default function Home() {
         {/* ═══════════════════════ CINEMATIC HERO ═══════════════════════ */}
         {hero && (
           <section className="hp-hero" ref={heroRef}>
-            {/* Full-bleed background image */}
             <div className="hp-hero-bg">
               {hero.bgImg ? (
                 <img key={heroIdx} src={hero.bgImg} alt="" onLoad={() => setHeroImgLoaded(true)} style={{ opacity: heroImgLoaded ? 1 : 0 }} />
@@ -545,23 +592,15 @@ export default function Home() {
                 <div style={{ width: '100%', height: '100%', background: T.heroGrad }} />
               )}
             </div>
-
-            {/* Gradient overlay */}
             <div className="hp-hero-grad" style={{ background: T.heroOverlay }} />
-
-            {/* Content */}
             <div className="hp-hero-content">
-              {/* ── Left: Article info ── */}
               <div className="hp-hero-left">
                 <div key={heroIdx} style={{ animation: 'hp-in .5s ease both' }}>
-                  {/* Type chip */}
                   <div style={{ marginBottom: 12 }}>
                     <span style={{ padding: '4px 14px', borderRadius: 20, fontSize: 10, fontWeight: 900, color: '#fff', background: hero.chipBg, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                       {hero.chip}
                     </span>
                   </div>
-
-                  {/* Title */}
                   <Link href={hero.href} className="hp-hero-title" style={{
                     fontFamily: 'Outfit,sans-serif', fontSize: 42, fontWeight: 900,
                     color: dk ? '#fff' : 'var(--text-primary)', lineHeight: 1.06, margin: '0 0 10px',
@@ -573,8 +612,6 @@ export default function Home() {
                     onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
                     {hero.title}
                   </Link>
-
-                  {/* Excerpt */}
                   {hero.subtitle && (
                     <p className="hp-hero-excerpt" style={{
                       fontSize: 14, color: dk ? 'rgba(210,225,245,0.65)' : 'var(--text-muted)',
@@ -583,8 +620,7 @@ export default function Home() {
                       {hero.subtitle}
                     </p>
                   )}
-
-                  {/* Video thumbnail card */}
+                  {/* FIX #3 (desktop): video card stays as is — looks good on desktop */}
                   {hero.videoId && !heroVideoPlaying && (
                     <button className="hp-hero-vidcard" onClick={() => setHeroVideoPlaying(true)} style={{
                       display: 'flex', alignItems: 'center', gap: 0, padding: 0,
@@ -612,7 +648,7 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* YouTube — overlay lightbox within hero */}
+              {/* YouTube lightbox — desktop hero */}
               {hero.videoId && heroVideoPlaying && (
                 <div style={{
                   position: 'absolute', inset: 0, zIndex: 10,
@@ -634,18 +670,13 @@ export default function Home() {
                       position: 'absolute', top: 8, right: 8, width: 30, height: 30, borderRadius: '50%',
                       background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.2)',
                       color: '#fff', fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}
-                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.9)')}
-                      onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.7)')}>
-                      ✕
-                    </button>
+                    }}>✕</button>
                   </div>
                 </div>
               )}
 
-              {/* ── Right: Chart ── */}
+              {/* Chart sidebar */}
               <div className="hp-hero-right">
-                {/* Tab bar */}
                 <div style={{ display: 'flex', marginBottom: 12 }}>
                   <div style={{ display: 'flex', flex: 1, borderRadius: 10, padding: 3, background: dk ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.03)', gap: 3 }}>
                     {([['lt', 'LT TOP 30'], ['world', 'TOP 40']] as const).map(([k, l]) => (
@@ -660,8 +691,6 @@ export default function Home() {
                     ))}
                   </div>
                 </div>
-
-                {/* Chart entries — card style */}
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {chartData.length === 0
                     ? Array.from({ length: 5 }).map((_, i) => (
@@ -673,51 +702,29 @@ export default function Home() {
                     : chartData.slice(0, 5).map((t, i) => (
                       <Link key={t.track_id || i} href={t.slug ? `/muzika/${t.slug}` : '/topas'}
                         className="hp-card"
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px',
-                          textDecoration: 'none',
-                        }}>
-                        {/* Position + trend */}
+                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', textDecoration: 'none' }}>
                         <div style={{ width: 28, flexShrink: 0, textAlign: 'center' }}>
-                          <span style={{
-                            fontSize: 16, fontWeight: 900, fontFamily: 'Outfit,sans-serif', display: 'block',
-                            lineHeight: 1, color: t.pos <= 3 ? T.pos123 : (dk ? '#4a6888' : '#c0ccd8'),
-                          }}>{t.pos}</span>
+                          <span style={{ fontSize: 16, fontWeight: 900, fontFamily: 'Outfit,sans-serif', display: 'block', lineHeight: 1, color: t.pos <= 3 ? T.pos123 : (dk ? '#4a6888' : '#c0ccd8') }}>{t.pos}</span>
                           <div style={{ marginTop: 2 }}><TrendIcon t={t.trend} /></div>
                         </div>
-
-                        {/* Cover image */}
                         <div style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 8, overflow: 'hidden' }}>
                           <Cover src={t.cover_url || t.artist_image} alt={t.title} size={40} radius={8} />
                         </div>
-
-                        {/* Song info */}
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <p style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</p>
                           <p style={{ fontSize: 10.5, color: 'var(--text-muted)', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.artist}</p>
                         </div>
-
-                        {/* Play button — always visible */}
-                        <div style={{
-                          width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
-                          background: dk ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.06)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          transition: 'background .15s',
-                        }}>
+                        <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: dk ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background .15s' }}>
                           <svg width="10" height="10" viewBox="0 0 24 24" fill={dk ? '#fff' : '#0f1a2e'} style={{ marginLeft: 1 }}><path d="M8 5v14l11-7z"/></svg>
                         </div>
                       </Link>
                     ))}
                 </div>
-
-                {/* CTA — Vote */}
                 <Link href="/topas/balsuoti" style={{
                   marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  padding: '10px', borderRadius: 10,
-                  background: '#f97316', color: '#fff',
-                  fontSize: 12, fontWeight: 800, textDecoration: 'none',
-                  fontFamily: 'Outfit,sans-serif', transition: 'all .15s',
-                  boxShadow: '0 2px 12px rgba(249,115,22,.3)',
+                  padding: '10px', borderRadius: 10, background: '#f97316', color: '#fff',
+                  fontSize: 12, fontWeight: 800, textDecoration: 'none', fontFamily: 'Outfit,sans-serif',
+                  transition: 'all .15s', boxShadow: '0 2px 12px rgba(249,115,22,.3)',
                 }}
                   onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 4px 18px rgba(249,115,22,.45)'; e.currentTarget.style.transform = 'translateY(-1px)' }}
                   onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 2px 12px rgba(249,115,22,.3)'; e.currentTarget.style.transform = 'none' }}>
@@ -726,52 +733,101 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Hero navigation — dots + arrows */}
+            {/* Hero dots */}
             {heroSlides.length > 1 && (
               <div className="hp-hero-dots" style={{ position: 'absolute', bottom: 18, left: 0, right: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, zIndex: 3 }}>
                 <button onClick={() => { setHeroImgLoaded(false); setHeroVideoPlaying(false); setHeroIdx(p => (p - 1 + heroSlides.length) % heroSlides.length) }}
                   aria-label="Ankstesnis"
-                  style={{ width: 30, height: 30, borderRadius: '50%', border: `1px solid ${dk ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.12)'}`, background: dk ? 'rgba(0,0,0,.3)' : 'rgba(255,255,255,.5)', color: dk ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.4)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .15s', backdropFilter: 'blur(4px)' }}
-                  onMouseEnter={e => { e.currentTarget.style.background = dk ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,.12)'; e.currentTarget.style.color = dk ? '#fff' : '#000' }}
-                  onMouseLeave={e => { e.currentTarget.style.background = dk ? 'rgba(0,0,0,.3)' : 'rgba(255,255,255,.5)'; e.currentTarget.style.color = dk ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.4)' }}>
-                  ‹
-                </button>
+                  style={{ width: 30, height: 30, borderRadius: '50%', border: `1px solid ${dk ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.12)'}`, background: dk ? 'rgba(0,0,0,.3)' : 'rgba(255,255,255,.5)', color: dk ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.4)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .15s', backdropFilter: 'blur(4px)' }}>‹</button>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                   {heroSlides.map((_, i) => (
                     <button key={i} onClick={() => { setHeroImgLoaded(false); setHeroVideoPlaying(false); setHeroIdx(i) }}
-                      aria-label={`Naujiena ${i + 1}`}
                       style={{ borderRadius: 4, border: 'none', cursor: 'pointer', padding: 0, background: i === heroIdx ? '#f97316' : dk ? 'rgba(255,255,255,.18)' : 'rgba(0,0,0,.18)', width: i === heroIdx ? 28 : 10, height: 6, transition: 'all .3s', boxShadow: i === heroIdx ? '0 0 10px rgba(249,115,22,0.5)' : 'none' }} />
                   ))}
                 </div>
                 <button onClick={() => { setHeroImgLoaded(false); setHeroVideoPlaying(false); setHeroIdx(p => (p + 1) % heroSlides.length) }}
                   aria-label="Kitas"
-                  style={{ width: 30, height: 30, borderRadius: '50%', border: `1px solid ${dk ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.12)'}`, background: dk ? 'rgba(0,0,0,.3)' : 'rgba(255,255,255,.5)', color: dk ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.4)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .15s', backdropFilter: 'blur(4px)' }}
-                  onMouseEnter={e => { e.currentTarget.style.background = dk ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,.12)'; e.currentTarget.style.color = dk ? '#fff' : '#000' }}
-                  onMouseLeave={e => { e.currentTarget.style.background = dk ? 'rgba(0,0,0,.3)' : 'rgba(255,255,255,.5)'; e.currentTarget.style.color = dk ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.4)' }}>
-                  ›
-                </button>
+                  style={{ width: 30, height: 30, borderRadius: '50%', border: `1px solid ${dk ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.12)'}`, background: dk ? 'rgba(0,0,0,.3)' : 'rgba(255,255,255,.5)', color: dk ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.4)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .15s', backdropFilter: 'blur(4px)' }}>›</button>
               </div>
             )}
           </section>
         )}
 
-        {/* Mobile feed button */}
+        {/* ═══════════════════════ FIX #3: THUMBNAIL STRIP (mobile) ═══════════════════════ */}
         {heroSlides.length > 0 && (
-          <div className="hp-reels-btn" style={{ justifyContent: 'center', padding: '16px 20px 0' }}>
-            <button onClick={() => { setReelsOpen(true); setReelsIdx(0); setReelsVideoIdx(null) }} style={{
-              width: 52, height: 52, borderRadius: '50%', margin: '0 auto',
-              background: '#f97316', border: 'none',
-              color: '#fff', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 4px 20px rgba(249,115,22,.4)',
-              transition: 'transform .15s',
-            }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff" style={{ marginLeft: 2 }}><path d="M8 5v14l11-7z"/></svg>
-            </button>
+          <div className="hp-feed-strip" style={{ padding: '14px 16px 0', gap: 8, alignItems: 'stretch' }}>
+            {heroSlides.map((slide, i) => {
+              const isSeen = seenSlides.has(slide.href)
+              return (
+                <button
+                  key={i}
+                  onClick={() => {
+                    setReelsOpen(true)
+                    setReelsIdx(i)
+                    setReelsVideoIdx(null)
+                    // scroll snap to correct slide
+                    setTimeout(() => {
+                      if (reelsScrollRef.current) {
+                        reelsScrollRef.current.scrollTo({ top: i * reelsScrollRef.current.clientHeight, behavior: 'instant' as ScrollBehavior })
+                      }
+                    }, 50)
+                  }}
+                  style={{
+                    flex: 1, position: 'relative', borderRadius: 12, overflow: 'hidden',
+                    border: isSeen
+                      ? `2px solid ${dk ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)'}`
+                      : '2px solid #f97316',
+                    background: '#000', cursor: 'pointer', padding: 0,
+                    aspectRatio: '9/14', maxHeight: 120,
+                    boxShadow: isSeen ? 'none' : '0 0 0 1px rgba(249,115,22,0.3)',
+                    transition: 'opacity .15s',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
+                  onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                >
+                  {/* Thumbnail image */}
+                  {slide.bgImg ? (
+                    <img src={slide.bgImg} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  ) : (
+                    <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#0a1428,#162040)' }} />
+                  )}
+                  {/* Dark overlay */}
+                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.1) 60%)' }} />
+                  {/* Play icon */}
+                  <div style={{
+                    position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+                    width: 28, height: 28, borderRadius: '50%',
+                    background: isSeen ? 'rgba(255,255,255,0.25)' : 'rgba(249,115,22,0.9)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    backdropFilter: 'blur(4px)',
+                  }}>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="#fff" style={{ marginLeft: 1 }}><path d="M8 5v14l11-7z"/></svg>
+                  </div>
+                  {/* Chip label */}
+                  <div style={{ position: 'absolute', bottom: 6, left: 6, right: 6 }}>
+                    <span style={{
+                      fontSize: 8, fontWeight: 800, color: '#fff',
+                      background: slide.chipBg, padding: '2px 6px', borderRadius: 4,
+                      fontFamily: 'Outfit,sans-serif', letterSpacing: '0.06em',
+                      textTransform: 'uppercase', display: 'inline-block',
+                    }}>{slide.chip}</span>
+                  </div>
+                  {/* "New" dot */}
+                  {!isSeen && (
+                    <div style={{
+                      position: 'absolute', top: 6, right: 6,
+                      width: 8, height: 8, borderRadius: '50%',
+                      background: '#f97316', boxShadow: '0 0 6px rgba(249,115,22,0.8)',
+                      border: '1.5px solid #000',
+                    }} />
+                  )}
+                </button>
+              )
+            })}
           </div>
         )}
 
-        {/* ═══════════════════════ MOBILE CHART (hidden on desktop) ═══════════════════════ */}
+        {/* ═══════════════════════ MOBILE CHART ═══════════════════════ */}
         <div className="hp-mobile-chart" style={{ maxWidth: 1360, margin: '0 auto', padding: '20px 20px 0' }}>
           <div style={{ display: 'flex', marginBottom: 12 }}>
             <div style={{ display: 'flex', flex: 1, borderRadius: 10, padding: 3, background: dk ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.03)', gap: 3 }}>
@@ -811,19 +867,18 @@ export default function Home() {
           </div>
           <Link href="/topas/balsuoti" style={{
             marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: '10px', borderRadius: 10,
-            background: '#f97316', color: '#fff',
-            fontSize: 12, fontWeight: 800, textDecoration: 'none',
-            fontFamily: 'Outfit,sans-serif', boxShadow: '0 2px 12px rgba(249,115,22,.3)',
-          }}>
-            Balsuok
-          </Link>
+            padding: '10px', borderRadius: 10, background: '#f97316', color: '#fff',
+            fontSize: 12, fontWeight: 800, textDecoration: 'none', fontFamily: 'Outfit,sans-serif',
+            boxShadow: '0 2px 12px rgba(249,115,22,.3)',
+          }}>Balsuok</Link>
         </div>
+        {/* hp-mobile-chart closing style tag — add this to the existing style block above */}
+        <style>{`@media(max-width:960px){.hp-mobile-chart{display:block}}.hp-mobile-chart{display:none}`}</style>
 
-        {/* ═══════════════════════ REELS OVERLAY (mobile) ═══════════════════════ */}
+        {/* ═══════════════════════ REELS OVERLAY ═══════════════════════ */}
         {reelsOpen && (
           <div className="hp-reels">
-            {/* Close button */}
+            {/* Close */}
             <button onClick={() => { setReelsOpen(false); setReelsVideoIdx(null) }} style={{
               position: 'fixed', top: 16, right: 16, zIndex: 310,
               width: 36, height: 36, borderRadius: '50%',
@@ -833,29 +888,70 @@ export default function Home() {
               backdropFilter: 'blur(8px)',
             }}>✕</button>
 
-            {/* Slide counter */}
+            {/* FIX #1: Instagram-style progress bars */}
             <div style={{
-              position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 310,
-              padding: '5px 14px', borderRadius: 20, background: 'rgba(0,0,0,0.4)',
-              backdropFilter: 'blur(8px)', color: '#fff', fontSize: 12, fontWeight: 700,
-              fontFamily: 'Outfit,sans-serif', minWidth: 44, textAlign: 'center',
+              position: 'fixed', top: 14, left: 16, right: 56, zIndex: 310,
+              display: 'flex', gap: 4, alignItems: 'center',
             }}>
-              {reelsIdx + 1} / {heroSlides.length}
+              {heroSlides.map((_, i) => (
+                <div key={i} style={{
+                  flex: 1, height: 3, borderRadius: 2,
+                  background: 'rgba(255,255,255,0.25)',
+                  overflow: 'hidden',
+                }}>
+                  <div style={{
+                    height: '100%',
+                    borderRadius: 2,
+                    background: '#fff',
+                    width: i < reelsIdx
+                      ? '100%'
+                      : i === reelsIdx
+                        ? `${reelsProgress * 100}%`
+                        : '0%',
+                    transition: i === reelsIdx ? 'none' : 'width 0.1s',
+                  }} />
+                </div>
+              ))}
             </div>
 
             {/* Vertical snap scroll */}
             <div className="hp-reels-scroll" ref={reelsScrollRef} onScroll={() => {
               const el = reelsScrollRef.current
-              if (el) { const idx = Math.round(el.scrollTop / el.clientHeight); setReelsIdx(idx); if (idx !== reelsVideoIdx) setReelsVideoIdx(null) }
+              if (el) {
+                const idx = Math.round(el.scrollTop / el.clientHeight)
+                if (idx !== reelsIdx) {
+                  setReelsIdx(idx)
+                  setReelsVideoIdx(null)
+                }
+              }
             }}>
               {heroSlides.map((slide, i) => (
                 <div key={i} className="hp-reels-slide">
-                  {/* Top: Image */}
+                  {/* Top: Image zone — FIX #2: video popup lives HERE, on top of image */}
                   <div className="hp-reels-img">
                     {slide.bgImg ? (
                       <img src={slide.bgImg} alt="" />
                     ) : (
                       <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#0a1428,#162040)' }} />
+                    )}
+                    {/* FIX #2: Video iframe pops up OVER the image, not below text */}
+                    {slide.videoId && reelsVideoIdx === i && (
+                      <div className="hp-reels-video-popup">
+                        <iframe
+                          src={`https://www.youtube.com/embed/${slide.videoId}?autoplay=1&rel=0&playsinline=1`}
+                          allow="autoplay; encrypted-media"
+                          allowFullScreen
+                        />
+                        <button
+                          onClick={() => setReelsVideoIdx(null)}
+                          style={{
+                            position: 'absolute', top: 24, right: 24,
+                            width: 30, height: 30, borderRadius: '50%',
+                            background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.2)',
+                            color: '#fff', fontSize: 13, cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}>✕</button>
+                      </div>
                     )}
                   </div>
 
@@ -866,17 +962,13 @@ export default function Home() {
                       fontSize: 10, fontWeight: 900, color: '#fff', background: slide.chipBg,
                       fontFamily: 'Outfit,sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase',
                       marginBottom: 10, alignSelf: 'flex-start',
-                    }}>
-                      {slide.chip}
-                    </span>
+                    }}>{slide.chip}</span>
 
                     <Link href={slide.href} onClick={() => setReelsOpen(false)} style={{
                       fontFamily: 'Outfit,sans-serif', fontSize: 26, fontWeight: 900,
                       color: '#fff', lineHeight: 1.1, margin: '0 0 8px', display: 'block',
                       textDecoration: 'none', letterSpacing: '-0.02em',
-                    }}>
-                      {slide.title}
-                    </Link>
+                    }}>{slide.title}</Link>
 
                     {slide.subtitle && (
                       <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', margin: '0 0 14px', lineHeight: 1.5 }}>
@@ -884,34 +976,28 @@ export default function Home() {
                       </p>
                     )}
 
-                    {/* Video */}
-                    {slide.videoId && (
-                      reelsVideoIdx === i ? (
-                        <div style={{ width: '100%', aspectRatio: '16/9', borderRadius: 12, overflow: 'hidden', background: '#000' }}>
-                          <iframe src={`https://www.youtube.com/embed/${slide.videoId}?autoplay=1&rel=0&playsinline=1`} style={{ width: '100%', height: '100%', border: 'none' }} allow="autoplay; encrypted-media" allowFullScreen />
+                    {/* Video trigger button — only shows when no video playing */}
+                    {slide.videoId && reelsVideoIdx !== i && (
+                      <button onClick={() => { setReelsVideoIdx(i); stopReelsProgress() }} style={{
+                        display: 'flex', alignItems: 'center', gap: 10, padding: '8px',
+                        background: 'rgba(255,255,255,0.08)', borderRadius: 12,
+                        border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', width: '100%',
+                      }}>
+                        <div style={{ width: 44, height: 44, borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
+                          <img src={`https://img.youtube.com/vi/${slide.videoId}/mqdefault.jpg`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         </div>
-                      ) : (
-                        <button onClick={() => setReelsVideoIdx(i)} style={{
-                          display: 'flex', alignItems: 'center', gap: 10, padding: '8px',
-                          background: 'rgba(255,255,255,0.08)', borderRadius: 12,
-                          border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', width: '100%',
+                        <div style={{ textAlign: 'left', flex: 1, minWidth: 0 }}>
+                          <p style={{ fontSize: 13, fontWeight: 700, color: '#fff', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{slide.songTitle || 'Klausyti'}</p>
+                          {slide.songArtist && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', margin: '2px 0 0' }}>{slide.songArtist}</p>}
+                        </div>
+                        <div style={{
+                          width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+                          background: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          boxShadow: '0 2px 10px rgba(249,115,22,.4)',
                         }}>
-                          <div style={{ width: 44, height: 44, borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
-                            <img src={`https://img.youtube.com/vi/${slide.videoId}/mqdefault.jpg`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          </div>
-                          <div style={{ textAlign: 'left', flex: 1, minWidth: 0 }}>
-                            <p style={{ fontSize: 13, fontWeight: 700, color: '#fff', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{slide.songTitle || 'Klausyti'}</p>
-                            {slide.songArtist && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', margin: '2px 0 0' }}>{slide.songArtist}</p>}
-                          </div>
-                          <div style={{
-                            width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
-                            background: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            boxShadow: '0 2px 10px rgba(249,115,22,.4)',
-                          }}>
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="#fff" style={{ marginLeft: 2 }}><path d="M8 5v14l11-7z"/></svg>
-                          </div>
-                        </button>
-                      )
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="#fff" style={{ marginLeft: 2 }}><path d="M8 5v14l11-7z"/></svg>
+                        </div>
+                      </button>
                     )}
 
                     {/* Swipe hint */}
@@ -1008,7 +1094,7 @@ export default function Home() {
             </div>
           </section>
 
-          {/* ── ROW 3: Two-column — Renginiai + Naujienos ── */}
+          {/* ── ROW 3: Renginiai + Naujienos ── */}
           <div className="hp-ne" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
             <section>
               <SH label="Renginiai" href="/renginiai" />
@@ -1070,7 +1156,7 @@ export default function Home() {
             </section>
           </div>
 
-          {/* ── ROW 4: Three-column — Dienos daina + Pokalbiai + Veikla ── */}
+          {/* ── ROW 4: Three-column ── */}
           <section>
             <div className="hp-triple" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, alignItems: 'start' }}>
               <div><SH label="Dienos daina" href="/dienos-daina" /><DienosDainaWidget /></div>
@@ -1090,7 +1176,7 @@ export default function Home() {
             </div>
           </section>
 
-          {/* ── ROW 5: Two-column — Diskusijos + Atlikėjai ── */}
+          {/* ── ROW 5: Diskusijos + Atlikėjai ── */}
           <div className="hp-ne" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
             <section>
               <SH label="Bendruomenė" href="/diskusijos" cta="Visos diskusijos →" />
@@ -1117,7 +1203,7 @@ export default function Home() {
             </section>
           </div>
 
-          {/* ── ROW 6: CTA Atlikėjams ── */}
+          {/* ── ROW 6: CTA ── */}
           <section>
             <div className="hp-cta" style={{ padding: '32px 40px', borderRadius: 18, background: dk ? 'linear-gradient(135deg,rgba(29,78,216,.09) 0%,rgba(255,255,255,.015) 100%)' : 'linear-gradient(135deg,rgba(29,78,216,.06) 0%,rgba(255,255,255,.5) 100%)', border: `1px solid ${dk ? 'rgba(29,78,216,.15)' : 'rgba(29,78,216,.12)'}`, display: 'flex', alignItems: 'center', gap: 22, position: 'relative', overflow: 'hidden' }}>
               <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 0% 50%,rgba(29,78,216,.06) 0%,transparent 55%)', pointerEvents: 'none' }} />
