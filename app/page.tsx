@@ -470,6 +470,7 @@ export default function Home() {
           .hp-hero-right{width:100%!important;padding:18px 0 24px!important;border-left:none;border-top:1px solid var(--border-default);background:transparent!important}
           .hp-hero-title{font-size:28px!important}
           .hp-hero-excerpt{font-size:13px!important}
+          .hp-hero-img-light{display:none!important}
         }
         @media(max-width:600px){
           .hp-hero{min-height:320px}
@@ -497,23 +498,46 @@ export default function Home() {
         {/* ═══════════════════════ CINEMATIC HERO ═══════════════════════ */}
         {hero && (
           <section className="hp-hero">
-            {/* Background Image */}
-            <div className="hp-hero-bg">
-              {hero.bgImg ? (
+            {/* Background Image — only in dark mode */}
+            {dk && (
+              <>
+                <div className="hp-hero-bg">
+                  {hero.bgImg ? (
+                    <img
+                      key={heroIdx}
+                      src={hero.bgImg}
+                      alt=""
+                      onLoad={() => setHeroImgLoaded(true)}
+                      style={{ opacity: heroImgLoaded ? 1 : 0 }}
+                    />
+                  ) : (
+                    <div style={{ width: '100%', height: '100%', background: T.heroGrad }} />
+                  )}
+                </div>
+                <div className="hp-hero-grad" style={{ background: T.heroOverlay }} />
+              </>
+            )}
+
+            {/* Light mode: contained image on the right */}
+            {!dk && hero.bgImg && (
+              <div className="hp-hero-img-light" style={{
+                position: 'absolute', top: 0, bottom: 0, right: 332, width: '45%',
+                overflow: 'hidden', zIndex: 0,
+              }}>
                 <img
                   key={heroIdx}
                   src={hero.bgImg}
                   alt=""
                   onLoad={() => setHeroImgLoaded(true)}
-                  style={{ opacity: heroImgLoaded ? 1 : 0 }}
+                  style={{
+                    width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 25%',
+                    opacity: heroImgLoaded ? 1 : 0, transition: 'opacity .4s',
+                    maskImage: 'linear-gradient(to right, transparent 0%, black 25%, black 100%)',
+                    WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 25%, black 100%)',
+                  }}
                 />
-              ) : (
-                <div style={{ width: '100%', height: '100%', background: T.heroGrad }} />
-              )}
-            </div>
-
-            {/* Gradient overlays */}
-            <div className="hp-hero-grad" style={{ background: T.heroOverlay }} />
+              </div>
+            )}
 
             {/* Content */}
             <div className="hp-hero-content">
