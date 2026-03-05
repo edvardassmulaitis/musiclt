@@ -10,7 +10,7 @@ type Album = { id: number; slug: string; title: string; year: number | null; cov
 type Artist = { id: number; slug: string; name: string; cover_image_url: string | null }
 type Event = { id: number; slug: string; title: string; event_date: string; venue_custom: string | null; image_small_url: string | null; venues: { name: string; city: string } | null }
 type NewsItem = { id: number; slug: string; title: string; image_small_url: string | null; image_title_url?: string | null; published_at: string; type: string | null; excerpt?: string | null; songs?: { youtube_url?: string | null; title?: string | null; artist_name?: string | null; cover_url?: string | null }[]; artist: { name: string; slug: string; cover_image_url?: string | null } | null }
-type TopEntry = { pos: number; track_id: number; title: string; artist: string; cover_url: string | null; trend: string; wks?: number; slug?: string; artist_slug?: string }
+type TopEntry = { pos: number; track_id: number; title: string; artist: string; cover_url: string | null; artist_image: string | null; trend: string; wks?: number; slug?: string; artist_slug?: string }
 type Nomination = { id: number; votes: number; weighted_votes: number; tracks: { id: number; title: string; cover_url: string | null; artists: { name: string } | null } | null }
 type Discussion = { id: number; slug: string; title: string; author_name: string | null; comment_count: number; created_at: string; tags: string[] }
 type ShoutMsg = { id: number; author_name: string; author_avatar: string | null; body: string; created_at: string; user_id: string }
@@ -306,7 +306,7 @@ export default function Home() {
   const parseTop = (entries: any[]): TopEntry[] => entries.slice(0, 7).map(e => {
     const prev = e.prev_position; const cur = e.position
     const trend = e.is_new ? 'new' : !prev ? 'same' : cur < prev ? 'up' : cur > prev ? 'down' : 'same'
-    return { pos: e.position, track_id: e.track_id, title: sanitizeTitle(e.tracks?.title || ''), artist: e.tracks?.artists?.name || '', cover_url: e.tracks?.cover_url || null, trend, wks: e.weeks_in_top, slug: e.tracks?.slug, artist_slug: e.tracks?.artists?.slug }
+    return { pos: e.position, track_id: e.track_id, title: sanitizeTitle(e.tracks?.title || ''), artist: e.tracks?.artists?.name || '', cover_url: e.tracks?.cover_url || null, artist_image: e.tracks?.artists?.cover_image_url || null, trend, wks: e.weeks_in_top, slug: e.tracks?.slug, artist_slug: e.tracks?.artists?.slug }
   })
 
   useEffect(() => {
@@ -459,7 +459,7 @@ export default function Home() {
         .hp-hero-grad{position:absolute;top:0;bottom:0;left:0;right:340px;z-index:1}
         .hp-hero-content{position:relative;z-index:2;display:flex;align-items:stretch;max-width:1360px;margin:0 auto;padding:0 20px;width:100%;flex:1}
         .hp-hero-left{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:36px 0 40px;min-width:0}
-        .hp-hero-right{width:332px;flex-shrink:0;padding:24px 0 24px 20px;display:flex;flex-direction:column;border-left:1px solid ${T.chartBdr};background:${T.chartBg};position:relative;z-index:3}
+        .hp-hero-right{width:332px;flex-shrink:0;padding:20px 16px 20px 20px;display:flex;flex-direction:column;border-left:1px solid ${T.chartBdr};background:${T.chartBg};position:relative;z-index:3}
 
         @media(max-width:960px){
           .hp-hero{min-height:360px}
@@ -636,10 +636,10 @@ export default function Home() {
 
               {/* ── Right: Chart ── */}
               <div className="hp-hero-right">
-                {/* Tab bar */}
-                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 14 }}>
+                {/* Tab bar — clean segment control */}
+                <div style={{ display: 'flex', marginBottom: 14 }}>
                   <div style={{ display: 'flex', flex: 1, borderRadius: 10, padding: 3, background: dk ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.03)', gap: 3 }}>
-                    {([['lt', '🇱🇹  LT Top 30'], ['world', '🌎  Pasaulio Top 40']] as const).map(([k, l]) => (
+                    {([['lt', 'LT Top 30'], ['world', 'Pasaulio Top 40']] as const).map(([k, l]) => (
                       <button key={k} onClick={() => setChartTab(k)}
                         style={{
                           flex: 1, padding: '7px 0', borderRadius: 8, fontSize: 11, fontWeight: 700,
@@ -656,8 +656,8 @@ export default function Home() {
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {chartData.length === 0
                     ? Array.from({ length: 5 }).map((_, i) => (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 4px' }}>
-                        <Skel w={18} h={14} /><Skel w={36} h={36} r={8} />
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 6px' }}>
+                        <Skel w={20} h={16} /><Skel w={40} h={40} r={8} />
                         <div style={{ flex: 1 }}><Skel w="72%" h={11} /><div style={{ marginTop: 4 }}><Skel w="50%" h={9} /></div></div>
                       </div>
                     ))
@@ -665,40 +665,42 @@ export default function Home() {
                       <div key={t.track_id || i}
                         className="hp-tr"
                         style={{
-                          display: 'flex', alignItems: 'center', gap: 10, padding: '7px 4px',
-                          borderRadius: 9, cursor: 'pointer', textDecoration: 'none',
+                          display: 'flex', alignItems: 'center', gap: 10, padding: '8px 6px',
+                          borderRadius: 9,
                           borderBottom: i < Math.min(chartData.length, 5) - 1 ? `1px solid ${T.borderSub}` : 'none',
                         }}>
-                        {/* Position */}
+                        {/* Position number */}
                         <span style={{
-                          width: 20, textAlign: 'center', fontSize: 15, fontWeight: 900,
+                          width: 20, textAlign: 'center', fontSize: 16, fontWeight: 900,
                           fontFamily: 'Outfit,sans-serif', flexShrink: 0,
                           color: t.pos <= 3 ? T.pos123 : (dk ? '#2a4060' : '#c0ccd8'),
                         }}>{t.pos}</span>
 
-                        {/* Cover with play overlay */}
-                        <Link href={t.slug ? `/muzika/${t.slug}` : '/topas'} style={{ position: 'relative', flexShrink: 0, display: 'block', width: 38, height: 38 }}>
-                          <Cover src={t.cover_url} alt={t.title} size={38} radius={8} />
+                        {/* Cover image with play overlay */}
+                        <Link href={t.slug ? `/muzika/${t.slug}` : '/topas'}
+                          style={{ position: 'relative', flexShrink: 0, display: 'block', width: 40, height: 40 }}>
+                          <Cover src={t.cover_url || t.artist_image} alt={t.title} size={40} radius={8} />
                           <div style={{
                             position: 'absolute', inset: 0, borderRadius: 8, display: 'flex',
                             alignItems: 'center', justifyContent: 'center',
-                            background: 'rgba(0,0,0,0.25)', opacity: 0, transition: 'opacity .15s',
+                            background: 'rgba(0,0,0,0.35)', opacity: 0, transition: 'opacity .15s',
                           }}
-                            className="hp-play-overlay"
                             onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
                             onMouseLeave={e => (e.currentTarget.style.opacity = '0')}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg>
+                            <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(255,255,255,.95)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="#111"><path d="M8 5v14l11-7z"/></svg>
+                            </div>
                           </div>
                         </Link>
 
-                        {/* Info */}
+                        {/* Song info */}
                         <Link href={t.slug ? `/muzika/${t.slug}` : '/topas'} style={{ flex: 1, minWidth: 0, textDecoration: 'none' }}>
-                          <p style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</p>
-                          <p style={{ fontSize: 10.5, color: 'var(--text-muted)', margin: '1px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.artist}</p>
+                          <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</p>
+                          <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.artist}</p>
                         </Link>
 
-                        {/* Trend */}
-                        <div style={{ width: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {/* Trend indicator */}
+                        <div style={{ flexShrink: 0 }}>
                           <TrendIcon t={t.trend} />
                         </div>
                       </div>
@@ -706,17 +708,17 @@ export default function Home() {
                 </div>
 
                 {/* CTA — Vote */}
-                <Link href="/topas" style={{
-                  marginTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                  padding: '9px', borderRadius: 10,
-                  background: dk ? 'rgba(249,115,22,.1)' : 'rgba(249,115,22,.08)',
-                  border: `1px solid ${dk ? 'rgba(249,115,22,.2)' : 'rgba(249,115,22,.15)'}`,
-                  color: '#f97316', fontSize: 12, fontWeight: 800, textDecoration: 'none',
+                <Link href="/topas/balsuoti" style={{
+                  marginTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                  padding: '10px', borderRadius: 10,
+                  background: '#f97316', color: '#fff',
+                  fontSize: 12, fontWeight: 800, textDecoration: 'none',
                   fontFamily: 'Outfit,sans-serif', transition: 'all .15s',
+                  boxShadow: '0 2px 12px rgba(249,115,22,.3)',
                 }}
-                  onMouseEnter={e => { e.currentTarget.style.background = dk ? 'rgba(249,115,22,.18)' : 'rgba(249,115,22,.14)'; e.currentTarget.style.transform = 'translateY(-1px)' }}
-                  onMouseLeave={e => { e.currentTarget.style.background = dk ? 'rgba(249,115,22,.1)' : 'rgba(249,115,22,.08)'; e.currentTarget.style.transform = 'none' }}>
-                  <span style={{ fontSize: 13 }}>🗳️</span> Balsuok už topą
+                  onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 4px 18px rgba(249,115,22,.45)'; e.currentTarget.style.transform = 'translateY(-1px)' }}
+                  onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 2px 12px rgba(249,115,22,.3)'; e.currentTarget.style.transform = 'none' }}>
+                  Balsuok
                 </Link>
               </div>
             </div>
