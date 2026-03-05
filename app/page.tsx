@@ -248,6 +248,288 @@ function DiscussionsWidget() {
 }
 
 /* ════════════════════════════════════════════════════════════════════
+                         REELS OVERLAY COMPONENT
+   ════════════════════════════════════════════════════════════════════ */
+
+const REELS_DURATION = 8000
+
+function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, dk }: {
+  slides: HeroSlide[]
+  initialIdx: number
+  seenSlides: Set<string>
+  onSeen: (href: string) => void
+  onClose: () => void
+  dk: boolean
+}) {
+  const [idx, setIdx] = useState(initialIdx)
+  const [videoOpen, setVideoOpen] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [dragging, setDragging] = useState(false)
+  const [dragOffset, setDragOffset] = useState(0)
+
+  const progressRef = useRef<number>(0)
+  const startRef = useRef<number>(0)
+  const rafRef = useRef<any>(null)
+  const touchStartX = useRef<number>(0)
+  const touchStartY = useRef<number>(0)
+  const trackRef = useRef<HTMLDivElement>(null)
+
+  const slide = slides[idx]
+
+  /* ── Progress animation ── */
+  const startProgress = useCallback(() => {
+    cancelAnimationFrame(rafRef.current)
+    startRef.current = Date.now()
+    setProgress(0)
+    const tick = () => {
+      const p = Math.min((Date.now() - startRef.current) / REELS_DURATION, 1)
+      setProgress(p)
+      progressRef.current = p
+      if (p < 1) rafRef.current = requestAnimationFrame(tick)
+    }
+    rafRef.current = requestAnimationFrame(tick)
+  }, [])
+
+  const stopProgress = useCallback(() => {
+    cancelAnimationFrame(rafRef.current)
+  }, [])
+
+  /* ── Navigation ── */
+  const goTo = useCallback((newIdx: number) => {
+    if (newIdx < 0 || newIdx >= slides.length) { onClose(); return }
+    setVideoOpen(false)
+    setIdx(newIdx)
+  }, [slides.length, onClose])
+
+  /* Mark seen + start progress on slide change */
+  useEffect(() => {
+    if (!slide) return
+    onSeen(slide.href)
+    if (!videoOpen) startProgress()
+    return () => stopProgress()
+  }, [idx]) // eslint-disable-line
+
+  /* Pause/resume when video opens */
+  useEffect(() => {
+    if (videoOpen) stopProgress()
+    else startProgress()
+  }, [videoOpen]) // eslint-disable-line
+
+  /* Auto-advance */
+  useEffect(() => {
+    if (progress >= 1 && !videoOpen) goTo(idx + 1)
+  }, [progress]) // eslint-disable-line
+
+  /* ── Touch swipe (horizontal) ── */
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+    touchStartY.current = e.touches[0].clientY
+    setDragging(true)
+    stopProgress()
+  }
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    const dx = e.touches[0].clientX - touchStartX.current
+    const dy = e.touches[0].clientY - touchStartY.current
+    // Only horizontal drag if clearly not a vertical scroll
+    if (Math.abs(dx) > Math.abs(dy)) {
+      e.preventDefault()
+      setDragOffset(dx)
+    }
+  }
+
+  const onTouchEnd = (e: React.TouchEvent) => {
+    const dx = e.changedTouches[0].clientX - touchStartX.current
+    const dy = e.changedTouches[0].clientY - touchStartY.current
+    setDragging(false)
+    setDragOffset(0)
+
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+      // Horizontal swipe
+      if (dx < 0) goTo(idx + 1) // swipe left → next
+      else goTo(idx - 1)         // swipe right → prev
+    } else if (dy < -80 && Math.abs(dy) > Math.abs(dx)) {
+      // Swipe up → open article
+      onClose()
+      window.location.href = slide.href
+    } else {
+      // No significant swipe — resume progress
+      startProgress()
+    }
+  }
+
+  /* ── Mouse drag (desktop) ── */
+  const onMouseDown = (e: React.MouseEvent) => {
+    touchStartX.current = e.clientX
+    touchStartY.current = e.clientY
+    setDragging(true)
+    stopProgress()
+  }
+
+  const onMouseMove = (e: React.MouseEvent) => {
+    if (!dragging) return
+    setDragOffset(e.clientX - touchStartX.current)
+  }
+
+  const onMouseUp = (e: React.MouseEvent) => {
+    const dx = e.clientX - touchStartX.current
+    setDragging(false)
+    setDragOffset(0)
+    if (Math.abs(dx) > 50) {
+      if (dx < 0) goTo(idx + 1)
+      else goTo(idx - 1)
+    } else {
+      startProgress()
+    }
+  }
+
+  /* ── Tap left/right halves to navigate (Instagram style) ── */
+  const onTap = (e: React.MouseEvent) => {
+    if (Math.abs(dragOffset) > 10) return // was a drag, not a tap
+    if (videoOpen) return
+    const x = e.clientX
+    const mid = window.innerWidth / 2
+    if (x < mid) goTo(idx - 1)
+    else goTo(idx + 1)
+  }
+
+  const translateX = -idx * 100 + (dragOffset / window.innerWidth) * 100
+
+  return (
+    <div className="hp-reels" style={{ userSelect: 'none' }}>
+      {/* Progress bars */}
+      <div style={{
+        position: 'fixed', top: 14, left: 16, right: 56, zIndex: 310,
+        display: 'flex', gap: 4, alignItems: 'center', pointerEvents: 'none',
+      }}>
+        {slides.map((_, i) => (
+          <div key={i} style={{ flex: 1, height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.25)', overflow: 'hidden' }}>
+            <div style={{
+              height: '100%', borderRadius: 2, background: '#fff',
+              width: i < idx ? '100%' : i === idx ? `${progress * 100}%` : '0%',
+              transition: i === idx ? 'none' : 'none',
+            }} />
+          </div>
+        ))}
+      </div>
+
+      {/* Close button */}
+      <button onClick={onClose} style={{
+        position: 'fixed', top: 10, right: 16, zIndex: 310,
+        width: 36, height: 36, borderRadius: '50%',
+        background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)',
+        color: '#fff', fontSize: 16, cursor: 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        backdropFilter: 'blur(8px)',
+      }}>✕</button>
+
+      {/* Horizontal slide track */}
+      <div
+        ref={trackRef}
+        className="hp-reels-track"
+        style={{
+          transform: `translateX(${translateX}%)`,
+          transition: dragging ? 'none' : 'transform .32s cubic-bezier(.4,0,.2,1)',
+        }}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onMouseDown={onMouseDown}
+        onMouseMove={onMouseMove}
+        onMouseUp={onMouseUp}
+        onMouseLeave={onMouseUp}
+        onClick={onTap}
+      >
+        {slides.map((s, i) => (
+          <div key={i} className="hp-reels-slide">
+            {/* Image zone */}
+            <div className="hp-reels-img">
+              {s.bgImg
+                ? <img src={s.bgImg} alt="" draggable={false} />
+                : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#0a1428,#162040)' }} />
+              }
+              {/* Video popup — on top of image */}
+              {s.videoId && videoOpen && i === idx && (
+                <div className="hp-reels-video-popup" onClick={e => e.stopPropagation()}>
+                  <iframe
+                    src={`https://www.youtube.com/embed/${s.videoId}?autoplay=1&rel=0&playsinline=1`}
+                    allow="autoplay; encrypted-media"
+                    allowFullScreen
+                  />
+                  <button onClick={(e) => { e.stopPropagation(); setVideoOpen(false) }} style={{
+                    position: 'absolute', top: 24, right: 24,
+                    width: 30, height: 30, borderRadius: '50%',
+                    background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.2)',
+                    color: '#fff', fontSize: 13, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>✕</button>
+                </div>
+              )}
+            </div>
+
+            {/* Content */}
+            <div className="hp-reels-info" onClick={e => e.stopPropagation()}>
+              <span style={{
+                display: 'inline-block', padding: '4px 12px', borderRadius: 16,
+                fontSize: 10, fontWeight: 900, color: '#fff', background: s.chipBg,
+                fontFamily: 'Outfit,sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase',
+                marginBottom: 10, alignSelf: 'flex-start',
+              }}>{s.chip}</span>
+
+              <Link href={s.href} onClick={onClose} style={{
+                fontFamily: 'Outfit,sans-serif', fontSize: 26, fontWeight: 900,
+                color: '#fff', lineHeight: 1.1, margin: '0 0 8px', display: 'block',
+                textDecoration: 'none', letterSpacing: '-0.02em',
+              }}>{s.title}</Link>
+
+              {s.subtitle && (
+                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', margin: '0 0 14px', lineHeight: 1.5 }}>
+                  {s.subtitle}
+                </p>
+              )}
+
+              {/* Video trigger */}
+              {s.videoId && !videoOpen && i === idx && (
+                <button onClick={(e) => { e.stopPropagation(); setVideoOpen(true) }} style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '8px',
+                  background: 'rgba(255,255,255,0.08)', borderRadius: 12,
+                  border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', width: '100%',
+                }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
+                    <img src={`https://img.youtube.com/vi/${s.videoId}/mqdefault.jpg`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} draggable={false} />
+                  </div>
+                  <div style={{ textAlign: 'left', flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: '#fff', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.songTitle || 'Klausyti'}</p>
+                    {s.songArtist && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', margin: '2px 0 0' }}>{s.songArtist}</p>}
+                  </div>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+                    background: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: '0 2px 10px rgba(249,115,22,.4)',
+                  }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="#fff" style={{ marginLeft: 2 }}><path d="M8 5v14l11-7z"/></svg>
+                  </div>
+                </button>
+              )}
+
+              {/* Swipe hint — first slide only */}
+              {i === 0 && slides.length > 1 && (
+                <div style={{ marginTop: 'auto', paddingTop: 12, display: 'flex', justifyContent: 'center' }}>
+                  <div style={{ color: 'rgba(255,255,255,0.28)', fontSize: 10, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    Braukite į šoną
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/* ════════════════════════════════════════════════════════════════════
                             HOMEPAGE
    ════════════════════════════════════════════════════════════════════ */
 
@@ -306,20 +588,7 @@ export default function Home() {
 
   /* ── Reels state ── */
   const [reelsOpen, setReelsOpen] = useState(false)
-  const [reelsVideoIdx, setReelsVideoIdx] = useState<number | null>(null)
   const [reelsIdx, setReelsIdx] = useState(0)
-  const reelsScrollRef = useRef<HTMLDivElement>(null)
-
-  /* ── FIX #1: "seen" tracking per slide + progress bar state ── */
-  const [seenSlides, setSeenSlides] = useState<Set<string>>(() => {
-    try { return new Set(JSON.parse(localStorage.getItem('reels_seen') || '[]') as string[]) }
-    catch { return new Set() }
-  })
-  // progress 0..1 for current reels slide auto-advance
-  const [reelsProgress, setReelsProgress] = useState(0)
-  const reelsProgressRef = useRef<any>(null)
-  const reelsProgressStartRef = useRef<number>(0)
-  const REELS_DURATION = 8000
 
   /* ── Hero state ── */
   const [ltTop, setLtTop] = useState<TopEntry[]>([])
@@ -448,52 +717,11 @@ export default function Home() {
     if (next?.bgImg) { const img = new Image(); img.src = next.bgImg }
   }, [heroIdx, heroSlides])
 
-  /* ── FIX #1: Reels progress bar animation ── */
-  const startReelsProgress = useCallback(() => {
-    cancelAnimationFrame(reelsProgressRef.current)
-    reelsProgressStartRef.current = Date.now()
-    setReelsProgress(0)
-    const tick = () => {
-      const elapsed = Date.now() - reelsProgressStartRef.current
-      const p = Math.min(elapsed / REELS_DURATION, 1)
-      setReelsProgress(p)
-      if (p < 1) reelsProgressRef.current = requestAnimationFrame(tick)
-    }
-    reelsProgressRef.current = requestAnimationFrame(tick)
-  }, [])
-
-  const stopReelsProgress = useCallback(() => {
-    cancelAnimationFrame(reelsProgressRef.current)
-  }, [])
-
-  /* Mark slide as seen + start/stop progress when reels open/close or slide changes */
-  useEffect(() => {
-    if (!reelsOpen) { stopReelsProgress(); return }
-    const slide = heroSlides[reelsIdx]
-    if (slide) {
-      const key = slide.href
-      setSeenSlides(prev => {
-        const next = new Set(prev)
-        next.add(key)
-        try { localStorage.setItem('reels_seen', JSON.stringify(Array.from(next))) } catch {}
-        return next
-      })
-    }
-    startReelsProgress()
-    return () => stopReelsProgress()
-  }, [reelsOpen, reelsIdx, heroSlides, startReelsProgress, stopReelsProgress])
-
-  /* Auto-advance reels when progress hits 1 and no video playing */
-  useEffect(() => {
-    if (reelsProgress >= 1 && reelsOpen && reelsVideoIdx === null) {
-      const next = (reelsIdx + 1) % heroSlides.length
-      setReelsIdx(next)
-      // scroll snap container
-      if (reelsScrollRef.current) {
-        reelsScrollRef.current.scrollTo({ top: next * reelsScrollRef.current.clientHeight, behavior: 'smooth' })
-      }
-    }
-  }, [reelsProgress])
+  /* ── "seen" tracking ── */
+  const [seenSlides, setSeenSlides] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('reels_seen') || '[]') as string[]) }
+    catch { return new Set() }
+  })
 
   const hero = heroSlides[heroIdx]
   const chartData = chartTab === 'lt' ? ltTop : worldTop
@@ -522,12 +750,12 @@ export default function Home() {
         .hp-feed-strip{display:none}
         @media(max-width:960px){.hp-feed-strip{display:flex}}
 
-        /* ── Reels overlay ── */
-        .hp-reels{position:fixed;inset:0;z-index:300;background:#000;overflow:hidden}
-        .hp-reels-scroll{height:100%;overflow-y:auto;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;scroll-behavior:smooth}
-        .hp-reels-slide{height:100vh;width:100%;scroll-snap-align:start;display:flex;flex-direction:column;background:#000;position:relative}
+        /* ── Reels overlay — horizontal Stories ── */
+        .hp-reels{position:fixed;inset:0;z-index:300;background:#000;overflow:hidden;touch-action:pan-x}
+        .hp-reels-track{height:100%;display:flex;flex-direction:row;will-change:transform;transition:transform .32s cubic-bezier(.4,0,.2,1)}
+        .hp-reels-slide{height:100vh;width:100vw;flex-shrink:0;display:flex;flex-direction:column;background:#000;position:relative;overflow:hidden}
 
-        /* FIX #2: image zone is relative, video pops on top of it */
+        /* Image zone — video pops on top */
         .hp-reels-img{flex:0 0 55%;position:relative;overflow:hidden}
         .hp-reels-img img{width:100%;height:100%;object-fit:cover}
         .hp-reels-img::after{content:'';position:absolute;bottom:0;left:0;right:0;height:40%;background:linear-gradient(to top,#000,transparent)}
@@ -762,15 +990,8 @@ export default function Home() {
                 <button
                   key={i}
                   onClick={() => {
-                    setReelsOpen(true)
                     setReelsIdx(i)
-                    setReelsVideoIdx(null)
-                    // scroll snap to correct slide
-                    setTimeout(() => {
-                      if (reelsScrollRef.current) {
-                        reelsScrollRef.current.scrollTo({ top: i * reelsScrollRef.current.clientHeight, behavior: 'instant' as ScrollBehavior })
-                      }
-                    }, 50)
+                    setReelsOpen(true)
                   }}
                   style={{
                     flex: 1, position: 'relative', borderRadius: 12, overflow: 'hidden',
@@ -875,145 +1096,20 @@ export default function Home() {
         {/* hp-mobile-chart closing style tag — add this to the existing style block above */}
         <style>{`@media(max-width:960px){.hp-mobile-chart{display:block}}.hp-mobile-chart{display:none}`}</style>
 
-        {/* ═══════════════════════ REELS OVERLAY ═══════════════════════ */}
+        {/* ═══════════════════════ REELS OVERLAY — horizontal Stories ═══════════════════════ */}
         {reelsOpen && (
-          <div className="hp-reels">
-            {/* Close */}
-            <button onClick={() => { setReelsOpen(false); setReelsVideoIdx(null) }} style={{
-              position: 'fixed', top: 16, right: 16, zIndex: 310,
-              width: 36, height: 36, borderRadius: '50%',
-              background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)',
-              color: '#fff', fontSize: 16, cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              backdropFilter: 'blur(8px)',
-            }}>✕</button>
-
-            {/* FIX #1: Instagram-style progress bars */}
-            <div style={{
-              position: 'fixed', top: 14, left: 16, right: 56, zIndex: 310,
-              display: 'flex', gap: 4, alignItems: 'center',
-            }}>
-              {heroSlides.map((_, i) => (
-                <div key={i} style={{
-                  flex: 1, height: 3, borderRadius: 2,
-                  background: 'rgba(255,255,255,0.25)',
-                  overflow: 'hidden',
-                }}>
-                  <div style={{
-                    height: '100%',
-                    borderRadius: 2,
-                    background: '#fff',
-                    width: i < reelsIdx
-                      ? '100%'
-                      : i === reelsIdx
-                        ? `${reelsProgress * 100}%`
-                        : '0%',
-                    transition: i === reelsIdx ? 'none' : 'width 0.1s',
-                  }} />
-                </div>
-              ))}
-            </div>
-
-            {/* Vertical snap scroll */}
-            <div className="hp-reels-scroll" ref={reelsScrollRef} onScroll={() => {
-              const el = reelsScrollRef.current
-              if (el) {
-                const idx = Math.round(el.scrollTop / el.clientHeight)
-                if (idx !== reelsIdx) {
-                  setReelsIdx(idx)
-                  setReelsVideoIdx(null)
-                }
-              }
-            }}>
-              {heroSlides.map((slide, i) => (
-                <div key={i} className="hp-reels-slide">
-                  {/* Top: Image zone — FIX #2: video popup lives HERE, on top of image */}
-                  <div className="hp-reels-img">
-                    {slide.bgImg ? (
-                      <img src={slide.bgImg} alt="" />
-                    ) : (
-                      <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#0a1428,#162040)' }} />
-                    )}
-                    {/* FIX #2: Video iframe pops up OVER the image, not below text */}
-                    {slide.videoId && reelsVideoIdx === i && (
-                      <div className="hp-reels-video-popup">
-                        <iframe
-                          src={`https://www.youtube.com/embed/${slide.videoId}?autoplay=1&rel=0&playsinline=1`}
-                          allow="autoplay; encrypted-media"
-                          allowFullScreen
-                        />
-                        <button
-                          onClick={() => setReelsVideoIdx(null)}
-                          style={{
-                            position: 'absolute', top: 24, right: 24,
-                            width: 30, height: 30, borderRadius: '50%',
-                            background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.2)',
-                            color: '#fff', fontSize: 13, cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          }}>✕</button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Bottom: Content */}
-                  <div className="hp-reels-info">
-                    <span style={{
-                      display: 'inline-block', padding: '4px 12px', borderRadius: 16,
-                      fontSize: 10, fontWeight: 900, color: '#fff', background: slide.chipBg,
-                      fontFamily: 'Outfit,sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase',
-                      marginBottom: 10, alignSelf: 'flex-start',
-                    }}>{slide.chip}</span>
-
-                    <Link href={slide.href} onClick={() => setReelsOpen(false)} style={{
-                      fontFamily: 'Outfit,sans-serif', fontSize: 26, fontWeight: 900,
-                      color: '#fff', lineHeight: 1.1, margin: '0 0 8px', display: 'block',
-                      textDecoration: 'none', letterSpacing: '-0.02em',
-                    }}>{slide.title}</Link>
-
-                    {slide.subtitle && (
-                      <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', margin: '0 0 14px', lineHeight: 1.5 }}>
-                        {slide.subtitle}
-                      </p>
-                    )}
-
-                    {/* Video trigger button — only shows when no video playing */}
-                    {slide.videoId && reelsVideoIdx !== i && (
-                      <button onClick={() => { setReelsVideoIdx(i); stopReelsProgress() }} style={{
-                        display: 'flex', alignItems: 'center', gap: 10, padding: '8px',
-                        background: 'rgba(255,255,255,0.08)', borderRadius: 12,
-                        border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', width: '100%',
-                      }}>
-                        <div style={{ width: 44, height: 44, borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
-                          <img src={`https://img.youtube.com/vi/${slide.videoId}/mqdefault.jpg`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        </div>
-                        <div style={{ textAlign: 'left', flex: 1, minWidth: 0 }}>
-                          <p style={{ fontSize: 13, fontWeight: 700, color: '#fff', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{slide.songTitle || 'Klausyti'}</p>
-                          {slide.songArtist && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', margin: '2px 0 0' }}>{slide.songArtist}</p>}
-                        </div>
-                        <div style={{
-                          width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
-                          background: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          boxShadow: '0 2px 10px rgba(249,115,22,.4)',
-                        }}>
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="#fff" style={{ marginLeft: 2 }}><path d="M8 5v14l11-7z"/></svg>
-                        </div>
-                      </button>
-                    )}
-
-                    {/* Swipe hint */}
-                    {i === 0 && heroSlides.length > 1 && (
-                      <div style={{ marginTop: 'auto', paddingTop: 12, display: 'flex', justifyContent: 'center' }}>
-                        <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
-                          Braukite aukštyn
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <ReelsOverlay
+            slides={heroSlides}
+            initialIdx={reelsIdx}
+            seenSlides={seenSlides}
+            onSeen={(href) => setSeenSlides(prev => {
+              const next = new Set(prev); next.add(href)
+              try { localStorage.setItem('reels_seen', JSON.stringify(Array.from(next))) } catch {}
+              return next
+            })}
+            onClose={() => setReelsOpen(false)}
+            dk={dk}
+          />
         )}
 
         {/* ═══════════════════════ MAIN CONTENT ═══════════════════════ */}
