@@ -472,8 +472,8 @@ export default function Home() {
         .hp-card:hover{border-color:${T.borderH};background:${T.bgCardH}}
         .hp-art:hover .hp-art-img{transform:scale(1.06)}
         .hp-disc-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-        .hp-reels-btn{display:none!important}
-        @media(max-width:960px){.hp-reels-btn{display:flex!important}}
+        .hp-reels-btn{display:none}
+        @media(max-width:960px){.hp-reels-btn{display:flex}}
 
         /* ── Reels overlay ── */
         .hp-reels{position:fixed;inset:0;z-index:300;background:var(--bg-body);overflow:hidden}
@@ -748,7 +748,7 @@ export default function Home() {
         )}
 
         {/* Mobile "Naršyk" button */}
-        {heroSlides.length > 1 && (
+        {heroSlides.length > 0 && (
           <div className="hp-reels-btn" style={{ justifyContent: 'center', padding: '12px 20px 0' }}>
             <button onClick={() => setReelsOpen(true)} style={{
               width: '100%', maxWidth: 400, margin: '0 auto', padding: '12px', borderRadius: 12,
