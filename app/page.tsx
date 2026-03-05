@@ -267,8 +267,8 @@ export default function Home() {
     heroBg:     dk ? '#080d14' : '#f0f4fa',
     heroText:   dk ? 'rgba(210,225,245,0.65)' : 'rgba(15,26,46,0.6)',
     heroOverlay:dk
-      ? 'linear-gradient(to right, rgba(8,13,20,0.92) 0%, rgba(8,13,20,0.72) 40%, rgba(8,13,20,0.3) 70%, rgba(8,13,20,0.15) 100%), linear-gradient(to top, rgba(8,13,20,1) 0%, rgba(8,13,20,0.4) 35%, transparent 65%), linear-gradient(to bottom, rgba(8,13,20,0.6) 0%, transparent 18%)'
-      : 'linear-gradient(to right, #f0f4fa 0%, rgba(240,244,250,0.95) 32%, rgba(240,244,250,0.6) 55%, rgba(240,244,250,0.15) 75%, transparent 100%), linear-gradient(to top, #f0f4fa 0%, rgba(240,244,250,0.5) 30%, transparent 60%)',
+      ? 'linear-gradient(to right, rgba(8,13,20,1) 0%, rgba(8,13,20,0.97) 35%, rgba(8,13,20,0.7) 50%, rgba(8,13,20,0.25) 68%, transparent 100%), linear-gradient(to top, rgba(8,13,20,1) 0%, rgba(8,13,20,0.35) 35%, transparent 65%), linear-gradient(to bottom, rgba(8,13,20,0.5) 0%, transparent 15%)'
+      : 'linear-gradient(to right, rgba(240,244,250,1) 0%, rgba(240,244,250,1) 35%, rgba(240,244,250,0.75) 50%, rgba(240,244,250,0.25) 68%, transparent 100%), linear-gradient(to top, rgba(240,244,250,1) 0%, rgba(240,244,250,0.4) 35%, transparent 60%)',
     heroGrad:   dk ? 'linear-gradient(135deg,#08101e 0%,#0f1830 55%,#08101e 100%)' : '#f0f4fa',
     heroTitleC: dk ? '#fff' : '#0f1a2e',
     chartBg:    dk ? '#080d14' : '#f0f4fa',
@@ -546,7 +546,7 @@ export default function Home() {
                   <Link href={hero.href} className="hp-hero-title" style={{
                     fontFamily: 'Outfit,sans-serif', fontSize: 42, fontWeight: 900,
                     color: dk ? '#fff' : 'var(--text-primary)', lineHeight: 1.06, margin: '0 0 10px',
-                    letterSpacing: '-0.025em', maxWidth: 580, display: 'block',
+                    letterSpacing: '-0.025em', maxWidth: 500, display: 'block',
                     textShadow: dk ? '0 2px 20px rgba(0,0,0,0.4)' : 'none',
                     textDecoration: 'none', transition: 'opacity .15s',
                   }}
