@@ -636,8 +636,8 @@ export default function Home() {
 
               {/* ── Right: Chart ── */}
               <div className="hp-hero-right">
-                {/* Tab bar — clean segment control */}
-                <div style={{ display: 'flex', marginBottom: 14 }}>
+                {/* Tab bar */}
+                <div style={{ display: 'flex', marginBottom: 12 }}>
                   <div style={{ display: 'flex', flex: 1, borderRadius: 10, padding: 3, background: dk ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.03)', gap: 3 }}>
                     {([['lt', 'LT Top 30'], ['world', 'Pasaulio Top 40']] as const).map(([k, l]) => (
                       <button key={k} onClick={() => setChartTab(k)}
@@ -652,64 +652,58 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* Chart entries */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {/* Chart entries — card style */}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {chartData.length === 0
                     ? Array.from({ length: 5 }).map((_, i) => (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 6px' }}>
+                      <div key={i} className="hp-card" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px' }}>
                         <Skel w={20} h={16} /><Skel w={40} h={40} r={8} />
                         <div style={{ flex: 1 }}><Skel w="72%" h={11} /><div style={{ marginTop: 4 }}><Skel w="50%" h={9} /></div></div>
                       </div>
                     ))
                     : chartData.slice(0, 5).map((t, i) => (
-                      <div key={t.track_id || i}
-                        className="hp-tr"
+                      <Link key={t.track_id || i} href={t.slug ? `/muzika/${t.slug}` : '/topas'}
+                        className="hp-card"
                         style={{
-                          display: 'flex', alignItems: 'center', gap: 10, padding: '8px 6px',
-                          borderRadius: 9,
-                          borderBottom: i < Math.min(chartData.length, 5) - 1 ? `1px solid ${T.borderSub}` : 'none',
+                          display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px',
+                          textDecoration: 'none',
                         }}>
-                        {/* Position number */}
-                        <span style={{
-                          width: 20, textAlign: 'center', fontSize: 16, fontWeight: 900,
-                          fontFamily: 'Outfit,sans-serif', flexShrink: 0,
-                          color: t.pos <= 3 ? T.pos123 : (dk ? '#2a4060' : '#c0ccd8'),
-                        }}>{t.pos}</span>
+                        {/* Position + trend */}
+                        <div style={{ width: 28, flexShrink: 0, textAlign: 'center' }}>
+                          <span style={{
+                            fontSize: 16, fontWeight: 900, fontFamily: 'Outfit,sans-serif', display: 'block',
+                            lineHeight: 1, color: t.pos <= 3 ? T.pos123 : (dk ? '#2a4060' : '#c0ccd8'),
+                          }}>{t.pos}</span>
+                          <div style={{ marginTop: 2 }}><TrendIcon t={t.trend} /></div>
+                        </div>
 
-                        {/* Cover image with play overlay */}
-                        <Link href={t.slug ? `/muzika/${t.slug}` : '/topas'}
-                          style={{ position: 'relative', flexShrink: 0, display: 'block', width: 40, height: 40 }}>
+                        {/* Cover image */}
+                        <div style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 8, overflow: 'hidden' }}>
                           <Cover src={t.cover_url || t.artist_image} alt={t.title} size={40} radius={8} />
-                          <div style={{
-                            position: 'absolute', inset: 0, borderRadius: 8, display: 'flex',
-                            alignItems: 'center', justifyContent: 'center',
-                            background: 'rgba(0,0,0,0.35)', opacity: 0, transition: 'opacity .15s',
-                          }}
-                            onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
-                            onMouseLeave={e => (e.currentTarget.style.opacity = '0')}>
-                            <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(255,255,255,.95)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              <svg width="10" height="10" viewBox="0 0 24 24" fill="#111"><path d="M8 5v14l11-7z"/></svg>
-                            </div>
-                          </div>
-                        </Link>
+                        </div>
 
                         {/* Song info */}
-                        <Link href={t.slug ? `/muzika/${t.slug}` : '/topas'} style={{ flex: 1, minWidth: 0, textDecoration: 'none' }}>
-                          <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</p>
-                          <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.artist}</p>
-                        </Link>
-
-                        {/* Trend indicator */}
-                        <div style={{ flexShrink: 0 }}>
-                          <TrendIcon t={t.trend} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</p>
+                          <p style={{ fontSize: 10.5, color: 'var(--text-muted)', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.artist}</p>
                         </div>
-                      </div>
+
+                        {/* Play button — always visible */}
+                        <div style={{
+                          width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                          background: dk ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.06)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          transition: 'background .15s',
+                        }}>
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill={dk ? '#fff' : '#0f1a2e'} style={{ marginLeft: 1 }}><path d="M8 5v14l11-7z"/></svg>
+                        </div>
+                      </Link>
                     ))}
                 </div>
 
                 {/* CTA — Vote */}
                 <Link href="/topas/balsuoti" style={{
-                  marginTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                  marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
                   padding: '10px', borderRadius: 10,
                   background: '#f97316', color: '#fff',
                   fontSize: 12, fontWeight: 800, textDecoration: 'none',
