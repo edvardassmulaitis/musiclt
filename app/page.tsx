@@ -5,8 +5,8 @@ import Link from 'next/link'
 import { useSite } from '@/components/SiteContext'
 
 /* ────────────────────────────── Types ────────────────────────────── */
-type Track = { id: number; slug: string; title: string; cover_url: string | null; created_at: string; artists: { id: number; slug: string; name: string } | null }
-type Album = { id: number; slug: string; title: string; year: number | null; cover_image_url: string | null; created_at: string; artists: { id: number; slug: string; name: string } | null }
+type Track = { id: number; slug: string; title: string; cover_url: string | null; created_at: string; artists: { id: number; slug: string; name: string; cover_image_url?: string | null } | null }
+type Album = { id: number; slug: string; title: string; year: number | null; cover_image_url: string | null; created_at: string; artists: { id: number; slug: string; name: string; cover_image_url?: string | null } | null }
 type Artist = { id: number; slug: string; name: string; cover_image_url: string | null }
 type Event = { id: number; slug: string; title: string; event_date: string; venue_custom: string | null; image_small_url: string | null; venues: { name: string; city: string } | null }
 type NewsItem = { id: number; slug: string; title: string; image_small_url: string | null; image_title_url?: string | null; published_at: string; type: string | null; excerpt?: string | null; songs?: { youtube_url?: string | null; title?: string | null; artist_name?: string | null; cover_url?: string | null }[]; artist: { name: string; slug: string; cover_image_url?: string | null } | null }
@@ -305,6 +305,8 @@ export default function Home() {
   }
 
   const [chartTab, setChartTab] = useState<'lt' | 'world'>('lt')
+  const [trackTab, setTrackTab] = useState<'lt' | 'world'>('lt')
+  const [albumTab, setAlbumTab] = useState<'lt' | 'world'>('lt')
   const [ltTop, setLtTop] = useState<TopEntry[]>([])
   const [worldTop, setWorldTop] = useState<TopEntry[]>([])
   const [tracks, setTracks] = useState<Track[]>([])
@@ -480,18 +482,19 @@ export default function Home() {
         .hp-hero-right{width:332px;flex-shrink:0;padding:20px 16px 20px 20px;display:flex;flex-direction:column;border-left:1px solid ${T.chartBdr};background:${T.chartBg};position:relative;z-index:3}
 
         @media(max-width:960px){
-          .hp-hero{min-height:360px}
-          .hp-hero-bg{right:0!important}
-          .hp-hero-grad{right:0!important}
+          .hp-hero{min-height:auto}
+          .hp-hero-bg{left:0!important;right:0!important;bottom:auto!important;height:280px}
+          .hp-hero-bg img{-webkit-mask-image:linear-gradient(to bottom, black 60%, transparent 100%)!important;mask-image:linear-gradient(to bottom, black 60%, transparent 100%)!important}
           .hp-hero-content{flex-direction:column}
-          .hp-hero-left{padding:32px 0 28px}
-          .hp-hero-right{width:100%!important;padding:18px 0 24px!important;border-left:none;border-top:1px solid var(--border-default);background:transparent!important}
-          .hp-hero-title{font-size:28px!important}
+          .hp-hero-left{padding:240px 0 20px!important}
+          .hp-hero-right{width:100%!important;padding:12px 0 20px!important;border-left:none;border-top:1px solid var(--border-default);background:var(--bg-body)!important}
+          .hp-hero-title{font-size:26px!important}
           .hp-hero-excerpt{font-size:13px!important}
+          .hp-disc-grid{grid-template-columns:1fr!important}
         }
         @media(max-width:600px){
-          .hp-hero{min-height:320px}
-          .hp-hero-left{padding:24px 0 22px}
+          .hp-hero-bg{height:220px}
+          .hp-hero-left{padding:180px 0 16px!important}
           .hp-hero-title{font-size:22px!important}
         }
 
@@ -738,7 +741,23 @@ export default function Home() {
 
           {/* ── ROW 1: Naujos dainos ── */}
           <section>
-            <SH label="Naujos dainos" href="/muzika" />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <h2 style={{ fontFamily: 'Outfit, sans-serif', fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em', margin: 0 }}>Naujos dainos</h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ display: 'flex', borderRadius: 8, padding: 2, background: dk ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.03)', gap: 2 }}>
+                  {([['lt', 'Lietuvos'], ['world', 'Pasaulio']] as const).map(([k, l]) => (
+                    <button key={k} onClick={() => setTrackTab(k)} style={{
+                      padding: '4px 10px', borderRadius: 6, fontSize: 10, fontWeight: 700,
+                      border: 'none', cursor: 'pointer', transition: 'all .15s', fontFamily: 'Outfit,sans-serif',
+                      background: trackTab === k ? (dk ? 'rgba(255,255,255,.1)' : '#fff') : 'transparent',
+                      color: trackTab === k ? (dk ? '#fff' : '#0f1a2e') : (dk ? '#6a88aa' : '#8899aa'),
+                      boxShadow: trackTab === k ? (dk ? 'none' : '0 1px 2px rgba(0,0,0,.06)') : 'none',
+                    }}>{l}</button>
+                  ))}
+                </div>
+                <Link href="/muzika" style={{ fontSize: 12, color: 'var(--accent-link)', fontWeight: 700, textDecoration: 'none' }} onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')} onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>Visi →</Link>
+              </div>
+            </div>
             <div className="hp-scroll" style={{ display: 'flex', gap: 8, paddingBottom: 2 }}>
               {tracks.length === 0 ? Array(8).fill(null).map((_, i) => (
                 <div key={i} style={{ width: 182, flexShrink: 0, padding: '9px 11px', borderRadius: 11, background: 'var(--bg-surface)', border: `1px solid var(--border-default)`, display: 'flex', alignItems: 'center', gap: 9 }}>
@@ -747,7 +766,7 @@ export default function Home() {
               )) : tracks.slice(0, 14).filter(t => sanitizeTitle(t.title)).map(t => (
                 <Link key={t.id} href={`/muzika/${t.slug}`} className="hp-card"
                   style={{ width: 182, flexShrink: 0, padding: '9px 11px', display: 'flex', alignItems: 'center', gap: 9 }}>
-                  <Cover src={t.cover_url} alt={sanitizeTitle(t.title)} size={38} radius={8} />
+                  <Cover src={t.cover_url || t.artists?.cover_image_url} alt={sanitizeTitle(t.title)} size={38} radius={8} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(t.title)}</p>
                     <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.artists?.name}</p>
@@ -759,7 +778,23 @@ export default function Home() {
 
           {/* ── ROW 2: Albumai ── */}
           <section>
-            <SH label="Nauji albumai" href="/muzika?tab=albums" />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <h2 style={{ fontFamily: 'Outfit, sans-serif', fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em', margin: 0 }}>Nauji albumai</h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ display: 'flex', borderRadius: 8, padding: 2, background: dk ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.03)', gap: 2 }}>
+                  {([['lt', 'Lietuvos'], ['world', 'Pasaulio']] as const).map(([k, l]) => (
+                    <button key={k} onClick={() => setAlbumTab(k)} style={{
+                      padding: '4px 10px', borderRadius: 6, fontSize: 10, fontWeight: 700,
+                      border: 'none', cursor: 'pointer', transition: 'all .15s', fontFamily: 'Outfit,sans-serif',
+                      background: albumTab === k ? (dk ? 'rgba(255,255,255,.1)' : '#fff') : 'transparent',
+                      color: albumTab === k ? (dk ? '#fff' : '#0f1a2e') : (dk ? '#6a88aa' : '#8899aa'),
+                      boxShadow: albumTab === k ? (dk ? 'none' : '0 1px 2px rgba(0,0,0,.06)') : 'none',
+                    }}>{l}</button>
+                  ))}
+                </div>
+                <Link href="/muzika?tab=albums" style={{ fontSize: 12, color: 'var(--accent-link)', fontWeight: 700, textDecoration: 'none' }} onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')} onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>Visi →</Link>
+              </div>
+            </div>
             <div className="hp-scroll" style={{ display: 'flex', gap: 9, paddingBottom: 2 }}>
               {albums.length === 0 ? Array(5).fill(null).map((_, i) => (
                 <div key={i} style={{ width: 212, flexShrink: 0, padding: '10px 12px', borderRadius: 11, background: 'var(--bg-surface)', border: '1px solid var(--border-default)', display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -768,7 +803,7 @@ export default function Home() {
               )) : albums.slice(0, 10).map(a => (
                 <Link key={a.id} href={`/muzika/${a.slug}`} className="hp-card"
                   style={{ width: 212, flexShrink: 0, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <Cover src={a.cover_image_url} alt={sanitizeTitle(a.title)} size={46} radius={9} />
+                  <Cover src={a.cover_image_url || a.artists?.cover_image_url} alt={sanitizeTitle(a.title)} size={46} radius={9} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(a.title)}</p>
                     <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.artists?.name}</p>
