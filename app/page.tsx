@@ -494,7 +494,10 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, dk }: {
                 fontFamily: 'Outfit,sans-serif', fontSize: 26, fontWeight: 900,
                 color: '#fff', lineHeight: 1.1, margin: '0 0 8px', display: 'block',
                 textDecoration: 'none', letterSpacing: '-0.02em',
-              }}>{s.title}</Link>
+              }}>
+                {s.title}
+                <span style={{ display: 'inline-block', marginLeft: 6, fontSize: '0.55em', opacity: 0.4, verticalAlign: 'middle', fontWeight: 400 }}>→</span>
+              </Link>
 
               {s.subtitle && (
                 <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', margin: '0 0 14px', lineHeight: 1.5 }}>
@@ -633,13 +636,13 @@ export default function Home() {
     fetch('/api/tracks?limit=16').then(r => r.json()).then(d => setTracks(d.tracks || [])).catch(() => {})
     fetch('/api/albums?limit=10').then(r => r.json()).then(d => setAlbums(d.albums || [])).catch(() => {})
     fetch('/api/artists?limit=12').then(r => r.json()).then(d => setArtists(d.artists || [])).catch(() => {})
-    fetch('/api/events?limit=12').then(r => r.json()).then(d => setEvents(d.events || [])).catch(() => {})
-    fetch('/api/news?limit=10').then(r => r.json()).then(d => setNews(d.news || [])).catch(() => {})
+    fetch('/api/events?limit=10').then(r => r.json()).then(d => setEvents(d.events || [])).catch(() => {})
+    fetch('/api/news?limit=30').then(r => r.json()).then(d => setNews(d.news || [])).catch(() => {})
   }, [])
 
   useEffect(() => {
     if (!news.length) return
-    const heroNews = news.slice(0, 8)
+    const heroNews = news.slice(0, 30)
     Promise.all(
       heroNews.map(n =>
         fetch(`/api/news/${n.id}/songs`)
@@ -657,7 +660,7 @@ export default function Home() {
   /* ── Hero slides ── */
   useEffect(() => {
     const slides: HeroSlide[] = []
-    news.slice(0, 8).forEach(n => {
+    news.slice(0, 30).forEach(n => {
       const typeLT = n.type === 'review' ? 'Recenzija' : n.type === 'interview' ? 'Interviu' : n.type === 'report' ? 'Reportažas' : 'Naujiena'
       const songs = newsSongs[n.id] || []
       const song = songs.find((s: any) => s.youtube_url)
@@ -789,13 +792,13 @@ export default function Home() {
 
         @media(max-width:960px){
           .hp-hero{min-height:auto;overflow:visible}
-          .hp-hero-bg{left:0!important;right:0!important;height:280px;bottom:auto!important;z-index:0}
+          .hp-hero-bg{left:0!important;right:0!important;height:260px;bottom:auto!important;z-index:0;flex-shrink:0}
           .hp-hero-bg img{-webkit-mask-image:linear-gradient(to bottom, black 55%, transparent 100%)!important;mask-image:linear-gradient(to bottom, black 55%, transparent 100%)!important}
-          .hp-hero-content{flex-direction:column;position:relative}
-          .hp-hero-left{padding:240px 0 24px!important;position:relative;z-index:2}
+          .hp-hero-content{flex-direction:column;position:relative;min-height:0}
+          .hp-hero-left{padding:220px 0 20px!important;position:relative;z-index:2;min-height:200px}
           .hp-hero-right{display:none!important}
-          .hp-hero-title{font-size:26px!important}
-          .hp-hero-excerpt{font-size:14px!important;margin-bottom:16px!important}
+          .hp-hero-title{font-size:24px!important;line-height:1.1!important}
+          .hp-hero-excerpt{font-size:13px!important;margin-bottom:12px!important;-webkit-line-clamp:2;display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden}
           .hp-hero-dots{display:none!important}
           .hp-hero-vidcard{width:100%!important}
           .hp-disc-grid{grid-template-columns:1fr!important}
@@ -803,8 +806,9 @@ export default function Home() {
         }
         @media(max-width:600px){
           .hp-hero-bg{height:220px}
-          .hp-hero-left{padding:190px 0 20px!important}
-          .hp-hero-title{font-size:22px!important}
+          .hp-hero-left{padding:185px 0 18px!important;min-height:180px}
+          .hp-hero-title{font-size:21px!important}
+          .hp-hero-excerpt{-webkit-line-clamp:2}
         }
 
         @media(max-width:900px){
@@ -853,6 +857,11 @@ export default function Home() {
                     onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
                     onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
                     {hero.title}
+                    <span style={{
+                      display: 'inline-block', marginLeft: 8, fontSize: '0.6em',
+                      opacity: 0.45, verticalAlign: 'middle', fontWeight: 400,
+                      letterSpacing: 0,
+                    }}>→</span>
                   </Link>
                   {hero.subtitle && (
                     <p className="hp-hero-excerpt" style={{
@@ -995,56 +1004,64 @@ export default function Home() {
           </section>
         )}
 
-        {/* ═══════════════════════ FIX #3: THUMBNAIL STRIP (mobile) ═══════════════════════ */}
+        {/* ═══════════════════════ THUMBNAIL STRIP (mobile) ═══════════════════════ */}
         {heroSlides.length > 0 && (
-          <div className="hp-feed-strip" style={{ padding: '14px 16px 0', flexDirection: 'column', gap: 8 }}>
-            <div style={{ display: 'flex', gap: 7, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 2 }}>
+          <div className="hp-feed-strip" style={{ padding: '12px 16px 0' }}>
+            <div style={{
+              display: 'flex', gap: 7,
+              overflowX: 'auto', scrollbarWidth: 'none',
+              height: 112, alignItems: 'stretch',
+            }}>
               {heroSlides.map((slide, i) => {
                 const isSeen = seenSlides.has(slide.href)
+                const artistName = slide.artist?.name || null
                 return (
                   <button
                     key={i}
                     onClick={() => { setReelsIdx(i); setReelsOpen(true) }}
                     style={{
-                      flexShrink: 0, position: 'relative', borderRadius: 12, overflow: 'hidden',
+                      flexShrink: 0, position: 'relative', borderRadius: 11, overflow: 'hidden',
                       border: isSeen
-                        ? `2px solid ${dk ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)'}`
+                        ? `2px solid ${dk ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)'}`
                         : '2px solid #f97316',
                       background: '#000', cursor: 'pointer', padding: 0,
-                      width: 72, height: 108,
-                      boxShadow: isSeen ? 'none' : '0 0 0 1px rgba(249,115,22,0.3)',
-                      transition: 'opacity .15s',
+                      width: 76, height: 108,
+                      transition: 'opacity .15s, border-color .15s',
                     }}
-                    onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
+                    onMouseEnter={e => (e.currentTarget.style.opacity = '0.82')}
                     onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
                   >
+                    {/* Image */}
                     {slide.bgImg
                       ? <img src={slide.bgImg} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                       : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#0a1428,#162040)' }} />
                     }
-                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.05) 55%)' }} />
-                    <div style={{
-                      position: 'absolute', top: '38%', left: '50%', transform: 'translate(-50%,-50%)',
-                      width: 26, height: 26, borderRadius: '50%',
-                      background: isSeen ? 'rgba(255,255,255,0.22)' : 'rgba(249,115,22,0.9)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
-                      <svg width="9" height="9" viewBox="0 0 24 24" fill="#fff" style={{ marginLeft: 1 }}><path d="M8 5v14l11-7z"/></svg>
+                    {/* Gradient */}
+                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.0) 50%)' }} />
+                    {/* Bottom: artist name or chip */}
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '5px 5px 5px' }}>
+                      {artistName ? (
+                        <p style={{
+                          fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.9)',
+                          margin: 0, lineHeight: 1.2,
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          fontFamily: 'Outfit,sans-serif',
+                        }}>{artistName}</p>
+                      ) : (
+                        <span style={{
+                          fontSize: 7, fontWeight: 800, color: '#fff',
+                          background: slide.chipBg, padding: '2px 5px', borderRadius: 3,
+                          fontFamily: 'Outfit,sans-serif', letterSpacing: '0.05em',
+                          textTransform: 'uppercase', display: 'inline-block',
+                        }}>{slide.chip}</span>
+                      )}
                     </div>
-                    <div style={{ position: 'absolute', bottom: 5, left: 5, right: 5 }}>
-                      <span style={{
-                        fontSize: 7, fontWeight: 800, color: '#fff',
-                        background: slide.chipBg, padding: '2px 5px', borderRadius: 3,
-                        fontFamily: 'Outfit,sans-serif', letterSpacing: '0.05em',
-                        textTransform: 'uppercase', display: 'inline-block',
-                        maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                      }}>{slide.chip}</span>
-                    </div>
+                    {/* Unseen dot */}
                     {!isSeen && (
                       <div style={{
                         position: 'absolute', top: 5, right: 5,
-                        width: 7, height: 7, borderRadius: '50%',
-                        background: '#f97316', boxShadow: '0 0 5px rgba(249,115,22,0.9)',
+                        width: 6, height: 6, borderRadius: '50%',
+                        background: '#f97316',
                         border: '1.5px solid #000',
                       }} />
                     )}
