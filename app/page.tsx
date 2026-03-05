@@ -454,9 +454,9 @@ export default function Home() {
 
         /* ── Hero cinematic ── */
         .hp-hero{position:relative;overflow:hidden;min-height:420px;display:flex;background:var(--bg-body)}
-        .hp-hero-bg{position:absolute;top:0;bottom:0;left:40%;right:340px;z-index:0;overflow:hidden}
-        .hp-hero-bg img{width:100%;height:100%;object-fit:cover;object-position:center 25%;animation:hp-img-in .8s ease both;-webkit-mask-image:linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%);mask-image:linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%)}
-        .hp-hero-grad{position:absolute;top:0;bottom:0;left:40%;right:340px;z-index:1}
+        .hp-hero-bg{position:absolute;top:0;bottom:0;left:40%;right:0;z-index:0;overflow:hidden}
+        .hp-hero-bg img{width:100%;height:100%;object-fit:cover;object-position:center 25%;animation:hp-img-in .8s ease both;-webkit-mask-image:linear-gradient(to right, transparent 0%, black 12%, black 75%, transparent 100%);mask-image:linear-gradient(to right, transparent 0%, black 12%, black 75%, transparent 100%)}
+        .hp-hero-grad{position:absolute;top:0;bottom:0;left:40%;right:0;z-index:1}
         .hp-hero-content{position:relative;z-index:2;display:flex;align-items:stretch;max-width:1360px;margin:0 auto;padding:0 20px;width:100%;flex:1}
         .hp-hero-left{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:36px 0 40px;min-width:0}
         .hp-hero-right{width:332px;flex-shrink:0;padding:20px 16px 20px 20px;display:flex;flex-direction:column;border-left:1px solid ${T.chartBdr};background:${T.chartBg};position:relative;z-index:3}
@@ -514,32 +514,11 @@ export default function Home() {
               {/* ── Left: Article info ── */}
               <div className="hp-hero-left">
                 <div key={heroIdx} style={{ animation: 'hp-in .5s ease both' }}>
-                  {/* Chip + Artist */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+                  {/* Type chip */}
+                  <div style={{ marginBottom: 12 }}>
                     <span style={{ padding: '4px 14px', borderRadius: 20, fontSize: 10, fontWeight: 900, color: '#fff', background: hero.chipBg, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                       {hero.chip}
                     </span>
-                    {hero.artist && (
-                      <Link href={`/atlikejai/${hero.artist.slug}`} style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 7,
-                        padding: '3px 12px 3px 3px', borderRadius: 20,
-                        background: dk ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
-                        border: `1px solid ${dk ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}`,
-                        textDecoration: 'none', transition: 'all .15s'
-                      }}
-                        onMouseEnter={e => { e.currentTarget.style.background = dk ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.08)' }}
-                        onMouseLeave={e => { e.currentTarget.style.background = dk ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }}
-                      >
-                        {hero.artist.image ? (
-                          <img src={hero.artist.image} alt={hero.artist.name} style={{ width: 22, height: 22, borderRadius: '50%', objectFit: 'cover' }} />
-                        ) : (
-                          <div style={{ width: 22, height: 22, borderRadius: '50%', background: `hsl(${strHue(hero.artist.name)},35%,${dk ? 18 : 88}%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 800, color: `hsl(${strHue(hero.artist.name)},50%,${dk ? 55 : 40}%)` }}>
-                            {hero.artist.name[0]?.toUpperCase()}
-                          </div>
-                        )}
-                        <span style={{ fontSize: 12, fontWeight: 700, color: dk ? '#e8edf6' : 'var(--text-primary)' }}>{hero.artist.name}</span>
-                      </Link>
-                    )}
                   </div>
 
                   {/* Title */}
