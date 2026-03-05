@@ -141,8 +141,8 @@ export function SiteHeader() {
             })}
           </nav>
 
-          {/* Auth (avatar / login) — far right with gap */}
-          <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
+          {/* Auth (avatar / login) — right after nav with small gap */}
+          <div style={{ flexShrink: 0, marginLeft: 8 }}>
             <HeaderAuth />
           </div>
         </div>
