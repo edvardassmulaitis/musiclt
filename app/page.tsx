@@ -305,9 +305,11 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, dk }: {
   /* Mark seen + start progress on slide change */
   useEffect(() => {
     if (!slide) return
-    onSeen(slide.href)
     if (!videoOpen) startProgress()
-    return () => stopProgress()
+    return () => {
+      stopProgress()
+      onSeen(slide.href) // mark seen when leaving this slide
+    }
   }, [idx]) // eslint-disable-line
 
   /* Pause/resume when video opens */
@@ -835,7 +837,8 @@ export default function Home() {
           .hp-hero-bg{left:0!important;right:0!important;height:260px;bottom:auto!important;z-index:0;flex-shrink:0}
           .hp-hero-bg img{-webkit-mask-image:linear-gradient(to bottom, black 55%, transparent 100%)!important;mask-image:linear-gradient(to bottom, black 55%, transparent 100%)!important}
           .hp-hero-content{flex-direction:column;position:relative;min-height:0}
-          .hp-hero-left{padding:220px 0 20px!important;position:relative;z-index:2;min-height:200px}
+          .hp-hero-left{padding:0 0 20px!important;position:relative;z-index:2;display:flex;flex-direction:column}
+          .hp-hero-spacer{flex:1;min-height:160px}
           .hp-hero-right{display:none!important}
           .hp-hero-title{font-size:24px!important;line-height:1.1!important}
           .hp-hero-excerpt{font-size:13px!important;margin-bottom:12px!important;-webkit-line-clamp:2;display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden}
@@ -847,7 +850,8 @@ export default function Home() {
         }
         @media(max-width:600px){
           .hp-hero-bg{height:220px}
-          .hp-hero-left{padding:185px 0 18px!important;min-height:180px}
+          .hp-hero-left{padding:0 0 18px!important}
+          .hp-hero-spacer{min-height:130px}
           .hp-hero-title{font-size:21px!important}
           .hp-hero-excerpt{-webkit-line-clamp:2}
         }
@@ -922,7 +926,8 @@ export default function Home() {
             <div className="hp-hero-grad" style={{ background: T.heroOverlay }} />
             <div className="hp-hero-content">
               <div className="hp-hero-left">
-                <div key={heroIdx} style={{ animation: 'hp-in .5s ease both' }}>
+                <div key={heroIdx} style={{ animation: 'hp-in .5s ease both', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                  <div className="hp-hero-spacer" />
                   <div style={{ marginBottom: 12 }}>
                     <span style={{ padding: '4px 14px', borderRadius: 20, fontSize: 10, fontWeight: 900, color: '#fff', background: hero.chipBg, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                       {hero.chip}
