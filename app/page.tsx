@@ -567,22 +567,15 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, dk }: {
 }
 
 /* ── Inline SVG icons for LT/World labels ── */
-function LabelRow({ icon }: { icon: 'lt' | 'world' }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 8px' }}>
-      {icon === 'lt' ? (
-        // LT vėliavos spalvos: geltona, žalia, raudona
-        <div style={{ display: 'flex', flexDirection: 'column', width: 3, height: 18, borderRadius: 2, overflow: 'hidden', flexShrink: 0 }}>
-          <div style={{ flex: 1, background: '#FDBA12' }} />
-          <div style={{ flex: 1, background: '#006A44' }} />
-          <div style={{ flex: 1, background: '#C1272D' }} />
-        </div>
-      ) : (
-        // Pasaulio — viena neutrali mėlyna linija
-        <div style={{ width: 3, height: 18, borderRadius: 2, background: '#3b82f6', flexShrink: 0, opacity: 0.7 }} />
-      )}
-      <div style={{ flex: 1, height: 1, background: 'var(--border-subtle)' }} />
+function RowDivider({ icon }: { icon: 'lt' | 'world' }) {
+  return icon === 'lt' ? (
+    <div style={{ display: 'flex', flexDirection: 'column', width: 3, height: 38, borderRadius: 2, overflow: 'hidden', flexShrink: 0 }}>
+      <div style={{ flex: 1, background: '#FDBA12' }} />
+      <div style={{ flex: 1, background: '#006A44' }} />
+      <div style={{ flex: 1, background: '#C1272D' }} />
     </div>
+  ) : (
+    <div style={{ width: 3, height: 38, borderRadius: 2, background: '#3b82f6', flexShrink: 0, opacity: 0.65 }} />
   )
 }
 
@@ -864,7 +857,74 @@ export default function Home() {
       <div className="hp">
 
         {/* ═══════════════════════ CINEMATIC HERO ═══════════════════════ */}
-        {hero && (
+        {!hero ? (
+          /* ── Hero skeleton loader ── */
+          <section className="hp-hero" style={{ minHeight: 420, position: 'relative', overflow: 'hidden', display: 'flex', background: dk ? '#080d14' : '#f0f4fa' }}>
+            {/* Animated background shimmer */}
+            <div style={{
+              position: 'absolute', inset: 0,
+              background: dk
+                ? 'linear-gradient(135deg, #08101e 0%, #0f1830 55%, #08101e 100%)'
+                : 'linear-gradient(135deg, #eef2f8 0%, #e4eaf4 55%, #eef2f8 100%)',
+            }} />
+            {/* Pulsing music bars decoration */}
+            <div style={{
+              position: 'absolute', right: '28%', top: '50%', transform: 'translateY(-50%)',
+              display: 'flex', alignItems: 'flex-end', gap: 5, opacity: 0.07, height: 120,
+            }}>
+              {[40, 80, 55, 100, 65, 90, 45, 75, 110, 50, 85, 60, 95].map((h, i) => (
+                <div key={i} style={{
+                  width: 8, borderRadius: 4, background: '#f97316',
+                  animation: `hp-bar ${0.8 + (i % 4) * 0.15}s ease-in-out infinite alternate`,
+                  animationDelay: `${i * 0.07}s`,
+                  height: h,
+                }} />
+              ))}
+            </div>
+            <style>{`
+              @keyframes hp-bar {
+                from { transform: scaleY(0.3); opacity: 0.5; }
+                to   { transform: scaleY(1);   opacity: 1;   }
+              }
+              @keyframes hp-pulse { 0%,100%{opacity:.4} 50%{opacity:.9} }
+            `}</style>
+            {/* Content skeleton */}
+            <div className="hp-hero-content">
+              <div className="hp-hero-left" style={{ justifyContent: 'flex-end', paddingBottom: 40 }}>
+                <div style={{ animation: 'hp-pulse 1.6s ease infinite' }}>
+                  {/* Chip */}
+                  <div style={{ width: 110, height: 22, borderRadius: 11, background: dk ? 'rgba(249,115,22,0.18)' : 'rgba(249,115,22,0.12)', marginBottom: 16 }} />
+                  {/* Title lines */}
+                  <div style={{ width: '70%', height: 38, borderRadius: 8, background: dk ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)', marginBottom: 10 }} />
+                  <div style={{ width: '50%', height: 38, borderRadius: 8, background: dk ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)', marginBottom: 16 }} />
+                  {/* Excerpt */}
+                  <div style={{ width: '80%', height: 12, borderRadius: 6, background: dk ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)', marginBottom: 8 }} />
+                  <div style={{ width: '60%', height: 12, borderRadius: 6, background: dk ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)', marginBottom: 20 }} />
+                  {/* Song card */}
+                  <div style={{ width: 200, height: 54, borderRadius: 12, background: dk ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }} />
+                </div>
+              </div>
+              {/* Right sidebar skeleton */}
+              <div className="hp-hero-right" style={{ gap: 8 }}>
+                {/* Tabs */}
+                <div style={{ height: 36, borderRadius: 10, background: dk ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)', marginBottom: 8, animation: 'hp-pulse 1.6s ease infinite' }} />
+                {/* Chart rows */}
+                {Array(5).fill(null).map((_, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 4px', animation: `hp-pulse 1.6s ease ${i * 0.1}s infinite` }}>
+                    <div style={{ width: 22, height: 14, borderRadius: 4, background: dk ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', flexShrink: 0 }} />
+                    <div style={{ width: 40, height: 40, borderRadius: 8, background: dk ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', flexShrink: 0 }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ width: '70%', height: 10, borderRadius: 5, background: dk ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', marginBottom: 5 }} />
+                      <div style={{ width: '50%', height: 8, borderRadius: 4, background: dk ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)' }} />
+                    </div>
+                  </div>
+                ))}
+                {/* Balsuok button */}
+                <div style={{ height: 38, borderRadius: 10, background: 'rgba(249,115,22,0.2)', marginTop: 6, animation: 'hp-pulse 1.6s ease infinite' }} />
+              </div>
+            </div>
+          </section>
+        ) : (
           <section className="hp-hero" ref={heroRef}>
             <div className="hp-hero-bg">
               {hero.bgImg ? (
@@ -1093,7 +1153,7 @@ export default function Home() {
           </section>
         )}
 
-        {/* ═══════════════════════ THUMBNAIL STRIP (mobile) ═══════════════════════ */}
+
         {heroSlides.length > 0 && (
           <div className="hp-feed-strip" style={{ padding: '12px 16px 0' }}>
             <div style={{
@@ -1233,8 +1293,8 @@ export default function Home() {
                   <Link href="/muzika" style={{ fontSize: 12, color: 'var(--accent-link)', fontWeight: 700, textDecoration: 'none' }} onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')} onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>Visi →</Link>
                 </div>
                 <div style={{ marginBottom: 10 }}>
-                  <LabelRow icon="lt" />
-                  <div className="hp-scroll" style={{ display: 'flex', gap: 8, paddingBottom: 2 }}>
+                  <div className="hp-scroll" style={{ display: 'flex', gap: 8, paddingBottom: 2, alignItems: 'center' }}>
+                    <RowDivider icon="lt" />
                     {tracks.length === 0 ? Array(5).fill(null).map((_, i) => (
                       <div key={i} style={{ width: 178, flexShrink: 0, padding: '9px 11px', borderRadius: 11, background: 'var(--bg-surface)', border: `1px solid var(--border-default)`, display: 'flex', alignItems: 'center', gap: 9 }}>
                         <Skel w={38} h={38} r={8} /><div style={{ flex: 1 }}><Skel w="76%" h={10} /><div style={{ marginTop: 5 }}><Skel w="54%" h={8} /></div></div>
@@ -1252,8 +1312,8 @@ export default function Home() {
                   </div>
                 </div>
                 <div>
-                  <LabelRow icon="world" />
-                  <div className="hp-scroll" style={{ display: 'flex', gap: 8, paddingBottom: 2 }}>
+                  <div className="hp-scroll" style={{ display: 'flex', gap: 8, paddingBottom: 2, alignItems: 'center' }}>
+                    <RowDivider icon="world" />
                     {tracks.length === 0 ? Array(5).fill(null).map((_, i) => (
                       <div key={i} style={{ width: 178, flexShrink: 0, padding: '9px 11px', borderRadius: 11, background: 'var(--bg-surface)', border: `1px solid var(--border-default)`, display: 'flex', alignItems: 'center', gap: 9 }}>
                         <Skel w={38} h={38} r={8} /><div style={{ flex: 1 }}><Skel w="76%" h={10} /><div style={{ marginTop: 5 }}><Skel w="54%" h={8} /></div></div>
@@ -1279,8 +1339,8 @@ export default function Home() {
                   <Link href="/muzika?tab=albums" style={{ fontSize: 12, color: 'var(--accent-link)', fontWeight: 700, textDecoration: 'none' }} onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')} onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>Visi →</Link>
                 </div>
                 <div style={{ marginBottom: 10 }}>
-                  <LabelRow icon="lt" />
-                  <div className="hp-scroll" style={{ display: 'flex', gap: 9, paddingBottom: 2 }}>
+                  <div className="hp-scroll" style={{ display: 'flex', gap: 9, paddingBottom: 2, alignItems: 'center' }}>
+                    <RowDivider icon="lt" />
                     {albums.length === 0 ? Array(4).fill(null).map((_, i) => (
                       <div key={i} style={{ width: 195, flexShrink: 0, padding: '10px 12px', borderRadius: 11, background: 'var(--bg-surface)', border: '1px solid var(--border-default)', display: 'flex', alignItems: 'center', gap: 10 }}>
                         <Skel w={46} h={46} r={9} /><div style={{ flex: 1 }}><Skel w="70%" h={10} /><div style={{ marginTop: 5 }}><Skel w="50%" h={9} /></div></div>
@@ -1299,8 +1359,8 @@ export default function Home() {
                   </div>
                 </div>
                 <div>
-                  <LabelRow icon="world" />
-                  <div className="hp-scroll" style={{ display: 'flex', gap: 9, paddingBottom: 2 }}>
+                  <div className="hp-scroll" style={{ display: 'flex', gap: 9, paddingBottom: 2, alignItems: 'center' }}>
+                    <RowDivider icon="world" />
                     {albums.length === 0 ? Array(4).fill(null).map((_, i) => (
                       <div key={i} style={{ width: 195, flexShrink: 0, padding: '10px 12px', borderRadius: 11, background: 'var(--bg-surface)', border: '1px solid var(--border-default)', display: 'flex', alignItems: 'center', gap: 10 }}>
                         <Skel w={46} h={46} r={9} /><div style={{ flex: 1 }}><Skel w="70%" h={10} /><div style={{ marginTop: 5 }}><Skel w="50%" h={9} /></div></div>
@@ -1332,11 +1392,12 @@ export default function Home() {
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderBottom: i < 4 ? '1px solid var(--border-subtle)' : 'none' }}>
                     <Skel w={44} h={44} r={9} /><div style={{ flex: 1 }}><Skel w="80%" h={10} /><div style={{ marginTop: 4 }}><Skel w="55%" h={8} /></div></div>
                   </div>
-                )) : filtEvt.slice(0, 7).map((ev, i, arr) => {
-                  const d = new Date(ev.event_date)
-                  const diffDays = Math.ceil((d.getTime() - Date.now()) / 86400000)
-                  const isClose = diffDays >= 0 && diffDays <= 3
-                  const countdown = diffDays < 0 ? null : diffDays === 0 ? 'Šiandien' : diffDays === 1 ? 'Rytoj' : `Po ${diffDays}d.`
+                )) : filtEvt.slice(0, 8).map((ev, i, arr) => {
+                  const d = ev.event_date ? new Date(ev.event_date) : null
+                  const validDate = d && !isNaN(d.getTime())
+                  const diffDays = validDate ? Math.ceil((d!.getTime() - Date.now()) / 86400000) : null
+                  const isClose = diffDays !== null && diffDays >= 0 && diffDays <= 3
+                  const countdown = diffDays === null || diffDays < 0 ? null : diffDays === 0 ? 'Šiandien' : diffDays === 1 ? 'Rytoj' : `Po ${diffDays}d.`
                   return (
                     <Link key={ev.id} href={`/renginiai/${ev.slug}`}
                       style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', textDecoration: 'none', borderBottom: i < arr.length - 1 ? '1px solid var(--border-subtle)' : 'none', transition: 'background .12s' }}
@@ -1352,7 +1413,7 @@ export default function Home() {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(ev.title)}</p>
                         <p style={{ fontSize: 10.5, color: 'var(--text-muted)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {d.getDate()} {MONTHS_LT[d.getMonth()]}. {ev.venues?.city ? `· ${ev.venues.city}` : ev.venues?.name ? `· ${ev.venues.name}` : ''}
+                          {validDate ? `${d!.getDate()} ${MONTHS_LT[d!.getMonth()]}.` : ''}{ev.venues?.city ? ` · ${ev.venues.city}` : ev.venues?.name ? ` · ${ev.venues.name}` : ''}
                         </p>
                       </div>
                       {countdown && (
