@@ -671,7 +671,7 @@ export default function Home() {
         title: sanitizeTitle(n.title),
         subtitle: n.excerpt ? smartTruncate(n.excerpt, 180) : '',
         bgImg: n.image_title_url || n.image_small_url,
-        href: `/naujienos/${n.slug}`,
+        href: `/news/${n.slug}`,
         videoId: extractYouTubeId(song?.youtube_url || null),
         songTitle: song?.title || null,
         songArtist: song?.artist_name || n.artist?.name || null,
@@ -1249,7 +1249,7 @@ export default function Home() {
               </div>
             </section>
             <section>
-              <SH label="Naujienos" href="/naujienos" />
+              <SH label="Naujienos" href="/news" />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                 {news.length === 0 ? Array(4).fill(null).map((_, i) => (
                   <div key={i} style={{ display: 'flex', gap: 10, padding: '10px 14px', borderRadius: 11, background: 'var(--bg-surface)', border: '1px solid var(--border-default)', alignItems: 'center' }}>
@@ -1258,7 +1258,7 @@ export default function Home() {
                 )) : news.slice(0, 5).map(n => {
                   const h = strHue(n.title)
                   return (
-                    <Link key={n.id} href={`/naujienos/${n.slug}`} className="hp-card"
+                    <Link key={n.id} href={`/news/${n.slug}`} className="hp-card"
                       style={{ display: 'flex', gap: 11, padding: '10px 14px', alignItems: 'flex-start' }}>
                       <div style={{ width: 34, height: 34, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}><Cover src={n.image_small_url} alt={sanitizeTitle(n.title)} size={34} radius={8} /></div>
                       <div style={{ flex: 1, minWidth: 0 }}>
