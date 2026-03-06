@@ -863,74 +863,52 @@ export default function Home() {
       <div className="hp">
 
         {/* ═══════════════════════ CINEMATIC HERO ═══════════════════════ */}
-        {!pageReady ? (
-          /* ── Hero skeleton loader ── */
-          <section className="hp-hero" style={{ minHeight: 420, position: 'relative', overflow: 'hidden', display: 'flex', background: dk ? '#080d14' : '#f0f4fa' }}>
-            {/* Animated background shimmer */}
+        {!pageReady && (
+          /* ── Fullscreen skeleton loader ── */
+          <div style={{
+            position: 'fixed', inset: 0, zIndex: 999,
+            background: dk ? '#080d14' : '#f0f4fa',
+            display: 'flex', flexDirection: 'column',
+            overflow: 'hidden',
+          }}>
+            {/* Animated music bars - decorative */}
             <div style={{
-              position: 'absolute', inset: 0,
-              background: dk
-                ? 'linear-gradient(135deg, #08101e 0%, #0f1830 55%, #08101e 100%)'
-                : 'linear-gradient(135deg, #eef2f8 0%, #e4eaf4 55%, #eef2f8 100%)',
-            }} />
-            {/* Pulsing music bars decoration */}
-            <div style={{
-              position: 'absolute', right: '28%', top: '50%', transform: 'translateY(-50%)',
-              display: 'flex', alignItems: 'flex-end', gap: 5, opacity: 0.07, height: 120,
+              position: 'absolute', right: '8%', top: '45%', transform: 'translateY(-50%)',
+              display: 'flex', alignItems: 'flex-end', gap: 5, opacity: 0.08,
             }}>
               {[40, 80, 55, 100, 65, 90, 45, 75, 110, 50, 85, 60, 95].map((h, i) => (
                 <div key={i} style={{
-                  width: 8, borderRadius: 4, background: '#f97316',
+                  width: 8, borderRadius: 4, background: '#f97316', height: h,
                   animation: `hp-bar ${0.8 + (i % 4) * 0.15}s ease-in-out infinite alternate`,
                   animationDelay: `${i * 0.07}s`,
-                  height: h,
                 }} />
               ))}
             </div>
             <style>{`
-              @keyframes hp-bar {
-                from { transform: scaleY(0.3); opacity: 0.5; }
-                to   { transform: scaleY(1);   opacity: 1;   }
-              }
-              @keyframes hp-pulse { 0%,100%{opacity:.4} 50%{opacity:.9} }
+              @keyframes hp-bar { from{transform:scaleY(0.3);opacity:0.5} to{transform:scaleY(1);opacity:1} }
+              @keyframes hp-sk { 0%,100%{opacity:.35} 50%{opacity:.7} }
             `}</style>
-            {/* Content skeleton */}
-            <div className="hp-hero-content">
-              <div className="hp-hero-left" style={{ justifyContent: 'flex-end', paddingBottom: 40 }}>
-                <div style={{ animation: 'hp-pulse 1.6s ease infinite' }}>
-                  {/* Chip */}
-                  <div style={{ width: 110, height: 22, borderRadius: 11, background: dk ? 'rgba(249,115,22,0.18)' : 'rgba(249,115,22,0.12)', marginBottom: 16 }} />
-                  {/* Title lines */}
-                  <div style={{ width: '70%', height: 38, borderRadius: 8, background: dk ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)', marginBottom: 10 }} />
-                  <div style={{ width: '50%', height: 38, borderRadius: 8, background: dk ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)', marginBottom: 16 }} />
-                  {/* Excerpt */}
-                  <div style={{ width: '80%', height: 12, borderRadius: 6, background: dk ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)', marginBottom: 8 }} />
-                  <div style={{ width: '60%', height: 12, borderRadius: 6, background: dk ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)', marginBottom: 20 }} />
-                  {/* Song card */}
-                  <div style={{ width: 200, height: 54, borderRadius: 12, background: dk ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }} />
-                </div>
-              </div>
-              {/* Right sidebar skeleton */}
-              <div className="hp-hero-right" style={{ gap: 8 }}>
-                {/* Tabs */}
-                <div style={{ height: 36, borderRadius: 10, background: dk ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)', marginBottom: 8, animation: 'hp-pulse 1.6s ease infinite' }} />
-                {/* Chart rows */}
-                {Array(5).fill(null).map((_, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 4px', animation: `hp-pulse 1.6s ease ${i * 0.1}s infinite` }}>
-                    <div style={{ width: 22, height: 14, borderRadius: 4, background: dk ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', flexShrink: 0 }} />
-                    <div style={{ width: 40, height: 40, borderRadius: 8, background: dk ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', flexShrink: 0 }} />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ width: '70%', height: 10, borderRadius: 5, background: dk ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', marginBottom: 5 }} />
-                      <div style={{ width: '50%', height: 8, borderRadius: 4, background: dk ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)' }} />
-                    </div>
-                  </div>
-                ))}
-                {/* Balsuok button */}
-                <div style={{ height: 38, borderRadius: 10, background: 'rgba(249,115,22,0.2)', marginTop: 6, animation: 'hp-pulse 1.6s ease infinite' }} />
+            {/* Skeleton content - centered */}
+            <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', padding: '0 24px 48px', maxWidth: 560 }}>
+              <div style={{ width: '100%', animation: 'hp-sk 1.6s ease infinite' }}>
+                <div style={{ width: 110, height: 22, borderRadius: 11, background: dk ? 'rgba(249,115,22,0.2)' : 'rgba(249,115,22,0.15)', marginBottom: 18 }} />
+                <div style={{ width: '80%', height: 36, borderRadius: 8, background: dk ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)', marginBottom: 10 }} />
+                <div style={{ width: '60%', height: 36, borderRadius: 8, background: dk ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', marginBottom: 18 }} />
+                <div style={{ width: '85%', height: 11, borderRadius: 6, background: dk ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)', marginBottom: 7 }} />
+                <div style={{ width: '65%', height: 11, borderRadius: 6, background: dk ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)', marginBottom: 22 }} />
+                <div style={{ width: 190, height: 52, borderRadius: 12, background: dk ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }} />
               </div>
             </div>
-          </section>
-        ) : (
+            {/* music.lt branding at bottom */}
+            <div style={{ padding: '0 24px 32px', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, opacity: 0.3 }}>
+                <span style={{ fontFamily: 'Outfit,sans-serif', fontWeight: 900, fontSize: 15, color: dk ? '#fff' : '#0f1a2e' }}>music.</span>
+                <span style={{ fontFamily: 'Outfit,sans-serif', fontWeight: 900, fontSize: 15, color: '#f97316' }}>lt</span>
+              </div>
+            </div>
+          </div>
+        )}
+        {pageReady && (
           <section className="hp-hero" ref={heroRef}>
             <div className="hp-hero-bg">
               {hero.bgImg ? (
@@ -1119,58 +1097,36 @@ export default function Home() {
         )}
 
 
+        {/* ═══════════════════════ BELOW-HERO CONTENT ═══════════════════════ */}
+        <div style={{ opacity: pageReady ? 1 : 0, transition: 'opacity 0.3s ease', pointerEvents: pageReady ? 'auto' : 'none' }}>
+
         {heroSlides.length > 0 && (
           <div className="hp-feed-strip" style={{ padding: '12px 16px 0' }}>
-            <div style={{
-              display: 'flex', gap: 7,
-              overflowX: 'auto', scrollbarWidth: 'none',
-              height: 112, alignItems: 'stretch',
-            }}>
+            <div style={{ display: 'flex', gap: 7, overflowX: 'auto', scrollbarWidth: 'none', height: 112, alignItems: 'stretch' }}>
               {heroSlides.map((slide, i) => {
                 const isSeen = seenSlides.has(slide.href)
                 const artistName = slide.artist?.name || null
                 return (
-                  <button
-                    key={i}
-                    onClick={() => { setReelsIdx(i); setReelsOpen(true) }}
-                    style={{
-                      flexShrink: 0, position: 'relative', borderRadius: 11, overflow: 'hidden',
-                      border: isSeen
-                        ? `2px solid ${dk ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)'}`
-                        : '2px solid #f97316',
-                      background: '#000', cursor: 'pointer', padding: 0,
-                      width: 76, height: 108,
-                      transition: 'opacity .15s, border-color .15s',
-                    }}
+                  <button key={i} onClick={() => { setReelsIdx(i); setReelsOpen(true) }}
+                    style={{ flexShrink: 0, position: 'relative', borderRadius: 11, overflow: 'hidden',
+                      border: isSeen ? `2px solid ${dk ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)'}` : '2px solid #f97316',
+                      background: '#000', cursor: 'pointer', padding: 0, width: 76, height: 108,
+                      transition: 'opacity .15s, border-color .15s' }}
                     onMouseEnter={e => (e.currentTarget.style.opacity = '0.82')}
                     onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
                   >
-                    {/* Image */}
                     {slide.bgImg
                       ? <img src={slide.bgImg} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                       : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#0a1428,#162040)' }} />
                     }
-                    {/* Gradient */}
                     <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.0) 50%)' }} />
-                    {/* Bottom: artist name only if available, else nothing */}
                     {artistName && (
                       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '5px 6px' }}>
-                        <p style={{
-                          fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.9)',
-                          margin: 0, lineHeight: 1.2,
-                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                          fontFamily: 'Outfit,sans-serif',
-                        }}>{artistName}</p>
+                        <p style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.9)', margin: 0, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'Outfit,sans-serif' }}>{artistName}</p>
                       </div>
                     )}
-                    {/* Unseen dot */}
                     {!isSeen && (
-                      <div style={{
-                        position: 'absolute', top: 5, right: 5,
-                        width: 6, height: 6, borderRadius: '50%',
-                        background: '#f97316',
-                        border: '1.5px solid #000',
-                      }} />
+                      <div style={{ position: 'absolute', top: 5, right: 5, width: 6, height: 6, borderRadius: '50%', background: '#f97316', border: '1.5px solid #000' }} />
                     )}
                   </button>
                 )
@@ -1463,7 +1419,7 @@ export default function Home() {
             </div>
           </section>
 
-        </div>
+        </div>{/* end below-hero content */}
       </div>
     </>
   )
