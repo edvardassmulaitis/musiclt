@@ -66,9 +66,9 @@ function strHue(s: string) {
 
 /* ────────────────────────────── Shared UI ────────────────────────────── */
 
-function Cover({ src, alt, size = 44, radius = 10, ytId }: { src?: string | null; alt: string; size?: number; radius?: number; ytId?: string | null }) {
+function Cover({ src, alt, size = 44, radius = 10, ytId, artistSrc }: { src?: string | null; alt: string; size?: number; radius?: number; ytId?: string | null; artistSrc?: string | null }) {
   const h = strHue(alt)
-  const imgSrc = src || (ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : null)
+  const imgSrc = src || artistSrc || (ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : null)
   if (imgSrc) return <img src={imgSrc} alt={alt} loading="lazy" style={{ width: size, height: size, borderRadius: radius, objectFit: 'cover', flexShrink: 0, display: 'block' }} />
   return (
     <div style={{ width: size, height: size, borderRadius: radius, flexShrink: 0, background: `linear-gradient(135deg, hsl(${h},38%,16%), hsl(${(h + 40) % 360},28%,10%))`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: `hsl(${h},45%,45%)`, fontSize: size * 0.38, fontWeight: 800, fontFamily: 'Outfit, sans-serif' }}>
@@ -566,9 +566,40 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, dk }: {
   )
 }
 
-/* ════════════════════════════════════════════════════════════════════
-                            HOMEPAGE
-   ════════════════════════════════════════════════════════════════════ */
+/* ── Inline SVG icons for LT/World labels ── */
+function IconLT({ size = 14, color = 'currentColor' }: { size?: number; color?: string }) {
+  // Simplified Lithuania outline
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
+      <path d="M8 8h2v4H8zM11 8h2v8h-2zM14 8h2v4h-2z"/>
+    </svg>
+  )
+}
+
+function IconWorld({ size = 14, color = 'currentColor' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10"/>
+      <path d="M2 12h20"/>
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+    </svg>
+  )
+}
+
+function LabelRow({ icon, color }: { icon: 'lt' | 'world'; color: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '0 0 8px' }}>
+      {icon === 'lt'
+        ? <IconLT size={13} color={color} />
+        : <IconWorld size={13} color={color} />
+      }
+      <div style={{ flex: 1, height: 1, background: color, opacity: 0.18 }} />
+    </div>
+  )
+}
+
+
 
 export default function Home() {
   const { dk } = useSite()
@@ -805,7 +836,7 @@ export default function Home() {
         .hp-hero-grad{display:none}
         .hp-hero-content{position:relative;z-index:2;display:flex;align-items:stretch;max-width:1360px;margin:0 auto;padding:0 20px;width:100%;flex:1}
         .hp-hero-left{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:36px 0 40px;min-width:0}
-        .hp-hero-right{width:332px;flex-shrink:0;padding:20px 16px 20px 20px;display:flex;flex-direction:column;border-left:1px solid ${T.chartBdr};background:${T.chartBg};position:relative;z-index:3}
+        .hp-hero-right{width:340px;flex-shrink:0;padding:20px 16px 20px 20px;display:flex;flex-direction:column;border-left:1px solid ${T.chartBdr};background:${T.chartBg};position:relative;z-index:3}
 
         @media(max-width:960px){
           .hp-hero{min-height:auto;overflow:visible}
@@ -1003,6 +1034,55 @@ export default function Home() {
                   onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 2px 12px rgba(249,115,22,.3)'; e.currentTarget.style.transform = 'none' }}>
                   Balsuok
                 </Link>
+
+                {/* ── Artimiausi renginiai (inline, po topais) ── */}
+                {filtEvt.length > 0 && (
+                  <div style={{ marginTop: 16, borderTop: `1px solid ${T.chartBdr}`, paddingTop: 14 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                      <span style={{ fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>Renginiai</span>
+                      <Link href="/renginiai" style={{ fontSize: 11, color: 'var(--accent-link)', fontWeight: 700, textDecoration: 'none', opacity: 0.8 }}>Visi →</Link>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                      {filtEvt.slice(0, 4).map((ev, i, arr) => {
+                        const d = new Date(ev.event_date)
+                        const now = new Date()
+                        const diffDays = Math.ceil((d.getTime() - now.getTime()) / 86400000)
+                        const isClose = diffDays >= 0 && diffDays <= 3
+                        return (
+                          <Link key={ev.id} href={`/renginiai/${ev.slug}`}
+                            style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 9px', borderRadius: 9, textDecoration: 'none', transition: 'background .12s', background: 'transparent' }}
+                            onMouseEnter={e => (e.currentTarget.style.background = dk ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)')}
+                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                          >
+                            {/* Thumbnail */}
+                            <div style={{ width: 38, height: 38, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: 'var(--bg-body)' }}>
+                              {ev.image_small_url
+                                ? <img src={ev.image_small_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🎵</div>
+                              }
+                            </div>
+                            {/* Info */}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 11.5, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(ev.title)}</p>
+                              <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {d.getDate()} {MONTHS_LT[d.getMonth()]}. · {ev.venues?.city || ev.venues?.name || ev.venue_custom || ''}
+                              </p>
+                            </div>
+                            {/* Countdown badge */}
+                            <span style={{
+                              flexShrink: 0, fontSize: 9, fontWeight: 800, fontFamily: 'Outfit,sans-serif',
+                              color: isClose ? '#f97316' : (dk ? '#3d5a78' : '#99aabb'),
+                              background: isClose ? (dk ? 'rgba(249,115,22,0.12)' : 'rgba(249,115,22,0.09)') : 'transparent',
+                              padding: isClose ? '2px 6px' : '0', borderRadius: 5,
+                            }}>
+                              {diffDays < 0 ? '' : diffDays === 0 ? 'Šiandien' : diffDays === 1 ? 'Rytoj' : `Po ${diffDays}d.`}
+                            </span>
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1160,11 +1240,8 @@ export default function Home() {
               <Link href="/muzika" style={{ fontSize: 12, color: 'var(--accent-link)', fontWeight: 700, textDecoration: 'none' }} onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')} onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>Visi →</Link>
             </div>
 
-            {/* LT dainos */}
-            <div style={{ marginBottom: 10 }}>
-              <p style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-faint)', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span>🇱🇹</span> Lietuviška
-              </p>
+            <div style={{ marginBottom: 12 }}>
+              <LabelRow icon="lt" color={dk ? '#5a7898' : '#8899aa'} />
               <div className="hp-scroll" style={{ display: 'flex', gap: 8, paddingBottom: 2 }}>
                 {tracks.length === 0 ? Array(6).fill(null).map((_, i) => (
                   <div key={i} style={{ width: 182, flexShrink: 0, padding: '9px 11px', borderRadius: 11, background: 'var(--bg-surface)', border: `1px solid var(--border-default)`, display: 'flex', alignItems: 'center', gap: 9 }}>
@@ -1173,7 +1250,7 @@ export default function Home() {
                 )) : tracks.filter(t => sanitizeTitle(t.title)).slice(0, 10).map(t => (
                   <Link key={t.id} href={`/muzika/${t.slug}`} className="hp-card"
                     style={{ width: 182, flexShrink: 0, padding: '9px 11px', display: 'flex', alignItems: 'center', gap: 9 }}>
-                    <Cover src={t.cover_url} ytId={null} alt={sanitizeTitle(t.title)} size={38} radius={8} />
+                    <Cover src={t.cover_url} artistSrc={t.artists?.cover_image_url} ytId={null} alt={sanitizeTitle(t.title)} size={38} radius={8} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(t.title)}</p>
                       <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.artists?.name}</p>
@@ -1183,11 +1260,8 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Pasaulio dainos */}
             <div>
-              <p style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-faint)', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span>🌍</span> Pasaulio
-              </p>
+              <LabelRow icon="world" color={dk ? '#5a7898' : '#8899aa'} />
               <div className="hp-scroll" style={{ display: 'flex', gap: 8, paddingBottom: 2 }}>
                 {tracks.length === 0 ? Array(6).fill(null).map((_, i) => (
                   <div key={i} style={{ width: 182, flexShrink: 0, padding: '9px 11px', borderRadius: 11, background: 'var(--bg-surface)', border: `1px solid var(--border-default)`, display: 'flex', alignItems: 'center', gap: 9 }}>
@@ -1196,7 +1270,7 @@ export default function Home() {
                 )) : tracks.filter(t => sanitizeTitle(t.title)).slice(10, 20).map(t => (
                   <Link key={t.id} href={`/muzika/${t.slug}`} className="hp-card"
                     style={{ width: 182, flexShrink: 0, padding: '9px 11px', display: 'flex', alignItems: 'center', gap: 9 }}>
-                    <Cover src={t.cover_url || t.artists?.cover_image_url} ytId={null} alt={sanitizeTitle(t.title)} size={38} radius={8} />
+                    <Cover src={t.cover_url} artistSrc={t.artists?.cover_image_url} ytId={null} alt={sanitizeTitle(t.title)} size={38} radius={8} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(t.title)}</p>
                       <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.artists?.name}</p>
@@ -1214,11 +1288,8 @@ export default function Home() {
               <Link href="/muzika?tab=albums" style={{ fontSize: 12, color: 'var(--accent-link)', fontWeight: 700, textDecoration: 'none' }} onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')} onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>Visi →</Link>
             </div>
 
-            {/* LT albumai */}
-            <div style={{ marginBottom: 10 }}>
-              <p style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-faint)', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span>🇱🇹</span> Lietuviška
-              </p>
+            <div style={{ marginBottom: 12 }}>
+              <LabelRow icon="lt" color={dk ? '#5a7898' : '#8899aa'} />
               <div className="hp-scroll" style={{ display: 'flex', gap: 9, paddingBottom: 2 }}>
                 {albums.length === 0 ? Array(5).fill(null).map((_, i) => (
                   <div key={i} style={{ width: 200, flexShrink: 0, padding: '10px 12px', borderRadius: 11, background: 'var(--bg-surface)', border: '1px solid var(--border-default)', display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -1227,7 +1298,7 @@ export default function Home() {
                 )) : albums.slice(0, 7).map(a => (
                   <Link key={a.id} href={`/muzika/${a.slug}`} className="hp-card"
                     style={{ width: 200, flexShrink: 0, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <Cover src={a.cover_image_url || a.artists?.cover_image_url} ytId={null} alt={sanitizeTitle(a.title)} size={46} radius={9} />
+                    <Cover src={a.cover_image_url} artistSrc={a.artists?.cover_image_url} ytId={null} alt={sanitizeTitle(a.title)} size={46} radius={9} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(a.title)}</p>
                       <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.artists?.name}</p>
@@ -1238,11 +1309,8 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Pasaulio albumai */}
             <div>
-              <p style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-faint)', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span>🌍</span> Pasaulio
-              </p>
+              <LabelRow icon="world" color={dk ? '#5a7898' : '#8899aa'} />
               <div className="hp-scroll" style={{ display: 'flex', gap: 9, paddingBottom: 2 }}>
                 {albums.length === 0 ? Array(5).fill(null).map((_, i) => (
                   <div key={i} style={{ width: 200, flexShrink: 0, padding: '10px 12px', borderRadius: 11, background: 'var(--bg-surface)', border: '1px solid var(--border-default)', display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -1251,7 +1319,7 @@ export default function Home() {
                 )) : albums.slice(7, 14).map(a => (
                   <Link key={a.id} href={`/muzika/${a.slug}`} className="hp-card"
                     style={{ width: 200, flexShrink: 0, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <Cover src={a.cover_image_url || a.artists?.cover_image_url} ytId={null} alt={sanitizeTitle(a.title)} size={46} radius={9} />
+                    <Cover src={a.cover_image_url} artistSrc={a.artists?.cover_image_url} ytId={null} alt={sanitizeTitle(a.title)} size={46} radius={9} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(a.title)}</p>
                       <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.artists?.name}</p>
@@ -1260,57 +1328,6 @@ export default function Home() {
                   </Link>
                 ))}
               </div>
-            </div>
-          </section>
-
-          {/* ── Renginiai widget (po topais stilius) ── */}
-          <section>
-            <SH label="Artimiausi renginiai" href="/renginiai" />
-            <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 16, overflow: 'hidden' }}>
-              {filtEvt.length === 0 ? Array(4).fill(null).map((_, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderBottom: i < 3 ? '1px solid var(--border-subtle)' : 'none' }}>
-                  <Skel w={52} h={52} r={10} />
-                  <div style={{ flex: 1 }}><Skel w="75%" h={11} /><div style={{ marginTop: 5 }}><Skel w="45%" h={9} /></div></div>
-                  <Skel w={48} h={10} />
-                </div>
-              )) : filtEvt.slice(0, 6).map((ev, i, arr) => {
-                const d = new Date(ev.event_date)
-                const now = new Date()
-                const diffMs = d.getTime() - now.getTime()
-                const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
-                const countdown = diffDays < 0 ? 'Jau vyko' : diffDays === 0 ? 'Šiandien!' : diffDays === 1 ? 'Rytoj' : `Po ${diffDays} d.`
-                const isClose = diffDays >= 0 && diffDays <= 3
-                return (
-                  <Link key={ev.id} href={`/renginiai/${ev.slug}`}
-                    style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', textDecoration: 'none', borderBottom: i < arr.length - 1 ? '1px solid var(--border-subtle)' : 'none', transition: 'background .12s' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = dk ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                  >
-                    {/* Thumbnail */}
-                    <div style={{ width: 52, height: 52, borderRadius: 10, overflow: 'hidden', flexShrink: 0, background: 'var(--bg-body)' }}>
-                      {ev.image_small_url
-                        ? <img src={ev.image_small_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>🎵</div>
-                      }
-                    </div>
-                    {/* Info */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(ev.title)}</p>
-                      <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {d.getDate()} {MONTHS_LT[d.getMonth()]}. · {ev.venues?.name || ev.venue_custom || ''}{ev.venues?.city ? ` · ${ev.venues.city}` : ''}
-                      </p>
-                    </div>
-                    {/* Countdown */}
-                    <span style={{
-                      flexShrink: 0, fontSize: 10, fontWeight: 800, fontFamily: 'Outfit,sans-serif',
-                      color: isClose ? '#f97316' : 'var(--text-muted)',
-                      background: isClose ? (dk ? 'rgba(249,115,22,0.1)' : 'rgba(249,115,22,0.08)') : 'transparent',
-                      padding: isClose ? '3px 8px' : '0',
-                      borderRadius: 6,
-                    }}>{countdown}</span>
-                  </Link>
-                )
-              })}
             </div>
           </section>
 
