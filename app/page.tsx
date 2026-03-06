@@ -567,34 +567,21 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, dk }: {
 }
 
 /* ── Inline SVG icons for LT/World labels ── */
-function IconLT({ size = 14, color = 'currentColor' }: { size?: number; color?: string }) {
-  // Simplified Lithuania outline
+function LabelRow({ icon }: { icon: 'lt' | 'world' }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
-      <path d="M8 8h2v4H8zM11 8h2v8h-2zM14 8h2v4h-2z"/>
-    </svg>
-  )
-}
-
-function IconWorld({ size = 14, color = 'currentColor' }: { size?: number; color?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10"/>
-      <path d="M2 12h20"/>
-      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-    </svg>
-  )
-}
-
-function LabelRow({ icon, color }: { icon: 'lt' | 'world'; color: string }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '0 0 8px' }}>
-      {icon === 'lt'
-        ? <IconLT size={13} color={color} />
-        : <IconWorld size={13} color={color} />
-      }
-      <div style={{ flex: 1, height: 1, background: color, opacity: 0.18 }} />
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 8px' }}>
+      {icon === 'lt' ? (
+        // LT vėliavos spalvos: geltona, žalia, raudona
+        <div style={{ display: 'flex', flexDirection: 'column', width: 3, height: 18, borderRadius: 2, overflow: 'hidden', flexShrink: 0 }}>
+          <div style={{ flex: 1, background: '#FDBA12' }} />
+          <div style={{ flex: 1, background: '#006A44' }} />
+          <div style={{ flex: 1, background: '#C1272D' }} />
+        </div>
+      ) : (
+        // Pasaulio — viena neutrali mėlyna linija
+        <div style={{ width: 3, height: 18, borderRadius: 2, background: '#3b82f6', flexShrink: 0, opacity: 0.7 }} />
+      )}
+      <div style={{ flex: 1, height: 1, background: 'var(--border-subtle)' }} />
     </div>
   )
 }
@@ -1233,103 +1220,158 @@ export default function Home() {
         {/* ═══════════════════════ MAIN CONTENT ═══════════════════════ */}
         <div className="hp-cnt" style={{ maxWidth: 1360, margin: '0 auto', padding: '42px 20px', display: 'flex', flexDirection: 'column', gap: 44 }}>
 
-          {/* ── Naujos dainos: LT + Pasaulio ── */}
-          <section>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <h2 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em', margin: 0 }}>Naujos dainos</h2>
-              <Link href="/muzika" style={{ fontSize: 12, color: 'var(--accent-link)', fontWeight: 700, textDecoration: 'none' }} onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')} onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>Visi →</Link>
+          {/* ── Muzika + Renginiai (dviejų stulpelių layout) ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 24, alignItems: 'start' }}>
+
+            {/* LEFT: Naujos dainos + Nauji albumai */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 32, minWidth: 0 }}>
+
+              {/* Naujos dainos */}
+              <section>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                  <h2 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em', margin: 0 }}>Naujos dainos</h2>
+                  <Link href="/muzika" style={{ fontSize: 12, color: 'var(--accent-link)', fontWeight: 700, textDecoration: 'none' }} onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')} onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>Visi →</Link>
+                </div>
+                <div style={{ marginBottom: 10 }}>
+                  <LabelRow icon="lt" />
+                  <div className="hp-scroll" style={{ display: 'flex', gap: 8, paddingBottom: 2 }}>
+                    {tracks.length === 0 ? Array(5).fill(null).map((_, i) => (
+                      <div key={i} style={{ width: 178, flexShrink: 0, padding: '9px 11px', borderRadius: 11, background: 'var(--bg-surface)', border: `1px solid var(--border-default)`, display: 'flex', alignItems: 'center', gap: 9 }}>
+                        <Skel w={38} h={38} r={8} /><div style={{ flex: 1 }}><Skel w="76%" h={10} /><div style={{ marginTop: 5 }}><Skel w="54%" h={8} /></div></div>
+                      </div>
+                    )) : tracks.filter(t => sanitizeTitle(t.title)).slice(0, 10).map(t => (
+                      <Link key={t.id} href={`/muzika/${t.slug}`} className="hp-card"
+                        style={{ width: 178, flexShrink: 0, padding: '9px 11px', display: 'flex', alignItems: 'center', gap: 9 }}>
+                        <Cover src={t.cover_url} artistSrc={t.artists?.cover_image_url} alt={sanitizeTitle(t.title)} size={38} radius={8} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(t.title)}</p>
+                          <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.artists?.name}</p>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <LabelRow icon="world" />
+                  <div className="hp-scroll" style={{ display: 'flex', gap: 8, paddingBottom: 2 }}>
+                    {tracks.length === 0 ? Array(5).fill(null).map((_, i) => (
+                      <div key={i} style={{ width: 178, flexShrink: 0, padding: '9px 11px', borderRadius: 11, background: 'var(--bg-surface)', border: `1px solid var(--border-default)`, display: 'flex', alignItems: 'center', gap: 9 }}>
+                        <Skel w={38} h={38} r={8} /><div style={{ flex: 1 }}><Skel w="76%" h={10} /><div style={{ marginTop: 5 }}><Skel w="54%" h={8} /></div></div>
+                      </div>
+                    )) : tracks.filter(t => sanitizeTitle(t.title)).slice(10, 20).map(t => (
+                      <Link key={t.id} href={`/muzika/${t.slug}`} className="hp-card"
+                        style={{ width: 178, flexShrink: 0, padding: '9px 11px', display: 'flex', alignItems: 'center', gap: 9 }}>
+                        <Cover src={t.cover_url} artistSrc={t.artists?.cover_image_url} alt={sanitizeTitle(t.title)} size={38} radius={8} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(t.title)}</p>
+                          <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.artists?.name}</p>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </section>
+
+              {/* Nauji albumai */}
+              <section>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                  <h2 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em', margin: 0 }}>Nauji albumai</h2>
+                  <Link href="/muzika?tab=albums" style={{ fontSize: 12, color: 'var(--accent-link)', fontWeight: 700, textDecoration: 'none' }} onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')} onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>Visi →</Link>
+                </div>
+                <div style={{ marginBottom: 10 }}>
+                  <LabelRow icon="lt" />
+                  <div className="hp-scroll" style={{ display: 'flex', gap: 9, paddingBottom: 2 }}>
+                    {albums.length === 0 ? Array(4).fill(null).map((_, i) => (
+                      <div key={i} style={{ width: 195, flexShrink: 0, padding: '10px 12px', borderRadius: 11, background: 'var(--bg-surface)', border: '1px solid var(--border-default)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <Skel w={46} h={46} r={9} /><div style={{ flex: 1 }}><Skel w="70%" h={10} /><div style={{ marginTop: 5 }}><Skel w="50%" h={9} /></div></div>
+                      </div>
+                    )) : albums.slice(0, 7).map(a => (
+                      <Link key={a.id} href={`/muzika/${a.slug}`} className="hp-card"
+                        style={{ width: 195, flexShrink: 0, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <Cover src={a.cover_image_url} artistSrc={a.artists?.cover_image_url} alt={sanitizeTitle(a.title)} size={46} radius={9} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(a.title)}</p>
+                          <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.artists?.name}</p>
+                          {a.year && <p style={{ fontSize: 10, color: 'var(--text-faint)', margin: 0 }}>{a.year}</p>}
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <LabelRow icon="world" />
+                  <div className="hp-scroll" style={{ display: 'flex', gap: 9, paddingBottom: 2 }}>
+                    {albums.length === 0 ? Array(4).fill(null).map((_, i) => (
+                      <div key={i} style={{ width: 195, flexShrink: 0, padding: '10px 12px', borderRadius: 11, background: 'var(--bg-surface)', border: '1px solid var(--border-default)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <Skel w={46} h={46} r={9} /><div style={{ flex: 1 }}><Skel w="70%" h={10} /><div style={{ marginTop: 5 }}><Skel w="50%" h={9} /></div></div>
+                      </div>
+                    )) : albums.slice(7, 14).map(a => (
+                      <Link key={a.id} href={`/muzika/${a.slug}`} className="hp-card"
+                        style={{ width: 195, flexShrink: 0, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <Cover src={a.cover_image_url} artistSrc={a.artists?.cover_image_url} alt={sanitizeTitle(a.title)} size={46} radius={9} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(a.title)}</p>
+                          <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.artists?.name}</p>
+                          {a.year && <p style={{ fontSize: 10, color: 'var(--text-faint)', margin: 0 }}>{a.year}</p>}
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </section>
             </div>
 
-            <div style={{ marginBottom: 12 }}>
-              <LabelRow icon="lt" color={dk ? '#5a7898' : '#8899aa'} />
-              <div className="hp-scroll" style={{ display: 'flex', gap: 8, paddingBottom: 2 }}>
-                {tracks.length === 0 ? Array(6).fill(null).map((_, i) => (
-                  <div key={i} style={{ width: 182, flexShrink: 0, padding: '9px 11px', borderRadius: 11, background: 'var(--bg-surface)', border: `1px solid var(--border-default)`, display: 'flex', alignItems: 'center', gap: 9 }}>
-                    <Skel w={38} h={38} r={8} /><div style={{ flex: 1 }}><Skel w="76%" h={10} /><div style={{ marginTop: 5 }}><Skel w="54%" h={8} /></div></div>
+            {/* RIGHT: Renginiai widget */}
+            <div style={{ position: 'sticky', top: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <h2 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em', margin: 0 }}>Renginiai</h2>
+                <Link href="/renginiai" style={{ fontSize: 12, color: 'var(--accent-link)', fontWeight: 700, textDecoration: 'none' }} onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')} onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>Visi →</Link>
+              </div>
+              <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 14, overflow: 'hidden' }}>
+                {filtEvt.length === 0 ? Array(5).fill(null).map((_, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderBottom: i < 4 ? '1px solid var(--border-subtle)' : 'none' }}>
+                    <Skel w={44} h={44} r={9} /><div style={{ flex: 1 }}><Skel w="80%" h={10} /><div style={{ marginTop: 4 }}><Skel w="55%" h={8} /></div></div>
                   </div>
-                )) : tracks.filter(t => sanitizeTitle(t.title)).slice(0, 10).map(t => (
-                  <Link key={t.id} href={`/muzika/${t.slug}`} className="hp-card"
-                    style={{ width: 182, flexShrink: 0, padding: '9px 11px', display: 'flex', alignItems: 'center', gap: 9 }}>
-                    <Cover src={t.cover_url} artistSrc={t.artists?.cover_image_url} ytId={null} alt={sanitizeTitle(t.title)} size={38} radius={8} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(t.title)}</p>
-                      <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.artists?.name}</p>
-                    </div>
-                  </Link>
-                ))}
+                )) : filtEvt.slice(0, 7).map((ev, i, arr) => {
+                  const d = new Date(ev.event_date)
+                  const diffDays = Math.ceil((d.getTime() - Date.now()) / 86400000)
+                  const isClose = diffDays >= 0 && diffDays <= 3
+                  const countdown = diffDays < 0 ? null : diffDays === 0 ? 'Šiandien' : diffDays === 1 ? 'Rytoj' : `Po ${diffDays}d.`
+                  return (
+                    <Link key={ev.id} href={`/renginiai/${ev.slug}`}
+                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', textDecoration: 'none', borderBottom: i < arr.length - 1 ? '1px solid var(--border-subtle)' : 'none', transition: 'background .12s' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = dk ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <div style={{ width: 44, height: 44, borderRadius: 9, overflow: 'hidden', flexShrink: 0, background: 'var(--bg-body)' }}>
+                        {ev.image_small_url
+                          ? <img src={ev.image_small_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: dk ? '#0e1626' : '#e8eef8', fontSize: 18 }}>🎵</div>
+                        }
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(ev.title)}</p>
+                        <p style={{ fontSize: 10.5, color: 'var(--text-muted)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {d.getDate()} {MONTHS_LT[d.getMonth()]}. {ev.venues?.city ? `· ${ev.venues.city}` : ev.venues?.name ? `· ${ev.venues.name}` : ''}
+                        </p>
+                      </div>
+                      {countdown && (
+                        <span style={{
+                          flexShrink: 0, fontSize: 9, fontWeight: 800, fontFamily: 'Outfit,sans-serif',
+                          color: isClose ? '#f97316' : (dk ? '#3d5a78' : '#99aabb'),
+                          background: isClose ? (dk ? 'rgba(249,115,22,0.12)' : 'rgba(249,115,22,0.09)') : 'transparent',
+                          padding: isClose ? '2px 6px' : '0', borderRadius: 5, whiteSpace: 'nowrap',
+                        }}>{countdown}</span>
+                      )}
+                    </Link>
+                  )
+                })}
               </div>
             </div>
+          </div>
 
-            <div>
-              <LabelRow icon="world" color={dk ? '#5a7898' : '#8899aa'} />
-              <div className="hp-scroll" style={{ display: 'flex', gap: 8, paddingBottom: 2 }}>
-                {tracks.length === 0 ? Array(6).fill(null).map((_, i) => (
-                  <div key={i} style={{ width: 182, flexShrink: 0, padding: '9px 11px', borderRadius: 11, background: 'var(--bg-surface)', border: `1px solid var(--border-default)`, display: 'flex', alignItems: 'center', gap: 9 }}>
-                    <Skel w={38} h={38} r={8} /><div style={{ flex: 1 }}><Skel w="76%" h={10} /><div style={{ marginTop: 5 }}><Skel w="54%" h={8} /></div></div>
-                  </div>
-                )) : tracks.filter(t => sanitizeTitle(t.title)).slice(10, 20).map(t => (
-                  <Link key={t.id} href={`/muzika/${t.slug}`} className="hp-card"
-                    style={{ width: 182, flexShrink: 0, padding: '9px 11px', display: 'flex', alignItems: 'center', gap: 9 }}>
-                    <Cover src={t.cover_url} artistSrc={t.artists?.cover_image_url} ytId={null} alt={sanitizeTitle(t.title)} size={38} radius={8} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(t.title)}</p>
-                      <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.artists?.name}</p>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          {/* ── Nauji albumai: LT + Pasaulio ── */}
-          <section>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <h2 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em', margin: 0 }}>Nauji albumai</h2>
-              <Link href="/muzika?tab=albums" style={{ fontSize: 12, color: 'var(--accent-link)', fontWeight: 700, textDecoration: 'none' }} onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')} onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>Visi →</Link>
-            </div>
-
-            <div style={{ marginBottom: 12 }}>
-              <LabelRow icon="lt" color={dk ? '#5a7898' : '#8899aa'} />
-              <div className="hp-scroll" style={{ display: 'flex', gap: 9, paddingBottom: 2 }}>
-                {albums.length === 0 ? Array(5).fill(null).map((_, i) => (
-                  <div key={i} style={{ width: 200, flexShrink: 0, padding: '10px 12px', borderRadius: 11, background: 'var(--bg-surface)', border: '1px solid var(--border-default)', display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <Skel w={46} h={46} r={9} /><div style={{ flex: 1 }}><Skel w="70%" h={10} /><div style={{ marginTop: 5 }}><Skel w="50%" h={9} /></div></div>
-                  </div>
-                )) : albums.slice(0, 7).map(a => (
-                  <Link key={a.id} href={`/muzika/${a.slug}`} className="hp-card"
-                    style={{ width: 200, flexShrink: 0, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <Cover src={a.cover_image_url} artistSrc={a.artists?.cover_image_url} ytId={null} alt={sanitizeTitle(a.title)} size={46} radius={9} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(a.title)}</p>
-                      <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.artists?.name}</p>
-                      {a.year && <p style={{ fontSize: 10, color: 'var(--text-faint)', margin: 0 }}>{a.year}</p>}
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <LabelRow icon="world" color={dk ? '#5a7898' : '#8899aa'} />
-              <div className="hp-scroll" style={{ display: 'flex', gap: 9, paddingBottom: 2 }}>
-                {albums.length === 0 ? Array(5).fill(null).map((_, i) => (
-                  <div key={i} style={{ width: 200, flexShrink: 0, padding: '10px 12px', borderRadius: 11, background: 'var(--bg-surface)', border: '1px solid var(--border-default)', display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <Skel w={46} h={46} r={9} /><div style={{ flex: 1 }}><Skel w="70%" h={10} /><div style={{ marginTop: 5 }}><Skel w="50%" h={9} /></div></div>
-                  </div>
-                )) : albums.slice(7, 14).map(a => (
-                  <Link key={a.id} href={`/muzika/${a.slug}`} className="hp-card"
-                    style={{ width: 200, flexShrink: 0, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <Cover src={a.cover_image_url} artistSrc={a.artists?.cover_image_url} ytId={null} alt={sanitizeTitle(a.title)} size={46} radius={9} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(a.title)}</p>
-                      <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.artists?.name}</p>
-                      {a.year && <p style={{ fontSize: 10, color: 'var(--text-faint)', margin: 0 }}>{a.year}</p>}
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </section>
+          {/* media query for music+events grid */}
+          <style>{`@media(max-width:960px){.hp-music-grid{grid-template-columns:1fr!important}}`}</style>
 
           {/* ── ROW 4: Three-column ── */}
           <section>
