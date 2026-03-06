@@ -839,9 +839,11 @@ export default function Home() {
           .hp-hero{min-height:auto;overflow:hidden;height:420px;flex-direction:column}
           .hp-hero-bg{position:absolute!important;top:0;left:0!important;right:0!important;bottom:0!important;height:100%!important;z-index:0}
           .hp-hero-content{flex:1;z-index:2}
-          .hp-hero-bg img{-webkit-mask-image:linear-gradient(to bottom, black 55%, transparent 100%)!important;mask-image:linear-gradient(to bottom, black 55%, transparent 100%)!important}
+          .hp-hero-bg::after{content:'';position:absolute;inset:0;background:linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.55) 60%, rgba(0,0,0,0.75) 100%);z-index:1}
+          .hp-hero-bg img{object-position:center 10%!important;-webkit-mask-image:linear-gradient(to bottom, black 40%, transparent 100%)!important;mask-image:linear-gradient(to bottom, black 40%, transparent 100%)!important}
           .hp-hero-content{flex-direction:column;position:relative;min-height:0}
           .hp-hero-left{padding:0 0 20px!important;position:relative;z-index:2;display:flex;flex-direction:column}
+          .hp-hero-left *{color:#fff!important}
           .hp-hero-spacer{flex:1;min-height:160px}
           .hp-hero-title{font-size:24px!important;line-height:1.1!important;display:-webkit-box!important;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
           .hp-hero-right{display:none!important}
