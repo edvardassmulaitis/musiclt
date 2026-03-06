@@ -864,46 +864,64 @@ export default function Home() {
 
         {/* ═══════════════════════ CINEMATIC HERO ═══════════════════════ */}
         {!pageReady && (
-          /* ── Fullscreen skeleton loader ── */
           <div style={{
-            position: 'fixed', inset: 0, zIndex: 999,
-            background: dk ? '#080d14' : '#f0f4fa',
+            position: 'fixed', inset: 0, zIndex: 9999,
+            background: dk ? '#06090f' : '#f0f4fa',
             display: 'flex', flexDirection: 'column',
             overflow: 'hidden',
           }}>
-            {/* Animated music bars - decorative */}
+            {/* Music bars decoration */}
             <div style={{
-              position: 'absolute', right: '8%', top: '45%', transform: 'translateY(-50%)',
-              display: 'flex', alignItems: 'flex-end', gap: 5, opacity: 0.08,
+              position: 'absolute', right: '6%', bottom: '35%',
+              display: 'flex', alignItems: 'flex-end', gap: 5, opacity: 0.15,
             }}>
-              {[40, 80, 55, 100, 65, 90, 45, 75, 110, 50, 85, 60, 95].map((h, i) => (
+              {[35, 70, 48, 90, 58, 82, 42, 68, 100, 44, 72, 55, 88].map((h, i) => (
                 <div key={i} style={{
-                  width: 8, borderRadius: 4, background: '#f97316', height: h,
+                  width: 7, borderRadius: 3, background: '#f97316', height: h,
                   animation: `hp-bar ${0.8 + (i % 4) * 0.15}s ease-in-out infinite alternate`,
                   animationDelay: `${i * 0.07}s`,
                 }} />
               ))}
             </div>
             <style>{`
-              @keyframes hp-bar { from{transform:scaleY(0.3);opacity:0.5} to{transform:scaleY(1);opacity:1} }
-              @keyframes hp-sk { 0%,100%{opacity:.35} 50%{opacity:.7} }
+              @keyframes hp-bar { from{transform:scaleY(0.3)} to{transform:scaleY(1)} }
+              @keyframes sk-pulse { 0%,100%{opacity:.5} 50%{opacity:1} }
             `}</style>
-            {/* Skeleton content - centered */}
-            <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', padding: '0 24px 48px', maxWidth: 560 }}>
-              <div style={{ width: '100%', animation: 'hp-sk 1.6s ease infinite' }}>
-                <div style={{ width: 110, height: 22, borderRadius: 11, background: dk ? 'rgba(249,115,22,0.2)' : 'rgba(249,115,22,0.15)', marginBottom: 18 }} />
-                <div style={{ width: '80%', height: 36, borderRadius: 8, background: dk ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)', marginBottom: 10 }} />
-                <div style={{ width: '60%', height: 36, borderRadius: 8, background: dk ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', marginBottom: 18 }} />
-                <div style={{ width: '85%', height: 11, borderRadius: 6, background: dk ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)', marginBottom: 7 }} />
-                <div style={{ width: '65%', height: 11, borderRadius: 6, background: dk ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)', marginBottom: 22 }} />
-                <div style={{ width: 190, height: 52, borderRadius: 12, background: dk ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }} />
+
+            {/* Skeleton content */}
+            <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', padding: '0 28px 52px' }}>
+              <div style={{ width: '100%', animation: 'sk-pulse 1.4s ease infinite' }}>
+                {/* Chip */}
+                <div style={{ width: 120, height: 24, borderRadius: 12,
+                  background: dk ? 'rgba(249,115,22,0.35)' : 'rgba(249,115,22,0.25)',
+                  marginBottom: 20 }} />
+                {/* Title line 1 */}
+                <div style={{ width: '82%', height: 34, borderRadius: 8,
+                  background: dk ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.10)',
+                  marginBottom: 10 }} />
+                {/* Title line 2 */}
+                <div style={{ width: '60%', height: 34, borderRadius: 8,
+                  background: dk ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)',
+                  marginBottom: 20 }} />
+                {/* Excerpt line 1 */}
+                <div style={{ width: '88%', height: 12, borderRadius: 6,
+                  background: dk ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)',
+                  marginBottom: 8 }} />
+                {/* Excerpt line 2 */}
+                <div style={{ width: '65%', height: 12, borderRadius: 6,
+                  background: dk ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+                  marginBottom: 24 }} />
+                {/* Song card */}
+                <div style={{ width: 200, height: 56, borderRadius: 14,
+                  background: dk ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }} />
               </div>
             </div>
-            {/* music.lt branding at bottom */}
-            <div style={{ padding: '0 24px 32px', display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4, opacity: 0.3 }}>
-                <span style={{ fontFamily: 'Outfit,sans-serif', fontWeight: 900, fontSize: 15, color: dk ? '#fff' : '#0f1a2e' }}>music.</span>
-                <span style={{ fontFamily: 'Outfit,sans-serif', fontWeight: 900, fontSize: 15, color: '#f97316' }}>lt</span>
+
+            {/* music.lt brand */}
+            <div style={{ padding: '0 28px 36px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 1, opacity: 0.45 }}>
+                <span style={{ fontFamily: 'Outfit,sans-serif', fontWeight: 900, fontSize: 16, color: dk ? '#fff' : '#0f1a2e' }}>music.</span>
+                <span style={{ fontFamily: 'Outfit,sans-serif', fontWeight: 900, fontSize: 16, color: '#f97316' }}>lt</span>
               </div>
             </div>
           </div>
