@@ -645,6 +645,7 @@ export default function Home() {
   const [events, setEvents] = useState<Event[]>([])
   const [news, setNews] = useState<NewsItem[]>([])
   const [pageReady, setPageReady] = useState(false)
+  const mountTime = useRef(Date.now())
   const filtEvt = events
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>([])
   const [heroIdx, setHeroIdx] = useState(0)
@@ -728,7 +729,9 @@ export default function Home() {
     })
     setHeroSlides(slides)
     setHeroIdx(0)
-    setPageReady(true)
+    const elapsed = Date.now() - mountTime.current
+    const delay = Math.max(0, 600 - elapsed)
+    setTimeout(() => setPageReady(true), delay)
   }, [news, events, newsSongs])
 
   useEffect(() => {
@@ -933,7 +936,14 @@ export default function Home() {
               {hero.bgImg ? (
                 <img key={heroIdx} src={hero.bgImg} alt="" onLoad={() => setHeroImgLoaded(true)} style={{ opacity: heroImgLoaded ? 1 : 0 }} />
               ) : (
-                <div style={{ width: '100%', height: '100%', background: T.heroGrad }} />
+                <div style={{ width: '100%', height: '100%', background: T.heroGrad, position: 'relative', overflow: 'hidden' }}>
+                  {/* Decorative music bars for slides without image */}
+                  <div style={{ position: 'absolute', right: '8%', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'flex-end', gap: 5, opacity: 0.08 }}>
+                    {[35, 70, 50, 90, 60, 85, 40, 70, 100, 45, 75].map((h, i) => (
+                      <div key={i} style={{ width: 7, borderRadius: 3, background: '#f97316', height: h, animation: `hp-bar ${0.8 + (i % 4) * 0.15}s ease-in-out infinite alternate`, animationDelay: `${i * 0.08}s` }} />
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
             <div className="hp-hero-grad" style={{ background: T.heroOverlay }} />
@@ -1085,54 +1095,6 @@ export default function Home() {
                   Balsuok
                 </Link>
 
-                {/* ── Artimiausi renginiai (inline, po topais) ── */}
-                {filtEvt.length > 0 && (
-                  <div style={{ marginTop: 16, borderTop: `1px solid ${T.chartBdr}`, paddingTop: 14 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                      <span style={{ fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>Renginiai</span>
-                      <Link href="/renginiai" style={{ fontSize: 11, color: 'var(--accent-link)', fontWeight: 700, textDecoration: 'none', opacity: 0.8 }}>Visi →</Link>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                      {filtEvt.slice(0, 4).map((ev, i, arr) => {
-                        const d = new Date(ev.event_date)
-                        const now = new Date()
-                        const diffDays = Math.ceil((d.getTime() - now.getTime()) / 86400000)
-                        const isClose = diffDays >= 0 && diffDays <= 3
-                        return (
-                          <Link key={ev.id} href={`/renginiai/${ev.slug}`}
-                            style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 9px', borderRadius: 9, textDecoration: 'none', transition: 'background .12s', background: 'transparent' }}
-                            onMouseEnter={e => (e.currentTarget.style.background = dk ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)')}
-                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                          >
-                            {/* Thumbnail */}
-                            <div style={{ width: 38, height: 38, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: 'var(--bg-body)' }}>
-                              {ev.image_small_url
-                                ? <img src={ev.image_small_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🎵</div>
-                              }
-                            </div>
-                            {/* Info */}
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 11.5, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(ev.title)}</p>
-                              <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {d.getDate()} {MONTHS_LT[d.getMonth()]}. · {ev.venues?.city || ev.venues?.name || ev.venue_custom || ''}
-                              </p>
-                            </div>
-                            {/* Countdown badge */}
-                            <span style={{
-                              flexShrink: 0, fontSize: 9, fontWeight: 800, fontFamily: 'Outfit,sans-serif',
-                              color: isClose ? '#f97316' : (dk ? '#3d5a78' : '#99aabb'),
-                              background: isClose ? (dk ? 'rgba(249,115,22,0.12)' : 'rgba(249,115,22,0.09)') : 'transparent',
-                              padding: isClose ? '2px 6px' : '0', borderRadius: 5,
-                            }}>
-                              {diffDays < 0 ? '' : diffDays === 0 ? 'Šiandien' : diffDays === 1 ? 'Rytoj' : `Po ${diffDays}d.`}
-                            </span>
-                          </Link>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
 
