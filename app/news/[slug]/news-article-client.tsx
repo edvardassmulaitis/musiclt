@@ -277,68 +277,67 @@ export default function NewsArticleClient({
 
         .na-root { background:var(--na-bg); color:var(--na-text); font-family:'DM Sans',sans-serif; -webkit-font-smoothing:antialiased; min-height:100vh; }
 
-        /* ══ HERO ══ */
+        /* ══ HERO — kaip homepage: tamsi kairė, nuotrauka dešinė ══ */
         .na-hero {
           position:relative;
-          height:52vh; min-height:360px; max-height:500px;
+          height:52vh; min-height:340px; max-height:480px;
           overflow:hidden;
-          background:#0d1420;
+          background:#080d14;
+          display:flex;
         }
+        /* Nuotrauka — tik dešinė pusė */
         .na-hero-img {
-          position:absolute; inset:0;
-          width:100%; height:100%; object-fit:cover; object-position:center 20%;
+          position:absolute;
+          top:0; right:0; bottom:0;
+          width:60%;
+          object-fit:cover; object-position:center 20%;
           animation:na-zoom 16s ease-out forwards;
+          -webkit-mask-image:linear-gradient(to left, black 40%, transparent 100%);
+          mask-image:linear-gradient(to left, black 40%, transparent 100%);
         }
-        /* Gradient: strong bottom (text bg), light top, subtle left side */
+        /* Tamsinimas apačioje */
         .na-hero-overlay {
           position:absolute; inset:0;
-          background:
-            linear-gradient(to top,    rgba(8,13,20,0.95) 0%, rgba(8,13,20,0.55) 40%, rgba(8,13,20,0.1) 70%, transparent 100%),
-            linear-gradient(to right,  rgba(8,13,20,0.6)  0%, rgba(8,13,20,0.1) 50%, transparent 80%);
+          background:linear-gradient(to top, rgba(8,13,20,0.6) 0%, transparent 60%);
+          pointer-events:none;
         }
         /* No photo fallback */
         .na-hero-noimg {
           position:absolute; inset:0;
-          background:linear-gradient(135deg, #0d1420 0%, #111826 60%, #0a0f1a 100%);
+          background:linear-gradient(135deg, #0d1420 0%, #111826 100%);
         }
         .na-hero-noimg::after {
           content:''; position:absolute; inset:0;
-          background:
-            radial-gradient(ellipse at 75% 40%, rgba(249,115,22,0.12) 0%, transparent 55%),
-            radial-gradient(ellipse at 20% 70%, rgba(29,78,216,0.1) 0%, transparent 50%);
+          background:radial-gradient(ellipse at 75% 40%, rgba(249,115,22,0.1) 0%, transparent 55%);
         }
-
         .na-hero-content {
-          position:absolute; inset:0;
+          position:relative; z-index:2;
           display:flex; flex-direction:column; justify-content:flex-end;
-          padding:0 48px 48px;
-          max-width:860px;
+          padding:0 48px 40px;
+          max-width:620px;
+          width:100%;
         }
         .na-hero-inner { animation:na-in .7s .05s both; }
-
-        .na-breadcrumb { display:flex; align-items:center; gap:8px; margin-bottom:14px; }
-        .na-breadcrumb-home { font-size:12px; font-weight:600; color:rgba(255,255,255,0.45); text-decoration:none; }
-        .na-breadcrumb-home:hover { color:rgba(255,255,255,0.7); }
-        .na-breadcrumb-sep { font-size:12px; color:rgba(255,255,255,0.25); }
+        .na-breadcrumb { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+        .na-breadcrumb-home { font-size:12px; font-weight:600; color:rgba(255,255,255,0.38); text-decoration:none; }
+        .na-breadcrumb-home:hover { color:rgba(255,255,255,0.6); }
+        .na-breadcrumb-sep { font-size:12px; color:rgba(255,255,255,0.2); }
         .na-chip { display:inline-block; font-family:'Outfit',sans-serif; font-size:10px; font-weight:900; letter-spacing:.08em; text-transform:uppercase; color:#fff; padding:4px 12px; border-radius:20px; }
-
         .na-h1 {
           font-family:'Outfit',sans-serif;
-          font-size:clamp(1.7rem,3.5vw,3rem);
-          font-weight:900; line-height:1.07; letter-spacing:-.03em;
-          color:#fff; margin:0 0 16px;
+          font-size:clamp(1.5rem,2.8vw,2.6rem);
+          font-weight:900; line-height:1.08; letter-spacing:-.03em;
+          color:#fff; margin:0 0 14px;
         }
-
-        .na-meta { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
-        .na-date { font-size:12px; color:rgba(255,255,255,0.45); font-weight:600; font-family:'Outfit',sans-serif; }
-        .na-artist-pill { display:inline-flex; align-items:center; gap:6px; background:rgba(255,255,255,0.12); backdrop-filter:blur(8px); border:1px solid rgba(255,255,255,0.16); border-radius:100px; padding:4px 12px 4px 4px; text-decoration:none; transition:background .2s; }
-        .na-artist-pill:hover { background:rgba(255,255,255,0.2); }
-        .na-artist-pill img { width:22px; height:22px; border-radius:50%; object-fit:cover; }
-        .na-artist-pill-av { width:22px; height:22px; border-radius:50%; background:rgba(255,255,255,0.2); display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:900; color:#fff; }
-        .na-artist-pill span { font-size:11px; font-weight:700; color:#fff; }
-
-        .na-source-btn { display:inline-flex; align-items:center; gap:7px; margin-top:16px; padding:9px 18px; border-radius:100px; background:rgba(249,115,22,.15); border:1px solid rgba(249,115,22,.3); color:#f97316; font-size:12px; font-weight:800; text-decoration:none; font-family:'Outfit',sans-serif; transition:all .2s; }
-        .na-source-btn:hover { background:rgba(249,115,22,.25); }
+        .na-meta { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+        .na-date { font-size:12px; color:rgba(255,255,255,0.4); font-weight:600; font-family:'Outfit',sans-serif; }
+        .na-artist-pill { display:inline-flex; align-items:center; gap:6px; background:rgba(255,255,255,0.1); backdrop-filter:blur(8px); border:1px solid rgba(255,255,255,0.15); border-radius:100px; padding:4px 12px 4px 4px; text-decoration:none; transition:background .2s; }
+        .na-artist-pill:hover { background:rgba(255,255,255,0.18); }
+        .na-artist-pill img { width:20px; height:20px; border-radius:50%; object-fit:cover; }
+        .na-artist-pill-av { width:20px; height:20px; border-radius:50%; background:rgba(255,255,255,0.2); display:flex; align-items:center; justify-content:center; font-size:8px; font-weight:900; color:#fff; }
+        .na-artist-pill span { font-size:11px; font-weight:700; color:rgba(255,255,255,0.85); }
+        .na-source-btn { display:inline-flex; align-items:center; gap:7px; margin-top:14px; padding:8px 16px; border-radius:100px; background:rgba(249,115,22,.12); border:1px solid rgba(249,115,22,.28); color:#f97316; font-size:12px; font-weight:800; text-decoration:none; font-family:'Outfit',sans-serif; transition:all .2s; }
+        .na-source-btn:hover { background:rgba(249,115,22,.22); }
 
         /* ── Page layout ── */
         .na-page { max-width:1300px; margin:0 auto; padding:0 28px; }
@@ -364,7 +363,7 @@ export default function NewsArticleClient({
         .na-share-btn { padding:7px 16px; border-radius:100px; background:var(--na-card); border:1px solid var(--na-border); color:var(--na-text3); font-size:12px; font-weight:700; cursor:pointer; font-family:'Outfit',sans-serif; }
 
         /* ── Sidebar ── */
-        .na-sidebar { position:sticky; top:80px; display:flex; flex-direction:column; gap:10px; margin-top:-110px; }
+        .na-sidebar { position:sticky; top:80px; display:flex; flex-direction:column; gap:10px; margin-top:-130px; }
         .sb-card { border-radius:16px; background:var(--na-card); border:1px solid var(--na-border); padding:14px; }
         .sb-card-label { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.1em; color:var(--na-text4); margin:0 0 10px; font-family:'Outfit',sans-serif; }
 
@@ -476,7 +475,7 @@ export default function NewsArticleClient({
 
       <div className="na-root">
 
-        {/* ══════════ HERO — full bleed photo ══════════ */}
+        {/* ══════════ HERO ══════════ */}
         <div className="na-hero">
           {heroImg
             ? <><img src={heroImg} alt="" className="na-hero-img" /><div className="na-hero-overlay" /></>
@@ -492,14 +491,6 @@ export default function NewsArticleClient({
               <h1 className="na-h1">{news.title}</h1>
               <div className="na-meta">
                 <span className="na-date">{formatDate(news.published_at)}</span>
-                {news.artist && (
-                  <Link href={`/atlikejai/${news.artist.id}`} className="na-artist-pill">
-                    {news.artist.cover_image_url
-                      ? <img src={news.artist.cover_image_url} alt={news.artist.name} />
-                      : <div className="na-artist-pill-av">{news.artist.name[0]}</div>}
-                    <span>{news.artist.name}</span>
-                  </Link>
-                )}
               </div>
               {news.source_url && (
                 <a href={news.source_url} target="_blank" rel="noopener" className="na-source-btn">
@@ -516,19 +507,6 @@ export default function NewsArticleClient({
           <div className={`na-grid ${hasSidebar ? 'has-sb' : 'no-sb'}`}>
 
             <main>
-              {news.artist && !hasSidebar && (
-                <div className="na-artist-card" style={{ marginBottom: 28 }}>
-                  {news.artist.cover_image_url
-                    ? <img src={news.artist.cover_image_url} alt={news.artist.name} />
-                    : <div className="na-artist-av">{news.artist.name[0]}</div>}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p className="na-artist-name">{news.artist.name}</p>
-                    <p className="na-artist-sub">music.lt atlikėjas</p>
-                  </div>
-                  <Link href={`/atlikejai/${news.artist.id}`} className="na-artist-link">Profilis →</Link>
-                </div>
-              )}
-
               <div className="na-prose" dangerouslySetInnerHTML={{ __html: news.body }} />
 
               {gallery.length > 0 && <PhotoGallery photos={gallery} />}
