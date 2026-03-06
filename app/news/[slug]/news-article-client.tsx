@@ -284,6 +284,8 @@ export default function NewsArticleClient({
           overflow:hidden;
           background:#080d14;
           display:flex;
+          flex-direction:column;
+          justify-content:flex-end;
         }
         /* Nuotrauka — tik dešinė pusė */
         .na-hero-img {
@@ -313,11 +315,17 @@ export default function NewsArticleClient({
         .na-hero-content {
           position:relative; z-index:2;
           display:flex; flex-direction:column; justify-content:flex-end;
-          padding:0 48px 40px;
-          max-width:620px;
           width:100%;
+          max-width:1300px;
+          margin:0 auto;
+          padding:0 28px 40px;
+          align-self:flex-end;
         }
-        .na-hero-inner { animation:na-in .7s .05s both; }
+        /* Inner text capped at article column width (matches prose below) */
+        .na-hero-inner {
+          max-width:680px;
+          animation:na-in .7s .05s both;
+        }
         .na-breadcrumb { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
         .na-breadcrumb-home { font-size:12px; font-weight:600; color:rgba(255,255,255,0.38); text-decoration:none; }
         .na-breadcrumb-home:hover { color:rgba(255,255,255,0.6); }
@@ -463,12 +471,23 @@ export default function NewsArticleClient({
         @media(max-width:1024px){
           .na-grid.has-sb { grid-template-columns:1fr; }
           .na-sidebar { position:static; margin-top:0; }
-          .na-hero-content { padding:0 24px 36px; max-width:100%; }
-          /* Mobile: nuotrauka slepiama, hero tik tamsus */
-          .na-hero-img { display:none; }
-          .na-hero { background:#080d14; }
+          .na-hero-content { padding:0 24px 32px; }
+          .na-hero-inner { max-width:100%; }
+          /* Mobile: nuotrauka visas plotis, stipriai blur + tamsinta */
+          .na-hero-img {
+            display:block !important;
+            width:100% !important; right:auto !important;
+            filter:blur(18px) brightness(0.45) saturate(1.4);
+            transform:scale(1.08);
+            -webkit-mask-image:none !important;
+            mask-image:none !important;
+          }
+          .na-hero-overlay {
+            background:linear-gradient(to top, rgba(8,13,20,0.85) 0%, rgba(8,13,20,0.4) 60%, rgba(8,13,20,0.55) 100%);
+          }
         }
         @media(max-width:640px){
+          .na-hero { height:auto; min-height:260px; max-height:none; padding-top:60px; }
           .na-h1 { font-size:1.55rem; }
           .na-page { padding:0 16px; }
           .na-grid { padding:24px 0 60px; gap:28px; }
