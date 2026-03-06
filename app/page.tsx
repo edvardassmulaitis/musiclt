@@ -66,9 +66,10 @@ function strHue(s: string) {
 
 /* ────────────────────────────── Shared UI ────────────────────────────── */
 
-function Cover({ src, alt, size = 44, radius = 10 }: { src?: string | null; alt: string; size?: number; radius?: number }) {
+function Cover({ src, alt, size = 44, radius = 10, ytId }: { src?: string | null; alt: string; size?: number; radius?: number; ytId?: string | null }) {
   const h = strHue(alt)
-  if (src) return <img src={src} alt={alt} loading="lazy" style={{ width: size, height: size, borderRadius: radius, objectFit: 'cover', flexShrink: 0, display: 'block' }} />
+  const imgSrc = src || (ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : null)
+  if (imgSrc) return <img src={imgSrc} alt={alt} loading="lazy" style={{ width: size, height: size, borderRadius: radius, objectFit: 'cover', flexShrink: 0, display: 'block' }} />
   return (
     <div style={{ width: size, height: size, borderRadius: radius, flexShrink: 0, background: `linear-gradient(135deg, hsl(${h},38%,16%), hsl(${(h + 40) % 360},28%,10%))`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: `hsl(${h},45%,45%)`, fontSize: size * 0.38, fontWeight: 800, fontFamily: 'Outfit, sans-serif' }}>
       {alt[0]?.toUpperCase() || '?'}
@@ -619,8 +620,6 @@ export default function Home() {
   }
 
   const [chartTab, setChartTab] = useState<'lt' | 'world'>('lt')
-  const [trackTab, setTrackTab] = useState<'lt' | 'world'>('lt')
-  const [albumTab, setAlbumTab] = useState<'lt' | 'world'>('lt')
 
   /* ── Reels state ── */
   const [reelsOpen, setReelsOpen] = useState(false)
@@ -634,7 +633,7 @@ export default function Home() {
   const [artists, setArtists] = useState<Artist[]>([])
   const [events, setEvents] = useState<Event[]>([])
   const [news, setNews] = useState<NewsItem[]>([])
-  const [cityFilter, setCityFilter] = useState('Visi')
+  const filtEvt = events
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>([])
   const [heroIdx, setHeroIdx] = useState(0)
   const [heroImgLoaded, setHeroImgLoaded] = useState(false)
@@ -652,8 +651,8 @@ export default function Home() {
   useEffect(() => {
     fetch('/api/top/entries?type=lt_top30').then(r => r.json()).then(d => setLtTop(parseTop(d.entries || []))).catch(() => {})
     fetch('/api/top/entries?type=top40').then(r => r.json()).then(d => setWorldTop(parseTop(d.entries || []))).catch(() => {})
-    fetch('/api/tracks?limit=16').then(r => r.json()).then(d => setTracks(d.tracks || [])).catch(() => {})
-    fetch('/api/albums?limit=10').then(r => r.json()).then(d => setAlbums(d.albums || [])).catch(() => {})
+    fetch('/api/tracks?limit=24').then(r => r.json()).then(d => setTracks(d.tracks || [])).catch(() => {})
+    fetch('/api/albums?limit=16').then(r => r.json()).then(d => setAlbums(d.albums || [])).catch(() => {})
     fetch('/api/artists?limit=12').then(r => r.json()).then(d => setArtists(d.artists || [])).catch(() => {})
     fetch('/api/events?limit=10').then(r => r.json()).then(d => setEvents(d.events || [])).catch(() => {})
     fetch('/api/news?limit=30').then(r => r.json()).then(d => setNews(d.news || [])).catch(() => {})
@@ -761,8 +760,7 @@ export default function Home() {
 
   const hero = heroSlides[heroIdx]
   const chartData = chartTab === 'lt' ? ltTop : worldTop
-  const cities = ['Visi', ...Array.from(new Set(events.map(e => e.venues?.city).filter(Boolean) as string[]))]
-  const filtEvt = cityFilter === 'Visi' ? events : events.filter(e => e.venues?.city === cityFilter)
+  const filtEvt = events
 
   return (
     <>
@@ -1156,142 +1154,166 @@ export default function Home() {
         {/* ═══════════════════════ MAIN CONTENT ═══════════════════════ */}
         <div className="hp-cnt" style={{ maxWidth: 1360, margin: '0 auto', padding: '42px 20px', display: 'flex', flexDirection: 'column', gap: 44 }}>
 
-          {/* ── ROW 1: Naujos dainos ── */}
+          {/* ── Naujos dainos: LT + Pasaulio ── */}
           <section>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <h2 style={{ fontFamily: 'Outfit, sans-serif', fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em', margin: 0 }}>Naujos dainos</h2>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ display: 'flex', borderRadius: 8, padding: 2, background: dk ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.03)', gap: 2 }}>
-                  {([['lt', 'Lietuvos'], ['world', 'Pasaulio']] as const).map(([k, l]) => (
-                    <button key={k} onClick={() => setTrackTab(k)} style={{
-                      padding: '4px 10px', borderRadius: 6, fontSize: 10, fontWeight: 700,
-                      border: 'none', cursor: 'pointer', transition: 'all .15s', fontFamily: 'Outfit,sans-serif',
-                      background: trackTab === k ? (dk ? 'rgba(255,255,255,.1)' : '#fff') : 'transparent',
-                      color: trackTab === k ? (dk ? '#fff' : '#0f1a2e') : (dk ? '#6a88aa' : '#8899aa'),
-                      boxShadow: trackTab === k ? (dk ? 'none' : '0 1px 2px rgba(0,0,0,.06)') : 'none',
-                    }}>{l}</button>
-                  ))}
-                </div>
-                <Link href="/muzika" style={{ fontSize: 12, color: 'var(--accent-link)', fontWeight: 700, textDecoration: 'none' }} onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')} onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>Visi →</Link>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <h2 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em', margin: 0 }}>Naujos dainos</h2>
+              <Link href="/muzika" style={{ fontSize: 12, color: 'var(--accent-link)', fontWeight: 700, textDecoration: 'none' }} onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')} onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>Visi →</Link>
+            </div>
+
+            {/* LT dainos */}
+            <div style={{ marginBottom: 10 }}>
+              <p style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-faint)', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>🇱🇹</span> Lietuviška
+              </p>
+              <div className="hp-scroll" style={{ display: 'flex', gap: 8, paddingBottom: 2 }}>
+                {tracks.length === 0 ? Array(6).fill(null).map((_, i) => (
+                  <div key={i} style={{ width: 182, flexShrink: 0, padding: '9px 11px', borderRadius: 11, background: 'var(--bg-surface)', border: `1px solid var(--border-default)`, display: 'flex', alignItems: 'center', gap: 9 }}>
+                    <Skel w={38} h={38} r={8} /><div style={{ flex: 1 }}><Skel w="76%" h={10} /><div style={{ marginTop: 5 }}><Skel w="54%" h={8} /></div></div>
+                  </div>
+                )) : tracks.filter(t => sanitizeTitle(t.title)).slice(0, 10).map(t => (
+                  <Link key={t.id} href={`/muzika/${t.slug}`} className="hp-card"
+                    style={{ width: 182, flexShrink: 0, padding: '9px 11px', display: 'flex', alignItems: 'center', gap: 9 }}>
+                    <Cover src={t.cover_url} ytId={null} alt={sanitizeTitle(t.title)} size={38} radius={8} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(t.title)}</p>
+                      <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.artists?.name}</p>
+                    </div>
+                  </Link>
+                ))}
               </div>
             </div>
-            <div className="hp-scroll" style={{ display: 'flex', gap: 8, paddingBottom: 2 }}>
-              {tracks.length === 0 ? Array(8).fill(null).map((_, i) => (
-                <div key={i} style={{ width: 182, flexShrink: 0, padding: '9px 11px', borderRadius: 11, background: 'var(--bg-surface)', border: `1px solid var(--border-default)`, display: 'flex', alignItems: 'center', gap: 9 }}>
-                  <Skel w={38} h={38} r={8} /><div style={{ flex: 1 }}><Skel w="76%" h={10} /><div style={{ marginTop: 5 }}><Skel w="54%" h={8} /></div></div>
-                </div>
-              )) : tracks.slice(0, 14).filter(t => sanitizeTitle(t.title)).map(t => (
-                <Link key={t.id} href={`/muzika/${t.slug}`} className="hp-card"
-                  style={{ width: 182, flexShrink: 0, padding: '9px 11px', display: 'flex', alignItems: 'center', gap: 9 }}>
-                  <Cover src={t.cover_url || t.artists?.cover_image_url} alt={sanitizeTitle(t.title)} size={38} radius={8} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(t.title)}</p>
-                    <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.artists?.name}</p>
+
+            {/* Pasaulio dainos */}
+            <div>
+              <p style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-faint)', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>🌍</span> Pasaulio
+              </p>
+              <div className="hp-scroll" style={{ display: 'flex', gap: 8, paddingBottom: 2 }}>
+                {tracks.length === 0 ? Array(6).fill(null).map((_, i) => (
+                  <div key={i} style={{ width: 182, flexShrink: 0, padding: '9px 11px', borderRadius: 11, background: 'var(--bg-surface)', border: `1px solid var(--border-default)`, display: 'flex', alignItems: 'center', gap: 9 }}>
+                    <Skel w={38} h={38} r={8} /><div style={{ flex: 1 }}><Skel w="76%" h={10} /><div style={{ marginTop: 5 }}><Skel w="54%" h={8} /></div></div>
                   </div>
-                </Link>
-              ))}
+                )) : tracks.filter(t => sanitizeTitle(t.title)).slice(10, 20).map(t => (
+                  <Link key={t.id} href={`/muzika/${t.slug}`} className="hp-card"
+                    style={{ width: 182, flexShrink: 0, padding: '9px 11px', display: 'flex', alignItems: 'center', gap: 9 }}>
+                    <Cover src={t.cover_url || t.artists?.cover_image_url} ytId={null} alt={sanitizeTitle(t.title)} size={38} radius={8} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(t.title)}</p>
+                      <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.artists?.name}</p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
             </div>
           </section>
 
-          {/* ── ROW 2: Albumai ── */}
+          {/* ── Nauji albumai: LT + Pasaulio ── */}
           <section>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <h2 style={{ fontFamily: 'Outfit, sans-serif', fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em', margin: 0 }}>Nauji albumai</h2>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ display: 'flex', borderRadius: 8, padding: 2, background: dk ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.03)', gap: 2 }}>
-                  {([['lt', 'Lietuvos'], ['world', 'Pasaulio']] as const).map(([k, l]) => (
-                    <button key={k} onClick={() => setAlbumTab(k)} style={{
-                      padding: '4px 10px', borderRadius: 6, fontSize: 10, fontWeight: 700,
-                      border: 'none', cursor: 'pointer', transition: 'all .15s', fontFamily: 'Outfit,sans-serif',
-                      background: albumTab === k ? (dk ? 'rgba(255,255,255,.1)' : '#fff') : 'transparent',
-                      color: albumTab === k ? (dk ? '#fff' : '#0f1a2e') : (dk ? '#6a88aa' : '#8899aa'),
-                      boxShadow: albumTab === k ? (dk ? 'none' : '0 1px 2px rgba(0,0,0,.06)') : 'none',
-                    }}>{l}</button>
-                  ))}
-                </div>
-                <Link href="/muzika?tab=albums" style={{ fontSize: 12, color: 'var(--accent-link)', fontWeight: 700, textDecoration: 'none' }} onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')} onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>Visi →</Link>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <h2 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em', margin: 0 }}>Nauji albumai</h2>
+              <Link href="/muzika?tab=albums" style={{ fontSize: 12, color: 'var(--accent-link)', fontWeight: 700, textDecoration: 'none' }} onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')} onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>Visi →</Link>
+            </div>
+
+            {/* LT albumai */}
+            <div style={{ marginBottom: 10 }}>
+              <p style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-faint)', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>🇱🇹</span> Lietuviška
+              </p>
+              <div className="hp-scroll" style={{ display: 'flex', gap: 9, paddingBottom: 2 }}>
+                {albums.length === 0 ? Array(5).fill(null).map((_, i) => (
+                  <div key={i} style={{ width: 200, flexShrink: 0, padding: '10px 12px', borderRadius: 11, background: 'var(--bg-surface)', border: '1px solid var(--border-default)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Skel w={46} h={46} r={9} /><div style={{ flex: 1 }}><Skel w="70%" h={10} /><div style={{ marginTop: 5 }}><Skel w="50%" h={9} /></div></div>
+                  </div>
+                )) : albums.slice(0, 7).map(a => (
+                  <Link key={a.id} href={`/muzika/${a.slug}`} className="hp-card"
+                    style={{ width: 200, flexShrink: 0, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Cover src={a.cover_image_url || a.artists?.cover_image_url} ytId={null} alt={sanitizeTitle(a.title)} size={46} radius={9} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(a.title)}</p>
+                      <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.artists?.name}</p>
+                      {a.year && <p style={{ fontSize: 10, color: 'var(--text-faint)', margin: 0 }}>{a.year}</p>}
+                    </div>
+                  </Link>
+                ))}
               </div>
             </div>
-            <div className="hp-scroll" style={{ display: 'flex', gap: 9, paddingBottom: 2 }}>
-              {albums.length === 0 ? Array(5).fill(null).map((_, i) => (
-                <div key={i} style={{ width: 212, flexShrink: 0, padding: '10px 12px', borderRadius: 11, background: 'var(--bg-surface)', border: '1px solid var(--border-default)', display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <Skel w={46} h={46} r={9} /><div style={{ flex: 1 }}><Skel w="70%" h={10} /><div style={{ marginTop: 5 }}><Skel w="50%" h={9} /></div></div>
-                </div>
-              )) : albums.slice(0, 10).map(a => (
-                <Link key={a.id} href={`/muzika/${a.slug}`} className="hp-card"
-                  style={{ width: 212, flexShrink: 0, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <Cover src={a.cover_image_url || a.artists?.cover_image_url} alt={sanitizeTitle(a.title)} size={46} radius={9} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(a.title)}</p>
-                    <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.artists?.name}</p>
-                    {a.year && <p style={{ fontSize: 10, color: 'var(--text-faint)', margin: 0 }}>{a.year}</p>}
+
+            {/* Pasaulio albumai */}
+            <div>
+              <p style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-faint)', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>🌍</span> Pasaulio
+              </p>
+              <div className="hp-scroll" style={{ display: 'flex', gap: 9, paddingBottom: 2 }}>
+                {albums.length === 0 ? Array(5).fill(null).map((_, i) => (
+                  <div key={i} style={{ width: 200, flexShrink: 0, padding: '10px 12px', borderRadius: 11, background: 'var(--bg-surface)', border: '1px solid var(--border-default)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Skel w={46} h={46} r={9} /><div style={{ flex: 1 }}><Skel w="70%" h={10} /><div style={{ marginTop: 5 }}><Skel w="50%" h={9} /></div></div>
                   </div>
-                </Link>
-              ))}
+                )) : albums.slice(7, 14).map(a => (
+                  <Link key={a.id} href={`/muzika/${a.slug}`} className="hp-card"
+                    style={{ width: 200, flexShrink: 0, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Cover src={a.cover_image_url || a.artists?.cover_image_url} ytId={null} alt={sanitizeTitle(a.title)} size={46} radius={9} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(a.title)}</p>
+                      <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.artists?.name}</p>
+                      {a.year && <p style={{ fontSize: 10, color: 'var(--text-faint)', margin: 0 }}>{a.year}</p>}
+                    </div>
+                  </Link>
+                ))}
+              </div>
             </div>
           </section>
 
-          {/* ── ROW 3: Renginiai + Naujienos ── */}
-          <div className="hp-ne" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-            <section>
-              <SH label="Renginiai" href="/renginiai" />
-              {cities.length > 1 && (
-                <div style={{ display: 'flex', gap: 5, marginBottom: 12, flexWrap: 'wrap' }}>
-                  {cities.slice(0, 6).map(c => <button key={c} className={`hp-pill${cityFilter === c ? ' hp-act' : ''}`} onClick={() => setCityFilter(c)}>{c}</button>)}
+          {/* ── Renginiai widget (po topais stilius) ── */}
+          <section>
+            <SH label="Artimiausi renginiai" href="/renginiai" />
+            <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 16, overflow: 'hidden' }}>
+              {filtEvt.length === 0 ? Array(4).fill(null).map((_, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderBottom: i < 3 ? '1px solid var(--border-subtle)' : 'none' }}>
+                  <Skel w={52} h={52} r={10} />
+                  <div style={{ flex: 1 }}><Skel w="75%" h={11} /><div style={{ marginTop: 5 }}><Skel w="45%" h={9} /></div></div>
+                  <Skel w={48} h={10} />
                 </div>
-              )}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                {filtEvt.length === 0 ? Array(4).fill(null).map((_, i) => (
-                  <div key={i} className="hp-card" style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '10px 14px' }}>
-                    <div style={{ width: 36, textAlign: 'center' }}><Skel w={24} h={20} /><div style={{ marginTop: 3 }}><Skel w={30} h={8} /></div></div>
-                    <div style={{ flex: 1 }}><Skel w="80%" h={11} /><div style={{ marginTop: 4 }}><Skel w="50%" h={9} /></div></div>
-                  </div>
-                )) : filtEvt.slice(0, 5).map(ev => {
-                    const d = new Date(ev.event_date)
-                    return (
-                      <Link key={ev.id} href={`/renginiai/${ev.slug}`} className="hp-card"
-                        style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '10px 14px' }}>
-                        <div style={{ textAlign: 'center', width: 36, flexShrink: 0 }}>
-                          <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 20, fontWeight: 900, color: 'var(--text-primary)', margin: 0, lineHeight: 1 }}>{d.getDate()}</p>
-                          <p style={{ fontSize: 9, fontWeight: 800, color: '#f97316', margin: 0, textTransform: 'uppercase', letterSpacing: '.06em' }}>{MONTHS_LT[d.getMonth()]}</p>
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(ev.title)}</p>
-                          <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0 }}>{ev.venues?.name || ev.venue_custom}{ev.venues?.city ? ` · ${ev.venues.city}` : ''}</p>
-                        </div>
-                        <span style={{ fontSize: 11, fontWeight: 800, color: '#f97316', flexShrink: 0, fontFamily: 'Outfit,sans-serif' }}>Bilietai →</span>
-                      </Link>
-                    )
-                  })}
-              </div>
-            </section>
-            <section>
-              <SH label="Naujienos" href="/news" />
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                {news.length === 0 ? Array(4).fill(null).map((_, i) => (
-                  <div key={i} style={{ display: 'flex', gap: 10, padding: '10px 14px', borderRadius: 11, background: 'var(--bg-surface)', border: '1px solid var(--border-default)', alignItems: 'center' }}>
-                    <Skel w={32} h={32} r={7} /><div style={{ flex: 1 }}><Skel w="86%" h={10} /><div style={{ marginTop: 5 }}><Skel w="46%" h={8} /></div></div>
-                  </div>
-                )) : news.slice(0, 5).map(n => {
-                  const h = strHue(n.title)
-                  return (
-                    <Link key={n.id} href={`/news/${n.slug}`} className="hp-card"
-                      style={{ display: 'flex', gap: 11, padding: '10px 14px', alignItems: 'flex-start' }}>
-                      <div style={{ width: 34, height: 34, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}><Cover src={n.image_small_url} alt={sanitizeTitle(n.title)} size={34} radius={8} /></div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
-                          {n.type && <span style={{ fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 4, background: dk ? `hsl(${h},35%,10%)` : `hsl(${h},40%,92%)`, color: dk ? `hsl(${h},55%,58%)` : `hsl(${h},50%,35%)`, border: `1px solid ${dk ? `hsl(${h},35%,16%)` : `hsl(${h},35%,82%)`}` }}>{n.type === 'news' ? 'Naujiena' : n.type === 'review' ? 'Recenzija' : n.type === 'interview' ? 'Interviu' : n.type}</span>}
-                          <span style={{ fontSize: 9, color: 'var(--text-faint)' }}>{timeAgo(n.published_at)}</span>
-                        </div>
-                        <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', margin: 0, lineHeight: 1.35, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' } as any}>{sanitizeTitle(n.title)}</p>
-                        {n.artist && <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: '3px 0 0' }}>{n.artist.name}</p>}
-                      </div>
-                    </Link>
-                  )
-                })}
-              </div>
-            </section>
-          </div>
+              )) : filtEvt.slice(0, 6).map((ev, i, arr) => {
+                const d = new Date(ev.event_date)
+                const now = new Date()
+                const diffMs = d.getTime() - now.getTime()
+                const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+                const countdown = diffDays < 0 ? 'Jau vyko' : diffDays === 0 ? 'Šiandien!' : diffDays === 1 ? 'Rytoj' : `Po ${diffDays} d.`
+                const isClose = diffDays >= 0 && diffDays <= 3
+                return (
+                  <Link key={ev.id} href={`/renginiai/${ev.slug}`}
+                    style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', textDecoration: 'none', borderBottom: i < arr.length - 1 ? '1px solid var(--border-subtle)' : 'none', transition: 'background .12s' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = dk ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    {/* Thumbnail */}
+                    <div style={{ width: 52, height: 52, borderRadius: 10, overflow: 'hidden', flexShrink: 0, background: 'var(--bg-body)' }}>
+                      {ev.image_small_url
+                        ? <img src={ev.image_small_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>🎵</div>
+                      }
+                    </div>
+                    {/* Info */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(ev.title)}</p>
+                      <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {d.getDate()} {MONTHS_LT[d.getMonth()]}. · {ev.venues?.name || ev.venue_custom || ''}{ev.venues?.city ? ` · ${ev.venues.city}` : ''}
+                      </p>
+                    </div>
+                    {/* Countdown */}
+                    <span style={{
+                      flexShrink: 0, fontSize: 10, fontWeight: 800, fontFamily: 'Outfit,sans-serif',
+                      color: isClose ? '#f97316' : 'var(--text-muted)',
+                      background: isClose ? (dk ? 'rgba(249,115,22,0.1)' : 'rgba(249,115,22,0.08)') : 'transparent',
+                      padding: isClose ? '3px 8px' : '0',
+                      borderRadius: 6,
+                    }}>{countdown}</span>
+                  </Link>
+                )
+              })}
+            </div>
+          </section>
 
           {/* ── ROW 4: Three-column ── */}
           <section>
