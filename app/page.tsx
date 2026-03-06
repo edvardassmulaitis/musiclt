@@ -866,62 +866,93 @@ export default function Home() {
         {!pageReady && (
           <div style={{
             position: 'fixed', inset: 0, zIndex: 9999,
-            background: dk ? '#06090f' : '#f0f4fa',
+            background: dk ? '#080e1a' : '#f0f4fa',
             display: 'flex', flexDirection: 'column',
-            overflow: 'hidden',
+            justifyContent: 'center',
+            padding: '0 28px',
           }}>
-            {/* Music bars decoration */}
+            <style>{`
+              @keyframes hp-bar { 0%{transform:scaleY(0.25)} 100%{transform:scaleY(1)} }
+              @keyframes sk-wave {
+                0%{background-position:200% 0}
+                100%{background-position:-200% 0}
+              }
+            `}</style>
+
+            {/* Chip placeholder */}
             <div style={{
-              position: 'absolute', right: '6%', bottom: '35%',
-              display: 'flex', alignItems: 'flex-end', gap: 5, opacity: 0.15,
+              width: 130, height: 26, borderRadius: 13, marginBottom: 22,
+              background: dk ? 'rgba(249,115,22,0.45)' : 'rgba(249,115,22,0.3)',
+              backgroundImage: `linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.15) 50%, transparent 100%)`,
+              backgroundSize: '200% 100%',
+              animation: 'sk-wave 1.4s ease infinite',
+            }} />
+
+            {/* Title line 1 */}
+            <div style={{
+              width: '85%', height: 38, borderRadius: 9, marginBottom: 10,
+              background: dk ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)',
+              backgroundImage: `linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.1) 50%, transparent 100%)`,
+              backgroundSize: '200% 100%',
+              animation: 'sk-wave 1.4s ease 0.1s infinite',
+            }} />
+
+            {/* Title line 2 */}
+            <div style={{
+              width: '62%', height: 38, borderRadius: 9, marginBottom: 22,
+              background: dk ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)',
+              backgroundImage: `linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.08) 50%, transparent 100%)`,
+              backgroundSize: '200% 100%',
+              animation: 'sk-wave 1.4s ease 0.2s infinite',
+            }} />
+
+            {/* Excerpt line 1 */}
+            <div style={{
+              width: '90%', height: 13, borderRadius: 6, marginBottom: 9,
+              background: dk ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.07)',
+              animation: 'sk-wave 1.4s ease 0.3s infinite',
+              backgroundImage: `linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.07) 50%, transparent 100%)`,
+              backgroundSize: '200% 100%',
+            }} />
+
+            {/* Excerpt line 2 */}
+            <div style={{
+              width: '68%', height: 13, borderRadius: 6, marginBottom: 28,
+              background: dk ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
+              animation: 'sk-wave 1.4s ease 0.4s infinite',
+              backgroundImage: `linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.05) 50%, transparent 100%)`,
+              backgroundSize: '200% 100%',
+            }} />
+
+            {/* Song card placeholder */}
+            <div style={{
+              width: 210, height: 60, borderRadius: 14,
+              background: dk ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.07)',
+              backgroundImage: `linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.07) 50%, transparent 100%)`,
+              backgroundSize: '200% 100%',
+              animation: 'sk-wave 1.4s ease 0.5s infinite',
+            }} />
+
+            {/* Music bars - bottom right */}
+            <div style={{
+              position: 'absolute', right: 28, bottom: '25%',
+              display: 'flex', alignItems: 'flex-end', gap: 4, opacity: 0.2,
             }}>
-              {[35, 70, 48, 90, 58, 82, 42, 68, 100, 44, 72, 55, 88].map((h, i) => (
+              {[30, 60, 42, 78, 50, 70, 36, 58, 85, 38, 62].map((h, i) => (
                 <div key={i} style={{
-                  width: 7, borderRadius: 3, background: '#f97316', height: h,
-                  animation: `hp-bar ${0.8 + (i % 4) * 0.15}s ease-in-out infinite alternate`,
-                  animationDelay: `${i * 0.07}s`,
+                  width: 6, borderRadius: 3, background: '#f97316', height: h,
+                  animation: `hp-bar ${0.7 + (i % 4) * 0.15}s ease-in-out infinite alternate`,
+                  animationDelay: `${i * 0.06}s`,
+                  transformOrigin: 'bottom',
                 }} />
               ))}
             </div>
-            <style>{`
-              @keyframes hp-bar { from{transform:scaleY(0.3)} to{transform:scaleY(1)} }
-              @keyframes sk-pulse { 0%,100%{opacity:.5} 50%{opacity:1} }
-            `}</style>
 
-            {/* Skeleton content */}
-            <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', padding: '0 28px 52px' }}>
-              <div style={{ width: '100%', animation: 'sk-pulse 1.4s ease infinite' }}>
-                {/* Chip */}
-                <div style={{ width: 120, height: 24, borderRadius: 12,
-                  background: dk ? 'rgba(249,115,22,0.35)' : 'rgba(249,115,22,0.25)',
-                  marginBottom: 20 }} />
-                {/* Title line 1 */}
-                <div style={{ width: '82%', height: 34, borderRadius: 8,
-                  background: dk ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.10)',
-                  marginBottom: 10 }} />
-                {/* Title line 2 */}
-                <div style={{ width: '60%', height: 34, borderRadius: 8,
-                  background: dk ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)',
-                  marginBottom: 20 }} />
-                {/* Excerpt line 1 */}
-                <div style={{ width: '88%', height: 12, borderRadius: 6,
-                  background: dk ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)',
-                  marginBottom: 8 }} />
-                {/* Excerpt line 2 */}
-                <div style={{ width: '65%', height: 12, borderRadius: 6,
-                  background: dk ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
-                  marginBottom: 24 }} />
-                {/* Song card */}
-                <div style={{ width: 200, height: 56, borderRadius: 14,
-                  background: dk ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }} />
-              </div>
-            </div>
-
-            {/* music.lt brand */}
-            <div style={{ padding: '0 28px 36px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 1, opacity: 0.45 }}>
-                <span style={{ fontFamily: 'Outfit,sans-serif', fontWeight: 900, fontSize: 16, color: dk ? '#fff' : '#0f1a2e' }}>music.</span>
-                <span style={{ fontFamily: 'Outfit,sans-serif', fontWeight: 900, fontSize: 16, color: '#f97316' }}>lt</span>
+            {/* music.lt brand - bottom */}
+            <div style={{ position: 'absolute', bottom: 44, left: 28 }}>
+              <div style={{ display: 'flex', alignItems: 'center', opacity: 0.5 }}>
+                <span style={{ fontFamily: 'Outfit,sans-serif', fontWeight: 900, fontSize: 17, color: dk ? '#fff' : '#0f1a2e' }}>music.</span>
+                <span style={{ fontFamily: 'Outfit,sans-serif', fontWeight: 900, fontSize: 17, color: '#f97316' }}>lt</span>
               </div>
             </div>
           </div>
