@@ -760,7 +760,6 @@ export default function Home() {
 
   const hero = heroSlides[heroIdx]
   const chartData = chartTab === 'lt' ? ltTop : worldTop
-  const filtEvt = events
 
   return (
     <>
