@@ -496,7 +496,7 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, dk }: {
                 textDecoration: 'none', letterSpacing: '-0.02em',
               }}>
                 {s.title}
-                <span style={{ display: 'inline-block', marginLeft: 6, fontSize: '0.55em', opacity: 0.4, verticalAlign: 'middle', fontWeight: 400 }}>→</span>
+                <span style={{ display: 'inline-block', marginLeft: 6, fontSize: '0.5em', color: '#f97316', verticalAlign: 'middle', fontWeight: 700, opacity: 0.9 }}>→</span>
               </Link>
 
               {s.subtitle && (
@@ -508,23 +508,25 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, dk }: {
               {/* Video trigger */}
               {s.videoId && !videoOpen && i === idx && (
                 <button onClick={(e) => { e.stopPropagation(); setVideoOpen(true) }} style={{
-                  display: 'flex', alignItems: 'center', gap: 10, padding: '8px',
-                  background: 'rgba(255,255,255,0.08)', borderRadius: 12,
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px 8px 8px',
+                  background: 'rgba(255,255,255,0.07)', borderRadius: 12,
                   border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', width: '100%',
                 }}>
-                  <div style={{ width: 44, height: 44, borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
+                  {/* Thumbnail — no play overlay */}
+                  <div style={{ width: 42, height: 42, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
                     <img src={`https://img.youtube.com/vi/${s.videoId}/mqdefault.jpg`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} draggable={false} />
                   </div>
                   <div style={{ textAlign: 'left', flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: 13, fontWeight: 700, color: '#fff', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.songTitle || 'Klausyti'}</p>
                     {s.songArtist && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', margin: '2px 0 0' }}>{s.songArtist}</p>}
                   </div>
+                  {/* Play icon pill — right side */}
                   <div style={{
-                    width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
-                    background: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    boxShadow: '0 2px 10px rgba(249,115,22,.4)',
+                    width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+                    background: 'rgba(255,255,255,0.14)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="#fff" style={{ marginLeft: 2 }}><path d="M8 5v14l11-7z"/></svg>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff" style={{ marginLeft: 1 }}><path d="M8 5v14l11-7z"/></svg>
                   </div>
                 </button>
               )}
@@ -765,7 +767,8 @@ export default function Home() {
         .hp-art:hover .hp-art-img{transform:scale(1.06)}
         .hp-disc-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
         .hp-feed-strip{display:none}
-        @media(max-width:960px){.hp-feed-strip{display:flex}}
+        .hp-mobile-chart{display:none}
+        @media(max-width:960px){.hp-feed-strip{display:flex}.hp-mobile-chart{display:block}}
 
         /* ── Reels overlay — horizontal Stories ── */
         .hp-reels{position:fixed;inset:0;z-index:300;background:#000;overflow:hidden;touch-action:pan-x}
@@ -858,9 +861,9 @@ export default function Home() {
                     onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
                     {hero.title}
                     <span style={{
-                      display: 'inline-block', marginLeft: 8, fontSize: '0.6em',
-                      opacity: 0.45, verticalAlign: 'middle', fontWeight: 400,
-                      letterSpacing: 0,
+                      display: 'inline-block', marginLeft: 8, fontSize: '0.55em',
+                      color: '#f97316', verticalAlign: 'middle', fontWeight: 700,
+                      letterSpacing: 0, opacity: 0.9,
                     }}>→</span>
                   </Link>
                   {hero.subtitle && (
@@ -874,25 +877,30 @@ export default function Home() {
                   {/* FIX #3 (desktop): video card stays as is — looks good on desktop */}
                   {hero.videoId && !heroVideoPlaying && (
                     <button className="hp-hero-vidcard" onClick={() => setHeroVideoPlaying(true)} style={{
-                      display: 'flex', alignItems: 'center', gap: 0, padding: 0,
-                      background: dk ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.04)',
+                      display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px 8px 8px',
+                      background: dk ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
                       backdropFilter: dk ? 'blur(12px)' : 'none',
                       border: `1px solid ${dk ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}`,
                       borderRadius: 12, cursor: 'pointer', overflow: 'hidden', transition: 'all .2s', width: 220,
                     }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = dk ? 'rgba(255,255,255,.2)' : 'rgba(0,0,0,.15)'; e.currentTarget.style.background = dk ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.06)' }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor = dk ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.08)'; e.currentTarget.style.background = dk ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.04)' }}>
-                      <div style={{ width: 48, height: 48, flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = dk ? 'rgba(255,255,255,.2)' : 'rgba(0,0,0,.15)'; e.currentTarget.style.background = dk ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = dk ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.08)'; e.currentTarget.style.background = dk ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' }}>
+                      {/* Thumbnail — no play overlay */}
+                      <div style={{ width: 42, height: 42, flexShrink: 0, borderRadius: 8, overflow: 'hidden' }}>
                         <img src={`https://img.youtube.com/vi/${hero.videoId}/mqdefault.jpg`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.3)' }}>
-                          <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(255,255,255,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <svg width="9" height="9" viewBox="0 0 24 24" fill="#111"><path d="M8 5v14l11-7z"/></svg>
-                          </div>
-                        </div>
                       </div>
-                      <div style={{ flex: 1, minWidth: 0, padding: '5px 10px', textAlign: 'left' }}>
+                      {/* Song info */}
+                      <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
                         <p style={{ fontSize: 11, fontWeight: 700, color: dk ? '#fff' : 'var(--text-primary)', margin: '0 0 1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hero.songTitle || 'Klausyti'}</p>
-                        {hero.songArtist && <p style={{ fontSize: 10, color: dk ? 'rgba(255,255,255,0.5)' : 'var(--text-muted)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hero.songArtist}</p>}
+                        {hero.songArtist && <p style={{ fontSize: 10, color: dk ? 'rgba(255,255,255,0.45)' : 'var(--text-muted)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hero.songArtist}</p>}
+                      </div>
+                      {/* YouTube icon pill */}
+                      <div style={{
+                        flexShrink: 0, width: 28, height: 28, borderRadius: '50%',
+                        background: 'rgba(255,255,255,0.12)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg>
                       </div>
                     </button>
                   )}
@@ -1038,24 +1046,17 @@ export default function Home() {
                     }
                     {/* Gradient */}
                     <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.0) 50%)' }} />
-                    {/* Bottom: artist name or chip */}
-                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '5px 5px 5px' }}>
-                      {artistName ? (
+                    {/* Bottom: artist name only if available, else nothing */}
+                    {artistName && (
+                      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '5px 6px' }}>
                         <p style={{
                           fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.9)',
                           margin: 0, lineHeight: 1.2,
                           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                           fontFamily: 'Outfit,sans-serif',
                         }}>{artistName}</p>
-                      ) : (
-                        <span style={{
-                          fontSize: 7, fontWeight: 800, color: '#fff',
-                          background: slide.chipBg, padding: '2px 5px', borderRadius: 3,
-                          fontFamily: 'Outfit,sans-serif', letterSpacing: '0.05em',
-                          textTransform: 'uppercase', display: 'inline-block',
-                        }}>{slide.chip}</span>
-                      )}
-                    </div>
+                      </div>
+                    )}
                     {/* Unseen dot */}
                     {!isSeen && (
                       <div style={{
@@ -1117,8 +1118,7 @@ export default function Home() {
             boxShadow: '0 2px 12px rgba(249,115,22,.3)',
           }}>Balsuok</Link>
         </div>
-        {/* hp-mobile-chart closing style tag — add this to the existing style block above */}
-        <style>{`@media(max-width:960px){.hp-mobile-chart{display:block}}.hp-mobile-chart{display:none}`}</style>
+        {/* hp-mobile-chart CSS moved to main style block above */}
 
         {/* ═══════════════════════ REELS OVERLAY — horizontal Stories ═══════════════════════ */}
         {reelsOpen && (
