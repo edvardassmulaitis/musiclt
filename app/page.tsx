@@ -908,7 +908,7 @@ export default function Home() {
             </div>
           </div>
         )}
-        {pageReady && (
+        {pageReady && hero && (
           <section className="hp-hero" ref={heroRef}>
             <div className="hp-hero-bg">
               {hero.bgImg ? (
@@ -1419,6 +1419,7 @@ export default function Home() {
             </div>
           </section>
 
+        </div>{/* end hp-cnt */}
         </div>{/* end below-hero content */}
       </div>
     </>
