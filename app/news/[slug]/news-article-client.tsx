@@ -363,7 +363,7 @@ export default function NewsArticleClient({
         .na-share-btn { padding:7px 16px; border-radius:100px; background:var(--na-card); border:1px solid var(--na-border); color:var(--na-text3); font-size:12px; font-weight:700; cursor:pointer; font-family:'Outfit',sans-serif; }
 
         /* ── Sidebar ── */
-        .na-sidebar { position:sticky; top:80px; display:flex; flex-direction:column; gap:10px; margin-top:-130px; }
+        .na-sidebar { position:sticky; top:80px; display:flex; flex-direction:column; gap:10px; }
         .sb-card { border-radius:16px; background:var(--na-card); border:1px solid var(--na-border); padding:14px; }
         .sb-card-label { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.1em; color:var(--na-text4); margin:0 0 10px; font-family:'Outfit',sans-serif; }
 
@@ -463,11 +463,13 @@ export default function NewsArticleClient({
         @media(max-width:1024px){
           .na-grid.has-sb { grid-template-columns:1fr; }
           .na-sidebar { position:static; margin-top:0; }
-          .na-hero-content { padding:0 24px 36px; }
+          .na-hero-content { padding:0 24px 36px; max-width:100%; }
+          /* Mobile: nuotrauka slepiama, hero tik tamsus */
+          .na-hero-img { display:none; }
+          .na-hero { background:#080d14; }
         }
         @media(max-width:640px){
-          .na-hero { height:60vh; min-height:380px; }
-          .na-h1 { font-size:1.6rem; }
+          .na-h1 { font-size:1.55rem; }
           .na-page { padding:0 16px; }
           .na-grid { padding:24px 0 60px; gap:28px; }
         }
@@ -481,8 +483,9 @@ export default function NewsArticleClient({
             ? <><img src={heroImg} alt="" className="na-hero-img" /><div className="na-hero-overlay" /></>
             : <div className="na-hero-noimg" />
           }
+          {/* Hero content plotis = straipsnio plotis (max 1300px, padding 28px) */}
           <div className="na-hero-content">
-            <div className="na-hero-inner">
+            <div style={{ maxWidth: 'calc(100% - 340px - 44px)' }} className="na-hero-inner">
               <div className="na-breadcrumb">
                 <Link href="/naujienos" className="na-breadcrumb-home">Naujienos</Link>
                 <span className="na-breadcrumb-sep">›</span>
@@ -508,9 +511,7 @@ export default function NewsArticleClient({
 
             <main>
               <div className="na-prose" dangerouslySetInnerHTML={{ __html: news.body }} />
-
               {gallery.length > 0 && <PhotoGallery photos={gallery} />}
-
               <div className="na-footer">
                 <Link href="/naujienos" className="na-back">← Visos naujienos</Link>
                 <button className="na-share-btn"
@@ -522,6 +523,8 @@ export default function NewsArticleClient({
 
             {hasSidebar && (
               <aside className="na-sidebar">
+                {/* Muzika pirmiau, atlikėjas po jos */}
+                {songs.length > 0 && <MusicPlayer songs={songs} />}
                 {news.artist && (
                   <div className="na-artist-card">
                     {news.artist.cover_image_url
@@ -534,7 +537,6 @@ export default function NewsArticleClient({
                     <Link href={`/atlikejai/${news.artist.id}`} className="na-artist-link">Profilis →</Link>
                   </div>
                 )}
-                {songs.length > 0 && <MusicPlayer songs={songs} />}
                 <RelatedCard related={related} />
                 <ShareCard title={news.title} />
               </aside>
