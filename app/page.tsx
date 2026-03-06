@@ -826,22 +826,19 @@ export default function Home() {
         .hp-hero-bg{position:absolute;top:0;bottom:0;left:35%;right:340px;z-index:0;overflow:hidden;-webkit-mask-image:linear-gradient(to bottom, black 65%, transparent 100%);mask-image:linear-gradient(to bottom, black 65%, transparent 100%)}
         .hp-hero-bg img{width:100%;height:100%;object-fit:cover;object-position:center 25%;animation:hp-img-in .8s ease both;-webkit-mask-image:linear-gradient(to right, transparent 0%, black 10%, black 88%, transparent 100%);mask-image:linear-gradient(to right, transparent 0%, black 10%, black 88%, transparent 100%)}
         .hp-hero-grad{display:none}
-        @media(max-width:960px){
-          .hp-hero-grad{display:block!important;position:absolute;left:0;right:0;top:0;height:340px;z-index:1;pointer-events:none;background:linear-gradient(to bottom, transparent 0%, transparent 40%, rgba(0,0,0,0.55) 70%, rgba(0,0,0,0.85) 100%)!important}
-        }
         .hp-hero-content{position:relative;z-index:2;display:flex;align-items:stretch;max-width:1360px;margin:0 auto;padding:0 20px;width:100%;flex:1}
         .hp-hero-left{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:36px 0 40px;min-width:0}
         .hp-hero-right{width:340px;flex-shrink:0;padding:20px 16px 20px 20px;display:flex;flex-direction:column;border-left:1px solid ${T.chartBdr};background:${T.chartBg};position:relative;z-index:3}
 
         @media(max-width:960px){
           .hp-hero{min-height:auto;overflow:visible}
-          .hp-hero-bg{left:0!important;right:0!important;height:260px;bottom:auto!important;z-index:0;flex-shrink:0;position:relative!important}
+          .hp-hero-bg{left:0!important;right:0!important;height:260px;bottom:auto!important;z-index:0;flex-shrink:0}
           .hp-hero-bg img{-webkit-mask-image:linear-gradient(to bottom, black 55%, transparent 100%)!important;mask-image:linear-gradient(to bottom, black 55%, transparent 100%)!important}
-          .hp-hero-content{flex-direction:column;position:relative;min-height:0;margin-top:-80px!important;z-index:2}
-          .hp-hero-left{padding:0 16px 20px!important;position:relative;z-index:2;justify-content:flex-end!important}
+          .hp-hero-content{flex-direction:column;position:relative;min-height:0}
+          .hp-hero-left{padding:220px 0 20px!important;position:relative;z-index:2;min-height:200px}
           .hp-hero-right{display:none!important}
-          .hp-hero-title{font-size:24px!important;line-height:1.1!important;color:#fff!important}
-          .hp-hero-excerpt{font-size:13px!important;margin-bottom:12px!important;-webkit-line-clamp:2;display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;color:rgba(255,255,255,0.75)!important}
+          .hp-hero-title{font-size:24px!important;line-height:1.1!important}
+          .hp-hero-excerpt{font-size:13px!important;margin-bottom:12px!important;-webkit-line-clamp:2;display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden}
           .hp-hero-dots{display:none!important}
           .hp-hero-vidcard{width:100%!important}
           .hp-disc-grid{grid-template-columns:1fr!important}
@@ -850,7 +847,7 @@ export default function Home() {
         }
         @media(max-width:600px){
           .hp-hero-bg{height:220px}
-          .hp-hero-left{padding:0 0 18px!important;min-height:180px;justify-content:flex-end!important}
+          .hp-hero-left{padding:185px 0 18px!important;min-height:180px}
           .hp-hero-title{font-size:21px!important}
           .hp-hero-excerpt{-webkit-line-clamp:2}
         }
@@ -925,8 +922,8 @@ export default function Home() {
             <div className="hp-hero-grad" style={{ background: T.heroOverlay }} />
             <div className="hp-hero-content">
               <div className="hp-hero-left">
-                <div key={heroIdx} style={{ animation: 'hp-in .5s ease both', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-                  <div style={{ marginBottom: 10 }}>
+                <div key={heroIdx} style={{ animation: 'hp-in .5s ease both' }}>
+                  <div style={{ marginBottom: 12 }}>
                     <span style={{ padding: '4px 14px', borderRadius: 20, fontSize: 10, fontWeight: 900, color: '#fff', background: hero.chipBg, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                       {hero.chip}
                     </span>
