@@ -278,104 +278,72 @@ export default function NewsArticleClient({
 
         .na-root { background:var(--na-bg); color:var(--na-text); font-family:'DM Sans',sans-serif; -webkit-font-smoothing:antialiased; min-height:100vh; }
 
-        /* ══ HERO — Editorial style, not photo-dependent ══ */
+        /* ══ HERO — full bleed photo, text bottom-left ══ */
         .na-hero {
           position:relative;
-          background:var(--na-bg2);
-          border-bottom:1px solid var(--na-border);
+          height:72vh; min-height:460px; max-height:680px;
           overflow:hidden;
+          background:var(--na-bg2);
         }
-
-        /* Background image — decorative, right side only, fades out */
-        .na-hero-imgbg {
-          position:absolute;
-          top:0; right:0; bottom:0;
-          width:55%;
-          z-index:0;
-        }
-        .na-hero-imgbg img {
+        .na-hero-img {
+          position:absolute; inset:0;
           width:100%; height:100%; object-fit:cover; object-position:center 20%;
           animation:na-zoom 16s ease-out forwards;
         }
-        /* Gradient: left side fully covers image → content always readable */
-        .na-hero-imgbg::after {
-          content:'';
+        /* Gradient: strong bottom (text bg), light top, subtle left side */
+        .na-hero-overlay {
           position:absolute; inset:0;
-          background:linear-gradient(to right, var(--na-bg2) 0%, var(--na-bg2) 20%, rgba(0,0,0,0) 60%),
-                     linear-gradient(to bottom, transparent 0%, var(--na-bg2) 100%);
-        }
-
-        /* No image fallback — subtle geometric bg */
-        .na-hero-noimg {
-          position:absolute; inset:0; z-index:0;
           background:
-            radial-gradient(ellipse at 80% 50%, rgba(249,115,22,0.07) 0%, transparent 60%),
-            radial-gradient(ellipse at 20% 80%, rgba(29,78,216,0.06) 0%, transparent 50%);
+            linear-gradient(to top,    rgba(8,13,20,0.95) 0%, rgba(8,13,20,0.55) 40%, rgba(8,13,20,0.1) 70%, transparent 100%),
+            linear-gradient(to right,  rgba(8,13,20,0.6)  0%, rgba(8,13,20,0.1) 50%, transparent 80%);
+        }
+        /* No photo fallback */
+        .na-hero-noimg {
+          position:absolute; inset:0;
+          background:linear-gradient(135deg, #0d1420 0%, #111826 60%, #0a0f1a 100%);
+        }
+        .na-hero-noimg::after {
+          content:''; position:absolute; inset:0;
+          background:
+            radial-gradient(ellipse at 75% 40%, rgba(249,115,22,0.12) 0%, transparent 55%),
+            radial-gradient(ellipse at 20% 70%, rgba(29,78,216,0.1) 0%, transparent 50%);
         }
 
-        .na-hero-inner {
-          position:relative; z-index:1;
-          max-width:1300px; margin:0 auto;
-          padding:56px 28px 52px;
-          display:grid;
-          grid-template-columns:minmax(0,640px) 1fr;
-          gap:40px;
-          align-items:center;
-          min-height:380px;
+        .na-hero-content {
+          position:absolute; inset:0;
+          display:flex; flex-direction:column; justify-content:flex-end;
+          padding:0 48px 48px;
+          max-width:860px;
         }
+        .na-hero-inner { animation:na-in .7s .05s both; }
 
-        .na-hero-left { animation:na-in .7s .05s both; }
-
-        /* Category breadcrumb */
-        .na-breadcrumb { display:flex; align-items:center; gap:8px; margin-bottom:18px; }
-        .na-breadcrumb-home { font-size:12px; font-weight:600; color:var(--na-text4); text-decoration:none; }
-        .na-breadcrumb-home:hover { color:var(--na-text3); }
-        .na-breadcrumb-sep { font-size:12px; color:var(--na-text4); }
+        .na-breadcrumb { display:flex; align-items:center; gap:8px; margin-bottom:14px; }
+        .na-breadcrumb-home { font-size:12px; font-weight:600; color:rgba(255,255,255,0.45); text-decoration:none; }
+        .na-breadcrumb-home:hover { color:rgba(255,255,255,0.7); }
+        .na-breadcrumb-sep { font-size:12px; color:rgba(255,255,255,0.25); }
         .na-chip { display:inline-block; font-family:'Outfit',sans-serif; font-size:10px; font-weight:900; letter-spacing:.08em; text-transform:uppercase; color:#fff; padding:4px 12px; border-radius:20px; }
 
-        /* Title */
         .na-h1 {
           font-family:'Outfit',sans-serif;
           font-size:clamp(1.7rem,3.5vw,3rem);
           font-weight:900; line-height:1.07; letter-spacing:-.03em;
-          color:var(--na-text); margin:0 0 16px;
+          color:#fff; margin:0 0 16px;
         }
 
-        /* Lede */
-        .na-lede { font-size:1.05rem; line-height:1.7; color:var(--na-text3); margin:0 0 24px; max-width:560px; }
-
-        /* Meta row */
-        .na-meta { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:20px; }
-        .na-date { font-size:12px; color:var(--na-text4); font-weight:600; font-family:'Outfit',sans-serif; }
-        .na-artist-pill { display:inline-flex; align-items:center; gap:6px; background:var(--na-card); border:1px solid var(--na-border); border-radius:100px; padding:4px 12px 4px 4px; text-decoration:none; transition:background .2s; }
-        .na-artist-pill:hover { background:var(--na-bg3); }
+        .na-meta { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+        .na-date { font-size:12px; color:rgba(255,255,255,0.45); font-weight:600; font-family:'Outfit',sans-serif; }
+        .na-artist-pill { display:inline-flex; align-items:center; gap:6px; background:rgba(255,255,255,0.12); backdrop-filter:blur(8px); border:1px solid rgba(255,255,255,0.16); border-radius:100px; padding:4px 12px 4px 4px; text-decoration:none; transition:background .2s; }
+        .na-artist-pill:hover { background:rgba(255,255,255,0.2); }
         .na-artist-pill img { width:22px; height:22px; border-radius:50%; object-fit:cover; }
-        .na-artist-pill-av { width:22px; height:22px; border-radius:50%; background:var(--na-bg3); display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:900; color:var(--na-text3); }
-        .na-artist-pill span { font-size:11px; font-weight:700; color:var(--na-text2); }
+        .na-artist-pill-av { width:22px; height:22px; border-radius:50%; background:rgba(255,255,255,0.2); display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:900; color:#fff; }
+        .na-artist-pill span { font-size:11px; font-weight:700; color:#fff; }
 
-        /* Source btn */
-        .na-source-btn { display:inline-flex; align-items:center; gap:7px; padding:9px 18px; border-radius:100px; background:rgba(249,115,22,.1); border:1px solid rgba(249,115,22,.25); color:#f97316; font-size:12px; font-weight:800; text-decoration:none; font-family:'Outfit',sans-serif; transition:all .2s; }
-        .na-source-btn:hover { background:rgba(249,115,22,.18); }
-
-        /* Hero right — image thumb (large screens) */
-        .na-hero-right { display:flex; justify-content:flex-end; }
-        .na-hero-thumb {
-          width:320px; height:220px; border-radius:16px; overflow:hidden;
-          border:1px solid var(--na-border);
-          box-shadow:0 20px 60px rgba(0,0,0,0.15);
-          flex-shrink:0;
-        }
-        .na-hero-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
-        .na-hero-thumb-empty {
-          width:320px; height:220px; border-radius:16px;
-          background:var(--na-bg3); border:1px solid var(--na-border);
-          display:flex; align-items:center; justify-content:center;
-          font-size:48px; color:var(--na-text4);
-        }
+        .na-source-btn { display:inline-flex; align-items:center; gap:7px; margin-top:16px; padding:9px 18px; border-radius:100px; background:rgba(249,115,22,.15); border:1px solid rgba(249,115,22,.3); color:#f97316; font-size:12px; font-weight:800; text-decoration:none; font-family:'Outfit',sans-serif; transition:all .2s; }
+        .na-source-btn:hover { background:rgba(249,115,22,.25); }
 
         /* ── Page layout ── */
         .na-page { max-width:1300px; margin:0 auto; padding:0 28px; }
-        .na-grid { display:grid; gap:44px; align-items:start; padding:44px 0 90px; }
+        .na-grid { display:grid; gap:44px; align-items:start; padding:36px 0 90px; }
         .na-grid.has-sb { grid-template-columns:1fr 340px; }
         .na-grid.no-sb  { grid-template-columns:1fr; max-width:820px; margin:0 auto; }
 
@@ -397,7 +365,7 @@ export default function NewsArticleClient({
         .na-share-btn { padding:7px 16px; border-radius:100px; background:var(--na-card); border:1px solid var(--na-border); color:var(--na-text3); font-size:12px; font-weight:700; cursor:pointer; font-family:'Outfit',sans-serif; }
 
         /* ── Sidebar ── */
-        .na-sidebar { position:sticky; top:80px; display:flex; flex-direction:column; gap:10px; }
+        .na-sidebar { position:sticky; top:80px; display:flex; flex-direction:column; gap:10px; margin-top:-110px; }
         .sb-card { border-radius:16px; background:var(--na-card); border:1px solid var(--na-border); padding:14px; }
         .sb-card-label { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.1em; color:var(--na-text4); margin:0 0 10px; font-family:'Outfit',sans-serif; }
 
@@ -496,44 +464,33 @@ export default function NewsArticleClient({
         /* ── Responsive ── */
         @media(max-width:1024px){
           .na-grid.has-sb { grid-template-columns:1fr; }
-          .na-sidebar { position:static; }
-          .na-hero-inner { grid-template-columns:1fr; min-height:auto; padding:40px 20px 36px; }
-          .na-hero-right { display:none; }
-          .na-hero-imgbg { width:100%; opacity:.35; }
+          .na-sidebar { position:static; margin-top:0; }
+          .na-hero-content { padding:0 24px 36px; }
         }
         @media(max-width:640px){
-          .na-h1 { font-size:1.65rem; }
+          .na-hero { height:60vh; min-height:380px; }
+          .na-h1 { font-size:1.6rem; }
           .na-page { padding:0 16px; }
-          .na-grid { padding:28px 0 60px; gap:28px; }
-          .na-hero-inner { padding:32px 16px 28px; }
-          .na-lede { font-size:.97rem; }
+          .na-grid { padding:24px 0 60px; gap:28px; }
         }
       `}</style>
 
       <div className="na-root">
 
-        {/* ══════════ HERO — editorial, works with or without photo ══════════ */}
+        {/* ══════════ HERO — full bleed photo ══════════ */}
         <div className="na-hero">
-          {/* Background image — right side, decorative */}
           {heroImg
-            ? <div className="na-hero-imgbg"><img src={heroImg} alt="" /></div>
+            ? <><img src={heroImg} alt="" className="na-hero-img" /><div className="na-hero-overlay" /></>
             : <div className="na-hero-noimg" />
           }
-
-          <div className="na-hero-inner">
-            {/* LEFT: all text content */}
-            <div className="na-hero-left">
-              {/* Breadcrumb + chip */}
+          <div className="na-hero-content">
+            <div className="na-hero-inner">
               <div className="na-breadcrumb">
                 <Link href="/naujienos" className="na-breadcrumb-home">Naujienos</Link>
                 <span className="na-breadcrumb-sep">›</span>
                 <div className="na-chip" style={{ background: chipColor }}>{chipLabel}</div>
               </div>
-
               <h1 className="na-h1">{news.title}</h1>
-
-              {lede && <p className="na-lede">{lede}</p>}
-
               <div className="na-meta">
                 <span className="na-date">{formatDate(news.published_at)}</span>
                 {news.artist && (
@@ -545,21 +502,12 @@ export default function NewsArticleClient({
                   </Link>
                 )}
               </div>
-
               {news.source_url && (
                 <a href={news.source_url} target="_blank" rel="noopener" className="na-source-btn">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                   Skaityti šaltinį
                 </a>
               )}
-            </div>
-
-            {/* RIGHT: image card thumbnail (large screens only) */}
-            <div className="na-hero-right">
-              {heroImg
-                ? <div className="na-hero-thumb"><img src={heroImg} alt={news.title} /></div>
-                : <div className="na-hero-thumb-empty">🎵</div>
-              }
             </div>
           </div>
         </div>
