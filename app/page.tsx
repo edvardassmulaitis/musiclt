@@ -402,15 +402,25 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, dk }: {
         position: 'fixed', top: 14, left: 16, right: 56, zIndex: 310,
         display: 'flex', gap: 4, alignItems: 'center', pointerEvents: 'none',
       }}>
-        {slides.map((_, i) => (
-          <div key={i} style={{ flex: 1, height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.25)', overflow: 'hidden' }}>
-            <div style={{
-              height: '100%', borderRadius: 2, background: '#fff',
-              width: i < idx ? '100%' : i === idx ? `${progress * 100}%` : '0%',
-              transition: i === idx ? 'none' : 'none',
-            }} />
-          </div>
-        ))}
+        {slides.map((s, i) => {
+          const isSeen = seenSlides.has(s.href)
+          const isPast = i < idx
+          const isCurrent = i === idx
+          const barColor = isCurrent
+            ? '#f97316'
+            : isPast
+              ? (isSeen ? 'rgba(255,255,255,0.7)' : '#f97316')
+              : 'rgba(255,255,255,0.0)'
+          return (
+            <div key={i} style={{ flex: 1, height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.22)', overflow: 'hidden' }}>
+              <div style={{
+                height: '100%', borderRadius: 2,
+                background: barColor,
+                width: isPast ? '100%' : isCurrent ? `${progress * 100}%` : '0%',
+              }} />
+            </div>
+          )
+        })}
       </div>
 
       {/* Close button */}
@@ -825,7 +835,7 @@ export default function Home() {
           .hp-hero-bg{left:0!important;right:0!important;height:260px;bottom:auto!important;z-index:0;flex-shrink:0}
           .hp-hero-bg img{-webkit-mask-image:linear-gradient(to bottom, black 55%, transparent 100%)!important;mask-image:linear-gradient(to bottom, black 55%, transparent 100%)!important}
           .hp-hero-content{flex-direction:column;position:relative;min-height:0}
-          .hp-hero-left{padding:220px 0 20px!important;position:relative;z-index:2;min-height:200px}
+          .hp-hero-left{padding:0 0 20px!important;position:relative;z-index:2;min-height:200px;justify-content:flex-end!important}
           .hp-hero-right{display:none!important}
           .hp-hero-title{font-size:24px!important;line-height:1.1!important}
           .hp-hero-excerpt{font-size:13px!important;margin-bottom:12px!important;-webkit-line-clamp:2;display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden}
@@ -837,7 +847,7 @@ export default function Home() {
         }
         @media(max-width:600px){
           .hp-hero-bg{height:220px}
-          .hp-hero-left{padding:185px 0 18px!important;min-height:180px}
+          .hp-hero-left{padding:0 0 18px!important;min-height:180px;justify-content:flex-end!important}
           .hp-hero-title{font-size:21px!important}
           .hp-hero-excerpt{-webkit-line-clamp:2}
         }
@@ -912,8 +922,8 @@ export default function Home() {
             <div className="hp-hero-grad" style={{ background: T.heroOverlay }} />
             <div className="hp-hero-content">
               <div className="hp-hero-left">
-                <div key={heroIdx} style={{ animation: 'hp-in .5s ease both' }}>
-                  <div style={{ marginBottom: 12 }}>
+                <div key={heroIdx} style={{ animation: 'hp-in .5s ease both', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+                  <div style={{ marginBottom: 10 }}>
                     <span style={{ padding: '4px 14px', borderRadius: 20, fontSize: 10, fontWeight: 900, color: '#fff', background: hero.chipBg, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                       {hero.chip}
                     </span>
@@ -928,16 +938,12 @@ export default function Home() {
                     onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
                     onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
                     {hero.title}
-                    <span style={{
-                      display: 'inline-block', marginLeft: 8, fontSize: '0.55em',
-                      color: '#f97316', verticalAlign: 'middle', fontWeight: 700,
-                      letterSpacing: 0, opacity: 0.9,
-                    }}>→</span>
                   </Link>
                   {hero.subtitle && (
                     <p className="hp-hero-excerpt" style={{
                       fontSize: 14, color: dk ? 'rgba(210,225,245,0.65)' : 'var(--text-muted)',
                       margin: '0 0 14px', lineHeight: 1.55, maxWidth: 480,
+                      display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
                     }}>
                       {hero.subtitle}
                     </p>
