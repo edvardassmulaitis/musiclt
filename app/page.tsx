@@ -836,8 +836,9 @@ export default function Home() {
         .hp-hero-right{width:340px;flex-shrink:0;padding:20px 16px 20px 20px;display:flex;flex-direction:column;border-left:1px solid ${T.chartBdr};background:${T.chartBg};position:relative;z-index:3}
 
         @media(max-width:960px){
-          .hp-hero{min-height:auto;overflow:visible}
-          .hp-hero-bg{left:0!important;right:0!important;height:260px;bottom:auto!important;z-index:0;flex-shrink:0}
+          .hp-hero{min-height:auto;overflow:hidden;height:420px;flex-direction:column}
+          .hp-hero-bg{position:absolute!important;top:0;left:0!important;right:0!important;bottom:0!important;height:100%!important;z-index:0}
+          .hp-hero-content{flex:1;z-index:2}
           .hp-hero-bg img{-webkit-mask-image:linear-gradient(to bottom, black 55%, transparent 100%)!important;mask-image:linear-gradient(to bottom, black 55%, transparent 100%)!important}
           .hp-hero-content{flex-direction:column;position:relative;min-height:0}
           .hp-hero-left{padding:0 0 20px!important;position:relative;z-index:2;display:flex;flex-direction:column}
@@ -853,7 +854,7 @@ export default function Home() {
           .hp-music-grid{grid-template-columns:1fr!important}
         }
         @media(max-width:600px){
-          .hp-hero-bg{height:220px}
+          .hp-hero{height:360px}
           .hp-hero-left{padding:0 0 18px!important}
           .hp-hero-spacer{min-height:130px}
           .hp-hero-title{font-size:21px!important;-webkit-line-clamp:2}
