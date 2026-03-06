@@ -483,21 +483,22 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, dk }: {
 
             {/* Content */}
             <div className="hp-reels-info" onClick={e => e.stopPropagation()}>
+              {/* Chip — orange if unseen, muted if seen */}
               <span style={{
                 display: 'inline-block', padding: '4px 12px', borderRadius: 16,
-                fontSize: 10, fontWeight: 900, color: '#fff', background: s.chipBg,
+                fontSize: 10, fontWeight: 900, color: '#fff',
+                background: seenSlides.has(s.href) ? 'rgba(255,255,255,0.15)' : s.chipBg,
                 fontFamily: 'Outfit,sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase',
                 marginBottom: 10, alignSelf: 'flex-start',
+                transition: 'background .3s',
               }}>{s.chip}</span>
 
-              <Link href={s.href} onClick={onClose} style={{
+              {/* Title — plain text, no accidental navigation */}
+              <p style={{
                 fontFamily: 'Outfit,sans-serif', fontSize: 26, fontWeight: 900,
-                color: '#fff', lineHeight: 1.1, margin: '0 0 8px', display: 'block',
-                textDecoration: 'none', letterSpacing: '-0.02em',
-              }}>
-                {s.title}
-                <span style={{ display: 'inline-block', marginLeft: 6, fontSize: '0.5em', color: '#f97316', verticalAlign: 'middle', fontWeight: 700, opacity: 0.9 }}>→</span>
-              </Link>
+                color: '#fff', lineHeight: 1.1, margin: '0 0 8px',
+                letterSpacing: '-0.02em',
+              }}>{s.title}</p>
 
               {s.subtitle && (
                 <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', margin: '0 0 14px', lineHeight: 1.5 }}>
@@ -512,7 +513,6 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, dk }: {
                   background: 'rgba(255,255,255,0.07)', borderRadius: 12,
                   border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', width: '100%',
                 }}>
-                  {/* Thumbnail — no play overlay */}
                   <div style={{ width: 42, height: 42, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
                     <img src={`https://img.youtube.com/vi/${s.videoId}/mqdefault.jpg`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} draggable={false} />
                   </div>
@@ -520,26 +520,43 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, dk }: {
                     <p style={{ fontSize: 13, fontWeight: 700, color: '#fff', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.songTitle || 'Klausyti'}</p>
                     {s.songArtist && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', margin: '2px 0 0' }}>{s.songArtist}</p>}
                   </div>
-                  {/* Play icon pill — right side */}
-                  <div style={{
-                    width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
-                    background: 'rgba(255,255,255,0.14)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
+                  <div style={{ width: 32, height: 32, borderRadius: '50%', flexShrink: 0, background: 'rgba(255,255,255,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff" style={{ marginLeft: 1 }}><path d="M8 5v14l11-7z"/></svg>
                   </div>
                 </button>
               )}
 
-              {/* Swipe hint — first slide only */}
-              {i === 0 && slides.length > 1 && (
-                <div style={{ marginTop: 'auto', paddingTop: 12, display: 'flex', justifyContent: 'center' }}>
-                  <div style={{ color: 'rgba(255,255,255,0.28)', fontSize: 10, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                    Braukite į šoną
-                  </div>
+              {/* Bottom action area */}
+              <div style={{ marginTop: 'auto', paddingTop: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+                {/* Read button — primary CTA */}
+                <Link
+                  href={s.href}
+                  onClick={onClose}
+                  style={{
+                    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                    padding: '13px 20px', borderRadius: 14,
+                    background: seenSlides.has(s.href) ? 'rgba(255,255,255,0.12)' : '#f97316',
+                    color: '#fff', fontFamily: 'Outfit,sans-serif', fontSize: 14, fontWeight: 800,
+                    textDecoration: 'none', letterSpacing: '-0.01em',
+                    boxShadow: seenSlides.has(s.href) ? 'none' : '0 4px 20px rgba(249,115,22,0.35)',
+                    transition: 'all .2s',
+                  }}
+                >
+                  {seenSlides.has(s.href) ? 'Skaityti dar kartą' : 'Skaityti'}
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                </Link>
+
+                {/* Slide counter */}
+                <div style={{
+                  flexShrink: 0, padding: '0 12px', height: 46, borderRadius: 14,
+                  background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.45)',
+                  fontFamily: 'Outfit,sans-serif', letterSpacing: '0.02em',
+                }}>
+                  {idx + 1}/{slides.length}
                 </div>
-              )}
+              </div>
             </div>
           </div>
         ))}
