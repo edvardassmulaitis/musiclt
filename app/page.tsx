@@ -636,6 +636,14 @@ export default function Home() {
   const [news, setNews] = useState<NewsItem[]>([])
   const [pageReady, setPageReady] = useState(false)
   const mountTime = useRef(Date.now())
+  const readyBits = useRef({ hero: false, tops: false, tracks: false })
+  const tryReady = useRef(() => {
+    const { hero, tops, tracks } = readyBits.current
+    if (hero && tops && tracks) {
+      const elapsed = Date.now() - mountTime.current
+      setTimeout(() => setPageReady(true), Math.max(0, 600 - elapsed))
+    }
+  })
   const filtEvt = events
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>([])
   const [heroIdx, setHeroIdx] = useState(0)
@@ -652,9 +660,9 @@ export default function Home() {
   })
 
   useEffect(() => {
-    fetch('/api/top/entries?type=lt_top30').then(r => r.json()).then(d => setLtTop(parseTop(d.entries || []))).catch(() => {})
+    fetch('/api/top/entries?type=lt_top30').then(r => r.json()).then(d => { setLtTop(parseTop(d.entries || [])); readyBits.current.tops = true; tryReady.current() }).catch(() => { readyBits.current.tops = true; tryReady.current() })
     fetch('/api/top/entries?type=top40').then(r => r.json()).then(d => setWorldTop(parseTop(d.entries || []))).catch(() => {})
-    fetch('/api/tracks?limit=24').then(r => r.json()).then(d => setTracks(d.tracks || [])).catch(() => {})
+    fetch('/api/tracks?limit=24').then(r => r.json()).then(d => { setTracks(d.tracks || []); readyBits.current.tracks = true; tryReady.current() }).catch(() => { readyBits.current.tracks = true; tryReady.current() })
     fetch('/api/albums?limit=16').then(r => r.json()).then(d => setAlbums(d.albums || [])).catch(() => {})
     fetch('/api/artists?limit=12').then(r => r.json()).then(d => setArtists(d.artists || [])).catch(() => {})
     fetch('/api/events?limit=10').then(r => r.json()).then(d => setEvents(d.events || [])).catch(() => {})
@@ -719,9 +727,8 @@ export default function Home() {
     })
     setHeroSlides(slides)
     setHeroIdx(0)
-    const elapsed = Date.now() - mountTime.current
-    const delay = Math.max(0, 600 - elapsed)
-    setTimeout(() => setPageReady(true), delay)
+    readyBits.current.hero = true
+    tryReady.current()
   }, [news, events, newsSongs])
 
   useEffect(() => {
