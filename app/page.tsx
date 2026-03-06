@@ -513,10 +513,13 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, dk }: {
                   fontFamily: 'Outfit,sans-serif', fontSize: 26, fontWeight: 900,
                   color: '#fff', lineHeight: 1.1, margin: '0 0 8px',
                   letterSpacing: '-0.02em', cursor: 'pointer',
+                  display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
                 }}>{s.title}</p>
 
               {s.subtitle && (
-                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', margin: '0 0 14px', lineHeight: 1.5 }}>
+                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', margin: '0 0 14px', lineHeight: 1.5,
+                  display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                }}>
                   {s.subtitle}
                 </p>
               )}
@@ -839,9 +842,10 @@ export default function Home() {
           .hp-hero-content{flex-direction:column;position:relative;min-height:0}
           .hp-hero-left{padding:0 0 20px!important;position:relative;z-index:2;display:flex;flex-direction:column}
           .hp-hero-spacer{flex:1;min-height:160px}
+          .hp-hero-title{font-size:24px!important;line-height:1.1!important;display:-webkit-box!important;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
           .hp-hero-right{display:none!important}
           .hp-hero-title{font-size:24px!important;line-height:1.1!important}
-          .hp-hero-excerpt{font-size:13px!important;margin-bottom:12px!important;-webkit-line-clamp:2;display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden}
+          .hp-hero-excerpt{font-size:13px!important;margin-bottom:12px!important;-webkit-line-clamp:2!important;display:-webkit-box!important;-webkit-box-orient:vertical!important;overflow:hidden!important;max-height:42px}
           .hp-hero-dots{display:none!important}
           .hp-hero-vidcard{width:100%!important}
           .hp-disc-grid{grid-template-columns:1fr!important}
@@ -852,6 +856,7 @@ export default function Home() {
           .hp-hero-bg{height:220px}
           .hp-hero-left{padding:0 0 18px!important}
           .hp-hero-spacer{min-height:130px}
+          .hp-hero-title{font-size:21px!important;-webkit-line-clamp:2}
           .hp-hero-title{font-size:21px!important}
           .hp-hero-excerpt{-webkit-line-clamp:2}
         }
