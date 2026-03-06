@@ -644,6 +644,7 @@ export default function Home() {
   const [artists, setArtists] = useState<Artist[]>([])
   const [events, setEvents] = useState<Event[]>([])
   const [news, setNews] = useState<NewsItem[]>([])
+  const [pageReady, setPageReady] = useState(false)
   const filtEvt = events
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>([])
   const [heroIdx, setHeroIdx] = useState(0)
@@ -727,6 +728,7 @@ export default function Home() {
     })
     setHeroSlides(slides)
     setHeroIdx(0)
+    setPageReady(true)
   }, [news, events, newsSongs])
 
   useEffect(() => {
@@ -831,6 +833,7 @@ export default function Home() {
           .hp-hero-vidcard{width:100%!important}
           .hp-disc-grid{grid-template-columns:1fr!important}
           .hp-triple{grid-template-columns:1fr!important}
+          .hp-music-grid{grid-template-columns:1fr!important}
         }
         @media(max-width:600px){
           .hp-hero-bg{height:220px}
@@ -857,7 +860,7 @@ export default function Home() {
       <div className="hp">
 
         {/* ═══════════════════════ CINEMATIC HERO ═══════════════════════ */}
-        {!hero ? (
+        {!pageReady ? (
           /* ── Hero skeleton loader ── */
           <section className="hp-hero" style={{ minHeight: 420, position: 'relative', overflow: 'hidden', display: 'flex', background: dk ? '#080d14' : '#f0f4fa' }}>
             {/* Animated background shimmer */}
@@ -1281,7 +1284,7 @@ export default function Home() {
         <div className="hp-cnt" style={{ maxWidth: 1360, margin: '0 auto', padding: '42px 20px', display: 'flex', flexDirection: 'column', gap: 44 }}>
 
           {/* ── Muzika + Renginiai (dviejų stulpelių layout) ── */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 24, alignItems: 'start' }}>
+          <div className="hp-music-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 24, alignItems: 'start' }}>
 
             {/* LEFT: Naujos dainos + Nauji albumai */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 32, minWidth: 0 }}>
@@ -1431,8 +1434,7 @@ export default function Home() {
             </div>
           </div>
 
-          {/* media query for music+events grid */}
-          <style>{`@media(max-width:960px){.hp-music-grid{grid-template-columns:1fr!important}}`}</style>
+
 
           {/* ── ROW 4: Three-column ── */}
           <section>
