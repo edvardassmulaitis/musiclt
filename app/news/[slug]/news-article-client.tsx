@@ -246,44 +246,43 @@ export default function NewsArticleClient({
         @keyframes eq-bounce { from { transform:scaleY(0.25) }                to { transform:scaleY(1) } }
         @keyframes bob       { 0%,100%{transform:translateY(0)} 50%{transform:translateY(4px)} }
 
-        /* ── Color tokens (light + dark) ── */
-        :root {
-          --na-bg:       #ffffff;
-          --na-bg2:      #f4f6f9;
-          --na-bg3:      #eef1f5;
-          --na-card:     rgba(0,0,0,0.03);
-          --na-border:   rgba(0,0,0,0.08);
-          --na-border2:  rgba(0,0,0,0.05);
-          --na-text:     #0f1623;
-          --na-text2:    #2a3750;
-          --na-text3:    #4a5e78;
-          --na-text4:    #8a9ab8;
-          --na-prose:    #2d3c50;
+        /* ── Color tokens — light mode default ── */
+        .na-root {
+          --na-bg:      #ffffff;
+          --na-bg2:     #f4f6f9;
+          --na-bg3:     #eef1f5;
+          --na-card:    rgba(0,0,0,0.04);
+          --na-border:  rgba(0,0,0,0.09);
+          --na-border2: rgba(0,0,0,0.05);
+          --na-text:    #0f1623;
+          --na-text2:   #2a3750;
+          --na-text3:   #4a5e78;
+          --na-text4:   #8a9ab8;
+          --na-prose:   #2d3c50;
         }
-        @media(prefers-color-scheme:dark){
-          :root {
-            --na-bg:      #080d14;
-            --na-bg2:     #0d1420;
-            --na-bg3:     #111826;
-            --na-card:    rgba(255,255,255,0.03);
-            --na-border:  rgba(255,255,255,0.07);
-            --na-border2: rgba(255,255,255,0.04);
-            --na-text:    #e0eaf8;
-            --na-text2:   #c8d8f0;
-            --na-text3:   #7a90b0;
-            --na-text4:   #3d5878;
-            --na-prose:   rgba(195,215,242,0.72);
-          }
+        /* dark mode — .dark class on <html> */
+        .dark .na-root {
+          --na-bg:      #080d14;
+          --na-bg2:     #0d1420;
+          --na-bg3:     #111826;
+          --na-card:    rgba(255,255,255,0.03);
+          --na-border:  rgba(255,255,255,0.07);
+          --na-border2: rgba(255,255,255,0.04);
+          --na-text:    #e0eaf8;
+          --na-text2:   #c8d8f0;
+          --na-text3:   #7a90b0;
+          --na-text4:   #3d5878;
+          --na-prose:   rgba(195,215,242,0.72);
         }
 
         .na-root { background:var(--na-bg); color:var(--na-text); font-family:'DM Sans',sans-serif; -webkit-font-smoothing:antialiased; min-height:100vh; }
 
-        /* ══ HERO — full bleed photo, text bottom-left ══ */
+        /* ══ HERO ══ */
         .na-hero {
           position:relative;
-          height:72vh; min-height:460px; max-height:680px;
+          height:52vh; min-height:360px; max-height:500px;
           overflow:hidden;
-          background:var(--na-bg2);
+          background:#0d1420;
         }
         .na-hero-img {
           position:absolute; inset:0;
