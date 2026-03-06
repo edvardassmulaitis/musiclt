@@ -494,12 +494,14 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, dk }: {
                 transition: 'background .3s',
               }}>{s.chip}</span>
 
-              {/* Title — plain text, no accidental navigation */}
-              <p style={{
-                fontFamily: 'Outfit,sans-serif', fontSize: 26, fontWeight: 900,
-                color: '#fff', lineHeight: 1.1, margin: '0 0 8px',
-                letterSpacing: '-0.02em',
-              }}>{s.title}</p>
+              {/* Title — tap advances to next slide */}
+              <p
+                onClick={() => goTo(idx + 1)}
+                style={{
+                  fontFamily: 'Outfit,sans-serif', fontSize: 26, fontWeight: 900,
+                  color: '#fff', lineHeight: 1.1, margin: '0 0 8px',
+                  letterSpacing: '-0.02em', cursor: 'pointer',
+                }}>{s.title}</p>
 
               {s.subtitle && (
                 <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', margin: '0 0 14px', lineHeight: 1.5 }}>
@@ -528,8 +530,7 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, dk }: {
               )}
 
               {/* Bottom action area */}
-              <div style={{ marginTop: 'auto', paddingTop: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
-                {/* Read button — primary CTA */}
+              <div style={{ marginTop: 14, paddingTop: 0, display: 'flex', alignItems: 'center' }}>
                 <Link
                   href={s.href}
                   onClick={onClose}
@@ -543,20 +544,9 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, dk }: {
                     transition: 'all .2s',
                   }}
                 >
-                  {seenSlides.has(s.href) ? 'Skaityti dar kartą' : 'Skaityti'}
+                  Daugiau
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                 </Link>
-
-                {/* Slide counter */}
-                <div style={{
-                  flexShrink: 0, padding: '0 12px', height: 46, borderRadius: 14,
-                  background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.45)',
-                  fontFamily: 'Outfit,sans-serif', letterSpacing: '0.02em',
-                }}>
-                  {idx + 1}/{slides.length}
-                </div>
               </div>
             </div>
           </div>
@@ -888,6 +878,11 @@ export default function Home() {
                   animationDelay: `${delay * 0.4}s`,
                 }} />
               ))}
+            </div>
+            {/* music.lt logo */}
+            <div style={{ marginTop: 20, display: 'flex', alignItems: 'center', opacity: 0.55 }}>
+              <span style={{ fontFamily: 'Outfit,sans-serif', fontWeight: 900, fontSize: 17, color: dk ? '#fff' : '#0f1a2e' }}>music.</span>
+              <span style={{ fontFamily: 'Outfit,sans-serif', fontWeight: 900, fontSize: 17, color: '#f97316' }}>lt</span>
             </div>
           </div>
         )}
