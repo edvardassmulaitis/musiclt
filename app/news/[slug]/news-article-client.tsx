@@ -366,8 +366,8 @@ export default function NewsArticleClient({
         @keyframes eq-bounce { from { transform:scaleY(0.25) }                to { transform:scaleY(1) } }
         @keyframes bob       { 0%,100%{transform:translateY(0)} 50%{transform:translateY(4px)} }
 
-        /* ── Color tokens — light mode default ── */
-        .na-root {
+        /* ── Color tokens ── */
+        :root {
           --na-bg:      #ffffff;
           --na-bg2:     #f4f6f9;
           --na-bg3:     #eef1f5;
@@ -380,24 +380,7 @@ export default function NewsArticleClient({
           --na-text4:   #8a9ab8;
           --na-prose:   #2d3c50;
         }
-        /* dark — system preference */
-        @media(prefers-color-scheme:dark){
-          .na-root {
-            --na-bg:      #080d14;
-            --na-bg2:     #0d1420;
-            --na-bg3:     #111826;
-            --na-card:    rgba(255,255,255,0.03);
-            --na-border:  rgba(255,255,255,0.07);
-            --na-border2: rgba(255,255,255,0.04);
-            --na-text:    #e0eaf8;
-            --na-text2:   #c8d8f0;
-            --na-text3:   #7a90b0;
-            --na-text4:   #3d5878;
-            --na-prose:   rgba(195,215,242,0.72);
-          }
-        }
-        /* dark — Tailwind/Next.js html.dark class override */
-        html.dark .na-root {
+        html.dark {
           --na-bg:      #080d14;
           --na-bg2:     #0d1420;
           --na-bg3:     #111826;
