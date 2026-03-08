@@ -260,8 +260,24 @@ export default function NewsArticleClient({
           --na-text4:   #8a9ab8;
           --na-prose:   #2d3c50;
         }
-        /* dark mode — .dark class on <html> */
-        .dark .na-root {
+        /* dark — system preference */
+        @media(prefers-color-scheme:dark){
+          .na-root {
+            --na-bg:      #080d14;
+            --na-bg2:     #0d1420;
+            --na-bg3:     #111826;
+            --na-card:    rgba(255,255,255,0.03);
+            --na-border:  rgba(255,255,255,0.07);
+            --na-border2: rgba(255,255,255,0.04);
+            --na-text:    #e0eaf8;
+            --na-text2:   #c8d8f0;
+            --na-text3:   #7a90b0;
+            --na-text4:   #3d5878;
+            --na-prose:   rgba(195,215,242,0.72);
+          }
+        }
+        /* dark — Tailwind/Next.js html.dark class override */
+        html.dark .na-root {
           --na-bg:      #080d14;
           --na-bg2:     #0d1420;
           --na-bg3:     #111826;
@@ -506,8 +522,6 @@ export default function NewsArticleClient({
           <div className="na-hero-content">
             <div style={{ maxWidth: 'calc(100% - 340px - 44px)' }} className="na-hero-inner">
               <div className="na-breadcrumb">
-                <Link href="/naujienos" className="na-breadcrumb-home">Naujienos</Link>
-                <span className="na-breadcrumb-sep">›</span>
                 <div className="na-chip" style={{ background: chipColor }}>{chipLabel}</div>
               </div>
               <h1 className="na-h1">{news.title}</h1>
