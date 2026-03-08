@@ -1,4 +1,4 @@
-// app/api/news/[slug]/comments/route.ts
+// app/api/news/[id]/comments/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -6,24 +6,15 @@ import { createAdminClient } from '@/lib/supabase'
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: Promise<{ slug: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { slug } = await params
+  const { id } = await params
   const supabase = createAdminClient()
-
-  // Get news id from slug
-  const { data: news } = await supabase
-    .from('news')
-    .select('id')
-    .eq('slug', slug)
-    .single()
-
-  if (!news) return NextResponse.json({ comments: [] })
 
   const { data: comments } = await supabase
     .from('news_comments')
     .select('id, content, created_at, user_name, user_image')
-    .eq('news_id', news.id)
+    .eq('news_id', id)
     .order('created_at', { ascending: true })
 
   return NextResponse.json({ comments: comments || [] })
@@ -31,9 +22,9 @@ export async function GET(
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: Promise<{ slug: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { slug } = await params
+  const { id } = await params
   const session = await getServerSession(authOptions)
   if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -46,19 +37,11 @@ export async function POST(
 
   const supabase = createAdminClient()
 
-  const { data: news } = await supabase
-    .from('news')
-    .select('id')
-    .eq('slug', slug)
-    .single()
-
-  if (!news) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-
   const { data: comment, error } = await supabase
     .from('news_comments')
     .insert({
-      news_id:    news.id,
-      user_id:    session.user.id ?? null,
+      news_id:    Number(id),
+      user_id:    (session.user as any).id ?? session.user.email ?? null,
       user_name:  session.user.name  || 'Vartotojas',
       user_image: session.user.image || null,
       content:    content.trim(),
@@ -72,7 +55,7 @@ export async function POST(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: Promise<{ slug: string }> }
+  _ctx: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions)
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -80,11 +63,11 @@ export async function DELETE(
   const { commentId } = await req.json()
   const supabase = createAdminClient()
 
-  // Only allow deleting own comment (or admin)
   const isAdmin = ['admin', 'super_admin'].includes((session.user as any).role)
-  const filter = supabase.from('news_comments').delete().eq('id', commentId)
-  if (!isAdmin) filter.eq('user_id', session.user.id ?? '')
+  const userId = (session.user as any).id ?? session.user.email ?? ''
+  const query = supabase.from('news_comments').delete().eq('id', commentId)
+  if (!isAdmin) await query.eq('user_id', userId)
+  else await query
 
-  await filter
   return NextResponse.json({ ok: true })
 }
