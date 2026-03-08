@@ -366,33 +366,7 @@ export default function NewsArticleClient({
         @keyframes eq-bounce { from { transform:scaleY(0.25) }                to { transform:scaleY(1) } }
         @keyframes bob       { 0%,100%{transform:translateY(0)} 50%{transform:translateY(4px)} }
 
-        /* ── Color tokens ── */
-        :root {
-          --na-bg:      #ffffff;
-          --na-bg2:     #f4f6f9;
-          --na-bg3:     #eef1f5;
-          --na-card:    rgba(0,0,0,0.04);
-          --na-border:  rgba(0,0,0,0.09);
-          --na-border2: rgba(0,0,0,0.05);
-          --na-text:    #0f1623;
-          --na-text2:   #2a3750;
-          --na-text3:   #4a5e78;
-          --na-text4:   #8a9ab8;
-          --na-prose:   #2d3c50;
-        }
-        html.dark {
-          --na-bg:      #080d14;
-          --na-bg2:     #0d1420;
-          --na-bg3:     #111826;
-          --na-card:    rgba(255,255,255,0.03);
-          --na-border:  rgba(255,255,255,0.07);
-          --na-border2: rgba(255,255,255,0.04);
-          --na-text:    #e0eaf8;
-          --na-text2:   #c8d8f0;
-          --na-text3:   #7a90b0;
-          --na-text4:   #3d5878;
-          --na-prose:   rgba(195,215,242,0.72);
-        }
+        /* ── Color tokens yra globals.css ── */
 
         .na-root { background:var(--na-bg); color:var(--na-text); font-family:'DM Sans',sans-serif; -webkit-font-smoothing:antialiased; min-height:100vh; }
 
@@ -631,24 +605,34 @@ export default function NewsArticleClient({
         @media(max-width:1024px){
           .na-grid.has-sb { grid-template-columns:1fr; }
           .na-sidebar { position:static; margin-top:0; }
-          .na-hero-content { padding:0 24px 32px; }
-          .na-hero-inner { max-width:100%; }
-          /* Mobile: nuotrauka visas plotis, stipriai blur + tamsinta */
+        }
+        @media(max-width:860px){
+          /* Hero tampa flex column — nuotrauka viršuje, tekstas žemiau */
+          .na-hero {
+            height:auto; min-height:auto; max-height:none;
+            flex-direction:column; justify-content:flex-start;
+          }
           .na-hero-img {
-            display:block !important;
-            width:100% !important; right:auto !important;
-            filter:blur(18px) brightness(0.45) saturate(1.4);
-            transform:scale(1.08);
-            -webkit-mask-image:none !important;
-            mask-image:none !important;
+            position:relative !important;
+            width:100% !important; height:220px;
+            right:auto !important; top:auto !important; bottom:auto !important;
+            display:block; flex-shrink:0;
+            object-fit:cover; object-position:center 20%;
+            -webkit-mask-image:linear-gradient(to bottom, black 70%, transparent 100%) !important;
+            mask-image:linear-gradient(to bottom, black 70%, transparent 100%) !important;
+            filter:none; transform:none;
+            animation:na-zoom 16s ease-out forwards;
           }
-          .na-hero-overlay {
-            background:linear-gradient(to top, rgba(8,13,20,0.85) 0%, rgba(8,13,20,0.4) 60%, rgba(8,13,20,0.55) 100%);
+          .na-hero-overlay { display:none; }
+          .na-hero-content {
+            position:relative; background:#080d14;
+            padding:20px 20px 28px; max-width:100%;
           }
+          .na-hero-inner { max-width:100%; }
         }
         @media(max-width:640px){
-          .na-hero { height:auto; min-height:260px; max-height:none; padding-top:60px; }
-          .na-h1 { font-size:1.55rem; }
+          .na-hero-img { height:180px; }
+          .na-h1 { font-size:1.45rem; }
           .na-page { padding:0 16px; }
           .na-grid { padding:24px 0 60px; gap:28px; }
         }
