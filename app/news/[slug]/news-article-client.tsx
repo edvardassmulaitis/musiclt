@@ -222,7 +222,7 @@ function ShareCard({ title }: { title: string }) {
 }
 
 /* ─── Comments ───────────────────────────────────────────────────────────── */
-function Comments({ slug }: { slug: string }) {
+function Comments({ newsId }: { newsId: number }) {
   const { data: session } = useSession()
   const [comments, setComments]   = useState<Comment[]>([])
   const [loading, setLoading]     = useState(true)
@@ -232,16 +232,16 @@ function Comments({ slug }: { slug: string }) {
   const textareaRef               = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
-    fetch(`/api/news/${slug}/comments`)
+    fetch(`/api/news/${newsId}/comments`)
       .then(r => r.json())
       .then(d => setComments(d.comments || []))
       .finally(() => setLoading(false))
-  }, [slug])
+  }, [newsId])
 
   async function submit() {
     if (!text.trim() || sending) return
     setSending(true); setError('')
-    const res = await fetch(`/api/news/${slug}/comments`, {
+    const res = await fetch(`/api/news/${newsId}/comments`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content: text.trim() }),
@@ -254,7 +254,7 @@ function Comments({ slug }: { slug: string }) {
   }
 
   async function del(id: number) {
-    await fetch(`/api/news/${slug}/comments`, {
+    await fetch(`/api/news/${newsId}/comments`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ commentId: id }),
@@ -714,7 +714,7 @@ export default function NewsArticleClient({
                 </button>
               </div>
 
-              <Comments slug={news.slug} />
+              <Comments newsId={news.id} />
             </main>
 
             {hasSidebar && (
