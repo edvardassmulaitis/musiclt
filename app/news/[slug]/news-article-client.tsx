@@ -1,8 +1,9 @@
 'use client'
 // app/news/[slug]/news-article-client.tsx
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import { useSession } from 'next-auth/react'
 
 /* ─── Types ──────────────────────────────────────────────────────────────── */
 type Photo     = { url: string; caption?: string; source?: string }
@@ -15,6 +16,7 @@ type NewsItem  = {
   artist2?: { id: number; name: string; cover_image_url?: string } | null
 }
 type RelatedNews = { id: number; title: string; slug: string; image_small_url?: string; published_at: string; type: string }
+type Comment   = { id: number; content: string; created_at: string; user_name: string; user_image?: string | null }
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
 function ytId(url?: string | null) {
@@ -215,6 +217,124 @@ function ShareCard({ title }: { title: string }) {
           {copied ? '✓ Nukopijuota' : 'Kopijuoti'}
         </button>
       </div>
+    </div>
+  )
+}
+
+/* ─── Comments ───────────────────────────────────────────────────────────── */
+function Comments({ slug }: { slug: string }) {
+  const { data: session } = useSession()
+  const [comments, setComments]   = useState<Comment[]>([])
+  const [loading, setLoading]     = useState(true)
+  const [text, setText]           = useState('')
+  const [sending, setSending]     = useState(false)
+  const [error, setError]         = useState('')
+  const textareaRef               = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    fetch(`/api/news/${slug}/comments`)
+      .then(r => r.json())
+      .then(d => setComments(d.comments || []))
+      .finally(() => setLoading(false))
+  }, [slug])
+
+  async function submit() {
+    if (!text.trim() || sending) return
+    setSending(true); setError('')
+    const res = await fetch(`/api/news/${slug}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: text.trim() }),
+    })
+    const data = await res.json()
+    if (!res.ok) { setError(data.error || 'Klaida'); setSending(false); return }
+    setComments(prev => [...prev, data.comment])
+    setText('')
+    setSending(false)
+  }
+
+  async function del(id: number) {
+    await fetch(`/api/news/${slug}/comments`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ commentId: id }),
+    })
+    setComments(prev => prev.filter(c => c.id !== id))
+  }
+
+  const isAdmin = ['admin', 'super_admin'].includes((session?.user as any)?.role)
+
+  return (
+    <div className="cm-wrap">
+      <div className="cm-hdr">
+        <span className="cm-hdr-title">Komentarai</span>
+        {!loading && <span className="cm-count">{comments.length}</span>}
+      </div>
+
+      {/* Comment list */}
+      {loading
+        ? <div className="cm-loading"><span /><span /><span /></div>
+        : comments.length === 0
+          ? <p className="cm-empty">Būk pirmas — parašyk komentarą!</p>
+          : <div className="cm-list">
+              {comments.map(c => (
+                <div key={c.id} className="cm-item">
+                  <div className="cm-avatar">
+                    {c.user_image
+                      ? <img src={c.user_image} alt={c.user_name} />
+                      : <span>{(c.user_name || 'V')[0].toUpperCase()}</span>}
+                  </div>
+                  <div className="cm-body">
+                    <div className="cm-meta">
+                      <strong>{c.user_name}</strong>
+                      <time>{new Date(c.created_at).toLocaleDateString('lt-LT', { year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' })}</time>
+                      {(isAdmin || session?.user?.name === c.user_name) && (
+                        <button className="cm-del" onClick={() => del(c.id)} title="Ištrinti">✕</button>
+                      )}
+                    </div>
+                    <p className="cm-text">{c.content}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+      }
+
+      {/* Input */}
+      {session
+        ? <div className="cm-form">
+            <div className="cm-form-avatar">
+              {session.user?.image
+                ? <img src={session.user.image} alt="" />
+                : <span>{(session.user?.name || 'V')[0].toUpperCase()}</span>}
+            </div>
+            <div className="cm-form-right">
+              <textarea
+                ref={textareaRef}
+                value={text}
+                onChange={e => setText(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submit() }}
+                placeholder="Rašyk komentarą..."
+                className="cm-textarea"
+                rows={3}
+                maxLength={2000}
+              />
+              {error && <p className="cm-error">{error}</p>}
+              <div className="cm-form-foot">
+                <span className="cm-chars">{text.length}/2000</span>
+                <button
+                  className="cm-submit"
+                  onClick={submit}
+                  disabled={!text.trim() || sending}
+                >
+                  {sending ? 'Siunčiama...' : 'Skelbti'}
+                </button>
+              </div>
+            </div>
+          </div>
+        : <div className="cm-login">
+            <p>Norėdamas komentuoti, <Link href="/api/auth/signin" className="cm-login-link">prisijunk</Link></p>
+          </div>
+      }
     </div>
   )
 }
@@ -483,6 +603,47 @@ export default function NewsArticleClient({
         .lb-prev { left:14px; } .lb-next { right:14px; }
         .lb-counter { position:absolute; bottom:18px; left:50%; transform:translateX(-50%); font-size:11px; font-weight:600; color:rgba(255,255,255,.28); }
 
+        /* ── Comments ── */
+        .cm-wrap { margin-top:56px; padding-top:40px; border-top:2px solid var(--na-border); }
+        .cm-hdr { display:flex; align-items:center; gap:10px; margin-bottom:24px; }
+        .cm-hdr-title { font-family:'Outfit',sans-serif; font-size:1.1rem; font-weight:900; color:var(--na-text); letter-spacing:-.02em; }
+        .cm-count { background:var(--na-bg3); border:1px solid var(--na-border); color:var(--na-text3); font-size:11px; font-weight:700; padding:2px 9px; border-radius:100px; font-family:'Outfit',sans-serif; }
+        .cm-loading { display:flex; gap:8px; margin:24px 0; }
+        .cm-loading span { height:64px; border-radius:12px; background:var(--na-bg3); flex:1; animation:cm-pulse 1.4s ease-in-out infinite; }
+        .cm-loading span:nth-child(2) { animation-delay:.2s; }
+        .cm-loading span:nth-child(3) { animation-delay:.4s; }
+        @keyframes cm-pulse { 0%,100%{opacity:.5} 50%{opacity:1} }
+        .cm-empty { color:var(--na-text4); font-size:.95rem; padding:20px 0; }
+        .cm-list { display:flex; flex-direction:column; gap:4px; margin-bottom:28px; }
+        .cm-item { display:flex; gap:12px; padding:14px 0; border-bottom:1px solid var(--na-border2); }
+        .cm-item:last-child { border-bottom:none; }
+        .cm-avatar { width:38px; height:38px; border-radius:50%; overflow:hidden; flex-shrink:0; background:var(--na-bg3); border:1px solid var(--na-border); display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:800; color:var(--na-text3); }
+        .cm-avatar img { width:100%; height:100%; object-fit:cover; }
+        .cm-body { flex:1; min-width:0; }
+        .cm-meta { display:flex; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap; }
+        .cm-meta strong { font-size:13px; font-weight:700; color:var(--na-text); font-family:'Outfit',sans-serif; }
+        .cm-meta time { font-size:11px; color:var(--na-text4); }
+        .cm-del { margin-left:auto; background:none; border:none; color:var(--na-text4); cursor:pointer; font-size:11px; padding:2px 6px; border-radius:4px; transition:all .15s; }
+        .cm-del:hover { color:#ef4444; background:rgba(239,68,68,.08); }
+        .cm-text { font-size:.95rem; color:var(--na-prose); line-height:1.65; white-space:pre-wrap; word-break:break-word; margin:0; }
+        .cm-form { display:flex; gap:10px; margin-top:4px; }
+        .cm-form-avatar { width:38px; height:38px; border-radius:50%; overflow:hidden; flex-shrink:0; background:var(--na-bg3); border:1px solid var(--na-border); display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:800; color:var(--na-text3); margin-top:2px; }
+        .cm-form-avatar img { width:100%; height:100%; object-fit:cover; }
+        .cm-form-right { flex:1; min-width:0; }
+        .cm-textarea { width:100%; background:var(--na-bg2); border:1px solid var(--na-border); border-radius:12px; color:var(--na-text); font-family:'DM Sans',sans-serif; font-size:.95rem; line-height:1.6; padding:12px 14px; resize:vertical; min-height:90px; transition:border .2s; outline:none; box-sizing:border-box; }
+        .cm-textarea:focus { border-color:rgba(249,115,22,.4); box-shadow:0 0 0 3px rgba(249,115,22,.08); }
+        .cm-textarea::placeholder { color:var(--na-text4); }
+        .cm-error { font-size:12px; color:#ef4444; margin:6px 0 0; }
+        .cm-form-foot { display:flex; align-items:center; justify-content:space-between; margin-top:8px; }
+        .cm-chars { font-size:11px; color:var(--na-text4); }
+        .cm-submit { padding:8px 20px; border-radius:100px; background:#f97316; border:none; color:#fff; font-size:13px; font-weight:800; font-family:'Outfit',sans-serif; cursor:pointer; transition:all .2s; }
+        .cm-submit:hover:not(:disabled) { background:#e05500; }
+        .cm-submit:disabled { opacity:.45; cursor:default; }
+        .cm-login { background:var(--na-bg2); border:1px solid var(--na-border); border-radius:12px; padding:18px 20px; text-align:center; margin-top:8px; }
+        .cm-login p { font-size:.95rem; color:var(--na-text3); margin:0; }
+        .cm-login-link { color:#f97316; font-weight:700; text-decoration:none; }
+        .cm-login-link:hover { text-decoration:underline; }
+
         /* ── Responsive ── */
         @media(max-width:1024px){
           .na-grid.has-sb { grid-template-columns:1fr; }
@@ -552,6 +713,8 @@ export default function NewsArticleClient({
                   Dalintis
                 </button>
               </div>
+
+              <Comments slug={news.slug} />
             </main>
 
             {hasSidebar && (
