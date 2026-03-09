@@ -36,7 +36,6 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
   const [playingIdx, setPlayingIdx] = useState(0)
   const [liked, setLiked] = useState(false)
   const [loaded, setLoaded] = useState(false)
-  const [coverMode, setCoverMode] = useState(true) // toggle: show cover or player
 
   useEffect(() => { setLoaded(true) }, [])
 
@@ -44,12 +43,6 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
   const currentVid = ytId(currentTrack?.video_url)
   const albumVid = ytId(album.video_url)
   const activeVid = currentVid || albumVid
-
-  // Switch to player when track clicked
-  const selectTrack = (i: number) => {
-    setPlayingIdx(i)
-    if (ytId(tracks[i]?.video_url) || albumVid) setCoverMode(false)
-  }
 
   const maxPop = tracks.length
   const popScore = (t: Track) => Math.min(1, (maxPop - t.position + 1) / maxPop + (t.is_single ? 0.3 : 0))
@@ -103,118 +96,94 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
   return (
     <div style={{ background: T.bg, color: T.text, fontFamily: "'DM Sans',system-ui,sans-serif", WebkitFontSmoothing: 'antialiased', minHeight: '100vh' }}>
 
-      {/* ══ GRID: hero-left (2fr) | tracklist-right (3fr) ══ */}
-      <div className="ab-grid" style={{ maxWidth: 1400, margin: '0 auto', padding: '14px 20px 60px', display: 'grid', gridTemplateColumns: '2fr 3fr', gap: 14, alignItems: 'start' }}>
+      <div className="ab-grid" style={{ maxWidth: 1400, margin: '0 auto', padding: '14px 20px 60px', display: 'grid', gridTemplateColumns: '340px 1fr', gap: 14, alignItems: 'start' }}>
 
-        {/* ════ LEFT: Sticky album hero + player ════ */}
-        <div style={{ position: 'sticky', top: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {/* ════ LEFT: sticky sidebar ════ */}
+        <div className="ab-sidebar" style={{ position: 'sticky', top: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-          {/* Main hero card */}
+          {/* ── Album info card: compact cover + title side by side ── */}
           <div style={card}>
-
-            {/* Cover / Player toggle area */}
-            <div style={{ position: 'relative', background: '#000', overflow: 'hidden' }}>
-
-              {/* Blurred cover always behind */}
+            {/* Blurred bg strip */}
+            <div style={{ position: 'relative', overflow: 'hidden' }}>
               {album.cover_image_url && (
                 <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-                  <img src={album.cover_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'brightness(.15) saturate(1.8) blur(0px)', transform: 'scale(1)', display: 'block' }} />
+                  <img src={album.cover_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: dk ? 'brightness(.12) saturate(1.6) blur(24px)' : 'brightness(.82) saturate(.55) blur(24px)', transform: 'scale(1.12)' }} />
                 </div>
               )}
-
-              {/* Cover image (square) */}
-              <div style={{ position: 'absolute', zIndex: 1, inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'opacity .3s', opacity: coverMode ? 1 : 0, pointerEvents: coverMode ? 'auto' : 'none' }}>
-                {album.cover_image_url
-                  ? <img src={album.cover_image_url} alt={album.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                  : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: T.coverBg, fontSize: 64 }}>💿</div>
-                }
-                {/* Play button overlay */}
-                {activeVid && (
-                  <button onClick={() => setCoverMode(false)} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,.0)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                    onMouseEnter={e => { (e.currentTarget.querySelector('.play-btn') as HTMLElement).style.opacity = '1' }}
-                    onMouseLeave={e => { (e.currentTarget.querySelector('.play-btn') as HTMLElement).style.opacity = '0' }}
-                  >
-                    <div className="play-btn" style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(249,115,22,.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, color: '#fff', opacity: 0, transition: 'opacity .2s', backdropFilter: 'blur(4px)' }}>▶</div>
-                  </button>
-                )}
-              </div>
-
-              {/* YouTube player */}
-              <div style={{ position: 'relative', zIndex: 1, aspectRatio: '1', transition: 'opacity .3s', opacity: coverMode ? 0 : 1, pointerEvents: coverMode ? 'none' : 'auto' }}>
-                {activeVid ? (
-                  <iframe key={activeVid} src={`https://www.youtube.com/embed/${activeVid}?rel=0`} allow="autoplay; encrypted-media" allowFullScreen style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} />
-                ) : (
-                  <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, background: dk ? '#0a0e17' : '#e0e8f4' }}>
-                    <div style={{ fontSize: 32, opacity: .15 }}>▶</div>
-                    <div style={{ fontSize: 12, color: T.textFaint }}>Vaizdo įrašas nepriskirtas</div>
-                  </div>
-                )}
-              </div>
-
-              {/* Toggle pill — bottom right */}
-              {activeVid && (
-                <button onClick={() => setCoverMode(v => !v)} style={{ position: 'absolute', bottom: 10, right: 10, zIndex: 10, display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 999, fontSize: 10, fontWeight: 700, background: 'rgba(0,0,0,.55)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,.12)', color: 'rgba(255,255,255,.75)', cursor: 'pointer', fontFamily: 'Outfit, sans-serif', transition: 'all .15s' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,.75)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,.55)')}>
-                  {coverMode ? '▶ Grotuvas' : '🖼 Viršelis'}
-                </button>
-              )}
-            </div>
-
-            {/* Album info below image */}
-            <div style={{ padding: '14px 16px 10px' }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+              <div style={{
+                position: 'relative', zIndex: 1,
+                display: 'flex', gap: 14, alignItems: 'center',
+                padding: '16px',
+                opacity: loaded ? 1 : 0, transform: loaded ? 'none' : 'translateY(6px)',
+                transition: 'opacity .4s, transform .4s',
+              }}>
+                {/* Cover — compact square */}
+                <div style={{ flexShrink: 0, width: 96, height: 96, borderRadius: 12, overflow: 'hidden', boxShadow: '0 10px 32px rgba(0,0,0,.6)', background: T.coverBg }}>
+                  {album.cover_image_url
+                    ? <img src={album.cover_image_url} alt={album.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32 }}>💿</div>}
+                </div>
+                {/* Info */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                     <span style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.12em', color: '#f97316', fontFamily: 'Outfit, sans-serif' }}>{album.type}</span>
                     {album.is_upcoming && <span style={{ fontSize: 8, fontWeight: 800, padding: '1px 6px', borderRadius: 999, background: 'rgba(249,115,22,.18)', border: '1px solid rgba(249,115,22,.3)', color: '#f97316' }}>Greitai</span>}
                   </div>
-                  <h1 style={{ fontFamily: 'Outfit, sans-serif', fontSize: 'clamp(16px,2vw,24px)', fontWeight: 900, lineHeight: 1.1, letterSpacing: '-.025em', color: dk ? '#fff' : '#0f1a2e', margin: '0 0 5px', wordBreak: 'break-word' }}>{album.title}</h1>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
-                    <Link href={`/atlikejai/${artist.slug}`} style={{ fontSize: 14, fontWeight: 700, color: '#f97316', textDecoration: 'none' }}
-                      onMouseEnter={e => (e.currentTarget.style.opacity = '.75')}
-                      onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>{artist.name}
-                    </Link>
-                    {album.dateFormatted && <>
-                      <span style={{ color: T.textFaint, fontSize: 11 }}>·</span>
-                      <span style={{ fontSize: 11, color: T.textMuted }}>{album.dateFormatted}</span>
-                    </>}
-                  </div>
+                  <h1 style={{ fontFamily: 'Outfit, sans-serif', fontSize: 'clamp(15px,1.6vw,20px)', fontWeight: 900, lineHeight: 1.1, letterSpacing: '-.025em', color: dk ? '#fff' : '#0f1a2e', margin: '0 0 5px', wordBreak: 'break-word' }}>{album.title}</h1>
+                  <Link href={`/atlikejai/${artist.slug}`} style={{ fontSize: 13, fontWeight: 700, color: '#f97316', textDecoration: 'none', display: 'block', marginBottom: 4 }}
+                    onMouseEnter={e => (e.currentTarget.style.opacity = '.75')}
+                    onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>{artist.name}
+                  </Link>
+                  {album.dateFormatted && <div style={{ fontSize: 11, color: T.textMuted }}>{album.dateFormatted}</div>}
                 </div>
               </div>
+            </div>
 
-              {/* Stats row */}
-              <div style={{ display: 'flex', gap: 14, marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.subBdr}` }}>
+            {/* Stats + actions row */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderTop: `1px solid ${T.subBdr}` }}>
+              <div style={{ display: 'flex', gap: 12, flex: 1 }}>
                 {[
-                  { l: 'Dainos', v: tracks.length.toString() },
+                  { l: 'Dainos', v: tracks.length },
                   { l: 'Trukmė', v: `~${Math.round(tracks.length * 3.5)} min` },
                 ].map(s => (
                   <div key={s.l}>
-                    <div style={{ fontFamily: 'Outfit, sans-serif', fontSize: 16, fontWeight: 800, color: dk ? '#fff' : '#0f1a2e', lineHeight: 1 }}>{s.v}</div>
-                    <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: T.textMuted, marginTop: 3 }}>{s.l}</div>
+                    <div style={{ fontFamily: 'Outfit, sans-serif', fontSize: 13, fontWeight: 800, color: dk ? '#e8f0fa' : '#0f1a2e', lineHeight: 1 }}>{s.v}</div>
+                    <div style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: T.textMuted, marginTop: 2 }}>{s.l}</div>
                   </div>
                 ))}
-                {/* Now playing */}
-                {currentTrack && !coverMode && (
-                  <div style={{ marginLeft: 'auto', minWidth: 0, textAlign: 'right' }}>
-                    <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: '#f97316', marginBottom: 2 }}>▶ Groja</div>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: T.textSec, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 120 }}>{currentTrack.title}</div>
-                  </div>
-                )}
               </div>
-            </div>
-
-            {/* Action buttons */}
-            <div style={{ display: 'flex', gap: 7, padding: '0 14px 14px' }}>
-              <button onClick={() => setLiked(!liked)} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, height: 34, borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: 'pointer', border: `1px solid ${liked ? 'rgba(249,115,22,.4)' : T.linkBdr}`, background: liked ? 'rgba(249,115,22,.15)' : T.linkBtn, color: liked ? '#f97316' : T.linkText, transition: 'all .15s', fontFamily: 'Outfit, sans-serif' }}>
-                {liked ? '♥' : '♡'} {likes + (liked ? 1 : 0)}
-              </button>
-              <Link href={`/atlikejai/${artist.slug}`} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', height: 34, borderRadius: 999, fontSize: 11, fontWeight: 700, border: `1px solid ${T.linkBdr}`, background: T.linkBtn, color: T.linkText, textDecoration: 'none', fontFamily: 'Outfit, sans-serif' }}>← Atlikėjas</Link>
-              <button style={{ width: 34, height: 34, borderRadius: 999, border: `1px solid ${T.linkBdr}`, background: T.linkBtn, color: T.linkText, cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>↗</button>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button onClick={() => setLiked(!liked)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 999, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: `1px solid ${liked ? 'rgba(249,115,22,.4)' : T.linkBdr}`, background: liked ? 'rgba(249,115,22,.15)' : T.linkBtn, color: liked ? '#f97316' : T.linkText, transition: 'all .15s', fontFamily: 'Outfit, sans-serif' }}>
+                  {liked ? '♥' : '♡'} {likes + (liked ? 1 : 0)}
+                </button>
+                <button style={{ width: 30, height: 30, borderRadius: 999, border: `1px solid ${T.linkBdr}`, background: T.linkBtn, color: T.linkText, cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>↗</button>
+              </div>
             </div>
           </div>
 
-          {/* Ar žinojai */}
+          {/* ── YouTube player card ── */}
+          <div style={card}>
+            {/* Now playing label */}
+            {currentTrack && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px 7px', borderBottom: `1px solid ${T.subBdr}`, gap: 8 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: T.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentTrack.title}</div>
+                  <div style={{ fontSize: 10, color: T.textMuted }}>{artist.name}{currentTrack.featuring.length > 0 && ` su ${currentTrack.featuring.join(', ')}`}</div>
+                </div>
+                <span style={{ fontSize: 9, fontWeight: 700, color: '#f97316', textTransform: 'uppercase', letterSpacing: '.06em', flexShrink: 0 }}>▶ Groja</span>
+              </div>
+            )}
+            {activeVid ? (
+              <iframe key={activeVid} src={`https://www.youtube.com/embed/${activeVid}?rel=0`} allow="autoplay; encrypted-media" allowFullScreen style={{ width: '100%', aspectRatio: '16/9', border: 'none', display: 'block' }} />
+            ) : (
+              <div style={{ width: '100%', aspectRatio: '16/9', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, background: dk ? '#0a0e17' : '#e0e8f4' }}>
+                <div style={{ fontSize: 28, opacity: .15 }}>▶</div>
+                <div style={{ fontSize: 11, color: T.textFaint }}>Vaizdo įrašas nepriskirtas</div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Ar žinojai ── */}
           <div style={{ ...card, background: T.dykBg, border: `1px solid ${T.dykBdr}` }}>
             <div style={{ padding: '12px 14px' }}>
               <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.1em', color: '#f97316', fontFamily: 'Outfit, sans-serif', marginBottom: 7 }}>💡 Ar žinojai?</div>
@@ -223,63 +192,7 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
             </div>
           </div>
 
-        </div>{/* end sticky left */}
-
-        {/* ════ RIGHT: Tracklist + sidebar cards ════ */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-
-          {/* Tracklist card */}
-          <div style={card}>
-            <div style={cardHead}>
-              Dainos
-              <span style={{ fontSize: 9, fontWeight: 400, color: T.textFaint, textTransform: 'none', letterSpacing: 0 }}>{tracks.length} {tracks.length === 1 ? 'daina' : tracks.length < 10 ? 'dainos' : 'dainų'}</span>
-            </div>
-            {tracks.length === 0
-              ? <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: T.textFaint }}>Dainų nėra</div>
-              : tracks.map((t, i) => {
-                const pop = popScore(t)
-                const isPlaying = playingIdx === i
-                return (
-                  <div key={t.id} onClick={() => selectTrack(i)}
-                    style={{ padding: '9px 14px 6px', borderBottom: i < tracks.length - 1 ? `1px solid ${T.borderSub}` : 'none', cursor: 'pointer', background: isPlaying ? T.bgActive : 'transparent', transition: 'background .1s' }}
-                    onMouseEnter={e => { if (!isPlaying) (e.currentTarget as HTMLDivElement).style.background = T.bgHover }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = isPlaying ? T.bgActive : 'transparent' }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ width: 18, textAlign: 'center', fontSize: 11, flexShrink: 0, fontFamily: 'Outfit, sans-serif', color: isPlaying ? '#f97316' : T.trackNum, fontWeight: isPlaying ? 700 : 400 }}>
-                        {isPlaying ? '▶' : t.position}
-                      </span>
-                      <div style={{ width: 32, height: 32, borderRadius: 5, flexShrink: 0, overflow: 'hidden', background: T.coverBg }}>
-                        {album.cover_image_url
-                          ? <img src={album.cover_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                          : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}>🎵</div>}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 5 }}>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: isPlaying ? '#f97316' : T.trackText, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>
-                          {t.title}
-                          {t.featuring.length > 0 && <span style={{ fontWeight: 400, color: T.trackFeat }}> su {t.featuring.join(', ')}</span>}
-                        </span>
-                        {t.is_new && <span style={{ fontSize: 7, fontWeight: 800, padding: '1px 4px', borderRadius: 3, background: 'rgba(249,115,22,.12)', color: '#f97316', border: '1px solid rgba(249,115,22,.18)', flexShrink: 0 }}>NEW</span>}
-                        {t.is_single && <span style={{ fontSize: 7, fontWeight: 800, padding: '1px 4px', borderRadius: 3, background: T.bgHover, color: T.textMuted, border: `1px solid ${T.borderSub}`, flexShrink: 0 }}>S</span>}
-                      </div>
-                      <Link href={`/lt/daina/${t.slug}/${t.id}/`} onClick={e => e.stopPropagation()}
-                        style={{ fontSize: 11, color: T.trackLinkC, textDecoration: 'none', padding: '2px 5px', borderRadius: 4, flexShrink: 0, transition: '.15s' }}
-                        onMouseEnter={e => { e.currentTarget.style.color = '#f97316'; e.currentTarget.style.background = 'rgba(249,115,22,.08)' }}
-                        onMouseLeave={e => { e.currentTarget.style.color = T.trackLinkC; e.currentTarget.style.background = 'transparent' }}
-                      >→</Link>
-                    </div>
-                    <div style={{ paddingLeft: 60, paddingTop: 4 }}>
-                      <div style={{ height: 2, background: T.popBg, borderRadius: 2, overflow: 'hidden' }}>
-                        <div style={{ height: '100%', borderRadius: 2, background: 'linear-gradient(90deg, rgba(249,115,22,.85), rgba(249,115,22,.2))', width: `${Math.round(pop * 100)}%`, transition: 'width .4s ease' }} />
-                      </div>
-                    </div>
-                  </div>
-                )
-              })
-            }
-          </div>
-
-          {/* Discussions */}
+          {/* ── Discussions ── */}
           <div style={card}>
             <div style={cardHead}>Diskusijos <span style={{ fontSize: 9, fontWeight: 400, color: T.textFaint, textTransform: 'none', letterSpacing: 0 }}>0</span></div>
             <div style={{ padding: '12px 14px' }}>
@@ -292,7 +205,7 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
             </div>
           </div>
 
-          {/* Related news */}
+          {/* ── Related news ── */}
           {relatedNews.length > 0 && (
             <div style={card}>
               <div style={cardHead}>Naujienos <Link href={`/atlikejai/${artist.slug}`} style={{ fontSize: 9, fontWeight: 700, color: '#f97316', textDecoration: 'none', textTransform: 'none', letterSpacing: 0 }}>Visos →</Link></div>
@@ -314,7 +227,7 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
             </div>
           )}
 
-          {/* Other albums */}
+          {/* ── Other albums ── */}
           {otherAlbums.length > 0 && (
             <div style={card}>
               <div style={cardHead}>Kiti {artist.name} albumai <Link href={`/atlikejai/${artist.slug}`} style={{ fontSize: 9, fontWeight: 700, color: '#f97316', textDecoration: 'none', textTransform: 'none', letterSpacing: 0 }}>Visi →</Link></div>
@@ -332,7 +245,7 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
             </div>
           )}
 
-          {/* Similar albums */}
+          {/* ── Similar albums ── */}
           {similarAlbums.length > 0 && (
             <div style={card}>
               <div style={cardHead}>Panaši muzika</div>
@@ -350,13 +263,69 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
             </div>
           )}
 
+        </div>{/* end left sidebar */}
+
+        {/* ════ RIGHT: Tracklist ════ */}
+        <div style={card}>
+          <div style={cardHead}>
+            Dainos
+            <span style={{ fontSize: 9, fontWeight: 400, color: T.textFaint, textTransform: 'none', letterSpacing: 0 }}>
+              {tracks.length} {tracks.length === 1 ? 'daina' : tracks.length < 10 ? 'dainos' : 'dainų'}
+            </span>
+          </div>
+
+          {tracks.length === 0
+            ? <div style={{ padding: 28, textAlign: 'center', fontSize: 12, color: T.textFaint }}>Dainų nėra</div>
+            : tracks.map((t, i) => {
+              const pop = popScore(t)
+              const isPlaying = playingIdx === i
+              return (
+                <div key={t.id}
+                  onClick={() => setPlayingIdx(i)}
+                  style={{ padding: '9px 16px 6px', borderBottom: i < tracks.length - 1 ? `1px solid ${T.borderSub}` : 'none', cursor: 'pointer', background: isPlaying ? T.bgActive : 'transparent', transition: 'background .1s' }}
+                  onMouseEnter={e => { if (!isPlaying) (e.currentTarget as HTMLDivElement).style.background = T.bgHover }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = isPlaying ? T.bgActive : 'transparent' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ width: 18, textAlign: 'center', fontSize: 11, flexShrink: 0, fontFamily: 'Outfit, sans-serif', color: isPlaying ? '#f97316' : T.trackNum, fontWeight: isPlaying ? 700 : 400 }}>
+                      {isPlaying ? '▶' : t.position}
+                    </span>
+                    <div style={{ width: 32, height: 32, borderRadius: 5, flexShrink: 0, overflow: 'hidden', background: T.coverBg }}>
+                      {album.cover_image_url
+                        ? <img src={album.cover_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}>🎵</div>}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: isPlaying ? '#f97316' : T.trackText, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>
+                        {t.title}
+                        {t.featuring.length > 0 && <span style={{ fontWeight: 400, color: T.trackFeat }}> su {t.featuring.join(', ')}</span>}
+                      </span>
+                      {t.is_new && <span style={{ fontSize: 7, fontWeight: 800, padding: '1px 4px', borderRadius: 3, background: 'rgba(249,115,22,.12)', color: '#f97316', border: '1px solid rgba(249,115,22,.18)', flexShrink: 0 }}>NEW</span>}
+                      {t.is_single && <span style={{ fontSize: 7, fontWeight: 800, padding: '1px 4px', borderRadius: 3, background: T.bgHover, color: T.textMuted, border: `1px solid ${T.borderSub}`, flexShrink: 0 }}>S</span>}
+                    </div>
+                    <Link href={`/lt/daina/${t.slug}/${t.id}/`} onClick={e => e.stopPropagation()}
+                      style={{ fontSize: 11, color: T.trackLinkC, textDecoration: 'none', padding: '2px 5px', borderRadius: 4, flexShrink: 0, transition: '.15s' }}
+                      onMouseEnter={e => { e.currentTarget.style.color = '#f97316'; e.currentTarget.style.background = 'rgba(249,115,22,.08)' }}
+                      onMouseLeave={e => { e.currentTarget.style.color = T.trackLinkC; e.currentTarget.style.background = 'transparent' }}
+                    >→</Link>
+                  </div>
+                  <div style={{ paddingLeft: 60, paddingTop: 4 }}>
+                    <div style={{ height: 2, background: T.popBg, borderRadius: 2, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', borderRadius: 2, background: 'linear-gradient(90deg, rgba(249,115,22,.85), rgba(249,115,22,.2))', width: `${Math.round(pop * 100)}%`, transition: 'width .4s ease' }} />
+                    </div>
+                  </div>
+                </div>
+              )
+            })
+          }
         </div>
+
       </div>
 
       <style>{`
-        @media(max-width: 900px) {
+        @media(max-width: 860px) {
           .ab-grid { grid-template-columns: 1fr !important; padding: 12px 14px 48px !important; }
-          .ab-grid > div:first-child { position: static !important; }
+          .ab-sidebar { position: static !important; }
         }
       `}</style>
     </div>
