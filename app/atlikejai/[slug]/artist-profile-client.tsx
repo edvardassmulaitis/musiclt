@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { HeaderAuth } from '@/components/HeaderAuth'
+import { useSite } from '@/components/SiteContext'
 
 type Genre = { id: number; name: string }
 type Album = { id: number; slug: string; title: string; year?: number; cover_image_url?: string; type_studio?: boolean; type_ep?: boolean; type_single?: boolean; type_live?: boolean; type_compilation?: boolean; type_remix?: boolean; type_soundtrack?: boolean; type_demo?: boolean }
@@ -27,47 +27,57 @@ const SOC: Record<string, { l: string; c: string; d: string }> = {
   soundcloud: { l: 'SoundCloud', c: '#FF5500', d: 'M1.175 12.225c-.051 0-.094.046-.101.1l-.233 2.154.233 2.105c.007.058.05.098.101.098.05 0 .09-.04.099-.098l.255-2.105-.27-2.154c-.009-.06-.05-.1-.084-.1z' },
 }
 
-function Spark({ data, w = 130, h = 28 }: { data: ChartPt[]; w?: number; h?: number }) {
+function Spark({ data, w = 130, h = 28, dk }: { data: ChartPt[]; w?: number; h?: number; dk: boolean }) {
   if (data.length < 3) return null
   const max = Math.max(...data.map(d => d.value)); const min = Math.min(...data.map(d => d.value)); const r = max - min || 1
   const pts = data.map((d, i) => `${(i / (data.length - 1)) * w},${h - ((d.value - min) / r) * (h - 4) - 2}`).join(' ')
   return (
     <svg width={w} height={h + 10} viewBox={`0 0 ${w} ${h + 10}`} style={{ display: 'block' }}>
-      <defs><linearGradient id="sg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="rgba(249,115,22,.15)" /><stop offset="100%" stopColor="rgba(249,115,22,0)" /></linearGradient></defs>
-      <polygon points={`0,${h} ${pts} ${w},${h}`} fill="url(#sg)" />
+      <defs><linearGradient id="ap-sg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="rgba(249,115,22,.15)" /><stop offset="100%" stopColor="rgba(249,115,22,0)" /></linearGradient></defs>
+      <polygon points={`0,${h} ${pts} ${w},${h}`} fill="url(#ap-sg)" />
       <polyline points={pts} fill="none" stroke="#f97316" strokeWidth="1.5" strokeLinejoin="round" />
-      <text x="0" y={h + 9} fill="rgba(255,255,255,.25)" fontSize="7" fontFamily="var(--fd)" fontWeight="700">{data[0].year}</text>
-      <text x={w} y={h + 9} fill="rgba(255,255,255,.25)" fontSize="7" fontFamily="var(--fd)" fontWeight="700" textAnchor="end">{data[data.length - 1].year}</text>
+      <text x="0" y={h + 9} fill={dk ? 'rgba(255,255,255,.25)' : 'rgba(0,0,0,.25)'} fontSize="7" fontFamily="Outfit,sans-serif" fontWeight="700">{data[0].year}</text>
+      <text x={w} y={h + 9} fill={dk ? 'rgba(255,255,255,.25)' : 'rgba(0,0,0,.25)'} fontSize="7" fontFamily="Outfit,sans-serif" fontWeight="700" textAnchor="end">{data[data.length - 1].year}</text>
     </svg>
   )
 }
 
-function MusicRow({ label, list, playingId, onPlay }: { label: string; list: Track[]; playingId: number | null; onPlay: (id: number) => void }) {
+function MusicRow({ label, list, playingId, onPlay, T }: { label: string; list: Track[]; playingId: number | null; onPlay: (id: number) => void; T: any }) {
   const [idx, setIdx] = useState(0)
   if (!list.length) return null
   const cur = list[idx]; const vid = yt(cur?.video_url)
   return (
-    <div className="ap-mr">
-      {label && <div className="ap-mr-lbl">{label}</div>}
-      <div className="ap-mr-box">
-        <div className="ap-mr-vid">
+    <div style={{ marginBottom: 14 }}>
+      {label && <div style={{ fontFamily: 'Outfit,sans-serif', fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.12em', color: '#f97316', marginBottom: 6 }}>{label}</div>}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,5fr) minmax(0,7fr)', borderRadius: 10, overflow: 'hidden', border: `1px solid ${T.border}`, background: T.playerBg }}>
+        <div style={{ background: '#000' }}>
           {playingId === cur?.id && vid
-            ? <iframe src={`https://www.youtube.com/embed/${vid}?autoplay=1&rel=0`} allow="autoplay;encrypted-media" allowFullScreen />
-            : <div className="ap-mr-th" onClick={() => vid && onPlay(cur.id)}>
-              {vid ? <img src={`https://img.youtube.com/vi/${vid}/hqdefault.jpg`} alt="" /> : <div className="ap-mr-noth" />}
-              {vid && <div className="ap-mr-ply"><div className="ap-mr-pb"><svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg></div></div>}
+            ? <iframe src={`https://www.youtube.com/embed/${vid}?autoplay=1&rel=0`} allow="autoplay;encrypted-media" allowFullScreen style={{ width: '100%', aspectRatio: '16/9', border: 'none', display: 'block' }} />
+            : <div style={{ position: 'relative', aspectRatio: '16/9', overflow: 'hidden', cursor: 'pointer' }} onClick={() => vid && onPlay(cur.id)}>
+              {vid ? <img src={`https://img.youtube.com/vi/${vid}/hqdefault.jpg`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} /> : <div style={{ width: '100%', aspectRatio: '16/9', background: '#111' }} />}
+              {vid && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(249,115,22,.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 20px rgba(249,115,22,.35)' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg>
+                </div>
+              </div>}
             </div>}
-          <div className="ap-mr-cur">{cur.title}</div>
+          <div style={{ padding: '7px 12px', fontSize: 12, fontWeight: 800, color: T.text, background: 'rgba(249,115,22,.03)', borderTop: '1px solid rgba(249,115,22,.04)' }}>{cur.title}</div>
         </div>
-        <div className="ap-mr-pl">
+        <div style={{ maxHeight: 340, overflowY: 'auto', scrollbarWidth: 'thin', scrollbarColor: `${T.border} transparent` }}>
           {list.map((t, i) => {
             const v = yt(t.video_url); const th = t.cover_url || (v ? `https://img.youtube.com/vi/${v}/default.jpg` : null)
+            const active = idx === i
             return (
-              <div key={t.id} className={`ap-pl${idx === i ? ' ap-pla' : ''}`} onClick={() => { setIdx(i); onPlay(-1) }}>
-                <span className="ap-pln">{i + 1}</span>
-                {th ? <img src={th} className="ap-pli" alt="" /> : <div className="ap-pli ap-plni">♪</div>}
-                <div className="ap-plx"><div className="ap-plnm">{t.title}</div></div>
-                {v && <div className="ap-plp"><svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg></div>}
+              <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', borderBottom: `1px solid ${T.borderSub}`, cursor: 'pointer', background: active ? T.plActiveBg : 'transparent', transition: '.12s' }}
+                onClick={() => { setIdx(i); onPlay(-1) }}>
+                <span style={{ width: 16, fontSize: 10, fontWeight: 600, color: active ? '#f97316' : T.textFaint, textAlign: 'center', flexShrink: 0, fontFamily: 'Outfit,sans-serif' }}>{i + 1}</span>
+                {th ? <img src={th} style={{ width: 34, height: 34, borderRadius: 4, objectFit: 'cover', flexShrink: 0 }} alt="" /> : <div style={{ width: 34, height: 34, borderRadius: 4, flexShrink: 0, background: T.coverBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: T.textFaint }}>♪</div>}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: active ? '#f97316' : T.textSec, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.title}</div>
+                </div>
+                {v && <div style={{ width: 24, height: 24, borderRadius: '50%', background: active ? '#f97316' : T.coverBg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: active ? '#fff' : T.textFaint, flexShrink: 0 }}>
+                  <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                </div>}
               </div>
             )
           })}
@@ -77,20 +87,29 @@ function MusicRow({ label, list, playingId, onPlay }: { label: string; list: Tra
   )
 }
 
-function Gallery({ photos }: { photos: { url: string; caption?: string }[] }) {
+function Gallery({ photos, T }: { photos: { url: string; caption?: string }[]; T: any }) {
   const [lb, setLb] = useState<number | null>(null)
   if (!photos.length) return null
   return (
     <>
-      <div className="ap-gal">{photos.slice(0, 10).map((p, i) => (
-        <div key={i} className={`ap-gc${i === 0 ? ' ap-gcb' : ''}`} onClick={() => setLb(i)}><img src={p.url} alt={p.caption || ''} /><div className="ap-gco" /></div>
-      ))}</div>
-      {lb !== null && <div className="ap-lb" onClick={() => setLb(null)}>
-        <button className="ap-lbx" onClick={e => { e.stopPropagation(); setLb(null) }}>✕</button>
-        {lb > 0 && <button className="ap-lba ap-lbp" onClick={e => { e.stopPropagation(); setLb(lb - 1) }}>‹</button>}
-        <div className="ap-lbm" onClick={e => e.stopPropagation()}><img src={photos[lb].url} alt="" />{photos[lb].caption && <p>{photos[lb].caption}</p>}</div>
-        {lb < photos.length - 1 && <button className="ap-lba ap-lbn" onClick={e => { e.stopPropagation(); setLb(lb + 1) }}>›</button>}
-        <div className="ap-lbc">{lb + 1}/{photos.length}</div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, borderRadius: 10, overflow: 'hidden' }}>
+        {photos.slice(0, 10).map((p, i) => (
+          <div key={i} style={{ position: 'relative', height: i === 0 ? 340 : 170, flex: i === 0 ? '2 1 400px' : '1 1 200px', maxWidth: i === 0 ? '50%' : '33%', overflow: 'hidden', cursor: 'zoom-in' }} onClick={() => setLb(i)}>
+            <img src={p.url} alt={p.caption || ''} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', transition: 'transform .3s' }}
+              onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.04)')}
+              onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')} />
+          </div>
+        ))}
+      </div>
+      {lb !== null && <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,.95)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setLb(null)}>
+        <button onClick={e => { e.stopPropagation(); setLb(null) }} style={{ position: 'absolute', top: 12, right: 16, background: 'rgba(255,255,255,.08)', border: 'none', color: 'rgba(255,255,255,.5)', fontSize: 14, cursor: 'pointer', width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+        {lb > 0 && <button onClick={e => { e.stopPropagation(); setLb(lb - 1) }} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,.05)', border: 'none', color: 'rgba(255,255,255,.4)', fontSize: 26, cursor: 'pointer', width: 40, height: 40, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>}
+        <div style={{ maxWidth: '90vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
+          <img src={photos[lb].url} alt="" style={{ maxWidth: '100%', maxHeight: '82vh', objectFit: 'contain', borderRadius: 4 }} />
+          {photos[lb].caption && <p style={{ fontSize: 10, color: 'rgba(255,255,255,.25)', marginTop: 5 }}>{photos[lb].caption}</p>}
+        </div>
+        {lb < photos.length - 1 && <button onClick={e => { e.stopPropagation(); setLb(lb + 1) }} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,.05)', border: 'none', color: 'rgba(255,255,255,.4)', fontSize: 26, cursor: 'pointer', width: 40, height: 40, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>}
+        <div style={{ position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)', fontSize: 9, color: 'rgba(255,255,255,.15)', fontWeight: 600 }}>{lb + 1}/{photos.length}</div>
       </div>}
     </>
   )
@@ -99,10 +118,39 @@ function Gallery({ photos }: { photos: { url: string; caption?: string }[] }) {
 export default function ArtistProfileClient({
   artist, heroImage, genres, links, photos, albums, tracks, members, followers, likeCount, news, events, similar, newTracks, topVideos, chartData, hasNewMusic
 }: Props) {
+  const { dk } = useSite()
   const [pid, setPid] = useState<number | null>(null)
   const [df, setDf] = useState('all')
   const [loaded, setLoaded] = useState(false)
   useEffect(() => { setLoaded(true) }, [])
+
+  // Theme tokens — same pattern as homepage
+  const T = {
+    bg:         dk ? '#080c12' : '#f0f4fa',
+    border:     dk ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.09)',
+    borderSub:  dk ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.06)',
+    text:       dk ? '#f0f2f5' : '#0f1a2e',
+    textSec:    dk ? '#b0bdd4' : '#3a5a80',
+    textMuted:  dk ? '#6889a8' : '#8899aa',
+    textFaint:  dk ? '#334058' : '#bbc8d8',
+    playerBg:   dk ? 'rgba(0,0,0,.25)' : 'rgba(0,0,0,.04)',
+    coverBg:    dk ? '#111822' : '#e0e8f2',
+    plActiveBg: dk ? 'rgba(249,115,22,.05)' : 'rgba(249,115,22,.08)',
+    heroG1:     dk ? 'linear-gradient(to top,#080c12 0%,rgba(8,12,18,.85) 30%,rgba(8,12,18,.4) 60%,rgba(8,12,18,.2) 100%)' : 'linear-gradient(to top,#f0f4fa 0%,rgba(240,244,250,.85) 30%,rgba(240,244,250,.4) 60%,rgba(240,244,250,.2) 100%)',
+    heroG2:     dk ? 'linear-gradient(to right,rgba(8,12,18,.6) 0%,transparent 50%)' : 'linear-gradient(to right,rgba(240,244,250,.7) 0%,transparent 50%)',
+    heroNm:     dk ? '#fff' : '#0f1a2e',
+    heroTag:    dk ? 'rgba(255,255,255,.7)' : 'rgba(15,26,46,.7)',
+    heroTagBg:  dk ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.06)',
+    heroTagBdr: dk ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.12)',
+    heroChBg:   dk ? 'rgba(0,0,0,.25)' : 'rgba(255,255,255,.6)',
+    heroChBdr:  dk ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.1)',
+    sectionLbl: dk ? '#334058' : '#bbc8d8',
+    sectionLine:dk ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.08)',
+    cardBg:     dk ? 'rgba(255,255,255,.02)' : 'rgba(255,255,255,.8)',
+    cardBdr:    dk ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.09)',
+    cardBdrH:   dk ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.14)',
+    statBg:     dk ? 'rgba(255,255,255,.02)' : 'rgba(0,0,0,.03)',
+  }
 
   const flag = FLAGS[artist.country] || (artist.country ? '🌍' : '')
   const hasBio = artist.description?.trim().length > 10
@@ -114,188 +162,232 @@ export default function ArtistProfileClient({
   const fAlbums = df === 'all' ? albums : albums.filter(a => aType(a) === df)
   const yr = new Date().getFullYear()
 
+  const ST: React.CSSProperties = { fontFamily: 'Outfit,sans-serif', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.14em', color: T.sectionLbl, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10 }
+
   return (
-    <>
-      <style>{CSS}</style>
-      <div className="ap-pg">
-        {/* ═══ HERO — cinematic full-bleed ═══ */}
-        <div className="ap-hero">
-          {heroImage ? (
-            <div className="ap-hero-img"><img src={heroImage} alt="" /></div>
-          ) : artist.cover_image_url ? (
-            <div className="ap-hero-img ap-hero-img-blur"><img src={artist.cover_image_url} alt="" /></div>
-          ) : (
-            <div className="ap-hero-img ap-hero-fb" />
+    <div style={{ background: T.bg, color: T.text, fontFamily: "'DM Sans',system-ui,sans-serif", WebkitFontSmoothing: 'antialiased', minHeight: '100vh', transition: 'background .2s, color .2s' }}>
+
+      {/* ═══ HERO ═══ */}
+      <div style={{ position: 'relative', height: 380, overflow: 'hidden' }}>
+        {heroImage ? (
+          <div style={{ position: 'absolute', inset: 0 }}>
+            <img src={heroImage} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%', display: 'block', animation: 'apHeroZoom 20s ease-in-out infinite alternate' }} />
+          </div>
+        ) : artist.cover_image_url ? (
+          <div style={{ position: 'absolute', inset: 0 }}>
+            <img src={artist.cover_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'blur(40px) brightness(.2) saturate(1.3)', transform: 'scale(1.4)', display: 'block' }} />
+          </div>
+        ) : (
+          <div style={{ position: 'absolute', inset: 0, background: dk ? 'linear-gradient(135deg,#0f1825 0%,#080c12 100%)' : 'linear-gradient(135deg,#e8eef8 0%,#f0f4fa 100%)' }} />
+        )}
+        <div style={{ position: 'absolute', inset: 0, background: T.heroG1 }} />
+        <div style={{ position: 'absolute', inset: 0, background: T.heroG2 }} />
+        <div style={{ position: 'relative', maxWidth: 1400, margin: '0 auto', height: '100%', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', padding: '0 24px 28px', gap: 20, opacity: loaded ? 1 : 0, transform: loaded ? 'none' : 'translateY(12px)', transition: 'opacity .6s, transform .6s' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h1 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 'clamp(2rem,5vw,3.5rem)', fontWeight: 900, lineHeight: 1.05, letterSpacing: '-.04em', color: T.heroNm, marginBottom: 10, textShadow: dk ? '0 2px 20px rgba(0,0,0,.4)' : 'none', margin: '0 0 10px' }}>
+              {flag && <span style={{ marginRight: 6, fontSize: '.65em', verticalAlign: 'middle' }}>{flag}</span>}
+              {artist.name}
+              {artist.is_verified && <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, background: '#3b82f6', borderRadius: '50%', marginLeft: 6, verticalAlign: 'middle' }}><svg width="12" height="12" viewBox="0 0 24 24" fill="#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg></span>}
+            </h1>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
+              {genres.map(g => <span key={g.id} style={{ fontSize: 10, fontWeight: 700, color: T.heroTag, background: T.heroTagBg, border: `1px solid ${T.heroTagBdr}`, borderRadius: 100, padding: '3px 10px', fontFamily: 'Outfit,sans-serif', backdropFilter: 'blur(4px)' }}>{g.name}</span>)}
+              <button style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 12px', borderRadius: 100, border: '1px solid rgba(249,115,22,.25)', fontSize: 11, fontWeight: 800, cursor: 'pointer', fontFamily: 'Outfit,sans-serif', background: 'rgba(249,115,22,.1)', color: '#f97316' }}>
+                <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 11, height: 11 }}><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
+                {likes > 0 ? likes : '0'}
+              </button>
+              {solo && members.map(m => (
+                <Link key={m.id} href={`/atlikejai/${m.slug}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 100, border: `1px solid ${T.heroTagBdr}`, background: T.heroTagBg, textDecoration: 'none', fontSize: 10, fontWeight: 700, color: T.heroNm, fontFamily: 'Outfit,sans-serif', backdropFilter: 'blur(4px)' }}>
+                  {m.cover_image_url ? <img src={m.cover_image_url} alt="" style={{ width: 18, height: 18, borderRadius: '50%', objectFit: 'cover' }} /> : <span style={{ width: 18, height: 18, borderRadius: '50%', background: T.heroTagBg, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 7 }}>{m.name[0]}</span>}
+                  <span>{m.name}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+          {chartData.length > 5 && (
+            <div style={{ background: T.heroChBg, border: `1px solid ${T.heroChBdr}`, borderRadius: 10, padding: '8px 12px 2px', backdropFilter: 'blur(8px)', flexShrink: 0 }}>
+              <div style={{ fontSize: 7, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.1em', color: dk ? 'rgba(255,255,255,.25)' : 'rgba(0,0,0,.3)', fontFamily: 'Outfit,sans-serif', marginBottom: 2 }}>Populiarumas</div>
+              <Spark data={chartData} dk={dk} />
+            </div>
           )}
-          <div className="ap-hero-g1" />
-          <div className="ap-hero-g2" />
-          <div className={`ap-hero-ct${loaded ? ' ap-hero-in' : ''}`}>
-            <div className="ap-hero-main">
-              <h1 className="ap-hero-nm">{flag && <span className="ap-hero-fl">{flag}</span>}{artist.name}{artist.is_verified && <span className="ap-hero-vf"><svg width="12" height="12" viewBox="0 0 24 24" fill="#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg></span>}</h1>
-              <div className="ap-hero-row">
-                <div className="ap-hero-tags">{genres.map(g => <span key={g.id} className="ap-ht">{g.name}</span>)}</div>
-                <button className="ap-hero-lk"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>{likes > 0 ? likes : '0'}</button>
-                {solo && members.map(m => <Link key={m.id} href={`/atlikejai/${m.slug}`} className="ap-hero-mem">{m.cover_image_url ? <img src={m.cover_image_url} alt="" /> : <span className="ap-hmfb">{m.name[0]}</span>}<span>{m.name}</span></Link>)}
+        </div>
+        <style>{`@keyframes apHeroZoom{0%{transform:scale(1)}100%{transform:scale(1.05)}}`}</style>
+      </div>
+
+      {/* ═══ CONTENT ═══ */}
+      <div style={{ maxWidth: 1400, margin: '0 auto', padding: '0 24px' }}>
+
+        {/* Events */}
+        {events.length > 0 && (
+          <section style={{ paddingTop: 24 }}>
+            <div style={ST}>Artimiausi renginiai<span style={{ flex: 1, height: 1, background: T.sectionLine }} /></div>
+            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none' }}>
+              {events.map((e: any) => {
+                const d = new Date(e.event_date); const sy = d.getFullYear() !== yr
+                return (
+                  <div key={e.id} style={{ flexShrink: 0, display: 'flex', gap: 12, alignItems: 'center', borderRadius: 12, border: '1px solid rgba(249,115,22,.12)', background: 'rgba(249,115,22,.03)', padding: '14px 18px', cursor: 'pointer', minWidth: 220 }}>
+                    <div style={{ textAlign: 'center', minWidth: 40, background: 'rgba(249,115,22,.1)', borderRadius: 8, padding: '5px 4px' }}>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: '#f97316', textTransform: 'capitalize', lineHeight: 1.2 }}>{d.toLocaleDateString('lt-LT', { month: 'long' })}{sy ? `, ${d.getFullYear()}` : ''}</div>
+                      <div style={{ fontSize: 20, fontWeight: 900, color: T.heroNm, fontFamily: 'Outfit,sans-serif', lineHeight: 1 }}>{d.getDate()}</div>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: T.heroNm, lineHeight: 1.2 }}>{e.title}</div>
+                      <div style={{ fontSize: 11, color: T.textSec, marginTop: 2 }}>{e.venues?.name || e.venue_custom || ''}{e.venues?.city ? `, ${e.venues.city}` : ''}</div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* Music */}
+        {(topVideos.length > 0 || newTracks.length > 0) && (
+          <section style={{ paddingTop: 24 }}>
+            <div style={ST}>Muzika<span style={{ flex: 1, height: 1, background: T.sectionLine }} /></div>
+            {hasNewMusic && newTracks.length > 0 && <MusicRow label="Nauja muzika" list={newTracks.slice(0, 6)} playingId={pid} onPlay={setPid} T={T} />}
+            {topVideos.length > 0 && <MusicRow label={hasNewMusic ? 'Populiariausia' : ''} list={topVideos} playingId={pid} onPlay={setPid} T={T} />}
+          </section>
+        )}
+
+        {/* Discography */}
+        {albums.length > 0 && (
+          <section style={{ paddingTop: 24 }}>
+            <div style={ST}>Diskografija · {albums.length}<span style={{ flex: 1, height: 1, background: T.sectionLine }} /></div>
+            {atypes.length > 1 && (
+              <div style={{ display: 'flex', gap: 3, marginBottom: 10, flexWrap: 'wrap' }}>
+                {['all', ...atypes].map(t => (
+                  <button key={t} onClick={() => setDf(t)} style={{ padding: '3px 9px', borderRadius: 100, fontSize: 9, fontWeight: 700, border: `1px solid ${df === t ? '#f97316' : T.cardBdr}`, background: df === t ? '#f97316' : 'transparent', color: df === t ? '#fff' : T.textFaint, cursor: 'pointer', fontFamily: 'Outfit,sans-serif', transition: '.2s' }}>
+                    {t === 'all' ? 'Visi' : t}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(120px,1fr))', gap: 8 }}>
+              {fAlbums.map(a => (
+                <Link key={a.id} href={`/lt/albumas/${a.slug}/${a.id}/`} style={{ borderRadius: 8, overflow: 'hidden', border: `1px solid ${T.cardBdr}`, background: T.cardBg, textDecoration: 'none', display: 'block', transition: '.2s' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.borderColor = T.cardBdrH }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'none'; (e.currentTarget as HTMLElement).style.borderColor = T.cardBdr }}>
+                  <div style={{ aspectRatio: '1', background: T.coverBg, overflow: 'hidden', position: 'relative' }}>
+                    {a.cover_image_url ? <img src={a.cover_image_url} alt={a.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: T.textFaint }}>💿</div>}
+                    {aType(a) !== 'Albumas' && <span style={{ position: 'absolute', top: 4, right: 4, fontSize: 7, fontWeight: 800, textTransform: 'uppercase', padding: '2px 4px', borderRadius: 2, background: 'rgba(0,0,0,.6)', color: '#b0bdd4' }}>{aType(a)}</span>}
+                  </div>
+                  <div style={{ padding: '7px 8px' }}>
+                    <div style={{ fontFamily: 'Outfit,sans-serif', fontSize: 11, fontWeight: 700, color: T.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.title}</div>
+                    <div style={{ fontSize: 10, color: T.textSec, marginTop: 2, fontWeight: 600 }}>{a.year || '—'}</div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Bio + News */}
+        {(hasBio || news.length > 0) && (
+          <section style={{ paddingTop: 24 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 28, alignItems: 'start' }}>
+              <div>
+                <div style={{ display: 'inline-flex', flexWrap: 'wrap', gap: 6, marginBottom: 12, padding: '8px 12px', borderRadius: 8, background: T.statBg, border: `1px solid ${T.cardBdr}` }}>
+                  {active && <div style={{ display: 'flex', flexDirection: 'column', minWidth: 50 }}><span style={{ fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 800, color: T.text }}>{active}</span><span style={{ fontSize: 7, fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '.05em', marginTop: 1 }}>Aktyvumas</span></div>}
+                  {solo && age && <div style={{ display: 'flex', flexDirection: 'column', minWidth: 50 }}><span style={{ fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 800, color: T.text }}>{age} m.</span><span style={{ fontSize: 7, fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '.05em', marginTop: 1 }}>Amžius</span></div>}
+                  {artist.country && <div style={{ display: 'flex', flexDirection: 'column', minWidth: 50 }}><span style={{ fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 800, color: T.text }}>{flag} {artist.country}</span><span style={{ fontSize: 7, fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '.05em', marginTop: 1 }}>Šalis</span></div>}
+                  {albums.length > 0 && <div style={{ display: 'flex', flexDirection: 'column', minWidth: 50 }}><span style={{ fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 800, color: T.text }}>{albums.length}</span><span style={{ fontSize: 7, fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '.05em', marginTop: 1 }}>Albumai</span></div>}
+                  {tracks.length > 0 && <div style={{ display: 'flex', flexDirection: 'column', minWidth: 50 }}><span style={{ fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 800, color: T.text }}>{tracks.length}+</span><span style={{ fontSize: 7, fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '.05em', marginTop: 1 }}>Dainos</span></div>}
+                </div>
+                {hasBio && <>
+                  <div style={ST}>Apie<span style={{ flex: 1, height: 1, background: T.sectionLine }} /></div>
+                  <div style={{ color: T.textSec, fontSize: 14, lineHeight: 1.85 }} dangerouslySetInnerHTML={{ __html: artist.description }} />
+                </>}
+                {links.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 12 }}>
+                    {links.map(l => { const p = SOC[l.platform]; return (
+                      <a key={l.platform} href={l.url} target="_blank" rel="noopener" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 9px', borderRadius: 100, border: `1px solid ${T.cardBdr}`, background: T.cardBg, textDecoration: 'none' }}>
+                        {p && <svg viewBox="0 0 24 24" fill={p.c} width="13" height="13"><path d={p.d} /></svg>}
+                        <span style={{ fontSize: 9, fontWeight: 700, color: T.textSec, fontFamily: 'Outfit,sans-serif' }}>{p?.l || l.platform}</span>
+                      </a>
+                    )})}
+                    {artist.website && (
+                      <a href={artist.website} target="_blank" rel="noopener" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 9px', borderRadius: 100, border: `1px solid ${T.cardBdr}`, background: T.cardBg, textDecoration: 'none' }}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke={T.textMuted} strokeWidth="2" width="13" height="13"><circle cx="12" cy="12" r="10" /></svg>
+                        <span style={{ fontSize: 9, fontWeight: 700, color: T.textSec, fontFamily: 'Outfit,sans-serif' }}>Svetainė</span>
+                      </a>
+                    )}
+                  </div>
+                )}
+                {!solo && members.length > 0 && (
+                  <div style={{ marginTop: 16 }}>
+                    <div style={ST}>Nariai · {members.length}<span style={{ flex: 1, height: 1, background: T.sectionLine }} /></div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {members.map(m => (
+                        <Link key={m.id} href={`/atlikejai/${m.slug}`} style={{ display: 'flex', alignItems: 'center', gap: 6, background: T.cardBg, border: `1px solid ${T.cardBdr}`, borderRadius: 8, padding: '5px 9px', textDecoration: 'none' }}>
+                          {m.cover_image_url ? <img src={m.cover_image_url} alt={m.name} style={{ width: 26, height: 26, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={{ width: 26, height: 26, borderRadius: '50%', background: T.coverBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 900, color: T.textFaint, flexShrink: 0 }}>{m.name[0]}</div>}
+                          <div>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: T.text }}>{m.name}</div>
+                            <div style={{ fontSize: 8, color: T.textMuted }}>{m.member_from ? `${m.member_from}–${m.member_until || 'dabar'}` : ''}</div>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div>
+                {news.length > 0 && (
+                  <div style={{ borderRadius: 10, border: `1px solid ${T.cardBdr}`, background: T.cardBg, padding: 10 }}>
+                    <div style={{ ...ST, marginBottom: 6 }}>Naujienos<span style={{ flex: 1, height: 1, background: T.sectionLine }} /></div>
+                    {news.map((n, i) => (
+                      <Link key={n.id} href={`/news/${n.slug}`} style={{ display: 'flex', gap: 7, padding: '5px 0', borderBottom: i < news.length - 1 ? `1px solid ${T.borderSub}` : 'none', textDecoration: 'none' }}
+                        onMouseEnter={e => ((e.currentTarget as HTMLElement).style.opacity = '.8')}
+                        onMouseLeave={e => ((e.currentTarget as HTMLElement).style.opacity = '1')}>
+                        {n.image_small_url ? <img src={n.image_small_url} style={{ width: 36, height: 36, borderRadius: 5, objectFit: 'cover', flexShrink: 0 }} alt="" /> : <div style={{ width: 36, height: 36, borderRadius: 5, flexShrink: 0, background: T.coverBg }} />}
+                        <div>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: T.textSec, lineHeight: 1.25 }}>{n.title}</div>
+                          <div style={{ fontSize: 8, color: T.textMuted, marginTop: 1 }}>{new Date(n.published_at).toLocaleDateString('lt-LT')}</div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
-            {chartData.length > 5 && <div className="ap-hero-ch"><div className="ap-hcl">Populiarumas</div><Spark data={chartData} /></div>}
+          </section>
+        )}
+
+        {/* Gallery */}
+        {photos.length > 0 && (
+          <section style={{ paddingTop: 24 }}>
+            <div style={ST}>Galerija · {photos.length}<span style={{ flex: 1, height: 1, background: T.sectionLine }} /></div>
+            <Gallery photos={photos} T={T} />
+          </section>
+        )}
+
+        {/* Discussions */}
+        <section style={{ paddingTop: 24 }}>
+          <div style={ST}>Diskusijos<span style={{ flex: 1, height: 1, background: T.sectionLine }} /></div>
+          <div style={{ border: `1px dashed ${T.cardBdr}`, borderRadius: 10, padding: 24, textAlign: 'center' }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: T.textMuted, marginBottom: 2 }}>Dar nėra diskusijų apie {artist.name}</div>
+            <div style={{ fontSize: 10, color: T.textFaint }}>Būk pirmas — pradėk diskusiją!</div>
+            <button style={{ marginTop: 8, padding: '6px 16px', borderRadius: 100, border: `1px solid ${T.cardBdr}`, background: T.cardBg, color: T.textSec, fontSize: 10, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit,sans-serif' }}>+ Nauja diskusija</button>
           </div>
-        </div>
+        </section>
 
-        <div className="ap-ct">
-          {/* Events */}
-          {events.length > 0 && <section className="ap-s"><div className="ap-st">Artimiausi renginiai</div>
-            <div className="ap-evr">{events.map((e: any) => { const d = new Date(e.event_date); const sy = d.getFullYear() !== yr; return (
-              <div key={e.id} className="ap-evc"><div className="ap-evd"><div className="ap-evm">{d.toLocaleDateString('lt-LT', { month: 'long' })}{sy ? `, ${d.getFullYear()}` : ''}</div><div className="ap-evdy">{d.getDate()}</div></div><div className="ap-evi"><div className="ap-evt">{e.title}</div><div className="ap-evv">{e.venues?.name || e.venue_custom || ''}{e.venues?.city ? `, ${e.venues.city}` : ''}</div></div></div>
-            ) })}</div>
-          </section>}
-
-          {/* Music */}
-          {(topVideos.length > 0 || newTracks.length > 0) && <section className="ap-s"><div className="ap-st">Muzika</div>
-            {hasNewMusic && newTracks.length > 0 && <MusicRow label="Nauja muzika" list={newTracks.slice(0, 6)} playingId={pid} onPlay={setPid} />}
-            {topVideos.length > 0 && <MusicRow label={hasNewMusic ? 'Populiariausia' : ''} list={topVideos} playingId={pid} onPlay={setPid} />}
-          </section>}
-
-          {/* Discography — albumai su nuorodomis */}
-          {albums.length > 0 && <section className="ap-s"><div className="ap-st">Diskografija · {albums.length}</div>
-            {atypes.length > 1 && <div className="ap-dfr">{['all', ...atypes].map(t => <button key={t} className={`ap-dft${df === t ? ' ap-dfa' : ''}`} onClick={() => setDf(t)}>{t === 'all' ? 'Visi' : t}</button>)}</div>}
-            <div className="ap-dg">{fAlbums.map(a => (
-              <Link key={a.id} href={`/lt/albumas/${a.slug}/${a.id}/`} className="ap-dc">
-                <div className="ap-dcv">
-                  {a.cover_image_url ? <img src={a.cover_image_url} alt={a.title} /> : <div className="ap-dcn">💿</div>}
-                  {aType(a) !== 'Albumas' && <span className="ap-dct">{aType(a)}</span>}
-                </div>
-                <div className="ap-dci"><div className="ap-dctt">{a.title}</div><div className="ap-dcy">{a.year || '—'}</div></div>
-              </Link>
-            ))}</div>
-          </section>}
-
-          {/* Bio + News */}
-          {(hasBio || news.length > 0) && <section className="ap-s"><div className="ap-tc">
-            <div>
-              <div className="ap-bch">{active && <div className="ap-bc"><span className="ap-bcv">{active}</span><span className="ap-bcl">Aktyvumas</span></div>}{solo && age && <div className="ap-bc"><span className="ap-bcv">{age} m.</span><span className="ap-bcl">Amžius</span></div>}{artist.country && <div className="ap-bc"><span className="ap-bcv">{flag} {artist.country}</span><span className="ap-bcl">Šalis</span></div>}{albums.length > 0 && <div className="ap-bc"><span className="ap-bcv">{albums.length}</span><span className="ap-bcl">Albumai</span></div>}{tracks.length > 0 && <div className="ap-bc"><span className="ap-bcv">{tracks.length}+</span><span className="ap-bcl">Dainos</span></div>}</div>
-              {hasBio && <><div className="ap-st">Apie</div><div className="ap-bio" dangerouslySetInnerHTML={{ __html: artist.description }} /></>}
-              {links.length > 0 && <div className="ap-sr2">{links.map(l => { const p = SOC[l.platform]; return <a key={l.platform} href={l.url} target="_blank" rel="noopener" className="ap-sc">{p && <svg viewBox="0 0 24 24" fill={p.c} width="13" height="13"><path d={p.d} /></svg>}<span>{p?.l || l.platform}</span></a> })}{artist.website && <a href={artist.website} target="_blank" rel="noopener" className="ap-sc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13" style={{ color: '#5e7290' }}><circle cx="12" cy="12" r="10" /></svg><span>Svetainė</span></a>}</div>}
-              {!solo && members.length > 0 && <div style={{ marginTop: 16 }}><div className="ap-st">Nariai · {members.length}</div><div className="ap-mmr">{members.map(m => <Link key={m.id} href={`/atlikejai/${m.slug}`} className="ap-mm">{m.cover_image_url ? <img src={m.cover_image_url} alt={m.name} className="ap-mmi" /> : <div className="ap-mmi ap-mmni">{m.name[0]}</div>}<div><div className="ap-mmn">{m.name}</div><div className="ap-mmy">{m.member_from ? `${m.member_from}–${m.member_until || 'dabar'}` : ''}</div></div></Link>)}</div></div>}
+        {/* Similar */}
+        {similar.length > 0 && (
+          <section style={{ paddingTop: 24, paddingBottom: 48 }}>
+            <div style={ST}>Panaši muzika<span style={{ flex: 1, height: 1, background: T.sectionLine }} /></div>
+            <div style={{ display: 'flex', gap: 10, overflowX: 'auto', scrollbarWidth: 'none' }}>
+              {similar.map((a: any) => (
+                <Link key={a.id} href={`/atlikejai/${a.slug}`} style={{ flexShrink: 0, width: 86, textAlign: 'center', textDecoration: 'none' }}>
+                  {a.cover_image_url
+                    ? <img src={a.cover_image_url} alt={a.name} style={{ width: 60, height: 60, borderRadius: '50%', objectFit: 'cover', margin: '0 auto 4px', border: `2px solid ${T.cardBdr}`, display: 'block' }} />
+                    : <div style={{ width: 60, height: 60, borderRadius: '50%', background: T.coverBg, margin: '0 auto 4px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 900, color: T.textFaint, fontFamily: 'Outfit,sans-serif' }}>{a.name[0]}</div>}
+                  <div style={{ fontSize: 9, fontWeight: 700, color: T.textSec }}>{a.name}</div>
+                </Link>
+              ))}
             </div>
-            <div>{news.length > 0 && <div className="ap-cd"><div className="ap-st" style={{ marginBottom: 6 }}>Naujienos</div>{news.map(n => <Link key={n.id} href={`/news/${n.slug}`} className="ap-ni">{n.image_small_url ? <img src={n.image_small_url} className="ap-nii" alt="" /> : <div className="ap-nii" />}<div><div className="ap-nit">{n.title}</div><div className="ap-nid">{new Date(n.published_at).toLocaleDateString('lt-LT')}</div></div></Link>)}</div>}</div>
-          </div></section>}
+          </section>
+        )}
 
-          {/* Gallery */}
-          {photos.length > 0 && <section className="ap-s"><div className="ap-st">Galerija · {photos.length}</div><Gallery photos={photos} /></section>}
-
-          {/* Discussions */}
-          <section className="ap-s"><div className="ap-st">Diskusijos</div><div className="ap-de"><div className="ap-det">Dar nėra diskusijų apie {artist.name}</div><div className="ap-des">Būk pirmas — pradėk diskusiją!</div><button className="ap-deb">+ Nauja diskusija</button></div></section>
-
-          {/* Similar */}
-          {similar.length > 0 && <section className="ap-s ap-slast"><div className="ap-st">Panaši muzika</div><div className="ap-smr">{similar.map((a: any) => <Link key={a.id} href={`/atlikejai/${a.slug}`} className="ap-smc">{a.cover_image_url ? <img src={a.cover_image_url} alt={a.name} className="ap-smi" /> : <div className="ap-smi ap-smni">{a.name[0]}</div>}<div className="ap-smn">{a.name}</div></Link>)}</div></section>}
-        </div>
       </div>
-    </>
+    </div>
   )
 }
-
-const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&display=swap');
-
-.ap-pg{background:#080c12;color:#f0f2f5;font-family:'DM Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh}
-.ap-ct{max-width:1400px;margin:0 auto;padding:0 24px}
-.ap-s{padding-top:24px}.ap-slast{padding-bottom:48px}
-.ap-st{font-family:'Outfit',system-ui,sans-serif;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.14em;color:#334058;margin-bottom:12px;display:flex;align-items:center;gap:10px}.ap-st::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.06)}
-
-/* ═══ HERO ═══ */
-.ap-hero{position:relative;height:380px;overflow:hidden}
-.ap-hero-img{position:absolute;inset:0}
-.ap-hero-img img{width:100%;height:100%;object-fit:cover;object-position:center 20%;display:block;animation:apHeroZoom 20s ease-in-out infinite alternate}
-.ap-hero-img-blur img{filter:blur(40px) brightness(.2) saturate(1.3);transform:scale(1.4);animation:none}
-.ap-hero-fb{position:absolute;inset:0;background:linear-gradient(135deg,#0f1825 0%,#080c12 50%,rgba(249,115,22,.03) 100%)}
-@keyframes apHeroZoom{0%{transform:scale(1)}100%{transform:scale(1.05)}}
-.ap-hero-g1{position:absolute;inset:0;background:linear-gradient(to top,#080c12 0%,rgba(8,12,18,.85) 30%,rgba(8,12,18,.4) 60%,rgba(8,12,18,.2) 100%)}
-.ap-hero-g2{position:absolute;inset:0;background:linear-gradient(to right,rgba(8,12,18,.6) 0%,transparent 50%)}
-.ap-hero-ct{position:relative;max-width:1400px;margin:0 auto;height:100%;display:flex;align-items:flex-end;justify-content:space-between;padding:0 24px 28px;gap:20px;opacity:0;transform:translateY(12px);transition:opacity .6s,transform .6s}
-.ap-hero-in{opacity:1;transform:translateY(0)}
-.ap-hero-main{flex:1;min-width:0}
-.ap-hero-nm{font-family:'Outfit',system-ui,sans-serif;font-size:clamp(2rem,5vw,3.5rem);font-weight:900;line-height:1.05;letter-spacing:-.04em;color:#fff;margin-bottom:10px;text-shadow:0 2px 20px rgba(0,0,0,.4)}
-.ap-hero-fl{margin-right:6px;font-size:.65em;vertical-align:middle}
-.ap-hero-vf{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:#3b82f6;border-radius:50%;margin-left:6px;vertical-align:middle}
-.ap-hero-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
-.ap-hero-tags{display:contents}
-.ap-ht{font-size:10px;font-weight:700;color:rgba(255,255,255,.7);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:100px;padding:3px 10px;font-family:'Outfit',system-ui,sans-serif;backdrop-filter:blur(4px)}
-.ap-hero-lk{display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border-radius:100px;border:1px solid rgba(249,115,22,.25);font-size:11px;font-weight:800;cursor:pointer;font-family:'Outfit',system-ui,sans-serif;background:rgba(249,115,22,.1);color:#f97316;transition:.2s;backdrop-filter:blur(4px)}.ap-hero-lk:hover{background:rgba(249,115,22,.2)}.ap-hero-lk svg{width:11px;height:11px}
-.ap-hero-mem{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:100px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.06);text-decoration:none;font-size:10px;font-weight:700;color:#fff;font-family:'Outfit',system-ui,sans-serif;backdrop-filter:blur(4px);transition:.2s}.ap-hero-mem:hover{background:rgba(255,255,255,.12)}
-.ap-hero-mem img{width:18px;height:18px;border-radius:50%;object-fit:cover}.ap-hmfb{width:18px;height:18px;border-radius:50%;background:rgba(255,255,255,.1);display:inline-flex;align-items:center;justify-content:center;font-size:7px}
-.ap-hero-ch{background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:8px 12px 2px;backdrop-filter:blur(8px);flex-shrink:0}
-.ap-hcl{font-size:7px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.25);font-family:'Outfit',system-ui,sans-serif;margin-bottom:2px}
-
-/* Events */
-.ap-evr{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}.ap-evr::-webkit-scrollbar{display:none}
-.ap-evc{flex-shrink:0;display:flex;gap:12px;align-items:center;border-radius:12px;border:1px solid rgba(249,115,22,.12);background:rgba(249,115,22,.03);padding:14px 18px;cursor:pointer;transition:.2s;min-width:220px}.ap-evc:hover{border-color:rgba(249,115,22,.22);background:rgba(249,115,22,.06)}
-.ap-evd{text-align:center;min-width:40px;background:rgba(249,115,22,.1);border-radius:8px;padding:5px 4px}
-.ap-evm{font-size:9px;font-weight:700;color:#f97316;text-transform:capitalize;line-height:1.2}
-.ap-evdy{font-size:20px;font-weight:900;color:#fff;font-family:'Outfit',system-ui,sans-serif;line-height:1}
-.ap-evi{flex:1;min-width:0}.ap-evt{font-size:13px;font-weight:700;color:#fff;line-height:1.2}.ap-evv{font-size:11px;color:#b0bdd4;margin-top:2px}
-
-/* Music */
-.ap-mr{margin-bottom:14px}
-.ap-mr-lbl{font-family:'Outfit',system-ui,sans-serif;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#f97316;margin-bottom:6px}
-.ap-mr-box{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,.06);background:rgba(0,0,0,.25)}
-.ap-mr-vid{background:#000}.ap-mr-vid iframe{width:100%;aspect-ratio:16/9;border:none;display:block}
-.ap-mr-th{position:relative;aspect-ratio:16/9;overflow:hidden;cursor:pointer}.ap-mr-th img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s}.ap-mr-th:hover img{transform:scale(1.03)}
-.ap-mr-noth{width:100%;aspect-ratio:16/9;background:#111}
-.ap-mr-ply{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
-.ap-mr-pb{width:48px;height:48px;border-radius:50%;background:rgba(249,115,22,.85);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(249,115,22,.35);transition:.15s}.ap-mr-th:hover .ap-mr-pb{transform:scale(1.1)}
-.ap-mr-cur{padding:7px 12px;font-size:12px;font-weight:800;color:#f0f2f5;background:rgba(249,115,22,.03);border-top:1px solid rgba(249,115,22,.04)}
-.ap-mr-pl{max-height:340px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.05) transparent}
-.ap-pl{display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid rgba(255,255,255,.03);cursor:pointer;transition:.12s}.ap-pl:last-child{border-bottom:none}.ap-pl:hover{background:rgba(255,255,255,.03)}
-.ap-pla{background:rgba(249,115,22,.05)!important}
-.ap-pln{width:16px;font-size:10px;font-weight:600;color:#334058;text-align:center;flex-shrink:0;font-family:'Outfit',system-ui,sans-serif}.ap-pla .ap-pln{color:#f97316}
-.ap-pli{width:34px;height:34px;border-radius:4px;object-fit:cover;flex-shrink:0;background:#111822}.ap-plni{display:flex;align-items:center;justify-content:center;font-size:10px;color:rgba(255,255,255,.05)}
-.ap-plx{flex:1;min-width:0}.ap-plnm{font-size:12px;font-weight:700;color:#b0bdd4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ap-pla .ap-plnm{color:#f97316}
-.ap-plp{width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;color:#334058;flex-shrink:0}.ap-pla .ap-plp{background:#f97316;color:#fff}
-
-/* Discography */
-.ap-dfr{display:flex;gap:3px;margin-bottom:10px;flex-wrap:wrap}
-.ap-dft{padding:3px 9px;border-radius:100px;font-size:9px;font-weight:700;border:1px solid rgba(255,255,255,.06);background:none;color:#334058;cursor:pointer;font-family:'Outfit',system-ui,sans-serif;transition:.2s}.ap-dft:hover{color:#f0f2f5}.ap-dfa{background:#f97316;border-color:#f97316;color:#fff}
-.ap-dg{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
-.ap-dc{border-radius:8px;overflow:hidden;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02);transition:.2s;cursor:pointer;text-decoration:none;display:block}.ap-dc:hover{transform:translateY(-2px);border-color:rgba(255,255,255,.1)}
-.ap-dcv{aspect-ratio:1;background:#111822;overflow:hidden;position:relative}.ap-dcv img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s}.ap-dc:hover .ap-dcv img{transform:scale(1.04)}
-.ap-dcn{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:14px;color:rgba(255,255,255,.03)}
-.ap-dct{position:absolute;top:4px;right:4px;font-size:7px;font-weight:800;text-transform:uppercase;padding:2px 4px;border-radius:2px;background:rgba(0,0,0,.6);color:#b0bdd4}
-.ap-dci{padding:7px 8px}.ap-dctt{font-family:'Outfit',system-ui,sans-serif;font-size:11px;font-weight:700;color:#f0f2f5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ap-dcy{font-size:10px;color:#b0bdd4;margin-top:2px;font-weight:600}
-
-/* Bio */
-.ap-tc{display:grid;grid-template-columns:1fr 320px;gap:28px;align-items:start}
-.ap-bch{display:inline-flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;padding:8px 12px;border-radius:8px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06)}
-.ap-bc{display:flex;flex-direction:column;min-width:50px}.ap-bcv{font-family:'Outfit',system-ui,sans-serif;font-size:12px;font-weight:800;color:#f0f2f5}.ap-bcl{font-size:7px;font-weight:700;color:#5e7290;text-transform:uppercase;letter-spacing:.05em;margin-top:1px}
-.ap-bio{color:#b0bdd4!important;font-size:14px;line-height:1.85}.ap-bio *{color:inherit!important;font-family:inherit!important;font-size:inherit!important}.ap-bio p{margin-bottom:10px}.ap-bio a{color:#f97316!important;text-decoration:underline}.ap-bio b,.ap-bio strong{color:#f0f2f5!important;font-weight:700}
-.ap-sr2{display:flex;flex-wrap:wrap;gap:4px;margin-top:12px}
-.ap-sc{display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:100px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02);text-decoration:none;transition:.2s;font-family:'Outfit',system-ui,sans-serif}.ap-sc:hover{background:rgba(255,255,255,.05);transform:translateY(-1px)}.ap-sc span{font-size:9px;font-weight:700;color:#b0bdd4}
-.ap-mmr{display:flex;flex-wrap:wrap;gap:6px}
-.ap-mm{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:8px;padding:5px 9px;text-decoration:none;transition:.2s}.ap-mm:hover{border-color:rgba(255,255,255,.1)}
-.ap-mmi{width:26px;height:26px;border-radius:50%;object-fit:cover;flex-shrink:0;background:#111822}.ap-mmni{display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;color:rgba(255,255,255,.05);font-family:'Outfit',system-ui,sans-serif}
-.ap-mmn{font-size:10px;font-weight:700;color:#f0f2f5}.ap-mmy{font-size:8px;color:#5e7290}
-.ap-cd{border-radius:10px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02);padding:10px;margin-bottom:8px}
-.ap-ni{display:flex;gap:7px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.03);text-decoration:none;transition:opacity .15s}.ap-ni:last-child{border-bottom:none}.ap-ni:hover{opacity:.8}
-.ap-nii{width:36px;height:36px;border-radius:5px;object-fit:cover;flex-shrink:0;background:#111822}.ap-nit{font-size:10px;font-weight:700;color:#b0bdd4;line-height:1.25}.ap-nid{font-size:8px;color:#5e7290;margin-top:1px}
-
-/* Gallery */
-.ap-gal{display:flex;flex-wrap:wrap;gap:3px;border-radius:10px;overflow:hidden}
-.ap-gc{position:relative;height:170px;flex:1 1 200px;max-width:33%;overflow:hidden;cursor:zoom-in}.ap-gcb{flex:2 1 400px;max-width:50%;height:340px}
-.ap-gc img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s}.ap-gc:hover img{transform:scale(1.04)}
-.ap-gco{position:absolute;inset:0;background:rgba(0,0,0,0);transition:.2s}.ap-gc:hover .ap-gco{background:rgba(0,0,0,.15)}
-.ap-lb{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.95);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:center}
-.ap-lbm{max-width:90vw;max-height:90vh;display:flex;flex-direction:column;align-items:center}.ap-lbm img{max-width:100%;max-height:82vh;object-fit:contain;border-radius:4px}.ap-lbm p{font-size:10px;color:rgba(255,255,255,.25);margin-top:5px}
-.ap-lbx{position:absolute;top:12px;right:16px;background:rgba(255,255,255,.08);border:none;color:rgba(255,255,255,.5);font-size:14px;cursor:pointer;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center}
-.ap-lba{position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.05);border:none;color:rgba(255,255,255,.4);font-size:26px;cursor:pointer;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center}.ap-lbp{left:8px}.ap-lbn{right:8px}
-.ap-lbc{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);font-size:9px;color:rgba(255,255,255,.15);font-weight:600}
-
-.ap-de{border:1px dashed rgba(255,255,255,.06);border-radius:10px;padding:24px;text-align:center}.ap-det{font-size:12px;font-weight:700;color:#5e7290;margin-bottom:2px}.ap-des{font-size:10px;color:#334058}
-.ap-deb{margin-top:8px;padding:6px 16px;border-radius:100px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02);color:#b0bdd4;font-size:10px;font-weight:700;cursor:pointer;font-family:'Outfit',system-ui,sans-serif;transition:.2s}.ap-deb:hover{background:rgba(255,255,255,.05)}
-.ap-smr{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}.ap-smr::-webkit-scrollbar{display:none}
-.ap-smc{flex-shrink:0;width:86px;text-align:center;text-decoration:none;transition:.2s}.ap-smc:hover{transform:translateY(-2px)}
-.ap-smi{width:60px;height:60px;border-radius:50%;object-fit:cover;margin:0 auto 4px;border:2px solid rgba(255,255,255,.06);background:#111822}.ap-smni{display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:rgba(255,255,255,.04);font-family:'Outfit',system-ui,sans-serif}
-.ap-smn{font-size:9px;font-weight:700;color:#b0bdd4}
-
-@media(max-width:1024px){.ap-mr-box{grid-template-columns:1fr}.ap-tc{grid-template-columns:1fr}.ap-gc{max-width:50%}.ap-gcb{max-width:100%}.ap-hero{height:320px}}
-@media(max-width:640px){.ap-dg{grid-template-columns:repeat(2,1fr)}.ap-gc{max-width:100%;height:140px}.ap-gcb{height:200px}.ap-hero{height:280px}.ap-hero-nm{font-size:1.8rem}}
-`
