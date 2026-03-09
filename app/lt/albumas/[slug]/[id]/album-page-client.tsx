@@ -61,32 +61,32 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
     borderSub:  dk ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.06)',
     text:       dk ? '#f0f2f5' : '#0f1a2e',
     textSec:    dk ? '#b0bdd4' : '#3a5a80',
-    textMuted:  dk ? '#6889a8' : '#8899aa',
-    textFaint:  dk ? '#334058' : '#bbc8d8',
+    textMuted:  dk ? '#7a9bb8' : '#8899aa',
+    textFaint:  dk ? '#4a6888' : '#bbc8d8',
     coverBg:    dk ? '#111822' : '#e0e8f2',
-    trackNum:   dk ? 'rgba(255,255,255,.2)' : 'rgba(0,0,0,.25)',
-    trackText:  dk ? 'rgba(255,255,255,.82)' : '#1a2a40',
-    trackFeat:  dk ? 'rgba(255,255,255,.4)' : '#6a85a0',
+    trackNum:   dk ? '#4a6888' : 'rgba(0,0,0,.25)',
+    trackText:  dk ? '#dce8f5' : '#1a2a40',
+    trackFeat:  dk ? '#6889a8' : '#6a85a0',
     popBg:      dk ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.06)',
     popVal:     dk ? 'rgba(255,255,255,.15)' : 'rgba(0,0,0,.2)',
     dykBg:      dk ? 'rgba(249,115,22,.04)' : 'rgba(249,115,22,.05)',
     dykBdr:     dk ? 'rgba(249,115,22,.12)' : 'rgba(249,115,22,.18)',
-    dykText:    dk ? 'rgba(255,255,255,.45)' : '#5a7898',
-    dykSrc:     dk ? 'rgba(255,255,255,.18)' : '#99aabb',
+    dykText:    dk ? '#8aadcc' : '#5a7898',
+    dykSrc:     dk ? '#4a6888' : '#99aabb',
     cmtInput:   dk ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.04)',
     cmtBdr:     dk ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.1)',
-    cmtText:    dk ? 'rgba(255,255,255,.7)' : '#3a5a80',
+    cmtText:    dk ? '#b0bdd4' : '#3a5a80',
     simCoverBg: dk ? 'rgba(255,255,255,.05)' : '#e0e8f2',
     simCoverBdr:dk ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.08)',
-    simTitle:   dk ? 'rgba(255,255,255,.6)' : '#3a5a80',
-    simMeta:    dk ? 'rgba(255,255,255,.24)' : '#99aabb',
+    simTitle:   dk ? '#9cb5d0' : '#3a5a80',
+    simMeta:    dk ? '#4a6888' : '#99aabb',
     linkBtn:    dk ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.05)',
     linkBdr:    dk ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.1)',
-    linkText:   dk ? 'rgba(255,255,255,.7)' : '#3a5a80',
-    cardHead:   dk ? 'rgba(255,255,255,.75)' : '#1a2a40',
+    linkText:   dk ? '#b0bdd4' : '#3a5a80',
+    cardHead:   dk ? '#c8d8ec' : '#1a2a40',
     cardHdBdr:  dk ? 'rgba(255,255,255,.055)' : 'rgba(0,0,0,.07)',
     nowBdr:     dk ? 'rgba(255,255,255,.055)' : 'rgba(0,0,0,.07)',
-    trackLinkC: dk ? 'rgba(255,255,255,.2)' : 'rgba(0,0,0,.2)',
+    trackLinkC: dk ? '#4a6888' : 'rgba(0,0,0,.2)',
   }
 
   const card = {
@@ -107,69 +107,48 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
   return (
     <div style={{ background: T.bg, color: T.text, fontFamily: "'DM Sans',system-ui,sans-serif", WebkitFontSmoothing: 'antialiased', minHeight: '100vh', transition: 'background .2s, color .2s' }}>
 
-      {/* ══ ALBUM HEADER — compact, no hero ══ */}
-      <div style={{
-        borderBottom: `1px solid ${T.border}`,
-        background: dk
-          ? 'linear-gradient(to bottom, rgba(8,12,18,1) 0%, rgba(8,12,18,.95) 100%)'
-          : 'linear-gradient(to bottom, #f0f4fa 0%, rgba(240,244,250,.95) 100%)',
-        position: 'relative', overflow: 'hidden',
-      }}>
-        {/* subtle blurred bg */}
-        {album.cover_image_url && (
-          <div style={{ position: 'absolute', inset: 0, zIndex: 0, overflow: 'hidden' }}>
-            <img src={album.cover_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: dk ? 'brightness(.12) saturate(1.3) blur(32px)' : 'brightness(.9) saturate(.8) blur(40px)', transform: 'scale(1.1)', display: 'block' }} />
-          </div>
-        )}
-        <div style={{ position: 'relative', zIndex: 1, maxWidth: 1400, margin: '0 auto', padding: '20px 24px', display: 'flex', gap: 18, alignItems: 'center', opacity: loaded ? 1 : 0, transform: loaded ? 'none' : 'translateY(8px)', transition: 'opacity .5s, transform .5s' }}>
-
-          {/* Cover */}
-          {album.cover_image_url
-            ? <img src={album.cover_image_url} alt={album.title} style={{ width: 80, height: 80, borderRadius: 10, objectFit: 'cover', display: 'block', flexShrink: 0, boxShadow: '0 8px 28px rgba(0,0,0,.5)' }} />
-            : <div style={{ width: 80, height: 80, borderRadius: 10, flexShrink: 0, background: T.coverBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>💿</div>
-          }
-
-          {/* Info */}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
-              <span style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.1em', color: '#f97316', fontFamily: 'Outfit, sans-serif' }}>{album.type}</span>
-              {album.is_upcoming && <span style={{ fontSize: 8, fontWeight: 800, padding: '1px 7px', borderRadius: 999, background: 'rgba(249,115,22,.15)', border: '1px solid rgba(249,115,22,.3)', color: '#f97316' }}>Greitai</span>}
-            </div>
-            <h1 style={{ fontFamily: 'Outfit, sans-serif', fontSize: 'clamp(16px,3vw,26px)', fontWeight: 900, lineHeight: 1.1, letterSpacing: '-.02em', color: dk ? '#fff' : '#0f1a2e', margin: '0 0 4px', wordBreak: 'break-word' }}>{album.title}</h1>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <Link href={`/atlikejai/${artist.slug}`} style={{ fontSize: 13, fontWeight: 700, color: '#f97316', textDecoration: 'none' }}
-                onMouseEnter={e => (e.currentTarget.style.opacity = '.75')}
-                onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
-                {artist.name}
-              </Link>
-              {album.dateFormatted && <><span style={{ color: T.textFaint, fontSize: 11 }}>·</span><span style={{ fontSize: 11, color: T.textMuted }}>{album.dateFormatted}</span></>}
-              {tracks.length > 0 && <><span style={{ color: T.textFaint, fontSize: 11 }}>·</span><span style={{ fontSize: 11, color: T.textMuted }}>{tracks.length} {tracks.length === 1 ? 'daina' : tracks.length < 10 ? 'dainos' : 'dainų'}</span></>}
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
-            <button
-              onClick={() => setLiked(!liked)}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 700, border: `1px solid ${liked ? 'rgba(249,115,22,.4)' : T.linkBdr}`, background: liked ? 'rgba(249,115,22,.15)' : T.linkBtn, color: liked ? '#f97316' : T.linkText, cursor: 'pointer', transition: 'all .15s', fontFamily: 'Outfit, sans-serif' }}>
-              {liked ? '♥' : '♡'} {likes + (liked ? 1 : 0)}
-            </button>
-            <button style={{ width: 32, height: 32, borderRadius: 999, border: `1px solid ${T.linkBdr}`, background: T.linkBtn, color: T.linkText, cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .15s' }}>↗</button>
-            <Link href={`/atlikejai/${artist.slug}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 999, fontSize: 11, fontWeight: 700, border: `1px solid ${T.linkBdr}`, background: T.linkBtn, color: T.linkText, textDecoration: 'none', fontFamily: 'Outfit, sans-serif' }}>
-              ← Atlikėjas
-            </Link>
-          </div>
-        </div>
-      </div>
-
       {/* ══ MAIN CONTENT — 50/50 split ══ */}
       <div style={{ maxWidth: 1400, margin: '0 auto', padding: '16px 24px 60px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start' }}
         className="ab-grid">
 
-        {/* ── LEFT: Player + Tracklist ── */}
+        {/* ── LEFT: Cover info + Player + Tracklist ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
           <div style={card}>
+            {/* Album info row — cover + title + meta + actions */}
+            <div style={{ position: 'relative', overflow: 'hidden', borderBottom: `1px solid ${T.cardHdBdr}` }}>
+              {album.cover_image_url && (
+                <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+                  <img src={album.cover_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: dk ? 'brightness(.1) saturate(1.4) blur(28px)' : 'brightness(.85) saturate(.7) blur(28px)', transform: 'scale(1.1)', display: 'block' }} />
+                </div>
+              )}
+              <div style={{ position: 'relative', zIndex: 1, display: 'flex', gap: 12, alignItems: 'center', padding: '12px 14px', opacity: loaded ? 1 : 0, transform: loaded ? 'none' : 'translateY(6px)', transition: 'opacity .5s, transform .5s' }}>
+                {album.cover_image_url
+                  ? <img src={album.cover_image_url} alt={album.title} style={{ width: 60, height: 60, borderRadius: 8, objectFit: 'cover', flexShrink: 0, boxShadow: '0 6px 20px rgba(0,0,0,.5)', display: 'block' }} />
+                  : <div style={{ width: 60, height: 60, borderRadius: 8, flexShrink: 0, background: T.coverBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>💿</div>}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                    <span style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.1em', color: '#f97316', fontFamily: 'Outfit, sans-serif' }}>{album.type}</span>
+                    {album.is_upcoming && <span style={{ fontSize: 8, fontWeight: 800, padding: '1px 6px', borderRadius: 999, background: 'rgba(249,115,22,.18)', border: '1px solid rgba(249,115,22,.3)', color: '#f97316' }}>Greitai</span>}
+                  </div>
+                  <h1 style={{ fontFamily: 'Outfit, sans-serif', fontSize: 'clamp(14px,2.5vw,20px)', fontWeight: 900, lineHeight: 1.1, letterSpacing: '-.02em', color: dk ? '#fff' : '#0f1a2e', margin: '0 0 3px', wordBreak: 'break-word' }}>{album.title}</h1>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <Link href={`/atlikejai/${artist.slug}`} style={{ fontSize: 12, fontWeight: 700, color: '#f97316', textDecoration: 'none' }}
+                      onMouseEnter={e => (e.currentTarget.style.opacity = '.75')}
+                      onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>{artist.name}</Link>
+                    {album.dateFormatted && <><span style={{ color: T.textFaint, fontSize: 10 }}>·</span><span style={{ fontSize: 10, color: T.textMuted }}>{album.dateFormatted}</span></>}
+                    {tracks.length > 0 && <><span style={{ color: T.textFaint, fontSize: 10 }}>·</span><span style={{ fontSize: 10, color: T.textMuted }}>{tracks.length} {tracks.length === 1 ? 'daina' : tracks.length < 10 ? 'dainos' : 'dainų'}</span></>}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 5, alignItems: 'center', flexShrink: 0 }}>
+                  <button onClick={() => setLiked(!liked)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700, border: `1px solid ${liked ? 'rgba(249,115,22,.4)' : T.linkBdr}`, background: liked ? 'rgba(249,115,22,.15)' : T.linkBtn, color: liked ? '#f97316' : T.linkText, cursor: 'pointer', transition: 'all .15s', fontFamily: 'Outfit, sans-serif' }}>
+                    {liked ? '♥' : '♡'} {likes + (liked ? 1 : 0)}
+                  </button>
+                  <button style={{ width: 28, height: 28, borderRadius: 999, border: `1px solid ${T.linkBdr}`, background: T.linkBtn, color: T.linkText, cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>↗</button>
+                </div>
+              </div>
+            </div>
+
             {/* Video player */}
             <div style={{ background: '#000', position: 'relative' }}>
               {activeVid ? (
@@ -249,11 +228,10 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
                       >→</Link>
                     </div>
                     {/* Popularity bar */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 0 0 52px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', padding: '3px 0 0 52px' }}>
                       <div style={{ flex: 1, height: 2, background: T.popBg, borderRadius: 2, overflow: 'hidden' }}>
                         <div style={{ height: '100%', borderRadius: 2, background: 'linear-gradient(90deg, rgba(249,115,22,.9), rgba(249,115,22,.3))', width: `${Math.round(pop * 100)}%`, transition: 'width .4s ease' }} />
                       </div>
-                      <span style={{ fontSize: 8, color: T.popVal, width: 24, textAlign: 'right', fontFamily: 'Outfit, sans-serif' }}>{Math.round(pop * 100)}%</span>
                     </div>
                   </div>
                 )
@@ -265,37 +243,6 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
 
         {/* ── RIGHT: Info, DYK, Discussions, Similar, Other ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-
-          {/* Album info card */}
-          <div style={card}>
-            <div style={cardHead}>Albumo informacija</div>
-            <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {/* Stats row */}
-              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                {[
-                  { l: 'Tipas', v: album.type },
-                  { l: 'Metai', v: album.year?.toString() || '—' },
-                  { l: 'Dainos', v: tracks.length.toString() },
-                  { l: 'Laikas', v: `~${Math.round(tracks.length * 3.5)} min.` },
-                ].map(s => (
-                  <div key={s.l} style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span style={{ fontFamily: 'Outfit, sans-serif', fontSize: 13, fontWeight: 800, color: T.text }}>{s.v}</span>
-                    <span style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: T.textMuted, marginTop: 1 }}>{s.l}</span>
-                  </div>
-                ))}
-              </div>
-              {/* Artist */}
-              <Link href={`/atlikejai/${artist.slug}`} style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none', padding: '8px', borderRadius: 8, background: T.bgHover, border: `1px solid ${T.borderSub}`, marginTop: 2 }}>
-                {artist.cover_image_url
-                  ? <img src={artist.cover_image_url} alt={artist.name} style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                  : <div style={{ width: 36, height: 36, borderRadius: '50%', background: T.coverBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 900, color: T.textFaint, fontFamily: 'Outfit, sans-serif', flexShrink: 0 }}>{artist.name[0]}</div>}
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: T.text }}>{artist.name}</div>
-                  <div style={{ fontSize: 10, color: '#f97316', marginTop: 1 }}>Visi albumai →</div>
-                </div>
-              </Link>
-            </div>
-          </div>
 
           {/* Ar žinojai */}
           <div style={{ ...card, background: T.dykBg, border: `1px solid ${T.dykBdr}` }}>
