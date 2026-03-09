@@ -47,27 +47,27 @@ function MusicRow({ label, list, playingId, onPlay }: { label: string; list: Tra
   if (!list.length) return null
   const cur = list[idx]; const vid = yt(cur?.video_url)
   return (
-    <div className="mr">
-      {label && <div className="mr-lbl">{label}</div>}
-      <div className="mr-box">
-        <div className="mr-vid">
+    <div className="ap-mr">
+      {label && <div className="ap-mr-lbl">{label}</div>}
+      <div className="ap-mr-box">
+        <div className="ap-mr-vid">
           {playingId === cur?.id && vid
             ? <iframe src={`https://www.youtube.com/embed/${vid}?autoplay=1&rel=0`} allow="autoplay;encrypted-media" allowFullScreen />
-            : <div className="mr-th" onClick={() => vid && onPlay(cur.id)}>
-              {vid ? <img src={`https://img.youtube.com/vi/${vid}/hqdefault.jpg`} alt="" /> : <div className="mr-noth" />}
-              {vid && <div className="mr-ply"><div className="mr-pb"><svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg></div></div>}
+            : <div className="ap-mr-th" onClick={() => vid && onPlay(cur.id)}>
+              {vid ? <img src={`https://img.youtube.com/vi/${vid}/hqdefault.jpg`} alt="" /> : <div className="ap-mr-noth" />}
+              {vid && <div className="ap-mr-ply"><div className="ap-mr-pb"><svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg></div></div>}
             </div>}
-          <div className="mr-cur">{cur.title}</div>
+          <div className="ap-mr-cur">{cur.title}</div>
         </div>
-        <div className="mr-pl">
+        <div className="ap-mr-pl">
           {list.map((t, i) => {
             const v = yt(t.video_url); const th = t.cover_url || (v ? `https://img.youtube.com/vi/${v}/default.jpg` : null)
             return (
-              <div key={t.id} className={`pl${idx === i ? ' pla' : ''}`} onClick={() => { setIdx(i); onPlay(-1) }}>
-                <span className="pln">{i + 1}</span>
-                {th ? <img src={th} className="pli" alt="" /> : <div className="pli plni">♪</div>}
-                <div className="plx"><div className="plnm">{t.title}</div></div>
-                {v && <div className="plp"><svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg></div>}
+              <div key={t.id} className={`ap-pl${idx === i ? ' ap-pla' : ''}`} onClick={() => { setIdx(i); onPlay(-1) }}>
+                <span className="ap-pln">{i + 1}</span>
+                {th ? <img src={th} className="ap-pli" alt="" /> : <div className="ap-pli ap-plni">♪</div>}
+                <div className="ap-plx"><div className="ap-plnm">{t.title}</div></div>
+                {v && <div className="ap-plp"><svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg></div>}
               </div>
             )
           })}
@@ -82,15 +82,15 @@ function Gallery({ photos }: { photos: { url: string; caption?: string }[] }) {
   if (!photos.length) return null
   return (
     <>
-      <div className="gal">{photos.slice(0, 10).map((p, i) => (
-        <div key={i} className={`gc${i === 0 ? ' gcb' : ''}`} onClick={() => setLb(i)}><img src={p.url} alt={p.caption || ''} /><div className="gco" /></div>
+      <div className="ap-gal">{photos.slice(0, 10).map((p, i) => (
+        <div key={i} className={`ap-gc${i === 0 ? ' ap-gcb' : ''}`} onClick={() => setLb(i)}><img src={p.url} alt={p.caption || ''} /><div className="ap-gco" /></div>
       ))}</div>
-      {lb !== null && <div className="lb" onClick={() => setLb(null)}>
-        <button className="lbx" onClick={e => { e.stopPropagation(); setLb(null) }}>✕</button>
-        {lb > 0 && <button className="lba lbp" onClick={e => { e.stopPropagation(); setLb(lb - 1) }}>‹</button>}
-        <div className="lbm" onClick={e => e.stopPropagation()}><img src={photos[lb].url} alt="" />{photos[lb].caption && <p>{photos[lb].caption}</p>}</div>
-        {lb < photos.length - 1 && <button className="lba lbn" onClick={e => { e.stopPropagation(); setLb(lb + 1) }}>›</button>}
-        <div className="lbc">{lb + 1}/{photos.length}</div>
+      {lb !== null && <div className="ap-lb" onClick={() => setLb(null)}>
+        <button className="ap-lbx" onClick={e => { e.stopPropagation(); setLb(null) }}>✕</button>
+        {lb > 0 && <button className="ap-lba ap-lbp" onClick={e => { e.stopPropagation(); setLb(lb - 1) }}>‹</button>}
+        <div className="ap-lbm" onClick={e => e.stopPropagation()}><img src={photos[lb].url} alt="" />{photos[lb].caption && <p>{photos[lb].caption}</p>}</div>
+        {lb < photos.length - 1 && <button className="ap-lba ap-lbn" onClick={e => { e.stopPropagation(); setLb(lb + 1) }}>›</button>}
+        <div className="ap-lbc">{lb + 1}/{photos.length}</div>
       </div>}
     </>
   )
@@ -117,80 +117,78 @@ export default function ArtistProfileClient({
   return (
     <>
       <style>{CSS}</style>
-      <div className="pg">
-        <header className="hd"><div className="hw">
-          <Link href="/" className="lg"><b>music</b><i>.lt</i></Link>
-          <div className="sr"><input placeholder="Ieškok atlikėjų, albumų, dainų…" /></div>
-          <nav className="nv">{['Topai', 'Muzika', 'Renginiai', 'Atlikėjai', 'Bendruomenė'].map(n => <a key={n} href="/" className={n === 'Atlikėjai' ? 'on' : ''}>{n}</a>)}</nav>
-          <HeaderAuth />
-        </div></header>
-
+      <div className="ap-pg">
         {/* ═══ HERO — cinematic full-bleed ═══ */}
-        <div className="hero">
-          {/* Background: cover image fills entire hero */}
+        <div className="ap-hero">
           {heroImage ? (
-            <div className="hero-img"><img src={heroImage} alt="" /></div>
+            <div className="ap-hero-img"><img src={heroImage} alt="" /></div>
           ) : artist.cover_image_url ? (
-            <div className="hero-img hero-img-blur"><img src={artist.cover_image_url} alt="" /></div>
+            <div className="ap-hero-img ap-hero-img-blur"><img src={artist.cover_image_url} alt="" /></div>
           ) : (
-            <div className="hero-img hero-fb" />
+            <div className="ap-hero-img ap-hero-fb" />
           )}
-          {/* Gradient overlays */}
-          <div className="hero-g1" />
-          <div className="hero-g2" />
-          {/* Content anchored bottom-left */}
-          <div className={`hero-ct${loaded ? ' hero-in' : ''}`}>
-            <div className="hero-main">
-              <h1 className="hero-nm">{flag && <span className="hero-fl">{flag}</span>}{artist.name}{artist.is_verified && <span className="hero-vf"><svg width="12" height="12" viewBox="0 0 24 24" fill="#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg></span>}</h1>
-              <div className="hero-row">
-                <div className="hero-tags">{genres.map(g => <span key={g.id} className="ht">{g.name}</span>)}</div>
-                <button className="hero-lk"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>{likes > 0 ? likes : '0'}</button>
-                {solo && members.map(m => <Link key={m.id} href={`/atlikejai/${m.slug}`} className="hero-mem">{m.cover_image_url ? <img src={m.cover_image_url} alt="" /> : <span className="hmfb">{m.name[0]}</span>}<span>{m.name}</span></Link>)}
+          <div className="ap-hero-g1" />
+          <div className="ap-hero-g2" />
+          <div className={`ap-hero-ct${loaded ? ' ap-hero-in' : ''}`}>
+            <div className="ap-hero-main">
+              <h1 className="ap-hero-nm">{flag && <span className="ap-hero-fl">{flag}</span>}{artist.name}{artist.is_verified && <span className="ap-hero-vf"><svg width="12" height="12" viewBox="0 0 24 24" fill="#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg></span>}</h1>
+              <div className="ap-hero-row">
+                <div className="ap-hero-tags">{genres.map(g => <span key={g.id} className="ap-ht">{g.name}</span>)}</div>
+                <button className="ap-hero-lk"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>{likes > 0 ? likes : '0'}</button>
+                {solo && members.map(m => <Link key={m.id} href={`/atlikejai/${m.slug}`} className="ap-hero-mem">{m.cover_image_url ? <img src={m.cover_image_url} alt="" /> : <span className="ap-hmfb">{m.name[0]}</span>}<span>{m.name}</span></Link>)}
               </div>
             </div>
-            {chartData.length > 5 && <div className="hero-ch"><div className="hcl">Populiarumas</div><Spark data={chartData} /></div>}
+            {chartData.length > 5 && <div className="ap-hero-ch"><div className="ap-hcl">Populiarumas</div><Spark data={chartData} /></div>}
           </div>
         </div>
 
-        <div className="ct">
+        <div className="ap-ct">
           {/* Events */}
-          {events.length > 0 && <section className="s"><div className="st">Artimiausi renginiai</div>
-            <div className="evr">{events.map((e: any) => { const d = new Date(e.event_date); const sy = d.getFullYear() !== yr; return (
-              <div key={e.id} className="evc"><div className="evd"><div className="evm">{d.toLocaleDateString('lt-LT', { month: 'long' })}{sy ? `, ${d.getFullYear()}` : ''}</div><div className="evdy">{d.getDate()}</div></div><div className="evi"><div className="evt">{e.title}</div><div className="evv">{e.venues?.name || e.venue_custom || ''}{e.venues?.city ? `, ${e.venues.city}` : ''}</div></div></div>
+          {events.length > 0 && <section className="ap-s"><div className="ap-st">Artimiausi renginiai</div>
+            <div className="ap-evr">{events.map((e: any) => { const d = new Date(e.event_date); const sy = d.getFullYear() !== yr; return (
+              <div key={e.id} className="ap-evc"><div className="ap-evd"><div className="ap-evm">{d.toLocaleDateString('lt-LT', { month: 'long' })}{sy ? `, ${d.getFullYear()}` : ''}</div><div className="ap-evdy">{d.getDate()}</div></div><div className="ap-evi"><div className="ap-evt">{e.title}</div><div className="ap-evv">{e.venues?.name || e.venue_custom || ''}{e.venues?.city ? `, ${e.venues.city}` : ''}</div></div></div>
             ) })}</div>
           </section>}
 
           {/* Music */}
-          {(topVideos.length > 0 || newTracks.length > 0) && <section className="s"><div className="st">Muzika</div>
+          {(topVideos.length > 0 || newTracks.length > 0) && <section className="ap-s"><div className="ap-st">Muzika</div>
             {hasNewMusic && newTracks.length > 0 && <MusicRow label="Nauja muzika" list={newTracks.slice(0, 6)} playingId={pid} onPlay={setPid} />}
             {topVideos.length > 0 && <MusicRow label={hasNewMusic ? 'Populiariausia' : ''} list={topVideos} playingId={pid} onPlay={setPid} />}
           </section>}
 
-          {/* Discography */}
-          {albums.length > 0 && <section className="s"><div className="st">Diskografija · {albums.length}</div>
-            {atypes.length > 1 && <div className="dfr">{['all', ...atypes].map(t => <button key={t} className={`dft${df === t ? ' dfa' : ''}`} onClick={() => setDf(t)}>{t === 'all' ? 'Visi' : t}</button>)}</div>}
-            <div className="dg">{fAlbums.map(a => <div key={a.id} className="dc"><div className="dcv">{a.cover_image_url ? <img src={a.cover_image_url} alt={a.title} /> : <div className="dcn">💿</div>}{aType(a) !== 'Albumas' && <span className="dct">{aType(a)}</span>}</div><div className="dci"><div className="dctt">{a.title}</div><div className="dcy">{a.year || '—'}</div></div></div>)}</div>
+          {/* Discography — albumai su nuorodomis */}
+          {albums.length > 0 && <section className="ap-s"><div className="ap-st">Diskografija · {albums.length}</div>
+            {atypes.length > 1 && <div className="ap-dfr">{['all', ...atypes].map(t => <button key={t} className={`ap-dft${df === t ? ' ap-dfa' : ''}`} onClick={() => setDf(t)}>{t === 'all' ? 'Visi' : t}</button>)}</div>}
+            <div className="ap-dg">{fAlbums.map(a => (
+              <Link key={a.id} href={`/lt/albumas/${a.slug}/${a.id}/`} className="ap-dc">
+                <div className="ap-dcv">
+                  {a.cover_image_url ? <img src={a.cover_image_url} alt={a.title} /> : <div className="ap-dcn">💿</div>}
+                  {aType(a) !== 'Albumas' && <span className="ap-dct">{aType(a)}</span>}
+                </div>
+                <div className="ap-dci"><div className="ap-dctt">{a.title}</div><div className="ap-dcy">{a.year || '—'}</div></div>
+              </Link>
+            ))}</div>
           </section>}
 
           {/* Bio + News */}
-          {(hasBio || news.length > 0) && <section className="s"><div className="tc">
+          {(hasBio || news.length > 0) && <section className="ap-s"><div className="ap-tc">
             <div>
-              <div className="bch">{active && <div className="bc"><span className="bcv">{active}</span><span className="bcl">Aktyvumas</span></div>}{solo && age && <div className="bc"><span className="bcv">{age} m.</span><span className="bcl">Amžius</span></div>}{artist.country && <div className="bc"><span className="bcv">{flag} {artist.country}</span><span className="bcl">Šalis</span></div>}{albums.length > 0 && <div className="bc"><span className="bcv">{albums.length}</span><span className="bcl">Albumai</span></div>}{tracks.length > 0 && <div className="bc"><span className="bcv">{tracks.length}+</span><span className="bcl">Dainos</span></div>}</div>
-              {hasBio && <><div className="st">Apie</div><div className="bio" dangerouslySetInnerHTML={{ __html: artist.description }} /></>}
-              {links.length > 0 && <div className="sr2">{links.map(l => { const p = SOC[l.platform]; return <a key={l.platform} href={l.url} target="_blank" rel="noopener" className="sc">{p && <svg viewBox="0 0 24 24" fill={p.c} width="13" height="13"><path d={p.d} /></svg>}<span>{p?.l || l.platform}</span></a> })}{artist.website && <a href={artist.website} target="_blank" rel="noopener" className="sc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13" style={{ color: '#5e7290' }}><circle cx="12" cy="12" r="10" /></svg><span>Svetainė</span></a>}</div>}
-              {!solo && members.length > 0 && <div style={{ marginTop: 16 }}><div className="st">Nariai · {members.length}</div><div className="mmr">{members.map(m => <Link key={m.id} href={`/atlikejai/${m.slug}`} className="mm">{m.cover_image_url ? <img src={m.cover_image_url} alt={m.name} className="mmi" /> : <div className="mmi mmni">{m.name[0]}</div>}<div><div className="mmn">{m.name}</div><div className="mmy">{m.member_from ? `${m.member_from}–${m.member_until || 'dabar'}` : ''}</div></div></Link>)}</div></div>}
+              <div className="ap-bch">{active && <div className="ap-bc"><span className="ap-bcv">{active}</span><span className="ap-bcl">Aktyvumas</span></div>}{solo && age && <div className="ap-bc"><span className="ap-bcv">{age} m.</span><span className="ap-bcl">Amžius</span></div>}{artist.country && <div className="ap-bc"><span className="ap-bcv">{flag} {artist.country}</span><span className="ap-bcl">Šalis</span></div>}{albums.length > 0 && <div className="ap-bc"><span className="ap-bcv">{albums.length}</span><span className="ap-bcl">Albumai</span></div>}{tracks.length > 0 && <div className="ap-bc"><span className="ap-bcv">{tracks.length}+</span><span className="ap-bcl">Dainos</span></div>}</div>
+              {hasBio && <><div className="ap-st">Apie</div><div className="ap-bio" dangerouslySetInnerHTML={{ __html: artist.description }} /></>}
+              {links.length > 0 && <div className="ap-sr2">{links.map(l => { const p = SOC[l.platform]; return <a key={l.platform} href={l.url} target="_blank" rel="noopener" className="ap-sc">{p && <svg viewBox="0 0 24 24" fill={p.c} width="13" height="13"><path d={p.d} /></svg>}<span>{p?.l || l.platform}</span></a> })}{artist.website && <a href={artist.website} target="_blank" rel="noopener" className="ap-sc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13" style={{ color: '#5e7290' }}><circle cx="12" cy="12" r="10" /></svg><span>Svetainė</span></a>}</div>}
+              {!solo && members.length > 0 && <div style={{ marginTop: 16 }}><div className="ap-st">Nariai · {members.length}</div><div className="ap-mmr">{members.map(m => <Link key={m.id} href={`/atlikejai/${m.slug}`} className="ap-mm">{m.cover_image_url ? <img src={m.cover_image_url} alt={m.name} className="ap-mmi" /> : <div className="ap-mmi ap-mmni">{m.name[0]}</div>}<div><div className="ap-mmn">{m.name}</div><div className="ap-mmy">{m.member_from ? `${m.member_from}–${m.member_until || 'dabar'}` : ''}</div></div></Link>)}</div></div>}
             </div>
-            <div>{news.length > 0 && <div className="cd"><div className="st" style={{ marginBottom: 6 }}>Naujienos</div>{news.map(n => <Link key={n.id} href={`/news/${n.slug}`} className="ni">{n.image_small_url ? <img src={n.image_small_url} className="nii" alt="" /> : <div className="nii" />}<div><div className="nit">{n.title}</div><div className="nid">{new Date(n.published_at).toLocaleDateString('lt-LT')}</div></div></Link>)}</div>}</div>
+            <div>{news.length > 0 && <div className="ap-cd"><div className="ap-st" style={{ marginBottom: 6 }}>Naujienos</div>{news.map(n => <Link key={n.id} href={`/news/${n.slug}`} className="ap-ni">{n.image_small_url ? <img src={n.image_small_url} className="ap-nii" alt="" /> : <div className="ap-nii" />}<div><div className="ap-nit">{n.title}</div><div className="ap-nid">{new Date(n.published_at).toLocaleDateString('lt-LT')}</div></div></Link>)}</div>}</div>
           </div></section>}
 
           {/* Gallery */}
-          {photos.length > 0 && <section className="s"><div className="st">Galerija · {photos.length}</div><Gallery photos={photos} /></section>}
+          {photos.length > 0 && <section className="ap-s"><div className="ap-st">Galerija · {photos.length}</div><Gallery photos={photos} /></section>}
 
           {/* Discussions */}
-          <section className="s"><div className="st">Diskusijos</div><div className="de"><div className="det">Dar nėra diskusijų apie {artist.name}</div><div className="des">Būk pirmas — pradėk diskusiją!</div><button className="deb">+ Nauja diskusija</button></div></section>
+          <section className="ap-s"><div className="ap-st">Diskusijos</div><div className="ap-de"><div className="ap-det">Dar nėra diskusijų apie {artist.name}</div><div className="ap-des">Būk pirmas — pradėk diskusiją!</div><button className="ap-deb">+ Nauja diskusija</button></div></section>
 
           {/* Similar */}
-          {similar.length > 0 && <section className="s slast"><div className="st">Panaši muzika</div><div className="smr">{similar.map((a: any) => <Link key={a.id} href={`/atlikejai/${a.slug}`} className="smc">{a.cover_image_url ? <img src={a.cover_image_url} alt={a.name} className="smi" /> : <div className="smi smni">{a.name[0]}</div>}<div className="smn">{a.name}</div></Link>)}</div></section>}
+          {similar.length > 0 && <section className="ap-s ap-slast"><div className="ap-st">Panaši muzika</div><div className="ap-smr">{similar.map((a: any) => <Link key={a.id} href={`/atlikejai/${a.slug}`} className="ap-smc">{a.cover_image_url ? <img src={a.cover_image_url} alt={a.name} className="ap-smi" /> : <div className="ap-smi ap-smni">{a.name[0]}</div>}<div className="ap-smn">{a.name}</div></Link>)}</div></section>}
         </div>
       </div>
     </>
@@ -199,113 +197,105 @@ export default function ArtistProfileClient({
 
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&display=swap');
-:root{--bg:#080c12;--bg2:#111822;--t:#f0f2f5;--t2:#b0bdd4;--t3:#5e7290;--t4:#334058;--bd:rgba(255,255,255,.06);--or:#f97316;--fd:'Outfit',system-ui,sans-serif;--fb:'DM Sans',system-ui,sans-serif}
-*{box-sizing:border-box;margin:0;padding:0}
-.pg{background:var(--bg);color:var(--t);font-family:var(--fb);-webkit-font-smoothing:antialiased;min-height:100vh}
-.ct{max-width:1400px;margin:0 auto;padding:0 24px}
-.s{padding-top:24px}.slast{padding-bottom:48px}
-.st{font-family:var(--fd);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.14em;color:var(--t4);margin-bottom:12px;display:flex;align-items:center;gap:10px}.st::after{content:'';flex:1;height:1px;background:var(--bd)}
 
-.hd{position:sticky;top:0;z-index:50;background:rgba(8,12,18,.92);backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,.03)}
-.hw{max-width:1400px;margin:0 auto;padding:0 24px;height:52px;display:flex;align-items:center;gap:18px}
-.lg{font-family:var(--fd);font-size:20px;font-weight:900;letter-spacing:-.03em;text-decoration:none}.lg b{color:#f2f4f8}.lg i{color:#fb923c;font-style:normal}
-.sr{flex:1;max-width:360px;height:32px;border-radius:100px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);display:flex;align-items:center;overflow:hidden}
-.sr input{flex:1;padding:0 14px;font-size:12px;background:none;border:none;outline:none;color:var(--t2);font-family:var(--fb)}.sr input::placeholder{color:var(--t4)}
-.nv{display:flex;gap:1px;margin-left:auto}.nv a{padding:4px 10px;font-size:11px;font-weight:600;color:var(--t3);border-radius:4px;text-decoration:none;font-family:var(--fd);transition:.15s}.nv a:hover{color:var(--t);background:rgba(255,255,255,.04)}.nv a.on{color:var(--or)}
+.ap-pg{background:#080c12;color:#f0f2f5;font-family:'DM Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh}
+.ap-ct{max-width:1400px;margin:0 auto;padding:0 24px}
+.ap-s{padding-top:24px}.ap-slast{padding-bottom:48px}
+.ap-st{font-family:'Outfit',system-ui,sans-serif;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.14em;color:#334058;margin-bottom:12px;display:flex;align-items:center;gap:10px}.ap-st::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.06)}
 
-/* ═══ HERO — cinematic ═══ */
-.hero{position:relative;height:380px;overflow:hidden}
-.hero-img{position:absolute;inset:0}
-.hero-img img{width:100%;height:100%;object-fit:cover;object-position:center 20%;display:block;animation:heroZoom 20s ease-in-out infinite alternate}
-.hero-img-blur img{filter:blur(40px) brightness(.2) saturate(1.3);transform:scale(1.4);animation:none}
-.hero-fb{position:absolute;inset:0;background:linear-gradient(135deg,#0f1825 0%,#080c12 50%,rgba(249,115,22,.03) 100%)}
-@keyframes heroZoom{0%{transform:scale(1)}100%{transform:scale(1.05)}}
-.hero-g1{position:absolute;inset:0;background:linear-gradient(to top,var(--bg) 0%,rgba(8,12,18,.85) 30%,rgba(8,12,18,.4) 60%,rgba(8,12,18,.2) 100%)}
-.hero-g2{position:absolute;inset:0;background:linear-gradient(to right,rgba(8,12,18,.6) 0%,transparent 50%)}
-.hero-ct{position:relative;max-width:1400px;margin:0 auto;height:100%;display:flex;align-items:flex-end;justify-content:space-between;padding:0 24px 28px;gap:20px;opacity:0;transform:translateY(12px);transition:opacity .6s,transform .6s}
-.hero-in{opacity:1;transform:translateY(0)}
-.hero-main{flex:1;min-width:0}
-.hero-nm{font-family:var(--fd);font-size:clamp(2rem,5vw,3.5rem);font-weight:900;line-height:1.05;letter-spacing:-.04em;color:#fff;margin-bottom:10px;text-shadow:0 2px 20px rgba(0,0,0,.4)}
-.hero-fl{margin-right:6px;font-size:.65em;vertical-align:middle}
-.hero-vf{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:#3b82f6;border-radius:50%;margin-left:6px;vertical-align:middle}
-.hero-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
-.hero-tags{display:contents}
-.ht{font-size:10px;font-weight:700;color:rgba(255,255,255,.7);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:100px;padding:3px 10px;font-family:var(--fd);backdrop-filter:blur(4px)}
-.hero-lk{display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border-radius:100px;border:1px solid rgba(249,115,22,.25);font-size:11px;font-weight:800;cursor:pointer;font-family:var(--fd);background:rgba(249,115,22,.1);color:var(--or);transition:.2s;backdrop-filter:blur(4px)}.hero-lk:hover{background:rgba(249,115,22,.2)}.hero-lk svg{width:11px;height:11px}
-.hero-mem{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:100px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.06);text-decoration:none;font-size:10px;font-weight:700;color:#fff;font-family:var(--fd);backdrop-filter:blur(4px);transition:.2s}.hero-mem:hover{background:rgba(255,255,255,.12)}
-.hero-mem img{width:18px;height:18px;border-radius:50%;object-fit:cover}.hmfb{width:18px;height:18px;border-radius:50%;background:rgba(255,255,255,.1);display:inline-flex;align-items:center;justify-content:center;font-size:7px}
-.hero-ch{background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:8px 12px 2px;backdrop-filter:blur(8px);flex-shrink:0}
-.hcl{font-size:7px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.25);font-family:var(--fd);margin-bottom:2px}
+/* ═══ HERO ═══ */
+.ap-hero{position:relative;height:380px;overflow:hidden}
+.ap-hero-img{position:absolute;inset:0}
+.ap-hero-img img{width:100%;height:100%;object-fit:cover;object-position:center 20%;display:block;animation:apHeroZoom 20s ease-in-out infinite alternate}
+.ap-hero-img-blur img{filter:blur(40px) brightness(.2) saturate(1.3);transform:scale(1.4);animation:none}
+.ap-hero-fb{position:absolute;inset:0;background:linear-gradient(135deg,#0f1825 0%,#080c12 50%,rgba(249,115,22,.03) 100%)}
+@keyframes apHeroZoom{0%{transform:scale(1)}100%{transform:scale(1.05)}}
+.ap-hero-g1{position:absolute;inset:0;background:linear-gradient(to top,#080c12 0%,rgba(8,12,18,.85) 30%,rgba(8,12,18,.4) 60%,rgba(8,12,18,.2) 100%)}
+.ap-hero-g2{position:absolute;inset:0;background:linear-gradient(to right,rgba(8,12,18,.6) 0%,transparent 50%)}
+.ap-hero-ct{position:relative;max-width:1400px;margin:0 auto;height:100%;display:flex;align-items:flex-end;justify-content:space-between;padding:0 24px 28px;gap:20px;opacity:0;transform:translateY(12px);transition:opacity .6s,transform .6s}
+.ap-hero-in{opacity:1;transform:translateY(0)}
+.ap-hero-main{flex:1;min-width:0}
+.ap-hero-nm{font-family:'Outfit',system-ui,sans-serif;font-size:clamp(2rem,5vw,3.5rem);font-weight:900;line-height:1.05;letter-spacing:-.04em;color:#fff;margin-bottom:10px;text-shadow:0 2px 20px rgba(0,0,0,.4)}
+.ap-hero-fl{margin-right:6px;font-size:.65em;vertical-align:middle}
+.ap-hero-vf{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:#3b82f6;border-radius:50%;margin-left:6px;vertical-align:middle}
+.ap-hero-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.ap-hero-tags{display:contents}
+.ap-ht{font-size:10px;font-weight:700;color:rgba(255,255,255,.7);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:100px;padding:3px 10px;font-family:'Outfit',system-ui,sans-serif;backdrop-filter:blur(4px)}
+.ap-hero-lk{display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border-radius:100px;border:1px solid rgba(249,115,22,.25);font-size:11px;font-weight:800;cursor:pointer;font-family:'Outfit',system-ui,sans-serif;background:rgba(249,115,22,.1);color:#f97316;transition:.2s;backdrop-filter:blur(4px)}.ap-hero-lk:hover{background:rgba(249,115,22,.2)}.ap-hero-lk svg{width:11px;height:11px}
+.ap-hero-mem{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:100px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.06);text-decoration:none;font-size:10px;font-weight:700;color:#fff;font-family:'Outfit',system-ui,sans-serif;backdrop-filter:blur(4px);transition:.2s}.ap-hero-mem:hover{background:rgba(255,255,255,.12)}
+.ap-hero-mem img{width:18px;height:18px;border-radius:50%;object-fit:cover}.ap-hmfb{width:18px;height:18px;border-radius:50%;background:rgba(255,255,255,.1);display:inline-flex;align-items:center;justify-content:center;font-size:7px}
+.ap-hero-ch{background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:8px 12px 2px;backdrop-filter:blur(8px);flex-shrink:0}
+.ap-hcl{font-size:7px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.25);font-family:'Outfit',system-ui,sans-serif;margin-bottom:2px}
 
 /* Events */
-.evr{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}.evr::-webkit-scrollbar{display:none}
-.evc{flex-shrink:0;display:flex;gap:12px;align-items:center;border-radius:12px;border:1px solid rgba(249,115,22,.12);background:rgba(249,115,22,.03);padding:14px 18px;cursor:pointer;transition:.2s;min-width:220px}.evc:hover{border-color:rgba(249,115,22,.22);background:rgba(249,115,22,.06)}
-.evd{text-align:center;min-width:40px;background:rgba(249,115,22,.1);border-radius:8px;padding:5px 4px}
-.evm{font-size:9px;font-weight:700;color:var(--or);text-transform:capitalize;line-height:1.2}
-.evdy{font-size:20px;font-weight:900;color:#fff;font-family:var(--fd);line-height:1}
-.evi{flex:1;min-width:0}.evt{font-size:13px;font-weight:700;color:#fff;line-height:1.2}.evv{font-size:11px;color:var(--t2);margin-top:2px}
+.ap-evr{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}.ap-evr::-webkit-scrollbar{display:none}
+.ap-evc{flex-shrink:0;display:flex;gap:12px;align-items:center;border-radius:12px;border:1px solid rgba(249,115,22,.12);background:rgba(249,115,22,.03);padding:14px 18px;cursor:pointer;transition:.2s;min-width:220px}.ap-evc:hover{border-color:rgba(249,115,22,.22);background:rgba(249,115,22,.06)}
+.ap-evd{text-align:center;min-width:40px;background:rgba(249,115,22,.1);border-radius:8px;padding:5px 4px}
+.ap-evm{font-size:9px;font-weight:700;color:#f97316;text-transform:capitalize;line-height:1.2}
+.ap-evdy{font-size:20px;font-weight:900;color:#fff;font-family:'Outfit',system-ui,sans-serif;line-height:1}
+.ap-evi{flex:1;min-width:0}.ap-evt{font-size:13px;font-weight:700;color:#fff;line-height:1.2}.ap-evv{font-size:11px;color:#b0bdd4;margin-top:2px}
 
 /* Music */
-.mr{margin-bottom:14px}
-.mr-lbl{font-family:var(--fd);font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:var(--or);margin-bottom:6px}
-.mr-box{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);border-radius:10px;overflow:hidden;border:1px solid var(--bd);background:rgba(0,0,0,.25)}
-.mr-vid{background:#000}.mr-vid iframe{width:100%;aspect-ratio:16/9;border:none;display:block}
-.mr-th{position:relative;aspect-ratio:16/9;overflow:hidden;cursor:pointer}.mr-th img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s}.mr-th:hover img{transform:scale(1.03)}
-.mr-noth{width:100%;aspect-ratio:16/9;background:#111}
-.mr-ply{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
-.mr-pb{width:48px;height:48px;border-radius:50%;background:rgba(249,115,22,.85);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(249,115,22,.35);transition:.15s}.mr-th:hover .mr-pb{transform:scale(1.1)}
-.mr-cur{padding:7px 12px;font-size:12px;font-weight:800;color:var(--t);background:rgba(249,115,22,.03);border-top:1px solid rgba(249,115,22,.04)}
-.mr-pl{max-height:340px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.05) transparent}
-.pl{display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid rgba(255,255,255,.03);cursor:pointer;transition:.12s}.pl:last-child{border-bottom:none}.pl:hover{background:rgba(255,255,255,.03)}
-.pla{background:rgba(249,115,22,.05)!important}
-.pln{width:16px;font-size:10px;font-weight:600;color:var(--t4);text-align:center;flex-shrink:0;font-family:var(--fd)}.pla .pln{color:var(--or)}
-.pli{width:34px;height:34px;border-radius:4px;object-fit:cover;flex-shrink:0;background:var(--bg2)}.plni{display:flex;align-items:center;justify-content:center;font-size:10px;color:rgba(255,255,255,.05)}
-.plx{flex:1;min-width:0}.plnm{font-size:12px;font-weight:700;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pla .plnm{color:var(--or)}
-.plp{width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;color:var(--t4);flex-shrink:0}.pla .plp{background:var(--or);color:#fff}
+.ap-mr{margin-bottom:14px}
+.ap-mr-lbl{font-family:'Outfit',system-ui,sans-serif;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#f97316;margin-bottom:6px}
+.ap-mr-box{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,.06);background:rgba(0,0,0,.25)}
+.ap-mr-vid{background:#000}.ap-mr-vid iframe{width:100%;aspect-ratio:16/9;border:none;display:block}
+.ap-mr-th{position:relative;aspect-ratio:16/9;overflow:hidden;cursor:pointer}.ap-mr-th img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s}.ap-mr-th:hover img{transform:scale(1.03)}
+.ap-mr-noth{width:100%;aspect-ratio:16/9;background:#111}
+.ap-mr-ply{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.ap-mr-pb{width:48px;height:48px;border-radius:50%;background:rgba(249,115,22,.85);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(249,115,22,.35);transition:.15s}.ap-mr-th:hover .ap-mr-pb{transform:scale(1.1)}
+.ap-mr-cur{padding:7px 12px;font-size:12px;font-weight:800;color:#f0f2f5;background:rgba(249,115,22,.03);border-top:1px solid rgba(249,115,22,.04)}
+.ap-mr-pl{max-height:340px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.05) transparent}
+.ap-pl{display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid rgba(255,255,255,.03);cursor:pointer;transition:.12s}.ap-pl:last-child{border-bottom:none}.ap-pl:hover{background:rgba(255,255,255,.03)}
+.ap-pla{background:rgba(249,115,22,.05)!important}
+.ap-pln{width:16px;font-size:10px;font-weight:600;color:#334058;text-align:center;flex-shrink:0;font-family:'Outfit',system-ui,sans-serif}.ap-pla .ap-pln{color:#f97316}
+.ap-pli{width:34px;height:34px;border-radius:4px;object-fit:cover;flex-shrink:0;background:#111822}.ap-plni{display:flex;align-items:center;justify-content:center;font-size:10px;color:rgba(255,255,255,.05)}
+.ap-plx{flex:1;min-width:0}.ap-plnm{font-size:12px;font-weight:700;color:#b0bdd4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ap-pla .ap-plnm{color:#f97316}
+.ap-plp{width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;color:#334058;flex-shrink:0}.ap-pla .ap-plp{background:#f97316;color:#fff}
 
-/* Disc */
-.dfr{display:flex;gap:3px;margin-bottom:10px;flex-wrap:wrap}
-.dft{padding:3px 9px;border-radius:100px;font-size:9px;font-weight:700;border:1px solid var(--bd);background:none;color:var(--t4);cursor:pointer;font-family:var(--fd);transition:.2s}.dft:hover{color:var(--t)}.dfa{background:var(--or);border-color:var(--or);color:#fff}
-.dg{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
-.dc{border-radius:8px;overflow:hidden;border:1px solid var(--bd);background:rgba(255,255,255,.02);transition:.2s;cursor:pointer}.dc:hover{transform:translateY(-2px);border-color:rgba(255,255,255,.1)}
-.dcv{aspect-ratio:1;background:var(--bg2);overflow:hidden;position:relative}.dcv img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s}.dc:hover .dcv img{transform:scale(1.04)}
-.dcn{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:14px;color:rgba(255,255,255,.03)}
-.dct{position:absolute;top:4px;right:4px;font-size:7px;font-weight:800;text-transform:uppercase;padding:2px 4px;border-radius:2px;background:rgba(0,0,0,.6);color:var(--t2)}
-.dci{padding:7px 8px}.dctt{font-family:var(--fd);font-size:11px;font-weight:700;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dcy{font-size:10px;color:var(--t2);margin-top:2px;font-weight:600}
+/* Discography */
+.ap-dfr{display:flex;gap:3px;margin-bottom:10px;flex-wrap:wrap}
+.ap-dft{padding:3px 9px;border-radius:100px;font-size:9px;font-weight:700;border:1px solid rgba(255,255,255,.06);background:none;color:#334058;cursor:pointer;font-family:'Outfit',system-ui,sans-serif;transition:.2s}.ap-dft:hover{color:#f0f2f5}.ap-dfa{background:#f97316;border-color:#f97316;color:#fff}
+.ap-dg{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+.ap-dc{border-radius:8px;overflow:hidden;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02);transition:.2s;cursor:pointer;text-decoration:none;display:block}.ap-dc:hover{transform:translateY(-2px);border-color:rgba(255,255,255,.1)}
+.ap-dcv{aspect-ratio:1;background:#111822;overflow:hidden;position:relative}.ap-dcv img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s}.ap-dc:hover .ap-dcv img{transform:scale(1.04)}
+.ap-dcn{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:14px;color:rgba(255,255,255,.03)}
+.ap-dct{position:absolute;top:4px;right:4px;font-size:7px;font-weight:800;text-transform:uppercase;padding:2px 4px;border-radius:2px;background:rgba(0,0,0,.6);color:#b0bdd4}
+.ap-dci{padding:7px 8px}.ap-dctt{font-family:'Outfit',system-ui,sans-serif;font-size:11px;font-weight:700;color:#f0f2f5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ap-dcy{font-size:10px;color:#b0bdd4;margin-top:2px;font-weight:600}
 
 /* Bio */
-.tc{display:grid;grid-template-columns:1fr 320px;gap:28px;align-items:start}
-.bch{display:inline-flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;padding:8px 12px;border-radius:8px;background:rgba(255,255,255,.02);border:1px solid var(--bd)}
-.bc{display:flex;flex-direction:column;min-width:50px}.bcv{font-family:var(--fd);font-size:12px;font-weight:800;color:var(--t)}.bcl{font-size:7px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-top:1px}
-.bio{color:var(--t2)!important;font-size:14px;line-height:1.85}.bio *{color:inherit!important;font-family:inherit!important;font-size:inherit!important}.bio p{margin-bottom:10px}.bio a{color:var(--or)!important;text-decoration:underline}.bio b,.bio strong{color:var(--t)!important;font-weight:700}
-.sr2{display:flex;flex-wrap:wrap;gap:4px;margin-top:12px}
-.sc{display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:100px;border:1px solid var(--bd);background:rgba(255,255,255,.02);text-decoration:none;transition:.2s;font-family:var(--fd)}.sc:hover{background:rgba(255,255,255,.05);transform:translateY(-1px)}.sc span{font-size:9px;font-weight:700;color:var(--t2)}
-.mmr{display:flex;flex-wrap:wrap;gap:6px}
-.mm{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.02);border:1px solid var(--bd);border-radius:8px;padding:5px 9px;text-decoration:none;transition:.2s}.mm:hover{border-color:rgba(255,255,255,.1)}
-.mmi{width:26px;height:26px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--bg2)}.mmni{display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;color:rgba(255,255,255,.05);font-family:var(--fd)}
-.mmn{font-size:10px;font-weight:700;color:var(--t)}.mmy{font-size:8px;color:var(--t3)}
-.cd{border-radius:10px;border:1px solid var(--bd);background:rgba(255,255,255,.02);padding:10px;margin-bottom:8px}
-.ni{display:flex;gap:7px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.03);text-decoration:none;transition:opacity .15s}.ni:last-child{border-bottom:none}.ni:hover{opacity:.8}
-.nii{width:36px;height:36px;border-radius:5px;object-fit:cover;flex-shrink:0;background:var(--bg2)}.nit{font-size:10px;font-weight:700;color:var(--t2);line-height:1.25}.nid{font-size:8px;color:var(--t3);margin-top:1px}
+.ap-tc{display:grid;grid-template-columns:1fr 320px;gap:28px;align-items:start}
+.ap-bch{display:inline-flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;padding:8px 12px;border-radius:8px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06)}
+.ap-bc{display:flex;flex-direction:column;min-width:50px}.ap-bcv{font-family:'Outfit',system-ui,sans-serif;font-size:12px;font-weight:800;color:#f0f2f5}.ap-bcl{font-size:7px;font-weight:700;color:#5e7290;text-transform:uppercase;letter-spacing:.05em;margin-top:1px}
+.ap-bio{color:#b0bdd4!important;font-size:14px;line-height:1.85}.ap-bio *{color:inherit!important;font-family:inherit!important;font-size:inherit!important}.ap-bio p{margin-bottom:10px}.ap-bio a{color:#f97316!important;text-decoration:underline}.ap-bio b,.ap-bio strong{color:#f0f2f5!important;font-weight:700}
+.ap-sr2{display:flex;flex-wrap:wrap;gap:4px;margin-top:12px}
+.ap-sc{display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:100px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02);text-decoration:none;transition:.2s;font-family:'Outfit',system-ui,sans-serif}.ap-sc:hover{background:rgba(255,255,255,.05);transform:translateY(-1px)}.ap-sc span{font-size:9px;font-weight:700;color:#b0bdd4}
+.ap-mmr{display:flex;flex-wrap:wrap;gap:6px}
+.ap-mm{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:8px;padding:5px 9px;text-decoration:none;transition:.2s}.ap-mm:hover{border-color:rgba(255,255,255,.1)}
+.ap-mmi{width:26px;height:26px;border-radius:50%;object-fit:cover;flex-shrink:0;background:#111822}.ap-mmni{display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;color:rgba(255,255,255,.05);font-family:'Outfit',system-ui,sans-serif}
+.ap-mmn{font-size:10px;font-weight:700;color:#f0f2f5}.ap-mmy{font-size:8px;color:#5e7290}
+.ap-cd{border-radius:10px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02);padding:10px;margin-bottom:8px}
+.ap-ni{display:flex;gap:7px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.03);text-decoration:none;transition:opacity .15s}.ap-ni:last-child{border-bottom:none}.ap-ni:hover{opacity:.8}
+.ap-nii{width:36px;height:36px;border-radius:5px;object-fit:cover;flex-shrink:0;background:#111822}.ap-nit{font-size:10px;font-weight:700;color:#b0bdd4;line-height:1.25}.ap-nid{font-size:8px;color:#5e7290;margin-top:1px}
 
 /* Gallery */
-.gal{display:flex;flex-wrap:wrap;gap:3px;border-radius:10px;overflow:hidden}
-.gc{position:relative;height:170px;flex:1 1 200px;max-width:33%;overflow:hidden;cursor:zoom-in}.gcb{flex:2 1 400px;max-width:50%;height:340px}
-.gc img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s}.gc:hover img{transform:scale(1.04)}
-.gco{position:absolute;inset:0;background:rgba(0,0,0,0);transition:.2s}.gc:hover .gco{background:rgba(0,0,0,.15)}
-.lb{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.95);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:center}
-.lbm{max-width:90vw;max-height:90vh;display:flex;flex-direction:column;align-items:center}.lbm img{max-width:100%;max-height:82vh;object-fit:contain;border-radius:4px}.lbm p{font-size:10px;color:rgba(255,255,255,.25);margin-top:5px}
-.lbx{position:absolute;top:12px;right:16px;background:rgba(255,255,255,.08);border:none;color:rgba(255,255,255,.5);font-size:14px;cursor:pointer;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center}
-.lba{position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.05);border:none;color:rgba(255,255,255,.4);font-size:26px;cursor:pointer;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center}.lbp{left:8px}.lbn{right:8px}
-.lbc{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);font-size:9px;color:rgba(255,255,255,.15);font-weight:600}
+.ap-gal{display:flex;flex-wrap:wrap;gap:3px;border-radius:10px;overflow:hidden}
+.ap-gc{position:relative;height:170px;flex:1 1 200px;max-width:33%;overflow:hidden;cursor:zoom-in}.ap-gcb{flex:2 1 400px;max-width:50%;height:340px}
+.ap-gc img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s}.ap-gc:hover img{transform:scale(1.04)}
+.ap-gco{position:absolute;inset:0;background:rgba(0,0,0,0);transition:.2s}.ap-gc:hover .ap-gco{background:rgba(0,0,0,.15)}
+.ap-lb{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.95);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:center}
+.ap-lbm{max-width:90vw;max-height:90vh;display:flex;flex-direction:column;align-items:center}.ap-lbm img{max-width:100%;max-height:82vh;object-fit:contain;border-radius:4px}.ap-lbm p{font-size:10px;color:rgba(255,255,255,.25);margin-top:5px}
+.ap-lbx{position:absolute;top:12px;right:16px;background:rgba(255,255,255,.08);border:none;color:rgba(255,255,255,.5);font-size:14px;cursor:pointer;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.ap-lba{position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.05);border:none;color:rgba(255,255,255,.4);font-size:26px;cursor:pointer;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center}.ap-lbp{left:8px}.ap-lbn{right:8px}
+.ap-lbc{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);font-size:9px;color:rgba(255,255,255,.15);font-weight:600}
 
-.de{border:1px dashed var(--bd);border-radius:10px;padding:24px;text-align:center}.det{font-size:12px;font-weight:700;color:var(--t3);margin-bottom:2px}.des{font-size:10px;color:var(--t4)}
-.deb{margin-top:8px;padding:6px 16px;border-radius:100px;border:1px solid var(--bd);background:rgba(255,255,255,.02);color:var(--t2);font-size:10px;font-weight:700;cursor:pointer;font-family:var(--fd);transition:.2s}.deb:hover{background:rgba(255,255,255,.05)}
-.smr{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}.smr::-webkit-scrollbar{display:none}
-.smc{flex-shrink:0;width:86px;text-align:center;text-decoration:none;transition:.2s}.smc:hover{transform:translateY(-2px)}
-.smi{width:60px;height:60px;border-radius:50%;object-fit:cover;margin:0 auto 4px;border:2px solid var(--bd);background:var(--bg2)}.smni{display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:rgba(255,255,255,.04);font-family:var(--fd)}
-.smn{font-size:9px;font-weight:700;color:var(--t2)}
+.ap-de{border:1px dashed rgba(255,255,255,.06);border-radius:10px;padding:24px;text-align:center}.ap-det{font-size:12px;font-weight:700;color:#5e7290;margin-bottom:2px}.ap-des{font-size:10px;color:#334058}
+.ap-deb{margin-top:8px;padding:6px 16px;border-radius:100px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02);color:#b0bdd4;font-size:10px;font-weight:700;cursor:pointer;font-family:'Outfit',system-ui,sans-serif;transition:.2s}.ap-deb:hover{background:rgba(255,255,255,.05)}
+.ap-smr{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}.ap-smr::-webkit-scrollbar{display:none}
+.ap-smc{flex-shrink:0;width:86px;text-align:center;text-decoration:none;transition:.2s}.ap-smc:hover{transform:translateY(-2px)}
+.ap-smi{width:60px;height:60px;border-radius:50%;object-fit:cover;margin:0 auto 4px;border:2px solid rgba(255,255,255,.06);background:#111822}.ap-smni{display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:rgba(255,255,255,.04);font-family:'Outfit',system-ui,sans-serif}
+.ap-smn{font-size:9px;font-weight:700;color:#b0bdd4}
 
-@media(max-width:1024px){.mr-box{grid-template-columns:1fr}.tc{grid-template-columns:1fr}.sr{display:none}.gc{max-width:50%}.gcb{max-width:100%}.hero{height:320px}}
-@media(max-width:640px){.nv{display:none}.dg{grid-template-columns:repeat(2,1fr)}.gc{max-width:100%;height:140px}.gcb{height:200px}.hero{height:280px}.hero-nm{font-size:1.8rem}}
+@media(max-width:1024px){.ap-mr-box{grid-template-columns:1fr}.ap-tc{grid-template-columns:1fr}.ap-gc{max-width:50%}.ap-gcb{max-width:100%}.ap-hero{height:320px}}
+@media(max-width:640px){.ap-dg{grid-template-columns:repeat(2,1fr)}.ap-gc{max-width:100%;height:140px}.ap-gcb{height:200px}.ap-hero{height:280px}.ap-hero-nm{font-size:1.8rem}}
 `
