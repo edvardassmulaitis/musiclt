@@ -191,18 +191,15 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
   // desktop=false →  mobile: floating pop bar under row (existing style)
   const TrackRow = ({ t, isPlaying, desktop = false }: { t: Track; isPlaying: boolean; desktop?: boolean }) => {
     const hasOwnVideo = !!ytId(t.video_url)
+    // canPlay: track has its own video OR album has a fallback video
     const canPlay = hasOwnVideo || !!albumVid
     const pop = popScore(t)
 
-    // FIX 1 (desktop): border-bottom colour = pop bar replacement
-    // interpolate from faint → orange based on pop score
-    const popColour = (() => {
-      if (!desktop) return undefined
-      // 0..1 → mix T.borderSub to #f97316
-      const p = pop
-      // Use CSS mix — just shift opacity on orange
-      return `rgba(249,115,22,${(p * 0.65 + 0.07).toFixed(2)})`
-    })()
+    // Pop colour: purely based on popularity score, not video availability
+    // Low pop → near-neutral border, high pop → strong orange
+    const popBorderCol = desktop
+      ? `rgba(249,115,22,${(pop * 0.72 + 0.05).toFixed(2)})`
+      : undefined
 
     const handleThumbClick = (e: React.MouseEvent) => {
       e.preventDefault()
@@ -210,17 +207,17 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
       if (canPlay) setPlayingIdx(tracks.indexOf(t))
     }
 
-    // Text colours: without video tracks slightly muted but still fully readable
+    // Tracks without any video are visually distinct but still readable
     const titleCol = isPlaying ? '#f97316' : (canPlay ? T.trackText : T.noVideoText)
     const numCol   = isPlaying ? '#f97316' : (canPlay ? T.trackNum  : T.noVideoNum)
 
     return (
       <div
         style={{
-          padding: desktop ? '10px 18px 10px' : '9px 16px 7px',
-          // FIX 1: border-bottom acts as pop bar on desktop
+          padding: desktop ? '10px 18px' : '9px 16px 7px',
+          // Desktop: coloured border-bottom replaces floating pop bar
           borderBottom: desktop
-            ? `2px solid ${isPlaying ? 'rgba(249,115,22,.55)' : popColour}`
+            ? `2px solid ${isPlaying ? 'rgba(249,115,22,.6)' : popBorderCol}`
             : `1px solid ${T.borderSub}`,
           background: isPlaying ? T.bgActive : 'transparent',
           transition: 'background .1s',
@@ -229,44 +226,54 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
         onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = isPlaying ? T.bgActive : 'transparent' }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {/* Position */}
+          {/* Position number */}
           <span style={{ width: 20, textAlign: 'center', fontSize: 11, flexShrink: 0, fontFamily: 'Outfit, sans-serif', color: numCol, fontWeight: isPlaying ? 800 : 400 }}>
             {t.position}
           </span>
 
-          {/* FIX 2 (desktop): thumb is a separate clickable play trigger */}
+          {/* Thumb — clickable to play (desktop: separate from title click) */}
           <div
             onClick={canPlay ? handleThumbClick : undefined}
+            className="ab-thumb"
             style={{ width: 36, height: 36, borderRadius: 7, flexShrink: 0, overflow: 'hidden', background: T.coverBg, position: 'relative', cursor: canPlay ? 'pointer' : 'default' }}
           >
             {album.cover_image_url
               ? <img src={album.cover_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
               : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11 }}>🎵</div>}
+
             {/* Playing overlay */}
             {isPlaying && (
               <div style={{ position: 'absolute', inset: 0, background: 'rgba(249,115,22,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#fff' }} />
               </div>
             )}
-            {/* Hover-play icon on thumb — desktop only, when not playing */}
+
+            {/* Desktop: ▶ hover overlay on thumb (CSS handles show/hide) */}
             {!isPlaying && canPlay && desktop && (
-              <div className={`ab-play-hover-${t.id}`} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity .15s' }}>
-                <svg width="12" height="12" viewBox="0 0 10 10" fill="#fff"><polygon points="2,1 9,5 2,9"/></svg>
+              <div className="ab-play-overlay" style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity .15s' }}>
+                <svg width="11" height="11" viewBox="0 0 10 10" fill="#fff"><polygon points="2,1 9,5 2,9"/></svg>
               </div>
             )}
-            {/* Video badge for desktop non-playing */}
-            {!isPlaying && canPlay && hasOwnVideo && !desktop && (
+
+            {/* Desktop: small orange ▶ badge — visible when track has its OWN video, not just album fallback */}
+            {!isPlaying && hasOwnVideo && desktop && (
+              <div style={{ position: 'absolute', bottom: 2, right: 2, width: 13, height: 13, borderRadius: 3, background: 'rgba(249,115,22,.95)', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                <svg width="6" height="6" viewBox="0 0 10 10" fill="#fff"><polygon points="2,1 9,5 2,9"/></svg>
+              </div>
+            )}
+
+            {/* Mobile: badge for own-video tracks */}
+            {!isPlaying && hasOwnVideo && !desktop && (
               <div style={{ position: 'absolute', bottom: 2, right: 2, width: 12, height: 12, borderRadius: 3, background: 'rgba(249,115,22,.92)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <svg width="6" height="6" viewBox="0 0 10 10" fill="#fff"><polygon points="2,1 9,5 2,9"/></svg>
               </div>
             )}
           </div>
 
-          {/* FIX 2: Title — Link to track page on desktop */}
+          {/* Title + comment snippet */}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
               {desktop ? (
-                // Desktop: title itself is a link → track page
                 <Link
                   href={`/lt/daina/${t.slug}/${t.id}/`}
                   style={{ fontSize: 13, fontWeight: isPlaying ? 700 : 600, color: titleCol, textDecoration: 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}
@@ -277,7 +284,6 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
                   {t.featuring.length > 0 && <span style={{ fontWeight: 400, color: T.trackFeat }}> su {t.featuring.join(', ')}</span>}
                 </Link>
               ) : (
-                // Mobile: title just text, whole row clickable for play
                 <span
                   onClick={canPlay ? () => setPlayingIdx(tracks.indexOf(t)) : undefined}
                   style={{ fontSize: 13, fontWeight: isPlaying ? 700 : 600, color: titleCol, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, cursor: canPlay ? 'pointer' : 'default' }}
@@ -290,19 +296,26 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
               {t.is_single && <span style={{ fontSize: 7, fontWeight: 800, padding: '1px 4px', borderRadius: 3, background: T.bgHover, color: T.textMuted, border: `1px solid ${T.borderSub}`, flexShrink: 0 }}>S</span>}
             </div>
 
-            {/* FIX 4: Top comment snippet — shown on desktop only when track has a topComment */}
-            {desktop && t.topComment && (
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginTop: 3 }}>
-                <span style={{ fontSize: 10, color: T.cmtQuote, fontStyle: 'italic', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', flex: 1, lineHeight: 1.4 }}>
-                  „{t.topComment.text}"
-                </span>
-                <span style={{ fontSize: 9, color: T.cmtAuthor, flexShrink: 0, whiteSpace: 'nowrap' }}>— {t.topComment.author}</span>
-                <span style={{ fontSize: 9, color: T.cmtHeart, flexShrink: 0, whiteSpace: 'nowrap' }}>♥ {t.topComment.likes}</span>
-              </div>
+            {/* Comment snippet (desktop): real comment OR placeholder — inline, same row height */}
+            {desktop && (
+              t.topComment ? (
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginTop: 2 }}>
+                  <span style={{ fontSize: 10, color: T.cmtQuote, fontStyle: 'italic', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', flex: 1 }}>
+                    „{t.topComment.text}"
+                  </span>
+                  <span style={{ fontSize: 9, color: T.cmtAuthor, flexShrink: 0, whiteSpace: 'nowrap' }}>— {t.topComment.author}</span>
+                  <span style={{ fontSize: 9, color: T.cmtHeart, flexShrink: 0 }}>♥ {t.topComment.likes}</span>
+                </div>
+              ) : (
+                // Placeholder — same line, faint, invites comment
+                <div style={{ marginTop: 2, fontSize: 10, color: T.textFaint, fontStyle: 'italic', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  Būk pirmas — palik komentarą apie šią dainą…
+                </div>
+              )
             )}
           </div>
 
-          {/* Desktop: no separate → arrow (title is the link). Mobile: keep → */}
+          {/* Mobile only: → arrow link */}
           {!desktop && (
             <Link href={`/lt/daina/${t.slug}/${t.id}/`}
               onClick={e => e.stopPropagation()}
@@ -475,9 +488,8 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
           .ab-desktop { display: none !important; }
           .ab-mobile  { display: flex !important; }
         }
-        /* Thumb hover play overlay */
-        div[class*="ab-play-hover"]:hover { opacity: 1 !important; }
-        .ab-desktop [data-thumb]:hover .ab-play-overlay { opacity: 1 !important; }
+        /* Thumb hover — show play overlay */
+        .ab-thumb:hover .ab-play-overlay { opacity: 1 !important; }
       `}</style>
     </div>
   )
