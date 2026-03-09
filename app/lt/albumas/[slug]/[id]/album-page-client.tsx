@@ -191,144 +191,162 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
   // desktop=false →  mobile: floating pop bar under row (existing style)
   const TrackRow = ({ t, isPlaying, desktop = false }: { t: Track; isPlaying: boolean; desktop?: boolean }) => {
     const hasOwnVideo = !!ytId(t.video_url)
-    // canPlay: track has its own video OR album has a fallback video
     const canPlay = hasOwnVideo || !!albumVid
-    const pop = popScore(t)
 
-    // Pop border: use raw position rank for maximum contrast between tracks
-    // track 1 (position=1) → highest pop → strongest orange
-    // last track → near-neutral border
-    // Linear: opacity = 0.08 (faint) to 0.75 (strong)
+    // rankRatio: 1.0 = most popular (position 1), 0.0 = least popular (last)
     const rankRatio = tracks.length > 1
-      ? (tracks.length - t.position) / (tracks.length - 1)   // 0..1, position 1 = 1.0
+      ? (tracks.length - t.position) / (tracks.length - 1)
       : 1
-    const popBorderCol = desktop
-      ? `rgba(249,115,22,${(rankRatio * 0.68 + 0.07).toFixed(2)})`
-      : undefined
+    // Pop bar: fixed 80px track, fill width = rankRatio * 80px
+    const popBarFill = Math.round(rankRatio * 100)
 
-    const handleThumbClick = (e: React.MouseEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-      if (canPlay) setPlayingIdx(tracks.indexOf(t))
-    }
-
-    // All tracks same colour — no dimming for no-video
     const titleCol = isPlaying ? '#f97316' : T.trackText
     const numCol   = isPlaying ? '#f97316' : T.trackNum
 
     return (
       <div
         style={{
-          padding: desktop ? '10px 18px' : '9px 16px 7px',
-          // Desktop: coloured border-bottom replaces floating pop bar
-          borderBottom: desktop
-            ? `2px solid ${isPlaying ? 'rgba(249,115,22,.6)' : popBorderCol}`
-            : `1px solid ${T.borderSub}`,
+          padding: desktop ? '0 16px 0 18px' : '9px 16px 7px',
+          borderBottom: `1px solid ${T.borderSub}`,
           background: isPlaying ? T.bgActive : 'transparent',
           transition: 'background .1s',
+          minHeight: desktop ? 52 : undefined,
+          display: desktop ? 'flex' : 'block',
+          alignItems: desktop ? 'center' : undefined,
+          gap: desktop ? 10 : undefined,
         }}
         onMouseEnter={e => { if (!isPlaying) (e.currentTarget as HTMLDivElement).style.background = T.bgHover }}
         onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = isPlaying ? T.bgActive : 'transparent' }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {/* Position number */}
-          <span style={{ width: 20, textAlign: 'center', fontSize: 11, flexShrink: 0, fontFamily: 'Outfit, sans-serif', color: numCol, fontWeight: isPlaying ? 800 : 400 }}>
-            {t.position}
-          </span>
+        {/* ── desktop layout ── */}
+        {desktop ? (
+          <>
+            {/* Position number */}
+            <span style={{ width: 22, textAlign: 'center', fontSize: 11, flexShrink: 0, fontFamily: 'Outfit, sans-serif', color: numCol, fontWeight: isPlaying ? 800 : 400 }}>
+              {t.position}
+            </span>
 
-          {/* Thumb — clickable to play (desktop: separate from title click) */}
-          <div
-            onClick={canPlay ? handleThumbClick : undefined}
-            className="ab-thumb"
-            style={{ width: 36, height: 36, borderRadius: 7, flexShrink: 0, overflow: 'hidden', background: T.coverBg, position: 'relative', cursor: canPlay ? 'pointer' : 'default' }}
-          >
-            {album.cover_image_url
-              ? <img src={album.cover_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-              : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11 }}>🎵</div>}
-
-            {/* Playing overlay */}
-            {isPlaying && (
-              <div style={{ position: 'absolute', inset: 0, background: 'rgba(249,115,22,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#fff' }} />
-              </div>
-            )}
-
-            {/* Desktop: ▶ hover overlay on thumb (CSS handles show/hide) */}
-            {!isPlaying && canPlay && desktop && (
-              <div className="ab-play-overlay" style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity .15s' }}>
-                <svg width="11" height="11" viewBox="0 0 10 10" fill="#fff"><polygon points="2,1 9,5 2,9"/></svg>
-              </div>
-            )}
-
-            {/* Desktop: small orange ▶ badge — visible when track has its OWN video, not just album fallback */}
-            {!isPlaying && hasOwnVideo && desktop && (
-              <div style={{ position: 'absolute', bottom: 2, right: 2, width: 13, height: 13, borderRadius: 3, background: 'rgba(249,115,22,.95)', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-                <svg width="6" height="6" viewBox="0 0 10 10" fill="#fff"><polygon points="2,1 9,5 2,9"/></svg>
-              </div>
-            )}
-
-            {/* Mobile: badge for own-video tracks */}
-            {!isPlaying && hasOwnVideo && !desktop && (
-              <div style={{ position: 'absolute', bottom: 2, right: 2, width: 12, height: 12, borderRadius: 3, background: 'rgba(249,115,22,.92)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg width="6" height="6" viewBox="0 0 10 10" fill="#fff"><polygon points="2,1 9,5 2,9"/></svg>
-              </div>
-            )}
-          </div>
-
-          {/* Title + comment snippet */}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              {desktop ? (
-                <Link
-                  href={`/lt/daina/${t.slug}/${t.id}/`}
-                  style={{ fontSize: 13, fontWeight: isPlaying ? 700 : 600, color: titleCol, textDecoration: 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}
-                  onMouseEnter={e => { if (!isPlaying) e.currentTarget.style.color = '#f97316' }}
-                  onMouseLeave={e => { if (!isPlaying) e.currentTarget.style.color = titleCol }}
-                >
-                  {t.title}
-                  {t.featuring.length > 0 && <span style={{ fontWeight: 400, color: T.trackFeat }}> su {t.featuring.join(', ')}</span>}
-                </Link>
-              ) : (
-                <span
-                  onClick={canPlay ? () => setPlayingIdx(tracks.indexOf(t)) : undefined}
-                  style={{ fontSize: 13, fontWeight: isPlaying ? 700 : 600, color: titleCol, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, cursor: canPlay ? 'pointer' : 'default' }}
-                >
-                  {t.title}
-                  {t.featuring.length > 0 && <span style={{ fontWeight: 400, color: T.trackFeat }}> su {t.featuring.join(', ')}</span>}
-                </span>
+            {/* Thumbnail — purely decorative on desktop */}
+            <div style={{ width: 34, height: 34, borderRadius: 6, flexShrink: 0, overflow: 'hidden', background: T.coverBg, position: 'relative' }}>
+              {album.cover_image_url
+                ? <img src={album.cover_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11 }}>🎵</div>}
+              {isPlaying && (
+                <div style={{ position: 'absolute', inset: 0, background: 'rgba(249,115,22,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff' }} />
+                </div>
               )}
-              {t.is_new && <span style={{ fontSize: 7, fontWeight: 800, padding: '1px 4px', borderRadius: 3, background: 'rgba(249,115,22,.12)', color: '#f97316', border: '1px solid rgba(249,115,22,.2)', flexShrink: 0 }}>NEW</span>}
-              {t.is_single && <span style={{ fontSize: 7, fontWeight: 800, padding: '1px 4px', borderRadius: 3, background: T.bgHover, color: T.textMuted, border: `1px solid ${T.borderSub}`, flexShrink: 0 }}>S</span>}
+              {/* Own-video badge */}
+              {!isPlaying && hasOwnVideo && (
+                <div style={{ position: 'absolute', bottom: 2, right: 2, width: 12, height: 12, borderRadius: 3, background: 'rgba(249,115,22,.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                  <svg width="5" height="5" viewBox="0 0 10 10" fill="#fff"><polygon points="2,1 9,5 2,9"/></svg>
+                </div>
+              )}
             </div>
 
-            {/* Comment snippet — only when there's a real comment */}
-            {desktop && t.topComment && (
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginTop: 2 }}>
-                <span style={{ fontSize: 10, color: T.cmtQuote, fontStyle: 'italic', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', flex: 1 }}>
-                  „{t.topComment.text}"
-                </span>
-                <span style={{ fontSize: 9, color: T.cmtAuthor, flexShrink: 0, whiteSpace: 'nowrap' }}>— {t.topComment.author}</span>
-                <span style={{ fontSize: 9, color: T.cmtHeart, flexShrink: 0 }}>♥ {t.topComment.likes}</span>
-              </div>
+            {/* Title + comment */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <Link
+                href={`/lt/daina/${t.slug}/${t.id}/`}
+                style={{ fontSize: 13, fontWeight: isPlaying ? 700 : 600, color: titleCol, textDecoration: 'none', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                onMouseEnter={e => { if (!isPlaying) e.currentTarget.style.color = '#f97316' }}
+                onMouseLeave={e => { if (!isPlaying) e.currentTarget.style.color = titleCol }}
+              >
+                {t.title}
+                {t.featuring.length > 0 && <span style={{ fontWeight: 400, color: T.trackFeat }}> su {t.featuring.join(', ')}</span>}
+              </Link>
+              {t.topComment && (
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginTop: 1 }}>
+                  <span style={{ fontSize: 10, color: T.cmtQuote, fontStyle: 'italic', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', flex: 1 }}>„{t.topComment.text}"</span>
+                  <span style={{ fontSize: 9, color: T.cmtAuthor, flexShrink: 0 }}>— {t.topComment.author}</span>
+                  <span style={{ fontSize: 9, color: T.cmtHeart, flexShrink: 0 }}>♥ {t.topComment.likes}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Badges */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+              {t.is_new && <span style={{ fontSize: 7, fontWeight: 800, padding: '1px 4px', borderRadius: 3, background: 'rgba(249,115,22,.12)', color: '#f97316', border: '1px solid rgba(249,115,22,.2)' }}>NEW</span>}
+              {t.is_single && <span style={{ fontSize: 7, fontWeight: 800, padding: '1px 4px', borderRadius: 3, background: T.bgHover, color: T.textMuted, border: `1px solid ${T.borderSub}` }}>S</span>}
+            </div>
+
+            {/* Pop bar — fixed 80px container, fill shows popularity */}
+            <div style={{ width: 80, flexShrink: 0, height: 3, borderRadius: 2, background: T.popBg, overflow: 'hidden' }}>
+              <div style={{ height: '100%', borderRadius: 2, background: T.popFill, width: `${popBarFill}%`, transition: 'width .4s ease' }} />
+            </div>
+
+            {/* Play button — right side, only when canPlay */}
+            {canPlay ? (
+              <button
+                onClick={() => setPlayingIdx(tracks.indexOf(t))}
+                className="ab-play-btn"
+                style={{
+                  width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
+                  background: isPlaying ? '#f97316' : 'transparent',
+                  border: `1.5px solid ${isPlaying ? '#f97316' : T.borderSub}`,
+                  color: isPlaying ? '#fff' : T.textMuted,
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'all .15s', padding: 0,
+                }}
+                onMouseEnter={e => { if (!isPlaying) { e.currentTarget.style.borderColor = '#f97316'; e.currentTarget.style.color = '#f97316' } }}
+                onMouseLeave={e => { if (!isPlaying) { e.currentTarget.style.borderColor = T.borderSub; e.currentTarget.style.color = T.textMuted } }}
+              >
+                {isPlaying
+                  ? <div style={{ width: 8, height: 8, display: 'flex', gap: 2, alignItems: 'center', justifyContent: 'center' }}>
+                      <div style={{ width: 2.5, height: 8, background: '#fff', borderRadius: 1 }} />
+                      <div style={{ width: 2.5, height: 8, background: '#fff', borderRadius: 1 }} />
+                    </div>
+                  : <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><polygon points="2,1 9,5 2,9"/></svg>
+                }
+              </button>
+            ) : (
+              <div style={{ width: 30, flexShrink: 0 }} /> /* spacer */
             )}
-          </div>
-
-          {/* Mobile only: → arrow link */}
-          {!desktop && (
-            <Link href={`/lt/daina/${t.slug}/${t.id}/`}
-              onClick={e => e.stopPropagation()}
-              style={{ fontSize: 11, color: T.trackLinkC, textDecoration: 'none', padding: '2px 5px', borderRadius: 4, flexShrink: 0, transition: '.15s' }}
-              onMouseEnter={e => { e.currentTarget.style.color = '#f97316'; e.currentTarget.style.background = 'rgba(249,115,22,.08)' }}
-              onMouseLeave={e => { e.currentTarget.style.color = T.trackLinkC; e.currentTarget.style.background = 'transparent' }}
-            >→</Link>
-          )}
-        </div>
-
-        {/* Mobile pop bar (floating style kept for mobile) */}
-        {!desktop && (
-          <div style={{ marginLeft: 66, marginTop: 5, height: 2, background: T.popBg, borderRadius: 2, overflow: 'hidden' }}>
-            <div style={{ height: '100%', borderRadius: 2, background: T.popFill, width: `${Math.round(pop * 100)}%`, transition: 'width .4s ease' }} />
-          </div>
+          </>
+        ) : (
+          /* ── mobile layout (unchanged) ── */
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ width: 20, textAlign: 'center', fontSize: 11, flexShrink: 0, fontFamily: 'Outfit, sans-serif', color: numCol, fontWeight: isPlaying ? 800 : 400 }}>
+                {t.position}
+              </span>
+              <div
+                onClick={canPlay ? () => setPlayingIdx(tracks.indexOf(t)) : undefined}
+                style={{ width: 36, height: 36, borderRadius: 7, flexShrink: 0, overflow: 'hidden', background: T.coverBg, position: 'relative', cursor: canPlay ? 'pointer' : 'default' }}
+              >
+                {album.cover_image_url
+                  ? <img src={album.cover_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11 }}>🎵</div>}
+                {isPlaying && (
+                  <div style={{ position: 'absolute', inset: 0, background: 'rgba(249,115,22,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#fff' }} />
+                  </div>
+                )}
+                {!isPlaying && hasOwnVideo && (
+                  <div style={{ position: 'absolute', bottom: 2, right: 2, width: 12, height: 12, borderRadius: 3, background: 'rgba(249,115,22,.92)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="6" height="6" viewBox="0 0 10 10" fill="#fff"><polygon points="2,1 9,5 2,9"/></svg>
+                  </div>
+                )}
+              </div>
+              <span
+                onClick={canPlay ? () => setPlayingIdx(tracks.indexOf(t)) : undefined}
+                style={{ fontSize: 13, fontWeight: isPlaying ? 700 : 600, color: titleCol, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, cursor: canPlay ? 'pointer' : 'default' }}
+              >
+                {t.title}
+                {t.featuring.length > 0 && <span style={{ fontWeight: 400, color: T.trackFeat }}> su {t.featuring.join(', ')}</span>}
+              </span>
+              {t.is_new && <span style={{ fontSize: 7, fontWeight: 800, padding: '1px 4px', borderRadius: 3, background: 'rgba(249,115,22,.12)', color: '#f97316', border: '1px solid rgba(249,115,22,.2)', flexShrink: 0 }}>NEW</span>}
+              <Link href={`/lt/daina/${t.slug}/${t.id}/`}
+                onClick={e => e.stopPropagation()}
+                style={{ fontSize: 11, color: T.trackLinkC, textDecoration: 'none', padding: '2px 5px', borderRadius: 4, flexShrink: 0 }}
+                onMouseEnter={e => { e.currentTarget.style.color = '#f97316'; e.currentTarget.style.background = 'rgba(249,115,22,.08)' }}
+                onMouseLeave={e => { e.currentTarget.style.color = T.trackLinkC; e.currentTarget.style.background = 'transparent' }}
+              >→</Link>
+            </div>
+            <div style={{ marginLeft: 66, marginTop: 5, height: 2, background: T.popBg, borderRadius: 2, overflow: 'hidden' }}>
+              <div style={{ height: '100%', borderRadius: 2, background: T.popFill, width: `${popBarFill}%`, transition: 'width .4s ease' }} />
+            </div>
+          </>
         )}
       </div>
     )
