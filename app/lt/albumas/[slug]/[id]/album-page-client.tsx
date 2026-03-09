@@ -91,11 +91,11 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
     coverBg:     dk ? '#1a2535'                : '#dde6f2',
     trackText:   dk ? '#dce8f5'                : '#1a2a40',
     trackFeat:   dk ? '#6889a8'                : '#6a85a0',
-    trackNum:    dk ? '#4a6888'                : '#b0c0d4',
+    trackNum:    dk ? '#8aabcc'                : '#4a6a8a',   // much more visible
     trackLinkC:  dk ? '#3a5870'                : '#c0d0e0',
-    // FIX 2: tracks without video — less dim, but still visually distinct
-    noVideoText: dk ? '#5a7898'                : '#8899aa',
-    noVideoNum:  dk ? '#2a4060'                : '#c8d8e8',
+    // No-video tracks: same colour as normal — no dimming
+    noVideoText: dk ? '#dce8f5'                : '#1a2a40',
+    noVideoNum:  dk ? '#8aabcc'                : '#4a6a8a',
     popBg:       dk ? '#1e2d40'                : '#dde6f2',
     popFill:     dk ? 'rgba(249,115,22,.8)'    : '#f97316',
     dykBg:       dk ? '#0f1a10'                : '#fff8f2',
@@ -195,10 +195,15 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
     const canPlay = hasOwnVideo || !!albumVid
     const pop = popScore(t)
 
-    // Pop colour: purely based on popularity score, not video availability
-    // Low pop → near-neutral border, high pop → strong orange
+    // Pop border: use raw position rank for maximum contrast between tracks
+    // track 1 (position=1) → highest pop → strongest orange
+    // last track → near-neutral border
+    // Linear: opacity = 0.08 (faint) to 0.75 (strong)
+    const rankRatio = tracks.length > 1
+      ? (tracks.length - t.position) / (tracks.length - 1)   // 0..1, position 1 = 1.0
+      : 1
     const popBorderCol = desktop
-      ? `rgba(249,115,22,${(pop * 0.72 + 0.05).toFixed(2)})`
+      ? `rgba(249,115,22,${(rankRatio * 0.68 + 0.07).toFixed(2)})`
       : undefined
 
     const handleThumbClick = (e: React.MouseEvent) => {
@@ -207,9 +212,9 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
       if (canPlay) setPlayingIdx(tracks.indexOf(t))
     }
 
-    // Tracks without any video are visually distinct but still readable
-    const titleCol = isPlaying ? '#f97316' : (canPlay ? T.trackText : T.noVideoText)
-    const numCol   = isPlaying ? '#f97316' : (canPlay ? T.trackNum  : T.noVideoNum)
+    // All tracks same colour — no dimming for no-video
+    const titleCol = isPlaying ? '#f97316' : T.trackText
+    const numCol   = isPlaying ? '#f97316' : T.trackNum
 
     return (
       <div
@@ -296,22 +301,15 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
               {t.is_single && <span style={{ fontSize: 7, fontWeight: 800, padding: '1px 4px', borderRadius: 3, background: T.bgHover, color: T.textMuted, border: `1px solid ${T.borderSub}`, flexShrink: 0 }}>S</span>}
             </div>
 
-            {/* Comment snippet (desktop): real comment OR placeholder — inline, same row height */}
-            {desktop && (
-              t.topComment ? (
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginTop: 2 }}>
-                  <span style={{ fontSize: 10, color: T.cmtQuote, fontStyle: 'italic', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', flex: 1 }}>
-                    „{t.topComment.text}"
-                  </span>
-                  <span style={{ fontSize: 9, color: T.cmtAuthor, flexShrink: 0, whiteSpace: 'nowrap' }}>— {t.topComment.author}</span>
-                  <span style={{ fontSize: 9, color: T.cmtHeart, flexShrink: 0 }}>♥ {t.topComment.likes}</span>
-                </div>
-              ) : (
-                // Placeholder — same line, faint, invites comment
-                <div style={{ marginTop: 2, fontSize: 10, color: T.textFaint, fontStyle: 'italic', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  Būk pirmas — palik komentarą apie šią dainą…
-                </div>
-              )
+            {/* Comment snippet — only when there's a real comment */}
+            {desktop && t.topComment && (
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginTop: 2 }}>
+                <span style={{ fontSize: 10, color: T.cmtQuote, fontStyle: 'italic', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', flex: 1 }}>
+                  „{t.topComment.text}"
+                </span>
+                <span style={{ fontSize: 9, color: T.cmtAuthor, flexShrink: 0, whiteSpace: 'nowrap' }}>— {t.topComment.author}</span>
+                <span style={{ fontSize: 9, color: T.cmtHeart, flexShrink: 0 }}>♥ {t.topComment.likes}</span>
+              </div>
             )}
           </div>
 
@@ -439,8 +437,8 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
   return (
     <div style={{ background: T.bg, color: T.text, fontFamily: "'DM Sans',system-ui,sans-serif", WebkitFontSmoothing: 'antialiased', minHeight: '100vh' }}>
 
-      {/* ══ DESKTOP ══ FIX 3: sidebar narrowed to 300px */}
-      <div className="ab-desktop" style={{ maxWidth: 1400, margin: '0 auto', padding: '14px 20px 60px', display: 'grid', gridTemplateColumns: '300px 1fr', gap: 14, alignItems: 'start' }}>
+      {/* ══ DESKTOP ══ 40/60 split */}
+      <div className="ab-desktop" style={{ maxWidth: 1400, margin: '0 auto', padding: '14px 20px 60px', display: 'grid', gridTemplateColumns: '2fr 3fr', gap: 14, alignItems: 'start' }}>
         <div style={{ position: 'sticky', top: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <AlbumInfoCard coverSize={100} />
           <PlayerCard />
