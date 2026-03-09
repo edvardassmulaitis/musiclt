@@ -123,7 +123,7 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
               )}
 
               {/* Cover image (square) */}
-              <div style={{ position: 'relative', zIndex: 1, aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'opacity .3s', opacity: coverMode ? 1 : 0, pointerEvents: coverMode ? 'auto' : 'none', position: 'absolute' as any, inset: 0 }}>
+              <div style={{ position: 'absolute', zIndex: 1, inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'opacity .3s', opacity: coverMode ? 1 : 0, pointerEvents: coverMode ? 'auto' : 'none' }}>
                 {album.cover_image_url
                   ? <img src={album.cover_image_url} alt={album.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                   : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: T.coverBg, fontSize: 64 }}>💿</div>
