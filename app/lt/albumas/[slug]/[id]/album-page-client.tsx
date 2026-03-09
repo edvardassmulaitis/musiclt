@@ -2,7 +2,7 @@
 // app/lt/albumas/[slug]/[id]/album-page-client.tsx
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { HeaderAuth } from '@/components/HeaderAuth'
+import { useSite } from '@/components/SiteContext'
 
 type Track = {
   id: number; slug: string; title: string; type: string
@@ -18,10 +18,12 @@ type Album = {
 type Artist = { id: number; slug: string; name: string; cover_image_url: string | null }
 type SimpleAlbum = { id: number; slug: string; title: string; year?: number; cover_image_url?: string; type: string }
 
+type NewsItem = { id: number; slug: string; title: string; image_small_url: string | null; published_at: string }
+
 type Props = {
   album: Album; artist: Artist; tracks: Track[]
   otherAlbums: SimpleAlbum[]; similarAlbums: any[]
-  likes: number
+  likes: number; relatedNews?: NewsItem[]
 }
 
 function ytId(url?: string | null) {
@@ -30,7 +32,8 @@ function ytId(url?: string | null) {
   return m ? m[1] : null
 }
 
-export default function AlbumPageClient({ album, artist, tracks, otherAlbums, similarAlbums, likes }: Props) {
+export default function AlbumPageClient({ album, artist, tracks, otherAlbums, similarAlbums, likes, relatedNews = [] }: Props) {
+  const { dk } = useSite()
   const [playingIdx, setPlayingIdx] = useState(0)
   const [liked, setLiked] = useState(false)
   const [loaded, setLoaded] = useState(false)
@@ -40,374 +43,364 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
   const currentTrack = tracks[playingIdx]
   const currentVid = ytId(currentTrack?.video_url)
   const albumVid = ytId(album.video_url)
+  const activeVid = currentVid || albumVid
 
-  // Popularity mock — based on position (first tracks more popular) + single boost
   const maxPop = tracks.length
   const popScore = (t: Track) => {
     const base = (maxPop - t.position + 1) / maxPop
-    const singleBoost = t.is_single ? 0.3 : 0
-    return Math.min(1, base + singleBoost)
+    return Math.min(1, base + (t.is_single ? 0.3 : 0))
+  }
+
+  // Theme tokens
+  const T = {
+    bg:         dk ? '#080c12' : '#f0f4fa',
+    bgSurface:  dk ? 'rgba(255,255,255,.025)' : 'rgba(255,255,255,.85)',
+    bgHover:    dk ? 'rgba(255,255,255,.03)' : 'rgba(0,0,0,.03)',
+    bgActive:   dk ? 'rgba(249,115,22,.07)' : 'rgba(249,115,22,.07)',
+    border:     dk ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.09)',
+    borderSub:  dk ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.06)',
+    text:       dk ? '#f0f2f5' : '#0f1a2e',
+    textSec:    dk ? '#b0bdd4' : '#3a5a80',
+    textMuted:  dk ? '#6889a8' : '#8899aa',
+    textFaint:  dk ? '#334058' : '#bbc8d8',
+    coverBg:    dk ? '#111822' : '#e0e8f2',
+    trackNum:   dk ? 'rgba(255,255,255,.2)' : 'rgba(0,0,0,.25)',
+    trackText:  dk ? 'rgba(255,255,255,.82)' : '#1a2a40',
+    trackFeat:  dk ? 'rgba(255,255,255,.4)' : '#6a85a0',
+    popBg:      dk ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.06)',
+    popVal:     dk ? 'rgba(255,255,255,.15)' : 'rgba(0,0,0,.2)',
+    dykBg:      dk ? 'rgba(249,115,22,.04)' : 'rgba(249,115,22,.05)',
+    dykBdr:     dk ? 'rgba(249,115,22,.12)' : 'rgba(249,115,22,.18)',
+    dykText:    dk ? 'rgba(255,255,255,.45)' : '#5a7898',
+    dykSrc:     dk ? 'rgba(255,255,255,.18)' : '#99aabb',
+    cmtInput:   dk ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.04)',
+    cmtBdr:     dk ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.1)',
+    cmtText:    dk ? 'rgba(255,255,255,.7)' : '#3a5a80',
+    simCoverBg: dk ? 'rgba(255,255,255,.05)' : '#e0e8f2',
+    simCoverBdr:dk ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.08)',
+    simTitle:   dk ? 'rgba(255,255,255,.6)' : '#3a5a80',
+    simMeta:    dk ? 'rgba(255,255,255,.24)' : '#99aabb',
+    linkBtn:    dk ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.05)',
+    linkBdr:    dk ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.1)',
+    linkText:   dk ? 'rgba(255,255,255,.7)' : '#3a5a80',
+    cardHead:   dk ? 'rgba(255,255,255,.75)' : '#1a2a40',
+    cardHdBdr:  dk ? 'rgba(255,255,255,.055)' : 'rgba(0,0,0,.07)',
+    nowBdr:     dk ? 'rgba(255,255,255,.055)' : 'rgba(0,0,0,.07)',
+    trackLinkC: dk ? 'rgba(255,255,255,.2)' : 'rgba(0,0,0,.2)',
+  }
+
+  const card = {
+    background: T.bgSurface,
+    border: `1px solid ${T.border}`,
+    borderRadius: 16,
+    overflow: 'hidden' as const,
+  }
+
+  const cardHead = {
+    display: 'flex' as const, alignItems: 'center' as const, justifyContent: 'space-between' as const,
+    padding: '10px 14px', borderBottom: `1px solid ${T.cardHdBdr}`,
+    fontSize: 11, fontWeight: 700, color: T.cardHead,
+    fontFamily: 'Outfit, sans-serif', textTransform: 'uppercase' as const,
+    letterSpacing: '.08em',
   }
 
   return (
-    <>
-      <style>{CSS}</style>
-      <div className="pg">
+    <div style={{ background: T.bg, color: T.text, fontFamily: "'DM Sans',system-ui,sans-serif", WebkitFontSmoothing: 'antialiased', minHeight: '100vh', transition: 'background .2s, color .2s' }}>
 
-        {/* HEADER */}
-        <header className="hd">
-          <div className="hw">
-            <Link href="/" className="lg"><b>music</b><i>.lt</i></Link>
-            <div className="sr-wrap"><input placeholder="Ieškok atlikėjų, albumų, dainų…" /></div>
-            <nav className="nv">
-              {['Topai', 'Muzika', 'Renginiai', 'Atlikėjai', 'Bendruomenė'].map(n =>
-                <a key={n} href="/" className="">{n}</a>
-              )}
-            </nav>
-            <HeaderAuth />
+      {/* ══ ALBUM HEADER — compact, no hero ══ */}
+      <div style={{
+        borderBottom: `1px solid ${T.border}`,
+        background: dk
+          ? 'linear-gradient(to bottom, rgba(8,12,18,1) 0%, rgba(8,12,18,.95) 100%)'
+          : 'linear-gradient(to bottom, #f0f4fa 0%, rgba(240,244,250,.95) 100%)',
+        position: 'relative', overflow: 'hidden',
+      }}>
+        {/* subtle blurred bg */}
+        {album.cover_image_url && (
+          <div style={{ position: 'absolute', inset: 0, zIndex: 0, overflow: 'hidden' }}>
+            <img src={album.cover_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: dk ? 'brightness(.12) saturate(1.3) blur(32px)' : 'brightness(.9) saturate(.8) blur(40px)', transform: 'scale(1.1)', display: 'block' }} />
           </div>
-        </header>
+        )}
+        <div style={{ position: 'relative', zIndex: 1, maxWidth: 1400, margin: '0 auto', padding: '20px 24px', display: 'flex', gap: 18, alignItems: 'center', opacity: loaded ? 1 : 0, transform: loaded ? 'none' : 'translateY(8px)', transition: 'opacity .5s, transform .5s' }}>
 
-        {/* HERO */}
-        <div className="hero">
-          {album.cover_image_url && (
-            <div className="hero-bg">
-              <img src={album.cover_image_url} alt="" />
+          {/* Cover */}
+          {album.cover_image_url
+            ? <img src={album.cover_image_url} alt={album.title} style={{ width: 80, height: 80, borderRadius: 10, objectFit: 'cover', display: 'block', flexShrink: 0, boxShadow: '0 8px 28px rgba(0,0,0,.5)' }} />
+            : <div style={{ width: 80, height: 80, borderRadius: 10, flexShrink: 0, background: T.coverBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>💿</div>
+          }
+
+          {/* Info */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
+              <span style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.1em', color: '#f97316', fontFamily: 'Outfit, sans-serif' }}>{album.type}</span>
+              {album.is_upcoming && <span style={{ fontSize: 8, fontWeight: 800, padding: '1px 7px', borderRadius: 999, background: 'rgba(249,115,22,.15)', border: '1px solid rgba(249,115,22,.3)', color: '#f97316' }}>Greitai</span>}
             </div>
-          )}
-          <div className="hero-g1" />
-          <div className="hero-g2" />
-          <div className={`hero-ct${loaded ? ' hero-in' : ''}`}>
-            <div className="hero-inner">
-              <div className="hero-row">
-                {album.cover_image_url
-                  ? <img className="cover" src={album.cover_image_url} alt={album.title} />
-                  : <div className="cover cover-fb">💿</div>}
-                <div className="hero-info">
-                  <div className="hero-label">
-                    {album.type}
-                    {album.is_upcoming && <span className="upcoming-badge">Greitai</span>}
-                  </div>
-                  <h1 className="hero-title">{album.title}</h1>
-                  <Link href={`/atlikejai/${artist.slug}`} className="hero-artist">{artist.name}</Link>
-                  <div className="hero-meta">
-                    {album.dateFormatted && <span>{album.dateFormatted}</span>}
-                    <span className="dot">·</span>
-                    <span>{tracks.length} {tracks.length === 1 ? 'daina' : tracks.length < 10 ? 'dainos' : 'dainų'}</span>
-                  </div>
-                  <div className="actions">
-                    <button
-                      className={`btn-like${liked ? ' liked' : ''}`}
-                      onClick={() => setLiked(!liked)}
-                    >
-                      {liked ? '♥' : '♡'} {likes + (liked ? 1 : 0)}
-                    </button>
-                    <button className="btn-share" title="Dalintis">↗</button>
-                  </div>
-                </div>
-              </div>
+            <h1 style={{ fontFamily: 'Outfit, sans-serif', fontSize: 'clamp(16px,3vw,26px)', fontWeight: 900, lineHeight: 1.1, letterSpacing: '-.02em', color: dk ? '#fff' : '#0f1a2e', margin: '0 0 4px', wordBreak: 'break-word' }}>{album.title}</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <Link href={`/atlikejai/${artist.slug}`} style={{ fontSize: 13, fontWeight: 700, color: '#f97316', textDecoration: 'none' }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = '.75')}
+                onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
+                {artist.name}
+              </Link>
+              {album.dateFormatted && <><span style={{ color: T.textFaint, fontSize: 11 }}>·</span><span style={{ fontSize: 11, color: T.textMuted }}>{album.dateFormatted}</span></>}
+              {tracks.length > 0 && <><span style={{ color: T.textFaint, fontSize: 11 }}>·</span><span style={{ fontSize: 11, color: T.textMuted }}>{tracks.length} {tracks.length === 1 ? 'daina' : tracks.length < 10 ? 'dainos' : 'dainų'}</span></>}
             </div>
           </div>
-        </div>
 
-        {/* CONTENT */}
-        <div className="content">
-          <div className="left">
-
-            {/* Player + Tracklist */}
-            <div className="card">
-              <div className="card-head">Susijusi muzika</div>
-
-              {/* YouTube player */}
-              <div className="yt-wrap">
-                {currentVid || albumVid ? (
-                  <iframe
-                    key={currentVid || albumVid}
-                    src={`https://www.youtube.com/embed/${currentVid || albumVid}?rel=0`}
-                    allow="autoplay; encrypted-media"
-                    allowFullScreen
-                    className="yt-frame"
-                  />
-                ) : (
-                  <div className="yt-placeholder">
-                    <div className="yt-icon">▶</div>
-                    <div className="yt-hint">Vaizdo įrašas nepriskirtas</div>
-                  </div>
-                )}
-              </div>
-
-              {/* Now playing */}
-              {currentTrack && (
-                <div className="now-playing">
-                  <div className="now-info">
-                    <div className="now-title">{currentTrack.title}</div>
-                    <div className="now-artist">
-                      {artist.name}
-                      {currentTrack.featuring.length > 0 && ` su ${currentTrack.featuring.join(', ')}`}
-                    </div>
-                  </div>
-                  <div className="now-yt-icon">▶</div>
-                </div>
-              )}
-
-              {/* Tracks */}
-              <div className="tracklist">
-                {tracks.map((t, i) => {
-                  const pop = popScore(t)
-                  const isPlaying = playingIdx === i
-                  return (
-                    <div
-                      key={t.id}
-                      className={`track${isPlaying ? ' playing' : ''}`}
-                      onClick={() => setPlayingIdx(i)}
-                    >
-                      <div className="track-top">
-                        <div className="track-num">
-                          {isPlaying ? '▶' : t.position}
-                        </div>
-                        <div className="track-thumb">
-                          {album.cover_image_url
-                            ? <img src={album.cover_image_url} alt="" />
-                            : '🎵'}
-                        </div>
-                        <div className="track-info">
-                          <div className="track-name">
-                            <span className="track-name-text">
-                              {t.title}
-                              {t.featuring.length > 0 && (
-                                <span className="track-feat"> su {t.featuring.join(', ')}</span>
-                              )}
-                            </span>
-                            {t.is_new && <span className="badge-new">NEW</span>}
-                            {t.is_single && <span className="badge-single">Singlas</span>}
-                          </div>
-                        </div>
-                        <Link
-                          href={`/lt/daina/${t.slug}/${t.id}/`}
-                          className="track-link"
-                          onClick={e => e.stopPropagation()}
-                        >→</Link>
-                      </div>
-                      {/* Popularity bar */}
-                      <div className="pop-row">
-                        <div className="pop-bg">
-                          <div className="pop-fill" style={{ width: `${Math.round(pop * 100)}%` }} />
-                        </div>
-                        <div className="pop-val">{Math.round(pop * 100)}%</div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* Ar žinojai */}
-            <div className="card dyk-card">
-              <div className="dyk-label">💡 Ar žinojai?</div>
-              <div className="dyk-text">
-                Informacija apie šį albumą bus rodoma automatiškai iš Wikipedia.
-                Administratorius gali keisti šį tekstą admin panelėje.
-              </div>
-              <div className="dyk-src">Šaltinis: Wikipedia · Adminas gali keisti</div>
-            </div>
-
-            {/* Comments */}
-            <div className="card">
-              <div className="card-head">
-                Komentarai
-                <span className="card-head-count">0</span>
-              </div>
-              <div className="comments">
-                <div className="comment-input-row">
-                  <div className="c-avatar-me">{artist.name[0]}</div>
-                  <input className="comment-input" placeholder="Rašyk komentarą…" />
-                  <button className="comment-send">Siųsti</button>
-                </div>
-                <div className="comments-empty">Būk pirmas — palik komentarą!</div>
-              </div>
-            </div>
-
-          </div>
-
-          <div className="right">
-
-            {/* Panaši muzika */}
-            {similarAlbums.length > 0 && (
-              <div className="card">
-                <div className="card-head">Panaši muzika</div>
-                <div className="sim-scroll">
-                  {similarAlbums.map((a: any) => (
-                    <Link key={a.id} href={`/lt/albumas/${a.slug}/${a.id}/`} className="sim-item">
-                      {a.cover_image_url
-                        ? <img src={a.cover_image_url} alt={a.title} className="sim-cover" />
-                        : <div className="sim-cover sim-cover-fb">🎵</div>}
-                      <div className="sim-title">{a.title}</div>
-                      <div className="sim-meta">{a.artists?.name} · {a.year}</div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Kiti albumai */}
-            {otherAlbums.length > 0 && (
-              <div className="card">
-                <div className="card-head">Kiti albumai</div>
-                <div className="sim-scroll">
-                  {otherAlbums.map(a => (
-                    <Link key={a.id} href={`/lt/albumas/${a.slug}/${a.id}/`} className="sim-item">
-                      {a.cover_image_url
-                        ? <img src={a.cover_image_url} alt={a.title} className="sim-cover" />
-                        : <div className="sim-cover sim-cover-fb">💿</div>}
-                      <div className="sim-title">{a.title}</div>
-                      <div className="sim-meta">{a.year}</div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-
+          {/* Actions */}
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+            <button
+              onClick={() => setLiked(!liked)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 700, border: `1px solid ${liked ? 'rgba(249,115,22,.4)' : T.linkBdr}`, background: liked ? 'rgba(249,115,22,.15)' : T.linkBtn, color: liked ? '#f97316' : T.linkText, cursor: 'pointer', transition: 'all .15s', fontFamily: 'Outfit, sans-serif' }}>
+              {liked ? '♥' : '♡'} {likes + (liked ? 1 : 0)}
+            </button>
+            <button style={{ width: 32, height: 32, borderRadius: 999, border: `1px solid ${T.linkBdr}`, background: T.linkBtn, color: T.linkText, cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .15s' }}>↗</button>
+            <Link href={`/atlikejai/${artist.slug}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 999, fontSize: 11, fontWeight: 700, border: `1px solid ${T.linkBdr}`, background: T.linkBtn, color: T.linkText, textDecoration: 'none', fontFamily: 'Outfit, sans-serif' }}>
+              ← Atlikėjas
+            </Link>
           </div>
         </div>
       </div>
-    </>
+
+      {/* ══ MAIN CONTENT — 50/50 split ══ */}
+      <div style={{ maxWidth: 1400, margin: '0 auto', padding: '16px 24px 60px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start' }}
+        className="ab-grid">
+
+        {/* ── LEFT: Player + Tracklist ── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+          <div style={card}>
+            {/* Video player */}
+            <div style={{ background: '#000', position: 'relative' }}>
+              {activeVid ? (
+                <iframe
+                  key={activeVid}
+                  src={`https://www.youtube.com/embed/${activeVid}?rel=0`}
+                  allow="autoplay; encrypted-media"
+                  allowFullScreen
+                  style={{ width: '100%', aspectRatio: '16/9', border: 'none', display: 'block' }}
+                />
+              ) : (
+                <div style={{ width: '100%', aspectRatio: '16/9', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, background: dk ? '#080c12' : '#e8eef8' }}>
+                  <div style={{ fontSize: 32, opacity: .2 }}>▶</div>
+                  <div style={{ fontSize: 11, color: T.textFaint }}>Vaizdo įrašas nepriskirtas</div>
+                </div>
+              )}
+            </div>
+
+            {/* Now playing bar */}
+            {currentTrack && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderBottom: `1px solid ${T.nowBdr}`, gap: 10 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: T.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentTrack.title}</div>
+                  <div style={{ fontSize: 10, color: T.textMuted, marginTop: 1 }}>
+                    {artist.name}{currentTrack.featuring.length > 0 && ` su ${currentTrack.featuring.join(', ')}`}
+                  </div>
+                </div>
+                <div style={{ fontSize: 9, fontWeight: 700, color: '#f97316', textTransform: 'uppercase', letterSpacing: '.06em', flexShrink: 0 }}>▶ Groja</div>
+              </div>
+            )}
+
+            {/* Tracklist */}
+            <div>
+              {tracks.length === 0 && (
+                <div style={{ padding: '20px', textAlign: 'center', fontSize: 12, color: T.textFaint }}>Dainų nėra</div>
+              )}
+              {tracks.map((t, i) => {
+                const pop = popScore(t)
+                const isPlaying = playingIdx === i
+                return (
+                  <div
+                    key={t.id}
+                    onClick={() => setPlayingIdx(i)}
+                    style={{ padding: '7px 12px 5px', borderBottom: i < tracks.length - 1 ? `1px solid ${T.borderSub}` : 'none', cursor: 'pointer', background: isPlaying ? T.bgActive : 'transparent', transition: 'background .1s' }}
+                    onMouseEnter={e => { if (!isPlaying) (e.currentTarget as HTMLElement).style.background = T.bgHover }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = isPlaying ? T.bgActive : 'transparent' }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {/* Num */}
+                      <span style={{ width: 16, textAlign: 'center', fontSize: 10, flexShrink: 0, fontFamily: 'Outfit, sans-serif', color: isPlaying ? '#f97316' : T.trackNum, fontWeight: isPlaying ? 700 : 400 }}>
+                        {isPlaying ? '▶' : t.position}
+                      </span>
+                      {/* Thumb */}
+                      <div style={{ width: 28, height: 28, borderRadius: 4, flexShrink: 0, overflow: 'hidden', background: T.coverBg }}>
+                        {album.cover_image_url
+                          ? <img src={album.cover_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                          : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9 }}>🎵</div>}
+                      </div>
+                      {/* Title */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: isPlaying ? '#f97316' : T.trackText, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>
+                            {t.title}
+                            {t.featuring.length > 0 && <span style={{ fontWeight: 400, color: T.trackFeat }}> su {t.featuring.join(', ')}</span>}
+                          </span>
+                          {t.is_new && <span style={{ fontSize: 7, fontWeight: 800, padding: '1px 4px', borderRadius: 3, background: 'rgba(249,115,22,.12)', color: '#f97316', border: '1px solid rgba(249,115,22,.18)', flexShrink: 0 }}>NEW</span>}
+                          {t.is_single && <span style={{ fontSize: 7, fontWeight: 800, padding: '1px 4px', borderRadius: 3, background: dk ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.06)', color: T.textMuted, border: `1px solid ${T.borderSub}`, flexShrink: 0 }}>S</span>}
+                        </div>
+                      </div>
+                      {/* Link arrow */}
+                      <Link
+                        href={`/lt/daina/${t.slug}/${t.id}/`}
+                        onClick={e => e.stopPropagation()}
+                        style={{ fontSize: 10, color: T.trackLinkC, textDecoration: 'none', padding: '2px 4px', borderRadius: 3, flexShrink: 0, transition: '.15s' }}
+                        onMouseEnter={e => { e.currentTarget.style.color = '#f97316'; e.currentTarget.style.background = 'rgba(249,115,22,.08)' }}
+                        onMouseLeave={e => { e.currentTarget.style.color = T.trackLinkC; e.currentTarget.style.background = 'transparent' }}
+                      >→</Link>
+                    </div>
+                    {/* Popularity bar */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 0 0 52px' }}>
+                      <div style={{ flex: 1, height: 2, background: T.popBg, borderRadius: 2, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', borderRadius: 2, background: 'linear-gradient(90deg, rgba(249,115,22,.9), rgba(249,115,22,.3))', width: `${Math.round(pop * 100)}%`, transition: 'width .4s ease' }} />
+                      </div>
+                      <span style={{ fontSize: 8, color: T.popVal, width: 24, textAlign: 'right', fontFamily: 'Outfit, sans-serif' }}>{Math.round(pop * 100)}%</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+        </div>
+
+        {/* ── RIGHT: Info, DYK, Discussions, Similar, Other ── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+          {/* Album info card */}
+          <div style={card}>
+            <div style={cardHead}>Albumo informacija</div>
+            <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {/* Stats row */}
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                {[
+                  { l: 'Tipas', v: album.type },
+                  { l: 'Metai', v: album.year?.toString() || '—' },
+                  { l: 'Dainos', v: tracks.length.toString() },
+                  { l: 'Laikas', v: `~${Math.round(tracks.length * 3.5)} min.` },
+                ].map(s => (
+                  <div key={s.l} style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span style={{ fontFamily: 'Outfit, sans-serif', fontSize: 13, fontWeight: 800, color: T.text }}>{s.v}</span>
+                    <span style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: T.textMuted, marginTop: 1 }}>{s.l}</span>
+                  </div>
+                ))}
+              </div>
+              {/* Artist */}
+              <Link href={`/atlikejai/${artist.slug}`} style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none', padding: '8px', borderRadius: 8, background: T.bgHover, border: `1px solid ${T.borderSub}`, marginTop: 2 }}>
+                {artist.cover_image_url
+                  ? <img src={artist.cover_image_url} alt={artist.name} style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                  : <div style={{ width: 36, height: 36, borderRadius: '50%', background: T.coverBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 900, color: T.textFaint, fontFamily: 'Outfit, sans-serif', flexShrink: 0 }}>{artist.name[0]}</div>}
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: T.text }}>{artist.name}</div>
+                  <div style={{ fontSize: 10, color: '#f97316', marginTop: 1 }}>Visi albumai →</div>
+                </div>
+              </Link>
+            </div>
+          </div>
+
+          {/* Ar žinojai */}
+          <div style={{ ...card, background: T.dykBg, border: `1px solid ${T.dykBdr}` }}>
+            <div style={{ padding: '12px 14px' }}>
+              <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.1em', color: '#f97316', fontFamily: 'Outfit, sans-serif', marginBottom: 7 }}>💡 Ar žinojai?</div>
+              <p style={{ fontSize: 12, color: T.dykText, lineHeight: 1.7, margin: 0 }}>
+                Informacija apie šį albumą bus rodoma automatiškai iš Wikipedia. Administratorius gali keisti šį tekstą admin panelėje.
+              </p>
+              <div style={{ fontSize: 9, color: T.dykSrc, marginTop: 6 }}>Šaltinis: Wikipedia · Adminas gali keisti</div>
+            </div>
+          </div>
+
+          {/* Discussions */}
+          <div style={card}>
+            <div style={cardHead}>
+              Diskusijos
+              <span style={{ fontSize: 9, fontWeight: 400, color: T.textFaint }}>0</span>
+            </div>
+            <div style={{ padding: '12px 14px' }}>
+              {/* Comment input */}
+              <div style={{ display: 'flex', gap: 7, marginBottom: 10 }}>
+                <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: 'rgba(249,115,22,.15)', border: '1px solid rgba(249,115,22,.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#f97316', fontFamily: 'Outfit, sans-serif' }}>{artist.name[0]}</div>
+                <input
+                  placeholder="Rašyk komentarą…"
+                  style={{ flex: 1, height: 30, borderRadius: 999, padding: '0 12px', fontSize: 11, background: T.cmtInput, border: `1px solid ${T.cmtBdr}`, color: T.cmtText, outline: 'none', fontFamily: "'DM Sans', sans-serif" }}
+                />
+                <button style={{ height: 30, padding: '0 12px', borderRadius: 999, background: '#f97316', border: 'none', color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', flexShrink: 0, fontFamily: 'Outfit, sans-serif' }}>Siųsti</button>
+              </div>
+              <div style={{ fontSize: 11, color: T.textFaint, textAlign: 'center', padding: '6px 0' }}>Būk pirmas — palik komentarą!</div>
+            </div>
+          </div>
+
+          {/* Related news */}
+          {relatedNews.length > 0 && (
+            <div style={card}>
+              <div style={cardHead}>
+                Naujienos
+                <Link href={`/atlikejai/${artist.slug}`} style={{ fontSize: 9, fontWeight: 700, color: '#f97316', textDecoration: 'none', textTransform: 'none', letterSpacing: 0 }}>Visos →</Link>
+              </div>
+              <div>
+                {relatedNews.map((n, i) => (
+                  <Link key={n.id} href={`/news/${n.slug}`} style={{ display: 'flex', gap: 9, padding: '9px 12px', borderBottom: i < relatedNews.length - 1 ? `1px solid ${T.borderSub}` : 'none', textDecoration: 'none', transition: 'opacity .15s' }}
+                    onMouseEnter={e => ((e.currentTarget as HTMLElement).style.opacity = '.8')}
+                    onMouseLeave={e => ((e.currentTarget as HTMLElement).style.opacity = '1')}>
+                    {n.image_small_url
+                      ? <img src={n.image_small_url} style={{ width: 38, height: 38, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} alt="" />
+                      : <div style={{ width: 38, height: 38, borderRadius: 6, flexShrink: 0, background: T.coverBg }} />}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: T.textSec, lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' } as any}>{n.title}</div>
+                      <div style={{ fontSize: 9, color: T.textMuted, marginTop: 2 }}>{new Date(n.published_at).toLocaleDateString('lt-LT')}</div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Other albums by artist */}
+          {otherAlbums.length > 0 && (
+            <div style={card}>
+              <div style={cardHead}>
+                Kiti {artist.name} albumai
+                <Link href={`/atlikejai/${artist.slug}`} style={{ fontSize: 9, fontWeight: 700, color: '#f97316', textDecoration: 'none', textTransform: 'none', letterSpacing: 0 }}>Visi →</Link>
+              </div>
+              <div style={{ display: 'flex', gap: 8, padding: '10px 12px', overflowX: 'auto', scrollbarWidth: 'none' }}>
+                {otherAlbums.map(a => (
+                  <Link key={a.id} href={`/lt/albumas/${a.slug}/${a.id}/`} style={{ flexShrink: 0, width: 80, textDecoration: 'none' }}>
+                    {a.cover_image_url
+                      ? <img src={a.cover_image_url} alt={a.title} style={{ width: 80, height: 80, borderRadius: 8, objectFit: 'cover', display: 'block', border: `1px solid ${T.simCoverBdr}`, marginBottom: 5 }} />
+                      : <div style={{ width: 80, height: 80, borderRadius: 8, background: T.simCoverBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, marginBottom: 5, border: `1px solid ${T.simCoverBdr}` }}>💿</div>}
+                    <div style={{ fontSize: 10, fontWeight: 600, color: T.simTitle, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.title}</div>
+                    <div style={{ fontSize: 9, color: T.simMeta, marginTop: 1 }}>{a.year}</div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Similar albums */}
+          {similarAlbums.length > 0 && (
+            <div style={card}>
+              <div style={cardHead}>Panaši muzika</div>
+              <div style={{ display: 'flex', gap: 8, padding: '10px 12px', overflowX: 'auto', scrollbarWidth: 'none' }}>
+                {similarAlbums.map((a: any) => (
+                  <Link key={a.id} href={`/lt/albumas/${a.slug}/${a.id}/`} style={{ flexShrink: 0, width: 80, textDecoration: 'none' }}>
+                    {a.cover_image_url
+                      ? <img src={a.cover_image_url} alt={a.title} style={{ width: 80, height: 80, borderRadius: 8, objectFit: 'cover', display: 'block', border: `1px solid ${T.simCoverBdr}`, marginBottom: 5 }} />
+                      : <div style={{ width: 80, height: 80, borderRadius: 8, background: T.simCoverBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, marginBottom: 5 }}>🎵</div>}
+                    <div style={{ fontSize: 10, fontWeight: 600, color: T.simTitle, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.title}</div>
+                    <div style={{ fontSize: 9, color: T.simMeta, marginTop: 1 }}>{a.artists?.name} · {a.year}</div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+        </div>
+      </div>
+
+      {/* Responsive grid breakpoint */}
+      <style>{`
+        @media(max-width: 768px) {
+          .ab-grid { grid-template-columns: 1fr !important; padding: 12px 14px 48px !important; }
+        }
+      `}</style>
+    </div>
   )
 }
-
-const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Sans:wght@400;500;700&display=swap');
-:root {
-  --bg: #080c12; --bg2: #111822; --t: #f0f2f5; --t2: #b0bdd4; --t3: #5e7290; --t4: #334058;
-  --bd: rgba(255,255,255,.06); --bd2: rgba(255,255,255,.035);
-  --or: #f97316; --card: rgba(255,255,255,.03);
-  --fd: 'Outfit', system-ui, sans-serif; --fb: 'DM Sans', system-ui, sans-serif;
-}
-* { box-sizing: border-box; margin: 0; padding: 0; }
-.pg { background: var(--bg); color: var(--t); font-family: var(--fb); -webkit-font-smoothing: antialiased; min-height: 100vh; }
-
-/* HEADER */
-.hd { position: sticky; top: 0; z-index: 50; background: rgba(8,12,18,.92); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255,255,255,.03); }
-.hw { max-width: 1400px; margin: 0 auto; padding: 0 24px; height: 52px; display: flex; align-items: center; gap: 18px; }
-.lg { font-family: var(--fd); font-size: 20px; font-weight: 900; letter-spacing: -.03em; text-decoration: none; }
-.lg b { color: #f2f4f8; } .lg i { color: #fb923c; font-style: normal; }
-.sr-wrap { flex: 1; max-width: 360px; height: 32px; border-radius: 100px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.06); display: flex; align-items: center; }
-.sr-wrap input { flex: 1; padding: 0 14px; font-size: 12px; background: none; border: none; outline: none; color: var(--t2); font-family: var(--fb); }
-.sr-wrap input::placeholder { color: var(--t4); }
-.nv { display: flex; gap: 1px; margin-left: auto; }
-.nv a { padding: 4px 10px; font-size: 11px; font-weight: 600; color: var(--t3); border-radius: 4px; text-decoration: none; font-family: var(--fd); transition: .15s; }
-.nv a:hover { color: var(--t); background: rgba(255,255,255,.04); }
-
-/* HERO */
-.hero { position: relative; height: 360px; overflow: hidden; }
-.hero-bg { position: absolute; inset: 0; }
-.hero-bg img { width: 100%; height: 100%; object-fit: cover; object-position: center 20%; display: block; filter: brightness(.25) saturate(1.2); transform: scale(1.05); }
-.hero-g1 { position: absolute; inset: 0; background: linear-gradient(to top, var(--bg) 0%, rgba(8,12,18,.8) 40%, rgba(8,12,18,.3) 100%); }
-.hero-g2 { position: absolute; inset: 0; background: linear-gradient(to right, rgba(8,12,18,.5) 0%, transparent 60%); }
-.hero-ct { position: relative; max-width: 1400px; margin: 0 auto; height: 100%; display: flex; align-items: flex-end; padding: 0 24px 28px; opacity: 0; transform: translateY(10px); transition: opacity .5s, transform .5s; }
-.hero-in { opacity: 1; transform: translateY(0); }
-.hero-inner { width: 100%; }
-.hero-row { display: flex; gap: 20px; align-items: flex-end; }
-.cover { width: 130px; height: 130px; border-radius: 14px; object-fit: cover; display: block; box-shadow: 0 20px 50px rgba(0,0,0,.7); flex-shrink: 0; background: var(--bg2); }
-.cover-fb { display: flex; align-items: center; justify-content: center; font-size: 40px; }
-@media(min-width: 500px) { .cover { width: 180px; height: 180px; } }
-.hero-info { flex: 1; min-width: 0; }
-.hero-label { font-size: 10px; font-weight: 700; color: rgba(255,255,255,.3); letter-spacing: .1em; text-transform: uppercase; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
-.upcoming-badge { background: rgba(249,115,22,.15); border: 1px solid rgba(249,115,22,.3); color: var(--or); padding: 1px 7px; border-radius: 999px; font-size: 9px; }
-.hero-title { font-family: var(--fd); font-size: clamp(18px, 4.5vw, 36px); font-weight: 900; line-height: 1.1; margin-bottom: 5px; word-break: break-word; }
-.hero-artist { font-size: clamp(13px, 2.5vw, 17px); font-weight: 700; color: var(--or); text-decoration: none; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hero-artist:hover { opacity: .85; }
-.hero-meta { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
-.hero-meta span { font-size: 12px; color: rgba(255,255,255,.32); }
-.dot { color: rgba(255,255,255,.15) !important; }
-.actions { display: flex; gap: 8px; margin-top: 14px; align-items: center; }
-.btn-like { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 999px; font-size: 13px; font-weight: 700; border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.06); color: rgba(255,255,255,.7); cursor: pointer; transition: all .15s; font-family: var(--fd); }
-.btn-like:hover, .btn-like.liked { background: rgba(249,115,22,.2); border-color: rgba(249,115,22,.4); color: var(--or); }
-.btn-share { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 999px; border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.06); color: rgba(255,255,255,.45); cursor: pointer; font-size: 15px; transition: all .15s; }
-.btn-share:hover { background: rgba(255,255,255,.1); }
-
-/* LAYOUT */
-.content { max-width: 1400px; margin: 0 auto; padding: 20px 24px 60px; display: grid; gap: 16px; }
-@media(min-width: 768px) { .content { grid-template-columns: 1fr 280px; gap: 20px; } }
-.left { display: flex; flex-direction: column; gap: 16px; }
-.right { display: flex; flex-direction: column; gap: 16px; }
-
-/* CARD */
-.card { background: var(--card); border: 1px solid var(--bd); border-radius: 16px; overflow: hidden; }
-.card-head { display: flex; align-items: center; justify-content: space-between; padding: 11px 14px; border-bottom: 1px solid rgba(255,255,255,.055); font-size: 12px; font-weight: 700; color: rgba(255,255,255,.75); font-family: var(--fd); }
-.card-head-count { font-size: 10px; color: var(--t4); font-weight: 400; }
-
-/* PLAYER */
-.yt-wrap { width: 100%; aspect-ratio: 16/9; background: #000; overflow: hidden; }
-.yt-frame { width: 100%; height: 100%; border: none; display: block; }
-.yt-placeholder { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
-.yt-icon { font-size: 36px; color: rgba(255,255,255,.1); }
-.yt-hint { font-size: 11px; color: rgba(255,255,255,.15); }
-.now-playing { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,.055); gap: 10px; }
-.now-info { flex: 1; min-width: 0; }
-.now-title { font-size: 13px; font-weight: 700; color: var(--t); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.now-artist { font-size: 11px; color: var(--t3); margin-top: 1px; }
-.now-yt-icon { width: 28px; height: 28px; border-radius: 8px; background: rgba(255,255,255,.07); display: flex; align-items: center; justify-content: center; font-size: 12px; color: rgba(255,255,255,.35); flex-shrink: 0; }
-
-/* TRACKLIST */
-.tracklist { }
-.track { padding: 8px 14px 6px; border-bottom: 1px solid rgba(255,255,255,.035); cursor: pointer; transition: background .1s; }
-.track:last-child { border-bottom: none; }
-.track:hover { background: rgba(255,255,255,.022); }
-.track.playing { background: rgba(249,115,22,.07); }
-.track-top { display: flex; align-items: center; gap: 10px; }
-.track-num { width: 18px; text-align: center; font-size: 11px; color: rgba(255,255,255,.2); flex-shrink: 0; font-family: var(--fd); }
-.track.playing .track-num { color: var(--or); font-weight: 700; }
-.track-thumb { width: 30px; height: 30px; border-radius: 5px; background: rgba(255,255,255,.06); flex-shrink: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 10px; color: rgba(255,255,255,.15); }
-.track-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.track-info { flex: 1; min-width: 0; }
-.track-name { display: flex; align-items: center; gap: 5px; }
-.track-name-text { font-size: 12px; font-weight: 600; color: rgba(255,255,255,.82); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
-.track.playing .track-name-text { color: var(--or); }
-.track-feat { font-weight: 400; color: rgba(255,255,255,.4); }
-.track-link { font-size: 11px; color: rgba(255,255,255,.2); flex-shrink: 0; text-decoration: none; padding: 2px 4px; border-radius: 4px; transition: .15s; }
-.track-link:hover { color: var(--or); background: rgba(249,115,22,.08); }
-.badge-new { font-size: 8px; font-weight: 800; padding: 1px 5px; border-radius: 3px; background: rgba(249,115,22,.12); color: var(--or); border: 1px solid rgba(249,115,22,.18); flex-shrink: 0; }
-.badge-single { font-size: 8px; font-weight: 800; padding: 1px 5px; border-radius: 3px; background: rgba(255,255,255,.07); color: rgba(255,255,255,.32); border: 1px solid rgba(255,255,255,.08); flex-shrink: 0; }
-
-/* POPULARITY BAR */
-.pop-row { display: flex; align-items: center; gap: 6px; padding: 4px 0 0 38px; }
-.pop-bg { flex: 1; height: 2px; background: rgba(255,255,255,.05); border-radius: 2px; overflow: hidden; }
-.pop-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, rgba(249,115,22,.9), rgba(249,115,22,.35)); transition: width .4s ease; }
-.pop-val { font-size: 9px; color: rgba(255,255,255,.15); flex-shrink: 0; width: 26px; text-align: right; font-family: var(--fd); }
-
-/* DYK */
-.dyk-card { padding: 14px; background: rgba(249,115,22,.04) !important; border-color: rgba(249,115,22,.12) !important; }
-.dyk-label { font-size: 10px; font-weight: 800; color: var(--or); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; font-family: var(--fd); }
-.dyk-text { font-size: 12px; color: rgba(255,255,255,.45); line-height: 1.65; }
-.dyk-src { font-size: 10px; color: rgba(255,255,255,.18); margin-top: 6px; }
-
-/* COMMENTS */
-.comments { padding: 14px; }
-.comment-input-row { display: flex; gap: 8px; margin-bottom: 12px; }
-.c-avatar-me { width: 30px; height: 30px; border-radius: 50%; background: rgba(249,115,22,.18); border: 1px solid rgba(249,115,22,.28); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--or); }
-.comment-input { flex: 1; height: 34px; border-radius: 999px; padding: 0 14px; font-size: 12px; font-family: var(--fb); background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); color: rgba(255,255,255,.7); outline: none; }
-.comment-input::placeholder { color: rgba(255,255,255,.18); }
-.comment-send { height: 34px; padding: 0 14px; border-radius: 999px; background: var(--or); border: none; color: #fff; font-size: 12px; font-weight: 700; font-family: var(--fb); cursor: pointer; flex-shrink: 0; }
-.comments-empty { font-size: 12px; color: var(--t4); text-align: center; padding: 12px 0 4px; }
-
-/* SIMILAR / OTHER ALBUMS */
-.sim-scroll { display: flex; gap: 10px; padding: 12px; overflow-x: auto; scrollbar-width: none; }
-.sim-scroll::-webkit-scrollbar { display: none; }
-.sim-item { flex-shrink: 0; width: 96px; text-decoration: none; }
-.sim-cover { width: 96px; height: 96px; border-radius: 10px; object-fit: cover; display: block; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.07); margin-bottom: 6px; }
-.sim-cover-fb { display: flex; align-items: center; justify-content: center; font-size: 24px; }
-.sim-title { font-size: 11px; font-weight: 600; color: rgba(255,255,255,.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sim-meta { font-size: 10px; color: rgba(255,255,255,.24); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sim-item:hover .sim-title { color: var(--or); }
-
-@media(max-width: 768px) {
-  .sr-wrap, .nv { display: none; }
-  .content { padding: 16px 16px 48px; }
-  .hero { height: 300px; }
-  .hero-ct { padding: 0 16px 24px; }
-}
-@media(max-width: 480px) {
-  .hero { height: 260px; }
-  .cover { width: 110px !important; height: 110px !important; }
-}
-`
