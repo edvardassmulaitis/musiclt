@@ -276,10 +276,31 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
               {t.is_single && <span style={{ fontSize: 7, fontWeight: 800, padding: '1px 4px', borderRadius: 3, background: T.bgHover, color: T.textMuted, border: `1px solid ${T.borderSub}` }}>S</span>}
             </div>
 
-            {/* Pop bar — fixed 80px container, fill shows popularity */}
+            {/* Pop bar */}
             <div style={{ width: 80, flexShrink: 0, height: 3, borderRadius: 2, background: T.popBg, overflow: 'hidden' }}>
               <div style={{ height: '100%', borderRadius: 2, background: T.popFill, width: `${popBarFill}%`, transition: 'width .4s ease' }} />
             </div>
+
+            {/* Play button — only when canPlay, always ▶ (no pause state) */}
+            {canPlay ? (
+              <button
+                onClick={e => { e.stopPropagation(); setPlayingIdx(tracks.indexOf(t)) }}
+                style={{
+                  width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
+                  background: isPlaying ? 'rgba(249,115,22,.15)' : 'transparent',
+                  border: `1.5px solid ${isPlaying ? '#f97316' : T.borderSub}`,
+                  color: isPlaying ? '#f97316' : T.textMuted,
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'all .15s', padding: 0,
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = '#f97316'; e.currentTarget.style.color = '#f97316'; e.currentTarget.style.background = 'rgba(249,115,22,.08)' }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = isPlaying ? '#f97316' : T.borderSub; e.currentTarget.style.color = isPlaying ? '#f97316' : T.textMuted; e.currentTarget.style.background = isPlaying ? 'rgba(249,115,22,.15)' : 'transparent' }}
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><polygon points="2,1 9,5 2,9"/></svg>
+              </button>
+            ) : (
+              <div style={{ width: 30, flexShrink: 0 }} />
+            )}
 
             {/* → link to track page */}
             <Link
