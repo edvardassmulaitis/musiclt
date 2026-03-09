@@ -1,5 +1,5 @@
 // app/lt/daina/[slug]/[id]/page.tsx
-import { createClient } from '@/utils/supabase/server'
+import { createAdminClient } from '@/lib/supabase'
 import { notFound } from 'next/navigation'
 import TrackPageClient from './track-page-client'
 
@@ -9,7 +9,7 @@ type Params = { slug: string; id: string }
 
 export async function generateMetadata({ params }: { params: Promise<Params> }) {
   const { id } = await params
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const { data: track } = await supabase
     .from('tracks')
     .select('title, description')
@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: { params: Promise<Params> }) 
 
 export default async function TrackPage({ params }: { params: Promise<Params> }) {
   const { slug, id } = await params
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   // ── Fetch track ────────────────────────────────────────────────────────────
   const { data: track } = await supabase
