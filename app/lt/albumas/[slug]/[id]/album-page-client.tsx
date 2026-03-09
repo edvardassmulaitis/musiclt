@@ -214,7 +214,9 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
           display: desktop ? 'flex' : 'block',
           alignItems: desktop ? 'center' : undefined,
           gap: desktop ? 10 : undefined,
+          cursor: desktop && canPlay ? 'pointer' : 'default',
         }}
+        onClick={desktop && canPlay ? () => setPlayingIdx(tracks.indexOf(t)) : undefined}
         onMouseEnter={e => { if (!isPlaying) (e.currentTarget as HTMLDivElement).style.background = T.bgHover }}
         onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = isPlaying ? T.bgActive : 'transparent' }}
       >
@@ -255,11 +257,15 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
                 {t.title}
                 {t.featuring.length > 0 && <span style={{ fontWeight: 400, color: T.trackFeat }}> su {t.featuring.join(', ')}</span>}
               </Link>
-              {t.topComment && (
+              {t.topComment ? (
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginTop: 1 }}>
                   <span style={{ fontSize: 10, color: T.cmtQuote, fontStyle: 'italic', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', flex: 1 }}>„{t.topComment.text}"</span>
                   <span style={{ fontSize: 9, color: T.cmtAuthor, flexShrink: 0 }}>— {t.topComment.author}</span>
                   <span style={{ fontSize: 9, color: T.cmtHeart, flexShrink: 0 }}>♥ {t.topComment.likes}</span>
+                </div>
+              ) : (
+                <div style={{ marginTop: 1, fontSize: 10, color: T.textFaint, fontStyle: 'italic', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  Būk pirmas — palik komentarą…
                 </div>
               )}
             </div>
@@ -275,33 +281,14 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
               <div style={{ height: '100%', borderRadius: 2, background: T.popFill, width: `${popBarFill}%`, transition: 'width .4s ease' }} />
             </div>
 
-            {/* Play button — right side, only when canPlay */}
-            {canPlay ? (
-              <button
-                onClick={() => setPlayingIdx(tracks.indexOf(t))}
-                className="ab-play-btn"
-                style={{
-                  width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
-                  background: isPlaying ? '#f97316' : 'transparent',
-                  border: `1.5px solid ${isPlaying ? '#f97316' : T.borderSub}`,
-                  color: isPlaying ? '#fff' : T.textMuted,
-                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  transition: 'all .15s', padding: 0,
-                }}
-                onMouseEnter={e => { if (!isPlaying) { e.currentTarget.style.borderColor = '#f97316'; e.currentTarget.style.color = '#f97316' } }}
-                onMouseLeave={e => { if (!isPlaying) { e.currentTarget.style.borderColor = T.borderSub; e.currentTarget.style.color = T.textMuted } }}
-              >
-                {isPlaying
-                  ? <div style={{ width: 8, height: 8, display: 'flex', gap: 2, alignItems: 'center', justifyContent: 'center' }}>
-                      <div style={{ width: 2.5, height: 8, background: '#fff', borderRadius: 1 }} />
-                      <div style={{ width: 2.5, height: 8, background: '#fff', borderRadius: 1 }} />
-                    </div>
-                  : <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><polygon points="2,1 9,5 2,9"/></svg>
-                }
-              </button>
-            ) : (
-              <div style={{ width: 30, flexShrink: 0 }} /> /* spacer */
-            )}
+            {/* → link to track page */}
+            <Link
+              href={`/lt/daina/${t.slug}/${t.id}/`}
+              onClick={e => e.stopPropagation()}
+              style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: T.trackLinkC, textDecoration: 'none', border: `1px solid ${T.borderSub}`, transition: 'all .15s' }}
+              onMouseEnter={e => { e.currentTarget.style.color = '#f97316'; e.currentTarget.style.borderColor = 'rgba(249,115,22,.4)'; e.currentTarget.style.background = 'rgba(249,115,22,.06)' }}
+              onMouseLeave={e => { e.currentTarget.style.color = T.trackLinkC; e.currentTarget.style.borderColor = T.borderSub; e.currentTarget.style.background = 'transparent' }}
+            >→</Link>
           </>
         ) : (
           /* ── mobile layout (unchanged) ── */
