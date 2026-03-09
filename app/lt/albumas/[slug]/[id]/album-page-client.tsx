@@ -301,15 +301,6 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
             ) : (
               <div style={{ width: 30, flexShrink: 0 }} />
             )}
-
-            {/* → link to track page */}
-            <Link
-              href={`/lt/daina/${t.slug}/${t.id}/`}
-              onClick={e => e.stopPropagation()}
-              style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: T.trackLinkC, textDecoration: 'none', border: `1px solid ${T.borderSub}`, transition: 'all .15s' }}
-              onMouseEnter={e => { e.currentTarget.style.color = '#f97316'; e.currentTarget.style.borderColor = 'rgba(249,115,22,.4)'; e.currentTarget.style.background = 'rgba(249,115,22,.06)' }}
-              onMouseLeave={e => { e.currentTarget.style.color = T.trackLinkC; e.currentTarget.style.borderColor = T.borderSub; e.currentTarget.style.background = 'transparent' }}
-            >→</Link>
           </>
         ) : (
           /* ── mobile layout (unchanged) ── */
