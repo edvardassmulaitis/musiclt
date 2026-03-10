@@ -36,6 +36,8 @@ type Props = {
   versions: Version[]; likes: number
   lyricComments: LyricReaction[]; trivia: string | null
   relatedTracks: Track[]
+  aiInterpretation?: string | null
+  aiImageUrl?: string | null
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -94,7 +96,7 @@ const YoutubeEmbed = memo(function YoutubeEmbed({ videoId }: { videoId: string }
 
 export default function TrackPageClient({
   track, artist, albums, versions, likes, lyricComments: initialComments,
-  trivia, relatedTracks,
+  trivia, relatedTracks, aiInterpretation, aiImageUrl,
 }: Props) {
   const { dk } = useSite()
 
@@ -104,9 +106,9 @@ export default function TrackPageClient({
   const [showAllVersions, setShowAllVersions] = useState(false)
   const [loaded, setLoaded] = useState(false)
 
-  // AI
-  const [aiText, setAiText] = useState<string | null>(null)
-  const [aiImage, setAiImage] = useState<string | null>(null)
+  // AI — pre-load from DB if available
+  const [aiText, setAiText] = useState<string | null>(aiInterpretation ?? null)
+  const [aiImage, setAiImage] = useState<string | null>(aiImageUrl ?? null)
   const [aiLoading, setAiLoading] = useState(false)
   const [aiError, setAiError] = useState(false)
 
@@ -233,35 +235,23 @@ export default function TrackPageClient({
     setAiText(null)
     setAiImage(null)
     try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1200,
-          system: `Tu esi muzikos kritikas ir lyrikų interpretatorius. Atsakyk TIKTAI lietuviškai. Būk įžvalgus, nuoširdus, poetiškas — ne akademiškas. Neminėk dainos pavadinimo ar atlikėjo pirmame sakinyje. Atsakyk TIKTAI JSON formatu be jokio kito teksto: { "interpretation": "2-3 paragrafai, kiekvienas per naują eilutę", "image_prompt": "abstract art, 10-15 words in English capturing the emotional essence, no people, no text" }`,
-          messages: [{
-            role: 'user',
-            content: `Daina: "${track.title}" — ${artist.name}\n\nŽodžiai:\n${track.lyrics}\n\nSugeneruok interpretaciją ir image prompt.`,
-          }],
-        }),
-      })
-      const data = await res.json()
-      const raw = data.content?.find((b: any) => b.type === 'text')?.text ?? ''
-      const clean = raw.replace(/```json|```/g, '').trim()
-      try {
-        const parsed = JSON.parse(clean)
-        setAiText(parsed.interpretation ?? raw)
-        if (parsed.image_prompt) {
-          const prompt = encodeURIComponent(parsed.image_prompt + ', cinematic lighting, no text')
-          setAiImage(`https://image.pollinations.ai/prompt/${prompt}?width=800&height=380&nologo=true&seed=${track.id}`)
+      // First check if already generated
+      const existing = await fetch(`/api/tracks/${track.id}/ai-interpretation`)
+      if (existing.ok) {
+        const cached = await existing.json()
+        if (cached.ai_interpretation) {
+          setAiText(cached.ai_interpretation)
+          setAiImage(cached.ai_image_url ?? null)
+          setAiLoading(false)
+          return
         }
-      } catch {
-        setAiText(raw)
       }
+      // Generate server-side
+      const res = await fetch(`/api/tracks/${track.id}/ai-interpretation`, { method: 'POST' })
+      if (!res.ok) throw new Error('Failed')
+      const data = await res.json()
+      setAiText(data.interpretation)
+      setAiImage(data.image_url ?? null)
     } catch {
       setAiError(true)
     } finally {
