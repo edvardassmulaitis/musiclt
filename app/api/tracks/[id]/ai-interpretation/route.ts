@@ -58,10 +58,14 @@ export async function POST(
     body: JSON.stringify({
       model: 'claude-opus-4-5',
       max_tokens: 1024,
-      system: `Tu esi muzikos kritikas ir lyrikų interpretatorius. Atsakyk TIKTAI lietuviškai. Būk įžvalgus, nuoširdus, poetiškas — ne akademiškas. Neminėk dainos pavadinimo ar atlikėjo pirmame sakinyje. Atsakyk TIKTAI JSON formatu be jokio kito teksto: { "interpretation": "2-3 paragrafai atskirti \\n\\n", "image_prompt": "abstract art 10-15 words in English capturing emotional essence, no people, no text" }`,
+      system: `Tu esi muzikos kritikas. Atsakyk TIKTAI lietuviškai. Būk įžvalgus ir poetiškas.
+
+LABAI SVARBU: Atsakyk TIKTAI šiuo formatu be jokio papildomo teksto, be backtick'ų, be JSON etikečių:
+INTERPRETACIJA: [2-3 paragrafai atskirti dviem eilutės pertraukomis]
+IMAGE: [10-15 žodžių angliškai abstrakti nuotaika, be žmonių, be teksto]`,
       messages: [{
         role: 'user',
-        content: `Daina: "${track.title}" — ${artistName}\n\nŽodžiai:\n${track.lyrics}\n\nSugeneruok interpretaciją ir image prompt.`,
+        content: `Daina: "${track.title}" — ${artistName}\n\nŽodžiai:\n${track.lyrics}`,
       }],
     }),
   })
@@ -74,31 +78,35 @@ export async function POST(
 
   const anthropicData = await anthropicRes.json()
   const raw = anthropicData.content?.find((b: any) => b.type === 'text')?.text ?? ''
-  // More robust JSON extraction — handle backticks, extra whitespace, etc.
-  const jsonMatch = raw.match(/\{[\s\S]*\}/)
-  const clean = jsonMatch ? jsonMatch[0] : raw
 
   let interpretation = ''
-  let imageUrl = ''
+  let imagePrompt = ''
 
-  try {
-    const parsed = JSON.parse(clean)
-    interpretation = (parsed.interpretation ?? raw)
-      .replace(/\\n/g, '\n')
-      .replace(/[—–]/g, '-')
-      .trim()
-    if (parsed.image_prompt) {
-      const prompt = encodeURIComponent(parsed.image_prompt.replace(/"/g, '') + ', cinematic lighting, no text, no people')
-      imageUrl = `https://image.pollinations.ai/prompt/${prompt}?width=800&height=380&nologo=true&seed=${track.id}`
-    }
-  } catch {
+  // Parse new plain format: INTERPRETACIJA: ... \nIMAGE: ...
+  const interpMatch = raw.match(/INTERPRETACIJA:\s*([\s\S]*?)(?:\nIMAGE:|$)/i)
+  const imageMatch = raw.match(/IMAGE:\s*(.+)/i)
+
+  if (interpMatch) {
+    interpretation = interpMatch[1].trim().replace(/[—–]/g, '-')
+  } else {
+    // Fallback: strip any JSON artifacts
     interpretation = raw
-      .replace(/```json|```/g, '')
-      .replace(/"interpretation"\s*:\s*"/, '')
-      .replace(/",?\s*"image_prompt"[\s\S]*$/, '')
+      .replace(/```[\s\S]*?```/g, '')
+      .replace(/\{[\s\S]*?"image_prompt"[\s\S]*?\}/g, '')
+      .replace(/\{[\s\S]*?"interpretation"[\s\S]*?\}/g, '')
+      .replace(/"interpretation"\s*:\s*"?/g, '')
       .replace(/[—–]/g, '-')
-      .replace(/^[\s{"}]+|[\s{"}]+$/g, '')
       .trim()
+  }
+
+  if (imageMatch) {
+    imagePrompt = imageMatch[1].trim().replace(/"/g, '')
+  }
+
+  let imageUrl = ''
+  if (imagePrompt) {
+    const encoded = encodeURIComponent(imagePrompt + ', cinematic, no text, no people, no faces')
+    imageUrl = `https://image.pollinations.ai/prompt/${encoded}?width=800&height=400&nologo=true&seed=${track.id}&model=flux`
   }
 
   // Save to DB
