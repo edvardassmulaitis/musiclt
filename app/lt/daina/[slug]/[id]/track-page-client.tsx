@@ -358,12 +358,12 @@ export default function TrackPageClient({
 
   const TrackInfoCard = () => (
     <div style={card}>
-      <div style={{ background: T.coverAreaBg, padding: 14, display: 'flex', gap: 14, alignItems: 'flex-start', position: 'relative', opacity: loaded ? 1 : 0, transition: 'opacity .4s' }}>
+      <div style={{ background: T.coverAreaBg, padding: 14, position: 'relative', opacity: loaded ? 1 : 0, transition: 'opacity .4s' }}>
         <button onClick={() => setLiked(v => !v)}
-          style={{ position: 'absolute', top: 10, right: 12, display: 'flex', alignItems: 'center', gap: 4, padding: '5px 11px', borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: 'pointer', border: `1px solid ${liked ? 'rgba(249,115,22,.4)' : T.border}`, background: liked ? 'rgba(249,115,22,.12)' : 'rgba(255,255,255,.06)', color: liked ? '#f97316' : T.textMuted, transition: 'all .15s', fontFamily: 'Outfit, sans-serif', lineHeight: 1, whiteSpace: 'nowrap' }}>
-          <span style={{ fontSize: 13, lineHeight: 1 }}>{liked ? '♥' : '♡'}</span>
-          <span>{likes + (liked ? 1 : 0)}</span>
+          style={{ position: 'absolute', top: 10, right: 12, zIndex: 2, display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: 'pointer', border: `1px solid ${liked ? 'rgba(249,115,22,.4)' : T.border}`, background: liked ? 'rgba(249,115,22,.12)' : 'rgba(255,255,255,.06)', color: liked ? '#f97316' : T.textMuted, transition: 'all .15s', fontFamily: 'Outfit, sans-serif', whiteSpace: 'nowrap', lineHeight: '1' }}>
+          <span>{liked ? '♥' : '♡'}</span><span>{likes + (liked ? 1 : 0)}</span>
         </button>
+        <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', paddingRight: 76 }}>
         <div style={{ flexShrink: 0, width: 100, height: 100, borderRadius: 12, overflow: 'hidden', boxShadow: dk ? '0 10px 32px rgba(0,0,0,.7)' : '0 6px 24px rgba(0,0,0,.2)', background: T.coverBg }}>
           {primaryAlbum?.cover_image_url
             ? <img src={primaryAlbum.cover_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
@@ -393,7 +393,8 @@ export default function TrackPageClient({
           )}
           {dateStr && <div style={{ fontSize: 11, color: T.textMuted }}>{dateStr}</div>}
         </div>
-      </div>
+        </div>{/* end flex row */}
+      </div>{/* end cover area */}
       {albums.length > 0 && (
         <div style={{ padding: '10px 14px', display: 'flex', gap: 8, flexWrap: 'wrap', borderTop: `1px solid ${T.subBdr}` }}>
           <span style={{ fontSize: 10, color: T.textFaint, alignSelf: 'center', fontFamily: 'Outfit, sans-serif', textTransform: 'uppercase', letterSpacing: '.06em' }}>Albumas</span>
@@ -771,28 +772,7 @@ export default function TrackPageClient({
             {renderLyricsWithHighlights()}
           </pre>
         </div>
-        {reactions.length > 0 && (
-          <div style={{ borderTop: `1px solid ${T.subBdr}`, padding: '8px 18px 12px' }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: T.textFaint, textTransform: 'uppercase', letterSpacing: '.08em', fontFamily: 'Outfit, sans-serif', marginBottom: 6 }}>
-              {reactions.length} {reactions.length === 1 ? 'reakcija' : 'reakcijos'} į žodžius
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {/* Group by range */}
-              {Array.from(reactionsByRange.entries()).map(([key, rxns]) => {
-                const likes = rxns.filter(r => r.type === 'like').length
-                const cmts = rxns.filter(r => r.type === 'comment').length
-                const text = rxns[0]?.selected_text ?? ''
-                return (
-                  <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px 4px 8px', borderRadius: 999, background: T.bgHover, border: `1px solid rgba(249,115,22,.2)`, fontSize: 11 }}>
-                    <span style={{ color: T.textFaint, fontStyle: 'italic', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>„{text}"</span>
-                    {likes > 0 && <span style={{ color: '#f97316', fontWeight: 700, fontSize: 10 }}>♥{likes}</span>}
-                    {cmts > 0 && <span style={{ color: T.textMuted, fontSize: 10 }}>💬{cmts}</span>}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
+        {/* Reactions bottom list removed — visible via highlights only */}
       </div>
     )
   }
