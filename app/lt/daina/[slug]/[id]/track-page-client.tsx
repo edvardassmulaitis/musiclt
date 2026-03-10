@@ -118,6 +118,7 @@ export default function TrackPageClient({
   } | null>(null)
   const [sidePanelTab, setSidePanelTab] = useState<'actions' | 'share'>('actions')
   const [commentDraft, setCommentDraft] = useState('')
+  const commentDraftRef = useRef('')
   const [saving, setSaving] = useState(false)
 
   // Hover tooltip on marked text
@@ -203,7 +204,8 @@ export default function TrackPageClient({
   }
 
   const saveComment = async () => {
-    if (!sidePanel || !commentDraft.trim()) return
+    const text = commentDraftRef.current.trim()
+    if (!sidePanel || !text) return
     setSaving(true)
     const newR: LyricReaction = {
       id: Date.now(),
@@ -211,19 +213,20 @@ export default function TrackPageClient({
       selection_end: sidePanel.end,
       selected_text: sidePanel.text,
       type: 'comment',
-      text: commentDraft.trim(),
+      text,
       likes: 0,
       created_at: new Date().toISOString(),
     }
     setReactions(prev => [...prev, newR])
+    commentDraftRef.current = ''
+    setCommentDraft('')
     try {
       await fetch(`/api/tracks/${track.id}/lyric-comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ selected_text: sidePanel.text, selection_start: sidePanel.start, selection_end: sidePanel.end, type: 'comment', text: commentDraft.trim() }),
+        body: JSON.stringify({ selected_text: sidePanel.text, selection_start: sidePanel.start, selection_end: sidePanel.end, type: 'comment', text }),
       })
     } catch { /* ignore */ }
-    setCommentDraft('')
     setSaving(false)
     setSidePanel(null)
   }
@@ -673,16 +676,17 @@ export default function TrackPageClient({
                 </div>
                 <div style={{ padding: '0 14px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <textarea
-                    value={commentDraft}
-                    onChange={e => setCommentDraft(e.target.value)}
+                    defaultValue=""
+                    key={sidePanel.start + '-' + sidePanel.end}
+                    onChange={e => { commentDraftRef.current = e.target.value }}
                     placeholder="Tavo komentaras apie šią vietą…"
                     rows={3}
                     style={{ width: '100%', borderRadius: 10, padding: '9px 12px', fontSize: 12, background: T.cmtInput, border: `1px solid ${T.cmtBdr}`, color: T.text, outline: 'none', resize: 'none', fontFamily: "'DM Sans', sans-serif", boxSizing: 'border-box', lineHeight: 1.55 }}
                     onFocus={e => (e.currentTarget.style.borderColor = 'rgba(249,115,22,.5)')}
                     onBlur={e => (e.currentTarget.style.borderColor = T.cmtBdr)}
                   />
-                  <button onClick={saveComment} disabled={!commentDraft.trim() || saving}
-                    style={{ padding: '8px 16px', borderRadius: 999, background: commentDraft.trim() ? '#f97316' : 'rgba(249,115,22,.2)', border: 'none', color: commentDraft.trim() ? '#fff' : 'rgba(249,115,22,.4)', fontSize: 12, fontWeight: 700, cursor: commentDraft.trim() ? 'pointer' : 'not-allowed', fontFamily: 'Outfit, sans-serif', transition: 'all .15s', alignSelf: 'flex-end' }}>
+                  <button onClick={saveComment} disabled={saving}
+                    style={{ padding: '8px 16px', borderRadius: 999, background: '#f97316', border: 'none', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif', transition: 'all .15s', alignSelf: 'flex-end' }}>
                     Išsaugoti komentarą
                   </button>
                 </div>
