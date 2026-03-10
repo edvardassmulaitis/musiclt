@@ -648,13 +648,13 @@ export default function TrackPageClient({
               whiteSpace: 'nowrap',
             }}>
               <span style={{ fontSize: 12 }}>💬</span>
-              <button onClick={startCommenting}
+              <button onMouseDown={e => { e.preventDefault(); e.stopPropagation(); startCommenting() }}
                 style={{ background: 'none', border: 'none', color: '#f97316', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif' }}>
                 Komentuoti
               </button>
               <div style={{ width: 1, height: 14, background: 'rgba(249,115,22,.3)' }} />
               <span style={{ fontSize: 12 }}>🔗</span>
-              <button onClick={startSharing}
+              <button onMouseDown={e => { e.preventDefault(); e.stopPropagation(); startSharing() }}
                 style={{ background: 'none', border: 'none', color: '#b0bdd4', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'Outfit, sans-serif' }}>
                 Dalintis
               </button>
