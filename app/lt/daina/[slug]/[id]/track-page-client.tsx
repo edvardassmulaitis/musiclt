@@ -615,22 +615,6 @@ export default function TrackPageClient({
 
     return (
       <div>
-        {commentingOn && (
-          <div style={{ padding: '10px 16px', borderBottom: `1px solid ${T.subBdr}`, background: T.bgActive, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ fontSize: 11, color: T.textMuted }}>
-              Komentuoji: <span style={{ color: T.text, fontStyle: 'italic', fontWeight: 600 }}>„{commentingOn.text.slice(0, 60)}{commentingOn.text.length > 60 ? '…' : ''}"</span>
-              <button onClick={() => setCommentingOn(null)} style={{ marginLeft: 8, background: 'none', border: 'none', color: T.textFaint, cursor: 'pointer', fontSize: 11 }}>✕</button>
-            </div>
-            <div style={{ display: 'flex', gap: 7 }}>
-              <input ref={commentInputRef} value={commentDraft} onChange={e => setCommentDraft(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') submitComment() }}
-                placeholder="Tavo komentaras…"
-                style={{ flex: 1, height: 32, borderRadius: 999, padding: '0 12px', fontSize: 12, background: T.cmtInput, border: `1px solid rgba(249,115,22,.4)`, color: T.text, outline: 'none', fontFamily: "'DM Sans', sans-serif" }} />
-              <button onClick={submitComment} style={{ height: 32, padding: '0 14px', borderRadius: 999, background: '#f97316', border: 'none', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif' }}>Siųsti</button>
-            </div>
-          </div>
-        )}
-
         <div ref={lyricsRef} onMouseUp={handleLyricsMouseUp} style={{ position: 'relative', padding: '16px 18px', userSelect: 'text', cursor: 'text' }}>
           {selectionPopup && (
             <div className="lyric-popup" style={{
@@ -762,6 +746,26 @@ export default function TrackPageClient({
             <span style={{ marginLeft: 'auto', fontSize: 9, color: T.textFaint, fontStyle: 'italic' }}>Pažymėk tekstą, kad komentuotum</span>
           )}
         </div>
+        {/* Comment input — lives HERE (outside LyricsPanel) so input never remounts while typing */}
+        {activeTab === 'lyrics' && commentingOn && (
+          <div style={{ padding: '10px 16px', borderBottom: `1px solid ${T.subBdr}`, background: T.bgActive, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ fontSize: 11, color: T.textMuted, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span>💬 prie: <em style={{ color: T.text, fontWeight: 600 }}>„{commentingOn.text.slice(0, 40)}{commentingOn.text.length > 40 ? '…' : ''}"</em></span>
+              <button onMouseDown={e => { e.preventDefault(); setCommentingOn(null); setCommentDraft('') }} style={{ background: 'none', border: 'none', color: T.textFaint, cursor: 'pointer', fontSize: 13, lineHeight: 1 }}>✕</button>
+            </div>
+            <div style={{ display: 'flex', gap: 7 }}>
+              <input
+                autoFocus
+                value={commentDraft}
+                onChange={e => setCommentDraft(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') submitComment() }}
+                placeholder="Tavo komentaras…"
+                style={{ flex: 1, height: 32, borderRadius: 999, padding: '0 12px', fontSize: 12, background: T.cmtInput, border: `1px solid rgba(249,115,22,.4)`, color: T.text, outline: 'none', fontFamily: "'DM Sans', sans-serif" }}
+              />
+              <button onMouseDown={e => { e.preventDefault(); submitComment() }} style={{ height: 32, padding: '0 14px', borderRadius: 999, background: '#f97316', border: 'none', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif' }}>Siųsti</button>
+            </div>
+          </div>
+        )}
         {activeTab === 'lyrics' && <LyricsPanel />}
         {activeTab === 'chords' && <ChordsPanel />}
         {activeTab === 'cloud'  && <WordCloudPanel />}
