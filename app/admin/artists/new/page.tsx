@@ -363,7 +363,7 @@ function Step3Discography({ artistId, artistName, wikiTitle, isSolo, onFinish }:
 
       {wikiTitle ? (
         <WikipediaImportDiscography
-          artistId={artistId}
+          artistId={parseInt(artistId)}
           artistName={artistName}
           artistWikiTitle={wikiTitle}
           isSolo={isSolo}
