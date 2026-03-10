@@ -32,7 +32,7 @@ export default async function TrackPage({ params }: { params: Promise<Params> })
     .from('tracks')
     .select(`
       id, slug, title, type, video_url, spotify_id, release_date,
-      lyrics, chords, description, show_player, is_new,
+      lyrics, chords, description, show_player, is_new, show_ai_interpretation,
       artist_id
     `)
     .eq('id', id)
@@ -63,7 +63,7 @@ export default async function TrackPage({ params }: { params: Promise<Params> })
   // ── Fetch albums this track appears in ────────────────────────────────────
   const { data: albumTrackRows } = await supabase
     .from('album_tracks')
-    .select('albums(id, slug, title, year, cover_image_url, type_studio, type)')
+    .select('albums!album_tracks_album_id_fkey(id, slug, title, year, cover_image_url, type_studio, type)')
     .eq('track_id', id)
 
   const albums = (albumTrackRows ?? [])
@@ -81,10 +81,10 @@ export default async function TrackPage({ params }: { params: Promise<Params> })
     .eq('track_id', id)
 
   // ── Fetch lyric comments ───────────────────────────────────────────────────
-  // table: track_lyric_comments (id, track_id, line_index, author, avatar_letter, text, likes, created_at)
+  // table: track_lyric_comments (id, track_id, selection_start, selection_end, selected_text, author, avatar_letter, text, likes, created_at)
   const { data: lyricComments } = await supabase
     .from('track_lyric_comments')
-    .select('id, line_index, author, avatar_letter, text, likes, created_at')
+    .select('id, selection_start, selection_end, selected_text, author, avatar_letter, text, likes, created_at')
     .eq('track_id', id)
     .order('created_at', { ascending: true })
 
