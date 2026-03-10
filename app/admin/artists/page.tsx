@@ -91,61 +91,66 @@ export default function ArtistsAdmin() {
   return (
     <div className="min-h-screen bg-gray-50">
 
-      {/* Breadcrumb bar */}
-      <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-2.5 flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-sm">
-          <Link href="/admin" className="text-gray-400 hover:text-gray-600 transition-colors">Admin</Link>
-          <span className="text-gray-300">/</span>
-          <span className="text-gray-700 font-semibold">Atlikėjai</span>
-          {!loading && (
-            <>
-              <span className="text-gray-300">/</span>
-              <span className="text-gray-400">{total}</span>
-            </>
-          )}
+      {/* Sticky header */}
+      <div className="sticky top-0 z-30 bg-white border-b border-gray-200 px-4 sm:px-6 py-2.5">
+        <div className="max-w-6xl mx-auto flex items-center gap-3">
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-1.5 text-sm shrink-0">
+            <Link href="/admin" className="text-gray-400 hover:text-gray-600 transition-colors">Admin</Link>
+            <span className="text-gray-300">/</span>
+            <span className="text-gray-700 font-semibold">Atlikėjai</span>
+            {!loading && (
+              <>
+                <span className="text-gray-300">/</span>
+                <span className="text-gray-400">{total}</span>
+              </>
+            )}
+          </div>
+
+          {/* Search */}
+          <div className="flex-1 max-w-sm ml-4">
+            <input
+              type="text"
+              value={search}
+              onChange={e => handleSearch(e.target.value)}
+              placeholder="Ieškoti..."
+              className="w-full px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-blue-400 text-sm"
+            />
+          </div>
+
+          <div className="ml-auto">
+            <Link href="/admin/artists/new"
+              className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-sm transition-colors whitespace-nowrap">
+              + Naujas
+            </Link>
+          </div>
         </div>
-        <Link href="/admin/artists/new"
-          className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-sm transition-colors whitespace-nowrap">
-          + Naujas
-        </Link>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
-
-        {/* Search */}
-        <div className="mb-4">
-          <input
-            type="text"
-            value={search}
-            onChange={e => handleSearch(e.target.value)}
-            placeholder="Ieškoti atlikėjo..."
-            className="w-full max-w-sm px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-blue-400 text-sm"
-          />
-        </div>
-
-        {/* Confirm modal */}
-        {confirmId !== null && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            style={{ background: 'rgba(0,0,0,0.4)' }}
-            onClick={() => setConfirmId(null)}>
-            <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl" onClick={e => e.stopPropagation()}>
-              <h3 className="font-bold text-gray-900 text-lg mb-2">Deaktyvuoti atlikėją?</h3>
-              <p className="text-sm text-gray-500 mb-5">Atlikėjas bus paslėptas iš svetainės, bet liks duomenų bazėje. Galėsite atkurti bet kada.</p>
-              <div className="flex gap-3">
-                <button onClick={() => setConfirmId(null)}
-                  className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-semibold transition-colors">
-                  Atšaukti
-                </button>
-                <button onClick={() => handleDelete(confirmId)}
-                  className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-semibold transition-colors">
-                  Deaktyvuoti
-                </button>
-              </div>
+      {/* Confirm modal */}
+      {confirmId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.4)' }}
+          onClick={() => setConfirmId(null)}>
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl" onClick={e => e.stopPropagation()}>
+            <h3 className="font-bold text-gray-900 text-lg mb-2">Deaktyvuoti atlikėją?</h3>
+            <p className="text-sm text-gray-500 mb-5">Atlikėjas bus paslėptas iš svetainės, bet liks duomenų bazėje. Galėsite atkurti bet kada.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmId(null)}
+                className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-semibold transition-colors">
+                Atšaukti
+              </button>
+              <button onClick={() => handleDelete(confirmId)}
+                className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-semibold transition-colors">
+                Deaktyvuoti
+              </button>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* List */}
+      {/* Content */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
         {loading ? (
           <div className="flex justify-center py-16">
             <div className="w-7 h-7 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
