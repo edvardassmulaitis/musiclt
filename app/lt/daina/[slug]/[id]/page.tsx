@@ -33,7 +33,6 @@ type Props = {
   versions: Version[]; likes: number
   lyricComments: LyricComment[]; trivia: string | null
   relatedTracks: Track[]
-  moodVotes?: MoodVote[]
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -90,7 +89,7 @@ const YoutubeEmbed = memo(function YoutubeEmbed({ videoId }: { videoId: string }
 
 export default function TrackPageClient({
   track, artist, albums, versions, likes, lyricComments: initialComments,
-  trivia, relatedTracks, moodVotes: initialMoodVotes
+  trivia, relatedTracks
 }: Props) {
   const { dk } = useSite()
 
@@ -128,7 +127,7 @@ export default function TrackPageClient({
     { emoji: '🤔', label: 'Mąstanti', count: 0 },
     { emoji: '🎉', label: 'Linksma', count: 0 },
   ]
-  const [moods, setMoods] = useState<MoodVote[]>(initialMoodVotes?.length ? initialMoodVotes : defaultMoods)
+  const [moods, setMoods] = useState<MoodVote[]>(defaultMoods)
   const [myMood, setMyMood] = useState<string | null>(null)
 
   useEffect(() => { setLoaded(true) }, [])
