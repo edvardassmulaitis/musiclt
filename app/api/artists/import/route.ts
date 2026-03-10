@@ -261,10 +261,12 @@ export async function POST(req: NextRequest) {
 
     // ── 6. Link genre ─────────────────────────────────────────────────────
     if (genreId) {
-      await supabase.from('artist_genres').insert({
-        artist_id: newArtist.id,
-        genre_id: genreId,
-      }).throwOnError().then(() => {}).catch(() => {})
+      try {
+        await supabase.from('artist_genres').insert({
+          artist_id: newArtist.id,
+          genre_id: genreId,
+        })
+      } catch {}
     }
 
     // ── 7. Trigger internal wiki import (full) via internal API ──────────
