@@ -65,112 +65,114 @@ export default function ArtistsAdmin() {
   }
 
   if (status === 'loading' || loading) return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="w-8 h-8 border-2 border-music-blue border-t-transparent rounded-full animate-spin" />
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
     </div>
   )
 
   return (
-    <div className="min-h-screen p-8">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-6xl mx-auto px-6 py-8">
 
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex justify-between items-start mb-6">
           <div>
-            <Link href="/admin/dashboard" className="text-gray-400 hover:text-white mb-2 inline-block text-sm">
-              ← Dashboard
+            <Link href="/admin" className="text-sm text-gray-400 hover:text-gray-600 transition-colors mb-2 inline-block">
+              ← Admin
             </Link>
-            <h1 className="text-4xl font-black">🎤 Atlikėjai</h1>
-            <p className="text-gray-400 mt-1">Iš viso: {total}</p>
+            <h1 className="text-2xl font-black text-gray-900">🎤 Atlikėjai</h1>
+            <p className="text-sm text-gray-400 mt-0.5">Iš viso: {total}</p>
           </div>
           <Link href="/admin/artists/new"
-            className="px-6 py-3 bg-music-blue hover:bg-blue-600 rounded-xl font-bold transition-colors">
+            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition-colors">
             + Naujas atlikėjas
           </Link>
         </div>
 
         {/* Search */}
-        <div className="mb-6">
+        <div className="mb-4">
           <input
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Ieškoti atlikėjo..."
-            className="w-full max-w-md px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-gray-500 focus:outline-none focus:border-music-blue"
+            className="w-full max-w-sm px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-blue-400 text-sm"
           />
         </div>
 
         {/* List */}
         {artists.length === 0 ? (
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-16 text-center">
-            <div className="text-6xl mb-4">🎤</div>
-            <h3 className="text-2xl font-bold mb-2">Nėra atlikėjų</h3>
+          <div className="bg-white border border-gray-200 rounded-2xl p-16 text-center">
+            <div className="text-5xl mb-4">🎤</div>
+            <h3 className="text-xl font-bold text-gray-800 mb-2">Nėra atlikėjų</h3>
             <p className="text-gray-400 mb-6">
               {search ? 'Nieko nerasta pagal paiešką' : 'Pridėkite pirmą atlikėją'}
             </p>
             {!search && (
               <Link href="/admin/artists/new"
-                className="inline-block px-8 py-3 bg-music-blue rounded-xl font-bold hover:opacity-90">
+                className="inline-block px-6 py-2.5 bg-blue-600 text-white rounded-xl font-semibold text-sm hover:bg-blue-700 transition-colors">
                 + Pridėti atlikėją
               </Link>
             )}
           </div>
         ) : (
-          <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+          <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-white/10 text-left text-xs text-gray-500 uppercase tracking-wide">
-                  <th className="px-4 py-3">Atlikėjas</th>
-                  <th className="px-4 py-3">Tipas</th>
-                  <th className="px-4 py-3">Šalis</th>
-                  <th className="px-4 py-3">Aktyvus</th>
-                  <th className="px-4 py-3 text-right">Veiksmai</th>
+                <tr className="border-b border-gray-100 text-left">
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Atlikėjas</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Tipas</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Šalis</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Aktyvus</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide text-right">Veiksmai</th>
                 </tr>
               </thead>
               <tbody>
                 {artists.map(artist => (
-                  <tr key={artist.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                  <tr key={artist.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         {artist.cover_image_url ? (
                           <Image src={artist.cover_image_url} alt={artist.name}
-                            width={36} height={36} className="rounded-full object-cover" />
+                            width={34} height={34} className="rounded-full object-cover flex-shrink-0" />
                         ) : (
-                          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-music-blue to-music-orange flex items-center justify-center text-sm font-bold text-white flex-shrink-0">
+                          <div className="w-[34px] h-[34px] rounded-full bg-gradient-to-br from-blue-500 to-orange-400 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
                             {artist.name[0]}
                           </div>
                         )}
                         <div>
-                          <div className="font-medium text-white flex items-center gap-2">
+                          <div className="font-semibold text-gray-900 text-sm flex items-center gap-1.5">
                             {artist.name}
-                            {artist.is_verified && <span className="text-xs text-green-400">✓</span>}
+                            {artist.is_verified && <span className="text-xs text-green-500">✓</span>}
                           </div>
-                          <div className="text-xs text-gray-500">ID: {artist.id}</div>
+                          <div className="text-xs text-gray-400">ID: {artist.id}</div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-400">
+                    <td className="px-4 py-3 text-sm text-gray-500">
                       {artist.type === 'group' ? '🎸 Grupė' : '🎤 Solo'}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-400">{artist.country || '—'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-400">
-                      {artist.active_from ? `${artist.active_from}${artist.active_until ? ` – ${artist.active_until}` : ' – dabar'}` : '—'}
+                    <td className="px-4 py-3 text-sm text-gray-500">{artist.country || '—'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">
+                      {artist.active_from
+                        ? `${artist.active_from}${artist.active_until ? ` – ${artist.active_until}` : ' – dabar'}`
+                        : '—'}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex gap-2 justify-end">
+                      <div className="flex gap-1.5 justify-end">
                         <Link href={`/lt/grupe/${artist.slug}/${artist.id}/`}
                           target="_blank"
-                          className="px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs text-gray-400 transition-colors">
+                          className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-xs text-gray-500 transition-colors">
                           👁 Peržiūrėti
                         </Link>
                         <Link href={`/admin/artists/${artist.id}`}
-                          className="px-3 py-1.5 bg-music-blue/20 hover:bg-music-blue/30 text-music-blue rounded-lg text-xs transition-colors">
+                          className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs transition-colors">
                           ✏️ Redaguoti
                         </Link>
                         <button
                           onClick={() => handleDelete(artist.id, artist.name)}
                           disabled={deleting === artist.id}
-                          className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-xs transition-colors disabled:opacity-50">
+                          className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg text-xs transition-colors disabled:opacity-50">
                           {deleting === artist.id ? '...' : '🗑'}
                         </button>
                       </div>
