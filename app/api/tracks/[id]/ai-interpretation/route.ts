@@ -105,8 +105,8 @@ IMAGE: [10-15 žodžių angliškai abstrakti nuotaika, be žmonių, be teksto]`,
 
   let imageUrl = ''
   if (imagePrompt) {
-    const encoded = encodeURIComponent(imagePrompt + ', cinematic, no text, no people, no faces')
-    imageUrl = `https://image.pollinations.ai/prompt/${encoded}?width=800&height=400&nologo=true&seed=${track.id}&model=flux`
+    const encoded = encodeURIComponent(imagePrompt + ', cinematic mood, abstract, no text, no faces')
+    imageUrl = `https://image.pollinations.ai/prompt/${encoded}?width=800&height=400&nologo=true&seed=${track.id}`
   }
 
   // Save to DB
