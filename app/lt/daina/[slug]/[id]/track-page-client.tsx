@@ -27,7 +27,7 @@ type Props = {
   lyricComments: LyricReaction[]; trivia: string | null
   relatedTracks: Track[]
   aiInterpretation?: string | null
-  aiImageUrl?: string | null
+
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -67,32 +67,14 @@ const YoutubeEmbed = memo(({ videoId }: { videoId: string }) => (
 YoutubeEmbed.displayName = 'YoutubeEmbed'
 
 // AI image with loading state — separate memo so it never re-mounts
-const AiImageBlock = memo(({ src }: { src: string }) => {
-  // Pollinations is unreliable — skip those URLs entirely
-  if (!src || src.includes('pollinations')) return null
-  const [st, setSt] = useState<'loading' | 'ok' | 'err'>('loading')
-  return (
-    <div style={{ marginTop: 16, borderRadius: 10, overflow: 'hidden', background: '#0e1823', border: '1px solid rgba(249,115,22,.12)', minHeight: st === 'ok' ? 0 : 52 }}>
-      {st === 'loading' && (
-        <div style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, color: 'rgba(249,115,22,.45)', fontFamily: 'Outfit,sans-serif' }}>
-          ✦ Generuojamas paveikslėlis…
-        </div>
-      )}
-      <img src={src} alt=""
-        style={{ width: '100%', display: st === 'ok' ? 'block' : 'none', objectFit: 'cover' }}
-        onLoad={() => setSt('ok')}
-        onError={() => setSt('err')} />
-    </div>
-  )
-})
-AiImageBlock.displayName = 'AiImageBlock'
+// No external image service needed — AI image feature removed for now
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function TrackPageClient({
   track, artist, albums, versions, likes: initialLikes,
   lyricComments: initialReactions, trivia, relatedTracks,
-  aiInterpretation, aiImageUrl,
+  aiInterpretation,
 }: Props) {
   const { dk } = useSite()
 
@@ -116,7 +98,7 @@ export default function TrackPageClient({
 
   // AI
   const [aiText, setAiText] = useState<string | null>(aiInterpretation ?? null)
-  const [aiImg, setAiImg] = useState<string | null>(aiImageUrl ?? null)
+
   const [aiLoad, setAiLoad] = useState(false)
   const [aiErr, setAiErr] = useState(false)
 
@@ -298,13 +280,13 @@ export default function TrackPageClient({
   // ── AI generation ──────────────────────────────────────────────────────────
   const doAI = useCallback(async () => {
     if (!hasLyrics || aiLoad) return
-    setAiLoad(true); setAiErr(false); setAiText(null); setAiImg(null)
+    setAiLoad(true); setAiErr(false); setAiText(null); 
     try {
       const res = await fetch(`/api/tracks/${track.id}/ai-interpretation`, { method: 'POST' })
       if (!res.ok) throw new Error()
       const d = await res.json()
       setAiText(d.interpretation ?? null)
-      setAiImg(d.image_url ?? null)
+      
     } catch { setAiErr(true) }
     setAiLoad(false)
   }, [hasLyrics, aiLoad, track.id])
@@ -352,7 +334,7 @@ export default function TrackPageClient({
           onMouseLeave={() => setTip(null)}
           // Mark as "mark click" before mouseUp fires
           data-mark="1"
-          onMouseDown={() => { wasMarkClick.current = true }}
+          onPointerDown={() => { wasMarkClick.current = true }}
           onClick={() => {
             setPanel({ text: markedText, start: r.start, end: r.end })
             setPanelTab('react')
@@ -494,7 +476,7 @@ export default function TrackPageClient({
                   <p key={i} style={{ margin: i > 0 ? '12px 0 0' : 0 }}>{p.trim()}</p>
                 ))}
               </div>
-              {/* AI image disabled temporarily */}
+
             </div>
           )}
         </div>
