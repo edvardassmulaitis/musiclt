@@ -342,9 +342,9 @@ export default function TrackPageClient({
         >
           {markedText}
           {(nLikes > 0 || nComments > 0) && (
-            <sup style={{ fontSize: 8, color: '#f97316', fontWeight: 800, marginLeft: 1, verticalAlign: 'super' }}>
+            <span style={{ fontSize: 8, color: '#f97316', fontWeight: 800, marginLeft: 2, pointerEvents: 'none' }}>
               {nLikes > 0 ? `♥${nLikes}` : ''}{nComments > 0 ? ` 💬${nComments}` : ''}
-            </sup>
+            </span>
           )}
         </span>
       )
