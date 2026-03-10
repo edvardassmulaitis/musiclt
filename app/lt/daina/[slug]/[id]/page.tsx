@@ -132,7 +132,6 @@ export default async function TrackPage({ params }: { params: Promise<{ slug: st
       trivia={trivia}
       relatedTracks={relatedTracks as any}
       aiInterpretation={(track as any).ai_interpretation ?? null}
-      aiImageUrl={(track as any).ai_image_url ?? null}
     />
   )
 }
