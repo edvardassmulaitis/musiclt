@@ -26,14 +26,11 @@ type LyricComment = {
 
 type Version = { id: number; slug: string; title: string; type: string; video_url: string | null }
 
-type MoodVote = { emoji: string; label: string; count: number }
-
 type Props = {
   track: Track; artist: Artist; albums: Album[]
   versions: Version[]; likes: number
   lyricComments: LyricComment[]; trivia: string | null
   relatedTracks: Track[]
-  moodVotes?: MoodVote[]
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -50,16 +47,6 @@ function formatReleaseDate(d: string | null): string | null {
   if (isNaN(date.getTime())) return d
   const months = ['sausio','vasario','kovo','balandžio','gegužės','birželio','liepos','rugpjūčio','rugsėjo','spalio','lapkričio','gruodžio']
   return `${date.getFullYear()} m. ${months[date.getMonth()]} ${date.getDate()} d.`
-}
-
-function buildWordCloud(lyrics: string): Array<{ word: string; weight: number }> {
-  const stopWords = new Set(['the','and','in','of','to','a','i','it','is','be','as','at','so','we','he','she','they','you','me','my','your','our','his','her','its','on','do','if','or','an','but','not','with','from','this','that','was','for','are','were','had','have','has','will','just','like','up','out','all','when','what','so','one','no','can','get','more','now','about','into','there','some','would','make','time','see','than','then','could','him','come','its','over','think','also','back','after','use','two','how','our','work','first','well','way','even','want','because','any','these','give','most','su','ir','kad','tai','dar','jau','ne','per','bet','man','tas','kaip'])
-  const words = lyrics.toLowerCase().replace(/[^a-zA-ZąčęėįšųūžĄČĘĖĮŠŲŪŽ\s]/g, ' ').split(/\s+/)
-  const freq: Record<string, number> = {}
-  words.forEach(w => { if (w.length > 3 && !stopWords.has(w)) freq[w] = (freq[w] || 0) + 1 })
-  const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 28)
-  const max = sorted[0]?.[1] || 1
-  return sorted.map(([word, count]) => ({ word, weight: count / max }))
 }
 
 function parseChords(raw: string): string[] { return raw.split('\n').filter(l => l.trim()) }
@@ -88,22 +75,26 @@ const YoutubeEmbed = memo(function YoutubeEmbed({ videoId }: { videoId: string }
 
 export default function TrackPageClient({
   track, artist, albums, versions, likes, lyricComments: initialComments,
-  trivia, relatedTracks, moodVotes: initialMoodVotes
+  trivia, relatedTracks,
 }: Props) {
   const { dk } = useSite()
 
   const [liked, setLiked] = useState(false)
-  const [activeTab, setActiveTab] = useState<'lyrics' | 'chords' | 'cloud'>('lyrics')
+  const [activeTab, setActiveTab] = useState<'lyrics' | 'chords'>('lyrics')
   const [comments, setComments] = useState<LyricComment[]>(initialComments)
   const [showAllVersions, setShowAllVersions] = useState(false)
   const [loaded, setLoaded] = useState(false)
 
+  // AI
   const [aiText, setAiText] = useState<string | null>(null)
+  const [aiImage, setAiImage] = useState<string | null>(null)
   const [aiLoading, setAiLoading] = useState(false)
   const [aiError, setAiError] = useState(false)
 
+  // Share quote overlay
   const [shareQuote, setShareQuote] = useState<string | null>(null)
 
+  // Lyric selection
   const [selectionPopup, setSelectionPopup] = useState<{
     x: number; y: number; text: string; start: number; end: number
   } | null>(null)
@@ -111,19 +102,7 @@ export default function TrackPageClient({
     text: string; start: number; end: number
   } | null>(null)
   const [commentDraft, setCommentDraft] = useState('')
-  const commentInputRef = useRef<HTMLInputElement>(null)
   const lyricsRef = useRef<HTMLDivElement>(null)
-
-  const defaultMoods: MoodVote[] = [
-    { emoji: '😢', label: 'Jaudinanti', count: 0 },
-    { emoji: '🔥', label: 'Energinga', count: 0 },
-    { emoji: '💕', label: 'Romantiška', count: 0 },
-    { emoji: '😌', label: 'Raminanti', count: 0 },
-    { emoji: '🤔', label: 'Mąstanti', count: 0 },
-    { emoji: '🎉', label: 'Linksma', count: 0 },
-  ]
-  const [moods, setMoods] = useState<MoodVote[]>(initialMoodVotes?.length ? initialMoodVotes : defaultMoods)
-  const [myMood, setMyMood] = useState<string | null>(null)
 
   useEffect(() => { setLoaded(true) }, [])
 
@@ -142,7 +121,6 @@ export default function TrackPageClient({
   const hasChords = !!track.chords?.trim()
   const dateStr = formatReleaseDate(track.release_date)
   const primaryAlbum = albums[0] ?? null
-  const wordCloud = hasLyrics ? buildWordCloud(track.lyrics!) : []
 
   const handleLyricsMouseUp = useCallback(() => {
     const sel = window.getSelection()
@@ -160,13 +138,12 @@ export default function TrackPageClient({
     const start = fullText.indexOf(text)
     const end = start + text.length
 
-    setSelectionPopup({
-      x: rect.left + rect.width / 2,
-      y: rect.top + window.scrollY - 8,
-      text,
-      start: Math.max(0, start),
-      end,
-    })
+    // Position popup above selection, clamped to viewport
+    const popupW = 280
+    const x = Math.min(Math.max(rect.left + rect.width / 2, popupW / 2 + 8), window.innerWidth - popupW / 2 - 8)
+    const y = rect.top + window.scrollY - 12
+
+    setSelectionPopup({ x, y, text, start: Math.max(0, start), end })
   }, [track.lyrics])
 
   const startCommenting = () => {
@@ -174,7 +151,6 @@ export default function TrackPageClient({
     setCommentingOn({ text: selectionPopup.text, start: selectionPopup.start, end: selectionPopup.end })
     setSelectionPopup(null)
     window.getSelection()?.removeAllRanges()
-    setTimeout(() => commentInputRef.current?.focus(), 80)
   }
 
   const submitComment = async () => {
@@ -193,7 +169,6 @@ export default function TrackPageClient({
     setComments(prev => [...prev, newComment])
     setCommentDraft('')
     setCommentingOn(null)
-
     try {
       await fetch(`/api/tracks/${track.id}/lyric-comments`, {
         method: 'POST',
@@ -205,7 +180,7 @@ export default function TrackPageClient({
           text: newComment.text,
         }),
       })
-    } catch (e) { /* silently ignore */ }
+    } catch { /* ignore */ }
   }
 
   const startSharing = () => {
@@ -219,7 +194,10 @@ export default function TrackPageClient({
     if (!hasLyrics || aiLoading) return
     setAiLoading(true)
     setAiError(false)
+    setAiText(null)
+    setAiImage(null)
     try {
+      // Step 1: Generate text interpretation
       const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -228,32 +206,33 @@ export default function TrackPageClient({
         },
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
-          system: `Tu esi muzikos kritikas ir lyrikų interpretatorius. Atsakyk TIKTAI lietuviškai. Būk įžvalgus, nuoširdus, poetiškas — ne akademiškas. Maksimaliai 3 trumpi paragrafai. Neminėk dainos pavadinimo ar atlikėjo pirmame sakinyje — tiesiog nerk į esmę.`,
+          max_tokens: 1200,
+          system: `Tu esi muzikos kritikas ir lyrikų interpretatorius. Atsakyk TIKTAI lietuviškai. Būk įžvalgus, nuoširdus, poetiškas — ne akademiškas. Neminėk dainos pavadinimo ar atlikėjo pirmame sakinyje. Atsakyk JSON formatu: { "interpretation": "3 paragrafai apie dainą", "image_prompt": "English prompt for abstract art image that captures the emotional essence of this song, 10-15 words, no text, no people" }`,
           messages: [{
             role: 'user',
-            content: `Daina: "${track.title}" — ${artist.name}\n\nŽodžiai:\n${track.lyrics}\n\nPapasakok trumpai ir įtaigiai: kokia yra šios dainos esminė žinutė ir emocija? Kas ją daro ypatinga ar universalia? Kokią patirtį ar jausmą ji perteikia klausytojui?`,
+            content: `Daina: "${track.title}" — ${artist.name}\n\nŽodžiai:\n${track.lyrics}\n\nSugeneruok interpretaciją ir image prompt.`,
           }],
         }),
       })
       const data = await res.json()
-      const text = data.content?.find((b: any) => b.type === 'text')?.text ?? null
-      setAiText(text)
+      const raw = data.content?.find((b: any) => b.type === 'text')?.text ?? ''
+      const clean = raw.replace(/```json|```/g, '').trim()
+      try {
+        const parsed = JSON.parse(clean)
+        setAiText(parsed.interpretation ?? raw)
+        // Step 2: Generate image via Pollinations (free, no key needed)
+        if (parsed.image_prompt) {
+          const prompt = encodeURIComponent(parsed.image_prompt + ', abstract art, cinematic, no text')
+          setAiImage(`https://image.pollinations.ai/prompt/${prompt}?width=800&height=400&nologo=true&seed=${track.id}`)
+        }
+      } catch {
+        setAiText(raw)
+      }
     } catch {
       setAiError(true)
     } finally {
       setAiLoading(false)
     }
-  }
-
-  const votesMood = (emoji: string) => {
-    if (myMood === emoji) return
-    setMoods(prev => prev.map(m =>
-      m.emoji === emoji ? { ...m, count: m.count + 1 }
-      : m.emoji === myMood ? { ...m, count: Math.max(0, m.count - 1) }
-      : m
-    ))
-    setMyMood(emoji)
   }
 
   // ── Colour tokens ──────────────────────────────────────────────────────────
@@ -293,11 +272,9 @@ export default function TrackPageClient({
   const renderLyricsWithHighlights = () => {
     const text = track.lyrics || ''
     if (comments.length === 0) return <span>{text}</span>
-
     const ranges = comments.map(c => ({ start: c.selection_start, end: c.selection_end, id: c.id }))
     const parts: React.ReactNode[] = []
     let pos = 0
-
     const sorted = [...ranges].sort((a, b) => a.start - b.start)
     for (const r of sorted) {
       if (r.start > pos) parts.push(<span key={`t${pos}`}>{text.slice(pos, r.start)}</span>)
@@ -371,7 +348,7 @@ export default function TrackPageClient({
     </div>
   )
 
-  // PlayerCard: stable via useMemo so YoutubeEmbed never remounts on state changes
+  // Stable player — won't remount on state changes
   const PlayerCard = useMemo(() => {
     if (!vid && !track.show_player) return null
     return (
@@ -393,50 +370,24 @@ export default function TrackPageClient({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vid, track.spotify_id, track.show_player])
 
-  const MoodCard = () => {
-    const total = moods.reduce((s, m) => s + m.count, 0)
+  const TriviaCard = () => {
+    if (!track.description && !trivia) return null
     return (
-      <div style={card}>
-        <div style={cardHead}>Dainos nuotaika</div>
-        <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 2 }}>Kaip tau atrodo ši daina?</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-            {moods.map(m => {
-              const isVoted = myMood === m.emoji
-              const pct = total > 0 ? Math.round((m.count / total) * 100) : 0
-              return (
-                <button key={m.emoji} onClick={() => votesMood(m.emoji)}
-                  style={{ position: 'relative', padding: '8px 10px', borderRadius: 10, border: `1px solid ${isVoted ? 'rgba(249,115,22,.5)' : T.borderSub}`, background: isVoted ? 'rgba(249,115,22,.1)' : T.bgHover, cursor: 'pointer', textAlign: 'left', overflow: 'hidden', transition: 'all .15s' }}>
-                  {myMood && <div style={{ position: 'absolute', inset: 0, background: isVoted ? 'rgba(249,115,22,.08)' : 'rgba(255,255,255,.02)', width: `${pct}%`, transition: 'width .4s ease', borderRadius: 'inherit' }} />}
-                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: 13 }}>{m.emoji} <span style={{ fontSize: 11, color: isVoted ? '#f97316' : T.textSec, fontWeight: isVoted ? 700 : 500 }}>{m.label}</span></span>
-                    {myMood && <span style={{ fontSize: 10, color: isVoted ? '#f97316' : T.textFaint, fontFamily: 'Outfit, sans-serif', fontWeight: 700 }}>{pct}%</span>}
-                  </div>
-                </button>
-              )
-            })}
+      <div style={{ ...card, background: T.dykBg, border: `1px solid ${T.dykBdr}` }}>
+        <div style={{ padding: '12px 14px' }}>
+          <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.1em', color: '#f97316', fontFamily: 'Outfit, sans-serif', marginBottom: 7, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="#f97316"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            Ar žinojai?
           </div>
-          {myMood && <div style={{ fontSize: 10, color: T.textFaint, textAlign: 'center', marginTop: 2 }}>Balsavo {total} {total === 1 ? 'žmogus' : 'žmonės'}</div>}
+          <p style={{ fontSize: 12, color: T.dykText, lineHeight: 1.75, margin: 0 }}>
+            {track.description || trivia}
+          </p>
         </div>
       </div>
     )
   }
 
-  const TriviaCard = () => (
-    <div style={{ ...card, background: T.dykBg, border: `1px solid ${T.dykBdr}` }}>
-      <div style={{ padding: '12px 14px' }}>
-        <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.1em', color: '#f97316', fontFamily: 'Outfit, sans-serif', marginBottom: 7, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="#f97316"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-          Ar žinojai?
-        </div>
-        <p style={{ fontSize: 12, color: T.dykText, lineHeight: 1.75, margin: 0 }}>
-          {track.description || trivia || 'Informacija apie šią dainą bus rodoma automatiškai iš Wikipedia. Administratorius gali keisti šį tekstą admin panelėje.'}
-        </p>
-        <div style={{ fontSize: 9, color: T.textFaint, marginTop: 6 }}>Šaltinis: Wikipedia · Adminas gali keisti</div>
-      </div>
-    </div>
-  )
-
+  // AI Card — interpretation + generated image
   const AICard = () => {
     if (!hasLyrics || !track.show_ai_interpretation) return null
     return (
@@ -445,18 +396,16 @@ export default function TrackPageClient({
           <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ fontSize: 13 }}>✦</span> AI interpretacija
           </span>
-          {!aiText && (
-            <span style={{ fontSize: 9, fontWeight: 400, color: T.textFaint, textTransform: 'none', letterSpacing: 0 }}>beta</span>
-          )}
+          {!aiText && <span style={{ fontSize: 9, fontWeight: 400, color: T.textFaint, textTransform: 'none', letterSpacing: 0 }}>beta</span>}
         </div>
-        <div style={{ padding: '14px' }}>
+        <div style={{ padding: 14 }}>
           {!aiText && !aiLoading && !aiError && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '8px 0' }}>
               <p style={{ fontSize: 12, color: T.textMuted, textAlign: 'center', margin: 0, lineHeight: 1.6 }}>
-                Claude perskaitys dainos žodžius ir papasakos, kokią žinutę ir emociją ši daina perteikia.
+                Claude perskaitys žodžius ir sukurs interpretaciją bei abstraktų paveikslėlį, perteikiantį dainos nuotaiką.
               </p>
               <button onClick={generateAI}
-                style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 18px', borderRadius: 999, background: 'rgba(249,115,22,.12)', border: '1px solid rgba(249,115,22,.35)', color: '#f97316', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif', transition: 'all .15s' }}
+                style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 20px', borderRadius: 999, background: 'rgba(249,115,22,.12)', border: '1px solid rgba(249,115,22,.35)', color: '#f97316', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif', transition: 'all .15s' }}
                 onMouseEnter={e => { e.currentTarget.style.background = 'rgba(249,115,22,.2)' }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'rgba(249,115,22,.12)' }}>
                 <span style={{ fontSize: 14 }}>✦</span> Generuoti interpretaciją
@@ -464,8 +413,8 @@ export default function TrackPageClient({
             </div>
           )}
           {aiLoading && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', color: T.textMuted, fontSize: 12 }}>
-              <span style={{ animation: 'spin 1s linear infinite', display: 'inline-block', fontSize: 16 }}>✦</span>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '12px 0', color: T.textMuted, fontSize: 12 }}>
+              <span style={{ animation: 'spin 1.2s linear infinite', display: 'inline-block', fontSize: 20, color: '#f97316' }}>✦</span>
               Claude analizuoja žodžius…
             </div>
           )}
@@ -476,12 +425,19 @@ export default function TrackPageClient({
           )}
           {aiText && (
             <div>
+              {/* Generated image */}
+              {aiImage && (
+                <div style={{ marginBottom: 14, borderRadius: 10, overflow: 'hidden', border: `1px solid ${T.borderSub}` }}>
+                  <img src={aiImage} alt="AI vizualizacija" style={{ width: '100%', display: 'block', objectFit: 'cover' }}
+                    onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                </div>
+              )}
               <div style={{ fontSize: 9, color: '#f97316', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', fontFamily: 'Outfit, sans-serif', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 5 }}>
                 <span>✦</span> Sugeneruota Claude
               </div>
-              <p style={{ fontSize: 13, color: T.dykText, lineHeight: 1.8, margin: 0, whiteSpace: 'pre-wrap' }}>{aiText}</p>
-              <button onClick={() => setAiText(null)}
-                style={{ marginTop: 10, background: 'none', border: 'none', color: T.textFaint, fontSize: 10, cursor: 'pointer', padding: 0 }}>
+              <p style={{ fontSize: 13, color: T.dykText, lineHeight: 1.85, margin: 0, whiteSpace: 'pre-wrap' }}>{aiText}</p>
+              <button onClick={() => { setAiText(null); setAiImage(null) }}
+                style={{ marginTop: 12, background: 'none', border: 'none', color: T.textFaint, fontSize: 10, cursor: 'pointer', padding: 0 }}>
                 ↺ Generuoti iš naujo
               </button>
             </div>
@@ -495,7 +451,6 @@ export default function TrackPageClient({
     if (!shareQuote) return null
     const displayQuote = shareQuote.length > 120 ? shareQuote.slice(0, 120) + '…' : shareQuote
     const shareText = `„${displayQuote}"\n\n— ${track.title}, ${artist.name}\nmusic.lt`
-
     return (
       <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.7)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
         onClick={() => setShareQuote(null)}>
@@ -503,9 +458,7 @@ export default function TrackPageClient({
           style={{ background: dk ? '#0e1520' : '#fff', border: `1px solid ${T.border}`, borderRadius: 20, padding: 24, maxWidth: 420, width: '100%', boxShadow: '0 24px 64px rgba(0,0,0,.5)' }}>
           <div style={{ background: dk ? '#080c12' : '#f0f5ff', border: `1px solid rgba(249,115,22,.2)`, borderRadius: 14, padding: '20px 20px 16px', marginBottom: 16, position: 'relative', overflow: 'hidden' }}>
             <div style={{ position: 'absolute', top: 8, left: 14, fontSize: 48, color: 'rgba(249,115,22,.12)', fontFamily: 'Georgia, serif', lineHeight: 1 }}>"</div>
-            <p style={{ fontSize: 15, fontWeight: 600, color: T.text, lineHeight: 1.7, margin: '0 0 14px', fontStyle: 'italic', position: 'relative' }}>
-              „{displayQuote}"
-            </p>
+            <p style={{ fontSize: 15, fontWeight: 600, color: T.text, lineHeight: 1.7, margin: '0 0 14px', fontStyle: 'italic', position: 'relative' }}>„{displayQuote}"</p>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               {primaryAlbum?.cover_image_url && <img src={primaryAlbum.cover_image_url} style={{ width: 28, height: 28, borderRadius: 5, objectFit: 'cover' }} alt="" />}
               <div>
@@ -516,20 +469,16 @@ export default function TrackPageClient({
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <button
-              onClick={() => { navigator.clipboard.writeText(shareText); setShareQuote(null) }}
+            <button onClick={() => { navigator.clipboard.writeText(shareText); setShareQuote(null) }}
               style={{ padding: '10px 16px', borderRadius: 10, background: 'rgba(249,115,22,.12)', border: '1px solid rgba(249,115,22,.3)', color: '#f97316', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif' }}>
               📋 Kopijuoti tekstą
             </button>
-            <button
-              onClick={() => { window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`, '_blank'); setShareQuote(null) }}
+            <button onClick={() => { window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`, '_blank'); setShareQuote(null) }}
               style={{ padding: '10px 16px', borderRadius: 10, background: T.bgHover, border: `1px solid ${T.borderSub}`, color: T.textSec, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'Outfit, sans-serif' }}>
-              𝕏 Dalintis X (Twitter)
+              𝕏 Dalintis X
             </button>
             <button onClick={() => setShareQuote(null)}
-              style={{ padding: '8px', background: 'none', border: 'none', color: T.textFaint, fontSize: 11, cursor: 'pointer' }}>
-              Atšaukti
-            </button>
+              style={{ padding: '8px', background: 'none', border: 'none', color: T.textFaint, fontSize: 11, cursor: 'pointer' }}>Atšaukti</button>
           </div>
         </div>
       </div>
@@ -608,66 +557,72 @@ export default function TrackPageClient({
     )
   }
 
+  // ── Lyric selection popup ──────────────────────────────────────────────────
+  const SelectionPopup = () => {
+    if (!selectionPopup) return null
+    return (
+      <div className="lyric-popup" style={{
+        position: 'fixed',
+        left: selectionPopup.x,
+        top: selectionPopup.y,
+        transform: 'translate(-50%, -100%)',
+        zIndex: 100,
+        background: '#111827',
+        border: '1px solid rgba(249,115,22,.4)',
+        borderRadius: 14,
+        padding: '12px 14px',
+        width: 280,
+        boxShadow: '0 16px 48px rgba(0,0,0,.7)',
+      }}>
+        {/* Quote */}
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,.65)', fontStyle: 'italic', lineHeight: 1.6, marginBottom: 12, paddingLeft: 10, borderLeft: '2px solid rgba(249,115,22,.6)' }}>
+          „{selectionPopup.text.length > 80 ? selectionPopup.text.slice(0, 80) + '…' : selectionPopup.text}"
+        </div>
+        {/* Action row */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 6 }}>
+          <button onMouseDown={e => {
+            e.preventDefault(); e.stopPropagation()
+            const newC: LyricComment = { id: Date.now(), selection_start: selectionPopup.start, selection_end: selectionPopup.end, selected_text: selectionPopup.text, author: 'Aš', avatar_letter: '♥', text: '', likes: 1, created_at: new Date().toISOString() }
+            setComments(prev => [...prev, newC]); setSelectionPopup(null); window.getSelection()?.removeAllRanges()
+          }} style={{ padding: '8px 6px', borderRadius: 9, background: 'rgba(249,115,22,.18)', border: '1px solid rgba(249,115,22,.4)', color: '#f97316', fontSize: 13, cursor: 'pointer', fontWeight: 800, fontFamily: 'Outfit, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="#f97316"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+            Patinka
+          </button>
+          <button onMouseDown={e => { e.preventDefault(); e.stopPropagation(); startCommenting() }}
+            style={{ padding: '8px 6px', borderRadius: 9, background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.1)', color: 'rgba(255,255,255,.75)', fontSize: 13, cursor: 'pointer', fontFamily: 'Outfit, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+            Komentaras
+          </button>
+          <button onMouseDown={e => { e.preventDefault(); e.stopPropagation(); startSharing() }}
+            style={{ padding: '8px 10px', borderRadius: 9, background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.1)', color: 'rgba(255,255,255,.6)', fontSize: 14, cursor: 'pointer' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"/></svg>
+          </button>
+        </div>
+        {/* Arrow */}
+        <div style={{ position: 'absolute', bottom: -5, left: '50%', transform: 'translateX(-50%) rotate(45deg)', width: 8, height: 8, background: '#111827', border: '1px solid rgba(249,115,22,.4)', borderTop: 'none', borderLeft: 'none' }} />
+      </div>
+    )
+  }
+
   const LyricsPanel = () => {
-    if (!hasLyrics) return <div style={{ padding: 32, textAlign: 'center', color: T.textFaint, fontSize: 13 }}>Žodžiai dar nepridėti</div>
-
+    if (!hasLyrics) return <div style={{ padding: 32, textAlign: 'center', color: T.textFaint, fontSize: 13 }}>Dainos tekstas dar nepridėtas</div>
     const commentList = comments.filter(c => c.selection_start >= 0)
-
     return (
       <div>
-        <div ref={lyricsRef} onMouseUp={handleLyricsMouseUp} style={{ position: 'relative', padding: '16px 18px', userSelect: 'text', cursor: 'text' }}>
-          {selectionPopup && (
-            <div className="lyric-popup" style={{
-              position: 'fixed',
-              left: Math.min(selectionPopup.x, window.innerWidth - 280),
-              top: selectionPopup.y,
-              transform: 'translateY(-100%)',
-              zIndex: 100,
-              background: dk ? '#151f2e' : '#1a2535',
-              border: '1px solid rgba(249,115,22,.35)',
-              borderRadius: 12,
-              padding: '10px 12px',
-              width: 260,
-              boxShadow: '0 12px 40px rgba(0,0,0,.6)',
-            }}>
-              {/* Quote preview */}
-              <div style={{ fontSize: 12, color: 'rgba(255,255,255,.75)', fontStyle: 'italic', lineHeight: 1.55, marginBottom: 10, borderLeft: '2px solid rgba(249,115,22,.5)', paddingLeft: 8, maxHeight: 60, overflow: 'hidden' }}>
-                „{selectionPopup.text}"
-              </div>
-              {/* Actions */}
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button onMouseDown={e => { e.preventDefault(); e.stopPropagation()
-                  const newC: LyricComment = { id: Date.now(), selection_start: selectionPopup.start, selection_end: selectionPopup.end, selected_text: selectionPopup.text, author: 'Aš', avatar_letter: '♥', text: '', likes: 1, created_at: new Date().toISOString() }
-                  setComments(prev => [...prev, newC]); setSelectionPopup(null); window.getSelection()?.removeAllRanges()
-                }} style={{ flex: 1, padding: '7px 6px', borderRadius: 8, background: 'rgba(249,115,22,.18)', border: '1px solid rgba(249,115,22,.35)', color: '#f97316', fontSize: 12, cursor: 'pointer', fontWeight: 700, fontFamily: 'Outfit, sans-serif' }}>
-                  ♥ Patinka
-                </button>
-                <button onMouseDown={e => { e.preventDefault(); e.stopPropagation(); startCommenting() }}
-                  style={{ flex: 1, padding: '7px 6px', borderRadius: 8, background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.12)', color: 'rgba(255,255,255,.8)', fontSize: 12, cursor: 'pointer', fontFamily: 'Outfit, sans-serif' }}>
-                  💬 Komentaras
-                </button>
-                <button onMouseDown={e => { e.preventDefault(); e.stopPropagation(); startSharing() }}
-                  style={{ padding: '7px 10px', borderRadius: 8, background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.12)', color: 'rgba(255,255,255,.8)', fontSize: 12, cursor: 'pointer' }}>
-                  🔗
-                </button>
-              </div>
-              <div style={{ position: 'absolute', bottom: -5, left: 24, transform: 'rotate(45deg)', width: 8, height: 8, background: dk ? '#151f2e' : '#1a2535', border: '1px solid rgba(249,115,22,.35)', borderTop: 'none', borderLeft: 'none' }} />
-            </div>
-          )}
-
-          <pre style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 15, lineHeight: 2, color: T.lyricText, margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+        <div ref={lyricsRef} onMouseUp={handleLyricsMouseUp} style={{ padding: '16px 18px', userSelect: 'text', cursor: 'text' }}>
+          <SelectionPopup />
+          <pre style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 15, lineHeight: 2.1, color: T.lyricText, margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
             {renderLyricsWithHighlights()}
           </pre>
         </div>
-
         {commentList.length > 0 && (
           <div style={{ borderTop: `1px solid ${T.subBdr}`, padding: '10px 18px 14px' }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: T.textFaint, textTransform: 'uppercase', letterSpacing: '.08em', fontFamily: 'Outfit, sans-serif', marginBottom: 8 }}>Reakcijos į žodžius</div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: T.textFaint, textTransform: 'uppercase', letterSpacing: '.08em', fontFamily: 'Outfit, sans-serif', marginBottom: 8 }}>Pažymėtos vietos</div>
             {commentList.map(c => (
-              <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, padding: '5px 8px', borderRadius: 8, background: T.bgHover }}>
-                <span style={{ fontSize: 11, color: c.avatar_letter === '♥' ? '#f97316' : T.textMuted }}>{c.avatar_letter}</span>
+              <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, padding: '6px 10px', borderRadius: 8, background: T.bgHover, border: `1px solid ${T.borderSub}` }}>
+                <span style={{ fontSize: 12, color: c.avatar_letter === '♥' ? '#f97316' : T.textMuted, flexShrink: 0 }}>{c.avatar_letter}</span>
                 <span style={{ fontSize: 12, color: T.textSec, fontStyle: 'italic', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>„{c.selected_text}"</span>
-                {c.text && c.avatar_letter !== '♥' && <span style={{ fontSize: 11, color: T.textMuted }}>— {c.text}</span>}
+                {c.text && c.avatar_letter !== '♥' && <span style={{ fontSize: 11, color: T.textMuted, flexShrink: 0 }}>— {c.text}</span>}
               </div>
             ))}
           </div>
@@ -701,44 +656,13 @@ export default function TrackPageClient({
     )
   }
 
-  const WordCloudPanel = () => {
-    if (wordCloud.length === 0) return <div style={{ padding: 32, textAlign: 'center', color: T.textFaint, fontSize: 13 }}>Žodžiai dar nepridėti</div>
-    return (
-      <div style={{ padding: '20px 18px', display: 'flex', flexWrap: 'wrap', gap: '8px 12px', alignItems: 'center', justifyContent: 'center', minHeight: 160 }}>
-        {wordCloud.map(({ word, weight }) => {
-          const size = Math.round(11 + weight * 20)
-          const opacity = 0.45 + weight * 0.55
-          const isTop = weight > 0.7
-          return (
-            <span key={word} style={{
-              fontSize: size,
-              fontWeight: weight > 0.5 ? 700 : 500,
-              color: isTop ? '#f97316' : T.textSec,
-              opacity,
-              fontFamily: 'Outfit, sans-serif',
-              letterSpacing: weight > 0.6 ? '-.02em' : 0,
-              transition: 'opacity .2s',
-              cursor: 'default',
-              lineHeight: 1,
-            }}
-            onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
-            onMouseLeave={e => (e.currentTarget.style.opacity = String(opacity))}>
-              {word}
-            </span>
-          )
-        })}
-      </div>
-    )
-  }
-
-  const LyricsChordsCard = () => {
+  const LyricsCard = () => {
     return (
       <div style={card}>
         <div style={{ display: 'flex', alignItems: 'center', borderBottom: `1px solid ${T.subBdr}`, padding: '0 14px' }}>
           {([
-            { id: 'lyrics', label: 'Žodžiai', icon: <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M3 18h12v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg> },
+            { id: 'lyrics', label: 'Dainos tekstas', icon: <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M3 18h12v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg> },
             { id: 'chords', label: 'Akordai', icon: <GuitarIcon size={11} /> },
-            { id: 'cloud',  label: 'Žodžių debesis', icon: <span style={{ fontSize: 10 }}>☁</span> },
           ] as const).map(tab => {
             const isActive = activeTab === tab.id
             return (
@@ -749,21 +673,18 @@ export default function TrackPageClient({
             )
           })}
           {activeTab === 'lyrics' && hasLyrics && (
-            <span style={{ marginLeft: 'auto', fontSize: 9, color: T.textFaint, fontStyle: 'italic' }}>Pažymėk tekstą, kad komentuotum</span>
+            <span style={{ marginLeft: 'auto', fontSize: 9, color: T.textFaint, fontStyle: 'italic' }}>Pažymėk tekstą</span>
           )}
         </div>
-        {/* Comment input — lives HERE (outside LyricsPanel) so input never remounts while typing */}
+        {/* Comment input — outside LyricsPanel to prevent remount */}
         {activeTab === 'lyrics' && commentingOn && (
           <div style={{ padding: '10px 16px', borderBottom: `1px solid ${T.subBdr}`, background: T.bgActive, display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ fontSize: 11, color: T.textMuted, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span>💬 prie: <em style={{ color: T.text, fontWeight: 600 }}>„{commentingOn.text.slice(0, 40)}{commentingOn.text.length > 40 ? '…' : ''}"</em></span>
-              <button onMouseDown={e => { e.preventDefault(); setCommentingOn(null); setCommentDraft('') }} style={{ background: 'none', border: 'none', color: T.textFaint, cursor: 'pointer', fontSize: 13, lineHeight: 1 }}>✕</button>
+              <button onMouseDown={e => { e.preventDefault(); setCommentingOn(null); setCommentDraft('') }} style={{ background: 'none', border: 'none', color: T.textFaint, cursor: 'pointer', fontSize: 13 }}>✕</button>
             </div>
             <div style={{ display: 'flex', gap: 7 }}>
-              <input
-                autoFocus
-                value={commentDraft}
-                onChange={e => setCommentDraft(e.target.value)}
+              <input autoFocus value={commentDraft} onChange={e => setCommentDraft(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') submitComment() }}
                 placeholder="Tavo komentaras…"
                 style={{ flex: 1, height: 32, borderRadius: 999, padding: '0 12px', fontSize: 12, background: T.cmtInput, border: `1px solid rgba(249,115,22,.4)`, color: T.text, outline: 'none', fontFamily: "'DM Sans', sans-serif" }}
@@ -774,7 +695,6 @@ export default function TrackPageClient({
         )}
         {activeTab === 'lyrics' && <LyricsPanel />}
         {activeTab === 'chords' && <ChordsPanel />}
-        {activeTab === 'cloud'  && <WordCloudPanel />}
       </div>
     )
   }
@@ -788,15 +708,14 @@ export default function TrackPageClient({
       <div className="tr-desktop" style={{ maxWidth: 1400, margin: '0 auto', padding: '14px 20px 60px', display: 'grid', gridTemplateColumns: '2fr 3fr', gap: 14, alignItems: 'start' }}>
         <div style={{ position: 'sticky', top: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <TrackInfoCard />
-          { PlayerCard }
-          <MoodCard />
+          {PlayerCard}
           <AICard />
           <TriviaCard />
           <VersionsCard />
           <DiscussionsCard />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <LyricsChordsCard />
+          <LyricsCard />
           <RelatedCard />
         </div>
       </div>
@@ -804,9 +723,8 @@ export default function TrackPageClient({
       {/* ══ MOBILE ══ */}
       <div className="tr-mobile" style={{ display: 'none', padding: '12px 14px 56px', flexDirection: 'column', gap: 12 }}>
         <TrackInfoCard />
-        { PlayerCard }
-        <LyricsChordsCard />
-        <MoodCard />
+        {PlayerCard}
+        <LyricsCard />
         <AICard />
         <TriviaCard />
         <VersionsCard />
