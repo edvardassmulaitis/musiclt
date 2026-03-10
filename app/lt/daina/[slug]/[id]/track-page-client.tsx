@@ -619,30 +619,46 @@ export default function TrackPageClient({
           {selectionPopup && (
             <div className="lyric-popup" style={{
               position: 'fixed',
-              left: selectionPopup.x,
+              left: Math.min(selectionPopup.x, window.innerWidth - 280),
               top: selectionPopup.y,
-              transform: 'translate(-50%, -100%)',
-              zIndex: 50,
-              background: dk ? '#1e2d40' : '#1a2a40',
-              border: '1px solid rgba(249,115,22,.4)',
-              borderRadius: 8,
-              padding: '6px 12px',
-              display: 'flex', alignItems: 'center', gap: 8,
-              boxShadow: '0 8px 24px rgba(0,0,0,.4)',
-              whiteSpace: 'nowrap',
+              transform: 'translateY(-100%)',
+              zIndex: 100,
+              background: dk ? '#151f2e' : '#1a2535',
+              border: '1px solid rgba(249,115,22,.35)',
+              borderRadius: 12,
+              padding: '10px 12px',
+              width: 260,
+              boxShadow: '0 12px 40px rgba(0,0,0,.6)',
             }}>
-              <span style={{ fontSize: 12 }}>💬</span>
-              <button onMouseDown={e => { e.preventDefault(); e.stopPropagation(); startCommenting() }}
-                style={{ background: 'none', border: 'none', color: '#f97316', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif' }}>
-                Komentuoti
-              </button>
-              <div style={{ width: 1, height: 14, background: 'rgba(249,115,22,.3)' }} />
-              <span style={{ fontSize: 12 }}>🔗</span>
-              <button onMouseDown={e => { e.preventDefault(); e.stopPropagation(); startSharing() }}
-                style={{ background: 'none', border: 'none', color: '#b0bdd4', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'Outfit, sans-serif' }}>
-                Dalintis
-              </button>
-              <div style={{ position: 'absolute', bottom: -5, left: '50%', transform: 'translateX(-50%) rotate(45deg)', width: 8, height: 8, background: dk ? '#1e2d40' : '#1a2a40', border: '1px solid rgba(249,115,22,.4)', borderTop: 'none', borderLeft: 'none' }} />
+              {/* Quote preview */}
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,.75)', fontStyle: 'italic', lineHeight: 1.55, marginBottom: 10, borderLeft: '2px solid rgba(249,115,22,.5)', paddingLeft: 8, maxHeight: 72, overflow: 'hidden' }}>
+                „{selectionPopup.text}"
+              </div>
+              {/* Action buttons */}
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button onMouseDown={e => { e.preventDefault(); e.stopPropagation()
+                  const newC: LyricComment = { id: Date.now(), selection_start: selectionPopup.start, selection_end: selectionPopup.end, selected_text: selectionPopup.text, author: 'Aš', avatar_letter: '♥', text: '', likes: 1, created_at: new Date().toISOString() }
+                  setComments(prev => [...prev, newC]); setSelectionPopup(null); window.getSelection()?.removeAllRanges()
+                }} style={{ flex: 1, padding: '7px 4px', borderRadius: 8, background: 'rgba(249,115,22,.15)', border: '1px solid rgba(249,115,22,.3)', color: '#f97316', fontSize: 13, cursor: 'pointer', fontWeight: 700 }}>
+                  ♥ Patinka
+                </button>
+                <button onMouseDown={e => { e.preventDefault(); e.stopPropagation()
+                  const newC: LyricComment = { id: Date.now(), selection_start: selectionPopup.start, selection_end: selectionPopup.end, selected_text: selectionPopup.text, author: 'Aš', avatar_letter: '🔖', text: '🔖', likes: 0, created_at: new Date().toISOString() }
+                  setComments(prev => [...prev, newC]); setSelectionPopup(null); window.getSelection()?.removeAllRanges()
+                }} style={{ flex: 1, padding: '7px 4px', borderRadius: 8, background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.12)', color: 'rgba(255,255,255,.7)', fontSize: 13, cursor: 'pointer' }}>
+                  🔖 Žymė
+                </button>
+                <button onMouseDown={e => { e.preventDefault(); e.stopPropagation(); startCommenting() }}
+                  style={{ flex: 1, padding: '7px 4px', borderRadius: 8, background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.12)', color: 'rgba(255,255,255,.7)', fontSize: 13, cursor: 'pointer' }}>
+                  💬 Komentaras
+                </button>
+                <button onMouseDown={e => { e.preventDefault(); e.stopPropagation(); startSharing() }}
+                  style={{ padding: '7px 8px', borderRadius: 8, background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.12)', color: 'rgba(255,255,255,.7)', fontSize: 13, cursor: 'pointer' }}>
+                  🔗
+                </button>
+              </div>
+              {/* Arrow */}
+              <div style={{ position: 'absolute', bottom: -5, left: 24, transform: 'rotate(45deg)', width: 8, height: 8, background: dk ? '#151f2e' : '#1a2535', border: '1px solid rgba(249,115,22,.35)', borderTop: 'none', borderLeft: 'none' }} />
             </div>
           )}
 
@@ -653,17 +669,24 @@ export default function TrackPageClient({
 
         {commentList.length > 0 && (
           <div style={{ borderTop: `1px solid ${T.subBdr}`, padding: '12px 18px' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '.07em', fontFamily: 'Outfit, sans-serif', marginBottom: 10 }}>Komentarai prie žodžių</div>
-            {commentList.map(c => (
-              <div key={c.id} style={{ display: 'flex', gap: 9, marginBottom: 12 }}>
-                <div style={{ width: 26, height: 26, borderRadius: '50%', flexShrink: 0, background: 'rgba(249,115,22,.15)', border: '1px solid rgba(249,115,22,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: '#f97316' }}>{c.avatar_letter}</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 10, color: T.textFaint, marginBottom: 2, fontStyle: 'italic' }}>prie „{c.selected_text.slice(0, 40)}{c.selected_text.length > 40 ? '…' : ''}"</div>
-                  <div style={{ fontSize: 12, color: T.textSec }}>{c.text}</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '.07em', fontFamily: 'Outfit, sans-serif', marginBottom: 10 }}>Reakcijos į žodžius</div>
+            {commentList.map(c => {
+              const isLike = c.avatar_letter === '♥'
+              const isBookmark = c.avatar_letter === '🔖'
+              const isReactionOnly = isLike || isBookmark
+              return (
+                <div key={c.id} style={{ display: 'flex', gap: 9, marginBottom: 10, alignItems: 'flex-start' }}>
+                  <div style={{ width: 26, height: 26, borderRadius: '50%', flexShrink: 0, background: isLike ? 'rgba(249,115,22,.15)' : 'rgba(255,255,255,.07)', border: `1px solid ${isLike ? 'rgba(249,115,22,.3)' : 'rgba(255,255,255,.1)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>{c.avatar_letter}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 11, color: T.textFaint, marginBottom: isReactionOnly ? 0 : 2, fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>„{c.selected_text.slice(0, 50)}{c.selected_text.length > 50 ? '…' : ''}"</div>
+                    {!isReactionOnly && <div style={{ fontSize: 12, color: T.textSec }}>{c.text}</div>}
+                  </div>
+                  {isLike && <div style={{ fontSize: 10, color: '#f97316', fontWeight: 700 }}>♥</div>}
+                  {isBookmark && <div style={{ fontSize: 10, color: T.textFaint }}>🔖</div>}
+                  {!isReactionOnly && <div style={{ fontSize: 10, color: T.textFaint }}>♥ {c.likes}</div>}
                 </div>
-                <div style={{ fontSize: 10, color: T.textFaint }}>♥ {c.likes}</div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>
