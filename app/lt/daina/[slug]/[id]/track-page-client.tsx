@@ -52,7 +52,6 @@ function formatReleaseDate(d: string | null): string | null {
   return `${date.getFullYear()} m. ${months[date.getMonth()]} ${date.getDate()} d.`
 }
 
-// Build word frequency map from lyrics
 function buildWordCloud(lyrics: string): Array<{ word: string; weight: number }> {
   const stopWords = new Set(['the','and','in','of','to','a','i','it','is','be','as','at','so','we','he','she','they','you','me','my','your','our','his','her','its','on','do','if','or','an','but','not','with','from','this','that','was','for','are','were','had','have','has','will','just','like','up','out','all','when','what','so','one','no','can','get','more','now','about','into','there','some','would','make','time','see','than','then','could','him','come','its','over','think','also','back','after','use','two','how','our','work','first','well','way','even','want','because','any','these','give','most','su','ir','kad','tai','dar','jau','ne','per','bet','man','tas','kaip'])
   const words = lyrics.toLowerCase().replace(/[^a-zA-ZąčęėįšųūžĄČĘĖĮŠŲŪŽ\s]/g, ' ').split(/\s+/)
@@ -74,7 +73,6 @@ function GuitarIcon({ size = 13, color = 'currentColor' }: { size?: number; colo
   return <svg width={size} height={size} viewBox="0 0 24 24" fill={color}><path d="M19.59 3c-.96 0-1.86.37-2.54 1.05L14 7.1C12.45 6.39 10.6 6.6 9.26 7.93L3 14.19l.71.71-1.42 1.41 1.42 1.41 1.06-1.06.7.71-1.41 1.41 1.41 1.41 1.41-1.41.71.71-1.06 1.06 1.41 1.41L16.07 15c1.33-1.33 1.54-3.19.82-4.73l3.06-3.06C20.63 6.53 21 5.63 21 4.66 21 3.74 20.26 3 19.59 3zM15 15l-5-5 1.41-1.41 5 5L15 15z"/></svg>
 }
 
-// ── Stable YouTube embed (memo prevents re-mount on state change) ──────────────
 const YoutubeEmbed = memo(function YoutubeEmbed({ videoId }: { videoId: string }) {
   return (
     <iframe
@@ -100,15 +98,12 @@ export default function TrackPageClient({
   const [showAllVersions, setShowAllVersions] = useState(false)
   const [loaded, setLoaded] = useState(false)
 
-  // AI interpretation
   const [aiText, setAiText] = useState<string | null>(null)
   const [aiLoading, setAiLoading] = useState(false)
   const [aiError, setAiError] = useState(false)
 
-  // Share quote overlay
   const [shareQuote, setShareQuote] = useState<string | null>(null)
 
-  // Selection-based commenting state
   const [selectionPopup, setSelectionPopup] = useState<{
     x: number; y: number; text: string; start: number; end: number
   } | null>(null)
@@ -119,7 +114,6 @@ export default function TrackPageClient({
   const commentInputRef = useRef<HTMLInputElement>(null)
   const lyricsRef = useRef<HTMLDivElement>(null)
 
-  // Mood votes
   const defaultMoods: MoodVote[] = [
     { emoji: '😢', label: 'Jaudinanti', count: 0 },
     { emoji: '🔥', label: 'Energinga', count: 0 },
@@ -133,7 +127,6 @@ export default function TrackPageClient({
 
   useEffect(() => { setLoaded(true) }, [])
 
-  // Close popup on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (selectionPopup && !(e.target as Element).closest('.lyric-popup')) {
@@ -151,7 +144,6 @@ export default function TrackPageClient({
   const primaryAlbum = albums[0] ?? null
   const wordCloud = hasLyrics ? buildWordCloud(track.lyrics!) : []
 
-  // ── Text selection handler on lyrics div ──────────────────────────────────
   const handleLyricsMouseUp = useCallback(() => {
     const sel = window.getSelection()
     if (!sel || sel.isCollapsed || !sel.toString().trim()) {
@@ -166,7 +158,6 @@ export default function TrackPageClient({
     const lyricsRect = lyricsRef.current?.getBoundingClientRect()
     if (!lyricsRect) return
 
-    // Get char offsets within full lyrics text
     const fullText = track.lyrics || ''
     const start = fullText.indexOf(text)
     const end = start + text.length
@@ -205,7 +196,6 @@ export default function TrackPageClient({
     setCommentDraft('')
     setCommentingOn(null)
 
-    // API call (non-blocking)
     try {
       await fetch(`/api/tracks/${track.id}/lyric-comments`, {
         method: 'POST',
@@ -234,7 +224,10 @@ export default function TrackPageClient({
     try {
       const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
           max_tokens: 1000,
@@ -254,6 +247,8 @@ export default function TrackPageClient({
       setAiLoading(false)
     }
   }
+
+  const votesMood = (emoji: string) => {
     if (myMood === emoji) return
     setMoods(prev => prev.map(m =>
       m.emoji === emoji ? { ...m, count: m.count + 1 }
@@ -297,17 +292,14 @@ export default function TrackPageClient({
     fontFamily: 'Outfit, sans-serif', textTransform: 'uppercase', letterSpacing: '.08em',
   }
 
-  // ── Highlight selected text in lyrics ─────────────────────────────────────
   const renderLyricsWithHighlights = () => {
     const text = track.lyrics || ''
     if (comments.length === 0) return <span>{text}</span>
 
-    // Collect all highlighted ranges
     const ranges = comments.map(c => ({ start: c.selection_start, end: c.selection_end, id: c.id }))
     const parts: React.ReactNode[] = []
     let pos = 0
 
-    // Sort and merge overlapping ranges for rendering
     const sorted = [...ranges].sort((a, b) => a.start - b.start)
     for (const r of sorted) {
       if (r.start > pos) parts.push(<span key={`t${pos}`}>{text.slice(pos, r.start)}</span>)
@@ -361,7 +353,6 @@ export default function TrackPageClient({
           {dateStr && <div style={{ fontSize: 11, color: T.textMuted }}>{dateStr}</div>}
         </div>
       </div>
-      {/* FIX 4: Album chips */}
       {albums.length > 0 && (
         <div style={{ padding: '10px 14px', display: 'flex', gap: 8, flexWrap: 'wrap', borderTop: `1px solid ${T.subBdr}` }}>
           <span style={{ fontSize: 10, color: T.textFaint, alignSelf: 'center', fontFamily: 'Outfit, sans-serif', textTransform: 'uppercase', letterSpacing: '.06em' }}>Albumas</span>
@@ -382,7 +373,6 @@ export default function TrackPageClient({
     </div>
   )
 
-  // FIX 2: PlayerCard uses memo'd YoutubeEmbed — won't remount on state changes
   const PlayerCard = () => {
     if (!vid && !track.show_player) return null
     return (
@@ -403,7 +393,6 @@ export default function TrackPageClient({
     )
   }
 
-  // Mood voting card
   const MoodCard = () => {
     const total = moods.reduce((s, m) => s + m.count, 0)
     return (
@@ -418,7 +407,6 @@ export default function TrackPageClient({
               return (
                 <button key={m.emoji} onClick={() => votesMood(m.emoji)}
                   style={{ position: 'relative', padding: '8px 10px', borderRadius: 10, border: `1px solid ${isVoted ? 'rgba(249,115,22,.5)' : T.borderSub}`, background: isVoted ? 'rgba(249,115,22,.1)' : T.bgHover, cursor: 'pointer', textAlign: 'left', overflow: 'hidden', transition: 'all .15s' }}>
-                  {/* Fill bar */}
                   {myMood && <div style={{ position: 'absolute', inset: 0, background: isVoted ? 'rgba(249,115,22,.08)' : 'rgba(255,255,255,.02)', width: `${pct}%`, transition: 'width .4s ease', borderRadius: 'inherit' }} />}
                   <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <span style={{ fontSize: 13 }}>{m.emoji} <span style={{ fontSize: 11, color: isVoted ? '#f97316' : T.textSec, fontWeight: isVoted ? 700 : 500 }}>{m.label}</span></span>
@@ -434,7 +422,6 @@ export default function TrackPageClient({
     )
   }
 
-  // "Ar žinojai?" — always shown (description or placeholder)
   const TriviaCard = () => (
     <div style={{ ...card, background: T.dykBg, border: `1px solid ${T.dykBdr}` }}>
       <div style={{ padding: '12px 14px' }}>
@@ -450,7 +437,6 @@ export default function TrackPageClient({
     </div>
   )
 
-  // AI interpretation card — only shown when admin has enabled it for this track
   const AICard = () => {
     if (!hasLyrics || !track.show_ai_interpretation) return null
     return (
@@ -505,7 +491,6 @@ export default function TrackPageClient({
     )
   }
 
-  // Share quote overlay
   const ShareQuoteOverlay = () => {
     if (!shareQuote) return null
     const displayQuote = shareQuote.length > 120 ? shareQuote.slice(0, 120) + '…' : shareQuote
@@ -516,9 +501,7 @@ export default function TrackPageClient({
         onClick={() => setShareQuote(null)}>
         <div onClick={e => e.stopPropagation()}
           style={{ background: dk ? '#0e1520' : '#fff', border: `1px solid ${T.border}`, borderRadius: 20, padding: 24, maxWidth: 420, width: '100%', boxShadow: '0 24px 64px rgba(0,0,0,.5)' }}>
-          {/* Preview card */}
           <div style={{ background: dk ? '#080c12' : '#f0f5ff', border: `1px solid rgba(249,115,22,.2)`, borderRadius: 14, padding: '20px 20px 16px', marginBottom: 16, position: 'relative', overflow: 'hidden' }}>
-            {/* Decorative quote mark */}
             <div style={{ position: 'absolute', top: 8, left: 14, fontSize: 48, color: 'rgba(249,115,22,.12)', fontFamily: 'Georgia, serif', lineHeight: 1 }}>"</div>
             <p style={{ fontSize: 15, fontWeight: 600, color: T.text, lineHeight: 1.7, margin: '0 0 14px', fontStyle: 'italic', position: 'relative' }}>
               „{displayQuote}"
@@ -532,8 +515,6 @@ export default function TrackPageClient({
               <div style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 800, color: T.textFaint, fontFamily: 'Outfit, sans-serif' }}>music.lt</div>
             </div>
           </div>
-
-          {/* Share buttons */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <button
               onClick={() => { navigator.clipboard.writeText(shareText); setShareQuote(null) }}
@@ -627,16 +608,13 @@ export default function TrackPageClient({
     )
   }
 
-  // ── Lyrics panel with Genius-style text selection ──────────────────────────
   const LyricsPanel = () => {
     if (!hasLyrics) return <div style={{ padding: 32, textAlign: 'center', color: T.textFaint, fontSize: 13 }}>Žodžiai dar nepridėti</div>
 
-    // Comments sidebar list
     const commentList = comments.filter(c => c.selection_start >= 0)
 
     return (
       <div>
-        {/* Active comment input bar */}
         {commentingOn && (
           <div style={{ padding: '10px 16px', borderBottom: `1px solid ${T.subBdr}`, background: T.bgActive, display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ fontSize: 11, color: T.textMuted }}>
@@ -653,9 +631,7 @@ export default function TrackPageClient({
           </div>
         )}
 
-        {/* Lyrics text — selectable */}
         <div ref={lyricsRef} onMouseUp={handleLyricsMouseUp} style={{ position: 'relative', padding: '16px 18px', userSelect: 'text', cursor: 'text' }}>
-          {/* Selection popup */}
           {selectionPopup && (
             <div className="lyric-popup" style={{
               position: 'absolute',
@@ -679,10 +655,9 @@ export default function TrackPageClient({
               <div style={{ width: 1, height: 14, background: 'rgba(249,115,22,.3)' }} />
               <span style={{ fontSize: 12 }}>🔗</span>
               <button onClick={startSharing}
-                style={{ background: 'none', border: 'none', color: T.textSec ? '#b0bdd4' : '#6a85a0', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'Outfit, sans-serif' }}>
+                style={{ background: 'none', border: 'none', color: '#b0bdd4', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'Outfit, sans-serif' }}>
                 Dalintis
               </button>
-              {/* Arrow */}
               <div style={{ position: 'absolute', bottom: -5, left: '50%', transform: 'translateX(-50%) rotate(45deg)', width: 8, height: 8, background: dk ? '#1e2d40' : '#1a2a40', border: '1px solid rgba(249,115,22,.4)', borderTop: 'none', borderLeft: 'none' }} />
             </div>
           )}
@@ -692,7 +667,6 @@ export default function TrackPageClient({
           </pre>
         </div>
 
-        {/* Comments list below lyrics */}
         {commentList.length > 0 && (
           <div style={{ borderTop: `1px solid ${T.subBdr}`, padding: '12px 18px' }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '.07em', fontFamily: 'Outfit, sans-serif', marginBottom: 10 }}>Komentarai prie žodžių</div>
@@ -737,7 +711,6 @@ export default function TrackPageClient({
     )
   }
 
-  // Word cloud panel
   const WordCloudPanel = () => {
     if (wordCloud.length === 0) return <div style={{ padding: 32, textAlign: 'center', color: T.textFaint, fontSize: 13 }}>Žodžiai dar nepridėti</div>
     return (
@@ -768,31 +741,33 @@ export default function TrackPageClient({
     )
   }
 
-  const LyricsChordsCard = () => (
-    <div style={card}>
-      <div style={{ display: 'flex', alignItems: 'center', borderBottom: `1px solid ${T.subBdr}`, padding: '0 14px' }}>
-        {([
-          { id: 'lyrics', label: 'Žodžiai', icon: <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M3 18h12v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg> },
-          { id: 'chords', label: 'Akordai', icon: <GuitarIcon size={11} /> },
-          { id: 'cloud',  label: 'Žodžių debesis', icon: <span style={{ fontSize: 10 }}>☁</span> },
-        ] as const).map(tab => {
-          const isActive = activeTab === tab.id
-          return (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '11px 12px 10px', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: isActive ? 800 : 600, color: isActive ? '#f97316' : T.textFaint, borderBottom: isActive ? '2px solid #f97316' : '2px solid transparent', marginBottom: -1, transition: 'all .15s', fontFamily: 'Outfit, sans-serif', textTransform: 'uppercase', letterSpacing: '.07em' }}>
-              {tab.icon} {tab.label}
-            </button>
-          )
-        })}
-        {activeTab === 'lyrics' && hasLyrics && (
-          <span style={{ marginLeft: 'auto', fontSize: 9, color: T.textFaint, fontStyle: 'italic' }}>Pažymėk tekstą, kad komentuotum</span>
-        )}
+  const LyricsChordsCard = () => {
+    return (
+      <div style={card}>
+        <div style={{ display: 'flex', alignItems: 'center', borderBottom: `1px solid ${T.subBdr}`, padding: '0 14px' }}>
+          {([
+            { id: 'lyrics', label: 'Žodžiai', icon: <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M3 18h12v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg> },
+            { id: 'chords', label: 'Akordai', icon: <GuitarIcon size={11} /> },
+            { id: 'cloud',  label: 'Žodžių debesis', icon: <span style={{ fontSize: 10 }}>☁</span> },
+          ] as const).map(tab => {
+            const isActive = activeTab === tab.id
+            return (
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '11px 12px 10px', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: isActive ? 800 : 600, color: isActive ? '#f97316' : T.textFaint, borderBottom: isActive ? '2px solid #f97316' : '2px solid transparent', marginBottom: -1, transition: 'all .15s', fontFamily: 'Outfit, sans-serif', textTransform: 'uppercase', letterSpacing: '.07em' }}>
+                {tab.icon} {tab.label}
+              </button>
+            )
+          })}
+          {activeTab === 'lyrics' && hasLyrics && (
+            <span style={{ marginLeft: 'auto', fontSize: 9, color: T.textFaint, fontStyle: 'italic' }}>Pažymėk tekstą, kad komentuotum</span>
+          )}
+        </div>
+        {activeTab === 'lyrics' && <LyricsPanel />}
+        {activeTab === 'chords' && <ChordsPanel />}
+        {activeTab === 'cloud'  && <WordCloudPanel />}
       </div>
-      {activeTab === 'lyrics' && <LyricsPanel />}
-      {activeTab === 'chords' && <ChordsPanel />}
-      {activeTab === 'cloud'  && <WordCloudPanel />}
-    </div>
-  )
+    )
+  }
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
