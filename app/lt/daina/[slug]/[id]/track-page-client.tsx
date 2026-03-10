@@ -18,10 +18,15 @@ type Track = {
 
 type Album = { id: number; slug: string; title: string; year?: number; cover_image_url: string | null; type: string }
 
-type LyricComment = {
-  id: number; selection_start: number; selection_end: number
-  selected_text: string; author: string; avatar_letter: string
-  text: string; likes: number; created_at: string
+type LyricReaction = {
+  id: number
+  selection_start: number
+  selection_end: number
+  selected_text: string
+  type: 'like' | 'comment'
+  text: string
+  likes: number
+  created_at: string
 }
 
 type Version = { id: number; slug: string; title: string; type: string; video_url: string | null }
@@ -29,7 +34,7 @@ type Version = { id: number; slug: string; title: string; type: string; video_ur
 type Props = {
   track: Track; artist: Artist; albums: Album[]
   versions: Version[]; likes: number
-  lyricComments: LyricComment[]; trivia: string | null
+  lyricComments: LyricReaction[]; trivia: string | null
   relatedTracks: Track[]
 }
 
@@ -59,6 +64,20 @@ function MusicIcon({ size = 16, color = '#fff' }: { size?: number; color?: strin
 function GuitarIcon({ size = 13, color = 'currentColor' }: { size?: number; color?: string }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill={color}><path d="M19.59 3c-.96 0-1.86.37-2.54 1.05L14 7.1C12.45 6.39 10.6 6.6 9.26 7.93L3 14.19l.71.71-1.42 1.41 1.42 1.41 1.06-1.06.7.71-1.41 1.41 1.41 1.41 1.41-1.41.71.71-1.06 1.06 1.41 1.41L16.07 15c1.33-1.33 1.54-3.19.82-4.73l3.06-3.06C20.63 6.53 21 5.63 21 4.66 21 3.74 20.26 3 19.59 3zM15 15l-5-5 1.41-1.41 5 5L15 15z"/></svg>
 }
+function HeartIcon({ filled = false, size = 14 }: { filled?: boolean; size?: number }) {
+  return filled
+    ? <svg width={size} height={size} viewBox="0 0 24 24" fill="#f97316"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+    : <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 3c-1.74 0-3.41.81-4.5 2.09C10.91 3.81 9.24 3 7.5 3 4.42 3 2 5.42 2 8.5c0 3.78 3.4 6.86 8.55 11.54L12 21.35l1.45-1.32C18.6 15.36 22 12.28 22 8.5 22 5.42 19.58 3 16.5 3zm-4.4 15.55l-.1.1-.1-.1C7.14 14.24 4 11.39 4 8.5 4 6.5 5.5 5 7.5 5c1.54 0 3.04.99 3.57 2.36h1.87C13.46 5.99 14.96 5 16.5 5c2 0 3.5 1.5 3.5 3.5 0 2.89-3.14 5.74-7.9 10.05z"/></svg>
+}
+function ChatIcon({ size = 14 }: { size?: number }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
+}
+function ShareIcon({ size = 14 }: { size?: number }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"/></svg>
+}
+function XIcon({ size = 14 }: { size?: number }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+}
 
 const YoutubeEmbed = memo(function YoutubeEmbed({ videoId }: { videoId: string }) {
   return (
@@ -81,7 +100,7 @@ export default function TrackPageClient({
 
   const [liked, setLiked] = useState(false)
   const [activeTab, setActiveTab] = useState<'lyrics' | 'chords'>('lyrics')
-  const [comments, setComments] = useState<LyricComment[]>(initialComments)
+  const [reactions, setReactions] = useState<LyricReaction[]>(initialComments)
   const [showAllVersions, setShowAllVersions] = useState(false)
   const [loaded, setLoaded] = useState(false)
 
@@ -91,30 +110,37 @@ export default function TrackPageClient({
   const [aiLoading, setAiLoading] = useState(false)
   const [aiError, setAiError] = useState(false)
 
+  // Side panel for lyric selection
+  const [sidePanel, setSidePanel] = useState<{
+    text: string; start: number; end: number
+  } | null>(null)
+  const [sidePanelTab, setSidePanelTab] = useState<'actions' | 'share'>('actions')
+  const [commentDraft, setCommentDraft] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  // Hover tooltip on marked text
+  const [hoverTooltip, setHoverTooltip] = useState<{
+    x: number; y: number; reactions: LyricReaction[]
+  } | null>(null)
+
   // Share quote overlay
   const [shareQuote, setShareQuote] = useState<string | null>(null)
 
-  // Lyric selection
-  const [selectionPopup, setSelectionPopup] = useState<{
-    x: number; y: number; text: string; start: number; end: number
-  } | null>(null)
-  const [commentingOn, setCommentingOn] = useState<{
-    text: string; start: number; end: number
-  } | null>(null)
-  const [commentDraft, setCommentDraft] = useState('')
   const lyricsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { setLoaded(true) }, [])
 
+  // Close side panel on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (selectionPopup && !(e.target as Element).closest('.lyric-popup')) {
-        setSelectionPopup(null)
+      const t = e.target as Element
+      if (sidePanel && !t.closest('.lyric-side-panel') && !t.closest('.lyric-text-area')) {
+        setSidePanel(null)
       }
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [selectionPopup])
+  }, [sidePanel])
 
   const vid = ytId(track.video_url)
   const hasLyrics = !!track.lyrics?.trim()
@@ -122,72 +148,82 @@ export default function TrackPageClient({
   const dateStr = formatReleaseDate(track.release_date)
   const primaryAlbum = albums[0] ?? null
 
+  // Group reactions by selected_text range for highlights
+  const reactionsByRange = useMemo(() => {
+    const map = new Map<string, LyricReaction[]>()
+    reactions.forEach(r => {
+      const key = `${r.selection_start}-${r.selection_end}`
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(r)
+    })
+    return map
+  }, [reactions])
+
   const handleLyricsMouseUp = useCallback(() => {
     const sel = window.getSelection()
-    if (!sel || sel.isCollapsed || !sel.toString().trim()) {
-      setSelectionPopup(null)
-      return
-    }
+    if (!sel || sel.isCollapsed || !sel.toString().trim()) return
     const text = sel.toString().trim()
     if (text.length < 3) return
-
-    const range = sel.getRangeAt(0)
-    const rect = range.getBoundingClientRect()
 
     const fullText = track.lyrics || ''
     const start = fullText.indexOf(text)
     const end = start + text.length
 
-    // Position popup above selection, clamped to viewport
-    const popupW = 280
-    const x = Math.min(Math.max(rect.left + rect.width / 2, popupW / 2 + 8), window.innerWidth - popupW / 2 - 8)
-    const y = rect.top + window.scrollY - 12
-
-    setSelectionPopup({ x, y, text, start: Math.max(0, start), end })
+    setSidePanel({ text, start: Math.max(0, start), end })
+    setSidePanelTab('actions')
+    setCommentDraft('')
+    window.getSelection()?.removeAllRanges()
   }, [track.lyrics])
 
-  const startCommenting = () => {
-    if (!selectionPopup) return
-    setCommentingOn({ text: selectionPopup.text, start: selectionPopup.start, end: selectionPopup.end })
-    setSelectionPopup(null)
-    window.getSelection()?.removeAllRanges()
-  }
-
-  const submitComment = async () => {
-    if (!commentDraft.trim() || !commentingOn) return
-    const newComment: LyricComment = {
+  const saveLike = async () => {
+    if (!sidePanel) return
+    setSaving(true)
+    const newR: LyricReaction = {
       id: Date.now(),
-      selection_start: commentingOn.start,
-      selection_end: commentingOn.end,
-      selected_text: commentingOn.text,
-      author: 'Aš',
-      avatar_letter: 'A',
-      text: commentDraft.trim(),
+      selection_start: sidePanel.start,
+      selection_end: sidePanel.end,
+      selected_text: sidePanel.text,
+      type: 'like',
+      text: '',
       likes: 0,
       created_at: new Date().toISOString(),
     }
-    setComments(prev => [...prev, newComment])
-    setCommentDraft('')
-    setCommentingOn(null)
+    setReactions(prev => [...prev, newR])
     try {
       await fetch(`/api/tracks/${track.id}/lyric-comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          selected_text: commentingOn.text,
-          selection_start: commentingOn.start,
-          selection_end: commentingOn.end,
-          text: newComment.text,
-        }),
+        body: JSON.stringify({ selected_text: sidePanel.text, selection_start: sidePanel.start, selection_end: sidePanel.end, type: 'like', text: '' }),
       })
     } catch { /* ignore */ }
+    setSaving(false)
+    setSidePanel(null)
   }
 
-  const startSharing = () => {
-    if (!selectionPopup) return
-    setShareQuote(selectionPopup.text)
-    setSelectionPopup(null)
-    window.getSelection()?.removeAllRanges()
+  const saveComment = async () => {
+    if (!sidePanel || !commentDraft.trim()) return
+    setSaving(true)
+    const newR: LyricReaction = {
+      id: Date.now(),
+      selection_start: sidePanel.start,
+      selection_end: sidePanel.end,
+      selected_text: sidePanel.text,
+      type: 'comment',
+      text: commentDraft.trim(),
+      likes: 0,
+      created_at: new Date().toISOString(),
+    }
+    setReactions(prev => [...prev, newR])
+    try {
+      await fetch(`/api/tracks/${track.id}/lyric-comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ selected_text: sidePanel.text, selection_start: sidePanel.start, selection_end: sidePanel.end, type: 'comment', text: commentDraft.trim() }),
+      })
+    } catch { /* ignore */ }
+    setCommentDraft('')
+    setSaving(false)
+    setSidePanel(null)
   }
 
   const generateAI = async () => {
@@ -197,7 +233,6 @@ export default function TrackPageClient({
     setAiText(null)
     setAiImage(null)
     try {
-      // Step 1: Generate text interpretation
       const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -207,7 +242,7 @@ export default function TrackPageClient({
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
           max_tokens: 1200,
-          system: `Tu esi muzikos kritikas ir lyrikų interpretatorius. Atsakyk TIKTAI lietuviškai. Būk įžvalgus, nuoširdus, poetiškas — ne akademiškas. Neminėk dainos pavadinimo ar atlikėjo pirmame sakinyje. Atsakyk JSON formatu: { "interpretation": "3 paragrafai apie dainą", "image_prompt": "English prompt for abstract art image that captures the emotional essence of this song, 10-15 words, no text, no people" }`,
+          system: `Tu esi muzikos kritikas ir lyrikų interpretatorius. Atsakyk TIKTAI lietuviškai. Būk įžvalgus, nuoširdus, poetiškas — ne akademiškas. Neminėk dainos pavadinimo ar atlikėjo pirmame sakinyje. Atsakyk TIKTAI JSON formatu be jokio kito teksto: { "interpretation": "2-3 paragrafai, kiekvienas per naują eilutę", "image_prompt": "abstract art, 10-15 words in English capturing the emotional essence, no people, no text" }`,
           messages: [{
             role: 'user',
             content: `Daina: "${track.title}" — ${artist.name}\n\nŽodžiai:\n${track.lyrics}\n\nSugeneruok interpretaciją ir image prompt.`,
@@ -220,10 +255,9 @@ export default function TrackPageClient({
       try {
         const parsed = JSON.parse(clean)
         setAiText(parsed.interpretation ?? raw)
-        // Step 2: Generate image via Pollinations (free, no key needed)
         if (parsed.image_prompt) {
-          const prompt = encodeURIComponent(parsed.image_prompt + ', abstract art, cinematic, no text')
-          setAiImage(`https://image.pollinations.ai/prompt/${prompt}?width=800&height=400&nologo=true&seed=${track.id}`)
+          const prompt = encodeURIComponent(parsed.image_prompt + ', cinematic lighting, no text')
+          setAiImage(`https://image.pollinations.ai/prompt/${prompt}?width=800&height=380&nologo=true&seed=${track.id}`)
         }
       } catch {
         setAiText(raw)
@@ -255,10 +289,11 @@ export default function TrackPageClient({
     dykText:     dk ? '#8aadcc' : '#5a6878',
     cmtInput:    dk ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.04)',
     cmtBdr:      dk ? 'rgba(255,255,255,.1)'  : 'rgba(0,0,0,.1)',
-    lyricText:   dk ? '#d0e0f0' : '#1a2a40',
-    lyricMark:   dk ? 'rgba(249,115,22,.25)'  : 'rgba(249,115,22,.18)',
+    lyricText:   dk ? '#c8daf0' : '#1a2a40',
+    lyricMark:   dk ? 'rgba(249,115,22,.22)'  : 'rgba(249,115,22,.15)',
     chordBg:     dk ? 'rgba(249,115,22,.10)'  : 'rgba(249,115,22,.08)',
     chordName:   dk ? '#f97316' : '#ea6a00',
+    panelBg:     dk ? '#0d1623' : '#ffffff',
   }
 
   const card: React.CSSProperties = { background: T.bgCard, border: `1px solid ${T.border}`, borderRadius: 16, overflow: 'hidden' }
@@ -269,23 +304,51 @@ export default function TrackPageClient({
     fontFamily: 'Outfit, sans-serif', textTransform: 'uppercase', letterSpacing: '.08em',
   }
 
+  // Render lyrics with reaction highlights
   const renderLyricsWithHighlights = () => {
     const text = track.lyrics || ''
-    if (comments.length === 0) return <span>{text}</span>
-    const ranges = comments.map(c => ({ start: c.selection_start, end: c.selection_end, id: c.id }))
+    if (reactionsByRange.size === 0) return <span>{text}</span>
+
+    // Collect all unique ranges
+    const ranges: Array<{ start: number; end: number; key: string }> = []
+    reactionsByRange.forEach((_, key) => {
+      const [s, e] = key.split('-').map(Number)
+      if (!isNaN(s) && !isNaN(e) && e > s) ranges.push({ start: s, end: e, key })
+    })
+    ranges.sort((a, b) => a.start - b.start)
+
     const parts: React.ReactNode[] = []
     let pos = 0
-    const sorted = [...ranges].sort((a, b) => a.start - b.start)
-    for (const r of sorted) {
+    for (const r of ranges) {
+      if (r.start < pos) continue
       if (r.start > pos) parts.push(<span key={`t${pos}`}>{text.slice(pos, r.start)}</span>)
-      if (r.start < r.end && r.start >= pos) {
-        parts.push(
-          <mark key={`m${r.id}`} style={{ background: T.lyricMark, color: 'inherit', borderRadius: 3, cursor: 'pointer', borderBottom: '1.5px solid rgba(249,115,22,.6)' }}>
-            {text.slice(r.start, r.end)}
-          </mark>
-        )
-        pos = r.end
-      }
+      const rxns = reactionsByRange.get(r.key) ?? []
+      const likeCount = rxns.filter(x => x.type === 'like').length
+      const cmtCount = rxns.filter(x => x.type === 'comment').length
+      parts.push(
+        <span key={r.key}
+          className="lyric-mark"
+          style={{
+            background: T.lyricMark,
+            borderRadius: 3,
+            cursor: 'pointer',
+            borderBottom: '2px solid rgba(249,115,22,.55)',
+            position: 'relative',
+            paddingBottom: 1,
+          }}
+          onMouseEnter={e => {
+            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+            setHoverTooltip({ x: rect.left + rect.width / 2, y: rect.bottom + window.scrollY + 6, reactions: rxns })
+          }}
+          onMouseLeave={() => setHoverTooltip(null)}
+        >
+          {text.slice(r.start, r.end)}
+          <sup style={{ fontSize: 9, color: '#f97316', fontWeight: 800, marginLeft: 2, verticalAlign: 'super' }}>
+            {likeCount > 0 && `♥${likeCount}`}{cmtCount > 0 && ` 💬${cmtCount}`}
+          </sup>
+        </span>
+      )
+      pos = r.end
     }
     if (pos < text.length) parts.push(<span key="tend">{text.slice(pos)}</span>)
     return <>{parts}</>
@@ -348,7 +411,6 @@ export default function TrackPageClient({
     </div>
   )
 
-  // Stable player — won't remount on state changes
   const PlayerCard = useMemo(() => {
     if (!vid && !track.show_player) return null
     return (
@@ -387,7 +449,6 @@ export default function TrackPageClient({
     )
   }
 
-  // AI Card — interpretation + generated image
   const AICard = () => {
     if (!hasLyrics || !track.show_ai_interpretation) return null
     return (
@@ -400,7 +461,7 @@ export default function TrackPageClient({
         </div>
         <div style={{ padding: 14 }}>
           {!aiText && !aiLoading && !aiError && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '8px 0' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '6px 0' }}>
               <p style={{ fontSize: 12, color: T.textMuted, textAlign: 'center', margin: 0, lineHeight: 1.6 }}>
                 Claude perskaitys žodžius ir sukurs interpretaciją bei abstraktų paveikslėlį, perteikiantį dainos nuotaiką.
               </p>
@@ -408,13 +469,13 @@ export default function TrackPageClient({
                 style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 20px', borderRadius: 999, background: 'rgba(249,115,22,.12)', border: '1px solid rgba(249,115,22,.35)', color: '#f97316', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif', transition: 'all .15s' }}
                 onMouseEnter={e => { e.currentTarget.style.background = 'rgba(249,115,22,.2)' }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'rgba(249,115,22,.12)' }}>
-                <span style={{ fontSize: 14 }}>✦</span> Generuoti interpretaciją
+                <span style={{ fontSize: 14 }}>✦</span> Generuoti
               </button>
             </div>
           )}
           {aiLoading && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '12px 0', color: T.textMuted, fontSize: 12 }}>
-              <span style={{ animation: 'spin 1.2s linear infinite', display: 'inline-block', fontSize: 20, color: '#f97316' }}>✦</span>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '16px 0', color: T.textMuted, fontSize: 12 }}>
+              <span style={{ animation: 'spin 1.2s linear infinite', display: 'inline-block', fontSize: 22, color: '#f97316' }}>✦</span>
               Claude analizuoja žodžius…
             </div>
           )}
@@ -425,10 +486,9 @@ export default function TrackPageClient({
           )}
           {aiText && (
             <div>
-              {/* Generated image */}
               {aiImage && (
-                <div style={{ marginBottom: 14, borderRadius: 10, overflow: 'hidden', border: `1px solid ${T.borderSub}` }}>
-                  <img src={aiImage} alt="AI vizualizacija" style={{ width: '100%', display: 'block', objectFit: 'cover' }}
+                <div style={{ marginBottom: 14, borderRadius: 10, overflow: 'hidden', border: `1px solid ${T.borderSub}`, background: T.coverBg }}>
+                  <img src={aiImage} alt="AI vizualizacija" style={{ width: '100%', display: 'block', objectFit: 'cover', minHeight: 80 }}
                     onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
                 </div>
               )}
@@ -442,44 +502,6 @@ export default function TrackPageClient({
               </button>
             </div>
           )}
-        </div>
-      </div>
-    )
-  }
-
-  const ShareQuoteOverlay = () => {
-    if (!shareQuote) return null
-    const displayQuote = shareQuote.length > 120 ? shareQuote.slice(0, 120) + '…' : shareQuote
-    const shareText = `„${displayQuote}"\n\n— ${track.title}, ${artist.name}\nmusic.lt`
-    return (
-      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.7)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
-        onClick={() => setShareQuote(null)}>
-        <div onClick={e => e.stopPropagation()}
-          style={{ background: dk ? '#0e1520' : '#fff', border: `1px solid ${T.border}`, borderRadius: 20, padding: 24, maxWidth: 420, width: '100%', boxShadow: '0 24px 64px rgba(0,0,0,.5)' }}>
-          <div style={{ background: dk ? '#080c12' : '#f0f5ff', border: `1px solid rgba(249,115,22,.2)`, borderRadius: 14, padding: '20px 20px 16px', marginBottom: 16, position: 'relative', overflow: 'hidden' }}>
-            <div style={{ position: 'absolute', top: 8, left: 14, fontSize: 48, color: 'rgba(249,115,22,.12)', fontFamily: 'Georgia, serif', lineHeight: 1 }}>"</div>
-            <p style={{ fontSize: 15, fontWeight: 600, color: T.text, lineHeight: 1.7, margin: '0 0 14px', fontStyle: 'italic', position: 'relative' }}>„{displayQuote}"</p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {primaryAlbum?.cover_image_url && <img src={primaryAlbum.cover_image_url} style={{ width: 28, height: 28, borderRadius: 5, objectFit: 'cover' }} alt="" />}
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: T.text }}>{track.title}</div>
-                <div style={{ fontSize: 10, color: '#f97316' }}>{artist.name}</div>
-              </div>
-              <div style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 800, color: T.textFaint, fontFamily: 'Outfit, sans-serif' }}>music.lt</div>
-            </div>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <button onClick={() => { navigator.clipboard.writeText(shareText); setShareQuote(null) }}
-              style={{ padding: '10px 16px', borderRadius: 10, background: 'rgba(249,115,22,.12)', border: '1px solid rgba(249,115,22,.3)', color: '#f97316', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif' }}>
-              📋 Kopijuoti tekstą
-            </button>
-            <button onClick={() => { window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`, '_blank'); setShareQuote(null) }}
-              style={{ padding: '10px 16px', borderRadius: 10, background: T.bgHover, border: `1px solid ${T.borderSub}`, color: T.textSec, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'Outfit, sans-serif' }}>
-              𝕏 Dalintis X
-            </button>
-            <button onClick={() => setShareQuote(null)}
-              style={{ padding: '8px', background: 'none', border: 'none', color: T.textFaint, fontSize: 11, cursor: 'pointer' }}>Atšaukti</button>
-          </div>
         </div>
       </div>
     )
@@ -557,74 +579,196 @@ export default function TrackPageClient({
     )
   }
 
-  // ── Lyric selection popup ──────────────────────────────────────────────────
-  const SelectionPopup = () => {
-    if (!selectionPopup) return null
+  // ── Side panel (lyric reactions) ───────────────────────────────────────────
+  const LyricSidePanel = () => {
+    if (!sidePanel) return null
+    const shareText = `„${sidePanel.text}"\n\n— ${track.title}, ${artist.name}\nmusic.lt`
     return (
-      <div className="lyric-popup" style={{
+      <div className="lyric-side-panel" style={{
         position: 'fixed',
-        left: selectionPopup.x,
-        top: selectionPopup.y,
-        transform: 'translate(-50%, -100%)',
-        zIndex: 100,
-        background: '#111827',
-        border: '1px solid rgba(249,115,22,.4)',
-        borderRadius: 14,
-        padding: '12px 14px',
-        width: 280,
-        boxShadow: '0 16px 48px rgba(0,0,0,.7)',
+        top: 0,
+        right: 0,
+        width: 320,
+        height: '100vh',
+        background: dk ? '#0d1623' : '#fff',
+        borderLeft: `1px solid ${T.border}`,
+        boxShadow: '-16px 0 48px rgba(0,0,0,.3)',
+        zIndex: 150,
+        display: 'flex',
+        flexDirection: 'column',
+        animation: 'slideInRight .2s ease',
       }}>
+        {/* Header */}
+        <div style={{ padding: '14px 16px', borderBottom: `1px solid ${T.subBdr}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.08em', color: T.textMuted, fontFamily: 'Outfit, sans-serif' }}>Pažymėta vieta</span>
+          <button onClick={() => setSidePanel(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.textFaint, padding: 4, borderRadius: 6, display: 'flex', alignItems: 'center' }}
+            onMouseEnter={e => (e.currentTarget.style.background = T.bgHover)}
+            onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
+            <XIcon size={16} />
+          </button>
+        </div>
+
         {/* Quote */}
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,.65)', fontStyle: 'italic', lineHeight: 1.6, marginBottom: 12, paddingLeft: 10, borderLeft: '2px solid rgba(249,115,22,.6)' }}>
-          „{selectionPopup.text.length > 80 ? selectionPopup.text.slice(0, 80) + '…' : selectionPopup.text}"
+        <div style={{ margin: '14px 16px', padding: '12px 14px', background: dk ? 'rgba(249,115,22,.06)' : 'rgba(249,115,22,.05)', border: `1px solid rgba(249,115,22,.2)`, borderLeft: '3px solid rgba(249,115,22,.7)', borderRadius: '0 10px 10px 0' }}>
+          <p style={{ fontSize: 13, color: T.text, fontStyle: 'italic', lineHeight: 1.65, margin: 0 }}>
+            „{sidePanel.text.length > 150 ? sidePanel.text.slice(0, 150) + '…' : sidePanel.text}"
+          </p>
         </div>
-        {/* Action row */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 6 }}>
-          <button onMouseDown={e => {
-            e.preventDefault(); e.stopPropagation()
-            const newC: LyricComment = { id: Date.now(), selection_start: selectionPopup.start, selection_end: selectionPopup.end, selected_text: selectionPopup.text, author: 'Aš', avatar_letter: '♥', text: '', likes: 1, created_at: new Date().toISOString() }
-            setComments(prev => [...prev, newC]); setSelectionPopup(null); window.getSelection()?.removeAllRanges()
-          }} style={{ padding: '8px 6px', borderRadius: 9, background: 'rgba(249,115,22,.18)', border: '1px solid rgba(249,115,22,.4)', color: '#f97316', fontSize: 13, cursor: 'pointer', fontWeight: 800, fontFamily: 'Outfit, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="#f97316"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-            Patinka
-          </button>
-          <button onMouseDown={e => { e.preventDefault(); e.stopPropagation(); startCommenting() }}
-            style={{ padding: '8px 6px', borderRadius: 9, background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.1)', color: 'rgba(255,255,255,.75)', fontSize: 13, cursor: 'pointer', fontFamily: 'Outfit, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
-            Komentaras
-          </button>
-          <button onMouseDown={e => { e.preventDefault(); e.stopPropagation(); startSharing() }}
-            style={{ padding: '8px 10px', borderRadius: 9, background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.1)', color: 'rgba(255,255,255,.6)', fontSize: 14, cursor: 'pointer' }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"/></svg>
-          </button>
+
+        {/* Tabs */}
+        <div style={{ display: 'flex', borderBottom: `1px solid ${T.subBdr}`, padding: '0 16px' }}>
+          {(['actions', 'share'] as const).map(tab => (
+            <button key={tab} onClick={() => setSidePanelTab(tab)}
+              style={{ padding: '9px 12px 8px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: sidePanelTab === tab ? 800 : 600, color: sidePanelTab === tab ? '#f97316' : T.textFaint, borderBottom: sidePanelTab === tab ? '2px solid #f97316' : '2px solid transparent', marginBottom: -1, fontFamily: 'Outfit, sans-serif', textTransform: 'uppercase', letterSpacing: '.06em' }}>
+              {tab === 'actions' ? 'Reagavimas' : 'Dalintis'}
+            </button>
+          ))}
         </div>
-        {/* Arrow */}
-        <div style={{ position: 'absolute', bottom: -5, left: '50%', transform: 'translateX(-50%) rotate(45deg)', width: 8, height: 8, background: '#111827', border: '1px solid rgba(249,115,22,.4)', borderTop: 'none', borderLeft: 'none' }} />
+
+        <div style={{ flex: 1, padding: 16, overflowY: 'auto' }}>
+          {sidePanelTab === 'actions' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {/* Like */}
+              <button onClick={saveLike} disabled={saving}
+                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 12, background: 'rgba(249,115,22,.08)', border: '1px solid rgba(249,115,22,.25)', cursor: saving ? 'wait' : 'pointer', transition: 'all .15s', width: '100%', textAlign: 'left' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(249,115,22,.15)'; e.currentTarget.style.borderColor = 'rgba(249,115,22,.5)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(249,115,22,.08)'; e.currentTarget.style.borderColor = 'rgba(249,115,22,.25)' }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(249,115,22,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <HeartIcon filled size={18} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#f97316', fontFamily: 'Outfit, sans-serif' }}>Patinka šita vieta</div>
+                  <div style={{ fontSize: 11, color: T.textMuted, marginTop: 1 }}>Pažymėk kaip mėgstamą</div>
+                </div>
+              </button>
+
+              {/* Comment */}
+              <div style={{ borderRadius: 12, background: T.bgHover, border: `1px solid ${T.borderSub}`, overflow: 'hidden' }}>
+                <div style={{ padding: '12px 14px 8px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: dk ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <ChatIcon size={18} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: T.text, fontFamily: 'Outfit, sans-serif' }}>Komentuoti</div>
+                    <div style={{ fontSize: 11, color: T.textMuted, marginTop: 1 }}>Pasidalink mintimis</div>
+                  </div>
+                </div>
+                <div style={{ padding: '0 14px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <textarea
+                    value={commentDraft}
+                    onChange={e => setCommentDraft(e.target.value)}
+                    placeholder="Tavo komentaras apie šią vietą…"
+                    rows={3}
+                    style={{ width: '100%', borderRadius: 10, padding: '9px 12px', fontSize: 12, background: T.cmtInput, border: `1px solid ${T.cmtBdr}`, color: T.text, outline: 'none', resize: 'none', fontFamily: "'DM Sans', sans-serif", boxSizing: 'border-box', lineHeight: 1.55 }}
+                    onFocus={e => (e.currentTarget.style.borderColor = 'rgba(249,115,22,.5)')}
+                    onBlur={e => (e.currentTarget.style.borderColor = T.cmtBdr)}
+                  />
+                  <button onClick={saveComment} disabled={!commentDraft.trim() || saving}
+                    style={{ padding: '8px 16px', borderRadius: 999, background: commentDraft.trim() ? '#f97316' : 'rgba(249,115,22,.2)', border: 'none', color: commentDraft.trim() ? '#fff' : 'rgba(249,115,22,.4)', fontSize: 12, fontWeight: 700, cursor: commentDraft.trim() ? 'pointer' : 'not-allowed', fontFamily: 'Outfit, sans-serif', transition: 'all .15s', alignSelf: 'flex-end' }}>
+                    Išsaugoti komentarą
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {sidePanelTab === 'share' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {/* Share card preview */}
+              <div style={{ background: dk ? '#080c12' : '#f0f5ff', border: `1px solid rgba(249,115,22,.2)`, borderRadius: 12, padding: '16px', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', top: 6, left: 12, fontSize: 42, color: 'rgba(249,115,22,.1)', fontFamily: 'Georgia, serif', lineHeight: 1 }}>"</div>
+                <p style={{ fontSize: 13, fontWeight: 600, color: T.text, lineHeight: 1.65, margin: '0 0 12px', fontStyle: 'italic', position: 'relative' }}>
+                  „{sidePanel.text.length > 120 ? sidePanel.text.slice(0, 120) + '…' : sidePanel.text}"
+                </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {primaryAlbum?.cover_image_url && <img src={primaryAlbum.cover_image_url} style={{ width: 24, height: 24, borderRadius: 4, objectFit: 'cover' }} alt="" />}
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: T.text }}>{track.title}</div>
+                    <div style={{ fontSize: 9, color: '#f97316' }}>{artist.name}</div>
+                  </div>
+                  <div style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 800, color: T.textFaint, fontFamily: 'Outfit, sans-serif' }}>music.lt</div>
+                </div>
+              </div>
+              <button onClick={() => { navigator.clipboard.writeText(shareText); setSidePanel(null) }}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '11px 16px', borderRadius: 12, background: 'rgba(249,115,22,.1)', border: '1px solid rgba(249,115,22,.3)', color: '#f97316', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif' }}>
+                📋 Kopijuoti citată
+              </button>
+              <button onClick={() => { window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`, '_blank'); setSidePanel(null) }}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '11px 16px', borderRadius: 12, background: T.bgHover, border: `1px solid ${T.borderSub}`, color: T.textSec, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'Outfit, sans-serif' }}>
+                𝕏 Dalintis X (Twitter)
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // Hover tooltip over marked lyrics
+  const HoverTooltip = () => {
+    if (!hoverTooltip) return null
+    const { x, y, reactions: rxns } = hoverTooltip
+    const likes = rxns.filter(r => r.type === 'like').length
+    const comments = rxns.filter(r => r.type === 'comment')
+    return (
+      <div style={{
+        position: 'absolute',
+        left: x,
+        top: y,
+        transform: 'translateX(-50%)',
+        zIndex: 90,
+        background: dk ? '#111827' : '#1a2535',
+        border: '1px solid rgba(249,115,22,.3)',
+        borderRadius: 10,
+        padding: '8px 12px',
+        maxWidth: 240,
+        boxShadow: '0 8px 24px rgba(0,0,0,.5)',
+        pointerEvents: 'none',
+      }}>
+        <div style={{ display: 'flex', gap: 10, marginBottom: comments.length ? 6 : 0, fontSize: 11, color: 'rgba(255,255,255,.7)' }}>
+          {likes > 0 && <span style={{ color: '#f97316', fontWeight: 700 }}>♥ {likes}</span>}
+          {comments.length > 0 && <span>💬 {comments.length}</span>}
+        </div>
+        {comments.map((c, i) => (
+          <div key={c.id} style={{ fontSize: 11, color: 'rgba(255,255,255,.6)', paddingTop: i > 0 ? 4 : 0, borderTop: i > 0 ? '1px solid rgba(255,255,255,.08)' : 'none', marginTop: i > 0 ? 4 : 0 }}>
+            {c.text}
+          </div>
+        ))}
       </div>
     )
   }
 
   const LyricsPanel = () => {
     if (!hasLyrics) return <div style={{ padding: 32, textAlign: 'center', color: T.textFaint, fontSize: 13 }}>Dainos tekstas dar nepridėtas</div>
-    const commentList = comments.filter(c => c.selection_start >= 0)
     return (
-      <div>
-        <div ref={lyricsRef} onMouseUp={handleLyricsMouseUp} style={{ padding: '16px 18px', userSelect: 'text', cursor: 'text' }}>
-          <SelectionPopup />
+      <div style={{ position: 'relative' }}>
+        <div ref={lyricsRef} className="lyric-text-area" onMouseUp={handleLyricsMouseUp}
+          style={{ padding: '16px 18px', userSelect: 'text', cursor: 'text', position: 'relative' }}>
+          <HoverTooltip />
           <pre style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 15, lineHeight: 2.1, color: T.lyricText, margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
             {renderLyricsWithHighlights()}
           </pre>
         </div>
-        {commentList.length > 0 && (
-          <div style={{ borderTop: `1px solid ${T.subBdr}`, padding: '10px 18px 14px' }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: T.textFaint, textTransform: 'uppercase', letterSpacing: '.08em', fontFamily: 'Outfit, sans-serif', marginBottom: 8 }}>Pažymėtos vietos</div>
-            {commentList.map(c => (
-              <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, padding: '6px 10px', borderRadius: 8, background: T.bgHover, border: `1px solid ${T.borderSub}` }}>
-                <span style={{ fontSize: 12, color: c.avatar_letter === '♥' ? '#f97316' : T.textMuted, flexShrink: 0 }}>{c.avatar_letter}</span>
-                <span style={{ fontSize: 12, color: T.textSec, fontStyle: 'italic', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>„{c.selected_text}"</span>
-                {c.text && c.avatar_letter !== '♥' && <span style={{ fontSize: 11, color: T.textMuted, flexShrink: 0 }}>— {c.text}</span>}
-              </div>
-            ))}
+        {reactions.length > 0 && (
+          <div style={{ borderTop: `1px solid ${T.subBdr}`, padding: '8px 18px 12px' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: T.textFaint, textTransform: 'uppercase', letterSpacing: '.08em', fontFamily: 'Outfit, sans-serif', marginBottom: 6 }}>
+              {reactions.length} {reactions.length === 1 ? 'reakcija' : 'reakcijos'} į žodžius
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {/* Group by range */}
+              {Array.from(reactionsByRange.entries()).map(([key, rxns]) => {
+                const likes = rxns.filter(r => r.type === 'like').length
+                const cmts = rxns.filter(r => r.type === 'comment').length
+                const text = rxns[0]?.selected_text ?? ''
+                return (
+                  <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px 4px 8px', borderRadius: 999, background: T.bgHover, border: `1px solid rgba(249,115,22,.2)`, fontSize: 11 }}>
+                    <span style={{ color: T.textFaint, fontStyle: 'italic', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>„{text}"</span>
+                    {likes > 0 && <span style={{ color: '#f97316', fontWeight: 700, fontSize: 10 }}>♥{likes}</span>}
+                    {cmts > 0 && <span style={{ color: T.textMuted, fontSize: 10 }}>💬{cmts}</span>}
+                  </div>
+                )
+              })}
+            </div>
           </div>
         )}
       </div>
@@ -673,26 +817,11 @@ export default function TrackPageClient({
             )
           })}
           {activeTab === 'lyrics' && hasLyrics && (
-            <span style={{ marginLeft: 'auto', fontSize: 9, color: T.textFaint, fontStyle: 'italic' }}>Pažymėk tekstą</span>
+            <span style={{ marginLeft: 'auto', fontSize: 9, color: T.textFaint, fontStyle: 'italic' }}>
+              {sidePanel ? '✏️ Atidarytas šoninis skydelis' : 'Pažymėk tekstą'}
+            </span>
           )}
         </div>
-        {/* Comment input — outside LyricsPanel to prevent remount */}
-        {activeTab === 'lyrics' && commentingOn && (
-          <div style={{ padding: '10px 16px', borderBottom: `1px solid ${T.subBdr}`, background: T.bgActive, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ fontSize: 11, color: T.textMuted, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span>💬 prie: <em style={{ color: T.text, fontWeight: 600 }}>„{commentingOn.text.slice(0, 40)}{commentingOn.text.length > 40 ? '…' : ''}"</em></span>
-              <button onMouseDown={e => { e.preventDefault(); setCommentingOn(null); setCommentDraft('') }} style={{ background: 'none', border: 'none', color: T.textFaint, cursor: 'pointer', fontSize: 13 }}>✕</button>
-            </div>
-            <div style={{ display: 'flex', gap: 7 }}>
-              <input autoFocus value={commentDraft} onChange={e => setCommentDraft(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') submitComment() }}
-                placeholder="Tavo komentaras…"
-                style={{ flex: 1, height: 32, borderRadius: 999, padding: '0 12px', fontSize: 12, background: T.cmtInput, border: `1px solid rgba(249,115,22,.4)`, color: T.text, outline: 'none', fontFamily: "'DM Sans', sans-serif" }}
-              />
-              <button onMouseDown={e => { e.preventDefault(); submitComment() }} style={{ height: 32, padding: '0 14px', borderRadius: 999, background: '#f97316', border: 'none', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif' }}>Siųsti</button>
-            </div>
-          </div>
-        )}
         {activeTab === 'lyrics' && <LyricsPanel />}
         {activeTab === 'chords' && <ChordsPanel />}
       </div>
@@ -702,7 +831,7 @@ export default function TrackPageClient({
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div style={{ background: T.bg, color: T.text, fontFamily: "'DM Sans',system-ui,sans-serif", WebkitFontSmoothing: 'antialiased', minHeight: '100vh' }}>
-      <ShareQuoteOverlay />
+      <LyricSidePanel />
 
       {/* ══ DESKTOP ══ */}
       <div className="tr-desktop" style={{ maxWidth: 1400, margin: '0 auto', padding: '14px 20px 60px', display: 'grid', gridTemplateColumns: '2fr 3fr', gap: 14, alignItems: 'start' }}>
@@ -739,6 +868,9 @@ export default function TrackPageClient({
         }
         ::selection { background: rgba(249,115,22,.25); }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        .lyric-mark { transition: background .15s; }
+        .lyric-mark:hover { background: rgba(249,115,22,.35) !important; }
       `}</style>
     </div>
   )
