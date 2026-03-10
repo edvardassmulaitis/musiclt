@@ -118,6 +118,7 @@ export default async function TrackPage({ params }: { params: Promise<Params> })
     chords: null,
     description: null,
     show_player: false,
+    show_ai_interpretation: false,
     featuring: [],
   }))
 
