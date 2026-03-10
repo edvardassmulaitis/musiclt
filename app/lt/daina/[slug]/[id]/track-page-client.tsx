@@ -133,6 +133,14 @@ export default function TrackPageClient({
 
   useEffect(() => { setLoaded(true) }, [])
 
+  // Fetch reactions client-side as fallback (in case server cache is stale)
+  useEffect(() => {
+    fetch(`/api/tracks/${track.id}/lyric-comments`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (Array.isArray(data) && data.length > 0) setReactions(data) })
+      .catch(() => {})
+  }, [track.id])
+
   // Close side panel on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -163,6 +171,7 @@ export default function TrackPageClient({
   }, [reactions])
 
   const handleLyricsMouseUp = useCallback(() => {
+    if (clickingMarkRef.current) return // clicking existing mark, not new selection
     const sel = window.getSelection()
     if (!sel || sel.isCollapsed || !sel.toString().trim()) return
     const text = sel.toString().trim()
@@ -174,7 +183,7 @@ export default function TrackPageClient({
 
     setSidePanel({ text, start: Math.max(0, start), end })
     setSidePanelTab('actions')
-    setCommentDraft('')
+    commentDraftRef.current = ''
     window.getSelection()?.removeAllRanges()
   }, [track.lyrics])
 
@@ -297,12 +306,13 @@ export default function TrackPageClient({
     fontFamily: 'Outfit, sans-serif', textTransform: 'uppercase', letterSpacing: '.08em',
   }
 
+  const clickingMarkRef = useRef(false)
+
   // Render lyrics with reaction highlights
   const renderLyricsWithHighlights = () => {
     const text = track.lyrics || ''
     if (reactionsByRange.size === 0) return <span>{text}</span>
 
-    // Collect all unique ranges
     const ranges: Array<{ start: number; end: number; key: string }> = []
     reactionsByRange.forEach((_, key) => {
       const [s, e] = key.split('-').map(Number)
@@ -321,31 +331,33 @@ export default function TrackPageClient({
       parts.push(
         <span key={r.key}
           className="lyric-mark"
-          style={{
-            background: T.lyricMark,
-            borderRadius: 3,
-            cursor: 'pointer',
-            borderBottom: '2px solid rgba(249,115,22,.55)',
-            position: 'relative',
-            paddingBottom: 1,
-          }}
+          style={{ display: 'inline', position: 'relative' }}
           onMouseEnter={e => {
             const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
             setHoverTooltip({ x: rect.left + rect.width / 2, y: rect.bottom + window.scrollY + 6, reactions: rxns })
           }}
           onMouseLeave={() => setHoverTooltip(null)}
+          onMouseDown={() => { clickingMarkRef.current = true }}
           onClick={() => {
-            // Open side panel showing existing reactions for this range
-            const text = rxns[0]?.selected_text ?? ''
-            setSidePanel({ text, start: Number(r.key.split('-')[0]), end: Number(r.key.split('-')[1]) })
+            const selText = rxns[0]?.selected_text ?? text.slice(r.start, r.end)
+            setSidePanel({ text: selText, start: r.start, end: r.end })
             setSidePanelTab('actions')
-            setCommentDraft('')
+            commentDraftRef.current = ''
+            setTimeout(() => { clickingMarkRef.current = false }, 50)
           }}
         >
-          {text.slice(r.start, r.end)}
-          <sup style={{ fontSize: 9, color: '#f97316', fontWeight: 800, marginLeft: 2, verticalAlign: 'super' }}>
-            {likeCount > 0 && `♥${likeCount}`}{cmtCount > 0 && ` 💬${cmtCount}`}
-          </sup>
+          <span style={{
+            background: T.lyricMark,
+            borderRadius: 3,
+            borderBottom: '2px solid rgba(249,115,22,.55)',
+            paddingBottom: 1,
+            cursor: 'pointer',
+          }}>{text.slice(r.start, r.end)}</span>
+          {(likeCount > 0 || cmtCount > 0) && (
+            <span style={{ fontSize: 9, color: '#f97316', fontWeight: 800, marginLeft: 2, verticalAlign: 'middle', pointerEvents: 'none', whiteSpace: 'nowrap' }}>
+              {likeCount > 0 && `♥${likeCount}`}{cmtCount > 0 && ` 💬${cmtCount}`}
+            </span>
+          )}
         </span>
       )
       pos = r.end
@@ -490,19 +502,19 @@ export default function TrackPageClient({
           )}
           {aiText && (
             <div>
-              {aiImage && (
-                <div style={{ marginBottom: 14, borderRadius: 10, overflow: 'hidden', border: `1px solid ${T.borderSub}`, background: T.coverBg, minHeight: 80 }}>
-                  <img src={aiImage} alt="AI vizualizacija"
-                    style={{ width: '100%', display: 'block', objectFit: 'cover' }}
-                    onError={e => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }}
-                  />
-                </div>
-              )}
               <div style={{ fontSize: 13, color: T.dykText, lineHeight: 1.85 }}>
                 {aiText.replace(/\\n/g, '\n').replace(/"interpretation"\s*:\s*"?/, '').replace(/",?\s*$/, '').split('\n\n').filter(p => p.trim()).map((para, i) => (
                   <p key={i} style={{ margin: i > 0 ? '12px 0 0' : '0' }}>{para.trim().replace(/^"|"$/g, '')}</p>
                 ))}
               </div>
+              {aiImage && (
+                <div style={{ marginTop: 16, borderRadius: 10, overflow: 'hidden', border: `1px solid ${T.borderSub}`, background: T.coverBg }}>
+                  <img src={aiImage} alt="AI vizualizacija"
+                    style={{ width: '100%', display: 'block', objectFit: 'cover', minHeight: 60 }}
+                    onError={e => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }}
+                  />
+                </div>
+              )}
             </div>
           )}
         </div>
