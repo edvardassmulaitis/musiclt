@@ -787,9 +787,9 @@ export default function TrackPageClient({
             </div>
             {reactions.length > 0 && (
               <div style={{ fontSize: 10, color: '#6adc6a', marginBottom: 6 }}>
-                {reactions.map(r => `[${r.selection_start}-${r.selection_end}] ${r.type} "${r.selected_text?.slice(0,20)}"`).join('
-').split('
-').map((l,i)=><div key={i}>{l}</div>)}
+                {reactions.map((r,i) => <div key={i}>[{r.selection_start}-{r.selection_end}] {r.type} &quot;{r.selected_text?.slice(0,20)}&quot;</div>)}
+              </div>
+            )}
               </div>
             )}
             <div style={{ borderTop: '1px solid rgba(249,115,22,.3)', paddingTop: 6 }}>
