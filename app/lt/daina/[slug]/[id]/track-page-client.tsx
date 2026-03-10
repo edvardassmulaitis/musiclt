@@ -123,14 +123,7 @@ export default function TrackPageClient({
   // Flag: true when mousedown was on existing mark span
   const wasMarkClick = useRef(false)
 
-  // DEBUG
-  const [logs, setLogs] = useState<string[]>([])
-  const [showDebug, setShowDebug] = useState(true)
-  const log = (msg: string) => {
-    const ts = new Date().toISOString().slice(11, 23)
-    console.log(`[DBG] ${ts} ${msg}`)
-    setLogs(prev => [`${ts} ${msg}`, ...prev].slice(0, 50))
-  }
+  const log = (msg: string) => console.log(`[DBG] ${new Date().toISOString().slice(11,23)} ${msg}`)
 
   useEffect(() => { setLoaded(true) }, [])
 
@@ -774,34 +767,8 @@ export default function TrackPageClient({
         </div>
       )}
 
-      {/* ── DEBUG PANEL ───────────────────────────────────────────────────── */}
-      <div style={{ position: 'fixed', bottom: 10, left: 10, zIndex: 999, maxWidth: 460, fontFamily: 'monospace' }}>
-        <button onClick={() => setShowDebug(v => !v)}
-          style={{ background: '#f97316', color: '#fff', border: 'none', borderRadius: 6, padding: '3px 10px', fontSize: 11, cursor: 'pointer', fontWeight: 700, marginBottom: 4 }}>
-          🔍 DEBUG {showDebug ? '▲' : '▼'} · reactions={reactions.length} · byRange={byRange.size}
-        </button>
-        {showDebug && (
-          <div style={{ background: 'rgba(0,0,0,.92)', border: '1px solid #f97316', borderRadius: 8, padding: '8px 10px', maxHeight: 280, overflowY: 'auto' }}>
-            <div style={{ fontSize: 10, color: '#f97316', marginBottom: 6, fontWeight: 700 }}>
-              track.id={track.id} · initialReactions={initialReactions.length} · reactions={reactions.length}
-            </div>
-            {reactions.length > 0 && (
-              <div style={{ fontSize: 10, color: '#6adc6a', marginBottom: 6 }}>
-                {reactions.map((r,i) => <div key={i}>[{r.selection_start}-{r.selection_end}] {r.type} &quot;{r.selected_text?.slice(0,20)}&quot;</div>)}
-              </div>
-            )}
-              </div>
-            )}
-            <div style={{ borderTop: '1px solid rgba(249,115,22,.3)', paddingTop: 6 }}>
-              {logs.map((l, i) => (
-                <div key={i} style={{ fontSize: 10, color: i === 0 ? '#fff' : 'rgba(255,255,255,.5)', lineHeight: 1.4 }}>{l}</div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
 
-      {/* ── Desktop ────────────────────────────────────────────────────────── */}
+            {/* ── Desktop ────────────────────────────────────────────────────────── */}
       <div className="tr-desk" style={{ maxWidth: 1400, margin: '0 auto', padding: '14px 20px 60px', display: 'grid', gridTemplateColumns: '2fr 3fr', gap: 14, alignItems: 'start' }}>
         <div style={{ position: 'sticky', top: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <TrackInfoCard />
