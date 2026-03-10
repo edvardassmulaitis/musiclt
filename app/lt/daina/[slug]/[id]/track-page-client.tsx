@@ -331,6 +331,13 @@ export default function TrackPageClient({
             setHoverTooltip({ x: rect.left + rect.width / 2, y: rect.bottom + window.scrollY + 6, reactions: rxns })
           }}
           onMouseLeave={() => setHoverTooltip(null)}
+          onClick={() => {
+            // Open side panel showing existing reactions for this range
+            const text = rxns[0]?.selected_text ?? ''
+            setSidePanel({ text, start: Number(r.key.split('-')[0]), end: Number(r.key.split('-')[1]) })
+            setSidePanelTab('actions')
+            setCommentDraft('')
+          }}
         >
           {text.slice(r.start, r.end)}
           <sup style={{ fontSize: 9, color: '#f97316', fontWeight: 800, marginLeft: 2, verticalAlign: 'super' }}>
@@ -350,17 +357,20 @@ export default function TrackPageClient({
     <div style={card}>
       <div style={{ background: T.coverAreaBg, padding: 14, display: 'flex', gap: 14, alignItems: 'flex-start', position: 'relative', opacity: loaded ? 1 : 0, transition: 'opacity .4s' }}>
         <button onClick={() => setLiked(v => !v)}
-          style={{ position: 'absolute', top: 10, right: 12, display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: `1px solid ${liked ? 'rgba(249,115,22,.4)' : T.border}`, background: liked ? 'rgba(249,115,22,.12)' : 'rgba(255,255,255,.06)', color: liked ? '#f97316' : T.textMuted, transition: 'all .15s', fontFamily: 'Outfit, sans-serif' }}>
-          {liked ? '♥' : '♡'} {likes + (liked ? 1 : 0)}
+          style={{ position: 'absolute', top: 10, right: 12, display: 'flex', alignItems: 'center', gap: 4, padding: '5px 11px', borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: 'pointer', border: `1px solid ${liked ? 'rgba(249,115,22,.4)' : T.border}`, background: liked ? 'rgba(249,115,22,.12)' : 'rgba(255,255,255,.06)', color: liked ? '#f97316' : T.textMuted, transition: 'all .15s', fontFamily: 'Outfit, sans-serif', lineHeight: 1, whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 13, lineHeight: 1 }}>{liked ? '♥' : '♡'}</span>
+          <span>{likes + (liked ? 1 : 0)}</span>
         </button>
         <div style={{ flexShrink: 0, width: 100, height: 100, borderRadius: 12, overflow: 'hidden', boxShadow: dk ? '0 10px 32px rgba(0,0,0,.7)' : '0 6px 24px rgba(0,0,0,.2)', background: T.coverBg }}>
           {primaryAlbum?.cover_image_url
             ? <img src={primaryAlbum.cover_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-            : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>🎵</div>}
+            : artist.cover_image_url
+              ? <img src={artist.cover_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>🎵</div>}
         </div>
         <div style={{ flex: 1, minWidth: 0, paddingRight: 44 }}>
           <div style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.12em', color: '#f97316', fontFamily: 'Outfit, sans-serif', marginBottom: 3 }}>
-            {track.type || 'Daina'}
+            {track.type === 'normal' ? 'Daina' : (track.type || 'Daina')}
             {track.is_new && <span style={{ marginLeft: 6, fontSize: 8, padding: '1px 6px', borderRadius: 999, background: 'rgba(249,115,22,.18)', border: '1px solid rgba(249,115,22,.3)', color: '#f97316' }}>NEW</span>}
           </div>
           <h1 style={{ fontFamily: 'Outfit, sans-serif', fontSize: 'clamp(15px,2vw,20px)', fontWeight: 900, lineHeight: 1.1, letterSpacing: '-.025em', color: dk ? '#fff' : '#0f1a2e', margin: '0 0 5px', wordBreak: 'break-word' }}>{track.title}</h1>
@@ -480,23 +490,15 @@ export default function TrackPageClient({
                 <div style={{ marginBottom: 14, borderRadius: 10, overflow: 'hidden', border: `1px solid ${T.borderSub}`, background: T.coverBg, minHeight: 80 }}>
                   <img src={aiImage} alt="AI vizualizacija"
                     style={{ width: '100%', display: 'block', objectFit: 'cover' }}
-                    onLoad={e => { (e.target as HTMLImageElement).style.opacity = '1' }}
                     onError={e => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }}
                   />
                 </div>
               )}
-              <div style={{ fontSize: 9, color: '#f97316', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', fontFamily: 'Outfit, sans-serif', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 5 }}>
-                <span>✦</span> Sugeneruota Claude
-              </div>
               <div style={{ fontSize: 13, color: T.dykText, lineHeight: 1.85 }}>
-                {aiText.replace(/\\n/g, '\n').split('\n\n').filter(Boolean).map((para, i) => (
-                  <p key={i} style={{ margin: i > 0 ? '12px 0 0' : '0' }}>{para.trim()}</p>
+                {aiText.replace(/\\n/g, '\n').replace(/"interpretation"\s*:\s*"?/, '').replace(/",?\s*$/, '').split('\n\n').filter(p => p.trim()).map((para, i) => (
+                  <p key={i} style={{ margin: i > 0 ? '12px 0 0' : '0' }}>{para.trim().replace(/^"|"$/g, '')}</p>
                 ))}
               </div>
-              <button onClick={() => { setAiText(null); setAiImage(null) }}
-                style={{ marginTop: 12, background: 'none', border: 'none', color: T.textFaint, fontSize: 10, cursor: 'pointer', padding: 0 }}>
-                ↺ Generuoti iš naujo
-              </button>
             </div>
           )}
         </div>
@@ -625,6 +627,25 @@ export default function TrackPageClient({
         <div style={{ flex: 1, padding: 16, overflowY: 'auto' }}>
           {sidePanelTab === 'actions' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {/* Existing reactions for this range */}
+              {(() => {
+                const key = `${sidePanel.start}-${sidePanel.end}`
+                const existing = reactionsByRange.get(key) ?? []
+                if (existing.length === 0) return null
+                const likes = existing.filter(r => r.type === 'like').length
+                const comments = existing.filter(r => r.type === 'comment')
+                return (
+                  <div style={{ padding: '10px 12px', borderRadius: 10, background: T.bgActive, border: `1px solid rgba(249,115,22,.2)`, marginBottom: 2 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: T.textFaint, textTransform: 'uppercase', letterSpacing: '.07em', fontFamily: 'Outfit, sans-serif', marginBottom: 7 }}>Reakcijos</div>
+                    {likes > 0 && <div style={{ fontSize: 12, color: '#f97316', fontWeight: 700, marginBottom: 4 }}>♥ {likes} {likes === 1 ? 'patinka' : 'patinka'}</div>}
+                    {comments.map(c => (
+                      <div key={c.id} style={{ fontSize: 12, color: T.textSec, padding: '5px 0', borderTop: `1px solid ${T.subBdr}` }}>
+                        💬 {c.text}
+                      </div>
+                    ))}
+                  </div>
+                )
+              })()}
               {/* Like */}
               <button onClick={saveLike} disabled={saving}
                 style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 12, background: 'rgba(249,115,22,.08)', border: '1px solid rgba(249,115,22,.25)', cursor: saving ? 'wait' : 'pointer', transition: 'all .15s', width: '100%', textAlign: 'left' }}
