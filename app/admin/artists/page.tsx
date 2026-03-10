@@ -16,6 +16,7 @@ type Artist = {
   active_until?: number
   cover_image_url?: string
   is_verified?: boolean
+  is_active?: boolean
 }
 
 export default function ArtistsAdmin() {
@@ -26,6 +27,7 @@ export default function ArtistsAdmin() {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState<number | null>(null)
+  const [confirmId, setConfirmId] = useState<number | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
@@ -54,16 +56,30 @@ export default function ArtistsAdmin() {
     debounceRef.current = setTimeout(() => load(value), 500)
   }
 
-  const handleDelete = async (id: number, name: string) => {
-    if (!confirm(`Ar tikrai norite ištrinti "${name}"?`)) return
+  const handleDelete = async (id: number) => {
     setDeleting(id)
+    setConfirmId(null)
     try {
-      await fetch(`/api/artists/${id}`, { method: 'DELETE' })
-      setArtists(prev => prev.filter(a => a.id !== id))
-      setTotal(prev => prev - 1)
+      await fetch(`/api/artists/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: false }),
+      })
+      setArtists(prev => prev.map(a => a.id === id ? { ...a, is_active: false } : a))
     } finally {
       setDeleting(null)
     }
+  }
+
+  const handleRestore = async (id: number) => {
+    try {
+      await fetch(`/api/artists/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: true }),
+      })
+      setArtists(prev => prev.map(a => a.id === id ? { ...a, is_active: true } : a))
+    } catch {}
   }
 
   if (status === 'loading') return (
@@ -102,6 +118,28 @@ export default function ArtistsAdmin() {
           />
         </div>
 
+        {/* Confirm modal */}
+        {confirmId !== null && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: 'rgba(0,0,0,0.4)' }}
+            onClick={() => setConfirmId(null)}>
+            <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl" onClick={e => e.stopPropagation()}>
+              <h3 className="font-bold text-gray-900 text-lg mb-2">Deaktyvuoti atlikėją?</h3>
+              <p className="text-sm text-gray-500 mb-5">Atlikėjas bus paslėptas iš svetainės, bet liks duomenų bazėje. Galėsite atkurti bet kada.</p>
+              <div className="flex gap-3">
+                <button onClick={() => setConfirmId(null)}
+                  className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-semibold transition-colors">
+                  Atšaukti
+                </button>
+                <button onClick={() => handleDelete(confirmId)}
+                  className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-semibold transition-colors">
+                  Deaktyvuoti
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* List */}
         {loading ? (
           <div className="flex justify-center py-16">
@@ -135,7 +173,8 @@ export default function ArtistsAdmin() {
               </thead>
               <tbody>
                 {artists.map(artist => (
-                  <tr key={artist.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                  <tr key={artist.id}
+                    className={`border-b border-gray-50 transition-colors ${artist.is_active === false ? 'opacity-50 bg-gray-50' : 'hover:bg-gray-50'}`}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         {artist.cover_image_url ? (
@@ -147,12 +186,17 @@ export default function ArtistsAdmin() {
                           </div>
                         )}
                         <div>
-                          <Link href={`/admin/artists/${artist.id}`}
-                            className="font-semibold text-gray-900 text-sm hover:text-blue-600 transition-colors flex items-center gap-1.5">
-                            {artist.name}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <Link href={`/admin/artists/${artist.id}`}
+                              className="font-semibold text-gray-900 text-sm hover:text-blue-600 transition-colors">
+                              {artist.name}
+                            </Link>
                             {artist.is_verified && <span className="text-xs text-green-500">✓</span>}
-                          </Link>
-                          {/* Mobile-only secondary info */}
+                            {artist.is_active === false && (
+                              <span className="text-[10px] px-1.5 py-0.5 bg-red-100 text-red-500 rounded-full font-semibold">neaktyvus</span>
+                            )}
+                          </div>
+                          {/* Mobile secondary info */}
                           <div className="text-xs text-gray-400 sm:hidden mt-0.5">
                             {artist.type === 'group' ? 'Grupė' : 'Solo'}
                             {artist.country ? ` · ${artist.country}` : ''}
@@ -171,21 +215,29 @@ export default function ArtistsAdmin() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1.5 justify-end">
-                        <Link href={`/lt/grupe/${artist.slug}/${artist.id}/`}
+                        <Link href={`/atlikejai/${artist.slug}`}
                           target="_blank"
-                          className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-xs text-gray-500 transition-colors hidden sm:flex items-center">
+                          className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-xs text-gray-500 transition-colors flex items-center">
                           👁
                         </Link>
                         <Link href={`/admin/artists/${artist.id}`}
-                          className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs transition-colors">
+                          className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs transition-colors flex items-center">
                           ✏️
                         </Link>
-                        <button
-                          onClick={() => handleDelete(artist.id, artist.name)}
-                          disabled={deleting === artist.id}
-                          className="px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg text-xs transition-colors disabled:opacity-50">
-                          {deleting === artist.id ? '...' : '🗑'}
-                        </button>
+                        {artist.is_active === false ? (
+                          <button
+                            onClick={() => handleRestore(artist.id)}
+                            className="px-2.5 py-1.5 bg-green-50 hover:bg-green-100 text-green-600 rounded-lg text-xs transition-colors">
+                            ↩
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => setConfirmId(artist.id)}
+                            disabled={deleting === artist.id}
+                            className="px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg text-xs transition-colors disabled:opacity-50">
+                            {deleting === artist.id ? '...' : '🗑'}
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
