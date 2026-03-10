@@ -205,23 +205,28 @@ export async function POST(req: NextRequest) {
 
     // ── 4. Build artist payload ───────────────────────────────────────────
     const genreId = GENRE_IDS[genre] || GENRE_IDS['Kitų stilių muzika']
+    // birth_date / death_date as ISO strings if parsed
+    const birthDate = parsedWiki.birthYear
+      ? `${parsedWiki.birthYear}-${String(parsedWiki.birthMonth || 1).padStart(2, '0')}-${String(parsedWiki.birthDay || 1).padStart(2, '0')}`
+      : null
     const artistPayload = {
-      name: name.trim(),
-      slug: slugify(name.trim()),
-      type: parsedWiki.type || type,
-      country: parsedWiki.country || country,
-      type_music: true,
-      type_film: false,
-      type_dance: false,
-      type_books: false,
-      active_from: parsedWiki.yearStart ? parseInt(parsedWiki.yearStart) : null,
-      description: parsedWiki.description || null,
+      name:            name.trim(),
+      slug:            slugify(name.trim()),
+      type:            parsedWiki.type    || type,
+      country:         parsedWiki.country || country,
+      type_music:      true,
+      type_film:       false,
+      type_dance:      false,
+      type_books:      false,
+      active_from:     parsedWiki.yearStart ? parseInt(parsedWiki.yearStart) : null,
+      description:     parsedWiki.description || null,
       cover_image_url: parsedWiki.avatar || null,
-      is_active: true,
-      is_verified: false,
-      photos: [],
-      links: {},
-      wiki_url: resolvedWikiUrl || null,
+      gender:          parsedWiki.gender || null,
+      birth_date:      birthDate,
+      is_active:       true,
+      is_verified:     false,
+      photos:          [],
+      // wiki_url not in DB schema — stored in response only
     }
 
     if (dry_run) {
