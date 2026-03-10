@@ -261,7 +261,7 @@ function UserMenu() {
           {isAdmin && (
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
               <div className="py-1">
-                {menuItem('/admin/dashboard', '⚙️', 'Admin panelė', '#fb923c')}
+                {menuItem('/admin', '⚙️', 'Admin panelė', '#fb923c')}
               </div>
             </div>
           )}
