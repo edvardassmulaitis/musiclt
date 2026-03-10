@@ -90,22 +90,27 @@ export default function ArtistsAdmin() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
 
-        {/* Header */}
-        <div className="flex justify-between items-start mb-5">
-          <div>
-            <Link href="/admin" className="text-sm text-gray-400 hover:text-gray-600 transition-colors mb-1.5 inline-block">
-              ← Admin
-            </Link>
-            <h1 className="text-xl sm:text-2xl font-black text-gray-900">🎤 Atlikėjai</h1>
-            <p className="text-sm text-gray-400 mt-0.5">Iš viso: {total}</p>
-          </div>
-          <Link href="/admin/artists/new"
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition-colors whitespace-nowrap">
-            + Naujas
-          </Link>
+      {/* Breadcrumb bar */}
+      <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-2.5 flex items-center justify-between">
+        <div className="flex items-center gap-1.5 text-sm">
+          <Link href="/admin" className="text-gray-400 hover:text-gray-600 transition-colors">Admin</Link>
+          <span className="text-gray-300">/</span>
+          <span className="text-gray-700 font-semibold">Atlikėjai</span>
+          {!loading && (
+            <>
+              <span className="text-gray-300">/</span>
+              <span className="text-gray-400">{total}</span>
+            </>
+          )}
         </div>
+        <Link href="/admin/artists/new"
+          className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-sm transition-colors whitespace-nowrap">
+          + Naujas
+        </Link>
+      </div>
+
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
 
         {/* Search */}
         <div className="mb-4">
@@ -114,7 +119,7 @@ export default function ArtistsAdmin() {
             value={search}
             onChange={e => handleSearch(e.target.value)}
             placeholder="Ieškoti atlikėjo..."
-            className="w-full max-w-sm px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-blue-400 text-sm"
+            className="w-full max-w-sm px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-blue-400 text-sm"
           />
         </div>
 
@@ -196,7 +201,6 @@ export default function ArtistsAdmin() {
                               <span className="text-[10px] px-1.5 py-0.5 bg-red-100 text-red-500 rounded-full font-semibold">neaktyvus</span>
                             )}
                           </div>
-                          {/* Mobile secondary info */}
                           <div className="text-xs text-gray-400 sm:hidden mt-0.5">
                             {artist.type === 'group' ? 'Grupė' : 'Solo'}
                             {artist.country ? ` · ${artist.country}` : ''}
@@ -225,8 +229,7 @@ export default function ArtistsAdmin() {
                           ✏️
                         </Link>
                         {artist.is_active === false ? (
-                          <button
-                            onClick={() => handleRestore(artist.id)}
+                          <button onClick={() => handleRestore(artist.id)}
                             className="px-2.5 py-1.5 bg-green-50 hover:bg-green-100 text-green-600 rounded-lg text-xs transition-colors">
                             ↩
                           </button>
