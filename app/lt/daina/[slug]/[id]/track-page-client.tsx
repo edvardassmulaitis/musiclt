@@ -81,6 +81,25 @@ function XIcon({ size = 14 }: { size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
 }
 
+const AiImage = memo(function AiImage({ src }: { src: string }) {
+  const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading')
+  return (
+    <div style={{ marginTop: 16, borderRadius: 10, overflow: 'hidden', border: '1px solid rgba(249,115,22,.15)', background: '#1a2535', minHeight: status === 'loaded' ? 0 : 80, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      {status === 'loading' && (
+        <div style={{ padding: 16, fontSize: 11, color: 'rgba(249,115,22,.5)', fontFamily: 'Outfit, sans-serif' }}>✦ Generuojamas paveikslėlis…</div>
+      )}
+      {status === 'error' && null}
+      <img
+        src={src}
+        alt="AI vizualizacija"
+        style={{ width: '100%', display: status === 'loaded' ? 'block' : 'none', objectFit: 'cover' }}
+        onLoad={() => setStatus('loaded')}
+        onError={() => setStatus('error')}
+      />
+    </div>
+  )
+})
+
 const YoutubeEmbed = memo(function YoutubeEmbed({ videoId }: { videoId: string }) {
   return (
     <iframe
@@ -131,15 +150,22 @@ export default function TrackPageClient({
 
   const lyricsRef = useRef<HTMLDivElement>(null)
 
+  const fetchReactions = useCallback(async () => {
+    try {
+      const r = await fetch(`/api/tracks/${track.id}/lyric-comments`)
+      if (r.ok) {
+        const data = await r.json()
+        if (Array.isArray(data)) setReactions(data)
+      }
+    } catch {}
+  }, [track.id])
+
   useEffect(() => { setLoaded(true) }, [])
 
-  // Fetch reactions client-side as fallback (in case server cache is stale)
+  // Always fetch fresh reactions from API on mount
   useEffect(() => {
-    fetch(`/api/tracks/${track.id}/lyric-comments`)
-      .then(r => r.ok ? r.json() : null)
-      .then(data => { if (Array.isArray(data) && data.length > 0) setReactions(data) })
-      .catch(() => {})
-  }, [track.id])
+    fetchReactions()
+  }, [fetchReactions])
 
   // Close side panel on outside click
   useEffect(() => {
@@ -190,54 +216,45 @@ export default function TrackPageClient({
   const saveLike = async () => {
     if (!sidePanel) return
     setSaving(true)
-    const newR: LyricReaction = {
-      id: Date.now(),
-      selection_start: sidePanel.start,
-      selection_end: sidePanel.end,
-      selected_text: sidePanel.text,
-      type: 'like',
-      text: '',
-      likes: 0,
+    // Optimistic
+    setReactions(prev => [...prev, {
+      id: Date.now(), selection_start: sidePanel.start, selection_end: sidePanel.end,
+      selected_text: sidePanel.text, type: 'like', text: '', likes: 0,
       created_at: new Date().toISOString(),
-    }
-    setReactions(prev => [...prev, newR])
+    }])
+    setSidePanel(null)
     try {
       await fetch(`/api/tracks/${track.id}/lyric-comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ selected_text: sidePanel.text, selection_start: sidePanel.start, selection_end: sidePanel.end, type: 'like', text: '' }),
       })
-    } catch { /* ignore */ }
+      await fetchReactions() // sync with DB
+    } catch {}
     setSaving(false)
-    setSidePanel(null)
   }
 
   const saveComment = async () => {
     const text = commentDraftRef.current.trim()
     if (!sidePanel || !text) return
     setSaving(true)
-    const newR: LyricReaction = {
-      id: Date.now(),
-      selection_start: sidePanel.start,
-      selection_end: sidePanel.end,
-      selected_text: sidePanel.text,
-      type: 'comment',
-      text,
-      likes: 0,
+    setReactions(prev => [...prev, {
+      id: Date.now(), selection_start: sidePanel.start, selection_end: sidePanel.end,
+      selected_text: sidePanel.text, type: 'comment', text, likes: 0,
       created_at: new Date().toISOString(),
-    }
-    setReactions(prev => [...prev, newR])
+    }])
     commentDraftRef.current = ''
     setCommentDraft('')
+    setSidePanel(null)
     try {
       await fetch(`/api/tracks/${track.id}/lyric-comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ selected_text: sidePanel.text, selection_start: sidePanel.start, selection_end: sidePanel.end, type: 'comment', text }),
       })
-    } catch { /* ignore */ }
+      await fetchReactions() // sync with DB
+    } catch {}
     setSaving(false)
-    setSidePanel(null)
   }
 
   const generateAI = async () => {
@@ -508,12 +525,7 @@ export default function TrackPageClient({
                 ))}
               </div>
               {aiImage && (
-                <div style={{ marginTop: 16, borderRadius: 10, overflow: 'hidden', border: `1px solid ${T.borderSub}`, background: T.coverBg }}>
-                  <img src={aiImage} alt="AI vizualizacija"
-                    style={{ width: '100%', display: 'block', objectFit: 'cover', minHeight: 60 }}
-                    onError={e => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }}
-                  />
-                </div>
+                <AiImage src={aiImage} />
               )}
             </div>
           )}
