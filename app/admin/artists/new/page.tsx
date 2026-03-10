@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import ArtistForm, { ArtistFormData, emptyArtistForm } from '@/components/ArtistForm'
@@ -241,6 +241,43 @@ function Step1Wiki({ onFound, onSkip }: {
   )
 }
 
+// ── WikipediaImportPrefilled — renders WikipediaImport with URL pre-filled ───
+// WikipediaImport manages its own URL state internally, so we render it
+// with a visible pre-fill hint and let the user click "→ Importuoti" themselves,
+// OR we overlay an auto-trigger by mounting a hidden input + simulating click.
+// Simplest correct approach: just show the component and pre-fill via DOM ref.
+function WikipediaImportPrefilled({ initialUrl, onImport }: {
+  initialUrl: string
+  onImport: (data: Partial<ArtistFormData>) => void
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // After mount, find the URL input inside WikipediaImport and pre-fill + trigger
+  useEffect(() => {
+    if (!containerRef.current || !initialUrl) return
+    const t = setTimeout(() => {
+      const input = containerRef.current?.querySelector('input[type="url"]') as HTMLInputElement | null
+      if (!input) return
+      // Set value via React's synthetic event system
+      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set
+      nativeInputValueSetter?.call(input, initialUrl)
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      // Small delay then click the import button
+      setTimeout(() => {
+        const btn = containerRef.current?.querySelector('button[type="button"]') as HTMLButtonElement | null
+        btn?.click()
+      }, 100)
+    }, 200)
+    return () => clearTimeout(t)
+  }, [initialUrl])
+
+  return (
+    <div ref={containerRef}>
+      <WikipediaImport onImport={onImport} />
+    </div>
+  )
+}
+
 // ── Step 2: Info form with wiki import ──────────────────────────────────────
 function Step2Info({ wikiUrl, wikiTitle, onCreated, onBack }: {
   wikiUrl: string | null
@@ -279,14 +316,9 @@ function Step2Info({ wikiUrl, wikiTitle, onCreated, onBack }: {
   return (
     <div>
       {wikiUrl && (
-        <div className="mb-6 p-4 bg-blue-50 border border-blue-100 rounded-xl">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-sm font-semibold text-blue-800">📖 Wikipedia importas</span>
-            <a href={wikiUrl} target="_blank" rel="noopener noreferrer"
-              className="text-xs text-blue-500 hover:underline truncate max-w-xs">{wikiUrl}</a>
-          </div>
-          <WikipediaImport
-            wikiUrl={wikiUrl}
+        <div className="mb-6">
+          <WikipediaImportPrefilled
+            initialUrl={wikiUrl}
             onImport={handleImport}
           />
         </div>
