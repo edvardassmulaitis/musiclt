@@ -1,6 +1,6 @@
 'use client'
 // app/lt/daina/[slug]/[id]/track-page-client.tsx
-import { useState, useRef, useEffect, useCallback, memo } from 'react'
+import { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react'
 import Link from 'next/link'
 import { useSite } from '@/components/SiteContext'
 
@@ -155,16 +155,14 @@ export default function TrackPageClient({
 
     const range = sel.getRangeAt(0)
     const rect = range.getBoundingClientRect()
-    const lyricsRect = lyricsRef.current?.getBoundingClientRect()
-    if (!lyricsRect) return
 
     const fullText = track.lyrics || ''
     const start = fullText.indexOf(text)
     const end = start + text.length
 
     setSelectionPopup({
-      x: rect.left - lyricsRect.left + rect.width / 2,
-      y: rect.top - lyricsRect.top - 8,
+      x: rect.left + rect.width / 2,
+      y: rect.top + window.scrollY - 8,
       text,
       start: Math.max(0, start),
       end,
@@ -373,10 +371,11 @@ export default function TrackPageClient({
     </div>
   )
 
-  const PlayerCard = () => {
+  // PlayerCard: stable via useMemo so YoutubeEmbed never remounts on state changes
+  const PlayerCard = useMemo(() => {
     if (!vid && !track.show_player) return null
     return (
-      <div style={card}>
+      <div style={{ background: T.bgCard, border: `1px solid ${T.border}`, borderRadius: 16, overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '9px 13px 8px', borderBottom: `1px solid ${T.subBdr}` }}>
           <div style={{ width: 28, height: 28, borderRadius: 8, background: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <MusicIcon size={15} color="#fff" />
@@ -391,7 +390,8 @@ export default function TrackPageClient({
         )}
       </div>
     )
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vid, track.spotify_id, track.show_player])
 
   const MoodCard = () => {
     const total = moods.reduce((s, m) => s + m.count, 0)
@@ -634,7 +634,7 @@ export default function TrackPageClient({
         <div ref={lyricsRef} onMouseUp={handleLyricsMouseUp} style={{ position: 'relative', padding: '16px 18px', userSelect: 'text', cursor: 'text' }}>
           {selectionPopup && (
             <div className="lyric-popup" style={{
-              position: 'absolute',
+              position: 'fixed',
               left: selectionPopup.x,
               top: selectionPopup.y,
               transform: 'translate(-50%, -100%)',
@@ -778,7 +778,7 @@ export default function TrackPageClient({
       <div className="tr-desktop" style={{ maxWidth: 1400, margin: '0 auto', padding: '14px 20px 60px', display: 'grid', gridTemplateColumns: '2fr 3fr', gap: 14, alignItems: 'start' }}>
         <div style={{ position: 'sticky', top: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <TrackInfoCard />
-          <PlayerCard />
+          { PlayerCard }
           <MoodCard />
           <AICard />
           <TriviaCard />
@@ -794,7 +794,7 @@ export default function TrackPageClient({
       {/* ══ MOBILE ══ */}
       <div className="tr-mobile" style={{ display: 'none', padding: '12px 14px 56px', flexDirection: 'column', gap: 12 }}>
         <TrackInfoCard />
-        <PlayerCard />
+        { PlayerCard }
         <LyricsChordsCard />
         <MoodCard />
         <AICard />
