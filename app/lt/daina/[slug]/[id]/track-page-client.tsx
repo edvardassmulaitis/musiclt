@@ -95,6 +95,7 @@ export default function TrackPageClient({
 
   // Tooltip
   const [tip, setTip] = useState<{ x: number; y: number; rxns: LyricReaction[] } | null>(null)
+  const [floatBtn, setFloatBtn] = useState<{ x: number; y: number; panel: { text: string; start: number; end: number } } | null>(null)
 
   // AI
   const [aiText, setAiText] = useState<string | null>(aiInterpretation ?? null)
@@ -102,8 +103,6 @@ export default function TrackPageClient({
   const [aiLoad, setAiLoad] = useState(false)
   const [aiErr, setAiErr] = useState(false)
 
-  // Flag: true when mousedown was on existing mark span
-  const wasMarkClick = useRef(false)
 
   const log = (msg: string) => console.log(`[DBG] ${new Date().toISOString().slice(11,23)} ${msg}`)
 
@@ -129,6 +128,13 @@ export default function TrackPageClient({
       .catch((e: unknown) => log(`FETCH ERR: ${String(e)}`))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [track.id])
+
+  // Close floatBtn on outside click
+  useEffect(() => {
+    const h = () => setFloatBtn(null)
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [])
 
   // ── Close panel on outside click ──────────────────────────────────────────
   useEffect(() => {
@@ -196,17 +202,20 @@ export default function TrackPageClient({
 
   // ── Lyric selection → open panel ──────────────────────────────────────────
   const onMouseUp = useCallback(() => {
-    if (wasMarkClick.current) { wasMarkClick.current = false; return }
     const sel = window.getSelection()
-    if (!sel || sel.isCollapsed) return
+    if (!sel || sel.isCollapsed) { setFloatBtn(null); return }
     const text = sel.toString().trim()
-    if (text.length < 3) return
+    if (text.length < 3) { setFloatBtn(null); return }
     const full = track.lyrics ?? ''
-    const start = full.indexOf(text)
-    if (start === -1) return
-    const end = start + text.length
-    setPanel({ text, start, end })
-    setPanelTab('react')
+    const startIdx = full.indexOf(text)
+    if (startIdx === -1) { setFloatBtn(null); return }
+    const endIdx = startIdx + text.length
+    // Show floating button at selection
+    const range = sel.getRangeAt(0)
+    const rect = range.getBoundingClientRect()
+    const x = rect.left + rect.width / 2
+    const y = rect.top + window.scrollY
+    setFloatBtn({ x, y, panel: { text, start: startIdx, end: endIdx } })
     sel.removeAllRanges()
   }, [track.lyrics])
 
@@ -292,67 +301,88 @@ export default function TrackPageClient({
   }, [hasLyrics, aiLoad, track.id])
 
   // ── Render lyrics with reaction highlights ────────────────────────────────
+  // Render lyrics — highlights shown as LEFT GUTTER badges, not inline
+  // Each line is checked for overlapping reactions; badge shown on that line
   const renderLyrics = useCallback(() => {
     const full = track.lyrics ?? ''
-    if (byRange.size === 0) return <>{full}</>
+    const lines = full.split('\n')
 
-    // Build sorted list of marked ranges
-    const ranges: { start: number; end: number; key: string }[] = []
+    // Build list of reactions sorted by start
+    const rxnList: Array<{ start: number; end: number; key: string }> = []
     byRange.forEach((_, key) => {
       const [s, e] = key.split('-').map(Number)
-      if (!isNaN(s) && !isNaN(e) && e > s && e <= full.length) {
-        ranges.push({ start: s, end: e, key })
-      }
+      if (!isNaN(s) && !isNaN(e) && e > s) rxnList.push({ start: s, end: e, key })
     })
-    ranges.sort((a, b) => a.start - b.start)
 
-    const parts: React.ReactNode[] = []
+    // For each line, find which reactions overlap it
     let pos = 0
-    for (const r of ranges) {
-      if (r.start < pos) continue // overlapping — skip
-      // Plain text before this range
-      if (r.start > pos) parts.push(<span key={`plain-${pos}`}>{full.slice(pos, r.start)}</span>)
+    return (
+      <div>
+        {lines.map((line, li) => {
+          const lineStart = pos
+          const lineEnd = pos + line.length
+          pos = lineEnd + 1 // +1 for \n
 
-      const rxns = byRange.get(r.key)!
-      const nLikes = rxns.filter(x => x.type === 'like').length
-      const nComments = rxns.filter(x => x.type === 'comment').length
-      const markedText = full.slice(r.start, r.end)
+          const lineRxns = rxnList.filter(r => r.start < lineEnd && r.end > lineStart)
 
-      parts.push(
-        <span key={r.key}
-          style={{
-            background: T.mark,
-            borderRadius: 3,
-            borderBottom: '2px solid rgba(249,115,22,.55)',
-            paddingBottom: 1,
-            cursor: 'pointer',
-          }}
-          onMouseEnter={e => {
-            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-            setTip({ x: rect.left + rect.width / 2, y: rect.top + window.scrollY - 10, rxns })
-          }}
-          onMouseLeave={() => setTip(null)}
-          // Mark as "mark click" before mouseUp fires
-          data-mark="1"
-          onPointerDown={() => { wasMarkClick.current = true }}
-          onClick={() => {
-            setPanel({ text: markedText, start: r.start, end: r.end })
-            setPanelTab('react')
-          }}
-        >
-          {markedText}
-          {(nLikes > 0 || nComments > 0) && (
-            <span style={{ fontSize: 8, color: '#f97316', fontWeight: 800, marginLeft: 2, pointerEvents: 'none' }}>
-              {nLikes > 0 ? `♥${nLikes}` : ''}{nComments > 0 ? ` 💬${nComments}` : ''}
-            </span>
-          )}
-        </span>
-      )
-      pos = r.end
-    }
-    if (pos < full.length) parts.push(<span key="plain-end">{full.slice(pos)}</span>)
-    return <>{parts}</>
-  }, [track.lyrics, byRange, T.mark])
+          // Highlight ranges within this line
+          let lineContent: React.ReactNode
+          if (lineRxns.length === 0) {
+            lineContent = <span>{line || ' '}</span>
+          } else {
+            const parts: React.ReactNode[] = []
+            let lpos = 0
+            const sorted = [...lineRxns].sort((a, b) => a.start - b.start)
+            for (const r of sorted) {
+              const ls = Math.max(0, r.start - lineStart)
+              const le = Math.min(line.length, r.end - lineStart)
+              if (ls < lpos) continue
+              if (ls > lpos) parts.push(<span key={`p${lpos}`}>{line.slice(lpos, ls)}</span>)
+              parts.push(
+                <span key={r.key} style={{ background: T.mark, borderRadius: 3, borderBottom: '2px solid rgba(249,115,22,.5)', paddingBottom: 1 }}>
+                  {line.slice(ls, le)}
+                </span>
+              )
+              lpos = le
+            }
+            if (lpos < line.length) parts.push(<span key="pe">{line.slice(lpos)}</span>)
+            lineContent = <>{parts}</>
+          }
+
+          // Badge for this line
+          const totalLikes = lineRxns.reduce((s, r) => s + (byRange.get(r.key)?.filter(x => x.type === 'like').length ?? 0), 0)
+          const totalComments = lineRxns.reduce((s, r) => s + (byRange.get(r.key)?.filter(x => x.type === 'comment').length ?? 0), 0)
+
+          return (
+            <div key={li} style={{ display: 'flex', alignItems: 'baseline', minHeight: '1.8em' }}>
+              {/* Gutter badge */}
+              <div style={{ width: 36, flexShrink: 0, display: 'flex', justifyContent: 'flex-end', paddingRight: 8 }}>
+                {lineRxns.length > 0 && (
+                  <button
+                    onClick={() => {
+                      const r = lineRxns[0]
+                      const rxns = byRange.get(r.key)!
+                      setPanel({ text: rxns[0].selected_text, start: r.start, end: r.end })
+                      setPanelTab('react')
+                    }}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 2, padding: '1px 5px', borderRadius: 999, background: 'rgba(249,115,22,.15)', border: '1px solid rgba(249,115,22,.35)', cursor: 'pointer', fontSize: 9, fontWeight: 800, color: '#f97316', lineHeight: 1.4, whiteSpace: 'nowrap' }}
+                  >
+                    {totalLikes > 0 && <span>♥{totalLikes}</span>}
+                    {totalComments > 0 && <span>💬{totalComments}</span>}
+                  </button>
+                )}
+              </div>
+              {/* Line text */}
+              <div style={{ flex: 1, fontFamily: "'DM Sans',sans-serif", fontSize: 15, lineHeight: 2.1, color: T.lyric, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                {lineContent}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }, [track.lyrics, byRange, T.mark, T.lyric, setPanel, setPanelTab])
+
 
   // ── Panel reactions for current selection ──────────────────────────────────
   const panelRxns = panel ? (byRange.get(`${panel.start}-${panel.end}`) ?? []) : []
@@ -591,23 +621,25 @@ export default function TrackPageClient({
         !hasLyrics
           ? <div style={{ padding: 32, textAlign: 'center', color: T.faint, fontSize: 13 }}>Dainos tekstas dar nepridėtas</div>
           : (
-            <div data-lyrics style={{ position: 'relative', padding: '16px 18px', userSelect: 'text', cursor: 'text' }}
+            <div data-lyrics style={{ position: 'relative', padding: '16px 4px 16px 0', userSelect: 'text' }}
               onMouseUp={onMouseUp}>
-              {/* Hover tooltip */}
-              {tip && (
-                <div style={{ position: 'fixed', left: tip.x, top: tip.y, transform: 'translate(-50%, -100%)', zIndex: 200, background: '#111827', border: '1px solid rgba(249,115,22,.3)', borderRadius: 10, padding: '8px 12px', maxWidth: 220, boxShadow: '0 8px 24px rgba(0,0,0,.5)', pointerEvents: 'none' }}>
-                  <div style={{ display: 'flex', gap: 8, fontSize: 11, color: 'rgba(255,255,255,.8)' }}>
-                    {tip.rxns.filter(r => r.type === 'like').length > 0 && <span style={{ color: '#f97316', fontWeight: 700 }}>♥ {tip.rxns.filter(r => r.type === 'like').length}</span>}
-                    {tip.rxns.filter(r => r.type === 'comment').length > 0 && <span>💬 {tip.rxns.filter(r => r.type === 'comment').length}</span>}
-                  </div>
-                  {tip.rxns.filter(r => r.type === 'comment').slice(0, 3).map(c => (
-                    <div key={c.id} style={{ fontSize: 11, color: 'rgba(255,255,255,.55)', marginTop: 4 }}>{c.text}</div>
-                  ))}
+              {/* Floating react button on selection */}
+              {floatBtn && (
+                <div style={{ position: 'fixed', left: floatBtn.x, top: floatBtn.y - 40, transform: 'translateX(-50%)', zIndex: 200, animation: 'fadeIn .15s ease' }}>
+                  <button
+                    onMouseDown={e => e.preventDefault()}
+                    onClick={() => {
+                      if (!floatBtn.panel) return
+                      setPanel(floatBtn.panel)
+                      setPanelTab('react')
+                      setFloatBtn(null)
+                    }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 999, background: '#f97316', border: 'none', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 16px rgba(249,115,22,.5)', fontFamily: 'Outfit,sans-serif', whiteSpace: 'nowrap' }}>
+                    ✦ Reagavimas
+                  </button>
                 </div>
               )}
-              <pre style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, lineHeight: 2.1, color: T.lyric, margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                {renderLyrics()}
-              </pre>
+              {renderLyrics()}
             </div>
           )
       )}
@@ -782,7 +814,7 @@ export default function TrackPageClient({
         @media(max-width:860px){.tr-desk{display:none!important}.tr-mob{display:flex!important}}
         ::selection{background:rgba(249,115,22,.25)}
         @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
-        @keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+        @keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}@keyframes fadeIn{from{opacity:0;transform:translateX(-50%) translateY(4px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
       `}</style>
     </div>
   )
