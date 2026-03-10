@@ -68,6 +68,8 @@ YoutubeEmbed.displayName = 'YoutubeEmbed'
 
 // AI image with loading state — separate memo so it never re-mounts
 const AiImageBlock = memo(({ src }: { src: string }) => {
+  // Pollinations is unreliable — skip those URLs entirely
+  if (!src || src.includes('pollinations')) return null
   const [st, setSt] = useState<'loading' | 'ok' | 'err'>('loading')
   return (
     <div style={{ marginTop: 16, borderRadius: 10, overflow: 'hidden', background: '#0e1823', border: '1px solid rgba(249,115,22,.12)', minHeight: st === 'ok' ? 0 : 52 }}>
@@ -118,21 +120,38 @@ export default function TrackPageClient({
   const [aiLoad, setAiLoad] = useState(false)
   const [aiErr, setAiErr] = useState(false)
 
-  // Flag: clicking existing mark should NOT trigger new selection
+  // Flag: true when mousedown was on existing mark span
   const wasMarkClick = useRef(false)
+
+  // DEBUG
+  const [logs, setLogs] = useState<string[]>([])
+  const [showDebug, setShowDebug] = useState(true)
+  const log = (msg: string) => {
+    const ts = new Date().toISOString().slice(11, 23)
+    console.log(`[DBG] ${ts} ${msg}`)
+    setLogs(prev => [`${ts} ${msg}`, ...prev].slice(0, 50))
+  }
 
   useEffect(() => { setLoaded(true) }, [])
 
-  // ── Refresh reactions from API on mount ───────────────────────────────────
-  // This ensures reactions survive page reload (server cache may be stale)
+  // Refresh reactions on mount with full logging
   useEffect(() => {
+    log(`MOUNT track.id=${track.id} initialReactions.length=${initialReactions.length}`)
     fetch(`/api/tracks/${track.id}/lyric-comments`)
-      .then(r => r.ok ? r.json() : null)
-      .then((data: LyricReaction[] | null) => {
-        if (Array.isArray(data)) setReactions(data)
+      .then(r => {
+        log(`GET status=${r.status}`)
+        return r.json()
       })
-      .catch(() => {})
-  // run once on mount
+      .then((data: unknown) => {
+        log(`GET data=${JSON.stringify(data).slice(0,150)}`)
+        if (Array.isArray(data)) {
+          setReactions(data)
+          log(`setReactions count=${data.length}`)
+        } else {
+          log(`ERROR not array: ${typeof data}`)
+        }
+      })
+      .catch((e: unknown) => log(`FETCH ERR: ${String(e)}`))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [track.id])
 
@@ -202,10 +221,7 @@ export default function TrackPageClient({
 
   // ── Lyric selection → open panel ──────────────────────────────────────────
   const onMouseUp = useCallback(() => {
-    if (wasMarkClick.current) {
-      wasMarkClick.current = false
-      return
-    }
+    if (wasMarkClick.current) { wasMarkClick.current = false; return }
     const sel = window.getSelection()
     if (!sel || sel.isCollapsed) return
     const text = sel.toString().trim()
@@ -223,30 +239,30 @@ export default function TrackPageClient({
   const doLike = useCallback(async () => {
     if (!panel || saving) return
     const p = { ...panel }
+    log(`doLike start="${p.text.slice(0,30)}" start=${p.start} end=${p.end}`)
     setSaving(true)
     setPanel(null)
 
-    // Optimistic update — add immediately to local state
     const temp: LyricReaction = {
       id: Date.now(), selection_start: p.start, selection_end: p.end,
       selected_text: p.text, type: 'like', text: '', likes: 0,
       created_at: new Date().toISOString(),
     }
-    setReactions(prev => [...prev, temp])
+    setReactions(prev => { log(`optimistic add, prev.length=${prev.length}`); return [...prev, temp] })
 
     try {
-      await fetch(`/api/tracks/${track.id}/lyric-comments`, {
+      const postRes = await fetch(`/api/tracks/${track.id}/lyric-comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ selected_text: p.text, selection_start: p.start, selection_end: p.end, type: 'like', text: '' }),
       })
-      // Sync from DB to replace temp ID with real ID
+      const postData = await postRes.json()
+      log(`POST status=${postRes.status} body=${JSON.stringify(postData).slice(0,80)}`)
       const fresh = await fetch(`/api/tracks/${track.id}/lyric-comments`)
-      if (fresh.ok) {
-        const data: LyricReaction[] = await fresh.json()
-        if (Array.isArray(data)) setReactions(data)
-      }
-    } catch {}
+      const freshData: LyricReaction[] = await fresh.json()
+      log(`SYNC after like count=${freshData.length}`)
+      if (Array.isArray(freshData)) setReactions(freshData)
+    } catch (e) { log(`doLike ERR: ${String(e)}`) }
 
     setSaving(false)
   }, [panel, saving, track.id])
@@ -257,31 +273,31 @@ export default function TrackPageClient({
     const text = commentInputRef.current?.value.trim() ?? ''
     if (!text) return
     const p = { ...panel }
+    log(`doComment text="${text.slice(0,30)}"`)
     setSaving(true)
     setPanel(null)
     if (commentInputRef.current) commentInputRef.current.value = ''
 
-    // Optimistic update
     const temp: LyricReaction = {
       id: Date.now(), selection_start: p.start, selection_end: p.end,
       selected_text: p.text, type: 'comment', text, likes: 0,
       created_at: new Date().toISOString(),
     }
-    setReactions(prev => [...prev, temp])
+    setReactions(prev => { log(`optimistic comment, prev.length=${prev.length}`); return [...prev, temp] })
 
     try {
-      await fetch(`/api/tracks/${track.id}/lyric-comments`, {
+      const postRes = await fetch(`/api/tracks/${track.id}/lyric-comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ selected_text: p.text, selection_start: p.start, selection_end: p.end, type: 'comment', text }),
       })
-      // Sync from DB
+      const postData = await postRes.json()
+      log(`POST status=${postRes.status} body=${JSON.stringify(postData).slice(0,80)}`)
       const fresh = await fetch(`/api/tracks/${track.id}/lyric-comments`)
-      if (fresh.ok) {
-        const data: LyricReaction[] = await fresh.json()
-        if (Array.isArray(data)) setReactions(data)
-      }
-    } catch {}
+      const freshData: LyricReaction[] = await fresh.json()
+      log(`SYNC after comment count=${freshData.length}`)
+      if (Array.isArray(freshData)) setReactions(freshData)
+    } catch (e) { log(`doComment ERR: ${String(e)}`) }
 
     setSaving(false)
   }, [panel, saving, track.id])
@@ -342,6 +358,7 @@ export default function TrackPageClient({
           }}
           onMouseLeave={() => setTip(null)}
           // Mark as "mark click" before mouseUp fires
+          data-mark="1"
           onMouseDown={() => { wasMarkClick.current = true }}
           onClick={() => {
             setPanel({ text: markedText, start: r.start, end: r.end })
@@ -484,7 +501,7 @@ export default function TrackPageClient({
                   <p key={i} style={{ margin: i > 0 ? '12px 0 0' : 0 }}>{p.trim()}</p>
                 ))}
               </div>
-              {aiImg && <AiImageBlock src={aiImg} />}
+              {/* AI image disabled temporarily */}
             </div>
           )}
         </div>
@@ -756,6 +773,33 @@ export default function TrackPageClient({
           </div>
         </div>
       )}
+
+      {/* ── DEBUG PANEL ───────────────────────────────────────────────────── */}
+      <div style={{ position: 'fixed', bottom: 10, left: 10, zIndex: 999, maxWidth: 460, fontFamily: 'monospace' }}>
+        <button onClick={() => setShowDebug(v => !v)}
+          style={{ background: '#f97316', color: '#fff', border: 'none', borderRadius: 6, padding: '3px 10px', fontSize: 11, cursor: 'pointer', fontWeight: 700, marginBottom: 4 }}>
+          🔍 DEBUG {showDebug ? '▲' : '▼'} · reactions={reactions.length} · byRange={byRange.size}
+        </button>
+        {showDebug && (
+          <div style={{ background: 'rgba(0,0,0,.92)', border: '1px solid #f97316', borderRadius: 8, padding: '8px 10px', maxHeight: 280, overflowY: 'auto' }}>
+            <div style={{ fontSize: 10, color: '#f97316', marginBottom: 6, fontWeight: 700 }}>
+              track.id={track.id} · initialReactions={initialReactions.length} · reactions={reactions.length}
+            </div>
+            {reactions.length > 0 && (
+              <div style={{ fontSize: 10, color: '#6adc6a', marginBottom: 6 }}>
+                {reactions.map(r => `[${r.selection_start}-${r.selection_end}] ${r.type} "${r.selected_text?.slice(0,20)}"`).join('
+').split('
+').map((l,i)=><div key={i}>{l}</div>)}
+              </div>
+            )}
+            <div style={{ borderTop: '1px solid rgba(249,115,22,.3)', paddingTop: 6 }}>
+              {logs.map((l, i) => (
+                <div key={i} style={{ fontSize: 10, color: i === 0 ? '#fff' : 'rgba(255,255,255,.5)', lineHeight: 1.4 }}>{l}</div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* ── Desktop ────────────────────────────────────────────────────────── */}
       <div className="tr-desk" style={{ maxWidth: 1400, margin: '0 auto', padding: '14px 20px 60px', display: 'grid', gridTemplateColumns: '2fr 3fr', gap: 14, alignItems: 'start' }}>
