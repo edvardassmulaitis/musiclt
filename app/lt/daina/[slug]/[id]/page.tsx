@@ -32,6 +32,7 @@ export default async function TrackPage({ params }: { params: Promise<{ slug: st
     .select(`
       id, slug, title, type, video_url, spotify_id, release_date,
       lyrics, chords, description, show_player, is_new, show_ai_interpretation,
+      ai_interpretation, ai_image_url,
       artist_id
     `)
     .eq('id', id)
@@ -79,11 +80,10 @@ export default async function TrackPage({ params }: { params: Promise<{ slug: st
     .select('*', { count: 'exact', head: true })
     .eq('track_id', id)
 
-  // ── Fetch lyric comments ───────────────────────────────────────────────────
-  // table: track_lyric_comments (id, track_id, selection_start, selection_end, selected_text, author, avatar_letter, text, likes, created_at)
+  // ── Fetch lyric reactions ──────────────────────────────────────────────────
   const { data: lyricComments } = await supabase
     .from('track_lyric_comments')
-    .select('id, selection_start, selection_end, selected_text, author, avatar_letter, text, likes, created_at')
+    .select('id, selection_start, selection_end, selected_text, type, text, likes, created_at')
     .eq('track_id', id)
     .order('created_at', { ascending: true })
 
@@ -131,6 +131,8 @@ export default async function TrackPage({ params }: { params: Promise<{ slug: st
       lyricComments={(lyricComments ?? []) as any}
       trivia={trivia}
       relatedTracks={relatedTracks as any}
+      aiInterpretation={(track as any).ai_interpretation ?? null}
+      aiImageUrl={(track as any).ai_image_url ?? null}
     />
   )
 }
