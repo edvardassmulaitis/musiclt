@@ -103,17 +103,11 @@ IMAGE: [10-15 žodžių angliškai abstrakti nuotaika, be žmonių, be teksto]`,
     imagePrompt = imageMatch[1].trim().replace(/"/g, '')
   }
 
-  let imageUrl = ''
-  if (imagePrompt) {
-    const encoded = encodeURIComponent(imagePrompt + ', cinematic mood, abstract, no text, no faces')
-    imageUrl = `https://image.pollinations.ai/prompt/${encoded}?width=800&height=400&nologo=true&seed=${track.id}`
-  }
-
-  // Save to DB
+  // Save to DB (no image for now — Pollinations unreliable)
   await supabase
     .from('tracks')
-    .update({ ai_interpretation: interpretation, ai_image_url: imageUrl })
+    .update({ ai_interpretation: interpretation, ai_image_url: null })
     .eq('id', id)
 
-  return NextResponse.json({ interpretation, image_url: imageUrl }, { status: 201 })
+  return NextResponse.json({ interpretation, image_url: null }, { status: 201 })
 }
