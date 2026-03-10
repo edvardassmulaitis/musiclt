@@ -83,15 +83,22 @@ export async function POST(
 
   try {
     const parsed = JSON.parse(clean)
-    // Clean up escaped \n\n into real newlines
-    interpretation = (parsed.interpretation ?? raw).replace(/\\n/g, '\n')
+    interpretation = (parsed.interpretation ?? raw)
+      .replace(/\\n/g, '\n')
+      .replace(/[—–]/g, '-')
+      .trim()
     if (parsed.image_prompt) {
       const prompt = encodeURIComponent(parsed.image_prompt.replace(/"/g, '') + ', cinematic lighting, no text, no people')
       imageUrl = `https://image.pollinations.ai/prompt/${prompt}?width=800&height=380&nologo=true&seed=${track.id}`
     }
   } catch {
-    // If JSON parse fails, use raw text as interpretation
-    interpretation = raw.replace(/```json|```|\{|\}/g, '').trim()
+    interpretation = raw
+      .replace(/```json|```/g, '')
+      .replace(/"interpretation"\s*:\s*"/, '')
+      .replace(/",?\s*"image_prompt"[\s\S]*$/, '')
+      .replace(/[—–]/g, '-')
+      .replace(/^[\s{"}]+|[\s{"}]+$/g, '')
+      .trim()
   }
 
   // Save to DB
