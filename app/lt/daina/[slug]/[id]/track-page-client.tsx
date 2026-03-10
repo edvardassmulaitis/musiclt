@@ -477,15 +477,22 @@ export default function TrackPageClient({
           {aiText && (
             <div>
               {aiImage && (
-                <div style={{ marginBottom: 14, borderRadius: 10, overflow: 'hidden', border: `1px solid ${T.borderSub}`, background: T.coverBg }}>
-                  <img src={aiImage} alt="AI vizualizacija" style={{ width: '100%', display: 'block', objectFit: 'cover', minHeight: 80 }}
-                    onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                <div style={{ marginBottom: 14, borderRadius: 10, overflow: 'hidden', border: `1px solid ${T.borderSub}`, background: T.coverBg, minHeight: 80 }}>
+                  <img src={aiImage} alt="AI vizualizacija"
+                    style={{ width: '100%', display: 'block', objectFit: 'cover' }}
+                    onLoad={e => { (e.target as HTMLImageElement).style.opacity = '1' }}
+                    onError={e => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }}
+                  />
                 </div>
               )}
               <div style={{ fontSize: 9, color: '#f97316', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', fontFamily: 'Outfit, sans-serif', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 5 }}>
                 <span>✦</span> Sugeneruota Claude
               </div>
-              <p style={{ fontSize: 13, color: T.dykText, lineHeight: 1.85, margin: 0, whiteSpace: 'pre-wrap' }}>{aiText}</p>
+              <div style={{ fontSize: 13, color: T.dykText, lineHeight: 1.85 }}>
+                {aiText.replace(/\\n/g, '\n').split('\n\n').filter(Boolean).map((para, i) => (
+                  <p key={i} style={{ margin: i > 0 ? '12px 0 0' : '0' }}>{para.trim()}</p>
+                ))}
+              </div>
               <button onClick={() => { setAiText(null); setAiImage(null) }}
                 style={{ marginTop: 12, background: 'none', border: 'none', color: T.textFaint, fontSize: 10, cursor: 'pointer', padding: 0 }}>
                 ↺ Generuoti iš naujo
