@@ -369,9 +369,11 @@ export default function WikipediaImport({ onImport }: Props) {
           const links = [...m[1].matchAll(/href="\/wiki\/([^"#]+)"[^>]*>([^<]+)<\/a>/g)]
           links.forEach(lm => {
             const wikiTitle = decodeURIComponent(lm[1])
-            const name = lm[2].trim()
+            const name = (lm[2] || '').trim()
             if (!name || name.includes('See also') || name.includes('Early members') || name.length < 2) return
-            htmlMembers.push({ name: cleanArtistName(name), wikiTitle, isCurrent })
+            const cleanName = cleanArtistName(name)
+            if (!cleanName) return
+            htmlMembers.push({ name: cleanName, wikiTitle, isCurrent })
           })
         }
 
@@ -491,12 +493,14 @@ export default function WikipediaImport({ onImport }: Props) {
 
       if (parsedMembers.length > 0) {
         setMembersLoading(true)
-        const resolved = await Promise.all(
-          parsedMembers.map(async (m) => {
-            const [dbResult, avatarUrl] = await Promise.all([checkMemberInDB(m.name), fetchMemberAvatar(m.wikiTitle)])
-            return { ...m, existingId: dbResult?.id, existingSlug: dbResult?.slug, avatar: avatarUrl }
-          })
-        )
+        const resolved = (await Promise.all(
+          parsedMembers
+            .filter(m => m.name && m.name.length >= 2)
+            .map(async (m) => {
+              const [dbResult, avatarUrl] = await Promise.all([checkMemberInDB(m.name), fetchMemberAvatar(m.wikiTitle)])
+              return { ...m, existingId: dbResult?.id, existingSlug: dbResult?.slug, avatar: avatarUrl }
+            })
+        )).filter(m => m.name && m.name.length >= 2)
         setMembers(resolved)
         setMembersLoading(false)
       }
@@ -744,7 +748,7 @@ function MemberChip({ member, past }: { member: BandMember; past?: boolean }) {
     }`}>
       {member.avatar
         ? <img src={member.avatar} alt="" className="w-3.5 h-3.5 rounded-full object-cover shrink-0" referrerPolicy="no-referrer" />
-        : <div className="w-3.5 h-3.5 rounded-full bg-gray-200 flex items-center justify-center text-[7px] shrink-0 font-bold">{member.name[0]}</div>
+        : <div className="w-3.5 h-3.5 rounded-full bg-gray-200 flex items-center justify-center text-[7px] shrink-0 font-bold">{member.name?.[0] ?? '?'}</div>
       }
       <span>{member.name}</span>
       <span className="opacity-50">{member.existingId ? '✓' : '+'}</span>
