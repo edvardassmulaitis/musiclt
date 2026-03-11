@@ -2,7 +2,7 @@
 // v3 — pridėta hideButtons prop, pašalintas min-h-screen outer wrapper
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { GENRES } from '@/lib/constants'
+import { GENRES, COUNTRIES } from '@/lib/constants'
 import PhotoGallery, { type Photo } from './PhotoGallery'
 import WikimediaSearch from './WikimediaSearch'
 import RichTextEditor from './RichTextEditor'
@@ -1105,14 +1105,15 @@ function SocialsSection({ form, set }: { form: any; set: (k: any, v: any) => voi
 
 // ── Main ArtistForm ───────────────────────────────────────────────────────────
 export default function ArtistForm({ initialData, artistId, onSubmit, backHref, title, submitLabel, onChange, hideButtons }: Props) {
-  const [form, setForm] = useState<ArtistFormData>(initialData || emptyArtistForm)
+  const [form, setForm] = useState<ArtistFormData>({ ...emptyArtistForm, ...(initialData || {}) })
 
   const prevInitialRef = useRef<ArtistFormData | null>(null)
   useEffect(() => {
     if (!initialData) return
     if (prevInitialRef.current === null) {
       prevInitialRef.current = initialData
-      setForm(initialData)
+      // Merge su emptyArtistForm kad masyvai (breaks, members, photos...) niekada nebūtų undefined
+      setForm({ ...emptyArtistForm, ...initialData })
       return
     }
     const prev = prevInitialRef.current
@@ -1196,7 +1197,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
               <Sel value={form.country} onChange={(v:string)=>set('country',v)} required>
                 {['Lietuva','Latvija','Estija','Lenkija','Vokietija','Prancūzija','JAV','Didžioji Britanija','Švedija','Norvegija','Suomija','Danija'].map(c=><option key={c} value={c}>{c}</option>)}
                 <optgroup label="─────────────">
-                  {require('@/lib/constants').COUNTRIES.filter((c:string)=>!['Lietuva','Latvija','Estija','Lenkija','Vokietija','Prancūzija','JAV','Didžioji Britanija','Švedija','Norvegija','Suomija','Danija'].includes(c)).map((c:string)=><option key={c} value={c}>{c}</option>)}
+                  {(COUNTRIES || []).filter((c:string)=>!['Lietuva','Latvija','Estija','Lenkija','Vokietija','Prancūzija','JAV','Didžioji Britanija','Švedija','Norvegija','Suomija','Danija'].includes(c)).map((c:string)=><option key={c} value={c}>{c}</option>)}
                 </optgroup>
               </Sel>
             </div>
