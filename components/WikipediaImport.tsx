@@ -346,7 +346,38 @@ export default function WikipediaImport({ onImport }: Props) {
         }
         const yaM = rawWikitext.match(/\|\s*years[_ ]active\s*=\s*([^\n|<]+)/i)
         if (yaM) infoboxYearsRaw = yaM[1].trim()
+        // Wikitext narių parsinimas
         parsedMembers = parseBandMembers(rawWikitext)
+      } catch {}
+
+      // HTML-based narių parsinimas (patikimesnis nei wikitext)
+      // Visada vykdome ir pakeičiame jei gavo daugiau narių
+      try {
+        const htmlRes = await fetch(
+          `https://en.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(s)}&prop=text&format=json&origin=*`
+        )
+        const htmlData = await htmlRes.json()
+        const htmlContent: string = htmlData.parse?.text?.['*'] || ''
+        const htmlMembers: BandMember[] = []
+
+        const parseSection = (labelRe: RegExp, isCurrent: boolean) => {
+          const m = htmlContent.match(labelRe)
+          if (!m) return
+          const links = [...m[1].matchAll(/href="\/wiki\/([^"#]+)"[^>]*>([^<]+)<\/a>/g)]
+          links.forEach(lm => {
+            const wikiTitle = decodeURIComponent(lm[1])
+            const name = lm[2].trim()
+            if (!name || name.includes('See also') || name.includes('Early members') || name.length < 2) return
+            htmlMembers.push({ name: cleanArtistName(name), wikiTitle, isCurrent })
+          })
+        }
+
+        parseSection(/class="infobox-label"[^>]*>\s*(?:<[^>]+>)*\s*Members\s*(?:<[^>]+>)*\s*<\/th>\s*<td[^>]*>([\s\S]*?)<\/td>/i, true)
+        parseSection(/class="infobox-label"[^>]*>\s*(?:<[^>]+>)*\s*Past members\s*(?:<[^>]+>)*\s*<\/th>\s*<td[^>]*>([\s\S]*?)<\/td>/i, false)
+
+        if (htmlMembers.length > parsedMembers.length) {
+          parsedMembers = htmlMembers
+        }
       } catch {}
 
       setStep('Jungiamasi prie Wikidata...')
