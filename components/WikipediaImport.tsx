@@ -586,7 +586,7 @@ export default function WikipediaImport({ onImport }: Props) {
         </div>
         <button
           type="button"
-          onClick={go}
+          onClick={() => go()}
           disabled={loading || !url.trim()}
           className="shrink-0 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-40 transition-colors whitespace-nowrap"
         >
