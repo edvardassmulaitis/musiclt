@@ -14,13 +14,12 @@ const MONTHS_LT = ['sausio','vasario','kovo','balandžio','gegužės','birželio
 
 function fmtDate(year?: string, month?: string, day?: string): string {
   const parts: string[] = []
-  if (year) parts.push(`${year} m.`)
-  if (month) { const m = parseInt(month); if (m >= 1 && m <= 12) parts.push(`${MONTHS_LT[m-1]} mėn.`) }
+  if (year) parts.push(`${year}`)
+  if (month) { const m = parseInt(month); if (m >= 1 && m <= 12) parts.push(MONTHS_LT[m-1]) }
   if (day) parts.push(`${day} d.`)
   return parts.join(' ')
 }
 
-// ─── Clean artist name: remove disambiguation suffixes ───────────────────────
 function cleanArtistName(raw: string): string {
   return raw
     .replace(/\s*\(\s*(?:band|group|music(?:al)?\s*(?:group|act)?|singer|rapper|duo|trio|quartet|artist|musician|rock\s*band|pop\s*group)\s*\)/gi, '')
@@ -29,12 +28,10 @@ function cleanArtistName(raw: string): string {
     .trim()
 }
 
-// ─── Band members ─────────────────────────────────────────────────────────────
 type BandMember = {
   name: string
   wikiTitle: string
   isCurrent: boolean
-  // Resolved after DB check:
   existingId?: number
   existingSlug?: string
   avatar?: string
@@ -43,39 +40,29 @@ type BandMember = {
 function parseBandMembers(wikitext: string): BandMember[] {
   const members: BandMember[] = []
   const seen = new Set<string>()
-
   const extractField = (field: string, isCurrent: boolean) => {
-    // Match multiline field value until next | or }}
     const re = new RegExp(`\\|\\s*${field}\\s*=([\\s\\S]*?)(?=\\n\\s*\\||\\n\\}\\})`, 'i')
     const m = wikitext.match(re)
     if (!m) return
     const block = m[1]
-
-    // Extract [[WikiTitle|Display]] or [[WikiTitle]]
     const linkRe = /\[\[\s*([^\]|#]+?)(?:\s*\|\s*([^\]]+))?\s*\]\]/g
     let lm: RegExpExecArray | null
     while ((lm = linkRe.exec(block)) !== null) {
       const wikiTitle = lm[1].replace(/\s+/g, '_').trim()
       const display = (lm[2] || lm[1])
-        .replace(/'{2,}/g, '')
-        .replace(/\[\[|\]\]/g, '')
-        .replace(/\{\{[^}]+\}\}/g, '')
-        .trim()
-      // Skip template names, categories, etc.
+        .replace(/'{2,}/g, '').replace(/\[\[|\]\]/g, '').replace(/\{\{[^}]+\}\}/g, '').trim()
       if (!display || display.length < 2) continue
       if (/^(plain ?list|flatlist|hlist|br|small|nowrap|ubl|refn|ref|cite)/i.test(display)) continue
-      if (wikiTitle.includes(':')) continue // File:, Category:, etc.
+      if (wikiTitle.includes(':')) continue
       if (seen.has(wikiTitle)) continue
       seen.add(wikiTitle)
       members.push({ name: cleanArtistName(display), wikiTitle, isCurrent })
     }
   }
-
   extractField('current_members', true)
   extractField('members', true)
   extractField('past_members', false)
   extractField('former_members', false)
-
   return members
 }
 
@@ -97,7 +84,6 @@ async function checkMemberInDB(name: string): Promise<{ id: number; slug: string
     if (!res.ok) return null
     const data = await res.json()
     const artists: any[] = data.artists || []
-    // Exact or very close match
     const match = artists.find(a =>
       a.name.toLowerCase() === name.toLowerCase() ||
       a.name.toLowerCase().replace(/\s+/g,'') === name.toLowerCase().replace(/\s+/g,'')
@@ -106,7 +92,6 @@ async function checkMemberInDB(name: string): Promise<{ id: number; slug: string
   } catch { return null }
 }
 
-// ─── Genre helpers ────────────────────────────────────────────────────────────
 const GENRE_RULES: [string, string[]][] = [
   ['Sunkioji muzika',           ['metal','heavy metal','thrash','doom','black metal','grindcore','metalcore','death metal']],
   ['Roko muzika',               ['rock','punk','grunge','new wave','britpop','alternative rock','indie rock','post-punk','hard rock','post-rock','progressive rock']],
@@ -139,17 +124,13 @@ function parseInfoboxGenres(wikitext: string): string[] | null {
   const raw = genreMatch[1]
   const fromLinks = [...raw.matchAll(/\[\[(?:[^\]|]+\|)?([^\]|]+)\]\]/g)].map(m => m[1].trim())
   const stripped = raw
-    .replace(/\{\{[^}]+\}\}/g, ' ')
-    .replace(/\[\[(?:[^\]|]+\|)?([^\]|]+)\]\]/g, '$1')
-    .replace(/[*#\[\]{}|]/g, ' ')
-    .split(/[,·•\n]/)
-    .map(s => s.trim())
+    .replace(/\{\{[^}]+\}\}/g, ' ').replace(/\[\[(?:[^\]|]+\|)?([^\]|]+)\]\]/g, '$1')
+    .replace(/[*#\[\]{}|]/g, ' ').split(/[,·•\n]/).map(s => s.trim())
     .filter(s => s.length > 1 && s.length < 40 && !/^(hlist|flatlist|ubl|br|small|nowrap|\d+)$/i.test(s))
   const all = [...new Set([...fromLinks, ...stripped])].filter(s => s && s.length > 1)
   return all.length > 0 ? all : null
 }
 
-// ─── Country helpers ──────────────────────────────────────────────────────────
 const QID_COUNTRY: Record<string, string> = {
   Q142:'Prancūzija',Q183:'Vokietija',Q30:'JAV',Q145:'Didžioji Britanija',
   Q34:'Švedija',Q20:'Norvegija',Q33:'Suomija',Q35:'Danija',
@@ -245,16 +226,9 @@ const SOCIAL_MAP: Record<string, { key: keyof ArtistFormData; url: (v: string) =
   P7085: { key:'tiktok',     url: v=>`https://www.tiktok.com/@${v}` },
   P7589: { key:'bandcamp',   url: v=>`https://bandcamp.com/${v}` },
 }
-const SOCIAL_META: Record<string,{icon:string;label:string}> = {
-  facebook:{icon:'📘',label:'Facebook'},instagram:{icon:'📸',label:'Instagram'},
-  twitter:{icon:'𝕏',label:'X/Twitter'},spotify:{icon:'🎧',label:'Spotify'},
-  youtube:{icon:'▶️',label:'YouTube'},soundcloud:{icon:'☁️',label:'SoundCloud'},
-  tiktok:{icon:'🎵',label:'TikTok'},bandcamp:{icon:'🎸',label:'Bandcamp'},
-}
 const GROUP_QIDS = new Set(['Q215380','Q5741069','Q2088357','Q9212979','Q56816265','Q190445','Q16010345','Q183319'])
 const SKIP_WEB = ['store','shop','merch','bandsintown','songkick','last.fm','allmusic','discogs','musicbrainz','facebook','instagram','twitter','x.com','youtube','spotify','soundcloud','tiktok','bandcamp']
 
-// ─── Main component ───────────────────────────────────────────────────────────
 export default function WikipediaImport({ onImport }: Props) {
   const [url, setUrl] = useState('')
   const [loading, setLoading] = useState(false)
@@ -277,7 +251,7 @@ export default function WikipediaImport({ onImport }: Props) {
     if (!s) { setError('Netinkamas URL'); return }
     setLoading(true)
     try {
-      setStep('📄 Kraunama Wikipedia...')
+      setStep('Kraunama Wikipedia...')
       const sumRes = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(s)}`)
       if (!sumRes.ok) throw new Error(`Puslapis nerastas: ${s}`)
       const sum = await sumRes.json()
@@ -288,18 +262,13 @@ export default function WikipediaImport({ onImport }: Props) {
       let description = shortDesc
       let trOk = false
       if (shortDesc) {
-        setStep('🌐 Verčiama į lietuvių kalbą...')
-        try {
-          const tr = await translateToLT(shortDesc)
-          description = tr.result
-          trOk = tr.ok
-        } catch {}
+        setStep('Verčiama į lietuvių kalbą...')
+        try { const tr = await translateToLT(shortDesc); description = tr.result; trOk = tr.ok } catch {}
       }
       setTranslateOk(trOk)
 
-      setStep('📋 Skaitomas infobox...')
+      setStep('Skaitomas infobox...')
       let infoboxWebsite = '', infoboxYearsRaw = '', infoboxGenres: string[] | null = null
-      let rawWikitext = ''
       let parsedMembers: BandMember[] = []
       try {
         const wtRes = await (await fetch(
@@ -307,7 +276,7 @@ export default function WikipediaImport({ onImport }: Props) {
         )).json()
         const pages = wtRes.query?.pages || {}
         const firstPage = Object.values(pages)[0] as any
-        rawWikitext = firstPage?.['revisions']?.[0]?.['slots']?.['main']?.['*']
+        const rawWikitext = firstPage?.['revisions']?.[0]?.['slots']?.['main']?.['*']
           || firstPage?.['revisions']?.[0]?.['*']
           || (await (await fetch(
             `https://en.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(s)}&prop=wikitext&format=json&origin=*`
@@ -320,15 +289,11 @@ export default function WikipediaImport({ onImport }: Props) {
         }
         const yaM = rawWikitext.match(/\|\s*years[_ ]active\s*=\s*([^\n|<]+)/i)
         if (yaM) infoboxYearsRaw = yaM[1].trim()
-
-        // Parse members from wikitext
         parsedMembers = parseBandMembers(rawWikitext)
       } catch {}
 
-      setStep('🔗 Jungiamasi prie Wikidata...')
-      const ppRes = await fetch(
-        `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(s)}&prop=pageprops&format=json&origin=*`
-      )
+      setStep('Jungiamasi prie Wikidata...')
+      const ppRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(s)}&prop=pageprops&format=json&origin=*`)
       const wdId: string = (Object.values((await ppRes.json()).query?.pages || {})[0] as any)?.pageprops?.wikibase_item || ''
 
       let type: 'group'|'solo' = 'solo'
@@ -347,7 +312,7 @@ export default function WikipediaImport({ onImport }: Props) {
       }
 
       if (wdId) {
-        setStep('📊 Skaitoma Wikidata...')
+        setStep('Skaitoma Wikidata...')
         const claims = (await (await fetch(
           `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${wdId}&format=json&origin=*&languages=en&props=claims`
         )).json()).entities?.[wdId]?.claims || {}
@@ -357,10 +322,7 @@ export default function WikipediaImport({ onImport }: Props) {
 
         const instances: string[] = all('P31').map((v:any)=>v?.id).filter(Boolean)
         const hasBirth = !!claims['P569']
-        type = (hasBirth || instances.includes('Q5')) ? 'solo'
-             : instances.some(q=>GROUP_QIDS.has(q)) ? 'group' : 'solo'
-
-        // If it's a group and we have members — mark as group
+        type = (hasBirth || instances.includes('Q5')) ? 'solo' : instances.some(q=>GROUP_QIDS.has(q)) ? 'group' : 'solo'
         if (parsedMembers.length > 0) type = 'group'
 
         const bd=first('P569')?.time; if(bd){const d=parseWDDate(bd);birthYear=d.year;birthMonth=d.month;birthDay=d.day;type='solo'}
@@ -394,7 +356,7 @@ export default function WikipediaImport({ onImport }: Props) {
         }
 
         if (!infoboxGenres) {
-          setStep('🎵 Nustatomi žanrai...')
+          setStep('Nustatomi žanrai...')
           const genreQids = all('P136').map((v:any)=>v?.id).filter(Boolean).slice(0,12)
           if(genreQids.length>0){
             try{
@@ -409,7 +371,7 @@ export default function WikipediaImport({ onImport }: Props) {
 
       let avatar = ''
       if (avatarSrcUrl) {
-        setStep('🖼️ Saugoma nuotrauka...')
+        setStep('Saugoma nuotrauka...')
         try {
           const ir=await fetch('/api/fetch-image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:avatarSrcUrl})})
           if(ir.ok){const{dataUrl}=await ir.json();avatar=dataUrl||avatarSrcUrl}
@@ -418,7 +380,6 @@ export default function WikipediaImport({ onImport }: Props) {
 
       const finalGenres = infoboxGenres || wdGenres
       const { genre, substyles } = mapGenres(finalGenres)
-
       const cleanName = cleanArtistName(sum.title?.replace(/_/g,' ') || '')
 
       setPreview({
@@ -432,23 +393,12 @@ export default function WikipediaImport({ onImport }: Props) {
         ...socials,
       })
 
-      // Load members in background (DB check + avatars)
       if (parsedMembers.length > 0) {
-        setStep('')
         setMembersLoading(true)
-        // Check DB for each member concurrently
         const resolved = await Promise.all(
           parsedMembers.map(async (m) => {
-            const [dbResult, avatarUrl] = await Promise.all([
-              checkMemberInDB(m.name),
-              fetchMemberAvatar(m.wikiTitle),
-            ])
-            return {
-              ...m,
-              existingId: dbResult?.id,
-              existingSlug: dbResult?.slug,
-              avatar: avatarUrl,
-            }
+            const [dbResult, avatarUrl] = await Promise.all([checkMemberInDB(m.name), fetchMemberAvatar(m.wikiTitle)])
+            return { ...m, existingId: dbResult?.id, existingSlug: dbResult?.slug, avatar: avatarUrl }
           })
         )
         setMembers(resolved)
@@ -460,197 +410,172 @@ export default function WikipediaImport({ onImport }: Props) {
     setLoading(false)
   }
 
-  // Apply to form: create missing members first, then call onImport with member IDs
   const handleApply = async () => {
     if (!preview) return
-
     const groupMembers = members.filter(m => m.isCurrent)
     if (groupMembers.length === 0) {
-      onImport(preview)
-      setPreview(null); setUrl(''); setMembers([])
+      onImport(preview); setPreview(null); setUrl(''); setMembers([])
       return
     }
-
     setApplyingMembers(true)
-    const memberIds: { id: number; yearFrom?: string; yearTo?: string }[] = []
-
+    const memberIds: { id: number }[] = []
     for (const m of groupMembers) {
       if (m.existingId) {
         memberIds.push({ id: m.existingId })
       } else {
-        // Create member via API
         try {
           const res = await fetch('/api/artists', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              name: m.name,
-              type: 'solo',
-              type_music: true,
-              type_film: false,
-              type_dance: false,
-              type_books: false,
+              name: m.name, type: 'solo',
+              type_music: true, type_film: false, type_dance: false, type_books: false,
               cover_image_url: m.avatar || '',
               country: preview.country || 'Lietuva',
               active_from: preview.yearStart ? parseInt(preview.yearStart) : null,
-              genres: [],
-              substyleNames: [],
+              genres: [], substyleNames: [],
             }),
           })
-          if (res.ok) {
-            const data = await res.json()
-            const newId = data.id || data.artist?.id
-            if (newId) {
-              memberIds.push({ id: newId })
-              // Update member in local state
-              setMembers(prev => prev.map(pm =>
-                pm.wikiTitle === m.wikiTitle
-                  ? { ...pm, existingId: newId }
-                  : pm
-              ))
-            }
-          }
+          if (res.ok) { const data = await res.json(); const newId = data.id || data.artist?.id; if (newId) memberIds.push({ id: newId }) }
         } catch {}
       }
     }
-
     setApplyingMembers(false)
     onImport({ ...preview, members: memberIds as any })
     setPreview(null); setUrl(''); setMembers([])
   }
 
   const p = preview
-  const foundSocials = p ? Object.entries(SOCIAL_META).filter(([k])=>(p as any)[k]) : []
+  const foundSocialKeys = p ? ['facebook','instagram','twitter','spotify','youtube','soundcloud','tiktok','bandcamp'].filter(k => (p as any)[k]) : []
   const currentMembers = members.filter(m => m.isCurrent)
   const pastMembers = members.filter(m => !m.isCurrent)
 
   return (
-    <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 space-y-4">
-      <div className="flex items-center gap-3">
-        <span className="text-2xl">📖</span>
-        <div>
-          <h3 className="font-bold text-gray-900">Importuoti iš Wikipedia</h3>
-          <p className="text-xs text-gray-500">Automatiškai užpildo laukus + verčia aprašymą į lietuvių kalbą</p>
-        </div>
-      </div>
+    <div className="space-y-3">
+      {/* Input */}
       <div className="flex gap-2">
-        <input type="url" value={url} onChange={e=>setUrl(e.target.value)}
-          onKeyDown={e=>e.key==='Enter'&&go()}
-          placeholder="https://en.wikipedia.org/wiki/Destiny%27s_Child"
-          className="flex-1 px-4 py-2.5 border border-blue-300 bg-white rounded-lg text-gray-900 text-sm focus:outline-none focus:border-music-blue" />
-        <button type="button" onClick={go} disabled={loading||!url.trim()}
-          className="px-5 py-2.5 bg-music-blue text-white rounded-lg text-sm font-bold hover:opacity-90 disabled:opacity-40 whitespace-nowrap">
-          {loading ? '⏳' : '→ Importuoti'}
+        <input
+          type="url"
+          value={url}
+          onChange={e => setUrl(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && go()}
+          placeholder="https://en.wikipedia.org/wiki/..."
+          className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+        />
+        <button
+          type="button"
+          onClick={go}
+          disabled={loading || !url.trim()}
+          className="shrink-0 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-40 transition-colors whitespace-nowrap"
+        >
+          {loading ? '...' : 'W Importuoti'}
         </button>
       </div>
-      {step && <div className="text-sm text-blue-800 bg-blue-100 rounded-lg px-3 py-2 flex items-center gap-2"><span className="inline-block animate-spin">⟳</span>{step}</div>}
-      {error && <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-4 py-2">⚠️ {error}</div>}
 
+      {/* Status */}
+      {step && (
+        <p className="text-xs text-gray-400 flex items-center gap-1.5 px-0.5">
+          <span className="inline-block animate-spin">⟳</span>{step}
+        </p>
+      )}
+      {error && (
+        <p className="text-xs text-red-500 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
+      )}
+
+      {/* Preview panel */}
       {p && (
-        <div className="bg-white rounded-xl border border-blue-200 overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border-b">
-            <span className="font-bold text-gray-900">Rasta informacija</span>
-            <button type="button" onClick={handleApply} disabled={applyingMembers || membersLoading}
-              className="px-5 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-bold disabled:opacity-50">
-              {applyingMembers ? '⏳ Kuriami nariai...' : '✓ Taikyti į formą'}
+        <div className="rounded-xl border border-gray-200 overflow-hidden bg-white text-sm">
+
+          {/* Artist header */}
+          <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
+            {p.avatar
+              ? <img src={p.avatar} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0 border border-gray-100" />
+              : <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 text-base">🎵</div>
+            }
+            <div className="flex-1 min-w-0">
+              <span className="font-semibold text-gray-900">{p.name}</span>
+              <span className="text-gray-400 text-xs ml-2">
+                {p.type === 'group' ? 'Grupė' : 'Solo'}
+                {p.country ? ` · ${p.country}` : ''}
+                {p.yearStart ? ` · ${p.yearStart}${p.yearEnd ? `–${p.yearEnd}` : '–dabar'}` : ''}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleApply}
+              disabled={applyingMembers || membersLoading}
+              className="shrink-0 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
+            >
+              {applyingMembers ? '⏳' : '✓ Taikyti'}
             </button>
           </div>
-          <div className="p-5 space-y-4">
-            <div className="flex items-center gap-4">
-              {p.avatar
-                ?<img src={p.avatar} alt="" className="w-16 h-16 rounded-lg object-cover border border-gray-200"/>
-                :<div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center text-2xl">🎵</div>}
-              <div>
-                <div className="font-bold text-gray-900 text-lg">{p.name}</div>
-                <div className="text-sm text-gray-500">{p.type==='group'?'🎸 Grupė':'🎤 Atlikėjas'}</div>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
-              <F l="Šalis" v={p.country}/>
-              <F l="Žanras" v={p.genre}/>
-              {p.type==='group'?<>
-                <F l="Veikla" v={p.yearStart?(p.yearEnd?`${p.yearStart}–${p.yearEnd}`:`${p.yearStart}–dabar`):''}/>
-                {p.breaks&&p.breaks.length>0&&<F l="Pertraukos" v={p.breaks.map(b=>`${b.from}–${b.to||'?'}`).join(', ')} wide/>}
-              </>:<>
-                {p.birthYear&&<F l="Gimė" v={fmtDate(p.birthYear,p.birthMonth,p.birthDay)}/>}
-                {p.deathYear&&<F l="Mirė" v={fmtDate(p.deathYear,p.deathMonth,p.deathDay)}/>}
-                <F l="Lytis" v={p.gender==='male'?'Vyras':p.gender==='female'?'Moteris':''}/>
-                {p.yearStart&&<F l="Veikla" v={p.yearEnd?`${p.yearStart}–${p.yearEnd}`:`${p.yearStart}–dabar`}/>}
-              </>}
-              {p.website&&<F l="Svetainė" v={p.website} wide/>}
-            </div>
-            {p.substyles&&p.substyles.length>0&&(
-              <div>
-                <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Stiliai</div>
-                <div className="flex flex-wrap gap-1.5">
-                  {p.substyles.map(s=><span key={s} className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">{s}</span>)}
-                </div>
-              </div>
-            )}
-            {foundSocials.length>0&&(
-              <div>
-                <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Socialiniai tinklai ({foundSocials.length})</div>
-                <div className="flex flex-wrap gap-2">
-                  {foundSocials.map(([k,m])=>(
-                    <span key={k} className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-50 border border-green-200 text-green-800 rounded-full text-xs font-medium">
-                      {m.icon} {m.label} ✓
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
 
-            {/* Band members section */}
-            {(membersLoading || members.length > 0) && (
-              <div>
-                <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 flex items-center gap-2">
-                  GRUPĖS NARIAI
-                  {membersLoading && <span className="inline-block animate-spin text-blue-400">⟳</span>}
-                </div>
-
-                {membersLoading ? (
-                  <div className="text-xs text-gray-400 italic">Tikrinama duomenų bazė...</div>
-                ) : (
-                  <div className="space-y-3">
-                    {currentMembers.length > 0 && (
-                      <div>
-                        <div className="text-xs text-gray-400 mb-2">Dabartiniai nariai</div>
-                        <div className="flex flex-wrap gap-2">
-                          {currentMembers.map(m => (
-                            <MemberChip key={m.wikiTitle} member={m} />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {pastMembers.length > 0 && (
-                      <div>
-                        <div className="text-xs text-gray-400 mb-2">Buvę nariai</div>
-                        <div className="flex flex-wrap gap-2">
-                          {pastMembers.map(m => (
-                            <MemberChip key={m.wikiTitle} member={m} past />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {currentMembers.some(m => !m.existingId) && (
-                      <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                        ⚠️ Paspaudus „Taikyti į formą" bus automatiškai sukurti trūkstami nariai ir pridėti į grupę.
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {p.description&&(
-              <div>
-                <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
-                  {translateOk ? "APRAŠYMAS (LT ✓)" : "APRAŠYMAS (vertimas nepavyko – angliškai)"}
-                </div>
-                <p className="text-sm text-gray-800 leading-relaxed bg-gray-50 rounded-lg p-3 border border-gray-100">{p.description}</p>
-              </div>
-            )}
+          {/* Details */}
+          <div className="px-4 py-2.5 flex flex-wrap gap-x-5 gap-y-1 text-xs border-b border-gray-100">
+            {p.genre && <span><span className="text-gray-400">Žanras:</span> <span className="text-gray-700">{p.genre}</span></span>}
+            {p.type === 'solo' && p.gender && <span><span className="text-gray-400">Lytis:</span> <span className="text-gray-700">{p.gender === 'male' ? 'Vyras' : 'Moteris'}</span></span>}
+            {p.type === 'solo' && p.birthYear && <span><span className="text-gray-400">Gimė:</span> <span className="text-gray-700">{fmtDate(p.birthYear, p.birthMonth, p.birthDay)}</span></span>}
+            {p.type === 'solo' && p.deathYear && <span><span className="text-gray-400">Mirė:</span> <span className="text-gray-700">{fmtDate(p.deathYear, p.deathMonth, p.deathDay)}</span></span>}
+            {p.breaks && p.breaks.length > 0 && <span className="w-full"><span className="text-gray-400">Pertraukos:</span> <span className="text-gray-700">{p.breaks.map(b => `${b.from}–${b.to||'?'}`).join(', ')}</span></span>}
+            {p.website && <span className="w-full truncate"><span className="text-gray-400">Svetainė:</span> <span className="text-gray-700">{p.website.replace(/^https?:\/\//, '')}</span></span>}
           </div>
+
+          {/* Substyles */}
+          {p.substyles && p.substyles.length > 0 && (
+            <div className="px-4 py-2 flex flex-wrap gap-1 border-b border-gray-100">
+              {p.substyles.map(s => (
+                <span key={s} className="px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded text-[11px]">{s}</span>
+              ))}
+            </div>
+          )}
+
+          {/* Socials */}
+          {foundSocialKeys.length > 0 && (
+            <div className="px-4 py-2 flex flex-wrap gap-1 border-b border-gray-100">
+              {foundSocialKeys.map(k => (
+                <span key={k} className="px-1.5 py-0.5 bg-blue-50 text-blue-600 border border-blue-100 rounded text-[11px]">{k}</span>
+              ))}
+            </div>
+          )}
+
+          {/* Members */}
+          {(membersLoading || members.length > 0) && (
+            <div className="px-4 py-2.5 border-b border-gray-100">
+              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
+                Nariai {membersLoading && <span className="animate-spin inline-block ml-1">⟳</span>}
+              </span>
+              {!membersLoading && (
+                <div className="mt-1.5 space-y-1.5">
+                  {currentMembers.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {currentMembers.map(m => <MemberChip key={m.wikiTitle} member={m} />)}
+                    </div>
+                  )}
+                  {pastMembers.length > 0 && (
+                    <div>
+                      <div className="text-[10px] text-gray-400 mb-1">Buvę:</div>
+                      <div className="flex flex-wrap gap-1">
+                        {pastMembers.map(m => <MemberChip key={m.wikiTitle} member={m} past />)}
+                      </div>
+                    </div>
+                  )}
+                  {currentMembers.some(m => !m.existingId) && (
+                    <p className="text-[11px] text-amber-600 bg-amber-50 rounded px-2 py-1 border border-amber-100 mt-1">
+                      Trūkstami nariai bus sukurti automatiškai
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Description */}
+          {p.description && (
+            <div className="px-4 py-2.5">
+              <p className="text-xs text-gray-500 leading-relaxed line-clamp-3">{p.description}</p>
+              {!translateOk && <span className="text-[10px] text-amber-500 mt-1 block">Vertimas nepavyko (EN)</span>}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -658,34 +583,18 @@ export default function WikipediaImport({ onImport }: Props) {
 }
 
 function MemberChip({ member, past }: { member: BandMember; past?: boolean }) {
-  const exists = !!member.existingId
   return (
-    <div className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl border text-xs font-medium ${
-      past
-        ? 'bg-gray-50 border-gray-200 text-gray-500'
-        : exists
-          ? 'bg-green-50 border-green-200 text-green-800'
-          : 'bg-blue-50 border-blue-200 text-blue-800'
+    <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[11px] ${
+      past ? 'bg-gray-50 border-gray-200 text-gray-400'
+           : member.existingId ? 'bg-green-50 border-green-200 text-green-700'
+                               : 'bg-blue-50 border-blue-200 text-blue-700'
     }`}>
       {member.avatar
-        ? <img src={member.avatar} alt="" className="w-5 h-5 rounded-full object-cover shrink-0" referrerPolicy="no-referrer" />
-        : <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-[9px] shrink-0">{member.name[0]}</div>
+        ? <img src={member.avatar} alt="" className="w-3.5 h-3.5 rounded-full object-cover shrink-0" referrerPolicy="no-referrer" />
+        : <div className="w-3.5 h-3.5 rounded-full bg-gray-200 flex items-center justify-center text-[7px] shrink-0 font-bold">{member.name[0]}</div>
       }
       <span>{member.name}</span>
-      {exists
-        ? <span className="text-green-500 text-[10px]">✓ DB</span>
-        : <span className="text-blue-400 text-[10px]">+ naujas</span>
-      }
-    </div>
-  )
-}
-
-function F({ l, v, wide }: { l:string; v?:string; wide?:boolean }) {
-  if (!v) return null
-  return (
-    <div className={wide ? 'col-span-2' : ''}>
-      <span className="text-xs text-gray-400 block mb-0.5">{l}</span>
-      <span className="font-semibold text-gray-900 text-sm">{v}</span>
+      <span className="opacity-50">{member.existingId ? '✓' : '+'}</span>
     </div>
   )
 }
