@@ -114,31 +114,37 @@ function Step1Wiki({ onFound, onSkip }: {
     setSearching(true)
     setResults([])
     try {
-      const res = await fetch(
-        `https://lt.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&srlimit=6&format=json&origin=*`
-      )
-      const data = await res.json()
-      const hits = (data.query?.search || []).map((r: any) => ({
+      // Search EN first (more comprehensive for international artists),
+      // then LT — merge results, EN first
+      const [enRes, ltRes] = await Promise.all([
+        fetch(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query + ' musician OR band OR singer')}&srlimit=5&format=json&origin=*`),
+        fetch(`https://lt.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&srlimit=3&format=json&origin=*`),
+      ])
+      const enData = await enRes.json()
+      const ltData = await ltRes.json()
+
+      const enHits = (enData.query?.search || []).map((r: any) => ({
+        title: r.title,
+        url: `https://en.wikipedia.org/wiki/${encodeURIComponent(r.title.replace(/ /g, '_'))}`,
+        description: r.snippet?.replace(/<[^>]+>/g, '').slice(0, 100),
+        lang: 'EN',
+      }))
+      const ltHits = (ltData.query?.search || []).map((r: any) => ({
         title: r.title,
         url: `https://lt.wikipedia.org/wiki/${encodeURIComponent(r.title.replace(/ /g, '_'))}`,
         description: r.snippet?.replace(/<[^>]+>/g, '').slice(0, 100),
+        lang: 'LT',
       }))
 
-      // If nothing in lt.wikipedia, try en.wikipedia
-      if (hits.length === 0) {
-        const res2 = await fetch(
-          `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query + ' musician')}&srlimit=6&format=json&origin=*`
-        )
-        const data2 = await res2.json()
-        const hits2 = (data2.query?.search || []).map((r: any) => ({
-          title: r.title,
-          url: `https://en.wikipedia.org/wiki/${encodeURIComponent(r.title.replace(/ /g, '_'))}`,
-          description: r.snippet?.replace(/<[^>]+>/g, '').slice(0, 100),
-        }))
-        setResults(hits2)
-      } else {
-        setResults(hits)
-      }
+      // Merge: EN first, then LT (deduplicate by title)
+      const seen = new Set<string>()
+      const merged = [...enHits, ...ltHits].filter(h => {
+        const key = h.title.toLowerCase()
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
+      setResults(merged)
     } catch {}
     setSearching(false)
   }
@@ -192,10 +198,16 @@ function Step1Wiki({ onFound, onSkip }: {
                   className="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-0">
                   <div className="flex items-start gap-3">
                     <span className="text-base mt-0.5">📖</span>
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold text-gray-800">{r.title}</div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-gray-800">{r.title}</span>
+                        {(r as any).lang && (
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${(r as any).lang === 'LT' ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-600'}`}>
+                            {(r as any).lang}
+                          </span>
+                        )}
+                      </div>
                       {r.description && <div className="text-xs text-gray-400 truncate mt-0.5">{r.description}...</div>}
-                      <div className="text-[10px] text-blue-400 mt-0.5 truncate">{r.url}</div>
                     </div>
                     <span className="text-gray-300 text-sm ml-auto shrink-0">→</span>
                   </div>
@@ -454,9 +466,11 @@ export default function NewArtistWizard() {
         <Steps current={step} />
 
         {/* Step content */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8">
+        <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 ${step === 2 ? 'p-0 overflow-hidden' : 'p-4 sm:p-8'}`}>
           {step === 1 && (
-            <Step1Wiki onFound={handleWikiFound} onSkip={handleSkipWiki} />
+            <div className="p-4 sm:p-8">
+              <Step1Wiki onFound={handleWikiFound} onSkip={handleSkipWiki} />
+            </div>
           )}
           {step === 2 && (
             <Step2Info
@@ -467,13 +481,15 @@ export default function NewArtistWizard() {
             />
           )}
           {step === 3 && artistId && (
-            <Step3Discography
-              artistId={artistId}
-              artistName={artistName}
-              wikiTitle={wikiTitle}
-              isSolo={isSolo}
-              onFinish={handleFinish}
-            />
+            <div className="p-4 sm:p-8">
+              <Step3Discography
+                artistId={artistId}
+                artistName={artistName}
+                wikiTitle={wikiTitle}
+                isSolo={isSolo}
+                onFinish={handleFinish}
+              />
+            </div>
           )}
         </div>
       </div>
