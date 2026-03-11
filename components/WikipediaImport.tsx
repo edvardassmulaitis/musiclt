@@ -37,17 +37,30 @@ type BandMember = {
   avatar?: string
 }
 
+function extractFieldNested(wikitext: string, field: string): string {
+  const startRe = new RegExp(`\\|\\s*${field}\\s*=\\s*`, 'i')
+  const startM = wikitext.match(startRe)
+  if (!startM || startM.index === undefined) return ''
+  const startIdx = startM.index + startM[0].length
+  let depth = 0, i = startIdx
+  while (i < wikitext.length) {
+    if (wikitext[i] === '{' && wikitext[i+1] === '{') { depth++; i += 2; continue }
+    if (wikitext[i] === '}' && wikitext[i+1] === '}') {
+      depth--; if (depth <= 0) { i += 2; break }
+      i += 2; continue
+    }
+    if (depth === 0 && wikitext[i] === '\n' && /^\s*\|/.test(wikitext.slice(i+1))) break
+    i++
+  }
+  return wikitext.slice(startIdx, i)
+}
+
 function parseBandMembers(wikitext: string): BandMember[] {
   const members: BandMember[] = []
   const seen = new Set<string>()
   const extractField = (field: string, isCurrent: boolean) => {
-    const re = new RegExp(`\\|\\s*${field}\\s*=([\\s\\S]*?)(?=\\n\\s*\\||\\n\\}\\})`, 'i')
-    const m = wikitext.match(re)
-    if (!m) return
-    // Išvalome wrapper templates bet paliekame jų turinį viduje
-    const block = m[1]
-      .replace(/\{\{(?:nowrap|ubl|hlist|flatlist|plainlist|small|unbulleted[ _]list)\s*\|([^}]*)\}\}/gi, '$1')
-      .replace(/\{\{[^|}][^}]*\}\}/g, '')
+    const block = extractFieldNested(wikitext, field)
+    if (!block) return
     const linkRe = /\[\[\s*([^\]|#]+?)(?:\s*\|\s*([^\]]+))?\s*\]\]/g
     let lm: RegExpExecArray | null
     while ((lm = linkRe.exec(block)) !== null) {
