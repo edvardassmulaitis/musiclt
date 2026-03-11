@@ -20,6 +20,93 @@ function fmtDate(year?: string, month?: string, day?: string): string {
   return parts.join(' ')
 }
 
+// ─── Clean artist name: remove disambiguation suffixes ───────────────────────
+function cleanArtistName(raw: string): string {
+  return raw
+    .replace(/\s*\(\s*(?:band|group|music(?:al)?\s*(?:group|act)?|singer|rapper|duo|trio|quartet|artist|musician|rock\s*band|pop\s*group)\s*\)/gi, '')
+    .replace(/\s*\(\s*the\s+band\s*\)/gi, '')
+    .replace(/_/g, ' ')
+    .trim()
+}
+
+// ─── Band members ─────────────────────────────────────────────────────────────
+type BandMember = {
+  name: string
+  wikiTitle: string
+  isCurrent: boolean
+  // Resolved after DB check:
+  existingId?: number
+  existingSlug?: string
+  avatar?: string
+}
+
+function parseBandMembers(wikitext: string): BandMember[] {
+  const members: BandMember[] = []
+  const seen = new Set<string>()
+
+  const extractField = (field: string, isCurrent: boolean) => {
+    // Match multiline field value until next | or }}
+    const re = new RegExp(`\\|\\s*${field}\\s*=([\\s\\S]*?)(?=\\n\\s*\\||\\n\\}\\})`, 'i')
+    const m = wikitext.match(re)
+    if (!m) return
+    const block = m[1]
+
+    // Extract [[WikiTitle|Display]] or [[WikiTitle]]
+    const linkRe = /\[\[\s*([^\]|#]+?)(?:\s*\|\s*([^\]]+))?\s*\]\]/g
+    let lm: RegExpExecArray | null
+    while ((lm = linkRe.exec(block)) !== null) {
+      const wikiTitle = lm[1].replace(/\s+/g, '_').trim()
+      const display = (lm[2] || lm[1])
+        .replace(/'{2,}/g, '')
+        .replace(/\[\[|\]\]/g, '')
+        .replace(/\{\{[^}]+\}\}/g, '')
+        .trim()
+      // Skip template names, categories, etc.
+      if (!display || display.length < 2) continue
+      if (/^(plain ?list|flatlist|hlist|br|small|nowrap|ubl|refn|ref|cite)/i.test(display)) continue
+      if (wikiTitle.includes(':')) continue // File:, Category:, etc.
+      if (seen.has(wikiTitle)) continue
+      seen.add(wikiTitle)
+      members.push({ name: cleanArtistName(display), wikiTitle, isCurrent })
+    }
+  }
+
+  extractField('current_members', true)
+  extractField('members', true)
+  extractField('past_members', false)
+  extractField('former_members', false)
+
+  return members
+}
+
+async function fetchMemberAvatar(wikiTitle: string): Promise<string> {
+  try {
+    const res = await fetch(
+      `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(wikiTitle)}&prop=pageimages&pithumbsize=200&piprop=thumbnail&format=json&origin=*`
+    )
+    const json = await res.json()
+    const pages = json.query?.pages || {}
+    const page = Object.values(pages)[0] as any
+    return page?.thumbnail?.source || ''
+  } catch { return '' }
+}
+
+async function checkMemberInDB(name: string): Promise<{ id: number; slug: string } | null> {
+  try {
+    const res = await fetch(`/api/artists?search=${encodeURIComponent(name)}&limit=5`)
+    if (!res.ok) return null
+    const data = await res.json()
+    const artists: any[] = data.artists || []
+    // Exact or very close match
+    const match = artists.find(a =>
+      a.name.toLowerCase() === name.toLowerCase() ||
+      a.name.toLowerCase().replace(/\s+/g,'') === name.toLowerCase().replace(/\s+/g,'')
+    )
+    return match ? { id: match.id, slug: match.slug } : null
+  } catch { return null }
+}
+
+// ─── Genre helpers ────────────────────────────────────────────────────────────
 const GENRE_RULES: [string, string[]][] = [
   ['Sunkioji muzika',           ['metal','heavy metal','thrash','doom','black metal','grindcore','metalcore','death metal']],
   ['Roko muzika',               ['rock','punk','grunge','new wave','britpop','alternative rock','indie rock','post-punk','hard rock','post-rock','progressive rock']],
@@ -62,6 +149,7 @@ function parseInfoboxGenres(wikitext: string): string[] | null {
   return all.length > 0 ? all : null
 }
 
+// ─── Country helpers ──────────────────────────────────────────────────────────
 const QID_COUNTRY: Record<string, string> = {
   Q142:'Prancūzija',Q183:'Vokietija',Q30:'JAV',Q145:'Didžioji Britanija',
   Q34:'Švedija',Q20:'Norvegija',Q33:'Suomija',Q35:'Danija',
@@ -116,7 +204,6 @@ function parseWDDate(t: string) {
   return { year: parseInt(y) ? String(parseInt(y)) : '', month: parseInt(m) ? String(parseInt(m)) : '', day: parseInt(d) ? String(parseInt(d)) : '' }
 }
 
-// FIXED: single years (2004, 2014) treated as one-off, not full ranges
 function parseYearsActive(raw: string): { yearStart: string; yearEnd: string; breaks: Break[] } {
   const clean = raw
     .replace(/\{\{[^}]+\}\}/g, '').replace(/\[\[([^\]|]+\|)?([^\]]+)\]\]/g, '$2')
@@ -137,11 +224,9 @@ function parseYearsActive(raw: string): { yearStart: string; yearEnd: string; br
     return { yearStart: y?.[1] || '', yearEnd: '', breaks: [] }
   }
   const yearStart = ranges[0].from
-  // yearEnd from last non-oneoff range
   const realRanges = ranges.filter(r => !r.oneoff)
   const lastReal = realRanges[realRanges.length - 1]
   const yearEnd = lastReal ? lastReal.to : ranges[ranges.length - 1].to
-  // Breaks only between consecutive real ranges
   const breaks: Break[] = []
   for (let i = 0; i < realRanges.length - 1; i++) {
     const gf = realRanges[i].to, gt = realRanges[i + 1].from
@@ -169,6 +254,7 @@ const SOCIAL_META: Record<string,{icon:string;label:string}> = {
 const GROUP_QIDS = new Set(['Q215380','Q5741069','Q2088357','Q9212979','Q56816265','Q190445','Q16010345','Q183319'])
 const SKIP_WEB = ['store','shop','merch','bandsintown','songkick','last.fm','allmusic','discogs','musicbrainz','facebook','instagram','twitter','x.com','youtube','spotify','soundcloud','tiktok','bandcamp']
 
+// ─── Main component ───────────────────────────────────────────────────────────
 export default function WikipediaImport({ onImport }: Props) {
   const [url, setUrl] = useState('')
   const [loading, setLoading] = useState(false)
@@ -176,6 +262,9 @@ export default function WikipediaImport({ onImport }: Props) {
   const [error, setError] = useState('')
   const [preview, setPreview] = useState<Partial<ArtistFormData> | null>(null)
   const [translateOk, setTranslateOk] = useState(false)
+  const [members, setMembers] = useState<BandMember[]>([])
+  const [membersLoading, setMembersLoading] = useState(false)
+  const [applyingMembers, setApplyingMembers] = useState(false)
 
   const extractSlug = (u: string) => {
     const m = u.match(/wikipedia\.org\/wiki\/(.+?)(?:\?|#|$)/)
@@ -183,12 +272,11 @@ export default function WikipediaImport({ onImport }: Props) {
   }
 
   const go = async () => {
-    setError(''); setPreview(null)
+    setError(''); setPreview(null); setMembers([])
     const s = extractSlug(url)
     if (!s) { setError('Netinkamas URL'); return }
     setLoading(true)
     try {
-      // 1. Summary + translate FIRST (before other slow calls)
       setStep('📄 Kraunama Wikipedia...')
       const sumRes = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(s)}`)
       if (!sumRes.ok) throw new Error(`Puslapis nerastas: ${s}`)
@@ -197,7 +285,6 @@ export default function WikipediaImport({ onImport }: Props) {
       const shortDesc = rawDesc.split(/\.\s+/).slice(0, 3).join('. ').substring(0, 700)
       const avatarSrcUrl = sum.thumbnail?.source || ''
 
-      // 2. Translate EARLY — before slow Wikidata calls
       let description = shortDesc
       let trOk = false
       if (shortDesc) {
@@ -210,31 +297,34 @@ export default function WikipediaImport({ onImport }: Props) {
       }
       setTranslateOk(trOk)
 
-      // 3. Wikitext (infobox)
       setStep('📋 Skaitomas infobox...')
       let infoboxWebsite = '', infoboxYearsRaw = '', infoboxGenres: string[] | null = null
+      let rawWikitext = ''
+      let parsedMembers: BandMember[] = []
       try {
         const wtRes = await (await fetch(
           `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(s)}&prop=revisions&rvprop=content&rvslots=main&format=json&origin=*`
         )).json()
         const pages = wtRes.query?.pages || {}
         const firstPage = Object.values(pages)[0] as any
-        const wt: string = firstPage?.['revisions']?.[0]?.['slots']?.['main']?.['*']
+        rawWikitext = firstPage?.['revisions']?.[0]?.['slots']?.['main']?.['*']
           || firstPage?.['revisions']?.[0]?.['*']
           || (await (await fetch(
             `https://en.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(s)}&prop=wikitext&format=json&origin=*`
           )).json()).parse?.wikitext?.['*'] || ''
-        infoboxGenres = parseInfoboxGenres(wt)
-        const wsM = wt.match(/\|\s*website\s*=\s*(?:\{\{[Uu][Rr][Ll]\|([^|}]+)[^}]*\}\}|(https?:\/\/[^\s<|{}\[\]\n]+))/i)
+        infoboxGenres = parseInfoboxGenres(rawWikitext)
+        const wsM = rawWikitext.match(/\|\s*website\s*=\s*(?:\{\{[Uu][Rr][Ll]\|([^|}]+)[^}]*\}\}|(https?:\/\/[^\s<|{}\[\]\n]+))/i)
         if (wsM) {
           const raw = (wsM[1] || wsM[2] || '').trim().replace(/\/*$/, '')
           if (raw) infoboxWebsite = raw.startsWith('http') ? raw : `https://${raw}`
         }
-        const yaM = wt.match(/\|\s*years[_ ]active\s*=\s*([^\n|<]+)/i)
+        const yaM = rawWikitext.match(/\|\s*years[_ ]active\s*=\s*([^\n|<]+)/i)
         if (yaM) infoboxYearsRaw = yaM[1].trim()
+
+        // Parse members from wikitext
+        parsedMembers = parseBandMembers(rawWikitext)
       } catch {}
 
-      // 4. Wikidata
       setStep('🔗 Jungiamasi prie Wikidata...')
       const ppRes = await fetch(
         `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(s)}&prop=pageprops&format=json&origin=*`
@@ -251,7 +341,6 @@ export default function WikipediaImport({ onImport }: Props) {
       let website = infoboxWebsite
       const socials: Partial<ArtistFormData> = {}
 
-      // Parse years active from infobox immediately (before Wikidata)
       if (infoboxYearsRaw) {
         const ya = parseYearsActive(infoboxYearsRaw)
         yearStart = ya.yearStart; yearEnd = ya.yearEnd; breaks = ya.breaks
@@ -271,10 +360,12 @@ export default function WikipediaImport({ onImport }: Props) {
         type = (hasBirth || instances.includes('Q5')) ? 'solo'
              : instances.some(q=>GROUP_QIDS.has(q)) ? 'group' : 'solo'
 
+        // If it's a group and we have members — mark as group
+        if (parsedMembers.length > 0) type = 'group'
+
         const bd=first('P569')?.time; if(bd){const d=parseWDDate(bd);birthYear=d.year;birthMonth=d.month;birthDay=d.day;type='solo'}
         const dd=first('P570')?.time; if(dd){const d=parseWDDate(dd);deathYear=d.year;deathMonth=d.month;deathDay=d.day}
 
-        // Wikidata fallback only if infobox had no years
         if (!yearStart) {
           const yas=first('P2031')?.time; if(yas) yearStart=parseWDDate(yas).year
           const yae=first('P2032')?.time; if(yae) yearEnd=parseWDDate(yae).year
@@ -316,7 +407,6 @@ export default function WikipediaImport({ onImport }: Props) {
         }
       }
 
-      // 5. Avatar
       let avatar = ''
       if (avatarSrcUrl) {
         setStep('🖼️ Saugoma nuotrauka...')
@@ -329,8 +419,10 @@ export default function WikipediaImport({ onImport }: Props) {
       const finalGenres = infoboxGenres || wdGenres
       const { genre, substyles } = mapGenres(finalGenres)
 
+      const cleanName = cleanArtistName(sum.title?.replace(/_/g,' ') || '')
+
       setPreview({
-        name: sum.title?.replace(/_/g,' ') || '',
+        name: cleanName,
         type, country: country||'Lietuva',
         genre, substyles, description,
         yearStart, yearEnd, breaks,
@@ -339,13 +431,98 @@ export default function WikipediaImport({ onImport }: Props) {
         gender, avatar, website, photos:[],
         ...socials,
       })
+
+      // Load members in background (DB check + avatars)
+      if (parsedMembers.length > 0) {
+        setStep('')
+        setMembersLoading(true)
+        // Check DB for each member concurrently
+        const resolved = await Promise.all(
+          parsedMembers.map(async (m) => {
+            const [dbResult, avatarUrl] = await Promise.all([
+              checkMemberInDB(m.name),
+              fetchMemberAvatar(m.wikiTitle),
+            ])
+            return {
+              ...m,
+              existingId: dbResult?.id,
+              existingSlug: dbResult?.slug,
+              avatar: avatarUrl,
+            }
+          })
+        )
+        setMembers(resolved)
+        setMembersLoading(false)
+      }
+
       setStep('')
     }catch(e:any){setError(e.message||'Klaida');setStep('')}
     setLoading(false)
   }
 
+  // Apply to form: create missing members first, then call onImport with member IDs
+  const handleApply = async () => {
+    if (!preview) return
+
+    const groupMembers = members.filter(m => m.isCurrent)
+    if (groupMembers.length === 0) {
+      onImport(preview)
+      setPreview(null); setUrl(''); setMembers([])
+      return
+    }
+
+    setApplyingMembers(true)
+    const memberIds: { id: number; yearFrom?: string; yearTo?: string }[] = []
+
+    for (const m of groupMembers) {
+      if (m.existingId) {
+        memberIds.push({ id: m.existingId })
+      } else {
+        // Create member via API
+        try {
+          const res = await fetch('/api/artists', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: m.name,
+              type: 'solo',
+              type_music: true,
+              type_film: false,
+              type_dance: false,
+              type_books: false,
+              cover_image_url: m.avatar || '',
+              country: preview.country || 'Lietuva',
+              active_from: preview.yearStart ? parseInt(preview.yearStart) : null,
+              genres: [],
+              substyleNames: [],
+            }),
+          })
+          if (res.ok) {
+            const data = await res.json()
+            const newId = data.id || data.artist?.id
+            if (newId) {
+              memberIds.push({ id: newId })
+              // Update member in local state
+              setMembers(prev => prev.map(pm =>
+                pm.wikiTitle === m.wikiTitle
+                  ? { ...pm, existingId: newId }
+                  : pm
+              ))
+            }
+          }
+        } catch {}
+      }
+    }
+
+    setApplyingMembers(false)
+    onImport({ ...preview, members: memberIds as any })
+    setPreview(null); setUrl(''); setMembers([])
+  }
+
   const p = preview
   const foundSocials = p ? Object.entries(SOCIAL_META).filter(([k])=>(p as any)[k]) : []
+  const currentMembers = members.filter(m => m.isCurrent)
+  const pastMembers = members.filter(m => !m.isCurrent)
 
   return (
     <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 space-y-4">
@@ -373,8 +550,10 @@ export default function WikipediaImport({ onImport }: Props) {
         <div className="bg-white rounded-xl border border-blue-200 overflow-hidden">
           <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border-b">
             <span className="font-bold text-gray-900">Rasta informacija</span>
-            <button type="button" onClick={()=>{onImport(p);setPreview(null);setUrl('')}}
-              className="px-5 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-bold">✓ Taikyti į formą</button>
+            <button type="button" onClick={handleApply} disabled={applyingMembers || membersLoading}
+              className="px-5 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-bold disabled:opacity-50">
+              {applyingMembers ? '⏳ Kuriami nariai...' : '✓ Taikyti į formą'}
+            </button>
           </div>
           <div className="p-5 space-y-4">
             <div className="flex items-center gap-4">
@@ -420,6 +599,49 @@ export default function WikipediaImport({ onImport }: Props) {
                 </div>
               </div>
             )}
+
+            {/* Band members section */}
+            {(membersLoading || members.length > 0) && (
+              <div>
+                <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 flex items-center gap-2">
+                  GRUPĖS NARIAI
+                  {membersLoading && <span className="inline-block animate-spin text-blue-400">⟳</span>}
+                </div>
+
+                {membersLoading ? (
+                  <div className="text-xs text-gray-400 italic">Tikrinama duomenų bazė...</div>
+                ) : (
+                  <div className="space-y-3">
+                    {currentMembers.length > 0 && (
+                      <div>
+                        <div className="text-xs text-gray-400 mb-2">Dabartiniai nariai</div>
+                        <div className="flex flex-wrap gap-2">
+                          {currentMembers.map(m => (
+                            <MemberChip key={m.wikiTitle} member={m} />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {pastMembers.length > 0 && (
+                      <div>
+                        <div className="text-xs text-gray-400 mb-2">Buvę nariai</div>
+                        <div className="flex flex-wrap gap-2">
+                          {pastMembers.map(m => (
+                            <MemberChip key={m.wikiTitle} member={m} past />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {currentMembers.some(m => !m.existingId) && (
+                      <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                        ⚠️ Paspaudus „Taikyti į formą" bus automatiškai sukurti trūkstami nariai ir pridėti į grupę.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {p.description&&(
               <div>
                 <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
@@ -431,6 +653,29 @@ export default function WikipediaImport({ onImport }: Props) {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function MemberChip({ member, past }: { member: BandMember; past?: boolean }) {
+  const exists = !!member.existingId
+  return (
+    <div className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl border text-xs font-medium ${
+      past
+        ? 'bg-gray-50 border-gray-200 text-gray-500'
+        : exists
+          ? 'bg-green-50 border-green-200 text-green-800'
+          : 'bg-blue-50 border-blue-200 text-blue-800'
+    }`}>
+      {member.avatar
+        ? <img src={member.avatar} alt="" className="w-5 h-5 rounded-full object-cover shrink-0" referrerPolicy="no-referrer" />
+        : <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-[9px] shrink-0">{member.name[0]}</div>
+      }
+      <span>{member.name}</span>
+      {exists
+        ? <span className="text-green-500 text-[10px]">✓ DB</span>
+        : <span className="text-blue-400 text-[10px]">+ naujas</span>
+      }
     </div>
   )
 }
