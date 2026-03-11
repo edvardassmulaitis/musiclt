@@ -1,5 +1,5 @@
 'use client'
-// v2
+// v3 — pridėta hideButtons prop, pašalintas min-h-screen outer wrapper
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { GENRES } from '@/lib/constants'
@@ -63,12 +63,6 @@ const IconLink = () => (
 const IconTrash = () => (
   <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-none stroke-current stroke-2 shrink-0"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
 )
-const IconWiki = () => (
-  <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-none stroke-current stroke-2 shrink-0"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-)
-const IconDisc = () => (
-  <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-none stroke-current stroke-2 shrink-0"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
-)
 const WikipediaIcon = () => (
   <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 shrink-0" fill="currentColor" aria-hidden="true">
     <path d="M12.09 13.119c-.936 1.932-2.217 4.548-2.853 5.728-.616 1.146-1.069 1.93-1.402 2.376-.333.445-.716.777-1.15.995C6.22 22.604 5.378 22 4.5 22c-.841 0-1.533-.31-2.074-.931C1.885 20.448 1.615 19.67 1.615 18.75c0-.65.194-1.21.583-1.68l.042-.047c.422-.458 1.01-.737 1.762-.837v-.073c-.558-.113-.997-.365-1.317-.757-.32-.393-.48-.861-.48-1.406 0-.484.143-.9.428-1.248.285-.348.655-.522 1.11-.522.392 0 .74.104 1.044.312.304.207.537.516.7.927.162.41.244.879.244 1.407v.115c.357-.05.685-.076.982-.076.298 0 .608.025.93.076v-.115c0-.528.081-.998.244-1.407.163-.411.396-.72.7-.927.304-.208.652-.312 1.044-.312.455 0 .825.174 1.11.522.285.348.428.764.428 1.248 0 .545-.16 1.013-.48 1.406-.32.392-.759.644-1.317.757v.073c.752.1 1.34.379 1.762.837l.042.047c.389.47.583 1.03.583 1.68 0 .919-.27 1.697-.81 2.333C14.034 21.69 13.34 22 12.5 22c-.878 0-1.72-.604-2.185-1.082L12.09 13.119zM22 2h-3.5l-3 9-3-9h-1l-3 9-3-9H2l4.5 13h1L11 6l3.5 9h1L20 2h2z"/>
@@ -120,12 +114,9 @@ type Props = {
   backHref: string
   title: string
   submitLabel: string
-  // Called when any field changes — for auto-save
   onChange?: (d: ArtistFormData) => void
-}
-
-function SL({ children }: { children: React.ReactNode }) {
-  return <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{children}</label>
+  // v3: slėpti apatinius mygtukus kai puslapyje yra sticky header su mygtukais
+  hideButtons?: boolean
 }
 
 function Inp({ value, onChange, placeholder, type='text', required }: any) {
@@ -138,14 +129,6 @@ function Sel({ value, onChange, children, required }: any) {
     className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-blue-400 bg-white appearance-none cursor-pointer hover:border-gray-300 transition-colors">
     {children}
   </select>
-}
-
-function Card({ title, children, className='' }: { title:string; children:React.ReactNode; className?:string }) {
-  return (
-    <div className={`bg-white rounded-xl shadow-sm border border-gray-100 ${className}`}>
-      <div className="p-5">{children}</div>
-    </div>
-  )
 }
 
 function YearInput({ value, onChange, placeholder='MMMM' }: { value:string; onChange:(v:string)=>void; placeholder?:string }) {
@@ -195,7 +178,7 @@ function DateRow({ label, y, m, d, onY, onM, onD }: any) {
   )
 }
 
-// ── ImageCropper — canvas pan/zoom, returns square crop + original ────────────
+// ── ImageCropper ──────────────────────────────────────────────────────────────
 type CropResult = { square: Blob; original: Blob }
 
 function ImageCropper({ src, onCrop, onCancel }: {
@@ -385,149 +368,7 @@ function ImageCropper({ src, onCrop, onCancel }: {
   )
 }
 
-// ── AvatarUpload — handles file upload, URL input, crop, Wikipedia image ──────
-function AvatarUpload({ value, onChange, onOriginalSaved }: { value: string; onChange: (url: string) => void; onOriginalSaved?: (url: string) => void }) {
-  const fileRef = useRef<HTMLInputElement>(null)
-  const [uploading, setUploading] = useState(false)
-  const [error, setError] = useState('')
-  const [urlInput, setUrlInput] = useState('')
-  const [cropSrc, setCropSrc] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (value && !value.startsWith('data:')) setUrlInput(value)
-  }, [value])
-
-  const handleFileSelect = (file: File) => {
-    const reader = new FileReader()
-    reader.onload = e => setCropSrc(e.target?.result as string)
-    reader.readAsDataURL(file)
-  }
-
-  const handleCropped = async ({ square, original }: CropResult) => {
-    setCropSrc(null)
-    setUploading(true); setError('')
-    try {
-      const fd1 = new FormData(); fd1.append('file', square, 'avatar-square.jpg')
-      const r1 = await fetch('/api/upload', { method: 'POST', body: fd1 })
-      const d1 = await r1.json()
-      if (!r1.ok) throw new Error(d1.error || 'Upload nepavyko')
-      onChange(d1.url)
-      setUrlInput(d1.url)
-
-      if (onOriginalSaved) {
-        const fd2 = new FormData(); fd2.append('file', original, 'avatar-original.jpg')
-        const r2 = await fetch('/api/upload', { method: 'POST', body: fd2 })
-        const d2 = await r2.json()
-        if (r2.ok && d2.url) onOriginalSaved(d2.url)
-      }
-    } catch (e: any) { setError(e.message) }
-    finally { setUploading(false) }
-  }
-
-  const storeUrl = async (raw: string) => {
-    const v = raw.trim()
-    if (!v) { onChange(''); return }
-    if (!v.startsWith('http') && !v.startsWith('/')) return
-    setUploading(true); setError('')
-    try {
-      const res = await fetch('/api/fetch-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: v, returnDataUrl: true }),
-      })
-      if (!res.ok) throw new Error('Serverio klaida')
-      const d = await res.json()
-      const src = d.dataUrl || d.url
-      if (!src) throw new Error('Negautas URL')
-      setUploading(false)
-      setCropSrc(src)
-    } catch (e: any) {
-      setError('Nepavyko gauti nuotraukos. Bandykite įkelti failą.')
-      setUploading(false)
-    }
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      e.stopPropagation()
-      storeUrl(urlInput)
-    }
-  }
-
-  return (
-    <>
-      {cropSrc && (
-        <ImageCropper
-          src={cropSrc}
-          onCrop={handleCropped}
-          onCancel={() => { setCropSrc(null); setUploading(false) }}
-        />
-      )}
-      <div className="flex gap-3 items-start lg:block lg:space-y-3">
-        <div
-          className="relative rounded-xl overflow-hidden cursor-pointer group border-2 border-dashed border-gray-200 hover:border-music-blue transition-colors bg-gray-50"
-          style={{ width: "min(200px, 45vw)", height: "min(200px, 45vw)" }}
-          onClick={() => !uploading && fileRef.current?.click()}
-          onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f?.type.startsWith('image/')) handleFileSelect(f) }}
-          onDragOver={e => e.preventDefault()}
-        >
-          {value ? (
-            <>
-              <img src={value} alt="" referrerPolicy="no-referrer"
-                className="w-full h-full object-cover group-hover:opacity-70 transition-opacity" />
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1">
-                <span className="text-white text-sm">📁</span>
-                <span className="text-white text-xs font-medium">Keisti</span>
-              </div>
-            </>
-          ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center text-gray-400">
-              <span className="text-4xl mb-2">🎤</span>
-              <span className="text-xs text-center px-4">Spustelėkite arba<br/>vilkite nuotrauką</span>
-            </div>
-          )}
-          {uploading && (
-            <div className="absolute inset-0 bg-white/80 flex flex-col items-center justify-center gap-2">
-              <div className="w-6 h-6 border-2 border-music-blue border-t-transparent rounded-full animate-spin" />
-              <span className="text-xs text-gray-500">Įkeliama...</span>
-            </div>
-          )}
-        </div>
-
-        <div className="flex gap-2 flex-wrap">
-          <button type="button" onClick={() => fileRef.current?.click()}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition-colors">
-            <IconUpload />
-          </button>
-
-        </div>
-
-        <div className="space-y-1">
-          <div className="flex gap-1.5">
-            <input
-              type="text"
-              value={urlInput}
-              onChange={e => setUrlInput(e.target.value)}
-              onBlur={e => { if (e.target.value !== value) storeUrl(e.target.value) }}
-              onKeyDown={handleKeyDown}
-              placeholder="https://..."
-              className="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-music-blue bg-white"
-            />
-            <button type="button" onClick={() => storeUrl(urlInput)}
-              className="px-2 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-colors shrink-0">→</button>
-          </div>
-        </div>
-
-        {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
-        <input ref={fileRef} type="file" accept="image/*" className="hidden"
-          onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelect(f) }} />
-      </div>
-    </>
-  )
-}
-
-// ── AvatarUploadCompact — horizontal layout: photo left, controls right ────────
+// ── AvatarUploadCompact ───────────────────────────────────────────────────────
 function AvatarUploadCompact({ value, onChange, onOriginalSaved, artistId }: {
   value: string
   onChange: (url: string) => void
@@ -540,10 +381,6 @@ function AvatarUploadCompact({ value, onChange, onOriginalSaved, artistId }: {
   const [urlInput, setUrlInput] = useState('')
   const [cropSrc, setCropSrc] = useState<string | null>(null)
 
-  useEffect(() => {
-    // Do not pre-fill URL input with existing value — keep it clean
-  }, [value])
-
   const uploadBlob = async (blob: Blob, filename: string): Promise<string> => {
     const fd = new FormData(); fd.append('file', blob, filename)
     const res = await fetch('/api/upload', { method: 'POST', body: fd })
@@ -552,7 +389,6 @@ function AvatarUploadCompact({ value, onChange, onOriginalSaved, artistId }: {
     return data.url
   }
 
-  // ✅ Išsaugo avatar tiesiai į DB — kaip PhotoGallery daro su nuotraukomis
   const saveAvatarToDb = async (url: string) => {
     if (!artistId) return
     try {
@@ -575,12 +411,9 @@ function AvatarUploadCompact({ value, onChange, onOriginalSaved, artistId }: {
     setUploading(true); setError('')
     try {
       const squareUrl = await uploadBlob(square, 'avatar-square.jpg')
-      // ✅ Išsaugome avatar tiesiai į DB iš karto
       onChange(squareUrl)
       setUrlInput(squareUrl)
       await saveAvatarToDb(squareUrl)
-
-      // Įkeliame originalą į galeriją
       const origUrl = await uploadBlob(original, 'avatar-original.jpg')
       if (onOriginalSaved) onOriginalSaved(origUrl)
     } catch (e: any) { setError(e.message) }
@@ -651,31 +484,22 @@ function AvatarUploadCompact({ value, onChange, onOriginalSaved, artistId }: {
           <div className="flex gap-2 items-center flex-wrap">
             <button type="button" onClick={() => fileRef.current?.click()}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition-colors">
-              <IconUpload />
+              <IconUpload /> Įkelti failą
             </button>
-
-            <div className="relative inline-block group">
-              <span className="w-4 h-4 rounded-full bg-gray-200 text-gray-500 text-xs flex items-center justify-center cursor-help select-none">i</span>
-              <div className="absolute left-0 top-6 w-44 bg-gray-800 text-white text-xs rounded-lg px-2.5 py-2 leading-snug opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
-                Apkarpoma kvadratiškai. Originalas išsaugomas galerijoje.
-              </div>
-            </div>
           </div>
 
-          <div className="space-y-1">
-            <div className="flex gap-1.5">
-              <input
-                type="text"
-                value={urlInput}
-                onChange={e => setUrlInput(e.target.value)}
-                onBlur={e => { if (e.target.value && e.target.value !== value) storeUrl(e.target.value) }}
-                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); storeUrl(urlInput) } }}
-                placeholder="https://..."
-                className="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-music-blue bg-white"
-              />
-              <button type="button" onClick={() => storeUrl(urlInput)}
-                className="px-2 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-colors shrink-0">→</button>
-            </div>
+          <div className="flex gap-1.5">
+            <input
+              type="text"
+              value={urlInput}
+              onChange={e => setUrlInput(e.target.value)}
+              onBlur={e => { if (e.target.value && e.target.value !== value) storeUrl(e.target.value) }}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); storeUrl(urlInput) } }}
+              placeholder="https://..."
+              className="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-music-blue bg-white"
+            />
+            <button type="button" onClick={() => storeUrl(urlInput)}
+              className="px-2 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-colors shrink-0">→</button>
           </div>
 
           {error && <p className="text-xs text-red-500">{error}</p>}
@@ -687,8 +511,7 @@ function AvatarUploadCompact({ value, onChange, onOriginalSaved, artistId }: {
   )
 }
 
-// ── Shared style loader ──────────────────────────────────────────────────────
-// Grouped: { genre: string[] }[], flat unique list
+// ── StylePicker ───────────────────────────────────────────────────────────────
 type StyleData = { grouped: { genre: string; styles: string[] }[]; flat: string[] }
 let STYLES_CACHE: StyleData | null = null
 
@@ -696,7 +519,6 @@ async function loadStyleData(): Promise<StyleData> {
   if (STYLES_CACHE) return STYLES_CACHE
   try {
     const m = await import('@/lib/constants') as any
-    // SUBSTYLES is Record<string, string[]> — genre name → substyles array
     const src = m.SUBSTYLES
     if (src && typeof src === 'object' && !Array.isArray(src)) {
       const grouped = Object.entries(src as Record<string, string[]>)
@@ -714,18 +536,16 @@ async function loadStyleData(): Promise<StyleData> {
   return STYLES_CACHE
 }
 
-// ── StylePicker — compact self-contained style tags editor ─────────────────
 function StylePicker({ selected, onChange }: { selected: string[]; onChange: (v: string[]) => void }) {
-  const [inlineQ, setInlineQ] = useState('')         // inline input query
+  const [inlineQ, setInlineQ] = useState('')
   const [inlineSuggestions, setInlineSuggestions] = useState<string[]>([])
   const [showAll, setShowAll] = useState(false)
-  const [modalQ, setModalQ] = useState('')           // modal search query — SEPARATE state
+  const [modalQ, setModalQ] = useState('')
   const [styleData, setStyleData] = useState<StyleData>({ grouped: [], flat: [] })
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { loadStyleData().then(setStyleData).catch(()=>{}) }, [])
 
-  // Inline suggestions
   useEffect(() => {
     if (!inlineQ.trim()) { setInlineSuggestions([]); return }
     const lower = inlineQ.toLowerCase()
@@ -741,7 +561,6 @@ function StylePicker({ selected, onChange }: { selected: string[]; onChange: (v:
     setInlineSuggestions(matches.slice(0, 8))
   }, [inlineQ, selected, styleData])
 
-  // Modal filtered results (searched across all flat)
   const modalResults = modalQ.trim()
     ? (() => {
         const lower = modalQ.toLowerCase()
@@ -756,7 +575,7 @@ function StylePicker({ selected, onChange }: { selected: string[]; onChange: (v:
         })
         return matches
       })()
-    : null // null = show grouped
+    : null
 
   const add = (s: string) => {
     if (!selected.includes(s)) onChange([...selected, s])
@@ -776,7 +595,6 @@ function StylePicker({ selected, onChange }: { selected: string[]; onChange: (v:
             <button type="button" onClick={()=>remove(s)} className="text-blue-400 hover:text-red-500 ml-0.5 leading-none">×</button>
           </span>
         ))}
-        {/* Inline quick search */}
         <div className="relative">
           <input ref={inputRef} type="text" value={inlineQ} onChange={e=>setInlineQ(e.target.value)}
             onKeyDown={e=>{
@@ -797,14 +615,12 @@ function StylePicker({ selected, onChange }: { selected: string[]; onChange: (v:
             </div>
           )}
         </div>
-        {/* Browse all */}
         <button type="button" onClick={()=>{ setShowAll(true); setModalQ('') }}
           className="px-2 py-0.5 border border-dashed border-gray-300 rounded-full text-xs text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-colors">
           ☰
         </button>
       </div>
 
-      {/* Modal */}
       {showAll && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-6" onClick={()=>setShowAll(false)}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col" onClick={e=>e.stopPropagation()}>
@@ -818,10 +634,8 @@ function StylePicker({ selected, onChange }: { selected: string[]; onChange: (v:
                 className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-blue-400"
                 autoFocus />
             </div>
-
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {modalResults !== null ? (
-                /* Search results — flat, no duplicates */
                 <div className="flex flex-wrap gap-1.5">
                   {modalResults.length === 0
                     ? <p className="text-xs text-gray-400">Nerasta</p>
@@ -834,7 +648,6 @@ function StylePicker({ selected, onChange }: { selected: string[]; onChange: (v:
                   }
                 </div>
               ) : (
-                /* Grouped by genre */
                 styleData.grouped.map(({ genre, styles }) => {
                   const available = styles.filter(s => !selected.includes(s))
                   if (available.length === 0) return null
@@ -854,8 +667,6 @@ function StylePicker({ selected, onChange }: { selected: string[]; onChange: (v:
                 })
               )}
             </div>
-
-            {/* Selected at bottom */}
             {selected.length > 0 && (
               <div className="px-4 py-3 border-t border-gray-100 shrink-0">
                 <p className="text-xs text-gray-400 mb-2">Pasirinkta:</p>
@@ -876,19 +687,14 @@ function StylePicker({ selected, onChange }: { selected: string[]; onChange: (v:
   )
 }
 
-// ── DescriptionEditor — expandable rich text editor ─────────────────────────
+// ── DescriptionEditor ─────────────────────────────────────────────────────────
 function DescriptionEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [expanded, setExpanded] = useState(false)
   const [draft, setDraft] = useState(value)
-  const snapshotRef = useRef(value)
 
-  const open = () => {
-    snapshotRef.current = value
-    setDraft(value)
-    setExpanded(true)
-  }
+  const open = () => { setDraft(value); setExpanded(true) }
   const save = () => { onChange(draft); setExpanded(false) }
-  const discard = () => { setExpanded(false) }  // just close, draft is discarded
+  const discard = () => { setExpanded(false) }
 
   return (
     <div className="relative">
@@ -931,6 +737,7 @@ function DescriptionEditor({ value, onChange }: { value: string; onChange: (v: s
   )
 }
 
+// ── ArtistSearch ──────────────────────────────────────────────────────────────
 function ArtistSearch({ label, ph, items, onAdd, onRemove, onYears, filterType }: {
   label:string; ph:string; items:(Member|GroupRef)[]
   onAdd:(a:any)=>void; onRemove:(i:number)=>void
@@ -1038,6 +845,7 @@ function ArtistSearch({ label, ph, items, onAdd, onRemove, onYears, filterType }
   )
 }
 
+// ── InlineGallery ─────────────────────────────────────────────────────────────
 type PhotoMeta = Photo & { author?: string; sourceUrl?: string }
 
 function InlineGallery({ photos, onChange, artistName, artistId }: {
@@ -1055,19 +863,11 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
   const saveToDb = async (next: PhotoMeta[]) => {
     if (!artistId) return
     try {
-      const res = await fetch(`/api/artists/${artistId}/photos`, {
+      await fetch(`/api/artists/${artistId}/photos`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ photos: next })
       })
-      const result = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        console.error('[Gallery] saveToDb failed:', res.status, result)
-      } else {
-        console.log('[Gallery] saveToDb ok:', result)
-      }
-    } catch (e) {
-      console.error('[Gallery] saveToDb error:', e)
-    }
+    } catch {}
   }
 
   const upload = async (file: File) => {
@@ -1076,10 +876,7 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
       const fd = new FormData(); fd.append('file', file); fd.append('type', 'gallery')
       const res = await fetch('/api/upload', { method: 'POST', body: fd })
       const data = await res.json()
-      if (data.url) {
-        const next = [{ url: data.url }, ...photos]
-        onChange(next); saveToDb(next)
-      }
+      if (data.url) { const next = [{ url: data.url }, ...photos]; onChange(next); saveToDb(next) }
     } finally { setUploading(false) }
   }
 
@@ -1109,7 +906,6 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
     onChange(next); saveToDb(next)
   }
 
-  // ── Drag-and-drop reorder ──────────────────────────────────────────────────
   const onDragStart = (i: number) => setDragIdx(i)
   const onDragOver = (e: React.DragEvent, i: number) => { e.preventDefault(); setDragOverIdx(i) }
   const onDrop = (i: number) => {
@@ -1123,7 +919,6 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm mx-3 mb-2.5 overflow-hidden">
-      {/* Wikimedia modal */}
       {showWikimedia && (
         <WikimediaSearch
           artistName={artistName || ''}
@@ -1143,48 +938,30 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
         />
       )}
 
-      {/* Lightbox */}
       {lightboxIdx !== null && (
         <div className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center"
           onClick={() => setLightboxIdx(null)}>
-          {/* Close */}
           <button type="button" onClick={() => setLightboxIdx(null)}
             className="absolute top-4 right-4 w-9 h-9 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center text-xl transition-colors z-10">✕</button>
-          {/* Prev — outside image, won't interfere */}
           {lightboxIdx > 0 && (
-            <button type="button"
-              onClick={e => { e.stopPropagation(); setLightboxIdx(lightboxIdx - 1) }}
+            <button type="button" onClick={e => { e.stopPropagation(); setLightboxIdx(lightboxIdx - 1) }}
               className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/10 hover:bg-white/25 text-white rounded-full flex items-center justify-center text-2xl transition-colors z-10">‹</button>
           )}
-          {/* Next */}
           {lightboxIdx < photos.length - 1 && (
-            <button type="button"
-              onClick={e => { e.stopPropagation(); setLightboxIdx(lightboxIdx + 1) }}
+            <button type="button" onClick={e => { e.stopPropagation(); setLightboxIdx(lightboxIdx + 1) }}
               className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/10 hover:bg-white/25 text-white rounded-full flex items-center justify-center text-2xl transition-colors z-10">›</button>
           )}
-          {/* Image + meta — stopPropagation only here so clicking bg closes */}
           <div className="flex flex-col items-center gap-3 max-w-4xl w-full px-14 sm:px-20"
             onClick={e => e.stopPropagation()}>
             <img src={photos[lightboxIdx].url} alt="" referrerPolicy="no-referrer"
               className="max-h-[75vh] max-w-full object-contain rounded-xl shadow-2xl" />
-            {(photos[lightboxIdx].author || photos[lightboxIdx].sourceUrl) && (
-              <div className="text-white/60 text-xs flex items-center gap-3">
-                {photos[lightboxIdx].author && <span>© {photos[lightboxIdx].author}</span>}
-                {photos[lightboxIdx].sourceUrl && (
-                  <a href={photos[lightboxIdx].sourceUrl} target="_blank" rel="noopener noreferrer"
-                    onClick={e => e.stopPropagation()}
-                    className="text-blue-300 hover:text-blue-200 hover:underline">Šaltinis ↗</a>
-                )}
-              </div>
-            )}
             <span className="text-white/30 text-xs">{lightboxIdx + 1} / {photos.length}</span>
           </div>
         </div>
       )}
 
-      {/* Header toolbar */}
       <div className="px-3 py-2 border-b border-gray-100">
-        <div className="hidden sm:flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <div className="flex items-center gap-2 shrink-0">
             <span className="text-xs font-semibold text-gray-500">Nuotraukų galerija</span>
             {photos.length > 0 && <span className="bg-gray-200 text-gray-600 text-xs font-bold px-1.5 py-0.5 rounded-full">{photos.length}</span>}
@@ -1203,34 +980,8 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
             <IconUpload />
           </button>
         </div>
-        <div className="flex sm:hidden flex-col gap-1.5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-gray-500">Nuotraukų galerija</span>
-              {photos.length > 0 && <span className="bg-gray-200 text-gray-600 text-xs font-bold px-1.5 py-0.5 rounded-full">{photos.length}</span>}
-            </div>
-            <div className="flex items-center gap-1.5">
-              <button type="button" onClick={() => setShowWikimedia(true)}
-                className="flex items-center gap-1 px-2 py-1 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg text-xs font-medium transition-colors">
-                <WikipediaIcon /> Wiki
-              </button>
-              <button type="button" onClick={() => !uploading && fileRef.current?.click()}
-                className="flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-colors">
-                <IconUpload />
-              </button>
-            </div>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <input type="text" value={urlInput} onChange={e => setUrlInput(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); addUrl() } }}
-              placeholder="https://..."
-              className="flex-1 min-w-0 px-2 py-1 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
-            <button type="button" onClick={() => addUrl()} className="px-2 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-colors shrink-0">→</button>
-          </div>
-        </div>
       </div>
 
-      {/* Photo grid */}
       {photos.length === 0 ? (
         <div className="flex items-center justify-center py-6 text-gray-400 text-xs">Nėra nuotraukų</div>
       ) : (
@@ -1247,25 +998,20 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
                 <img src={p.url} alt="" referrerPolicy="no-referrer"
                   className="w-full h-full object-cover group-hover:opacity-85 transition-opacity" />
               </div>
-
-              {/* Delete */}
               <button type="button" onClick={e => { e.stopPropagation(); remove(i) }}
                 className="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 hover:bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity leading-none">×</button>
-              {/* Author overlay — always visible if has author */}
               {p.author && (
                 <div className="absolute inset-x-0 bottom-0 rounded-b-lg bg-gradient-to-t from-black/75 to-transparent px-1.5 pt-4 pb-1 pointer-events-none">
                   <p className="text-white/90 text-[10px] leading-tight truncate">© {p.author.split(' · ')[0]}</p>
                 </div>
               )}
-              {/* © edit button — hover only, bottom-left */}
               <button type="button" onClick={e => { e.stopPropagation(); setEditMetaIdx(editMetaIdx === i ? null : i) }}
-                className="absolute bottom-0.5 left-0.5 w-5 h-5 bg-black/50 hover:bg-blue-500 text-white rounded text-[9px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
-                title="Redaguoti metaduomenis">©</button>
+                className="absolute bottom-0.5 left-0.5 w-5 h-5 bg-black/50 hover:bg-blue-500 text-white rounded text-[9px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">©</button>
             </div>
           ))}
         </div>
       )}
-      {/* Meta edit popup */}
+
       {editMetaIdx !== null && photos[editMetaIdx] && (
         <div className="mx-2 mb-2 p-2.5 bg-gray-50 border border-gray-200 rounded-xl space-y-1.5">
           <div className="flex items-center justify-between mb-1">
@@ -1274,17 +1020,11 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
           </div>
           <div className="flex gap-2">
             <input type="text" value={photos[editMetaIdx].author || ''} onChange={e => updateMeta(editMetaIdx, 'author', e.target.value)}
-              placeholder="© Autorius / licencija (pvz. Tilly antoine · CC BY-SA 4.0)"
+              placeholder="© Autorius / licencija"
               className="flex-1 px-2 py-1 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
             <input type="url" value={photos[editMetaIdx].sourceUrl || ''} onChange={e => updateMeta(editMetaIdx, 'sourceUrl', e.target.value)}
               placeholder="Šaltinio URL"
               className="flex-1 px-2 py-1 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
-            {photos[editMetaIdx].sourceUrl && (
-              <a href={photos[editMetaIdx].sourceUrl} target="_blank" rel="noopener noreferrer"
-                className="flex items-center px-2 text-blue-500 hover:text-blue-700 shrink-0" title="Atidaryti">
-                <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-none stroke-current stroke-2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-              </a>
-            )}
           </div>
         </div>
       )}
@@ -1295,9 +1035,9 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
   )
 }
 
+// ── SocialsSection ────────────────────────────────────────────────────────────
 function SocialsSection({ form, set }: { form: any; set: (k: any, v: any) => void }) {
   const [open, setOpen] = useState(false)
-  const [domainActive, setDomainActive] = useState(false)
 
   const filledCount = SOCIALS.filter(({ key }) => !!(form[key as keyof ArtistFormData] as string)).length
 
@@ -1306,18 +1046,14 @@ function SocialsSection({ form, set }: { form: any; set: (k: any, v: any) => voi
         .replace(/[ąčęėįšųūž]/g, (c: string) => ({ ą:'a',č:'c',ę:'e',ė:'e',į:'i',š:'s',ų:'u',ū:'u',ž:'z' }[c] || c))
         .replace(/[^a-z0-9]+/g, '')
     : ''
-  const displayDomain = form.subdomain || suggestedSubdomain
 
   return (
     <div>
-      {/* Header — collapsible */}
       <button type="button" onClick={() => setOpen(p => !p)}
         className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 transition-colors">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-gray-500 hidden sm:inline">Nuorodos</span>
-          {(filledCount > 0 || displayDomain) && (
-            <span className="bg-blue-100 text-blue-600 text-xs font-bold px-1.5 py-0.5 rounded-full">{filledCount}</span>
-          )}
+          <span className="text-xs font-semibold text-gray-500">Nuorodos</span>
+          {filledCount > 0 && <span className="bg-blue-100 text-blue-600 text-xs font-bold px-1.5 py-0.5 rounded-full">{filledCount}</span>}
           {!open && filledCount > 0 && (
             <div className="flex gap-0.5 items-center">
               {SOCIALS.filter(({ key }) => !!(form[key as keyof ArtistFormData] as string)).map(({ key }) => (
@@ -1325,16 +1061,15 @@ function SocialsSection({ form, set }: { form: any; set: (k: any, v: any) => voi
               ))}
             </div>
           )}
-          {!open && (form.website || displayDomain) && (
+          {!open && form.website && (
             <span className="text-xs text-gray-400 truncate max-w-[140px]">
-              {form.website ? form.website.replace(/^https?:\/\/(www\.)?/,'').split('/')[0] : `${displayDomain}.music.lt`}
+              {form.website.replace(/^https?:\/\/(www\.)?/,'').split('/')[0]}
             </span>
           )}
         </div>
         <span className={`text-gray-400 text-xs transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>▼</span>
       </button>
 
-      {/* Expandable */}
       {open && (
         <div className="border-t border-gray-100 p-3 space-y-1.5">
           {SOCIALS.map(({ key, ph, type }) => (
@@ -1355,15 +1090,6 @@ function SocialsSection({ form, set }: { form: any; set: (k: any, v: any) => voi
           ))}
           <div className="pt-2 border-t border-gray-100">
             <label className="block text-xs font-semibold text-gray-500 mb-1">Domenas music.lt</label>
-            <div className="flex items-center gap-2 mb-1.5">
-              <button type="button" onClick={() => setDomainActive(p => !p)}
-                className={`relative shrink-0 w-8 h-4 rounded-full transition-colors ${domainActive ? 'bg-blue-500' : 'bg-gray-200'}`}>
-                <span className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${domainActive ? 'translate-x-4' : ''}`} />
-              </button>
-              <span className={`text-xs ${domainActive ? 'text-gray-700 font-medium' : 'text-gray-400'}`}>
-                {domainActive ? 'Aktyvus' : 'Neaktyvus'}
-              </span>
-            </div>
             <div className="flex gap-1">
               <input type="text" value={form.subdomain} onChange={e=>set('subdomain',e.target.value)}
                 placeholder={suggestedSubdomain || 'vardas'}
@@ -1377,7 +1103,8 @@ function SocialsSection({ form, set }: { form: any; set: (k: any, v: any) => voi
   )
 }
 
-export default function ArtistForm({ initialData, artistId, onSubmit, backHref, title, submitLabel, onChange }: Props) {
+// ── Main ArtistForm ───────────────────────────────────────────────────────────
+export default function ArtistForm({ initialData, artistId, onSubmit, backHref, title, submitLabel, onChange, hideButtons }: Props) {
   const [form, setForm] = useState<ArtistFormData>(initialData || emptyArtistForm)
 
   const prevInitialRef = useRef<ArtistFormData | null>(null)
@@ -1411,12 +1138,6 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
     if (onChange && url !== form.avatar) onChange(next)
   }
 
-  const setAvatarWide = (url: string) => {
-    const next = { ...form, avatarWide: url }
-    setForm(next)
-    if (onChange) onChange(next)
-  }
-
   const formRef = useRef<ArtistFormData>(form)
   formRef.current = form
 
@@ -1441,190 +1162,169 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
   const handleSubmit = (e:React.FormEvent) => { e.preventDefault(); onSubmit(formRef.current) }
 
   return (
-    <div className="min-h-screen bg-gray-50 lg:bg-gray-50" style={{ overflowX: "hidden", maxWidth: "100vw" }}>
-      <div className="w-full py-0 sm:py-0">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <Link href={backHref} className="text-music-blue hover:text-music-orange text-sm">← Atgal</Link>
-            <h1 className="text-2xl font-black text-gray-900 mt-1">{title}</h1>
+    <form onSubmit={handleSubmit}>
+      {/* v3: pašalintas min-h-screen div wrapper — forma tiesiog forma */}
+
+      <div className="flex flex-col lg:grid lg:grid-cols-2 gap-0 bg-white border-y lg:border lg:rounded-xl border-gray-100 shadow-sm overflow-hidden mt-2.5 mb-2.5 lg:mx-3">
+
+        {/* ── LEFT COLUMN ── */}
+        <div className="p-2.5 sm:p-3 sm:pt-4 sm:pb-4 border-b lg:border-b-0 lg:border-r border-gray-100 space-y-2 sm:space-y-3">
+
+          {/* Pavadinimas + Tipas */}
+          <div className="flex gap-2 items-end">
+            <div className="flex-1 min-w-0">
+              <label className="block text-xs font-semibold text-gray-500 mb-1">Pavadinimas *</label>
+              <Inp value={form.name} onChange={(v:string)=>set('name',v)} placeholder="Pvz: Jazzu" required />
+            </div>
+            <div className="shrink-0 pb-0.5">
+              <div className="flex gap-1">
+                {([['group','Grupė', <IconGroup key="g"/>],['solo','Solo', <IconPerson key="s"/>]] as const).map(([v,l,icon]) => (
+                  <button key={v} type="button" onClick={()=>set('type',v)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      form.type===v ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}>
+                    {icon}{l}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
-          <button type="button" onClick={() => document.getElementById('submit-btn')?.click()}
-            className="px-6 py-3 bg-gradient-to-r from-music-blue to-blue-600 text-white font-bold rounded-xl hover:opacity-90 shadow-md">
-            ✓ {submitLabel}
-          </button>
-        </div>
 
-        <form onSubmit={handleSubmit}>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">Šalis *</label>
+              <Sel value={form.country} onChange={(v:string)=>set('country',v)} required>
+                {['Lietuva','Latvija','Estija','Lenkija','Vokietija','Prancūzija','JAV','Didžioji Britanija','Švedija','Norvegija','Suomija','Danija'].map(c=><option key={c} value={c}>{c}</option>)}
+                <optgroup label="─────────────">
+                  {require('@/lib/constants').COUNTRIES.filter((c:string)=>!['Lietuva','Latvija','Estija','Lenkija','Vokietija','Prancūzija','JAV','Didžioji Britanija','Švedija','Norvegija','Suomija','Danija'].includes(c)).map((c:string)=><option key={c} value={c}>{c}</option>)}
+                </optgroup>
+              </Sel>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">Pagrindinis stilius *</label>
+              <Sel value={form.genre} onChange={(v:string)=>{ set('genre',v); set('substyles',[]) }} required>
+                <option value="">Pasirinkite...</option>
+                {GENRES.map(g=><option key={g} value={g}>{g}</option>)}
+              </Sel>
+            </div>
+          </div>
 
+          <StylePicker selected={form.substyles||[]} onChange={v=>set('substyles',v)} />
 
-          <div className="flex flex-col lg:grid lg:grid-cols-2 gap-0 bg-white border-y lg:border lg:rounded-xl border-gray-100 shadow-sm overflow-hidden mt-2.5 mb-2.5 lg:mx-3">
-
-            {/* ── LEFT COLUMN ── */}
-            <div className="p-2.5 sm:p-3 sm:pt-4 sm:pb-4 border-b lg:border-b-0 lg:border-r border-gray-100 space-y-2 sm:space-y-3">
-              <div className="p-0 space-y-3">
-
-                {/* Pavadinimas + Tipas vienoje eilutėje */}
-                <div className="flex gap-2 items-end">
-                  <div className="flex-1 min-w-0">
-                    <label className="block text-xs font-semibold text-gray-500 mb-1">Pavadinimas *</label>
-                    <Inp value={form.name} onChange={(v:string)=>set('name',v)} placeholder="Pvz: Jazzu" required />
-                  </div>
-                  <div className="shrink-0 pb-0.5">
-                    <div className="flex gap-1">
-                      {([['group','Grupė', <IconGroup />],['solo','Solo', <IconPerson />]] as const).map(([v,l,icon]) => (
-                        <button key={v} type="button" onClick={()=>set('type',v)}
-                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                            form.type===v ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                          }`}>
-                          {icon}{l}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+          <div className="flex flex-col sm:grid sm:grid-cols-2 gap-1.5 sm:gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">Veiklos laikotarpis</label>
+              <div className="flex items-center gap-1.5">
+                <YearInput value={form.yearStart} onChange={(v:string)=>set('yearStart',v)} />
+                <span className="text-gray-300 text-sm">—</span>
+                <YearInput value={form.yearEnd} onChange={(v:string)=>set('yearEnd',v)} />
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <label className="block text-xs font-semibold text-gray-500">Pertraukos</label>
+                <button type="button" onClick={addBreak} className="text-xs text-blue-500 hover:text-blue-700 font-medium">+ Pridėti</button>
+              </div>
+              {form.breaks.map((br,i) => (
+                <div key={i} className="flex gap-1 mb-1 items-center">
+                  <input value={br.from} onChange={e=>upBreak(i,'from',e.target.value)} placeholder="MMMM"
+                    className="w-14 px-1 py-1 border border-gray-200 rounded-lg text-xs text-gray-900 focus:outline-none focus:border-blue-400 text-center" />
+                  <span className="text-gray-300 text-xs">–</span>
+                  <input value={br.to} onChange={e=>upBreak(i,'to',e.target.value)} placeholder="MMMM"
+                    className="w-14 px-1 py-1 border border-gray-200 rounded-lg text-xs text-gray-900 focus:outline-none focus:border-blue-400 text-center" />
+                  <button type="button" onClick={()=>rmBreak(i)} className="text-red-400 hover:text-red-600 text-xs">×</button>
                 </div>
+              ))}
+            </div>
+          </div>
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-500 mb-1">Šalis *</label>
-                    <Sel value={form.country} onChange={(v:string)=>set('country',v)} required>
-                      {['Lietuva','Latvija','Estija','Lenkija','Vokietija','Prancūzija','JAV','Didžioji Britanija','Švedija','Norvegija','Suomija','Danija'].map(c=><option key={c} value={c}>{c}</option>)}
-                      <optgroup label="─────────────">
-                        {require('@/lib/constants').COUNTRIES.filter((c:string)=>!['Lietuva','Latvija','Estija','Lenkija','Vokietija','Prancūzija','JAV','Didžioji Britanija','Švedija','Norvegija','Suomija','Danija'].includes(c)).map((c:string)=><option key={c} value={c}>{c}</option>)}
-                      </optgroup>
-                    </Sel>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-500 mb-1">Pagrindinis stilius *</label>
-                    <Sel value={form.genre} onChange={(v:string)=>{ set('genre',v); set('substyles',[]) }} required>
-                      <option value="">Pasirinkite...</option>
-                      {GENRES.map(g=><option key={g} value={g}>{g}</option>)}
-                    </Sel>
-                  </div>
-                </div>
-
-                <StylePicker
-                  selected={form.substyles||[]}
-                  onChange={v=>set('substyles',v)}
-                />
-
-                <div className="flex flex-col sm:grid sm:grid-cols-2 gap-1.5 sm:gap-3">
-                  {/* Left: Veiklos metai */}
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-500 mb-1">Veiklos laikotarpis</label>
-                    <div className="flex items-center gap-1.5">
-                      <YearInput value={form.yearStart} onChange={(v:string)=>set('yearStart',v)} />
-                      <span className="text-gray-300 text-sm">—</span>
-                      <YearInput value={form.yearEnd} onChange={(v:string)=>set('yearEnd',v)} />
-                    </div>
-                  </div>
-                  {/* Right: Pertraukos */}
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <label className="block text-xs font-semibold text-gray-500">Pertraukos</label>
-                      <button type="button" onClick={addBreak} className="text-xs text-blue-500 hover:text-blue-700 font-medium">+ Pridėti</button>
-                    </div>
-                    {form.breaks.map((br,i) => (
-                      <div key={i} className="flex gap-1 mb-1 items-center">
-                        <input value={br.from} onChange={e=>upBreak(i,'from',e.target.value)} placeholder="MMMM"
-                          className="w-14 px-1 py-1 border border-gray-200 rounded-lg text-xs text-gray-900 focus:outline-none focus:border-blue-400 text-center" />
-                        <span className="text-gray-300 text-xs">–</span>
-                        <input value={br.to} onChange={e=>upBreak(i,'to',e.target.value)} placeholder="MMMM"
-                          className="w-14 px-1 py-1 border border-gray-200 rounded-lg text-xs text-gray-900 focus:outline-none focus:border-blue-400 text-center" />
-                        <button type="button" onClick={()=>rmBreak(i)} className="text-red-400 hover:text-red-600 text-xs">×</button>
-                      </div>
+          {form.type==='solo' && (
+            <div className="space-y-1.5 sm:space-y-3 pt-1.5 sm:pt-2 border-t border-gray-100">
+              <div className="flex flex-col sm:flex-row sm:items-end sm:gap-4 gap-1">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1">Lytis</label>
+                  <div className="flex gap-1">
+                    {([['male','Vyras'],['female','Moteris']] as const).map(([v,l]) => (
+                      <button key={v} type="button" onClick={()=>set('gender',v)}
+                        className={`px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                          form.gender===v ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}>
+                        {l}
+                      </button>
                     ))}
                   </div>
                 </div>
-
-                {form.type==='solo' && (
-                  <div className="space-y-1.5 sm:space-y-3 pt-1.5 sm:pt-2 border-t border-gray-100">
-                    <div className="flex flex-col sm:flex-row sm:items-end sm:gap-4 gap-1">
-                      <div>
-                        <label className="block text-xs font-semibold text-gray-500 mb-1">Lytis</label>
-                        <div className="flex gap-1">
-                          {([['male','Vyras'],['female','Moteris']] as const).map(([v,l]) => (
-                            <button key={v} type="button" onClick={()=>set('gender',v)}
-                              className={`px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                                form.gender===v ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                              }`}>
-                              {l}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      <div><DateRow label="Gimė" y={form.birthYear} m={form.birthMonth} d={form.birthDay}
-                        onY={(v:string)=>set('birthYear',v)} onM={(v:string)=>set('birthMonth',v)} onD={(v:string)=>set('birthDay',v)} /></div>
-                      <div><DateRow label="Mirė" y={form.deathYear} m={form.deathMonth} d={form.deathDay}
-                        onY={(v:string)=>set('deathYear',v)} onM={(v:string)=>set('deathMonth',v)} onD={(v:string)=>set('deathDay',v)} /></div>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-500 mb-0.5">Priklauso grupėms</label>
-                      <ArtistSearch label="Grupės" ph="Ieškoti grupės..." items={form.groups||[]}
-                        onAdd={addGroup} onRemove={rmGroup} onYears={upGroup} filterType="group" />
-                    </div>
-                  </div>
-                )}
-
-                {form.type==='group' && (
-                  <div className="pt-1.5 sm:pt-2 border-t border-gray-100">
-                    <label className="block text-xs font-semibold text-gray-500 mb-1">Grupės nariai</label>
-                    <ArtistSearch label="Nariai" ph="Ieškoti atlikėjo..." items={form.members}
-                      onAdd={addMember} onRemove={rmMember} onYears={upMember} filterType="solo" />
-                  </div>
-                )}
-
+                <DateRow label="Gimė" y={form.birthYear} m={form.birthMonth} d={form.birthDay}
+                  onY={(v:string)=>set('birthYear',v)} onM={(v:string)=>set('birthMonth',v)} onD={(v:string)=>set('birthDay',v)} />
+                <DateRow label="Mirė" y={form.deathYear} m={form.deathMonth} d={form.deathDay}
+                  onY={(v:string)=>set('deathYear',v)} onM={(v:string)=>set('deathMonth',v)} onD={(v:string)=>set('deathDay',v)} />
               </div>
-            </div>
-
-            {/* ── RIGHT COLUMN ── */}
-            <div className="p-3 pt-4 pb-4 space-y-2.5">
               <div>
-                {/* ✅ avatar išsaugomas tiesiai į DB per /api/artists/[id]/avatar */}
-                <AvatarUploadCompact
-                  value={form.avatar}
-                  onChange={setAvatar}
-                  artistId={artistId}
-                  onOriginalSaved={url => {
-                    if (!formRef.current.photos.find((p: any) => p.url === url)) {
-                      const newPhotos = [{ url }, ...formRef.current.photos]
-                      setPhotos(newPhotos)
-                      if (artistId) {
-                        fetch(`/api/artists/${artistId}/photos`, {
-                          method: 'PUT',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ photos: newPhotos }),
-                        }).catch(() => {})
-                      }
-                    }
-                  }}
-                />
+                <label className="block text-xs font-semibold text-gray-500 mb-0.5">Priklauso grupėms</label>
+                <ArtistSearch label="Grupės" ph="Ieškoti grupės..." items={form.groups||[]}
+                  onAdd={addGroup} onRemove={rmGroup} onYears={upGroup} filterType="group" />
               </div>
-
-              <div className="border-t border-gray-100 pt-3">
-                <DescriptionEditor value={form.description} onChange={v=>set('description',v)} />
-              </div>
-
-              {/* Socialiniai tinklai — collapsible */}
-              <div className="border-t border-gray-100">
-                <SocialsSection form={form} set={set} />
-              </div>
-
             </div>
+          )}
+
+          {form.type==='group' && (
+            <div className="pt-1.5 sm:pt-2 border-t border-gray-100">
+              <label className="block text-xs font-semibold text-gray-500 mb-1">Grupės nariai</label>
+              <ArtistSearch label="Nariai" ph="Ieškoti atlikėjo..." items={form.members}
+                onAdd={addMember} onRemove={rmMember} onYears={upMember} filterType="solo" />
+            </div>
+          )}
+        </div>
+
+        {/* ── RIGHT COLUMN ── */}
+        <div className="p-3 pt-4 pb-4 space-y-2.5">
+          <AvatarUploadCompact
+            value={form.avatar}
+            onChange={setAvatar}
+            artistId={artistId}
+            onOriginalSaved={url => {
+              if (!formRef.current.photos.find((p: any) => p.url === url)) {
+                const newPhotos = [{ url }, ...formRef.current.photos]
+                setPhotos(newPhotos)
+                if (artistId) {
+                  fetch(`/api/artists/${artistId}/photos`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ photos: newPhotos }),
+                  }).catch(() => {})
+                }
+              }
+            }}
+          />
+
+          <div className="border-t border-gray-100 pt-3">
+            <DescriptionEditor value={form.description} onChange={v=>set('description',v)} />
           </div>
 
-          <div className="px-0"><InlineGallery photos={form.photos} onChange={setPhotos} artistName={form.name} artistId={artistId} /></div>
-
-          <div className="mt-6 flex gap-4">
-            <button id="submit-btn" type="submit"
-              className="flex-1 bg-gradient-to-r from-music-blue to-blue-600 text-white font-bold py-4 rounded-xl hover:opacity-90 text-lg shadow-md">
-              ✓ {submitLabel}
-            </button>
-            <Link href={backHref} className="px-8 py-4 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 flex items-center font-medium">
-              Atšaukti
-            </Link>
+          <div className="border-t border-gray-100">
+            <SocialsSection form={form} set={set} />
           </div>
-        </form>
+        </div>
       </div>
-    </div>
+
+      <div className="px-0">
+        <InlineGallery photos={form.photos} onChange={setPhotos} artistName={form.name} artistId={artistId} />
+      </div>
+
+      {/* v3: mygtukų blokas — slepiamas kai hideButtons=true */}
+      {!hideButtons && (
+        <div className="mt-6 flex gap-4 px-3 pb-6">
+          <button id="submit-btn" type="submit"
+            className="flex-1 bg-gradient-to-r from-music-blue to-blue-600 text-white font-bold py-4 rounded-xl hover:opacity-90 text-lg shadow-md">
+            ✓ {submitLabel}
+          </button>
+          <Link href={backHref} className="px-8 py-4 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 flex items-center font-medium">
+            Atšaukti
+          </Link>
+        </div>
+      )}
+      {/* Paslėptas submit trigger kai naudojamas su sticky header */}
+      {hideButtons && <button id="submit-btn" type="submit" className="hidden" aria-hidden="true" />}
+    </form>
   )
 }
