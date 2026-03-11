@@ -286,11 +286,17 @@ function Step2Info({ wikiUrl, wikiTitle, onCreated, onBack }: {
   onBack: () => void
 }) {
   const [form, setForm] = useState<ArtistFormData>({ ...emptyArtistForm })
+  // formKey forces ArtistForm to fully remount when wiki data arrives
+  // so ALL fields (country, genre, yearStart, avatar, etc.) get applied
+  const [formKey, setFormKey] = useState(0)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   const handleImport = (data: Partial<ArtistFormData>) => {
-    setForm(f => ({ ...f, ...data }))
+    const merged = { ...emptyArtistForm, ...data }
+    setForm(merged)
+    // Force remount so ArtistForm initialData picks up ALL fields fresh
+    setFormKey(k => k + 1)
   }
 
   const handleSubmit = async (formData: ArtistFormData) => {
@@ -330,7 +336,9 @@ function Step2Info({ wikiUrl, wikiTitle, onCreated, onBack }: {
         </div>
       )}
 
+      {/* key= forces full remount when wiki data arrives — all fields apply */}
       <ArtistForm
+        key={formKey}
         title=""
         submitLabel={saving ? 'Kuriama...' : 'Sukurti ir tęsti →'}
         backHref="/admin/artists"
