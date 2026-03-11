@@ -117,8 +117,8 @@ function Step1Wiki({ onFound, onSkip }: {
       // Search EN first (more comprehensive for international artists),
       // then LT — merge results, EN first
       const [enRes, ltRes] = await Promise.all([
-        fetch(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query + ' musician OR band OR singer')}&srlimit=5&format=json&origin=*`),
-        fetch(`https://lt.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&srlimit=3&format=json&origin=*`),
+        fetch(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&srlimit=5&format=json&origin=*&srnamespace=0`),
+        fetch(`https://lt.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&srlimit=3&format=json&origin=*&srnamespace=0`),
       ])
       const enData = await enRes.json()
       const ltData = await ltRes.json()
