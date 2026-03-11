@@ -518,10 +518,10 @@ export default function WikipediaImport({ onImport }: Props) {
       return
     }
     setApplyingMembers(true)
-    const memberIds: { id: number }[] = []
+    const memberIds: { id: number; name: string; yearFrom: string; yearTo: string }[] = []
     for (const m of groupMembers) {
       if (m.existingId) {
-        memberIds.push({ id: m.existingId })
+        memberIds.push({ id: m.existingId, name: m.name, yearFrom: '', yearTo: '' })
       } else {
         try {
           const res = await fetch('/api/artists', {
@@ -536,7 +536,11 @@ export default function WikipediaImport({ onImport }: Props) {
               genres: [], substyleNames: [],
             }),
           })
-          if (res.ok) { const data = await res.json(); const newId = data.id || data.artist?.id; if (newId) memberIds.push({ id: newId }) }
+          if (res.ok) {
+            const data = await res.json()
+            const newId = data.id || data.artist?.id
+            if (newId) memberIds.push({ id: newId, name: m.name, yearFrom: '', yearTo: '' })
+          }
         } catch {}
       }
     }
