@@ -291,9 +291,12 @@ export default function WikipediaImport({ onImport }: Props) {
 
   const selectResult = (title: string) => {
     const slug = title.replace(/ /g, '_')
-    setUrl(`https://en.wikipedia.org/wiki/${slug}`)
+    const newUrl = `https://en.wikipedia.org/wiki/${slug}`
+    setUrl(newUrl)
     setSearchResults([])
     setShowDropdown(false)
+    // Auto-fetch iškart po pasirinkimo
+    setTimeout(() => go(newUrl), 50)
   }
 
   const extractSlug = (u: string) => {
@@ -301,10 +304,10 @@ export default function WikipediaImport({ onImport }: Props) {
     return m ? decodeURIComponent(m[1]) : u.trim().replace(/ /g, '_')
   }
 
-  const go = async () => {
+  const go = async (overrideUrl?: string) => {
     setError(''); setPreview(null); setMembers([])
     setShowDropdown(false)
-    const s = extractSlug(url)
+    const s = extractSlug(overrideUrl ?? url)
     if (!s) { setError('Įveskite atlikėjo pavadinimą arba Wikipedia URL'); return }
     setLoading(true)
     try {
@@ -375,10 +378,15 @@ export default function WikipediaImport({ onImport }: Props) {
         parseSection(/class="infobox-label"[^>]*>\s*(?:<[^>]+>)*\s*Members\s*(?:<[^>]+>)*\s*<\/th>\s*<td[^>]*>([\s\S]*?)<\/td>/i, true)
         parseSection(/class="infobox-label"[^>]*>\s*(?:<[^>]+>)*\s*Past members\s*(?:<[^>]+>)*\s*<\/th>\s*<td[^>]*>([\s\S]*?)<\/td>/i, false)
 
+        console.log('[WikipediaImport] wikitext members:', parsedMembers.map(m=>m.name))
+        console.log('[WikipediaImport] html members:', htmlMembers.map(m=>m.name))
         if (htmlMembers.length > parsedMembers.length) {
           parsedMembers = htmlMembers
+          console.log('[WikipediaImport] using HTML members')
         }
-      } catch {}
+      } catch (e) {
+        console.warn('[WikipediaImport] HTML member parsing error:', e)
+      }
 
       setStep('Jungiamasi prie Wikidata...')
       const ppRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(s)}&prop=pageprops&format=json&origin=*`)
