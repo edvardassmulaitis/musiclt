@@ -44,7 +44,10 @@ function parseBandMembers(wikitext: string): BandMember[] {
     const re = new RegExp(`\\|\\s*${field}\\s*=([\\s\\S]*?)(?=\\n\\s*\\||\\n\\}\\})`, 'i')
     const m = wikitext.match(re)
     if (!m) return
+    // Išvalome wrapper templates bet paliekame jų turinį viduje
     const block = m[1]
+      .replace(/\{\{(?:nowrap|ubl|hlist|flatlist|plainlist|small|unbulleted[ _]list)\s*\|([^}]*)\}\}/gi, '$1')
+      .replace(/\{\{[^|}][^}]*\}\}/g, '')
     const linkRe = /\[\[\s*([^\]|#]+?)(?:\s*\|\s*([^\]]+))?\s*\]\]/g
     let lm: RegExpExecArray | null
     while ((lm = linkRe.exec(block)) !== null) {
@@ -254,14 +257,19 @@ export default function WikipediaImport({ onImport }: Props) {
     const t = setTimeout(async () => {
       try {
         const res = await fetch(
-          `https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(val)}&limit=6&format=json&origin=*`
+          `https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(val)}&limit=10&format=json&origin=*`
         )
         const data = await res.json()
         const titles: string[] = data[1] || []
         const descs: string[] = data[2] || []
-        const results = titles.map((title, i) => ({ title, description: descs[i] || '' }))
-        setSearchResults(results)
-        setShowDropdown(results.length > 0)
+        const MUSIC_RE = /\b(band|musician|singer|rapper|artist|group|duo|trio|record|album|guitarist|drummer|bassist|vocalist|DJ|producer|songwriter|rock|pop|hip.hop|jazz|metal|punk|electronic|music)/i
+        const all = titles.map((title, i) => ({ title, description: descs[i] || '' }))
+        // Music-related pirmiau, tada kiti
+        const music = all.filter(r => MUSIC_RE.test(r.description) || MUSIC_RE.test(r.title))
+        const others = all.filter(r => !MUSIC_RE.test(r.description) && !MUSIC_RE.test(r.title))
+        const sorted = [...music, ...others].slice(0, 7)
+        setSearchResults(sorted)
+        setShowDropdown(sorted.length > 0)
       } catch {}
     }, 300)
     setSearchTimer(t)
@@ -502,17 +510,24 @@ export default function WikipediaImport({ onImport }: Props) {
           />
           {showDropdown && searchResults.length > 0 && (
             <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden">
-              {searchResults.map(r => (
-                <button
-                  key={r.title}
-                  type="button"
-                  onMouseDown={() => selectResult(r.title)}
-                  className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-0"
-                >
-                  <div className="text-sm text-gray-800 font-medium">{r.title}</div>
-                  {r.description && <div className="text-xs text-gray-400 truncate">{r.description}</div>}
-                </button>
-              ))}
+              {searchResults.map(r => {
+                const MUSIC_RE = /\b(band|musician|singer|rapper|artist|group|duo|trio|record|album|guitarist|drummer|bassist|vocalist|DJ|producer|songwriter|rock|pop|hip.hop|jazz|metal|punk|electronic|music)/i
+                const isMusic = MUSIC_RE.test(r.description) || MUSIC_RE.test(r.title)
+                return (
+                  <button
+                    key={r.title}
+                    type="button"
+                    onMouseDown={() => selectResult(r.title)}
+                    className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-0 flex items-start gap-2"
+                  >
+                    <span className="mt-0.5 text-base leading-none shrink-0">{isMusic ? '🎵' : '📄'}</span>
+                    <div className="min-w-0">
+                      <div className="text-sm text-gray-800 font-medium">{r.title}</div>
+                      {r.description && <div className="text-xs text-gray-400 truncate">{r.description}</div>}
+                    </div>
+                  </button>
+                )
+              })}
             </div>
           )}
         </div>
