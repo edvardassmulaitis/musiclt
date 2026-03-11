@@ -239,16 +239,51 @@ export default function WikipediaImport({ onImport }: Props) {
   const [members, setMembers] = useState<BandMember[]>([])
   const [membersLoading, setMembersLoading] = useState(false)
   const [applyingMembers, setApplyingMembers] = useState(false)
+  const [searchResults, setSearchResults] = useState<{title:string;description:string}[]>([])
+  const [searchTimer, setSearchTimer] = useState<ReturnType<typeof setTimeout>|null>(null)
+  const [showDropdown, setShowDropdown] = useState(false)
+
+  const isUrl = (s: string) => /wikipedia\.org\/wiki\//.test(s)
+
+  const handleInputChange = (val: string) => {
+    setUrl(val)
+    setError('')
+    if (isUrl(val)) { setSearchResults([]); setShowDropdown(false); return }
+    if (searchTimer) clearTimeout(searchTimer)
+    if (val.trim().length < 2) { setSearchResults([]); setShowDropdown(false); return }
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(val)}&limit=6&format=json&origin=*`
+        )
+        const data = await res.json()
+        const titles: string[] = data[1] || []
+        const descs: string[] = data[2] || []
+        const results = titles.map((title, i) => ({ title, description: descs[i] || '' }))
+        setSearchResults(results)
+        setShowDropdown(results.length > 0)
+      } catch {}
+    }, 300)
+    setSearchTimer(t)
+  }
+
+  const selectResult = (title: string) => {
+    const slug = title.replace(/ /g, '_')
+    setUrl(`https://en.wikipedia.org/wiki/${slug}`)
+    setSearchResults([])
+    setShowDropdown(false)
+  }
 
   const extractSlug = (u: string) => {
     const m = u.match(/wikipedia\.org\/wiki\/(.+?)(?:\?|#|$)/)
-    return m ? decodeURIComponent(m[1]) : ''
+    return m ? decodeURIComponent(m[1]) : u.trim().replace(/ /g, '_')
   }
 
   const go = async () => {
     setError(''); setPreview(null); setMembers([])
+    setShowDropdown(false)
     const s = extractSlug(url)
-    if (!s) { setError('Netinkamas URL'); return }
+    if (!s) { setError('Įveskite atlikėjo pavadinimą arba Wikipedia URL'); return }
     setLoading(true)
     try {
       setStep('Kraunama Wikipedia...')
@@ -452,23 +487,42 @@ export default function WikipediaImport({ onImport }: Props) {
 
   return (
     <div className="space-y-3">
-      {/* Input */}
-      <div className="flex gap-2">
-        <input
-          type="url"
-          value={url}
-          onChange={e => setUrl(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && go()}
-          placeholder="https://en.wikipedia.org/wiki/..."
-          className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
-        />
+      {/* Input + dropdown */}
+      <div className="flex gap-2 relative">
+        <div className="flex-1 min-w-0 relative">
+          <input
+            type="text"
+            value={url}
+            onChange={e => handleInputChange(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { setShowDropdown(false); go() } if (e.key === 'Escape') setShowDropdown(false) }}
+            onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
+            onFocus={() => searchResults.length > 0 && setShowDropdown(true)}
+            placeholder="Atlikėjo pavadinimas arba Wikipedia URL..."
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+          />
+          {showDropdown && searchResults.length > 0 && (
+            <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden">
+              {searchResults.map(r => (
+                <button
+                  key={r.title}
+                  type="button"
+                  onMouseDown={() => selectResult(r.title)}
+                  className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-0"
+                >
+                  <div className="text-sm text-gray-800 font-medium">{r.title}</div>
+                  {r.description && <div className="text-xs text-gray-400 truncate">{r.description}</div>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <button
           type="button"
           onClick={go}
           disabled={loading || !url.trim()}
           className="shrink-0 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-40 transition-colors whitespace-nowrap"
         >
-          {loading ? '...' : 'W Importuoti'}
+          {loading ? '...' : 'Importuoti iš Wiki'}
         </button>
       </div>
 
@@ -506,7 +560,7 @@ export default function WikipediaImport({ onImport }: Props) {
               disabled={applyingMembers || membersLoading}
               className="shrink-0 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
             >
-              {applyingMembers ? '⏳' : '✓ Taikyti'}
+              {applyingMembers ? '⏳' : '✓ Importuoti'}
             </button>
           </div>
 
