@@ -534,6 +534,7 @@ export default function WikipediaImport({ onImport }: Props) {
               country: preview.country || 'Lietuva',
               active_from: preview.yearStart ? parseInt(preview.yearStart) : null,
               genres: [], substyleNames: [],
+              is_active: true,
             }),
           })
           if (res.ok) {
