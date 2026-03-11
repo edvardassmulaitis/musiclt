@@ -38,7 +38,8 @@ type BandMember = {
 }
 
 function extractFieldNested(wikitext: string, field: string): string {
-  const startRe = new RegExp(`\\|\\s*${field}\\s*=\\s*`, 'i')
+  // (?<![a-z_]) užtikrina kad "members" nesugautų "current_members" ar "past_members"
+  const startRe = new RegExp(`\\|\\s*(?<![a-z_])${field}(?![a-z_])\\s*=\\s*`, 'i')
   const startM = wikitext.match(startRe)
   if (!startM || startM.index === undefined) return ''
   const startIdx = startM.index + startM[0].length
@@ -592,62 +593,93 @@ export default function WikipediaImport({ onImport }: Props) {
             </button>
           </div>
 
-          {/* Details */}
-          <div className="px-4 py-2.5 flex flex-wrap gap-x-5 gap-y-1 text-xs border-b border-gray-100">
-            {p.genre && <span><span className="text-gray-400">Žanras:</span> <span className="text-gray-700">{p.genre}</span></span>}
-            {p.type === 'solo' && p.gender && <span><span className="text-gray-400">Lytis:</span> <span className="text-gray-700">{p.gender === 'male' ? 'Vyras' : 'Moteris'}</span></span>}
-            {p.type === 'solo' && p.birthYear && <span><span className="text-gray-400">Gimė:</span> <span className="text-gray-700">{fmtDate(p.birthYear, p.birthMonth, p.birthDay)}</span></span>}
-            {p.type === 'solo' && p.deathYear && <span><span className="text-gray-400">Mirė:</span> <span className="text-gray-700">{fmtDate(p.deathYear, p.deathMonth, p.deathDay)}</span></span>}
-            {p.breaks && p.breaks.length > 0 && <span className="w-full"><span className="text-gray-400">Pertraukos:</span> <span className="text-gray-700">{p.breaks.map(b => `${b.from}–${b.to||'?'}`).join(', ')}</span></span>}
-            {p.website && <span className="w-full truncate"><span className="text-gray-400">Svetainė:</span> <span className="text-gray-700">{p.website.replace(/^https?:\/\//, '')}</span></span>}
+          {/* Details: žanras + stiliai + datos + website + socials – viena eilutė */}
+          <div className="px-4 py-2.5 border-b border-gray-100 space-y-1.5 text-xs">
+            {/* Žanras + substiliai */}
+            {(p.genre || (p.substyles && p.substyles.length > 0)) && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                {p.genre && <span className="text-gray-600 font-medium">{p.genre}</span>}
+                {p.substyles && p.substyles.map(s => (
+                  <span key={s} className="px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded text-[11px]">{s}</span>
+                ))}
+              </div>
+            )}
+            {/* Solo datos */}
+            {p.type === 'solo' && (p.gender || p.birthYear) && (
+              <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-gray-500">
+                {p.gender && <span>{p.gender === 'male' ? 'Vyras' : 'Moteris'}</span>}
+                {p.birthYear && <span>Gimė: {fmtDate(p.birthYear, p.birthMonth, p.birthDay)}</span>}
+                {p.deathYear && <span>Mirė: {fmtDate(p.deathYear, p.deathMonth, p.deathDay)}</span>}
+              </div>
+            )}
+            {p.breaks && p.breaks.length > 0 && (
+              <div className="text-gray-500">Pertraukos: {p.breaks.map(b => `${b.from}–${b.to||'?'}`).join(', ')}</div>
+            )}
+            {/* Svetainė + socialiniai tinklai vienoje eilutėje */}
+            {(p.website || foundSocialKeys.length > 0) && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                {p.website && (
+                  <a
+                    href={p.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline truncate max-w-[180px]"
+                    title={p.website}
+                  >
+                    {p.website.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                  </a>
+                )}
+                {foundSocialKeys.map(k => (
+                  <a
+                    key={k}
+                    href={(p as any)[k]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={(p as any)[k]}
+                    className="px-1.5 py-0.5 bg-blue-50 text-blue-600 border border-blue-100 rounded text-[11px] hover:bg-blue-100 transition-colors"
+                  >
+                    {k}
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Substyles */}
-          {p.substyles && p.substyles.length > 0 && (
-            <div className="px-4 py-2 flex flex-wrap gap-1 border-b border-gray-100">
-              {p.substyles.map(s => (
-                <span key={s} className="px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded text-[11px]">{s}</span>
-              ))}
-            </div>
-          )}
-
-          {/* Socials */}
-          {foundSocialKeys.length > 0 && (
-            <div className="px-4 py-2 flex flex-wrap gap-1 border-b border-gray-100">
-              {foundSocialKeys.map(k => (
-                <span key={k} className="px-1.5 py-0.5 bg-blue-50 text-blue-600 border border-blue-100 rounded text-[11px]">{k}</span>
-              ))}
-            </div>
-          )}
-
-          {/* Members */}
+          {/* Members – vienoje eilutėje */}
           {(membersLoading || members.length > 0) && (
-            <div className="px-4 py-2.5 border-b border-gray-100">
-              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
-                Nariai {membersLoading && <span className="animate-spin inline-block ml-1">⟳</span>}
-              </span>
-              {!membersLoading && (
-                <div className="mt-1.5 space-y-1.5">
-                  {currentMembers.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {currentMembers.map(m => <MemberChip key={m.wikiTitle} member={m} />)}
-                    </div>
-                  )}
-                  {pastMembers.length > 0 && (
-                    <div>
-                      <div className="text-[10px] text-gray-400 mb-1">Buvę:</div>
-                      <div className="flex flex-wrap gap-1">
-                        {pastMembers.map(m => <MemberChip key={m.wikiTitle} member={m} past />)}
-                      </div>
-                    </div>
-                  )}
-                  {currentMembers.some(m => !m.existingId) && (
-                    <p className="text-[11px] text-amber-600 bg-amber-50 rounded px-2 py-1 border border-amber-100 mt-1">
-                      Trūkstami nariai bus sukurti automatiškai
-                    </p>
-                  )}
-                </div>
-              )}
+            <div className="px-4 py-2 border-b border-gray-100 text-xs">
+              <div className="flex flex-wrap items-baseline gap-x-1 gap-y-0.5">
+                {membersLoading
+                  ? <span className="text-gray-400">Nariai <span className="animate-spin inline-block">⟳</span></span>
+                  : <>
+                      {currentMembers.length > 0 && (
+                        <span className="text-gray-500">
+                          {currentMembers.map((m, i) => (
+                            <span key={m.wikiTitle}>
+                              {i > 0 && <span className="text-gray-300 mx-0.5">·</span>}
+                              <span className={m.existingId ? 'text-green-600' : 'text-gray-700'}>{m.name}</span>
+                              {m.existingId && <span className="text-green-400 ml-0.5 text-[10px]">✓</span>}
+                            </span>
+                          ))}
+                        </span>
+                      )}
+                      {pastMembers.length > 0 && (
+                        <span className="text-gray-400 text-[11px]">
+                          {currentMembers.length > 0 && <span className="mx-1 text-gray-300">|</span>}
+                          Buvę: {pastMembers.map((m, i) => (
+                            <span key={m.wikiTitle}>
+                              {i > 0 && <span className="text-gray-300 mx-0.5">·</span>}
+                              {m.name}
+                            </span>
+                          ))}
+                        </span>
+                      )}
+                      {currentMembers.some(m => !m.existingId) && (
+                        <span className="text-[11px] text-amber-500 ml-1">· trūkstami bus sukurti</span>
+                      )}
+                    </>
+                }
+              </div>
             </div>
           )}
 
