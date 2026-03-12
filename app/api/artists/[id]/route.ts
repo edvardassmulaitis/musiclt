@@ -19,26 +19,41 @@ export async function GET(
   const { id } = await params
   const supabase = createAdminClient()
 
+  // Pagrindiniai laukai + žanrai + stiliai
   const { data: artist, error } = await supabase
     .from('artists')
     .select(`
       *,
       artist_genres(genre_id, genres(id, name, slug)),
-      artist_substyles(substyle_id, substyles(id, name)),
-      artist_members!artist_members_group_id_fkey(
-        member_id, year_from, year_to, is_current,
-        artists!artist_members_member_id_fkey(id, name, slug, cover_image_url)
-      ),
-      artist_groups:artist_members!artist_members_member_id_fkey(
-        group_id, year_from, year_to, is_current,
-        artists!artist_members_group_id_fkey(id, name, slug, cover_image_url)
-      )
+      artist_substyles(substyle_id, substyles(id, name))
     `)
     .eq('id', id)
     .single()
 
-  if (error || !artist) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  return NextResponse.json({ artist })
+  if (error || !artist) {
+    console.error('GET artist error:', error)
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+
+  // Nariai (šis atlikėjas = grupė)
+  const { data: membersRaw } = await supabase
+    .from('artist_members')
+    .select('member_id, year_from, year_to, is_current, artists!artist_members_member_id_fkey(id, name, slug, cover_image_url)')
+    .eq('group_id', id)
+
+  // Grupės (šis atlikėjas = narys)
+  const { data: groupsRaw } = await supabase
+    .from('artist_members')
+    .select('group_id, year_from, year_to, is_current, artists!artist_members_group_id_fkey(id, name, slug, cover_image_url)')
+    .eq('member_id', id)
+
+  return NextResponse.json({
+    artist: {
+      ...artist,
+      artist_members: membersRaw || [],
+      artist_groups: groupsRaw || [],
+    }
+  })
 }
 
 // ── PATCH /api/artists/[id] ───────────────────────────────────────────────────
@@ -55,25 +70,17 @@ export async function PATCH(
   const supabase = createAdminClient()
   const body = await req.json()
 
-  // Išskiriame members ir genres iš pagrindinių laukų
-  const {
-    members, genres, substyleNames,
-    // Laukai kurie nesaugomos į artists lentelę tiesiogiai
-    ...artistFields
-  } = body
+  const { members, genres, substyleNames, ...artistFields } = body
 
-  // Atnaujinti pagrindinius artisto laukus
+  // Atnaujinti pagrindinius laukus
   if (Object.keys(artistFields).length > 0) {
     const { error } = await supabase.from('artists').update(artistFields).eq('id', id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // ── Atnaujinti narius (artist_members) ──────────────────────────────────────
+  // Nariai
   if (members !== undefined) {
-    // Pirma ištrinti senus ryšius kur šis atlikėjas = grupė
     await supabase.from('artist_members').delete().eq('group_id', id)
-
-    // Sukurti naujus
     if (Array.isArray(members) && members.length > 0) {
       const rows = members
         .filter((m: any) => m.id)
@@ -84,15 +91,14 @@ export async function PATCH(
           year_to: m.yearTo ? parseInt(m.yearTo) : null,
           is_current: !m.yearTo,
         }))
-
       if (rows.length > 0) {
-        const { error: membersError } = await supabase.from('artist_members').insert(rows)
-        if (membersError) console.error('Members insert error:', membersError)
+        const { error: me } = await supabase.from('artist_members').insert(rows)
+        if (me) console.error('Members insert error:', me)
       }
     }
   }
 
-  // ── Atnaujinti žanrus ────────────────────────────────────────────────────────
+  // Žanrai
   if (genres !== undefined && Array.isArray(genres)) {
     await supabase.from('artist_genres').delete().eq('artist_id', id)
     if (genres.length > 0) {
@@ -102,7 +108,7 @@ export async function PATCH(
     }
   }
 
-  // ── Atnaujinti substilus ────────────────────────────────────────────────────
+  // Stiliai
   if (substyleNames !== undefined && Array.isArray(substyleNames)) {
     await supabase.from('artist_substyles').delete().eq('artist_id', id)
     for (const name of substyleNames) {
@@ -136,13 +142,15 @@ export async function DELETE(
   const supabase = createAdminClient()
   const artistId = parseInt(id)
 
-  // Ištriname susijusius įrašus (cascade jei nėra DB lygyje)
   await supabase.from('artist_members').delete().or(`group_id.eq.${artistId},member_id.eq.${artistId}`)
   await supabase.from('artist_genres').delete().eq('artist_id', artistId)
   await supabase.from('artist_substyles').delete().eq('artist_id', artistId)
-  await supabase.from('photos').delete().eq('artist_id', artistId)
 
-  // Galiausiai ištriname patį atlikėją
+  // photos lentelė gali turėti kitokį stulpelio pavadinimą
+  try {
+    await supabase.from('photos').delete().eq('artist_id', artistId)
+  } catch {}
+
   const { error } = await supabase.from('artists').delete().eq('id', artistId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
