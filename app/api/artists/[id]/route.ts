@@ -104,6 +104,8 @@ export async function PATCH(
   const { id } = await params
   const supabase = createAdminClient()
   const d = await req.json()
+  console.log('PUT body keys:', Object.keys(d))
+  console.log('PUT facebook:', d.facebook, 'instagram:', d.instagram)
 
   // Tik žinomi DB laukai
   const updatePayload: any = {}
