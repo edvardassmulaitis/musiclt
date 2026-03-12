@@ -86,11 +86,10 @@ function formToDb(form: ArtistFormData) {
     birth_date: birthDate, death_date: deathDate,
     genres: genreIds, substyleNames: form.substyles || [],
     breaks: form.breaks, photos: form.photos,
-    links: {
-      facebook: form.facebook, instagram: form.instagram, youtube: form.youtube,
-      tiktok: form.tiktok, spotify: form.spotify, soundcloud: form.soundcloud,
-      bandcamp: form.bandcamp, twitter: form.twitter,
-    },
+    facebook: form.facebook || null, instagram: form.instagram || null,
+    youtube: form.youtube || null, tiktok: form.tiktok || null,
+    spotify: form.spotify || null, soundcloud: form.soundcloud || null,
+    bandcamp: form.bandcamp || null, twitter: form.twitter || null,
     related: [
       ...(form.members||[]).map(m=>({ id: typeof m.id==='string' ? parseInt(m.id) : Number(m.id), yearFrom: m.yearFrom, yearTo: m.yearTo })),
       ...(form.groups||[]).map(g=>({ id: typeof g.id==='string' ? parseInt(g.id) : Number(g.id), yearFrom: g.yearFrom, yearTo: g.yearTo })),
