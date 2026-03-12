@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { translateToLT } from '@/lib/translate'
 import { COUNTRIES, SUBSTYLES } from '@/lib/constants'
 import { type ArtistFormData, type Break } from './ArtistForm'
 
@@ -134,8 +133,7 @@ async function fetchMemberFullData(wikiTitle: string): Promise<MemberFullData> {
     const sumRes = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(wikiTitle)}`)
     if (!sumRes.ok) return empty
     const sum = await sumRes.json()
-    const rawDesc = sum.extract?.split('\n')[0] || ''
-    const shortDesc = rawDesc.split(/\.\s+/).slice(0,3).join('. ').substring(0,700)
+    const wikiTitleForDesc = wikiTitle
 
     // Upload avatar
     let avatar = ''
@@ -201,11 +199,16 @@ async function fetchMemberFullData(wikiTitle: string): Promise<MemberFullData> {
       } catch {}
     }
 
-    // Versti aprašymą į lietuvių
-    let finalDesc = shortDesc
-    if (shortDesc) {
-      try { const tr = await translateToLT(shortDesc); if (tr.ok) finalDesc = tr.result } catch {}
-    }
+    // Generuojame aprašymą su Claude
+    let finalDesc = ''
+    try {
+      const dr = await fetch('/api/generate-description', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wikiTitle: wikiTitleForDesc, type: 'solo' }),
+      })
+      if (dr.ok) { const d = await dr.json(); finalDesc = d.description || '' }
+    } catch {}
 
     // Veiklos metai
     let yearStart = '', yearEnd = ''
@@ -445,17 +448,19 @@ export default function WikipediaImport({ onImport }: Props) {
       const sumRes = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(s)}`)
       if (!sumRes.ok) throw new Error(`Puslapis nerastas: ${s}`)
       const sum = await sumRes.json()
-      const rawDesc = sum.extract?.split('\n')[0] || sum.description || ''
-      const shortDesc = rawDesc.split(/\.\s+/).slice(0, 3).join('. ').substring(0, 700)
       const avatarSrcUrl = sum.thumbnail?.source || ''
 
-      let description = shortDesc
-      let trOk = false
-      if (shortDesc) {
-        setStep('Verčiama į lietuvių kalbą...')
-        try { const tr = await translateToLT(shortDesc); description = tr.result; trOk = tr.ok } catch {}
-      }
-      setTranslateOk(trOk)
+      let description = ''
+      setStep('Generuojamas aprašymas...')
+      try {
+        const dr = await fetch('/api/generate-description', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ wikiTitle: s, type }),
+        })
+        if (dr.ok) { const d = await dr.json(); description = d.description || '' }
+      } catch {}
+      setTranslateOk(!!description)
 
       setStep('Skaitomas infobox...')
       let infoboxWebsite = '', infoboxYearsRaw = '', infoboxGenres: string[] | null = null
