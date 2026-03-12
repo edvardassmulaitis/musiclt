@@ -1036,16 +1036,10 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
 }
 
 // ── SocialsSection ────────────────────────────────────────────────────────────
-function SocialsSection({ form, set }: { form: any; set: (k: any, v: any) => void }) {
+function SocialsSection({ form, set }: { form: ArtistFormData; set: (k: keyof ArtistFormData, v: any) => void }) {
   const [open, setOpen] = useState(false)
-
-  const filledCount = SOCIALS.filter(({ key }) => !!(form[key as keyof ArtistFormData] as string)).length
-
-  const suggestedSubdomain = form.name
-    ? form.name.toLowerCase()
-        .replace(/[ąčęėįšųūž]/g, (c: string) => ({ ą:'a',č:'c',ę:'e',ė:'e',į:'i',š:'s',ų:'u',ū:'u',ž:'z' }[c] || c))
-        .replace(/[^a-z0-9]+/g, '')
-    : ''
+  const filledCount = ['website','facebook','instagram','youtube','tiktok','spotify','soundcloud','bandcamp','twitter']
+    .filter(k => !!(form as any)[k]).length
 
   return (
     <div>
@@ -1054,35 +1048,23 @@ function SocialsSection({ form, set }: { form: any; set: (k: any, v: any) => voi
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-gray-500">Nuorodos</span>
           {filledCount > 0 && <span className="bg-blue-100 text-blue-600 text-xs font-bold px-1.5 py-0.5 rounded-full">{filledCount}</span>}
-          {!open && filledCount > 0 && (
-            <div className="flex gap-0.5 items-center">
-              {SOCIALS.filter(({ key }) => !!(form[key as keyof ArtistFormData] as string)).map(({ key }) => (
-                <span key={key} className="w-4 h-4 flex items-center justify-center text-gray-400">{SocialIcons[key]}</span>
-              ))}
-            </div>
-          )}
-          {!open && form.website && (
-            <span className="text-xs text-gray-400 truncate max-w-[140px]">
-              {form.website.replace(/^https?:\/\/(www\.)?/,'').split('/')[0]}
-            </span>
-          )}
         </div>
         <span className={`text-gray-400 text-xs transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>▼</span>
       </button>
 
       {open && (
         <div className="border-t border-gray-100 p-3 space-y-1.5">
-          {SOCIALS.map(({ key, ph, type }) => (
+          {SOCIALS.map(({ key, ph }) => (
             <div key={key} className="flex items-center gap-1.5">
-              <span className="w-5 flex items-center justify-center shrink-0 text-gray-400">{SocialIcons[key]}</span>
+              <span className="w-5 flex items-center justify-center shrink-0">{SocialIcons[key]}</span>
               <input
-                type={type || 'url'}
-                value={form[key as keyof ArtistFormData] as string}
+                type="text"
+                value={(form as any)[key] || ''}
                 onChange={e => set(key as keyof ArtistFormData, e.target.value)}
-                className="flex-1 px-2 py-1 border border-gray-200 rounded-lg text-gray-900 text-xs focus:outline-none focus:border-blue-400"
                 placeholder={ph}
+                className="flex-1 px-2 py-1 border border-gray-200 rounded-lg text-gray-900 text-xs focus:outline-none focus:border-blue-400"
               />
-              {(form[key as keyof ArtistFormData] as string) && (
+              {!!(form as any)[key] && (
                 <button type="button" onClick={() => set(key as keyof ArtistFormData, '')}
                   className="text-gray-300 hover:text-red-400 text-xs shrink-0">×</button>
               )}
@@ -1091,8 +1073,8 @@ function SocialsSection({ form, set }: { form: any; set: (k: any, v: any) => voi
           <div className="pt-2 border-t border-gray-100">
             <label className="block text-xs font-semibold text-gray-500 mb-1">Domenas music.lt</label>
             <div className="flex gap-1">
-              <input type="text" value={form.subdomain} onChange={e=>set('subdomain',e.target.value)}
-                placeholder={suggestedSubdomain || 'vardas'}
+              <input type="text" value={form.subdomain || ''} onChange={e => set('subdomain', e.target.value)}
+                placeholder="vardas"
                 className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-blue-400 bg-white" />
               <span className="px-2 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-500 text-sm whitespace-nowrap">.music.lt</span>
             </div>
