@@ -102,7 +102,7 @@ export async function PATCH(
   const updatePayload: any = {}
   const dbFields = [
     'name','type','country','description','cover_image_url','cover_image_wide_url',
-    'gender','birth_date','death_date','website','subdomain','spotify_id','youtube_channel_id',
+    'gender','birth_date','death_date','website','subdomain',
     'is_active','is_verified','type_music','type_film','type_dance','type_books',
     'photos','show_updated','active_from','active_until','slug',
     'facebook','instagram','youtube','tiktok','spotify','soundcloud','bandcamp','twitter',
