@@ -543,13 +543,14 @@ export default function EditArtist() {
                 onImport={(data: Partial<ArtistFormData>) => {
                   setInitialData(prev => {
                     const base = prev || {
-                      name:'', type:'solo', country:'Lietuva', genre:'', substyles:[],
+                      name:'', type:'solo' as const, country:'Lietuva', genre:'', substyles:[],
                       description:'', avatar:'', avatarWide:'', website:'', photos:[],
                       yearStart:'', yearEnd:'', breaks:[], members:[],
                       birthYear:'', birthMonth:'', birthDay:'',
-                      deathYear:'', deathMonth:'', deathDay:'', gender:'',
+                      deathYear:'', deathMonth:'', deathDay:'', gender:'' as const,
                       facebook:'', instagram:'', twitter:'', youtube:'',
                       spotify:'', soundcloud:'', tiktok:'', bandcamp:'',
+                      groups:[], subdomain:'',
                     }
                     const clean = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined && v !== null && v !== ''))
                     return { ...base, ...clean }
