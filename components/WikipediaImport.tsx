@@ -598,12 +598,13 @@ export default function WikipediaImport({ onImport }: Props) {
               const foundGroups: { id: number | null; name: string; yearFrom: string; yearTo: string }[] = []
               for (const qid of groupQids) {
                 const ent = gData.entities?.[qid]
-                if (!ent) continue
+                if (!ent) { console.log('[Groups] no entity for', qid); continue }
                 const gName = ent.labels?.en?.value
-                if (!gName) continue
+                if (!gName) { console.log('[Groups] no EN label for', qid); continue }
+                console.log('[Groups] checking:', qid, gName)
                 // Praleisti jei tai šalis, miestas ar pan. (pagal label)
                 const skipWords = ['country','city','state','government','organization','award']
-                if (skipWords.some(w => gName.toLowerCase().includes(w))) continue
+                if (skipWords.some(w => gName.toLowerCase().includes(w))) { console.log('[Groups] skipped:', gName); continue }
                 // Ieškome DB
                 const dbRes = await fetch(`/api/artists?search=${encodeURIComponent(gName)}&limit=3`)
                 if (dbRes.ok) {
