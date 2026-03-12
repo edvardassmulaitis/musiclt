@@ -585,10 +585,10 @@ export default function WikipediaImport({ onImport }: Props) {
         // Grupės kurioms priklauso (P361 = part of, P463 = member of)
         if (type === 'solo') {
           setStep('Ieškoma grupių...')
-          const groupQids = [
-            ...all('P361').map((v:any)=>v?.id),
-            ...all('P463').map((v:any)=>v?.id),
-          ].filter(Boolean).slice(0, 6)
+          const p361 = all('P361').map((v:any)=>v?.id).filter(Boolean)
+          const p463 = all('P463').map((v:any)=>v?.id).filter(Boolean)
+          console.log('[Groups] P361:', p361, 'P463:', p463)
+          const groupQids = [...new Set([...p361, ...p463])].slice(0, 6)
           if (groupQids.length > 0) {
             try {
               const gData = await (await fetch(
@@ -607,8 +607,17 @@ export default function WikipediaImport({ onImport }: Props) {
                 const dbRes = await fetch(`/api/artists?search=${encodeURIComponent(gName)}&limit=3`)
                 if (dbRes.ok) {
                   const dbData = await dbRes.json()
-                  const match = dbData.artists?.find((a:any) => a.name?.toLowerCase() === gName.toLowerCase())
-                  if (match) foundGroups.push({ id: match.id, name: match.name, yearFrom: '', yearTo: '' })
+                  const arr: any[] = Array.isArray(dbData) ? dbData
+                    : Array.isArray(dbData?.artists) ? dbData.artists
+                    : Array.isArray(dbData?.data) ? dbData.data : []
+                  const match = arr.find((a:any) => a.name?.toLowerCase() === gName.toLowerCase())
+                  if (match) {
+                    foundGroups.push({ id: match.id, name: match.name, yearFrom: '', yearTo: '' })
+                  } else {
+                    // Grupės nėra DB - pridedame be ID, bus sukurta išsaugant
+                    foundGroups.push({ id: null, name: gName, yearFrom: '', yearTo: '' })
+                    console.log(`[Groups] Grupė nerasta DB, bus sukurta išsaugant: ${gName}`)
+                  }
                 }
               }
               if (foundGroups.length > 0) {
