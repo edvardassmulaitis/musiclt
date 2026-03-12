@@ -534,7 +534,6 @@ export default function EditArtist() {
                   const clean = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined && v !== null && v !== ''))
                   return { ...prev, ...clean }
                 })
-                setFormKey(k => k + 1)
               }}
             />
 
@@ -547,7 +546,6 @@ export default function EditArtist() {
                     const clean = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined && v !== null && v !== ''))
                     return { ...prev, ...clean }
                   })
-                  setFormKey(k => k + 1)
                 }}
               />
             </div>
