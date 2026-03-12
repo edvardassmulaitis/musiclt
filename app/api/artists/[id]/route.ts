@@ -141,10 +141,16 @@ export async function PATCH(
     } catch (e: any) { console.error('PATCH members error:', e.message) }
   }
 
-  // Žanras
-  if (d.genre !== undefined) {
+  // Žanras — priimame ir d.genres (ID array iš formToDb) ir d.genre (string)
+  if (d.genres !== undefined || d.genre !== undefined) {
     await supabase.from('artist_genres').delete().eq('artist_id', id)
-    if (d.genre) {
+    if (Array.isArray(d.genres) && d.genres.length > 0) {
+      // formToDb siunčia genres: [1000007] — tiesiogiai įrašome ID
+      await supabase.from('artist_genres').insert(
+        (d.genres as number[]).map((genre_id: number) => ({ artist_id: parseInt(id), genre_id }))
+      )
+    } else if (d.genre) {
+      // string variantas
       const { data: genreRow } = await supabase.from('genres').select('id').ilike('name', d.genre).maybeSingle()
       if (genreRow?.id) await supabase.from('artist_genres').insert({ artist_id: parseInt(id), genre_id: genreRow.id })
     }
