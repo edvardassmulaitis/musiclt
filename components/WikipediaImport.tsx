@@ -593,14 +593,18 @@ export default function WikipediaImport({ onImport }: Props) {
           if (groupQids.length > 0) {
             try {
               const gData = await (await fetch(
-                `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${groupQids.join('|')}&format=json&origin=*&languages=en&props=labels,claims`
+                `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${groupQids.join('|')}&format=json&origin=*&languages=en|en-gb|lt&props=labels,sitelinks`
               )).json()
               const foundGroups: { id: number | null; name: string; yearFrom: string; yearTo: string }[] = []
               for (const qid of groupQids) {
                 const ent = gData.entities?.[qid]
                 if (!ent) { console.log('[Groups] no entity for', qid); continue }
-                const gName = ent.labels?.en?.value
-                if (!gName) { console.log('[Groups] no EN label for', qid); continue }
+                const rawName = ent.labels?.en?.value
+                  || ent.labels?.['en-gb']?.value
+                  || ent.sitelinks?.enwiki?.title
+                if (!rawName) { console.log('[Groups] no label for', qid, ent.labels); continue }
+                // Pašalinam disambiguacijos priedus: "(band)", "(group)", "(musician)" ir pan.
+                const gName = rawName.replace(/\s*\([^)]+\)\s*$/, '').trim()
                 console.log('[Groups] checking:', qid, gName)
                 // Praleisti jei tai šalis, miestas ar pan. (pagal label)
                 const skipWords = ['country','city','state','government','organization','award']
