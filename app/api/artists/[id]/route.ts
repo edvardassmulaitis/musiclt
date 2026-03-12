@@ -19,29 +19,24 @@ export async function GET(
   const { id } = await params
   const supabase = createAdminClient()
 
-  // 1. Pagrindinis atlikėjas + žanrai
+  // 1. Pagrindinis atlikėjas
   const { data: artist, error } = await supabase
     .from('artists')
-    .select('*, artist_genres(genre_id, genres(id, name, slug))')
+    .select('*')
     .eq('id', id)
     .single()
 
   if (error || !artist) {
-    // 2. Fallback — tik pats atlikėjas
-    const { data: a2, error: e2 } = await supabase
-      .from('artists')
-      .select('*')
-      .eq('id', id)
-      .single()
-
-    if (e2 || !a2) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 })
-    }
-    return NextResponse.json({ artist: { ...a2, artist_genres: [], artist_members: [], artist_groups: [] } })
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
   // 3. Žanrų ID sąrašas
-  const genres: number[] = (artist.artist_genres || []).map((ag: any) => ag.genre_id).filter(Boolean)
+  let genres: number[] = []
+  try {
+    const { data: genreRows } = await supabase
+      .from('artist_genres').select('genre_id').eq('artist_id', id)
+    genres = (genreRows || []).map((ag: any) => ag.genre_id).filter(Boolean)
+  } catch {}
 
   // 4. Stiliai
   let substyleNames: string[] = []
