@@ -119,11 +119,15 @@ export async function PATCH(
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Nariai
-  if (d.members !== undefined) {
+  // Nariai (d.members arba d.related iš formToDb)
+  const membersSource = d.related !== undefined ? d.related : d.members
+  if (membersSource !== undefined) {
     try {
       await supabase.from('artist_members').delete().eq('group_id', id)
-      const validMembers = (d.members as any[]).filter((m: any) => m?.id)
+      const allRelated = (membersSource as any[])
+      // Taip pat išvalome groups (member_id = id)
+      await supabase.from('artist_members').delete().eq('member_id', id)
+      const validMembers = allRelated.filter((m: any) => m?.id)
       if (validMembers.length > 0) {
         await supabase.from('artist_members').insert(
           validMembers.map((m: any) => ({
@@ -161,6 +165,20 @@ export async function PATCH(
         if (sr?.id) await supabase.from('artist_substyles').insert({ artist_id: parseInt(id), substyle_id: sr.id })
       }
     } catch {}
+  }
+
+  // ── Nuorodos (links) ─────────────────────────────────────────────────────
+  if (d.links !== undefined) {
+    try {
+      await supabase.from('artist_links').delete().eq('artist_id', id)
+      const linkEntries = Object.entries(d.links as Record<string, string>)
+        .filter(([, v]) => v && typeof v === 'string' && v.trim())
+      if (linkEntries.length > 0) {
+        await supabase.from('artist_links').insert(
+          linkEntries.map(([type, url]) => ({ artist_id: parseInt(id), link_type: type, url }))
+        )
+      }
+    } catch (e: any) { console.error('PATCH links error:', e.message) }
   }
 
   return NextResponse.json({ ok: true })
