@@ -440,6 +440,7 @@ export default function EditArtist() {
   const [tab, setTab] = useState<'form' | 'discography'>('form')
   const [discographyKey, setDiscographyKey] = useState(0)
   const [formKey, setFormKey] = useState(0)
+  const submitRef = useRef<() => void>(null)
 
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
   const artistId = params.id as string
@@ -558,7 +559,7 @@ export default function EditArtist() {
               Atšaukti
             </Link>
             <button
-              onClick={() => document.getElementById('submit-btn')?.click()}
+              onClick={() => submitRef.current?.()}
               disabled={saving}
               className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${saved ? 'bg-green-500 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'} disabled:opacity-50`}>
               {saving
@@ -600,7 +601,7 @@ export default function EditArtist() {
 
       <div className="lg:hidden flex-1 overflow-y-auto overflow-x-hidden">
         {tab === 'form' && (
-          <ArtistFormCompact key={formKey} initialData={initialData} artistId={artistId} onSubmit={handleSubmit} saving={saving} />
+          <ArtistFormCompact key={formKey} initialData={initialData} artistId={artistId} onSubmit={handleSubmit} saving={saving} onRegisterSubmit={fn => { (submitRef as any).current = fn }} />
         )}
         {tab === 'discography' && (
           <DiscographyPanel artistId={artistId} artistName={artistName} refreshKey={discographyKey}
@@ -615,7 +616,7 @@ export default function EditArtist() {
 
       <div className="hidden lg:flex flex-1 min-h-0">
         <div className="border-r border-gray-200 overflow-y-auto" style={{ width: '60%' }}>
-          <ArtistFormCompact key={formKey} initialData={initialData} artistId={artistId} onSubmit={handleSubmit} saving={saving} />
+          <ArtistFormCompact key={formKey} initialData={initialData} artistId={artistId} onSubmit={handleSubmit} saving={saving} onRegisterSubmit={fn => { (submitRef as any).current = fn }} />
         </div>
         <div className="overflow-hidden flex flex-col" style={{ width: '40%' }}>
           <DiscographyPanel artistId={artistId} artistName={artistName} refreshKey={discographyKey}
@@ -631,10 +632,11 @@ export default function EditArtist() {
   )
 }
 
-function ArtistFormCompact({ initialData, artistId, onSubmit, saving }: {
+function ArtistFormCompact({ initialData, artistId, onSubmit, saving, onRegisterSubmit }: {
   initialData: ArtistFormData; artistId: string
   onSubmit: (d: ArtistFormData) => void
   saving: boolean
+  onRegisterSubmit?: (fn: () => void) => void
 }) {
   return (
     <div className="artist-form-compact" data-theme="light">
@@ -654,6 +656,7 @@ function ArtistFormCompact({ initialData, artistId, onSubmit, saving }: {
         artistId={artistId}
         onSubmit={onSubmit}
         hideButtons
+        onRegisterSubmit={onRegisterSubmit}
       />
     </div>
   )
