@@ -1109,34 +1109,32 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
     }
     const prev = prevInitialRef.current
     prevInitialRef.current = initialData
-    setForm(f => {
-      const next = {
-        ...f,
-        ...(initialData.name !== prev.name ? { name: initialData.name } : {}),
-        ...(initialData.type !== prev.type ? { type: initialData.type } : {}),
-        ...(initialData.country !== prev.country ? { country: initialData.country } : {}),
-        ...(initialData.genre !== prev.genre ? { genre: initialData.genre } : {}),
-        ...(initialData.description !== prev.description ? { description: initialData.description } : {}),
-        ...(initialData.substyles !== prev.substyles ? { substyles: initialData.substyles } : {}),
-        ...(initialData.yearStart !== prev.yearStart ? { yearStart: initialData.yearStart } : {}),
-        ...(initialData.yearEnd !== prev.yearEnd ? { yearEnd: initialData.yearEnd } : {}),
-        ...(initialData.avatar !== prev.avatar ? { avatar: initialData.avatar } : {}),
-        ...(initialData.website !== prev.website ? { website: initialData.website } : {}),
-        ...(initialData.facebook !== prev.facebook ? { facebook: initialData.facebook } : {}),
-        ...(initialData.instagram !== prev.instagram ? { instagram: initialData.instagram } : {}),
-        ...(initialData.youtube !== prev.youtube ? { youtube: initialData.youtube } : {}),
-        ...(initialData.tiktok !== prev.tiktok ? { tiktok: initialData.tiktok } : {}),
-        ...(initialData.spotify !== prev.spotify ? { spotify: initialData.spotify } : {}),
-        ...(initialData.soundcloud !== prev.soundcloud ? { soundcloud: initialData.soundcloud } : {}),
-        ...(initialData.bandcamp !== prev.bandcamp ? { bandcamp: initialData.bandcamp } : {}),
-        ...(initialData.twitter !== prev.twitter ? { twitter: initialData.twitter } : {}),
-        ...(initialData.members !== prev.members ? { members: initialData.members } : {}),
-        ...(initialData.breaks !== prev.breaks ? { breaks: initialData.breaks } : {}),
-        ...(initialData.photos !== prev.photos ? { photos: initialData.photos } : {}),
-      }
-      formRef.current = next
-      return next
-    })
+    const next = {
+      ...formRef.current,
+      ...(initialData.name !== prev.name ? { name: initialData.name } : {}),
+      ...(initialData.type !== prev.type ? { type: initialData.type } : {}),
+      ...(initialData.country !== prev.country ? { country: initialData.country } : {}),
+      ...(initialData.genre !== prev.genre ? { genre: initialData.genre } : {}),
+      ...(initialData.description !== prev.description ? { description: initialData.description } : {}),
+      ...(initialData.substyles !== prev.substyles ? { substyles: initialData.substyles } : {}),
+      ...(initialData.yearStart !== prev.yearStart ? { yearStart: initialData.yearStart } : {}),
+      ...(initialData.yearEnd !== prev.yearEnd ? { yearEnd: initialData.yearEnd } : {}),
+      ...(initialData.avatar !== prev.avatar ? { avatar: initialData.avatar } : {}),
+      ...(initialData.website !== prev.website ? { website: initialData.website } : {}),
+      ...(initialData.facebook !== prev.facebook ? { facebook: initialData.facebook } : {}),
+      ...(initialData.instagram !== prev.instagram ? { instagram: initialData.instagram } : {}),
+      ...(initialData.youtube !== prev.youtube ? { youtube: initialData.youtube } : {}),
+      ...(initialData.tiktok !== prev.tiktok ? { tiktok: initialData.tiktok } : {}),
+      ...(initialData.spotify !== prev.spotify ? { spotify: initialData.spotify } : {}),
+      ...(initialData.soundcloud !== prev.soundcloud ? { soundcloud: initialData.soundcloud } : {}),
+      ...(initialData.bandcamp !== prev.bandcamp ? { bandcamp: initialData.bandcamp } : {}),
+      ...(initialData.twitter !== prev.twitter ? { twitter: initialData.twitter } : {}),
+      ...(initialData.members !== prev.members ? { members: initialData.members } : {}),
+      ...(initialData.breaks !== prev.breaks ? { breaks: initialData.breaks } : {}),
+      ...(initialData.photos !== prev.photos ? { photos: initialData.photos } : {}),
+    }
+    formRef.current = next  // iš karto sinchroniškai
+    setForm(next)
   }, [initialData]) // eslint-disable-line
 
   // ── FIX: set() naudoja formRef.current, ne form (stale closure) ──
