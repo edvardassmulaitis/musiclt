@@ -72,7 +72,7 @@ export async function GET(
   // 6. Nuorodos
   let links: Record<string, string> = {}
   try {
-    const { data: linkRows } = await supabase.from('artist_links').select('link_type, url').eq('artist_id', id)
+    const { data: linkRows } = await supabase.from('artist_links').select('platform, url').eq('artist_id', id)
     for (const l of linkRows || []) links[l.platform] = l.url
   } catch {}
 
