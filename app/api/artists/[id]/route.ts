@@ -19,7 +19,6 @@ export async function GET(
   const { id } = await params
   const supabase = createAdminClient()
 
-  // 1. Pagrindinis atlikėjas
   const { data: artist, error } = await supabase
     .from('artists')
     .select('*')
@@ -30,7 +29,6 @@ export async function GET(
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  // 3. Žanrų ID sąrašas
   let genres: number[] = []
   try {
     const { data: genreRows } = await supabase
@@ -38,7 +36,6 @@ export async function GET(
     genres = (genreRows || []).map((ag: any) => ag.genre_id).filter(Boolean)
   } catch {}
 
-  // 4. Stiliai
   let substyleNames: string[] = []
   try {
     const { data: subs } = await supabase
@@ -46,7 +43,6 @@ export async function GET(
     substyleNames = (subs || []).map((s: any) => s.substyles?.name).filter(Boolean)
   } catch {}
 
-  // 5. Nariai ir grupės → related[]
   let related: any[] = []
   try {
     const { data: members } = await supabase
@@ -69,7 +65,6 @@ export async function GET(
     }
   } catch {}
 
-  // 6. Nuorodos — tiesiai iš artists lentelės
   const links: Record<string, string> = {
     facebook:   artist.facebook   || '',
     instagram:  artist.instagram  || '',
@@ -81,7 +76,6 @@ export async function GET(
     twitter:    artist.twitter    || '',
   }
 
-  // 7. Pertraukos
   let breaks: any[] = []
   try {
     const { data: breakRows } = await supabase.from('artist_breaks').select('year_from, year_to').eq('artist_id', id)
@@ -104,16 +98,15 @@ export async function PATCH(
   const { id } = await params
   const supabase = createAdminClient()
   const d = await req.json()
-  console.log('PUT body keys:', Object.keys(d))
-  console.log('PUT facebook:', d.facebook, 'instagram:', d.instagram)
 
-  // Tik žinomi DB laukai
   const updatePayload: any = {}
-  const dbFields = ['name','type','country','description','cover_image_url','cover_image_wide_url',
+  const dbFields = [
+    'name','type','country','description','cover_image_url','cover_image_wide_url',
     'gender','birth_date','death_date','website','subdomain','spotify_id','youtube_channel_id',
     'is_active','is_verified','type_music','type_film','type_dance','type_books',
     'photos','show_updated','hide_mp3','active_from','active_until','slug',
-    'facebook','instagram','youtube','tiktok','spotify','soundcloud','bandcamp','twitter']
+    'facebook','instagram','youtube','tiktok','spotify','soundcloud','bandcamp','twitter',
+  ]
 
   for (const f of dbFields) {
     if (d[f] !== undefined) updatePayload[f] = d[f]
@@ -127,15 +120,13 @@ export async function PATCH(
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Nariai (d.members arba d.related iš formToDb)
+  // Nariai
   const membersSource = d.related !== undefined ? d.related : d.members
   if (membersSource !== undefined) {
     try {
       await supabase.from('artist_members').delete().eq('group_id', id)
-      const allRelated = (membersSource as any[])
-      // Taip pat išvalome groups (member_id = id)
       await supabase.from('artist_members').delete().eq('member_id', id)
-      const validMembers = allRelated.filter((m: any) => m?.id)
+      const validMembers = (membersSource as any[]).filter((m: any) => m?.id)
       if (validMembers.length > 0) {
         await supabase.from('artist_members').insert(
           validMembers.map((m: any) => ({
@@ -149,16 +140,14 @@ export async function PATCH(
     } catch (e: any) { console.error('PATCH members error:', e.message) }
   }
 
-  // Žanras — priimame ir d.genres (ID array iš formToDb) ir d.genre (string)
+  // Žanras
   if (d.genres !== undefined || d.genre !== undefined) {
     await supabase.from('artist_genres').delete().eq('artist_id', id)
     if (Array.isArray(d.genres) && d.genres.length > 0) {
-      // formToDb siunčia genres: [1000007] — tiesiogiai įrašome ID
       await supabase.from('artist_genres').insert(
         (d.genres as number[]).map((genre_id: number) => ({ artist_id: parseInt(id), genre_id }))
       )
     } else if (d.genre) {
-      // string variantas
       const { data: genreRow } = await supabase.from('genres').select('id').ilike('name', d.genre).maybeSingle()
       if (genreRow?.id) await supabase.from('artist_genres').insert({ artist_id: parseInt(id), genre_id: genreRow.id })
     }
@@ -179,16 +168,6 @@ export async function PATCH(
         if (sr?.id) await supabase.from('artist_substyles').insert({ artist_id: parseInt(id), substyle_id: sr.id })
       }
     } catch {}
-  }
-
-  // ── Nuorodos — tiesiai į artists lentelę ────────────────────────────────
-  if (d.links !== undefined) {
-    const l = d.links as Record<string, string>
-    const linksPayload: any = {}
-    for (const k of ['facebook','instagram','youtube','tiktok','spotify','soundcloud','bandcamp','twitter']) {
-      linksPayload[k] = l[k] || null
-    }
-    await supabase.from('artists').update(linksPayload).eq('id', id)
   }
 
   return NextResponse.json({ ok: true })
@@ -221,7 +200,7 @@ export async function DELETE(
   return NextResponse.json({ ok: true })
 }
 
-// ── PUT /api/artists/[id] — alias for PATCH (backward compat) ─────────────
+// ── PUT — alias for PATCH ─────────────────────────────────────────────────────
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
