@@ -75,7 +75,6 @@ export async function POST(req: NextRequest) {
       type_books:         d.type_books ?? false,
       photos:             d.photos || [],
       show_updated:       d.show_updated ?? false,
-      hide_mp3:           d.hide_mp3 ?? false,
       // ── Social links ────────────────────────────────────────────────────────
       facebook:           d.facebook   || null,
       instagram:          d.instagram  || null,
