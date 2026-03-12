@@ -127,17 +127,40 @@ export async function POST(req: NextRequest) {
 
     // ── Nariai ────────────────────────────────────────────────────────────────
     const members: any[] = d.members || []
-    const validMembers = members.filter((m: any) => m?.id)
-    if (validMembers.length > 0) {
-      const rows = validMembers.map((m: any) => ({
-        group_id:   artistId,
-        member_id:  m.id,
-        year_from:  m.yearFrom ? parseInt(m.yearFrom) : null,
-        year_to:    m.yearTo   ? parseInt(m.yearTo)   : null,
-        is_current: !m.yearTo,
-      }))
-      const { error: me } = await supabase.from('artist_members').insert(rows)
-      if (me) console.error('[POST /api/artists] members error:', me.message)
+    const memberRows: any[] = []
+    for (const m of members) {
+      if (!m?.name && !m?.id) continue
+      let memberId = m.id ? (typeof m.id === 'string' ? parseInt(m.id) : Number(m.id)) : null
+      // Jei nario nėra DB - sukuriame dabar kartu su grupe
+      if (!memberId && m.name) {
+        try {
+          const memberSlug = slugify(m.name)
+          let mSlug = memberSlug
+          const { data: existingSlug } = await supabase.from('artists').select('id').eq('slug', mSlug).maybeSingle()
+          if (existingSlug) mSlug = `${memberSlug}-${Date.now().toString(36)}`
+          const { data: newMember } = await supabase.from('artists').insert({
+            slug: mSlug, name: m.name, type: 'solo',
+            country: d.country || 'Lietuva',
+            cover_image_url: m.avatar || null,
+            is_active: true, is_verified: false,
+            type_music: true, type_film: false, type_dance: false, type_books: false,
+            photos: [],
+          }).select('id').single()
+          if (newMember?.id) memberId = newMember.id
+        } catch (e: any) { console.error('[POST /api/artists] create member error:', (e as any).message) }
+      }
+      if (memberId) {
+        memberRows.push({
+          group_id: artistId, member_id: memberId,
+          year_from: m.yearFrom ? parseInt(m.yearFrom) : null,
+          year_to:   m.yearTo   ? parseInt(m.yearTo)   : null,
+          is_current: !m.yearTo,
+        })
+      }
+    }
+    if (memberRows.length > 0) {
+      const { error: me } = await supabase.from('artist_members').insert(memberRows)
+      if (me) console.error('[POST /api/artists] members insert error:', me.message)
     }
 
     // ── Pertraukos ────────────────────────────────────────────────────────────
