@@ -19,37 +19,28 @@ export async function GET(
   const { id } = await params
   const supabase = createAdminClient()
 
+  // 1. Pagrindinis atlikėjas + žanrai
   const { data: artist, error } = await supabase
     .from('artists')
-    .select(`
-      *,
-      artist_genres(genre_id, genres(id, name, slug)),
-      artist_substyles:artist_substyles(substyle_id, substyles(id, name))
-    `)
+    .select('*, artist_genres(genre_id, genres(id, name, slug))')
     .eq('id', id)
     .single()
 
-  console.error(`[GET /api/artists/${id}] query1 error:`, error?.message || 'none')
-
   if (error || !artist) {
-    // Bandome be substyles jei lentelės nėra
-    const { data: artist2, error: error2 } = await supabase
+    // 2. Fallback — tik pats atlikėjas
+    const { data: a2, error: e2 } = await supabase
       .from('artists')
-      .select('*, artist_genres(genre_id, genres(id, name, slug))')
+      .select('*')
       .eq('id', id)
       .single()
 
-    console.error(`[GET /api/artists/${id}] query2 error:`, error2?.message || 'none', '| found:', !!artist2)
-
-    if (error2 || !artist2) {
-      console.error('GET artist error:', error2 || error)
+    if (e2 || !a2) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
-
-    return NextResponse.json({ artist: { ...artist2, artist_members: [], artist_groups: [] } })
+    return NextResponse.json({ artist: { ...a2, artist_genres: [], artist_members: [], artist_groups: [] } })
   }
 
-  // Nariai — try/catch jei lentelės nėra
+  // 3. Nariai (try/catch — lentelė gali neegzistuoti)
   let membersRaw: any[] = []
   let groupsRaw: any[] = []
 
@@ -69,9 +60,7 @@ export async function GET(
     groupsRaw = data || []
   } catch {}
 
-  return NextResponse.json({
-    artist: { ...artist, artist_members: membersRaw, artist_groups: groupsRaw }
-  })
+  return NextResponse.json({ artist: { ...artist, artist_members: membersRaw, artist_groups: groupsRaw } })
 }
 
 // ── PATCH /api/artists/[id] ───────────────────────────────────────────────────
@@ -86,64 +75,67 @@ export async function PATCH(
 
   const { id } = await params
   const supabase = createAdminClient()
-  const body = await req.json()
+  const d = await req.json()
 
-  const { members, genres, substyleNames, ...artistFields } = body
+  // Tik žinomi DB laukai
+  const updatePayload: any = {}
+  const dbFields = ['name','type','country','description','cover_image_url','cover_image_wide_url',
+    'gender','birth_date','death_date','website','subdomain','spotify_id','youtube_channel_id',
+    'is_active','is_verified','type_music','type_film','type_dance','type_books',
+    'photos','show_updated','hide_mp3','active_from','active_until','slug']
 
-  if (Object.keys(artistFields).length > 0) {
-    const { error } = await supabase.from('artists').update(artistFields).eq('id', id)
+  for (const f of dbFields) {
+    if (d[f] !== undefined) updatePayload[f] = d[f]
+  }
+  if (d.yearStart !== undefined) updatePayload.active_from = d.yearStart ? parseInt(d.yearStart) : null
+  if (d.yearEnd   !== undefined) updatePayload.active_until = d.yearEnd ? parseInt(d.yearEnd) : null
+  if (d.avatar    !== undefined) updatePayload.cover_image_url = d.avatar
+
+  if (Object.keys(updatePayload).length > 0) {
+    const { error } = await supabase.from('artists').update(updatePayload).eq('id', id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
   // Nariai
-  if (members !== undefined) {
+  if (d.members !== undefined) {
     try {
       await supabase.from('artist_members').delete().eq('group_id', id)
-      if (Array.isArray(members) && members.length > 0) {
-        const rows = members
-          .filter((m: any) => m.id)
-          .map((m: any) => ({
-            group_id: parseInt(id),
-            member_id: m.id,
+      const validMembers = (d.members as any[]).filter((m: any) => m?.id)
+      if (validMembers.length > 0) {
+        await supabase.from('artist_members').insert(
+          validMembers.map((m: any) => ({
+            group_id: parseInt(id), member_id: m.id,
             year_from: m.yearFrom ? parseInt(m.yearFrom) : null,
-            year_to: m.yearTo ? parseInt(m.yearTo) : null,
+            year_to:   m.yearTo   ? parseInt(m.yearTo)   : null,
             is_current: !m.yearTo,
           }))
-        if (rows.length > 0) {
-          const { error: me } = await supabase.from('artist_members').insert(rows)
-          if (me) console.error('Members insert error:', me)
-        }
+        )
       }
-    } catch (e) {
-      console.error('artist_members table error:', e)
-    }
+    } catch (e: any) { console.error('PATCH members error:', e.message) }
   }
 
-  // Žanrai
-  if (genres !== undefined && Array.isArray(genres)) {
+  // Žanras
+  if (d.genre !== undefined) {
     await supabase.from('artist_genres').delete().eq('artist_id', id)
-    if (genres.length > 0) {
-      await supabase.from('artist_genres').insert(
-        genres.map((genreId: number) => ({ artist_id: parseInt(id), genre_id: genreId }))
-      )
+    if (d.genre) {
+      const { data: genreRow } = await supabase.from('genres').select('id').ilike('name', d.genre).maybeSingle()
+      if (genreRow?.id) await supabase.from('artist_genres').insert({ artist_id: parseInt(id), genre_id: genreRow.id })
     }
   }
 
   // Stiliai
-  if (substyleNames !== undefined && Array.isArray(substyleNames)) {
+  if (d.substyles !== undefined || d.substyleNames !== undefined) {
+    const names: string[] = d.substyles || d.substyleNames || []
     try {
       await supabase.from('artist_substyles').delete().eq('artist_id', id)
-      for (const name of substyleNames) {
+      for (const name of names) {
         if (!name?.trim()) continue
-        let { data: existing } = await supabase.from('substyles').select('id').eq('name', name).single()
-        if (!existing) {
-          const { data: newStyle } = await supabase.from('substyles')
-            .insert({ name, slug: slugify(name) }).select('id').single()
-          existing = newStyle
+        let { data: sr } = await supabase.from('substyles').select('id').eq('name', name).maybeSingle()
+        if (!sr) {
+          const { data: ns } = await supabase.from('substyles').insert({ name, slug: slugify(name) }).select('id').single()
+          sr = ns
         }
-        if (existing?.id) {
-          await supabase.from('artist_substyles').insert({ artist_id: parseInt(id), substyle_id: existing.id })
-        }
+        if (sr?.id) await supabase.from('artist_substyles').insert({ artist_id: parseInt(id), substyle_id: sr.id })
       }
     } catch {}
   }
@@ -167,9 +159,10 @@ export async function DELETE(
 
   try { await supabase.from('artist_members').delete().or(`group_id.eq.${artistId},member_id.eq.${artistId}`) } catch {}
   await supabase.from('artist_genres').delete().eq('artist_id', artistId)
+  try { await supabase.from('artist_substyles').delete().eq('artist_id', artistId) } catch {}
   await supabase.from('artist_photos').delete().eq('artist_id', artistId)
-  await supabase.from('artist_links').delete().eq('artist_id', artistId)
-  await supabase.from('artist_breaks').delete().eq('artist_id', artistId)
+  try { await supabase.from('artist_links').delete().eq('artist_id', artistId) } catch {}
+  try { await supabase.from('artist_breaks').delete().eq('artist_id', artistId) } catch {}
 
   const { error } = await supabase.from('artists').delete().eq('id', artistId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
