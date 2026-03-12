@@ -440,6 +440,7 @@ export default function EditArtist() {
   const [error, setError] = useState('')
   const [tab, setTab] = useState<'form' | 'discography'>('form')
   const [discographyKey, setDiscographyKey] = useState(0)
+  const [formKey, setFormKey] = useState(0)
 
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
   const artistId = params.id as string
@@ -540,6 +541,7 @@ export default function EditArtist() {
               trackCount={trackCount}
               onWikiImport={(data: Partial<ArtistFormData>) => {
                 setInitialData(prev => prev ? { ...prev, ...data } : prev)
+                setFormKey(k => k + 1)
               }}
             />
 
@@ -548,6 +550,7 @@ export default function EditArtist() {
                 artistName={artistName}
                 onImport={(data: Partial<ArtistFormData>) => {
                   setInitialData(prev => prev ? { ...prev, ...data } : prev)
+                  setFormKey(k => k + 1)
                 }}
               />
             </div>
@@ -601,7 +604,7 @@ export default function EditArtist() {
 
       <div className="lg:hidden flex-1 overflow-y-auto overflow-x-hidden">
         {tab === 'form' && (
-          <ArtistFormCompact initialData={initialData} artistId={artistId} onSubmit={handleSubmit} onAutoSave={handleAutoSave} saving={saving} />
+          <ArtistFormCompact key={formKey} initialData={initialData} artistId={artistId} onSubmit={handleSubmit} onAutoSave={handleAutoSave} saving={saving} />
         )}
         {tab === 'discography' && (
           <DiscographyPanel artistId={artistId} artistName={artistName} refreshKey={discographyKey}
@@ -616,7 +619,7 @@ export default function EditArtist() {
 
       <div className="hidden lg:flex flex-1 min-h-0">
         <div className="border-r border-gray-200 overflow-y-auto" style={{ width: '60%' }}>
-          <ArtistFormCompact initialData={initialData} artistId={artistId} onSubmit={handleSubmit} onAutoSave={handleAutoSave} saving={saving} />
+          <ArtistFormCompact key={formKey} initialData={initialData} artistId={artistId} onSubmit={handleSubmit} onAutoSave={handleAutoSave} saving={saving} />
         </div>
         <div className="overflow-hidden flex flex-col" style={{ width: '40%' }}>
           <DiscographyPanel artistId={artistId} artistName={artistName} refreshKey={discographyKey}
