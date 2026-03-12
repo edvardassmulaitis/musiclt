@@ -65,8 +65,6 @@ export async function POST(req: NextRequest) {
       death_date:         deathDate,
       website:            d.website || null,
       subdomain:          d.subdomain || null,
-      spotify_id:         d.spotify_id || null,
-      youtube_channel_id: d.youtube_channel_id || null,
       is_active:          d.is_active ?? true,
       is_verified:        d.is_verified ?? false,
       type_music:         d.type_music ?? true,
