@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
     // Gauname pilną Wikipedia tekstą (ne tik summary)
     const [sumRes, fullRes] = await Promise.all([
       fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(wikiTitle)}`),
-      fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(wikiTitle)}&prop=extracts&exintro=true&explaintext=true&format=json&origin=*`)
+      fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(wikiTitle)}&prop=extracts&explaintext=true&format=json&origin=*`)
     ])
 
     const sum = sumRes.ok ? await sumRes.json() : {}
@@ -16,14 +16,22 @@ export async function POST(req: NextRequest) {
     const pages = fullJson.query?.pages || {}
     const fullExtract: string = (Object.values(pages)[0] as any)?.extract || ''
 
-    // Naudojame pilną intro tekstą (iki 3000 simbolių)
-    const sourceText = (fullExtract || sum.extract || '').substring(0, 3000)
-    if (!sourceText) return NextResponse.json({ description: '' })
+    const rawText = fullExtract || sum.extract || ''
+    if (!rawText) return NextResponse.json({ description: '' })
+    // Daugiau medžiagos = geresnis aprašymas
+    const sourceText = rawText.substring(0, 6000)
 
     const isGroup = type === 'group' || type === 'band'
-    const lengthInstruction = isGroup
-      ? '2–4 pastraipos (apie 150–300 žodžių)'
-      : '1–2 pastraipos (apie 80–150 žodžių)'
+    // Ilgis pagal straipsnio turtingumą
+    const textLen = rawText.length
+    let lengthInstruction: string
+    if (textLen > 8000) {
+      lengthInstruction = isGroup ? '4–5 pastraipos (apie 300–450 žodžių)' : '3–4 pastraipos (apie 200–350 žodžių)'
+    } else if (textLen > 3000) {
+      lengthInstruction = isGroup ? '3–4 pastraipos (apie 200–300 žodžių)' : '2–3 pastraipos (apie 130–220 žodžių)'
+    } else {
+      lengthInstruction = isGroup ? '2–3 pastraipos (apie 120–200 žodžių)' : '1–2 pastraipos (apie 80–150 žodžių)'
+    }
 
     const prompt = `Esi muzikos žurnalistas rašantis lietuviškam muzikos portalui Music.lt.
 
@@ -41,7 +49,10 @@ Reikalavimai:
 - Nenaudok žodžio "Wikipedia"
 - Nerašyk jokių antraščių, tik grynas tekstas pastraipomis
 - Jei grupė — minėk narius tik trumpai (jei svarbu kontekstui)
-- Rašyk trečiuoju asmeniu`
+- Rašyk trečiuoju asmeniu
+- SVARBU: naudok tik paprastą brūkšnelį "-", NE "–" ar "—"
+- SVARBU: rašyk taisyklinga lietuvių kalba, vengk anglicizmų ir gramatikos klaidų
+- SVARBU: tekstas turi skambėti kaip parašytas žmogaus, NE kaip išverstas`
 
     console.log('[generate-description] wikiTitle:', wikiTitle, 'type:', type, 'sourceText length:', sourceText.length, 'apiKey set:', !!process.env.ANTHROPIC_API_KEY)
     const apiRes = await fetch('https://api.anthropic.com/v1/messages', {
@@ -52,8 +63,8 @@ Reikalavimai:
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5',
-        max_tokens: 600,
+        model: 'claude-sonnet-4-5',
+        max_tokens: 1000,
         messages: [{ role: 'user', content: prompt }],
       }),
     })
