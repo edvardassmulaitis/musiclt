@@ -138,15 +138,49 @@ export async function POST(req: NextRequest) {
           let mSlug = memberSlug
           const { data: existingSlug } = await supabase.from('artists').select('id').eq('slug', mSlug).maybeSingle()
           if (existingSlug) mSlug = `${memberSlug}-${Date.now().toString(36)}`
+          const birthDate = m.birthYear
+            ? `${m.birthYear}-${String(m.birthMonth||1).padStart(2,'0')}-${String(m.birthDay||1).padStart(2,'0')}`
+            : null
+          const deathDate = m.deathYear
+            ? `${m.deathYear}-${String(m.deathMonth||1).padStart(2,'0')}-${String(m.deathDay||1).padStart(2,'0')}`
+            : null
           const { data: newMember } = await supabase.from('artists').insert({
             slug: mSlug, name: m.name, type: 'solo',
-            country: d.country || 'Lietuva',
+            country: m.country || 'Lietuva',
             cover_image_url: m.avatar || null,
+            description: m.description || null,
+            gender: m.gender || null,
+            birth_date: birthDate,
+            death_date: deathDate,
+            website: m.website || null,
+            facebook: m.facebook || null,
+            instagram: m.instagram || null,
+            youtube: m.youtube || null,
+            tiktok: m.tiktok || null,
+            spotify: m.spotify || null,
+            soundcloud: m.soundcloud || null,
+            bandcamp: m.bandcamp || null,
+            twitter: m.twitter || null,
             is_active: true, is_verified: false,
             type_music: true, type_film: false, type_dance: false, type_books: false,
             photos: [],
           }).select('id').single()
-          if (newMember?.id) memberId = newMember.id
+          if (newMember?.id) {
+            memberId = newMember.id
+            // Žanras
+            if (m.genre) {
+              const { data: gr } = await supabase.from('genres').select('id').ilike('name', m.genre).maybeSingle()
+              if (gr?.id) await supabase.from('artist_genres').insert({ artist_id: memberId, genre_id: gr.id }).catch(()=>{})
+            }
+            // Stiliai
+            const mStyles: string[] = m.substyles || []
+            for (const sname of mStyles) {
+              if (!sname?.trim()) continue
+              let { data: sr } = await supabase.from('substyles').select('id').eq('name', sname).maybeSingle()
+              if (!sr) { const { data: ns } = await supabase.from('substyles').insert({ name: sname, slug: slugify(sname) }).select('id').single(); sr = ns }
+              if (sr?.id) await supabase.from('artist_substyles').insert({ artist_id: memberId, substyle_id: sr.id }).catch(()=>{})
+            }
+          }
         } catch (e: any) { console.error('[POST /api/artists] create member error:', (e as any).message) }
       }
       if (memberId) {
