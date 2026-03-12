@@ -100,7 +100,21 @@ async function fetchMemberAvatar(wikiTitle: string): Promise<string> {
     const json = await res.json()
     const pages = json.query?.pages || {}
     const page = Object.values(pages)[0] as any
-    return page?.thumbnail?.source || ''
+    const wikiUrl = page?.thumbnail?.source || ''
+    if (!wikiUrl) return ''
+    // Uploadiname į Supabase vietoj Wikimedia URL
+    try {
+      const ir = await fetch('/api/fetch-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: wikiUrl }),
+      })
+      if (ir.ok) {
+        const d = await ir.json()
+        return d.url || wikiUrl
+      }
+    } catch {}
+    return wikiUrl
   } catch { return '' }
 }
 
@@ -481,7 +495,7 @@ export default function WikipediaImport({ onImport }: Props) {
         setStep('Saugoma nuotrauka...')
         try {
           const ir=await fetch('/api/fetch-image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:avatarSrcUrl})})
-          if(ir.ok){const{dataUrl}=await ir.json();avatar=dataUrl||avatarSrcUrl}
+          if(ir.ok){const d=await ir.json();avatar=d.url||avatarSrcUrl}
         }catch{avatar=avatarSrcUrl}
       }
 
