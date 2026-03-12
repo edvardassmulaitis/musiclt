@@ -17,7 +17,6 @@ export async function GET(req: NextRequest) {
   const limit = parseInt(searchParams.get('limit') || '50')
   const offset = parseInt(searchParams.get('offset') || '0')
   const search = searchParams.get('search') || ''
-  const includeInactive = searchParams.get('includeInactive') === 'true'
   try {
     const result = await getArtists(limit, offset, search)
     return NextResponse.json(result)
@@ -33,65 +32,51 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const data = await req.json()
+    const d = await req.json()
     const supabase = createAdminClient()
 
-    // Ištraukiame ne-DB laukus
-    const {
-      members,
-      genres,
-      substyleNames,
-      genre,       // ArtistForm siunčia genre (string), ne genres (array)
-      substyles,   // ArtistForm siunčia substyles (string[])
-      breaks,
-      photos,
-      links,
-      // socialiniai tinklai
-      website, facebook, instagram, youtube, tiktok, spotify, soundcloud, bandcamp, twitter,
-      // ignoruojami
-      groups,
-      ...artistFields
-    } = data
-
-    // Slug
-    const baseSlug = slugify(artistFields.name || '')
+    // ── Slug ──────────────────────────────────────────────────────────────────
+    const baseSlug = slugify(d.name || '')
     let slug = baseSlug
-    const { data: existing } = await supabase
-      .from('artists')
-      .select('id')
-      .eq('slug', slug)
-      .maybeSingle()
+    const { data: existing } = await supabase.from('artists').select('id').eq('slug', slug).maybeSingle()
     if (existing) slug = `${baseSlug}-${Date.now().toString(36)}`
 
-    // Pagrindinis insert
-    const insertPayload: any = {
-      ...artistFields,
+    // ── Datos ─────────────────────────────────────────────────────────────────
+    const birthDate = d.birthYear
+      ? `${d.birthYear}-${String(d.birthMonth || 1).padStart(2,'0')}-${String(d.birthDay || 1).padStart(2,'0')}`
+      : null
+    const deathDate = d.deathYear
+      ? `${d.deathYear}-${String(d.deathMonth || 1).padStart(2,'0')}-${String(d.deathDay || 1).padStart(2,'0')}`
+      : null
+
+    // ── Tik žinomi DB laukai ──────────────────────────────────────────────────
+    const insertPayload = {
       slug,
-      is_active: artistFields.is_active ?? true,
-      is_verified: artistFields.is_verified ?? false,
-      type_music: artistFields.type_music ?? true,
-      type_film: artistFields.type_film ?? false,
-      type_dance: artistFields.type_dance ?? false,
-      type_books: artistFields.type_books ?? false,
-      photos: photos || [],
+      name:               d.name || '',
+      type:               d.type || 'group',
+      country:            d.country || 'Lietuva',
+      active_from:        d.yearStart ? parseInt(d.yearStart) : (d.active_from || null),
+      active_until:       d.yearEnd   ? parseInt(d.yearEnd)   : (d.active_until || null),
+      description:        d.description || null,
+      cover_image_url:    d.avatar || d.cover_image_url || null,
+      cover_image_wide_url: d.avatarWide || d.cover_image_wide_url || null,
+      gender:             d.gender || null,
+      birth_date:         birthDate,
+      death_date:         deathDate,
+      website:            d.website || null,
+      subdomain:          d.subdomain || null,
+      spotify_id:         d.spotify_id || null,
+      youtube_channel_id: d.youtube_channel_id || null,
+      is_active:          d.is_active ?? true,
+      is_verified:        d.is_verified ?? false,
+      type_music:         d.type_music ?? true,
+      type_film:          d.type_film ?? false,
+      type_dance:         d.type_dance ?? false,
+      type_books:         d.type_books ?? false,
+      photos:             d.photos || [],
+      show_updated:       d.show_updated ?? false,
+      hide_mp3:           d.hide_mp3 ?? false,
     }
-
-    // Pašaliname laukus kurių nėra DB
-    delete insertPayload.yearStart
-    delete insertPayload.yearEnd
-    delete insertPayload.yearFrom
-    delete insertPayload.yearTo
-
-    // active_from iš yearStart
-    if (data.yearStart && !insertPayload.active_from) {
-      insertPayload.active_from = parseInt(data.yearStart) || null
-    }
-    if (data.yearEnd && !insertPayload.active_until) {
-      insertPayload.active_until = parseInt(data.yearEnd) || null
-    }
-
-    console.error('[POST /api/artists] insertPayload keys:', Object.keys(insertPayload))
-    console.error('[POST /api/artists] name:', insertPayload.name, '| slug:', slug)
 
     const { data: newArtist, error: insertError } = await supabase
       .from('artists')
@@ -106,97 +91,69 @@ export async function POST(req: NextRequest) {
 
     const artistId = newArtist.id
 
-    // ── Žanrai ──────────────────────────────────────────────────────────────
-    // ArtistForm siunčia `genre` (string pavadinimas) ir `genres` (id masyvą)
-    if (Array.isArray(genres) && genres.length > 0) {
-      await supabase.from('artist_genres').insert(
-        genres.map((gid: number) => ({ artist_id: artistId, genre_id: gid }))
-      )
-    } else if (genre) {
-      // Ieškome genre pagal pavadinimą
-      const { data: genreRow } = await supabase
-        .from('genres')
-        .select('id')
-        .ilike('name', genre)
-        .maybeSingle()
+    // ── Žanras ────────────────────────────────────────────────────────────────
+    const genreName: string = d.genre || ''
+    if (genreName) {
+      const { data: genreRow } = await supabase.from('genres').select('id').ilike('name', genreName).maybeSingle()
       if (genreRow?.id) {
         await supabase.from('artist_genres').insert({ artist_id: artistId, genre_id: genreRow.id })
       }
     }
 
-    // ── Stiliai ──────────────────────────────────────────────────────────────
-    const styleNames: string[] = substyleNames || substyles || []
-    if (styleNames.length > 0) {
+    // ── Stiliai ───────────────────────────────────────────────────────────────
+    const styleNames: string[] = d.substyles || d.substyleNames || []
+    for (const name of styleNames) {
+      if (!name?.trim()) continue
       try {
-        for (const name of styleNames) {
-          if (!name?.trim()) continue
-          let { data: styleRow } = await supabase.from('substyles').select('id').eq('name', name).maybeSingle()
-          if (!styleRow) {
-            const { data: newStyle } = await supabase.from('substyles')
-              .insert({ name, slug: slugify(name) }).select('id').single()
-            styleRow = newStyle
-          }
-          if (styleRow?.id) {
-            await supabase.from('artist_substyles').insert({ artist_id: artistId, substyle_id: styleRow.id })
-          }
+        let { data: styleRow } = await supabase.from('substyles').select('id').eq('name', name).maybeSingle()
+        if (!styleRow) {
+          const { data: ns } = await supabase.from('substyles').insert({ name, slug: slugify(name) }).select('id').single()
+          styleRow = ns
         }
-      } catch (e) {
-        console.error('Substyles error:', e)
-      }
+        if (styleRow?.id) {
+          await supabase.from('artist_substyles').insert({ artist_id: artistId, substyle_id: styleRow.id }).throwOnError()
+        }
+      } catch {}
     }
 
-    // ── Nariai ───────────────────────────────────────────────────────────────
-    if (Array.isArray(members) && members.length > 0) {
-      try {
-        const rows = members
-          .filter((m: any) => m.id)
-          .map((m: any) => ({
-            group_id: artistId,
-            member_id: m.id,
-            year_from: m.yearFrom ? parseInt(m.yearFrom) : null,
-            year_to: m.yearTo ? parseInt(m.yearTo) : null,
-            is_current: !m.yearTo,
-          }))
-        if (rows.length > 0) {
-          const { error: me } = await supabase.from('artist_members').insert(rows)
-          if (me) console.error('artist_members insert error:', me)
-        }
-      } catch (e) {
-        console.error('artist_members error:', e)
-      }
+    // ── Nariai ────────────────────────────────────────────────────────────────
+    const members: any[] = d.members || []
+    const validMembers = members.filter((m: any) => m?.id)
+    if (validMembers.length > 0) {
+      const rows = validMembers.map((m: any) => ({
+        group_id:   artistId,
+        member_id:  m.id,
+        year_from:  m.yearFrom ? parseInt(m.yearFrom) : null,
+        year_to:    m.yearTo   ? parseInt(m.yearTo)   : null,
+        is_current: !m.yearTo,
+      }))
+      const { error: me } = await supabase.from('artist_members').insert(rows)
+      if (me) console.error('[POST /api/artists] members error:', me.message)
     }
 
-    // ── Pertraukos ───────────────────────────────────────────────────────────
-    if (Array.isArray(breaks) && breaks.length > 0) {
+    // ── Pertraukos ────────────────────────────────────────────────────────────
+    const breaks: any[] = d.breaks || []
+    if (breaks.length > 0) {
       try {
         await supabase.from('artist_breaks').insert(
-          breaks.map((b: any) => ({
-            artist_id: artistId,
-            year_from: b.from ? parseInt(b.from) : null,
-            year_to: b.to ? parseInt(b.to) : null,
-          }))
+          breaks.map((b: any) => ({ artist_id: artistId, year_from: b.from ? parseInt(b.from) : null, year_to: b.to ? parseInt(b.to) : null }))
         )
       } catch {}
     }
 
-    // ── Nuorodos ─────────────────────────────────────────────────────────────
-    const linkMap: Record<string, string> = {
-      website, facebook, instagram, youtube, tiktok, spotify, soundcloud, bandcamp, twitter
-    }
-    const linkEntries = links ? Object.entries(links) : Object.entries(linkMap)
-    const validLinks = linkEntries.filter(([, v]) => v && typeof v === 'string' && v.startsWith('http'))
-    if (validLinks.length > 0) {
-      try {
-        await supabase.from('artist_links').insert(
-          validLinks.map(([type, url]) => ({ artist_id: artistId, link_type: type, url }))
-        )
-      } catch {}
+    // ── Nuorodos ──────────────────────────────────────────────────────────────
+    const linkKeys = ['facebook','instagram','youtube','tiktok','spotify','soundcloud','bandcamp','twitter']
+    const linkRows = linkKeys
+      .filter(k => d[k] && typeof d[k] === 'string' && d[k].startsWith('http'))
+      .map(k => ({ artist_id: artistId, link_type: k, url: d[k] }))
+    if (linkRows.length > 0) {
+      try { await supabase.from('artist_links').insert(linkRows) } catch {}
     }
 
     return NextResponse.json({ id: artistId, slug: newArtist.slug })
 
   } catch (e: any) {
-    console.error('[POST /api/artists]', e)
+    console.error('[POST /api/artists] CATCH:', e.message)
     return NextResponse.json({ error: e.message || 'Server error' }, { status: 500 })
   }
 }
