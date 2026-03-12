@@ -34,22 +34,40 @@ export default function NewArtistPage() {
     try {
       const method = artistId ? 'PATCH' : 'POST'
       const url = artistId ? `/api/artists/${artistId}` : '/api/artists'
+
+      console.log(`[SAVE] ${method} ${url}`)
+      console.log('[SAVE] data.name:', data.name)
+      console.log('[SAVE] data.type:', data.type)
+      console.log('[SAVE] data.genre:', (data as any).genre)
+      console.log('[SAVE] data.members:', JSON.stringify((data as any).members))
+      console.log('[SAVE] full data keys:', Object.keys(data))
+
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       })
+
+      const responseText = await res.text()
+      console.log(`[SAVE] response status: ${res.status}`)
+      console.log('[SAVE] response body:', responseText)
+
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || 'Nepavyko išsaugoti')
+        let errMsg = 'Nepavyko išsaugoti'
+        try { errMsg = JSON.parse(responseText).error || errMsg } catch {}
+        throw new Error(errMsg)
       }
-      const json = await res.json()
+
+      const json = JSON.parse(responseText)
       const id = artistId || String(json.id || json.artist?.id || '')
+      console.log('[SAVE] got id:', id)
+
       setArtistId(id)
       setArtistName(data.name || artistName)
       setIsSolo(data.type === 'solo')
       setSaved(true)
     } catch (e: any) {
+      console.error('[SAVE] error:', e)
       setSaveError(e.message || 'Klaida')
     } finally {
       setSaving(false)
