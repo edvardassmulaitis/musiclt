@@ -32,6 +32,8 @@ type BandMember = {
   name: string
   wikiTitle: string
   isCurrent: boolean
+  yearFrom?: string
+  yearTo?: string
   existingId?: number
   existingSlug?: string
   avatar?: string
@@ -73,7 +75,12 @@ function parseBandMembers(wikitext: string): BandMember[] {
       if (wikiTitle.includes(':')) continue
       if (seen.has(wikiTitle)) continue
       seen.add(wikiTitle)
-      members.push({ name: cleanArtistName(display), wikiTitle, isCurrent })
+      // Ieškome metų šalia nario: {{small|(1970–1991)}} arba (1970–present) arba (1970–dabar)
+      const afterLink = block.slice(lm.index + lm[0].length, lm.index + lm[0].length + 100)
+      const yearMatch = afterLink.match(/[({](?:\{\{[^}]*\}\}\s*)?\(?(\d{4})\s*[–\-—]+\s*(\d{4}|present|dabar|now)?\)?/)
+      const yearFrom = yearMatch ? yearMatch[1] : ''
+      const yearTo = yearMatch && yearMatch[2] && !/present|dabar|now/i.test(yearMatch[2]) ? yearMatch[2] : ''
+      members.push({ name: cleanArtistName(display), wikiTitle, isCurrent, yearFrom, yearTo })
     }
   }
   extractField('current_members', true)
@@ -536,7 +543,7 @@ export default function WikipediaImport({ onImport }: Props) {
     const memberIds: { id: number; name: string; yearFrom: string; yearTo: string }[] = []
     for (const m of groupMembers) {
       if (m.existingId) {
-        memberIds.push({ id: m.existingId, name: m.name, yearFrom: '', yearTo: '' })
+        memberIds.push({ id: m.existingId, name: m.name, yearFrom: m.yearFrom || '', yearTo: m.yearTo || '' })
       } else {
         try {
           const res = await fetch('/api/artists', {
@@ -555,7 +562,7 @@ export default function WikipediaImport({ onImport }: Props) {
           if (res.ok) {
             const data = await res.json()
             const newId = data.id || data.artist?.id
-            if (newId) memberIds.push({ id: newId, name: m.name, yearFrom: '', yearTo: '' })
+            if (newId) memberIds.push({ id: newId, name: m.name, yearFrom: m.yearFrom || '', yearTo: m.yearTo || '' })
           }
         } catch {}
       }
