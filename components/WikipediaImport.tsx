@@ -453,17 +453,6 @@ export default function WikipediaImport({ onImport }: Props) {
       const avatarSrcUrl = sum.thumbnail?.source || ''
 
       let description = ''
-      setStep('Generuojamas aprašymas...')
-      try {
-        const dr = await fetch('/api/generate-description', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ wikiTitle: s, type }),
-        })
-        if (dr.ok) { const d = await dr.json(); description = d.description || '' }
-      } catch {}
-      setTranslateOk(!!description)
-
       setStep('Skaitomas infobox...')
       let infoboxWebsite = '', infoboxYearsRaw = '', infoboxGenres: string[] | null = null
       let parsedMembers: BandMember[] = []
@@ -630,6 +619,18 @@ export default function WikipediaImport({ onImport }: Props) {
         gender, avatar, website, photos:[],
         ...socials,
       })
+
+      // Generuojame aprašymą su Claude (type jau žinomas)
+      setStep('Generuojamas aprašymas...')
+      try {
+        const dr = await fetch('/api/generate-description', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ wikiTitle: s, type }),
+        })
+        if (dr.ok) { const d: any = await dr.json(); description = d.description || '' }
+      } catch {}
+      setTranslateOk(!!description)
 
       if (parsedMembers.length > 0) {
         setMembersLoading(true)
