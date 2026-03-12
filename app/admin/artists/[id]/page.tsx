@@ -440,7 +440,7 @@ export default function EditArtist() {
   const [tab, setTab] = useState<'form' | 'discography'>('form')
   const [discographyKey, setDiscographyKey] = useState(0)
   const [formKey, setFormKey] = useState(0)
-  const submitRef = useRef<() => void>(null)
+  const submitFnRef = useRef<{ fn: (() => void) | null }>({ fn: null })
 
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
   const artistId = params.id as string
@@ -542,9 +542,17 @@ export default function EditArtist() {
                 artistName={artistName}
                 onImport={(data: Partial<ArtistFormData>) => {
                   setInitialData(prev => {
-                    if (!prev) return prev
+                    const base = prev || {
+                      name:'', type:'solo', country:'Lietuva', genre:'', substyles:[],
+                      description:'', avatar:'', avatarWide:'', website:'', photos:[],
+                      yearStart:'', yearEnd:'', breaks:[], members:[],
+                      birthYear:'', birthMonth:'', birthDay:'',
+                      deathYear:'', deathMonth:'', deathDay:'', gender:'',
+                      facebook:'', instagram:'', twitter:'', youtube:'',
+                      spotify:'', soundcloud:'', tiktok:'', bandcamp:'',
+                    }
                     const clean = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined && v !== null && v !== ''))
-                    return { ...prev, ...clean }
+                    return { ...base, ...clean }
                   })
                 }}
               />
@@ -557,7 +565,7 @@ export default function EditArtist() {
               Atšaukti
             </Link>
             <button
-              onClick={() => submitRef.current?.()}
+              onClick={() => submitFnRef.current.fn?.()}
               disabled={saving}
               className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${saved ? 'bg-green-500 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'} disabled:opacity-50`}>
               {saving
@@ -599,7 +607,7 @@ export default function EditArtist() {
 
       <div className="lg:hidden flex-1 overflow-y-auto overflow-x-hidden">
         {tab === 'form' && (
-          <ArtistFormCompact key={formKey} initialData={initialData} artistId={artistId} onSubmit={handleSubmit} saving={saving} onRegisterSubmit={fn => { (submitRef as any).current = fn }} />
+          <ArtistFormCompact key={formKey} initialData={initialData} artistId={artistId} onSubmit={handleSubmit} saving={saving} onRegisterSubmit={fn => { submitFnRef.current.fn = fn }} />
         )}
         {tab === 'discography' && (
           <DiscographyPanel artistId={artistId} artistName={artistName} refreshKey={discographyKey}
@@ -614,7 +622,7 @@ export default function EditArtist() {
 
       <div className="hidden lg:flex flex-1 min-h-0">
         <div className="border-r border-gray-200 overflow-y-auto" style={{ width: '60%' }}>
-          <ArtistFormCompact key={formKey} initialData={initialData} artistId={artistId} onSubmit={handleSubmit} saving={saving} onRegisterSubmit={fn => { (submitRef as any).current = fn }} />
+          <ArtistFormCompact key={formKey} initialData={initialData} artistId={artistId} onSubmit={handleSubmit} saving={saving} onRegisterSubmit={fn => { submitFnRef.current.fn = fn }} />
         </div>
         <div className="overflow-hidden flex flex-col" style={{ width: '40%' }}>
           <DiscographyPanel artistId={artistId} artistName={artistName} refreshKey={discographyKey}
