@@ -144,6 +144,8 @@ export async function POST(req: NextRequest) {
           const { data: newMember } = await supabase.from('artists').insert({
             slug: mSlug, name: m.name, type: 'solo',
             country: m.country || 'Lietuva',
+            active_from:  m.yearStart ? parseInt(m.yearStart) : null,
+            active_until: m.yearEnd   ? parseInt(m.yearEnd)   : null,
             cover_image_url: m.avatar || null,
             description: m.description || null,
             gender: m.gender || null,
@@ -158,7 +160,7 @@ export async function POST(req: NextRequest) {
             soundcloud: m.soundcloud || null,
             bandcamp: m.bandcamp || null,
             twitter: m.twitter || null,
-            is_active: true, is_verified: false,
+            is_active: true, is_verified: false, show_updated: false,
             type_music: true, type_film: false, type_dance: false, type_books: false,
             photos: [],
           }).select('id').single()
