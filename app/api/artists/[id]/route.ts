@@ -175,16 +175,19 @@ export async function PATCH(
 
   // ── Nuorodos (links) ─────────────────────────────────────────────────────
   if (d.links !== undefined) {
-    try {
-      await supabase.from('artist_links').delete().eq('artist_id', id)
-      const linkEntries = Object.entries(d.links as Record<string, string>)
-        .filter(([, v]) => v && typeof v === 'string' && v.trim())
-      if (linkEntries.length > 0) {
-        await supabase.from('artist_links').insert(
-          linkEntries.map(([type, url]) => ({ artist_id: parseInt(id), link_type: type, url }))
-        )
+    const { error: delErr } = await supabase.from('artist_links').delete().eq('artist_id', id)
+    if (delErr) console.error('artist_links delete error:', delErr.message)
+    const linkEntries = Object.entries(d.links as Record<string, string>)
+      .filter(([, v]) => v && typeof v === 'string' && v.trim())
+    if (linkEntries.length > 0) {
+      const { error: insErr } = await supabase.from('artist_links').insert(
+        linkEntries.map(([type, url]) => ({ artist_id: parseInt(id), link_type: type, url }))
+      )
+      if (insErr) {
+        console.error('artist_links insert error:', insErr.message)
+        return NextResponse.json({ error: 'links: ' + insErr.message }, { status: 500 })
       }
-    } catch (e: any) { console.error('PATCH links error:', e.message) }
+    }
   }
 
   return NextResponse.json({ ok: true })
