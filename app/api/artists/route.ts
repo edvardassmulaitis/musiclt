@@ -90,6 +90,9 @@ export async function POST(req: NextRequest) {
       insertPayload.active_until = parseInt(data.yearEnd) || null
     }
 
+    console.error('[POST /api/artists] insertPayload keys:', Object.keys(insertPayload))
+    console.error('[POST /api/artists] name:', insertPayload.name, '| slug:', slug)
+
     const { data: newArtist, error: insertError } = await supabase
       .from('artists')
       .insert(insertPayload)
@@ -97,7 +100,7 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (insertError || !newArtist) {
-      console.error('Artist insert error:', insertError)
+      console.error('[POST /api/artists] INSERT ERROR:', JSON.stringify(insertError))
       return NextResponse.json({ error: insertError?.message || 'Insert failed' }, { status: 500 })
     }
 
