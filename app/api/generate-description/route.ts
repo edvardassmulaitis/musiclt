@@ -25,34 +25,40 @@ export async function POST(req: NextRequest) {
     // Ilgis pagal straipsnio turtingumą
     const textLen = rawText.length
     let lengthInstruction: string
-    if (textLen > 8000) {
-      lengthInstruction = isGroup ? '4–5 pastraipos (apie 300–450 žodžių)' : '3–4 pastraipos (apie 200–350 žodžių)'
+    if (textLen > 15000) {
+      lengthInstruction = isGroup ? '5–7 pastraipos (apie 400–600 žodžių)' : '4–6 pastraipos (apie 300–500 žodžių)'
+    } else if (textLen > 8000) {
+      lengthInstruction = isGroup ? '4–5 pastraipos (apie 280–400 žodžių)' : '3–4 pastraipos (apie 200–320 žodžių)'
     } else if (textLen > 3000) {
-      lengthInstruction = isGroup ? '3–4 pastraipos (apie 200–300 žodžių)' : '2–3 pastraipos (apie 130–220 žodžių)'
+      lengthInstruction = isGroup ? '3–4 pastraipos (apie 180–280 žodžių)' : '2–3 pastraipos (apie 120–200 žodžių)'
     } else {
-      lengthInstruction = isGroup ? '2–3 pastraipos (apie 120–200 žodžių)' : '1–2 pastraipos (apie 80–150 žodžių)'
+      lengthInstruction = isGroup ? '2–3 pastraipos (apie 120–180 žodžių)' : '1–2 pastraipos (apie 80–130 žodžių)'
     }
 
-    const prompt = `Esi muzikos žurnalistas rašantis lietuviškam muzikos portalui Music.lt.
+    const prompt = `Esi patyręs muzikos žurnalistas, rašantis lietuviškam muzikos portalui Music.lt.
 
-Remiantis šiuo Wikipedia tekstu anglų kalba, parašyk aprašymą LIETUVIŲ KALBA:
+Remdamasis šia informacija apie atlikėją, parašyk REDAKCINĮ APRAŠYMĄ lietuvių kalba:
 
 ---
 ${sourceText}
 ---
 
-Reikalavimai:
-- Kalba: lietuvių, natūrali ir sklandžia žurnalistine kalba, NE mašininis vertimas
+STILIUS ir TURINYS:
+- Rašyk kaip muzikos kritikas - ne biografas ar enciklopedistas
+- Pagrindinis akcentas: MUZIKA, ĮTAKA, STILIUS, REIKŠMĖ - ne biografija
+- Neminėk gimimo datos, tikro vardo, šeimyninių detalių (tai rodoma kitur)
+- Minėk svarbiausius albumus, hitus, žanrą, stilistinę evoliuciją, palikimą
+- Rašyk trečiuoju asmeniu, natūraliai ir įtraukiančiai
+
+FORMATAS:
 - Ilgis: ${lengthInstruction}
-- Stilius: informatyvus, enciklopedinis, tinkamas muzikos portalui
-- Minėk: kilmę, žanrą, svarbius albumus ar kūrinius, reikšmę muzikos pasaulyje
-- Nenaudok žodžio "Wikipedia"
-- Nerašyk jokių antraščių, tik grynas tekstas pastraipomis
-- Jei grupė — minėk narius tik trumpai (jei svarbu kontekstui)
-- Rašyk trečiuoju asmeniu
-- SVARBU: naudok tik paprastą brūkšnelį "-", NE "–" ar "—"
-- SVARBU: rašyk taisyklinga lietuvių kalba, vengk anglicizmų ir gramatikos klaidų
-- SVARBU: tekstas turi skambėti kaip parašytas žmogaus, NE kaip išverstas`
+- Kiekviena pastraipa atskirta tuščia eilute
+- Jokių antraščių, sąrašų ar formatavimo - tik grynas tekstas
+- Naudok tik paprastą brūkšnelį "-", NE "–" ar "—"
+
+KALBA:
+- Taisyklinga, natūrali lietuvių kalba - NE vertimas
+- Tekstas turi skambėti kaip parašytas žmogaus`
 
     console.log('[generate-description] wikiTitle:', wikiTitle, 'type:', type, 'sourceText length:', sourceText.length, 'apiKey set:', !!process.env.ANTHROPIC_API_KEY)
     const apiRes = await fetch('https://api.anthropic.com/v1/messages', {
@@ -64,7 +70,7 @@ Reikalavimai:
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
-        max_tokens: 1000,
+        max_tokens: 1500,
         messages: [{ role: 'user', content: prompt }],
       }),
     })
