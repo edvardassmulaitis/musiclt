@@ -151,7 +151,7 @@ async function fetchMemberFullData(wikiTitle: string): Promise<MemberFullData> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ wikiTitle: wikiTitleForDesc, type: 'solo' }),
-    }).then(r => r.ok ? r.json() : {}).then(d => { finalDesc = d.description || '' }).catch(() => {})
+    }).then(r => r.ok ? r.json() : {}).then((d: any) => { finalDesc = d.description || '' }).catch(() => {})
 
     // 3. Wikidata
     const ppRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(wikiTitle)}&prop=pageprops&format=json&origin=*`)
