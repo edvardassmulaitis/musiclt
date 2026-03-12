@@ -36,7 +36,19 @@ type BandMember = {
   yearTo?: string
   existingId?: number
   existingSlug?: string
+  // Pilni duomenys iš Wikidata
   avatar?: string
+  country?: string
+  birthYear?: string; birthMonth?: string; birthDay?: string
+  deathYear?: string; deathMonth?: string; deathDay?: string
+  gender?: 'male'|'female'|''
+  description?: string
+  genre?: string
+  substyles?: string[]
+  website?: string
+  facebook?: string; instagram?: string; twitter?: string
+  spotify?: string; youtube?: string; soundcloud?: string
+  tiktok?: string; bandcamp?: string
 }
 
 function extractFieldNested(wikitext: string, field: string): string {
@@ -92,30 +104,112 @@ function parseBandMembers(wikitext: string): BandMember[] {
   return members
 }
 
-async function fetchMemberAvatar(wikiTitle: string): Promise<string> {
+type MemberFullData = {
+  avatar: string
+  country: string
+  birthYear: string; birthMonth: string; birthDay: string
+  deathYear: string; deathMonth: string; deathDay: string
+  gender: 'male'|'female'|''
+  description: string
+  genre: string
+  substyles: string[]
+  website: string
+  facebook: string; instagram: string; twitter: string
+  spotify: string; youtube: string; soundcloud: string
+  tiktok: string; bandcamp: string
+}
+
+async function fetchMemberFullData(wikiTitle: string): Promise<MemberFullData> {
+  const empty: MemberFullData = {
+    avatar:'', country:'', birthYear:'', birthMonth:'', birthDay:'',
+    deathYear:'', deathMonth:'', deathDay:'', gender:'',
+    description:'', genre:'', substyles:[], website:'',
+    facebook:'', instagram:'', twitter:'', spotify:'',
+    youtube:'', soundcloud:'', tiktok:'', bandcamp:'',
+  }
   try {
-    const res = await fetch(
-      `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(wikiTitle)}&prop=pageimages&pithumbsize=200&piprop=thumbnail&format=json&origin=*`
-    )
-    const json = await res.json()
-    const pages = json.query?.pages || {}
-    const page = Object.values(pages)[0] as any
-    const wikiUrl = page?.thumbnail?.source || ''
-    if (!wikiUrl) return ''
-    // Uploadiname į Supabase vietoj Wikimedia URL
-    try {
-      const ir = await fetch('/api/fetch-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: wikiUrl }),
-      })
-      if (ir.ok) {
-        const d = await ir.json()
-        return d.url || wikiUrl
-      }
-    } catch {}
-    return wikiUrl
-  } catch { return '' }
+    // 1. Avatar + description
+    const sumRes = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(wikiTitle)}`)
+    if (!sumRes.ok) return empty
+    const sum = await sumRes.json()
+    const rawDesc = sum.extract?.split('\n')[0] || ''
+    const shortDesc = rawDesc.split(/\.\s+/).slice(0,3).join('. ').substring(0,700)
+
+    // Upload avatar
+    let avatar = ''
+    const wikiImgUrl = sum.thumbnail?.source || ''
+    if (wikiImgUrl) {
+      try {
+        const ir = await fetch('/api/fetch-image', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ url: wikiImgUrl }) })
+        if (ir.ok) { const d = await ir.json(); avatar = d.url || wikiImgUrl }
+      } catch { avatar = wikiImgUrl }
+    }
+
+    // 2. Wikidata
+    const ppRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(wikiTitle)}&prop=pageprops&format=json&origin=*`)
+    const wdId: string = (Object.values((await ppRes.json()).query?.pages||{})[0] as any)?.pageprops?.wikibase_item || ''
+    if (!wdId) return { ...empty, avatar, description: shortDesc }
+
+    const claims = (await (await fetch(
+      `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${wdId}&format=json&origin=*&languages=en&props=claims`
+    )).json()).entities?.[wdId]?.claims || {}
+
+    const first = (p: string) => claims[p]?.[0]?.mainsnak?.datavalue?.value
+    const all   = (p: string): any[] => (claims[p]||[]).map((x:any)=>x.mainsnak?.datavalue?.value)
+
+    const parseDate = (t: string) => {
+      const [dp] = t.replace(/^\+/,'').split('T')
+      const [y,m,d] = dp.split('-')
+      return { year: parseInt(y)?String(parseInt(y)):'', month: parseInt(m)?String(parseInt(m)):'', day: parseInt(d)?String(parseInt(d)):'' }
+    }
+
+    const bd = first('P569')?.time; const bdp = bd ? parseDate(bd) : { year:'', month:'', day:'' }
+    const dd = first('P570')?.time; const ddp = dd ? parseDate(dd) : { year:'', month:'', day:'' }
+    const gId = first('P21')?.id
+    const gender: 'male'|'female'|'' = gId==='Q6581097' ? 'male' : gId==='Q6581072' ? 'female' : ''
+
+    let country = ''
+    for (const p of ['P27','P19']) {
+      const qid = first(p)?.id
+      if (qid && QID_COUNTRY[qid]) { country = QID_COUNTRY[qid]; break }
+    }
+
+    let website = ''
+    for (const v of all('P856')) {
+      if (typeof v==='string' && !SKIP_WEB.some(d=>v.includes(d))) { website=v; break }
+    }
+
+    const socials: Record<string,string> = {}
+    for (const [prop,cfg] of Object.entries(SOCIAL_MAP)) {
+      const v = first(prop)
+      if (typeof v==='string' && v) socials[cfg.key as string] = cfg.url(v)
+    }
+
+    // Žanrai
+    let genre = '', substyles: string[] = []
+    const genreQids = all('P136').map((v:any)=>v?.id).filter(Boolean).slice(0,8)
+    if (genreQids.length > 0) {
+      try {
+        const glData = await (await fetch(
+          `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${genreQids.join('|')}&format=json&origin=*&languages=en&props=labels`
+        )).json()
+        const labels: string[] = genreQids.map((id:string)=>glData.entities?.[id]?.labels?.en?.value).filter(Boolean)
+        const mapped = mapGenres(labels)
+        genre = mapped.genre; substyles = mapped.substyles
+      } catch {}
+    }
+
+    return {
+      avatar, description: shortDesc, country, gender,
+      birthYear: bdp.year, birthMonth: bdp.month, birthDay: bdp.day,
+      deathYear: ddp.year, deathMonth: ddp.month, deathDay: ddp.day,
+      website, genre, substyles,
+      facebook: socials.facebook||'', instagram: socials.instagram||'',
+      twitter: socials.twitter||'', spotify: socials.spotify||'',
+      youtube: socials.youtube||'', soundcloud: socials.soundcloud||'',
+      tiktok: socials.tiktok||'', bandcamp: socials.bandcamp||'',
+    }
+  } catch { return empty }
 }
 
 async function checkMemberInDB(name: string): Promise<{ id: number; slug: string } | null> {
@@ -520,8 +614,8 @@ export default function WikipediaImport({ onImport }: Props) {
           parsedMembers
             .filter(m => m.name && m.name.length >= 2)
             .map(async (m) => {
-              const [dbResult, avatarUrl] = await Promise.all([checkMemberInDB(m.name), fetchMemberAvatar(m.wikiTitle)])
-              return { ...m, existingId: dbResult?.id, existingSlug: dbResult?.slug, avatar: avatarUrl }
+              const [dbResult, fullData] = await Promise.all([checkMemberInDB(m.name), fetchMemberFullData(m.wikiTitle)])
+              return { ...m, existingId: dbResult?.id, existingSlug: dbResult?.slug, ...fullData }
             })
         )).filter(m => m.name && m.name.length >= 2)
         setMembers(resolved)
@@ -536,12 +630,24 @@ export default function WikipediaImport({ onImport }: Props) {
   // ── Nariai nekuriami DB čia – bus sukurti kartu su grupe kai paspaudžiamas "Išsaugoti" ──
   const handleApply = () => {
     if (!preview) return
+    // Nariai perduodami su pilnais duomenimis – sukuriami DB tik kai išsaugoma grupė
     const memberList = members.map(m => ({
       id: m.existingId || null,
       name: m.name,
       avatar: m.avatar || '',
       yearFrom: m.yearFrom || '',
       yearTo: m.yearTo || '',
+      country: m.country || '',
+      birthYear: m.birthYear || '', birthMonth: m.birthMonth || '', birthDay: m.birthDay || '',
+      deathYear: m.deathYear || '', deathMonth: m.deathMonth || '', deathDay: m.deathDay || '',
+      gender: m.gender || '',
+      description: m.description || '',
+      genre: m.genre || '',
+      substyles: m.substyles || [],
+      website: m.website || '',
+      facebook: m.facebook || '', instagram: m.instagram || '', twitter: m.twitter || '',
+      spotify: m.spotify || '', youtube: m.youtube || '', soundcloud: m.soundcloud || '',
+      tiktok: m.tiktok || '', bandcamp: m.bandcamp || '',
     }))
     onImport({ ...preview, members: memberList as any })
     setPreview(null); setUrl(''); setMembers([])
