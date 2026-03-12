@@ -174,6 +174,7 @@ export async function PATCH(
   }
 
   // ── Nuorodos (links) ─────────────────────────────────────────────────────
+  console.log('PATCH links received:', JSON.stringify(d.links))
   if (d.links !== undefined) {
     const { error: delErr } = await supabase.from('artist_links').delete().eq('artist_id', id)
     if (delErr) console.error('artist_links delete error:', delErr.message)
