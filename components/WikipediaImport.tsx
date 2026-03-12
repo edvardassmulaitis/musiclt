@@ -609,17 +609,6 @@ export default function WikipediaImport({ onImport }: Props) {
       const { genre, substyles } = mapGenres(finalGenres)
       const cleanName = cleanArtistName(sum.title?.replace(/_/g,' ') || '')
 
-      setPreview({
-        name: cleanName,
-        type, country: country||'Lietuva',
-        genre, substyles, description,
-        yearStart, yearEnd, breaks,
-        birthYear, birthMonth, birthDay,
-        deathYear, deathMonth, deathDay,
-        gender, avatar, website, photos:[],
-        ...socials,
-      })
-
       // Generuojame aprašymą su Claude (type jau žinomas)
       setStep('Generuojamas aprašymas...')
       try {
@@ -631,6 +620,17 @@ export default function WikipediaImport({ onImport }: Props) {
         if (dr.ok) { const d: any = await dr.json(); description = d.description || '' }
       } catch {}
       setTranslateOk(!!description)
+
+      setPreview({
+        name: cleanName,
+        type, country: country||'Lietuva',
+        genre, substyles, description,
+        yearStart, yearEnd, breaks,
+        birthYear, birthMonth, birthDay,
+        deathYear, deathMonth, deathDay,
+        gender, avatar, website, photos:[],
+        ...socials,
+      })
 
       if (parsedMembers.length > 0) {
         setMembersLoading(true)
