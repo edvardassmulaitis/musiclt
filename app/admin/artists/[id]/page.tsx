@@ -476,6 +476,7 @@ export default function EditArtist() {
       if (!res.ok) throw new Error(data.error)
       setSaved(true); setTimeout(() => setSaved(false), 2000)
       setArtistName(form.name)
+      setInitialData(form)
     } catch (e: any) { setError(e.message) }
     finally { setSaving(false) }
   }, [artistId])
