@@ -113,6 +113,8 @@ type Props = {
   submitLabel: string
   onChange?: (d: ArtistFormData) => void
   hideButtons?: boolean
+  // Leidžia tėviniam komponentui gauti submit funkciją tiesiogiai
+  onRegisterSubmit?: (fn: () => void) => void
 }
 
 function Inp({ value, onChange, placeholder, type='text', required }: any) {
@@ -1082,11 +1084,18 @@ function SocialsSection({ form, set }: { form: ArtistFormData; set: (k: keyof Ar
 }
 
 // ── Main ArtistForm ───────────────────────────────────────────────────────────
-export default function ArtistForm({ initialData, artistId, onSubmit, backHref, title, submitLabel, onChange, hideButtons }: Props) {
+export default function ArtistForm({ initialData, artistId, onSubmit, backHref, title, submitLabel, onChange, hideButtons, onRegisterSubmit }: Props) {
   const [form, setForm] = useState<ArtistFormData>({ ...emptyArtistForm, ...(initialData || {}) })
 
   // formRef turi būti PRIEŠ set() ir setAvatar() — jos naudoja formRef.current
   const formRef = useRef<ArtistFormData>({ ...emptyArtistForm, ...(initialData || {}) })
+
+  // Registruojame submit funkciją tėviniam komponentui
+  useEffect(() => {
+    if (onRegisterSubmit) {
+      onRegisterSubmit(() => onSubmit(formRef.current))
+    }
+  }, [onRegisterSubmit, onSubmit])
 
   const prevInitialRef = useRef<ArtistFormData | null>(null)
   useEffect(() => {
