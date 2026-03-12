@@ -600,10 +600,9 @@ export default function WikipediaImport({ onImport }: Props) {
                 if (!ent) continue
                 const gName = ent.labels?.en?.value
                 if (!gName) continue
-                // Pratikrinam ar grupė muzikos grupė (P31 = Q215380 band ar pan.)
-                const inst = (ent.claims?.P31||[]).map((x:any)=>x.mainsnak?.datavalue?.value?.id)
-                const isMusicGroup = inst.some((i:string) => ['Q215380','Q5741069','Q2088357','Q15416'].includes(i))
-                if (!isMusicGroup) continue
+                // Praleisti jei tai šalis, miestas ar pan. (pagal label)
+                const skipWords = ['country','city','state','government','organization','award']
+                if (skipWords.some(w => gName.toLowerCase().includes(w))) continue
                 // Ieškome DB
                 const dbRes = await fetch(`/api/artists?search=${encodeURIComponent(gName)}&limit=3`)
                 if (dbRes.ok) {
@@ -645,18 +644,6 @@ export default function WikipediaImport({ onImport }: Props) {
       const finalGenres = infoboxGenres || wdGenres
       const { genre, substyles } = mapGenres(finalGenres)
       const cleanName = cleanArtistName(sum.title?.replace(/_/g,' ') || '')
-
-      // Generuojame aprašymą su Claude (type jau žinomas)
-      setStep('Generuojamas aprašymas...')
-      try {
-        const dr = await fetch('/api/generate-description', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ wikiTitle: s, type }),
-        })
-        if (dr.ok) { const d: any = await dr.json(); description = d.description || '' }
-      } catch {}
-      setTranslateOk(!!description)
 
       setPreview({
         name: cleanName,
@@ -884,12 +871,36 @@ export default function WikipediaImport({ onImport }: Props) {
           )}
 
           {/* Description */}
-          {p.description && (
-            <div className="px-4 py-2.5">
-              <p className="text-xs text-gray-500 leading-relaxed line-clamp-3">{p.description}</p>
-              {!translateOk && <span className="text-[10px] text-amber-500 mt-1 block">Vertimas nepavyko (EN)</span>}
-            </div>
-          )}
+          <div className="px-4 py-2.5">
+            {p.description
+              ? <p className="text-xs text-gray-500 leading-relaxed line-clamp-3">{p.description}</p>
+              : null
+            }
+            <button
+              type="button"
+              onClick={async () => {
+                setStep('Generuojamas aprašymas...')
+                try {
+                  const dr = await fetch('/api/generate-description', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ wikiTitle: extractSlug(url), type: p.type }),
+                  })
+                  if (dr.ok) {
+                    const d: any = await dr.json()
+                    if (d.description) {
+                      setPreview(prev => prev ? { ...prev, description: d.description } : prev)
+                      setTranslateOk(true)
+                    }
+                  }
+                } catch {}
+                setStep('')
+              }}
+              className="mt-1.5 text-[11px] text-blue-500 hover:text-blue-700 underline"
+            >
+              {step === 'Generuojamas aprašymas...' ? '⏳ Generuojama...' : p.description ? '↺ Regeneruoti aprašymą' : '✦ Generuoti aprašymą'}
+            </button>
+          </div>
         </div>
       )}
     </div>
