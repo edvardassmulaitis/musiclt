@@ -43,6 +43,7 @@ Reikalavimai:
 - Jei grupė — minėk narius tik trumpai (jei svarbu kontekstui)
 - Rašyk trečiuoju asmeniu`
 
+    console.log('[generate-description] wikiTitle:', wikiTitle, 'type:', type, 'sourceText length:', sourceText.length, 'apiKey set:', !!process.env.ANTHROPIC_API_KEY)
     const apiRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -58,12 +59,15 @@ Reikalavimai:
     })
 
     if (!apiRes.ok) {
-      console.error('[generate-description] Anthropic error:', apiRes.status)
+      const errBody = await apiRes.text()
+      console.error('[generate-description] Anthropic error:', apiRes.status, errBody)
       return NextResponse.json({ description: '' })
     }
 
     const data = await apiRes.json()
+    console.log('[generate-description] response type:', data.type, 'stop:', data.stop_reason, 'content blocks:', data.content?.length)
     const description = data.content?.[0]?.text?.trim() || ''
+    console.log('[generate-description] description length:', description.length)
     return NextResponse.json({ description })
   } catch (e: any) {
     console.error('[generate-description]', e.message)
