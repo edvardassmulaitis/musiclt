@@ -40,7 +40,6 @@ type BandMember = {
 }
 
 function extractFieldNested(wikitext: string, field: string): string {
-  // (?<![a-z_]) užtikrina kad "members" nesugautų "current_members" ar "past_members"
   const startRe = new RegExp(`\\|\\s*(?<![a-z_])${field}(?![a-z_])\\s*=\\s*`, 'i')
   const startM = wikitext.match(startRe)
   if (!startM || startM.index === undefined) return ''
@@ -75,7 +74,6 @@ function parseBandMembers(wikitext: string): BandMember[] {
       if (wikiTitle.includes(':')) continue
       if (seen.has(wikiTitle)) continue
       seen.add(wikiTitle)
-      // Ieškome metų šalia nario: {{small|(1970–1991)}} arba (1970–present) arba (1970–dabar)
       const afterLink = block.slice(lm.index + lm[0].length, lm.index + lm[0].length + 100)
       const yearMatch = afterLink.match(/[({](?:\{\{[^}]*\}\}\s*)?\(?(\d{4})\s*[–\-—]+\s*(\d{4}|present|dabar|now)?\)?/)
       const yearFrom = yearMatch ? yearMatch[1] : ''
@@ -87,7 +85,6 @@ function parseBandMembers(wikitext: string): BandMember[] {
   extractField('members', true)
   extractField('past_members', false)
   extractField('former_members', false)
-  // Lietuviški Wikipedia laukų pavadinimai
   extractField('dabartiniai_nariai', true)
   extractField('nariai', true)
   extractField('buvę_nariai', false)
@@ -267,7 +264,6 @@ export default function WikipediaImport({ onImport }: Props) {
   const [translateOk, setTranslateOk] = useState(false)
   const [members, setMembers] = useState<BandMember[]>([])
   const [membersLoading, setMembersLoading] = useState(false)
-  const [applyingMembers, setApplyingMembers] = useState(false)
   const [searchResults, setSearchResults] = useState<{title:string;description:string}[]>([])
   const [searchTimer, setSearchTimer] = useState<ReturnType<typeof setTimeout>|null>(null)
   const [showDropdown, setShowDropdown] = useState(false)
@@ -290,7 +286,6 @@ export default function WikipediaImport({ onImport }: Props) {
         const descs: string[] = data[2] || []
         const MUSIC_RE = /\b(band|musician|singer|rapper|artist|group|duo|trio|record|album|guitarist|drummer|bassist|vocalist|DJ|producer|songwriter|rock|pop|hip.hop|jazz|metal|punk|electronic|music)/i
         const all = titles.map((title, i) => ({ title, description: descs[i] || '' }))
-        // Music-related pirmiau, tada kiti
         const music = all.filter(r => MUSIC_RE.test(r.description) || MUSIC_RE.test(r.title))
         const others = all.filter(r => !MUSIC_RE.test(r.description) && !MUSIC_RE.test(r.title))
         const sorted = [...music, ...others].slice(0, 7)
@@ -307,7 +302,6 @@ export default function WikipediaImport({ onImport }: Props) {
     setUrl(newUrl)
     setSearchResults([])
     setShowDropdown(false)
-    // Auto-fetch iškart po pasirinkimo
     setTimeout(() => go(newUrl), 50)
   }
 
@@ -361,14 +355,10 @@ export default function WikipediaImport({ onImport }: Props) {
         }
         const yaM = rawWikitext.match(/\|\s*years[_ ]active\s*=\s*([^\n|<]+)/i)
         if (yaM) infoboxYearsRaw = yaM[1].trim()
-        // Wikitext narių parsinimas
         parsedMembers = parseBandMembers(rawWikitext)
       } catch {}
 
-      // HTML-based narių parsinimas (patikimesnis nei wikitext)
-      // Visada vykdome ir pakeičiame jei gavo daugiau narių
       try {
-        // Naudojame tą pačią kalbą kaip ir wikitext fetch'as
         const wikiLang = url.includes('lt.wikipedia') ? 'lt' : 'en'
         const htmlRes = await fetch(
           `https://${wikiLang}.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(s)}&prop=text&format=json&origin=*`
@@ -391,15 +381,12 @@ export default function WikipediaImport({ onImport }: Props) {
           })
         }
 
-        // EN Wikipedia
         parseSection(/class="infobox-label"[^>]*>\s*(?:<[^>]+>)*\s*Members\s*(?:<[^>]+>)*\s*<\/th>\s*<td[^>]*>([\s\S]*?)<\/td>/i, true)
         parseSection(/class="infobox-label"[^>]*>\s*(?:<[^>]+>)*\s*Past members\s*(?:<[^>]+>)*\s*<\/th>\s*<td[^>]*>([\s\S]*?)<\/td>/i, false)
         parseSection(/class="infobox-label"[^>]*>\s*(?:<[^>]+>)*\s*Current members\s*(?:<[^>]+>)*\s*<\/th>\s*<td[^>]*>([\s\S]*?)<\/td>/i, true)
-        // LT Wikipedia
         parseSection(/class="infobox-label"[^>]*>\s*(?:<[^>]+>)*\s*Nariai\s*(?:<[^>]+>)*\s*<\/th>\s*<td[^>]*>([\s\S]*?)<\/td>/i, true)
         parseSection(/class="infobox-label"[^>]*>\s*(?:<[^>]+>)*\s*Dabartiniai nariai\s*(?:<[^>]+>)*\s*<\/th>\s*<td[^>]*>([\s\S]*?)<\/td>/i, true)
         parseSection(/class="infobox-label"[^>]*>\s*(?:<[^>]+>)*\s*Buvę nariai\s*(?:<[^>]+>)*\s*<\/th>\s*<td[^>]*>([\s\S]*?)<\/td>/i, false)
-        // Platesnis match bet koks th su "ariai" (nariai/dabartiniai nariai/buvę nariai)
         parseSection(/>[^<]*ariai[^<]*<\/th>\s*<td[^>]*>([\s\S]*?)<\/td>/i, true)
 
         console.log('[WikipediaImport] wikitext members:', parsedMembers.map(m=>m.name))
@@ -532,43 +519,17 @@ export default function WikipediaImport({ onImport }: Props) {
     setLoading(false)
   }
 
-  const handleApply = async () => {
+  // ── Nariai nekuriami DB čia – bus sukurti kartu su grupe kai paspaudžiamas "Išsaugoti" ──
+  const handleApply = () => {
     if (!preview) return
-    const groupMembers = members  // kuriame visus: ir dabartinius, ir buvusius
-    if (groupMembers.length === 0) {
-      onImport(preview); setPreview(null); setUrl(''); setMembers([])
-      return
-    }
-    setApplyingMembers(true)
-    const memberIds: { id: number; name: string; yearFrom: string; yearTo: string }[] = []
-    for (const m of groupMembers) {
-      if (m.existingId) {
-        memberIds.push({ id: m.existingId, name: m.name, yearFrom: m.yearFrom || '', yearTo: m.yearTo || '' })
-      } else {
-        try {
-          const res = await fetch('/api/artists', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              name: m.name, type: 'solo',
-              type_music: true, type_film: false, type_dance: false, type_books: false,
-              cover_image_url: m.avatar || '',
-              country: preview.country || 'Lietuva',
-              active_from: preview.yearStart ? parseInt(preview.yearStart) : null,
-              genres: [], substyleNames: [],
-              is_active: true,
-            }),
-          })
-          if (res.ok) {
-            const data = await res.json()
-            const newId = data.id || data.artist?.id
-            if (newId) memberIds.push({ id: newId, name: m.name, yearFrom: m.yearFrom || '', yearTo: m.yearTo || '' })
-          }
-        } catch {}
-      }
-    }
-    setApplyingMembers(false)
-    onImport({ ...preview, members: memberIds as any })
+    const memberList = members.map(m => ({
+      id: m.existingId || null,
+      name: m.name,
+      avatar: m.avatar || '',
+      yearFrom: m.yearFrom || '',
+      yearTo: m.yearTo || '',
+    }))
+    onImport({ ...preview, members: memberList as any })
     setPreview(null); setUrl(''); setMembers([])
   }
 
@@ -656,16 +617,15 @@ export default function WikipediaImport({ onImport }: Props) {
             <button
               type="button"
               onClick={handleApply}
-              disabled={applyingMembers || membersLoading}
+              disabled={membersLoading}
               className="shrink-0 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
             >
-              {applyingMembers ? '⏳' : '✓ Importuoti'}
+              {membersLoading ? '⏳' : '✓ Importuoti'}
             </button>
           </div>
 
-          {/* Details: žanras + stiliai + datos + website + socials – viena eilutė */}
+          {/* Details */}
           <div className="px-4 py-2.5 border-b border-gray-100 space-y-1.5 text-xs">
-            {/* Žanras + substiliai */}
             {(p.genre || (p.substyles && p.substyles.length > 0)) && (
               <div className="flex flex-wrap items-center gap-1.5">
                 {p.genre && <span className="text-gray-600 font-medium">{p.genre}</span>}
@@ -674,7 +634,6 @@ export default function WikipediaImport({ onImport }: Props) {
                 ))}
               </div>
             )}
-            {/* Solo datos */}
             {p.type === 'solo' && (p.gender || p.birthYear) && (
               <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-gray-500">
                 {p.gender && <span>{p.gender === 'male' ? 'Vyras' : 'Moteris'}</span>}
@@ -685,29 +644,17 @@ export default function WikipediaImport({ onImport }: Props) {
             {p.breaks && p.breaks.length > 0 && (
               <div className="text-gray-500">Pertraukos: {p.breaks.map(b => `${b.from}–${b.to||'?'}`).join(', ')}</div>
             )}
-            {/* Svetainė + socialiniai tinklai vienoje eilutėje */}
             {(p.website || foundSocialKeys.length > 0) && (
               <div className="flex flex-wrap items-center gap-1.5">
                 {p.website && (
-                  <a
-                    href={p.website}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline truncate max-w-[180px]"
-                    title={p.website}
-                  >
+                  <a href={p.website} target="_blank" rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline truncate max-w-[180px]" title={p.website}>
                     {p.website.replace(/^https?:\/\//, '').replace(/\/$/, '')}
                   </a>
                 )}
                 {foundSocialKeys.map(k => (
-                  <a
-                    key={k}
-                    href={(p as any)[k]}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title={(p as any)[k]}
-                    className="px-1.5 py-0.5 bg-blue-50 text-blue-600 border border-blue-100 rounded text-[11px] hover:bg-blue-100 transition-colors"
-                  >
+                  <a key={k} href={(p as any)[k]} target="_blank" rel="noopener noreferrer" title={(p as any)[k]}
+                    className="px-1.5 py-0.5 bg-blue-50 text-blue-600 border border-blue-100 rounded text-[11px] hover:bg-blue-100 transition-colors">
                     {k}
                   </a>
                 ))}
@@ -715,7 +662,7 @@ export default function WikipediaImport({ onImport }: Props) {
             )}
           </div>
 
-          {/* Members – vienoje eilutėje */}
+          {/* Members */}
           {(membersLoading || members.length > 0) && (
             <div className="px-4 py-2 border-b border-gray-100 text-xs">
               <div className="flex flex-wrap items-baseline gap-x-1 gap-y-0.5">
@@ -745,7 +692,7 @@ export default function WikipediaImport({ onImport }: Props) {
                         </span>
                       )}
                       {currentMembers.some(m => !m.existingId) && (
-                        <span className="text-[11px] text-amber-500 ml-1">· trūkstami bus sukurti</span>
+                        <span className="text-[11px] text-amber-500 ml-1">· trūkstami bus sukurti išsaugant</span>
                       )}
                     </>
                 }
