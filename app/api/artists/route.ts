@@ -76,6 +76,15 @@ export async function POST(req: NextRequest) {
       photos:             d.photos || [],
       show_updated:       d.show_updated ?? false,
       hide_mp3:           d.hide_mp3 ?? false,
+      // ── Social links ────────────────────────────────────────────────────────
+      facebook:           d.facebook   || null,
+      instagram:          d.instagram  || null,
+      youtube:            d.youtube    || null,
+      tiktok:             d.tiktok     || null,
+      spotify:            d.spotify    || null,
+      soundcloud:         d.soundcloud || null,
+      bandcamp:           d.bandcamp   || null,
+      twitter:            d.twitter    || null,
     }
 
     const { data: newArtist, error: insertError } = await supabase
@@ -139,15 +148,6 @@ export async function POST(req: NextRequest) {
           breaks.map((b: any) => ({ artist_id: artistId, year_from: b.from ? parseInt(b.from) : null, year_to: b.to ? parseInt(b.to) : null }))
         )
       } catch {}
-    }
-
-    // ── Nuorodos ──────────────────────────────────────────────────────────────
-    const linkKeys = ['facebook','instagram','youtube','tiktok','spotify','soundcloud','bandcamp','twitter']
-    const linkRows = linkKeys
-      .filter(k => d[k] && typeof d[k] === 'string' && d[k].startsWith('http'))
-      .map(k => ({ artist_id: artistId, link_type: k, url: d[k] }))
-    if (linkRows.length > 0) {
-      try { await supabase.from('artist_links').insert(linkRows) } catch {}
     }
 
     return NextResponse.json({ id: artistId, slug: newArtist.slug })
