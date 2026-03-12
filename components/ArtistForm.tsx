@@ -10,7 +10,6 @@ import RichTextEditor from './RichTextEditor'
 const CY = new Date().getFullYear()
 const YEARS = Array.from({ length: CY - 1900 + 1 }, (_, i) => CY - i)
 
-// SVG ikonos socialiniams tinklams
 const SocialIcons: Record<string, React.ReactNode> = {
   website: (
     <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
@@ -53,7 +52,6 @@ const SOCIALS = [
   { key:'twitter',    label:'X (Twitter)',ph:'https://x.com/...' },
 ]
 
-// Reusable SVG icons
 const IconUpload = () => (
   <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-none stroke-current stroke-2 shrink-0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
 )
@@ -68,7 +66,6 @@ const WikipediaIcon = () => (
     <path d="M12.09 13.119c-.936 1.932-2.217 4.548-2.853 5.728-.616 1.146-1.069 1.93-1.402 2.376-.333.445-.716.777-1.15.995C6.22 22.604 5.378 22 4.5 22c-.841 0-1.533-.31-2.074-.931C1.885 20.448 1.615 19.67 1.615 18.75c0-.65.194-1.21.583-1.68l.042-.047c.422-.458 1.01-.737 1.762-.837v-.073c-.558-.113-.997-.365-1.317-.757-.32-.393-.48-.861-.48-1.406 0-.484.143-.9.428-1.248.285-.348.655-.522 1.11-.522.392 0 .74.104 1.044.312.304.207.537.516.7.927.162.41.244.879.244 1.407v.115c.357-.05.685-.076.982-.076.298 0 .608.025.93.076v-.115c0-.528.081-.998.244-1.407.163-.411.396-.72.7-.927.304-.208.652-.312 1.044-.312.455 0 .825.174 1.11.522.285.348.428.764.428 1.248 0 .545-.16 1.013-.48 1.406-.32.392-.759.644-1.317.757v.073c.752.1 1.34.379 1.762.837l.042.047c.389.47.583 1.03.583 1.68 0 .919-.27 1.697-.81 2.333C14.034 21.69 13.34 22 12.5 22c-.878 0-1.72-.604-2.185-1.082L12.09 13.119zM22 2h-3.5l-3 9-3-9h-1l-3 9-3-9H2l4.5 13h1L11 6l3.5 9h1L20 2h2z"/>
   </svg>
 )
-
 const IconExpand = () => (
   <svg viewBox="0 0 24 24" className="w-3 h-3 fill-none stroke-current stroke-2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
 )
@@ -115,7 +112,6 @@ type Props = {
   title: string
   submitLabel: string
   onChange?: (d: ArtistFormData) => void
-  // v3: slėpti apatinius mygtukus kai puslapyje yra sticky header su mygtukais
   hideButtons?: boolean
 }
 
@@ -1089,88 +1085,94 @@ function SocialsSection({ form, set }: { form: ArtistFormData; set: (k: keyof Ar
 export default function ArtistForm({ initialData, artistId, onSubmit, backHref, title, submitLabel, onChange, hideButtons }: Props) {
   const [form, setForm] = useState<ArtistFormData>({ ...emptyArtistForm, ...(initialData || {}) })
 
+  // formRef turi būti PRIEŠ set() ir setAvatar() — jos naudoja formRef.current
+  const formRef = useRef<ArtistFormData>({ ...emptyArtistForm, ...(initialData || {}) })
+
   const prevInitialRef = useRef<ArtistFormData | null>(null)
   useEffect(() => {
     if (!initialData) return
     if (prevInitialRef.current === null) {
       prevInitialRef.current = initialData
-      // Merge su emptyArtistForm kad masyvai (breaks, members, photos...) niekada nebūtų undefined
-      setForm({ ...emptyArtistForm, ...initialData })
+      const merged = { ...emptyArtistForm, ...initialData }
+      formRef.current = merged
+      setForm(merged)
       return
     }
     const prev = prevInitialRef.current
     prevInitialRef.current = initialData
-    setForm(f => ({
-      ...f,
-      ...(initialData.name !== prev.name ? { name: initialData.name } : {}),
-      ...(initialData.type !== prev.type ? { type: initialData.type } : {}),
-      ...(initialData.country !== prev.country ? { country: initialData.country } : {}),
-      ...(initialData.genre !== prev.genre ? { genre: initialData.genre } : {}),
-      ...(initialData.description !== prev.description ? { description: initialData.description } : {}),
-      ...(initialData.substyles !== prev.substyles ? { substyles: initialData.substyles } : {}),
-      ...(initialData.yearStart !== prev.yearStart ? { yearStart: initialData.yearStart } : {}),
-      ...(initialData.yearEnd !== prev.yearEnd ? { yearEnd: initialData.yearEnd } : {}),
-      ...(initialData.avatar !== prev.avatar ? { avatar: initialData.avatar } : {}),
-      ...(initialData.website !== prev.website ? { website: initialData.website } : {}),
-      ...(initialData.facebook !== prev.facebook ? { facebook: initialData.facebook } : {}),
-      ...(initialData.instagram !== prev.instagram ? { instagram: initialData.instagram } : {}),
-      ...(initialData.youtube !== prev.youtube ? { youtube: initialData.youtube } : {}),
-      ...(initialData.tiktok !== prev.tiktok ? { tiktok: initialData.tiktok } : {}),
-      ...(initialData.spotify !== prev.spotify ? { spotify: initialData.spotify } : {}),
-      ...(initialData.soundcloud !== prev.soundcloud ? { soundcloud: initialData.soundcloud } : {}),
-      ...(initialData.bandcamp !== prev.bandcamp ? { bandcamp: initialData.bandcamp } : {}),
-      ...(initialData.twitter !== prev.twitter ? { twitter: initialData.twitter } : {}),
-      ...(initialData.members !== prev.members ? { members: initialData.members } : {}),
-      ...(initialData.breaks !== prev.breaks ? { breaks: initialData.breaks } : {}),
-      ...(initialData.photos !== prev.photos ? { photos: initialData.photos } : {}),
-    }))
+    setForm(f => {
+      const next = {
+        ...f,
+        ...(initialData.name !== prev.name ? { name: initialData.name } : {}),
+        ...(initialData.type !== prev.type ? { type: initialData.type } : {}),
+        ...(initialData.country !== prev.country ? { country: initialData.country } : {}),
+        ...(initialData.genre !== prev.genre ? { genre: initialData.genre } : {}),
+        ...(initialData.description !== prev.description ? { description: initialData.description } : {}),
+        ...(initialData.substyles !== prev.substyles ? { substyles: initialData.substyles } : {}),
+        ...(initialData.yearStart !== prev.yearStart ? { yearStart: initialData.yearStart } : {}),
+        ...(initialData.yearEnd !== prev.yearEnd ? { yearEnd: initialData.yearEnd } : {}),
+        ...(initialData.avatar !== prev.avatar ? { avatar: initialData.avatar } : {}),
+        ...(initialData.website !== prev.website ? { website: initialData.website } : {}),
+        ...(initialData.facebook !== prev.facebook ? { facebook: initialData.facebook } : {}),
+        ...(initialData.instagram !== prev.instagram ? { instagram: initialData.instagram } : {}),
+        ...(initialData.youtube !== prev.youtube ? { youtube: initialData.youtube } : {}),
+        ...(initialData.tiktok !== prev.tiktok ? { tiktok: initialData.tiktok } : {}),
+        ...(initialData.spotify !== prev.spotify ? { spotify: initialData.spotify } : {}),
+        ...(initialData.soundcloud !== prev.soundcloud ? { soundcloud: initialData.soundcloud } : {}),
+        ...(initialData.bandcamp !== prev.bandcamp ? { bandcamp: initialData.bandcamp } : {}),
+        ...(initialData.twitter !== prev.twitter ? { twitter: initialData.twitter } : {}),
+        ...(initialData.members !== prev.members ? { members: initialData.members } : {}),
+        ...(initialData.breaks !== prev.breaks ? { breaks: initialData.breaks } : {}),
+        ...(initialData.photos !== prev.photos ? { photos: initialData.photos } : {}),
+      }
+      formRef.current = next
+      return next
+    })
   }, [initialData]) // eslint-disable-line
 
+  // ── FIX: set() naudoja formRef.current, ne form (stale closure) ──
   const set = (f: keyof ArtistFormData, v: any) => {
-    const next = { ...form, [f]: v }
-    setForm(next)
-    if (onChange && form.name) onChange?.(next)
-  }
-
-  const setAvatar = (url: string) => {
-    const next = { ...form, avatar: url }
-    setForm(next)
-    if (onChange && url !== form.avatar) onChange(next)
-  }
-
-  const formRef = useRef<ArtistFormData>(form)
-  formRef.current = form
-
-  const setPhotos = (photos: any[]) => {
-    const next = { ...formRef.current, photos }
+    const next = { ...formRef.current, [f]: v }
+    formRef.current = next
     setForm(next)
     if (onChange && next.name) onChange(next)
   }
 
-  const addBreak = () => set('breaks', [...form.breaks, { from:'', to:'' }])
-  const upBreak = (i:number, f:'from'|'to', v:string) => { const b=[...form.breaks]; b[i]={...b[i],[f]:v}; set('breaks',b) }
-  const rmBreak = (i:number) => set('breaks', form.breaks.filter((_,idx)=>idx!==i))
+  const setAvatar = (url: string) => {
+    const next = { ...formRef.current, avatar: url }
+    formRef.current = next
+    setForm(next)
+    if (onChange) onChange(next)
+  }
 
-  const addMember = (a:any) => set('members', [...form.members, { id:a.id, name:a.name, yearFrom:'', yearTo:'' }])
-  const rmMember  = (i:number) => set('members', form.members.filter((_,idx)=>idx!==i))
-  const upMember  = (i:number, f:'yearFrom'|'yearTo', v:string) => { const m=[...form.members]; m[i]={...m[i],[f]:v}; set('members',m) }
+  const setPhotos = (photos: any[]) => {
+    const next = { ...formRef.current, photos }
+    formRef.current = next
+    setForm(next)
+    if (onChange && next.name) onChange(next)
+  }
 
-  const addGroup = (a:any) => set('groups', [...(form.groups||[]), { id:a.id, name:a.name, yearFrom:'', yearTo:'' }])
-  const rmGroup  = (i:number) => set('groups', (form.groups||[]).filter((_,idx)=>idx!==i))
-  const upGroup  = (i:number, f:'yearFrom'|'yearTo', v:string) => { const g=[...(form.groups||[])]; g[i]={...g[i],[f]:v}; set('groups',g) }
+  const addBreak = () => set('breaks', [...formRef.current.breaks, { from:'', to:'' }])
+  const upBreak = (i:number, f:'from'|'to', v:string) => { const b=[...formRef.current.breaks]; b[i]={...b[i],[f]:v}; set('breaks',b) }
+  const rmBreak = (i:number) => set('breaks', formRef.current.breaks.filter((_,idx)=>idx!==i))
+
+  const addMember = (a:any) => set('members', [...formRef.current.members, { id:a.id, name:a.name, yearFrom:'', yearTo:'' }])
+  const rmMember  = (i:number) => set('members', formRef.current.members.filter((_,idx)=>idx!==i))
+  const upMember  = (i:number, f:'yearFrom'|'yearTo', v:string) => { const m=[...formRef.current.members]; m[i]={...m[i],[f]:v}; set('members',m) }
+
+  const addGroup = (a:any) => set('groups', [...(formRef.current.groups||[]), { id:a.id, name:a.name, yearFrom:'', yearTo:'' }])
+  const rmGroup  = (i:number) => set('groups', (formRef.current.groups||[]).filter((_,idx)=>idx!==i))
+  const upGroup  = (i:number, f:'yearFrom'|'yearTo', v:string) => { const g=[...(formRef.current.groups||[])]; g[i]={...g[i],[f]:v}; set('groups',g) }
 
   const handleSubmit = (e:React.FormEvent) => { e.preventDefault(); onSubmit(formRef.current) }
 
   return (
     <form onSubmit={handleSubmit}>
-      {/* v3: pašalintas min-h-screen div wrapper — forma tiesiog forma */}
-
       <div className="flex flex-col lg:grid lg:grid-cols-2 gap-0 bg-white border-y lg:border lg:rounded-xl border-gray-100 shadow-sm overflow-hidden mt-2.5 mb-2.5 lg:mx-3">
 
         {/* ── LEFT COLUMN ── */}
         <div className="p-2.5 sm:p-3 sm:pt-4 sm:pb-4 border-b lg:border-b-0 lg:border-r border-gray-100 space-y-2 sm:space-y-3">
 
-          {/* Pavadinimas + Tipas */}
           <div className="flex gap-2 items-end">
             <div className="flex-1 min-w-0">
               <label className="block text-xs font-semibold text-gray-500 mb-1">Pavadinimas *</label>
@@ -1311,7 +1313,6 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
         <InlineGallery photos={form.photos} onChange={setPhotos} artistName={form.name} artistId={artistId} />
       </div>
 
-      {/* v3: mygtukų blokas — slepiamas kai hideButtons=true */}
       {!hideButtons && (
         <div className="mt-6 flex gap-4 px-3 pb-6">
           <button id="submit-btn" type="submit"
@@ -1323,7 +1324,6 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
           </Link>
         </div>
       )}
-      {/* Paslėptas submit trigger kai naudojamas su sticky header */}
       {hideButtons && <button id="submit-btn" type="submit" className="hidden" aria-hidden="true" />}
     </form>
   )
