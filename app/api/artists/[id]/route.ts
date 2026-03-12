@@ -120,24 +120,64 @@ export async function PATCH(
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Nariai
+  // Nariai (grupės nariai) + Grupės (solo atlikėjo grupės)
   const membersSource = d.related !== undefined ? d.related : d.members
-  if (membersSource !== undefined) {
+  const groupsSource: any[] = d.groups || []
+
+  if (membersSource !== undefined || groupsSource.length > 0) {
     try {
       await supabase.from('artist_members').delete().eq('group_id', id)
       await supabase.from('artist_members').delete().eq('member_id', id)
-      const validMembers = (membersSource as any[]).filter((m: any) => m?.id)
-      if (validMembers.length > 0) {
-        await supabase.from('artist_members').insert(
-          validMembers.map((m: any) => ({
-            group_id: parseInt(id), member_id: m.id,
-            year_from: m.yearFrom ? parseInt(m.yearFrom) : null,
-            year_to:   m.yearTo   ? parseInt(m.yearTo)   : null,
-            is_current: !m.yearTo,
-          }))
-        )
+
+      const memberRows: any[] = []
+
+      // Nariai (šis atlikėjas yra grupė)
+      const validMembers = (membersSource as any[] || []).filter((m: any) => m?.id)
+      for (const m of validMembers) {
+        memberRows.push({
+          group_id: parseInt(id), member_id: m.id,
+          year_from: m.yearFrom ? parseInt(m.yearFrom) : null,
+          year_to:   m.yearTo   ? parseInt(m.yearTo)   : null,
+          is_current: !m.yearTo,
+        })
       }
-    } catch (e: any) { console.error('PATCH members error:', e.message) }
+
+      // Grupės (šis atlikėjas yra narys)
+      for (const g of groupsSource) {
+        let groupId = g.id ? Number(g.id) : null
+        // Jei grupės nėra DB - sukuriam
+        if (!groupId && g.name) {
+          const gSlug = g.name.toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+          const { data: existing } = await supabase.from('artists').select('id').ilike('name', g.name).maybeSingle()
+          if (existing?.id) {
+            groupId = existing.id
+          } else {
+            let slug = gSlug
+            const { data: slugCheck } = await supabase.from('artists').select('id').eq('slug', slug).maybeSingle()
+            if (slugCheck) slug = `${gSlug}-${Date.now().toString(36)}`
+            const { data: newGroup } = await supabase.from('artists').insert({
+              slug, name: g.name, type: 'group',
+              is_active: true, is_verified: false, show_updated: false,
+              type_music: true, type_film: false, type_dance: false, type_books: false,
+            }).select('id').single()
+            if (newGroup?.id) groupId = newGroup.id
+          }
+        }
+        if (groupId) {
+          memberRows.push({
+            group_id: groupId, member_id: parseInt(id),
+            year_from: g.yearFrom ? parseInt(g.yearFrom) : null,
+            year_to:   g.yearTo   ? parseInt(g.yearTo)   : null,
+            is_current: !g.yearTo,
+          })
+        }
+      }
+
+      if (memberRows.length > 0) {
+        await supabase.from('artist_members').insert(memberRows)
+      }
+    } catch (e: any) { console.error('PATCH members/groups error:', e.message) }
   }
 
   // Žanras
