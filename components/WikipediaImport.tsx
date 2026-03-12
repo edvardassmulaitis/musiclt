@@ -80,6 +80,11 @@ function parseBandMembers(wikitext: string): BandMember[] {
   extractField('members', true)
   extractField('past_members', false)
   extractField('former_members', false)
+  // Lietuviški Wikipedia laukų pavadinimai
+  extractField('dabartiniai_nariai', true)
+  extractField('nariai', true)
+  extractField('buvę_nariai', false)
+  extractField('buve_nariai', false)
   return members
 }
 
@@ -356,8 +361,10 @@ export default function WikipediaImport({ onImport }: Props) {
       // HTML-based narių parsinimas (patikimesnis nei wikitext)
       // Visada vykdome ir pakeičiame jei gavo daugiau narių
       try {
+        // Naudojame tą pačią kalbą kaip ir wikitext fetch'as
+        const wikiLang = url.includes('lt.wikipedia') ? 'lt' : 'en'
         const htmlRes = await fetch(
-          `https://en.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(s)}&prop=text&format=json&origin=*`
+          `https://${wikiLang}.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(s)}&prop=text&format=json&origin=*`
         )
         const htmlData = await htmlRes.json()
         const htmlContent: string = htmlData.parse?.text?.['*'] || ''
@@ -377,8 +384,16 @@ export default function WikipediaImport({ onImport }: Props) {
           })
         }
 
+        // EN Wikipedia
         parseSection(/class="infobox-label"[^>]*>\s*(?:<[^>]+>)*\s*Members\s*(?:<[^>]+>)*\s*<\/th>\s*<td[^>]*>([\s\S]*?)<\/td>/i, true)
         parseSection(/class="infobox-label"[^>]*>\s*(?:<[^>]+>)*\s*Past members\s*(?:<[^>]+>)*\s*<\/th>\s*<td[^>]*>([\s\S]*?)<\/td>/i, false)
+        parseSection(/class="infobox-label"[^>]*>\s*(?:<[^>]+>)*\s*Current members\s*(?:<[^>]+>)*\s*<\/th>\s*<td[^>]*>([\s\S]*?)<\/td>/i, true)
+        // LT Wikipedia
+        parseSection(/class="infobox-label"[^>]*>\s*(?:<[^>]+>)*\s*Nariai\s*(?:<[^>]+>)*\s*<\/th>\s*<td[^>]*>([\s\S]*?)<\/td>/i, true)
+        parseSection(/class="infobox-label"[^>]*>\s*(?:<[^>]+>)*\s*Dabartiniai nariai\s*(?:<[^>]+>)*\s*<\/th>\s*<td[^>]*>([\s\S]*?)<\/td>/i, true)
+        parseSection(/class="infobox-label"[^>]*>\s*(?:<[^>]+>)*\s*Buvę nariai\s*(?:<[^>]+>)*\s*<\/th>\s*<td[^>]*>([\s\S]*?)<\/td>/i, false)
+        // Platesnis match bet koks th su "ariai" (nariai/dabartiniai nariai/buvę nariai)
+        parseSection(/>[^<]*ariai[^<]*<\/th>\s*<td[^>]*>([\s\S]*?)<\/td>/i, true)
 
         console.log('[WikipediaImport] wikitext members:', parsedMembers.map(m=>m.name))
         console.log('[WikipediaImport] html members:', htmlMembers.map(m=>m.name))
