@@ -107,6 +107,7 @@ function parseBandMembers(wikitext: string): BandMember[] {
 type MemberFullData = {
   avatar: string
   country: string
+  yearStart: string; yearEnd: string
   birthYear: string; birthMonth: string; birthDay: string
   deathYear: string; deathMonth: string; deathDay: string
   gender: 'male'|'female'|''
@@ -121,7 +122,8 @@ type MemberFullData = {
 
 async function fetchMemberFullData(wikiTitle: string): Promise<MemberFullData> {
   const empty: MemberFullData = {
-    avatar:'', country:'', birthYear:'', birthMonth:'', birthDay:'',
+    avatar:'', country:'', yearStart:'', yearEnd:'',
+    birthYear:'', birthMonth:'', birthDay:'',
     deathYear:'', deathMonth:'', deathDay:'', gender:'',
     description:'', genre:'', substyles:[], website:'',
     facebook:'', instagram:'', twitter:'', spotify:'',
@@ -199,8 +201,22 @@ async function fetchMemberFullData(wikiTitle: string): Promise<MemberFullData> {
       } catch {}
     }
 
+    // Versti aprašymą į lietuvių
+    let finalDesc = shortDesc
+    if (shortDesc) {
+      try { const tr = await translateToLT(shortDesc); if (tr.ok) finalDesc = tr.result } catch {}
+    }
+
+    // Veiklos metai
+    let yearStart = '', yearEnd = ''
+    const yas = first('P2031')?.time; if (yas) yearStart = parseDate(yas).year
+    const yae = first('P2032')?.time; if (yae) yearEnd = parseDate(yae).year
+    if (!yearStart) { const t = first('P571')?.time; if (t) yearStart = parseDate(t).year }
+    if (!yearEnd)   { const t = first('P576')?.time; if (t) yearEnd   = parseDate(t).year }
+
     return {
-      avatar, description: shortDesc, country, gender,
+      avatar, description: finalDesc, country, gender,
+      yearStart, yearEnd,
       birthYear: bdp.year, birthMonth: bdp.month, birthDay: bdp.day,
       deathYear: ddp.year, deathMonth: ddp.month, deathDay: ddp.day,
       website, genre, substyles,
@@ -638,6 +654,8 @@ export default function WikipediaImport({ onImport }: Props) {
       yearFrom: m.yearFrom || '',
       yearTo: m.yearTo || '',
       country: m.country || '',
+      yearStart: (m as any).yearStart || '',
+      yearEnd: (m as any).yearEnd || '',
       birthYear: m.birthYear || '', birthMonth: m.birthMonth || '', birthDay: m.birthDay || '',
       deathYear: m.deathYear || '', deathMonth: m.deathMonth || '', deathDay: m.deathDay || '',
       gender: m.gender || '',
