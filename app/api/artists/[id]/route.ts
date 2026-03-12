@@ -40,27 +40,55 @@ export async function GET(
     return NextResponse.json({ artist: { ...a2, artist_genres: [], artist_members: [], artist_groups: [] } })
   }
 
-  // 3. Nariai (try/catch — lentelė gali neegzistuoti)
-  let membersRaw: any[] = []
-  let groupsRaw: any[] = []
+  // 3. Žanrų ID sąrašas
+  const genres: number[] = (artist.artist_genres || []).map((ag: any) => ag.genre_id).filter(Boolean)
 
+  // 4. Stiliai
+  let substyleNames: string[] = []
   try {
-    const { data } = await supabase
+    const { data: subs } = await supabase
+      .from('artist_substyles').select('substyles(name)').eq('artist_id', id)
+    substyleNames = (subs || []).map((s: any) => s.substyles?.name).filter(Boolean)
+  } catch {}
+
+  // 5. Nariai ir grupės → related[]
+  let related: any[] = []
+  try {
+    const { data: members } = await supabase
       .from('artist_members')
-      .select('member_id, year_from, year_to, is_current, artists!artist_members_member_id_fkey(id, name, slug, cover_image_url)')
+      .select('member_id, year_from, year_to, artists!artist_members_member_id_fkey(id, name, type, slug, cover_image_url)')
       .eq('group_id', id)
-    membersRaw = data || []
+    for (const m of members || []) {
+      const a = (m as any).artists
+      if (a) related.push({ id: m.member_id, name: a.name, type: a.type || 'solo', slug: a.slug, cover_image_url: a.cover_image_url, yearFrom: m.year_from ? String(m.year_from) : '', yearTo: m.year_to ? String(m.year_to) : '' })
+    }
   } catch {}
-
   try {
-    const { data } = await supabase
+    const { data: groups } = await supabase
       .from('artist_members')
-      .select('group_id, year_from, year_to, is_current, artists!artist_members_group_id_fkey(id, name, slug, cover_image_url)')
+      .select('group_id, year_from, year_to, artists!artist_members_group_id_fkey(id, name, type, slug, cover_image_url)')
       .eq('member_id', id)
-    groupsRaw = data || []
+    for (const g of groups || []) {
+      const a = (g as any).artists
+      if (a) related.push({ id: g.group_id, name: a.name, type: a.type || 'group', slug: a.slug, cover_image_url: a.cover_image_url, yearFrom: g.year_from ? String(g.year_from) : '', yearTo: g.year_to ? String(g.year_to) : '' })
+    }
   } catch {}
 
-  return NextResponse.json({ artist: { ...artist, artist_members: membersRaw, artist_groups: groupsRaw } })
+  // 6. Nuorodos
+  let links: Record<string, string> = {}
+  try {
+    const { data: linkRows } = await supabase.from('artist_links').select('link_type, url').eq('artist_id', id)
+    for (const l of linkRows || []) links[l.link_type] = l.url
+  } catch {}
+
+  // 7. Pertraukos
+  let breaks: any[] = []
+  try {
+    const { data: breakRows } = await supabase.from('artist_breaks').select('year_from, year_to').eq('artist_id', id)
+    breaks = (breakRows || []).map((b: any) => ({ from: b.year_from ? String(b.year_from) : '', to: b.year_to ? String(b.year_to) : '' }))
+  } catch {}
+
+  return NextResponse.json({ ...artist, genres, substyleNames, related, links, breaks })
 }
 
 // ── PATCH /api/artists/[id] ───────────────────────────────────────────────────
@@ -168,4 +196,12 @@ export async function DELETE(
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   return NextResponse.json({ ok: true })
+}
+
+// ── PUT /api/artists/[id] — alias for PATCH (backward compat) ─────────────
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  return PATCH(req, { params })
 }
