@@ -593,8 +593,9 @@ export default function WikipediaImport({ onImport }: Props) {
           if (groupQids.length > 0) {
             try {
               const gData = await (await fetch(
-                `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${groupQids.join('|')}&format=json&origin=*&languages=en|en-gb|lt&props=labels,sitelinks`
+                `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${groupQids.join('|')}&format=json&origin=*&languages=en&props=labels%7Csitelinks`
               )).json()
+              console.log('[Groups] raw gData sample:', JSON.stringify(Object.values(gData.entities||{})[0]).substring(0,300))
               const foundGroups: { id: number | null; name: string; yearFrom: string; yearTo: string }[] = []
               for (const qid of groupQids) {
                 const ent = gData.entities?.[qid]
