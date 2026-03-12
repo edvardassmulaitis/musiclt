@@ -69,12 +69,17 @@ export async function GET(
     }
   } catch {}
 
-  // 6. Nuorodos
-  let links: Record<string, string> = {}
-  try {
-    const { data: linkRows } = await supabase.from('artist_links').select('platform, url').eq('artist_id', id)
-    for (const l of linkRows || []) links[l.platform] = l.url
-  } catch {}
+  // 6. Nuorodos — tiesiai iš artists lentelės
+  const links: Record<string, string> = {
+    facebook:   artist.facebook   || '',
+    instagram:  artist.instagram  || '',
+    youtube:    artist.youtube    || '',
+    tiktok:     artist.tiktok     || '',
+    spotify:    artist.spotify    || '',
+    soundcloud: artist.soundcloud || '',
+    bandcamp:   artist.bandcamp   || '',
+    twitter:    artist.twitter    || '',
+  }
 
   // 7. Pertraukos
   let breaks: any[] = []
@@ -105,7 +110,8 @@ export async function PATCH(
   const dbFields = ['name','type','country','description','cover_image_url','cover_image_wide_url',
     'gender','birth_date','death_date','website','subdomain','spotify_id','youtube_channel_id',
     'is_active','is_verified','type_music','type_film','type_dance','type_books',
-    'photos','show_updated','hide_mp3','active_from','active_until','slug']
+    'photos','show_updated','hide_mp3','active_from','active_until','slug',
+    'facebook','instagram','youtube','tiktok','spotify','soundcloud','bandcamp','twitter']
 
   for (const f of dbFields) {
     if (d[f] !== undefined) updatePayload[f] = d[f]
@@ -173,22 +179,14 @@ export async function PATCH(
     } catch {}
   }
 
-  // ── Nuorodos (links) ─────────────────────────────────────────────────────
-  console.log('PATCH links received:', JSON.stringify(d.links))
+  // ── Nuorodos — tiesiai į artists lentelę ────────────────────────────────
   if (d.links !== undefined) {
-    const { error: delErr } = await supabase.from('artist_links').delete().eq('artist_id', id)
-    if (delErr) console.error('artist_links delete error:', delErr.message)
-    const linkEntries = Object.entries(d.links as Record<string, string>)
-      .filter(([, v]) => v && typeof v === 'string' && v.trim())
-    if (linkEntries.length > 0) {
-      const { error: insErr } = await supabase.from('artist_links').insert(
-        linkEntries.map(([type, url]) => ({ artist_id: parseInt(id), platform: type, url }))
-      )
-      if (insErr) {
-        console.error('artist_links insert error:', insErr.message)
-        return NextResponse.json({ error: 'links: ' + insErr.message }, { status: 500 })
-      }
+    const l = d.links as Record<string, string>
+    const linksPayload: any = {}
+    for (const k of ['facebook','instagram','youtube','tiktok','spotify','soundcloud','bandcamp','twitter']) {
+      linksPayload[k] = l[k] || null
     }
+    await supabase.from('artists').update(linksPayload).eq('id', id)
   }
 
   return NextResponse.json({ ok: true })
