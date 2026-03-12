@@ -32,7 +32,7 @@ export default function NewArtistPage() {
     setSaving(true)
     setSaveError('')
     try {
-      const method = artistId ? 'PUT' : 'POST'
+      const method = artistId ? 'PATCH' : 'POST'
       const url = artistId ? `/api/artists/${artistId}` : '/api/artists'
       const res = await fetch(url, {
         method,
