@@ -145,10 +145,18 @@ async function fetchMemberFullData(wikiTitle: string): Promise<MemberFullData> {
       } catch { avatar = wikiImgUrl }
     }
 
-    // 2. Wikidata
+    // 2. Generuojame aprašymą su Claude (lygiagrečiai su Wikidata fetch)
+    let finalDesc = ''
+    const descPromise = fetch('/api/generate-description', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ wikiTitle: wikiTitleForDesc, type: 'solo' }),
+    }).then(r => r.ok ? r.json() : {}).then(d => { finalDesc = d.description || '' }).catch(() => {})
+
+    // 3. Wikidata
     const ppRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(wikiTitle)}&prop=pageprops&format=json&origin=*`)
     const wdId: string = (Object.values((await ppRes.json()).query?.pages||{})[0] as any)?.pageprops?.wikibase_item || ''
-    if (!wdId) return { ...empty, avatar, description: shortDesc }
+    if (!wdId) return { ...empty, avatar, description: finalDesc }
 
     const claims = (await (await fetch(
       `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${wdId}&format=json&origin=*&languages=en&props=claims`
@@ -199,16 +207,10 @@ async function fetchMemberFullData(wikiTitle: string): Promise<MemberFullData> {
       } catch {}
     }
 
-    // Generuojame aprašymą su Claude
-    let finalDesc = ''
-    try {
-      const dr = await fetch('/api/generate-description', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ wikiTitle: wikiTitleForDesc, type: 'solo' }),
-      })
-      if (dr.ok) { const d = await dr.json(); finalDesc = d.description || '' }
-    } catch {}
+
+
+    // Laukiame aprašymo
+    await descPromise
 
     // Veiklos metai
     let yearStart = '', yearEnd = ''
