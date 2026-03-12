@@ -78,7 +78,7 @@ const IconGroup = () => (
 
 export type Break    = { from: string; to: string }
 export type Member   = { id: string; name: string; yearFrom: string; yearTo: string; avatar?: string }
-export type GroupRef = { id: string; name: string; yearFrom: string; yearTo: string; avatar?: string }
+export type GroupRef = { id: number | string | null; name: string; yearFrom: string; yearTo: string; avatar?: string }
 
 export type ArtistFormData = {
   name: string; type: 'group'|'solo'
@@ -1090,12 +1090,10 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
   // formRef turi būti PRIEŠ set() ir setAvatar() — jos naudoja formRef.current
   const formRef = useRef<ArtistFormData>({ ...emptyArtistForm, ...(initialData || {}) })
 
-  // Registruojame submit funkciją tėviniam komponentui
-  useEffect(() => {
-    if (onRegisterSubmit) {
-      onRegisterSubmit(() => onSubmit(formRef.current))
-    }
-  }, [onRegisterSubmit, onSubmit])
+  // Registruojame submit funkciją tėviniam komponentui - be useEffect, iš karto
+  if (onRegisterSubmit) {
+    onRegisterSubmit(() => onSubmit(formRef.current))
+  }
 
   const prevInitialRef = useRef<ArtistFormData | null>(null)
   useEffect(() => {
@@ -1133,6 +1131,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
       ...(initialData.breaks !== prev.breaks ? { breaks: initialData.breaks } : {}),
       ...(initialData.photos !== prev.photos ? { photos: initialData.photos } : {}),
     }
+    console.log('[ArtistForm] sync:', { prev_fb: prev.facebook, new_fb: initialData.facebook, next_fb: (next as any).facebook })
     formRef.current = next  // iš karto sinchroniškai
     setForm(next)
   }, [initialData]) // eslint-disable-line
