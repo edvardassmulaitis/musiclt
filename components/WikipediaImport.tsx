@@ -585,9 +585,15 @@ export default function WikipediaImport({ onImport }: Props) {
         // Grupės kurioms priklauso (P361 = part of, P463 = member of)
         if (type === 'solo') {
           setStep('Ieškoma grupių...')
-          const p361  = all('P361') .map((v:any)=>v?.id).filter(Boolean) // part of
-          const p463  = all('P463') .map((v:any)=>v?.id).filter(Boolean) // member of
-          const p1716 = all('P1716').map((v:any)=>v?.id).filter(Boolean) // member of band
+          const toQid = (v: any): string | null => {
+            const raw = v?.id ?? v?.['numeric-id']
+            if (!raw) return null
+            const s = String(raw)
+            return s.startsWith('Q') ? s : `Q${s}`
+          }
+          const p361  = all('P361') .map(toQid).filter(Boolean) as string[]
+          const p463  = all('P463') .map(toQid).filter(Boolean) as string[]
+          const p1716 = all('P1716').map(toQid).filter(Boolean) as string[]
           console.log('[Groups] P361:', p361, 'P463:', p463, 'P1716:', p1716)
           const groupQids = [...new Set([...p361, ...p463, ...p1716])].slice(0, 6)
           if (groupQids.length > 0) {
