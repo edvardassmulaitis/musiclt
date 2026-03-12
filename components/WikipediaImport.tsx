@@ -527,7 +527,7 @@ export default function WikipediaImport({ onImport }: Props) {
 
   const handleApply = async () => {
     if (!preview) return
-    const groupMembers = members.filter(m => m.isCurrent)
+    const groupMembers = members  // kuriame visus: ir dabartinius, ir buvusius
     if (groupMembers.length === 0) {
       onImport(preview); setPreview(null); setUrl(''); setMembers([])
       return
