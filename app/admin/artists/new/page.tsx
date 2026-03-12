@@ -132,6 +132,7 @@ export default function NewArtistPage() {
           </div>
 
           {/* ArtistForm — hideButtons kad nerodo savo mygtukų */}
+          <div data-theme="light">
           <ArtistForm
             key={formKey}
             initialData={initialData as ArtistFormData}
@@ -141,6 +142,7 @@ export default function NewArtistPage() {
             submitLabel="Išsaugoti"
             hideButtons
           />
+          </div>
 
           {/* Klaidos pranešimas */}
           {saveError && (
