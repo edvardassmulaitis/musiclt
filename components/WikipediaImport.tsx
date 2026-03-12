@@ -582,6 +582,43 @@ export default function WikipediaImport({ onImport }: Props) {
           if(typeof v==='string' && v)(socials as any)[cfg.key]=cfg.url(v)
         }
 
+        // Grupės kurioms priklauso (P361 = part of, P463 = member of)
+        if (type === 'solo') {
+          setStep('Ieškoma grupių...')
+          const groupQids = [
+            ...all('P361').map((v:any)=>v?.id),
+            ...all('P463').map((v:any)=>v?.id),
+          ].filter(Boolean).slice(0, 6)
+          if (groupQids.length > 0) {
+            try {
+              const gData = await (await fetch(
+                `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${groupQids.join('|')}&format=json&origin=*&languages=en&props=labels,claims`
+              )).json()
+              const foundGroups: { id: number; name: string; yearFrom: string; yearTo: string }[] = []
+              for (const qid of groupQids) {
+                const ent = gData.entities?.[qid]
+                if (!ent) continue
+                const gName = ent.labels?.en?.value
+                if (!gName) continue
+                // Pratikrinam ar grupė muzikos grupė (P31 = Q215380 band ar pan.)
+                const inst = (ent.claims?.P31||[]).map((x:any)=>x.mainsnak?.datavalue?.value?.id)
+                const isMusicGroup = inst.some((i:string) => ['Q215380','Q5741069','Q2088357','Q15416'].includes(i))
+                if (!isMusicGroup) continue
+                // Ieškome DB
+                const dbRes = await fetch(`/api/artists?search=${encodeURIComponent(gName)}&limit=3`)
+                if (dbRes.ok) {
+                  const dbData = await dbRes.json()
+                  const match = dbData.artists?.find((a:any) => a.name?.toLowerCase() === gName.toLowerCase())
+                  if (match) foundGroups.push({ id: match.id, name: match.name, yearFrom: '', yearTo: '' })
+                }
+              }
+              if (foundGroups.length > 0) {
+                (socials as any).groups = foundGroups
+              }
+            } catch {}
+          }
+        }
+
         if (!infoboxGenres) {
           setStep('Nustatomi žanrai...')
           const genreQids = all('P136').map((v:any)=>v?.id).filter(Boolean).slice(0,12)
