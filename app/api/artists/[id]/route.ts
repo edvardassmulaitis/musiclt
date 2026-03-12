@@ -73,7 +73,7 @@ export async function GET(
   let links: Record<string, string> = {}
   try {
     const { data: linkRows } = await supabase.from('artist_links').select('link_type, url').eq('artist_id', id)
-    for (const l of linkRows || []) links[l.link_type] = l.url
+    for (const l of linkRows || []) links[l.platform] = l.url
   } catch {}
 
   // 7. Pertraukos
@@ -181,7 +181,7 @@ export async function PATCH(
       .filter(([, v]) => v && typeof v === 'string' && v.trim())
     if (linkEntries.length > 0) {
       const { error: insErr } = await supabase.from('artist_links').insert(
-        linkEntries.map(([type, url]) => ({ artist_id: parseInt(id), link_type: type, url }))
+        linkEntries.map(([type, url]) => ({ artist_id: parseInt(id), platform: type, url }))
       )
       if (insErr) {
         console.error('artist_links insert error:', insErr.message)
