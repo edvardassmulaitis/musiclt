@@ -170,15 +170,17 @@ export async function POST(req: NextRequest) {
             // Žanras
             if (m.genre) {
               const { data: gr } = await supabase.from('genres').select('id').ilike('name', m.genre).maybeSingle()
-              if (gr?.id) await supabase.from('artist_genres').insert({ artist_id: memberId, genre_id: gr.id }).catch(()=>{})
+              if (gr?.id) { try { await supabase.from('artist_genres').insert({ artist_id: memberId, genre_id: gr.id }) } catch {} }
             }
             // Stiliai
             const mStyles: string[] = m.substyles || []
             for (const sname of mStyles) {
               if (!sname?.trim()) continue
-              let { data: sr } = await supabase.from('substyles').select('id').eq('name', sname).maybeSingle()
-              if (!sr) { const { data: ns } = await supabase.from('substyles').insert({ name: sname, slug: slugify(sname) }).select('id').single(); sr = ns }
-              if (sr?.id) await supabase.from('artist_substyles').insert({ artist_id: memberId, substyle_id: sr.id }).catch(()=>{})
+              try {
+                let { data: sr } = await supabase.from('substyles').select('id').eq('name', sname).maybeSingle()
+                if (!sr) { const { data: ns } = await supabase.from('substyles').insert({ name: sname, slug: slugify(sname) }).select('id').single(); sr = ns }
+                if (sr?.id) await supabase.from('artist_substyles').insert({ artist_id: memberId, substyle_id: sr.id })
+              } catch {}
             }
           }
         } catch (e: any) { console.error('[POST /api/artists] create member error:', (e as any).message) }
