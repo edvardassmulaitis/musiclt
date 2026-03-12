@@ -83,7 +83,11 @@ KALBA:
 
     const data = await apiRes.json()
     console.log('[generate-description] response type:', data.type, 'stop:', data.stop_reason, 'content blocks:', data.content?.length)
-    const description = data.content?.[0]?.text?.trim() || ''
+    const raw = data.content?.[0]?.text?.trim() || ''
+    // Paverčiame pastraipas į HTML <p> tagus (redaktorius naudoja HTML)
+    const description = raw
+      ? '<p>' + raw.split(/\n\n+/).map((p: string) => p.replace(/\n/g, ' ').trim()).filter(Boolean).join('</p><p>') + '</p>'
+      : ''
     console.log('[generate-description] description length:', description.length)
     return NextResponse.json({ description })
   } catch (e: any) {
