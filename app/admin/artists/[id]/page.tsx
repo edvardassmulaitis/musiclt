@@ -235,11 +235,11 @@ function DiscographyPanel({ artistId, artistName, refreshKey, onImportClose }: {
   return (
     <div className="h-full flex flex-col">
       <div className="shrink-0 flex items-center gap-1.5 flex-wrap px-3 py-2 border-b border-gray-200 bg-white/80 backdrop-blur sticky top-0 z-10">
-          <span className="text-sm font-bold text-gray-700 hidden lg:inline">Diskografija</span>
-          {albums.length > 0 && (
-            <span className="bg-gray-200 text-gray-600 text-xs font-bold px-1.5 py-0.5 rounded-full hidden lg:inline-flex">{albums.length}</span>
-          )}
-          <div className="flex items-center gap-1.5 ml-auto flex-wrap">
+        <span className="text-sm font-bold text-gray-700 hidden lg:inline">Diskografija</span>
+        {albums.length > 0 && (
+          <span className="bg-gray-200 text-gray-600 text-xs font-bold px-1.5 py-0.5 rounded-full hidden lg:inline-flex">{albums.length}</span>
+        )}
+        <div className="flex items-center gap-1.5 ml-auto flex-wrap">
           {artistName && (
             <WikipediaImportDiscography
               artistId={parseInt(artistId)}
@@ -258,7 +258,7 @@ function DiscographyPanel({ artistId, artistName, refreshKey, onImportClose }: {
             className="flex items-center gap-1 px-2 py-1 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg text-xs font-medium transition-colors">
             + Nauja daina
           </Link>
-          </div>
+        </div>
       </div>
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {loading ? (
@@ -309,57 +309,57 @@ function MobileBreadcrumb({ artistName, artistId, albumCount, trackCount, onWiki
           className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors text-gray-500">
           <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
         </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="fixed top-[104px] left-4 right-4 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
-            <div className="px-3 py-2.5 border-b border-gray-100">
-              <p className="text-xs font-semibold text-gray-700 truncate">{artistName}</p>
-              <p className="text-xs text-gray-400 mt-0.5">Navigacija</p>
+        {open && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+            <div className="fixed top-[104px] left-4 right-4 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
+              <div className="px-3 py-2.5 border-b border-gray-100">
+                <p className="text-xs font-semibold text-gray-700 truncate">{artistName}</p>
+                <p className="text-xs text-gray-400 mt-0.5">Navigacija</p>
+              </div>
+              <Link href="/admin/artists" onClick={() => setOpen(false)}
+                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2 text-gray-400"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                Visi atlikėjai
+              </Link>
+              {albumCount !== null && (
+                <Link href={`/admin/albums?artist_id=${artistId}`} onClick={() => setOpen(false)}
+                  className="flex items-center justify-between px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                  <span className="flex items-center gap-2">
+                    <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2 text-gray-400"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+                    Albumai
+                  </span>
+                  <span className="bg-gray-100 text-gray-600 text-xs font-bold px-1.5 py-0.5 rounded-full">{albumCount}</span>
+                </Link>
+              )}
+              {trackCount !== null && (
+                <Link href={`/admin/tracks?artist_id=${artistId}`} onClick={() => setOpen(false)}
+                  className="flex items-center justify-between px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                  <span className="flex items-center gap-2">
+                    <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2 text-gray-400"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                    Dainos
+                  </span>
+                  <span className="bg-gray-100 text-gray-600 text-xs font-bold px-1.5 py-0.5 rounded-full">{trackCount}</span>
+                </Link>
+              )}
+              <div className="border-t border-gray-100">
+                <WikipediaImportCompact artistName={artistName} onImport={(data) => { onWikiImport(data); setOpen(false) }} />
+              </div>
+              <div className="border-t border-gray-100 px-3 py-2">
+                <Link href={`/admin/albums/new?artist_id=${artistId}`} onClick={() => setOpen(false)}
+                  className="flex items-center gap-2 py-1 text-sm text-gray-700 hover:text-blue-600">
+                  <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2 text-gray-400 shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                  Naujas albumas
+                </Link>
+                <Link href={`/admin/tracks/new?artist_id=${artistId}`} onClick={() => setOpen(false)}
+                  className="flex items-center gap-2 py-1 text-sm text-gray-700 hover:text-green-600">
+                  <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2 text-gray-400 shrink-0"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Nauja daina
+                </Link>
+              </div>
             </div>
-            <Link href="/admin/artists" onClick={() => setOpen(false)}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
-              <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2 text-gray-400"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-              Visi atlikėjai
-            </Link>
-            {albumCount !== null && (
-              <Link href={`/admin/albums?artist_id=${artistId}`} onClick={() => setOpen(false)}
-                className="flex items-center justify-between px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                <span className="flex items-center gap-2">
-                  <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2 text-gray-400"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
-                  Albumai
-                </span>
-                <span className="bg-gray-100 text-gray-600 text-xs font-bold px-1.5 py-0.5 rounded-full">{albumCount}</span>
-              </Link>
-            )}
-            {trackCount !== null && (
-              <Link href={`/admin/tracks?artist_id=${artistId}`} onClick={() => setOpen(false)}
-                className="flex items-center justify-between px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                <span className="flex items-center gap-2">
-                  <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2 text-gray-400"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-                  Dainos
-                </span>
-                <span className="bg-gray-100 text-gray-600 text-xs font-bold px-1.5 py-0.5 rounded-full">{trackCount}</span>
-              </Link>
-            )}
-            <div className="border-t border-gray-100">
-              <WikipediaImportCompact artistName={artistName} onImport={(data) => { onWikiImport(data); setOpen(false) }} />
-            </div>
-            <div className="border-t border-gray-100 px-3 py-2">
-              <Link href={`/admin/albums/new?artist_id=${artistId}`} onClick={() => setOpen(false)}
-                className="flex items-center gap-2 py-1 text-sm text-gray-700 hover:text-blue-600">
-                <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2 text-gray-400 shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-                Naujas albumas
-              </Link>
-              <Link href={`/admin/tracks/new?artist_id=${artistId}`} onClick={() => setOpen(false)}
-                className="flex items-center gap-2 py-1 text-sm text-gray-700 hover:text-green-600">
-                <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2 text-gray-400 shrink-0"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Nauja daina
-              </Link>
-            </div>
-          </div>
-        </>
-      )}
+          </>
+        )}
       </div>
     </div>
   )
@@ -453,8 +453,7 @@ export default function EditArtist() {
       .then(r => r.json())
       .then(data => {
         if (data.error) { alert('Atlikėjas nerastas!'); router.push('/admin/artists'); return }
-        const formData = dbToForm(data)
-        setInitialData(formData)
+        setInitialData(dbToForm(data))
         setArtistName(data.name || '')
       })
 
@@ -479,17 +478,6 @@ export default function EditArtist() {
       setArtistName(form.name)
     } catch (e: any) { setError(e.message) }
     finally { setSaving(false) }
-  }, [artistId])
-
-  const handleAutoSave = useCallback(async (form: ArtistFormData) => {
-    if (!form.name) return
-    try {
-      await fetch(`/api/artists/${artistId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formToDb(form)),
-      })
-    } catch {}
   }, [artistId])
 
   if (status === 'loading' || !initialData) return (
@@ -603,7 +591,7 @@ export default function EditArtist() {
 
       <div className="lg:hidden flex-1 overflow-y-auto overflow-x-hidden">
         {tab === 'form' && (
-          <ArtistFormCompact key={formKey} initialData={initialData} artistId={artistId} onSubmit={handleSubmit} onAutoSave={handleAutoSave} saving={saving} />
+          <ArtistFormCompact key={formKey} initialData={initialData} artistId={artistId} onSubmit={handleSubmit} saving={saving} />
         )}
         {tab === 'discography' && (
           <DiscographyPanel artistId={artistId} artistName={artistName} refreshKey={discographyKey}
@@ -618,7 +606,7 @@ export default function EditArtist() {
 
       <div className="hidden lg:flex flex-1 min-h-0">
         <div className="border-r border-gray-200 overflow-y-auto" style={{ width: '60%' }}>
-          <ArtistFormCompact key={formKey} initialData={initialData} artistId={artistId} onSubmit={handleSubmit} onAutoSave={handleAutoSave} saving={saving} />
+          <ArtistFormCompact key={formKey} initialData={initialData} artistId={artistId} onSubmit={handleSubmit} saving={saving} />
         </div>
         <div className="overflow-hidden flex flex-col" style={{ width: '40%' }}>
           <DiscographyPanel artistId={artistId} artistName={artistName} refreshKey={discographyKey}
@@ -634,10 +622,9 @@ export default function EditArtist() {
   )
 }
 
-function ArtistFormCompact({ initialData, artistId, onSubmit, onAutoSave, saving }: {
+function ArtistFormCompact({ initialData, artistId, onSubmit, saving }: {
   initialData: ArtistFormData; artistId: string
   onSubmit: (d: ArtistFormData) => void
-  onAutoSave?: (d: ArtistFormData) => void
   saving: boolean
 }) {
   return (
@@ -657,7 +644,6 @@ function ArtistFormCompact({ initialData, artistId, onSubmit, onAutoSave, saving
         initialData={initialData}
         artistId={artistId}
         onSubmit={onSubmit}
-        onChange={onAutoSave}
         hideButtons
       />
     </div>
