@@ -29,6 +29,8 @@ export async function GET(
     .eq('id', id)
     .single()
 
+  console.error(`[GET /api/artists/${id}] query1 error:`, error?.message || 'none')
+
   if (error || !artist) {
     // Bandome be substyles jei lentelės nėra
     const { data: artist2, error: error2 } = await supabase
@@ -36,6 +38,8 @@ export async function GET(
       .select('*, artist_genres(genre_id, genres(id, name, slug))')
       .eq('id', id)
       .single()
+
+    console.error(`[GET /api/artists/${id}] query2 error:`, error2?.message || 'none', '| found:', !!artist2)
 
     if (error2 || !artist2) {
       console.error('GET artist error:', error2 || error)
