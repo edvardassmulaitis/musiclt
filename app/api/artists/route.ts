@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
   const search = searchParams.get('search') || ''
   const includeInactive = searchParams.get('includeInactive') === 'true'
   try {
-    const result = await getArtists(limit, offset, search, includeInactive)
+    const result = await getArtists(limit, offset, search)
     return NextResponse.json(result)
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
