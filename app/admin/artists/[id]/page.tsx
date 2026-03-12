@@ -98,21 +98,6 @@ function formToDb(form: ArtistFormData) {
   }
 }
 
-async function fetchAndStoreWikiAvatar(rawUrl: string): Promise<string> {
-  try {
-    const res = await fetch('/api/fetch-image', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: rawUrl }),
-    })
-    if (res.ok) {
-      const d = await res.json()
-      if (d.url && !d.url.startsWith('data:')) return d.url
-    }
-  } catch {}
-  return rawUrl
-}
-
 function TrackRow({ track }: { track: any }) {
   const trackId = track.track_id || track.id
   const hasVideo = !!track.video_url
@@ -381,7 +366,6 @@ function MobileBreadcrumb({ artistName, artistId, albumCount, trackCount, onWiki
   )
 }
 
-// Wikipedia W icon
 function WikipediaIcon({ className = "w-3.5 h-3.5 shrink-0" }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
@@ -487,7 +471,7 @@ export default function EditArtist() {
       const res = await fetch(`/api/artists/${artistId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formToDb(form), skipPhotos: true, skipAvatar: true }),
+        body: JSON.stringify(formToDb(form)),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
@@ -503,7 +487,7 @@ export default function EditArtist() {
       await fetch(`/api/artists/${artistId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formToDb(form), skipPhotos: true, skipAvatar: true }),
+        body: JSON.stringify(formToDb(form)),
       })
     } catch {}
   }, [artistId])
@@ -521,7 +505,6 @@ export default function EditArtist() {
         <div className="flex items-center justify-between gap-2 px-4 py-2">
 
           <div className="flex items-center gap-2 min-w-0 flex-1">
-            {/* Desktop breadcrumb */}
             <nav className="hidden lg:flex items-center gap-1 text-sm min-w-0 shrink overflow-hidden">
               <Link href="/admin" className="text-gray-400 hover:text-gray-700 shrink-0">Admin</Link>
               <span className="text-gray-300 shrink-0">/</span>
@@ -550,7 +533,6 @@ export default function EditArtist() {
               )}
             </nav>
 
-            {/* Mobile breadcrumb — artist name + ... menu */}
             <MobileBreadcrumb
               artistName={artistName}
               artistId={artistId}
@@ -657,14 +639,13 @@ function ArtistFormCompact({ initialData, artistId, onSubmit, onAutoSave, saving
   saving: boolean
 }) {
   return (
-    <div className="artist-form-compact">
+    <div className="artist-form-compact" data-theme="light">
       <style>{`
         .artist-form-compact { overflow-x: hidden; max-width: 100vw; }
         @media (max-width: 640px) { .artist-form-compact input, .artist-form-compact select, .artist-form-compact textarea { font-size: 16px !important; } }
         .artist-form-compact .min-h-screen { min-height: unset !important; }
         .artist-form-compact .max-w-7xl { max-width: 100% !important; padding: 0 !important; width: 100% !important; }
         .artist-form-compact > div > div > .flex.items-center.justify-between.mb-6 { display: none !important; margin: 0 !important; }
-        .artist-form-compact > div > div > form > .mt-6 { display: none !important; }
         .artist-form-compact > div { background: transparent !important; }
       `}</style>
       <ArtistForm
@@ -675,6 +656,7 @@ function ArtistFormCompact({ initialData, artistId, onSubmit, onAutoSave, saving
         artistId={artistId}
         onSubmit={onSubmit}
         onChange={onAutoSave}
+        hideButtons
       />
     </div>
   )
