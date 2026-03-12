@@ -141,7 +141,12 @@ function mapGenres(genreLabels: string[]): { genre: string; substyles: string[] 
   }
   const substyles: string[] = []
   for (const g of genreLabels) {
-    const found = ALL_SUBSTYLES.find(s => s.toLowerCase() === g.toLowerCase().trim())
+    const gLow = g.toLowerCase().trim()
+    // Tikslus sutapimas arba substyle yra žanro label'o dalis
+    const found = ALL_SUBSTYLES.find(s => {
+      const sLow = s.toLowerCase()
+      return sLow === gLow || gLow === sLow || gLow.includes(sLow) || sLow.includes(gLow)
+    })
     if (found && !substyles.includes(found)) substyles.push(found)
   }
   return { genre: best, substyles }
