@@ -594,7 +594,7 @@ export default function WikipediaImport({ onImport }: Props) {
               const gData = await (await fetch(
                 `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${groupQids.join('|')}&format=json&origin=*&languages=en&props=labels,claims`
               )).json()
-              const foundGroups: { id: number; name: string; yearFrom: string; yearTo: string }[] = []
+              const foundGroups: { id: number | null; name: string; yearFrom: string; yearTo: string }[] = []
               for (const qid of groupQids) {
                 const ent = gData.entities?.[qid]
                 if (!ent) continue
