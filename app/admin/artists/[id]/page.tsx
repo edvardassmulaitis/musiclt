@@ -527,7 +527,11 @@ export default function EditArtist() {
               albumCount={albumCount}
               trackCount={trackCount}
               onWikiImport={(data: Partial<ArtistFormData>) => {
-                setInitialData(prev => prev ? { ...prev, ...data } : prev)
+                setInitialData(prev => {
+                  if (!prev) return prev
+                  const clean = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined && v !== null && v !== ''))
+                  return { ...prev, ...clean }
+                })
                 setFormKey(k => k + 1)
               }}
             />
@@ -536,7 +540,11 @@ export default function EditArtist() {
               <WikipediaImportCompact
                 artistName={artistName}
                 onImport={(data: Partial<ArtistFormData>) => {
-                  setInitialData(prev => prev ? { ...prev, ...data } : prev)
+                  setInitialData(prev => {
+                    if (!prev) return prev
+                    const clean = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined && v !== null && v !== ''))
+                    return { ...prev, ...clean }
+                  })
                   setFormKey(k => k + 1)
                 }}
               />
