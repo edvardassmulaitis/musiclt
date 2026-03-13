@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react'
 import { COUNTRIES, SUBSTYLES } from '@/lib/constants'
 import { type ArtistFormData, type Break } from './ArtistForm'
+import MusicBrainzImport from './MusicBrainzImport'
 
-type Props = { onImport: (data: Partial<ArtistFormData>) => void; initialSearch?: string }
+type Props = { onImport: (data: Partial<ArtistFormData>) => void; initialSearch?: string; source?: 'wikipedia' | 'musicbrainz' }
 
 const ALL_SUBSTYLES = Object.values(SUBSTYLES).flat()
 
@@ -450,7 +451,7 @@ const SOCIAL_MAP: Record<string, { key: keyof ArtistFormData; url: (v: string) =
 const GROUP_QIDS = new Set(['Q215380','Q5741069','Q2088357','Q9212979','Q56816265','Q190445','Q16010345','Q183319'])
 const SKIP_WEB = ['store','shop','merch','bandsintown','songkick','last.fm','allmusic','discogs','musicbrainz','facebook','instagram','twitter','x.com','youtube','spotify','soundcloud','tiktok','bandcamp']
 
-export default function WikipediaImport({ onImport, initialSearch }: Props) {
+function WikipediaImportCore({ onImport, initialSearch }: Props) {
   const [url, setUrl] = useState(initialSearch && !initialSearch.includes('wikipedia.org') ? initialSearch : '')
   const [loading, setLoading] = useState(false)
   const [step, setStep] = useState('')
@@ -1078,6 +1079,36 @@ function MemberChip({ member, past }: { member: BandMember; past?: boolean }) {
       }
       <span>{member.name}</span>
       <span className="opacity-50">{member.existingId ? '✓' : '+'}</span>
+    </div>
+  )
+}
+
+export default function WikipediaImport({ onImport, initialSearch, source: initialSource }: Props) {
+  const [source, setSource] = useState<'wikipedia' | 'musicbrainz'>(initialSource || 'wikipedia')
+  return (
+    <div className="space-y-3">
+      {/* Šaltinio pasirinkimas */}
+      <div className="flex gap-1 p-0.5 bg-gray-100 rounded-lg w-fit">
+        <button
+          type="button"
+          onClick={() => setSource('wikipedia')}
+          className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors flex items-center gap-1.5 ${source === 'wikipedia' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500 hover:text-gray-700'}`}
+        >
+          <span>W</span> Wikipedia
+        </button>
+        <button
+          type="button"
+          onClick={() => setSource('musicbrainz')}
+          className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors flex items-center gap-1.5 ${source === 'musicbrainz' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500 hover:text-gray-700'}`}
+        >
+          <span className="text-orange-500">MB</span> MusicBrainz
+        </button>
+      </div>
+      {/* Importo komponentas */}
+      {source === 'wikipedia'
+        ? <WikipediaImportCore onImport={onImport} initialSearch={initialSearch} />
+        : <MusicBrainzImport onImport={onImport} initialSearch={initialSearch} />
+      }
     </div>
   )
 }
