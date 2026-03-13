@@ -473,63 +473,78 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
   const [translateOk, setTranslateOk] = useState(false)
   const [members, setMembers] = useState<BandMember[]>([])
   const [membersLoading, setMembersLoading] = useState(false)
-  const [searchResults, setSearchResults] = useState<{title:string;description:string;source:'wikipedia'|'musicbrainz'|'pakartot'|'youtube';mbData?:any;pkUrl?:string;ytData?:any}[]>([])
+  const [wpResults, setWpResults] = useState<{title:string;description:string}[]>([])
+  const [mbResults, setMbResults] = useState<{title:string;description:string;mbData:any}[]>([])
+  const [pkResults, setPkResults] = useState<{title:string;url:string}[]>([])
+  const [ytResults, setYtResults] = useState<{title:string;description:string;ytData:any}[]>([])
   const [searchTimer, setSearchTimer] = useState<ReturnType<typeof setTimeout>|null>(null)
-  const [searchLoading, setSearchLoading] = useState(false)
-  const [showDropdown, setShowDropdown] = useState(false)
+  const [activeTab, setActiveTab] = useState<'wikipedia'|'musicbrainz'|'pakartot'|'youtube'>('wikipedia')
+  const [wpLoading, setWpLoading] = useState(false)
+  const [mbLoading, setMbLoading] = useState(false)
+  const [pkLoading, setPkLoading] = useState(false)
+  const [ytLoading, setYtLoading] = useState(false)
   const [mbImportData, setMbImportData] = useState<{name:string;mbData:any}|null>(null)
+
+  const MUSIC_RE = /\b(band|musician|singer|rapper|artist|group|duo|trio|record|album|guitarist|drummer|bassist|vocalist|DJ|producer|songwriter|rock|pop|hip.hop|jazz|metal|punk|electronic|music)/i
+  const ALBUM_RE = /\b(album|discography|soundtrack|compilation|EP|LP|single|filmography|disambiguation)/i
+  const PERSON_BAND_RE = /\b(band|artist|singer|rapper|musician|group|duo|trio|vocalist|guitarist|drummer|DJ|producer|songwriter)/i
+
+  const runSearch = (q: string) => {
+    if (q.trim().length < 2) {
+      setWpResults([]); setMbResults([]); setPkResults([]); setYtResults([])
+      return
+    }
+    // Wikipedia
+    setWpLoading(true)
+    fetch(`https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(q)}&limit=10&format=json&origin=*`)
+      .then(r => r.json()).then(data => {
+        const titles: string[] = data[1] || []
+        const descs: string[] = data[2] || []
+        const all = titles.map((title, i) => ({ title, description: descs[i] || '' }))
+          .filter(r => !ALBUM_RE.test(r.description) && !ALBUM_RE.test(r.title))
+        const withTag = all.filter(r => PERSON_BAND_RE.test(r.title))
+        const musicD = all.filter(r => !PERSON_BAND_RE.test(r.title) && (MUSIC_RE.test(r.description) || MUSIC_RE.test(r.title)))
+        const others = all.filter(r => !PERSON_BAND_RE.test(r.title) && !MUSIC_RE.test(r.description) && !MUSIC_RE.test(r.title))
+        setWpResults([...withTag, ...musicD, ...others].slice(0, 8))
+      }).catch(() => {}).finally(() => setWpLoading(false))
+    // MusicBrainz
+    setMbLoading(true)
+    fetch(`https://musicbrainz.org/ws/2/artist/?query=${encodeURIComponent(q)}&limit=8&fmt=json`, { headers: { 'User-Agent': 'music.lt/1.0' } })
+      .then(r => r.json()).then(data => {
+        const results = (data.artists || [])
+          .map((a: any) => ({ ...a, _sort: mbSortScore(a.name, q) }))
+          .sort((a: any, b: any) => b._sort - a._sort)
+          .slice(0, 8)
+          .map((a: any) => ({
+            title: a.name,
+            description: [a.type, a.country, a['life-span']?.begin?.slice(0,4)].filter(Boolean).join(' · '),
+            mbData: a,
+          }))
+        setMbResults(results)
+      }).catch(() => {}).finally(() => setMbLoading(false))
+    // Pakartot
+    setPkLoading(true)
+    fetch(`/api/search-pakartot?q=${encodeURIComponent(q)}`)
+      .then(r => r.json()).then(data => {
+        setPkResults(Array.isArray(data) ? data.slice(0, 8) : [])
+      }).catch(() => {}).finally(() => setPkLoading(false))
+    // YouTube
+    setYtLoading(true)
+    fetch(`/api/search/youtube?q=${encodeURIComponent(q)}`)
+      .then(r => r.json()).then(data => {
+        const results = (data.results || []).slice(0, 5).map((v: any) => ({
+          title: v.name,
+          description: v.description || 'YouTube kanalas',
+          ytData: v,
+        }))
+        setYtResults(results)
+      }).catch(() => {}).finally(() => setYtLoading(false))
+  }
 
   useEffect(() => {
     if (!initialSearch || initialSearch.trim().length < 2) return
     if (initialSearch.includes('wikipedia.org')) return
-    const search = initialSearch.trim()
-    const MUSIC_RE = /\b(band|musician|singer|rapper|artist|group|duo|trio|record|album|guitarist|drummer|bassist|vocalist|DJ|producer|songwriter|rock|pop|hip.hop|jazz|metal|punk|electronic|music)/i
-    Promise.allSettled([
-      fetch(`https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(search)}&limit=8&format=json&origin=*`).then(r=>r.json()),
-      fetch(`https://musicbrainz.org/ws/2/artist/?query=${encodeURIComponent(search)}&limit=8&fmt=json`, {headers:{'User-Agent':'music.lt/1.0'}}).then(r=>r.json()),
-      fetch(`/api/search-pakartot?q=${encodeURIComponent(search)}`).then(r=>r.json()),
-      fetch(`/api/search/youtube?q=${encodeURIComponent(search)}`).then(r=>r.json()),
-    ]).then(([wpRes, mbRes, pkRes, ytRes]) => {
-      const wpItems2: {title:string;description:string;source:'wikipedia'|'musicbrainz';mbData?:any}[] = []
-      const mbItems2: {title:string;description:string;source:'wikipedia'|'musicbrainz';mbData?:any}[] = []
-      if (wpRes.status === 'fulfilled') {
-        const titles: string[] = wpRes.value[1] || []
-        const descs: string[] = wpRes.value[2] || []
-        const ALBUM_RE2 = /\b(album|discography|soundtrack|compilation|EP|LP|single|filmography|disambiguation)/i
-        const PERSON_BAND_RE2 = /\b(band|artist|singer|rapper|musician|group|duo|trio|vocalist|guitarist|drummer|DJ|producer|songwriter)/i
-        const all = titles.map((title: string, i: number) => ({ title, description: descs[i] || '', source: 'wikipedia' as const }))
-          .filter((r: any) => !ALBUM_RE2.test(r.description) && !ALBUM_RE2.test(r.title))
-        const withBandTag2 = all.filter((r: any) => PERSON_BAND_RE2.test(r.title))
-        const musicDesc2 = all.filter((r: any) => !PERSON_BAND_RE2.test(r.title) && (MUSIC_RE.test(r.description) || MUSIC_RE.test(r.title)))
-        const others2 = all.filter((r: any) => !PERSON_BAND_RE2.test(r.title) && !MUSIC_RE.test(r.description) && !MUSIC_RE.test(r.title))
-        wpItems2.push(...withBandTag2.slice(0, 3), ...musicDesc2.slice(0, 3), ...others2.slice(0, 2))
-      }
-      if (mbRes.status === 'fulfilled') {
-        ;(mbRes.value.artists || [])
-          .map((a: any) => ({ ...a, _sort: mbSortScore(a.name, search) }))
-          .sort((a: any, b: any) => b._sort - a._sort)
-          .slice(0, 5).forEach((a: any) => {
-          mbItems2.push({ title: a.name, description: [a.type, a.country, a['life-span']?.begin?.slice(0,4)].filter(Boolean).join(' · '), source: 'musicbrainz' as const, mbData: a })
-        })
-      }
-      const pkItems2: {title:string;description:string;source:'wikipedia'|'musicbrainz'|'pakartot';mbData?:any;pkUrl?:string}[] = []
-      if (pkRes.status === 'fulfilled' && Array.isArray((pkRes as any).value)) {
-        ;(pkRes as any).value.slice(0, 4).forEach((a: any) => {
-          pkItems2.push({ title: a.name, description: 'pakartot.lt', source: 'pakartot', pkUrl: a.url })
-        })
-      }
-      const ytItems2: {title:string;description:string;source:'wikipedia'|'musicbrainz'|'pakartot'|'youtube';ytData?:any}[] = []
-      if ((ytRes as any).status === 'fulfilled' && Array.isArray((ytRes as any).value?.results)) {
-        ;(ytRes as any).value.results.slice(0, 3).forEach((v: any) => {
-          ytItems2.push({ title: v.name, description: v.description || 'YouTube kanalas', source: 'youtube', ytData: v })
-        })
-      }
-      const combined2 = [...wpItems2, ...mbItems2, ...pkItems2, ...ytItems2]
-        .map(r => ({ ...r, _score: mbSortScore(r.title, search) }))
-        .sort((a, b) => b._score - a._score)
-      setSearchResults(combined2.slice(0, 12))
-      setShowDropdown(combined2.length > 0)
-    }).catch(() => {})
+    runSearch(initialSearch.trim())
   }, [initialSearch])
 
   const isUrl = (s: string) => /wikipedia\.org\/wiki\//.test(s)
@@ -537,80 +552,14 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
   const handleInputChange = (val: string) => {
     setUrl(val)
     setError('')
-    if (isUrl(val)) { setSearchResults([]); setShowDropdown(false); return }
+    if (isUrl(val)) { setWpResults([]); setMbResults([]); setPkResults([]); setYtResults([]); return }
     if (searchTimer) clearTimeout(searchTimer)
-    if (val.trim().length < 2) { setSearchResults([]); setShowDropdown(false); return }
-    setSearchLoading(true)
-    const t = setTimeout(async () => {
-      try {
-        const MUSIC_RE = /\b(band|musician|singer|rapper|artist|group|duo|trio|record|album|guitarist|drummer|bassist|vocalist|DJ|producer|songwriter|rock|pop|hip.hop|jazz|metal|punk|electronic|music)/i
-        const [wpRes, mbRes, pkRes, ytRes] = await Promise.allSettled([
-          fetch(`https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(val)}&limit=8&format=json&origin=*`).then(r=>r.json()),
-          fetch(`https://musicbrainz.org/ws/2/artist/?query=${encodeURIComponent(val)}&limit=8&fmt=json`, {headers:{'User-Agent':'music.lt/1.0'}}).then(r=>r.json()),
-          fetch(`/api/search-pakartot?q=${encodeURIComponent(val)}`).then(r=>r.json()),
-          fetch(`/api/search/youtube?q=${encodeURIComponent(val)}`).then(r=>r.json()),
-        ])
-        const wpItems: {title:string;description:string;source:'wikipedia'|'musicbrainz';mbData?:any}[] = []
-        const mbItems: {title:string;description:string;source:'wikipedia'|'musicbrainz';mbData?:any}[] = []
-        // Wikipedia - visi rezultatai, muzika pirma
-        if (wpRes.status === 'fulfilled') {
-          const data = wpRes.value
-          const titles: string[] = data[1] || []
-          const descs: string[] = data[2] || []
-          const ALBUM_RE = /\b(album|discography|soundtrack|compilation|EP|LP|single|filmography|disambiguation)/i
-          const PERSON_BAND_RE = /\b(band|artist|singer|rapper|musician|group|duo|trio|vocalist|guitarist|drummer|DJ|producer|songwriter)/i
-          const all = titles
-            .map((title, i) => ({ title, description: descs[i] || '', source: 'wikipedia' as const }))
-            .filter(r => !ALBUM_RE.test(r.description) && !ALBUM_RE.test(r.title))
-          // Prioritetas: tikslus vardas su (band)/(artist)/etc → muzikos žodžiai → kiti
-          const withBandTag = all.filter(r => PERSON_BAND_RE.test(r.title))
-          const musicDesc = all.filter(r => !PERSON_BAND_RE.test(r.title) && (MUSIC_RE.test(r.description) || MUSIC_RE.test(r.title)))
-          const others = all.filter(r => !PERSON_BAND_RE.test(r.title) && !MUSIC_RE.test(r.description) && !MUSIC_RE.test(r.title))
-          wpItems.push(...withBandTag.slice(0, 3), ...musicDesc.slice(0, 3), ...others.slice(0, 2))
-        }
-        // MusicBrainz
-        if (mbRes.status === 'fulfilled') {
-          const mbData = mbRes.value;
-          ;(mbData.artists || [])
-            .map((a: any) => ({ ...a, _sort: mbSortScore(a.name, val) }))
-            .sort((a: any, b: any) => b._sort - a._sort)
-            .slice(0, 5).forEach((a: any) => {
-            mbItems.push({
-              title: a.name,
-              description: [a.type, a.country, a['life-span']?.begin?.slice(0,4)].filter(Boolean).join(' · '),
-              source: 'musicbrainz' as const,
-              mbData: a,
-            })
-          })
-        }
-        // Pakartot.lt
-        const pkItems: {title:string;description:string;source:'wikipedia'|'musicbrainz'|'pakartot';mbData?:any;pkUrl?:string}[] = []
-        if (pkRes.status === 'fulfilled' && Array.isArray(pkRes.value)) {
-          pkRes.value.slice(0, 4).forEach((a: any) => {
-            pkItems.push({ title: a.name, description: 'pakartot.lt', source: 'pakartot', pkUrl: a.url })
-          })
-        }
-        // YouTube
-        const ytItems: {title:string;description:string;source:'wikipedia'|'musicbrainz'|'pakartot'|'youtube';ytData?:any}[] = []
-        if (ytRes.status === 'fulfilled' && Array.isArray(ytRes.value?.results)) {
-          ytRes.value.results.slice(0, 3).forEach((v: any) => {
-            ytItems.push({ title: v.name, description: v.description || 'YouTube kanalas', source: 'youtube', ytData: v })
-          })
-        }
-        const combined = [...wpItems, ...mbItems, ...pkItems, ...ytItems]
-          .map(r => ({ ...r, _score: mbSortScore(r.title, val) }))
-          .sort((a, b) => b._score - a._score)
-        setSearchResults(combined.slice(0, 12))
-        setShowDropdown(combined.length > 0)
-      } catch {}
-      setSearchLoading(false)
-    }, 300)
+    if (val.trim().length < 2) { setWpResults([]); setMbResults([]); setPkResults([]); setYtResults([]); return }
+    const t = setTimeout(() => runSearch(val.trim()), 350)
     setSearchTimer(t)
   }
 
-  const selectResult = (title: string, source?: string, mbData?: any, pkUrl?: string, ytData?: any) => {
-    setSearchResults([])
-    setShowDropdown(false)
+    const selectResult = (title: string, source?: string, mbData?: any, pkUrl?: string, ytData?: any) => {
     if (source === 'musicbrainz' && mbData) {
       setUrl(title)
       setMbImportData({ name: title, mbData })
@@ -620,8 +569,6 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
       const slug = encodeURIComponent(title.replace(/ /g, '_'))
       const newUrl = `https://en.wikipedia.org/wiki/${slug}`
       setUrl(newUrl)
-      setSearchResults([])
-      setShowDropdown(false)
       setTimeout(() => go(newUrl), 50)
       return
     }
@@ -998,48 +945,16 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
 
   return (
     <div className="space-y-3">
-      {/* Input + dropdown */}
-      <div className="flex gap-2 relative">
-        <div className="flex-1 min-w-0 relative">
-          <input
-            type="text"
-            value={url}
-            onChange={e => handleInputChange(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') { setShowDropdown(false); go() } if (e.key === 'Escape') setShowDropdown(false) }}
-            onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
-            onFocus={() => searchResults.length > 0 && setShowDropdown(true)}
-            placeholder="Atlikėjo pavadinimas arba Wikipedia nuoroda..."
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 pr-8"
-          />
-          {searchLoading && (
-            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 animate-spin text-base pointer-events-none">⟳</span>
-          )}
-          {showDropdown && searchResults.length > 0 && (
-            <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden" style={{ zIndex: 99999 }}>
-              {searchResults.map(r => (
-                <button
-                  key={r.source + r.title}
-                  type="button"
-                  onMouseDown={() => selectResult(r.title, r.source, r.mbData, (r as any).pkUrl, (r as any).ytData)}
-                  className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-0 flex items-start gap-2"
-                >
-                  {r.source === 'musicbrainz'
-                    ? <span className="mt-0.5 shrink-0 w-5 h-5 rounded text-[10px] font-bold bg-orange-100 text-orange-600 flex items-center justify-center leading-none">MB</span>
-                    : r.source === 'pakartot'
-                    ? <span className="mt-0.5 shrink-0 w-5 h-5 rounded text-[10px] font-bold bg-green-100 text-green-700 flex items-center justify-center leading-none">P</span>
-                    : r.source === 'youtube'
-                    ? <span className="mt-0.5 shrink-0 w-5 h-5 rounded text-[10px] font-bold bg-red-100 text-red-600 flex items-center justify-center leading-none">YT</span>
-                    : <span className="mt-0.5 shrink-0 w-5 h-5 rounded text-[10px] font-bold bg-gray-100 text-gray-500 flex items-center justify-center leading-none">W</span>
-                  }
-                  <div className="min-w-0">
-                    <div className="text-sm text-gray-800 font-medium">{r.title}</div>
-                    {r.description && <div className="text-xs text-gray-400 truncate">{r.description}</div>}
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+      {/* Input */}
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={url}
+          onChange={e => handleInputChange(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') go() }}
+          placeholder="Atlikėjo pavadinimas arba Wikipedia nuoroda..."
+          className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+        />
         <button
           type="button"
           onClick={() => go()}
@@ -1049,6 +964,112 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
           {loading ? '...' : 'Importuoti'}
         </button>
       </div>
+
+      {/* Tabs */}
+      {(url.trim().length >= 2 && !isUrl(url)) && (
+        <div className="border border-gray-200 rounded-lg overflow-hidden">
+          {/* Tab antraštės */}
+          <div className="flex border-b border-gray-200 bg-gray-50">
+            {([
+              { key: 'wikipedia', label: 'Wikipedia', badge: 'W', badgeCls: 'bg-gray-200 text-gray-600', count: wpResults.length, loading: wpLoading },
+              { key: 'musicbrainz', label: 'MusicBrainz', badge: 'MB', badgeCls: 'bg-orange-100 text-orange-600', count: mbResults.length, loading: mbLoading },
+              { key: 'pakartot', label: 'Pakartot', badge: 'P', badgeCls: 'bg-green-100 text-green-700', count: pkResults.length, loading: pkLoading },
+              { key: 'youtube', label: 'YouTube', badge: 'YT', badgeCls: 'bg-red-100 text-red-600', count: ytResults.length, loading: ytLoading },
+            ] as const).map(tab => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setActiveTab(tab.key)}
+                className={`flex-1 px-2 py-2 text-xs font-medium flex items-center justify-center gap-1.5 transition-colors border-b-2 ${
+                  activeTab === tab.key
+                    ? 'border-blue-500 text-blue-600 bg-white'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <span className={`w-5 h-5 rounded text-[10px] font-bold flex items-center justify-center leading-none ${tab.badgeCls}`}>{tab.badge}</span>
+                <span className="hidden sm:inline">{tab.label}</span>
+                {tab.loading
+                  ? <span className="text-gray-400 animate-spin text-xs">⟳</span>
+                  : tab.count > 0
+                  ? <span className="text-[10px] bg-gray-200 text-gray-600 rounded-full px-1.5">{tab.count}</span>
+                  : null
+                }
+              </button>
+            ))}
+          </div>
+
+          {/* Tab turinys */}
+          <div className="max-h-56 overflow-y-auto">
+            {/* Wikipedia */}
+            {activeTab === 'wikipedia' && (
+              wpLoading
+                ? <p className="text-xs text-gray-400 px-3 py-3">Ieškoma...</p>
+                : wpResults.length === 0
+                ? <p className="text-xs text-gray-400 px-3 py-3">Nieko nerasta</p>
+                : wpResults.map(r => (
+                  <button key={r.title} type="button"
+                    onClick={() => selectResult(r.title, 'wikipedia')}
+                    className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-0"
+                  >
+                    <div className="text-sm text-gray-800 font-medium">{r.title}</div>
+                    {r.description && <div className="text-xs text-gray-400 truncate">{r.description}</div>}
+                  </button>
+                ))
+            )}
+            {/* MusicBrainz */}
+            {activeTab === 'musicbrainz' && (
+              mbLoading
+                ? <p className="text-xs text-gray-400 px-3 py-3">Ieškoma...</p>
+                : mbResults.length === 0
+                ? <p className="text-xs text-gray-400 px-3 py-3">Nieko nerasta</p>
+                : mbResults.map(r => (
+                  <button key={r.title + r.description} type="button"
+                    onClick={() => selectResult(r.title, 'musicbrainz', r.mbData)}
+                    className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-0"
+                  >
+                    <div className="text-sm text-gray-800 font-medium">{r.title}</div>
+                    {r.description && <div className="text-xs text-gray-400">{r.description}</div>}
+                  </button>
+                ))
+            )}
+            {/* Pakartot */}
+            {activeTab === 'pakartot' && (
+              pkLoading
+                ? <p className="text-xs text-gray-400 px-3 py-3">Ieškoma...</p>
+                : pkResults.length === 0
+                ? <p className="text-xs text-gray-400 px-3 py-3">Nieko nerasta</p>
+                : pkResults.map(r => (
+                  <button key={r.url} type="button"
+                    onClick={() => selectResult(r.title, 'pakartot', undefined, r.url)}
+                    className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-0"
+                  >
+                    <div className="text-sm text-gray-800 font-medium">{r.title}</div>
+                    <div className="text-xs text-gray-400">{r.url.replace('https://pakartot.lt', '')}</div>
+                  </button>
+                ))
+            )}
+            {/* YouTube */}
+            {activeTab === 'youtube' && (
+              ytLoading
+                ? <p className="text-xs text-gray-400 px-3 py-3">Ieškoma...</p>
+                : ytResults.length === 0
+                ? <p className="text-xs text-gray-400 px-3 py-3">Nieko nerasta</p>
+                : ytResults.map(r => (
+                  <button key={r.ytData.channelId} type="button"
+                    onClick={() => selectResult(r.title, 'youtube', undefined, undefined, r.ytData)}
+                    className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-0 flex items-center gap-2"
+                  >
+                    {r.ytData.thumbnail && <img src={r.ytData.thumbnail} className="w-8 h-8 rounded-full object-cover shrink-0" alt="" />}
+                    <div className="min-w-0">
+                      <div className="text-sm text-gray-800 font-medium">{r.title}</div>
+                      {r.description && <div className="text-xs text-gray-400 truncate">{r.description}</div>}
+                    </div>
+                  </button>
+                ))
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Status */}
       {step && (
