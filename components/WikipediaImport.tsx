@@ -119,6 +119,22 @@ type MemberFullData = {
   tiktok: string; bandcamp: string
 }
 
+
+async function fetchGroupAvatar(groupName: string): Promise<string> {
+  try {
+    const sumRes = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(groupName)}`)
+    if (!sumRes.ok) return ''
+    const sum = await sumRes.json()
+    const wikiImgUrl = sum.thumbnail?.source || ''
+    if (!wikiImgUrl) return ''
+    try {
+      const ir = await fetch('/api/fetch-image', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ url: wikiImgUrl }) })
+      if (ir.ok) { const d = await ir.json(); return d.url || wikiImgUrl }
+    } catch {}
+    return wikiImgUrl
+  } catch { return '' }
+}
+
 async function fetchMemberFullData(wikiTitle: string): Promise<MemberFullData> {
   const empty: MemberFullData = {
     avatar:'', country:'', yearStart:'', yearEnd:'',
@@ -602,7 +618,7 @@ export default function WikipediaImport({ onImport }: Props) {
                 `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${groupQids.join('|')}&format=json&origin=*&languages=en&props=labels%7Csitelinks`
               )).json()
               console.log('[Groups] raw gData sample:', JSON.stringify(Object.values(gData.entities||{})[0]).substring(0,300))
-              const foundGroups: { id: number | null; name: string; yearFrom: string; yearTo: string }[] = []
+              const foundGroups: { id: number | null; name: string; yearFrom: string; yearTo: string; avatar: string; wikiTitle: string }[] = []
               for (const qid of groupQids) {
                 const ent = gData.entities?.[qid]
                 if (!ent) { console.log('[Groups] no entity for', qid); continue }
@@ -611,6 +627,7 @@ export default function WikipediaImport({ onImport }: Props) {
                   || ent.sitelinks?.enwiki?.title
                 if (!rawName) { console.log('[Groups] no label for', qid, ent.labels); continue }
                 // Pašalinam disambiguacijos priedus: "(band)", "(group)", "(musician)" ir pan.
+                const wikiTitle = ent.sitelinks?.enwiki?.title || rawName
                 const gName = rawName.replace(/\s*\([^)]+\)\s*$/, '').trim()
                 console.log('[Groups] checking:', qid, gName)
                 // Praleisti jei tai šalis, miestas ar pan. (pagal label)
@@ -625,14 +642,19 @@ export default function WikipediaImport({ onImport }: Props) {
                     : Array.isArray(dbData?.data) ? dbData.data : []
                   const match = arr.find((a:any) => a.name?.toLowerCase() === gName.toLowerCase())
                   if (match) {
-                    foundGroups.push({ id: match.id, name: match.name, yearFrom: '', yearTo: '' })
+                    foundGroups.push({ id: match.id, name: match.name, yearFrom: '', yearTo: '', avatar: match.cover_image_url || match.avatar || '', wikiTitle })
                   } else {
-                    // Grupės nėra DB - pridedame be ID, bus sukurta išsaugant
-                    foundGroups.push({ id: null, name: gName, yearFrom: '', yearTo: '' })
+                    foundGroups.push({ id: null, name: gName, yearFrom: '', yearTo: '', avatar: '', wikiTitle })
                     console.log(`[Groups] Grupė nerasta DB, bus sukurta išsaugant: ${gName}`)
                   }
                 }
               }
+              // Fetch avatar grupėms kurios neturi (nerasta DB arba DB be avatar)
+              await Promise.all(foundGroups.map(async (g) => {
+                if (!g.avatar && g.wikiTitle) {
+                  g.avatar = await fetchGroupAvatar(g.wikiTitle)
+                }
+              }))
               if (foundGroups.length > 0) {
                 (socials as any).groups = foundGroups
               }
@@ -721,7 +743,15 @@ export default function WikipediaImport({ onImport }: Props) {
       spotify: m.spotify || '', youtube: m.youtube || '', soundcloud: m.soundcloud || '',
       tiktok: m.tiktok || '', bandcamp: m.bandcamp || '',
     }))
-    onImport({ ...preview, members: memberList as any })
+    const groupList = ((preview as any).groups || []).map((g: any) => ({
+      id: g.id || null,
+      name: g.name,
+      avatar: g.avatar || '',
+      yearFrom: g.yearFrom || '',
+      yearTo: g.yearTo || '',
+      wikiTitle: g.wikiTitle || '',
+    }))
+    onImport({ ...preview, members: memberList as any, groups: groupList as any })
     setPreview(null); setUrl(''); setMembers([])
   }
 
