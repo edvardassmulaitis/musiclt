@@ -477,6 +477,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
   const [mbResults, setMbResults] = useState<{title:string;description:string;mbData:any}[]>([])
   const [pkResults, setPkResults] = useState<{title:string;url:string}[]>([])
   const [ytResults, setYtResults] = useState<{title:string;description:string;ytData:any}[]>([])
+  const [ytError, setYtError] = useState('')
   const [kgResults, setKgResults] = useState<{name:string;description:string;detail:string;image:string;wikiUrl:string;types:string[];score:number}[]>([])
   const [kgLoading, setKgLoading] = useState(false)
   const [searchTimer, setSearchTimer] = useState<ReturnType<typeof setTimeout>|null>(null)
@@ -536,35 +537,23 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
       .then(r => r.json()).then(data => {
         setKgResults(data.results || [])
       }).catch(() => {}).finally(() => setKgLoading(false))
-    // YouTube - klientas fetch tiesiai i YouTube Data API
+    // YouTube
     setYtLoading(true)
-    ;(async () => {
-      try {
-        // Pirma: channel paieška
-        const ytRes = await fetch(
-          `/api/search/youtube?q=${encodeURIComponent(q)}`
-        ).then(r => r.json())
-        const results = (ytRes.results || []).slice(0, 5).map((v: any) => ({
+    setYtError('')
+    fetch(`/api/search/youtube?q=${encodeURIComponent(q)}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) { setYtError(data.error); return }
+        const results = (data.results || []).slice(0, 5).map((v: any) => ({
           title: v.name,
           description: v.description ? v.description.slice(0, 100) : 'YouTube kanalas',
           ytData: v,
         }))
         setYtResults(results)
-        // Jei nieko nerasta - bandome alternatyva: search su broader query
-        if (results.length === 0) {
-          const ytRes2 = await fetch(
-            `/api/search/youtube?q=${encodeURIComponent(q + ' muzika')}`
-          ).then(r => r.json())
-          const results2 = (ytRes2.results || []).slice(0, 5).map((v: any) => ({
-            title: v.name,
-            description: v.description ? v.description.slice(0, 100) : 'YouTube kanalas',
-            ytData: v,
-          }))
-          setYtResults(results2)
-        }
-      } catch {}
-      setYtLoading(false)
-    })()
+        if (results.length === 0) setYtError('Nieko nerasta (results: ' + JSON.stringify(data).slice(0, 200) + ')')
+      })
+      .catch(e => setYtError(e.message))
+      .finally(() => setYtLoading(false))
   }
 
   useEffect(() => {
@@ -1074,6 +1063,8 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
             {activeTab === 'youtube' && (
               ytLoading
                 ? <p className="text-xs text-gray-400 px-3 py-3">Ieškoma...</p>
+                : ytError
+                ? <p className="text-xs text-red-500 px-3 py-3 break-all">Klaida: {ytError}</p>
                 : ytResults.length === 0
                 ? <p className="text-xs text-gray-400 px-3 py-3">Nieko nerasta</p>
                 : ytResults.map(r => (
