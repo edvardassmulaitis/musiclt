@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { COUNTRIES } from '@/lib/constants'
 import { type ArtistFormData } from './ArtistForm'
 
-type Props = { onImport: (data: Partial<ArtistFormData>) => void; initialSearch?: string }
+type Props = { onImport: (data: Partial<ArtistFormData>) => void; initialSearch?: string; initialMbData?: any; onBack?: () => void }
 
 // Šalies kodas → lietuviškas pavadinimas
 const MB_COUNTRY: Record<string, string> = {
@@ -67,7 +67,7 @@ type MBResult = {
   avatar: string
 }
 
-export default function MusicBrainzImport({ onImport, initialSearch }: Props) {
+export default function MusicBrainzImport({ onImport, initialSearch, initialMbData, onBack }: Props) {
   const [query, setQuery] = useState(initialSearch || '')
   const [results, setResults] = useState<MBResult[]>([])
   const [showDropdown, setShowDropdown] = useState(false)
@@ -77,9 +77,13 @@ export default function MusicBrainzImport({ onImport, initialSearch }: Props) {
   const [error, setError] = useState('')
 
   useEffect(() => {
+    if (initialMbData) {
+      handleSelectRaw(initialMbData)
+      return
+    }
     if (!initialSearch || initialSearch.trim().length < 2) return
     doSearch(initialSearch)
-  }, [initialSearch])
+  }, [initialSearch, initialMbData])
 
   const doSearch = async (q: string) => {
     if (q.trim().length < 2) { setResults([]); setShowDropdown(false); return }
@@ -109,6 +113,17 @@ export default function MusicBrainzImport({ onImport, initialSearch }: Props) {
     setPreview(null)
     clearTimeout((window as any).__mbTimer)
     ;(window as any).__mbTimer = setTimeout(() => doSearch(val), 350)
+  }
+
+  const handleSelectRaw = async (mbData: any) => {
+    const r: MBResult = {
+      id: mbData.id, name: mbData.name,
+      type: mbData.type === 'Person' ? 'solo' : 'group',
+      country: MB_COUNTRY[mbData.country || mbData.area?.['iso-3166-1-codes']?.[0]] || mbData.area?.name || '',
+      'life-span': mbData['life-span'],
+      tags: mbData.tags || [], avatar: '', members: [],
+    }
+    await handleSelect(r)
   }
 
   const handleSelect = async (r: MBResult) => {
@@ -317,13 +332,18 @@ export default function MusicBrainzImport({ onImport, initialSearch }: Props) {
                 {yearStart ? ` · ${yearStart}${yearEnd ? `–${yearEnd}` : '–dabar'}` : ''}
               </span>
             </div>
-            <button
-              type="button"
-              onClick={handleApply}
-              className="shrink-0 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs font-semibold transition-colors"
-            >
-              ✓ Importuoti
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              {onBack && (
+                <button type="button" onClick={onBack} className="px-2 py-1.5 text-gray-400 hover:text-gray-600 rounded-lg text-xs transition-colors">← Atgal</button>
+              )}
+              <button
+                type="button"
+                onClick={handleApply}
+                className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs font-semibold transition-colors"
+              >
+                ✓ Importuoti
+              </button>
+            </div>
           </div>
 
           {/* Details */}
