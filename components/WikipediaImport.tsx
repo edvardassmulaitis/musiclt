@@ -493,12 +493,47 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
   const ALBUM_RE = /\b(album|discography|soundtrack|compilation|EP|LP|single|filmography|disambiguation)/i
   const PERSON_BAND_RE = /\b(band|artist|singer|rapper|musician|group|duo|trio|vocalist|guitarist|drummer|DJ|producer|songwriter)/i
 
+  const fetchYt = (q: string) => {
+    if (!q.trim()) return
+    setYtLoading(true); setYtError('')
+    fetch(`/api/search/youtube?q=${encodeURIComponent(q)}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) { setYtError(data.error.includes('quota') ? 'YouTube API dienos limitas pasiektas' : data.error); return }
+        const results = (data.results || []).slice(0, 5).map((v: any) => ({ title: v.name, description: (v.description || 'YouTube kanalas').slice(0, 100), ytData: v }))
+        setYtResults(results)
+        if (!results.length) setYtError('Nieko nerasta')
+      }).catch(e => setYtError(e.message)).finally(() => setYtLoading(false))
+  }
+
+  const fetchPk = (q: string) => {
+    if (!q.trim()) return
+    setPkLoading(true); setPkError('')
+    fetch(`/api/search-pakartot?q=${encodeURIComponent(q)}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) { setPkError(data.error); return }
+        const arr = Array.isArray(data) ? data : []
+        setPkResults(arr.slice(0, 8))
+        if (!arr.length) setPkError('Nieko nerasta (raw: ' + JSON.stringify(data).slice(0, 150) + ')')
+      }).catch(e => setPkError(e.message)).finally(() => setPkLoading(false))
+  }
+
+  const fetchKg = (q: string) => {
+    if (!q.trim()) return
+    setKgLoading(true)
+    fetch(`/api/search-google?q=${encodeURIComponent(q)}`)
+      .then(r => r.json()).then(data => setKgResults(data.results || []))
+      .catch(() => {}).finally(() => setKgLoading(false))
+  }
+
   const runSearch = (q: string) => {
     if (q.trim().length < 2) {
-      setWpResults([]); setMbResults([]); setPkResults([]); setYtResults([])
+      setWpResults([]); setMbResults([]); setPkResults([]); setYtResults([]); setKgResults([])
+      setPkError(''); setYtError('')
       return
     }
-    // Wikipedia
+    // Wikipedia + MusicBrainz - automatiškai (greiti, nemokami)
     setWpLoading(true)
     fetch(`https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(q)}&limit=10&format=json&origin=*`)
       .then(r => r.json()).then(data => {
@@ -511,67 +546,16 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
         const others = all.filter(r => !PERSON_BAND_RE.test(r.title) && !MUSIC_RE.test(r.description) && !MUSIC_RE.test(r.title))
         setWpResults([...withTag, ...musicD, ...others].slice(0, 8))
       }).catch(() => {}).finally(() => setWpLoading(false))
-    // MusicBrainz
     setMbLoading(true)
     fetch(`https://musicbrainz.org/ws/2/artist/?query=${encodeURIComponent(q)}&limit=8&fmt=json`, { headers: { 'User-Agent': 'music.lt/1.0' } })
       .then(r => r.json()).then(data => {
-        const results = (data.artists || [])
+        setMbResults((data.artists || [])
           .map((a: any) => ({ ...a, _sort: mbSortScore(a.name, q) }))
-          .sort((a: any, b: any) => b._sort - a._sort)
-          .slice(0, 8)
-          .map((a: any) => ({
-            title: a.name,
-            description: [a.type, a.country, a['life-span']?.begin?.slice(0,4)].filter(Boolean).join(' · '),
-            mbData: a,
-          }))
-        setMbResults(results)
+          .sort((a: any, b: any) => b._sort - a._sort).slice(0, 8)
+          .map((a: any) => ({ title: a.name, description: [a.type, a.country, a['life-span']?.begin?.slice(0,4)].filter(Boolean).join(' · '), mbData: a })))
       }).catch(() => {}).finally(() => setMbLoading(false))
-    // Pakartot
-    setPkLoading(true)
-    setPkError('')
-    fetch(`/api/search-pakartot?q=${encodeURIComponent(q)}`)
-      .then(r => r.json())
-      .then(data => {
-        if (data.error) { setPkError(data.error); return }
-        const arr = Array.isArray(data) ? data : []
-        setPkResults(arr.slice(0, 8))
-        if (arr.length === 0) setPkError('Nieko nerasta (raw: ' + JSON.stringify(data).slice(0, 150) + ')')
-      })
-      .catch(e => setPkError(e.message))
-      .finally(() => setPkLoading(false))
-    // Google Knowledge Graph
-    setKgLoading(true)
-    fetch(`/api/search-google?q=${encodeURIComponent(q)}`)
-      .then(r => r.json()).then(data => {
-        setKgResults(data.results || [])
-      }).catch(() => {}).finally(() => setKgLoading(false))
-    // YouTube - naudoti /api/search/youtube tik jei nėra quota klaidos
-    setYtLoading(true)
-    setYtError('')
-    fetch(`/api/search/youtube?q=${encodeURIComponent(q)}`)
-      .then(r => r.json())
-      .then(data => {
-        if (data.error) {
-          // Quota exceeded - siūlome ieškoti rankiniu būdu
-          if (data.error.includes('quota')) {
-            setYtError('YouTube API dienos limitas pasiektas. Ieškokite rankiniu būdu: youtube.com')
-          } else {
-            setYtError(data.error)
-          }
-          return
-        }
-        const results = (data.results || []).slice(0, 5).map((v: any) => ({
-          title: v.name,
-          description: v.description ? v.description.slice(0, 100) : 'YouTube kanalas',
-          ytData: v,
-        }))
-        setYtResults(results)
-        if (results.length === 0) setYtError('Nieko nerasta')
-      })
-      .catch(e => setYtError(e.message))
-      .finally(() => setYtLoading(false))
+    // Pakartot, YouTube, Google - tik paspaudus tab (žr. onTabClick)
   }
-
   useEffect(() => {
     if (!initialSearch || initialSearch.trim().length < 2) return
     if (initialSearch.includes('wikipedia.org')) return
@@ -1006,7 +990,13 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
               <button
                 key={tab.key}
                 type="button"
-                onClick={() => setActiveTab(tab.key)}
+                onClick={() => {
+                  setActiveTab(tab.key)
+                  const q = url.trim()
+                  if (tab.key === 'pakartot' && !pkResults.length && !pkLoading) fetchPk(q)
+                  if (tab.key === 'youtube' && !ytResults.length && !ytLoading && !ytError) fetchYt(q)
+                  if (tab.key === 'google' && !kgResults.length && !kgLoading) fetchKg(q)
+                }}
                 className={`flex-1 px-2 py-2 text-xs font-medium flex items-center justify-center gap-1.5 transition-colors border-b-2 ${
                   activeTab === tab.key
                     ? 'border-blue-500 text-blue-600 bg-white'
@@ -1102,16 +1092,21 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
             {activeTab === 'google' && (
               kgLoading
                 ? <p className="text-xs text-gray-400 px-3 py-3">Ieškoma...</p>
-                : kgResults.length === 0
-                ? <p className="text-xs text-gray-400 px-3 py-3">Nieko nerasta — patikrinkite ar įdėtas GOOGLE_KG_API_KEY</p>
+                : kgResults.length === 0 && !kgLoading
+                ? <div className="px-3 py-3 flex items-center gap-2">
+                    <p className="text-xs text-gray-400">Nieko nerasta</p>
+                    <button type="button" onClick={() => fetchKg(url.trim())} className="text-xs text-blue-500 underline">Ieškoti iš naujo</button>
+                  </div>
                 : kgResults.map(r => (
                   <button key={r.name + r.description} type="button"
                     onClick={() => {
                       if (r.wikiUrl) {
+                        // Turi Wikipedia - importuoti per Wikipedia (pilna info)
                         setUrl(r.wikiUrl)
+                        setActiveTab('wikipedia')
                         setTimeout(() => go(r.wikiUrl), 50)
                       } else {
-                        // Nėra Wikipedia - importuoti tiesiai iš KG duomenų
+                        // Nėra Wikipedia - importuoti iš KG (bazinė info)
                         setPreview({
                           name: r.name,
                           avatar: r.image || '',
@@ -1134,8 +1129,8 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
                       <div className="text-xs text-gray-400 truncate">
                         {r.description}
                         {r.wikiUrl
-                          ? <span className="ml-1 text-blue-400">· Wikipedia ✓</span>
-                          : <span className="ml-1 text-orange-400">· be Wikipedia</span>
+                          ? <span className="ml-1 text-green-500">→ importuoti per Wikipedia</span>
+                          : <span className="ml-1 text-orange-400">→ importuoti bazinę info</span>
                         }
                       </div>
                       {r.detail && <div className="text-xs text-gray-500 truncate mt-0.5">{r.detail.slice(0, 80)}...</div>}
