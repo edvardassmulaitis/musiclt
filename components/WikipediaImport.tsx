@@ -136,11 +136,8 @@ async function fetchGroupFullData(wikiTitle: string): Promise<Partial<MemberFull
       } catch { avatar = wikiImgUrl }
     }
     // Aprašymas
-    let finalDesc = ''
-    const descPromise = fetch('/api/generate-description', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ wikiTitle, type: 'group' }),
-    }).then(r => r.ok ? r.json() : {}).then((d: any) => { finalDesc = d.description || '' }).catch(() => {})
+    let finalDesc = '' // aprašymo generavimas išjungtas testavimui
+    const descPromise = Promise.resolve()
     // Wikidata
     const ppRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(wikiTitle)}&prop=pageprops&format=json&origin=*`)
     const wdId: string = (Object.values((await ppRes.json()).query?.pages||{})[0] as any)?.pageprops?.wikibase_item || ''
@@ -219,12 +216,8 @@ async function fetchMemberFullData(wikiTitle: string): Promise<MemberFullData> {
     }
 
     // 2. Generuojame aprašymą su Claude (lygiagrečiai su Wikidata fetch)
-    let finalDesc = ''
-    const descPromise = fetch('/api/generate-description', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ wikiTitle: wikiTitleForDesc, type: 'solo' }),
-    }).then(r => r.ok ? r.json() : {}).then((d: any) => { finalDesc = d.description || '' }).catch(() => {})
+    let finalDesc = '' // aprašymo generavimas išjungtas testavimui
+    const descPromise = Promise.resolve()
 
     // 3. Wikidata
     const ppRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(wikiTitle)}&prop=pageprops&format=json&origin=*`)
