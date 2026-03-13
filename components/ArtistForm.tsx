@@ -1128,6 +1128,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
       ...(initialData.bandcamp !== prev.bandcamp ? { bandcamp: initialData.bandcamp } : {}),
       ...(initialData.twitter !== prev.twitter ? { twitter: initialData.twitter } : {}),
       ...(initialData.members !== prev.members ? { members: initialData.members } : {}),
+      ...(initialData.groups !== prev.groups ? { groups: initialData.groups } : {}),
       ...(initialData.breaks !== prev.breaks ? { breaks: initialData.breaks } : {}),
       ...(initialData.photos !== prev.photos ? { photos: initialData.photos } : {}),
     }
