@@ -472,7 +472,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
     const MUSIC_RE = /\b(band|musician|singer|rapper|artist|group|duo|trio|record|album|guitarist|drummer|bassist|vocalist|DJ|producer|songwriter|rock|pop|hip.hop|jazz|metal|punk|electronic|music)/i
     Promise.allSettled([
       fetch(`https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(search)}&limit=8&format=json&origin=*`).then(r=>r.json()),
-      fetch(`https://musicbrainz.org/ws/2/artist/?query=artist:${encodeURIComponent(search)}&limit=6&fmt=json`, {headers:{'User-Agent':'music.lt/1.0'}}).then(r=>r.json()),
+      fetch(`https://musicbrainz.org/ws/2/artist/?query=artist:%22${encodeURIComponent(search)}%22&limit=8&fmt=json`, {headers:{'User-Agent':'music.lt/1.0'}}).then(r=>r.json()),
     ]).then(([wpRes, mbRes]) => {
       const wpItems2: {title:string;description:string;source:'wikipedia'|'musicbrainz';mbData?:any}[] = []
       const mbItems2: {title:string;description:string;source:'wikipedia'|'musicbrainz';mbData?:any}[] = []
@@ -486,14 +486,15 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
       }
       if (mbRes.status === 'fulfilled') {
         ;(mbRes.value.artists || [])
-          .filter((a: any) => (a.score ?? 100) >= 60)
+          .filter((a: any) => (a.score ?? 100) >= 40)
+          .sort((a: any, b: any) => (b.score ?? 0) - (a.score ?? 0))
           .slice(0, 4).forEach((a: any) => {
           mbItems2.push({ title: a.name, description: [a.type, a.country, a['life-span']?.begin?.slice(0,4)].filter(Boolean).join(' · '), source: 'musicbrainz' as const, mbData: a })
         })
       }
       const seen = new Set<string>()
       const combined2 = [...wpItems2, ...mbItems2].filter(r => { const k = r.title.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true })
-      setSearchResults(combined2.slice(0, 9))
+      setSearchResults(combined2.slice(0, 10))
       setShowDropdown(combined2.length > 0)
     }).catch(() => {})
   }, [initialSearch])
@@ -511,7 +512,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
         const MUSIC_RE = /\b(band|musician|singer|rapper|artist|group|duo|trio|record|album|guitarist|drummer|bassist|vocalist|DJ|producer|songwriter|rock|pop|hip.hop|jazz|metal|punk|electronic|music)/i
         const [wpRes, mbRes] = await Promise.allSettled([
           fetch(`https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(val)}&limit=8&format=json&origin=*`).then(r=>r.json()),
-          fetch(`https://musicbrainz.org/ws/2/artist/?query=artist:${encodeURIComponent(val)}&limit=6&fmt=json`, {headers:{'User-Agent':'music.lt/1.0'}}).then(r=>r.json()),
+          fetch(`https://musicbrainz.org/ws/2/artist/?query=artist:%22${encodeURIComponent(val)}%22&limit=8&fmt=json`, {headers:{'User-Agent':'music.lt/1.0'}}).then(r=>r.json()),
         ])
         const wpItems: {title:string;description:string;source:'wikipedia'|'musicbrainz';mbData?:any}[] = []
         const mbItems: {title:string;description:string;source:'wikipedia'|'musicbrainz';mbData?:any}[] = []
@@ -528,8 +529,9 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
         // MusicBrainz
         if (mbRes.status === 'fulfilled') {
           const mbData = mbRes.value;
-          (mbData.artists || [])
-            .filter((a: any) => (a.score ?? 100) >= 60)
+          ;(mbData.artists || [])
+            .filter((a: any) => (a.score ?? 100) >= 40)
+            .sort((a: any, b: any) => (b.score ?? 0) - (a.score ?? 0))
             .slice(0, 4).forEach((a: any) => {
             mbItems.push({
               title: a.name,
@@ -544,7 +546,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
         const combined = [...wpItems, ...mbItems].filter(r => {
           const k = r.title.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true
         })
-        setSearchResults(combined.slice(0, 9))
+        setSearchResults(combined.slice(0, 10))
         setShowDropdown(combined.length > 0)
       } catch {}
     }, 300)
