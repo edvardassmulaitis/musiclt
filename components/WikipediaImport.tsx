@@ -505,8 +505,13 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
           mbItems2.push({ title: a.name, description: [a.type, a.country, a['life-span']?.begin?.slice(0,4)].filter(Boolean).join(' · '), source: 'musicbrainz' as const, mbData: a })
         })
       }
-      const seen = new Set<string>()
-      const combined2 = [...wpItems2, ...mbItems2].filter(r => { const k = r.title.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true })
+      const seenWp2 = new Set<string>()
+      const dedupedWp2 = wpItems2.filter(r => {
+        const k = r.title.toLowerCase(); if (seenWp2.has(k)) return false; seenWp2.add(k); return true
+      })
+      const seenMb2 = new Set<string>(dedupedWp2.map(r => r.title.toLowerCase()))
+      const dedupedMb2 = mbItems2.filter(r => !seenMb2.has(r.title.toLowerCase()))
+      const combined2 = [...dedupedWp2, ...dedupedMb2]
       setSearchResults(combined2.slice(0, 10))
       setShowDropdown(combined2.length > 0)
     }).catch(() => {})
@@ -554,11 +559,15 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
             })
           })
         }
-        // WP pirma, MB po - deduplikacija pagal pavadinimą
-        const seen = new Set<string>()
-        const combined = [...wpItems, ...mbItems].filter(r => {
-          const k = r.title.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true
+        // WP pirma, MB po - deduplikuoti tik WP tarpusavyje, MB visada rodyti
+        const seenWp = new Set<string>()
+        const dedupedWp = wpItems.filter(r => {
+          const k = r.title.toLowerCase(); if (seenWp.has(k)) return false; seenWp.add(k); return true
         })
+        // MB: pašalinti tik tuos kurių WP atitikmuo egzistuoja IR kurie nėra exact match
+        const seenMb = new Set<string>(dedupedWp.map(r => r.title.toLowerCase()))
+        const dedupedMb = mbItems.filter(r => !seenMb.has(r.title.toLowerCase()))
+        const combined = [...dedupedWp, ...dedupedMb]
         setSearchResults(combined.slice(0, 10))
         setShowDropdown(combined.length > 0)
       } catch {}
