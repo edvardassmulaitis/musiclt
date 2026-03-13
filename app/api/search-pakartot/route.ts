@@ -5,54 +5,65 @@ export async function GET(req: NextRequest) {
   if (!q) return NextResponse.json([])
 
   try {
-    const res = await fetch(
-      `https://pakartot.lt/search?q=${encodeURIComponent(q)}`,
-      {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; musiclt/1.0)',
-          'Accept': 'text/html,application/xhtml+xml',
-          'Accept-Language': 'lt,en;q=0.9',
-        },
-        next: { revalidate: 60 },
-      }
-    )
+    // pakartot.lt yra SPA - tiesioginis fetch neveikia
+    // Naudojame DuckDuckGo HTML paieška su site:pakartot.lt
+    const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(q + ' site:pakartot.lt/alias')}`
+    const res = await fetch(searchUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+        'Accept': 'text/html',
+        'Accept-Language': 'lt,en;q=0.9',
+      },
+    })
 
     if (!res.ok) return NextResponse.json([])
-
     const html = await res.text()
 
-    // Pakartot.lt grąžina atlikėjus - parse'iname jų kortelių struktūrą
-    // Tipiška struktūra: <a href="/atlikejas/..."> arba <a href="/daina/...">
-    const results: { name: string; url: string; type: 'artist' | 'song'; avatar?: string }[] = []
+    // DuckDuckGo HTML rezultatų struktūra: <a class="result__url" href="...">
+    // arba <a class="result__a" href="...">
+    const results: { name: string; url: string }[] = []
+    const seen = new Set<string>()
 
-    // Artistai
-    const artistRegex = /href="(\/atlikejas\/[^"]+)"[^>]*>[\s\S]*?<[^>]*class="[^"]*(?:title|name)[^"]*"[^>]*>([\s\S]*?)<\//gi
+    // Ieškome pakartot.lt/alias/ URL iš DDG rezultatų
+    const urlRegex = /https?:\/\/(?:www\.)?pakartot\.lt\/alias\/([a-z0-9\-]+)/gi
     let m
-    while ((m = artistRegex.exec(html)) !== null) {
-      const url = 'https://pakartot.lt' + m[1]
-      const name = m[2].replace(/<[^>]+>/g, '').trim()
-      if (name && !results.find(r => r.url === url)) {
-        results.push({ name, url, type: 'artist' })
+    while ((m = urlRegex.exec(html)) !== null) {
+      const slug = m[1]
+      const url = `https://pakartot.lt/alias/${slug}`
+      if (!seen.has(slug)) {
+        seen.add(slug)
+        // Vardas iš slug: "paulina-paukstaityte" → "Paulina Paukstaityte"
+        const name = slug.replace(/-/g, ' ')
+          .split(' ')
+          .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(' ')
+        results.push({ name, url })
       }
     }
 
-    // Jei regex nerado - bandome kitą pattern (paprastesnis)
-    if (results.length === 0) {
-      const linkRegex = /href="(\/atlikejas\/([^"/?]+))"/gi
-      const seen = new Set<string>()
-      while ((m = linkRegex.exec(html)) !== null) {
-        const slug = m[2]
-        const url = 'https://pakartot.lt' + m[1]
-        if (!seen.has(slug)) {
-          seen.add(slug)
-          const name = decodeURIComponent(slug.replace(/-/g, ' '))
-            .split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
-          results.push({ name, url, type: 'artist' })
-        }
+    // Bandome išgauti tikrus vardus iš DDG result titles
+    // <a class="result__a" ...>Atlikėjas PAULINA PAUKŠTAITYTĖ</a>
+    const titleRegex = /class="result__a"[^>]*>Atlik[eė]jas(?:\s+ir\s+autorius)?\s+([^<]+)<\/a>/gi
+    const titleResults: { name: string; url: string }[] = []
+    while ((m = titleRegex.exec(html)) !== null) {
+      const rawName = m[1].trim()
+      // Tikrinama ar turime URL šiam vardui
+      const nameLower = rawName.toLowerCase()
+      const matchedSlug = [...seen].find(s => {
+        const slugName = s.replace(/-/g, ' ')
+        return nameLower.includes(slugName.slice(0, 6))
+      })
+      if (matchedSlug) {
+        titleResults.push({ name: rawName, url: `https://pakartot.lt/alias/${matchedSlug}` })
       }
     }
 
-    return NextResponse.json(results.slice(0, 8))
+    // Jei radome tikrus vardus - naudojame juos
+    const finalResults = titleResults.length > 0
+      ? titleResults
+      : results
+
+    return NextResponse.json(finalResults.slice(0, 6))
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
