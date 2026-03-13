@@ -215,12 +215,37 @@ export async function POST(req: NextRequest) {
             if (slugCheck) finalGSlug = `${gSlug}-${Date.now().toString(36)}`
             const { data: newGroup } = await supabase.from('artists').insert({
               slug: finalGSlug, name: g.name, type: 'group',
-              country: 'Lietuva',
+              country: g.country || 'Lietuva',
               cover_image_url: g.avatar || null,
+              active_from:  g.yearStart ? parseInt(g.yearStart) : null,
+              active_until: g.yearEnd   ? parseInt(g.yearEnd)   : null,
+              description: g.description || null,
+              website: g.website || null,
+              facebook: g.facebook || null, instagram: g.instagram || null,
+              twitter: g.twitter || null, spotify: g.spotify || null,
+              youtube: g.youtube || null, soundcloud: g.soundcloud || null,
+              tiktok: g.tiktok || null, bandcamp: g.bandcamp || null,
               is_active: true, is_verified: false, show_updated: false,
               type_music: true, type_film: false, type_dance: false, type_books: false,
               photos: [],
             }).select('id').single()
+            // Žanras
+            if (newGroup?.id && g.genre) {
+              const { data: gr } = await supabase.from('genres').select('id').ilike('name', g.genre).maybeSingle()
+              if (gr?.id) { try { await supabase.from('artist_genres').insert({ artist_id: newGroup.id, genre_id: gr.id }) } catch {} }
+            }
+            // Stiliai
+            if (newGroup?.id) {
+              const gStyles: string[] = g.substyles || []
+              for (const sname of gStyles) {
+                if (!sname?.trim()) continue
+                try {
+                  let { data: sr } = await supabase.from('substyles').select('id').eq('name', sname).maybeSingle()
+                  if (!sr) { const { data: ns } = await supabase.from('substyles').insert({ name: sname, slug: slugify(sname) }).select('id').single(); sr = ns }
+                  if (sr?.id) await supabase.from('artist_substyles').insert({ artist_id: newGroup.id, substyle_id: sr.id })
+                } catch {}
+              }
+            }
             if (newGroup?.id) groupId = newGroup.id
           }
         } catch (e: any) { console.error('[POST /api/artists] create group error:', e.message) }
