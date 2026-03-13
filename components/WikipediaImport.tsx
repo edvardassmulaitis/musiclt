@@ -478,6 +478,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
   const [pkResults, setPkResults] = useState<{title:string;url:string}[]>([])
   const [ytResults, setYtResults] = useState<{title:string;description:string;ytData:any}[]>([])
   const [ytError, setYtError] = useState('')
+  const [pkError, setPkError] = useState('')
   const [kgResults, setKgResults] = useState<{name:string;description:string;detail:string;image:string;wikiUrl:string;types:string[];score:number}[]>([])
   const [kgLoading, setKgLoading] = useState(false)
   const [searchTimer, setSearchTimer] = useState<ReturnType<typeof setTimeout>|null>(null)
@@ -525,32 +526,47 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
           }))
         setMbResults(results)
       }).catch(() => {}).finally(() => setMbLoading(false))
-    // Pakartot - klientas kviecia tiesiai (serverio route neveikia su DuckDuckGo)
+    // Pakartot
     setPkLoading(true)
+    setPkError('')
     fetch(`/api/search-pakartot?q=${encodeURIComponent(q)}`)
-      .then(r => r.json()).then(data => {
-        setPkResults(Array.isArray(data) ? data.slice(0, 8) : [])
-      }).catch(() => {}).finally(() => setPkLoading(false))
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) { setPkError(data.error); return }
+        const arr = Array.isArray(data) ? data : []
+        setPkResults(arr.slice(0, 8))
+        if (arr.length === 0) setPkError('Nieko nerasta (raw: ' + JSON.stringify(data).slice(0, 150) + ')')
+      })
+      .catch(e => setPkError(e.message))
+      .finally(() => setPkLoading(false))
     // Google Knowledge Graph
     setKgLoading(true)
     fetch(`/api/search-google?q=${encodeURIComponent(q)}`)
       .then(r => r.json()).then(data => {
         setKgResults(data.results || [])
       }).catch(() => {}).finally(() => setKgLoading(false))
-    // YouTube
+    // YouTube - naudoti /api/search/youtube tik jei nėra quota klaidos
     setYtLoading(true)
     setYtError('')
     fetch(`/api/search/youtube?q=${encodeURIComponent(q)}`)
       .then(r => r.json())
       .then(data => {
-        if (data.error) { setYtError(data.error); return }
+        if (data.error) {
+          // Quota exceeded - siūlome ieškoti rankiniu būdu
+          if (data.error.includes('quota')) {
+            setYtError('YouTube API dienos limitas pasiektas. Ieškokite rankiniu būdu: youtube.com')
+          } else {
+            setYtError(data.error)
+          }
+          return
+        }
         const results = (data.results || []).slice(0, 5).map((v: any) => ({
           title: v.name,
           description: v.description ? v.description.slice(0, 100) : 'YouTube kanalas',
           ytData: v,
         }))
         setYtResults(results)
-        if (results.length === 0) setYtError('Nieko nerasta (results: ' + JSON.stringify(data).slice(0, 200) + ')')
+        if (results.length === 0) setYtError('Nieko nerasta')
       })
       .catch(e => setYtError(e.message))
       .finally(() => setYtLoading(false))
@@ -1047,6 +1063,8 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
             {activeTab === 'pakartot' && (
               pkLoading
                 ? <p className="text-xs text-gray-400 px-3 py-3">Ieškoma...</p>
+                : pkError
+                ? <p className="text-xs text-red-500 px-3 py-3 break-all">Klaida: {pkError}</p>
                 : pkResults.length === 0
                 ? <p className="text-xs text-gray-400 px-3 py-3">Nieko nerasta</p>
                 : pkResults.map(r => (
@@ -1115,8 +1133,12 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
                       <div className="text-sm text-gray-800 font-medium">{r.name}</div>
                       <div className="text-xs text-gray-400 truncate">
                         {r.description}
-                        {r.wikiUrl && <span className="ml-1 text-blue-400">· Wikipedia</span>}
+                        {r.wikiUrl
+                          ? <span className="ml-1 text-blue-400">· Wikipedia ✓</span>
+                          : <span className="ml-1 text-orange-400">· be Wikipedia</span>
+                        }
                       </div>
+                      {r.detail && <div className="text-xs text-gray-500 truncate mt-0.5">{r.detail.slice(0, 80)}...</div>}
                     </div>
                   </button>
                 ))
