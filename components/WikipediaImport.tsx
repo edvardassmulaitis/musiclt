@@ -857,7 +857,7 @@ export default function WikipediaImport({ onImport, initialSearch }: Props) {
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
           />
           {showDropdown && searchResults.length > 0 && (
-            <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden">
+            <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden" style={{ zIndex: 99999 }}>
               {searchResults.map(r => {
                 const MUSIC_RE = /\b(band|musician|singer|rapper|artist|group|duo|trio|record|album|guitarist|drummer|bassist|vocalist|DJ|producer|songwriter|rock|pop|hip.hop|jazz|metal|punk|electronic|music)/i
                 const isMusic = MUSIC_RE.test(r.description) || MUSIC_RE.test(r.title)
