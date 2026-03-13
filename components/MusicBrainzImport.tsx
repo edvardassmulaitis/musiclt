@@ -89,12 +89,12 @@ export default function MusicBrainzImport({ onImport, initialSearch, initialMbDa
     if (q.trim().length < 2) { setResults([]); setShowDropdown(false); return }
     try {
       const res = await fetch(
-        `https://musicbrainz.org/ws/2/artist/?query=artist:${encodeURIComponent(q)}&limit=8&fmt=json`,
+        `https://musicbrainz.org/ws/2/artist/?query=artist:%22${encodeURIComponent(q)}%22&limit=10&fmt=json`,
         { headers: { 'User-Agent': 'music.lt/1.0 (admin)' } }
       )
       if (!res.ok) return
       const data = await res.json()
-      const arr: MBResult[] = (data.artists || []).filter((a: any) => (a.score ?? 100) >= 60).map((a: any) => ({
+      const arr: MBResult[] = (data.artists || []).filter((a: any) => (a.score ?? 100) >= 40).sort((a: any, b: any) => (b.score ?? 0) - (a.score ?? 0)).map((a: any) => ({
         id: a.id, name: a.name,
         type: a.type === 'Person' ? 'solo' : 'group',
         country: MB_COUNTRY[a.country || a.area?.['iso-3166-1-codes']?.[0]] || a.area?.name || '',
