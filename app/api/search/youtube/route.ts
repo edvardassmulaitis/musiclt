@@ -32,10 +32,11 @@ export async function GET(req: NextRequest) {
   if (!apiKey) return NextResponse.json({ results: [], error: 'YOUTUBE_API_KEY not configured' })
 
   try {
-    // 1. Rasti kanalus
+    // 1. Rasti kanalus - naudojame topicId muzikos kategorijai ir plačią paiešką
     const searchRes = await fetch(
       `https://www.googleapis.com/youtube/v3/search?` +
-      `part=snippet&q=${encodeURIComponent(q)}&type=channel&maxResults=5&key=${apiKey}`
+      `part=snippet&q=${encodeURIComponent(q)}&type=channel&maxResults=8` +
+      `&key=${apiKey}`
     )
     const searchData = await searchRes.json()
     if (searchData.error) throw new Error(searchData.error.message)
