@@ -374,19 +374,7 @@ function WikipediaIcon({ className = "w-3.5 h-3.5 shrink-0" }: { className?: str
 }
 
 function WikipediaImportWithHint({ artistName, onImport }: { artistName?: string; onImport: (data: any) => void }) {
-  const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!artistName) return
-    const input = ref.current?.querySelector('input[type="url"], input[type="text"]') as HTMLInputElement | null
-    if (input && !input.value) {
-      const url = `https://en.wikipedia.org/wiki/${encodeURIComponent(artistName.replace(/ /g, '_'))}`
-      const nativeInput = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')
-      nativeInput?.set?.call(input, url)
-      input.dispatchEvent(new Event('input', { bubbles: true }))
-      input.dispatchEvent(new Event('change', { bubbles: true }))
-    }
-  }, [artistName])
-  return <div ref={ref}><WikipediaImport onImport={onImport} /></div>
+  return <WikipediaImport onImport={onImport} initialSearch={artistName} />
 }
 
 function WikipediaImportCompact({ onImport, artistName }: { onImport: (data: any) => void; artistName?: string }) {
