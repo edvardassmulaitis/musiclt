@@ -1132,7 +1132,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
       ...(initialData.breaks !== prev.breaks ? { breaks: initialData.breaks } : {}),
       ...(initialData.photos !== prev.photos ? { photos: initialData.photos } : {}),
     }
-    console.log('[ArtistForm] sync:', { prev_fb: prev.facebook, new_fb: initialData.facebook, next_fb: (next as any).facebook })
+    console.log('[ArtistForm] sync groups:', { prev_groups: prev.groups, new_groups: initialData.groups, next_groups: (next as any).groups })
     formRef.current = next  // iš karto sinchroniškai
     setForm(next)
   }, [initialData]) // eslint-disable-line
