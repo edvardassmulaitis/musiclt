@@ -1167,7 +1167,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
   const rmMember  = (i:number) => set('members', formRef.current.members.filter((_,idx)=>idx!==i))
   const upMember  = (i:number, f:'yearFrom'|'yearTo', v:string) => { const m=[...formRef.current.members]; m[i]={...m[i],[f]:v}; set('members',m) }
 
-  const addGroup = (a:any) => set('groups', [...(formRef.current.groups||[]), { id:a.id, name:a.name, yearFrom:'', yearTo:'' }])
+  const addGroup = (a:any) => set('groups', [...(formRef.current.groups||[]), { id:a.id, name:a.name, avatar:a.avatar||a.cover_image_url||'', yearFrom:'', yearTo:'' }])
   const rmGroup  = (i:number) => set('groups', (formRef.current.groups||[]).filter((_,idx)=>idx!==i))
   const upGroup  = (i:number, f:'yearFrom'|'yearTo', v:string) => { const g=[...(formRef.current.groups||[])]; g[i]={...g[i],[f]:v}; set('groups',g) }
 
