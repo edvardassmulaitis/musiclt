@@ -505,9 +505,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
           mbItems2.push({ title: a.name, description: [a.type, a.country, a['life-span']?.begin?.slice(0,4)].filter(Boolean).join(' · '), source: 'musicbrainz' as const, mbData: a })
         })
       }
-      const mbTitles2 = new Set<string>(mbItems2.map(r => r.title.toLowerCase()))
-      const filteredWp2 = wpItems2.filter(r => !mbTitles2.has(r.title.toLowerCase()))
-      const combined2 = [...mbItems2, ...filteredWp2]
+      const combined2 = [...wpItems2, ...mbItems2]
       setSearchResults(combined2.slice(0, 10))
       setShowDropdown(combined2.length > 0)
     }).catch(() => {})
@@ -555,10 +553,8 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
             })
           })
         }
-        // MB visada rodyti (skirtingas šaltinis), WP dedupliuoti nuo MB
-        const mbTitles = new Set<string>(mbItems.map(r => r.title.toLowerCase()))
-        const filteredWp = wpItems.filter(r => !mbTitles.has(r.title.toLowerCase()))
-        const combined = [...mbItems, ...filteredWp]
+        // WP pirma, MB po, jokio filtravimo - vartotojas renkasi šaltinį
+        const combined = [...wpItems, ...mbItems]
         setSearchResults(combined.slice(0, 10))
         setShowDropdown(combined.length > 0)
       } catch {}
@@ -918,7 +914,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
             onKeyDown={e => { if (e.key === 'Enter') { setShowDropdown(false); go() } if (e.key === 'Escape') setShowDropdown(false) }}
             onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
             onFocus={() => searchResults.length > 0 && setShowDropdown(true)}
-            placeholder="Atlikėjo pavadinimas arba Wikipedia URL..."
+            placeholder="Atlikėjo pavadinimas arba Wikipedia nuoroda..."
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
           />
           {showDropdown && searchResults.length > 0 && (
@@ -949,7 +945,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
           disabled={loading || !url.trim()}
           className="shrink-0 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-40 transition-colors whitespace-nowrap"
         >
-          {loading ? '...' : 'Importuoti iš Wiki'}
+          {loading ? '...' : 'Importuoti'}
         </button>
       </div>
 
