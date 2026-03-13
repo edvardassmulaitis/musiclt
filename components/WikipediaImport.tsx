@@ -922,6 +922,31 @@ export default function WikipediaImport({ onImport }: Props) {
             </div>
           )}
 
+          {/* Groups (solo atlikėjo grupės) */}
+          {p.type === 'solo' && (preview as any).groups && (preview as any).groups.length > 0 && (
+            <div className="px-4 py-2 border-b border-gray-100 text-xs">
+              <div className="flex flex-wrap items-center gap-x-1 gap-y-1">
+                <span className="text-gray-400 mr-0.5">Priklauso:</span>
+                {((preview as any).groups as any[]).map((g: any, i: number) => (
+                  <span key={i} className="flex items-center gap-1">
+                    {g.avatar
+                      ? <img src={g.avatar} alt="" className="w-3.5 h-3.5 rounded-full object-cover shrink-0" referrerPolicy="no-referrer" />
+                      : <div className="w-3.5 h-3.5 rounded-full bg-gray-200 flex items-center justify-center text-[7px] shrink-0 font-bold">{g.name?.[0] ?? '?'}</div>
+                    }
+                    <span className={g.id ? 'text-green-600' : 'text-gray-700'}>{g.name}</span>
+                    {g.id
+                      ? <span className="text-green-400 text-[10px]">✓</span>
+                      : <span className="text-amber-500 text-[10px]">+</span>
+                    }
+                  </span>
+                ))}
+                {(preview as any).groups.some((g: any) => !g.id) && (
+                  <span className="text-amber-500 ml-1">· bus sukurta išsaugant</span>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Description */}
           <div className="px-4 py-2.5">
             {p.description
