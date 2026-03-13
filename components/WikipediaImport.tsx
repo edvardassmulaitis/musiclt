@@ -451,6 +451,19 @@ const SOCIAL_MAP: Record<string, { key: keyof ArtistFormData; url: (v: string) =
 const GROUP_QIDS = new Set(['Q215380','Q5741069','Q2088357','Q9212979','Q56816265','Q190445','Q16010345','Q183319'])
 const SKIP_WEB = ['store','shop','merch','bandsintown','songkick','last.fm','allmusic','discogs','musicbrainz','facebook','instagram','twitter','x.com','youtube','spotify','soundcloud','tiktok','bandcamp']
 
+
+function mbSortScore(name: string, query: string): number {
+  const n = name.toLowerCase().trim()
+  const q = query.toLowerCase().trim()
+  if (n === q) return 100
+  if (n.startsWith(q)) return 90
+  if (n.includes(q)) return 80
+  // žodžių atitikimas
+  const qWords = q.split(/\s+/)
+  const matches = qWords.filter(w => n.includes(w)).length
+  return Math.round((matches / qWords.length) * 70)
+}
+
 function WikipediaImportCore({ onImport, initialSearch }: Props) {
   const [url, setUrl] = useState(initialSearch && !initialSearch.includes('wikipedia.org') ? initialSearch : '')
   const [loading, setLoading] = useState(false)
@@ -485,7 +498,10 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
         wpItems2.push(...music.slice(0, 4), ...others.slice(0, 2))
       }
       if (mbRes.status === 'fulfilled') {
-        ;(mbRes.value.artists || []).slice(0, 5).forEach((a: any) => {
+        ;(mbRes.value.artists || [])
+          .map((a: any) => ({ ...a, _sort: mbSortScore(a.name, search) }))
+          .sort((a: any, b: any) => b._sort - a._sort)
+          .slice(0, 5).forEach((a: any) => {
           mbItems2.push({ title: a.name, description: [a.type, a.country, a['life-span']?.begin?.slice(0,4)].filter(Boolean).join(' · '), source: 'musicbrainz' as const, mbData: a })
         })
       }
@@ -526,7 +542,10 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
         // MusicBrainz
         if (mbRes.status === 'fulfilled') {
           const mbData = mbRes.value;
-          ;(mbData.artists || []).slice(0, 5).forEach((a: any) => {
+          ;(mbData.artists || [])
+            .map((a: any) => ({ ...a, _sort: mbSortScore(a.name, val) }))
+            .sort((a: any, b: any) => b._sort - a._sort)
+            .slice(0, 5).forEach((a: any) => {
             mbItems.push({
               title: a.name,
               description: [a.type, a.country, a['life-span']?.begin?.slice(0,4)].filter(Boolean).join(' · '),
