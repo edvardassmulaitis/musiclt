@@ -63,7 +63,7 @@ type MBResult = {
   'life-span'?: { begin?: string; end?: string; ended?: boolean }
   tags?: { name: string; count: number }[]
   relations?: any[]
-  members?: { id: string | null; name: string; avatar: string }[]
+  members?: { id: number | null; name: string; avatar: string }[]
   avatar: string
 }
 
