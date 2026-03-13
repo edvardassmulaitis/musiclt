@@ -67,6 +67,18 @@ type MBResult = {
   avatar: string
 }
 
+
+function mbSortScore(name: string, query: string): number {
+  const n = name.toLowerCase().trim()
+  const q = query.toLowerCase().trim()
+  if (n === q) return 100
+  if (n.startsWith(q)) return 90
+  if (n.includes(q)) return 80
+  const qWords = q.split(/\s+/)
+  const matches = qWords.filter(w => n.includes(w)).length
+  return Math.round((matches / qWords.length) * 70)
+}
+
 export default function MusicBrainzImport({ onImport, initialSearch, initialMbData, onBack }: Props) {
   const [query, setQuery] = useState(initialSearch || '')
   const [results, setResults] = useState<MBResult[]>([])
@@ -94,7 +106,10 @@ export default function MusicBrainzImport({ onImport, initialSearch, initialMbDa
       )
       if (!res.ok) return
       const data = await res.json()
-      const arr: MBResult[] = (data.artists || []).map((a: any) => ({
+      const arr: MBResult[] = (data.artists || [])
+        .map((a: any) => ({ ...a, _sort: mbSortScore(a.name, q) }))
+        .sort((x: any, y: any) => y._sort - x._sort)
+        .map((a: any) => ({
         id: a.id, name: a.name,
         type: a.type === 'Person' ? 'solo' : 'group',
         country: MB_COUNTRY[a.country || a.area?.['iso-3166-1-codes']?.[0]] || a.area?.name || '',
