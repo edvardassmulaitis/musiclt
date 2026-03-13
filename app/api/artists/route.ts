@@ -198,6 +198,46 @@ export async function POST(req: NextRequest) {
       if (me) console.error('[POST /api/artists] members insert error:', me.message)
     }
 
+    // ── Grupės (solo atlikėjui) ───────────────────────────────────────────────────
+    const groupsSource: any[] = d.groups || []
+    for (const g of groupsSource) {
+      if (!g?.name && !g?.id) continue
+      let groupId = g.id ? (typeof g.id === 'string' ? parseInt(g.id) : Number(g.id)) : null
+      if (!groupId && g.name) {
+        try {
+          const { data: existingGroup } = await supabase.from('artists').select('id').ilike('name', g.name).eq('type', 'group').maybeSingle()
+          if (existingGroup?.id) {
+            groupId = existingGroup.id
+          } else {
+            const gSlug = slugify(g.name)
+            let finalGSlug = gSlug
+            const { data: slugCheck } = await supabase.from('artists').select('id').eq('slug', finalGSlug).maybeSingle()
+            if (slugCheck) finalGSlug = `${gSlug}-${Date.now().toString(36)}`
+            const { data: newGroup } = await supabase.from('artists').insert({
+              slug: finalGSlug, name: g.name, type: 'group',
+              country: 'Lietuva',
+              cover_image_url: g.avatar || null,
+              is_active: true, is_verified: false, show_updated: false,
+              type_music: true, type_film: false, type_dance: false, type_books: false,
+              photos: [],
+            }).select('id').single()
+            if (newGroup?.id) groupId = newGroup.id
+          }
+        } catch (e: any) { console.error('[POST /api/artists] create group error:', e.message) }
+      }
+      if (groupId) {
+        try {
+          await supabase.from('artist_members').insert({
+            group_id: groupId,
+            member_id: artistId,
+            year_from: g.yearFrom ? parseInt(g.yearFrom) : null,
+            year_to:   g.yearTo   ? parseInt(g.yearTo)   : null,
+            is_current: !g.yearTo,
+          })
+        } catch (e: any) { console.error('[POST /api/artists] group member insert error:', e.message) }
+      }
+    }
+
     // ── Pertraukos ────────────────────────────────────────────────────────────
     const breaks: any[] = d.breaks || []
     if (breaks.length > 0) {
