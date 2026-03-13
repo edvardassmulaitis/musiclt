@@ -475,6 +475,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
   const [membersLoading, setMembersLoading] = useState(false)
   const [searchResults, setSearchResults] = useState<{title:string;description:string;source:'wikipedia'|'musicbrainz'|'pakartot'|'youtube';mbData?:any;pkUrl?:string;ytData?:any}[]>([])
   const [searchTimer, setSearchTimer] = useState<ReturnType<typeof setTimeout>|null>(null)
+  const [searchLoading, setSearchLoading] = useState(false)
   const [showDropdown, setShowDropdown] = useState(false)
   const [mbImportData, setMbImportData] = useState<{name:string;mbData:any}|null>(null)
 
@@ -494,10 +495,14 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
       if (wpRes.status === 'fulfilled') {
         const titles: string[] = wpRes.value[1] || []
         const descs: string[] = wpRes.value[2] || []
+        const ALBUM_RE2 = /\b(album|discography|soundtrack|compilation|EP|LP|single|filmography|disambiguation)/i
+        const PERSON_BAND_RE2 = /\b(band|artist|singer|rapper|musician|group|duo|trio|vocalist|guitarist|drummer|DJ|producer|songwriter)/i
         const all = titles.map((title: string, i: number) => ({ title, description: descs[i] || '', source: 'wikipedia' as const }))
-        const music = all.filter((r: any) => MUSIC_RE.test(r.description) || MUSIC_RE.test(r.title))
-        const others = all.filter((r: any) => !MUSIC_RE.test(r.description) && !MUSIC_RE.test(r.title))
-        wpItems2.push(...music.slice(0, 4), ...others.slice(0, 2))
+          .filter((r: any) => !ALBUM_RE2.test(r.description) && !ALBUM_RE2.test(r.title))
+        const withBandTag2 = all.filter((r: any) => PERSON_BAND_RE2.test(r.title))
+        const musicDesc2 = all.filter((r: any) => !PERSON_BAND_RE2.test(r.title) && (MUSIC_RE.test(r.description) || MUSIC_RE.test(r.title)))
+        const others2 = all.filter((r: any) => !PERSON_BAND_RE2.test(r.title) && !MUSIC_RE.test(r.description) && !MUSIC_RE.test(r.title))
+        wpItems2.push(...withBandTag2.slice(0, 3), ...musicDesc2.slice(0, 3), ...others2.slice(0, 2))
       }
       if (mbRes.status === 'fulfilled') {
         ;(mbRes.value.artists || [])
@@ -535,6 +540,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
     if (isUrl(val)) { setSearchResults([]); setShowDropdown(false); return }
     if (searchTimer) clearTimeout(searchTimer)
     if (val.trim().length < 2) { setSearchResults([]); setShowDropdown(false); return }
+    setSearchLoading(true)
     const t = setTimeout(async () => {
       try {
         const MUSIC_RE = /\b(band|musician|singer|rapper|artist|group|duo|trio|record|album|guitarist|drummer|bassist|vocalist|DJ|producer|songwriter|rock|pop|hip.hop|jazz|metal|punk|electronic|music)/i
@@ -551,10 +557,16 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
           const data = wpRes.value
           const titles: string[] = data[1] || []
           const descs: string[] = data[2] || []
-          const all = titles.map((title, i) => ({ title, description: descs[i] || '', source: 'wikipedia' as const }))
-          const music = all.filter(r => MUSIC_RE.test(r.description) || MUSIC_RE.test(r.title))
-          const others = all.filter(r => !MUSIC_RE.test(r.description) && !MUSIC_RE.test(r.title))
-          wpItems.push(...music.slice(0, 4), ...others.slice(0, 2))
+          const ALBUM_RE = /\b(album|discography|soundtrack|compilation|EP|LP|single|filmography|disambiguation)/i
+          const PERSON_BAND_RE = /\b(band|artist|singer|rapper|musician|group|duo|trio|vocalist|guitarist|drummer|DJ|producer|songwriter)/i
+          const all = titles
+            .map((title, i) => ({ title, description: descs[i] || '', source: 'wikipedia' as const }))
+            .filter(r => !ALBUM_RE.test(r.description) && !ALBUM_RE.test(r.title))
+          // Prioritetas: tikslus vardas su (band)/(artist)/etc → muzikos žodžiai → kiti
+          const withBandTag = all.filter(r => PERSON_BAND_RE.test(r.title))
+          const musicDesc = all.filter(r => !PERSON_BAND_RE.test(r.title) && (MUSIC_RE.test(r.description) || MUSIC_RE.test(r.title)))
+          const others = all.filter(r => !PERSON_BAND_RE.test(r.title) && !MUSIC_RE.test(r.description) && !MUSIC_RE.test(r.title))
+          wpItems.push(...withBandTag.slice(0, 3), ...musicDesc.slice(0, 3), ...others.slice(0, 2))
         }
         // MusicBrainz
         if (mbRes.status === 'fulfilled') {
@@ -591,6 +603,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
         setSearchResults(combined.slice(0, 12))
         setShowDropdown(combined.length > 0)
       } catch {}
+      setSearchLoading(false)
     }, 300)
     setSearchTimer(t)
   }
@@ -619,15 +632,26 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
       const { genre, substyles } = ytData.genres?.length
         ? mapGenres(ytData.genres)
         : { genre: '', substyles: [] }
-      onImport({
+      const ytCountry = ytData.country && COUNTRIES.includes(ytData.country) ? ytData.country : ''
+      setMbImportData(null)
+      // YouTube: rodome preview su galimybe generuoti aprašymą
+      setPreview({
         name: ytData.name || title,
         avatar: ytData.thumbnail || '',
+        type: 'person',
+        description: '',
+        rawDescription: ytData.rawDescription || ytData.description || '',
         youtube: ytData.url || '',
-        country: ytData.country && COUNTRIES.includes(ytData.country) ? ytData.country : '',
-        description: ytData.description || '',
+        facebook: ytData.facebook || '',
+        instagram: ytData.instagram || '',
+        twitter: ytData.twitter || '',
+        country: ytCountry,
         genre,
         substyles,
-      })
+        members: [], groups: [], wikiLinks: [], links: [],
+        facebook2: '', spotify: '', soundcloud: '', tiktok: '', bandcamp: '',
+        born: '', died: '', activeFrom: '', activeTo: '', breaks: [],
+      } as any)
       return
     }
     if (source === 'youtube') {
@@ -985,8 +1009,11 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
             onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
             onFocus={() => searchResults.length > 0 && setShowDropdown(true)}
             placeholder="Atlikėjo pavadinimas arba Wikipedia nuoroda..."
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 pr-8"
           />
+          {searchLoading && (
+            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 animate-spin text-base pointer-events-none">⟳</span>
+          )}
           {showDropdown && searchResults.length > 0 && (
             <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden" style={{ zIndex: 99999 }}>
               {searchResults.map(r => (
@@ -1176,7 +1203,11 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
                   const dr = await fetch('/api/generate-description', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ wikiTitle: extractSlug(url), type: p.type }),
+                    body: JSON.stringify({ 
+                      wikiTitle: extractSlug(url) || undefined, 
+                      ytDescription: !extractSlug(url) ? (p as any).rawDescription || p.description || undefined : undefined,
+                      type: p.type 
+                    }),
                   })
                   if (dr.ok) {
                     const d: any = await dr.json()
