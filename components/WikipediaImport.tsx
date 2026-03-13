@@ -522,23 +522,41 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
           }))
         setMbResults(results)
       }).catch(() => {}).finally(() => setMbLoading(false))
-    // Pakartot
+    // Pakartot - klientas kviecia tiesiai (serverio route neveikia su DuckDuckGo)
     setPkLoading(true)
     fetch(`/api/search-pakartot?q=${encodeURIComponent(q)}`)
       .then(r => r.json()).then(data => {
         setPkResults(Array.isArray(data) ? data.slice(0, 8) : [])
       }).catch(() => {}).finally(() => setPkLoading(false))
-    // YouTube
+    // YouTube - klientas fetch tiesiai i YouTube Data API
     setYtLoading(true)
-    fetch(`/api/search/youtube?q=${encodeURIComponent(q)}`)
-      .then(r => r.json()).then(data => {
-        const results = (data.results || []).slice(0, 5).map((v: any) => ({
+    ;(async () => {
+      try {
+        // Pirma: channel paieška
+        const ytRes = await fetch(
+          `/api/search/youtube?q=${encodeURIComponent(q)}`
+        ).then(r => r.json())
+        const results = (ytRes.results || []).slice(0, 5).map((v: any) => ({
           title: v.name,
-          description: v.description || 'YouTube kanalas',
+          description: v.description ? v.description.slice(0, 100) : 'YouTube kanalas',
           ytData: v,
         }))
         setYtResults(results)
-      }).catch(() => {}).finally(() => setYtLoading(false))
+        // Jei nieko nerasta - bandome alternatyva: search su broader query
+        if (results.length === 0) {
+          const ytRes2 = await fetch(
+            `/api/search/youtube?q=${encodeURIComponent(q + ' muzika')}`
+          ).then(r => r.json())
+          const results2 = (ytRes2.results || []).slice(0, 5).map((v: any) => ({
+            title: v.name,
+            description: v.description ? v.description.slice(0, 100) : 'YouTube kanalas',
+            ytData: v,
+          }))
+          setYtResults(results2)
+        }
+      } catch {}
+      setYtLoading(false)
+    })()
   }
 
   useEffect(() => {
