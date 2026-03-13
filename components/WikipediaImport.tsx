@@ -520,6 +520,8 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
         })
       }
       const combined2 = [...wpItems2, ...mbItems2, ...pkItems2, ...ytItems2]
+        .map(r => ({ ...r, _score: mbSortScore(r.title, search) }))
+        .sort((a, b) => b._score - a._score)
       setSearchResults(combined2.slice(0, 12))
       setShowDropdown(combined2.length > 0)
     }).catch(() => {})
@@ -584,6 +586,8 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
           })
         }
         const combined = [...wpItems, ...mbItems, ...pkItems, ...ytItems]
+          .map(r => ({ ...r, _score: mbSortScore(r.title, val) }))
+          .sort((a, b) => b._score - a._score)
         setSearchResults(combined.slice(0, 12))
         setShowDropdown(combined.length > 0)
       } catch {}
@@ -607,10 +611,11 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
       return
     }
     if (source === 'youtube') {
-      // YouTube - bandome Wikipedia pagal kanalo pavadinimą
       const slug = title.replace(/ /g, '_')
       const newUrl = `https://en.wikipedia.org/wiki/${slug}`
-      setUrl(title)
+      setUrl(newUrl)
+      setSearchResults([])
+      setShowDropdown(false)
       setTimeout(() => go(newUrl), 50)
       return
     }
