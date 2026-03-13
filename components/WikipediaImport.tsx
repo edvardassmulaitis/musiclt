@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { COUNTRIES, SUBSTYLES } from '@/lib/constants'
 import { type ArtistFormData, type Break } from './ArtistForm'
 
-type Props = { onImport: (data: Partial<ArtistFormData>) => void }
+type Props = { onImport: (data: Partial<ArtistFormData>) => void; initialSearch?: string }
 
 const ALL_SUBSTYLES = Object.values(SUBSTYLES).flat()
 
@@ -450,7 +450,7 @@ const SOCIAL_MAP: Record<string, { key: keyof ArtistFormData; url: (v: string) =
 const GROUP_QIDS = new Set(['Q215380','Q5741069','Q2088357','Q9212979','Q56816265','Q190445','Q16010345','Q183319'])
 const SKIP_WEB = ['store','shop','merch','bandsintown','songkick','last.fm','allmusic','discogs','musicbrainz','facebook','instagram','twitter','x.com','youtube','spotify','soundcloud','tiktok','bandcamp']
 
-export default function WikipediaImport({ onImport }: Props) {
+export default function WikipediaImport({ onImport, initialSearch }: Props) {
   const [url, setUrl] = useState('')
   const [loading, setLoading] = useState(false)
   const [step, setStep] = useState('')
@@ -462,6 +462,13 @@ export default function WikipediaImport({ onImport }: Props) {
   const [searchResults, setSearchResults] = useState<{title:string;description:string}[]>([])
   const [searchTimer, setSearchTimer] = useState<ReturnType<typeof setTimeout>|null>(null)
   const [showDropdown, setShowDropdown] = useState(false)
+
+  useEffect(() => {
+    if (initialSearch && initialSearch.trim().length >= 2) {
+      handleInputChange(initialSearch)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialSearch])
 
   const isUrl = (s: string) => /wikipedia\.org\/wiki\//.test(s)
 
