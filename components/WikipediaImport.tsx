@@ -477,8 +477,10 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
   const [mbResults, setMbResults] = useState<{title:string;description:string;mbData:any}[]>([])
   const [pkResults, setPkResults] = useState<{title:string;url:string}[]>([])
   const [ytResults, setYtResults] = useState<{title:string;description:string;ytData:any}[]>([])
+  const [kgResults, setKgResults] = useState<{name:string;description:string;detail:string;image:string;wikiUrl:string;types:string[];score:number}[]>([])
+  const [kgLoading, setKgLoading] = useState(false)
   const [searchTimer, setSearchTimer] = useState<ReturnType<typeof setTimeout>|null>(null)
-  const [activeTab, setActiveTab] = useState<'wikipedia'|'musicbrainz'|'pakartot'|'youtube'>('wikipedia')
+  const [activeTab, setActiveTab] = useState<'wikipedia'|'musicbrainz'|'pakartot'|'youtube'|'google'>('wikipedia')
   const [wpLoading, setWpLoading] = useState(false)
   const [mbLoading, setMbLoading] = useState(false)
   const [pkLoading, setPkLoading] = useState(false)
@@ -528,6 +530,12 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
       .then(r => r.json()).then(data => {
         setPkResults(Array.isArray(data) ? data.slice(0, 8) : [])
       }).catch(() => {}).finally(() => setPkLoading(false))
+    // Google Knowledge Graph
+    setKgLoading(true)
+    fetch(`/api/search-google?q=${encodeURIComponent(q)}`)
+      .then(r => r.json()).then(data => {
+        setKgResults(data.results || [])
+      }).catch(() => {}).finally(() => setKgLoading(false))
     // YouTube - klientas fetch tiesiai i YouTube Data API
     setYtLoading(true)
     ;(async () => {
@@ -570,9 +578,9 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
   const handleInputChange = (val: string) => {
     setUrl(val)
     setError('')
-    if (isUrl(val)) { setWpResults([]); setMbResults([]); setPkResults([]); setYtResults([]); return }
+    if (isUrl(val)) { setWpResults([]); setMbResults([]); setPkResults([]); setYtResults([]); setKgResults([]); return }
     if (searchTimer) clearTimeout(searchTimer)
-    if (val.trim().length < 2) { setWpResults([]); setMbResults([]); setPkResults([]); setYtResults([]); return }
+    if (val.trim().length < 2) { setWpResults([]); setMbResults([]); setPkResults([]); setYtResults([]); setKgResults([]); return }
     const t = setTimeout(() => runSearch(val.trim()), 350)
     setSearchTimer(t)
   }
@@ -988,6 +996,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
               { key: 'musicbrainz', label: 'MusicBrainz', badge: 'MB', badgeCls: 'bg-orange-100 text-orange-600', count: mbResults.length, loading: mbLoading },
               { key: 'pakartot', label: 'Pakartot', badge: 'P', badgeCls: 'bg-green-100 text-green-700', count: pkResults.length, loading: pkLoading },
               { key: 'youtube', label: 'YouTube', badge: 'YT', badgeCls: 'bg-red-100 text-red-600', count: ytResults.length, loading: ytLoading },
+              { key: 'google', label: 'Google', badge: 'G', badgeCls: 'bg-blue-100 text-blue-600', count: kgResults.length, loading: kgLoading },
             ] as const).map(tab => (
               <button
                 key={tab.key}
@@ -1076,6 +1085,47 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
                     <div className="min-w-0">
                       <div className="text-sm text-gray-800 font-medium">{r.title}</div>
                       {r.description && <div className="text-xs text-gray-400 truncate">{r.description}</div>}
+                    </div>
+                  </button>
+                ))
+            )}
+            {/* Google Knowledge Graph */}
+            {activeTab === 'google' && (
+              kgLoading
+                ? <p className="text-xs text-gray-400 px-3 py-3">Ieškoma...</p>
+                : kgResults.length === 0
+                ? <p className="text-xs text-gray-400 px-3 py-3">Nieko nerasta — patikrinkite ar įdėtas GOOGLE_KG_API_KEY</p>
+                : kgResults.map(r => (
+                  <button key={r.name + r.description} type="button"
+                    onClick={() => {
+                      if (r.wikiUrl) {
+                        setUrl(r.wikiUrl)
+                        setTimeout(() => go(r.wikiUrl), 50)
+                      } else {
+                        // Nėra Wikipedia - importuoti tiesiai iš KG duomenų
+                        setPreview({
+                          name: r.name,
+                          avatar: r.image || '',
+                          type: r.types.includes('MusicGroup') ? 'group' : 'person',
+                          description: r.detail || r.description || '',
+                          members: [], groups: [], wikiLinks: [], links: [],
+                          country: '', genre: '', substyles: [], born: '', died: '',
+                          activeFrom: '', activeTo: '', breaks: [],
+                          facebook: '', instagram: '', twitter: '', spotify: '',
+                          youtube: '', soundcloud: '', tiktok: '', bandcamp: '', facebook2: '',
+                          website: '',
+                        } as any)
+                      }
+                    }}
+                    className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-0 flex items-center gap-2"
+                  >
+                    {r.image && <img src={r.image} className="w-8 h-8 rounded-full object-cover shrink-0" alt="" />}
+                    <div className="min-w-0">
+                      <div className="text-sm text-gray-800 font-medium">{r.name}</div>
+                      <div className="text-xs text-gray-400 truncate">
+                        {r.description}
+                        {r.wikiUrl && <span className="ml-1 text-blue-400">· Wikipedia</span>}
+                      </div>
                     </div>
                   </button>
                 ))
