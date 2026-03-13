@@ -131,15 +131,48 @@ export async function PATCH(
 
       const memberRows: any[] = []
 
-      // Nariai (šis atlikėjas yra grupė)
-      const validMembers = (membersSource as any[] || []).filter((m: any) => m?.id)
-      for (const m of validMembers) {
-        memberRows.push({
-          group_id: parseInt(id), member_id: m.id,
-          year_from: m.yearFrom ? parseInt(m.yearFrom) : null,
-          year_to:   m.yearTo   ? parseInt(m.yearTo)   : null,
-          is_current: !m.yearTo,
-        })
+      // Nariai (šis atlikėjas yra grupė) — sukuriame jei nėra DB
+      for (const m of (membersSource as any[] || [])) {
+        if (!m?.name && !m?.id) continue
+        let memberId = m.id ? (typeof m.id === 'string' ? parseInt(m.id) : Number(m.id)) : null
+        if (!memberId && m.name) {
+          try {
+            const { data: existing } = await supabase.from('artists').select('id').ilike('name', m.name).eq('type', 'solo').maybeSingle()
+            if (existing?.id) {
+              memberId = existing.id
+            } else {
+              const mSlug = m.name.toLowerCase().replace(/[ąä]/g,'a').replace(/[čç]/g,'c').replace(/[ęèėé]/g,'e').replace(/[į]/g,'i').replace(/[š]/g,'s').replace(/[ųū]/g,'u').replace(/[ž]/g,'z').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')
+              let finalSlug = mSlug
+              const { data: sc } = await supabase.from('artists').select('id').eq('slug', finalSlug).maybeSingle()
+              if (sc) finalSlug = `${mSlug}-${Date.now().toString(36)}`
+              const { data: newMember } = await supabase.from('artists').insert({
+                slug: finalSlug, name: m.name, type: 'solo',
+                country: m.country || 'Lietuva',
+                cover_image_url: m.avatar || null,
+                active_from: m.yearStart ? parseInt(m.yearStart) : null,
+                active_until: m.yearEnd ? parseInt(m.yearEnd) : null,
+                description: m.description || null,
+                gender: m.gender || null,
+                website: m.website || null,
+                facebook: m.facebook || null, instagram: m.instagram || null,
+                twitter: m.twitter || null, spotify: m.spotify || null,
+                youtube: m.youtube || null, soundcloud: m.soundcloud || null,
+                tiktok: m.tiktok || null, bandcamp: m.bandcamp || null,
+                is_active: true, is_verified: false, show_updated: false,
+                type_music: true, type_film: false, type_dance: false, type_books: false, photos: [],
+              }).select('id').single()
+              if (newMember?.id) memberId = newMember.id
+            }
+          } catch (e: any) { console.error('PATCH create member error:', e.message) }
+        }
+        if (memberId) {
+          memberRows.push({
+            group_id: parseInt(id), member_id: memberId,
+            year_from: m.yearFrom ? parseInt(m.yearFrom) : null,
+            year_to:   m.yearTo   ? parseInt(m.yearTo)   : null,
+            is_current: !m.yearTo,
+          })
+        }
       }
 
       // Grupės (šis atlikėjas yra narys)
