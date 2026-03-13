@@ -92,7 +92,7 @@ function formToDb(form: ArtistFormData) {
     bandcamp: form.bandcamp || null, twitter: form.twitter || null,
     related: (() => {
       console.log('[formToDb] members raw:', JSON.stringify(form.members?.map(m => ({ id: m.id, name: m.name }))))
-      return (form.members||[]).map(m=>({ id: typeof m.id==='string' ? parseInt(m.id) : Number(m.id), yearFrom: m.yearFrom, yearTo: m.yearTo }))
+      return (form.members||[]).map(m=>({ id: typeof m.id==='string' ? parseInt(m.id) : Number(m.id), name: m.name, avatar: m.avatar||'', yearFrom: m.yearFrom, yearTo: m.yearTo }))
     })(),
     groups: (form.groups||[]).map(g=>({ id: g.id ? (typeof g.id==='string' ? parseInt(g.id) : Number(g.id)) : null, name: g.name, yearFrom: g.yearFrom, yearTo: g.yearTo })),
   }
