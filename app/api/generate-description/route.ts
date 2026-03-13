@@ -2,8 +2,35 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
   try {
-    const { wikiTitle, type } = await req.json()
-    if (!wikiTitle) return NextResponse.json({ description: '' })
+    const { wikiTitle, type, ytDescription } = await req.json()
+    if (!wikiTitle && !ytDescription) return NextResponse.json({ description: '' })
+
+    // Jei YouTube aprašymas (be Wiki) – generuoti iš jo
+    if (!wikiTitle && ytDescription) {
+      const isGroup = type === 'group' || type === 'band'
+      const prompt = `Esi patyręs muzikos žurnalistas, rašantis lietuviškam muzikos portalui Music.lt.
+
+Remdamasis šiuo YouTube kanalo aprašymu, parašyk REDAKCINĮ APRAŠYMĄ lietuvių kalba:
+
+YouTube aprašymas:
+${ytDescription.substring(0, 3000)}
+
+Reikalavimai:
+- Rašyk lietuvių kalba
+- 1–3 pastraipos
+- Objektyvus, enciklopedinis stilius
+- Nekartok YouTube aprašymo tiesiogiai – interpretuok ir suformuluok iš naujo
+- Neminėk YouTube ar kitų socialinių tinklų
+- Pateik tik patį tekstą, be pavadinimų ar komentarų`
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY!, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({ model: 'claude-opus-4-5', max_tokens: 800, messages: [{ role: 'user', content: prompt }] })
+      })
+      const data = await res.json()
+      const description = data.content?.[0]?.text?.trim() || ''
+      return NextResponse.json({ description })
+    }
 
     // Gauname pilną Wikipedia tekstą (ne tik summary)
     const [sumRes, fullRes] = await Promise.all([
