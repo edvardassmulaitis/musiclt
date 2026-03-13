@@ -616,10 +616,17 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
       setSearchResults([])
       setShowDropdown(false)
       setUrl(title)
+      const { genre, substyles } = ytData.genres?.length
+        ? mapGenres(ytData.genres)
+        : { genre: '', substyles: [] }
       onImport({
         name: ytData.name || title,
         avatar: ytData.thumbnail || '',
         youtube: ytData.url || '',
+        country: ytData.country && COUNTRIES.includes(ytData.country) ? ytData.country : '',
+        description: ytData.description || '',
+        genre,
+        substyles,
       })
       return
     }
