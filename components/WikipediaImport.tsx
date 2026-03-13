@@ -460,27 +460,39 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
   const [translateOk, setTranslateOk] = useState(false)
   const [members, setMembers] = useState<BandMember[]>([])
   const [membersLoading, setMembersLoading] = useState(false)
-  const [searchResults, setSearchResults] = useState<{title:string;description:string}[]>([])
+  const [searchResults, setSearchResults] = useState<{title:string;description:string;source:'wikipedia'|'musicbrainz';mbData?:any}[]>([])
   const [searchTimer, setSearchTimer] = useState<ReturnType<typeof setTimeout>|null>(null)
   const [showDropdown, setShowDropdown] = useState(false)
+  const [mbImportData, setMbImportData] = useState<{name:string;mbData:any}|null>(null)
 
   useEffect(() => {
     if (!initialSearch || initialSearch.trim().length < 2) return
     if (initialSearch.includes('wikipedia.org')) return
     const search = initialSearch.trim()
-    fetch(`https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(search)}&limit=10&format=json&origin=*`)
-      .then(r => r.json())
-      .then(data => {
-        const titles: string[] = data[1] || []
-        const descs: string[] = data[2] || []
-        const MUSIC_RE = /\b(band|musician|singer|rapper|artist|group|duo|trio|record|album|guitarist|drummer|bassist|vocalist|DJ|producer|songwriter|rock|pop|hip.hop|jazz|metal|punk|electronic|music)/i
-        const all = titles.map((title, i) => ({ title, description: descs[i] || '' }))
-        const music = all.filter(r => MUSIC_RE.test(r.description) || MUSIC_RE.test(r.title))
-        const others = all.filter(r => !MUSIC_RE.test(r.description) && !MUSIC_RE.test(r.title))
-        const sorted = [...music, ...others].slice(0, 7)
-        setSearchResults(sorted)
-        setShowDropdown(sorted.length > 0)
-      }).catch(() => {})
+    const MUSIC_RE = /\b(band|musician|singer|rapper|artist|group|duo|trio|record|album|guitarist|drummer|bassist|vocalist|DJ|producer|songwriter|rock|pop|hip.hop|jazz|metal|punk|electronic|music)/i
+    Promise.allSettled([
+      fetch(`https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(search)}&limit=8&format=json&origin=*`).then(r=>r.json()),
+      fetch(`https://musicbrainz.org/ws/2/artist/?query=${encodeURIComponent(search)}&limit=5&fmt=json`, {headers:{'User-Agent':'music.lt/1.0'}}).then(r=>r.json()),
+    ]).then(([wpRes, mbRes]) => {
+      const combined: {title:string;description:string;source:'wikipedia'|'musicbrainz';mbData?:any}[] = []
+      if (wpRes.status === 'fulfilled') {
+        const titles: string[] = wpRes.value[1] || []
+        const descs: string[] = wpRes.value[2] || []
+        const wpItems = titles.map((title: string, i: number) => ({ title, description: descs[i] || '', source: 'wikipedia' as const }))
+        combined.push(...wpItems.filter((r: any) => MUSIC_RE.test(r.description) || MUSIC_RE.test(r.title)).slice(0, 4))
+      }
+      if (mbRes.status === 'fulfilled') {
+        const mbItems = (mbRes.value.artists || []).slice(0, 4).map((a: any) => ({
+          title: a.name, description: [a.type, a.country, a['life-span']?.begin?.slice(0,4)].filter(Boolean).join(' · '),
+          source: 'musicbrainz' as const, mbData: a,
+        }))
+        combined.push(...mbItems)
+      }
+      const seen = new Set<string>()
+      const deduped = combined.filter(r => { const k = r.title.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true })
+      setSearchResults(deduped.slice(0, 8))
+      setShowDropdown(deduped.length > 0)
+    }).catch(() => {})
   }, [initialSearch])
 
   const isUrl = (s: string) => /wikipedia\.org\/wiki\//.test(s)
@@ -493,30 +505,53 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
     if (val.trim().length < 2) { setSearchResults([]); setShowDropdown(false); return }
     const t = setTimeout(async () => {
       try {
-        const res = await fetch(
-          `https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(val)}&limit=10&format=json&origin=*`
-        )
-        const data = await res.json()
-        const titles: string[] = data[1] || []
-        const descs: string[] = data[2] || []
         const MUSIC_RE = /\b(band|musician|singer|rapper|artist|group|duo|trio|record|album|guitarist|drummer|bassist|vocalist|DJ|producer|songwriter|rock|pop|hip.hop|jazz|metal|punk|electronic|music)/i
-        const all = titles.map((title, i) => ({ title, description: descs[i] || '' }))
-        const music = all.filter(r => MUSIC_RE.test(r.description) || MUSIC_RE.test(r.title))
-        const others = all.filter(r => !MUSIC_RE.test(r.description) && !MUSIC_RE.test(r.title))
-        const sorted = [...music, ...others].slice(0, 7)
-        setSearchResults(sorted)
-        setShowDropdown(sorted.length > 0)
+        const [wpRes, mbRes] = await Promise.allSettled([
+          fetch(`https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(val)}&limit=8&format=json&origin=*`).then(r=>r.json()),
+          fetch(`https://musicbrainz.org/ws/2/artist/?query=${encodeURIComponent(val)}&limit=5&fmt=json`, {headers:{'User-Agent':'music.lt/1.0'}}).then(r=>r.json()),
+        ])
+        const combined: {title:string;description:string;source:'wikipedia'|'musicbrainz';mbData?:any}[] = []
+        // Wikipedia
+        if (wpRes.status === 'fulfilled') {
+          const data = wpRes.value
+          const titles: string[] = data[1] || []
+          const descs: string[] = data[2] || []
+          const wpItems = titles.map((title, i) => ({ title, description: descs[i] || '', source: 'wikipedia' as const }))
+          const music = wpItems.filter(r => MUSIC_RE.test(r.description) || MUSIC_RE.test(r.title))
+          combined.push(...music.slice(0, 4))
+        }
+        // MusicBrainz
+        if (mbRes.status === 'fulfilled') {
+          const mbData = mbRes.value
+          const mbItems = (mbData.artists || []).slice(0, 4).map((a: any) => ({
+            title: a.name,
+            description: [a.type, a.country, a['life-span']?.begin?.slice(0,4)].filter(Boolean).join(' · '),
+            source: 'musicbrainz' as const,
+            mbData: a,
+          }))
+          combined.push(...mbItems)
+        }
+        // Deduplikacija pagal pavadinimą
+        const seen = new Set<string>()
+        const deduped = combined.filter(r => { const k = r.title.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true })
+        setSearchResults(deduped.slice(0, 8))
+        setShowDropdown(deduped.length > 0)
       } catch {}
     }, 300)
     setSearchTimer(t)
   }
 
-  const selectResult = (title: string) => {
+  const selectResult = (title: string, source?: string, mbData?: any) => {
+    setSearchResults([])
+    setShowDropdown(false)
+    if (source === 'musicbrainz' && mbData) {
+      setUrl(title)
+      setMbImportData({ name: title, mbData })
+      return
+    }
     const slug = title.replace(/ /g, '_')
     const newUrl = `https://en.wikipedia.org/wiki/${slug}`
     setUrl(newUrl)
-    setSearchResults([])
-    setShowDropdown(false)
     setTimeout(() => go(newUrl), 50)
   }
 
@@ -842,6 +877,10 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
   const currentMembers = members.filter(m => m.isCurrent)
   const pastMembers = members.filter(m => !m.isCurrent)
 
+  if (mbImportData) {
+    return <MusicBrainzImport onImport={onImport} initialSearch={mbImportData.name} initialMbData={mbImportData.mbData} onBack={() => setMbImportData(null)} />
+  }
+
   return (
     <div className="space-y-3">
       {/* Input + dropdown */}
@@ -859,24 +898,23 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
           />
           {showDropdown && searchResults.length > 0 && (
             <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden" style={{ zIndex: 99999 }}>
-              {searchResults.map(r => {
-                const MUSIC_RE = /\b(band|musician|singer|rapper|artist|group|duo|trio|record|album|guitarist|drummer|bassist|vocalist|DJ|producer|songwriter|rock|pop|hip.hop|jazz|metal|punk|electronic|music)/i
-                const isMusic = MUSIC_RE.test(r.description) || MUSIC_RE.test(r.title)
-                return (
-                  <button
-                    key={r.title}
-                    type="button"
-                    onMouseDown={() => selectResult(r.title)}
-                    className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-0 flex items-start gap-2"
-                  >
-                    <span className="mt-0.5 text-base leading-none shrink-0">{isMusic ? '🎵' : '📄'}</span>
-                    <div className="min-w-0">
-                      <div className="text-sm text-gray-800 font-medium">{r.title}</div>
-                      {r.description && <div className="text-xs text-gray-400 truncate">{r.description}</div>}
-                    </div>
-                  </button>
-                )
-              })}
+              {searchResults.map(r => (
+                <button
+                  key={r.source + r.title}
+                  type="button"
+                  onMouseDown={() => selectResult(r.title, r.source, r.mbData)}
+                  className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-0 flex items-start gap-2"
+                >
+                  {r.source === 'musicbrainz'
+                    ? <span className="mt-0.5 shrink-0 w-5 h-5 rounded text-[10px] font-bold bg-orange-100 text-orange-600 flex items-center justify-center leading-none">MB</span>
+                    : <span className="mt-0.5 shrink-0 w-5 h-5 rounded text-[10px] font-bold bg-gray-100 text-gray-500 flex items-center justify-center leading-none">W</span>
+                  }
+                  <div className="min-w-0">
+                    <div className="text-sm text-gray-800 font-medium">{r.title}</div>
+                    {r.description && <div className="text-xs text-gray-400 truncate">{r.description}</div>}
+                  </div>
+                </button>
+              ))}
             </div>
           )}
         </div>
@@ -1083,32 +1121,6 @@ function MemberChip({ member, past }: { member: BandMember; past?: boolean }) {
   )
 }
 
-export default function WikipediaImport({ onImport, initialSearch, source: initialSource }: Props) {
-  const [source, setSource] = useState<'wikipedia' | 'musicbrainz'>(initialSource || 'wikipedia')
-  return (
-    <div className="space-y-3">
-      {/* Šaltinio pasirinkimas */}
-      <div className="flex gap-1 p-0.5 bg-gray-100 rounded-lg w-fit">
-        <button
-          type="button"
-          onClick={() => setSource('wikipedia')}
-          className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors flex items-center gap-1.5 ${source === 'wikipedia' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500 hover:text-gray-700'}`}
-        >
-          <span>W</span> Wikipedia
-        </button>
-        <button
-          type="button"
-          onClick={() => setSource('musicbrainz')}
-          className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors flex items-center gap-1.5 ${source === 'musicbrainz' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500 hover:text-gray-700'}`}
-        >
-          <span className="text-orange-500">MB</span> MusicBrainz
-        </button>
-      </div>
-      {/* Importo komponentas */}
-      {source === 'wikipedia'
-        ? <WikipediaImportCore onImport={onImport} initialSearch={initialSearch} />
-        : <MusicBrainzImport onImport={onImport} initialSearch={initialSearch} />
-      }
-    </div>
-  )
+export default function WikipediaImport({ onImport, initialSearch }: Props) {
+  return <WikipediaImportCore onImport={onImport} initialSearch={initialSearch} />
 }
