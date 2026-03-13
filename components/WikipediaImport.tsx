@@ -573,8 +573,6 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
       return
     }
     if (source === 'youtube' && ytData) {
-      setSearchResults([])
-      setShowDropdown(false)
       setUrl(title)
       const { genre, substyles } = ytData.genres?.length
         ? mapGenres(ytData.genres)
@@ -606,8 +604,6 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
       const slug = encodeURIComponent(title.replace(/ /g, '_'))
       const newUrl = `https://en.wikipedia.org/wiki/${slug}`
       setUrl(newUrl)
-      setSearchResults([])
-      setShowDropdown(false)
       setTimeout(() => go(newUrl), 50)
       return
     }
@@ -624,7 +620,6 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
 
   const go = async (overrideUrl?: string) => {
     setError(''); setPreview(null); setMembers([])
-    setShowDropdown(false)
     const s = extractSlug(overrideUrl ?? url)
     if (!s) { setError('Įveskite atlikėjo pavadinimą arba Wikipedia URL'); return }
     setLoading(true)
