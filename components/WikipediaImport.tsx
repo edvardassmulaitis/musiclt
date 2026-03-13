@@ -451,7 +451,7 @@ const GROUP_QIDS = new Set(['Q215380','Q5741069','Q2088357','Q9212979','Q5681626
 const SKIP_WEB = ['store','shop','merch','bandsintown','songkick','last.fm','allmusic','discogs','musicbrainz','facebook','instagram','twitter','x.com','youtube','spotify','soundcloud','tiktok','bandcamp']
 
 export default function WikipediaImport({ onImport, initialSearch }: Props) {
-  const [url, setUrl] = useState('')
+  const [url, setUrl] = useState(initialSearch && !initialSearch.includes('wikipedia.org') ? initialSearch : '')
   const [loading, setLoading] = useState(false)
   const [step, setStep] = useState('')
   const [error, setError] = useState('')
@@ -464,10 +464,22 @@ export default function WikipediaImport({ onImport, initialSearch }: Props) {
   const [showDropdown, setShowDropdown] = useState(false)
 
   useEffect(() => {
-    if (initialSearch && initialSearch.trim().length >= 2) {
-      handleInputChange(initialSearch)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!initialSearch || initialSearch.trim().length < 2) return
+    if (initialSearch.includes('wikipedia.org')) return
+    const search = initialSearch.trim()
+    fetch(`https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(search)}&limit=10&format=json&origin=*`)
+      .then(r => r.json())
+      .then(data => {
+        const titles: string[] = data[1] || []
+        const descs: string[] = data[2] || []
+        const MUSIC_RE = /\b(band|musician|singer|rapper|artist|group|duo|trio|record|album|guitarist|drummer|bassist|vocalist|DJ|producer|songwriter|rock|pop|hip.hop|jazz|metal|punk|electronic|music)/i
+        const all = titles.map((title, i) => ({ title, description: descs[i] || '' }))
+        const music = all.filter(r => MUSIC_RE.test(r.description) || MUSIC_RE.test(r.title))
+        const others = all.filter(r => !MUSIC_RE.test(r.description) && !MUSIC_RE.test(r.title))
+        const sorted = [...music, ...others].slice(0, 7)
+        setSearchResults(sorted)
+        setShowDropdown(sorted.length > 0)
+      }).catch(() => {})
   }, [initialSearch])
 
   const isUrl = (s: string) => /wikipedia\.org\/wiki\//.test(s)
