@@ -474,24 +474,25 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
       fetch(`https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(search)}&limit=8&format=json&origin=*`).then(r=>r.json()),
       fetch(`https://musicbrainz.org/ws/2/artist/?query=${encodeURIComponent(search)}&limit=5&fmt=json`, {headers:{'User-Agent':'music.lt/1.0'}}).then(r=>r.json()),
     ]).then(([wpRes, mbRes]) => {
-      const combined: {title:string;description:string;source:'wikipedia'|'musicbrainz';mbData?:any}[] = []
+      const wpItems2: {title:string;description:string;source:'wikipedia'|'musicbrainz';mbData?:any}[] = []
+      const mbItems2: {title:string;description:string;source:'wikipedia'|'musicbrainz';mbData?:any}[] = []
       if (wpRes.status === 'fulfilled') {
         const titles: string[] = wpRes.value[1] || []
         const descs: string[] = wpRes.value[2] || []
-        const wpItems = titles.map((title: string, i: number) => ({ title, description: descs[i] || '', source: 'wikipedia' as const }))
-        combined.push(...wpItems.filter((r: any) => MUSIC_RE.test(r.description) || MUSIC_RE.test(r.title)).slice(0, 4))
+        const all = titles.map((title: string, i: number) => ({ title, description: descs[i] || '', source: 'wikipedia' as const }))
+        const music = all.filter((r: any) => MUSIC_RE.test(r.description) || MUSIC_RE.test(r.title))
+        const others = all.filter((r: any) => !MUSIC_RE.test(r.description) && !MUSIC_RE.test(r.title))
+        wpItems2.push(...music.slice(0, 4), ...others.slice(0, 2))
       }
       if (mbRes.status === 'fulfilled') {
-        const mbItems = (mbRes.value.artists || []).slice(0, 4).map((a: any) => ({
-          title: a.name, description: [a.type, a.country, a['life-span']?.begin?.slice(0,4)].filter(Boolean).join(' · '),
-          source: 'musicbrainz' as const, mbData: a,
-        }))
-        combined.push(...mbItems)
+        ;(mbRes.value.artists || []).slice(0, 4).forEach((a: any) => {
+          mbItems2.push({ title: a.name, description: [a.type, a.country, a['life-span']?.begin?.slice(0,4)].filter(Boolean).join(' · '), source: 'musicbrainz' as const, mbData: a })
+        })
       }
       const seen = new Set<string>()
-      const deduped = combined.filter(r => { const k = r.title.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true })
-      setSearchResults(deduped.slice(0, 8))
-      setShowDropdown(deduped.length > 0)
+      const combined2 = [...wpItems2, ...mbItems2].filter(r => { const k = r.title.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true })
+      setSearchResults(combined2.slice(0, 9))
+      setShowDropdown(combined2.length > 0)
     }).catch(() => {})
   }, [initialSearch])
 
@@ -510,32 +511,37 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
           fetch(`https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(val)}&limit=8&format=json&origin=*`).then(r=>r.json()),
           fetch(`https://musicbrainz.org/ws/2/artist/?query=${encodeURIComponent(val)}&limit=5&fmt=json`, {headers:{'User-Agent':'music.lt/1.0'}}).then(r=>r.json()),
         ])
-        const combined: {title:string;description:string;source:'wikipedia'|'musicbrainz';mbData?:any}[] = []
-        // Wikipedia
+        const wpItems: {title:string;description:string;source:'wikipedia'|'musicbrainz';mbData?:any}[] = []
+        const mbItems: {title:string;description:string;source:'wikipedia'|'musicbrainz';mbData?:any}[] = []
+        // Wikipedia - visi rezultatai, muzika pirma
         if (wpRes.status === 'fulfilled') {
           const data = wpRes.value
           const titles: string[] = data[1] || []
           const descs: string[] = data[2] || []
-          const wpItems = titles.map((title, i) => ({ title, description: descs[i] || '', source: 'wikipedia' as const }))
-          const music = wpItems.filter(r => MUSIC_RE.test(r.description) || MUSIC_RE.test(r.title))
-          combined.push(...music.slice(0, 4))
+          const all = titles.map((title, i) => ({ title, description: descs[i] || '', source: 'wikipedia' as const }))
+          const music = all.filter(r => MUSIC_RE.test(r.description) || MUSIC_RE.test(r.title))
+          const others = all.filter(r => !MUSIC_RE.test(r.description) && !MUSIC_RE.test(r.title))
+          wpItems.push(...music.slice(0, 4), ...others.slice(0, 2))
         }
         // MusicBrainz
         if (mbRes.status === 'fulfilled') {
-          const mbData = mbRes.value
-          const mbItems = (mbData.artists || []).slice(0, 4).map((a: any) => ({
-            title: a.name,
-            description: [a.type, a.country, a['life-span']?.begin?.slice(0,4)].filter(Boolean).join(' · '),
-            source: 'musicbrainz' as const,
-            mbData: a,
-          }))
-          combined.push(...mbItems)
+          const mbData = mbRes.value;
+          (mbData.artists || []).slice(0, 4).forEach((a: any) => {
+            mbItems.push({
+              title: a.name,
+              description: [a.type, a.country, a['life-span']?.begin?.slice(0,4)].filter(Boolean).join(' · '),
+              source: 'musicbrainz' as const,
+              mbData: a,
+            })
+          })
         }
-        // Deduplikacija pagal pavadinimą
+        // WP pirma, MB po - deduplikacija pagal pavadinimą
         const seen = new Set<string>()
-        const deduped = combined.filter(r => { const k = r.title.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true })
-        setSearchResults(deduped.slice(0, 8))
-        setShowDropdown(deduped.length > 0)
+        const combined = [...wpItems, ...mbItems].filter(r => {
+          const k = r.title.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true
+        })
+        setSearchResults(combined.slice(0, 9))
+        setShowDropdown(combined.length > 0)
       } catch {}
     }, 300)
     setSearchTimer(t)
