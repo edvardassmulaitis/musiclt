@@ -664,7 +664,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
       setTimeout(() => go(newUrl), 50)
       return
     }
-    const slug = title.replace(/ /g, '_')
+    const slug = encodeURIComponent(title.replace(/ /g, '_'))
     const newUrl = `https://en.wikipedia.org/wiki/${slug}`
     setUrl(newUrl)
     setTimeout(() => go(newUrl), 50)
