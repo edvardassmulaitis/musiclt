@@ -10,19 +10,12 @@ const YT_COUNTRY: Record<string, string> = {
 }
 
 
-function extractSocial(description: string, branding: any, platform: string): string {
-  // Iš branding links
-  const links: any[] = branding.featuredChannelsUrls || []
-  // Iš aprašymo teksto – ieškoti URL
+function extractSocial(description: string, _branding: any, platform: string): string {
   const patterns: Record<string, RegExp> = {
-    facebook: /https?:\/\/(www\.)?facebook\.com\/[^\s
-"')]+/i,
-    instagram: /https?:\/\/(www\.)?instagram\.com\/[^\s
-"')]+/i,
-    twitter: /https?:\/\/(www\.)?(?:twitter|x)\.com\/[^\s
-"')]+/i,
-    spotify: /https?:\/\/open\.spotify\.com\/artist\/[^\s
-"')]+/i,
+    facebook: /https?:\/\/(www\.)?facebook\.com\/[^\s"')]+/i,
+    instagram: /https?:\/\/(www\.)?instagram\.com\/[^\s"')]+/i,
+    twitter: /https?:\/\/(www\.)?(?:twitter|x)\.com\/[^\s"')]+/i,
+    spotify: /https?:\/\/open\.spotify\.com\/artist\/[^\s"')]+/i,
   }
   const pat = patterns[platform]
   if (pat) {
