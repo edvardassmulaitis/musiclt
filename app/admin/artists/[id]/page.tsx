@@ -532,7 +532,9 @@ export default function EditArtist() {
                 setInitialData(prev => {
                   if (!prev) return prev
                   const clean = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined && v !== null && v !== ''))
-                  return { ...prev, ...clean }
+                  const result = { ...prev, ...clean }
+                  if (Array.isArray(data.groups)) result.groups = data.groups
+                  return result
                 })
               }}
             />
@@ -553,7 +555,11 @@ export default function EditArtist() {
                       groups:[], subdomain:'',
                     }
                     const clean = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined && v !== null && v !== ''))
-                    return { ...base, ...clean }
+                    // groups visada perduodame tiesiogiai (masyvas, filtras gali praleisti)
+                    const result = { ...base, ...clean }
+                    if (Array.isArray(data.groups)) result.groups = data.groups
+                    console.log('[onImport] groups:', data.groups, 'result.groups:', result.groups)
+                    return result
                   })
                 }}
               />
