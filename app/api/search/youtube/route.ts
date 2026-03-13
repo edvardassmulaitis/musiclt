@@ -9,6 +9,29 @@ const YT_COUNTRY: Record<string, string> = {
   JP:'Japonija', KR:'Pietų Korėja', BR:'Brazilija', MX:'Meksika', PT:'Portugalija',
 }
 
+
+function extractSocial(description: string, branding: any, platform: string): string {
+  // Iš branding links
+  const links: any[] = branding.featuredChannelsUrls || []
+  // Iš aprašymo teksto – ieškoti URL
+  const patterns: Record<string, RegExp> = {
+    facebook: /https?:\/\/(www\.)?facebook\.com\/[^\s
+"')]+/i,
+    instagram: /https?:\/\/(www\.)?instagram\.com\/[^\s
+"')]+/i,
+    twitter: /https?:\/\/(www\.)?(?:twitter|x)\.com\/[^\s
+"')]+/i,
+    spotify: /https?:\/\/open\.spotify\.com\/artist\/[^\s
+"')]+/i,
+  }
+  const pat = patterns[platform]
+  if (pat) {
+    const m = description.match(pat)
+    if (m) return m[0].replace(/[.,;]+$/, '')
+  }
+  return ''
+}
+
 export async function GET(req: NextRequest) {
   const q = new URL(req.url).searchParams.get('q') || ''
   if (!q.trim()) return NextResponse.json({ results: [] })
@@ -57,14 +80,27 @@ export async function GET(req: NextRequest) {
         .map((t: string) => decodeURIComponent(t.split('/').pop() || '').replace(/_/g, ' '))
         .filter(Boolean)
 
+      // Socialiniai tinklai iš brandingSettings
+      const rawDescription: string = snippet.description || ''
+      const facebook = extractSocial(rawDescription, branding, 'facebook')
+      const instagram = extractSocial(rawDescription, branding, 'instagram')
+      const twitter = extractSocial(rawDescription, branding, 'twitter')
+      const spotify = extractSocial(rawDescription, branding, 'spotify')
+
       return {
         channelId: item.id.channelId,
         name: snippet.title,
-        description: (snippet.description || '').slice(0, 200),
+        description: rawDescription.slice(0, 300),
+        rawDescription,
         thumbnail,
         url: `https://www.youtube.com/channel/${item.id.channelId}`,
+        customUrl: snippet.customUrl ? `https://www.youtube.com/${snippet.customUrl}` : '',
         country,
         genres,
+        facebook,
+        instagram,
+        twitter,
+        spotify,
       }
     })
 
