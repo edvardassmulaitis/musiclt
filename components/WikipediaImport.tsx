@@ -473,7 +473,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
   const [translateOk, setTranslateOk] = useState(false)
   const [members, setMembers] = useState<BandMember[]>([])
   const [membersLoading, setMembersLoading] = useState(false)
-  const [searchResults, setSearchResults] = useState<{title:string;description:string;source:'wikipedia'|'musicbrainz';mbData?:any}[]>([])
+  const [searchResults, setSearchResults] = useState<{title:string;description:string;source:'wikipedia'|'musicbrainz'|'pakartot';mbData?:any;pkUrl?:string}[]>([])
   const [searchTimer, setSearchTimer] = useState<ReturnType<typeof setTimeout>|null>(null)
   const [showDropdown, setShowDropdown] = useState(false)
   const [mbImportData, setMbImportData] = useState<{name:string;mbData:any}|null>(null)
@@ -486,7 +486,8 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
     Promise.allSettled([
       fetch(`https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(search)}&limit=8&format=json&origin=*`).then(r=>r.json()),
       fetch(`https://musicbrainz.org/ws/2/artist/?query=${encodeURIComponent(search)}&limit=8&fmt=json`, {headers:{'User-Agent':'music.lt/1.0'}}).then(r=>r.json()),
-    ]).then(([wpRes, mbRes]) => {
+      fetch(`/api/search-pakartot?q=${encodeURIComponent(search)}`).then(r=>r.json()),
+    ]).then(([wpRes, mbRes, pkRes]) => {
       const wpItems2: {title:string;description:string;source:'wikipedia'|'musicbrainz';mbData?:any}[] = []
       const mbItems2: {title:string;description:string;source:'wikipedia'|'musicbrainz';mbData?:any}[] = []
       if (wpRes.status === 'fulfilled') {
@@ -505,8 +506,14 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
           mbItems2.push({ title: a.name, description: [a.type, a.country, a['life-span']?.begin?.slice(0,4)].filter(Boolean).join(' · '), source: 'musicbrainz' as const, mbData: a })
         })
       }
-      const combined2 = [...wpItems2, ...mbItems2]
-      setSearchResults(combined2.slice(0, 10))
+      const pkItems2: {title:string;description:string;source:'wikipedia'|'musicbrainz'|'pakartot';mbData?:any;pkUrl?:string}[] = []
+      if (pkRes.status === 'fulfilled' && Array.isArray((pkRes as any).value)) {
+        ;(pkRes as any).value.slice(0, 4).forEach((a: any) => {
+          pkItems2.push({ title: a.name, description: 'pakartot.lt', source: 'pakartot', pkUrl: a.url })
+        })
+      }
+      const combined2 = [...wpItems2, ...mbItems2, ...pkItems2]
+      setSearchResults(combined2.slice(0, 12))
       setShowDropdown(combined2.length > 0)
     }).catch(() => {})
   }, [initialSearch])
@@ -522,9 +529,10 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
     const t = setTimeout(async () => {
       try {
         const MUSIC_RE = /\b(band|musician|singer|rapper|artist|group|duo|trio|record|album|guitarist|drummer|bassist|vocalist|DJ|producer|songwriter|rock|pop|hip.hop|jazz|metal|punk|electronic|music)/i
-        const [wpRes, mbRes] = await Promise.allSettled([
+        const [wpRes, mbRes, pkRes] = await Promise.allSettled([
           fetch(`https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(val)}&limit=8&format=json&origin=*`).then(r=>r.json()),
           fetch(`https://musicbrainz.org/ws/2/artist/?query=${encodeURIComponent(val)}&limit=8&fmt=json`, {headers:{'User-Agent':'music.lt/1.0'}}).then(r=>r.json()),
+          fetch(`/api/search-pakartot?q=${encodeURIComponent(val)}`).then(r=>r.json()),
         ])
         const wpItems: {title:string;description:string;source:'wikipedia'|'musicbrainz';mbData?:any}[] = []
         const mbItems: {title:string;description:string;source:'wikipedia'|'musicbrainz';mbData?:any}[] = []
@@ -553,21 +561,36 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
             })
           })
         }
-        // WP pirma, MB po, jokio filtravimo - vartotojas renkasi šaltinį
-        const combined = [...wpItems, ...mbItems]
-        setSearchResults(combined.slice(0, 10))
+        // Pakartot.lt
+        const pkItems: {title:string;description:string;source:'wikipedia'|'musicbrainz'|'pakartot';mbData?:any;pkUrl?:string}[] = []
+        if (pkRes.status === 'fulfilled' && Array.isArray(pkRes.value)) {
+          pkRes.value.slice(0, 4).forEach((a: any) => {
+            pkItems.push({ title: a.name, description: 'pakartot.lt', source: 'pakartot', pkUrl: a.url })
+          })
+        }
+        // WP pirma, MB po, pakartot paskutinis
+        const combined = [...wpItems, ...mbItems, ...pkItems]
+        setSearchResults(combined.slice(0, 12))
         setShowDropdown(combined.length > 0)
       } catch {}
     }, 300)
     setSearchTimer(t)
   }
 
-  const selectResult = (title: string, source?: string, mbData?: any) => {
+  const selectResult = (title: string, source?: string, mbData?: any, pkUrl?: string) => {
     setSearchResults([])
     setShowDropdown(false)
     if (source === 'musicbrainz' && mbData) {
       setUrl(title)
       setMbImportData({ name: title, mbData })
+      return
+    }
+    if (source === 'pakartot') {
+      // pakartot.lt - kol kas importuoti per Wikipedia to paties pavadinimo
+      const slug = title.replace(/ /g, '_')
+      const newUrl = `https://en.wikipedia.org/wiki/${slug}`
+      setUrl(newUrl)
+      setTimeout(() => go(newUrl), 50)
       return
     }
     const slug = title.replace(/ /g, '_')
@@ -923,11 +946,13 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
                 <button
                   key={r.source + r.title}
                   type="button"
-                  onMouseDown={() => selectResult(r.title, r.source, r.mbData)}
+                  onMouseDown={() => selectResult(r.title, r.source, r.mbData, (r as any).pkUrl)}
                   className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-0 flex items-start gap-2"
                 >
                   {r.source === 'musicbrainz'
                     ? <span className="mt-0.5 shrink-0 w-5 h-5 rounded text-[10px] font-bold bg-orange-100 text-orange-600 flex items-center justify-center leading-none">MB</span>
+                    : r.source === 'pakartot'
+                    ? <span className="mt-0.5 shrink-0 w-5 h-5 rounded text-[10px] font-bold bg-green-100 text-green-700 flex items-center justify-center leading-none">P</span>
                     : <span className="mt-0.5 shrink-0 w-5 h-5 rounded text-[10px] font-bold bg-gray-100 text-gray-500 flex items-center justify-center leading-none">W</span>
                   }
                   <div className="min-w-0">
