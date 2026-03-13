@@ -595,7 +595,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
     setSearchTimer(t)
   }
 
-  const selectResult = (title: string, source?: string, mbData?: any, pkUrl?: string) => {
+  const selectResult = (title: string, source?: string, mbData?: any, pkUrl?: string, ytData?: any) => {
     setSearchResults([])
     setShowDropdown(false)
     if (source === 'musicbrainz' && mbData) {
@@ -604,14 +604,28 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
       return
     }
     if (source === 'pakartot') {
-      const slug = title.replace(/ /g, '_')
+      const slug = encodeURIComponent(title.replace(/ /g, '_'))
       const newUrl = `https://en.wikipedia.org/wiki/${slug}`
       setUrl(newUrl)
+      setSearchResults([])
+      setShowDropdown(false)
       setTimeout(() => go(newUrl), 50)
       return
     }
+    if (source === 'youtube' && ytData) {
+      setSearchResults([])
+      setShowDropdown(false)
+      setUrl(title)
+      onImport({
+        name: ytData.name || title,
+        avatar: ytData.thumbnail || '',
+        youtube: ytData.url || '',
+      })
+      return
+    }
     if (source === 'youtube') {
-      const slug = title.replace(/ /g, '_')
+      // Be ytData - bandome Wikipedia
+      const slug = encodeURIComponent(title.replace(/ /g, '_'))
       const newUrl = `https://en.wikipedia.org/wiki/${slug}`
       setUrl(newUrl)
       setSearchResults([])
@@ -972,7 +986,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
                 <button
                   key={r.source + r.title}
                   type="button"
-                  onMouseDown={() => selectResult(r.title, r.source, r.mbData, (r as any).pkUrl)}
+                  onMouseDown={() => selectResult(r.title, r.source, r.mbData, (r as any).pkUrl, (r as any).ytData)}
                   className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-0 flex items-start gap-2"
                 >
                   {r.source === 'musicbrainz'
