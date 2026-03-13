@@ -487,7 +487,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
       fetch(`https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(search)}&limit=8&format=json&origin=*`).then(r=>r.json()),
       fetch(`https://musicbrainz.org/ws/2/artist/?query=${encodeURIComponent(search)}&limit=8&fmt=json`, {headers:{'User-Agent':'music.lt/1.0'}}).then(r=>r.json()),
       fetch(`/api/search-pakartot?q=${encodeURIComponent(search)}`).then(r=>r.json()),
-      fetch(`/api/youtube-search?q=${encodeURIComponent(search)}`).then(r=>r.json()),
+      fetch(`/api/search/youtube?q=${encodeURIComponent(search)}`).then(r=>r.json()),
     ]).then(([wpRes, mbRes, pkRes, ytRes]) => {
       const wpItems2: {title:string;description:string;source:'wikipedia'|'musicbrainz';mbData?:any}[] = []
       const mbItems2: {title:string;description:string;source:'wikipedia'|'musicbrainz';mbData?:any}[] = []
@@ -516,7 +516,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
       const ytItems2: {title:string;description:string;source:'wikipedia'|'musicbrainz'|'pakartot'|'youtube';ytData?:any}[] = []
       if ((ytRes as any).status === 'fulfilled' && Array.isArray((ytRes as any).value?.results)) {
         ;(ytRes as any).value.results.slice(0, 3).forEach((v: any) => {
-          ytItems2.push({ title: v.title, description: v.channel, source: 'youtube', ytData: v })
+          ytItems2.push({ title: v.name, description: v.description || 'YouTube kanalas', source: 'youtube', ytData: v })
         })
       }
       const combined2 = [...wpItems2, ...mbItems2, ...pkItems2, ...ytItems2]
@@ -540,7 +540,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
           fetch(`https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(val)}&limit=8&format=json&origin=*`).then(r=>r.json()),
           fetch(`https://musicbrainz.org/ws/2/artist/?query=${encodeURIComponent(val)}&limit=8&fmt=json`, {headers:{'User-Agent':'music.lt/1.0'}}).then(r=>r.json()),
           fetch(`/api/search-pakartot?q=${encodeURIComponent(val)}`).then(r=>r.json()),
-          fetch(`/api/youtube-search?q=${encodeURIComponent(val)}`).then(r=>r.json()),
+          fetch(`/api/search/youtube?q=${encodeURIComponent(val)}`).then(r=>r.json()),
         ])
         const wpItems: {title:string;description:string;source:'wikipedia'|'musicbrainz';mbData?:any}[] = []
         const mbItems: {title:string;description:string;source:'wikipedia'|'musicbrainz';mbData?:any}[] = []
@@ -580,7 +580,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
         const ytItems: {title:string;description:string;source:'wikipedia'|'musicbrainz'|'pakartot'|'youtube';ytData?:any}[] = []
         if (ytRes.status === 'fulfilled' && Array.isArray(ytRes.value?.results)) {
           ytRes.value.results.slice(0, 3).forEach((v: any) => {
-            ytItems.push({ title: v.title, description: v.channel, source: 'youtube', ytData: v })
+            ytItems.push({ title: v.name, description: v.description || 'YouTube kanalas', source: 'youtube', ytData: v })
           })
         }
         const combined = [...wpItems, ...mbItems, ...pkItems, ...ytItems]
