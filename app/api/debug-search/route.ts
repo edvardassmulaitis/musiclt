@@ -15,10 +15,10 @@ export async function GET(req: NextRequest) {
       htmlLength: html.length,
       // Pirmi 2000 simbolių HTML
       htmlPreview: html.slice(0, 2000),
-      // Visi href su /atlikejas/
-      artistLinks: [...html.matchAll(/href="(\/atlikejas\/[^"?#]+)"/gi)].map(m => m[1]).slice(0, 20),
-      // Visi href su /dainos/
-      songLinks: [...html.matchAll(/href="(\/dainos\/[^"?#]+)"/gi)].map(m => m[1]).slice(0, 10),
+      // Visi href
+      allLinks: [...html.matchAll(/href="([^"]+)"/gi)].map(m => m[1]).filter(l => !l.startsWith('http') && !l.startsWith('#')).slice(0, 40),
+      // Paieškos rezultatų blokai
+      searchSection: html.includes('search') ? html.slice(html.indexOf('search') - 100, html.indexOf('search') + 500) : 'not found',
     }
   } catch (e: any) {
     pakartotResult = { error: e.message }
