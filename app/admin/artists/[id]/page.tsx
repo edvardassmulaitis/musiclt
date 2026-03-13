@@ -394,14 +394,14 @@ function WikipediaImportCompact({ onImport, artistName }: { onImport: (data: any
           onClick={e => { if (e.target === e.currentTarget) setOpen(false) }}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-2xl flex flex-col max-h-full"
+            className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-2xl flex flex-col"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 shrink-0">
               <span className="text-sm font-bold text-gray-700">📖 Atnaujinti iš Wikipedia</span>
               <button type="button" onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none px-1">✕</button>
             </div>
-            <div className="p-4 overflow-y-auto">
+            <div className="p-4" style={{ overflow: "visible" }}>
               <WikipediaImportWithHint
                 artistName={artistName}
                 onImport={(data: any) => { onImport(data); setOpen(false) }}
