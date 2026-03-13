@@ -92,8 +92,8 @@ function formToDb(form: ArtistFormData) {
     bandcamp: form.bandcamp || null, twitter: form.twitter || null,
     related: [
       ...(form.members||[]).map(m=>({ id: typeof m.id==='string' ? parseInt(m.id) : Number(m.id), yearFrom: m.yearFrom, yearTo: m.yearTo })),
-      ...(form.groups||[]).map(g=>({ id: g.id ? (typeof g.id==='string' ? parseInt(g.id) : Number(g.id)) : null, name: g.name, yearFrom: g.yearFrom, yearTo: g.yearTo })),
     ],
+    groups: (form.groups||[]).map(g=>({ id: g.id ? (typeof g.id==='string' ? parseInt(g.id) : Number(g.id)) : null, name: g.name, yearFrom: g.yearFrom, yearTo: g.yearTo })),
   }
 }
 
