@@ -473,7 +473,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
   const [translateOk, setTranslateOk] = useState(false)
   const [members, setMembers] = useState<BandMember[]>([])
   const [membersLoading, setMembersLoading] = useState(false)
-  const [searchResults, setSearchResults] = useState<{title:string;description:string;source:'wikipedia'|'musicbrainz'|'pakartot';mbData?:any;pkUrl?:string}[]>([])
+  const [searchResults, setSearchResults] = useState<{title:string;description:string;source:'wikipedia'|'musicbrainz'|'pakartot'|'youtube';mbData?:any;pkUrl?:string;ytData?:any}[]>([])
   const [searchTimer, setSearchTimer] = useState<ReturnType<typeof setTimeout>|null>(null)
   const [showDropdown, setShowDropdown] = useState(false)
   const [mbImportData, setMbImportData] = useState<{name:string;mbData:any}|null>(null)
@@ -487,7 +487,8 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
       fetch(`https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(search)}&limit=8&format=json&origin=*`).then(r=>r.json()),
       fetch(`https://musicbrainz.org/ws/2/artist/?query=${encodeURIComponent(search)}&limit=8&fmt=json`, {headers:{'User-Agent':'music.lt/1.0'}}).then(r=>r.json()),
       fetch(`/api/search-pakartot?q=${encodeURIComponent(search)}`).then(r=>r.json()),
-    ]).then(([wpRes, mbRes, pkRes]) => {
+      fetch(`/api/youtube-search?q=${encodeURIComponent(search)}`).then(r=>r.json()),
+    ]).then(([wpRes, mbRes, pkRes, ytRes]) => {
       const wpItems2: {title:string;description:string;source:'wikipedia'|'musicbrainz';mbData?:any}[] = []
       const mbItems2: {title:string;description:string;source:'wikipedia'|'musicbrainz';mbData?:any}[] = []
       if (wpRes.status === 'fulfilled') {
@@ -512,7 +513,13 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
           pkItems2.push({ title: a.name, description: 'pakartot.lt', source: 'pakartot', pkUrl: a.url })
         })
       }
-      const combined2 = [...wpItems2, ...mbItems2, ...pkItems2]
+      const ytItems2: {title:string;description:string;source:'wikipedia'|'musicbrainz'|'pakartot'|'youtube';ytData?:any}[] = []
+      if ((ytRes as any).status === 'fulfilled' && Array.isArray((ytRes as any).value?.results)) {
+        ;(ytRes as any).value.results.slice(0, 3).forEach((v: any) => {
+          ytItems2.push({ title: v.title, description: v.channel, source: 'youtube', ytData: v })
+        })
+      }
+      const combined2 = [...wpItems2, ...mbItems2, ...pkItems2, ...ytItems2]
       setSearchResults(combined2.slice(0, 12))
       setShowDropdown(combined2.length > 0)
     }).catch(() => {})
@@ -529,10 +536,11 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
     const t = setTimeout(async () => {
       try {
         const MUSIC_RE = /\b(band|musician|singer|rapper|artist|group|duo|trio|record|album|guitarist|drummer|bassist|vocalist|DJ|producer|songwriter|rock|pop|hip.hop|jazz|metal|punk|electronic|music)/i
-        const [wpRes, mbRes, pkRes] = await Promise.allSettled([
+        const [wpRes, mbRes, pkRes, ytRes] = await Promise.allSettled([
           fetch(`https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(val)}&limit=8&format=json&origin=*`).then(r=>r.json()),
           fetch(`https://musicbrainz.org/ws/2/artist/?query=${encodeURIComponent(val)}&limit=8&fmt=json`, {headers:{'User-Agent':'music.lt/1.0'}}).then(r=>r.json()),
           fetch(`/api/search-pakartot?q=${encodeURIComponent(val)}`).then(r=>r.json()),
+          fetch(`/api/youtube-search?q=${encodeURIComponent(val)}`).then(r=>r.json()),
         ])
         const wpItems: {title:string;description:string;source:'wikipedia'|'musicbrainz';mbData?:any}[] = []
         const mbItems: {title:string;description:string;source:'wikipedia'|'musicbrainz';mbData?:any}[] = []
@@ -568,8 +576,14 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
             pkItems.push({ title: a.name, description: 'pakartot.lt', source: 'pakartot', pkUrl: a.url })
           })
         }
-        // WP pirma, MB po, pakartot paskutinis
-        const combined = [...wpItems, ...mbItems, ...pkItems]
+        // YouTube
+        const ytItems: {title:string;description:string;source:'wikipedia'|'musicbrainz'|'pakartot'|'youtube';ytData?:any}[] = []
+        if (ytRes.status === 'fulfilled' && Array.isArray(ytRes.value?.results)) {
+          ytRes.value.results.slice(0, 3).forEach((v: any) => {
+            ytItems.push({ title: v.title, description: v.channel, source: 'youtube', ytData: v })
+          })
+        }
+        const combined = [...wpItems, ...mbItems, ...pkItems, ...ytItems]
         setSearchResults(combined.slice(0, 12))
         setShowDropdown(combined.length > 0)
       } catch {}
@@ -586,10 +600,17 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
       return
     }
     if (source === 'pakartot') {
-      // pakartot.lt - kol kas importuoti per Wikipedia to paties pavadinimo
       const slug = title.replace(/ /g, '_')
       const newUrl = `https://en.wikipedia.org/wiki/${slug}`
       setUrl(newUrl)
+      setTimeout(() => go(newUrl), 50)
+      return
+    }
+    if (source === 'youtube') {
+      // YouTube - bandome Wikipedia pagal kanalo pavadinimą
+      const slug = title.replace(/ /g, '_')
+      const newUrl = `https://en.wikipedia.org/wiki/${slug}`
+      setUrl(title)
       setTimeout(() => go(newUrl), 50)
       return
     }
@@ -953,6 +974,8 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
                     ? <span className="mt-0.5 shrink-0 w-5 h-5 rounded text-[10px] font-bold bg-orange-100 text-orange-600 flex items-center justify-center leading-none">MB</span>
                     : r.source === 'pakartot'
                     ? <span className="mt-0.5 shrink-0 w-5 h-5 rounded text-[10px] font-bold bg-green-100 text-green-700 flex items-center justify-center leading-none">P</span>
+                    : r.source === 'youtube'
+                    ? <span className="mt-0.5 shrink-0 w-5 h-5 rounded text-[10px] font-bold bg-red-100 text-red-600 flex items-center justify-center leading-none">YT</span>
                     : <span className="mt-0.5 shrink-0 w-5 h-5 rounded text-[10px] font-bold bg-gray-100 text-gray-500 flex items-center justify-center leading-none">W</span>
                   }
                   <div className="min-w-0">
