@@ -472,7 +472,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
     const MUSIC_RE = /\b(band|musician|singer|rapper|artist|group|duo|trio|record|album|guitarist|drummer|bassist|vocalist|DJ|producer|songwriter|rock|pop|hip.hop|jazz|metal|punk|electronic|music)/i
     Promise.allSettled([
       fetch(`https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(search)}&limit=8&format=json&origin=*`).then(r=>r.json()),
-      fetch(`https://musicbrainz.org/ws/2/artist/?query=${encodeURIComponent(search)}&limit=5&fmt=json`, {headers:{'User-Agent':'music.lt/1.0'}}).then(r=>r.json()),
+      fetch(`https://musicbrainz.org/ws/2/artist/?query=artist:${encodeURIComponent(search)}&limit=6&fmt=json`, {headers:{'User-Agent':'music.lt/1.0'}}).then(r=>r.json()),
     ]).then(([wpRes, mbRes]) => {
       const wpItems2: {title:string;description:string;source:'wikipedia'|'musicbrainz';mbData?:any}[] = []
       const mbItems2: {title:string;description:string;source:'wikipedia'|'musicbrainz';mbData?:any}[] = []
@@ -485,7 +485,9 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
         wpItems2.push(...music.slice(0, 4), ...others.slice(0, 2))
       }
       if (mbRes.status === 'fulfilled') {
-        ;(mbRes.value.artists || []).slice(0, 4).forEach((a: any) => {
+        ;(mbRes.value.artists || [])
+          .filter((a: any) => (a.score ?? 100) >= 60)
+          .slice(0, 4).forEach((a: any) => {
           mbItems2.push({ title: a.name, description: [a.type, a.country, a['life-span']?.begin?.slice(0,4)].filter(Boolean).join(' · '), source: 'musicbrainz' as const, mbData: a })
         })
       }
@@ -509,7 +511,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
         const MUSIC_RE = /\b(band|musician|singer|rapper|artist|group|duo|trio|record|album|guitarist|drummer|bassist|vocalist|DJ|producer|songwriter|rock|pop|hip.hop|jazz|metal|punk|electronic|music)/i
         const [wpRes, mbRes] = await Promise.allSettled([
           fetch(`https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(val)}&limit=8&format=json&origin=*`).then(r=>r.json()),
-          fetch(`https://musicbrainz.org/ws/2/artist/?query=${encodeURIComponent(val)}&limit=5&fmt=json`, {headers:{'User-Agent':'music.lt/1.0'}}).then(r=>r.json()),
+          fetch(`https://musicbrainz.org/ws/2/artist/?query=artist:${encodeURIComponent(val)}&limit=6&fmt=json`, {headers:{'User-Agent':'music.lt/1.0'}}).then(r=>r.json()),
         ])
         const wpItems: {title:string;description:string;source:'wikipedia'|'musicbrainz';mbData?:any}[] = []
         const mbItems: {title:string;description:string;source:'wikipedia'|'musicbrainz';mbData?:any}[] = []
@@ -526,7 +528,9 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
         // MusicBrainz
         if (mbRes.status === 'fulfilled') {
           const mbData = mbRes.value;
-          (mbData.artists || []).slice(0, 4).forEach((a: any) => {
+          (mbData.artists || [])
+            .filter((a: any) => (a.score ?? 100) >= 60)
+            .slice(0, 4).forEach((a: any) => {
             mbItems.push({
               title: a.name,
               description: [a.type, a.country, a['life-span']?.begin?.slice(0,4)].filter(Boolean).join(' · '),
