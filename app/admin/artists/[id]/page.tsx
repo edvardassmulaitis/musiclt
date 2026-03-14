@@ -246,6 +246,7 @@ function DiscographyPanel({ artistId, artistName, refreshKey, onImportClose }: {
               artistId={parseInt(artistId)}
               artistName={artistName}
               artistWikiTitle={artistName.replace(/ /g, '_')}
+              isSolo={form.type === 'solo'}
               onClose={onImportClose}
               buttonClassName="flex items-center gap-1.5 px-2 py-1 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg text-xs font-medium transition-colors"
               buttonLabel="𝐖 Įkelti iš Wiki"
