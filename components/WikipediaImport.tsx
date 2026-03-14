@@ -475,18 +475,13 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
   const [membersLoading, setMembersLoading] = useState(false)
   const [wpResults, setWpResults] = useState<{title:string;description:string}[]>([])
   const [mbResults, setMbResults] = useState<{title:string;description:string;mbData:any}[]>([])
-  const [pkResults, setPkResults] = useState<{title:string;url:string}[]>([])
   const [ytResults, setYtResults] = useState<{title:string;description:string;ytData:any}[]>([])
-  const [ytError, setYtError] = useState('')
-  const [pkError, setPkError] = useState('')
-  const [maResults, setMaResults] = useState<{name:string;id:string;url:string;genre:string;country:string}[]>([])
-  const [maLoading, setMaLoading] = useState(false)
   const [searchTimer, setSearchTimer] = useState<ReturnType<typeof setTimeout>|null>(null)
-  const [activeTab, setActiveTab] = useState<'wikipedia'|'musicbrainz'|'pakartot'|'youtube'|'metal'>('wikipedia')
+  const [activeTab, setActiveTab] = useState<'wikipedia'|'musicbrainz'|'youtube'>('wikipedia')
   const [wpLoading, setWpLoading] = useState(false)
   const [mbLoading, setMbLoading] = useState(false)
-  const [pkLoading, setPkLoading] = useState(false)
   const [ytLoading, setYtLoading] = useState(false)
+  const [ytError, setYtError] = useState('')
   const [mbImportData, setMbImportData] = useState<{name:string;mbData:any}|null>(null)
 
   const MUSIC_RE = /\b(band|musician|singer|rapper|artist|group|duo|trio|record|album|guitarist|drummer|bassist|vocalist|DJ|producer|songwriter|rock|pop|hip.hop|jazz|metal|punk|electronic|music)/i
@@ -506,37 +501,12 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
       }).catch(e => setYtError(e.message)).finally(() => setYtLoading(false))
   }
 
-  const fetchPk = (q: string) => {
-    if (!q.trim()) return
-    setPkLoading(true); setPkError('')
-    fetch(`/api/search-pakartot?q=${encodeURIComponent(q)}`)
-      .then(r => r.json())
-      .then(data => {
-        if (data.error) { setPkError(data.error); return }
-        const arr = Array.isArray(data) ? data : []
-        setPkResults(arr.slice(0, 8))
-        if (!arr.length) setPkError('Nieko nerasta (raw: ' + JSON.stringify(data).slice(0, 150) + ')')
-      }).catch(e => setPkError(e.message)).finally(() => setPkLoading(false))
-  }
 
-  const fetchMa = (q: string) => {
-    if (!q.trim()) return
-    setMaLoading(true)
-    fetch(`/api/search-metal-archives?q=${encodeURIComponent(q)}`)
-      .then(r => r.json())
-      .then(data => setMaResults(Array.isArray(data) ? data : []))
-      .catch(() => {}).finally(() => setMaLoading(false))
-  }
-
-  const fetchMaDetails = async (bandId: string): Promise<any> => {
-    const res = await fetch(`/api/search-metal-archives?bandId=${bandId}`)
-    return res.json()
-  }
 
   const runSearch = (q: string) => {
     if (q.trim().length < 2) {
-      setWpResults([]); setMbResults([]); setPkResults([]); setYtResults([]); setMaResults([])
-      setPkError(''); setYtError('')
+      setWpResults([]); setMbResults([]); setYtResults([])
+      setYtError('')
       return
     }
     // Wikipedia + MusicBrainz - automatiškai (greiti, nemokami)
@@ -560,7 +530,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
           .sort((a: any, b: any) => b._sort - a._sort).slice(0, 8)
           .map((a: any) => ({ title: a.name, description: [a.type, a.country, a['life-span']?.begin?.slice(0,4)].filter(Boolean).join(' · '), mbData: a })))
       }).catch(() => {}).finally(() => setMbLoading(false))
-    // Pakartot, YouTube, Metal Archives - tik paspaudus tab (žr. onTabClick)
+    // YouTube - tik paspaudus tab (žr. onTabClick)
   }
   useEffect(() => {
     if (!initialSearch || initialSearch.trim().length < 2) return
@@ -573,9 +543,9 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
   const handleInputChange = (val: string) => {
     setUrl(val)
     setError('')
-    if (isUrl(val)) { setWpResults([]); setMbResults([]); setPkResults([]); setYtResults([]); setMaResults([]); return }
+    if (isUrl(val)) { setWpResults([]); setMbResults([]); setYtResults([]); return }
     if (searchTimer) clearTimeout(searchTimer)
-    if (val.trim().length < 2) { setWpResults([]); setMbResults([]); setPkResults([]); setYtResults([]); setMaResults([]); return }
+    if (val.trim().length < 2) { setWpResults([]); setMbResults([]); setYtResults([]); return }
     const t = setTimeout(() => runSearch(val.trim()), 350)
     setSearchTimer(t)
   }
@@ -584,13 +554,6 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
     if (source === 'musicbrainz' && mbData) {
       setUrl(title)
       setMbImportData({ name: title, mbData })
-      return
-    }
-    if (source === 'pakartot') {
-      const slug = encodeURIComponent(title.replace(/ /g, '_'))
-      const newUrl = `https://en.wikipedia.org/wiki/${slug}`
-      setUrl(newUrl)
-      setTimeout(() => go(newUrl), 50)
       return
     }
     if (source === 'youtube' && ytData) {
@@ -989,9 +952,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
             {([
               { key: 'wikipedia', label: 'Wikipedia', badge: 'W', badgeCls: 'bg-gray-200 text-gray-600', count: wpResults.length, loading: wpLoading },
               { key: 'musicbrainz', label: 'MusicBrainz', badge: 'MB', badgeCls: 'bg-orange-100 text-orange-600', count: mbResults.length, loading: mbLoading },
-              { key: 'pakartot', label: 'Pakartot', badge: 'P', badgeCls: 'bg-green-100 text-green-700', count: pkResults.length, loading: pkLoading },
               { key: 'youtube', label: 'YouTube', badge: 'YT', badgeCls: 'bg-red-100 text-red-600', count: ytResults.length, loading: ytLoading },
-              { key: 'metal', label: 'Metal', badge: 'MA', badgeCls: 'bg-red-100 text-red-700', count: maResults.length, loading: maLoading },
             ] as const).map(tab => (
               <button
                 key={tab.key}
@@ -999,9 +960,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
                 onClick={() => {
                   setActiveTab(tab.key)
                   const q = url.trim()
-                  if (tab.key === 'pakartot' && !pkResults.length && !pkLoading) fetchPk(q)
                   if (tab.key === 'youtube' && !ytResults.length && !ytLoading && !ytError) fetchYt(q)
-                  if (tab.key === 'metal' && !maResults.length && !maLoading) fetchMa(q)
                 }}
                 className={`flex-1 px-2 py-2 text-xs font-medium flex items-center justify-center gap-1.5 transition-colors border-b-2 ${
                   activeTab === tab.key
@@ -1055,24 +1014,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
                   </button>
                 ))
             )}
-            {/* Pakartot */}
-            {activeTab === 'pakartot' && (
-              pkLoading
-                ? <p className="text-xs text-gray-400 px-3 py-3">Ieškoma...</p>
-                : pkError
-                ? <p className="text-xs text-red-500 px-3 py-3 break-all">Klaida: {pkError}</p>
-                : pkResults.length === 0
-                ? <p className="text-xs text-gray-400 px-3 py-3">Nieko nerasta</p>
-                : pkResults.map(r => (
-                  <button key={r.url} type="button"
-                    onClick={() => selectResult(r.title, 'pakartot', undefined, r.url)}
-                    className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-0"
-                  >
-                    <div className="text-sm text-gray-800 font-medium">{r.title}</div>
-                    <div className="text-xs text-gray-400">{r.url.replace('https://pakartot.lt', '')}</div>
-                  </button>
-                ))
-            )}
+
             {/* YouTube */}
             {activeTab === 'youtube' && (
               ytLoading
@@ -1094,74 +1036,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
                   </button>
                 ))
             )}
-            {/* Metal Archives */}
-            {activeTab === 'metal' && (
-              maLoading
-                ? <p className="text-xs text-gray-400 px-3 py-3">Ieškoma...</p>
-                : maResults.length === 0 && !maLoading
-                ? <div className="px-3 py-3 flex items-center gap-2">
-                    <p className="text-xs text-gray-400">Nieko nerasta</p>
-                    <button type="button" onClick={() => fetchMa(url.trim())} className="text-xs text-red-500 underline">Ieškoti iš naujo</button>
-                  </div>
-                : maResults.map(r => (
-                  <button key={r.id} type="button"
-                    onClick={async () => {
-                      setStep('Kraunama iš Metal Archives...')
-                      try {
-                        const details = await fetchMaDetails(r.id)
-                        // Konvertuoti veiklos metus: "1990-1995, 1998-present" → activeFrom/activeTo/breaks
-                        const yearsStr: string = details.years || ''
-                        const periods = yearsStr.split(',').map((s: string) => s.trim()).filter(Boolean)
-                        const firstPeriod = periods[0]?.split('-') || []
-                        const lastPeriod = periods[periods.length - 1]?.split('-') || []
-                        const activeFrom = firstPeriod[0]?.trim() || details.formed || ''
-                        const activeTo = lastPeriod[1]?.toLowerCase() === 'present' ? '' : lastPeriod[1]?.trim() || ''
-
-                        setPreview({
-                          name: r.name,
-                          avatar: details.photo || '',
-                          type: 'group',
-                          description: details.description || '',
-                          members: [], groups: [], wikiLinks: [], links: [],
-                          country: r.country || '',
-                          genre: r.genre || '',
-                          substyles: [],
-                          born: '', died: '',
-                          activeFrom, activeTo,
-                          breaks: periods.slice(1).map((p: string) => {
-                            const [f, t] = p.split('-')
-                            return { from: f?.trim() || '', to: t?.trim() || '' }
-                          }),
-                          facebook: '', instagram: '', twitter: '', spotify: '',
-                          youtube: '', soundcloud: '', tiktok: '', bandcamp: '', facebook2: '',
-                          website: r.url || '',
-                          maUrl: r.url || '',
-                        } as any)
-                      } catch(e) {
-                        // ignoruoti klaidą, bent jau bazinę info importuoti
-                        setPreview({
-                          name: r.name, avatar: '', type: 'group',
-                          description: '', members: [], groups: [], wikiLinks: [], links: [],
-                          country: r.country || '', genre: r.genre || '', substyles: [],
-                          born: '', died: '', activeFrom: '', activeTo: '', breaks: [],
-                          facebook: '', instagram: '', twitter: '', spotify: '',
-                          youtube: '', soundcloud: '', tiktok: '', bandcamp: '', facebook2: '',
-                          website: r.url || '',
-                        } as any)
-                      } finally {
-                        setStep('')
-                      }
-                    }}
-                    className="w-full text-left px-3 py-2 hover:bg-red-50 transition-colors border-b border-gray-100 last:border-0"
-                  >
-                    <div className="text-sm text-gray-800 font-medium">{r.name}</div>
-                    <div className="text-xs text-gray-400 mt-0.5">
-                      {[r.genre, r.country].filter(Boolean).join(' · ')}
-                    </div>
-                  </button>
-                ))
-            )}
-          </div>
+</div>
         </div>
       )}
 
