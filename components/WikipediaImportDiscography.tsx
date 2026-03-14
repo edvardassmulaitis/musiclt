@@ -47,7 +47,7 @@ const TYPE_LABELS: Record<AlbumType, string> = {
 }
 
 // Automatiškai pasirinkti šiuos tipus
-const AUTO_SELECT_TYPES: AlbumType[] = ['studio', 'ep', 'single']
+const AUTO_SELECT_TYPES: AlbumType[] = ['studio', 'ep']
 
 // ─── Wikipedia utils ──────────────────────────────────────────────────────────
 
@@ -546,8 +546,9 @@ type Props = {
 
 // Tipų grupavimas UI
 const TYPE_GROUPS = [
-  { label: '✅ Rekomenduojami importuoti', types: ['studio', 'ep', 'single'] as AlbumType[] },
-  { label: '📦 Kiti (pasirinkite jei reikia)', types: ['compilation', 'live', 'other'] as AlbumType[] },
+  { label: '🎵 Studijiniai albumai ir EP', types: ['studio', 'ep'] as AlbumType[], autoSelect: true },
+  { label: '🎤 Singlai (atskiros dainos)', types: ['single'] as AlbumType[], autoSelect: false, collapsible: true },
+  { label: '📦 Kompiliacijos / Live / Kiti', types: ['compilation', 'live', 'other'] as AlbumType[], autoSelect: false, collapsible: true },
 ]
 
 export default function WikipediaImportDiscography({ artistId, artistName, artistWikiTitle, isSolo, onClose, buttonClassName, buttonLabel }: Props) {
@@ -563,6 +564,12 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
   const [enrichYoutube, setEnrichYoutube] = useState(true)
   const [enrichLyrics, setEnrichLyrics] = useState(true)
   const [typeFilter, setTypeFilter] = useState<AlbumType | 'all'>('all')
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
+    new Set(['🎤 Singlai (atskiros dainos)', '📦 Kompiliacijos / Live / Kiti'])
+  )
+  const toggleGroup = (label: string) => setCollapsedGroups(p => {
+    const s = new Set(p); s.has(label) ? s.delete(label) : s.add(label); return s
+  })
 
   const addLog = (msg: string) => setLog(p => [...p, msg])
 
@@ -932,7 +939,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                     <div className="flex items-center gap-2 text-xs">
                       {dupCount > 0 && <span className="text-amber-600">⚠️ {dupCount} jau yra</span>}
                       <button onClick={() => setSelected(new Set(items.map((it,i) => (!it.duplicate && AUTO_SELECT_TYPES.includes(it.type)) ? i : -1).filter(i=>i!==-1)))}
-                        className="text-purple-600 hover:underline">Rekomenduojami</button>
+                        className="text-purple-600 hover:underline">Tik studijiniai+EP</button>
                       <button onClick={() => setSelected(new Set())} className="text-gray-400 hover:underline">Joks</button>
                       <span className="text-gray-400">{selected.size} pasirinkta</span>
                     </div>
@@ -942,10 +949,21 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                   {TYPE_GROUPS.map(group => {
                     const groupItems = filteredIndices.filter(i => group.types.includes(items[i].type))
                     if (!groupItems.length) return null
+                    const isCollapsed = group.collapsible && collapsedGroups.has(group.label)
+                    const selectedInGroup = groupItems.filter(i => selected.has(i)).length
                     return (
                       <div key={group.label}>
-                        <p className="text-xs font-semibold text-gray-400 mb-1.5 mt-2">{group.label}</p>
-                        <div className="space-y-1.5">
+                        <button type="button"
+                          onClick={() => group.collapsible && toggleGroup(group.label)}
+                          className={`flex items-center gap-2 w-full text-left mb-1.5 mt-2 ${group.collapsible ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}`}>
+                          <span className="text-xs font-semibold text-gray-500">{group.label}</span>
+                          <span className="text-xs text-gray-400">({groupItems.length})</span>
+                          {selectedInGroup > 0 && <span className="text-xs text-purple-600 font-medium">{selectedInGroup} pasirinkta</span>}
+                          {group.collapsible && (
+                            <span className="ml-auto text-gray-400 text-xs">{isCollapsed ? '▶ rodyti' : '▼ slėpti'}</span>
+                          )}
+                        </button>
+                        {!isCollapsed && <div className="space-y-1.5">
                           {groupItems.map(i => {
                             const item = items[i]
                             return (
@@ -995,7 +1013,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                               </div>
                             )
                           })}
-                        </div>
+                        </div>}
                       </div>
                     )
                   })}
@@ -1014,7 +1032,16 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
             <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
               <button onClick={importSelected} disabled={importing || selected.size === 0}
                 className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl disabled:opacity-40 transition-colors text-sm">
-                {importing ? '⏳ Importuojama...' : `⬆️ Importuoti ${selected.size} įrašą(-ų)`}
+                {importing ? '⏳ Importuojama...' : (() => {
+                const studios = Array.from(selected).filter(i => items[i] && ['studio','ep'].includes(items[i].type)).length
+                const singles = Array.from(selected).filter(i => items[i]?.type === 'single').length
+                const others = selected.size - studios - singles
+                const parts = []
+                if (studios) parts.push(`${studios} albumų`)
+                if (singles) parts.push(`${singles} singlų`)
+                if (others) parts.push(`${others} kitų`)
+                return `⬆️ Importuoti: ${parts.join(', ') || '0'}`
+              })()}
               </button>
               <button onClick={() => { if (!importing) { fetchAllDetails() } }}
                 disabled={importing || selected.size === 0}
