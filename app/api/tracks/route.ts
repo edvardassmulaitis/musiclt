@@ -8,7 +8,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-// GET is public – needed for SongsPanel search in news admin
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const search = searchParams.get('search') || ''
@@ -18,6 +17,25 @@ export async function GET(req: NextRequest) {
   const limit = parseInt(searchParams.get('limit') || '50')
   const offset = (page - 1) * limit
 
+  // ── Dublikatų tikrinimas: ?check_titles=[...]&artist_id=123 ────────────────
+  const checkTitles = searchParams.get('check_titles')
+  if (checkTitles && artist_id) {
+    try {
+      const titles: string[] = JSON.parse(checkTitles)
+      const { data } = await supabase
+        .from('tracks')
+        .select('id, title')
+        .eq('artist_id', parseInt(artist_id))
+        .in('title', titles)
+      const found: Record<string, number> = {}
+      for (const row of data || []) found[row.title.toLowerCase()] = row.id
+      return NextResponse.json({ found })
+    } catch {
+      return NextResponse.json({ found: {} })
+    }
+  }
+
+  // ── Album tracks ───────────────────────────────────────────────────────────
   if (album_id) {
     const { data, error } = await supabase
       .from('album_tracks')
@@ -38,52 +56,39 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ tracks, total: tracks.length })
   }
 
-  // Jei search yra — ieškoti ir pagal dainos pavadinimą IR pagal atlikėjo vardą
+  // ── Search ─────────────────────────────────────────────────────────────────
   if (search) {
-    // Pirma ieškome atlikėjų pagal vardą
     const { data: artistMatches } = await supabase
-      .from('artists')
-      .select('id')
-      .ilike('name', `%${search}%`)
-      .limit(20)
-
+      .from('artists').select('id').ilike('name', `%${search}%`).limit(20)
     const artistIds = (artistMatches || []).map((a: any) => a.id)
 
     let query = supabase
       .from('tracks')
-      .select(`
-        id, title, type, release_date, video_url, spotify_id, is_new, is_new_date, cover_url,
+      .select(`id, title, type, release_date, video_url, spotify_id, is_new, is_new_date, cover_url,
         artists!tracks_artist_id_fkey(id, name, slug),
-        album_tracks(position, albums(id, title, year))
-      `, { count: 'exact' })
+        album_tracks(position, albums(id, title, year))`, { count: 'exact' })
       .order('title', { ascending: true })
       .range(offset, offset + limit - 1)
 
-    if (artistIds.length > 0) {
-      // Ieškoti pagal pavadinimą ARBA pagal atlikėjo id
+    if (artistIds.length > 0)
       query = query.or(`title.ilike.%${search}%,artist_id.in.(${artistIds.join(',')})`)
-    } else {
+    else
       query = query.ilike('title', `%${search}%`)
-    }
 
     if (artist_id) query = query.eq('artist_id', parseInt(artist_id))
 
-    const { data, error, count } = await query
+    const { data, error } = await query
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-    const tracks = (data || []).map((t: any) => mapTrack(t)).filter(isRealTrack)
-    return NextResponse.json({ tracks: tracks, total: tracks.length })
+    return NextResponse.json({ tracks: (data || []).map(mapTrack).filter(isRealTrack), total: (data || []).length })
   }
 
-  // Be search — standartinis query
+  // ── Standartinis query ─────────────────────────────────────────────────────
   let query = supabase
     .from('tracks')
-    .select(`
-      id, title, type, release_date, video_url, spotify_id, is_new, is_new_date, cover_url, lyrics,
+    .select(`id, title, type, release_date, video_url, spotify_id, is_new, is_new_date, cover_url, lyrics,
       artists!tracks_artist_id_fkey(id, name, slug),
       track_artists(artist_id),
-      album_tracks(position, albums(id, title, year))
-    `, { count: 'exact' })
+      album_tracks(position, albums(id, title, year))`, { count: 'exact' })
     .order('title', { ascending: true })
     .range(offset, offset + limit - 1)
 
@@ -91,44 +96,27 @@ export async function GET(req: NextRequest) {
 
   const { data, error, count } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  const tracks = (data || []).map((t: any) => mapTrack(t))
-  return NextResponse.json({ tracks, total: count || 0 })
+  return NextResponse.json({ tracks: (data || []).map(mapTrack), total: count || 0 })
 }
 
-// Papildomas filtras - tikrinti ar tai tikra daina (turi release_date arba album)
-// Atlikėjai gali patekti į rezultatus per artist_id join
 function isRealTrack(t: any): boolean {
-  // Jei title yra identiška atlikėjo vardui - greičiausiai ne daina
   if (t.title === t.artists?.name) return false
   return true
 }
 
 function mapTrack(t: any) {
   const albumList = (t.album_tracks || [])
-    .map((at: any) => at.albums ? {
-      id: at.albums.id, title: at.albums.title, year: at.albums.year, position: at.position,
-    } : null).filter(Boolean)
+    .map((at: any) => at.albums ? { id: at.albums.id, title: at.albums.title, year: at.albums.year, position: at.position } : null)
+    .filter(Boolean)
   return {
-    id: t.id,
-    title: t.title,
-    type: t.type,
-    release_date: t.release_date,
-    video_url: t.video_url,
-    spotify_id: t.spotify_id,
-    is_new: t.is_new,
-    is_new_date: t.is_new_date,
-    cover_url: t.cover_url || null,
-    has_lyrics: !!(t.lyrics),
-    artists: t.artists,
-    artist_name: t.artists?.name || '',
-    artist_slug: t.artists?.slug || '',
+    id: t.id, title: t.title, type: t.type, release_date: t.release_date,
+    video_url: t.video_url, spotify_id: t.spotify_id, is_new: t.is_new,
+    is_new_date: t.is_new_date, cover_url: t.cover_url || null,
+    has_lyrics: !!(t.lyrics), artists: t.artists,
+    artist_name: t.artists?.name || '', artist_slug: t.artists?.slug || '',
     featuring_count: (t.track_artists || []).length,
-    album_count: albumList.length,
-    albums_list: albumList,
-    release_year: t.release_date
-      ? new Date(t.release_date).getFullYear()
-      : (albumList[0]?.year || null),
+    album_count: albumList.length, albums_list: albumList,
+    release_year: t.release_date ? new Date(t.release_date).getFullYear() : (albumList[0]?.year || null),
   }
 }
 
@@ -142,14 +130,28 @@ export async function POST(req: NextRequest) {
   if (!data.title?.trim()) return NextResponse.json({ error: 'Title required' }, { status: 400 })
   if (!data.artist_id) return NextResponse.json({ error: 'Artist required' }, { status: 400 })
 
+  // release_date iš year/month/day arba tiesiogiai
+  let release_date = data.release_date || null
+  if (!release_date && data.release_year) {
+    const y = data.release_year
+    const m = String(data.release_month || 1).padStart(2, '0')
+    const d = String(data.release_day || 1).padStart(2, '0')
+    release_date = `${y}-${m}-${d}`
+  }
+
   const { data: track, error } = await supabase
     .from('tracks')
     .insert({
       title: data.title.trim(),
       artist_id: Number(data.artist_id),
       type: data.type || 'normal',
-      release_date: data.release_date || null,
+      is_single: data.is_single ?? false,
+      release_date,
+      release_year: data.release_year || (release_date ? parseInt(release_date.slice(0,4)) : null),
+      release_month: data.release_month || null,
+      release_day: data.release_day || null,
       video_url: data.video_url || null,
+      youtube_url: data.youtube_url || null,
       spotify_id: data.spotify_id || null,
       lyrics: data.lyrics || null,
       description: data.description || null,
@@ -164,7 +166,7 @@ export async function POST(req: NextRequest) {
 
   if (data.featuring?.length > 0) {
     await supabase.from('track_artists').insert(
-      data.featuring.map((f: any) => ({ track_id: track.id, artist_id: f.artist_id }))
+      data.featuring.map((f: any) => ({ track_id: track.id, artist_id: f.artist_id || f }))
     )
   }
 
