@@ -589,6 +589,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
   const [importing, setImporting] = useState(false)
   const [artistGroups, setArtistGroups] = useState<string[]>([])
   const [enrichYoutube, setEnrichYoutube] = useState(true)
+  const [mbLoading, setMbLoading] = useState(false)
   const [enrichLyrics, setEnrichLyrics] = useState(true)
   const [typeFilter, setTypeFilter] = useState<AlbumType | 'all'>('all')
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
@@ -633,33 +634,6 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
         found = wikiFound.map(a => ({ ...a, source: 'wikipedia' as const }))
         addLog(`✅ Wikipedia: ${found.length} albumų`)
       }
-    }
-
-    // 2. MusicBrainz — fallback jei Wikipedia nerado, arba papildymas
-    addLog('🎵 MusicBrainz...')
-    const mbArtist = await mbFindArtist(artistName)
-    if (mbArtist) {
-      addLog(`  → rastas "${mbArtist.name}"`)
-      const mbItems = await mbFetchDiscography(mbArtist.id)
-      if (mbItems.length) {
-        if (!found.length) {
-          // Wikipedia nerado — naudojame MB
-          found = mbItems
-          addLog(`✅ MB: ${mbItems.length} įrašų`)
-        } else {
-          // Wikipedia rado — MB papildo trūkstamus
-          const wikiTitles = new Set(found.map(a => a.title.toLowerCase()))
-          const mbOnly = mbItems.filter(a => !wikiTitles.has(a.title.toLowerCase()))
-          if (mbOnly.length) {
-            found = [...found, ...mbOnly]
-            addLog(`  → ${mbOnly.length} papildomų iš MB`)
-          } else {
-            addLog(`  → nieko naujo (visi jau Wikipedia)`)
-          }
-        }
-      }
-    } else {
-      addLog('  → MusicBrainz nerado atlikėjo')
     }
 
     if (!found.length) {
@@ -760,6 +734,71 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
         await fetchDetails(i); await new Promise(r => setTimeout(r, 400))
       }
     }
+  }
+
+  // ── MusicBrainz papildymas (rankinis) ───────────────────────────────────────
+
+  const enrichFromMB = async () => {
+    setMbLoading(true)
+    addLog('🎵 Ieškoma MusicBrainz...')
+    const mbArtist = await mbFindArtist(artistName)
+    if (!mbArtist) {
+      addLog('❌ MusicBrainz: atlikėjas nerastas')
+      setMbLoading(false); return
+    }
+    addLog(`  → rastas "${mbArtist.name}"`)
+    const mbItems = await mbFetchDiscography(mbArtist.id)
+    if (!mbItems.length) {
+      addLog('❌ MusicBrainz: diskografija tuščia')
+      setMbLoading(false); return
+    }
+
+    // Pridėti tik ko nėra (dedup pagal pavadinimą)
+    const existingTitles = new Set(items.map(i => i.title.toLowerCase()))
+    const newItems = mbItems.filter(i => !existingTitles.has(i.title.toLowerCase()))
+    addLog(`✅ MB: ${mbItems.length} iš viso, ${newItems.length} naujų`)
+
+    if (!newItems.length) { setMbLoading(false); return }
+
+    // Dublikatų tikrinimas DB
+    const [albumDups, trackDups] = await Promise.all([
+      checkAlbumDuplicates(newItems.filter(i => !i.isSingleItem).map(i => i.title), artistId),
+      checkTrackDuplicates(newItems.filter(i => i.isSingleItem).map(i => i.title), artistId),
+    ])
+
+    const newWithDups = newItems.map(item => {
+      const key = item.title.toLowerCase()
+      if (item.isSingleItem && trackDups[key]) return { ...item, duplicate: true, duplicateId: trackDups[key] }
+      if (!item.isSingleItem && albumDups[key]) return { ...item, duplicate: true, duplicateId: albumDups[key] }
+      return item
+    })
+
+    setItems(prev => {
+      const merged = [...prev, ...newWithDups].sort((a, b) => {
+        const typeOrder: Record<AlbumType, number> = { studio: 0, ep: 1, single: 2, compilation: 3, live: 4, other: 5 }
+        if (typeOrder[a.type] !== typeOrder[b.type]) return typeOrder[a.type] - typeOrder[b.type]
+        return (a.year || 9999) - (b.year || 9999)
+      })
+      return merged
+    })
+
+    // Auto-pasirinkti naujus rekomenduojamus
+    setSelected(prev => {
+      const s = new Set(prev)
+      // Indeksai pasikeis po merge — perskaičiuojame po setState
+      return s
+    })
+    // Po merge atnaujinti selected su naujais indeksais
+    setTimeout(() => {
+      setItems(current => {
+        setSelected(new Set(
+          current.map((it, i) => (!it.duplicate && AUTO_SELECT_TYPES.includes(it.type)) ? i : -1).filter(i => i !== -1)
+        ))
+        return current
+      })
+    }, 50)
+
+    setMbLoading(false)
   }
 
   // ── Importas ──────────────────────────────────────────────────────────────
@@ -1075,6 +1114,13 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                 className="px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm disabled:opacity-40">
                 📋 Krauti detales
               </button>
+              {items.length > 0 && (
+                <button onClick={enrichFromMB} disabled={importing || mbLoading}
+                  title="Papildyti iš MusicBrainz — prideda albumus kurių nėra Wikipedia"
+                  className="px-4 py-3 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-sm disabled:opacity-40 whitespace-nowrap">
+                  {mbLoading ? '⏳' : '🎵 MB'}
+                </button>
+              )}
               <button onClick={closeModal} className="px-4 py-3 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 text-sm">
                 Uždaryti
               </button>
