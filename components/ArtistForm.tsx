@@ -1086,6 +1086,8 @@ function SocialsSection({ form, set }: { form: ArtistFormData; set: (k: keyof Ar
 // ── Main ArtistForm ───────────────────────────────────────────────────────────
 export default function ArtistForm({ initialData, artistId, onSubmit, backHref, title, submitLabel, onChange, hideButtons, onRegisterSubmit }: Props) {
   const [form, setForm] = useState<ArtistFormData>({ ...emptyArtistForm, ...(initialData || {}) })
+  const [dupWarning, setDupWarning] = useState<{id:string;name:string;slug:string;type:string;country:string;cover_image_url:string|null}[]>([])
+  const dupTimer = useRef<ReturnType<typeof setTimeout>|null>(null)
 
   // formRef turi būti PRIEŠ set() ir setAvatar() — jos naudoja formRef.current
   const formRef = useRef<ArtistFormData>({ ...emptyArtistForm, ...(initialData || {}) })
@@ -1143,6 +1145,19 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
     formRef.current = next
     setForm(next)
     if (onChange && next.name) onChange(next)
+    // Duplikatų tikrinimas kai keičiamas vardas (tik naujo atlikėjo formoje)
+    if (f === 'name' && !artistId) {
+      const name = (v as string).trim()
+      if (dupTimer.current) clearTimeout(dupTimer.current)
+      if (name.length < 2) { setDupWarning([]); return }
+      dupTimer.current = setTimeout(async () => {
+        try {
+          const res = await fetch(`/api/artists?check=${encodeURIComponent(name)}`)
+          const data = await res.json()
+          setDupWarning(Array.isArray(data) ? data : [])
+        } catch { setDupWarning([]) }
+      }, 500)
+    }
   }
 
   const setAvatar = (url: string) => {
@@ -1184,6 +1199,26 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
             <div className="flex-1 min-w-0">
               <label className="block text-xs font-semibold text-gray-500 mb-1">Pavadinimas *</label>
               <Inp value={form.name} onChange={(v:string)=>set('name',v)} placeholder="Pvz: Jazzu" required />
+              {dupWarning.length > 0 && (
+                <div className="mt-1.5 p-2.5 bg-amber-50 border border-amber-200 rounded-lg">
+                  <p className="text-xs font-semibold text-amber-700 mb-1.5">⚠️ Panašūs atlikėjai jau egzistuoja:</p>
+                  <div className="flex flex-col gap-1">
+                    {dupWarning.map(d => (
+                      <a key={d.id} href={`/admin/artists/${d.id}`} target="_blank" rel="noreferrer"
+                        className="flex items-center gap-2 text-xs text-amber-800 hover:text-blue-600 group">
+                        {d.cover_image_url
+                          ? <img src={d.cover_image_url} className="w-5 h-5 rounded-full object-cover shrink-0" alt="" />
+                          : <span className="w-5 h-5 rounded-full bg-amber-200 shrink-0" />
+                        }
+                        <span className="font-medium group-hover:underline">{d.name}</span>
+                        <span className="text-amber-500">{[d.type === 'group' ? 'Grupė' : 'Solo', d.country].filter(Boolean).join(' · ')}</span>
+                        <span className="text-blue-500 opacity-0 group-hover:opacity-100">→ atidaryti</span>
+                      </a>
+                    ))}
+                  </div>
+                  <p className="text-xs text-amber-600 mt-1.5">Ar tikrai kuriate naują atlikėją, o ne dublikatą?</p>
+                </div>
+              )}
             </div>
             <div className="shrink-0 pb-0.5">
               <div className="flex gap-1">
