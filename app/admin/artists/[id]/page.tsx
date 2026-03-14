@@ -216,8 +216,8 @@ function AlbumCard({ album, defaultOpen }: { album: any; defaultOpen: boolean })
   )
 }
 
-function DiscographyPanel({ artistId, artistName, refreshKey, onImportClose }: {
-  artistId: string; artistName: string; refreshKey: number; onImportClose: () => void
+function DiscographyPanel({ artistId, artistName, artistType, refreshKey, onImportClose }: {
+  artistId: string; artistName: string; artistType?: 'solo'|'group'; refreshKey: number; onImportClose: () => void
 }) {
   const [albums, setAlbums] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -246,7 +246,7 @@ function DiscographyPanel({ artistId, artistName, refreshKey, onImportClose }: {
               artistId={parseInt(artistId)}
               artistName={artistName}
               artistWikiTitle={artistName.replace(/ /g, '_')}
-              isSolo={form.type === 'solo'}
+              isSolo={artistType === 'solo'}
               onClose={onImportClose}
               buttonClassName="flex items-center gap-1.5 px-2 py-1 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg text-xs font-medium transition-colors"
               buttonLabel="𝐖 Įkelti iš Wiki"
@@ -422,6 +422,7 @@ export default function EditArtist() {
   const params = useParams()
   const [initialData, setInitialData] = useState<ArtistFormData | null>(null)
   const [artistName, setArtistName] = useState('')
+  const [artistType, setArtistType] = useState<'solo'|'group'>('group')
   const [albumCount, setAlbumCount] = useState<number | null>(null)
   const [trackCount, setTrackCount] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
@@ -446,6 +447,7 @@ export default function EditArtist() {
         if (data.error) { alert('Atlikėjas nerastas!'); router.push('/admin/artists'); return }
         setInitialData(dbToForm(data))
         setArtistName(data.name || '')
+        setArtistType(data.type === 'solo' ? 'solo' : 'group')
       })
 
     fetch(`/api/albums?artist_id=${artistId}&limit=1`)
@@ -609,7 +611,7 @@ export default function EditArtist() {
           <ArtistFormCompact key={formKey} initialData={initialData} artistId={artistId} onSubmit={handleSubmit} saving={saving} onRegisterSubmit={fn => { submitFnRef.current.fn = fn }} />
         )}
         {tab === 'discography' && (
-          <DiscographyPanel artistId={artistId} artistName={artistName} refreshKey={discographyKey}
+          <DiscographyPanel artistId={artistId} artistName={artistName} artistType={artistType} refreshKey={discographyKey}
             onImportClose={() => {
               setDiscographyKey(k => k + 1)
               fetch(`/api/albums?artist_id=${artistId}&limit=1`).then(r => r.json()).then(d => setAlbumCount(d.total ?? 0)).catch(() => {})
@@ -624,7 +626,7 @@ export default function EditArtist() {
           <ArtistFormCompact key={formKey} initialData={initialData} artistId={artistId} onSubmit={handleSubmit} saving={saving} onRegisterSubmit={fn => { submitFnRef.current.fn = fn }} />
         </div>
         <div className="overflow-hidden flex flex-col" style={{ width: '40%' }}>
-          <DiscographyPanel artistId={artistId} artistName={artistName} refreshKey={discographyKey}
+          <DiscographyPanel artistId={artistId} artistName={artistName} artistType={artistType} refreshKey={discographyKey}
             onImportClose={() => {
               setDiscographyKey(k => k + 1)
               fetch(`/api/albums?artist_id=${artistId}&limit=1`).then(r => r.json()).then(d => setAlbumCount(d.total ?? 0)).catch(() => {})
