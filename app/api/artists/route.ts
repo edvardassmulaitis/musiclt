@@ -13,6 +13,26 @@ function slugify(text: string): string {
 }
 
 export async function GET(req: NextRequest) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const supabase = createAdminClient()
+  const check = req.nextUrl.searchParams.get('check')
+
+  // Duplikatų tikrinimas: ?check=Vardas → panašūs atlikėjai
+  if (check) {
+    const q = check.trim()
+    const baseSlug = slugify(q)
+    // Ieškome pagal slug panašumą arba vardą (ilike su wildcards)
+    const { data } = await supabase
+      .from('artists')
+      .select('id, name, slug, type, country, cover_image_url')
+      .or(`slug.ilike.${baseSlug}%,name.ilike.%${q}%`)
+      .limit(5)
+    return NextResponse.json(data || [])
+  }
+
+
   const { searchParams } = new URL(req.url)
   const limit = parseInt(searchParams.get('limit') || '50')
   const offset = parseInt(searchParams.get('offset') || '0')
