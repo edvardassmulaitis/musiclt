@@ -226,7 +226,8 @@ function parseDiscographyPage(wikitext: string): DiscographyItem[] {
   let currentType: AlbumType = 'studio'
   let inTable = false
   let skipSection = false
-  let inSinglesSection = false  // singlai prasideda ir tęsiasi per kelis sub-headerius
+  let inSinglesSection = false
+  let yearMode = false  // lentelė su Year|Title formatu (Freddie Mercury stilius)
 
   for (const line of lines) {
     const hm = line.match(/^(==+)\s*(.+?)\s*\1/)
@@ -234,48 +235,75 @@ function parseDiscographyPage(wikitext: string): DiscographyItem[] {
       const depth = hm[1].length
       const h = hm[2].toLowerCase()
 
-      // Top-level == sekcija kuri baigia albumus
-      if (depth === 2 && /single|chart|collaborat|video|promo|appear|other/.test(h)) {
+      if (depth === 2 && /single|chart|collaborat|video|promo|appear|box.?set/.test(h)) {
         inSinglesSection = true
       }
-      if (depth === 2 && /album|extended play|ep/.test(h)) {
+      if (depth === 2 && /^album/.test(h)) {
         inSinglesSection = false
       }
 
-      // Tipų nustatymas pagal === sub-sekcijas
       skipSection = /video|dvd|film|promo|tour|guest|appear|certif|box.?set|music.video/.test(h)
 
       if (h.includes('studio')) { currentType = 'studio'; skipSection = false }
+      // "Collaborative album" = studijinis (pvz. Barcelona su Caballé)
+      else if (h.includes('collaborative') || h.includes('collaboration')) { currentType = 'studio'; skipSection = false }
       else if (h.includes('extended play') || h.includes(' ep') || h === 'eps') { currentType = 'ep'; skipSection = false }
       else if (h.includes('single')) { currentType = 'single'; skipSection = true; inSinglesSection = true }
       else if (h.includes('compilation') || h.includes('greatest') || h.includes('best of')) { currentType = 'compilation'; skipSection = false }
       else if (h.includes('live') || h.includes('concert')) { currentType = 'live'; skipSection = false }
       else if (h.includes('box') || h.includes('collection')) { currentType = 'other'; skipSection = true }
-      // Dešimtmečių headeriai (1970s, 1980s...) — jei singlų sekcijoje, skip
       else if (/^\d{4}s?$/.test(h.trim())) { skipSection = inSinglesSection }
       else if (depth >= 3 && inSinglesSection) { skipSection = true }
 
+      yearMode = false
       continue
     }
 
     if (skipSection || inSinglesSection) continue
-    if (line.startsWith('{|')) { inTable = true; continue }
-    if (line.startsWith('|}')) { inTable = false; continue }
+    if (line.startsWith('{|')) { inTable = true; yearMode = false; continue }
+    if (line.startsWith('|}')) { inTable = false; yearMode = false; continue }
     if (!inTable) continue
-    // Queen naudoja "! scope="row"" — su arba be tarpų
-    if (!line.match(/!\s*scope\s*=\s*['"]row['"]/)) continue
 
-    const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
-    if (!wm) continue
-    const wikiTitle = wm[1].trim()
-    const title = cleanWikiText(wm[2] || wm[1])
-    if (!title || title.length < 2 || wikiTitle.includes(':')) continue
-    // Filtruoti akivaizdžias ne-albumų eilutes
-    const bad = ['discography', 'videography', 'certification', 'singles', 'chart']
-    if (bad.some(b => title.toLowerCase().includes(b))) continue
+    // Detektuoti Year|Title lentelę (Freddie Mercury, kai kurie kiti atlikėjai)
+    if (/!.*rowspan.*Year|!rowspan.*Year/i.test(line)) { yearMode = true; continue }
 
-    const yr = line.match(/\b(19|20)\d{2}\b/)
-    albums.push({ title, year: yr ? parseInt(yr[0]) : null, month: null, day: null, type: currentType, wikiTitle, source: 'wikipedia' })
+    // Formatas 1: ! scope="row" — Queen, dauguma atlikėjų
+    if (/!\s*scope\s*=\s*['"]row['"]/i.test(line)) {
+      const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
+      if (!wm) continue
+      const wikiTitle = wm[1].trim()
+      const title = cleanWikiText(wm[2] || wm[1])
+      if (!title || title.length < 2 || wikiTitle.includes(':')) continue
+      const bad = ['discography', 'videography', 'certification', 'singles', 'chart']
+      if (bad.some(b => title.toLowerCase().includes(b))) continue
+      const yr = line.match(/\b(19|20)\d{2}\b/)
+      albums.push({ title, year: yr ? parseInt(yr[0]) : null, month: null, day: null, type: currentType, wikiTitle, source: 'wikipedia' })
+      continue
+    }
+
+    // Formatas 2: Year|Title lentelė — |''[[Title]]'' arba |''Title''
+    if (yearMode && /^\|/.test(line) && !/^\|\|/.test(line)) {
+      // Wiki link
+      const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
+      if (wm) {
+        const wikiTitle = wm[1].trim()
+        const title = cleanWikiText(wm[2] || wm[1])
+        // Skip metų eilutes ir tuščias
+        if (title && title.length > 2 && !wikiTitle.includes(':') && !/^\d{4}/.test(title)) {
+          const yr = line.match(/\b(19|20)\d{2}\b/)
+          albums.push({ title, year: yr ? parseInt(yr[0]) : null, month: null, day: null, type: currentType, wikiTitle, source: 'wikipedia' })
+        }
+      } else {
+        // ''Plain title'' be link
+        const pm = line.match(/''([^']+)''/)
+        if (pm) {
+          const title = cleanWikiText(pm[1])
+          if (title && title.length > 2 && !/^\d/.test(title)) {
+            albums.push({ title, year: null, month: null, day: null, type: currentType, wikiTitle: title.replace(/ /g, '_'), source: 'wikipedia' })
+          }
+        }
+      }
+    }
   }
   return albums
 }
