@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 
 // ─── Tipai ───────────────────────────────────────────────────────────────────
 
@@ -527,6 +527,71 @@ async function mbFetchTracks(releaseGroupId: string): Promise<{ tracks: TrackEnt
   } catch { return { tracks: [], cover: '' } }
 }
 
+// ─── Singlų parsavimas iš diskografijos puslapio ─────────────────────────────
+
+function parseSinglesFromDiscographyPage(wikitext: string): { title: string; year: number | null }[] {
+  const singles: { title: string; year: number | null }[] = []
+  const lines = wikitext.split('\n')
+  let inSingles = false
+  let inTable = false
+  let currentYear: number | null = null
+
+  for (const line of lines) {
+    const hm = line.match(/^(==+)\s*(.+?)\s*\1/)
+    if (hm) {
+      const h = hm[2].toLowerCase()
+      const depth = hm[1].length
+      if (h.includes('single')) { inSingles = true; continue }
+      // Baigiasi singlų sekcija
+      if (depth === 2 && inSingles && !h.includes('single') && !h.includes('promo') && !h.includes('chart')) {
+        inSingles = false
+      }
+      continue
+    }
+    if (!inSingles) continue
+    if (line.startsWith('{|')) { inTable = true; continue }
+    if (line.startsWith('|}')) { inTable = false; continue }
+    if (!inTable) continue
+
+    // Metai iš pirmojo stulpelio
+    const yearMatch = line.match(/^\|(?:align="center"\|)?(?:rowspan=\d+\|)?((?:19|20)\d{2})/)
+    if (yearMatch) { currentYear = parseInt(yearMatch[1]); continue }
+
+    // scope="row" formatas
+    if (/!\s*scope\s*=\s*['"]row['"]/.test(line)) {
+      const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]|"([^"]+)"/)
+      if (wm) {
+        let title = cleanWikiText(wm[2] || wm[1] || wm[3] || '')
+        // Pašalinti (re-release), (remix) ir pan.
+        title = title.replace(/\s*\(re-?release\)/gi, '').replace(/\s*\(remix\)/gi, '').trim()
+        if (title && title.length > 1) singles.push({ title, year: currentYear })
+      }
+      continue
+    }
+
+    // Year|Song formatas — eilutė su daina
+    if (/^\|/.test(line) && !/^\|\|/.test(line)) {
+      const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
+      if (wm) {
+        let title = cleanWikiText(wm[2] || wm[1])
+        title = title.replace(/\s*\(re-?release\)/gi, '').replace(/\s*\(remix\)/gi, '').trim()
+        // Skip metų eilutes
+        if (title && title.length > 1 && !/^\d{4}/.test(title) && !title.includes('Year')) {
+          singles.push({ title, year: currentYear })
+        }
+      }
+    }
+  }
+
+  // Deduplikuoti
+  const seen = new Set<string>()
+  return singles.filter(s => {
+    const key = s.title.toLowerCase()
+    if (seen.has(key)) return false
+    seen.add(key); return true
+  })
+}
+
 // ─── DB dublikatų tikrinimas ──────────────────────────────────────────────────
 
 async function checkAlbumDuplicates(titles: string[], artistId: number): Promise<Record<string, number>> {
@@ -554,7 +619,7 @@ function titleMatches(result: string, query: string): boolean {
   return words.filter(w => n(result).includes(w)).length >= Math.ceil(words.length * 0.7)
 }
 
-async function enrichTracks(albumId: number | null, tracks: TrackEntry[], artistName: string, addLog: (s: string) => void) {
+async function enrichTracks(albumId: number | null, tracks: TrackEntry[], artistName: string, addLog: (s: string) => void, enrichYoutube = true, enrichLyrics = true) {
   const endpoint = albumId ? `/api/tracks?album_id=${albumId}&limit=200` : null
   if (!endpoint) return
 
@@ -564,34 +629,45 @@ async function enrichTracks(albumId: number | null, tracks: TrackEntry[], artist
   } catch { return }
   if (!dbTracks.length) return
 
-  addLog(`  🎬 ${dbTracks.length} dainų...`)
+  addLog(`  🎬 Pradedu: ${dbTracks.length} dainų...`)
   let ytCount = 0, lyricsCount = 0, done = 0
 
   for (let i = 0; i < dbTracks.length; i += 4) {
     await Promise.all(dbTracks.slice(i, i+4).map(async (t: any) => {
       const updates: Record<string,any> = {}
-      try {
-        const q = `${artistName} ${t.title}`
-        const r = await fetch(`/api/search/youtube?q=${encodeURIComponent(q)}`)
-        if (r.ok) {
-          const d = await r.json()
-          const first = d.results?.[0]
-          if (first && titleMatches(first.title, q)) { updates.youtube_url = `https://www.youtube.com/watch?v=${first.videoId}`; ytCount++ }
-        }
-      } catch {}
-      try {
-        const r = await fetch(`/api/search/lyrics?artist=${encodeURIComponent(artistName)}&title=${encodeURIComponent(t.title)}`)
-        if (r.ok) { const d = await r.json(); if (d.lyrics) { updates.lyrics = d.lyrics; lyricsCount++ } }
-      } catch {}
+      if (enrichYoutube) {
+        try {
+          const q = `${artistName} ${t.title}`
+          const r = await fetch(`/api/search/youtube?q=${encodeURIComponent(q)}`)
+          if (r.ok) {
+            const d = await r.json()
+            if (d.error) { addLog(`  ⚠️ YT klaida: ${d.error.slice(0,60)}`) }
+            const first = d.results?.[0]
+            // video_url — DB stulpelis
+            if (first && titleMatches(first.title, q)) {
+              updates.video_url = `https://www.youtube.com/watch?v=${first.videoId}`
+              ytCount++
+            }
+          }
+        } catch (e: any) { addLog(`  ⚠️ YT: ${e.message}`) }
+      }
+      if (enrichLyrics) {
+        try {
+          const r = await fetch(`/api/search/lyrics?artist=${encodeURIComponent(artistName)}&title=${encodeURIComponent(t.title)}`)
+          if (r.ok) { const d = await r.json(); if (d.lyrics) { updates.lyrics = d.lyrics; lyricsCount++ } }
+        } catch {}
+      }
       if (Object.keys(updates).length) {
-        try { await fetch(`/api/tracks/${t.id}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(updates) }) } catch {}
+        try {
+          await fetch(`/api/tracks/${t.id}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(updates) })
+        } catch {}
       }
       done++
     }))
-    if (done % 8 === 0 || done === dbTracks.length) addLog(`  ⏳ ${done}/${dbTracks.length}...`)
-    await new Promise(r => setTimeout(r, 200))
+    if (done % 4 === 0 || done === dbTracks.length) addLog(`  ⏳ ${done}/${dbTracks.length}...`)
+    await new Promise(r => setTimeout(r, 300))
   }
-  addLog(`  ✅ ${ytCount} YouTube${lyricsCount ? `, ${lyricsCount} žodžių` : ''}`)
+  addLog(`  ✅ Baigta: ${ytCount} YouTube nuorodų, ${lyricsCount} žodžių`)
 }
 
 // ─── Pagrindinis komponentas ──────────────────────────────────────────────────
@@ -608,7 +684,8 @@ type Props = {
 
 // Tipų grupavimas UI
 const TYPE_GROUPS = [
-  { label: '🎵 Studijiniai albumai ir EP', types: ['studio', 'ep'] as AlbumType[], autoSelect: true },
+  { label: '🎵 Studijiniai albumai', types: ['studio'] as AlbumType[], autoSelect: true },
+  { label: '🎼 EP', types: ['ep'] as AlbumType[], autoSelect: true },
   { label: '🎤 Singlai (atskiros dainos)', types: ['single'] as AlbumType[], autoSelect: false, collapsible: true },
   { label: '📦 Kompiliacijos / Live / Kiti', types: ['compilation', 'live', 'other'] as AlbumType[], autoSelect: false, collapsible: true },
 ]
@@ -624,9 +701,10 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
   const [importing, setImporting] = useState(false)
   const [artistGroups, setArtistGroups] = useState<string[]>([])
   const [enrichYoutube, setEnrichYoutube] = useState(true)
+  const pendingSinglesRef = useRef<{title:string;year:number|null}[]>([])
   const [mbLoading, setMbLoading] = useState(false)
   const [enrichLyrics, setEnrichLyrics] = useState(true)
-  const [typeFilter, setTypeFilter] = useState<AlbumType | 'all'>('all')
+  const [typeFilter, setTypeFilter] = useState<AlbumType | 'all'>('studio')
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
     new Set(['🎤 Singlai (atskiros dainos)', '📦 Kompiliacijos / Live / Kiti'])
   )
@@ -671,6 +749,14 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       if (wikiFound.length) {
         found = wikiFound.map(a => ({ ...a, source: 'wikipedia' as const }))
         addLog(`✅ Wikipedia: ${found.length} albumų`)
+      }
+
+      // Surinkti singlus iš diskografijos puslapio ir žymėti albumų dainas
+      const wikiSingles = parseSinglesFromDiscographyPage(mainWikitext || '')
+      if (wikiSingles.length) {
+        addLog(`🎤 Rasta ${wikiSingles.length} singlų — žymėsim dainas albumuose`)
+        // Išsaugoti singlų sąrašą state'e (panaudosim importo metu)
+        pendingSinglesRef.current = wikiSingles
       }
     }
 
@@ -926,8 +1012,25 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
           const albumId = newAlbum.id || newAlbum.album?.id
           addLog(`✅ ${item.title} (${item.tracks?.length || 0} dainų)`)
           okAlbums++
+          // Žymėti dainas singlu jei yra singlų sąraše
+          if (albumId && pendingSinglesRef.current.length > 0) {
+            const singleTitles = new Set(pendingSinglesRef.current.map(s => s.title.toLowerCase()))
+            const r2 = await fetch(`/api/tracks?album_id=${albumId}&limit=200`)
+            if (r2.ok) {
+              const d2 = await r2.json()
+              for (const t of (d2.tracks || [])) {
+                if (singleTitles.has(t.title.toLowerCase())) {
+                  await fetch(`/api/tracks/${t.id}`, {
+                    method: 'PATCH',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ is_single: true })
+                  }).catch(() => {})
+                }
+              }
+            }
+          }
           if (albumId && (enrichYoutube || enrichLyrics) && item.tracks?.length) {
-            await enrichTracks(albumId, item.tracks, artistName, addLog)
+            await enrichTracks(albumId, item.tracks, artistName, addLog, enrichYoutube, enrichLyrics)
           }
         }
         setItems(p => p.map((it, i) => i === idx ? { ...it, importing: false, imported: true } : it))
@@ -938,6 +1041,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       await new Promise(r => setTimeout(r, 200))
     }
     setImporting(false)
+    pendingSinglesRef.current = []
     addLog(`🏁 ${okAlbums} albumų, ${okTracks} naujų dainų, ${updatedTracks} pažymėta singlu${fail ? `, ${fail} klaida` : ''}`)
   }
 
@@ -991,7 +1095,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                 <input value={wikiUrl} onChange={e => setWikiUrl(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && !loading && search()}
                   placeholder="Wikipedia URL (nebūtina — ieško automatiškai)"
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:border-purple-400 placeholder:text-gray-400" />
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:border-purple-400 placeholder:text-gray-400 bg-white text-gray-900" />
                 <button onClick={() => search()} disabled={loading}
                   className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-medium disabled:opacity-50 transition-colors whitespace-nowrap">
                   {loading ? '⏳' : '🔍 Ieškoti'}
