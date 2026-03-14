@@ -187,12 +187,19 @@ function parseMainPageDiscography(wikitext: string, soloOnly = false, groupFilte
         }
         if (depth === 3 || depth === 4) {
           const typeH = h.replace(/\[\[.*?\]\]/g, '')
+          // Tik aiškūs tipo headeriai keičia currentType
+          // "Solo", "As lead artist" ir pan. → studijinis (default)
           if (typeH.includes('studio') || typeH.includes('album')) currentType = 'studio'
           else if (typeH.includes(' ep') || typeH === 'eps') currentType = 'ep'
-          else if (typeH.includes('single')) currentType = 'single'
-          else if (typeH.includes('compilation') || typeH.includes('greatest')) currentType = 'compilation'
+          else if (typeH.includes('single')) { currentType = 'single'; skipGroup = true }
+          else if (typeH.includes('compilation') || typeH.includes('greatest') || typeH.includes('best of')) currentType = 'compilation'
           else if (typeH.includes('live') || typeH.includes('concert')) currentType = 'live'
-          else currentType = 'other'
+          else if (typeH.includes('box') || typeH.includes('video') || typeH.includes('dvd')) { skipGroup = true }
+          // "Solo", "With X", "As lead" → reset į studio (pagrindinė sekcija)
+          else if (/solo|as lead|as artist|as performer/i.test(typeH)) currentType = 'studio'
+          // Dešimtmečiai (1990s etc) — nekeičia tipo
+          else if (/^\d{4}s?$/.test(typeH.trim())) { /* nekeičia */ }
+          // Kiti neaiškūs headeriai — nekeičia tipo
         }
       }
       continue
@@ -617,10 +624,13 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
     const mainWikitext = await fetchWikitext(wikiBase)
     if (mainWikitext) {
       const groups = hasMultipleArtistSections(mainWikitext)
+      // Jei isSolo — automatiškai filtruojame solo sekciją, be klausimo
       if (groups.length > 1 && !groupFilter && !isSolo) {
         setArtistGroups(groups); setLoading(false); return
       }
-      let wikiFound = parseMainPageDiscography(mainWikitext, isSolo || groupFilter === '__solo__', groupFilter)
+      // Solo atlikėjams automatiškai naudojame solo filtrą
+      const effectiveFilter = isSolo && !groupFilter ? '__solo__' : groupFilter
+      let wikiFound = parseMainPageDiscography(mainWikitext, isSolo, effectiveFilter)
       if (!wikiFound.length) {
         // Bandome _discography puslapį
         const discTitle = wikiBase.replace(/_discography$/i, '') + '_discography'
