@@ -470,6 +470,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
   const [step, setStep] = useState('')
   const [error, setError] = useState('')
   const [preview, setPreview] = useState<Partial<ArtistFormData> | null>(null)
+  const [similarArtists, setSimilarArtists] = useState<{id:string;name:string;slug:string;type:string;country:string;cover_image_url:string|null}[]>([])
   const [translateOk, setTranslateOk] = useState(false)
   const [members, setMembers] = useState<BandMember[]>([])
   const [membersLoading, setMembersLoading] = useState(false)
@@ -487,6 +488,15 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
   const MUSIC_RE = /\b(band|musician|singer|rapper|artist|group|duo|trio|record|album|guitarist|drummer|bassist|vocalist|DJ|producer|songwriter|rock|pop|hip.hop|jazz|metal|punk|electronic|music)/i
   const ALBUM_RE = /\b(album|discography|soundtrack|compilation|EP|LP|single|filmography|disambiguation)/i
   const PERSON_BAND_RE = /\b(band|artist|singer|rapper|musician|group|duo|trio|vocalist|guitarist|drummer|DJ|producer|songwriter)/i
+
+  const checkDuplicates = async (name: string) => {
+    if (!name?.trim()) { setSimilarArtists([]); return }
+    try {
+      const res = await fetch(`/api/artists?check=${encodeURIComponent(name.trim())}`)
+      const data = await res.json()
+      setSimilarArtists(Array.isArray(data) ? data : [])
+    } catch { setSimilarArtists([]) }
+  }
 
   const fetchYt = (q: string) => {
     if (!q.trim()) return
@@ -581,6 +591,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
         facebook2: '', spotify: '', soundcloud: '', tiktok: '', bandcamp: '',
         born: '', died: '', activeFrom: '', activeTo: '', breaks: [],
       } as any)
+      checkDuplicates(ytData.name || title)
       return
     }
     if (source === 'youtube') {
@@ -862,6 +873,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
         setMembersLoading(false)
       }
 
+      await checkDuplicates(cleanName)
       setStep('')
     }catch(e:any){setError(e.message||'Klaida');setStep('')}
     setLoading(false)
@@ -910,7 +922,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
       tiktok: g.tiktok || '', bandcamp: g.bandcamp || '',
     }))
     onImport({ ...preview, members: memberList as any, groups: groupList as any })
-    setPreview(null); setUrl(''); setMembers([])
+    setPreview(null); setUrl(''); setMembers([]); setSimilarArtists([])
   }
 
   const p = preview
@@ -1068,14 +1080,27 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
                 {p.yearStart ? ` · ${p.yearStart}${p.yearEnd ? `–${p.yearEnd}` : '–dabar'}` : ''}
               </span>
             </div>
-            <button
-              type="button"
-              onClick={handleApply}
-              disabled={membersLoading}
-              className="shrink-0 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
-            >
-              {membersLoading ? '⏳' : '✓ Importuoti'}
-            </button>
+            <div className="flex flex-col items-end gap-1">
+              {similarArtists.length > 0 && (
+                <div className="text-right">
+                  <p className="text-[11px] font-semibold text-amber-600">⚠️ Panašūs jau yra:</p>
+                  {similarArtists.map(d => (
+                    <a key={d.id} href={`/admin/artists/${d.id}`} target="_blank" rel="noreferrer"
+                      className="block text-[11px] text-amber-700 hover:text-blue-600 hover:underline">
+                      {d.name} ({d.type === 'group' ? 'Grupė' : 'Solo'})
+                    </a>
+                  ))}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={handleApply}
+                disabled={membersLoading}
+                className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 text-white ${similarArtists.length > 0 ? 'bg-amber-500 hover:bg-amber-600' : 'bg-green-500 hover:bg-green-600'}`}
+              >
+                {membersLoading ? '⏳' : similarArtists.length > 0 ? '⚠️ Vis tiek importuoti' : '✓ Importuoti'}
+              </button>
+            </div>
           </div>
 
           {/* Details */}
