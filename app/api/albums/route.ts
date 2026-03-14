@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAlbums, createAlbum } from '@/lib/supabase-albums'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { createAdminClient } from '@/lib/supabase'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -9,6 +10,26 @@ export async function GET(req: NextRequest) {
   const limit = parseInt(searchParams.get('limit') || '50')
   const offset = parseInt(searchParams.get('offset') || '0')
   const search = searchParams.get('search') || ''
+
+  // ── Dublikatų tikrinimas: ?check_titles=[...]&artist_id=123 ────────────────
+  const checkTitles = searchParams.get('check_titles')
+  if (checkTitles && artistId) {
+    try {
+      const titles: string[] = JSON.parse(checkTitles)
+      const supabase = createAdminClient()
+      const { data } = await supabase
+        .from('albums')
+        .select('id, title')
+        .eq('artist_id', parseInt(artistId))
+        .in('title', titles)
+      const found: Record<string, number> = {}
+      for (const row of data || []) found[row.title.toLowerCase()] = row.id
+      return NextResponse.json({ found })
+    } catch {
+      return NextResponse.json({ found: {} })
+    }
+  }
+
   try {
     const result = await getAlbums(artistId ? parseInt(artistId) : undefined, limit, offset, search)
     return NextResponse.json(result)
