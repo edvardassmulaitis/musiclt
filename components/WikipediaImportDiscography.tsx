@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 
 // ─── Tipai ───────────────────────────────────────────────────────────────────
 
@@ -23,8 +23,6 @@ type DiscographyItem = {
   duplicate?: boolean
   duplicateId?: number
   error?: string
-  // Singlams
-  isSingleItem?: boolean  // true = importuoti kaip atskiras dainas, ne albumą
 }
 
 type TrackEntry = {
@@ -34,9 +32,24 @@ type TrackEntry = {
   is_single?: boolean
   featuring?: string[]
   disc_number?: number
-  // Po dublikatų tikrinimo
-  existingTrackId?: number  // jau yra DB — tik update is_single
-  willCreate?: boolean      // nauja daina
+  existingTrackId?: number
+  willCreate?: boolean
+}
+
+// Singlas kaip atskira daina (ne albumas)
+type SingleSongItem = {
+  title: string
+  year: number | null
+  month: number | null
+  day: number | null
+  albumTitle?: string
+  source: 'wikipedia' | 'musicbrainz'
+  importing?: boolean
+  imported?: boolean
+  duplicate?: boolean
+  duplicateId?: number
+  error?: string
+  selected: boolean
 }
 
 // ─── Konstantos ──────────────────────────────────────────────────────────────
@@ -46,7 +59,6 @@ const TYPE_LABELS: Record<AlbumType, string> = {
   compilation: '📀 Kompiliacija', live: '🎸 Gyvas', other: '📦 Kitas',
 }
 
-// Automatiškai pasirinkti šiuos tipus
 const AUTO_SELECT_TYPES: AlbumType[] = ['studio', 'ep']
 
 // ─── Wikipedia utils ──────────────────────────────────────────────────────────
@@ -149,7 +161,7 @@ function parseFeaturing(raw: string): { cleanTitle: string; featuring: string[] 
   return { cleanTitle, featuring }
 }
 
-// ─── Wikipedia parsers ────────────────────────────────────────────────────────
+// ─── Wikipedia album parsers ──────────────────────────────────────────────────
 
 function hasMultipleArtistSections(wikitext: string): string[] {
   const groups: string[] = []
@@ -187,19 +199,14 @@ function parseMainPageDiscography(wikitext: string, soloOnly = false, groupFilte
         }
         if (depth === 3 || depth === 4) {
           const typeH = h.replace(/\[\[.*?\]\]/g, '')
-          // Tik aiškūs tipo headeriai keičia currentType
-          // "Solo", "As lead artist" ir pan. → studijinis (default)
           if (typeH.includes('studio') || typeH.includes('album')) currentType = 'studio'
           else if (typeH.includes(' ep') || typeH === 'eps') currentType = 'ep'
           else if (typeH.includes('single')) { currentType = 'single'; skipGroup = true }
           else if (typeH.includes('compilation') || typeH.includes('greatest') || typeH.includes('best of')) currentType = 'compilation'
           else if (typeH.includes('live') || typeH.includes('concert')) currentType = 'live'
           else if (typeH.includes('box') || typeH.includes('video') || typeH.includes('dvd')) { skipGroup = true }
-          // "Solo", "With X", "As lead" → reset į studio (pagrindinė sekcija)
           else if (/solo|as lead|as artist|as performer/i.test(typeH)) currentType = 'studio'
-          // Dešimtmečiai (1990s etc) — nekeičia tipo
           else if (/^\d{4}s?$/.test(typeH.trim())) { /* nekeičia */ }
-          // Kiti neaiškūs headeriai — nekeičia tipo
         }
       }
       continue
@@ -227,7 +234,7 @@ function parseDiscographyPage(wikitext: string): DiscographyItem[] {
   let inTable = false
   let skipSection = false
   let inSinglesSection = false
-  let yearMode = false  // lentelė su Year|Title formatu (Freddie Mercury stilius)
+  let yearMode = false
 
   for (const line of lines) {
     const hm = line.match(/^(==+)\s*(.+?)\s*\1/)
@@ -235,17 +242,12 @@ function parseDiscographyPage(wikitext: string): DiscographyItem[] {
       const depth = hm[1].length
       const h = hm[2].toLowerCase()
 
-      if (depth === 2 && /single|chart|collaborat|video|promo|appear|box.?set/.test(h)) {
-        inSinglesSection = true
-      }
-      if (depth === 2 && /^album/.test(h)) {
-        inSinglesSection = false
-      }
+      if (depth === 2 && /single|chart|collaborat|video|promo|appear|box.?set/.test(h)) inSinglesSection = true
+      if (depth === 2 && /^album/.test(h)) inSinglesSection = false
 
       skipSection = /video|dvd|film|promo|tour|guest|appear|certif|box.?set|music.video/.test(h)
 
       if (h.includes('studio')) { currentType = 'studio'; skipSection = false }
-      // "Collaborative album" = studijinis (pvz. Barcelona su Caballé)
       else if (h.includes('collaborative') || h.includes('collaboration')) { currentType = 'studio'; skipSection = false }
       else if (h.includes('extended play') || h.includes(' ep') || h === 'eps') { currentType = 'ep'; skipSection = false }
       else if (h.includes('single')) { currentType = 'single'; skipSection = true; inSinglesSection = true }
@@ -264,10 +266,8 @@ function parseDiscographyPage(wikitext: string): DiscographyItem[] {
     if (line.startsWith('|}')) { inTable = false; yearMode = false; continue }
     if (!inTable) continue
 
-    // Detektuoti Year|Title lentelę (Freddie Mercury, kai kurie kiti atlikėjai)
     if (/!.*rowspan.*Year|!rowspan.*Year/i.test(line)) { yearMode = true; continue }
 
-    // Formatas 1: ! scope="row" — Queen, dauguma atlikėjų
     if (/!\s*scope\s*=\s*['"]row['"]/i.test(line)) {
       const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
       if (!wm) continue
@@ -281,20 +281,16 @@ function parseDiscographyPage(wikitext: string): DiscographyItem[] {
       continue
     }
 
-    // Formatas 2: Year|Title lentelė — |''[[Title]]'' arba |''Title''
     if (yearMode && /^\|/.test(line) && !/^\|\|/.test(line)) {
-      // Wiki link
       const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
       if (wm) {
         const wikiTitle = wm[1].trim()
         const title = cleanWikiText(wm[2] || wm[1])
-        // Skip metų eilutes ir tuščias
         if (title && title.length > 2 && !wikiTitle.includes(':') && !/^\d{4}/.test(title)) {
           const yr = line.match(/\b(19|20)\d{2}\b/)
           albums.push({ title, year: yr ? parseInt(yr[0]) : null, month: null, day: null, type: currentType, wikiTitle, source: 'wikipedia' })
         }
       } else {
-        // ''Plain title'' be link
         const pm = line.match(/''([^']+)''/)
         if (pm) {
           const title = cleanWikiText(pm[1])
@@ -306,6 +302,134 @@ function parseDiscographyPage(wikitext: string): DiscographyItem[] {
     }
   }
   return albums
+}
+
+// ─── Singlų parsavimas iš Wikipedia ──────────────────────────────────────────
+
+function parseSinglesSection(wikitext: string): SingleSongItem[] {
+  const singles: SingleSongItem[] = []
+  const lines = wikitext.split('\n')
+  let inSingles = false
+  let inTable = false
+  let currentYear: number | null = null
+  let hasYearColumn = false
+
+  for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+    const line = lines[lineIdx]
+
+    const hm = line.match(/^(==+)\s*(.+?)\s*\1/)
+    if (hm) {
+      const depth = hm[1].length
+      const h = hm[2].toLowerCase()
+      if (h.includes('single')) {
+        inSingles = true
+        hasYearColumn = false
+        currentYear = null
+        continue
+      }
+      if (depth === 2 && inSingles) {
+        inSingles = false
+        inTable = false
+      }
+      continue
+    }
+
+    if (!inSingles) continue
+    if (line.startsWith('{|')) { inTable = true; hasYearColumn = false; continue }
+    if (line.startsWith('|}')) { inTable = false; continue }
+    if (!inTable) continue
+
+    // Detektuoti Year stulpelį
+    if (/!\s*(?:rowspan|colspan)?[^!\n]*Year/i.test(line)) {
+      hasYearColumn = true
+      continue
+    }
+    // Skip header eilutes
+    if (line.startsWith('!') && !/scope\s*=\s*['"]row['"]/i.test(line)) continue
+    // Skip eilutė |- (row separator)
+    if (line.trim() === '|-') continue
+
+    // Metai kaip atskira eilutė (tik skaičius su galimu rowspan)
+    const yearOnlyM = line.match(/^\|(?:align="[^"]*"\s*\|)?(?:rowspan=\d+\|)?((?:19|20)\d{2})\s*$/)
+    if (yearOnlyM) {
+      currentYear = parseInt(yearOnlyM[1])
+      continue
+    }
+
+    // scope="row" formatas — daina
+    if (/!\s*scope\s*=\s*['"]row['"]/i.test(line)) {
+      const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
+      let title = ''
+      if (wm) {
+        title = cleanWikiText(wm[2] || wm[1])
+      } else {
+        const qm = line.match(/"([^"]+)"/)
+        if (qm) title = qm[1].trim()
+        else { const pm = line.match(/'{2,3}([^']+)'{2,3}/); if (pm) title = cleanWikiText(pm[1]) }
+      }
+
+      // Ieškoti albumo iš vėlesnių eilučių (paskutinis stulpelis paprastai yra albumas)
+      let albumTitle: string | undefined
+      for (let k = lineIdx + 1; k < Math.min(lineIdx + 20, lines.length); k++) {
+        const nl = lines[k]
+        if (nl.trim() === '|-' || /!\s*scope\s*=\s*['"]row['"]/i.test(nl)) break
+        if (/^\|/.test(nl) && !/^\|\|/.test(nl)) {
+          const alm = nl.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
+          if (alm) {
+            const possible = cleanWikiText(alm[2] || alm[1])
+            if (possible && !/^\d+$/.test(possible) && possible.length > 2 && possible !== title) {
+              // Tikrinti ar tai albumas (ne chart position)
+              if (!/^[-–—]$/.test(possible)) {
+                albumTitle = possible
+              }
+            }
+          } else if (/Non-album/i.test(nl)) {
+            albumTitle = 'Non-album single'
+          }
+        }
+      }
+
+      title = title.replace(/\s*[\[(](?:re-?release|remix|re-?issue)[)\]]/gi, '').trim()
+      if (title && title.length > 1) {
+        singles.push({ title, year: currentYear, month: null, day: null, albumTitle, source: 'wikipedia', selected: true })
+      }
+      continue
+    }
+
+    // Year|Song formatas
+    if (hasYearColumn && line.startsWith('|') && !line.startsWith('||')) {
+      const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
+      if (wm) {
+        let title = cleanWikiText(wm[2] || wm[1])
+        title = title.replace(/\s*[\[(](?:re-?release|remix|re-?issue)[)\]]/gi, '').trim()
+        if (title && title.length > 1 && !/^\d{4}/.test(title) && !/^\d+$/.test(title)) {
+          // Albumas iš paskutinio "|" segmento eilutėje
+          let albumTitle: string | undefined
+          const parts = line.split('|')
+          const lastPart = parts[parts.length - 1]
+          if (/Non-album/i.test(lastPart)) {
+            albumTitle = 'Non-album single'
+          } else {
+            const alm = lastPart.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
+            if (alm) {
+              const possible = cleanWikiText(alm[2] || alm[1])
+              if (possible && !/^\d+$/.test(possible) && possible !== title) albumTitle = possible
+            }
+          }
+          singles.push({ title, year: currentYear, month: null, day: null, albumTitle, source: 'wikipedia', selected: true })
+        }
+      }
+    }
+  }
+
+  // Deduplikuoti — palikti pirmą (ankstesni metai)
+  const seen = new Set<string>()
+  return singles.filter(s => {
+    const key = s.title.toLowerCase().replace(/\s*\(.*?\)\s*$/, '').trim()
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 }
 
 // ─── Track parsing ────────────────────────────────────────────────────────────
@@ -462,7 +586,6 @@ async function mbFetchDiscography(artistId: string): Promise<DiscographyItem[]> 
   const items: DiscographyItem[] = []
   let offset = 0
   const limit = 100
-
   while (true) {
     const res = await fetch(
       `/api/mb-proxy?path=${encodeURIComponent(`release-group?artist=${artistId}&limit=${limit}&offset=${offset}&fmt=json`)}`
@@ -471,9 +594,9 @@ async function mbFetchDiscography(artistId: string): Promise<DiscographyItem[]> 
     const data = await res.json()
     const rgs = data['release-groups'] || []
     if (!rgs.length) break
-
     for (const rg of rgs) {
       const type = mbTypeToLocal(rg['primary-type'], rg['secondary-types'])
+      if (type === 'single') continue // Singlai bus Songs tabe
       const dateStr: string = rg['first-release-date'] || ''
       const parts = dateStr.split('-')
       items.push({
@@ -481,18 +604,44 @@ async function mbFetchDiscography(artistId: string): Promise<DiscographyItem[]> 
         year: parts[0] ? parseInt(parts[0]) : null,
         month: parts[1] ? parseInt(parts[1]) : null,
         day: parts[2] ? parseInt(parts[2]) : null,
-        type,
-        mbId: rg.id,
-        source: 'musicbrainz',
-        isSingleItem: type === 'single',
+        type, mbId: rg.id, source: 'musicbrainz',
       })
     }
-
     if (offset + limit >= (data['release-group-count'] || 0)) break
     offset += limit
     await new Promise(r => setTimeout(r, 300))
   }
+  return items.sort((a, b) => (a.year || 9999) - (b.year || 9999))
+}
 
+async function mbFetchSingles(artistId: string): Promise<SingleSongItem[]> {
+  const items: SingleSongItem[] = []
+  let offset = 0
+  const limit = 100
+  while (true) {
+    const res = await fetch(
+      `/api/mb-proxy?path=${encodeURIComponent(`release-group?artist=${artistId}&type=single&limit=${limit}&offset=${offset}&fmt=json`)}`
+    )
+    if (!res.ok) break
+    const data = await res.json()
+    const rgs = data['release-groups'] || []
+    if (!rgs.length) break
+    for (const rg of rgs) {
+      const dateStr: string = rg['first-release-date'] || ''
+      const parts = dateStr.split('-')
+      items.push({
+        title: rg.title,
+        year: parts[0] ? parseInt(parts[0]) : null,
+        month: parts[1] ? parseInt(parts[1]) : null,
+        day: parts[2] ? parseInt(parts[2]) : null,
+        source: 'musicbrainz',
+        selected: true,
+      })
+    }
+    if (offset + limit >= (data['release-group-count'] || 0)) break
+    offset += limit
+    await new Promise(r => setTimeout(r, 300))
+  }
   return items.sort((a, b) => (a.year || 9999) - (b.year || 9999))
 }
 
@@ -505,7 +654,6 @@ async function mbFetchTracks(releaseGroupId: string): Promise<{ tracks: TrackEnt
     const data = await res.json()
     const release = data.releases?.[0]
     if (!release) return { tracks: [], cover: '' }
-
     const tracks: TrackEntry[] = []
     let order = 1
     for (const medium of release.media || []) {
@@ -515,86 +663,19 @@ async function mbFetchTracks(releaseGroupId: string): Promise<{ tracks: TrackEnt
         tracks.push({ title: track.title || track.recording?.title || '', duration, sort_order: order++, disc_number: medium.position || 1 })
       }
     }
-
-    // Viršelis iš Cover Art Archive
     let cover = ''
     try {
       const cr = await fetch(`https://coverartarchive.org/release-group/${releaseGroupId}/front-500`, { redirect: 'follow' })
       if (cr.ok) cover = cr.url
     } catch {}
-
     return { tracks, cover }
   } catch { return { tracks: [], cover: '' } }
-}
-
-// ─── Singlų parsavimas iš diskografijos puslapio ─────────────────────────────
-
-function parseSinglesFromDiscographyPage(wikitext: string): { title: string; year: number | null }[] {
-  const singles: { title: string; year: number | null }[] = []
-  const lines = wikitext.split('\n')
-  let inSingles = false
-  let inTable = false
-  let currentYear: number | null = null
-
-  for (const line of lines) {
-    const hm = line.match(/^(==+)\s*(.+?)\s*\1/)
-    if (hm) {
-      const h = hm[2].toLowerCase()
-      const depth = hm[1].length
-      if (h.includes('single')) { inSingles = true; continue }
-      // Baigiasi singlų sekcija
-      if (depth === 2 && inSingles && !h.includes('single') && !h.includes('promo') && !h.includes('chart')) {
-        inSingles = false
-      }
-      continue
-    }
-    if (!inSingles) continue
-    if (line.startsWith('{|')) { inTable = true; continue }
-    if (line.startsWith('|}')) { inTable = false; continue }
-    if (!inTable) continue
-
-    // Metai iš pirmojo stulpelio
-    const yearMatch = line.match(/^\|(?:align="center"\|)?(?:rowspan=\d+\|)?((?:19|20)\d{2})/)
-    if (yearMatch) { currentYear = parseInt(yearMatch[1]); continue }
-
-    // scope="row" formatas
-    if (/!\s*scope\s*=\s*['"]row['"]/.test(line)) {
-      const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]|"([^"]+)"/)
-      if (wm) {
-        let title = cleanWikiText(wm[2] || wm[1] || wm[3] || '')
-        // Pašalinti (re-release), (remix) ir pan.
-        title = title.replace(/\s*\(re-?release\)/gi, '').replace(/\s*\(remix\)/gi, '').trim()
-        if (title && title.length > 1) singles.push({ title, year: currentYear })
-      }
-      continue
-    }
-
-    // Year|Song formatas — eilutė su daina
-    if (/^\|/.test(line) && !/^\|\|/.test(line)) {
-      const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
-      if (wm) {
-        let title = cleanWikiText(wm[2] || wm[1])
-        title = title.replace(/\s*\(re-?release\)/gi, '').replace(/\s*\(remix\)/gi, '').trim()
-        // Skip metų eilutes
-        if (title && title.length > 1 && !/^\d{4}/.test(title) && !title.includes('Year')) {
-          singles.push({ title, year: currentYear })
-        }
-      }
-    }
-  }
-
-  // Deduplikuoti
-  const seen = new Set<string>()
-  return singles.filter(s => {
-    const key = s.title.toLowerCase()
-    if (seen.has(key)) return false
-    seen.add(key); return true
-  })
 }
 
 // ─── DB dublikatų tikrinimas ──────────────────────────────────────────────────
 
 async function checkAlbumDuplicates(titles: string[], artistId: number): Promise<Record<string, number>> {
+  if (!titles.length) return {}
   try {
     const res = await fetch(`/api/albums?artist_id=${artistId}&check_titles=${encodeURIComponent(JSON.stringify(titles))}`)
     if (!res.ok) return {}
@@ -603,7 +684,7 @@ async function checkAlbumDuplicates(titles: string[], artistId: number): Promise
 }
 
 async function checkTrackDuplicates(titles: string[], artistId: number): Promise<Record<string, number>> {
-  // Grąžina { 'daina lowercase': trackId }
+  if (!titles.length) return {}
   try {
     const res = await fetch(`/api/tracks?artist_id=${artistId}&check_titles=${encodeURIComponent(JSON.stringify(titles))}`)
     if (!res.ok) return {}
@@ -619,17 +700,20 @@ function titleMatches(result: string, query: string): boolean {
   return words.filter(w => n(result).includes(w)).length >= Math.ceil(words.length * 0.7)
 }
 
-async function enrichTracks(albumId: number | null, tracks: TrackEntry[], artistName: string, addLog: (s: string) => void, enrichYoutube = true, enrichLyrics = true) {
-  const endpoint = albumId ? `/api/tracks?album_id=${albumId}&limit=200` : null
-  if (!endpoint) return
-
+async function enrichTracks(
+  albumId: number,
+  artistName: string,
+  addLog: (s: string) => void,
+  enrichYoutube = true,
+  enrichLyrics = true
+) {
   let dbTracks: any[] = []
   try {
-    dbTracks = (await (await fetch(endpoint)).json()).tracks || []
+    dbTracks = (await (await fetch(`/api/tracks?album_id=${albumId}&limit=200`)).json()).tracks || []
   } catch { return }
   if (!dbTracks.length) return
 
-  addLog(`  🎬 Pradedu: ${dbTracks.length} dainų...`)
+  addLog(`  🎬 ${dbTracks.length} dainų...`)
   let ytCount = 0, lyricsCount = 0, done = 0
 
   for (let i = 0; i < dbTracks.length; i += 4) {
@@ -641,15 +725,14 @@ async function enrichTracks(albumId: number | null, tracks: TrackEntry[], artist
           const r = await fetch(`/api/search/youtube?q=${encodeURIComponent(q)}`)
           if (r.ok) {
             const d = await r.json()
-            if (d.error) { addLog(`  ⚠️ YT klaida: ${d.error.slice(0,60)}`) }
+            if (d.error) addLog(`  ⚠️ YT: ${d.error.slice(0,50)}`)
             const first = d.results?.[0]
-            // video_url — DB stulpelis
             if (first && titleMatches(first.title, q)) {
               updates.video_url = `https://www.youtube.com/watch?v=${first.videoId}`
               ytCount++
             }
           }
-        } catch (e: any) { addLog(`  ⚠️ YT: ${e.message}`) }
+        } catch {}
       }
       if (enrichLyrics) {
         try {
@@ -664,13 +747,13 @@ async function enrichTracks(albumId: number | null, tracks: TrackEntry[], artist
       }
       done++
     }))
-    if (done % 4 === 0 || done === dbTracks.length) addLog(`  ⏳ ${done}/${dbTracks.length}...`)
+    if (done % 4 === 0 || done === dbTracks.length) addLog(`  ⏳ ${done}/${dbTracks.length}`)
     await new Promise(r => setTimeout(r, 300))
   }
-  addLog(`  ✅ Baigta: ${ytCount} YouTube nuorodų, ${lyricsCount} žodžių`)
+  addLog(`  ✅ ${ytCount} YT, ${lyricsCount} žodžiai`)
 }
 
-// ─── Pagrindinis komponentas ──────────────────────────────────────────────────
+// ─── Props ────────────────────────────────────────────────────────────────────
 
 type Props = {
   artistId: number
@@ -682,134 +765,149 @@ type Props = {
   buttonLabel?: string
 }
 
-// Tipų grupavimas UI
-const TYPE_GROUPS = [
+// ─── Pagrindinis komponentas ──────────────────────────────────────────────────
+
+const ALBUM_TYPE_GROUPS = [
   { label: '🎵 Studijiniai albumai', types: ['studio'] as AlbumType[], autoSelect: true },
   { label: '🎼 EP', types: ['ep'] as AlbumType[], autoSelect: true },
-  { label: '🎤 Singlai (atskiros dainos)', types: ['single'] as AlbumType[], autoSelect: false, collapsible: true },
   { label: '📦 Kompiliacijos / Live / Kiti', types: ['compilation', 'live', 'other'] as AlbumType[], autoSelect: false, collapsible: true },
 ]
 
-export default function WikipediaImportDiscography({ artistId, artistName, artistWikiTitle, isSolo, onClose, buttonClassName, buttonLabel }: Props) {
+type ActiveTab = 'albums' | 'songs'
+
+export default function WikipediaImportDiscography({
+  artistId, artistName, artistWikiTitle, isSolo, onClose, buttonClassName, buttonLabel
+}: Props) {
   const [open, setOpen] = useState(false)
   const [wikiUrl, setWikiUrl] = useState(artistWikiTitle ? `https://en.wikipedia.org/wiki/${artistWikiTitle}` : '')
   const [searched, setSearched] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [activeTab, setActiveTab] = useState<ActiveTab>('albums')
+
+  // Albumai
   const [items, setItems] = useState<DiscographyItem[]>([])
   const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [artistGroups, setArtistGroups] = useState<string[]>([])
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
+    new Set(['📦 Kompiliacijos / Live / Kiti'])
+  )
+
+  // Dainos
+  const [songs, setSongs] = useState<SingleSongItem[]>([])
+
+  // Bendri
   const [log, setLog] = useState<string[]>([])
   const [importing, setImporting] = useState(false)
-  const [artistGroups, setArtistGroups] = useState<string[]>([])
   const [enrichYoutube, setEnrichYoutube] = useState(true)
-  const pendingSinglesRef = useRef<{title:string;year:number|null}[]>([])
-  const [mbLoading, setMbLoading] = useState(false)
   const [enrichLyrics, setEnrichLyrics] = useState(true)
-  const [typeFilter, setTypeFilter] = useState<AlbumType | 'all'>('studio')
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
-    new Set(['🎤 Singlai (atskiros dainos)', '📦 Kompiliacijos / Live / Kiti'])
-  )
+  const [mbLoading, setMbLoading] = useState(false)
+  const logRef = useRef<HTMLDivElement>(null)
+
+  const addLog = (msg: string) => setLog(p => [...p, msg])
+
+  useEffect(() => {
+    if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight
+  }, [log])
+
   const toggleGroup = (label: string) => setCollapsedGroups(p => {
     const s = new Set(p); s.has(label) ? s.delete(label) : s.add(label); return s
   })
 
-  const addLog = (msg: string) => setLog(p => [...p, msg])
-
   // ── Paieška ────────────────────────────────────────────────────────────────
 
   const search = async (groupFilter?: string) => {
-    setLoading(true); setItems([]); setLog([]); setSelected(new Set())
-    addLog(`🔍 Ieškoma: ${artistName}...`)
-    let found: DiscographyItem[] = []
+    setLoading(true); setItems([]); setSongs([]); setLog([]); setSelected(new Set())
+    addLog(`🔍 ${artistName}...`)
 
-    // 1. Wikipedia pirma — greita, patikima, veikia kaip anksčiau
-    const wikiBase = wikiUrl.trim()
-      ? extractWikiTitle(wikiUrl)
-      : artistName.replace(/ /g, '_')
-
-    addLog(`📖 Wikipedia: ${wikiBase}...`)
+    const wikiBase = wikiUrl.trim() ? extractWikiTitle(wikiUrl) : artistName.replace(/ /g, '_')
+    addLog(`📖 Wikipedia: ${wikiBase}`)
     const mainWikitext = await fetchWikitext(wikiBase)
+
+    let foundAlbums: DiscographyItem[] = []
+    let foundSongs: SingleSongItem[] = []
+
     if (mainWikitext) {
       const groups = hasMultipleArtistSections(mainWikitext)
-      // Jei isSolo — automatiškai filtruojame solo sekciją, be klausimo
       if (groups.length > 1 && !groupFilter && !isSolo) {
         setArtistGroups(groups); setLoading(false); return
       }
-      // Solo atlikėjams automatiškai naudojame solo filtrą
       const effectiveFilter = isSolo && !groupFilter ? '__solo__' : groupFilter
-      let wikiFound = parseMainPageDiscography(mainWikitext, isSolo, effectiveFilter)
-      if (!wikiFound.length) {
-        // Bandome _discography puslapį
+      let wikiAlbums = parseMainPageDiscography(mainWikitext, isSolo, effectiveFilter)
+
+      // Singlai iš pagrindinio puslapio
+      const mainSingles = parseSinglesSection(mainWikitext)
+      if (mainSingles.length) foundSongs = mainSingles
+
+      if (!wikiAlbums.length) {
         const discTitle = wikiBase.replace(/_discography$/i, '') + '_discography'
         if (discTitle !== wikiBase) {
           addLog(`  → bandoma ${discTitle}...`)
           const discWikitext = await fetchWikitext(discTitle)
-          if (discWikitext) wikiFound = parseDiscographyPage(discWikitext)
+          if (discWikitext) {
+            wikiAlbums = parseDiscographyPage(discWikitext)
+            const discSingles = parseSinglesSection(discWikitext)
+            if (discSingles.length && !foundSongs.length) foundSongs = discSingles
+          }
         }
       }
-      if (wikiFound.length) {
-        found = wikiFound.map(a => ({ ...a, source: 'wikipedia' as const }))
-        addLog(`✅ Wikipedia: ${found.length} albumų`)
-      }
 
-      // Surinkti singlus iš diskografijos puslapio ir žymėti albumų dainas
-      const wikiSingles = parseSinglesFromDiscographyPage(mainWikitext || '')
-      if (wikiSingles.length) {
-        addLog(`🎤 Rasta ${wikiSingles.length} singlų — žymėsim dainas albumuose`)
-        // Išsaugoti singlų sąrašą state'e (panaudosim importo metu)
-        pendingSinglesRef.current = wikiSingles
+      if (wikiAlbums.length) {
+        foundAlbums = wikiAlbums.map(a => ({ ...a, source: 'wikipedia' as const }))
+        addLog(`✅ Albumai: ${foundAlbums.length}`)
       }
+      if (foundSongs.length) addLog(`🎤 Singlai: ${foundSongs.length}`)
     }
 
-    if (!found.length) {
+    if (!foundAlbums.length && !foundSongs.length) {
       addLog('❌ Nieko nerasta. Įvesk Wikipedia URL rankiniu.')
       setLoading(false); return
     }
 
-    // Rūšiuoti: pirma pagal tipą, tada pagal metus
-    found = found.sort((a, b) => {
+    // Rūšiuoti
+    foundAlbums = foundAlbums.sort((a, b) => {
       const typeOrder: Record<AlbumType, number> = { studio: 0, ep: 1, single: 2, compilation: 3, live: 4, other: 5 }
       if (typeOrder[a.type] !== typeOrder[b.type]) return typeOrder[a.type] - typeOrder[b.type]
       return (a.year || 9999) - (b.year || 9999)
     })
+    foundSongs = foundSongs.sort((a, b) => (a.year || 9999) - (b.year || 9999))
 
-    // Dublikatų tikrinimas — albumai ir singlai atskirai
-    addLog('🔎 Tikrinami dublikatai...')
-    const albumItems = found.filter(i => !i.isSingleItem)
-    const singleItems = found.filter(i => i.isSingleItem)
-
-    const [albumDups, trackDups] = await Promise.all([
-      checkAlbumDuplicates(albumItems.map(i => i.title), artistId),
-      checkTrackDuplicates(singleItems.map(i => i.title), artistId),
+    // Dublikatų tikrinimas
+    addLog('🔎 Dublikatai...')
+    const [albumDups, songDups] = await Promise.all([
+      checkAlbumDuplicates(foundAlbums.map(i => i.title), artistId),
+      checkTrackDuplicates(foundSongs.map(s => s.title), artistId),
     ])
 
-    const dupAlbumCount = Object.keys(albumDups).length
-    const dupTrackCount = Object.keys(trackDups).length
-    if (dupAlbumCount + dupTrackCount > 0)
-      addLog(`⚠️ ${dupAlbumCount} albumų + ${dupTrackCount} dainų jau DB`)
-    else
-      addLog('✅ Dublikatų nerasta')
+    const da = Object.keys(albumDups).length
+    const ds = Object.keys(songDups).length
+    if (da + ds > 0) addLog(`⚠️ ${da} albumų + ${ds} dainų jau DB`)
+    else addLog('✅ Dublikatų nerasta')
 
-    const foundWithDups = found.map(item => {
+    const albumsWithDups = foundAlbums.map(item => {
       const key = item.title.toLowerCase()
-      if (item.isSingleItem && trackDups[key])
-        return { ...item, duplicate: true, duplicateId: trackDups[key] }
-      if (!item.isSingleItem && albumDups[key])
-        return { ...item, duplicate: true, duplicateId: albumDups[key] }
-      return item
+      return albumDups[key] ? { ...item, duplicate: true, duplicateId: albumDups[key] } : item
+    })
+    const songsWithDups = foundSongs.map(song => {
+      const key = song.title.toLowerCase()
+      return songDups[key] ? { ...song, duplicate: true, duplicateId: songDups[key], selected: false } : song
     })
 
     setArtistGroups([])
-    setItems(foundWithDups)
-    // Auto-pasirinkti: rekomenduojami tipai, be dublikatų
+    setItems(albumsWithDups)
     setSelected(new Set(
-      foundWithDups
-        .map((item, i) => (!item.duplicate && AUTO_SELECT_TYPES.includes(item.type)) ? i : -1)
+      albumsWithDups
+        .map((item, i) => (!item.duplicate && ['studio','ep'].includes(item.type)) ? i : -1)
         .filter(i => i !== -1)
     ))
+    setSongs(songsWithDups)
+
+    // Jei albumų nėra bet yra dainos — rodyti songs tab
+    if (!foundAlbums.length && foundSongs.length) setActiveTab('songs')
+
     setLoading(false)
   }
 
-  // ── Detalių krovimas ──────────────────────────────────────────────────────
+  // ── Album detalių krovimas ─────────────────────────────────────────────────
 
   const fetchDetails = async (idx: number) => {
     const item = items[idx]
@@ -818,25 +916,10 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
     try {
       if (item.source === 'musicbrainz' && item.mbId) {
         const { tracks, cover } = await mbFetchTracks(item.mbId)
-        // Singlams — tikrinti ar dainos jau yra DB
-        let tracksChecked = tracks
-        if (item.isSingleItem && tracks.length) {
-          const trackDups = await checkTrackDuplicates(tracks.map(t => t.title), artistId)
-          tracksChecked = tracks.map(t => ({
-            ...t,
-            existingTrackId: trackDups[t.title.toLowerCase()],
-            willCreate: !trackDups[t.title.toLowerCase()],
-          }))
-          const existing = tracks.filter(t => trackDups[t.title.toLowerCase()]).length
-          const newCount = tracks.length - existing
-          addLog(`  → ${tracks.length} dainų (${newCount} naujų, ${existing} jau yra — pažymės singlu)`)
-        } else {
-          addLog(`  → ${tracks.length} dainų${cover ? ', viršelis ✓' : ''}`)
-        }
-        setItems(p => p.map((it, i) => i === idx ? { ...it, tracks: tracksChecked, fetched: true, cover_image_url: cover || it.cover_image_url } : it))
+        addLog(`  → ${tracks.length} dainų${cover ? ', viršelis ✓' : ''}`)
+        setItems(p => p.map((it, i) => i === idx ? { ...it, tracks, fetched: true, cover_image_url: cover || it.cover_image_url } : it))
         return
       }
-      // Wikipedia kelias
       if (!item.wikiTitle) { setItems(p => p.map((it, i) => i === idx ? { ...it, fetched: true, tracks: [] } : it)); return }
       const [wikitext, cover] = await Promise.all([fetchWikitext(item.wikiTitle), fetchCoverImage(item.wikiTitle)])
       const dateInfo = parseReleaseDate(wikitext)
@@ -860,88 +943,68 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
     }
   }
 
-  // ── MusicBrainz papildymas (rankinis) ───────────────────────────────────────
+  // ── MusicBrainz papildymas ─────────────────────────────────────────────────
 
   const enrichFromMB = async () => {
     setMbLoading(true)
-    addLog('🎵 Ieškoma MusicBrainz...')
+    addLog('🎵 MusicBrainz...')
     const mbArtist = await mbFindArtist(artistName)
-    if (!mbArtist) {
-      addLog('❌ MusicBrainz: atlikėjas nerastas')
-      setMbLoading(false); return
-    }
-    addLog(`  → rastas "${mbArtist.name}"`)
-    const mbItems = await mbFetchDiscography(mbArtist.id)
-    if (!mbItems.length) {
-      addLog('❌ MusicBrainz: diskografija tuščia')
-      setMbLoading(false); return
-    }
+    if (!mbArtist) { addLog('❌ MB: nerastas'); setMbLoading(false); return }
+    addLog(`  → "${mbArtist.name}"`)
 
-    // Pridėti tik ko nėra (dedup pagal pavadinimą)
-    const existingTitles = new Set(items.map(i => i.title.toLowerCase()))
-    const newItems = mbItems.filter(i => !existingTitles.has(i.title.toLowerCase()))
-    addLog(`✅ MB: ${mbItems.length} iš viso, ${newItems.length} naujų`)
-
-    if (!newItems.length) { setMbLoading(false); return }
-
-    // Dublikatų tikrinimas DB
-    const [albumDups, trackDups] = await Promise.all([
-      checkAlbumDuplicates(newItems.filter(i => !i.isSingleItem).map(i => i.title), artistId),
-      checkTrackDuplicates(newItems.filter(i => i.isSingleItem).map(i => i.title), artistId),
-    ])
-
-    const newWithDups = newItems.map(item => {
-      const key = item.title.toLowerCase()
-      if (item.isSingleItem && trackDups[key]) return { ...item, duplicate: true, duplicateId: trackDups[key] }
-      if (!item.isSingleItem && albumDups[key]) return { ...item, duplicate: true, duplicateId: albumDups[key] }
-      return item
-    })
-
-    setItems(prev => {
-      const merged = [...prev, ...newWithDups].sort((a, b) => {
-        const typeOrder: Record<AlbumType, number> = { studio: 0, ep: 1, single: 2, compilation: 3, live: 4, other: 5 }
-        if (typeOrder[a.type] !== typeOrder[b.type]) return typeOrder[a.type] - typeOrder[b.type]
-        return (a.year || 9999) - (b.year || 9999)
-      })
-      return merged
-    })
-
-    // Auto-pasirinkti naujus rekomenduojamus
-    setSelected(prev => {
-      const s = new Set(prev)
-      // Indeksai pasikeis po merge — perskaičiuojame po setState
-      return s
-    })
-    // Po merge atnaujinti selected su naujais indeksais
-    setTimeout(() => {
-      setItems(current => {
+    if (activeTab === 'albums') {
+      const mbItems = await mbFetchDiscography(mbArtist.id)
+      const existingTitles = new Set(items.map(i => i.title.toLowerCase()))
+      const newItems = mbItems.filter(i => !existingTitles.has(i.title.toLowerCase()))
+      addLog(`✅ MB albumai: ${mbItems.length} viso, ${newItems.length} naujų`)
+      if (newItems.length) {
+        const dups = await checkAlbumDuplicates(newItems.map(i => i.title), artistId)
+        const newWithDups = newItems.map(item => {
+          const key = item.title.toLowerCase()
+          return dups[key] ? { ...item, duplicate: true, duplicateId: dups[key] } : item
+        })
+        const merged = [...items, ...newWithDups].sort((a, b) => {
+          const typeOrder: Record<AlbumType, number> = { studio: 0, ep: 1, single: 2, compilation: 3, live: 4, other: 5 }
+          if (typeOrder[a.type] !== typeOrder[b.type]) return typeOrder[a.type] - typeOrder[b.type]
+          return (a.year || 9999) - (b.year || 9999)
+        })
+        setItems(merged)
         setSelected(new Set(
-          current.map((it, i) => (!it.duplicate && AUTO_SELECT_TYPES.includes(it.type)) ? i : -1).filter(i => i !== -1)
+          merged.map((it, i) => (!it.duplicate && ['studio','ep'].includes(it.type)) ? i : -1).filter(i => i !== -1)
         ))
-        return current
-      })
-    }, 50)
-
+      }
+    } else {
+      const mbSingles = await mbFetchSingles(mbArtist.id)
+      const existingTitles = new Set(songs.map(s => s.title.toLowerCase()))
+      const newSingles = mbSingles.filter(s => !existingTitles.has(s.title.toLowerCase()))
+      addLog(`✅ MB singlai: ${mbSingles.length} viso, ${newSingles.length} naujų`)
+      if (newSingles.length) {
+        const dups = await checkTrackDuplicates(newSingles.map(s => s.title), artistId)
+        const newWithDups = newSingles.map(song => {
+          const key = song.title.toLowerCase()
+          return dups[key] ? { ...song, duplicate: true, duplicateId: dups[key], selected: false } : song
+        })
+        const merged = [...songs, ...newWithDups].sort((a, b) => (a.year || 9999) - (b.year || 9999))
+        setSongs(merged)
+      }
+    }
     setMbLoading(false)
   }
 
-  // ── Importas ──────────────────────────────────────────────────────────────
+  // ── Albumų importas ────────────────────────────────────────────────────────
 
-  const importSelected = async () => {
+  const importAlbums = async () => {
     const indices = Array.from(selected).sort((a,b) => a-b)
-    // Krauti detales jei reikia
     const unfetched = indices.filter(i => !items[i].fetched)
     if (unfetched.length) {
       addLog(`📋 Kraunamos detalės (${unfetched.length})...`)
       for (const i of unfetched) { await fetchDetails(i); await new Promise(r => setTimeout(r, 400)) }
     }
 
-    let snapshot: DiscographyItem[] = []
-    setItems(p => { snapshot = [...p]; return p })
-    await new Promise(r => setTimeout(r, 50))
-
+    // Snapshot prieš importą
+    const snapshot = [...items]
     setImporting(true)
-    let okAlbums = 0, okTracks = 0, updatedTracks = 0, fail = 0
+    let okAlbums = 0, fail = 0
 
     for (const idx of indices) {
       const item = snapshot[idx]
@@ -949,89 +1012,38 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       setItems(p => p.map((it, i) => i === idx ? { ...it, importing: true } : it))
 
       try {
-        // ── SINGLAS → atskiros dainos ────────────────────────────────────────
-        if (item.isSingleItem) {
-          const tracks = item.tracks || [{ title: item.title, sort_order: 1 }]
-          for (const track of tracks) {
-            if (track.existingTrackId) {
-              // Jau yra — tik pažymėti singlu
-              await fetch(`/api/tracks/${track.existingTrackId}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ is_single: true }),
-              })
-              updatedTracks++
-            } else {
-              // Kurti naują dainą
-              await fetch('/api/tracks', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  title: track.title,
-                  artist_id: artistId,
-                  type: 'single',
-                  is_single: true,
-                  release_year: item.year,
-                  release_month: item.month,
-                  release_day: item.day,
-                  featuring: track.featuring || [],
-                }),
-              })
-              okTracks++
-            }
-          }
-          addLog(`🎤 ${item.title}: ${okTracks} naujų, ${updatedTracks} pažymėta singlu`)
-        } else {
-          // ── ALBUMAS ────────────────────────────────────────────────────────
-          const payload = {
-            title: item.title,
-            artist_id: artistId,
-            year: item.year || null,
-            month: item.month || null,
-            day: item.day || null,
-            cover_image_url: item.cover_image_url || '',
-            type_studio:      item.type === 'studio',
-            type_ep:          item.type === 'ep',
-            type_single:      item.type === 'single',
-            type_compilation: item.type === 'compilation',
-            type_live:        item.type === 'live',
-            type_remix: false, type_covers: false, type_holiday: false,
-            type_soundtrack: false, type_demo: false,
-            tracks: (item.tracks || []).map((t, i) => ({
-              title: t.title, sort_order: i+1,
-              duration: t.duration || null,
-              type: 'normal' as const,
-              disc_number: t.disc_number || 1,
-              is_single: t.is_single || false,
-              featuring: t.featuring || [],
-            })),
-          }
-          const res = await fetch('/api/albums', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) })
-          if (!res.ok) throw new Error((await res.json()).error)
-          const newAlbum = await res.json()
-          const albumId = newAlbum.id || newAlbum.album?.id
-          addLog(`✅ ${item.title} (${item.tracks?.length || 0} dainų)`)
-          okAlbums++
-          // Žymėti dainas singlu jei yra singlų sąraše
-          if (albumId && pendingSinglesRef.current.length > 0) {
-            const singleTitles = new Set(pendingSinglesRef.current.map(s => s.title.toLowerCase()))
-            const r2 = await fetch(`/api/tracks?album_id=${albumId}&limit=200`)
-            if (r2.ok) {
-              const d2 = await r2.json()
-              for (const t of (d2.tracks || [])) {
-                if (singleTitles.has(t.title.toLowerCase())) {
-                  await fetch(`/api/tracks/${t.id}`, {
-                    method: 'PATCH',
-                    headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({ is_single: true })
-                  }).catch(() => {})
-                }
-              }
-            }
-          }
-          if (albumId && (enrichYoutube || enrichLyrics) && item.tracks?.length) {
-            await enrichTracks(albumId, item.tracks, artistName, addLog, enrichYoutube, enrichLyrics)
-          }
+        const payload = {
+          title: item.title,
+          artist_id: artistId,
+          year: item.year || null,
+          month: item.month || null,
+          day: item.day || null,
+          cover_image_url: item.cover_image_url || '',
+          type_studio:      item.type === 'studio',
+          type_ep:          item.type === 'ep',
+          type_single:      item.type === 'single',
+          type_compilation: item.type === 'compilation',
+          type_live:        item.type === 'live',
+          type_remix: false, type_covers: false, type_holiday: false,
+          type_soundtrack: false, type_demo: false,
+          tracks: (item.tracks || []).map((t, i) => ({
+            title: t.title, sort_order: i+1,
+            duration: t.duration || null,
+            type: 'normal' as const,
+            disc_number: t.disc_number || 1,
+            is_single: t.is_single || false,
+            featuring: t.featuring || [],
+          })),
+        }
+        const res = await fetch('/api/albums', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) })
+        if (!res.ok) throw new Error((await res.json()).error)
+        const newAlbum = await res.json()
+        const albumId = newAlbum.id || newAlbum.album?.id
+        addLog(`✅ ${item.title} (${item.tracks?.length || 0} dainų)`)
+        okAlbums++
+
+        if (albumId && (enrichYoutube || enrichLyrics) && item.tracks?.length) {
+          await enrichTracks(albumId, artistName, addLog, enrichYoutube, enrichLyrics)
         }
         setItems(p => p.map((it, i) => i === idx ? { ...it, importing: false, imported: true } : it))
       } catch (e: any) {
@@ -1041,35 +1053,110 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       await new Promise(r => setTimeout(r, 200))
     }
     setImporting(false)
-    pendingSinglesRef.current = []
-    addLog(`🏁 ${okAlbums} albumų, ${okTracks} naujų dainų, ${updatedTracks} pažymėta singlu${fail ? `, ${fail} klaida` : ''}`)
+    addLog(`🏁 ${okAlbums} albumų${fail ? `, ${fail} klaida` : ''}`)
   }
 
-  // ── UI helpers ────────────────────────────────────────────────────────────
+  // ── Dainų importas ─────────────────────────────────────────────────────────
+
+  const importSongs = async () => {
+    const toImport = songs.filter(s => s.selected && !s.duplicate && !s.imported)
+    if (!toImport.length) return
+
+    setImporting(true)
+    let okNew = 0, okMarked = 0, fail = 0
+    addLog(`🎤 Importuojama ${toImport.length} dainų...`)
+
+    for (const song of toImport) {
+      setSongs(p => p.map(s => s.title === song.title ? { ...s, importing: true } : s))
+      try {
+        if (song.duplicateId) {
+          const res = await fetch(`/api/tracks/${song.duplicateId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_single: true }),
+          })
+          if (!res.ok) throw new Error('PATCH nepavyko')
+          okMarked++
+        } else {
+          const res = await fetch('/api/tracks', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: song.title,
+              artist_id: artistId,
+              type: 'normal',
+              is_single: true,
+              release_year: song.year,
+              release_month: song.month,
+              release_day: song.day,
+            }),
+          })
+          if (!res.ok) throw new Error((await res.json()).error || 'POST nepavyko')
+          const newTrack = await res.json()
+
+          if (enrichYoutube) {
+            try {
+              const trackId = newTrack.id || newTrack.track?.id
+              if (trackId) {
+                const q = `${artistName} ${song.title}`
+                const ytRes = await fetch(`/api/search/youtube?q=${encodeURIComponent(q)}`)
+                if (ytRes.ok) {
+                  const ytData = await ytRes.json()
+                  const first = ytData.results?.[0]
+                  if (first && titleMatches(first.title, q)) {
+                    await fetch(`/api/tracks/${trackId}`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ video_url: `https://www.youtube.com/watch?v=${first.videoId}` }),
+                    })
+                  }
+                }
+              }
+            } catch {}
+          }
+          okNew++
+        }
+        setSongs(p => p.map(s => s.title === song.title ? { ...s, importing: false, imported: true } : s))
+      } catch (e: any) {
+        setSongs(p => p.map(s => s.title === song.title ? { ...s, importing: false, error: e.message } : s))
+        addLog(`❌ ${song.title}: ${e.message}`); fail++
+      }
+      await new Promise(r => setTimeout(r, 150))
+    }
+    setImporting(false)
+    addLog(`🏁 ${okNew} naujų, ${okMarked} pažymėta singlu${fail ? `, ${fail} klaida` : ''}`)
+  }
+
+  // ── UI helpers ─────────────────────────────────────────────────────────────
 
   const toggleSelect = (i: number) => {
     if (items[i]?.duplicate) return
     setSelected(p => { const s = new Set(p); s.has(i) ? s.delete(i) : s.add(i); return s })
   }
 
-  const filteredIndices = items
-    .map((item, i) => i)
-    .filter(i => typeFilter === 'all' || items[i].type === typeFilter)
+  const toggleSong = (title: string) => {
+    setSongs(p => p.map(s => s.title === title && !s.duplicate ? { ...s, selected: !s.selected } : s))
+  }
 
-  const newCount = items.filter(i => !i.duplicate).length
-  const dupCount = items.filter(i => i.duplicate).length
+  const selectAllSongs = (val: boolean) => {
+    setSongs(p => p.map(s => s.duplicate || s.imported ? s : { ...s, selected: val }))
+  }
+
   const closeModal = () => { if (!importing) { setOpen(false); onClose?.() } }
 
-  // ── Render ────────────────────────────────────────────────────────────────
-
-  // Auto-search atidarius modalą
   const handleOpen = () => {
     setOpen(true)
-    if (!searched) {
-      setSearched(true)
-      setTimeout(() => search(), 100)
-    }
+    if (!searched) { setSearched(true); setTimeout(() => search(), 100) }
   }
+
+  // Counts
+  const albumDupCount = items.filter(i => i.duplicate).length
+  const albumNewCount = items.filter(i => !i.duplicate).length
+  const songNewCount = songs.filter(s => !s.duplicate && !s.imported).length
+  const songDupCount = songs.filter(s => s.duplicate).length
+  const songSelectedCount = songs.filter(s => s.selected && !s.duplicate).length
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <>
@@ -1085,26 +1172,26 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
 
             {/* Header */}
             <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">
-              <h3 className="text-lg font-bold text-gray-900">📀 Diskografija — {artistName}</h3>
+              <h3 className="text-lg font-bold text-gray-900">📀 {artistName}</h3>
               <button onClick={closeModal} className="text-gray-400 hover:text-gray-700 text-2xl leading-none">×</button>
             </div>
 
             {/* Nustatymai */}
-            <div className="px-6 py-3 border-b border-gray-100 space-y-2.5">
+            <div className="px-6 py-3 border-b border-gray-100 space-y-2">
               <div className="flex gap-2">
                 <input value={wikiUrl} onChange={e => setWikiUrl(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && !loading && search()}
-                  placeholder="Wikipedia URL (nebūtina — ieško automatiškai)"
+                  placeholder="Wikipedia URL (auto-ieško pagal vardą)"
                   className="flex-1 px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:border-purple-400 placeholder:text-gray-400 bg-white text-gray-900" />
-                <button onClick={() => search()} disabled={loading}
-                  className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-medium disabled:opacity-50 transition-colors whitespace-nowrap">
-                  {loading ? '⏳' : '🔍 Ieškoti'}
+                <button onClick={() => { setSearched(false); search() }} disabled={loading}
+                  className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-medium disabled:opacity-50 transition-colors">
+                  {loading ? '⏳' : '🔍'}
                 </button>
               </div>
-              <div className="flex gap-4 text-xs flex-wrap">
+              <div className="flex gap-4 text-xs">
                 <label className="flex items-center gap-1.5 cursor-pointer">
                   <input type="checkbox" checked={enrichYoutube} onChange={e => setEnrichYoutube(e.target.checked)} className="accent-purple-600" />
-                  <span className="text-gray-600">🎬 YouTube nuorodos</span>
+                  <span className="text-gray-600">🎬 YouTube</span>
                 </label>
                 <label className="flex items-center gap-1.5 cursor-pointer">
                   <input type="checkbox" checked={enrichLyrics} onChange={e => setEnrichLyrics(e.target.checked)} className="accent-purple-600" />
@@ -1113,13 +1200,44 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               </div>
             </div>
 
-            {/* Turinys */}
-            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+            {/* Tabs */}
+            {(items.length > 0 || songs.length > 0 || loading) && (
+              <div className="flex border-b border-gray-100 px-6 gap-1">
+                <button onClick={() => setActiveTab('albums')}
+                  className={`py-2.5 px-3 text-sm font-medium border-b-2 transition-colors -mb-px ${
+                    activeTab === 'albums' ? 'border-purple-600 text-purple-700' : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}>
+                  💿 Albumai
+                  {items.length > 0 && (
+                    <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-xs font-medium ${activeTab === 'albums' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'}`}>
+                      {items.length}
+                    </span>
+                  )}
+                </button>
+                <button onClick={() => setActiveTab('songs')}
+                  className={`py-2.5 px-3 text-sm font-medium border-b-2 transition-colors -mb-px relative ${
+                    activeTab === 'songs' ? 'border-purple-600 text-purple-700' : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}>
+                  🎤 Dainos
+                  {songs.length > 0 && (
+                    <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-xs font-medium ${activeTab === 'songs' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'}`}>
+                      {songs.length}
+                    </span>
+                  )}
+                  {songNewCount > 0 && activeTab !== 'songs' && (
+                    <span className="absolute top-2 right-0 w-2 h-2 bg-orange-400 rounded-full" />
+                  )}
+                </button>
+              </div>
+            )}
 
-              {/* Kelios wiki grupės */}
+            {/* Turinys */}
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3 min-h-0">
+
+              {/* Grupių pasirinkimas */}
               {artistGroups.length > 1 && (
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
-                  <p className="text-sm font-medium text-amber-800 mb-2">⚠️ Wikipedia turi kelias diskografijos sekcijas:</p>
+                  <p className="text-sm font-medium text-amber-800 mb-2">⚠️ Kelios diskografijos sekcijos:</p>
                   <div className="flex flex-wrap gap-2">
                     <button onClick={() => search('__solo__')} className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-xs font-medium">🎤 Tik solo</button>
                     <button onClick={() => search('__all__')} className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg text-xs">📀 Visi</button>
@@ -1128,142 +1246,221 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                 </div>
               )}
 
-              {items.length > 0 && (
+              {/* Loading */}
+              {loading && (
+                <div className="flex items-center justify-center py-12 text-gray-400">
+                  <div className="text-center">
+                    <div className="text-3xl mb-2 animate-spin">⏳</div>
+                    <p className="text-sm">Ieškoma...</p>
+                  </div>
+                </div>
+              )}
+
+              {/* ─── ALBUMAI TAB ─────────────────────────────────────────── */}
+              {activeTab === 'albums' && !loading && items.length > 0 && (
                 <>
-                  {/* Filtrai + statistika */}
                   <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div className="flex gap-1 flex-wrap">
-                      {(['all', 'studio', 'ep', 'single', 'compilation', 'live', 'other'] as const).map(t => {
-                        const count = t === 'all' ? items.length : items.filter(i => i.type === t).length
-                        if (count === 0 && t !== 'all') return null
-                        return (
-                          <button key={t} onClick={() => setTypeFilter(t)}
-                            className={`px-2 py-1 rounded-lg text-xs font-medium transition-colors ${typeFilter === t ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-                            {t === 'all' ? 'Visi' : TYPE_LABELS[t]} {count > 0 && <span className="ml-0.5 opacity-70">{count}</span>}
-                          </button>
-                        )
-                      })}
+                    <div className="text-xs text-gray-400">
+                      {albumNewCount} naujų{albumDupCount > 0 && `, ${albumDupCount} jau yra`}
                     </div>
-                    <div className="flex items-center gap-2 text-xs">
-                      {dupCount > 0 && <span className="text-amber-600">⚠️ {dupCount} jau yra</span>}
-                      <button onClick={() => setSelected(new Set(items.map((it,i) => (!it.duplicate && AUTO_SELECT_TYPES.includes(it.type)) ? i : -1).filter(i=>i!==-1)))}
-                        className="text-purple-600 hover:underline">Tik studijiniai+EP</button>
+                    <div className="flex items-center gap-3 text-xs">
+                      <button onClick={() => setSelected(new Set(items.map((it,i) => (!it.duplicate && ['studio','ep'].includes(it.type)) ? i : -1).filter(i=>i!==-1)))}
+                        className="text-purple-600 hover:underline">Studijiniai+EP</button>
+                      <button onClick={() => setSelected(new Set(items.map((it,i) => !it.duplicate ? i : -1).filter(i=>i!==-1)))}
+                        className="text-purple-600 hover:underline">Visi nauji</button>
                       <button onClick={() => setSelected(new Set())} className="text-gray-400 hover:underline">Joks</button>
-                      <span className="text-gray-400">{selected.size} pasirinkta</span>
+                      <span className="text-gray-600 font-medium">{selected.size} pasirinkta</span>
                     </div>
                   </div>
 
-                  {/* Sąrašas pagal tipus */}
-                  {TYPE_GROUPS.map(group => {
-                    const groupItems = filteredIndices.filter(i => group.types.includes(items[i].type))
+                  {ALBUM_TYPE_GROUPS.map(group => {
+                    const groupItems = items.map((_, i) => i).filter(i => group.types.includes(items[i].type))
                     if (!groupItems.length) return null
                     const isCollapsed = group.collapsible && collapsedGroups.has(group.label)
-                    const selectedInGroup = groupItems.filter(i => selected.has(i)).length
+                    const selCount = groupItems.filter(i => selected.has(i)).length
                     return (
                       <div key={group.label}>
                         <button type="button"
                           onClick={() => group.collapsible && toggleGroup(group.label)}
-                          className={`flex items-center gap-2 w-full text-left mb-1.5 mt-2 ${group.collapsible ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}`}>
-                          <span className="text-xs font-semibold text-gray-500">{group.label}</span>
-                          <span className="text-xs text-gray-400">({groupItems.length})</span>
-                          {selectedInGroup > 0 && <span className="text-xs text-purple-600 font-medium">{selectedInGroup} pasirinkta</span>}
-                          {group.collapsible && (
-                            <span className="ml-auto text-gray-400 text-xs">{isCollapsed ? '▶ rodyti' : '▼ slėpti'}</span>
-                          )}
+                          className={`flex items-center gap-2 w-full text-left mb-1.5 mt-3 ${group.collapsible ? 'cursor-pointer' : 'cursor-default'}`}>
+                          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">{group.label}</span>
+                          <span className="text-xs text-gray-300">({groupItems.length})</span>
+                          {selCount > 0 && <span className="text-xs text-purple-500 font-medium">✓ {selCount}</span>}
+                          {group.collapsible && <span className="ml-auto text-gray-300 text-xs">{isCollapsed ? '▶' : '▼'}</span>}
                         </button>
-                        {!isCollapsed && <div className="space-y-1.5">
-                          {groupItems.map(i => {
-                            const item = items[i]
-                            return (
-                              <div key={i} onClick={() => toggleSelect(i)}
-                                className={`flex items-center gap-3 p-2.5 rounded-xl border transition-colors ${
-                                  item.duplicate ? 'border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed'
-                                  : item.imported ? 'border-green-200 bg-green-50 cursor-default'
-                                  : selected.has(i) ? 'border-purple-300 bg-purple-50 cursor-pointer'
-                                  : 'border-gray-200 bg-white hover:bg-gray-50 cursor-pointer'
-                                }`}>
-                                <input type="checkbox" checked={selected.has(i)} onChange={() => {}}
-                                  className="accent-purple-600 pointer-events-none shrink-0"
-                                  disabled={item.duplicate || item.imported} />
-                                {item.cover_image_url
-                                  ? <img src={item.cover_image_url} alt="" referrerPolicy="no-referrer" className="w-9 h-9 rounded object-cover shrink-0" />
-                                  : <div className="w-9 h-9 rounded bg-gray-100 flex items-center justify-center text-gray-300 shrink-0 text-sm">💿</div>
-                                }
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className="font-medium text-gray-900 text-sm">{item.title}</span>
-                                    {item.year && <span className="text-xs text-gray-400">({item.year})</span>}
-                                    {item.source === 'musicbrainz' && <span className="text-[10px] text-blue-400">MB</span>}
-                                    {item.duplicate && <span className="text-xs text-amber-600">jau yra</span>}
-                                    {item.imported && <span className="text-xs text-green-600">✅</span>}
-                                    {item.importing && <span className="text-xs text-purple-500 animate-pulse">⏳</span>}
-                                    {item.error && <span className="text-xs text-red-500" title={item.error}>❌</span>}
-                                  </div>
-                                  {item.tracks !== undefined && (
-                                    <div className="text-xs text-gray-400 mt-0.5">
-                                      {item.isSingleItem
-                                        ? `${item.tracks.filter(t => t.willCreate).length} naujų dainų · ${item.tracks.filter(t => t.existingTrackId).length} pažymės singlu`
-                                        : `${item.tracks.length} dainų${item.tracks.filter(t=>t.is_single).length ? ` · ${item.tracks.filter(t=>t.is_single).length} singlai` : ''}`
-                                      }
+                        {!isCollapsed && (
+                          <div className="space-y-1.5">
+                            {groupItems.map(i => {
+                              const item = items[i]
+                              return (
+                                <div key={i} onClick={() => toggleSelect(i)}
+                                  className={`flex items-center gap-3 p-2.5 rounded-xl border transition-colors ${
+                                    item.duplicate ? 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'
+                                    : item.imported ? 'border-green-200 bg-green-50 cursor-default'
+                                    : selected.has(i) ? 'border-purple-300 bg-purple-50 cursor-pointer'
+                                    : 'border-gray-200 bg-white hover:bg-gray-50 cursor-pointer'
+                                  }`}>
+                                  <input type="checkbox" checked={selected.has(i)} onChange={() => {}}
+                                    className="accent-purple-600 pointer-events-none shrink-0"
+                                    disabled={item.duplicate || item.imported} />
+                                  {item.cover_image_url
+                                    ? <img src={item.cover_image_url} alt="" referrerPolicy="no-referrer" className="w-9 h-9 rounded object-cover shrink-0" />
+                                    : <div className="w-9 h-9 rounded bg-gray-100 flex items-center justify-center text-gray-300 shrink-0 text-xs">💿</div>
+                                  }
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className="font-medium text-gray-900 text-sm truncate">{item.title}</span>
+                                      {item.year && <span className="text-xs text-gray-400 shrink-0">{item.year}</span>}
+                                      {item.source === 'musicbrainz' && <span className="text-[10px] text-blue-400">MB</span>}
+                                      {item.duplicate && <span className="text-xs text-amber-500">jau yra</span>}
+                                      {item.imported && <span className="text-xs text-green-600">✅</span>}
+                                      {item.importing && <span className="text-xs text-purple-400 animate-pulse">⏳</span>}
+                                      {item.error && <span className="text-xs text-red-500" title={item.error}>❌</span>}
                                     </div>
-                                  )}
-                                  {item.duplicate && item.duplicateId && (
-                                    <a href={item.isSingleItem ? `/admin/tracks/${item.duplicateId}` : `/admin/albums/${item.duplicateId}`}
-                                      target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
-                                      className="text-xs text-blue-500 hover:underline">→ atidaryti</a>
-                                  )}
+                                    {item.tracks !== undefined && (
+                                      <div className="text-xs text-gray-400 mt-0.5">
+                                        {item.tracks.length} dainų{item.tracks.filter(t=>t.is_single).length ? ` · ${item.tracks.filter(t=>t.is_single).length} singlai` : ''}
+                                      </div>
+                                    )}
+                                    {item.duplicate && item.duplicateId && (
+                                      <a href={`/admin/albums/${item.duplicateId}`} target="_blank" rel="noreferrer"
+                                        onClick={e => e.stopPropagation()} className="text-xs text-blue-500 hover:underline">→ atidaryti</a>
+                                    )}
+                                  </div>
+                                  <button type="button" onClick={e => { e.stopPropagation(); fetchDetails(i) }}
+                                    disabled={item.fetched || item.duplicate || importing}
+                                    className="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-500 rounded text-xs disabled:opacity-30 shrink-0 transition-colors">
+                                    {item.fetched ? '✓' : '📋'}
+                                  </button>
                                 </div>
-                                <button type="button" onClick={e => { e.stopPropagation(); fetchDetails(i) }}
-                                  disabled={item.fetched || item.duplicate || importing}
-                                  className="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-500 rounded text-xs disabled:opacity-40 shrink-0">
-                                  {item.fetched ? '✓' : '📋'}
-                                </button>
-                              </div>
-                            )
-                          })}
-                        </div>}
+                              )
+                            })}
+                          </div>
+                        )}
                       </div>
                     )
                   })}
                 </>
               )}
 
+              {/* ─── DAINOS TAB ──────────────────────────────────────────── */}
+              {activeTab === 'songs' && !loading && (
+                <>
+                  {songs.length === 0 ? (
+                    <div className="text-center py-10 text-gray-400">
+                      <div className="text-4xl mb-3">🎤</div>
+                      <p className="text-sm font-medium text-gray-500">Singlų nerasta</p>
+                      <p className="text-xs mt-1 text-gray-400">Bandyk 🎵 MB — MusicBrainz turi pilną singlų sąrašą</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="text-xs text-gray-400">
+                          {songNewCount} naujų{songDupCount > 0 && `, ${songDupCount} jau yra`}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs">
+                          <button onClick={() => selectAllSongs(true)} className="text-purple-600 hover:underline">Visi</button>
+                          <button onClick={() => selectAllSongs(false)} className="text-gray-400 hover:underline">Joks</button>
+                          <span className="text-gray-600 font-medium">{songSelectedCount} pasirinkta</span>
+                        </div>
+                      </div>
+
+                      {/* Dainų sąrašas grupuotas pagal metus */}
+                      {(() => {
+                        const byYear: Record<string, SingleSongItem[]> = {}
+                        for (const song of songs) {
+                          const yr = song.year ? String(song.year) : '—'
+                          if (!byYear[yr]) byYear[yr] = []
+                          byYear[yr].push(song)
+                        }
+                        return Object.entries(byYear).map(([yr, yrSongs]) => (
+                          <div key={yr}>
+                            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5 mt-3">{yr}</div>
+                            <div className="space-y-1">
+                              {yrSongs.map(song => (
+                                <div key={song.title}
+                                  onClick={() => !song.duplicate && !song.imported && toggleSong(song.title)}
+                                  className={`flex items-center gap-3 px-3 py-2 rounded-xl border transition-colors ${
+                                    song.duplicate ? 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'
+                                    : song.imported ? 'border-green-200 bg-green-50 cursor-default'
+                                    : song.selected ? 'border-purple-300 bg-purple-50 cursor-pointer'
+                                    : 'border-gray-200 bg-white hover:bg-gray-50 cursor-pointer'
+                                  }`}>
+                                  <input type="checkbox" checked={!!song.selected} onChange={() => {}}
+                                    className="accent-purple-600 pointer-events-none shrink-0"
+                                    disabled={song.duplicate || song.imported} />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className="text-sm font-medium text-gray-900 truncate">{song.title}</span>
+                                      {song.source === 'musicbrainz' && <span className="text-[10px] text-blue-400 shrink-0">MB</span>}
+                                      {song.duplicate && <span className="text-xs text-amber-500 shrink-0">jau yra</span>}
+                                      {song.imported && <span className="text-xs text-green-600 shrink-0">✅</span>}
+                                      {song.importing && <span className="text-xs text-purple-400 animate-pulse shrink-0">⏳</span>}
+                                      {song.error && <span className="text-xs text-red-500 shrink-0" title={song.error}>❌</span>}
+                                    </div>
+                                    {song.albumTitle && (
+                                      <div className="text-xs text-gray-400 mt-0.5 truncate">📀 {song.albumTitle}</div>
+                                    )}
+                                    {song.duplicate && song.duplicateId && (
+                                      <a href={`/admin/tracks/${song.duplicateId}`} target="_blank" rel="noreferrer"
+                                        onClick={e => e.stopPropagation()} className="text-xs text-blue-500 hover:underline">→ atidaryti</a>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))
+                      })()}
+                    </>
+                  )}
+                </>
+              )}
+
               {/* Log */}
               {log.length > 0 && (
-                <div className="bg-gray-900 rounded-xl p-3 font-mono text-xs text-green-400 max-h-28 overflow-y-auto">
+                <div ref={logRef} className="bg-gray-900 rounded-xl p-3 font-mono text-xs text-green-400 max-h-28 overflow-y-auto">
                   {log.map((l, i) => <div key={i}>{l}</div>)}
                 </div>
               )}
             </div>
 
             {/* Footer */}
-            <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
-              <button onClick={importSelected} disabled={importing || selected.size === 0}
-                className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl disabled:opacity-40 transition-colors text-sm">
-                {importing ? '⏳ Importuojama...' : (() => {
-                const studios = Array.from(selected).filter(i => items[i] && ['studio','ep'].includes(items[i].type)).length
-                const singles = Array.from(selected).filter(i => items[i]?.type === 'single').length
-                const others = selected.size - studios - singles
-                const parts = []
-                if (studios) parts.push(`${studios} albumų`)
-                if (singles) parts.push(`${singles} singlų`)
-                if (others) parts.push(`${others} kitų`)
-                return `⬆️ Importuoti: ${parts.join(', ') || '0'}`
-              })()}
-              </button>
-              <button onClick={() => { if (!importing) { fetchAllDetails() } }}
-                disabled={importing || selected.size === 0}
-                className="px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm disabled:opacity-40">
-                📋 Krauti detales
-              </button>
-              {items.length > 0 && (
+            <div className="px-6 py-4 border-t border-gray-100 flex gap-2">
+
+              {activeTab === 'albums' ? (
+                <>
+                  <button onClick={importAlbums} disabled={importing || selected.size === 0}
+                    className="flex-1 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl disabled:opacity-40 transition-colors text-sm">
+                    {importing ? '⏳ Importuojama...' : (() => {
+                      const n = selected.size
+                      const studios = Array.from(selected).filter(i => items[i] && ['studio','ep'].includes(items[i].type)).length
+                      return `⬆️ Importuoti ${n} (${studios} albumų)`
+                    })()}
+                  </button>
+                  <button onClick={fetchAllDetails} disabled={importing || selected.size === 0}
+                    title="Krauti tracklist ir viršelius pasirinktoms"
+                    className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm disabled:opacity-40 transition-colors">
+                    📋
+                  </button>
+                </>
+              ) : (
+                <button onClick={importSongs} disabled={importing || songSelectedCount === 0}
+                  className="flex-1 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl disabled:opacity-40 transition-colors text-sm">
+                  {importing ? '⏳ Importuojama...' : `⬆️ Importuoti ${songSelectedCount} dainų`}
+                </button>
+              )}
+
+              {(items.length > 0 || songs.length > 0) && (
                 <button onClick={enrichFromMB} disabled={importing || mbLoading}
-                  title="Papildyti iš MusicBrainz — prideda albumus kurių nėra Wikipedia"
-                  className="px-4 py-3 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-sm disabled:opacity-40 whitespace-nowrap">
+                  title={activeTab === 'albums' ? 'Papildyti albumus iš MusicBrainz' : 'Papildyti singlus iš MusicBrainz'}
+                  className="px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-sm disabled:opacity-40 transition-colors">
                   {mbLoading ? '⏳' : '🎵 MB'}
                 </button>
               )}
-              <button onClick={closeModal} className="px-4 py-3 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 text-sm">
+
+              <button onClick={closeModal}
+                className="px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 text-sm transition-colors">
                 Uždaryti
               </button>
             </div>
