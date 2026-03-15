@@ -371,12 +371,14 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
         else { const pm = afterScope.match(/'{2,3}([^']+)'{2,3}/); if (pm) rawTitle = cleanWikiText(pm[1]) }
       }
 
-      rawTitle = rawTitle.replace(/\s*[\[(](?:re-?release|remix|re-?issue)[)\]]/gi, '').trim()
+      rawTitle = rawTitle.replace(/\s*[\[(](?:re-?release|re-?issue)[)\]]/gi, '').trim()
       if (!rawTitle || rawTitle.length < 2 || rawTitle.toLowerCase() === 'row') continue
+      // Skip jei tai EP/albumas pavadinimas, ne daina
+      if (/\bE\.?P\.?\s*$/i.test(rawTitle)) continue
 
       // Split dvigubų singlų per " / " — kiekvienas tampa atskira daina
-      // Bet jei pavadinimas jau turi " / " kaip dalį (mažai tikėtina) — nedalinti
       const titleParts = rawTitle.split(/\s*\/\s*/).map(t => t.replace(/^["'\s]+|["'\s]+$/g, '').trim()).filter(t => t.length > 1)
+        .filter(t => !/\bE\.?P\.?\s*$/i.test(t))  // skip EP pavadinimus
 
       // Albumą rasime iš vėlesnių eilučių (lookahead) — PASKUTINIS wiki link
       let albumTitle: string | undefined
@@ -435,10 +437,7 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
 
       pendingYearLine = false
 
-      // Year-first formatas (Title eilutė su | pradžia, hasYearCol=true)
-      // Šiame formate KIEKVIENA |eilutė| gali būti daina — reikia griežtai filtruoti
-      // Daina: pirmas wiki link eilutėje, o tai NE skaičius, NE albumas
-      // Albumas: paskutinis wiki link eilutėje (jei skiriasi nuo pirmo)
+      // Year-first formatas (Title stulpelis, hasYearCol=true)
       if (hasYearCol && !pendingTitle) {
         const allSegs = line.split('|').map(s => s.trim()).filter(Boolean)
         if (allSegs.length === 0) continue
@@ -446,26 +445,38 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
         // Pirmasis segmentas su wiki link = kandidatas į pavadinimą
         const firstSeg = allSegs[0]
         const wm = firstSeg.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
-        if (!wm) continue  // Jei nėra link, ne daina
 
-        let title = cleanWikiText(wm[2] || wm[1])
-        title = title.replace(/\s*[\[(](?:re-?release|remix|re-?issue)[)\]]/gi, '').trim()
+        let title = ''
+        if (wm) {
+          title = cleanWikiText(wm[2] || wm[1])
+        } else {
+          // Tekstas kabučėse be wiki link
+          const qm = firstSeg.match(/^"([^"]+)"/)
+          if (qm) title = qm[1]
+        }
 
-        // Validuoti: NE metai, NE skaičius, NE žinomi albumų žodžiai
         if (!title || title.length < 2) continue
         if (/^\d{4}/.test(title) || /^\d+$/.test(title)) continue
-        // Jei tai albumas (turi "Edition", "Collection", "Anniversary") — skip
-        if (/edition|collection|anniversary|collector|greatest hits|soundtrack/i.test(title)) continue
 
-        // Albumas — paskutinis segmentas su wiki link (jei skiriasi)
+        // Skip jei tai albumas, ne daina
+        // Albumų požymiai: edition, collection, anniversary, greatest hits, "Official Charts", EP pavadinimas
+        if (/\bedition\b|\bcollection\b|\banniversary\b|\bcollector\b|\bgreatest.?hits\b|\bsoundtrack\b|\bofficial.?charts?\b/i.test(title)) continue
+        // Skip jei pavadinimas baigiasi žodžiais rodančiais kad tai albumas, ne daina
+        if (/\bE\.?P\.?\s*$/i.test(title)) continue
+
+        // Pašalinti TIKTAI (re-release) ir (re-issue) iš pavadinimo — remix/mix palikti
+        title = title.replace(/\s*[\[(](?:re-?release|re-?issue)[)\]]/gi, '').trim()
+
+        // Albumas — paskutinis segmentas su wiki link (jei skiriasi nuo dainos)
         let albumTitle: string | undefined
         for (let sp = allSegs.length - 1; sp > 0; sp--) {
-          const am = allSegs[sp].match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
+          const seg = allSegs[sp]
+          if (/Non-album/i.test(seg)) { albumTitle = 'Non-album single'; break }
+          const am = seg.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
           if (am) {
             const p = cleanWikiText(am[2] || am[1])
-            if (p && p !== title && !/^\d+$/.test(p)) { albumTitle = p; break }
+            if (p && p !== title && !/^\d+$/.test(p) && !/^[-–—]$/.test(p)) { albumTitle = p; break }
           }
-          if (/Non-album/i.test(allSegs[sp])) { albumTitle = 'Non-album single'; break }
         }
 
         singles.push({ title, year: currentYear, month: null, day: null, albumTitle, source: 'wikipedia', selected: false })
@@ -475,15 +486,24 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
 
   // Jei liko pending
   if (pendingTitle) {
-    singles.push({ title: pendingTitle, year: currentYear, month: null, day: null, source: 'wikipedia', selected: true })
+    const titleParts = pendingTitle.split('\n').filter(t => t.length > 1)
+    for (const t of titleParts) {
+      singles.push({ title: t, year: currentYear, month: null, day: null, albumTitle: pendingAlbum, source: 'wikipedia', selected: false })
+    }
   }
 
-  // Deduplikuoti — palikti pirmą (originalą, ne re-release)
+  // Deduplikuoti — palikti pirmą versiją kiekvieno pavadinimo
+  // Deduplikavimo raktas: pavadinimas be remix/mix/version skliaustelių
+  // BET: jei versijos labai skiriasi (pvz. "2024 Mix" vs originalas) — laikyti atskira daina
   const seen = new Set<string>()
   return singles.filter(s => {
-    const key = s.title.toLowerCase().replace(/\s*\(.*?\)\s*$/, '').trim()
-    if (seen.has(key)) return false
-    seen.add(key)
+    // Bazinis pavadinimas (be skliaustelių turinio) deduplikacijai
+    const base = s.title.toLowerCase()
+      .replace(/\s*\(\s*(?:re-?release|re-?issue|re-?release)\s*\)\s*/gi, '')
+      .replace(/\s*\[\s*(?:re-?release|re-?issue)\s*\]\s*/gi, '')
+      .trim()
+    if (seen.has(base)) return false
+    seen.add(base)
     return true
   })
 }
@@ -505,13 +525,25 @@ function extractTrackListings(wikitext: string): string[] {
   return results
 }
 
-function isReissueBlock(h: string): boolean {
+function isReissueBlock(h: string, tl: string): boolean {
   const hl = h.toLowerCase()
-  return hl.includes('bonus') || hl.includes('deluxe') || hl.includes('japan') ||
+  // Headline patikrinimas
+  if (hl.includes('bonus') || hl.includes('deluxe') || hl.includes('japan') ||
     hl.includes('special') || hl.includes('itunes') || hl.includes('exclusive') ||
     hl.includes('limited') || hl.includes('remaster') || hl.includes('reissue') ||
     hl.includes('re-issue') || hl.includes('anniversary') || hl.includes('expanded') ||
-    hl.includes('collector') || /^\d{4}/.test(hl)  // pvz. "2011 remaster"
+    hl.includes('collector') || /^\d{4}/.test(hl)) return true
+
+  // Jei headline tuščias — tikrinti tracklist bloko turinį
+  if (!hl) {
+    // Jei pirma daina bloke pradedama nuo 11+ — tai bonus blokas
+    const nums = [...tl.matchAll(/\|\s*title(\d+)\s*=/g)].map(m => parseInt(m[1])).sort((a,b) => a-b)
+    if (nums.length > 0 && nums[0] >= 11) return true
+
+    // Jei bloke yra total_length ir nėra title1 — papildomas blokas
+    if (/\|\s*total_length\s*=/.test(tl) && !tl.includes('|title1') && !tl.includes('| title1')) return true
+  }
+  return false
 }
 
 function isDiscBlock(tl: string): boolean {
@@ -581,25 +613,24 @@ function parseTracklist(wikitext: string): TrackEntry[] {
   const allTracks: TrackEntry[] = []
   const isMultiDisc = tlBlocks.every(b => isDiscBlock(b)) && tlBlocks.length > 1
   if (isMultiDisc) {
-    // Multi-disc albumas (pvz. live album) — imame visus disc blokus
+    // Multi-disc albumas — imame visus disc blokus
     let order = 1
     for (const tl of tlBlocks) { const nt = parseBlock(tl, order); allTracks.push(...nt); order += nt.length }
   } else {
     const getHeadline = (tl: string) => { const m = tl.match(/\|\s*(?:headline|caption)\s*=\s*([^\n|]+)/); return m ? m[1].replace(/[''+\[\]]/g, '').trim() : '' }
-    const standard = tlBlocks.filter(tl => !isReissueBlock(getHeadline(tl)))
-    // Imame TIK PIRMĄ standartinį bloką — originali tracklist'ą
-    // Jei nėra standartinių — pirmą visų
-    const primaryBlock = standard.length ? standard[0] : tlBlocks[0]
-    const nt = parseBlock(primaryBlock, 1)
-    allTracks.push(...nt)
+    const standard = tlBlocks.filter(tl => !isReissueBlock(getHeadline(tl), tl))
+    const toUse = standard.length ? standard : [tlBlocks[0]]
 
-    // Bonus dainos: tik jei yra papildomi standartiniai diskai (ne remaster/reissue)
-    // pvz. kai albumas turi dvi versijas tame pačiame puslapyje (retas atvejis)
-    for (let bi = 1; bi < standard.length; bi++) {
-      const existing = new Set(allTracks.map(t => t.title.toLowerCase()))
-      let order = allTracks.length + 1
-      for (const bt of parseBlock(standard[bi], order)) {
-        if (!existing.has(bt.title.toLowerCase())) { allTracks.push({ ...bt, sort_order: order++ }); existing.add(bt.title.toLowerCase()) }
+    // Imame VISUS standartinius blokus (Side one + Side two sudaro vieną albumą)
+    // Deduplikuojame — ta pati daina negali būti du kartus
+    const existing = new Set<string>()
+    let order = 1
+    for (const tl of toUse) {
+      for (const t of parseBlock(tl, order)) {
+        if (!existing.has(t.title.toLowerCase())) {
+          allTracks.push({ ...t, sort_order: order++ })
+          existing.add(t.title.toLowerCase())
+        }
       }
     }
   }
