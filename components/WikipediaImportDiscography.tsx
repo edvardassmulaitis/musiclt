@@ -1219,26 +1219,25 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
             throw new Error(errMsg)
           }
           const newTrack = await res.json()
-          if (enrichYoutube) {
-            try {
-              const trackId = newTrack.id || newTrack.track?.id
-              if (trackId) {
+          const trackId = newTrack.id || newTrack.track?.id
+          if (trackId) {
+            const updates: Record<string, any> = {}
+            if (enrichYoutube) {
+              try {
                 const q = `${artistName} ${song.title}`
                 const r = await fetch(`/api/search/youtube?q=${encodeURIComponent(q)}`)
-                if (r.ok) {
-                  const d = await r.json()
-                  const f = d.results?.[0]
-                  if (f && titleMatches(f.title, q)) {
-                    await fetch(`/api/tracks/${trackId}`, {
-                      method: 'PUT',
-                      headers: {'Content-Type':'application/json'},
-                      // Siunčiame abu — route'as palaiko abu laukus
-                      body: JSON.stringify({ video_url: `https://www.youtube.com/watch?v=${f.videoId}` })
-                    })
-                  }
-                }
-              }
-            } catch {}
+                if (r.ok) { const d = await r.json(); const f = d.results?.[0]; if (f && titleMatches(f.title, q)) updates.video_url = `https://www.youtube.com/watch?v=${f.videoId}` }
+              } catch {}
+            }
+            if (enrichLyrics) {
+              try {
+                const r = await fetch(`/api/search/lyrics?artist=${encodeURIComponent(artistName)}&title=${encodeURIComponent(song.title)}`)
+                if (r.ok) { const d = await r.json(); if (d.lyrics) updates.lyrics = d.lyrics }
+              } catch {}
+            }
+            if (Object.keys(updates).length > 0) {
+              try { await fetch(`/api/tracks/${trackId}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(updates) }) } catch {}
+            }
           }
           okNew++
         }
