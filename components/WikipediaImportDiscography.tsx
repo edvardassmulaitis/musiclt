@@ -427,7 +427,8 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
       // Jei yearRowspan > 1, metai tęsiasi į kitą eilutę
       if (yearRowspan > 1) yearRowspan--
       else if (yearRowspan === 1) yearRowspan = 0
-      pendingYearLine = false
+      // NERESETINAME pendingYearLine — metai ateina po |- separatoriaus
+      // pendingYearLine = false  ← pašalinta
       continue
     }
 
