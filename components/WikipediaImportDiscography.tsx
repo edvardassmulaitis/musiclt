@@ -1225,7 +1225,18 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               if (trackId) {
                 const q = `${artistName} ${song.title}`
                 const r = await fetch(`/api/search/youtube?q=${encodeURIComponent(q)}`)
-                if (r.ok) { const d = await r.json(); const f = d.results?.[0]; if (f && titleMatches(f.title, q)) await fetch(`/api/tracks/${trackId}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ video_url: `https://www.youtube.com/watch?v=${f.videoId}` }) }) }
+                if (r.ok) {
+                  const d = await r.json()
+                  const f = d.results?.[0]
+                  if (f && titleMatches(f.title, q)) {
+                    await fetch(`/api/tracks/${trackId}`, {
+                      method: 'PUT',
+                      headers: {'Content-Type':'application/json'},
+                      // Siunčiame abu — route'as palaiko abu laukus
+                      body: JSON.stringify({ video_url: `https://www.youtube.com/watch?v=${f.videoId}` })
+                    })
+                  }
+                }
               }
             } catch {}
           }
