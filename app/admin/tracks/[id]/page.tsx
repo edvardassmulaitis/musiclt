@@ -489,7 +489,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
               <button key={tp} type="button" onClick={() => setTrackType(tp)}
                 className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all ${
                   trackType === tp
-                    ? tp === 'single' ? 'bg-amber-500 text-white shadow-sm' : 'bg-blue-600 text-white shadow-sm'
+                    ? 'bg-blue-600 text-white shadow-sm'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}>
                 {TRACK_TYPE_DEFS[tp].icon}{TRACK_TYPE_DEFS[tp].label}
