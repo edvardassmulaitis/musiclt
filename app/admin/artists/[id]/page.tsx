@@ -216,6 +216,42 @@ function AlbumCard({ album, defaultOpen }: { album: any; defaultOpen: boolean })
   )
 }
 
+function SingleRow({ track, onDelete }: { track: any; onDelete: () => void }) {
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  return (
+    <div className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50/80 group transition-colors">
+      <div className="flex-1 min-w-0">
+        <div className="flex items-baseline gap-1.5 flex-wrap">
+          <a href={`/admin/tracks/${track.id}`} target="_blank" rel="noopener noreferrer"
+            className="text-sm text-gray-800 hover:text-blue-600 truncate transition-colors">
+            {track.title}
+          </a>
+          {track.release_year && <span className="text-xs text-gray-400 shrink-0">{track.release_year}</span>}
+          {track.video_url && <span className="text-blue-400 text-xs shrink-0">▶</span>}
+          {track.has_lyrics && <span className="text-green-500 text-xs font-bold shrink-0">T</span>}
+          {track.is_single && <span className="text-orange-400 text-xs font-bold shrink-0">S</span>}
+        </div>
+        {track.albums_list?.[0] && <div className="text-[11px] text-gray-400 truncate">{track.albums_list[0].title}</div>}
+      </div>
+      {confirmDelete ? (
+        <div className="flex items-center gap-1 shrink-0">
+          <span className="text-xs text-red-500">Tikrai?</span>
+          <button onClick={onDelete} className="px-1.5 py-0.5 text-xs bg-red-500 text-white rounded hover:bg-red-600 transition-colors">Taip</button>
+          <button onClick={() => setConfirmDelete(false)} className="px-1.5 py-0.5 text-xs text-gray-400 hover:text-gray-600 transition-colors">Ne</button>
+        </div>
+      ) : (
+        <button onClick={() => setConfirmDelete(true)}
+          className="opacity-0 group-hover:opacity-100 shrink-0 p-1 text-gray-300 hover:text-red-400 rounded transition-all"
+          title="Ištrinti">
+          <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 9h8l1-9"/>
+          </svg>
+        </button>
+      )}
+    </div>
+  )
+}
+
 function DiscographyPanel({ artistId, artistName, artistType, refreshKey, onImportClose }: {
   artistId: string; artistName: string; artistType?: 'solo'|'group'; refreshKey: number; onImportClose: () => void
 }) {
@@ -306,21 +342,10 @@ function DiscographyPanel({ artistId, artistName, artistType, refreshKey, onImpo
                 </div>
                 <div className="divide-y divide-gray-50">
                   {singles.slice(0, 30).map((track: any) => (
-                    <div key={track.id} className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50/80 group transition-colors">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-baseline gap-1.5 flex-wrap">
-                          <span className="text-sm text-gray-800 truncate">{track.title}</span>
-                          {track.release_year && <span className="text-xs text-gray-400 shrink-0">{track.release_year}</span>}
-                          {track.video_url && <span className="text-blue-400 text-xs shrink-0">▶</span>}
-                          {track.has_lyrics && <span className="text-green-500 text-xs font-bold shrink-0">T</span>}
-                        </div>
-                        {track.albums_list?.[0] && <div className="text-[11px] text-gray-400 truncate">{track.albums_list[0].title}</div>}
-                      </div>
-                      <a href={`/admin/tracks/${track.id}`} target="_blank" rel="noopener noreferrer"
-                        className="opacity-0 group-hover:opacity-100 shrink-0 px-1.5 py-0.5 text-xs text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded transition-all font-medium">
-                        Redaguoti ↗
-                      </a>
-                    </div>
+                    <SingleRow key={track.id} track={track} onDelete={() => {
+                      setSingles(p => p.filter(s => s.id !== track.id))
+                      fetch(`/api/tracks/${track.id}`, { method: 'DELETE' }).catch(() => {})
+                    }} />
                   ))}
                   {singles.length > 30 && (
                     <div className="px-3 py-2 text-center">
