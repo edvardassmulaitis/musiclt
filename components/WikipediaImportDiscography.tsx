@@ -383,7 +383,7 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
     if (!inTable) continue
 
     // ── Lentelės header eilutės ───────────────────────────────────────────────
-    if (line.startsWith('!') && !/!\\s*[—–-]?\\s*scope\s*=\s*['"]row['"]/i.test(line)) {
+    if (line.startsWith('!') && !/!\s*[—–-]?\s*scope\s*=\s*['"]row['"]/i.test(line)) {
       // Detektuoti Year stulpelį header eilutėje
       if (/\bYear\b/i.test(line)) { hasYearCol = true; continue }
       // Paprastas ! header be scope — gali būti daina (pvz. 2020s lentelė)
