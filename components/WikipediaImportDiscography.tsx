@@ -1202,14 +1202,22 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       try {
         if (song.duplicateId) {
           const res = await fetch(`/api/tracks/${song.duplicateId}`, { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ is_single: true }) })
-          if (!res.ok) throw new Error('PATCH nepavyko')
+          if (!res.ok) {
+            let errMsg = `PATCH ${res.status}`
+            try { const d = await res.json(); errMsg = d.error || d.message || errMsg } catch {}
+            throw new Error(errMsg)
+          }
           okMark++
         } else {
           const res = await fetch('/api/tracks', {
             method: 'POST', headers: {'Content-Type':'application/json'},
             body: JSON.stringify({ title: song.title, artist_id: artistId, type: 'normal', is_single: true, release_year: song.year, release_month: song.month, release_day: song.day }),
           })
-          if (!res.ok) throw new Error((await res.json()).error||'POST nepavyko')
+          if (!res.ok) {
+            let errMsg = `POST ${res.status}`
+            try { const d = await res.json(); errMsg = d.error || d.message || errMsg } catch {}
+            throw new Error(errMsg)
+          }
           const newTrack = await res.json()
           if (enrichYoutube) {
             try {
@@ -1601,9 +1609,10 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                                       {song.duplicate && <span className="text-[10px] text-amber-500 shrink-0">jau yra</span>}
                                       {song.imported && <span className="text-[10px] text-emerald-500 shrink-0">importuota</span>}
                                       {song.importing && <span className="text-[10px] text-violet-400 animate-pulse shrink-0">importuojama</span>}
-                                      {song.error && <span className="text-[10px] text-red-400 shrink-0" title={song.error}>klaida</span>}
+                                      {song.error && <span className="text-[10px] text-red-400 shrink-0" title={song.error}>✗ klaida</span>}
                                     </div>
-                                    {song.albumTitle && <div className="text-[11px] text-gray-400 truncate">{song.albumTitle}</div>}
+                                    {song.error && <div className="text-[10px] text-red-400 truncate mt-0.5">{song.error}</div>}
+                                    {song.albumTitle && !song.error && <div className="text-[11px] text-gray-400 truncate">{song.albumTitle}</div>}
                                     {song.duplicate && song.duplicateId && (
                                       <a href={`/admin/tracks/${song.duplicateId}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="text-[10px] text-blue-500 hover:underline">atidaryti →</a>
                                     )}
