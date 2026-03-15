@@ -11,31 +11,55 @@ export async function POST(req: NextRequest) {
     const { url, returnDataUrl } = await req.json()
     if (!url) return NextResponse.json({ error: 'No URL' }, { status: 400 })
 
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; MusicLT/1.0)',
-        'Referer': 'https://en.wikipedia.org/',
-        'Accept': 'image/*,*/*',
-      },
-      signal: AbortSignal.timeout(15000),
-    })
+    // Nustatyti tinkamus header'us pagal šaltinį
+    const isWikimedia = url.includes('wikimedia.org') || url.includes('wikipedia.org')
+    const headers: Record<string, string> = {
+      'User-Agent': 'MusicLT/1.0 (https://musiclt.vercel.app; music database) Mozilla/5.0',
+      'Accept': 'image/*,*/*;q=0.8',
+    }
+    if (isWikimedia) {
+      headers['Referer'] = 'https://en.wikipedia.org/'
+      headers['Accept-Language'] = 'en-US,en;q=0.9'
+    }
 
-    if (!response.ok) {
-      return NextResponse.json({ error: `HTTP ${response.status}` }, { status: 400 })
+    // Fetch su retry dėl Wikimedia rate limiting
+    let response: Response | null = null
+    let lastError = ''
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) await new Promise(r => setTimeout(r, 1500 * attempt))
+      try {
+        response = await fetch(url, {
+          headers,
+          redirect: 'follow',
+          signal: AbortSignal.timeout(20000),
+        })
+        if (response.ok) break
+        lastError = `HTTP ${response.status}`
+        if (response.status === 404 || response.status === 403) break // nebandyti iš naujo
+      } catch (e: any) {
+        lastError = e.message
+      }
+    }
+
+    if (!response?.ok) {
+      return NextResponse.json({ error: lastError || 'Fetch nepavyko' }, { status: 400 })
     }
 
     const contentType = response.headers.get('content-type') || 'image/jpeg'
     const buffer = Buffer.from(await response.arrayBuffer())
 
-    // If caller just wants dataUrl for cropper preview
+    // Grąžinti dataUrl jei prašoma (pvz. cropper preview)
     if (returnDataUrl) {
       const base64 = buffer.toString('base64')
       const dataUrl = `data:${contentType.split(';')[0]};base64,${base64}`
       return NextResponse.json({ url: dataUrl, dataUrl })
     }
 
-    // Upload to Supabase storage — use 'covers' bucket
-    const ext = contentType.includes('png') ? 'png' : contentType.includes('gif') ? 'gif' : contentType.includes('webp') ? 'webp' : 'jpg'
+    // Įkelti į Supabase storage — 'covers' bucket
+    const ext = contentType.includes('png') ? 'png'
+      : contentType.includes('gif') ? 'gif'
+      : contentType.includes('webp') ? 'webp'
+      : 'jpg'
     const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
 
     const { error: uploadError } = await supabase.storage
