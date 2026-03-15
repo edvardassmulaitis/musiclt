@@ -51,7 +51,7 @@ type SingleSongItem = {
 
 // ─── Konstantos ───────────────────────────────────────────────────────────────
 
-const AUTO_SELECT_TYPES: AlbumType[] = ['studio', 'ep']
+const AUTO_SELECT_TYPES: AlbumType[] = ['studio']
 
 // ─── Wikipedia utils ──────────────────────────────────────────────────────────
 
@@ -293,8 +293,8 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
       const h = hm[2].toLowerCase()
       const hRaw = hm[2]
 
-      // Patekti į singlų sekciją
-      if (h === 'singles' || h.match(/^singles\s*$/)) {
+      // Patekti į singlų sekciją — tik depth-2 "Singles"
+      if (depth === 2 && /^singles\s*$/i.test(h)) {
         inSingles = true
         skipSubSection = false
         hasYearCol = false
@@ -309,17 +309,16 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
         continue
       }
 
-      // Viduje singles — skip'iname featured/promo/chart/collaborat/other
       if (inSingles && depth === 3) {
-        const skip = /featured|promotional|promo|chart.?re|collaborat|as featured|other charting|video/i.test(h)
-        skipSubSection = skip
-        if (!skip) { hasYearCol = false; currentYear = null }
-        continue
-      }
-
-      // Dešimtmečiai 1970s/1980s/... — OK, tęsiame
-      if (inSingles && depth === 3 && /^\d{4}s?$/.test(hRaw.trim())) {
-        skipSubSection = false
+        // Dešimtmečiai 1970s/1980s/... — tęsiame
+        if (/^\d{4}s?\s*$/i.test(hRaw.trim())) {
+          skipSubSection = false
+          hasYearCol = false
+          currentYear = null
+          continue
+        }
+        // Visa kita — featured/promo/chart/collaborat/video/box sets — skip'iname
+        skipSubSection = true
         continue
       }
 
@@ -689,8 +688,8 @@ type Props = {
 type ActiveTab = 'studio' | 'other' | 'singles' | 'songs'
 
 // Albumų grupės pagal tabs
-const STUDIO_TYPES: AlbumType[] = ['studio', 'ep']
-const OTHER_TYPES: AlbumType[] = ['compilation', 'live', 'other']
+const STUDIO_TYPES: AlbumType[] = ['studio']
+const OTHER_TYPES: AlbumType[] = ['ep', 'compilation', 'live', 'other']
 
 // ─── Pagrindinis komponentas ──────────────────────────────────────────────────
 
@@ -1175,10 +1174,10 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                         </div>
                       </div>
                       {/* Pogrupiai */}
-                      {(['compilation','live','other'] as AlbumType[]).map(type => {
+                      {(['ep', 'compilation','live','other'] as AlbumType[]).map(type => {
                         const typeItems = otherItems.filter(({ it }) => it.type === type)
                         if (!typeItems.length) return null
-                        const typeLabels: Record<string, string> = { compilation: 'Kompiliacijos', live: 'Live albumai', other: 'Kiti' }
+                        const typeLabels: Record<string, string> = { ep: 'EP', compilation: 'Kompiliacijos', live: 'Live albumai', other: 'Kiti' }
                         return (
                           <div key={type}>
                             <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1 mt-2">{typeLabels[type]}</div>
