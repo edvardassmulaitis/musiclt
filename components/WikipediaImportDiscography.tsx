@@ -1163,7 +1163,11 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       addLog(`📋 Kraunama ${unfetched.length}...`)
       for (const i of unfetched) { await fetchDetails(i); await new Promise(r => setTimeout(r, 400)) }
     }
-    const snapshot = [...items]
+    // Snapshot PO fetchDetails kad turėtų cover_image_url ir tracks
+    // Naudojame funkcinį update kad gauti naujausią state
+    const snapshot = await new Promise<typeof items>(resolve => {
+      setItems(p => { resolve(p); return p })
+    })
     setImporting(true)
     let ok = 0, fail = 0
     for (const idx of indices) {
