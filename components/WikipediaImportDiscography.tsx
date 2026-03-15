@@ -388,10 +388,11 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
       const cleanH = line
         .replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '')
         .replace(/<ref[^/]*\/>/gi, '')
-      const qm = cleanH.match(/!\s*"([^"]+)"/)
+      const qm = cleanH.match(/!\s*"([^"]+)"\s*(.*)/)
       if (qm && hasYearCol) {
-        // Tai daina — apdoroti kaip scope="row"
-        let title = qm[1].trim()
+        const rawSuffix = qm[2].replace(/<[^>]+>/g, '').replace(/\{\{[^}]*\}\}/g, '').replace(/\[\d+\]/g, '').trim()
+        const simpleSuffix = rawSuffix.match(/^(\([^)]{1,50}\))/)
+        let title = simpleSuffix ? `${qm[1]} ${simpleSuffix[1]}` : qm[1]
         title = title.replace(/\s*[\[(](?:re-?release|re-?issue)[)\]]/gi, '').trim()
         if (title && title.length > 1) {
           // Albumą rasime iš vėlesnių eilučių
@@ -453,17 +454,20 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
       let rawTitle = ''
       if (allLinks.length > 0) {
         rawTitle = allLinks.join(' / ')
-        // Pridėti tekstą po wiki link'o jei yra (pvz. " (2024 Mix)")
-        const afterLinks = afterScope.replace(/\[\[.*?\]\]/g, '').replace(/<[^>]+>/g, '').trim()
-        if (afterLinks && !/^[/|]/.test(afterLinks)) rawTitle += ' ' + afterLinks
-        rawTitle = rawTitle.trim()
+        // Pridėti TIKTAI paprastą skliaustelių suffix po paskutinio wiki link'o
+        // pvz. "[[Title]]" (2024 Mix) → "Title (2024 Mix)"
+        // Bet NE: "[[Title]]" (released on the single E.P. ...)
+        const afterLastLink = afterScope.replace(/.*\]\]/, '').replace(/<[^>]+>/g, '').replace(/\{\{[^}]*\}\}/g, '').trim()
+        const simpleSuffix = afterLastLink.match(/^\s*(\([^)]{1,40}\))/)
+        if (simpleSuffix) rawTitle += ' ' + simpleSuffix[1].trim()
       } else {
         // Kabučių pavadinimas: "Title" arba "Title" (Suffix)
-        // Imame tekstą tarp kabučių IR bet ką po jų (pvz. "(2024 Mix)")
         const qm = afterScope.match(/^"([^"]+)"\s*(.*)/)
         if (qm) {
-          const suffix = qm[2].replace(/<[^>]+>/g, '').replace(/\[\d+\]/g, '').trim()
-          rawTitle = suffix ? `${qm[1]} ${suffix}` : qm[1]
+          // Suffix: pasiimame tik paprastą skliaustelių suffix, be wiki markup
+          const rawSuffix = qm[2].replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '').replace(/<[^>]+>/g, '').replace(/\{\{[^}]*\}\}/g, '').replace(/\[\d+\]/g, '').trim()
+          const simpleSuffix = rawSuffix.match(/^(\([^)]{1,50}\))/)
+          rawTitle = simpleSuffix ? `${qm[1]} ${simpleSuffix[1]}` : qm[1]
         } else {
           const pm = afterScope.match(/'{2,3}([^']+)'{2,3}/)
           if (pm) rawTitle = cleanWikiText(pm[1])
@@ -549,11 +553,11 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
         const firstSeg = allSegs[0]
 
         let title = ''
-        // Daina Wikipedia singlų sąraše visada rašoma "Title" su kabutėmis
-        // arba kaip [[wikilink]] — be kursyvo (albumai rašomi kursyvu)
-        const quotedM = firstSeg.match(/^"([^"]+)"/)
+        const quotedM = firstSeg.match(/^"([^"]+)"\s*(.*)/)
         if (quotedM) {
-          title = quotedM[1].trim()
+          const rawSuffix = quotedM[2].replace(/<[^>]+>/g, '').replace(/\{\{[^}]*\}\}/g, '').replace(/\[\d+\]/g, '').trim()
+          const simpleSuffix = rawSuffix.match(/^(\([^)]{1,50}\))/)
+          title = simpleSuffix ? `${quotedM[1]} ${simpleSuffix[1]}` : quotedM[1]
         } else {
           // Wiki link be kursyvo — bet tik jei nėra ''...'' (kursyvas = albumas)
           if (/^''/.test(firstSeg)) continue  // kursyvas = albumas, skip
@@ -573,7 +577,7 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
         // Pašalinti tik (re-release) ir (re-issue) — NE (Remix), NE (2024 Mix)
         title = title.replace(/\s*[\[(](?:re-?release|re-?issue)[)\]]/gi, '').trim()
 
-        // Albumas — paskutinis segmentas su wiki link (jei skiriasi nuo dainos)
+        // Albumas — paskutinis segmentas su wiki link arba italics
         let albumTitle: string | undefined
         for (let sp = allSegs.length - 1; sp > 0; sp--) {
           const seg = allSegs[sp]
@@ -582,6 +586,12 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
           if (am) {
             const p = cleanWikiText(am[2] || am[1])
             if (p && p !== title && !/^\d+$/.test(p) && !/^[-–—]$/.test(p)) { albumTitle = p; break }
+          }
+          // Italics be wiki link: ''Album''
+          const im = seg.match(/'{2,3}([^']+)'{2,3}/)
+          if (im) {
+            const p = cleanWikiText(im[1])
+            if (p && p !== title && p.length > 1) { albumTitle = p; break }
           }
         }
 
