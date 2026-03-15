@@ -117,6 +117,7 @@ function mapTrack(t: any) {
     .filter(Boolean)
   return {
     id: t.id, title: t.title, type: t.type, release_date: t.release_date,
+    is_single: t.is_single || false,
     video_url: t.video_url, spotify_id: t.spotify_id, is_new: t.is_new,
     is_new_date: t.is_new_date, cover_url: t.cover_url || null,
     has_lyrics: !!(t.lyrics), artists: t.artists,
