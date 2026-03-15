@@ -291,6 +291,7 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
   // Title-first formato sekimas (pvz. Queen)
   // Kai aptinkame ! scope="row" → daina, kita eilutė → metai
   let pendingTitle: string | null = null
+  let pendingAlbum: string | undefined = undefined
   let pendingYearLine = false  // laukiame metų eilutės po dainOS eilutės
 
   // Year-first formatas — metai ateina kaip atskira eilutė PRIEŠ dainą
@@ -308,7 +309,7 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
 
       if (depth === 2 && /^singles\s*$/i.test(h)) {
         inSingles = true; skipSubSection = false; hasYearCol = false
-        currentYear = null; yearRowspan = 0; pendingTitle = null; pendingYearLine = false
+        currentYear = null; yearRowspan = 0; pendingTitle = null; pendingAlbum = undefined; pendingYearLine = false
         continue
       }
       if (depth === 2 && inSingles) { inSingles = false; inTable = false; continue }
@@ -316,7 +317,7 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
         if (/^\d{4}s?\s*$/i.test(hRaw.trim())) {
           // Dešimtmetis — reset ir tęsiame
           skipSubSection = false; hasYearCol = false
-          currentYear = null; yearRowspan = 0; pendingTitle = null; pendingYearLine = false
+          currentYear = null; yearRowspan = 0; pendingTitle = null; pendingAlbum = undefined; pendingYearLine = false
         } else {
           skipSubSection = true
         }
@@ -326,7 +327,7 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
     }
 
     if (!inSingles || skipSubSection) continue
-    if (line.startsWith('{|')) { inTable = true; hasYearCol = false; currentYear = null; yearRowspan = 0; pendingTitle = null; pendingYearLine = false; continue }
+    if (line.startsWith('{|')) { inTable = true; hasYearCol = false; currentYear = null; yearRowspan = 0; pendingTitle = null; pendingAlbum = undefined; pendingYearLine = false; continue }
     if (line.startsWith('|}')) { inTable = false; continue }
     if (!inTable) continue
 
@@ -346,48 +347,70 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
       continue
     }
 
-    // ── scope="row" eilutė — DAINA (Title-first, pvz. Queen) ─────────────────
+    // ── scope="row" eilutė — DAINA (Title-first, pvz. Queen 1970s-1990s) ─────
     if (/!\s*scope\s*=\s*['"]row['"]/i.test(line)) {
-      // Ištraukti pavadinimą
-      let title = ''
-      const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
-      if (wm) {
-        title = cleanWikiText(wm[2] || wm[1])
-      } else {
-        // "Title" be wiki link — kabučėse
-        const qm = line.match(/scope\s*=\s*['"]row['"]\s*\|?\s*"([^"]+)"/)
-        if (qm) title = qm[1]
-        else { const pm = line.match(/'{2,3}([^']+)'{2,3}/); if (pm) title = cleanWikiText(pm[1]) }
-      }
-      title = title.replace(/\s*[\[(](?:re-?release|remix|re-?issue)[)\]]/gi, '').trim()
-      if (!title || title.length < 2 || title.toLowerCase() === 'row') continue
+      // Ištraukti VISUS pavadinimus (gali būti dvigubi: "Title A" / "Title B")
+      let rawTitle = ''
+      // Paimti viską po scope="row"|
+      const afterScope = line.replace(/^.*scope\s*=\s*['"]row['"]\s*\|?\s*/i, '').trim()
 
-      // Albumą rasime iš vėlesnių eilučių (lookahead)
+      // Surinkti visus wiki links iš šios eilutės
+      const allLinks: string[] = []
+      const linkRe = /\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/g
+      let lm: RegExpExecArray | null
+      while ((lm = linkRe.exec(line)) !== null) {
+        allLinks.push(cleanWikiText(lm[2] || lm[1]))
+      }
+
+      if (allLinks.length > 0) {
+        rawTitle = allLinks.join(' / ')
+      } else {
+        // Kabučių pavadinimas be wiki link
+        const qm = afterScope.match(/^"([^"]+)"/)
+        if (qm) rawTitle = qm[1]
+        else { const pm = afterScope.match(/'{2,3}([^']+)'{2,3}/); if (pm) rawTitle = cleanWikiText(pm[1]) }
+      }
+
+      rawTitle = rawTitle.replace(/\s*[\[(](?:re-?release|remix|re-?issue)[)\]]/gi, '').trim()
+      if (!rawTitle || rawTitle.length < 2 || rawTitle.toLowerCase() === 'row') continue
+
+      // Split dvigubų singlų per " / " — kiekvienas tampa atskira daina
+      // Bet jei pavadinimas jau turi " / " kaip dalį (mažai tikėtina) — nedalinti
+      const titleParts = rawTitle.split(/\s*\/\s*/).map(t => t.replace(/^["'\s]+|["'\s]+$/g, '').trim()).filter(t => t.length > 1)
+
+      // Albumą rasime iš vėlesnių eilučių (lookahead) — PASKUTINIS wiki link
       let albumTitle: string | undefined
       for (let k = i + 1; k < Math.min(i + 30, lines.length); k++) {
         const nl = lines[k]
         if (nl.trim() === '|-' || /!\s*scope\s*=\s*['"]row['"]/i.test(nl)) break
         if (/^\|/.test(nl) && !/^\|\|/.test(nl)) {
           if (/Non-album/i.test(nl)) { albumTitle = 'Non-album single'; break }
-          const alm = nl.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
-          if (alm) {
-            const p = cleanWikiText(alm[2] || alm[1])
-            if (p && !/^\d+$/.test(p) && !/^[-–—\d]/.test(p) && p.length > 2 && p !== title) {
-              albumTitle = p; break
+          // Albumas dažnai yra paskutiniame | segmente eilutės
+          const segParts = nl.split('||').pop()?.split('|') || []
+          for (let sp = segParts.length - 1; sp >= 0; sp--) {
+            const seg = segParts[sp]
+            const alm = seg.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
+            if (alm) {
+              const p = cleanWikiText(alm[2] || alm[1])
+              if (p && !/^\d+$/.test(p) && !/^[-–—]$/.test(p) && p.length > 2 && !titleParts.includes(p)) {
+                albumTitle = p; break
+              }
             }
           }
+          if (albumTitle) break
         }
       }
 
-      // Metai: jei yearRowspan > 0 — naudoti currentYear
-      // jei ne — Title-first formatas, metai bus kitoje eilutėje
+      // Metai
       if (yearRowspan > 0) {
-        singles.push({ title, year: currentYear, month: null, day: null, albumTitle, source: 'wikipedia', selected: true })
+        for (const t of titleParts) {
+          singles.push({ title: t, year: currentYear, month: null, day: null, albumTitle, source: 'wikipedia', selected: false })
+        }
       } else {
-        // Laukti metų iš kitos eilutės
-        pendingTitle = title
+        // Laukti metų iš kitos eilutės — saugoti visus
+        pendingTitle = titleParts.join('\n')  // \n kaip separator
+        pendingAlbum = albumTitle
         pendingYearLine = true
-        // Bet pirmiau pažiūrėti ar metai yra toje pačioje eilutėje (mažai tikėtina, bet)
       }
       continue
     }
@@ -401,35 +424,51 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
         currentYear = parseInt(yearM[2])
         yearRowspan = yearM[1] ? parseInt(yearM[1]) : 1
         if (pendingTitle && pendingYearLine) {
-          // Dabar turime dainą ir metus
-          // Albumą jau radome lookahead, išsaugoti
-          singles.push({ title: pendingTitle, year: currentYear, month: null, day: null, albumTitle: undefined, source: 'wikipedia', selected: true })
-          // Albumą reikės rasti kitose eilutėse — tai sudėtinga, o dainos svarbiausios
-          pendingTitle = null; pendingYearLine = false
+          const titleParts = pendingTitle.split('\n').filter(t => t.length > 1)
+          for (const t of titleParts) {
+            singles.push({ title: t, year: currentYear, month: null, day: null, albumTitle: pendingAlbum, source: 'wikipedia', selected: false })
+          }
+          pendingTitle = null; pendingAlbum = undefined; pendingYearLine = false
         }
         continue
       }
 
       pendingYearLine = false
 
-      // Year-first formatas — daina šioje eilutėje
+      // Year-first formatas (Title eilutė su | pradžia, hasYearCol=true)
+      // Šiame formate KIEKVIENA |eilutė| gali būti daina — reikia griežtai filtruoti
+      // Daina: pirmas wiki link eilutėje, o tai NE skaičius, NE albumas
+      // Albumas: paskutinis wiki link eilutėje (jei skiriasi nuo pirmo)
       if (hasYearCol && !pendingTitle) {
-        const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
-        if (wm) {
-          let title = cleanWikiText(wm[2] || wm[1])
-          title = title.replace(/\s*[\[(](?:re-?release|remix|re-?issue)[)\]]/gi, '').trim()
-          if (title && title.length > 1 && !/^\d{4}/.test(title) && !/^\d+$/.test(title)) {
-            let albumTitle: string | undefined
-            const parts = line.split('|')
-            const lastPart = parts[parts.length - 1]
-            if (/Non-album/i.test(lastPart)) albumTitle = 'Non-album single'
-            else {
-              const am = lastPart.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
-              if (am) { const p = cleanWikiText(am[2]||am[1]); if (p && !/^\d+$/.test(p) && p !== title) albumTitle = p }
-            }
-            singles.push({ title, year: currentYear, month: null, day: null, albumTitle, source: 'wikipedia', selected: true })
+        const allSegs = line.split('|').map(s => s.trim()).filter(Boolean)
+        if (allSegs.length === 0) continue
+
+        // Pirmasis segmentas su wiki link = kandidatas į pavadinimą
+        const firstSeg = allSegs[0]
+        const wm = firstSeg.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
+        if (!wm) continue  // Jei nėra link, ne daina
+
+        let title = cleanWikiText(wm[2] || wm[1])
+        title = title.replace(/\s*[\[(](?:re-?release|remix|re-?issue)[)\]]/gi, '').trim()
+
+        // Validuoti: NE metai, NE skaičius, NE žinomi albumų žodžiai
+        if (!title || title.length < 2) continue
+        if (/^\d{4}/.test(title) || /^\d+$/.test(title)) continue
+        // Jei tai albumas (turi "Edition", "Collection", "Anniversary") — skip
+        if (/edition|collection|anniversary|collector|greatest hits|soundtrack/i.test(title)) continue
+
+        // Albumas — paskutinis segmentas su wiki link (jei skiriasi)
+        let albumTitle: string | undefined
+        for (let sp = allSegs.length - 1; sp > 0; sp--) {
+          const am = allSegs[sp].match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
+          if (am) {
+            const p = cleanWikiText(am[2] || am[1])
+            if (p && p !== title && !/^\d+$/.test(p)) { albumTitle = p; break }
           }
+          if (/Non-album/i.test(allSegs[sp])) { albumTitle = 'Non-album single'; break }
         }
+
+        singles.push({ title, year: currentYear, month: null, day: null, albumTitle, source: 'wikipedia', selected: false })
       }
     }
   }
@@ -466,10 +505,13 @@ function extractTrackListings(wikitext: string): string[] {
   return results
 }
 
-function isBonusBlock(h: string): boolean {
+function isReissueBlock(h: string): boolean {
   const hl = h.toLowerCase()
   return hl.includes('bonus') || hl.includes('deluxe') || hl.includes('japan') ||
-    hl.includes('special') || hl.includes('itunes') || hl.includes('exclusive') || hl.includes('limited')
+    hl.includes('special') || hl.includes('itunes') || hl.includes('exclusive') ||
+    hl.includes('limited') || hl.includes('remaster') || hl.includes('reissue') ||
+    hl.includes('re-issue') || hl.includes('anniversary') || hl.includes('expanded') ||
+    hl.includes('collector') || /^\d{4}/.test(hl)  // pvz. "2011 remaster"
 }
 
 function isDiscBlock(tl: string): boolean {
@@ -539,18 +581,26 @@ function parseTracklist(wikitext: string): TrackEntry[] {
   const allTracks: TrackEntry[] = []
   const isMultiDisc = tlBlocks.every(b => isDiscBlock(b)) && tlBlocks.length > 1
   if (isMultiDisc) {
+    // Multi-disc albumas (pvz. live album) — imame visus disc blokus
     let order = 1
     for (const tl of tlBlocks) { const nt = parseBlock(tl, order); allTracks.push(...nt); order += nt.length }
   } else {
     const getHeadline = (tl: string) => { const m = tl.match(/\|\s*(?:headline|caption)\s*=\s*([^\n|]+)/); return m ? m[1].replace(/[''+\[\]]/g, '').trim() : '' }
-    const standard = tlBlocks.filter(tl => !isBonusBlock(getHeadline(tl)))
-    const bonus = tlBlocks.filter(tl => isBonusBlock(getHeadline(tl)))
-    const toUse = standard.length ? standard : [tlBlocks[0]]
-    let order = 1
-    for (const tl of toUse) { const nt = parseBlock(tl, order); allTracks.push(...nt); order += nt.length }
-    const existing = new Set(allTracks.map(t => t.title.toLowerCase()))
-    for (const tl of bonus) for (const bt of parseBlock(tl, order)) {
-      if (!existing.has(bt.title.toLowerCase())) { allTracks.push({ ...bt, sort_order: order++ }); existing.add(bt.title.toLowerCase()) }
+    const standard = tlBlocks.filter(tl => !isReissueBlock(getHeadline(tl)))
+    // Imame TIK PIRMĄ standartinį bloką — originali tracklist'ą
+    // Jei nėra standartinių — pirmą visų
+    const primaryBlock = standard.length ? standard[0] : tlBlocks[0]
+    const nt = parseBlock(primaryBlock, 1)
+    allTracks.push(...nt)
+
+    // Bonus dainos: tik jei yra papildomi standartiniai diskai (ne remaster/reissue)
+    // pvz. kai albumas turi dvi versijas tame pačiame puslapyje (retas atvejis)
+    for (let bi = 1; bi < standard.length; bi++) {
+      const existing = new Set(allTracks.map(t => t.title.toLowerCase()))
+      let order = allTracks.length + 1
+      for (const bt of parseBlock(standard[bi], order)) {
+        if (!existing.has(bt.title.toLowerCase())) { allTracks.push({ ...bt, sort_order: order++ }); existing.add(bt.title.toLowerCase()) }
+      }
     }
   }
   return allTracks
@@ -742,6 +792,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [artistGroups, setArtistGroups] = useState<string[]>([])
   const [songs, setSongs] = useState<SingleSongItem[]>([])
+  const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set())
 
   const [log, setLog] = useState<string[]>([])
   const [importing, setImporting] = useState(false)
@@ -813,7 +864,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
     else addLog('✓ Dublikatų nerasta')
 
     const albumsF = foundAlbums.map(it => { const k = it.title.toLowerCase(); return albumDups[k] ? { ...it, duplicate: true, duplicateId: albumDups[k] } : it })
-    const songsF = foundSongs.map(s => { const k = s.title.toLowerCase(); return songDups[k] ? { ...s, duplicate: true, duplicateId: songDups[k], selected: false } : s })
+    const songsF = foundSongs.map(s => { const k = s.title.toLowerCase(); return songDups[k] ? { ...s, duplicate: true, duplicateId: songDups[k], selected: false } : { ...s, selected: false } })
 
     setArtistGroups([])
     setItems(albumsF)
@@ -1020,56 +1071,96 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
     singles: songs.some(s => !s.duplicate),
   }
 
+  const toggleExpand = async (i: number) => {
+    setExpandedItems(p => { const s = new Set(p); s.has(i) ? s.delete(i) : s.add(i); return s })
+    if (!items[i].fetched && !expandedItems.has(i)) {
+      await fetchDetails(i)
+    }
+  }
+
   // ── Album row renderer ─────────────────────────────────────────────────────
 
-  const renderAlbumRow = (it: DiscographyItem, i: number) => (
-    <div key={i} onClick={() => toggleSelect(i)}
-      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border transition-all ${
-        it.duplicate ? 'border-gray-100 bg-gray-50/50 opacity-40 cursor-not-allowed'
-        : it.imported ? 'border-emerald-200 bg-emerald-50/50 cursor-default'
-        : selected.has(i) ? 'border-violet-300 bg-violet-50 cursor-pointer'
-        : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50/80 cursor-pointer'
+  const renderAlbumRow = (it: DiscographyItem, i: number) => {
+    const isExpanded = expandedItems.has(i)
+    return (
+      <div key={i} className={`rounded-lg border transition-all ${
+        it.duplicate ? 'border-gray-100 bg-gray-50/50 opacity-40'
+        : it.imported ? 'border-emerald-200 bg-emerald-50/50'
+        : selected.has(i) ? 'border-violet-300 bg-violet-50'
+        : 'border-gray-200 bg-white hover:border-gray-300'
       }`}>
-      <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
-        selected.has(i) && !it.duplicate && !it.imported ? 'border-violet-500 bg-violet-500' : 'border-gray-300'
-      }`}>
-        {selected.has(i) && !it.duplicate && !it.imported && (
-          <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 10 10"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-        )}
-        {it.imported && <svg className="w-2.5 h-2.5 text-emerald-500" fill="none" viewBox="0 0 10 10"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-      </div>
-      {it.cover_image_url
-        ? <img src={it.cover_image_url} alt="" referrerPolicy="no-referrer" className="w-8 h-8 rounded object-cover shrink-0" />
-        : <div className="w-8 h-8 rounded bg-gray-100 shrink-0" />
-      }
-      <div className="flex-1 min-w-0">
-        <div className="flex items-baseline gap-1.5 flex-wrap">
-          <span className="text-sm font-medium text-gray-900 truncate">{it.title}</span>
-          {it.year && <span className="text-xs text-gray-400 shrink-0">{it.year}</span>}
-          {it.type === 'ep' && <span className="text-[10px] font-medium text-violet-500 shrink-0 uppercase tracking-wide">EP</span>}
-          {it.source === 'musicbrainz' && <span className="text-[10px] text-blue-400 shrink-0">MB</span>}
-          {it.duplicate && <span className="text-[10px] text-amber-500 shrink-0">jau yra</span>}
-          {it.importing && <span className="text-[10px] text-violet-400 animate-pulse shrink-0">importuojama</span>}
-          {it.error && <span className="text-[10px] text-red-400 shrink-0" title={it.error}>klaida</span>}
+        {/* Main row */}
+        <div className={`flex items-center gap-2.5 px-3 py-2 ${it.duplicate ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+          onClick={() => !it.duplicate && !it.imported && toggleSelect(i)}>
+          <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
+            selected.has(i) && !it.duplicate && !it.imported ? 'border-violet-500 bg-violet-500' : 'border-gray-300'
+          }`}>
+            {selected.has(i) && !it.duplicate && !it.imported && (
+              <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 10 10"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            )}
+            {it.imported && <svg className="w-2.5 h-2.5 text-emerald-500" fill="none" viewBox="0 0 10 10"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+          </div>
+          {it.cover_image_url
+            ? <img src={it.cover_image_url} alt="" referrerPolicy="no-referrer" className="w-8 h-8 rounded object-cover shrink-0" />
+            : <div className="w-8 h-8 rounded bg-gray-100 shrink-0" />
+          }
+          <div className="flex-1 min-w-0">
+            <div className="flex items-baseline gap-1.5 flex-wrap">
+              <span className="text-sm font-medium text-gray-900 truncate">{it.title}</span>
+              {it.year && <span className="text-xs text-gray-400 shrink-0">{it.year}</span>}
+              {it.type === 'ep' && <span className="text-[10px] font-medium text-violet-500 shrink-0 uppercase tracking-wide">EP</span>}
+              {it.source === 'musicbrainz' && <span className="text-[10px] text-blue-400 shrink-0">MB</span>}
+              {it.duplicate && <span className="text-[10px] text-amber-500 shrink-0">jau yra</span>}
+              {it.importing && <span className="text-[10px] text-violet-400 animate-pulse shrink-0">importuojama</span>}
+              {it.error && <span className="text-[10px] text-red-400 shrink-0" title={it.error}>klaida</span>}
+            </div>
+            {it.tracks !== undefined && (
+              <div className="text-[11px] text-gray-400">
+                {it.tracks.length} dainų{it.tracks.filter(t=>t.is_single).length ? ` · ${it.tracks.filter(t=>t.is_single).length} singlai` : ''}
+              </div>
+            )}
+            {it.duplicate && it.duplicateId && (
+              <a href={`/admin/albums/${it.duplicateId}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="text-[10px] text-blue-500 hover:underline">atidaryti →</a>
+            )}
+          </div>
+          {/* Expand button — rodyti/slėpti dainas */}
+          <button type="button"
+            onClick={e => { e.stopPropagation(); toggleExpand(i) }}
+            disabled={it.duplicate}
+            className={`shrink-0 w-6 h-6 rounded flex items-center justify-center text-xs transition-colors disabled:opacity-30 ${
+              isExpanded ? 'bg-violet-100 text-violet-600' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+            }`}
+            title="Peržiūrėti dainas">
+            {it.fetched === false && !it.tracks ? '↓' : isExpanded ? '▲' : '▼'}
+          </button>
         </div>
-        {it.tracks !== undefined && (
-          <div className="text-[11px] text-gray-400">
-            {it.tracks.length} dainų{it.tracks.filter(t=>t.is_single).length ? ` · ${it.tracks.filter(t=>t.is_single).length} singlai` : ''}
+        {/* Tracks preview */}
+        {isExpanded && (
+          <div className="border-t border-gray-100 px-3 py-2">
+            {!it.fetched ? (
+              <div className="text-xs text-gray-400 py-1 flex items-center gap-2">
+                <div className="w-3 h-3 border border-gray-300 border-t-violet-500 rounded-full animate-spin" />
+                Kraunama...
+              </div>
+            ) : !it.tracks?.length ? (
+              <div className="text-xs text-gray-400 py-1">Dainų nerasta</div>
+            ) : (
+              <div className="space-y-0.5 max-h-48 overflow-y-auto">
+                {it.tracks.map((t, ti) => (
+                  <div key={ti} className="flex items-center gap-2 py-0.5">
+                    <span className="text-[10px] text-gray-300 w-5 text-right shrink-0">{t.sort_order}</span>
+                    <span className="text-xs text-gray-700 truncate flex-1">{t.title}</span>
+                    {t.is_single && <span className="text-[9px] text-violet-400 shrink-0">S</span>}
+                    {t.duration && <span className="text-[10px] text-gray-300 shrink-0">{t.duration}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
-        {it.duplicate && it.duplicateId && (
-          <a href={`/admin/albums/${it.duplicateId}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="text-[10px] text-blue-500 hover:underline">atidaryti →</a>
-        )}
       </div>
-      <button type="button" onClick={e => { e.stopPropagation(); fetchDetails(i) }}
-        disabled={it.fetched || it.duplicate || importing}
-        className={`shrink-0 w-6 h-6 rounded flex items-center justify-center text-xs transition-colors ${
-          it.fetched ? 'text-emerald-500' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
-        } disabled:opacity-30`}>
-        {it.fetched ? '✓' : '↓'}
-      </button>
-    </div>
-  )
+    )
+  }
 
   // ── Tab bar ────────────────────────────────────────────────────────────────
 
