@@ -696,12 +696,16 @@ function isReissueBlock(h: string, tl: string): boolean {
 
   // Jei headline tuščias — tikrinti tracklist bloko turinį
   if (!hl) {
-    // Jei pirma daina bloke pradedama nuo 11+ — tai bonus blokas
     const nums = [...tl.matchAll(/\|\s*title(\d+)\s*=/g)].map(m => parseInt(m[1])).sort((a,b) => a-b)
+
+    // Jei pirma daina bloke pradedama nuo 11+ — tai bonus blokas
     if (nums.length > 0 && nums[0] >= 11) return true
 
     // Jei bloke yra total_length ir nėra title1 — papildomas blokas
-    if (/\|\s*total_length\s*=/.test(tl) && !tl.includes('|title1') && !tl.includes('| title1')) return true
+    // BET: nefilttruoti jei pirmas title numeris mažas (≤10) — tai gali būti Side two
+    const hasTitle1 = tl.includes('|title1') || tl.includes('| title1') || tl.includes('| title1')
+    const firstNum = nums.length > 0 ? nums[0] : 0
+    if (/\|\s*total_length\s*=/.test(tl) && !hasTitle1 && firstNum >= 11) return true
   }
   return false
 }
