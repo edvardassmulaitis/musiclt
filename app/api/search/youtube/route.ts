@@ -3,14 +3,14 @@ import { NextRequest, NextResponse } from 'next/server'
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const q = searchParams.get('q') || ''
-  const type = searchParams.get('type') || 'video' // 'video' arba 'channel'
+  const type = searchParams.get('type') || 'video'
 
   if (!q.trim()) return NextResponse.json({ results: [] })
 
   const apiKey = process.env.YOUTUBE_API_KEY
   if (!apiKey) return NextResponse.json({ results: [], error: 'YOUTUBE_API_KEY not configured' })
 
-  // ── Kanalo paieška (senas funkcionalumas) ──────────────────────────────────
+  // ── Kanalo paieška ────────────────────────────────────────────────────────
   if (type === 'channel') {
     try {
       const searchRes = await fetch(
@@ -72,11 +72,12 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // ── Video paieška (nauja — dainoms) ───────────────────────────────────────
+  // ── Video paieška ─────────────────────────────────────────────────────────
   try {
+    // 1. Ieškoti video
     const searchRes = await fetch(
       `https://www.googleapis.com/youtube/v3/search?` +
-      `part=snippet&q=${encodeURIComponent(q)}&type=video&maxResults=5` +
+      `part=snippet&q=${encodeURIComponent(q)}&type=video&maxResults=10` +
       `&videoCategoryId=10&key=${apiKey}` // categoryId=10 = Music
     )
     const searchData = await searchRes.json()
@@ -84,7 +85,6 @@ export async function GET(req: NextRequest) {
     if (searchData.error) {
       const errMsg = searchData.error.message || 'YouTube API error'
       const errCode = searchData.error.code || 0
-      // Kvotų klaida
       if (errCode === 403 || errMsg.includes('quota')) {
         return NextResponse.json({ results: [], error: `Kvota išnaudota: ${errMsg}` })
       }
@@ -92,7 +92,33 @@ export async function GET(req: NextRequest) {
     }
 
     const items = searchData.items || []
-    const results = items.map((item: any) => ({
+    if (!items.length) return NextResponse.json({ results: [] })
+
+    // 2. Patikrinti video statusą — filtruoti nepasiekiamus
+    const videoIds = items.map((i: any) => i.id.videoId).join(',')
+    const detailRes = await fetch(
+      `https://www.googleapis.com/youtube/v3/videos?` +
+      `part=status,contentDetails&id=${videoIds}&key=${apiKey}`
+    )
+    const detailData = await detailRes.json()
+
+    // Sudaryti žemėlapį: videoId → statusas
+    const statusMap: Record<string, any> = {}
+    for (const v of detailData.items || []) statusMap[v.id] = v
+
+    // 3. Filtruoti: tik embeddable ir ne privatus/ištrintas
+    const validItems = items.filter((item: any) => {
+      const vid = item.id.videoId
+      const detail = statusMap[vid]
+      if (!detail) return false // neegzistuoja
+      const status = detail.status
+      if (!status) return false
+      if (status.privacyStatus === 'private') return false
+      if (!status.embeddable) return false
+      return true
+    })
+
+    const results = validItems.slice(0, 5).map((item: any) => ({
       videoId: item.id.videoId,
       title: item.snippet.title,
       channel: item.snippet.channelTitle,
