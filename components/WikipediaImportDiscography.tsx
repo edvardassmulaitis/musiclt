@@ -32,6 +32,7 @@ type TrackEntry = {
   is_single?: boolean
   featuring?: string[]
   disc_number?: number
+  type?: 'normal' | 'instrumental' | 'live' | 'remix' | 'mashup' | 'covers'
 }
 
 type SingleSongItem = {
@@ -81,6 +82,7 @@ async function uploadToStorage(url: string): Promise<string> {
     if (res.ok) {
       const d = await res.json()
       if (d.url && !d.url.startsWith('data:') && d.url.includes('supabase')) return d.url
+      if (d.error) console.warn('fetch-image error:', d.error)
     }
   } catch {}
   return url
@@ -88,14 +90,26 @@ async function uploadToStorage(url: string): Promise<string> {
 
 async function fetchCoverImage(wikiTitle: string): Promise<string> {
   try {
-    const r1 = await fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(wikiTitle)}&prop=pageimages&pithumbsize=500&piprop=thumbnail&format=json&origin=*`)
+    // Pirmiausia gauti originalų paveikslėlio pavadinimą
+    const r1 = await fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(wikiTitle)}&prop=pageimages&piprop=name&format=json&origin=*`)
     const j1 = await r1.json()
     const p1 = Object.values((j1.query?.pages || {}))[0] as any
-    if (p1?.thumbnail?.source) return uploadToStorage(p1.thumbnail.source)
-    const r2 = await fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(wikiTitle)}&prop=pageimages&piprop=original&format=json&origin=*`)
-    const j2 = await r2.json()
-    const p2 = Object.values((j2.query?.pages || {}))[0] as any
-    if (p2?.original?.source) return uploadToStorage(p2.original.source)
+    const imageName = p1?.pageimage // pvz. "Queen_Queen.png"
+
+    if (imageName) {
+      // Gauti tikslų URL per imageinfo API
+      const r2 = await fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=File:${encodeURIComponent(imageName)}&prop=imageinfo&iiprop=url&format=json&origin=*`)
+      const j2 = await r2.json()
+      const p2 = Object.values((j2.query?.pages || {}))[0] as any
+      const originalUrl = p2?.imageinfo?.[0]?.url
+      if (originalUrl) return uploadToStorage(originalUrl)
+    }
+
+    // Fallback: thumbnail
+    const r3 = await fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(wikiTitle)}&prop=pageimages&pithumbsize=500&piprop=thumbnail&format=json&origin=*`)
+    const j3 = await r3.json()
+    const p3 = Object.values((j3.query?.pages || {}))[0] as any
+    if (p3?.thumbnail?.source) return uploadToStorage(p3.thumbnail.source)
   } catch {}
   return ''
 }
@@ -759,7 +773,16 @@ function parseTracklist(wikitext: string): TrackEntry[] {
       const finalTitle = cleanWikiText(cleanTitle)
       if (finalTitle) {
         const is_single = singles.size > 0 ? singles.has(finalTitle.toLowerCase()) : undefined
-        tracks.push({ title: finalTitle, duration: lenM?.[1]?.trim(), sort_order: order++, is_single, featuring: featuring.length ? featuring : undefined })
+        // Nustatyti track tipą iš note ir pavadinimo
+        const noteStr = (noteM?.[1] || '').toLowerCase()
+        const titleLower = finalTitle.toLowerCase()
+        let trackType: TrackEntry['type'] = 'normal'
+        if (/\binstrumental\b/.test(noteStr) || /\binstrumental\b/.test(titleLower)) trackType = 'instrumental'
+        else if (/\blive\b/.test(noteStr) || /\b(live at|live from|concert|recorded live)\b/.test(noteStr)) trackType = 'live'
+        else if (/\bremix\b/.test(noteStr) || /\bremix\b/.test(titleLower)) trackType = 'remix'
+        else if (/\bcover\b/.test(noteStr) || /\bcovers?\b/.test(noteStr)) trackType = 'covers'
+        else if (/\bmashup\b/.test(noteStr) || /\bmashup\b/.test(titleLower)) trackType = 'mashup'
+        tracks.push({ title: finalTitle, duration: lenM?.[1]?.trim(), sort_order: order++, is_single, featuring: featuring.length ? featuring : undefined, type: trackType })
       }
     }
     return tracks
@@ -1187,7 +1210,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
             type_remix: item.type==='remix', type_covers: item.type==='covers',
             type_holiday: item.type==='holiday', type_soundtrack: item.type==='soundtrack',
             type_demo: item.type==='demo',
-            tracks: (item.tracks||[]).map((t,i) => ({ title: t.title, sort_order: i+1, duration: t.duration||null, type: 'normal', disc_number: t.disc_number||1, is_single: t.is_single||false, featuring: t.featuring||[] })),
+            tracks: (item.tracks||[]).map((t,i) => ({ title: t.title, sort_order: i+1, duration: t.duration||null, type: t.type||'normal', disc_number: t.disc_number||1, is_single: t.is_single||false, featuring: t.featuring||[] })),
           }),
         })
         if (!res.ok) throw new Error((await res.json()).error)
@@ -1425,6 +1448,10 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                   <div key={ti} className="flex items-center gap-2 py-0.5">
                     <span className="text-[10px] text-gray-300 w-5 text-right shrink-0">{t.sort_order}</span>
                     <span className="text-xs text-gray-700 truncate flex-1">{t.title}</span>
+                    {t.type === 'instrumental' && <span className="text-[9px] text-gray-400 shrink-0 font-medium">instr.</span>}
+                    {t.type === 'live' && <span className="text-[9px] text-blue-400 shrink-0 font-medium">live</span>}
+                    {t.type === 'remix' && <span className="text-[9px] text-purple-400 shrink-0 font-medium">remix</span>}
+                    {t.type === 'covers' && <span className="text-[9px] text-orange-400 shrink-0 font-medium">cover</span>}
                     {t.is_single && <span className="text-[9px] text-violet-400 shrink-0 font-medium">S</span>}
                     {t.duration && <span className="text-[10px] text-gray-300 shrink-0">{t.duration}</span>}
                   </div>
