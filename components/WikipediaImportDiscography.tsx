@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 
 // ─── Tipai ────────────────────────────────────────────────────────────────────
 
-type AlbumType = 'studio' | 'ep' | 'single' | 'compilation' | 'live' | 'other'
+type AlbumType = 'studio' | 'ep' | 'single' | 'compilation' | 'live' | 'remix' | 'covers' | 'holiday' | 'soundtrack' | 'demo' | 'other'
 
 type DiscographyItem = {
   title: string
@@ -104,12 +104,16 @@ async function fetchCoverImage(wikiTitle: string): Promise<string> {
 
 function cleanWikiText(raw: string): string {
   let s = raw
+  // Pašalinti HTML tagus (pvz. <br />, <br>, <ref>...</ref>)
+  s = s.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]+>/g, '')
   s = s.replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, (_: string, _l: string, d: string) => d.replace(/^["'\u201c\u2018]+|["'\u201d\u2019]+$/g, '').trim())
   s = s.replace(/\[\[([^\]]+)\]\]/g, (_: string, l: string) => l.replace(/_/g, ' ').replace(/^["'\u201c\u2018]+|["'\u201d\u2019]+$/g, '').trim())
   s = s.replace(/\[\[|\]\]/g, '').replace(/\{\{[^}]*\}\}/g, '').replace(/''+/g, '')
   s = s.replace(/\[\w*\s*\d*\]/g, '')
   s = s.replace(/\s*\([^)]*\bsong\b[^)]*\)/gi, '').replace(/\s*\([^)]*\balbum\b[^)]*\)/gi, '')
   s = s.replace(/^["'\u201c\u2018]+|["'\u201d\u2019]+$/g, '')
+  // Sutraukti kelis tarpus
+  s = s.replace(/\s+/g, ' ')
   return s.trim()
 }
 
@@ -226,9 +230,14 @@ function parseDiscographyPage(wikitext: string): DiscographyItem[] {
       else if (h.includes('collaborative') || h.includes('collaboration')) { currentType = 'studio'; skipSection = false }
       else if (h.includes('extended play') || h.includes(' ep') || h === 'eps') { currentType = 'ep'; skipSection = false }
       else if (h.includes('single')) { currentType = 'single'; skipSection = true; inSinglesSection = true }
-      else if (h.includes('compilation') || h.includes('greatest') || h.includes('best of')) { currentType = 'compilation'; skipSection = false }
+      else if (h.includes('remix')) { currentType = 'remix'; skipSection = false }
+      else if (h.includes('cover')) { currentType = 'covers'; skipSection = false }
+      else if (h.includes('holiday') || h.includes('christmas') || h.includes('xmas')) { currentType = 'holiday'; skipSection = false }
+      else if (h.includes('soundtrack') || h.includes('score')) { currentType = 'soundtrack'; skipSection = false }
+      else if (h.includes('demo')) { currentType = 'demo'; skipSection = false }
+      else if (h.includes('compilation') || h.includes('greatest') || h.includes('best of') || h.includes('collection')) { currentType = 'compilation'; skipSection = false }
       else if (h.includes('live') || h.includes('concert')) { currentType = 'live'; skipSection = false }
-      else if (h.includes('box') || h.includes('collection')) { currentType = 'other'; skipSection = true }
+      else if (h.includes('box')) { currentType = 'other'; skipSection = true }
       else if (/^\d{4}s?$/.test(h.trim())) { skipSection = inSinglesSection }
       else if (depth >= 3 && inSinglesSection) { skipSection = true }
       yearMode = false; continue
@@ -655,7 +664,10 @@ function mbTypeToLocal(primary?: string, secondary?: string[]): AlbumType {
   const sec = (secondary || []).map(s => s.toLowerCase())
   if (sec.includes('compilation') || sec.includes('greatest hits')) return 'compilation'
   if (sec.includes('live')) return 'live'
-  if (sec.includes('remix') || sec.includes('mixtape/street') || sec.includes('demo') || sec.includes('bootleg')) return 'other'
+  if (sec.includes('remix')) return 'remix'
+  if (sec.includes('demo')) return 'demo'
+  if (sec.includes('soundtrack')) return 'soundtrack'
+  if (sec.includes('mixtape/street') || sec.includes('bootleg')) return 'other'
   const p = (primary || '').toLowerCase()
   if (p === 'single') return 'single'
   if (p === 'ep') return 'ep'
@@ -808,7 +820,7 @@ type ActiveTab = 'studio' | 'other' | 'singles' | 'songs'
 
 // Albumų grupės pagal tabs
 const STUDIO_TYPES: AlbumType[] = ['studio']
-const OTHER_TYPES: AlbumType[] = ['ep', 'compilation', 'live', 'other']
+const OTHER_TYPES: AlbumType[] = ['ep', 'compilation', 'live', 'remix', 'covers', 'holiday', 'soundtrack', 'demo', 'other']
 
 // ─── Pagrindinis komponentas ──────────────────────────────────────────────────
 
@@ -881,7 +893,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
     if (!foundAlbums.length && !foundSongs.length) { addLog('✗ Nieko nerasta'); setLoading(false); return }
 
     // Rūšiuoti
-    const typeOrder: Record<AlbumType, number> = { studio: 0, ep: 1, single: 2, compilation: 3, live: 4, other: 5 }
+    const typeOrder: Record<AlbumType, number> = { studio: 0, ep: 1, single: 2, compilation: 3, live: 4, remix: 5, covers: 6, holiday: 7, soundtrack: 8, demo: 9, other: 10 }
     foundAlbums.sort((a, b) => typeOrder[a.type] !== typeOrder[b.type] ? typeOrder[a.type] - typeOrder[b.type] : (a.year||9999)-(b.year||9999))
     foundSongs.sort((a, b) => (a.year||9999)-(b.year||9999))
 
@@ -967,7 +979,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       if (newOnes.length) {
         const dups = await checkAlbumDuplicates(newOnes.map(i => i.title), artistId)
         const withDups = newOnes.map(it => { const k = it.title.toLowerCase(); return dups[k] ? { ...it, duplicate: true, duplicateId: dups[k] } : it })
-        const typeOrder: Record<AlbumType, number> = { studio: 0, ep: 1, single: 2, compilation: 3, live: 4, other: 5 }
+        const typeOrder: Record<AlbumType, number> = { studio: 0, ep: 1, single: 2, compilation: 3, live: 4, remix: 5, covers: 6, holiday: 7, soundtrack: 8, demo: 9, other: 10 }
         const merged = [...items, ...withDups].sort((a,b) => typeOrder[a.type] !== typeOrder[b.type] ? typeOrder[a.type]-typeOrder[b.type] : (a.year||9999)-(b.year||9999))
         setItems(merged)
         setSelected(new Set(merged.map((it, i) => (!it.duplicate && AUTO_SELECT_TYPES.includes(it.type)) ? i : -1).filter(i => i !== -1)))
@@ -1000,7 +1012,9 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
             cover_image_url: item.cover_image_url||'',
             type_studio: item.type==='studio', type_ep: item.type==='ep', type_single: item.type==='single',
             type_compilation: item.type==='compilation', type_live: item.type==='live',
-            type_remix: false, type_covers: false, type_holiday: false, type_soundtrack: false, type_demo: false,
+            type_remix: item.type==='remix', type_covers: item.type==='covers',
+            type_holiday: item.type==='holiday', type_soundtrack: item.type==='soundtrack',
+            type_demo: item.type==='demo',
             tracks: (item.tracks||[]).map((t,i) => ({ title: t.title, sort_order: i+1, duration: t.duration||null, type: 'normal', disc_number: t.disc_number||1, is_single: t.is_single||false, featuring: t.featuring||[] })),
           }),
         })
@@ -1113,6 +1127,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
 
   const renderAlbumRow = (it: DiscographyItem, i: number) => {
     const isExpanded = expandedItems.has(i)
+    const isFetching = it.fetched === false && expandedItems.has(i)
     return (
       <div key={i} className={`rounded-lg border transition-all ${
         it.duplicate ? 'border-gray-100 bg-gray-50/50 opacity-40'
@@ -1123,6 +1138,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
         {/* Main row */}
         <div className={`flex items-center gap-2.5 px-3 py-2 ${it.duplicate ? 'cursor-not-allowed' : 'cursor-pointer'}`}
           onClick={() => !it.duplicate && !it.imported && toggleSelect(i)}>
+          {/* Checkbox */}
           <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
             selected.has(i) && !it.duplicate && !it.imported ? 'border-violet-500 bg-violet-500' : 'border-gray-300'
           }`}>
@@ -1131,38 +1147,61 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
             )}
             {it.imported && <svg className="w-2.5 h-2.5 text-emerald-500" fill="none" viewBox="0 0 10 10"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
           </div>
+          {/* Cover */}
           {it.cover_image_url
-            ? <img src={it.cover_image_url} alt="" referrerPolicy="no-referrer" className="w-8 h-8 rounded object-cover shrink-0" />
-            : <div className="w-8 h-8 rounded bg-gray-100 shrink-0" />
+            ? <img src={it.cover_image_url} alt="" referrerPolicy="no-referrer" className="w-9 h-9 rounded object-cover shrink-0" />
+            : <div className="w-9 h-9 rounded bg-gray-100 shrink-0 flex items-center justify-center text-gray-300 text-xs">♪</div>
           }
+          {/* Info */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-baseline gap-1.5 flex-wrap">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-sm font-medium text-gray-900 truncate">{it.title}</span>
-              {it.year && <span className="text-xs text-gray-400 shrink-0">{it.year}</span>}
-              {it.type === 'ep' && <span className="text-[10px] font-medium text-violet-500 shrink-0 uppercase tracking-wide">EP</span>}
+              {it.type === 'ep' && <span className="text-[10px] font-semibold text-violet-500 shrink-0 uppercase tracking-wide">EP</span>}
               {it.source === 'musicbrainz' && <span className="text-[10px] text-blue-400 shrink-0">MB</span>}
               {it.duplicate && <span className="text-[10px] text-amber-500 shrink-0">jau yra</span>}
               {it.importing && <span className="text-[10px] text-violet-400 animate-pulse shrink-0">importuojama</span>}
+              {it.imported && <span className="text-[10px] text-emerald-500 shrink-0">✓ importuota</span>}
               {it.error && <span className="text-[10px] text-red-400 shrink-0" title={it.error}>klaida</span>}
             </div>
-            {it.tracks !== undefined && (
-              <div className="text-[11px] text-gray-400">
-                {it.tracks.length} dainų{it.tracks.filter(t=>t.is_single).length ? ` · ${it.tracks.filter(t=>t.is_single).length} singlai` : ''}
-              </div>
-            )}
-            {it.duplicate && it.duplicateId && (
-              <a href={`/admin/albums/${it.duplicateId}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="text-[10px] text-blue-500 hover:underline">atidaryti →</a>
-            )}
+            <div className="flex items-center gap-2 mt-0.5">
+              {it.year && <span className="text-[11px] text-gray-400">{it.year}</span>}
+              {it.tracks !== undefined && (
+                <span className="text-[11px] text-gray-400">
+                  {it.tracks.length} dainų{it.tracks.filter(t=>t.is_single).length ? ` · ${it.tracks.filter(t=>t.is_single).length} singlai` : ''}
+                </span>
+              )}
+              {it.duplicate && it.duplicateId && (
+                <a href={`/admin/albums/${it.duplicateId}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="text-[10px] text-blue-500 hover:underline">atidaryti →</a>
+              )}
+            </div>
           </div>
-          {/* Expand button — rodyti/slėpti dainas */}
+          {/* Parsisiųsti info — inline mygtukas */}
+          {!it.duplicate && !it.imported && (
+            <button type="button"
+              onClick={e => { e.stopPropagation(); fetchDetails(i) }}
+              disabled={it.fetched || importing}
+              title={it.fetched ? 'Info parsisiųsta' : 'Parsisiųsti dainas ir viršelį'}
+              className={`shrink-0 flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors disabled:opacity-40 ${
+                it.fetched
+                  ? 'text-emerald-500 bg-emerald-50'
+                  : 'text-gray-500 bg-gray-100 hover:bg-violet-100 hover:text-violet-600'
+              }`}>
+              {it.fetched ? (
+                <><svg className="w-3 h-3" fill="none" viewBox="0 0 10 10"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg> info</>
+              ) : (
+                <><svg className="w-3 h-3" fill="none" viewBox="0 0 10 10"><path d="M5 1v6M2 6l3 3 3-3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg> info</>
+              )}
+            </button>
+          )}
+          {/* Expand tracks */}
           <button type="button"
             onClick={e => { e.stopPropagation(); toggleExpand(i) }}
             disabled={it.duplicate}
-            className={`shrink-0 w-6 h-6 rounded flex items-center justify-center text-xs transition-colors disabled:opacity-30 ${
-              isExpanded ? 'bg-violet-100 text-violet-600' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+            className={`shrink-0 w-6 h-6 rounded flex items-center justify-center text-[11px] transition-colors disabled:opacity-30 ${
+              isExpanded ? 'bg-violet-100 text-violet-600' : 'text-gray-300 hover:text-gray-500 hover:bg-gray-100'
             }`}
-            title="Peržiūrėti dainas">
-            {it.fetched === false && !it.tracks ? '↓' : isExpanded ? '▲' : '▼'}
+            title={isExpanded ? 'Slėpti dainas' : 'Rodyti dainas'}>
+            {isExpanded ? '▲' : '▼'}
           </button>
         </div>
         {/* Tracks preview */}
@@ -1174,14 +1213,14 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                 Kraunama...
               </div>
             ) : !it.tracks?.length ? (
-              <div className="text-xs text-gray-400 py-1">Dainų nerasta</div>
+              <div className="text-xs text-gray-400 py-1">Dainų nerasta. Spausk „info" mygtuką kad parsisiųstum.</div>
             ) : (
               <div className="space-y-0.5 max-h-48 overflow-y-auto">
                 {it.tracks.map((t, ti) => (
                   <div key={ti} className="flex items-center gap-2 py-0.5">
                     <span className="text-[10px] text-gray-300 w-5 text-right shrink-0">{t.sort_order}</span>
                     <span className="text-xs text-gray-700 truncate flex-1">{t.title}</span>
-                    {t.is_single && <span className="text-[9px] text-violet-400 shrink-0">S</span>}
+                    {t.is_single && <span className="text-[9px] text-violet-400 shrink-0 font-medium">S</span>}
                     {t.duration && <span className="text-[10px] text-gray-300 shrink-0">{t.duration}</span>}
                   </div>
                 ))}
@@ -1305,8 +1344,8 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                       <div className="flex items-center justify-between py-1">
                         <span className="text-xs text-gray-400">{studioItems.filter(({it})=>!it.duplicate).length} naujų</span>
                         <div className="flex items-center gap-3 text-xs">
-                          <button onClick={() => setSelected(new Set(studioItems.filter(({it})=>!it.duplicate).map(({i})=>i)))} className="text-violet-600 hover:underline">Visi</button>
-                          <button onClick={() => setSelected(p => { const s = new Set(p); studioItems.forEach(({i}) => s.delete(i)); return s })} className="text-gray-400 hover:underline">Joks</button>
+                          <button onClick={() => setSelected(new Set(studioItems.filter(({it})=>!it.duplicate).map(({i})=>i)))} className="text-violet-600 hover:underline">Pasirinkti visus</button>
+                          <button onClick={() => setSelected(p => { const s = new Set(p); studioItems.forEach(({i}) => s.delete(i)); return s })} className="text-gray-400 hover:underline">Atžymėti visus</button>
                           <span className="text-gray-500 font-medium">{studioSelected} pasirinkta</span>
                         </div>
                       </div>
@@ -1328,16 +1367,26 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                       <div className="flex items-center justify-between py-1">
                         <span className="text-xs text-gray-400">{otherItems.filter(({it})=>!it.duplicate).length} naujų</span>
                         <div className="flex items-center gap-3 text-xs">
-                          <button onClick={() => setSelected(p => { const s = new Set(p); otherItems.filter(({it})=>!it.duplicate).forEach(({i})=>s.add(i)); return s })} className="text-violet-600 hover:underline">Visi</button>
-                          <button onClick={() => setSelected(p => { const s = new Set(p); otherItems.forEach(({i})=>s.delete(i)); return s })} className="text-gray-400 hover:underline">Joks</button>
+                          <button onClick={() => setSelected(p => { const s = new Set(p); otherItems.filter(({it})=>!it.duplicate).forEach(({i})=>s.add(i)); return s })} className="text-violet-600 hover:underline">Pasirinkti visus</button>
+                          <button onClick={() => setSelected(p => { const s = new Set(p); otherItems.forEach(({i})=>s.delete(i)); return s })} className="text-gray-400 hover:underline">Atžymėti visus</button>
                           <span className="text-gray-500 font-medium">{otherSelected} pasirinkta</span>
                         </div>
                       </div>
                       {/* Pogrupiai */}
-                      {(['ep', 'compilation','live','other'] as AlbumType[]).map(type => {
+                      {(['ep', 'compilation', 'live', 'remix', 'covers', 'holiday', 'soundtrack', 'demo', 'other'] as AlbumType[]).map(type => {
                         const typeItems = otherItems.filter(({ it }) => it.type === type)
                         if (!typeItems.length) return null
-                        const typeLabels: Record<string, string> = { ep: 'EP', compilation: 'Kompiliacijos', live: 'Live albumai', other: 'Kiti' }
+                        const typeLabels: Record<string, string> = {
+                          ep: 'EP',
+                          compilation: 'Rinktiniai',
+                          live: 'Gyvai įrašyti',
+                          remix: 'Remiksų albumai',
+                          covers: 'Koverių albumai',
+                          holiday: 'Šventiniai albumai',
+                          soundtrack: 'Garso takeliai',
+                          demo: 'Bandomieji įrašai',
+                          other: 'Kiti',
+                        }
                         return (
                           <div key={type}>
                             <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1 mt-2">{typeLabels[type]}</div>
@@ -1356,15 +1405,15 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                   {songs.length === 0 ? (
                     <div className="text-center py-12">
                       <p className="text-sm text-gray-500 font-medium mb-1">Singlų nerasta Wikipedia</p>
-                      <p className="text-xs text-gray-400">Bandyk MB mygtuką — MusicBrainz turi pilną sąrašą</p>
+                      <p className="text-xs text-gray-400">Bandyk „Papildyti iš MusicBrainz" — ten pilnas sąrašas</p>
                     </div>
                   ) : (
                     <>
                       <div className="flex items-center justify-between py-1">
                         <span className="text-xs text-gray-400">{songNewCount} naujų</span>
                         <div className="flex items-center gap-3 text-xs">
-                          <button onClick={() => selectAllSongs(true)} className="text-violet-600 hover:underline">Visi</button>
-                          <button onClick={() => selectAllSongs(false)} className="text-gray-400 hover:underline">Joks</button>
+                          <button onClick={() => selectAllSongs(true)} className="text-violet-600 hover:underline">Pasirinkti visus</button>
+                          <button onClick={() => selectAllSongs(false)} className="text-gray-400 hover:underline">Atžymėti visus</button>
                           <span className="text-gray-500 font-medium">{songSelectedCount} pasirinkta</span>
                         </div>
                       </div>
@@ -1430,30 +1479,23 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               {activeTab === 'singles' ? (
                 <button onClick={importSongs} disabled={importing || songSelectedCount === 0}
                   className="flex-1 py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl disabled:opacity-40 transition-colors text-sm">
-                  {importing ? 'Importuojama...' : `Importuoti ${songSelectedCount} dainų`}
+                  {importing ? 'Importuojama...' : `Importuoti ${songSelectedCount} singlų`}
                 </button>
               ) : (
-                <>
-                  <button onClick={importAlbums} disabled={importing || selected.size === 0}
-                    className="flex-1 py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl disabled:opacity-40 transition-colors text-sm">
-                    {importing ? 'Importuojama...' : `Importuoti ${selected.size} albumų`}
-                  </button>
-                  <button onClick={fetchAllDetails} disabled={importing || selected.size === 0}
-                    title="Krauti tracklist ir viršelius"
-                    className="w-10 h-10 flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl disabled:opacity-40 transition-colors text-sm">
-                    ↓
-                  </button>
-                </>
+                <button onClick={importAlbums} disabled={importing || selected.size === 0}
+                  className="flex-1 py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl disabled:opacity-40 transition-colors text-sm">
+                  {importing ? 'Importuojama...' : `Importuoti ${selected.size} albumų`}
+                </button>
               )}
               {hasContent && (
                 <button onClick={enrichFromMB} disabled={importing || mbLoading}
                   title={activeTab === 'singles' ? 'Papildyti singlus iš MusicBrainz' : 'Papildyti albumus iš MusicBrainz'}
-                  className="w-10 h-10 flex items-center justify-center bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl disabled:opacity-40 transition-colors text-sm font-medium">
-                  {mbLoading ? '…' : 'MB'}
+                  className="px-3 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl disabled:opacity-40 transition-colors text-xs font-medium whitespace-nowrap">
+                  {mbLoading ? '⏳' : 'Papildyti iš MusicBrainz'}
                 </button>
               )}
               <button onClick={closeModal} className="w-10 h-10 flex items-center justify-center border border-gray-200 text-gray-500 rounded-xl hover:bg-gray-50 transition-colors text-sm">
-                ×
+                ✕
               </button>
             </div>
 
