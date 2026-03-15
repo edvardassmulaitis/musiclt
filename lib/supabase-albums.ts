@@ -309,7 +309,7 @@ export async function getTracks(artistId?: number, limit = 50, offset = 0, searc
   let q = supabase
     .from('tracks')
     .select(
-      'id, title, type, release_date, video_url, spotify_id, is_new, is_new_date, cover_url, lyrics, artists!tracks_artist_id_fkey(id, name, slug), track_artists(artist_id), album_tracks(position, is_primary, albums(id, title, year))',
+      'id, title, type, is_single, release_date, video_url, spotify_id, is_new, is_new_date, cover_url, lyrics, artists!tracks_artist_id_fkey(id, name, slug), track_artists(artist_id), album_tracks(position, is_primary, albums(id, title, year))',
       { count: 'exact' }
     )
   if (artistId) q = q.eq('artist_id', artistId)
@@ -328,6 +328,7 @@ export async function getTracks(artistId?: number, limit = 50, offset = 0, searc
     is_new_date: t.is_new_date,
     cover_url: t.cover_url,
     has_lyrics: !!(t.lyrics),
+    is_single: t.is_single || false,
     artist_name: t.artists?.name || '',
     artist_slug: t.artists?.slug || '',
     featuring_count: (t.track_artists || []).length,
