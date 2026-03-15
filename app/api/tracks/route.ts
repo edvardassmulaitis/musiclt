@@ -130,7 +130,6 @@ export async function POST(req: NextRequest) {
   if (!data.title?.trim()) return NextResponse.json({ error: 'Title required' }, { status: 400 })
   if (!data.artist_id) return NextResponse.json({ error: 'Artist required' }, { status: 400 })
 
-  // release_date iš year/month/day arba tiesiogiai
   let release_date = data.release_date || null
   if (!release_date && data.release_year) {
     const y = data.release_year
@@ -151,7 +150,7 @@ export async function POST(req: NextRequest) {
       release_month: data.release_month || null,
       release_day: data.release_day || null,
       video_url: data.video_url || null,
-      youtube_url: data.youtube_url || null,
+      // youtube_url stulpelio nėra DB — pašalinta
       spotify_id: data.spotify_id || null,
       lyrics: data.lyrics || null,
       description: data.description || null,
