@@ -219,7 +219,7 @@ async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackI
     let trackId = t.track_id
 
     if (trackId) {
-      // ✅ Track egzistuoja — atnaujinkime pavadinimą ir kitus laukus
+      // Track egzistuoja — atnaujinkime
       const cleanTitle = t.title.trim()
       const newSlug = slugify(cleanTitle)
       await supabase.from('tracks').update({
@@ -227,36 +227,51 @@ async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackI
         slug: newSlug,
         video_url: t.video_url || null,
         spotify_id: t.spotify_id || null,
+        is_single: t.is_single || false,
       }).eq('id', trackId)
     } else {
-      // Naujas track — sukurkime
+      // Naujas track
       const cleanTitle = t.title
         .replace(/\s*\(feat(?:uring)?\.?\s+[^)]+\)/gi, '')
         .replace(/\s*\[feat(?:uring)?\.?\s+[^\]]+\]/gi, '')
         .trim()
 
-      const slug = slugify(cleanTitle)
+      const baseSlug = slugify(cleanTitle)
 
+      // Rasti jau egzistuojantį pagal slug arba title
       const { data: existing } = await supabase
-        .from('tracks').select('id').eq('artist_id', artistId).eq('slug', slug).maybeSingle()
+        .from('tracks').select('id').eq('artist_id', artistId).eq('slug', baseSlug).maybeSingle()
 
       if (existing) {
         trackId = existing.id
-        // Atnaujinkime ir šį
         await supabase.from('tracks').update({
           title: cleanTitle,
           video_url: t.video_url || null,
           spotify_id: t.spotify_id || null,
+          is_single: t.is_single || false,
         }).eq('id', trackId)
       } else {
+        // Unikalus slug jei reikia
+        let slug = baseSlug
+        let suffix = 1
+        while (true) {
+          const { data: slugCheck } = await supabase
+            .from('tracks').select('id').eq('slug', slug).maybeSingle()
+          if (!slugCheck) break
+          slug = `${baseSlug}-${suffix++}`
+        }
+
         const { data: newTrack, error: trackError } = await supabase.from('tracks').insert({
-          title: cleanTitle, slug, artist_id: artistId,
+          title: cleanTitle,
+          slug,
+          artist_id: artistId,
           type: t.type || 'normal',
+          is_single: t.is_single || false,
           video_url: t.video_url || null,
           spotify_id: t.spotify_id || null,
         }).select('id').single()
 
-        if (trackError) { console.error('Failed to insert track:', cleanTitle, trackError); continue }
+        if (trackError) { console.error('Failed to insert track:', cleanTitle, trackError.message); continue }
         trackId = newTrack?.id
 
         if (trackId && t.featuring && t.featuring.length > 0) {
@@ -274,7 +289,8 @@ async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackI
 
     if (trackId) {
       trackRows.push({
-        album_id: albumId, track_id: trackId,
+        album_id: albumId,
+        track_id: trackId,
         position: toInt(t.sort_order) || i + 1,
         is_primary: t.is_single || false,
       })
@@ -283,7 +299,7 @@ async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackI
 
   if (trackRows.length) {
     const { error } = await supabase.from('album_tracks').insert(trackRows)
-    if (error) console.error('album_tracks insert error:', error)
+    if (error) console.error('album_tracks insert error:', error.message)
   }
 }
 
