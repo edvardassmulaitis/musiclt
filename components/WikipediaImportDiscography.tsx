@@ -90,26 +90,18 @@ async function uploadToStorage(url: string): Promise<string> {
 
 async function fetchCoverImage(wikiTitle: string): Promise<string> {
   try {
-    // Pirmiausia gauti originalų paveikslėlio pavadinimą
-    const r1 = await fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(wikiTitle)}&prop=pageimages&piprop=name&format=json&origin=*`)
-    const j1 = await r1.json()
-    const p1 = Object.values((j1.query?.pages || {}))[0] as any
-    const imageName = p1?.pageimage // pvz. "Queen_Queen.png"
-
-    if (imageName) {
-      // Gauti tikslų URL per imageinfo API
-      const r2 = await fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=File:${encodeURIComponent(imageName)}&prop=imageinfo&iiprop=url&format=json&origin=*`)
-      const j2 = await r2.json()
-      const p2 = Object.values((j2.query?.pages || {}))[0] as any
-      const originalUrl = p2?.imageinfo?.[0]?.url
-      if (originalUrl) return uploadToStorage(originalUrl)
+    // Naudoti REST summary API — tas pats kaip WikipediaImport.tsx (veikia atlikėjams)
+    const sumRes = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(wikiTitle)}`)
+    if (sumRes.ok) {
+      const sum = await sumRes.json()
+      const thumbUrl = sum.originalimage?.source || sum.thumbnail?.source
+      if (thumbUrl) return uploadToStorage(thumbUrl)
     }
-
-    // Fallback: thumbnail
-    const r3 = await fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(wikiTitle)}&prop=pageimages&pithumbsize=500&piprop=thumbnail&format=json&origin=*`)
-    const j3 = await r3.json()
-    const p3 = Object.values((j3.query?.pages || {}))[0] as any
-    if (p3?.thumbnail?.source) return uploadToStorage(p3.thumbnail.source)
+    // Fallback: MediaWiki API
+    const r2 = await fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(wikiTitle)}&prop=pageimages&pithumbsize=500&piprop=thumbnail&format=json&origin=*`)
+    const j2 = await r2.json()
+    const p2 = Object.values((j2.query?.pages || {}))[0] as any
+    if (p2?.thumbnail?.source) return uploadToStorage(p2.thumbnail.source)
   } catch {}
   return ''
 }
