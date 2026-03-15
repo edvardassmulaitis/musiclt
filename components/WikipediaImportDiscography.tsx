@@ -270,8 +270,11 @@ function parseDiscographyPage(wikitext: string): DiscographyItem[] {
 }
 
 // ─── Singlų parsavimas ────────────────────────────────────────────────────────
-// Parsa TIEK "==Singles==" sekciją (dainos), TIEK ignoruoja
-// "===As featured===" / "===Promotional===" / "===Chart re-entries===" sekcijas
+// Palaiko du Wikipedia formatus:
+//   A) "Title-first": ! scope="row"| "Title" → kita eilutė = metai (Queen stilius)
+//   B) "Year-first": Year stulpelis pirmas, Title stulpelis antras (Freddie Mercury stilius)
+// Metai gali turėti rowspan — tada galioja kelioms eilutėms.
+// Skip'ina visas depth-3 sub-sekcijas IŠSKYRUS dešimtmečius (1970s etc.)
 
 function parseSinglesSection(wikitext: string): SingleSongItem[] {
   const singles: SingleSongItem[] = []
@@ -279,126 +282,161 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
 
   let inSingles = false
   let inTable = false
-  let currentYear: number | null = null
-  let hasYearCol = false
-  // Sekcijos kurias skip'iname viduje "Singles"
   let skipSubSection = false
+
+  // Metų sekimas su rowspan palaikymu
+  let currentYear: number | null = null
+  let yearRowspan = 0   // kiek dainų eilučių dar liko su šiais metais
+
+  // Title-first formato sekimas (pvz. Queen)
+  // Kai aptinkame ! scope="row" → daina, kita eilutė → metai
+  let pendingTitle: string | null = null
+  let pendingYearLine = false  // laukiame metų eilutės po dainOS eilutės
+
+  // Year-first formatas — metai ateina kaip atskira eilutė PRIEŠ dainą
+  let hasYearCol = false
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
 
+    // ── Headers ──────────────────────────────────────────────────────────────
     const hm = line.match(/^(==+)\s*(.+?)\s*\1/)
     if (hm) {
       const depth = hm[1].length
       const h = hm[2].toLowerCase()
       const hRaw = hm[2]
 
-      // Patekti į singlų sekciją — tik depth-2 "Singles"
       if (depth === 2 && /^singles\s*$/i.test(h)) {
-        inSingles = true
-        skipSubSection = false
-        hasYearCol = false
-        currentYear = null
+        inSingles = true; skipSubSection = false; hasYearCol = false
+        currentYear = null; yearRowspan = 0; pendingTitle = null; pendingYearLine = false
         continue
       }
-
-      // Išeiti iš singlų sekcijos — kitas depth-2 header
-      if (depth === 2 && inSingles) {
-        inSingles = false
-        inTable = false
-        continue
-      }
-
+      if (depth === 2 && inSingles) { inSingles = false; inTable = false; continue }
       if (inSingles && depth === 3) {
-        // Dešimtmečiai 1970s/1980s/... — tęsiame
         if (/^\d{4}s?\s*$/i.test(hRaw.trim())) {
-          skipSubSection = false
-          hasYearCol = false
-          currentYear = null
-          continue
+          // Dešimtmetis — reset ir tęsiame
+          skipSubSection = false; hasYearCol = false
+          currentYear = null; yearRowspan = 0; pendingTitle = null; pendingYearLine = false
+        } else {
+          skipSubSection = true
         }
-        // Visa kita — featured/promo/chart/collaborat/video/box sets — skip'iname
-        skipSubSection = true
         continue
       }
-
       continue
     }
 
     if (!inSingles || skipSubSection) continue
-
-    if (line.startsWith('{|')) { inTable = true; hasYearCol = false; continue }
+    if (line.startsWith('{|')) { inTable = true; hasYearCol = false; currentYear = null; yearRowspan = 0; pendingTitle = null; pendingYearLine = false; continue }
     if (line.startsWith('|}')) { inTable = false; continue }
     if (!inTable) continue
 
-    // Detektuoti Year stulpelį
-    if (/!\s*(?:rowspan|colspan)?[^!\n]*\bYear\b/i.test(line)) { hasYearCol = true; continue }
-    // Skip kitų header eilučių
-    if (line.startsWith('!') && !/scope\s*=\s*['"]row['"]/i.test(line)) continue
-    if (line.trim() === '|-') continue
+    // ── Lentelės header eilutės ───────────────────────────────────────────────
+    if (line.startsWith('!') && !/scope\s*=\s*['"]row['"]/i.test(line)) {
+      // Detektuoti Year stulpelį header eilutėje
+      if (/\bYear\b/i.test(line)) hasYearCol = true
+      continue
+    }
 
-    // Metai kaip atskira eilutė (tik skaičius, gali turėti rowspan)
-    const yearOnlyM = line.match(/^\|(?:align="[^"]*"\s*\|)?(?:rowspan=\d+\s*\|)?\s*((?:19|20)\d{2})\s*$/)
-    if (yearOnlyM) { currentYear = parseInt(yearOnlyM[1]); continue }
+    // ── Row separator |- ──────────────────────────────────────────────────────
+    if (line.trim() === '|-') {
+      // Jei yearRowspan > 1, metai tęsiasi į kitą eilutę
+      if (yearRowspan > 1) yearRowspan--
+      else if (yearRowspan === 1) yearRowspan = 0
+      pendingYearLine = false
+      continue
+    }
 
-    // scope="row" stilius (daina pirmame stulpelyje)
+    // ── scope="row" eilutė — DAINA (Title-first, pvz. Queen) ─────────────────
     if (/!\s*scope\s*=\s*['"]row['"]/i.test(line)) {
-      const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
+      // Ištraukti pavadinimą
       let title = ''
-      if (wm) title = cleanWikiText(wm[2] || wm[1])
-      else {
-        const qm = line.match(/"([^"]+)"/)
+      const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
+      if (wm) {
+        title = cleanWikiText(wm[2] || wm[1])
+      } else {
+        // "Title" be wiki link — kabučėse
+        const qm = line.match(/scope\s*=\s*['"]row['"]\s*\|?\s*"([^"]+)"/)
         if (qm) title = qm[1]
         else { const pm = line.match(/'{2,3}([^']+)'{2,3}/); if (pm) title = cleanWikiText(pm[1]) }
       }
+      title = title.replace(/\s*[\[(](?:re-?release|remix|re-?issue)[)\]]/gi, '').trim()
+      if (!title || title.length < 2 || title.toLowerCase() === 'row') continue
 
-      title = title.replace(/\s*[\[(](?:re-?release|remix|re-?issue|live)[)\]]/gi, '').trim()
-
-      // Albumas iš vėlesnių eilučių šios eilutės kontekste
+      // Albumą rasime iš vėlesnių eilučių (lookahead)
       let albumTitle: string | undefined
-      for (let k = i + 1; k < Math.min(i + 25, lines.length); k++) {
+      for (let k = i + 1; k < Math.min(i + 30, lines.length); k++) {
         const nl = lines[k]
         if (nl.trim() === '|-' || /!\s*scope\s*=\s*['"]row['"]/i.test(nl)) break
         if (/^\|/.test(nl) && !/^\|\|/.test(nl)) {
           if (/Non-album/i.test(nl)) { albumTitle = 'Non-album single'; break }
           const alm = nl.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
           if (alm) {
-            const possible = cleanWikiText(alm[2] || alm[1])
-            if (possible && !/^\d+$/.test(possible) && !/^[-–—]$/.test(possible) && possible.length > 2 && possible !== title) {
-              albumTitle = possible; break
+            const p = cleanWikiText(alm[2] || alm[1])
+            if (p && !/^\d+$/.test(p) && !/^[-–—\d]/.test(p) && p.length > 2 && p !== title) {
+              albumTitle = p; break
             }
           }
         }
       }
 
-      if (title && title.length > 1) {
+      // Metai: jei yearRowspan > 0 — naudoti currentYear
+      // jei ne — Title-first formatas, metai bus kitoje eilutėje
+      if (yearRowspan > 0) {
         singles.push({ title, year: currentYear, month: null, day: null, albumTitle, source: 'wikipedia', selected: true })
+      } else {
+        // Laukti metų iš kitos eilutės
+        pendingTitle = title
+        pendingYearLine = true
+        // Bet pirmiau pažiūrėti ar metai yra toje pačioje eilutėje (mažai tikėtina, bet)
       }
       continue
     }
 
-    // Year|Song formatas (hasYearCol=true)
-    if (hasYearCol && line.startsWith('|') && !line.startsWith('||')) {
-      const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
-      if (wm) {
-        let title = cleanWikiText(wm[2] || wm[1])
-        title = title.replace(/\s*[\[(](?:re-?release|remix|re-?issue|live)[)\]]/gi, '').trim()
-        if (title && title.length > 1 && !/^\d{4}/.test(title) && !/^\d+$/.test(title)) {
-          let albumTitle: string | undefined
-          const parts = line.split('|')
-          const lastPart = parts[parts.length - 1]
-          if (/Non-album/i.test(lastPart)) albumTitle = 'Non-album single'
-          else {
-            const alm = lastPart.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
-            if (alm) {
-              const possible = cleanWikiText(alm[2] || alm[1])
-              if (possible && !/^\d+$/.test(possible) && possible !== title) albumTitle = possible
+    // ── Eilutė su | duomenimis ────────────────────────────────────────────────
+    if (line.startsWith('|') && !line.startsWith('||')) {
+
+      // Metų eilutė: |1973  arba  |rowspan="3"|1974  arba  | rowspan=3| 1974
+      const yearM = line.match(/^\|\s*(?:rowspan\s*=\s*["']?(\d+)["']?\s*\|)?\s*((?:19|20)\d{2})\s*$/)
+      if (yearM) {
+        currentYear = parseInt(yearM[2])
+        yearRowspan = yearM[1] ? parseInt(yearM[1]) : 1
+        if (pendingTitle && pendingYearLine) {
+          // Dabar turime dainą ir metus
+          // Albumą jau radome lookahead, išsaugoti
+          singles.push({ title: pendingTitle, year: currentYear, month: null, day: null, albumTitle: undefined, source: 'wikipedia', selected: true })
+          // Albumą reikės rasti kitose eilutėse — tai sudėtinga, o dainos svarbiausios
+          pendingTitle = null; pendingYearLine = false
+        }
+        continue
+      }
+
+      pendingYearLine = false
+
+      // Year-first formatas — daina šioje eilutėje
+      if (hasYearCol && !pendingTitle) {
+        const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
+        if (wm) {
+          let title = cleanWikiText(wm[2] || wm[1])
+          title = title.replace(/\s*[\[(](?:re-?release|remix|re-?issue)[)\]]/gi, '').trim()
+          if (title && title.length > 1 && !/^\d{4}/.test(title) && !/^\d+$/.test(title)) {
+            let albumTitle: string | undefined
+            const parts = line.split('|')
+            const lastPart = parts[parts.length - 1]
+            if (/Non-album/i.test(lastPart)) albumTitle = 'Non-album single'
+            else {
+              const am = lastPart.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
+              if (am) { const p = cleanWikiText(am[2]||am[1]); if (p && !/^\d+$/.test(p) && p !== title) albumTitle = p }
             }
+            singles.push({ title, year: currentYear, month: null, day: null, albumTitle, source: 'wikipedia', selected: true })
           }
-          singles.push({ title, year: currentYear, month: null, day: null, albumTitle, source: 'wikipedia', selected: true })
         }
       }
     }
+  }
+
+  // Jei liko pending
+  if (pendingTitle) {
+    singles.push({ title: pendingTitle, year: currentYear, month: null, day: null, source: 'wikipedia', selected: true })
   }
 
   // Deduplikuoti — palikti pirmą (originalą, ne re-release)
