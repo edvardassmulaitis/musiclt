@@ -382,7 +382,43 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
     // ── Lentelės header eilutės ───────────────────────────────────────────────
     if (line.startsWith('!') && !/scope\s*=\s*['"]row['"]/i.test(line)) {
       // Detektuoti Year stulpelį header eilutėje
-      if (/\bYear\b/i.test(line)) hasYearCol = true
+      if (/\bYear\b/i.test(line)) { hasYearCol = true; continue }
+      // Paprastas ! header be scope — gali būti daina (pvz. 2020s lentelė)
+      // Tik jei turi kabutes — Wikipedia konvencija singlams
+      const cleanH = line
+        .replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '')
+        .replace(/<ref[^/]*\/>/gi, '')
+      const qm = cleanH.match(/!\s*"([^"]+)"/)
+      if (qm && hasYearCol) {
+        // Tai daina — apdoroti kaip scope="row"
+        let title = qm[1].trim()
+        title = title.replace(/\s*[\[(](?:re-?release|re-?issue)[)\]]/gi, '').trim()
+        if (title && title.length > 1) {
+          // Albumą rasime iš vėlesnių eilučių
+          let albumTitle: string | undefined
+          for (let k = i + 1; k < Math.min(i + 20, lines.length); k++) {
+            const nl = lines[k]
+            if (nl.trim() === '|-' || nl.startsWith('!')) break
+            if (/^\|/.test(nl) && !/^\|\|/.test(nl)) {
+              if (/Non-album/i.test(nl)) { albumTitle = 'Non-album single'; break }
+              const alm = nl.replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '').match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
+              if (alm) {
+                const p = cleanWikiText(alm[2] || alm[1])
+                if (p && !/^\d+$/.test(p) && !/^[-–—]$/.test(p) && p.length > 2 && p !== title) {
+                  albumTitle = p; break
+                }
+              }
+            }
+          }
+          if (yearRowspan > 0) {
+            singles.push({ title, year: currentYear, month: null, day: null, albumTitle, source: 'wikipedia', selected: false })
+          } else {
+            pendingTitle = title
+            pendingAlbum = albumTitle
+            pendingYearLine = true
+          }
+        }
+      }
       continue
     }
 
