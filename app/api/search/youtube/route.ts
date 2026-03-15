@@ -110,7 +110,7 @@ export async function GET(req: NextRequest) {
     const validItems = items.filter((item: any) => {
       const vid = item.id.videoId
       const detail = statusMap[vid]
-      if (!detail) return false // neegzistuoja
+      if (!detail) return false
       const status = detail.status
       if (!status) return false
       if (status.privacyStatus === 'private') return false
@@ -133,7 +133,27 @@ export async function GET(req: NextRequest) {
       return 0
     })
 
-    const results = ranked.slice(0, 5).map((item: any) => ({
+    // 4. oEmbed tikrinimas — ar video tikrai pasiekiamas (regioniniai blokai)
+    // Lygiagrečiai tikriname pirmus 5 kandidatus
+    const candidates = ranked.slice(0, 8)
+    const oembedResults = await Promise.all(
+      candidates.map(async (item: any) => {
+        try {
+          const r = await fetch(
+            `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${item.id.videoId}&format=json`,
+            { signal: AbortSignal.timeout(3000) }
+          )
+          return r.ok ? item : null
+        } catch {
+          return null
+        }
+      })
+    )
+    const reachable = oembedResults.filter(Boolean)
+    // Jei oEmbed patikrinimas nepavyko visiems — grąžinti nepatikrintus (fallback)
+    const finalItems = reachable.length > 0 ? reachable : ranked
+
+    const results = finalItems.slice(0, 5).map((item: any) => ({
       videoId: item.id.videoId,
       title: item.snippet.title,
       channel: item.snippet.channelTitle,
