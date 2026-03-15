@@ -106,7 +106,7 @@ export async function GET(req: NextRequest) {
     const statusMap: Record<string, any> = {}
     for (const v of detailData.items || []) statusMap[v.id] = v
 
-    // 3. Filtruoti: tik embeddable ir ne privatus/ištrintas
+    // 3. Filtruoti ir ranguoti — pirmenybė oficialiam kanalui
     const validItems = items.filter((item: any) => {
       const vid = item.id.videoId
       const detail = statusMap[vid]
@@ -118,7 +118,22 @@ export async function GET(req: NextRequest) {
       return true
     })
 
-    const results = validItems.slice(0, 5).map((item: any) => ({
+    // Ranguoti: Official/VEVO kanalai pirmiau, Topic kanalai paskiausiai
+    const ranked = [...validItems].sort((a: any, b: any) => {
+      const aChannel = a.snippet.channelTitle || ''
+      const bChannel = b.snippet.channelTitle || ''
+      const isTopicA = aChannel.endsWith('- Topic') || aChannel.endsWith('Topic')
+      const isTopicB = bChannel.endsWith('- Topic') || bChannel.endsWith('Topic')
+      const isOfficialA = /official|vevo/i.test(aChannel)
+      const isOfficialB = /official|vevo/i.test(bChannel)
+      if (isOfficialA && !isOfficialB) return -1
+      if (!isOfficialA && isOfficialB) return 1
+      if (!isTopicA && isTopicB) return -1
+      if (isTopicA && !isTopicB) return 1
+      return 0
+    })
+
+    const results = ranked.slice(0, 5).map((item: any) => ({
       videoId: item.id.videoId,
       title: item.snippet.title,
       channel: item.snippet.channelTitle,
