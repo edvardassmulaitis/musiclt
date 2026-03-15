@@ -1281,7 +1281,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       await new Promise(r => setTimeout(r, 150))
     }
     setImporting(false)
-    addLog(`✓ ${okNew} naujų, ${okMark} pažymėta singlu${fail ? `, ${fail} klaida` : ''}`)
+    addLog(`✓ ${okNew} singlų importuota${okMark ? `, ${okMark} pažymėta` : ''}${fail ? `, ${fail} klaida` : ''}`)
   }
 
   // ── UI helpers ─────────────────────────────────────────────────────────────
