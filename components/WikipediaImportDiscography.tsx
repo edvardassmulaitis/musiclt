@@ -925,8 +925,13 @@ async function checkTrackDuplicates(titles: string[], artistId: number): Promise
 
 function titleMatches(result: string, query: string): boolean {
   const n = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim()
-  const words = n(query).split(' ').filter(w => w.length > 2)
-  return words.filter(w => n(result).includes(w)).length >= Math.ceil(words.length * 0.7)
+  const nr = n(result)
+  const nq = n(query)
+  // Jei rezultate yra bent pusė query žodžių — ok
+  const words = nq.split(' ').filter(w => w.length > 2)
+  if (words.length === 0) return true
+  const matchCount = words.filter(w => nr.includes(w)).length
+  return matchCount >= Math.ceil(words.length * 0.5)
 }
 
 async function enrichTracks(albumId: number, artistName: string, addLog: (s: string) => void, yt = true, lyrics = true) {
@@ -1187,6 +1192,21 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
     }
     setImporting(false)
     addLog(`✓ ${ok} albumų${fail ? `, ${fail} klaida` : ''}`)
+
+    // Po albumų importo — atnaujinti singlų dublikatų statusą
+    // (dainos kurios buvo albumuose dabar yra DB, todėl singlų sąraše jos turėtų rodyti "jau yra")
+    if (ok > 0 && songs.length > 0) {
+      try {
+        const dups = await checkTrackDuplicates(songs.map(s => s.title), artistId)
+        setSongs(p => p.map(s => {
+          const k = s.title.toLowerCase()
+          if (dups[k]) return { ...s, duplicate: true, duplicateId: dups[k], selected: false }
+          return s
+        }))
+        const newDupCount = Object.keys(dups).length
+        if (newDupCount > 0) addLog(`  ℹ️ ${newDupCount} singlų jau DB (albumuose)`)
+      } catch {}
+    }
   }
 
   // ── Dainų importas ─────────────────────────────────────────────────────────
