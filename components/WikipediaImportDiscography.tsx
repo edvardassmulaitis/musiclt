@@ -944,9 +944,17 @@ async function enrichTracks(albumId: number, artistName: string, addLog: (s: str
     await Promise.all(dbTracks.slice(i, i+4).map(async (t: any) => {
       const u: Record<string,any> = {}
       if (yt) try {
-        const r = await fetch(`/api/search/youtube?q=${encodeURIComponent(`${artistName} ${t.title}`)}`)
-        if (r.ok) { const d = await r.json(); if (d.error) addLog(`  ⚠️ YT: ${d.error.slice(0,50)}`); const f = d.results?.[0]; if (f && titleMatches(f.title, `${artistName} ${t.title}`)) { u.video_url = `https://www.youtube.com/watch?v=${f.videoId}`; ytN++ } }
-      } catch {}
+        const q = encodeURIComponent(`${artistName} ${t.title}`)
+        const r = await fetch(`/api/search/youtube?q=${q}&type=video`)
+        if (r.ok) {
+          const d = await r.json()
+          if (d.error) { addLog(`  ⚠️ YT klaida: ${d.error.slice(0,80)}`); }
+          const f = d.results?.[0]
+          if (f?.videoId && titleMatches(f.title, `${artistName} ${t.title}`)) {
+            u.video_url = `https://www.youtube.com/watch?v=${f.videoId}`; ytN++
+          }
+        }
+      } catch (ytErr: any) { addLog(`  ⚠️ YT fetch klaida: ${ytErr.message?.slice(0,50)}`) }
       if (lyrics) try {
         const r = await fetch(`/api/search/lyrics?artist=${encodeURIComponent(artistName)}&title=${encodeURIComponent(t.title)}`)
         if (r.ok) { const d = await r.json(); if (d.lyrics) { u.lyrics = d.lyrics; lyrN++ } }
@@ -1245,8 +1253,8 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
             if (enrichYoutube) {
               try {
                 const q = `${artistName} ${song.title}`
-                const r = await fetch(`/api/search/youtube?q=${encodeURIComponent(q)}`)
-                if (r.ok) { const d = await r.json(); const f = d.results?.[0]; if (f && titleMatches(f.title, q)) updates.video_url = `https://www.youtube.com/watch?v=${f.videoId}` }
+                const r = await fetch(`/api/search/youtube?q=${encodeURIComponent(q)}&type=video`)
+                if (r.ok) { const d = await r.json(); if (d.error) addLog(`  ⚠️ YT: ${d.error.slice(0,60)}`); const f = d.results?.[0]; if (f?.videoId && titleMatches(f.title, q)) updates.video_url = `https://www.youtube.com/watch?v=${f.videoId}` }
               } catch {}
             }
             if (enrichLyrics) {
