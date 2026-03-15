@@ -218,8 +218,12 @@ function parseDiscographyPage(wikitext: string): DiscographyItem[] {
   const lines = wikitext.split('\n')
   let currentType: AlbumType = 'studio'
   let inTable = false, skipSection = false, inSinglesSection = false, yearMode = false
+  // Year rowspan tracking (kaip singlų parsere)
+  let currentYear: number | null = null
+  let yearRowspan = 0
 
-  for (const line of lines) {
+  for (let li = 0; li < lines.length; li++) {
+    const line = lines[li]
     const hm = line.match(/^(==+)\s*(.+?)\s*\1/)
     if (hm) {
       const depth = hm[1].length, h = hm[2].toLowerCase()
@@ -240,37 +244,69 @@ function parseDiscographyPage(wikitext: string): DiscographyItem[] {
       else if (h.includes('box')) { currentType = 'other'; skipSection = true }
       else if (/^\d{4}s?$/.test(h.trim())) { skipSection = inSinglesSection }
       else if (depth >= 3 && inSinglesSection) { skipSection = true }
-      yearMode = false; continue
+      yearMode = false; currentYear = null; yearRowspan = 0; continue
     }
     if (skipSection || inSinglesSection) continue
-    if (line.startsWith('{|')) { inTable = true; yearMode = false; continue }
+    if (line.startsWith('{|')) { inTable = true; yearMode = false; currentYear = null; yearRowspan = 0; continue }
     if (line.startsWith('|}')) { inTable = false; yearMode = false; continue }
     if (!inTable) continue
+
+    // Row separator
+    if (line.trim() === '|-') {
+      if (yearRowspan > 1) yearRowspan--
+      else if (yearRowspan === 1) yearRowspan = 0
+      continue
+    }
+
     if (/!.*rowspan.*Year|!rowspan.*Year/i.test(line)) { yearMode = true; continue }
+
+    // Year eilutė (Year-first formatas)
+    const yearM = line.match(/^\|\s*(?:rowspan\s*=\s*["']?(\d+)["']?\s*\|)?\s*((?:19|20)\d{2})\s*$/)
+    if (yearM) {
+      currentYear = parseInt(yearM[2])
+      yearRowspan = yearM[1] ? parseInt(yearM[1]) : 1
+      continue
+    }
+
     if (/!\s*scope\s*=\s*['"]row['"]/i.test(line)) {
       const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
       if (!wm) continue
       const wikiTitle = wm[1].trim(), title = cleanWikiText(wm[2] || wm[1])
       if (!title || title.length < 2 || wikiTitle.includes(':')) continue
       if (['discography','videography','certification','singles','chart'].some(b => title.toLowerCase().includes(b))) continue
-      const yr = line.match(/\b(19|20)\d{2}\b/)
-      albums.push({ title, year: yr ? parseInt(yr[0]) : null, month: null, day: null, type: currentType, wikiTitle, source: 'wikipedia' })
+
+      // Metai: pirma iš einamos eilutės, tada iš sekančių eilučių (Title-first formatas)
+      let year = currentYear
+      const yrInLine = line.match(/\b(19|20)\d{2}\b/)
+      if (yrInLine) {
+        year = parseInt(yrInLine[0])
+      } else if (!currentYear) {
+        // Pažiūrėti kitas eilutes
+        for (let k = li + 1; k < Math.min(li + 5, lines.length); k++) {
+          if (lines[k].trim() === '|-') break
+          const yrNext = lines[k].match(/^\|\s*(?:rowspan\s*=\s*["']?\d+["']?\s*\|)?\s*((?:19|20)\d{2})\s*$/)
+          if (yrNext) { year = parseInt(yrNext[1]); break }
+        }
+      }
+
+      albums.push({ title, year, month: null, day: null, type: currentType, wikiTitle, source: 'wikipedia' })
       continue
     }
+
     if (yearMode && /^\|/.test(line) && !/^\|\|/.test(line)) {
       const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
       if (wm) {
         const wikiTitle = wm[1].trim(), title = cleanWikiText(wm[2] || wm[1])
         if (title && title.length > 2 && !wikiTitle.includes(':') && !/^\d{4}/.test(title)) {
           const yr = line.match(/\b(19|20)\d{2}\b/)
-          albums.push({ title, year: yr ? parseInt(yr[0]) : null, month: null, day: null, type: currentType, wikiTitle, source: 'wikipedia' })
+          albums.push({ title, year: yr ? parseInt(yr[0]) : currentYear, month: null, day: null, type: currentType, wikiTitle, source: 'wikipedia' })
         }
       } else {
         const pm = line.match(/''([^']+)''/)
         if (pm) {
           const title = cleanWikiText(pm[1])
           if (title && title.length > 2 && !/^\d/.test(title))
-            albums.push({ title, year: null, month: null, day: null, type: currentType, wikiTitle: title.replace(/ /g, '_'), source: 'wikipedia' })
+            albums.push({ title, year: currentYear, month: null, day: null, type: currentType, wikiTitle: title.replace(/ /g, '_'), source: 'wikipedia' })
         }
       }
     }
@@ -451,29 +487,31 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
         const allSegs = line.split('|').map(s => s.trim()).filter(Boolean)
         if (allSegs.length === 0) continue
 
-        // Pirmasis segmentas su wiki link = kandidatas į pavadinimą
         const firstSeg = allSegs[0]
-        const wm = firstSeg.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
 
         let title = ''
-        if (wm) {
-          title = cleanWikiText(wm[2] || wm[1])
+        // Daina Wikipedia singlų sąraše visada rašoma "Title" su kabutėmis
+        // arba kaip [[wikilink]] — be kursyvo (albumai rašomi kursyvu)
+        const quotedM = firstSeg.match(/^"([^"]+)"/)
+        if (quotedM) {
+          title = quotedM[1].trim()
         } else {
-          // Tekstas kabučėse be wiki link
-          const qm = firstSeg.match(/^"([^"]+)"/)
-          if (qm) title = qm[1]
+          // Wiki link be kursyvo — bet tik jei nėra ''...'' (kursyvas = albumas)
+          if (/^''/.test(firstSeg)) continue  // kursyvas = albumas, skip
+          const wm = firstSeg.match(/^\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
+          if (wm) title = cleanWikiText(wm[2] || wm[1])
         }
 
         if (!title || title.length < 2) continue
         if (/^\d{4}/.test(title) || /^\d+$/.test(title)) continue
 
-        // Skip jei tai albumas, ne daina
-        // Albumų požymiai: edition, collection, anniversary, greatest hits, "Official Charts", EP pavadinimas
-        if (/\bedition\b|\bcollection\b|\banniversary\b|\bcollector\b|\bgreatest.?hits\b|\bsoundtrack\b|\bofficial.?charts?\b/i.test(title)) continue
-        // Skip jei pavadinimas baigiasi žodžiais rodančiais kad tai albumas, ne daina
+        // Skip jei tai albumas/organizacija, ne daina
+        if (/\bedition\b|\bcollection\b|\banniversary\b|\bcollector\b|\bgreatest.?hits\b|\bsoundtrack\b|\bofficial.?charts?\b|\bcharts?\s+company\b/i.test(title)) continue
         if (/\bE\.?P\.?\s*$/i.test(title)) continue
+        // Skip jei tai aiški non-single eilutė (pvz. "See also", "Notes")
+        if (/^(see also|notes?|references?)\s*$/i.test(title)) continue
 
-        // Pašalinti TIKTAI (re-release) ir (re-issue) iš pavadinimo — remix/mix palikti
+        // Pašalinti tik (re-release) ir (re-issue) — NE (Remix), NE (2024 Mix)
         title = title.replace(/\s*[\[(](?:re-?release|re-?issue)[)\]]/gi, '').trim()
 
         // Albumas — paskutinis segmentas su wiki link (jei skiriasi nuo dainos)
@@ -534,6 +572,30 @@ function extractTrackListings(wikitext: string): string[] {
   return results
 }
 
+// Grąžina tracklist blokus su jų pozicijomis wikitext'e (reikia konteksto filtravimui)
+function extractTrackListingsWithPos(wikitext: string): { block: string; pos: number }[] {
+  const results: { block: string; pos: number }[] = []
+  const pattern = /\{\{[Tt]rack\s*[Ll]isting/g
+  let m: RegExpExecArray | null
+  while ((m = pattern.exec(wikitext)) !== null) {
+    let depth = 0, i = m.index
+    while (i < wikitext.length - 1) {
+      if (wikitext[i] === '{' && wikitext[i+1] === '{') { depth++; i += 2 }
+      else if (wikitext[i] === '}' && wikitext[i+1] === '}') { depth--; i += 2; if (depth === 0) { results.push({ block: wikitext.slice(m.index + 2, i - 2), pos: m.index }); break } }
+      else i++
+    }
+  }
+  return results
+}
+
+// Rasti artimiausią section heading prieš duotą poziciją
+function getSectionBeforePos(wikitext: string, pos: number): string {
+  const textBefore = wikitext.slice(0, pos)
+  const headings = [...textBefore.matchAll(/^(==+)\s*(.+?)\s*\1\s*$/gm)]
+  if (!headings.length) return ''
+  return headings[headings.length - 1][2].toLowerCase()
+}
+
 function isReissueBlock(h: string, tl: string): boolean {
   const hl = h.toLowerCase()
   // Headline patikrinimas
@@ -575,7 +637,8 @@ function parseSinglesFromInfobox(wikitext: string): Set<string> {
 
 function parseTracklist(wikitext: string): TrackEntry[] {
   const singles = parseSinglesFromInfobox(wikitext)
-  const tlBlocks = extractTrackListings(wikitext)
+  const tlWithPos = extractTrackListingsWithPos(wikitext)
+  const tlBlocks = tlWithPos.map(t => t.block)
 
   if (!tlBlocks.length) {
     const tracks: TrackEntry[] = []
@@ -627,11 +690,20 @@ function parseTracklist(wikitext: string): TrackEntry[] {
     for (const tl of tlBlocks) { const nt = parseBlock(tl, order); allTracks.push(...nt); order += nt.length }
   } else {
     const getHeadline = (tl: string) => { const m = tl.match(/\|\s*(?:headline|caption)\s*=\s*([^\n|]+)/); return m ? m[1].replace(/[''+\[\]]/g, '').trim() : '' }
-    const standard = tlBlocks.filter(tl => !isReissueBlock(getHeadline(tl), tl))
+
+    // Filtruoti naudojant ir headline, ir section kontekstą
+    const standard = tlWithPos.filter(({ block, pos }) => {
+      const hl = getHeadline(block)
+      if (isReissueBlock(hl, block)) return false
+      // Papildomai tikrinti section heading prieš šį bloką
+      const sectionBefore = getSectionBeforePos(wikitext, pos)
+      if (/reissue|remaster|anniversary|box.?set|collector|deluxe|expanded|bonus|demo|outtake/i.test(sectionBefore)) return false
+      return true
+    }).map(({ block }) => block)
+
     const toUse = standard.length ? standard : [tlBlocks[0]]
 
     // Imame VISUS standartinius blokus (Side one + Side two sudaro vieną albumą)
-    // Deduplikuojame — ta pati daina negali būti du kartus
     const existing = new Set<string>()
     let order = 1
     for (const tl of toUse) {
@@ -1482,10 +1554,17 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                   {importing ? 'Importuojama...' : `Importuoti ${songSelectedCount} singlų`}
                 </button>
               ) : (
-                <button onClick={importAlbums} disabled={importing || selected.size === 0}
-                  className="flex-1 py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl disabled:opacity-40 transition-colors text-sm">
-                  {importing ? 'Importuojama...' : `Importuoti ${selected.size} albumų`}
-                </button>
+                <>
+                  <button onClick={importAlbums} disabled={importing || selected.size === 0}
+                    className="flex-1 py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl disabled:opacity-40 transition-colors text-sm">
+                    {importing ? 'Importuojama...' : `Importuoti ${selected.size} albumų`}
+                  </button>
+                  <button onClick={fetchAllDetails} disabled={importing || selected.size === 0}
+                    title="Parsisiųsti info apie visus pažymėtus albumus (dainos + viršeliai)"
+                    className="px-3 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl disabled:opacity-40 transition-colors text-xs font-medium whitespace-nowrap">
+                    ↓ Visi info
+                  </button>
+                </>
               )}
               {hasContent && (
                 <button onClick={enrichFromMB} disabled={importing || mbLoading}
