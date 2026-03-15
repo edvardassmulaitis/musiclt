@@ -453,11 +453,21 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
       let rawTitle = ''
       if (allLinks.length > 0) {
         rawTitle = allLinks.join(' / ')
+        // Pridėti tekstą po wiki link'o jei yra (pvz. " (2024 Mix)")
+        const afterLinks = afterScope.replace(/\[\[.*?\]\]/g, '').replace(/<[^>]+>/g, '').trim()
+        if (afterLinks && !/^[/|]/.test(afterLinks)) rawTitle += ' ' + afterLinks
+        rawTitle = rawTitle.trim()
       } else {
-        // Kabučių pavadinimas be wiki link
-        const qm = afterScope.match(/^"([^"]+)"/)
-        if (qm) rawTitle = qm[1]
-        else { const pm = afterScope.match(/'{2,3}([^']+)'{2,3}/); if (pm) rawTitle = cleanWikiText(pm[1]) }
+        // Kabučių pavadinimas: "Title" arba "Title" (Suffix)
+        // Imame tekstą tarp kabučių IR bet ką po jų (pvz. "(2024 Mix)")
+        const qm = afterScope.match(/^"([^"]+)"\s*(.*)/)
+        if (qm) {
+          const suffix = qm[2].replace(/<[^>]+>/g, '').replace(/\[\d+\]/g, '').trim()
+          rawTitle = suffix ? `${qm[1]} ${suffix}` : qm[1]
+        } else {
+          const pm = afterScope.match(/'{2,3}([^']+)'{2,3}/)
+          if (pm) rawTitle = cleanWikiText(pm[1])
+        }
       }
 
       rawTitle = rawTitle.replace(/\s*[\[(](?:re-?release|re-?issue)[)\]]/gi, '').trim()
@@ -469,26 +479,31 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
       const titleParts = rawTitle.split(/\s*\/\s*/).map(t => t.replace(/^["'\s]+|["'\s]+$/g, '').trim()).filter(t => t.length > 1)
         .filter(t => !/\bE\.?P\.?\s*$/i.test(t))  // skip EP pavadinimus
 
-      // Albumą rasime iš vėlesnių eilučių (lookahead) — PASKUTINIS wiki link
+      // Albumą rasime iš vėlesnių eilučių (lookahead)
       let albumTitle: string | undefined
       for (let k = i + 1; k < Math.min(i + 30, lines.length); k++) {
         const nl = lines[k]
-        if (nl.trim() === '|-' || /!\s*scope\s*=\s*['"]row['"]/i.test(nl)) break
+        if (nl.trim() === '|-' || /!\s*scope\s*=\s*['"]row['"]/i.test(nl) || (nl.startsWith('!') && !nl.startsWith('!!'))) break
         if (/^\|/.test(nl) && !/^\|\|/.test(nl)) {
           if (/Non-album/i.test(nl)) { albumTitle = 'Non-album single'; break }
-          // Albumas dažnai yra paskutiniame | segmente eilutės
-          const segParts = nl.split('||').pop()?.split('|') || []
-          for (let sp = segParts.length - 1; sp >= 0; sp--) {
-            const seg = segParts[sp]
-            const alm = seg.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
-            if (alm) {
-              const p = cleanWikiText(alm[2] || alm[1])
-              if (p && !/^\d+$/.test(p) && !/^[-–—]$/.test(p) && p.length > 2 && !titleParts.includes(p)) {
-                albumTitle = p; break
-              }
+          // Skip metų eilutę
+          if (/^\|\s*(?:rowspan\s*=\s*["']?\d+["']?\s*\|)?\s*((?:19|20)\d{2})\s*$/.test(nl)) continue
+          // Skip brūkšnelio eilutes
+          if (/^\|\s*[-–—]\s*$/.test(nl)) continue
+          const nlClean = nl.replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '')
+          const alm = nlClean.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
+          if (alm) {
+            const p = cleanWikiText(alm[2] || alm[1])
+            if (p && !/^\d+$/.test(p) && !/^[-–—]$/.test(p) && p.length > 2 && !titleParts.includes(p)) {
+              albumTitle = p; break
             }
           }
-          if (albumTitle) break
+          // Italics be wiki link: ''Album Name''
+          const im = nlClean.match(/'{2,3}([^']+)'{2,3}/)
+          if (im) {
+            const p = cleanWikiText(im[1])
+            if (p && p.length > 2 && !titleParts.includes(p)) { albumTitle = p; break }
+          }
         }
       }
 
