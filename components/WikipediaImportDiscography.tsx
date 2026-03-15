@@ -271,7 +271,7 @@ function parseDiscographyPage(wikitext: string): DiscographyItem[] {
       continue
     }
 
-    if (/!\s*scope\s*=\s*['"]row['"]/i.test(line)) {
+    if (/!\s*[—–-]?\s*scope\s*=\s*['"]row['"]/i.test(line)) {
       const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
       if (!wm) continue
       const wikiTitle = wm[1].trim(), title = cleanWikiText(wm[2] || wm[1])
@@ -334,15 +334,18 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
 
   // Metų sekimas su rowspan palaikymu
   let currentYear: number | null = null
-  let yearRowspan = 0   // kiek dainų eilučių dar liko su šiais metais
+  let yearRowspan = 0
 
-  // Title-first formato sekimas (pvz. Queen)
-  // Kai aptinkame ! scope="row" → daina, kita eilutė → metai
+  // Title-first formato sekimas
   let pendingTitle: string | null = null
   let pendingAlbum: string | undefined = undefined
-  let pendingYearLine = false  // laukiame metų eilutės po dainOS eilutės
+  let pendingYearLine = false
 
-  // Year-first formatas — metai ateina kaip atskira eilutė PRIEŠ dainą
+  // Albumo rowspan sekimas — pvz. ''Queen'' rowspan=2 apima Keep Yourself Alive + Liar
+  let currentAlbum: string | undefined = undefined
+  let albumRowspan = 0
+
+  // Year-first formatas
   let hasYearCol = false
 
   for (let i = 0; i < lines.length; i++) {
@@ -380,7 +383,7 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
     if (!inTable) continue
 
     // ── Lentelės header eilutės ───────────────────────────────────────────────
-    if (line.startsWith('!') && !/scope\s*=\s*['"]row['"]/i.test(line)) {
+    if (line.startsWith('!') && !/!\\s*[—–-]?\\s*scope\s*=\s*['"]row['"]/i.test(line)) {
       // Detektuoti Year stulpelį header eilutėje
       if (/\bYear\b/i.test(line)) { hasYearCol = true; continue }
       // Paprastas ! header be scope — gali būti daina (pvz. 2020s lentelė)
@@ -425,16 +428,15 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
 
     // ── Row separator |- ──────────────────────────────────────────────────────
     if (line.trim() === '|-') {
-      // Jei yearRowspan > 1, metai tęsiasi į kitą eilutę
       if (yearRowspan > 1) yearRowspan--
       else if (yearRowspan === 1) yearRowspan = 0
-      // NERESETINAME pendingYearLine — metai ateina po |- separatoriaus
-      // pendingYearLine = false  ← pašalinta
+      if (albumRowspan > 1) albumRowspan--
+      else if (albumRowspan === 1) { albumRowspan = 0; currentAlbum = undefined }
       continue
     }
 
     // ── scope="row" eilutė — DAINA (Title-first, pvz. Queen 1970s-1990s) ─────
-    if (/!\s*scope\s*=\s*['"]row['"]/i.test(line)) {
+    if (/^!\s*[—–-]?\s*scope\s*=\s*['"]row['"]/i.test(line)) {
       // Pašalinti <ref>...</ref> blokus prieš parsavimą (juose gali būti [[wiki links]])
       const cleanLine = line
         .replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '')
@@ -487,29 +489,37 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
       let albumTitle: string | undefined
       for (let k = i + 1; k < Math.min(i + 30, lines.length); k++) {
         const nl = lines[k]
-        if (nl.trim() === '|-' || /!\s*scope\s*=\s*['"]row['"]/i.test(nl) || (nl.startsWith('!') && !nl.startsWith('!!'))) break
+        if (nl.trim() === '|-' || /!\s*[—–-]?\s*scope\s*=\s*['"]row['"]/i.test(nl) || (nl.startsWith('!') && !nl.startsWith('!!'))) break
         if (/^\|/.test(nl) && !/^\|\|/.test(nl)) {
           if (/Non-album/i.test(nl)) { albumTitle = 'Non-album single'; break }
-          // Skip metų eilutę
           if (/^\|\s*(?:rowspan\s*=\s*["']?\d+["']?\s*\|)?\s*((?:19|20)\d{2})\s*$/.test(nl)) continue
-          // Skip brūkšnelio eilutes
-          if (/^\|\s*[-–—]\s*$/.test(nl)) continue
+          if (/^\|\s*[-–—]\s*$/.test(nl) || /^\|\s*\|\|/.test(nl)) continue
           const nlClean = nl.replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '')
+          // Patikrinti rowspan albumui
+          const rsM = nl.match(/rowspan\s*=\s*["']?(\d+)["']?/)
+          const rsCount = rsM ? parseInt(rsM[1]) : 1
           const alm = nlClean.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
           if (alm) {
             const p = cleanWikiText(alm[2] || alm[1])
             if (p && !/^\d+$/.test(p) && !/^[-–—]$/.test(p) && p.length > 2 && !titleParts.includes(p)) {
-              albumTitle = p; break
+              albumTitle = p
+              if (rsCount > 1) { currentAlbum = p; albumRowspan = rsCount }
+              break
             }
           }
-          // Italics be wiki link: ''Album Name''
           const im = nlClean.match(/'{2,3}([^']+)'{2,3}/)
           if (im) {
             const p = cleanWikiText(im[1])
-            if (p && p.length > 2 && !titleParts.includes(p)) { albumTitle = p; break }
+            if (p && p.length > 2 && !titleParts.includes(p)) {
+              albumTitle = p
+              if (rsCount > 1) { currentAlbum = p; albumRowspan = rsCount }
+              break
+            }
           }
         }
       }
+      // Jei lookahead nerado albumo — naudoti currentAlbum iš rowspan
+      if (!albumTitle && currentAlbum && albumRowspan > 0) albumTitle = currentAlbum
 
       // Metai
       if (yearRowspan > 0) {
