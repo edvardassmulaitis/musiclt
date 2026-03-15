@@ -8,6 +8,18 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+function generateSlug(title: string): string {
+  return title
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 100)
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const search = searchParams.get('search') || ''
@@ -17,7 +29,6 @@ export async function GET(req: NextRequest) {
   const limit = parseInt(searchParams.get('limit') || '50')
   const offset = (page - 1) * limit
 
-  // ── Dublikatų tikrinimas: ?check_titles=[...]&artist_id=123 ────────────────
   const checkTitles = searchParams.get('check_titles')
   if (checkTitles && artist_id) {
     try {
@@ -35,7 +46,6 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // ── Album tracks ───────────────────────────────────────────────────────────
   if (album_id) {
     const { data, error } = await supabase
       .from('album_tracks')
@@ -56,7 +66,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ tracks, total: tracks.length })
   }
 
-  // ── Search ─────────────────────────────────────────────────────────────────
   if (search) {
     const { data: artistMatches } = await supabase
       .from('artists').select('id').ilike('name', `%${search}%`).limit(20)
@@ -82,7 +91,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ tracks: (data || []).map(mapTrack).filter(isRealTrack), total: (data || []).length })
   }
 
-  // ── Standartinis query ─────────────────────────────────────────────────────
   let query = supabase
     .from('tracks')
     .select(`id, title, type, release_date, video_url, spotify_id, is_new, is_new_date, cover_url, lyrics,
@@ -100,8 +108,7 @@ export async function GET(req: NextRequest) {
 }
 
 function isRealTrack(t: any): boolean {
-  if (t.title === t.artists?.name) return false
-  return true
+  return t.title !== t.artists?.name
 }
 
 function mapTrack(t: any) {
@@ -138,10 +145,22 @@ export async function POST(req: NextRequest) {
     release_date = `${y}-${m}-${d}`
   }
 
+  // Generuoti unikalų slug
+  const baseSlug = data.slug?.trim() || generateSlug(data.title.trim())
+  let slug = baseSlug
+  let suffix = 1
+  while (true) {
+    const { data: existing } = await supabase
+      .from('tracks').select('id').eq('slug', slug).maybeSingle()
+    if (!existing) break
+    slug = `${baseSlug}-${suffix++}`
+  }
+
   const { data: track, error } = await supabase
     .from('tracks')
     .insert({
       title: data.title.trim(),
+      slug,
       artist_id: Number(data.artist_id),
       type: data.type || 'normal',
       is_single: data.is_single ?? false,
@@ -150,7 +169,6 @@ export async function POST(req: NextRequest) {
       release_month: data.release_month || null,
       release_day: data.release_day || null,
       video_url: data.video_url || null,
-      // youtube_url stulpelio nėra DB — pašalinta
       spotify_id: data.spotify_id || null,
       lyrics: data.lyrics || null,
       description: data.description || null,
