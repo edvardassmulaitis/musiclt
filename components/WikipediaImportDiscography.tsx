@@ -104,15 +104,18 @@ async function fetchCoverImage(wikiTitle: string): Promise<string> {
 
 function cleanWikiText(raw: string): string {
   let s = raw
-  // Pašalinti HTML tagus (pvz. <br />, <br>, <ref>...</ref>)
+  // Pirmiausia pašalinti <ref>...</ref> blokus (citatos su nuorodomis)
+  s = s.replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '')
+  s = s.replace(/<ref[^/]*\/>/gi, '')  // savaiminiai <ref name="x"/>
+  // HTML tagų valymas
   s = s.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]+>/g, '')
+  // Wiki markup valymas
   s = s.replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, (_: string, _l: string, d: string) => d.replace(/^["'\u201c\u2018]+|["'\u201d\u2019]+$/g, '').trim())
   s = s.replace(/\[\[([^\]]+)\]\]/g, (_: string, l: string) => l.replace(/_/g, ' ').replace(/^["'\u201c\u2018]+|["'\u201d\u2019]+$/g, '').trim())
   s = s.replace(/\[\[|\]\]/g, '').replace(/\{\{[^}]*\}\}/g, '').replace(/''+/g, '')
   s = s.replace(/\[\w*\s*\d*\]/g, '')
   s = s.replace(/\s*\([^)]*\bsong\b[^)]*\)/gi, '').replace(/\s*\([^)]*\balbum\b[^)]*\)/gi, '')
   s = s.replace(/^["'\u201c\u2018]+|["'\u201d\u2019]+$/g, '')
-  // Sutraukti kelis tarpus
   s = s.replace(/\s+/g, ' ')
   return s.trim()
 }
@@ -394,19 +397,23 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
 
     // ── scope="row" eilutė — DAINA (Title-first, pvz. Queen 1970s-1990s) ─────
     if (/!\s*scope\s*=\s*['"]row['"]/i.test(line)) {
-      // Ištraukti VISUS pavadinimus (gali būti dvigubi: "Title A" / "Title B")
-      let rawTitle = ''
-      // Paimti viską po scope="row"|
-      const afterScope = line.replace(/^.*scope\s*=\s*['"]row['"]\s*\|?\s*/i, '').trim()
+      // Pašalinti <ref>...</ref> blokus prieš parsavimą (juose gali būti [[wiki links]])
+      const cleanLine = line
+        .replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '')
+        .replace(/<ref[^/]*\/>/gi, '')
 
-      // Surinkti visus wiki links iš šios eilutės
+      // Paimti viską po scope="row"|
+      const afterScope = cleanLine.replace(/^.*scope\s*=\s*['"]row['"]\s*\|?\s*/i, '').trim()
+
+      // Surinkti visus wiki links iš IŠVALYTOS eilutės (be ref tagų)
       const allLinks: string[] = []
       const linkRe = /\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/g
       let lm: RegExpExecArray | null
-      while ((lm = linkRe.exec(line)) !== null) {
+      while ((lm = linkRe.exec(cleanLine)) !== null) {
         allLinks.push(cleanWikiText(lm[2] || lm[1]))
       }
 
+      let rawTitle = ''
       if (allLinks.length > 0) {
         rawTitle = allLinks.join(' / ')
       } else {
