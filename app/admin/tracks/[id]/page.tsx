@@ -38,7 +38,6 @@ function extractYouTubeId(url: string): string {
   return url.match(/(?:v=|youtu\.be\/)([^&?]+)/)?.[1] || ''
 }
 
-// ── DateNum ───────────────────────────────────────────────────────────────────
 function DateNum({ value, onChange, min, max, placeholder, width = 'w-14' }: {
   value: string; onChange: (v: string) => void
   min: number; max: number; placeholder: string; width?: string
@@ -61,7 +60,6 @@ function DateNum({ value, onChange, min, max, placeholder, width = 'w-14' }: {
   )
 }
 
-// ── ArtistSearchInput ─────────────────────────────────────────────────────────
 function ArtistSearchInput({ placeholder = 'Ieškoti atlikėjo...', onSelect }: {
   placeholder?: string
   onSelect: (id: number, name: string, avatar?: string | null) => void
@@ -79,7 +77,7 @@ function ArtistSearchInput({ placeholder = 'Ieškoti atlikėjo...', onSelect }: 
   return (
     <div className="relative">
       <input value={q} onChange={e => setQ(e.target.value)} placeholder={placeholder}
-        className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-blue-400 transition-colors" />
+        className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-blue-400 transition-colors bg-white" />
       {results.length > 0 && (
         <div className="absolute z-50 w-full bg-white border border-gray-200 rounded-xl shadow-xl mt-1 overflow-hidden">
           {results.map(a => {
@@ -103,7 +101,6 @@ function ArtistSearchInput({ placeholder = 'Ieškoti atlikėjo...', onSelect }: 
   )
 }
 
-// ── YouTubeSearch ─────────────────────────────────────────────────────────────
 function YouTubeSearch({ initialQuery, onSelect }: { initialQuery: string; onSelect: (url: string) => void }) {
   const [query, setQuery] = useState(initialQuery)
   const [results, setResults] = useState<YTResult[]>([])
@@ -112,7 +109,7 @@ function YouTubeSearch({ initialQuery, onSelect }: { initialQuery: string; onSel
   const search = async () => {
     if (!query.trim()) return
     setLoading(true); setResults([])
-    try { setResults((await (await fetch(`/api/search/youtube?q=${encodeURIComponent(query)}`)).json()).results || []) }
+    try { setResults((await (await fetch(`/api/search/youtube?q=${encodeURIComponent(query)}&type=video`)).json()).results || []) }
     finally { setLoading(false) }
   }
   return (
@@ -143,7 +140,6 @@ function YouTubeSearch({ initialQuery, onSelect }: { initialQuery: string; onSel
   )
 }
 
-// ── CoverMini ─────────────────────────────────────────────────────────────────
 function CoverMini({ value, onChange }: { value: string; onChange: (url: string) => void }) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
@@ -215,7 +211,6 @@ function CoverMini({ value, onChange }: { value: string; onChange: (url: string)
   )
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function AdminTrackEditPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
   const id = resolvedParams?.id
@@ -230,6 +225,8 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
   const [artistSlug, setArtistSlug] = useState('')
   const [artistAvatar, setArtistAvatar] = useState<string | null>(null)
   const [trackType, setTrackType] = useState('normal')
+  // ── FIX 1: is_single kaip atskiras state ──────────────────────────────────
+  const [isSingle, setIsSingle] = useState(false)
   const [releaseYear, setReleaseYear] = useState('')
   const [releaseMonth, setReleaseMonth] = useState('')
   const [releaseDay, setReleaseDay] = useState('')
@@ -342,6 +339,8 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
       if (data.error) { setError(data.error); return }
       setTitle(data.title || ''); setArtistId(data.artist_id || 0)
       setTrackType(data.type || 'normal')
+      // ── FIX 1: užkrauti is_single ────────────────────────────────────────
+      setIsSingle(data.is_single || false)
       setReleaseYear(data.release_year ? String(data.release_year) : '')
       setReleaseMonth(data.release_month ? String(data.release_month) : '')
       setReleaseDay(data.release_day ? String(data.release_day) : '')
@@ -349,7 +348,16 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
       setLyrics(data.lyrics || ''); setChords(data.chords || '')
       setIsNew(data.is_new || false); setIsNewDate(data.is_new_date || null)
       setCoverUrl(data.cover_url || '')
-      if (data.artists?.name) { setArtistName(data.artists.name); setArtistSlug(data.artists.slug || ''); setArtistAvatar(data.artists.cover_image_url || data.artists.avatar || null) }
+      // ── FIX 3: gauti atlikėjo nuotrauką ──────────────────────────────────
+      if (data.artists?.name) {
+        setArtistName(data.artists.name)
+        setArtistSlug(data.artists.slug || '')
+        // Papildomai krauti atlikėjo duomenis kad gautume cover_image_url
+        fetch(`/api/artists/${data.artist_id}`)
+          .then(r => r.json())
+          .then(artist => { if (artist.cover_image_url) setArtistAvatar(artist.cover_image_url) })
+          .catch(() => {})
+      }
       if (data.featuring) setFeaturing(data.featuring)
       if (data.albums) setAlbums(data.albums)
     }).finally(() => setLoading(false))
@@ -358,7 +366,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
   const toggleNew = async () => {
     const newVal = !isNew; const newDate = newVal ? new Date().toISOString().slice(0, 10) : null
     setIsNew(newVal); setIsNewDate(newDate)
-    if (!isNewTrack) await fetch(`/api/tracks/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_new: newVal, is_new_date: newDate, _partial: true }) })
+    if (!isNewTrack) await fetch(`/api/tracks/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_new: newVal, is_new_date: newDate }) })
   }
 
   const removeFromAlbum = async (albumId: number) => {
@@ -373,14 +381,15 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
     if (!artistId) { setError('Pasirinkite atlikėją'); return }
     setSaving(true); setError('')
     try {
-      const payload = { title, artist_id: artistId, type: trackType, release_year: releaseYear || null, release_month: releaseMonth || null, release_day: releaseDay || null, video_url: videoUrl, spotify_id: spotifyId, lyrics, chords, is_new: isNew, is_new_date: isNewDate, cover_url: coverUrl, featuring }
+      // ── FIX 1: siųsti is_single ──────────────────────────────────────────
+      const payload = { title, artist_id: artistId, type: trackType, is_single: isSingle, release_year: releaseYear || null, release_month: releaseMonth || null, release_day: releaseDay || null, video_url: videoUrl, spotify_id: spotifyId, lyrics, chords, is_new: isNew, is_new_date: isNewDate, cover_url: coverUrl, featuring }
       const res = await fetch(isNewTrack ? '/api/tracks' : `/api/tracks/${id}`, { method: isNewTrack ? 'POST' : 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       setSaved(true); setTimeout(() => setSaved(false), 2000)
       if (isNewTrack) router.push(`/admin/tracks/${data.id}`)
     } catch (e: any) { setError(e.message) } finally { setSaving(false) }
-  }, [title, artistId, trackType, releaseYear, releaseMonth, releaseDay, videoUrl, spotifyId, lyrics, chords, isNew, isNewDate, coverUrl, featuring, id, isNewTrack])
+  }, [title, artistId, trackType, isSingle, releaseYear, releaseMonth, releaseDay, videoUrl, spotifyId, lyrics, chords, isNew, isNewDate, coverUrl, featuring, id, isNewTrack])
 
   const handleDelete = async () => {
     if (!confirm(`Ištrinti "${title}"?`)) return
@@ -406,11 +415,8 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
   // ── Info Panel ──────────────────────────────────────────────────────────────
   const InfoPanel = (
     <div className="space-y-2.5 p-3 pb-4">
-
-      {/* Main card */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 space-y-2.5">
 
-        {/* Title + Date — side by side on desktop, stacked on mobile */}
         <div className="space-y-2 sm:space-y-0 sm:grid sm:grid-cols-[1fr_auto] sm:gap-3 sm:items-start">
           <div>
             <label className="block text-xs font-semibold text-gray-500 mb-1">Pavadinimas *</label>
@@ -440,7 +446,6 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
           </div>
         </div>
 
-        {/* Artists */}
         <div>
           <label className="block text-xs font-semibold text-gray-500 mb-1">Atlikėjai *</label>
           <div className="flex flex-wrap items-center gap-1.5">
@@ -477,7 +482,6 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
           </div>
         </div>
 
-        {/* Type */}
         <div>
           <label className="block text-xs font-semibold text-gray-500 mb-1">Tipas</label>
           <div className="flex flex-wrap gap-1">
@@ -491,6 +495,12 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
                 {TRACK_TYPE_DEFS[tp].icon}{TRACK_TYPE_DEFS[tp].label}
               </button>
             ))}
+            {/* ── FIX 1: isSingle toggle ────────────────────────────────── */}
+            <button type="button" onClick={() => setIsSingle(p => !p)}
+              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all ${isSingle ? 'bg-orange-500 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" strokeWidth={2}/><circle cx="12" cy="12" r="3" strokeWidth={2}/></svg>
+              Singlas
+            </button>
             <button type="button" onClick={toggleNew}
               className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all ${isNew ? 'bg-green-500 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>Naujas
@@ -500,7 +510,6 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
         </div>
       </div>
 
-      {/* Albums */}
       {albums.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-3 py-2 border-b border-gray-100 flex items-center gap-1.5">
@@ -523,12 +532,8 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
         </div>
       )}
 
-      {/* Media */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 space-y-2.5">
-
-        {/* Row 1: Cover + Spotify side by side */}
         <div className="grid grid-cols-2 gap-3">
-          {/* Cover */}
           <div>
             <p className="text-xs font-semibold text-gray-500 mb-1.5">Viršelis</p>
             <CoverMini value={coverUrl} onChange={v => { setCoverUrl(v); setCoverFetchMsg(null) }} />
@@ -542,12 +547,10 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
               </div>
             )}
           </div>
-
-          {/* Spotify */}
           <div>
             <p className="text-xs font-semibold text-gray-500 mb-1 flex items-center gap-1"><IcoSP />Spotify</p>
             <input value={spotifyId} onChange={e => setSpotifyId(e.target.value)} placeholder="Track ID..."
-              className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-xs focus:outline-none focus:border-blue-400 font-mono transition-colors" />
+              className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-xs focus:outline-none focus:border-blue-400 font-mono transition-colors bg-white" />
             {spotifyId && (
               <a href={`https://open.spotify.com/track/${spotifyId}`} target="_blank" rel="noopener noreferrer"
                 className="mt-1 flex items-center gap-1 text-xs text-green-600 hover:text-green-700 transition-colors">🔗 Atidaryti Spotify</a>
@@ -563,7 +566,6 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
           </div>
         </div>
 
-        {/* Row 2: YouTube full width */}
         <div className="border-t border-gray-100 pt-2.5">
           <p className="text-xs font-semibold text-gray-500 mb-1 flex items-center gap-1"><IcoYT />YouTube</p>
           <div className="flex gap-1 mb-1.5">
@@ -584,7 +586,6 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
     </div>
   )
 
-  // ── Lyrics Panel ─────────────────────────────────────────────────────────────
   const LyricsPanel = (
     <div className="flex flex-col h-full p-3">
       <div className="bg-white rounded-t-xl border border-gray-100 shadow-sm shrink-0 flex items-center">
@@ -607,17 +608,13 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
     </div>
   )
 
-  // ── Render ───────────────────────────────────────────────────────────────────
   return (
-    <div className="overflow-hidden flex flex-col bg-[#f8f7f5]" style={{ height: 'calc(100vh - 56px)' }}>
+    // ── FIX 2: data-theme="light" visam puslapiui ─────────────────────────────
+    <div className="overflow-hidden flex flex-col bg-[#f8f7f5]" style={{ height: 'calc(100vh - 56px)' }} data-theme="light">
 
-      {/* Header */}
       <div className="shrink-0 bg-white/95 backdrop-blur border-b border-gray-200">
         <div className="flex items-center justify-between gap-3 px-3 py-2">
-
-          {/* Breadcrumb */}
           <nav className="flex items-center gap-1 text-sm min-w-0">
-            {/* Desktop full breadcrumb */}
             <Link href="/admin" className="text-gray-400 hover:text-gray-700 shrink-0 hidden lg:block">Admin</Link>
             <span className="text-gray-300 hidden lg:block">/</span>
             <Link href="/admin/artists" className="text-gray-400 hover:text-gray-700 shrink-0 hidden lg:block">Atlikėjai</Link>
@@ -629,7 +626,6 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
               <span className="text-gray-300 hidden lg:block">/</span>
               <Link href={`/admin/tracks?artist=${artistId}`} className="text-gray-400 hover:text-gray-700 shrink-0 hidden lg:block">Dainos</Link>
             </>}
-            {/* Mobile: back + title + dots nav */}
             <div className="flex lg:hidden items-center gap-2 min-w-0">
               <Link href={artistId ? `/admin/tracks?artist=${artistId}` : '/admin/tracks'}
                 className="text-gray-400 hover:text-gray-700 shrink-0"><IcoBack /></Link>
@@ -662,12 +658,10 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
                 </div>
               )}
             </div>
-            {/* Desktop: separator + title */}
             <span className="text-gray-300 hidden lg:block">/</span>
             <span className="text-gray-800 font-semibold truncate max-w-[260px] hidden lg:block">{isNewTrack ? 'Nauja daina' : (title || '...')}</span>
           </nav>
 
-          {/* Actions */}
           <div className="flex items-center gap-1.5 shrink-0">
             {!isNewTrack && (
               <button onClick={handleDelete} disabled={deleting}
@@ -688,7 +682,6 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
           </div>
         </div>
 
-        {/* Mobile tab bar */}
         <div className="flex lg:hidden border-t border-gray-100">
           <button onClick={() => setMobileTab('info')}
             className={`flex-1 py-2 text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 ${mobileTab === 'info' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-gray-500'}`}>
@@ -701,7 +694,6 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
         </div>
       </div>
 
-      {/* Error */}
       {error && (
         <div className="shrink-0 px-3 pt-2">
           <div className="p-2.5 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm flex items-center gap-2">
@@ -711,19 +703,16 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
         </div>
       )}
 
-      {/* Body */}
       {loading ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
         <>
-          {/* Desktop: side by side */}
           <div className="hidden lg:grid flex-1 grid-cols-2 min-h-0">
             <div className="border-r border-gray-200 overflow-y-auto">{InfoPanel}</div>
             <div className="overflow-hidden">{LyricsPanel}</div>
           </div>
-          {/* Mobile: tabbed */}
           <div className="flex lg:hidden flex-1 min-h-0 overflow-hidden">
             {mobileTab === 'info'
               ? <div className="flex-1 overflow-y-auto">{InfoPanel}</div>
