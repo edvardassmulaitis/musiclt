@@ -501,7 +501,7 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
           const alm = nlClean.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
           if (alm) {
             const p = cleanWikiText(alm[2] || alm[1])
-            if (p && !/^\d+$/.test(p) && !/^[-–—]$/.test(p) && p.length > 2 && !titleParts.includes(p)) {
+            if (p && !/^\d+$/.test(p) && !/^[-–—]$/.test(p) && p.length > 2) {
               albumTitle = p
               if (rsCount > 1) { currentAlbum = p; albumRowspan = rsCount }
               break
@@ -510,7 +510,9 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
           const im = nlClean.match(/'{2,3}([^']+)'{2,3}/)
           if (im) {
             const p = cleanWikiText(im[1])
-            if (p && p.length > 2 && !titleParts.includes(p)) {
+            // Albumas gali turėti tą patį pavadinimą kaip daina (pvz. "Innuendo" singlas ir "Innuendo" albumas)
+            // Todėl netikrinime ar p !== title — tiesiog tikriname ar tai ne skaičius/brūkšnelis
+            if (p && p.length > 2 && !/^\d+$/.test(p) && !/^[-–—]$/.test(p)) {
               albumTitle = p
               if (rsCount > 1) { currentAlbum = p; albumRowspan = rsCount }
               break
