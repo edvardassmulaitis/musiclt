@@ -29,7 +29,21 @@ function TaskIndicator() {
     return () => window.removeEventListener('discography-minimized', handler)
   }, [])
 
-  if (!tasks.length) return null
+  if (!tasks.length && !discographyMinimized) return null
+
+  // Jei nėra tasks bet modalas minimizuotas — rodyti tik reopen mygtuką
+  if (!tasks.length && discographyMinimized) {
+    return (
+      <button
+        onClick={() => { window.dispatchEvent(new CustomEvent('discography-reopen')); setDiscographyMinimized(false) }}
+        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-violet-50 hover:bg-violet-100 transition-colors text-xs text-violet-600 font-medium shrink-0"
+        title="Atidaryti diskografijos langą"
+      >
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7"/></svg>
+        Diskografija
+      </button>
+    )
+  }
 
   const running = tasks.filter(t => t.status === 'running')
   const errors = tasks.filter(t => t.status === 'error')
