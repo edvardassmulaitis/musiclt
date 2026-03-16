@@ -1541,10 +1541,16 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
 
   // ── Tab bar ────────────────────────────────────────────────────────────────
 
-  const tabDef: { id: ActiveTab; label: string; count: number; imported: number; hasNew: boolean; showAlways?: boolean }[] = [
-    { id: 'studio', label: 'Studijiniai', count: tabCounts.studio, imported: tabImported.studio, hasNew: tabHasNew.studio },
-    { id: 'other', label: 'Kiti albumai', count: tabCounts.other, imported: tabImported.other, hasNew: tabHasNew.other },
-    { id: 'singles', label: 'Singlai', count: tabCounts.singles, imported: tabImported.singles, hasNew: tabHasNew.singles, showAlways: true },
+  const tabNew = {
+    studio: studioItems.filter(({ it }) => !it.duplicate && !it.imported).length,
+    other: otherItems.filter(({ it }) => !it.duplicate && !it.imported).length,
+    singles: songs.filter(s => !s.duplicate && !s.imported).length,
+  }
+
+  const tabDef: { id: ActiveTab; label: string; count: number; newCount: number; imported: number; hasNew: boolean; showAlways?: boolean }[] = [
+    { id: 'studio', label: 'Studijiniai', count: tabCounts.studio, newCount: tabNew.studio, imported: tabImported.studio, hasNew: tabHasNew.studio },
+    { id: 'other', label: 'Kiti albumai', count: tabCounts.other, newCount: tabNew.other, imported: tabImported.other, hasNew: tabHasNew.other },
+    { id: 'singles', label: 'Singlai', count: tabCounts.singles, newCount: tabNew.singles, imported: tabImported.singles, hasNew: tabHasNew.singles, showAlways: true },
   ]
 
   const hasContent = items.length > 0 || songs.length > 0
@@ -1618,8 +1624,12 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                       }`}>
                       {tab.label}
                       {tab.count > 0 && (
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${isActive ? 'bg-violet-100 text-violet-600' : 'bg-gray-100 text-gray-500'}`}>
-                          {tab.imported > 0 ? `${tab.imported}/${tab.count}` : tab.count}
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                          tab.newCount > 0
+                            ? (isActive ? 'bg-violet-100 text-violet-600' : 'bg-gray-100 text-gray-500')
+                            : 'bg-gray-50 text-gray-300'
+                        }`}>
+                          {tab.newCount > 0 ? tab.newCount : '✓'}
                         </span>
                       )}
                       {tab.hasNew && !isActive && <span className="w-1.5 h-1.5 bg-orange-400 rounded-full" />}
