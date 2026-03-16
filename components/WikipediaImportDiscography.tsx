@@ -736,48 +736,70 @@ function isDiscBlock(tl: string): boolean {
   return /\|\s*headline\s*=.*[Dd]isc\s*[12]/i.test(tl) || /\|\s*disc\s*=\s*[12]/i.test(tl)
 }
 
-function parseSinglesFromInfobox(wikitext: string): Set<string> {
-  const singles = new Set<string>()
+type SingleInfoboxData = { month: number | null; day: number | null; year: number | null }
 
-  function extractSingleNames(text: string) {
+function parseSinglesFromInfobox(wikitext: string): { names: Set<string>; dates: Map<string, SingleInfoboxData> } {
+  const names = new Set<string>()
+  const dates = new Map<string, SingleInfoboxData>()
+  const disambigRe = /\s*\((song|album|single|band|film|Queen song|[A-Z][a-z]+ song|[A-Z][a-z]+ album)\)$/i
+  const MONTHS: Record<string, number> = { january:1,february:2,march:3,april:4,may:5,june:6,july:7,august:8,september:9,october:10,november:11,december:12 }
+
+  function extractName(text: string): string {
+    const lm = /\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/.exec(text)
+    if (!lm) return ''
+    const name = lm[2] ? lm[2].replace(/'+/g, '').trim() : lm[1].replace(/#[^\]]*$/, '').replace(disambigRe, '').replace(/'+/g, '').trim()
+    return name.length > 1 ? name : ''
+  }
+
+  function extractAllNames(text: string) {
     const re = /\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/g
     let lm: RegExpExecArray | null
-    // Disambiguation sufixai kuriuos reikia pašalinti (ne dalis pavadinimo)
-    const disambigRe = /\s*\((song|album|single|band|film|Queen song|[A-Z][a-z]+ song|[A-Z][a-z]+ album)\)$/i
     while ((lm = re.exec(text)) !== null) {
-      const raw = lm[2] || lm[1].replace(/#[^\]]*$/, '')
-      // Jei yra display tekstas (po |) - naudoti tą, jis jau švarus
-      // Jei nėra display teksto - pašalinti tik Wikipedia disambiguation sufixus
-      const name = lm[2]
-        ? lm[2].replace(/'+/g, '').trim()
-        : lm[1].replace(/#[^\]]*$/, '').replace(disambigRe, '').replace(/'+/g, '').trim()
-      if (name.length > 1) singles.add(name.toLowerCase())
+      const name = lm[2] ? lm[2].replace(/'+/g, '').trim() : lm[1].replace(/#[^\]]*$/, '').replace(disambigRe, '').replace(/'+/g, '').trim()
+      if (name.length > 1) names.add(name.toLowerCase())
     }
+  }
+
+  function parseDate(dateStr: string): SingleInfoboxData {
+    const clean = dateStr.replace(/\([^)]*\)/g, '').replace(/\{\{[^}]*\}\}/g, '').replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '').replace(/<ref[^/]*\/>/gi, '').trim()
+    const full = clean.match(/(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})/i)
+    if (full) return { day: parseInt(full[1]), month: MONTHS[full[2].toLowerCase()] || null, year: parseInt(full[3]) }
+    const monthYear = clean.match(/(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})/i)
+    if (monthYear) return { day: null, month: MONTHS[monthYear[1].toLowerCase()] || null, year: parseInt(monthYear[2]) }
+    const yearOnly = clean.match(/(\d{4})/)
+    if (yearOnly) return { day: null, month: null, year: parseInt(yearOnly[1]) }
+    return { day: null, month: null, year: null }
   }
 
   // Format 1: | singles = [[Song1]] / [[Song2]]
   const m = wikitext.match(/\|\s*singles?\s*=([\s\S]*?)(?=\n\s*\||\n\}\})/)
-  if (m) extractSingleNames(m[1])
+  if (m) extractAllNames(m[1])
 
-  // Format 2: {{Singles | single1 = [[Song]] | single2 = [[Song]] ... }}
-  // Rasti {{Singles bloko pradžią, tada ieškoti single\d+ laukų iki albumo infobox pabaigos
+  // Format 2: {{Singles | single1 = [[Song]] | single1date = 4 November 1985 }}
   const singlesStart = wikitext.search(/\{\{[Ss]ingles/)
   if (singlesStart !== -1) {
-    // Ieškoti nuo Singles bloko pradžios iki | prev_title arba }}{{Singles pabaigos
-    // Imti pakankamai teksto (iki 3000 simbolių) - užteks bet kuriam Singles blokui
     const chunk = wikitext.slice(singlesStart, singlesStart + 3000)
     const sRe = /\|\s*single(\d+)\s*=\s*((?:\[\[[^\]]*\]\]|[^|\n])+)/g
     let sm: RegExpExecArray | null
+    const singlesByNum: Record<string, string> = {}
     while ((sm = sRe.exec(chunk)) !== null) {
-      extractSingleNames(sm[2])
+      const name = extractName(sm[2])
+      if (name) { names.add(name.toLowerCase()); singlesByNum[sm[1]] = name.toLowerCase() }
+    }
+    // Paima datas: | single1date = 4 November 1985 (UK)
+    const dRe = /\|\s*single(\d+)date\s*=\s*([^\n|]+)/g
+    let dm: RegExpExecArray | null
+    while ((dm = dRe.exec(chunk)) !== null) {
+      const singleName = singlesByNum[dm[1]]
+      if (singleName) dates.set(singleName, parseDate(dm[2]))
     }
   }
 
-  return singles
+  return { names, dates }
 }
 
 function parseTracklist(wikitext: string): TrackEntry[] {
-  const singles = parseSinglesFromInfobox(wikitext)
+  const { names: singles } = parseSinglesFromInfobox(wikitext)
   const tlWithPos = extractTrackListingsWithPos(wikitext)
   const tlBlocks = tlWithPos.map(t => t.block)
 
@@ -1299,6 +1321,18 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       const [wikitext, cover] = await Promise.all([fetchWikitext(item.wikiTitle), fetchCoverImage(item.wikiTitle)])
       const dateInfo = parseReleaseDate(wikitext)
       const tracks = parseTracklist(wikitext)
+      // Singlų datos iš albumo infobox — praturtinti songs sąrašą
+      const { dates: singleDates } = parseSinglesFromInfobox(wikitext)
+      if (singleDates.size > 0) {
+        setSongs(prev => prev.map(s => {
+          const key = s.title.toLowerCase().replace(/['\u2019]/g, '')
+          const dateInfo = singleDates.get(key)
+          if (dateInfo && !s.month && !s.day) {
+            return { ...s, year: dateInfo.year ?? s.year, month: dateInfo.month, day: dateInfo.day }
+          }
+          return s
+        }))
+      }
       // Aptikti papildomus tipus iš longtype lauko (pvz. soundtrack + studio)
       const longtypeM = wikitext.match(/\|\s*longtype\s*=([^\n|]+)/)
       const longtypeStr = (longtypeM?.[1] || '').toLowerCase()
@@ -1400,7 +1434,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
             type_holiday: item.type==='holiday',
             type_soundtrack: item.type==='soundtrack' || item.extraTypes?.includes('soundtrack') || false,
             type_demo: item.type==='demo',
-            tracks: (item.tracks||[]).map((t,i) => ({ title: t.title, sort_order: i+1, duration: t.duration||null, type: t.type||'normal', disc_number: t.disc_number||1, is_single: t.is_single||false, featuring: t.featuring||[] })),
+            tracks: (item.tracks||[]).map((t,i) => ({ title: t.title, sort_order: i+1, duration: t.duration||null, type: t.type||'normal', disc_number: t.disc_number||1, is_single: t.is_single||false, featuring: t.featuring||[], release_year: item.year||null })),
           }),
         })
         if (!res.ok) throw new Error((await res.json()).error)
@@ -1727,14 +1761,14 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       </button>
 
       {open && (
-        <div className={`fixed inset-0 z-50 flex items-end sm:items-start justify-center sm:p-4 sm:pt-[8vh] ${minimized ? 'pointer-events-none' : ''}`} style={minimized ? {display: 'none'} : {}}>
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={closeModal} />
-          <div className="relative bg-white sm:rounded-2xl shadow-2xl w-full sm:max-w-3xl h-full sm:h-auto sm:max-h-[90vh] flex flex-col">
+        <div className={`fixed inset-0 z-50 ${minimized ? 'pointer-events-none' : ''}`} style={minimized ? {display: 'none'} : {}}>
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm hidden sm:block" onClick={closeModal} />
+          <div className="absolute inset-0 sm:static sm:inset-auto sm:mx-auto sm:mt-[8vh] sm:w-full sm:max-w-3xl sm:max-h-[85vh] bg-white sm:rounded-2xl shadow-2xl flex flex-col sm:relative" style={{ zIndex: 1 }}>
 
             {/* Header */}
-            <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-100">
+            <div className="flex items-center gap-3 px-3 sm:px-5 py-2.5 sm:py-3 border-b border-gray-100 shrink-0">
               <div className="flex-1 min-w-0">
-                <h3 className="text-base font-semibold text-gray-900 truncate">{artistName} — diskografija</h3>
+                <h3 className="text-[15px] sm:text-base font-semibold text-gray-900 truncate">{artistName} — diskografija</h3>
               </div>
               {importing ? (
                 <button onClick={() => { setMinimized(true); window.dispatchEvent(new CustomEvent('discography-minimized', { detail: { open: true } })) }} title="Minimizuoti — importas tęsis fone"
@@ -1773,7 +1807,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
 
             {/* Tabs */}
             {(hasContent || loading) && (
-              <div className="flex items-center border-b border-gray-100 px-5 gap-0.5">
+              <div className="flex items-center border-b border-gray-100 px-2.5 sm:px-5 gap-0.5 shrink-0">
                 {tabDef.map(tab => {
                   if (!tab.showAlways && tab.count === 0) return null
                   const isActive = activeTab === tab.id
@@ -1801,7 +1835,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
 
             {/* Sticky controls bar */}
             {hasContent && !loading && (
-              <div className="flex items-center justify-between px-5 py-2 border-b border-gray-100 bg-white/95 backdrop-blur-sm">
+              <div className="flex items-center justify-between px-2.5 sm:px-5 py-1.5 sm:py-2 border-b border-gray-100 bg-white/95 backdrop-blur-sm shrink-0">
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-gray-400">
                   {activeTab === 'studio' && `${studioItems.filter(({it})=>!it.duplicate&&!it.imported).length} naujų`}
@@ -1840,7 +1874,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
             )}
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto px-5 py-3 space-y-2 min-h-0">
+            <div className="flex-1 overflow-y-auto px-3 sm:px-5 py-2 sm:py-3 space-y-1.5 sm:space-y-2 min-h-0">
 
               {loading && (
                 <div className="flex items-center justify-center py-16 text-gray-400">
