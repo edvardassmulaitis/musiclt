@@ -12,6 +12,7 @@ type DiscographyItem = {
   month: number | null
   day: number | null
   type: AlbumType
+  extraTypes?: AlbumType[]  // papildomi tipai, pvz. soundtrack + studio
   wikiTitle?: string
   mbId?: string
   source: 'musicbrainz' | 'wikipedia'
@@ -1193,7 +1194,15 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       const [wikitext, cover] = await Promise.all([fetchWikitext(item.wikiTitle), fetchCoverImage(item.wikiTitle)])
       const dateInfo = parseReleaseDate(wikitext)
       const tracks = parseTracklist(wikitext)
-      setItems(p => p.map((it, i) => i === idx ? { ...it, tracks, fetched: true, cover_image_url: cover || it.cover_image_url, year: dateInfo.year ?? it.year, month: dateInfo.month, day: dateInfo.day } : it))
+      // Aptikti papildomus tipus iš longtype lauko (pvz. soundtrack + studio)
+      const longtypeM = wikitext.match(/\|\s*longtype\s*=([^\n|]+)/)
+      const longtypeStr = (longtypeM?.[1] || '').toLowerCase()
+      const extraTypes: AlbumType[] = []
+      if (longtypeStr.includes('soundtrack')) extraTypes.push('soundtrack')
+      if (longtypeStr.includes('compilation')) extraTypes.push('compilation')
+      if (longtypeStr.includes('live')) extraTypes.push('live')
+      if (longtypeStr.includes('ep')) extraTypes.push('ep')
+      setItems(p => p.map((it, i) => i === idx ? { ...it, tracks, fetched: true, cover_image_url: cover || it.cover_image_url, year: dateInfo.year ?? it.year, month: dateInfo.month, day: dateInfo.day, extraTypes: extraTypes.length ? extraTypes : it.extraTypes } : it))
       addLog(`  → ${tracks.length} dainų${cover ? ', viršelis' : ''}`)
     } catch {
       setItems(p => p.map((it, i) => i === idx ? { ...it, fetched: true, tracks: [] } : it))
@@ -1269,10 +1278,15 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
           body: JSON.stringify({
             title: item.title, artist_id: artistId, year: item.year||null, month: item.month||null, day: item.day||null,
             cover_image_url: item.cover_image_url||'',
-            type_studio: item.type==='studio', type_ep: item.type==='ep', type_single: item.type==='single',
-            type_compilation: item.type==='compilation', type_live: item.type==='live',
-            type_remix: item.type==='remix', type_covers: item.type==='covers',
-            type_holiday: item.type==='holiday', type_soundtrack: item.type==='soundtrack',
+            type_studio: item.type==='studio' || item.extraTypes?.includes('studio') || false,
+            type_ep: item.type==='ep' || item.extraTypes?.includes('ep') || false,
+            type_single: item.type==='single',
+            type_compilation: item.type==='compilation' || item.extraTypes?.includes('compilation') || false,
+            type_live: item.type==='live' || item.extraTypes?.includes('live') || false,
+            type_remix: item.type==='remix',
+            type_covers: item.type==='covers',
+            type_holiday: item.type==='holiday',
+            type_soundtrack: item.type==='soundtrack' || item.extraTypes?.includes('soundtrack') || false,
             type_demo: item.type==='demo',
             tracks: (item.tracks||[]).map((t,i) => ({ title: t.title, sort_order: i+1, duration: t.duration||null, type: t.type||'normal', disc_number: t.disc_number||1, is_single: t.is_single||false, featuring: t.featuring||[] })),
           }),
@@ -1460,6 +1474,9 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-sm font-medium text-gray-900 truncate">{it.title}</span>
               {it.type === 'ep' && <span className="text-[10px] font-semibold text-violet-500 shrink-0 uppercase tracking-wide">EP</span>}
+              {it.extraTypes?.map(et => (
+                <span key={et} className="text-[10px] font-semibold text-blue-400 shrink-0 uppercase tracking-wide">{et === 'soundtrack' ? 'OST' : et}</span>
+              ))}
               {it.source === 'musicbrainz' && <span className="text-[10px] text-blue-400 shrink-0">MB</span>}
               {it.duplicate && <span className="text-[10px] text-amber-500 shrink-0">jau yra</span>}
               {it.importing && <span className="text-[10px] text-violet-400 animate-pulse shrink-0">importuojama</span>}
