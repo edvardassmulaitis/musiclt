@@ -1317,7 +1317,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       if (longtypeStr.includes('compilation')) extraTypes.push('compilation')
       if (longtypeStr.includes('live')) extraTypes.push('live')
       if (longtypeStr.includes('ep')) extraTypes.push('ep')
-      setItems(p => p.map((it, i) => i === idx ? { ...it, tracks, fetched: true, cover_image_url: cover || it.cover_image_url, year: dateInfo.year ?? it.year, month: dateInfo.month, day: dateInfo.day, extraTypes: extraTypes.length ? extraTypes : it.extraTypes } : it))
+      setItems(p => p.map((it, i) => i === idx ? { ...it, tracks, fetched: true, cover_image_url: cover || it.cover_image_url, year: it.year || dateInfo.year, month: it.year ? (dateInfo.year === it.year ? dateInfo.month : it.month) : dateInfo.month, day: it.year ? (dateInfo.year === it.year ? dateInfo.day : it.day) : dateInfo.day, extraTypes: extraTypes.length ? extraTypes : it.extraTypes } : it))
       addLog(`  → ${tracks.length} dainų${cover ? ', viršelis' : ''}`)
     } catch {
       setItems(p => p.map((it, i) => i === idx ? { ...it, fetched: true, tracks: [] } : it))
