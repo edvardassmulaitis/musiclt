@@ -1031,12 +1031,9 @@ function titleMatches(result: string, query: string): boolean {
 // Ieškoti YouTube URL per MusicBrainz (nemokama, ~1req/s)
 async function findYouTubeViaMB(artistName: string, trackTitle: string): Promise<string | null> {
   try {
-    // 1. Surasti recording MBID
-    const q = encodeURIComponent(`artist:"${artistName}" AND recording:"${trackTitle}"`)
-    const r1 = await fetch(
-      `https://musicbrainz.org/ws/2/recording?query=${q}&limit=1&fmt=json`,
-      { headers: { 'User-Agent': 'music.lt/1.0 (music@music.lt)' } }
-    )
+    // 1. Surasti recording MBID — per /api/mb-proxy (tiesioginis MB blokuojamas dėl CORS)
+    const q = `artist:"${artistName}" AND recording:"${trackTitle}"`
+    const r1 = await fetch(`/api/mb-proxy?path=${encodeURIComponent(`recording?query=${encodeURIComponent(q)}&limit=1&fmt=json`)}`)
     if (!r1.ok) return null
     const d1 = await r1.json()
     const mbid = d1.recordings?.[0]?.id
@@ -1044,10 +1041,7 @@ async function findYouTubeViaMB(artistName: string, trackTitle: string): Promise
 
     // 2. Gauti URL relationships (ypač YouTube nuorodas)
     await new Promise(r => setTimeout(r, 1100)) // MB rate limit: 1 req/s
-    const r2 = await fetch(
-      `https://musicbrainz.org/ws/2/recording/${mbid}?inc=url-rels&fmt=json`,
-      { headers: { 'User-Agent': 'music.lt/1.0 (music@music.lt)' } }
-    )
+    const r2 = await fetch(`/api/mb-proxy?path=${encodeURIComponent(`recording/${mbid}?inc=url-rels&fmt=json`)}`)
     if (!r2.ok) return null
     const d2 = await r2.json()
 
@@ -1057,7 +1051,6 @@ async function findYouTubeViaMB(artistName: string, trackTitle: string): Promise
       return url.includes('youtube.com/watch') || url.includes('youtu.be/')
     })
     if (ytRel) {
-      // Konvertuoti YouTube Music į standartinį YouTube URL
       const url: string = ytRel.url.resource
       return url.replace('music.youtube.com', 'www.youtube.com')
     }
@@ -1078,11 +1071,13 @@ async function enrichTracks(albumId: number, artistName: string, addLog: (s: str
   for (const t of dbTracks) {
     const u: Record<string,any> = {}
 
-    // YouTube tik per MusicBrainz (nemokama)
-    const mbUrl = await findYouTubeViaMB(artistName, t.title)
-    if (mbUrl) { u.video_url = mbUrl; mbN++ }
+    // YouTube tik per MusicBrainz (nemokama) — praleidžiam jei jau turi video_url
+    if (!t.video_url) {
+      const mbUrl = await findYouTubeViaMB(artistName, t.title)
+      if (mbUrl) { u.video_url = mbUrl; mbN++ }
+    }
 
-    if (lyrics) try {
+    if (lyrics && !t.lyrics) try {
       const r = await fetch(`/api/search/lyrics?artist=${encodeURIComponent(artistName)}&title=${encodeURIComponent(t.title)}`)
       if (r.ok) { const d = await r.json(); if (d.lyrics) { u.lyrics = d.lyrics; lyrN++ } }
     } catch {}
@@ -1092,12 +1087,12 @@ async function enrichTracks(albumId: number, artistName: string, addLog: (s: str
     } catch {}
 
     done++
-    if (done % 5 === 0 || done === dbTracks.length) {
-      addLog(`  ${done}/${dbTracks.length} (MB:${mbN})`)
+    if (done % 3 === 0 || done === dbTracks.length) {
+      addLog(`  ${done}/${dbTracks.length} (YT:${mbN} žodžiai:${lyrN})`)
       onProgress?.(done, dbTracks.length)
     }
   }
-  addLog(`  ✓ MB:${mbN} žodžiai:${lyrN}`)
+  addLog(`  ✓ YT:${mbN} žodžiai:${lyrN}`)
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
