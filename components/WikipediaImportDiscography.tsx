@@ -770,7 +770,7 @@ function parseTracklist(wikitext: string): TrackEntry[] {
     const nums = [...tl.matchAll(/\|\s*title(\d+)\s*=/g)].map(m => parseInt(m[1])).sort((a,b) => a-b)
     let order = startOrder
     for (const num of nums) {
-      const titleM = tl.match(new RegExp(`\\|\\s*title${num}\\s*=\\s*([^|\\n]+)`))
+      const titleM = tl.match(new RegExp(`\\|\\s*title${num}\\s*=\\s*((?:\\[\\[[^\\]]*\\]\\]|[^|\\n])+)`))
       if (!titleM) continue
       const lenM = tl.match(new RegExp(`\\|\\s*length${num}\\s*=\\s*([^|\\n]+)`))
       const noteM = tl.match(new RegExp(`\\|\\s*note${num}\\s*=\\s*([^|\\n]+)`))
