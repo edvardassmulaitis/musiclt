@@ -74,7 +74,7 @@ function parseSearchResults(data: any): Array<{ videoId: string; title: string; 
             }
             // Pirmas ne-"Song" elementas = artist
             // Jei pirmas yra "Song" / "Video" — skip'inam
-            const nonType = parts.filter(p => !/^(Song|Video|Album|Playlist|Artist|EP|Single)$/i.test(p.trim()) && !/^\d+:\d+$/.test(p.trim()))
+            const nonType = parts.filter((p: string) => !/^(Song|Video|Album|Playlist|Artist|EP|Single)$/i.test(p.trim()) && !/^\d+:\d+$/.test(p.trim()))
             artist = nonType[0]?.trim() || ''
           }
 
