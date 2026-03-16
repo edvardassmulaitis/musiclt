@@ -76,7 +76,7 @@ function TaskIndicator() {
           </div>
           {discographyMinimized && (
             <button
-              onClick={() => window.dispatchEvent(new CustomEvent('discography-reopen'))}
+              onClick={() => { window.dispatchEvent(new CustomEvent('discography-reopen')); setDiscographyMinimized(false); setOpen(false) }}
               className="w-full flex items-center gap-2 px-3 py-2.5 border-b border-gray-100 hover:bg-violet-50 transition-colors text-left">
               <svg className="w-3.5 h-3.5 text-violet-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7"/></svg>
               <span className="text-sm text-violet-600 font-medium">Atidaryti diskografijos langą</span>
