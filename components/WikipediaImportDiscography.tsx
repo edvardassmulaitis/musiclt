@@ -1076,21 +1076,23 @@ async function enrichTracks(albumId: number, artistName: string, addLog: (s: str
   addLog(`  ${dbTracks.length} dainų...`)
   let mbN = 0, lyrN = 0, done = 0
 
-  // Procesavame po vieną — MusicBrainz rate limit 1 req/s
+  // Procesavame po vieną
   for (const t of dbTracks) {
     const u: Record<string,any> = {}
 
-    // YouTube per YouTube Music InnerTube (nemokama, greita)
-    if (!t.video_url) {
+    // YouTube — praleidžiam jei jau turi video_url ARBA jau buvo ieškota
+    if (!t.video_url && !t.youtube_searched_at) {
       const ytUrl = await findYouTubeViaYTMusic(artistName, t.title, addLog)
       if (ytUrl) { u.video_url = ytUrl; mbN++ }
-      // Trumpa pauzė kad neužspamintume
+      u.youtube_searched_at = new Date().toISOString()
       await new Promise(r => setTimeout(r, 300))
     }
 
-    if (lyrics && !t.lyrics) try {
+    // Lyrics — praleidžiam jei jau turi lyrics ARBA jau buvo ieškota
+    if (lyrics && !t.lyrics && !t.lyrics_searched_at) try {
       const r = await fetch(`/api/search/lyrics?artist=${encodeURIComponent(artistName)}&title=${encodeURIComponent(t.title)}`)
       if (r.ok) { const d = await r.json(); if (d.lyrics) { u.lyrics = d.lyrics; lyrN++ } }
+      u.lyrics_searched_at = new Date().toISOString()
     } catch {}
 
     if (Object.keys(u).length) try {
@@ -1145,9 +1147,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
   const [log, setLog] = useState<string[]>([])
   const [importing, setImporting] = useState(false)
   const { startTask, updateTask, finishTask, errorTask } = useBackgroundTasks()
-  const [enrichYoutube, setEnrichYoutube] = useState(false)
   const [sortDesc, setSortDesc] = useState(true)
-  const [enrichLyrics, setEnrichLyrics] = useState(true)
   const [mbLoading, setMbLoading] = useState(false)
   const logRef = useRef<HTMLDivElement>(null)
 
@@ -1409,7 +1409,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
         addLog(`✓ ${item.title} (${item.tracks?.length||0})`)
         ok++
         if (albumId && item.tracks?.length)
-          await enrichTracks(albumId, artistName, addLog, enrichLyrics, (done, total) => updateTask('import', `${item.title}: ${done}/${total}`))
+          await enrichTracks(albumId, artistName, addLog, true, (done, total) => updateTask('import', `${item.title}: ${done}/${total}`))
         setItems(p => p.map((it, i) => i === idx ? { ...it, importing: false, imported: true } : it))
         setSelected(p => { const s = new Set(p); s.delete(idx); return s })
       } catch (e: any) {
@@ -1477,17 +1477,18 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
           const trackId = newTrack.id || newTrack.track?.id
           if (trackId) {
             const updates: Record<string, any> = {}
-            // YouTube per YTMusic InnerTube (visada bandome)
+            // YouTube
             try {
               const ytUrl = await findYouTubeViaYTMusic(artistName, song.title, addLog)
               if (ytUrl) updates.video_url = ytUrl
+              updates.youtube_searched_at = new Date().toISOString()
             } catch {}
-            if (enrichLyrics) {
-              try {
-                const r = await fetch(`/api/search/lyrics?artist=${encodeURIComponent(artistName)}&title=${encodeURIComponent(song.title)}`)
-                if (r.ok) { const d = await r.json(); if (d.lyrics) updates.lyrics = d.lyrics }
-              } catch {}
-            }
+            // Lyrics
+            try {
+              const r = await fetch(`/api/search/lyrics?artist=${encodeURIComponent(artistName)}&title=${encodeURIComponent(song.title)}`)
+              if (r.ok) { const d = await r.json(); if (d.lyrics) updates.lyrics = d.lyrics }
+              updates.lyrics_searched_at = new Date().toISOString()
+            } catch {}
             if (Object.keys(updates).length > 0) {
               try { await fetch(`/api/tracks/${trackId}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(updates) }) } catch {}
             }
@@ -1726,31 +1727,24 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       </button>
 
       {open && (
-        <div className={`fixed inset-0 z-50 flex items-start justify-center p-4 pt-[5vh] ${minimized ? 'pointer-events-none' : ''}`} style={minimized ? {display: 'none'} : {}}>
+        <div className={`fixed inset-0 z-50 flex items-start justify-center p-4 pt-[8vh] ${minimized ? 'pointer-events-none' : ''}`} style={minimized ? {display: 'none'} : {}}>
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={closeModal} />
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
 
             {/* Header */}
-            <div className="flex items-center gap-3 px-5 py-3.5 border-b border-gray-100">
+            <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-100">
               <div className="flex-1 min-w-0">
                 <h3 className="text-base font-semibold text-gray-900 truncate">{artistName} — diskografija</h3>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-
-                <label className="flex items-center gap-1.5 cursor-pointer text-xs text-gray-500">
-                  <input type="checkbox" checked={enrichLyrics} onChange={e => setEnrichLyrics(e.target.checked)} className="accent-violet-600 w-3.5 h-3.5" />
-                  Dainų tekstai
-                </label>
-                {importing ? (
-                  <button onClick={() => { setMinimized(true); window.dispatchEvent(new CustomEvent('discography-minimized', { detail: { open: true } })) }} title="Minimizuoti — importas tęsis fone"
-                    className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/></svg>
-                    Minimizuoti
-                  </button>
-                ) : (
-                  <button onClick={closeModal} className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors text-lg leading-none">×</button>
-                )}
-              </div>
+              {importing ? (
+                <button onClick={() => { setMinimized(true); window.dispatchEvent(new CustomEvent('discography-minimized', { detail: { open: true } })) }} title="Minimizuoti — importas tęsis fone"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-violet-600 bg-violet-50 hover:bg-violet-100 transition-colors font-medium shrink-0">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/></svg>
+                  Minimizuoti
+                </button>
+              ) : (
+                <button onClick={closeModal} className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors text-lg leading-none shrink-0">×</button>
+              )}
             </div>
 
             {/* Search bar */}
