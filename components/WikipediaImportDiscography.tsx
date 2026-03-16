@@ -1763,22 +1763,34 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       {open && (
         <>
         <style>{`
+          .disc-overlay {
+            position: fixed; inset: 0; z-index: 9998;
+            display: flex; align-items: flex-start; justify-content: center;
+          }
+          .disc-backdrop { display: none; }
+          .disc-modal {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 9999;
+            display: flex; flex-direction: column;
+            background: white; overflow: hidden;
+          }
           @media (min-width: 640px) {
-            .disc-modal-inner {
-              position: relative !important;
-              top: auto !important; left: auto !important; right: auto !important; bottom: auto !important;
-              height: auto !important;
-              max-height: 85vh !important;
-              width: 100% !important;
-              max-width: 48rem !important;
-              margin: 8vh auto 0 !important;
-              border-radius: 1rem !important;
+            .disc-backdrop {
+              display: block; position: fixed; inset: 0;
+              background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+            }
+            .disc-modal {
+              position: relative;
+              top: auto; left: auto; right: auto; bottom: auto;
+              width: 100%; max-width: 48rem; max-height: 85vh; margin-top: 8vh;
+              border-radius: 1rem; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
             }
           }
         `}</style>
-        <div className={`fixed inset-0 z-50 ${minimized ? 'pointer-events-none' : ''}`} style={minimized ? {display: 'none'} : {}}>
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm hidden sm:block" onClick={closeModal} />
-          <div className="disc-modal-inner" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', background: 'white', zIndex: 10, overflow: 'hidden' }}>
+        <div className="disc-overlay" style={minimized ? {display: 'none'} : {}}>
+          <div className="disc-backdrop" onClick={closeModal} />
+          <div className="disc-modal">
 
             {/* Header */}
             <div className="flex items-center gap-3 px-3 sm:px-5 py-2.5 sm:py-3 border-b border-gray-100 shrink-0">
