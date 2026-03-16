@@ -1,5 +1,6 @@
 'use client'
 // v3 — pridėta hideButtons prop, pašalintas min-h-screen outer wrapper
+// v4 — pridėtas ✨ Generuoti aprašymą mygtukas
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { GENRES, COUNTRIES } from '@/lib/constants'
@@ -113,7 +114,6 @@ type Props = {
   submitLabel: string
   onChange?: (d: ArtistFormData) => void
   hideButtons?: boolean
-  // Leidžia tėviniam komponentui gauti submit funkciją tiesiogiai
   onRegisterSubmit?: (fn: () => void) => void
 }
 
@@ -686,13 +686,64 @@ function StylePicker({ selected, onChange }: { selected: string[]; onChange: (v:
 }
 
 // ── DescriptionEditor ─────────────────────────────────────────────────────────
-function DescriptionEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function DescriptionEditor({ value, onChange, artistName, artistMeta }: {
+  value: string
+  onChange: (v: string) => void
+  artistName?: string
+  artistMeta?: { type?: string; country?: string; genre?: string; yearStart?: string; yearEnd?: string; substyles?: string[] }
+}) {
   const [expanded, setExpanded] = useState(false)
   const [draft, setDraft] = useState(value)
+  const [generating, setGenerating] = useState(false)
+  const [genError, setGenError] = useState('')
 
   const open = () => { setDraft(value); setExpanded(true) }
   const save = () => { onChange(draft); setExpanded(false) }
   const discard = () => { setExpanded(false) }
+
+  const generate = async () => {
+    setGenerating(true)
+    setGenError('')
+    try {
+      const meta = artistMeta || {}
+      const parts: string[] = []
+      if (artistName) parts.push(`Atlikėjas/grupė: ${artistName}`)
+      if (meta.type) parts.push(`Tipas: ${meta.type === 'group' ? 'grupė' : 'solo atlikėjas'}`)
+      if (meta.country) parts.push(`Šalis: ${meta.country}`)
+      if (meta.genre) parts.push(`Žanras: ${meta.genre}`)
+      if (meta.substyles?.length) parts.push(`Stiliai: ${meta.substyles.join(', ')}`)
+      if (meta.yearStart) parts.push(`Veikla nuo: ${meta.yearStart}${meta.yearEnd ? ` iki ${meta.yearEnd}` : ''}`)
+
+      const prompt = `Parašyk trumpą lietuvišką aprašymą muzikos atlikėjui music.lt portale. Aprašymas turi būti 2-3 sakiniai, informatyvus ir neutralus. Rašyk lietuviškai. Naudok tik pateiktą informaciją, nesugalvok faktų.\n\n${parts.join('\n')}\n\nGrąžink tik paprastą tekstą be HTML ar markdown.`
+
+      const res = await fetch('/api/anthropic', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 300,
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      })
+
+      if (!res.ok) {
+        // Fallback: try direct Anthropic API (client-side, no key needed if proxied)
+        throw new Error(`HTTP ${res.status}`)
+      }
+
+      const data = await res.json()
+      const text = data.content?.[0]?.text || ''
+      if (text) {
+        setDraft(`<p>${text.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br/>')}</p>`)
+      } else {
+        throw new Error('Tuščias atsakymas')
+      }
+    } catch (e: any) {
+      setGenError('Nepavyko sugeneruoti. Bandyk dar kartą.')
+    } finally {
+      setGenerating(false)
+    }
+  }
 
   return (
     <div className="relative">
@@ -702,6 +753,15 @@ function DescriptionEditor({ value, onChange }: { value: string; onChange: (v: s
             <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200 shrink-0">
               <span className="text-sm font-bold text-gray-800">✏️ Aprašymas</span>
               <div className="flex items-center gap-2">
+                <button type="button" onClick={generate} disabled={generating}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-50 hover:bg-violet-100 text-violet-700 rounded-lg text-xs font-medium transition-colors disabled:opacity-50">
+                  {generating ? (
+                    <><div className="w-3 h-3 border border-violet-400 border-t-transparent rounded-full animate-spin" /> Generuojama...</>
+                  ) : (
+                    <>✨ Generuoti</>
+                  )}
+                </button>
+                {genError && <span className="text-xs text-red-500">{genError}</span>}
                 <button type="button" onClick={discard}
                   className="px-4 py-1.5 border border-gray-200 text-gray-500 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
                   Atmesti
@@ -1089,10 +1149,8 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
   const [dupWarning, setDupWarning] = useState<{id:string;name:string;slug:string;type:string;country:string;cover_image_url:string|null}[]>([])
   const dupTimer = useRef<ReturnType<typeof setTimeout>|null>(null)
 
-  // formRef turi būti PRIEŠ set() ir setAvatar() — jos naudoja formRef.current
   const formRef = useRef<ArtistFormData>({ ...emptyArtistForm, ...(initialData || {}) })
 
-  // Registruojame submit funkciją tėviniam komponentui - be useEffect, iš karto
   if (onRegisterSubmit) {
     onRegisterSubmit(() => onSubmit(formRef.current))
   }
@@ -1135,17 +1193,15 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
       ...(initialData.photos !== prev.photos ? { photos: initialData.photos } : {}),
     }
     console.log('[ArtistForm] sync groups:', { prev_groups: prev.groups, new_groups: initialData.groups, next_groups: (next as any).groups })
-    formRef.current = next  // iš karto sinchroniškai
+    formRef.current = next
     setForm(next)
   }, [initialData]) // eslint-disable-line
 
-  // ── FIX: set() naudoja formRef.current, ne form (stale closure) ──
   const set = (f: keyof ArtistFormData, v: any) => {
     const next = { ...formRef.current, [f]: v }
     formRef.current = next
     setForm(next)
     if (onChange && next.name) onChange(next)
-    // Duplikatų tikrinimas kai keičiamas vardas (tik naujo atlikėjo formoje)
     if (f === 'name' && !artistId) {
       const name = (v as string).trim()
       if (dupTimer.current) clearTimeout(dupTimer.current)
@@ -1342,7 +1398,19 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
           />
 
           <div className="border-t border-gray-100 pt-3">
-            <DescriptionEditor value={form.description} onChange={v=>set('description',v)} />
+            <DescriptionEditor
+              value={form.description}
+              onChange={v=>set('description',v)}
+              artistName={form.name}
+              artistMeta={{
+                type: form.type,
+                country: form.country,
+                genre: form.genre,
+                yearStart: form.yearStart,
+                yearEnd: form.yearEnd,
+                substyles: form.substyles,
+              }}
+            />
           </div>
 
           <div className="border-t border-gray-100">
