@@ -1043,39 +1043,28 @@ function titleMatches(result: string, query: string): boolean {
   return false
 }
 
-// Ieškoti YouTube URL per YouTube Music InnerTube API (nemokama, greita, patikima)
+// Ieškoti YouTube URL per YouTube InnerTube API (nemokama, greita, patikima)
 async function findYouTubeViaYTMusic(artistName: string, trackTitle: string, addLog?: (s: string) => void): Promise<string | null> {
   try {
     const q = `${artistName} ${trackTitle}`
-    const r = await fetch(`/api/search/ytmusic?q=${encodeURIComponent(q)}&filter=songs`)
+    const r = await fetch(`/api/search/ytmusic?q=${encodeURIComponent(q)}`)
     if (!r.ok) {
-      addLog?.(`    ⚠ YTMusic ${r.status}: ${trackTitle}`)
+      addLog?.(`    ⚠ YT ${r.status}: ${trackTitle}`)
       return null
     }
     const data = await r.json()
     if (data.error) {
-      addLog?.(`    ⚠ YTMusic: ${data.error.slice(0, 60)}`)
+      addLog?.(`    ⚠ YT: ${data.error.slice(0, 60)}`)
       return null
     }
     if (data.url && data.videoId) {
-      // Paprastas tikrinimas — ar pavadinimas panašus
-      const resultTitle = (data.title || '').toLowerCase()
-      const searchTitle = trackTitle.toLowerCase()
-      const searchArtist = artistName.toLowerCase()
-      // Priimame jei rezultate yra bent dalis dainos pavadinimo ARBA atlikėjo vardas
-      const titleWords = searchTitle.split(/\s+/).filter(w => w.length > 2)
-      const matchCount = titleWords.filter(w => resultTitle.includes(w)).length
-      if (matchCount >= Math.min(titleWords.length, 2) || resultTitle.includes(searchTitle) || (data.artist || '').toLowerCase().includes(searchArtist)) {
-        addLog?.(`    ✓ YT: ${trackTitle}`)
-        return data.url
-      }
-      addLog?.(`    · YT: netikslu „${data.title}" — ${trackTitle}`)
-      return null
+      addLog?.(`    ✓ YT: ${trackTitle}`)
+      return data.url
     }
     addLog?.(`    · YT: nerasta — ${trackTitle}`)
     return null
   } catch (e: any) {
-    addLog?.(`    ✗ YTMusic klaida: ${e.message?.slice(0, 60)}`)
+    addLog?.(`    ✗ YT klaida: ${e.message?.slice(0, 60)}`)
     return null
   }
 }
