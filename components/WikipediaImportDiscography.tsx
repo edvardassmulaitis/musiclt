@@ -818,8 +818,14 @@ function parseTracklist(wikitext: string): TrackEntry[] {
         const is_single = singles.size > 0 ? (
           // Tikslus sutapimas
           singles.has(normalizedTitle) ||
-          // Singlo pavadinimas yra dainos pavadinimo pradžia (pvz. "Flash" ⊂ "Flash's Theme")
-          [...singles].some(s => normalizedTitle.startsWith(s) || s.startsWith(normalizedTitle))
+          // "Flash" singlas → "Flash's Theme" trackas (apostrofas + "s" po singlo pavadinimo)
+          // BET NE: "Flash to the Rescue", "Flash's Theme Reprise"
+          [...singles].some(s => {
+            if (normalizedTitle === s) return true
+            const afterSingle = normalizedTitle.slice(s.length)
+            // Tik apostrofo-s formos: "flashs theme" (iš "Flash's Theme")
+            return normalizedTitle.startsWith(s) && afterSingle.startsWith('s ') && !afterSingle.includes('reprise')
+          })
         ) : undefined
         // Nustatyti track tipą iš note ir pavadinimo
         const noteStr = (noteM?.[1] || '').toLowerCase()
@@ -1088,7 +1094,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
   const [log, setLog] = useState<string[]>([])
   const [importing, setImporting] = useState(false)
   const [enrichYoutube, setEnrichYoutube] = useState(true)
-  const [sortDesc, setSortDesc] = useState(false)
+  const [sortDesc, setSortDesc] = useState(true)
   const [enrichLyrics, setEnrichLyrics] = useState(true)
   const [mbLoading, setMbLoading] = useState(false)
   const logRef = useRef<HTMLDivElement>(null)
@@ -1491,7 +1497,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               <span className="text-sm font-medium text-gray-900 truncate">{it.title}</span>
               {it.type === 'ep' && <span className="text-[10px] font-semibold text-violet-500 shrink-0 uppercase tracking-wide">EP</span>}
               {it.extraTypes?.map(et => (
-                <span key={et} className="text-[10px] font-semibold text-blue-400 shrink-0 uppercase tracking-wide">{et === 'soundtrack' ? 'OST' : et}</span>
+                <span key={et} className="text-[10px] font-semibold text-blue-400 shrink-0 uppercase tracking-wide">{et === 'soundtrack' ? 'Garso takelis' : et}</span>
               ))}
               {it.source === 'musicbrainz' && <span className="text-[10px] text-blue-400 shrink-0">MB</span>}
               {it.duplicate && <span className="text-[10px] text-amber-500 shrink-0">jau yra</span>}
@@ -1685,7 +1691,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                     <button onClick={() => setSortDesc(p => !p)}
                       className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
                       title={sortDesc ? "Nuo seniausio" : "Nuo naujausio"}>
-                      {sortDesc ? '↑ Seni' : '↓ Nauji'}
+                      {sortDesc ? '↓ Nauji' : '↑ Seni'}
                     </button>
                   )}
                 </div>
