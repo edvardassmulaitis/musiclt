@@ -735,7 +735,37 @@ function isDiscBlock(tl: string): boolean {
 
 function parseSinglesFromInfobox(wikitext: string): Set<string> {
   const singles = new Set<string>()
+
+  function extractSingleNames(text: string) {
+    const re = /\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/g
+    let lm: RegExpExecArray | null
+    while ((lm = re.exec(text)) !== null) {
+      const raw = lm[2] || lm[1].replace(/#[^\]]*$/, '')
+      const name = raw.replace(/\s*\([^)]+\)$/g, '').replace(/'+/g, '').trim()
+      if (name.length > 1) singles.add(name.toLowerCase())
+    }
+  }
+
+  // Format 1: | singles = [[Song1]] / [[Song2]]
   const m = wikitext.match(/\|\s*singles?\s*=([\s\S]*?)(?=\n\s*\||\n\}\})/)
+  if (m) extractSingleNames(m[1])
+
+  // Format 2: {{Singles | single1 = [[Song]] | single2 = [[Song]] ... }}
+  // Albumai naudoja: | misc = {{Singles | single1 = ... }}
+  const tplRe = /\{\{Singles[\s\S]*?(?=\}\}\s*\}\}|\}\}\s*$)/gm
+  let tplM: RegExpExecArray | null
+  while ((tplM = tplRe.exec(wikitext)) !== null) {
+    const tpl = tplM[0]
+    const sRe = /\|\s*single\d+\s*=\s*([^\n|]+)/g
+    let sm: RegExpExecArray | null
+    while ((sm = sRe.exec(tpl)) !== null) {
+      extractSingleNames(sm[1])
+    }
+    break  // Only first {{Singles block
+  }
+
+  return singles
+}\})/)
   if (m) {
     const re = /\[\[.*?\|([^\]]+)\]\]|\[\[([^\]|]+)\]\]/g
     let lm: RegExpExecArray | null
