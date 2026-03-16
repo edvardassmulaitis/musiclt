@@ -765,16 +765,6 @@ function parseSinglesFromInfobox(wikitext: string): Set<string> {
   }
 
   return singles
-}\})/)
-  if (m) {
-    const re = /\[\[.*?\|([^\]]+)\]\]|\[\[([^\]|]+)\]\]/g
-    let lm: RegExpExecArray | null
-    while ((lm = re.exec(m[1])) !== null) {
-      const name = (lm[1] || lm[2] || '').replace(/\s*\([^)]+\)$/g, '').replace(/''+/g, '').trim()
-      if (name.length > 1) singles.add(name.toLowerCase())
-    }
-  }
-  return singles
 }
 
 function parseTracklist(wikitext: string): TrackEntry[] {
