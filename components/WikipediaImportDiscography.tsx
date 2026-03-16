@@ -1762,35 +1762,16 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
 
       {open && (
         <>
-        <style>{`
-          .disc-overlay {
-            position: fixed; inset: 0; z-index: 9998;
-            display: flex; align-items: flex-start; justify-content: center;
-          }
-          .disc-backdrop { display: none; }
-          .disc-modal {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            z-index: 9999;
-            display: flex; flex-direction: column;
-            background: white; overflow: hidden;
-          }
-          @media (min-width: 640px) {
-            .disc-backdrop {
-              display: block; position: fixed; inset: 0;
-              background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
-            }
-            .disc-modal {
-              position: relative;
-              top: auto; left: auto; right: auto; bottom: auto;
-              width: 100%; max-width: 48rem; max-height: 85vh; margin-top: 8vh;
-              border-radius: 1rem; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
-            }
-          }
-        `}</style>
-        <div className="disc-overlay" style={minimized ? {display: 'none'} : {}}>
-          <div className="disc-backdrop" onClick={closeModal} />
-          <div className="disc-modal">
+          {/* Mobile: fullscreen fixed modal. Desktop: centered overlay. All via inline styles — no Tailwind/CSS conflicts */}
+          <div style={minimized ? {display:'none'} : {position:'fixed',inset:0,zIndex:9998,display:'flex',alignItems:'flex-start',justifyContent:'center'}}>
+            {/* Backdrop — desktop only */}
+            <div onClick={closeModal} className="hidden sm:block" style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',backdropFilter:'blur(4px)'}} />
+            {/* Modal panel */}
+            <div style={{
+              position:'fixed', top:0, left:0, width:'100%', height:'100%',
+              zIndex:9999, display:'flex', flexDirection:'column',
+              background:'white', overflow:'hidden',
+            }} className="sm:relative sm:static sm:h-auto sm:max-h-[85vh] sm:w-full sm:max-w-3xl sm:mt-[8vh] sm:rounded-2xl sm:shadow-2xl">
 
             {/* Header */}
             <div className="flex items-center gap-3 px-3 sm:px-5 py-2.5 sm:py-3 border-b border-gray-100 shrink-0">
@@ -2056,8 +2037,8 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               </button>
             </div>
 
+            </div>
           </div>
-        </div>
         </>
       )}
     </>
