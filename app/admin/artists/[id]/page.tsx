@@ -107,27 +107,34 @@ function TrackRow({ track }: { track: any }) {
     <div className="flex items-center gap-1.5 px-3 py-1 border-b border-gray-50 last:border-0 hover:bg-gray-50/80 group transition-colors">
       <span className="text-gray-300 text-xs w-5 text-right shrink-0 tabular-nums">{track.sort_order || track.position}.</span>
       <div className="flex-1 min-w-0 flex items-baseline gap-1 flex-wrap">
-        <span className="text-sm text-gray-800 truncate">{track.title}</span>
+        {trackId ? (
+          <a href={`/admin/tracks/${trackId}`} target="_blank" rel="noopener noreferrer"
+            className="text-sm text-gray-800 hover:text-blue-600 truncate transition-colors">{track.title}</a>
+        ) : (
+          <span className="text-sm text-gray-800 truncate">{track.title}</span>
+        )}
         {featuring.length > 0 && <span className="text-xs text-gray-400 whitespace-nowrap">su {featuring.join(', ')}</span>}
       </div>
       {hasVideo && <span className="text-blue-400 text-xs shrink-0">▶</span>}
       {hasLyrics && <span className="text-green-500 text-xs font-bold shrink-0">T</span>}
       {track.is_single && <span className="text-orange-400 text-xs font-bold shrink-0">S</span>}
-      {trackId && (
-        <a href={`/admin/tracks/${trackId}`} target="_blank" rel="noopener noreferrer"
-          className="opacity-0 group-hover:opacity-100 shrink-0 px-1.5 py-0.5 text-xs text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded transition-all font-medium">
-          Redaguoti ↗
-        </a>
-      )}
     </div>
   )
 }
 
-function AlbumCard({ album, defaultOpen }: { album: any; defaultOpen: boolean }) {
+function AlbumCard({ album, defaultOpen, onDeleted }: { album: any; defaultOpen: boolean; onDeleted?: () => void }) {
   const [open, setOpen] = useState(defaultOpen)
   const [tracks, setTracks] = useState<any[]>([])
   const [loadingTracks, setLoadingTracks] = useState(false)
   const [tracksLoaded, setTracksLoaded] = useState(false)
+  const [confirmDel, setConfirmDel] = useState(false)
+
+  const handleDelete = async () => {
+    try {
+      await fetch(`/api/albums/${album.id}?deleteTracks=true`, { method: 'DELETE' })
+      onDeleted?.()
+    } catch {}
+  }
 
   useEffect(() => {
     if (defaultOpen) loadTracks()
@@ -163,7 +170,7 @@ function AlbumCard({ album, defaultOpen }: { album: any; defaultOpen: boolean })
     : 'Studijinis'
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden group">
       <div className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-gray-50 transition-colors select-none" onClick={toggleOpen}>
         {album.cover_image_url
           ? <img src={album.cover_image_url} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" referrerPolicy="no-referrer" />
@@ -173,7 +180,9 @@ function AlbumCard({ album, defaultOpen }: { album: any; defaultOpen: boolean })
         }
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-1.5 flex-wrap">
-            <span className="text-sm font-semibold text-gray-900 truncate">{album.title}</span>
+            <a href={`/admin/albums/${album.id}`} target="_blank" rel="noopener noreferrer"
+              onClick={e => e.stopPropagation()}
+              className="text-sm font-semibold text-gray-900 hover:text-blue-600 truncate transition-colors">{album.title}</a>
             <span className="text-xs text-gray-400 shrink-0">{album.year}</span>
             <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded shrink-0">{typeLabel}</span>
           </div>
@@ -181,11 +190,19 @@ function AlbumCard({ album, defaultOpen }: { album: any; defaultOpen: boolean })
             {tracksLoaded ? `${tracks.length} dainų` : album.track_count ? `${album.track_count} dainų` : ''}
           </div>
         </div>
-        <div className="flex items-center gap-1 shrink-0">
-          <a href={`/admin/albums/${album.id}`} onClick={e => e.stopPropagation()}
-            className="px-2 py-1 text-xs text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors font-medium">
-            Redaguoti ↗
-          </a>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {!confirmDel ? (
+            <button type="button" onClick={e => { e.stopPropagation(); setConfirmDel(true) }}
+              className="opacity-0 group-hover:opacity-100 p-1 text-gray-300 hover:text-red-400 rounded transition-all" title="Ištrinti albumą">
+              <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 9h8l1-9"/></svg>
+            </button>
+          ) : (
+            <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+              <span className="text-xs text-red-500">Trinti?</span>
+              <button onClick={handleDelete} className="px-1.5 py-0.5 text-xs bg-red-500 text-white rounded hover:bg-red-600">Taip</button>
+              <button onClick={() => setConfirmDel(false)} className="px-1.5 py-0.5 text-xs text-gray-400 hover:text-gray-600">Ne</button>
+            </div>
+          )}
           <span className={`text-gray-400 text-xs transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>▼</span>
         </div>
       </div>
@@ -259,7 +276,7 @@ function DiscographyPanel({ artistId, artistName, artistType, refreshKey, onImpo
   const [singles, setSingles] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
+  const loadData = useCallback(() => {
     setLoading(true)
     Promise.all([
       fetch(`/api/albums?artist_id=${artistId}&limit=100`).then(r => r.json()),
@@ -271,7 +288,16 @@ function DiscographyPanel({ artistId, artistName, artistType, refreshKey, onImpo
       const singlesOnly = allTracks.filter((t: any) => t.is_single || t.album_count === 0)
       setSingles(singlesOnly.sort((a: any, b: any) => (b.release_year || 0) - (a.release_year || 0)))
     }).finally(() => setLoading(false))
-  }, [artistId, refreshKey])
+  }, [artistId])
+
+  useEffect(() => { loadData() }, [artistId, refreshKey, loadData])
+
+  // Klausyti discography-updated event'o (iš importo)
+  useEffect(() => {
+    const handler = () => loadData()
+    window.addEventListener('discography-updated', handler)
+    return () => window.removeEventListener('discography-updated', handler)
+  }, [loadData])
 
   return (
     <div className="h-full flex flex-col">
@@ -288,8 +314,8 @@ function DiscographyPanel({ artistId, artistName, artistType, refreshKey, onImpo
               artistWikiTitle={artistName.replace(/ /g, '_')}
               isSolo={artistType === 'solo'}
               onClose={onImportClose}
-              buttonClassName="flex items-center gap-1.5 px-2 py-1 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg text-xs font-medium transition-colors"
-              buttonLabel="𝐖 Įkelti iš Wiki"
+              buttonClassName="flex items-center gap-1.5 px-2 py-1 bg-violet-50 hover:bg-violet-100 text-violet-600 rounded-lg text-xs font-medium transition-colors"
+              buttonLabel="⚡ Automatinis įkėlimas"
             />
           )}
           <Link href={`/admin/albums/new?artist_id=${artistId}`}
@@ -330,7 +356,8 @@ function DiscographyPanel({ artistId, artistName, artistType, refreshKey, onImpo
         ) : (
           <>
             {albums.map((album, i) => (
-              <AlbumCard key={`${album.id}-${refreshKey}`} album={album} defaultOpen={i === 0 && singles.length === 0} />
+              <AlbumCard key={`${album.id}-${refreshKey}`} album={album} defaultOpen={i === 0 && singles.length === 0}
+                onDeleted={loadData} />
             ))}
             {singles.length > 0 && (
               <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
@@ -436,14 +463,6 @@ function MobileBreadcrumb({ artistName, artistId, albumCount, trackCount, onWiki
   )
 }
 
-function WikipediaIcon({ className = "w-3.5 h-3.5 shrink-0" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
-      <path d="M22 2h-3.5l-3 9-3-9h-1l-3 9-3-9H2l4.5 13h1L11 6l3.5 9h1L20 2h2z"/>
-    </svg>
-  )
-}
-
 function WikipediaImportWithHint({ artistName, onImport }: { artistName?: string; onImport: (data: any) => void }) {
   return <WikipediaImport onImport={onImport} initialSearch={artistName} />
 }
@@ -455,7 +474,9 @@ function WikipediaImportCompact({ onImport, artistName }: { onImport: (data: any
       <button type="button" onClick={() => setOpen(true)}
         className="flex items-center gap-1.5 px-2 py-1 text-xs text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors font-medium"
         title="Atnaujinti atlikėjo informaciją iš Wikipedia">
-        <WikipediaIcon />
+        <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 shrink-0" fill="currentColor" aria-hidden="true">
+          <path d="M22 2h-3.5l-3 9-3-9h-1l-3 9-3-9H2l4.5 13h1L11 6l3.5 9h1L20 2h2z"/>
+        </svg>
         Įkelti Wiki info
       </button>
       {open && (
@@ -620,7 +641,6 @@ export default function EditArtist() {
                     const result = { ...base, ...clean }
                     if (Array.isArray(data.members)) result.members = data.members
                     if (Array.isArray(data.groups)) result.groups = data.groups
-                    console.log('[onImport] members:', data.members?.length, 'groups:', data.groups)
                     return result
                   })
                 }}
