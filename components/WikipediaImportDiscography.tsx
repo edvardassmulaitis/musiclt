@@ -1185,7 +1185,22 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
     else addLog('✓ Dublikatų nerasta')
 
     const albumsF = foundAlbums.map(it => { const k = it.title.toLowerCase(); return albumDups[k] ? { ...it, duplicate: true, duplicateId: albumDups[k] } : it })
-    const songsF = foundSongs.map(s => { const k = s.title.toLowerCase(); return songDups[k] ? { ...s, duplicate: true, duplicateId: songDups[k], selected: false } : { ...s, selected: false } })
+    // Fuzzy matching: singlo pavadinimas gali nesutapti tiksliai su treko pavadinimu
+    // pvz. "Flash" singlas vs "Flash's Theme" trackas DB'e
+    const songsF = foundSongs.map(s => {
+      const k = s.title.toLowerCase()
+      if (songDups[k]) return { ...s, duplicate: true, duplicateId: songDups[k], selected: false }
+      // Tikrinti fuzzy match: ar singlo pav. yra DB treko pav. pradžia (pvz. "flash" ⊂ "flash's theme")
+      const normS = k.replace(/['’]/g, '')
+      const fuzzyMatch = Object.entries(songDups).find(([dbTitle]) => {
+        const normD = dbTitle.replace(/['’]/g, '')
+        if (normD === normS) return true
+        const after = normD.slice(normS.length)
+        return normD.startsWith(normS) && after.startsWith('s ')
+      })
+      if (fuzzyMatch) return { ...s, duplicate: true, duplicateId: fuzzyMatch[1] as number, selected: false }
+      return { ...s, selected: false }
+    })
 
     setArtistGroups([])
     setItems(albumsF)
@@ -1254,7 +1269,13 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       addLog(`✓ MB singlai: ${mbSingles.length} viso, ${newOnes.length} naujų`)
       if (newOnes.length) {
         const dups = await checkTrackDuplicates(newOnes.map(s => s.title), artistId)
-        const withDups = newOnes.map(s => { const k = s.title.toLowerCase(); return dups[k] ? { ...s, duplicate: true, duplicateId: dups[k], selected: false } : s })
+        const withDups = newOnes.map(s => {
+          const k = s.title.toLowerCase()
+          if (dups[k]) return { ...s, duplicate: true, duplicateId: dups[k], selected: false }
+          const normS = k.replace(/['’]/g, '')
+          const fuzzy = Object.entries(dups).find(([dt]) => { const nd = dt.replace(/['’]/g,''); const after = nd.slice(normS.length); return nd.startsWith(normS) && after.startsWith('s ') })
+          return fuzzy ? { ...s, duplicate: true, duplicateId: fuzzy[1] as number, selected: false } : s
+        })
         setSongs(p => [...p, ...withDups].sort((a,b) => (a.year||9999)-(b.year||9999)))
       }
     } else {
@@ -1687,7 +1708,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                   {activeTab === 'other' && `${otherItems.filter(({it})=>!it.duplicate&&!it.imported).length} naujų`}
                   {activeTab === 'singles' && `${songNewCount} naujų`}
                   </span>
-                  {(activeTab === 'studio' || activeTab === 'other') && (
+                  {(activeTab === 'studio' || activeTab === 'other' || activeTab === 'singles') && (
                     <button onClick={() => setSortDesc(p => !p)}
                       className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
                       title={sortDesc ? "Nuo seniausio" : "Nuo naujausio"}>
