@@ -1023,38 +1023,76 @@ function titleMatches(result: string, query: string): boolean {
   return false
 }
 
-async function enrichTracks(albumId: number, artistName: string, addLog: (s: string) => void, yt = true, lyrics = true, onProgress?: (done: number, total: number) => void) {
+// Ieškoti YouTube URL per MusicBrainz (nemokama, ~1req/s)
+async function findYouTubeViaMB(artistName: string, trackTitle: string): Promise<string | null> {
+  try {
+    // 1. Surasti recording MBID
+    const q = encodeURIComponent(`artist:"${artistName}" AND recording:"${trackTitle}"`)
+    const r1 = await fetch(
+      `https://musicbrainz.org/ws/2/recording?query=${q}&limit=1&fmt=json`,
+      { headers: { 'User-Agent': 'music.lt/1.0 (music@music.lt)' } }
+    )
+    if (!r1.ok) return null
+    const d1 = await r1.json()
+    const mbid = d1.recordings?.[0]?.id
+    if (!mbid) return null
+
+    // 2. Gauti URL relationships (ypač YouTube nuorodas)
+    await new Promise(r => setTimeout(r, 1100)) // MB rate limit: 1 req/s
+    const r2 = await fetch(
+      `https://musicbrainz.org/ws/2/recording/${mbid}?inc=url-rels&fmt=json`,
+      { headers: { 'User-Agent': 'music.lt/1.0 (music@music.lt)' } }
+    )
+    if (!r2.ok) return null
+    const d2 = await r2.json()
+
+    // Ieškoti YouTube arba YouTube Music nuorodų
+    const ytRel = (d2.relations || []).find((rel: any) => {
+      const url: string = rel.url?.resource || ''
+      return url.includes('youtube.com/watch') || url.includes('youtu.be/')
+    })
+    if (ytRel) {
+      // Konvertuoti YouTube Music į standartinį YouTube URL
+      const url: string = ytRel.url.resource
+      return url.replace('music.youtube.com', 'www.youtube.com')
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+async function enrichTracks(albumId: number, artistName: string, addLog: (s: string) => void, lyrics = true, onProgress?: (done: number, total: number) => void) {
   let dbTracks: any[] = []
   try { dbTracks = (await (await fetch(`/api/tracks?album_id=${albumId}&limit=200`)).json()).tracks || [] } catch { return }
   if (!dbTracks.length) return
   addLog(`  ${dbTracks.length} dainų...`)
-  let ytN = 0, lyrN = 0, done = 0
-  for (let i = 0; i < dbTracks.length; i += 4) {
-    await Promise.all(dbTracks.slice(i, i+4).map(async (t: any) => {
-      const u: Record<string,any> = {}
-      if (yt) try {
-        const q = encodeURIComponent(`${artistName} ${t.title}`)
-        const r = await fetch(`/api/search/youtube?q=${q}&type=video`)
-        if (r.ok) {
-          const d = await r.json()
-          if (d.error) { addLog(`  ⚠️ YT klaida: ${d.error.slice(0,80)}`); }
-          const f = d.results?.[0]
-          if (f?.videoId && titleMatches(f.title, `${artistName} ${t.title}`)) {
-            u.video_url = `https://www.youtube.com/watch?v=${f.videoId}`; ytN++
-          }
-        }
-      } catch (ytErr: any) { addLog(`  ⚠️ YT fetch klaida: ${ytErr.message?.slice(0,50)}`) }
-      if (lyrics) try {
-        const r = await fetch(`/api/search/lyrics?artist=${encodeURIComponent(artistName)}&title=${encodeURIComponent(t.title)}`)
-        if (r.ok) { const d = await r.json(); if (d.lyrics) { u.lyrics = d.lyrics; lyrN++ } }
-      } catch {}
-      if (Object.keys(u).length) try { await fetch(`/api/tracks/${t.id}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(u) }) } catch {}
-      done++
-    }))
-    if (done % 8 === 0 || done === dbTracks.length) { addLog(`  ${done}/${dbTracks.length}`); onProgress?.(done, dbTracks.length) }
-    await new Promise(r => setTimeout(r, 300))
+  let mbN = 0, lyrN = 0, done = 0
+
+  // Procesavame po vieną — MusicBrainz rate limit 1 req/s
+  for (const t of dbTracks) {
+    const u: Record<string,any> = {}
+
+    // YouTube tik per MusicBrainz (nemokama)
+    const mbUrl = await findYouTubeViaMB(artistName, t.title)
+    if (mbUrl) { u.video_url = mbUrl; mbN++ }
+
+    if (lyrics) try {
+      const r = await fetch(`/api/search/lyrics?artist=${encodeURIComponent(artistName)}&title=${encodeURIComponent(t.title)}`)
+      if (r.ok) { const d = await r.json(); if (d.lyrics) { u.lyrics = d.lyrics; lyrN++ } }
+    } catch {}
+
+    if (Object.keys(u).length) try {
+      await fetch(`/api/tracks/${t.id}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(u) })
+    } catch {}
+
+    done++
+    if (done % 5 === 0 || done === dbTracks.length) {
+      addLog(`  ${done}/${dbTracks.length} (MB:${mbN})`)
+      onProgress?.(done, dbTracks.length)
+    }
   }
-  addLog(`  ✓ ${ytN} YT, ${lyrN} žodžiai`)
+  addLog(`  ✓ MB:${mbN} žodžiai:${lyrN}`)
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -1343,8 +1381,8 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
         const albumId = newAlbum.id || newAlbum.album?.id
         addLog(`✓ ${item.title} (${item.tracks?.length||0})`)
         ok++
-        if (albumId && (enrichYoutube||enrichLyrics) && item.tracks?.length)
-          await enrichTracks(albumId, artistName, addLog, enrichYoutube, enrichLyrics, (done, total) => updateTask('import', `${item.title}: žodžiai ${done}/${total}`))
+        if (albumId && item.tracks?.length)
+          await enrichTracks(albumId, artistName, addLog, enrichLyrics, (done, total) => updateTask('import', `${item.title}: žodžiai ${done}/${total}`))
         setItems(p => p.map((it, i) => i === idx ? { ...it, importing: false, imported: true } : it))
         setSelected(p => { const s = new Set(p); s.delete(idx); return s })
       } catch (e: any) {
@@ -1664,10 +1702,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                 <h3 className="text-base font-semibold text-gray-900 truncate">{artistName} — diskografija</h3>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <label className="flex items-center gap-1.5 cursor-pointer text-xs text-gray-500">
-                  <input type="checkbox" checked={enrichYoutube} onChange={e => setEnrichYoutube(e.target.checked)} className="accent-violet-600 w-3.5 h-3.5" />
-                  YouTube
-                </label>
+
                 <label className="flex items-center gap-1.5 cursor-pointer text-xs text-gray-500">
                   <input type="checkbox" checked={enrichLyrics} onChange={e => setEnrichLyrics(e.target.checked)} className="accent-violet-600 w-3.5 h-3.5" />
                   Žodžiai
