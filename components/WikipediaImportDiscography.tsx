@@ -1030,20 +1030,33 @@ function titleMatches(result: string, query: string): boolean {
 }
 
 // Ieškoti YouTube URL per MusicBrainz (nemokama, ~1req/s)
-async function findYouTubeViaMB(artistName: string, trackTitle: string): Promise<string | null> {
+async function findYouTubeViaMB(artistName: string, trackTitle: string, addLog?: (s: string) => void): Promise<string | null> {
   try {
     // 1. Surasti recording MBID — per /api/mb-proxy (tiesioginis MB blokuojamas dėl CORS)
     const q = `artist:"${artistName}" AND recording:"${trackTitle}"`
     const r1 = await fetch(`/api/mb-proxy?path=${encodeURIComponent(`recording?query=${encodeURIComponent(q)}&limit=1&fmt=json`)}`)
-    if (!r1.ok) return null
+    if (!r1.ok) {
+      addLog?.(`    ⚠ MB recording search ${r1.status}: ${trackTitle}`)
+      return null
+    }
     const d1 = await r1.json()
+    if (d1.error) {
+      addLog?.(`    ⚠ MB error: ${d1.error}`)
+      return null
+    }
     const mbid = d1.recordings?.[0]?.id
-    if (!mbid) return null
+    if (!mbid) {
+      addLog?.(`    · MB: nerastas „${trackTitle}"`)
+      return null
+    }
 
     // 2. Gauti URL relationships (ypač YouTube nuorodas)
     await new Promise(r => setTimeout(r, 1100)) // MB rate limit: 1 req/s
     const r2 = await fetch(`/api/mb-proxy?path=${encodeURIComponent(`recording/${mbid}?inc=url-rels&fmt=json`)}`)
-    if (!r2.ok) return null
+    if (!r2.ok) {
+      addLog?.(`    ⚠ MB url-rels ${r2.status}: ${trackTitle}`)
+      return null
+    }
     const d2 = await r2.json()
 
     // Ieškoti YouTube arba YouTube Music nuorodų
@@ -1053,10 +1066,17 @@ async function findYouTubeViaMB(artistName: string, trackTitle: string): Promise
     })
     if (ytRel) {
       const url: string = ytRel.url.resource
+      addLog?.(`    ✓ YT: ${trackTitle}`)
       return url.replace('music.youtube.com', 'www.youtube.com')
     }
+    // Nėra YouTube — patikrinti ar yra kitų URL ryšių
+    const relCount = (d2.relations || []).length
+    if (relCount === 0) {
+      addLog?.(`    · MB: 0 URL ryšių — ${trackTitle}`)
+    }
     return null
-  } catch {
+  } catch (e: any) {
+    addLog?.(`    ✗ MB klaida: ${e.message?.slice(0, 60)}`)
     return null
   }
 }
@@ -1074,7 +1094,7 @@ async function enrichTracks(albumId: number, artistName: string, addLog: (s: str
 
     // YouTube tik per MusicBrainz (nemokama) — praleidžiam jei jau turi video_url
     if (!t.video_url) {
-      const mbUrl = await findYouTubeViaMB(artistName, t.title)
+      const mbUrl = await findYouTubeViaMB(artistName, t.title, addLog)
       if (mbUrl) { u.video_url = mbUrl; mbN++ }
     }
 
