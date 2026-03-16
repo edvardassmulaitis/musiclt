@@ -1081,6 +1081,7 @@ const OTHER_TYPES: AlbumType[] = ['ep', 'compilation', 'live', 'remix', 'covers'
 
 export default function WikipediaImportDiscography({ artistId, artistName, artistWikiTitle, isSolo, onClose, buttonClassName, buttonLabel }: Props) {
   const [open, setOpen] = useState(false)
+  const [minimized, setMinimized] = useState(false)
   const [wikiUrl, setWikiUrl] = useState(artistWikiTitle ? `https://en.wikipedia.org/wiki/${artistWikiTitle}` : '')
   const [searched, setSearched] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -1446,8 +1447,31 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
   const toggleSong = (title: string) => setSongs(p => p.map(s => s.title === title && !s.duplicate && !s.imported ? { ...s, selected: !s.selected } : s))
   const selectAllSongs = (val: boolean) => setSongs(p => p.map(s => s.duplicate || s.imported ? s : { ...s, selected: val }))
 
-  const closeModal = () => { if (!importing) { setOpen(false); onClose?.() } }
+  const closeModal = () => {
+    if (importing) {
+      // Importas vyksta — minimizuoti vietoj uždarymo
+      setMinimized(true)
+      // Pranešti header'iui kad modalas minimizuotas — jis gali rodyti "atidaryti" mygtuką
+      window.dispatchEvent(new CustomEvent('discography-minimized', { detail: { open: true } }))
+    } else {
+      setOpen(false)
+      setMinimized(false)
+      window.dispatchEvent(new CustomEvent('discography-minimized', { detail: { open: false } }))
+      onClose?.()
+    }
+  }
+  const reopenModal = () => {
+    setMinimized(false)
+    window.dispatchEvent(new CustomEvent('discography-minimized', { detail: { open: false } }))
+  }
   const handleOpen = () => { setOpen(true); if (!searched) { setSearched(true); setTimeout(() => search(), 100) } }
+
+  // Klausyti header'io "atidaryti" signalo
+  useEffect(() => {
+    const handler = () => reopenModal()
+    window.addEventListener('discography-reopen', handler)
+    return () => window.removeEventListener('discography-reopen', handler)
+  }, [])
 
   // Grouped by tab
   const studioItems = items.map((it, i) => ({ it, i })).filter(({ it }) => STUDIO_TYPES.includes(it.type))
@@ -1630,7 +1654,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-[5vh]">
+        <div className={`fixed inset-0 z-50 flex items-start justify-center p-4 pt-[5vh] ${minimized ? 'pointer-events-none' : ''}`} style={minimized ? {display: 'none'} : {}}>
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={closeModal} />
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
 
@@ -1648,7 +1672,15 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                   <input type="checkbox" checked={enrichLyrics} onChange={e => setEnrichLyrics(e.target.checked)} className="accent-violet-600 w-3.5 h-3.5" />
                   Žodžiai
                 </label>
-                <button onClick={closeModal} className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors text-lg leading-none">×</button>
+                {importing ? (
+                  <button onClick={() => setMinimized(true)} title="Minimizuoti — importas tęsis fone"
+                    className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/></svg>
+                    Minimizuoti
+                  </button>
+                ) : (
+                  <button onClick={closeModal} className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors text-lg leading-none">×</button>
+                )}
               </div>
             </div>
 
