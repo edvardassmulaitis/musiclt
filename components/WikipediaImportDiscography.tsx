@@ -803,6 +803,20 @@ function parseTracklist(wikitext: string): TrackEntry[] {
       if (!titleM) continue
       const lenM = tl.match(new RegExp(`\\|\\s*length${num}\\s*=\\s*([^|\\n]+)`))
       const noteM = tl.match(new RegExp(`\\|\\s*note${num}\\s*=\\s*([^|\\n]+)`))
+
+      // Skip hidden tracks
+      const noteStr_raw = (noteM?.[1] || '').toLowerCase()
+      if (/hidden\s*track/.test(noteStr_raw)) continue
+
+      // Skip extremely short tracks (<10s) — e.g. "Yeah" (0:04)
+      const durStr = lenM?.[1]?.trim() || ''
+      const durMatch = durStr.match(/^(\d+):(\d+)$/)
+      if (durMatch) {
+        const totalSec = parseInt(durMatch[1]) * 60 + parseInt(durMatch[2])
+        if (totalSec < 10) continue
+        // Skip extremely long ambient/hidden tracks (>15 min) — e.g. "13" (22:32)
+        if (totalSec > 900) continue
+      }
       let featuring: string[] = []
       if (noteM) {
         const fm = noteM[1].match(/feat(?:uring)?[.\s]+(.+)/i)
