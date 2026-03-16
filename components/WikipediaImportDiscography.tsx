@@ -1761,9 +1761,16 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       </button>
 
       {open && (
-        <div className={`fixed inset-0 z-50 ${minimized ? 'pointer-events-none' : ''}`} style={minimized ? {display: 'none'} : {}}>
+        <>
+        <style>{`
+          .disc-modal-inner { height: 100dvh; }
+          @media (min-width: 640px) {
+            .disc-modal-inner { height: auto !important; max-height: 85vh; }
+          }
+        `}</style>
+        <div className={`fixed inset-0 z-50 flex items-stretch sm:block ${minimized ? 'pointer-events-none' : ''}`} style={minimized ? {display: 'none'} : {}}>
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm hidden sm:block" onClick={closeModal} />
-          <div className="absolute inset-0 sm:static sm:inset-auto sm:mx-auto sm:mt-[8vh] sm:w-full sm:max-w-3xl sm:max-h-[85vh] bg-white sm:rounded-2xl shadow-2xl flex flex-col sm:relative" style={{ zIndex: 1 }}>
+          <div className="disc-modal-inner relative flex flex-col w-full bg-white shadow-2xl z-10 sm:w-full sm:max-w-3xl sm:mx-auto sm:mt-[8vh] sm:rounded-2xl">
 
             {/* Header */}
             <div className="flex items-center gap-3 px-3 sm:px-5 py-2.5 sm:py-3 border-b border-gray-100 shrink-0">
@@ -2004,7 +2011,8 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
             </div>
 
             {/* Footer — sticky ant apačios */}
-            <div className="shrink-0 px-3 sm:px-5 py-2.5 sm:py-3 border-t border-gray-100 flex items-center gap-1.5 sm:gap-2 bg-white safe-bottom">
+            <div className="shrink-0 px-3 sm:px-5 pt-2.5 sm:pt-3 border-t border-gray-100 flex items-center gap-1.5 sm:gap-2 bg-white"
+              style={{ paddingBottom: 'max(0.625rem, env(safe-area-inset-bottom))' }}>
               {activeTab === 'singles' ? (
                 <button onClick={importSongs} disabled={importing || songSelectedCount === 0}
                   className="flex-1 py-2 sm:py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl disabled:opacity-40 transition-colors text-sm">
@@ -2027,10 +2035,10 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                 ✕
               </button>
             </div>
-            <style>{`.safe-bottom { padding-bottom: max(0.625rem, env(safe-area-inset-bottom)); }`}</style>
 
           </div>
         </div>
+        </>
       )}
     </>
   )
