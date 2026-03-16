@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { useBackgroundTasks } from '@/components/BackgroundTaskContext'
 
 // ─── Tipai ────────────────────────────────────────────────────────────────────
 
@@ -1022,7 +1023,7 @@ function titleMatches(result: string, query: string): boolean {
   return false
 }
 
-async function enrichTracks(albumId: number, artistName: string, addLog: (s: string) => void, yt = true, lyrics = true) {
+async function enrichTracks(albumId: number, artistName: string, addLog: (s: string) => void, yt = true, lyrics = true, onProgress?: (done: number, total: number) => void) {
   let dbTracks: any[] = []
   try { dbTracks = (await (await fetch(`/api/tracks?album_id=${albumId}&limit=200`)).json()).tracks || [] } catch { return }
   if (!dbTracks.length) return
@@ -1050,7 +1051,7 @@ async function enrichTracks(albumId: number, artistName: string, addLog: (s: str
       if (Object.keys(u).length) try { await fetch(`/api/tracks/${t.id}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(u) }) } catch {}
       done++
     }))
-    if (done % 8 === 0 || done === dbTracks.length) addLog(`  ${done}/${dbTracks.length}`)
+    if (done % 8 === 0 || done === dbTracks.length) { addLog(`  ${done}/${dbTracks.length}`); onProgress?.(done, dbTracks.length) }
     await new Promise(r => setTimeout(r, 300))
   }
   addLog(`  ✓ ${ytN} YT, ${lyrN} žodžiai`)
@@ -1093,7 +1094,8 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
 
   const [log, setLog] = useState<string[]>([])
   const [importing, setImporting] = useState(false)
-  const [enrichYoutube, setEnrichYoutube] = useState(true)
+  const { startTask, updateTask, finishTask, errorTask } = useBackgroundTasks()
+  const [enrichYoutube, setEnrichYoutube] = useState(false)
   const [sortDesc, setSortDesc] = useState(true)
   const [enrichLyrics, setEnrichLyrics] = useState(true)
   const [mbLoading, setMbLoading] = useState(false)
@@ -1310,6 +1312,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       setItems(p => { resolve(p); return p })
     })
     setImporting(true)
+    startTask('import', `Importuojama: ${artistName}`)
     let ok = 0, fail = 0
     for (const idx of indices) {
       const item = snapshot[idx]
@@ -1340,7 +1343,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
         addLog(`✓ ${item.title} (${item.tracks?.length||0})`)
         ok++
         if (albumId && (enrichYoutube||enrichLyrics) && item.tracks?.length)
-          await enrichTracks(albumId, artistName, addLog, enrichYoutube, enrichLyrics)
+          await enrichTracks(albumId, artistName, addLog, enrichYoutube, enrichLyrics, (done, total) => updateTask('import', `${item.title}: žodžiai ${done}/${total}`))
         setItems(p => p.map((it, i) => i === idx ? { ...it, importing: false, imported: true } : it))
         setSelected(p => { const s = new Set(p); s.delete(idx); return s })
       } catch (e: any) {
@@ -1351,6 +1354,8 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
     }
     setImporting(false)
     addLog(`✓ ${ok} albumų${fail ? `, ${fail} klaida` : ''}`)
+    if (fail > 0) errorTask('import', `${ok} importuota, ${fail} klaidos`)
+    else finishTask('import', `${ok} albumų importuota`)
 
     // Po albumų importo — atnaujinti singlų dublikatų statusą
     // (dainos kurios buvo albumuose dabar yra DB, todėl singlų sąraše jos turėtų rodyti "jau yra")
