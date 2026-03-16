@@ -107,7 +107,6 @@ function DescriptionEditor({ value, onChange }: { value: string; onChange: (v: s
   const editorRef = useRef<HTMLDivElement>(null)
   const isUpdating = useRef(false)
 
-  // Sync external value → editor (only on mount or external change)
   useEffect(() => {
     if (!editorRef.current || isUpdating.current) return
     if (editorRef.current.innerHTML !== value) {
@@ -137,7 +136,6 @@ function DescriptionEditor({ value, onChange }: { value: string; onChange: (v: s
 
   return (
     <div className="border border-gray-200 rounded-lg overflow-hidden focus-within:border-blue-400 transition-colors">
-      {/* Toolbar */}
       <div className="flex items-center gap-0.5 px-1.5 py-1 border-b border-gray-100 bg-gray-50">
         {tools.map(t => (
           <button key={t.cmd} type="button" title={t.title}
@@ -163,7 +161,6 @@ function DescriptionEditor({ value, onChange }: { value: string; onChange: (v: s
           </button>
         )}
       </div>
-      {/* Editable area */}
       <div
         ref={editorRef}
         contentEditable
@@ -218,7 +215,6 @@ function CoverImageField({ value, onChange }: { value: string; onChange: (url: s
 
   return (
     <div className="flex flex-col gap-1.5">
-      {/* Square cover preview — 96×96 */}
       <div
         className="relative w-24 h-24 rounded-lg overflow-hidden border border-gray-200 bg-gray-100 cursor-pointer shrink-0 group"
         onClick={() => !uploading && fileRef.current?.click()}
@@ -243,8 +239,6 @@ function CoverImageField({ value, onChange }: { value: string; onChange: (url: s
           </div>
         )}
       </div>
-
-      {/* URL input + buttons */}
       <div className="flex gap-1">
         <input type="text" value={urlInput} onChange={e => setUrlInput(e.target.value)}
           onBlur={e => handleUrlCommit(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleUrlCommit(urlInput)}
@@ -349,11 +343,8 @@ function TrackList({ tracks, isMobile, onAdd, onUpdate, onRemove, onHardDelete, 
             onDragOver={e => { if (!isMobile) e.preventDefault() }}
             className={`flex items-center gap-1.5 px-2.5 border-b border-gray-100 transition-colors group ${
               isMobile ? 'py-2' : 'py-1'
-            } ${dragOver === i ? 'bg-blue-50 border-t-2 border-blue-400' : 'hover:bg-gray-50/80'} ${
-              ''
-            }`}>
+            } ${dragOver === i ? 'bg-blue-50 border-t-2 border-blue-400' : 'hover:bg-gray-50/80'}`}>
 
-            {/* Reorder */}
             {isMobile ? (
               <div className="flex flex-col shrink-0">
                 <button type="button" onClick={() => i > 0 && onReorder(i, i - 1)} disabled={i === 0}
@@ -374,10 +365,8 @@ function TrackList({ tracks, isMobile, onAdd, onUpdate, onRemove, onHardDelete, 
               </span>
             )}
 
-            {/* Number */}
             <span className="text-xs text-gray-400 w-4 text-right shrink-0 tabular-nums">{i + 1}</span>
 
-            {/* Title */}
             <div className="flex-1 min-w-0 flex items-baseline gap-1 flex-wrap">
               <input value={t.title} onChange={e => onUpdate(i, 'title', e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); onSave() } }}
@@ -391,13 +380,11 @@ function TrackList({ tracks, isMobile, onAdd, onUpdate, onRemove, onHardDelete, 
               )}
             </div>
 
-            {/* Indicators */}
             {hasVideo && (
               <svg className="w-3 h-3 text-blue-400 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
             )}
             {hasLyrics && <span className="text-green-500 text-xs font-bold shrink-0">T</span>}
 
-            {/* Singlas */}
             <label className="flex items-center gap-0.5 cursor-pointer shrink-0">
               <input type="checkbox" checked={t.is_single || false}
                 onChange={e => onUpdate(i, 'is_single', e.target.checked)}
@@ -405,7 +392,6 @@ function TrackList({ tracks, isMobile, onAdd, onUpdate, onRemove, onHardDelete, 
               <span className="text-xs text-gray-400">S</span>
             </label>
 
-            {/* Edit link */}
             {trackEditUrl && (
               <a href={trackEditUrl} target="_blank" rel="noopener noreferrer"
                 onClick={e => e.stopPropagation()}
@@ -414,13 +400,11 @@ function TrackList({ tracks, isMobile, onAdd, onUpdate, onRemove, onHardDelete, 
               </a>
             )}
 
-            {/* Remove from album */}
             <button type="button" onClick={() => onRemove(i)} title="Pašalinti iš albumo"
               className="w-5 h-5 flex items-center justify-center text-gray-300 hover:text-orange-500 hover:bg-orange-50 rounded transition-colors shrink-0 text-sm">
               ×
             </button>
 
-            {/* Hard delete */}
             {isSaved && (
               <button type="button" onClick={() => onHardDelete(i)} title="Ištrinti dainą visiškai"
                 className="w-5 h-5 flex items-center justify-center text-gray-300 hover:text-red-600 hover:bg-red-50 rounded transition-colors shrink-0 opacity-0 group-hover:opacity-100">
@@ -561,7 +545,6 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
 
   const handleSubmit = useCallback(async () => {
     const cur = formRef.current
-    console.log('[handleSubmit] tracks titles:', cur.tracks?.map(t => t.title))
     if (!cur.title.trim()) { setError('Pavadinimas privalomas'); return }
     if (!cur.artist_id) { setError('Pasirinkite atlikėją'); return }
     setSaving(true); setError('')
@@ -581,9 +564,22 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
 
   const handleDelete = async () => {
     if (!confirm(`Ištrinti albumą "${form.title}"?`)) return
+
+    // Paklausti ar trinti dainas kartu
+    const trackCount = form.tracks?.length || 0
+    let deleteTracks = false
+    if (trackCount > 0) {
+      deleteTracks = confirm(
+        `Albumas turi ${trackCount} dainų.\n\n` +
+        `Spustelėkite OK — ištrinti albumą IR visas jo dainas.\n` +
+        `Spustelėkite Atšaukti — ištrinti tik albumą (dainos liks kaip nepriskirtos).`
+      )
+    }
+
     setDeleting(true)
     try {
-      await fetch(`/api/albums/${id}`, { method: 'DELETE' })
+      const url = `/api/albums/${id}${deleteTracks ? '?deleteTracks=true' : ''}`
+      await fetch(url, { method: 'DELETE' })
       router.push(artistId ? `/admin/artists/${artistId}` : '/admin/albums')
     } catch (e: any) { setError(e.message) } finally { setDeleting(false) }
   }
@@ -601,9 +597,7 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
 
   const InfoPanel = (
     <div className="space-y-2.5 p-3 pb-4">
-      {/* Main info card */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 space-y-2.5">
-        {/* Title + Date */}
         <div className="grid grid-cols-[1fr_auto] gap-3 items-start">
           <div>
             <label className="block text-xs font-semibold text-gray-500 mb-1">Pavadinimas *</label>
@@ -620,10 +614,8 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
           </div>
         </div>
 
-        {/* Artists */}
         <div>
           <label className="block text-xs font-semibold text-gray-500 mb-1">Atlikėjai *</label>
-          {/* Chips + inline search all in one flex row */}
           <div className="flex flex-wrap items-center gap-1.5">
             {form.artist_id ? (
               <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-xl px-2 py-1 shadow-sm shrink-0">
@@ -658,7 +650,6 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
           </div>
         </div>
 
-        {/* Type */}
         <div>
           <label className="block text-xs font-semibold text-gray-500 mb-1">Tipas</label>
           <div className="flex flex-wrap gap-1">
@@ -674,16 +665,13 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
         </div>
       </div>
 
-      {/* Media card */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {/* Cover */}
           <div>
             <p className="text-xs font-semibold text-gray-500 mb-1.5">Viršelis</p>
             <CoverImageField value={form.cover_image_url || ''} onChange={url => set('cover_image_url', url)} />
           </div>
 
-          {/* YouTube + Spotify */}
           <div className="space-y-2.5 min-w-0">
             <div>
               <p className="text-xs font-semibold text-gray-500 mb-1 flex items-center gap-1">
@@ -730,7 +718,6 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
             </div>
           </div>
         </div>
-        {/* Description below cover */}
         <div className="mt-2.5">
           <p className="text-xs font-semibold text-gray-500 mb-1">Aprašymas</p>
           <DescriptionEditor value={form.description || ''} onChange={v => set('description', v)} />
@@ -743,7 +730,6 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
 
   return (
     <div className="min-h-screen bg-[#f8f7f5]">
-      {/* Header */}
       <div className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-gray-200">
         <div className="flex items-center justify-between gap-3 px-4 py-2">
           <nav className="hidden sm:flex items-center gap-1 text-sm min-w-0">
@@ -763,7 +749,6 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
               <Link href={`/admin/tracks?artistId=${artistId}`} className="text-gray-400 hover:text-gray-700 shrink-0">Dainos</Link>
             </>}
           </nav>
-          {/* Mobile: back arrow + title only */}
           <div className="flex sm:hidden items-center gap-2 min-w-0">
             <Link href={artistId ? `/admin/artists/${artistId}` : '/admin/albums'}
               className="text-gray-400 hover:text-gray-700 shrink-0">
@@ -795,7 +780,6 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
           </div>
         </div>
 
-        {/* Mobile tabs */}
         <div className="flex lg:hidden border-t border-gray-100">
           <button onClick={() => setTab('info')}
             className={`flex-1 py-2 text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 ${tab === 'info' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-gray-500'}`}>
@@ -810,7 +794,6 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
         </div>
       </div>
 
-      {/* Error */}
       {error && (
         <div className="px-3 pt-2">
           <div className="p-2.5 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm flex items-center gap-2">
@@ -823,7 +806,6 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
         </div>
       )}
 
-      {/* Mobile */}
       <div className="lg:hidden">
         {tab === 'info' && InfoPanel}
         {tab === 'tracks' && (
@@ -835,7 +817,6 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
         )}
       </div>
 
-      {/* Desktop 50/50 */}
       <div className="hidden lg:grid lg:grid-cols-2 items-start">
         <div className="border-r border-gray-200">{InfoPanel}</div>
         <div className="bg-[#f8f7f5] sticky top-[41px]" style={{ height: 'calc(100vh - 41px)', overflowY: 'auto' }}>
