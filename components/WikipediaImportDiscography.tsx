@@ -713,7 +713,8 @@ function isReissueBlock(h: string, tl: string): boolean {
     hl.includes('special') || hl.includes('itunes') || hl.includes('exclusive') ||
     hl.includes('limited') || hl.includes('remaster') || hl.includes('reissue') ||
     hl.includes('re-issue') || hl.includes('anniversary') || hl.includes('expanded') ||
-    hl.includes('collector') || /^\d{4}/.test(hl)) return true
+    hl.includes('collector') || hl.includes('extra track') || hl.includes('disc 2') ||
+    hl.includes('video') || /^\d{4}/.test(hl)) return true
 
   // Jei headline tuščias — tikrinti tracklist bloko turinį
   if (!hl) {
