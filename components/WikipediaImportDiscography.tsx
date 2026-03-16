@@ -1764,12 +1764,21 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
         <>
         <style>{`
           @media (min-width: 640px) {
-            .disc-modal-inner { height: auto !important; max-height: 85vh !important; }
+            .disc-modal-inner {
+              position: relative !important;
+              top: auto !important; left: auto !important; right: auto !important; bottom: auto !important;
+              height: auto !important;
+              max-height: 85vh !important;
+              width: 100% !important;
+              max-width: 48rem !important;
+              margin: 8vh auto 0 !important;
+              border-radius: 1rem !important;
+            }
           }
         `}</style>
-        <div className={`fixed inset-0 z-50 sm:block ${minimized ? 'pointer-events-none' : ''}`} style={minimized ? {display: 'none'} : {}}>
+        <div className={`fixed inset-0 z-50 ${minimized ? 'pointer-events-none' : ''}`} style={minimized ? {display: 'none'} : {}}>
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm hidden sm:block" onClick={closeModal} />
-          <div className="disc-modal-inner absolute inset-0 flex flex-col bg-white shadow-2xl z-10 sm:static sm:inset-auto sm:w-full sm:max-w-3xl sm:mx-auto sm:mt-[8vh] sm:rounded-2xl" style={{ overflow: 'hidden' }}>
+          <div className="disc-modal-inner" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', background: 'white', zIndex: 10, overflow: 'hidden' }}>
 
             {/* Header */}
             <div className="flex items-center gap-3 px-3 sm:px-5 py-2.5 sm:py-3 border-b border-gray-100 shrink-0">
