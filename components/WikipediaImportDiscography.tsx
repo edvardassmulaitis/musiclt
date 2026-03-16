@@ -739,9 +739,15 @@ function parseSinglesFromInfobox(wikitext: string): Set<string> {
   function extractSingleNames(text: string) {
     const re = /\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/g
     let lm: RegExpExecArray | null
+    // Disambiguation sufixai kuriuos reikia pašalinti (ne dalis pavadinimo)
+    const disambigRe = /\s*\((song|album|single|band|film|Queen song|[A-Z][a-z]+ song|[A-Z][a-z]+ album)\)$/i
     while ((lm = re.exec(text)) !== null) {
       const raw = lm[2] || lm[1].replace(/#[^\]]*$/, '')
-      const name = raw.replace(/\s*\([^)]+\)$/g, '').replace(/'+/g, '').trim()
+      // Jei yra display tekstas (po |) - naudoti tą, jis jau švarus
+      // Jei nėra display teksto - pašalinti tik Wikipedia disambiguation sufixus
+      const name = lm[2]
+        ? lm[2].replace(/'+/g, '').trim()
+        : lm[1].replace(/#[^\]]*$/, '').replace(disambigRe, '').replace(/'+/g, '').trim()
       if (name.length > 1) singles.add(name.toLowerCase())
     }
   }
