@@ -814,7 +814,13 @@ function parseTracklist(wikitext: string): TrackEntry[] {
       if (!featuring.length) featuring = tf
       const finalTitle = cleanWikiText(cleanTitle)
       if (finalTitle) {
-        const is_single = singles.size > 0 ? singles.has(finalTitle.toLowerCase().replace(/['\u2019]/g, '')) : undefined
+        const normalizedTitle = finalTitle.toLowerCase().replace(/['\u2019]/g, '')
+        const is_single = singles.size > 0 ? (
+          // Tikslus sutapimas
+          singles.has(normalizedTitle) ||
+          // Singlo pavadinimas yra dainos pavadinimo pradžia (pvz. "Flash" ⊂ "Flash's Theme")
+          [...singles].some(s => normalizedTitle.startsWith(s) || s.startsWith(normalizedTitle))
+        ) : undefined
         // Nustatyti track tipą iš note ir pavadinimo
         const noteStr = (noteM?.[1] || '').toLowerCase()
         const titleLower = finalTitle.toLowerCase()
@@ -994,11 +1000,20 @@ function titleMatches(result: string, query: string): boolean {
   const n = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim()
   const nr = n(result)
   const nq = n(query)
-  // Jei rezultate yra bent pusė query žodžių — ok
+  // Tikslus sutapimas
+  if (nr.includes(nq) || nq.includes(nr)) return true
   const words = nq.split(' ').filter(w => w.length > 2)
   if (words.length === 0) return true
   const matchCount = words.filter(w => nr.includes(w)).length
-  return matchCount >= Math.ceil(words.length * 0.5)
+  // Standartinis: bent 50% žodžių
+  if (matchCount >= Math.ceil(words.length * 0.5)) return true
+  // Švelnesnė versija: jei query ilgas (soundtrack pavadinimai), tikrinti ar pirmieji 3 žodžiai sutampa
+  if (words.length >= 4) {
+    const firstWords = words.slice(0, 3)
+    const firstMatch = firstWords.filter(w => nr.includes(w)).length
+    if (firstMatch >= 2) return true
+  }
+  return false
 }
 
 async function enrichTracks(albumId: number, artistName: string, addLog: (s: string) => void, yt = true, lyrics = true) {
@@ -1073,6 +1088,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
   const [log, setLog] = useState<string[]>([])
   const [importing, setImporting] = useState(false)
   const [enrichYoutube, setEnrichYoutube] = useState(true)
+  const [sortDesc, setSortDesc] = useState(false)
   const [enrichLyrics, setEnrichLyrics] = useState(true)
   const [mbLoading, setMbLoading] = useState(false)
   const logRef = useRef<HTMLDivElement>(null)
@@ -1659,11 +1675,20 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
             {/* Sticky controls bar */}
             {hasContent && !loading && (
               <div className="flex items-center justify-between px-5 py-2 border-b border-gray-100 bg-white/95 backdrop-blur-sm">
-                <span className="text-xs text-gray-400">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-400">
                   {activeTab === 'studio' && `${studioItems.filter(({it})=>!it.duplicate&&!it.imported).length} naujų`}
                   {activeTab === 'other' && `${otherItems.filter(({it})=>!it.duplicate&&!it.imported).length} naujų`}
                   {activeTab === 'singles' && `${songNewCount} naujų`}
-                </span>
+                  </span>
+                  {(activeTab === 'studio' || activeTab === 'other') && (
+                    <button onClick={() => setSortDesc(p => !p)}
+                      className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                      title={sortDesc ? "Nuo seniausio" : "Nuo naujausio"}>
+                      {sortDesc ? '↑ Seni' : '↓ Nauji'}
+                    </button>
+                  )}
+                </div>
                 <div className="flex items-center gap-3 text-xs">
                   {(activeTab === 'studio' || activeTab === 'other') && (<>
                     <button onClick={() => {
@@ -1707,7 +1732,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                   ) : (
                     <>
                       <div className="space-y-1">
-                        {studioItems.map(({ it, i }) => renderAlbumRow(it, i))}
+                        {(sortDesc ? [...studioItems].reverse() : studioItems).map(({ it, i }) => renderAlbumRow(it, i))}
                       </div>
                     </>
                   )}
@@ -1739,7 +1764,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                         return (
                           <div key={type}>
                             <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1 mt-2">{typeLabels[type]}</div>
-                            <div className="space-y-1">{typeItems.map(({ it, i }) => renderAlbumRow(it, i))}</div>
+                            <div className="space-y-1">{(sortDesc ? [...typeItems].reverse() : typeItems).map(({ it, i }) => renderAlbumRow(it, i))}</div>
                           </div>
                         )
                       })}
@@ -1762,7 +1787,8 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                       {(() => {
                         const byYear: Record<string, SingleSongItem[]> = {}
                         for (const s of songs) { const y = s.year ? String(s.year) : '—'; if (!byYear[y]) byYear[y]=[]; byYear[y].push(s) }
-                        return Object.entries(byYear).map(([yr, yrSongs]) => (
+                        const yearEntries = Object.entries(byYear).sort(([a],[b]) => sortDesc ? b.localeCompare(a) : a.localeCompare(b))
+                        return yearEntries.map(([yr, yrSongs]) => (
                           <div key={yr}>
                             <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1 mt-2.5">{yr}</div>
                             <div className="space-y-1">
