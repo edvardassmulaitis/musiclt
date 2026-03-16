@@ -1629,13 +1629,44 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                             ? (isActive ? 'bg-violet-100 text-violet-600' : 'bg-gray-100 text-gray-500')
                             : 'bg-gray-50 text-gray-300'
                         }`}>
-                          {tab.newCount > 0 ? tab.newCount : '✓'}
+                          {tab.newCount > 0 ? `${tab.newCount}/${tab.count}` : `✓${tab.count}`}
                         </span>
                       )}
                       {tab.hasNew && !isActive && <span className="w-1.5 h-1.5 bg-orange-400 rounded-full" />}
                     </button>
                   )
                 })}
+              </div>
+            )}
+
+            {/* Sticky controls bar */}
+            {hasContent && !loading && (
+              <div className="flex items-center justify-between px-5 py-2 border-b border-gray-100 bg-white/95 backdrop-blur-sm">
+                <span className="text-xs text-gray-400">
+                  {activeTab === 'studio' && `${studioItems.filter(({it})=>!it.duplicate&&!it.imported).length} naujų`}
+                  {activeTab === 'other' && `${otherItems.filter(({it})=>!it.duplicate&&!it.imported).length} naujų`}
+                  {activeTab === 'singles' && `${songNewCount} naujų`}
+                </span>
+                <div className="flex items-center gap-3 text-xs">
+                  {(activeTab === 'studio' || activeTab === 'other') && (<>
+                    <button onClick={() => {
+                      if (activeTab === 'studio') setSelected(new Set(studioItems.filter(({it})=>!it.duplicate&&!it.imported).map(({i})=>i)))
+                      else setSelected(p => { const s = new Set(p); otherItems.filter(({it})=>!it.duplicate&&!it.imported).forEach(({i})=>s.add(i)); return s })
+                    }} className="text-violet-600 hover:underline">Pasirinkti visus</button>
+                    <button onClick={() => {
+                      if (activeTab === 'studio') setSelected(p => { const s = new Set(p); studioItems.forEach(({i}) => s.delete(i)); return s })
+                      else setSelected(p => { const s = new Set(p); otherItems.forEach(({i})=>s.delete(i)); return s })
+                    }} className="text-gray-400 hover:underline">Atžymėti visus</button>
+                    <span className="text-gray-500 font-medium">
+                      {activeTab === 'studio' ? studioSelected : otherSelected} pasirinkta
+                    </span>
+                  </>)}
+                  {activeTab === 'singles' && (<>
+                    <button onClick={() => selectAllSongs(true)} className="text-violet-600 hover:underline">Pasirinkti visus</button>
+                    <button onClick={() => selectAllSongs(false)} className="text-gray-400 hover:underline">Atžymėti visus</button>
+                    <span className="text-gray-500 font-medium">{songSelectedCount} pasirinkta</span>
+                  </>)}
+                </div>
               </div>
             )}
 
@@ -1658,14 +1689,6 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                     <div className="text-center py-12 text-gray-400 text-sm">Studijinių albumų nerasta</div>
                   ) : (
                     <>
-                      <div className="flex items-center justify-between py-1">
-                        <span className="text-xs text-gray-400">{studioItems.filter(({it})=>!it.duplicate).length} naujų</span>
-                        <div className="flex items-center gap-3 text-xs">
-                          <button onClick={() => setSelected(new Set(studioItems.filter(({it})=>!it.duplicate).map(({i})=>i)))} className="text-violet-600 hover:underline">Pasirinkti visus</button>
-                          <button onClick={() => setSelected(p => { const s = new Set(p); studioItems.forEach(({i}) => s.delete(i)); return s })} className="text-gray-400 hover:underline">Atžymėti visus</button>
-                          <span className="text-gray-500 font-medium">{studioSelected} pasirinkta</span>
-                        </div>
-                      </div>
                       <div className="space-y-1">
                         {studioItems.map(({ it, i }) => renderAlbumRow(it, i))}
                       </div>
@@ -1681,14 +1704,6 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                     <div className="text-center py-12 text-gray-400 text-sm">Kitų albumų nerasta</div>
                   ) : (
                     <>
-                      <div className="flex items-center justify-between py-1">
-                        <span className="text-xs text-gray-400">{otherItems.filter(({it})=>!it.duplicate).length} naujų</span>
-                        <div className="flex items-center gap-3 text-xs">
-                          <button onClick={() => setSelected(p => { const s = new Set(p); otherItems.filter(({it})=>!it.duplicate).forEach(({i})=>s.add(i)); return s })} className="text-violet-600 hover:underline">Pasirinkti visus</button>
-                          <button onClick={() => setSelected(p => { const s = new Set(p); otherItems.forEach(({i})=>s.delete(i)); return s })} className="text-gray-400 hover:underline">Atžymėti visus</button>
-                          <span className="text-gray-500 font-medium">{otherSelected} pasirinkta</span>
-                        </div>
-                      </div>
                       {/* Pogrupiai */}
                       {(['ep', 'compilation', 'live', 'remix', 'covers', 'holiday', 'soundtrack', 'demo', 'other'] as AlbumType[]).map(type => {
                         const typeItems = otherItems.filter(({ it }) => it.type === type)
@@ -1726,14 +1741,6 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                     </div>
                   ) : (
                     <>
-                      <div className="flex items-center justify-between py-1">
-                        <span className="text-xs text-gray-400">{songNewCount} naujų</span>
-                        <div className="flex items-center gap-3 text-xs">
-                          <button onClick={() => selectAllSongs(true)} className="text-violet-600 hover:underline">Pasirinkti visus</button>
-                          <button onClick={() => selectAllSongs(false)} className="text-gray-400 hover:underline">Atžymėti visus</button>
-                          <span className="text-gray-500 font-medium">{songSelectedCount} pasirinkta</span>
-                        </div>
-                      </div>
                       {/* Grouped by year */}
                       {(() => {
                         const byYear: Record<string, SingleSongItem[]> = {}
