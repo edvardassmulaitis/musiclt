@@ -756,7 +756,7 @@ function parseSinglesFromInfobox(wikitext: string): Set<string> {
   let tplM: RegExpExecArray | null
   while ((tplM = tplRe.exec(wikitext)) !== null) {
     const tpl = tplM[0]
-    const sRe = /\|\s*single\d+\s*=\s*([^\n|]+)/g
+    const sRe = /\|\s*single\d+\s*=\s*((?:\[\[[^\]]*\]\]|[^|\n])+)/g
     let sm: RegExpExecArray | null
     while ((sm = sRe.exec(tpl)) !== null) {
       extractSingleNames(sm[1])
@@ -807,7 +807,7 @@ function parseTracklist(wikitext: string): TrackEntry[] {
       if (!featuring.length) featuring = tf
       const finalTitle = cleanWikiText(cleanTitle)
       if (finalTitle) {
-        const is_single = singles.size > 0 ? singles.has(finalTitle.toLowerCase()) : undefined
+        const is_single = singles.size > 0 ? singles.has(finalTitle.toLowerCase().replace(/['\u2019]/g, '')) : undefined
         // Nustatyti track tipą iš note ir pavadinimo
         const noteStr = (noteM?.[1] || '').toLowerCase()
         const titleLower = finalTitle.toLowerCase()
