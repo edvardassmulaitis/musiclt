@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useBackgroundTasks } from '@/components/BackgroundTaskContext'
 
 // ─── Tipai ────────────────────────────────────────────────────────────────────
@@ -1760,7 +1761,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
         {buttonLabel ?? "Importuoti diskografiją"}
       </button>
 
-      {open && (
+      {open && typeof document !== 'undefined' && createPortal(
         <>
           {/* Mobile: fullscreen fixed modal. Desktop: centered overlay. All via inline styles — no Tailwind/CSS conflicts */}
           <div style={minimized ? {display:'none'} : {position:'fixed',inset:0,zIndex:9998,display:'flex',alignItems:'flex-start',justifyContent:'center'}}>
@@ -2039,7 +2040,8 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
 
             </div>
           </div>
-        </>
+        </>,
+        document.body
       )}
     </>
   )
