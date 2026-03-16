@@ -1,1805 +1,449 @@
-'use client'
-
-import { useState, useRef, useEffect } from 'react'
-
-// ─── Tipai ────────────────────────────────────────────────────────────────────
-
-type AlbumType = 'studio' | 'ep' | 'single' | 'compilation' | 'live' | 'remix' | 'covers' | 'holiday' | 'soundtrack' | 'demo' | 'other'
-
-type DiscographyItem = {
-  title: string
-  year: number | null
-  month: number | null
-  day: number | null
-  type: AlbumType
-  wikiTitle?: string
-  mbId?: string
-  source: 'musicbrainz' | 'wikipedia'
-  cover_image_url?: string
-  tracks?: TrackEntry[]
-  fetched?: boolean
-  importing?: boolean
-  imported?: boolean
-  duplicate?: boolean
-  duplicateId?: number
-  error?: string
-}
-
-type TrackEntry = {
-  title: string
-  duration?: string
-  sort_order: number
-  is_single?: boolean
-  featuring?: string[]
-  disc_number?: number
-  type?: 'normal' | 'instrumental' | 'live' | 'remix' | 'mashup' | 'covers'
-}
-
-type SingleSongItem = {
-  title: string
-  year: number | null
-  month: number | null
-  day: number | null
-  albumTitle?: string
-  source: 'wikipedia' | 'musicbrainz'
-  importing?: boolean
-  imported?: boolean
-  duplicate?: boolean
-  duplicateId?: number
-  error?: string
-  selected: boolean
-}
-
-// ─── Konstantos ───────────────────────────────────────────────────────────────
-
-const AUTO_SELECT_TYPES: AlbumType[] = ['studio']
-
-// ─── Wikipedia utils ──────────────────────────────────────────────────────────
-
-function extractWikiTitle(input: string): string {
-  const m = input.match(/wikipedia\.org\/wiki\/([^#?]+)/)
-  if (m) return decodeURIComponent(m[1])
-  return input.trim().replace(/ /g, '_')
-}
-
-async function fetchWikitext(title: string): Promise<string> {
-  const res = await fetch(
-    `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(title)}&prop=revisions&rvprop=content&rvslots=main&format=json&origin=*&redirects=1`
-  )
-  const json = await res.json()
-  const page = Object.values(json.query?.pages || {})[0] as any
-  if (page?.missing) return ''
-  return page?.revisions?.[0]?.slots?.main?.['*'] || page?.revisions?.[0]?.['*'] || ''
-}
-
-async function uploadToStorage(url: string): Promise<string> {
-  if (!url || url.includes('supabase')) return url
-  try {
-    const res = await fetch('/api/fetch-image', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url }),
-    })
-    if (res.ok) {
-      const d = await res.json()
-      if (d.url && !d.url.startsWith('data:') && d.url.includes('supabase')) return d.url
-      if (d.error) console.warn('fetch-image error:', d.error)
-    }
-  } catch {}
-  return url
-}
-
-async function fetchCoverImage(wikiTitle: string): Promise<string> {
-  try {
-    // Naudoti REST summary API — tas pats kaip WikipediaImport.tsx (veikia atlikėjams)
-    const sumRes = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(wikiTitle)}`)
-    if (sumRes.ok) {
-      const sum = await sumRes.json()
-      const thumbUrl = sum.originalimage?.source || sum.thumbnail?.source
-      if (thumbUrl) return uploadToStorage(thumbUrl)
-    }
-    // Fallback: MediaWiki API
-    const r2 = await fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(wikiTitle)}&prop=pageimages&pithumbsize=500&piprop=thumbnail&format=json&origin=*`)
-    const j2 = await r2.json()
-    const p2 = Object.values((j2.query?.pages || {}))[0] as any
-    if (p2?.thumbnail?.source) return uploadToStorage(p2.thumbnail.source)
-  } catch {}
-  return ''
-}
-
-// ─── Text parsing ─────────────────────────────────────────────────────────────
-
-function cleanWikiText(raw: string): string {
-  let s = raw
-  // Pirmiausia pašalinti <ref>...</ref> blokus (citatos su nuorodomis)
-  s = s.replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '')
-  s = s.replace(/<ref[^/]*\/>/gi, '')  // savaiminiai <ref name="x"/>
-  // HTML tagų valymas
-  s = s.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]+>/g, '')
-  // Wiki markup valymas
-  s = s.replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, (_: string, _l: string, d: string) => d.replace(/^["'\u201c\u2018]+|["'\u201d\u2019]+$/g, '').trim())
-  s = s.replace(/\[\[([^\]]+)\]\]/g, (_: string, l: string) => l.replace(/#[^\]]*$/, '').replace(/_/g, ' ').replace(/^["'\u201c\u2018]+|["'\u201d\u2019]+$/g, '').trim())
-  s = s.replace(/\[\[|\]\]/g, '').replace(/\{\{[^}]*\}\}/g, '').replace(/''+/g, '')
-  s = s.replace(/\[\w*\s*\d*\]/g, '')
-  s = s.replace(/\s*\([^)]*\bsong\b[^)]*\)/gi, '').replace(/\s*\([^)]*\balbum\b[^)]*\)/gi, '')
-  s = s.replace(/^["'\u201c\u2018]+|["'\u201d\u2019]+$/g, '')
-  s = s.replace(/\s+/g, ' ')
-  return s.trim()
-}
-
-function extractFeaturing(raw: string): string[] {
-  const names: string[] = []
-  const m1 = raw.match(/\((?:feat(?:uring)?\.?|ft\.?)\s+([^)]+)\)/i)
-  if (m1) {
-    for (const p of m1[1].split(/\s+and\s+|[,&]/i)) {
-      const lm = p.match(/\[\[(?:[^\]|]+\|)?([^\]|]+)\]\]/)
-      const n = (lm ? lm[1] : p).replace(/['\[\]]/g, '').trim()
-      if (n.length > 1) names.push(n)
-    }
-    return names
-  }
-  const m2 = raw.match(/\{\{(?:feat(?:uring)?\.?|ft\.?)[\s|]([^}]+)\}\}/i)
-  if (m2) {
-    for (const p of m2[1].split(/\s*\|\s*|\s+and\s+|[,&]/i)) {
-      const lm = p.match(/\[\[(?:[^\]|]+\|)?([^\]|]+)\]\]/)
-      const n = (lm ? lm[1] : p).replace(/['\[\]]/g, '').trim()
-      if (n.length > 1) names.push(n)
-    }
-  }
-  return names
-}
-
-function parseFeaturing(raw: string): { cleanTitle: string; featuring: string[] } {
-  const featuring = extractFeaturing(raw)
-  const cleanTitle = cleanWikiText(
-    raw.replace(/\s*\((?:feat(?:uring)?\.?|ft\.?)\s+[^)]+\)/gi, '')
-       .replace(/\s*\{\{(?:feat(?:uring)?\.?|ft\.?)[\s|][^}]+\}\}/gi, '').trim()
-  )
-  return { cleanTitle, featuring }
-}
-
-// ─── Wikipedia album parsers ──────────────────────────────────────────────────
-
-function hasMultipleArtistSections(wikitext: string): string[] {
-  const groups: string[] = []
-  let inDisc = false
-  for (const line of wikitext.split('\n')) {
-    const h = line.match(/^(==+)\s*(.+?)\s*\1/)
-    if (!h) continue
-    const depth = h[1].length, title = h[2].toLowerCase()
-    if (title.includes('discograph')) { inDisc = true; continue }
-    if (depth === 2 && inDisc) break
-    if (inDisc && depth === 3) groups.push(h[2].trim())
-  }
-  return groups
-}
-
-function parseMainPageDiscography(wikitext: string, soloOnly = false, groupFilter?: string): DiscographyItem[] {
-  const albums: DiscographyItem[] = []
-  const lines = wikitext.split('\n')
-  let inDiscSection = false
-  let currentType: AlbumType = 'studio'
-  let skipGroup = false
-
-  for (const line of lines) {
-    const hM = line.match(/^(==+)\s*(.+?)\s*\1/)
-    if (hM) {
-      const depth = hM[1].length, h = hM[2].toLowerCase(), hRaw = hM[2]
-      if (depth === 2 && inDiscSection && !h.includes('discograph')) break
-      if (h.includes('discograph')) { inDiscSection = true; skipGroup = false; continue }
-      if (inDiscSection) {
-        if (depth === 3) {
-          if (groupFilter && groupFilter !== '__solo__' && groupFilter !== '__all__')
-            skipGroup = !hRaw.trim().toLowerCase().includes(groupFilter.toLowerCase())
-          else
-            skipGroup = soloOnly && !/solo|as lead|as artist/i.test(hRaw) && hRaw.trim().length > 0
-        }
-        if (depth === 3 || depth === 4) {
-          const typeH = h.replace(/\[\[.*?\]\]/g, '')
-          if (typeH.includes('studio') || typeH.includes('album')) currentType = 'studio'
-          else if (typeH.includes(' ep') || typeH === 'eps') currentType = 'ep'
-          else if (typeH.includes('single')) { currentType = 'single'; skipGroup = true }
-          else if (typeH.includes('compilation') || typeH.includes('greatest') || typeH.includes('best of')) currentType = 'compilation'
-          else if (typeH.includes('live') || typeH.includes('concert')) currentType = 'live'
-          else if (typeH.includes('box') || typeH.includes('video') || typeH.includes('dvd')) { skipGroup = true }
-          else if (/solo|as lead|as artist|as performer/i.test(typeH)) currentType = 'studio'
-        }
-      }
-      continue
-    }
-    if (!inDiscSection || skipGroup || !line.startsWith('*')) continue
-    if (line.toLowerCase().includes('main article') || line.toLowerCase().includes('see also')) continue
-
-    let title = '', wikiTitle = ''
-    const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
-    if (wm) { wikiTitle = wm[1].trim(); title = cleanWikiText(wm[2] || wm[1]) }
-    else { const im = line.match(/'{2,3}([^']+)'{2,3}/); if (im) { title = cleanWikiText(im[1]); wikiTitle = title.replace(/ /g, '_') } }
-    if (!title || title.length < 2 || wikiTitle.includes(':') || /^[A-Z]{2,3}$/.test(title)) continue
-    const bad = ['discography', 'songs', 'videography', 'filmography', 'certification', 'chart']
-    if (bad.some(b => title.toLowerCase().includes(b) || wikiTitle.toLowerCase().includes(b))) continue
-    const yearM = line.match(/\((\d{4})\)/)
-    albums.push({ title, year: yearM ? parseInt(yearM[1]) : null, month: null, day: null, type: currentType, wikiTitle, source: 'wikipedia' })
-  }
-  return albums
-}
-
-function parseDiscographyPage(wikitext: string): DiscographyItem[] {
-  const albums: DiscographyItem[] = []
-  const lines = wikitext.split('\n')
-  let currentType: AlbumType = 'studio'
-  let inTable = false, skipSection = false, inSinglesSection = false, yearMode = false
-  // Year rowspan tracking (kaip singlų parsere)
-  let currentYear: number | null = null
-  let yearRowspan = 0
-
-  for (let li = 0; li < lines.length; li++) {
-    const line = lines[li]
-    const hm = line.match(/^(==+)\s*(.+?)\s*\1/)
-    if (hm) {
-      const depth = hm[1].length, h = hm[2].toLowerCase()
-      if (depth === 2 && /single|chart|collaborat|video|promo|appear|box.?set/.test(h)) inSinglesSection = true
-      if (depth === 2 && /^album/.test(h)) inSinglesSection = false
-      skipSection = /video|dvd|film|promo|tour|guest|appear|certif|box.?set|music.video/.test(h)
-      if (h.includes('studio')) { currentType = 'studio'; skipSection = false }
-      else if (h.includes('collaborative') || h.includes('collaboration')) { currentType = 'studio'; skipSection = false }
-      else if (h.includes('extended play') || h.includes(' ep') || h === 'eps') { currentType = 'ep'; skipSection = false }
-      else if (h.includes('single')) { currentType = 'single'; skipSection = true; inSinglesSection = true }
-      else if (h.includes('remix')) { currentType = 'remix'; skipSection = false }
-      else if (h.includes('cover')) { currentType = 'covers'; skipSection = false }
-      else if (h.includes('holiday') || h.includes('christmas') || h.includes('xmas')) { currentType = 'holiday'; skipSection = false }
-      else if (h.includes('soundtrack') || h.includes('score')) { currentType = 'soundtrack'; skipSection = false }
-      else if (h.includes('demo')) { currentType = 'demo'; skipSection = false }
-      else if (h.includes('compilation') || h.includes('greatest') || h.includes('best of') || h.includes('collection')) { currentType = 'compilation'; skipSection = false }
-      else if (h.includes('live') || h.includes('concert')) { currentType = 'live'; skipSection = false }
-      else if (h.includes('box')) { currentType = 'other'; skipSection = true }
-      else if (/^\d{4}s?$/.test(h.trim())) { skipSection = inSinglesSection }
-      else if (depth >= 3 && inSinglesSection) { skipSection = true }
-      yearMode = false; currentYear = null; yearRowspan = 0; continue
-    }
-    if (skipSection || inSinglesSection) continue
-    if (line.startsWith('{|')) { inTable = true; yearMode = false; currentYear = null; yearRowspan = 0; continue }
-    if (line.startsWith('|}')) { inTable = false; yearMode = false; continue }
-    if (!inTable) continue
-
-    // Row separator
-    if (line.trim() === '|-') {
-      if (yearRowspan > 1) yearRowspan--
-      else if (yearRowspan === 1) yearRowspan = 0
-      continue
-    }
-
-    if (/!.*rowspan.*Year|!rowspan.*Year/i.test(line)) { yearMode = true; continue }
-
-    // Year eilutė (Year-first formatas)
-    const yearM = line.match(/^\|\s*(?:rowspan\s*=\s*["']?(\d+)["']?\s*\|)?\s*((?:19|20)\d{2})\s*$/)
-    if (yearM) {
-      currentYear = parseInt(yearM[2])
-      yearRowspan = yearM[1] ? parseInt(yearM[1]) : 1
-      continue
-    }
-
-    if (/!\s*[—–-]?\s*scope\s*=\s*['"]row['"]/i.test(line)) {
-      const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
-      if (!wm) continue
-      const wikiTitle = wm[1].trim(), title = cleanWikiText(wm[2] || wm[1])
-      if (!title || title.length < 2 || wikiTitle.includes(':')) continue
-      if (['discography','videography','certification','singles','chart'].some(b => title.toLowerCase().includes(b))) continue
-
-      // Metai: pirma iš einamos eilutės, tada iš sekančių eilučių (Title-first formatas)
-      let year = currentYear
-      const yrInLine = line.match(/\b((?:19|20)\d{2})\b/)
-      if (yrInLine) {
-        year = parseInt(yrInLine[1])
-      } else if (!currentYear) {
-        // Pažiūrėti kitas eilutes (iki 15) — ieškome:
-        // 1. Standartinės metų eilutės: | 2004
-        // 2. Released: June 15, 2004 (Killers diskografijos stilius)
-        for (let k = li + 1; k < Math.min(li + 15, lines.length); k++) {
-          const nl = lines[k]
-          if (nl.trim() === '|-') break
-          if (/^!\s*[—–-]?\s*scope\s*=\s*['"]row['"]/i.test(nl)) break
-          // Standartinė metų eilutė
-          const yrNext = nl.match(/^\|\s*(?:rowspan\s*=\s*["']?\d+["']?\s*\|)?\s*((?:19|20)\d{2})\s*$/)
-          if (yrNext) { year = parseInt(yrNext[1]); break }
-          // "Released:" eilutė
-          const relNext = nl.match(/[Rr]eleased[^|{]*?(\d{4})/)
-          if (relNext) { year = parseInt(relNext[1]); break }
-          // "* Released:" su bullet
-          const relBullet = nl.match(/^\*\s*[Rr]eleased[^|{]*?(\d{4})/)
-          if (relBullet) { year = parseInt(relBullet[1]); break }
-        }
-      }
-
-      albums.push({ title, year, month: null, day: null, type: currentType, wikiTitle, source: 'wikipedia' })
-      continue
-    }
-
-    if (yearMode && /^\|/.test(line) && !/^\|\|/.test(line)) {
-      const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
-      if (wm) {
-        const wikiTitle = wm[1].trim(), title = cleanWikiText(wm[2] || wm[1])
-        if (title && title.length > 2 && !wikiTitle.includes(':') && !/^\d{4}/.test(title)) {
-          const yr = line.match(/\b(19|20)\d{2}\b/)
-          albums.push({ title, year: yr ? parseInt(yr[0]) : currentYear, month: null, day: null, type: currentType, wikiTitle, source: 'wikipedia' })
-        }
-      } else {
-        const pm = line.match(/''([^']+)''/)
-        if (pm) {
-          const title = cleanWikiText(pm[1])
-          if (title && title.length > 2 && !/^\d/.test(title))
-            albums.push({ title, year: currentYear, month: null, day: null, type: currentType, wikiTitle: title.replace(/ /g, '_'), source: 'wikipedia' })
-        }
-      }
-    }
-  }
-  return albums
-}
-
-// ─── Singlų parsavimas ────────────────────────────────────────────────────────
-// Palaiko du Wikipedia formatus:
-//   A) "Title-first": ! scope="row"| "Title" → kita eilutė = metai (Queen stilius)
-//   B) "Year-first": Year stulpelis pirmas, Title stulpelis antras (Freddie Mercury stilius)
-// Metai gali turėti rowspan — tada galioja kelioms eilutėms.
-// Skip'ina visas depth-3 sub-sekcijas IŠSKYRUS dešimtmečius (1970s etc.)
-
-function parseSinglesSection(wikitext: string): SingleSongItem[] {
-  const singles: SingleSongItem[] = []
-  const lines = wikitext.split('\n')
-
-  let inSingles = false
-  let inTable = false
-  let skipSubSection = false
-
-  // Metų sekimas su rowspan palaikymu
-  let currentYear: number | null = null
-  let yearRowspan = 0
-
-  // Title-first formato sekimas
-  let pendingTitle: string | null = null
-  let pendingAlbum: string | undefined = undefined
-  let pendingYearLine = false
-
-  // Albumo rowspan sekimas — pvz. ''Queen'' rowspan=2 apima Keep Yourself Alive + Liar
-  let currentAlbum: string | undefined = undefined
-  let albumRowspan = 0
-
-  // Year-first formatas
-  let hasYearCol = false
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
-
-    // ── Headers ──────────────────────────────────────────────────────────────
-    const hm = line.match(/^(==+)\s*(.+?)\s*\1/)
-    if (hm) {
-      const depth = hm[1].length
-      const h = hm[2].toLowerCase()
-      const hRaw = hm[2]
-
-      if (depth === 2 && /^singles\s*$/i.test(h)) {
-        inSingles = true; skipSubSection = false; hasYearCol = false
-        currentYear = null; yearRowspan = 0; pendingTitle = null; pendingAlbum = undefined; pendingYearLine = false
-        continue
-      }
-      if (depth === 2 && inSingles) { inSingles = false; inTable = false; continue }
-      if (inSingles && depth === 3) {
-        if (/^\d{4}s?\s*$/i.test(hRaw.trim())) {
-          // Dešimtmetis — reset ir tęsiame
-          skipSubSection = false; hasYearCol = false
-          currentYear = null; yearRowspan = 0; pendingTitle = null; pendingAlbum = undefined; pendingYearLine = false
-        } else {
-          skipSubSection = true
-        }
-        continue
-      }
-      continue
-    }
-
-    if (!inSingles || skipSubSection) continue
-    if (line.startsWith('{|')) { inTable = true; hasYearCol = false; currentYear = null; yearRowspan = 0; pendingTitle = null; pendingAlbum = undefined; pendingYearLine = false; continue }
-    if (line.startsWith('|}')) { inTable = false; continue }
-    if (!inTable) continue
-
-    // ── Lentelės header eilutės ───────────────────────────────────────────────
-    if (line.startsWith('!') && !/!\s*[—–-]?\s*scope\s*=\s*['"]row['"]/i.test(line)) {
-      // Detektuoti Year stulpelį header eilutėje
-      if (/\bYear\b/i.test(line)) { hasYearCol = true; continue }
-      // Paprastas ! header be scope — gali būti daina (pvz. 2020s lentelė)
-      // Tik jei turi kabutes — Wikipedia konvencija singlams
-      const cleanH = line
-        .replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '')
-        .replace(/<ref[^/]*\/>/gi, '')
-      const qm = cleanH.match(/!\s*"([^"]+)"\s*(.*)/)
-      if (qm && hasYearCol) {
-        const rawSuffix = qm[2].replace(/<[^>]+>/g, '').replace(/\{\{[^}]*\}\}/g, '').replace(/\[\d+\]/g, '').trim()
-        const simpleSuffix = rawSuffix.match(/^(\([^)]{1,50}\))/)
-        let title = simpleSuffix ? `${qm[1]} ${simpleSuffix[1]}` : qm[1]
-        title = title.replace(/\s*[\[(](?:re-?release|re-?issue)[)\]]/gi, '').trim()
-        if (title && title.length > 1) {
-          // Albumą rasime iš vėlesnių eilučių
-          let albumTitle: string | undefined
-          for (let k = i + 1; k < Math.min(i + 20, lines.length); k++) {
-            const nl = lines[k]
-            if (nl.trim() === '|-' || nl.startsWith('!')) break
-            if (/^\|/.test(nl) && !/^\|\|/.test(nl)) {
-              if (/Non-album/i.test(nl)) { albumTitle = 'Non-album single'; break }
-              const alm = nl.replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '').match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
-              if (alm) {
-                const p = cleanWikiText(alm[2] || alm[1])
-                if (p && !/^\d+$/.test(p) && !/^[-–—]$/.test(p) && p.length > 2 && p !== title) {
-                  albumTitle = p; break
-                }
-              }
-            }
-          }
-          if (yearRowspan > 0) {
-            singles.push({ title, year: currentYear, month: null, day: null, albumTitle, source: 'wikipedia', selected: false })
-          } else {
-            pendingTitle = title
-            pendingAlbum = albumTitle
-            pendingYearLine = true
-          }
-        }
-      }
-      continue
-    }
-
-    // ── Row separator |- ──────────────────────────────────────────────────────
-    if (line.trim() === '|-') {
-      if (yearRowspan > 1) yearRowspan--
-      else if (yearRowspan === 1) yearRowspan = 0
-      if (albumRowspan > 1) albumRowspan--
-      else if (albumRowspan === 1) { albumRowspan = 0; currentAlbum = undefined }
-      continue
-    }
-
-    // ── scope="row" eilutė — DAINA (Title-first, pvz. Queen 1970s-1990s) ─────
-    if (/^!\s*[—–-]?\s*scope\s*=\s*['"]row['"]/i.test(line)) {
-      // Pašalinti <ref>...</ref> blokus prieš parsavimą (juose gali būti [[wiki links]])
-      const cleanLine = line
-        .replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '')
-        .replace(/<ref[^/]*\/>/gi, '')
-
-      // Paimti viską po scope="row"|
-      const afterScope = cleanLine.replace(/^.*scope\s*=\s*['"]row['"]\s*\|?\s*/i, '').trim()
-
-      // Surinkti visus wiki links iš IŠVALYTOS eilutės (be ref tagų)
-      const allLinks: string[] = []
-      const linkRe = /\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/g
-      let lm: RegExpExecArray | null
-      while ((lm = linkRe.exec(cleanLine)) !== null) {
-        allLinks.push(cleanWikiText(lm[2] || lm[1]))
-      }
-
-      let rawTitle = ''
-      if (allLinks.length > 0) {
-        rawTitle = allLinks.join(' / ')
-        // Pridėti TIKTAI paprastą skliaustelių suffix po paskutinio wiki link'o
-        // pvz. "[[Title]]" (2024 Mix) → "Title (2024 Mix)"
-        // Bet NE: "[[Title]]" (released on the single E.P. ...)
-        const afterLastLink = afterScope.replace(/.*\]\]/, '').replace(/<[^>]+>/g, '').replace(/\{\{[^}]*\}\}/g, '').trim()
-        const simpleSuffix = afterLastLink.match(/^\s*(\([^)]{1,40}\))/)
-        if (simpleSuffix) rawTitle += ' ' + simpleSuffix[1].trim()
-      } else {
-        // Kabučių pavadinimas: "Title" arba "Title" (Suffix)
-        const qm = afterScope.match(/^"([^"]+)"\s*(.*)/)
-        if (qm) {
-          // Suffix: pasiimame tik paprastą skliaustelių suffix, be wiki markup
-          const rawSuffix = qm[2].replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '').replace(/<[^>]+>/g, '').replace(/\{\{[^}]*\}\}/g, '').replace(/\[\d+\]/g, '').trim()
-          const simpleSuffix = rawSuffix.match(/^(\([^)]{1,50}\))/)
-          rawTitle = simpleSuffix ? `${qm[1]} ${simpleSuffix[1]}` : qm[1]
-        } else {
-          const pm = afterScope.match(/'{2,3}([^']+)'{2,3}/)
-          if (pm) rawTitle = cleanWikiText(pm[1])
-        }
-      }
-
-      rawTitle = rawTitle.replace(/\s*[\[(](?:re-?release|re-?issue)[)\]]/gi, '').trim()
-      if (!rawTitle || rawTitle.length < 2 || rawTitle.toLowerCase() === 'row') continue
-      // Skip jei tai EP/albumas pavadinimas, ne daina
-      if (/\bE\.?P\.?\s*$/i.test(rawTitle)) continue
-
-      // Split dvigubų singlų per " / " — kiekvienas tampa atskira daina
-      const titleParts = rawTitle.split(/\s*\/\s*/).map(t => t.replace(/^["'\s]+|["'\s]+$/g, '').trim()).filter(t => t.length > 1)
-        .filter(t => !/\bE\.?P\.?\s*$/i.test(t))  // skip EP pavadinimus
-
-      // Albumą rasime iš vėlesnių eilučių (lookahead)
-      let albumTitle: string | undefined
-      for (let k = i + 1; k < Math.min(i + 30, lines.length); k++) {
-        const nl = lines[k]
-        if (nl.trim() === '|-' || /!\s*[—–-]?\s*scope\s*=\s*['"]row['"]/i.test(nl) || (nl.startsWith('!') && !nl.startsWith('!!'))) break
-        if (/^\|/.test(nl) && !/^\|\|/.test(nl)) {
-          if (/Non-album/i.test(nl)) { albumTitle = 'Non-album single'; break }
-          if (/^\|\s*(?:rowspan\s*=\s*["']?\d+["']?\s*\|)?\s*((?:19|20)\d{2})\s*$/.test(nl)) continue
-          if (/^\|\s*[-–—]\s*$/.test(nl) || /^\|\s*\|\|/.test(nl)) continue
-          const nlClean = nl.replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '')
-          // Patikrinti rowspan albumui
-          const rsM = nl.match(/rowspan\s*=\s*["']?(\d+)["']?/)
-          const rsCount = rsM ? parseInt(rsM[1]) : 1
-          const alm = nlClean.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
-          if (alm) {
-            const p = cleanWikiText(alm[2] || alm[1])
-            if (p && !/^\d+$/.test(p) && !/^[-–—]$/.test(p) && p.length > 2) {
-              albumTitle = p
-              if (rsCount > 1) { currentAlbum = p; albumRowspan = rsCount }
-              break
-            }
-          }
-          const im = nlClean.match(/'{2,3}([^']+)'{2,3}/)
-          if (im) {
-            const p = cleanWikiText(im[1])
-            // Albumas gali turėti tą patį pavadinimą kaip daina (pvz. "Innuendo" singlas ir "Innuendo" albumas)
-            // Todėl netikrinime ar p !== title — tiesiog tikriname ar tai ne skaičius/brūkšnelis
-            if (p && p.length > 2 && !/^\d+$/.test(p) && !/^[-–—]$/.test(p)) {
-              albumTitle = p
-              if (rsCount > 1) { currentAlbum = p; albumRowspan = rsCount }
-              break
-            }
-          }
-        }
-      }
-      // Jei lookahead nerado albumo — naudoti currentAlbum iš rowspan
-      if (!albumTitle && currentAlbum && albumRowspan > 0) albumTitle = currentAlbum
-
-      // Metai
-      if (yearRowspan > 0) {
-        for (const t of titleParts) {
-          singles.push({ title: t, year: currentYear, month: null, day: null, albumTitle, source: 'wikipedia', selected: false })
-        }
-      } else {
-        // Laukti metų iš kitos eilutės — saugoti visus
-        pendingTitle = titleParts.join('\n')  // \n kaip separator
-        pendingAlbum = albumTitle
-        pendingYearLine = true
-      }
-      continue
-    }
-
-    // ── Eilutė su | duomenimis ────────────────────────────────────────────────
-    if (line.startsWith('|') && !line.startsWith('||')) {
-
-      // Metų eilutė: |1973  arba  |rowspan="3"|1974  arba  | rowspan=3| 1974
-      const yearM = line.match(/^\|\s*(?:rowspan\s*=\s*["']?(\d+)["']?\s*\|)?\s*((?:19|20)\d{2})\s*$/)
-      if (yearM) {
-        currentYear = parseInt(yearM[2])
-        yearRowspan = yearM[1] ? parseInt(yearM[1]) : 1
-        if (pendingTitle && pendingYearLine) {
-          const titleParts = pendingTitle.split('\n').filter(t => t.length > 1)
-          for (const t of titleParts) {
-            singles.push({ title: t, year: currentYear, month: null, day: null, albumTitle: pendingAlbum, source: 'wikipedia', selected: false })
-          }
-          pendingTitle = null; pendingAlbum = undefined; pendingYearLine = false
-        }
-        continue
-      }
-
-      pendingYearLine = false
-
-      // Year-first formatas (Title stulpelis, hasYearCol=true)
-      if (hasYearCol && !pendingTitle) {
-        const allSegs = line.split('|').map(s => s.trim()).filter(Boolean)
-        if (allSegs.length === 0) continue
-
-        const firstSeg = allSegs[0]
-
-        let title = ''
-        const quotedM = firstSeg.match(/^"([^"]+)"\s*(.*)/)
-        if (quotedM) {
-          const rawSuffix = quotedM[2].replace(/<[^>]+>/g, '').replace(/\{\{[^}]*\}\}/g, '').replace(/\[\d+\]/g, '').trim()
-          const simpleSuffix = rawSuffix.match(/^(\([^)]{1,50}\))/)
-          title = simpleSuffix ? `${quotedM[1]} ${simpleSuffix[1]}` : quotedM[1]
-        } else {
-          // Wiki link be kursyvo — bet tik jei nėra ''...'' (kursyvas = albumas)
-          if (/^''/.test(firstSeg)) continue  // kursyvas = albumas, skip
-          const wm = firstSeg.match(/^\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
-          if (wm) title = cleanWikiText(wm[2] || wm[1])
-        }
-
-        if (!title || title.length < 2) continue
-        if (/^\d{4}/.test(title) || /^\d+$/.test(title)) continue
-
-        // Skip jei tai albumas/organizacija, ne daina
-        if (/\bedition\b|\bcollection\b|\banniversary\b|\bcollector\b|\bgreatest.?hits\b|\bsoundtrack\b|\bofficial.?charts?\b|\bcharts?\s+company\b/i.test(title)) continue
-        if (/\bE\.?P\.?\s*$/i.test(title)) continue
-        // Skip jei tai aiški non-single eilutė (pvz. "See also", "Notes")
-        if (/^(see also|notes?|references?)\s*$/i.test(title)) continue
-
-        // Pašalinti tik (re-release) ir (re-issue) — NE (Remix), NE (2024 Mix)
-        title = title.replace(/\s*[\[(](?:re-?release|re-?issue)[)\]]/gi, '').trim()
-
-        // Albumas — paskutinis segmentas su wiki link arba italics
-        let albumTitle: string | undefined
-        for (let sp = allSegs.length - 1; sp > 0; sp--) {
-          const seg = allSegs[sp]
-          if (/Non-album/i.test(seg)) { albumTitle = 'Non-album single'; break }
-          const am = seg.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
-          if (am) {
-            const p = cleanWikiText(am[2] || am[1])
-            if (p && p !== title && !/^\d+$/.test(p) && !/^[-–—]$/.test(p)) { albumTitle = p; break }
-          }
-          // Italics be wiki link: ''Album''
-          const im = seg.match(/'{2,3}([^']+)'{2,3}/)
-          if (im) {
-            const p = cleanWikiText(im[1])
-            if (p && p !== title && p.length > 1) { albumTitle = p; break }
-          }
-        }
-
-        singles.push({ title, year: currentYear, month: null, day: null, albumTitle, source: 'wikipedia', selected: false })
-      }
-    }
-  }
-
-  // Jei liko pending
-  if (pendingTitle) {
-    const titleParts = pendingTitle.split('\n').filter(t => t.length > 1)
-    for (const t of titleParts) {
-      singles.push({ title: t, year: currentYear, month: null, day: null, albumTitle: pendingAlbum, source: 'wikipedia', selected: false })
-    }
-  }
-
-  // Deduplikuoti — palikti pirmą versiją kiekvieno pavadinimo
-  // Deduplikavimo raktas: pavadinimas be remix/mix/version skliaustelių
-  // BET: jei versijos labai skiriasi (pvz. "2024 Mix" vs originalas) — laikyti atskira daina
-  const seen = new Set<string>()
-  return singles.filter(s => {
-    // Bazinis pavadinimas (be skliaustelių turinio) deduplikacijai
-    const base = s.title.toLowerCase()
-      .replace(/\s*\(\s*(?:re-?release|re-?issue|re-?release)\s*\)\s*/gi, '')
-      .replace(/\s*\[\s*(?:re-?release|re-?issue)\s*\]\s*/gi, '')
-      .trim()
-    if (seen.has(base)) return false
-    seen.add(base)
-    return true
-  })
-}
-
-// ─── Track parsing ────────────────────────────────────────────────────────────
-
-function extractTrackListings(wikitext: string): string[] {
-  const results: string[] = []
-  const pattern = /\{\{[Tt]rack\s*[Ll]isting/g
-  let m: RegExpExecArray | null
-  while ((m = pattern.exec(wikitext)) !== null) {
-    let depth = 0, i = m.index
-    while (i < wikitext.length - 1) {
-      if (wikitext[i] === '{' && wikitext[i+1] === '{') { depth++; i += 2 }
-      else if (wikitext[i] === '}' && wikitext[i+1] === '}') { depth--; i += 2; if (depth === 0) { results.push(wikitext.slice(m.index + 2, i - 2)); break } }
-      else i++
-    }
-  }
-  return results
-}
-
-// Grąžina tracklist blokus su jų pozicijomis wikitext'e (reikia konteksto filtravimui)
-function extractTrackListingsWithPos(wikitext: string): { block: string; pos: number }[] {
-  const results: { block: string; pos: number }[] = []
-  const pattern = /\{\{[Tt]rack\s*[Ll]isting/g
-  let m: RegExpExecArray | null
-  while ((m = pattern.exec(wikitext)) !== null) {
-    let depth = 0, i = m.index
-    while (i < wikitext.length - 1) {
-      if (wikitext[i] === '{' && wikitext[i+1] === '{') { depth++; i += 2 }
-      else if (wikitext[i] === '}' && wikitext[i+1] === '}') { depth--; i += 2; if (depth === 0) { results.push({ block: wikitext.slice(m.index + 2, i - 2), pos: m.index }); break } }
-      else i++
-    }
-  }
-  return results
-}
-
-// Rasti section heading prieš duotą poziciją
-// Grąžina tik headings nuo paskutinio depth-2 heading'o — kad nefiltruotume
-// dėl nesusijusių sekcijų (pvz. ==Reissues== prieš ==Track listing==)
-function getSectionBeforePos(wikitext: string, pos: number): string {
-  const textBefore = wikitext.slice(0, pos)
-  const headings = [...textBefore.matchAll(/^(==+)\s*(.+?)\s*\1\s*$/gm)]
-  if (!headings.length) return ''
-  // Rasti paskutinį depth-2 heading'ą — tai "sekcijos šaknis"
-  // Pvz. ==Track listing== → imame tik headings po jo
-  let lastDepth2Idx = -1
-  for (let i = headings.length - 1; i >= 0; i--) {
-    if (headings[i][1].length === 2) { lastDepth2Idx = i; break }
-  }
-  // Imame tik headings nuo paskutinio depth-2 (įskaitant jį)
-  const relevant = lastDepth2Idx >= 0 ? headings.slice(lastDepth2Idx) : headings
-  return relevant.map(h => h[2].toLowerCase()).join(' | ')
-}
-
-function isReissueBlock(h: string, tl: string): boolean {
-  const hl = h.toLowerCase()
-  // Headline patikrinimas
-  if (hl.includes('bonus') || hl.includes('deluxe') || hl.includes('japan') ||
-    hl.includes('special') || hl.includes('itunes') || hl.includes('exclusive') ||
-    hl.includes('limited') || hl.includes('remaster') || hl.includes('reissue') ||
-    hl.includes('re-issue') || hl.includes('anniversary') || hl.includes('expanded') ||
-    hl.includes('collector') || /^\d{4}/.test(hl)) return true
-
-  // Jei headline tuščias — tikrinti tracklist bloko turinį
-  if (!hl) {
-    const nums = [...tl.matchAll(/\|\s*title(\d+)\s*=/g)].map(m => parseInt(m[1])).sort((a,b) => a-b)
-
-    // Jei pirma daina bloke pradedama nuo 11+ — tai bonus blokas
-    if (nums.length > 0 && nums[0] >= 11) return true
-
-    // Jei bloke yra total_length ir nėra title1 — papildomas blokas
-    // BET: nefilttruoti jei pirmas title numeris mažas (≤10) — tai gali būti Side two
-    const hasTitle1 = /\|\s*title1\s*=/.test(tl)
-    const firstNum = nums.length > 0 ? nums[0] : 0
-    if (/\|\s*total_length\s*=/.test(tl) && !hasTitle1 && firstNum >= 11) return true
-  }
-  return false
-}
-
-function isDiscBlock(tl: string): boolean {
-  return /\|\s*headline\s*=.*[Dd]isc\s*[12]/i.test(tl) || /\|\s*disc\s*=\s*[12]/i.test(tl)
-}
-
-function parseSinglesFromInfobox(wikitext: string): Set<string> {
-  const singles = new Set<string>()
-
-  function extractSingleNames(text: string) {
-    const re = /\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/g
-    let lm: RegExpExecArray | null
-    while ((lm = re.exec(text)) !== null) {
-      const raw = lm[2] || lm[1].replace(/#[^\]]*$/, '')
-      const name = raw.replace(/\s*\([^)]+\)$/g, '').replace(/'+/g, '').trim()
-      if (name.length > 1) singles.add(name.toLowerCase())
-    }
-  }
-
-  // Format 1: | singles = [[Song1]] / [[Song2]]
-  const m = wikitext.match(/\|\s*singles?\s*=([\s\S]*?)(?=\n\s*\||\n\}\})/)
-  if (m) extractSingleNames(m[1])
-
-  // Format 2: {{Singles | single1 = [[Song]] | single2 = [[Song]] ... }}
-  // Albumai naudoja: | misc = {{Singles | single1 = ... }}
-  const tplRe = /\{\{Singles[\s\S]*?(?=\}\}\s*\}\}|\}\}\s*$)/gm
-  let tplM: RegExpExecArray | null
-  while ((tplM = tplRe.exec(wikitext)) !== null) {
-    const tpl = tplM[0]
-    const sRe = /\|\s*single\d+\s*=\s*((?:\[\[[^\]]*\]\]|[^|\n])+)/g
-    let sm: RegExpExecArray | null
-    while ((sm = sRe.exec(tpl)) !== null) {
-      extractSingleNames(sm[1])
-    }
-    break  // Only first {{Singles block
-  }
-
-  return singles
-}
-
-function parseTracklist(wikitext: string): TrackEntry[] {
-  const singles = parseSinglesFromInfobox(wikitext)
-  const tlWithPos = extractTrackListingsWithPos(wikitext)
-  const tlBlocks = tlWithPos.map(t => t.block)
-
-  if (!tlBlocks.length) {
-    const tracks: TrackEntry[] = []
-    let order = 1
-    for (const line of wikitext.split('\n')) {
-      const m = line.match(/^#+\s*(.+)/)
-      if (m) {
-        const { cleanTitle, featuring } = parseFeaturing(cleanWikiText(m[1]))
-        if (cleanTitle.length > 1) tracks.push({ title: cleanTitle, sort_order: order++, featuring: featuring.length ? featuring : undefined })
-      }
-    }
-    return tracks
-  }
-
-  const parseBlock = (tl: string, startOrder: number): TrackEntry[] => {
-    const tracks: TrackEntry[] = []
-    const nums = [...tl.matchAll(/\|\s*title(\d+)\s*=/g)].map(m => parseInt(m[1])).sort((a,b) => a-b)
-    let order = startOrder
-    for (const num of nums) {
-      const titleM = tl.match(new RegExp(`\\|\\s*title${num}\\s*=\\s*((?:\\[\\[[^\\]]*\\]\\]|[^|\\n])+)`))
-      if (!titleM) continue
-      const lenM = tl.match(new RegExp(`\\|\\s*length${num}\\s*=\\s*([^|\\n]+)`))
-      const noteM = tl.match(new RegExp(`\\|\\s*note${num}\\s*=\\s*([^|\\n]+)`))
-      let featuring: string[] = []
-      if (noteM) {
-        const fm = noteM[1].match(/feat(?:uring)?[.\s]+(.+)/i)
-        if (fm) for (const p of fm[1].split(/\s+and\s+|[,&]/i)) {
-          const lm = p.match(/\[\[(?:[^\]|]+\|)?([^\]|]+)\]\]/)
-          const n = (lm ? lm[1] : p).replace(/['[\]]/g, '').trim()
-          if (n.length > 1) featuring.push(n)
-        }
-      }
-      const { cleanTitle, featuring: tf } = parseFeaturing(titleM[1].trim())
-      if (!featuring.length) featuring = tf
-      const finalTitle = cleanWikiText(cleanTitle)
-      if (finalTitle) {
-        const is_single = singles.size > 0 ? singles.has(finalTitle.toLowerCase().replace(/['\u2019]/g, '')) : undefined
-        // Nustatyti track tipą iš note ir pavadinimo
-        const noteStr = (noteM?.[1] || '').toLowerCase()
-        const titleLower = finalTitle.toLowerCase()
-        let trackType: TrackEntry['type'] = 'normal'
-        if (/\binstrumental\b/.test(noteStr) || /\binstrumental\b/.test(titleLower)) trackType = 'instrumental'
-        else if (/\blive\b/.test(noteStr) || /\b(live at|live from|concert|recorded live)\b/.test(noteStr)) trackType = 'live'
-        else if (/\bremix\b/.test(noteStr) || /\bremix\b/.test(titleLower)) trackType = 'remix'
-        else if (/\bcover\b/.test(noteStr) || /\bcovers?\b/.test(noteStr)) trackType = 'covers'
-        else if (/\bmashup\b/.test(noteStr) || /\bmashup\b/.test(titleLower)) trackType = 'mashup'
-        tracks.push({ title: finalTitle, duration: lenM?.[1]?.trim(), sort_order: order++, is_single, featuring: featuring.length ? featuring : undefined, type: trackType })
-      }
-    }
-    return tracks
-  }
-
-  const allTracks: TrackEntry[] = []
-  const isMultiDisc = tlBlocks.every(b => isDiscBlock(b)) && tlBlocks.length > 1
-  if (isMultiDisc) {
-    // Multi-disc albumas — imame visus disc blokus
-    let order = 1
-    for (const tl of tlBlocks) { const nt = parseBlock(tl, order); allTracks.push(...nt); order += nt.length }
-  } else {
-    const getHeadline = (tl: string) => { const m = tl.match(/\|\s*(?:headline|caption)\s*=\s*([^\n|]+)/); return m ? m[1].replace(/[''+\[\]]/g, '').trim() : '' }
-
-    // Filtruoti naudojant ir headline, ir section kontekstą
-    const standard = tlWithPos.filter(({ block, pos }) => {
-      const hl = getHeadline(block)
-      if (isReissueBlock(hl, block)) return false
-      // Papildomai tikrinti section heading prieš šį bloką
-      const sectionBefore = getSectionBeforePos(wikitext, pos)
-      if (/reissue|remaster|anniversary|box.?set|collector|deluxe|expanded|bonus|demo|outtake/i.test(sectionBefore)) return false
-      return true
-    }).map(({ block }) => block)
-
-    const toUse = standard.length ? standard : [tlBlocks[0]]
-
-    // Imame VISUS standartinius blokus (Side one + Side two sudaro vieną albumą)
-    const existing = new Set<string>()
-    let order = 1
-    for (const tl of toUse) {
-      for (const t of parseBlock(tl, order)) {
-        if (!existing.has(t.title.toLowerCase())) {
-          allTracks.push({ ...t, sort_order: order++ })
-          existing.add(t.title.toLowerCase())
-        }
-      }
-    }
-  }
-  return allTracks
-}
-
-function parseReleaseDate(wikitext: string): { year: number | null; month: number | null; day: number | null } {
-  const s1 = wikitext.match(/\{\{[Ss]tart\s*date\|(\d{4})\|?(\d{1,2})?\|?(\d{1,2})?/)
-  if (s1) return { year: parseInt(s1[1]), month: s1[2] ? parseInt(s1[2]) : null, day: s1[3] ? parseInt(s1[3]) : null }
-  const i1 = wikitext.match(/\|\s*released\s*=\s*(\d{4})-(\d{2})-(\d{2})/)
-  if (i1) return { year: parseInt(i1[1]), month: parseInt(i1[2]), day: parseInt(i1[3]) }
-  const r1 = wikitext.match(/\|\s*released\s*=\s*[^|{[\n]*?(\w+ \d{1,2},?\s*\d{4})/)
-  if (r1) { const d = new Date(r1[1]); if (!isNaN(d.getTime())) return { year: d.getFullYear(), month: d.getMonth()+1, day: d.getDate() } }
-  const y1 = wikitext.match(/\|\s*released\s*=\s*.*?(\d{4})/)
-  if (y1) return { year: parseInt(y1[1]), month: null, day: null }
-  return { year: null, month: null, day: null }
-}
-
-// ─── MusicBrainz utils ────────────────────────────────────────────────────────
-
-function mbTypeToLocal(primary?: string, secondary?: string[]): AlbumType {
-  const sec = (secondary || []).map(s => s.toLowerCase())
-  if (sec.includes('compilation') || sec.includes('greatest hits')) return 'compilation'
-  if (sec.includes('live')) return 'live'
-  if (sec.includes('remix')) return 'remix'
-  if (sec.includes('demo')) return 'demo'
-  if (sec.includes('soundtrack')) return 'soundtrack'
-  if (sec.includes('mixtape/street') || sec.includes('bootleg')) return 'other'
-  const p = (primary || '').toLowerCase()
-  if (p === 'single') return 'single'
-  if (p === 'ep') return 'ep'
-  if (p === 'album') return 'studio'
-  return 'other'
-}
-
-async function mbFindArtist(name: string): Promise<{ id: string; name: string } | null> {
-  try {
-    const res = await fetch(`/api/mb-proxy?path=${encodeURIComponent(`artist/?query=${encodeURIComponent('"' + name + '"')}&limit=5&fmt=json`)}`)
-    if (!res.ok) return null
-    const data = await res.json()
-    const best = (data.artists || []).find((a: any) => a.score >= 85) || data.artists?.[0]
-    return best ? { id: best.id, name: best.name } : null
-  } catch { return null }
-}
-
-async function mbFetchDiscography(artistId: string): Promise<DiscographyItem[]> {
-  const items: DiscographyItem[] = []
-  let offset = 0
-  while (true) {
-    const res = await fetch(`/api/mb-proxy?path=${encodeURIComponent(`release-group?artist=${artistId}&limit=100&offset=${offset}&fmt=json`)}`)
-    if (!res.ok) break
-    const data = await res.json()
-    const rgs = data['release-groups'] || []
-    if (!rgs.length) break
-    for (const rg of rgs) {
-      const type = mbTypeToLocal(rg['primary-type'], rg['secondary-types'])
-      if (type === 'single') continue
-      const parts = (rg['first-release-date'] || '').split('-')
-      items.push({ title: rg.title, year: parts[0] ? parseInt(parts[0]) : null, month: parts[1] ? parseInt(parts[1]) : null, day: parts[2] ? parseInt(parts[2]) : null, type, mbId: rg.id, source: 'musicbrainz' })
-    }
-    if (offset + 100 >= (data['release-group-count'] || 0)) break
-    offset += 100
-    await new Promise(r => setTimeout(r, 300))
-  }
-  return items.sort((a, b) => (a.year || 9999) - (b.year || 9999))
-}
-
-async function mbFetchSingles(artistId: string): Promise<SingleSongItem[]> {
-  const items: SingleSongItem[] = []
-  let offset = 0
-  while (true) {
-    const res = await fetch(`/api/mb-proxy?path=${encodeURIComponent(`release-group?artist=${artistId}&type=single&limit=100&offset=${offset}&fmt=json`)}`)
-    if (!res.ok) break
-    const data = await res.json()
-    const rgs = data['release-groups'] || []
-    if (!rgs.length) break
-    for (const rg of rgs) {
-      const parts = (rg['first-release-date'] || '').split('-')
-      items.push({ title: rg.title, year: parts[0] ? parseInt(parts[0]) : null, month: parts[1] ? parseInt(parts[1]) : null, day: parts[2] ? parseInt(parts[2]) : null, source: 'musicbrainz', selected: true })
-    }
-    if (offset + 100 >= (data['release-group-count'] || 0)) break
-    offset += 100
-    await new Promise(r => setTimeout(r, 300))
-  }
-  return items.sort((a, b) => (a.year || 9999) - (b.year || 9999))
-}
-
-async function mbFetchTracks(releaseGroupId: string): Promise<{ tracks: TrackEntry[]; cover: string }> {
-  try {
-    const res = await fetch(`/api/mb-proxy?path=${encodeURIComponent(`release?release-group=${releaseGroupId}&inc=recordings&limit=1&fmt=json`)}`)
-    if (!res.ok) return { tracks: [], cover: '' }
-    const data = await res.json()
-    const release = data.releases?.[0]
-    if (!release) return { tracks: [], cover: '' }
-    const tracks: TrackEntry[] = []
-    let order = 1
-    for (const medium of release.media || []) {
-      for (const track of medium.tracks || []) {
-        const ms = track.length
-        const duration = ms ? `${Math.floor(ms/60000)}:${String(Math.floor((ms%60000)/1000)).padStart(2,'0')}` : undefined
-        tracks.push({ title: track.title || track.recording?.title || '', duration, sort_order: order++, disc_number: medium.position || 1 })
-      }
-    }
-    let cover = ''
-    try {
-      const cr = await fetch(`https://coverartarchive.org/release-group/${releaseGroupId}/front-500`, { redirect: 'follow' })
-      if (cr.ok) cover = cr.url
-    } catch {}
-    return { tracks, cover }
-  } catch { return { tracks: [], cover: '' } }
-}
-
-// ─── DB utils ─────────────────────────────────────────────────────────────────
-
-async function checkAlbumDuplicates(titles: string[], artistId: number): Promise<Record<string, number>> {
-  if (!titles.length) return {}
-  try {
-    const res = await fetch(`/api/albums?artist_id=${artistId}&check_titles=${encodeURIComponent(JSON.stringify(titles))}`)
-    return res.ok ? (await res.json()).found || {} : {}
-  } catch { return {} }
-}
-
-async function checkTrackDuplicates(titles: string[], artistId: number): Promise<Record<string, number>> {
-  if (!titles.length) return {}
-  try {
-    const res = await fetch(`/api/tracks?artist_id=${artistId}&check_titles=${encodeURIComponent(JSON.stringify(titles))}`)
-    return res.ok ? (await res.json()).found || {} : {}
-  } catch { return {} }
-}
-
-function titleMatches(result: string, query: string): boolean {
-  const n = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim()
-  const nr = n(result)
-  const nq = n(query)
-  // Jei rezultate yra bent pusė query žodžių — ok
-  const words = nq.split(' ').filter(w => w.length > 2)
-  if (words.length === 0) return true
-  const matchCount = words.filter(w => nr.includes(w)).length
-  return matchCount >= Math.ceil(words.length * 0.5)
-}
-
-async function enrichTracks(albumId: number, artistName: string, addLog: (s: string) => void, yt = true, lyrics = true) {
-  let dbTracks: any[] = []
-  try { dbTracks = (await (await fetch(`/api/tracks?album_id=${albumId}&limit=200`)).json()).tracks || [] } catch { return }
-  if (!dbTracks.length) return
-  addLog(`  ${dbTracks.length} dainų...`)
-  let ytN = 0, lyrN = 0, done = 0
-  for (let i = 0; i < dbTracks.length; i += 4) {
-    await Promise.all(dbTracks.slice(i, i+4).map(async (t: any) => {
-      const u: Record<string,any> = {}
-      if (yt) try {
-        const q = encodeURIComponent(`${artistName} ${t.title}`)
-        const r = await fetch(`/api/search/youtube?q=${q}&type=video`)
-        if (r.ok) {
-          const d = await r.json()
-          if (d.error) { addLog(`  ⚠️ YT klaida: ${d.error.slice(0,80)}`); }
-          const f = d.results?.[0]
-          if (f?.videoId && titleMatches(f.title, `${artistName} ${t.title}`)) {
-            u.video_url = `https://www.youtube.com/watch?v=${f.videoId}`; ytN++
-          }
-        }
-      } catch (ytErr: any) { addLog(`  ⚠️ YT fetch klaida: ${ytErr.message?.slice(0,50)}`) }
-      if (lyrics) try {
-        const r = await fetch(`/api/search/lyrics?artist=${encodeURIComponent(artistName)}&title=${encodeURIComponent(t.title)}`)
-        if (r.ok) { const d = await r.json(); if (d.lyrics) { u.lyrics = d.lyrics; lyrN++ } }
-      } catch {}
-      if (Object.keys(u).length) try { await fetch(`/api/tracks/${t.id}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(u) }) } catch {}
-      done++
-    }))
-    if (done % 8 === 0 || done === dbTracks.length) addLog(`  ${done}/${dbTracks.length}`)
-    await new Promise(r => setTimeout(r, 300))
-  }
-  addLog(`  ✓ ${ytN} YT, ${lyrN} žodžiai`)
-}
-
-// ─── Props ────────────────────────────────────────────────────────────────────
-
-type Props = {
-  artistId: number
-  artistName: string
-  artistWikiTitle?: string
-  isSolo?: boolean
-  onClose?: () => void
-  buttonClassName?: string
-  buttonLabel?: string
-}
-
-// ─── Tab tipai ────────────────────────────────────────────────────────────────
-
-type ActiveTab = 'studio' | 'other' | 'singles' | 'songs'
-
-// Albumų grupės pagal tabs
-const STUDIO_TYPES: AlbumType[] = ['studio']
-const OTHER_TYPES: AlbumType[] = ['ep', 'compilation', 'live', 'remix', 'covers', 'holiday', 'soundtrack', 'demo', 'other']
-
-// ─── Pagrindinis komponentas ──────────────────────────────────────────────────
-
-export default function WikipediaImportDiscography({ artistId, artistName, artistWikiTitle, isSolo, onClose, buttonClassName, buttonLabel }: Props) {
-  const [open, setOpen] = useState(false)
-  const [wikiUrl, setWikiUrl] = useState(artistWikiTitle ? `https://en.wikipedia.org/wiki/${artistWikiTitle}` : '')
-  const [searched, setSearched] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState<ActiveTab>('studio')
-
-  const [items, setItems] = useState<DiscographyItem[]>([])
-  const [selected, setSelected] = useState<Set<number>>(new Set())
-  const [artistGroups, setArtistGroups] = useState<string[]>([])
-  const [songs, setSongs] = useState<SingleSongItem[]>([])
-  const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set())
-
-  const [log, setLog] = useState<string[]>([])
-  const [importing, setImporting] = useState(false)
-  const [enrichYoutube, setEnrichYoutube] = useState(true)
-  const [enrichLyrics, setEnrichLyrics] = useState(true)
-  const [mbLoading, setMbLoading] = useState(false)
-  const logRef = useRef<HTMLDivElement>(null)
-
-  const addLog = (msg: string) => setLog(p => [...p, msg])
-
-  useEffect(() => { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight }, [log])
-
-  // ── Paieška ────────────────────────────────────────────────────────────────
-
-  const search = async (groupFilter?: string) => {
-    setLoading(true); setItems([]); setSongs([]); setLog([]); setSelected(new Set())
-    addLog(`🔍 ${artistName}...`)
-
-    const wikiBase = wikiUrl.trim() ? extractWikiTitle(wikiUrl) : artistName.replace(/ /g, '_')
-    addLog(`📖 ${wikiBase}`)
-    const mainWikitext = await fetchWikitext(wikiBase)
-
-    let foundAlbums: DiscographyItem[] = []
-    let foundSongs: SingleSongItem[] = []
-
-    if (mainWikitext) {
-      const groups = hasMultipleArtistSections(mainWikitext)
-      if (groups.length > 1 && !groupFilter && !isSolo) { setArtistGroups(groups); setLoading(false); return }
-      const filter = isSolo && !groupFilter ? '__solo__' : groupFilter
-      let wikiAlbums = parseMainPageDiscography(mainWikitext, isSolo, filter)
-
-      const mainSingles = parseSinglesSection(mainWikitext)
-      if (mainSingles.length) foundSongs = mainSingles
-
-      // Discography puslapio URL
-      const discTitle = wikiBase.replace(/_discography$/i, '') + '_discography'
-      const hasDiscPage = discTitle !== wikiBase
-
-      if (!wikiAlbums.length) {
-        if (hasDiscPage) {
-          addLog(`→ ${discTitle}`)
-          const dw = await fetchWikitext(discTitle)
-          if (dw) {
-            wikiAlbums = parseDiscographyPage(dw)
-            const ds = parseSinglesSection(dw)
-            if (ds.length && !foundSongs.length) foundSongs = ds
-          }
-        }
-      } else {
-        // Albumai rasti iš pagrindinio puslapio — bet gali trūkti live/compilation/EP
-        // Krauname discography puslapį dėl pilnesnio sąrašo ir singlų
-        if (hasDiscPage) {
-          addLog(`→ ${discTitle} (papildymas)`)
-          const dw = await fetchWikitext(discTitle)
-          if (dw) {
-            // Jei discography puslapis grąžina daugiau/kitokius albumus — naudoti jį
-            const discAlbums = parseDiscographyPage(dw)
-            if (discAlbums.length > wikiAlbums.length) {
-              wikiAlbums = discAlbums
-              addLog(`✓ Albumai atnaujinti: ${discAlbums.length}`)
-            }
-            // Singlai visada iš discography puslapio (jei ten jų yra)
-            if (!foundSongs.length) {
-              const ds = parseSinglesSection(dw)
-              if (ds.length) foundSongs = ds
-            }
-          }
-        }
-      }
-
-      if (wikiAlbums.length) {
-        foundAlbums = wikiAlbums.map(a => ({ ...a, source: 'wikipedia' as const }))
-        addLog(`✓ Albumai: ${foundAlbums.length}`)
-      }
-      if (foundSongs.length) addLog(`✓ Singlai: ${foundSongs.length}`)
-    }
-
-    if (!foundAlbums.length && !foundSongs.length) { addLog('✗ Nieko nerasta'); setLoading(false); return }
-
-    // Rūšiuoti
-    const typeOrder: Record<AlbumType, number> = { studio: 0, ep: 1, single: 2, compilation: 3, live: 4, remix: 5, covers: 6, holiday: 7, soundtrack: 8, demo: 9, other: 10 }
-    foundAlbums.sort((a, b) => typeOrder[a.type] !== typeOrder[b.type] ? typeOrder[a.type] - typeOrder[b.type] : (a.year||9999)-(b.year||9999))
-    foundSongs.sort((a, b) => (a.year||9999)-(b.year||9999))
-
-    addLog('🔎 Dublikatai...')
-    const [albumDups, songDups] = await Promise.all([
-      checkAlbumDuplicates(foundAlbums.map(i => i.title), artistId),
-      checkTrackDuplicates(foundSongs.map(s => s.title), artistId),
-    ])
-    const da = Object.keys(albumDups).length, ds = Object.keys(songDups).length
-    if (da+ds > 0) addLog(`⚠ ${da} albumų + ${ds} dainų jau DB`)
-    else addLog('✓ Dublikatų nerasta')
-
-    const albumsF = foundAlbums.map(it => { const k = it.title.toLowerCase(); return albumDups[k] ? { ...it, duplicate: true, duplicateId: albumDups[k] } : it })
-    const songsF = foundSongs.map(s => { const k = s.title.toLowerCase(); return songDups[k] ? { ...s, duplicate: true, duplicateId: songDups[k], selected: false } : { ...s, selected: false } })
-
-    setArtistGroups([])
-    setItems(albumsF)
-    setSelected(new Set(albumsF.map((it, i) => (!it.duplicate && AUTO_SELECT_TYPES.includes(it.type)) ? i : -1).filter(i => i !== -1)))
-    setSongs(songsF)
-
-    // Default tab
-    if (!foundAlbums.length && foundSongs.length) setActiveTab('singles')
-    else setActiveTab('studio')
-
-    setLoading(false)
-  }
-
-  // ── Album detalių krovimas ─────────────────────────────────────────────────
-
-  const fetchDetails = async (idx: number) => {
-    const item = items[idx]
-    if (item.fetched) return
-    addLog(`📋 ${item.title}`)
-    try {
-      if (item.source === 'musicbrainz' && item.mbId) {
-        const { tracks, cover } = await mbFetchTracks(item.mbId)
-        addLog(`  → ${tracks.length} dainų${cover ? ', viršelis' : ''}`)
-        setItems(p => p.map((it, i) => i === idx ? { ...it, tracks, fetched: true, cover_image_url: cover || it.cover_image_url } : it))
-        return
-      }
-      if (!item.wikiTitle) { setItems(p => p.map((it, i) => i === idx ? { ...it, fetched: true, tracks: [] } : it)); return }
-      const [wikitext, cover] = await Promise.all([fetchWikitext(item.wikiTitle), fetchCoverImage(item.wikiTitle)])
-      const dateInfo = parseReleaseDate(wikitext)
-      const tracks = parseTracklist(wikitext)
-      setItems(p => p.map((it, i) => i === idx ? { ...it, tracks, fetched: true, cover_image_url: cover || it.cover_image_url, year: dateInfo.year ?? it.year, month: dateInfo.month, day: dateInfo.day } : it))
-      addLog(`  → ${tracks.length} dainų${cover ? ', viršelis' : ''}`)
-    } catch {
-      setItems(p => p.map((it, i) => i === idx ? { ...it, fetched: true, tracks: [] } : it))
-      addLog(`  ✗ ${item.title}`)
-    }
-  }
-
-  const fetchAllDetails = async () => {
-    for (let i = 0; i < items.length; i++) {
-      if (selected.has(i) && !items[i].fetched) { await fetchDetails(i); await new Promise(r => setTimeout(r, 400)) }
-    }
-  }
-
-  // ── MB papildymas ──────────────────────────────────────────────────────────
-
-  const enrichFromMB = async () => {
-    setMbLoading(true)
-    addLog('🎵 MusicBrainz...')
-    const mbArtist = await mbFindArtist(artistName)
-    if (!mbArtist) { addLog('✗ MB: nerastas'); setMbLoading(false); return }
-    addLog(`  → "${mbArtist.name}"`)
-
-    if (activeTab === 'singles' || activeTab === 'songs') {
-      const mbSingles = await mbFetchSingles(mbArtist.id)
-      const existing = new Set(songs.map(s => s.title.toLowerCase()))
-      const newOnes = mbSingles.filter(s => !existing.has(s.title.toLowerCase()))
-      addLog(`✓ MB singlai: ${mbSingles.length} viso, ${newOnes.length} naujų`)
-      if (newOnes.length) {
-        const dups = await checkTrackDuplicates(newOnes.map(s => s.title), artistId)
-        const withDups = newOnes.map(s => { const k = s.title.toLowerCase(); return dups[k] ? { ...s, duplicate: true, duplicateId: dups[k], selected: false } : s })
-        setSongs(p => [...p, ...withDups].sort((a,b) => (a.year||9999)-(b.year||9999)))
-      }
-    } else {
-      const mbItems = await mbFetchDiscography(mbArtist.id)
-      const existing = new Set(items.map(i => i.title.toLowerCase()))
-      const newOnes = mbItems.filter(i => !existing.has(i.title.toLowerCase()))
-      addLog(`✓ MB albumai: ${mbItems.length} viso, ${newOnes.length} naujų`)
-      if (newOnes.length) {
-        const dups = await checkAlbumDuplicates(newOnes.map(i => i.title), artistId)
-        const withDups = newOnes.map(it => { const k = it.title.toLowerCase(); return dups[k] ? { ...it, duplicate: true, duplicateId: dups[k] } : it })
-        const typeOrder: Record<AlbumType, number> = { studio: 0, ep: 1, single: 2, compilation: 3, live: 4, remix: 5, covers: 6, holiday: 7, soundtrack: 8, demo: 9, other: 10 }
-        const merged = [...items, ...withDups].sort((a,b) => typeOrder[a.type] !== typeOrder[b.type] ? typeOrder[a.type]-typeOrder[b.type] : (a.year||9999)-(b.year||9999))
-        setItems(merged)
-        setSelected(new Set(merged.map((it, i) => (!it.duplicate && AUTO_SELECT_TYPES.includes(it.type)) ? i : -1).filter(i => i !== -1)))
-      }
-    }
-    setMbLoading(false)
-  }
-
-  // ── Albumų importas ────────────────────────────────────────────────────────
-
-  const importAlbums = async () => {
-    const indices = Array.from(selected).sort((a,b) => a-b)
-    const unfetched = indices.filter(i => !items[i].fetched)
-    if (unfetched.length) {
-      addLog(`📋 Kraunama ${unfetched.length}...`)
-      for (const i of unfetched) { await fetchDetails(i); await new Promise(r => setTimeout(r, 400)) }
-    }
-    // Snapshot PO fetchDetails kad turėtų cover_image_url ir tracks
-    // Naudojame funkcinį update kad gauti naujausią state
-    const snapshot = await new Promise<typeof items>(resolve => {
-      setItems(p => { resolve(p); return p })
-    })
-    setImporting(true)
-    let ok = 0, fail = 0
-    for (const idx of indices) {
-      const item = snapshot[idx]
-      if (!item || item.duplicate) continue
-      setItems(p => p.map((it, i) => i === idx ? { ...it, importing: true } : it))
-      try {
-        const res = await fetch('/api/albums', {
-          method: 'POST', headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({
-            title: item.title, artist_id: artistId, year: item.year||null, month: item.month||null, day: item.day||null,
-            cover_image_url: item.cover_image_url||'',
-            type_studio: item.type==='studio', type_ep: item.type==='ep', type_single: item.type==='single',
-            type_compilation: item.type==='compilation', type_live: item.type==='live',
-            type_remix: item.type==='remix', type_covers: item.type==='covers',
-            type_holiday: item.type==='holiday', type_soundtrack: item.type==='soundtrack',
-            type_demo: item.type==='demo',
-            tracks: (item.tracks||[]).map((t,i) => ({ title: t.title, sort_order: i+1, duration: t.duration||null, type: t.type||'normal', disc_number: t.disc_number||1, is_single: t.is_single||false, featuring: t.featuring||[] })),
-          }),
-        })
-        if (!res.ok) throw new Error((await res.json()).error)
-        const newAlbum = await res.json()
-        const albumId = newAlbum.id || newAlbum.album?.id
-        addLog(`✓ ${item.title} (${item.tracks?.length||0})`)
-        ok++
-        if (albumId && (enrichYoutube||enrichLyrics) && item.tracks?.length)
-          await enrichTracks(albumId, artistName, addLog, enrichYoutube, enrichLyrics)
-        setItems(p => p.map((it, i) => i === idx ? { ...it, importing: false, imported: true } : it))
-      } catch (e: any) {
-        setItems(p => p.map((it, i) => i === idx ? { ...it, importing: false, error: e.message } : it))
-        addLog(`✗ ${item.title}: ${e.message}`); fail++
-      }
-      await new Promise(r => setTimeout(r, 200))
-    }
-    setImporting(false)
-    addLog(`✓ ${ok} albumų${fail ? `, ${fail} klaida` : ''}`)
-
-    // Po albumų importo — atnaujinti singlų dublikatų statusą
-    // (dainos kurios buvo albumuose dabar yra DB, todėl singlų sąraše jos turėtų rodyti "jau yra")
-    if (ok > 0 && songs.length > 0) {
-      try {
-        const dups = await checkTrackDuplicates(songs.map(s => s.title), artistId)
-        setSongs(p => p.map(s => {
-          const k = s.title.toLowerCase()
-          if (dups[k]) return { ...s, duplicate: true, duplicateId: dups[k], selected: false }
-          return s
-        }))
-        const newDupCount = Object.keys(dups).length
-        if (newDupCount > 0) addLog(`  ℹ️ ${newDupCount} singlų jau DB (albumuose)`)
-      } catch {}
-    }
-  }
-
-  // ── Dainų importas ─────────────────────────────────────────────────────────
-
-  const importSongs = async () => {
-    const toImport = songs.filter(s => s.selected && !s.duplicate && !s.imported)
-    if (!toImport.length) return
-    setImporting(true)
-    let okNew = 0, okMark = 0, fail = 0
-    addLog(`🎤 ${toImport.length} dainų...`)
-    for (const song of toImport) {
-      setSongs(p => p.map(s => s.title === song.title ? { ...s, importing: true } : s))
-      try {
-        if (song.duplicateId) {
-          const res = await fetch(`/api/tracks/${song.duplicateId}`, { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ is_single: true }) })
-          if (!res.ok) {
-            let errMsg = `PATCH ${res.status}`
-            try { const d = await res.json(); errMsg = d.error || d.message || errMsg } catch {}
-            throw new Error(errMsg)
-          }
-          okMark++
-        } else {
-          const res = await fetch('/api/tracks', {
-            method: 'POST', headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({ title: song.title, artist_id: artistId, type: 'normal', is_single: true, release_year: song.year, release_month: song.month, release_day: song.day }),
-          })
-          if (!res.ok) {
-            let errMsg = `POST ${res.status}`
-            try { const d = await res.json(); errMsg = d.error || d.message || errMsg } catch {}
-            throw new Error(errMsg)
-          }
-          const newTrack = await res.json()
-          const trackId = newTrack.id || newTrack.track?.id
-          if (trackId) {
-            const updates: Record<string, any> = {}
-            if (enrichYoutube) {
-              try {
-                const q = `${artistName} ${song.title}`
-                const r = await fetch(`/api/search/youtube?q=${encodeURIComponent(q)}&type=video`)
-                if (r.ok) { const d = await r.json(); if (d.error) addLog(`  ⚠️ YT: ${d.error.slice(0,60)}`); const f = d.results?.[0]; if (f?.videoId && titleMatches(f.title, q)) updates.video_url = `https://www.youtube.com/watch?v=${f.videoId}` }
-              } catch {}
-            }
-            if (enrichLyrics) {
-              try {
-                const r = await fetch(`/api/search/lyrics?artist=${encodeURIComponent(artistName)}&title=${encodeURIComponent(song.title)}`)
-                if (r.ok) { const d = await r.json(); if (d.lyrics) updates.lyrics = d.lyrics }
-              } catch {}
-            }
-            if (Object.keys(updates).length > 0) {
-              try { await fetch(`/api/tracks/${trackId}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(updates) }) } catch {}
-            }
-          }
-          okNew++
-        }
-        setSongs(p => p.map(s => s.title === song.title ? { ...s, importing: false, imported: true } : s))
-      } catch (e: any) {
-        setSongs(p => p.map(s => s.title === song.title ? { ...s, importing: false, error: e.message } : s))
-        addLog(`✗ ${song.title}: ${e.message}`); fail++
-      }
-      await new Promise(r => setTimeout(r, 150))
-    }
-    setImporting(false)
-    addLog(`✓ ${okNew} singlų importuota${okMark ? `, ${okMark} pažymėta` : ''}${fail ? `, ${fail} klaida` : ''}`)
-  }
-
-  // ── UI helpers ─────────────────────────────────────────────────────────────
-
-  const toggleSelect = (i: number) => {
-    if (items[i]?.duplicate) return
-    setSelected(p => { const s = new Set(p); s.has(i) ? s.delete(i) : s.add(i); return s })
-  }
-
-  const toggleSong = (title: string) => setSongs(p => p.map(s => s.title === title && !s.duplicate ? { ...s, selected: !s.selected } : s))
-  const selectAllSongs = (val: boolean) => setSongs(p => p.map(s => s.duplicate || s.imported ? s : { ...s, selected: val }))
-
-  const closeModal = () => { if (!importing) { setOpen(false); onClose?.() } }
-  const handleOpen = () => { setOpen(true); if (!searched) { setSearched(true); setTimeout(() => search(), 100) } }
-
-  // Grouped by tab
-  const studioItems = items.map((it, i) => ({ it, i })).filter(({ it }) => STUDIO_TYPES.includes(it.type))
-  const otherItems = items.map((it, i) => ({ it, i })).filter(({ it }) => OTHER_TYPES.includes(it.type))
-
-  const studioSelected = studioItems.filter(({ i }) => selected.has(i)).length
-  const otherSelected = otherItems.filter(({ i }) => selected.has(i)).length
-  const songSelectedCount = songs.filter(s => s.selected && !s.duplicate).length
-  const songNewCount = songs.filter(s => !s.duplicate && !s.imported).length
-
-  // Tab counts
-  const tabCounts = {
-    studio: studioItems.length,
-    other: otherItems.length,
-    singles: songs.length,
-  }
-
-  const tabHasNew = {
-    studio: studioItems.some(({ it }) => !it.duplicate),
-    other: otherItems.some(({ it }) => !it.duplicate),
-    singles: songs.some(s => !s.duplicate),
-  }
-
-  const toggleExpand = async (i: number) => {
-    setExpandedItems(p => { const s = new Set(p); s.has(i) ? s.delete(i) : s.add(i); return s })
-    if (!items[i].fetched && !expandedItems.has(i)) {
-      await fetchDetails(i)
-    }
-  }
-
-  // ── Album row renderer ─────────────────────────────────────────────────────
-
-  const renderAlbumRow = (it: DiscographyItem, i: number) => {
-    const isExpanded = expandedItems.has(i)
-    const isFetching = it.fetched === false && expandedItems.has(i)
-    return (
-      <div key={i} className={`rounded-lg border transition-all ${
-        it.duplicate ? 'border-gray-100 bg-gray-50/50 opacity-40'
-        : it.imported ? 'border-emerald-200 bg-emerald-50/50'
-        : selected.has(i) ? 'border-violet-300 bg-violet-50'
-        : 'border-gray-200 bg-white hover:border-gray-300'
-      }`}>
-        {/* Main row */}
-        <div className={`flex items-center gap-2.5 px-3 py-2 ${it.duplicate ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-          onClick={() => !it.duplicate && !it.imported && toggleSelect(i)}>
-          {/* Checkbox */}
-          <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
-            selected.has(i) && !it.duplicate && !it.imported ? 'border-violet-500 bg-violet-500' : 'border-gray-300'
-          }`}>
-            {selected.has(i) && !it.duplicate && !it.imported && (
-              <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 10 10"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            )}
-            {it.imported && <svg className="w-2.5 h-2.5 text-emerald-500" fill="none" viewBox="0 0 10 10"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-          </div>
-          {/* Cover */}
-          {it.cover_image_url
-            ? <img src={it.cover_image_url} alt="" referrerPolicy="no-referrer" className="w-9 h-9 rounded object-cover shrink-0" />
-            : <div className="w-9 h-9 rounded bg-gray-100 shrink-0 flex items-center justify-center text-gray-300 text-xs">♪</div>
-          }
-          {/* Info */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-sm font-medium text-gray-900 truncate">{it.title}</span>
-              {it.type === 'ep' && <span className="text-[10px] font-semibold text-violet-500 shrink-0 uppercase tracking-wide">EP</span>}
-              {it.source === 'musicbrainz' && <span className="text-[10px] text-blue-400 shrink-0">MB</span>}
-              {it.duplicate && <span className="text-[10px] text-amber-500 shrink-0">jau yra</span>}
-              {it.importing && <span className="text-[10px] text-violet-400 animate-pulse shrink-0">importuojama</span>}
-              {it.imported && <span className="text-[10px] text-emerald-500 shrink-0">✓ importuota</span>}
-              {it.error && <span className="text-[10px] text-red-400 shrink-0" title={it.error}>klaida</span>}
-            </div>
-            <div className="flex items-center gap-2 mt-0.5">
-              {it.year && <span className="text-[11px] text-gray-400">{it.year}</span>}
-              {it.tracks !== undefined && (
-                <span className="text-[11px] text-gray-400">
-                  {it.tracks.length} dainų{it.tracks.filter(t=>t.is_single).length ? ` · ${it.tracks.filter(t=>t.is_single).length} singlai` : ''}
-                </span>
-              )}
-              {it.duplicate && it.duplicateId && (
-                <a href={`/admin/albums/${it.duplicateId}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="text-[10px] text-blue-500 hover:underline">atidaryti →</a>
-              )}
-            </div>
-          </div>
-          {/* Parsisiųsti info — inline mygtukas */}
-          {!it.duplicate && !it.imported && (
-            <button type="button"
-              onClick={e => { e.stopPropagation(); fetchDetails(i) }}
-              disabled={it.fetched || importing}
-              title={it.fetched ? 'Info parsisiųsta' : 'Parsisiųsti dainas ir viršelį'}
-              className={`shrink-0 flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors disabled:opacity-40 ${
-                it.fetched
-                  ? 'text-emerald-500 bg-emerald-50'
-                  : 'text-gray-500 bg-gray-100 hover:bg-violet-100 hover:text-violet-600'
-              }`}>
-              {it.fetched ? (
-                <><svg className="w-3 h-3" fill="none" viewBox="0 0 10 10"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg> info</>
-              ) : (
-                <><svg className="w-3 h-3" fill="none" viewBox="0 0 10 10"><path d="M5 1v6M2 6l3 3 3-3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg> info</>
-              )}
-            </button>
-          )}
-          {/* Expand tracks */}
-          <button type="button"
-            onClick={e => { e.stopPropagation(); toggleExpand(i) }}
-            disabled={it.duplicate}
-            className={`shrink-0 w-6 h-6 rounded flex items-center justify-center text-[11px] transition-colors disabled:opacity-30 ${
-              isExpanded ? 'bg-violet-100 text-violet-600' : 'text-gray-300 hover:text-gray-500 hover:bg-gray-100'
-            }`}
-            title={isExpanded ? 'Slėpti dainas' : 'Rodyti dainas'}>
-            {isExpanded ? '▲' : '▼'}
-          </button>
-        </div>
-        {/* Tracks preview */}
-        {isExpanded && (
-          <div className="border-t border-gray-100 px-3 py-2">
-            {!it.fetched ? (
-              <div className="text-xs text-gray-400 py-1 flex items-center gap-2">
-                <div className="w-3 h-3 border border-gray-300 border-t-violet-500 rounded-full animate-spin" />
-                Kraunama...
-              </div>
-            ) : !it.tracks?.length ? (
-              <div className="text-xs text-gray-400 py-1">Dainų nerasta. Spausk „info" mygtuką kad parsisiųstum.</div>
-            ) : (
-              <div className="space-y-0.5 max-h-48 overflow-y-auto">
-                {it.tracks.map((t, ti) => (
-                  <div key={ti} className="flex items-center gap-2 py-0.5">
-                    <span className="text-[10px] text-gray-300 w-5 text-right shrink-0">{t.sort_order}</span>
-                    <span className="text-xs text-gray-700 truncate flex-1">{t.title}</span>
-                    {t.type === 'instrumental' && <span className="text-[9px] text-gray-400 shrink-0 font-medium">instr.</span>}
-                    {t.type === 'live' && <span className="text-[9px] text-blue-400 shrink-0 font-medium">live</span>}
-                    {t.type === 'remix' && <span className="text-[9px] text-purple-400 shrink-0 font-medium">remix</span>}
-                    {t.type === 'covers' && <span className="text-[9px] text-orange-400 shrink-0 font-medium">cover</span>}
-                    {t.is_single && <span className="text-[9px] text-violet-400 shrink-0 font-medium">S</span>}
-                    {t.duration && <span className="text-[10px] text-gray-300 shrink-0">{t.duration}</span>}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  // ── Tab bar ────────────────────────────────────────────────────────────────
-
-  const tabDef: { id: ActiveTab; label: string; count: number; hasNew: boolean; showAlways?: boolean }[] = [
-    { id: 'studio', label: 'Studijiniai', count: tabCounts.studio, hasNew: tabHasNew.studio },
-    { id: 'other', label: 'Kiti albumai', count: tabCounts.other, hasNew: tabHasNew.other },
-    { id: 'singles', label: 'Singlai', count: tabCounts.singles, hasNew: tabHasNew.singles, showAlways: true },
-  ]
-
-  const hasContent = items.length > 0 || songs.length > 0
-
-  // ── Render ─────────────────────────────────────────────────────────────────
-
-  return (
-    <>
-      <button type="button" onClick={handleOpen}
-        className={buttonClassName ?? "flex items-center gap-2 px-4 py-2 bg-violet-50 hover:bg-violet-100 text-violet-700 rounded-lg text-sm font-medium transition-colors"}>
-        {buttonLabel ?? "Importuoti diskografiją"}
-      </button>
-
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-[5vh]">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={closeModal} />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
-
-            {/* Header */}
-            <div className="flex items-center gap-3 px-5 py-3.5 border-b border-gray-100">
-              <div className="flex-1 min-w-0">
-                <h3 className="text-base font-semibold text-gray-900 truncate">{artistName} — diskografija</h3>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <label className="flex items-center gap-1.5 cursor-pointer text-xs text-gray-500">
-                  <input type="checkbox" checked={enrichYoutube} onChange={e => setEnrichYoutube(e.target.checked)} className="accent-violet-600 w-3.5 h-3.5" />
-                  YouTube
-                </label>
-                <label className="flex items-center gap-1.5 cursor-pointer text-xs text-gray-500">
-                  <input type="checkbox" checked={enrichLyrics} onChange={e => setEnrichLyrics(e.target.checked)} className="accent-violet-600 w-3.5 h-3.5" />
-                  Žodžiai
-                </label>
-                <button onClick={closeModal} className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors text-lg leading-none">×</button>
-              </div>
-            </div>
-
-            {/* Search bar */}
-            <div className="px-5 py-2.5 border-b border-gray-100 flex gap-2">
-              <input value={wikiUrl} onChange={e => setWikiUrl(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && !loading && search()}
-                placeholder="Wikipedia URL arba automatinis pagal vardą"
-                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-violet-400 placeholder:text-gray-300 text-gray-900 bg-white" />
-              <button onClick={() => { setSearched(false); search() }} disabled={loading}
-                className="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-sm font-medium disabled:opacity-40 transition-colors shrink-0">
-                {loading ? '...' : 'Ieškoti'}
-              </button>
-            </div>
-
-            {/* Grupių pasirinkimas */}
-            {artistGroups.length > 1 && (
-              <div className="px-5 py-3 border-b border-amber-100 bg-amber-50/50">
-                <p className="text-xs font-medium text-amber-700 mb-2">Kelios diskografijos sekcijos:</p>
-                <div className="flex flex-wrap gap-1.5">
-                  <button onClick={() => search('__solo__')} className="px-2.5 py-1 bg-violet-600 text-white rounded-md text-xs font-medium">Tik solo</button>
-                  <button onClick={() => search('__all__')} className="px-2.5 py-1 bg-gray-200 text-gray-700 rounded-md text-xs">Visi</button>
-                  {artistGroups.map(g => <button key={g} onClick={() => search(g)} className="px-2.5 py-1 bg-white border border-gray-200 text-gray-600 rounded-md text-xs hover:bg-gray-50">{g}</button>)}
-                </div>
-              </div>
-            )}
-
-            {/* Tabs */}
-            {(hasContent || loading) && (
-              <div className="flex items-center border-b border-gray-100 px-5 gap-0.5">
-                {tabDef.map(tab => {
-                  if (!tab.showAlways && tab.count === 0) return null
-                  const isActive = activeTab === tab.id
-                  return (
-                    <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                      className={`relative flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 transition-colors -mb-px ${
-                        isActive ? 'border-violet-600 text-violet-700' : 'border-transparent text-gray-500 hover:text-gray-700'
-                      }`}>
-                      {tab.label}
-                      {tab.count > 0 && (
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${isActive ? 'bg-violet-100 text-violet-600' : 'bg-gray-100 text-gray-500'}`}>
-                          {tab.count}
-                        </span>
-                      )}
-                      {tab.hasNew && !isActive && <span className="w-1.5 h-1.5 bg-orange-400 rounded-full" />}
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto px-5 py-3 space-y-2 min-h-0">
-
-              {loading && (
-                <div className="flex items-center justify-center py-16 text-gray-400">
-                  <div className="text-center">
-                    <div className="w-8 h-8 border-2 border-gray-200 border-t-violet-500 rounded-full animate-spin mx-auto mb-2" />
-                    <p className="text-sm">Ieškoma...</p>
-                  </div>
-                </div>
-              )}
-
-              {/* ── Studijiniai ── */}
-              {activeTab === 'studio' && !loading && (
-                <>
-                  {studioItems.length === 0 ? (
-                    <div className="text-center py-12 text-gray-400 text-sm">Studijinių albumų nerasta</div>
-                  ) : (
-                    <>
-                      <div className="flex items-center justify-between py-1">
-                        <span className="text-xs text-gray-400">{studioItems.filter(({it})=>!it.duplicate).length} naujų</span>
-                        <div className="flex items-center gap-3 text-xs">
-                          <button onClick={() => setSelected(new Set(studioItems.filter(({it})=>!it.duplicate).map(({i})=>i)))} className="text-violet-600 hover:underline">Pasirinkti visus</button>
-                          <button onClick={() => setSelected(p => { const s = new Set(p); studioItems.forEach(({i}) => s.delete(i)); return s })} className="text-gray-400 hover:underline">Atžymėti visus</button>
-                          <span className="text-gray-500 font-medium">{studioSelected} pasirinkta</span>
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        {studioItems.map(({ it, i }) => renderAlbumRow(it, i))}
-                      </div>
-                    </>
-                  )}
-                </>
-              )}
-
-              {/* ── Kiti albumai ── */}
-              {activeTab === 'other' && !loading && (
-                <>
-                  {otherItems.length === 0 ? (
-                    <div className="text-center py-12 text-gray-400 text-sm">Kitų albumų nerasta</div>
-                  ) : (
-                    <>
-                      <div className="flex items-center justify-between py-1">
-                        <span className="text-xs text-gray-400">{otherItems.filter(({it})=>!it.duplicate).length} naujų</span>
-                        <div className="flex items-center gap-3 text-xs">
-                          <button onClick={() => setSelected(p => { const s = new Set(p); otherItems.filter(({it})=>!it.duplicate).forEach(({i})=>s.add(i)); return s })} className="text-violet-600 hover:underline">Pasirinkti visus</button>
-                          <button onClick={() => setSelected(p => { const s = new Set(p); otherItems.forEach(({i})=>s.delete(i)); return s })} className="text-gray-400 hover:underline">Atžymėti visus</button>
-                          <span className="text-gray-500 font-medium">{otherSelected} pasirinkta</span>
-                        </div>
-                      </div>
-                      {/* Pogrupiai */}
-                      {(['ep', 'compilation', 'live', 'remix', 'covers', 'holiday', 'soundtrack', 'demo', 'other'] as AlbumType[]).map(type => {
-                        const typeItems = otherItems.filter(({ it }) => it.type === type)
-                        if (!typeItems.length) return null
-                        const typeLabels: Record<string, string> = {
-                          ep: 'EP',
-                          compilation: 'Rinktiniai',
-                          live: 'Gyvai įrašyti',
-                          remix: 'Remiksų albumai',
-                          covers: 'Koverių albumai',
-                          holiday: 'Šventiniai albumai',
-                          soundtrack: 'Garso takeliai',
-                          demo: 'Bandomieji įrašai',
-                          other: 'Kiti',
-                        }
-                        return (
-                          <div key={type}>
-                            <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1 mt-2">{typeLabels[type]}</div>
-                            <div className="space-y-1">{typeItems.map(({ it, i }) => renderAlbumRow(it, i))}</div>
-                          </div>
-                        )
-                      })}
-                    </>
-                  )}
-                </>
-              )}
-
-              {/* ── Singlai ── */}
-              {activeTab === 'singles' && !loading && (
-                <>
-                  {songs.length === 0 ? (
-                    <div className="text-center py-12">
-                      <p className="text-sm text-gray-500 font-medium mb-1">Singlų nerasta Wikipedia</p>
-                      <p className="text-xs text-gray-400">Bandyk „Papildyti iš MusicBrainz" — ten pilnas sąrašas</p>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="flex items-center justify-between py-1">
-                        <span className="text-xs text-gray-400">{songNewCount} naujų</span>
-                        <div className="flex items-center gap-3 text-xs">
-                          <button onClick={() => selectAllSongs(true)} className="text-violet-600 hover:underline">Pasirinkti visus</button>
-                          <button onClick={() => selectAllSongs(false)} className="text-gray-400 hover:underline">Atžymėti visus</button>
-                          <span className="text-gray-500 font-medium">{songSelectedCount} pasirinkta</span>
-                        </div>
-                      </div>
-                      {/* Grouped by year */}
-                      {(() => {
-                        const byYear: Record<string, SingleSongItem[]> = {}
-                        for (const s of songs) { const y = s.year ? String(s.year) : '—'; if (!byYear[y]) byYear[y]=[]; byYear[y].push(s) }
-                        return Object.entries(byYear).map(([yr, yrSongs]) => (
-                          <div key={yr}>
-                            <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1 mt-2.5">{yr}</div>
-                            <div className="space-y-1">
-                              {yrSongs.map(song => (
-                                <div key={song.title} onClick={() => !song.duplicate && !song.imported && toggleSong(song.title)}
-                                  className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border transition-all ${
-                                    song.duplicate ? 'border-gray-100 bg-gray-50/50 opacity-40 cursor-not-allowed'
-                                    : song.imported ? 'border-emerald-200 bg-emerald-50/50 cursor-default'
-                                    : song.selected ? 'border-violet-300 bg-violet-50 cursor-pointer'
-                                    : 'border-gray-200 bg-white hover:border-gray-300 cursor-pointer'
-                                  }`}>
-                                  <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
-                                    song.selected && !song.duplicate && !song.imported ? 'border-violet-500 bg-violet-500' : 'border-gray-300'
-                                  }`}>
-                                    {song.selected && !song.duplicate && !song.imported && (
-                                      <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 10 10"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                                    )}
-                                    {song.imported && <svg className="w-2.5 h-2.5 text-emerald-500" fill="none" viewBox="0 0 10 10"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-baseline gap-1.5 flex-wrap">
-                                      <span className="text-sm font-medium text-gray-900 truncate">{song.title}</span>
-                                      {song.source === 'musicbrainz' && <span className="text-[10px] text-blue-400 shrink-0">MB</span>}
-                                      {song.duplicate && <span className="text-[10px] text-amber-500 shrink-0">jau yra</span>}
-                                      {song.imported && <span className="text-[10px] text-emerald-500 shrink-0">importuota</span>}
-                                      {song.importing && <span className="text-[10px] text-violet-400 animate-pulse shrink-0">importuojama</span>}
-                                      {song.error && <span className="text-[10px] text-red-400 shrink-0" title={song.error}>✗ klaida</span>}
-                                    </div>
-                                    {song.error && <div className="text-[10px] text-red-400 truncate mt-0.5">{song.error}</div>}
-                                    {song.albumTitle && !song.error && <div className="text-[11px] text-gray-400 truncate">{song.albumTitle}</div>}
-                                    {song.duplicate && song.duplicateId && (
-                                      <a href={`/admin/tracks/${song.duplicateId}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="text-[10px] text-blue-500 hover:underline">atidaryti →</a>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ))
-                      })()}
-                    </>
-                  )}
-                </>
-              )}
-
-              {/* Log */}
-              {log.length > 0 && (
-                <div ref={logRef} className="bg-gray-950 rounded-xl p-3 font-mono text-[11px] text-emerald-400 max-h-24 overflow-y-auto leading-relaxed">
-                  {log.map((l, i) => <div key={i}>{l}</div>)}
-                </div>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div className="px-5 py-3 border-t border-gray-100 flex items-center gap-2">
-              {activeTab === 'singles' ? (
-                <button onClick={importSongs} disabled={importing || songSelectedCount === 0}
-                  className="flex-1 py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl disabled:opacity-40 transition-colors text-sm">
-                  {importing ? 'Importuojama...' : `Importuoti ${songSelectedCount} singlų`}
-                </button>
-              ) : (
-                <>
-                  <button onClick={importAlbums} disabled={importing || selected.size === 0}
-                    className="flex-1 py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl disabled:opacity-40 transition-colors text-sm">
-                    {importing ? 'Importuojama...' : `Importuoti ${selected.size} albumų`}
-                  </button>
-                  <button onClick={fetchAllDetails} disabled={importing || selected.size === 0}
-                    title="Parsisiųsti info apie visus pažymėtus albumus (dainos + viršeliai)"
-                    className="px-3 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl disabled:opacity-40 transition-colors text-xs font-medium whitespace-nowrap">
-                    ↓ Visi info
-                  </button>
-                </>
-              )}
-              {hasContent && (
-                <button onClick={enrichFromMB} disabled={importing || mbLoading}
-                  title={activeTab === 'singles' ? 'Papildyti singlus iš MusicBrainz' : 'Papildyti albumus iš MusicBrainz'}
-                  className="px-3 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl disabled:opacity-40 transition-colors text-xs font-medium whitespace-nowrap">
-                  {mbLoading ? '⏳' : 'Papildyti iš MusicBrainz'}
-                </button>
-              )}
-              <button onClick={closeModal} className="w-10 h-10 flex items-center justify-center border border-gray-200 text-gray-500 rounded-xl hover:bg-gray-50 transition-colors text-sm">
-                ✕
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )}
-    </>
-  )
-}
+{{about|the album|the song|Sheer Heart Attack (song)}}
+{{Use British English|date=January 2012}}
+{{Use dmy dates|date=January 2021}}
+{{Infobox album
+| name         = Sheer Heart Attack
+| type         = studio
+| artist       = [[Queen (band)|Queen]]
+| cover        = Queen Sheer Heart Attack.png
+| alt          = 
+| released     = {{start date|1974|11|8|df=y}}
+| recorded     = 7 July – 22 October 1974
+| studio       = 
+* [[Trident Studios|Trident]], London
+* [[Rockfield Studios|Rockfield]], Monmouthshire
+* [[AIR Oxford Circus|AIR]], London
+* [[Wessex Sound Studios|Wessex Sound]], Highbury New Park
+| genre        =
+* [[Hard rock]]
+* [[glam rock]]
+| length       = 38:41 
+| label        =
+* [[EMI Records|EMI]]
+* [[Elektra Records|Elektra]]
+| producer     =
+* [[Roy Thomas Baker]]
+* Queen
+| prev_title   = [[Queen II]]
+| prev_year    = 1974
+| next_title   = [[A Night at the Opera (Queen album)|A Night at the Opera]]
+| next_year    = 1975
+| misc         = {{singles
+ | name        = Sheer Heart Attack
+ | type        = studio
+ | single1     = [[Killer Queen]]" / "[[Flick of the Wrist]]
+ | single1date = 11 October 1974<ref>{{cite web|url=http://hitparade.ch/showitem.asp?interpret=Queen&titel=Killer+Queen&cat=s|title=Queen - Killer Queen|first=Steffen|last=Hung|website=Hitparade.ch|access-date=27 March 2022}}</ref>
+ | single2     = [[Now I'm Here]]
+ | single2date = 17 January 1975
+}}
+}}
+
+'''''Sheer Heart Attack''''' is the third studio album by the British [[Rock music|rock]] band [[Queen (band)|Queen]], released on 8 November 1974 by [[EMI Records]] in the United Kingdom and by [[Elektra Records]] in the United States. Departing from the [[Progressive rock|progressive]] themes featured on their first two albums, the album featured more pop-centric and conventional rock tracks and marked a step towards the "classic" Queen sound.<ref name="allmusic" /> It was produced by the band and [[Roy Thomas Baker]], and launched Queen to mainstream popularity in the UK and throughout the world.
+
+The album's first single "[[Killer Queen]]" reached number two on the [[UK singles chart]] and provided the band with their first top 20 hit in the US, peaking at number 12 on the [[Billboard Hot 100|''Billboard'' Hot 100]]. ''Sheer Heart Attack'' was the first Queen album to hit the US top 20, peaking at number 12 on the [[Billboard 200|''Billboard'' Top LPs & Tape Chart]] in 1975. It has been acknowledged for containing "a wealth of outstanding [[hard rock]] guitar tracks".<ref name="prown/newquist" /> Retrospectively, it has been listed by multiple publications as one of the band's best works and has been deemed an essential [[glam rock]] album.<ref name="10 Essential Glam Rock Albums" />
+
+{{toclimit|3}}
+
+==Background and recording==
+{{quote box|salign=center|quote="Nobody knew we were going to be told we had two weeks to write ''Sheer Heart Attack''. And we had to – it was only thing we could do. Brian was in hospital."|source=—[[Freddie Mercury]]<ref name="Melody Maker">[http://www.queenarchives.com/index.php?title=Freddie_Mercury_-_12-21-1974_-_Melody_Maker Freddie Mercury: Queen Bee] Melody Maker. Retrieved 25 August 2018</ref>|align=right|width=25%}}
+After completing their [[Queen II|second album]], Queen embarked on their [[Queen II Tour]] as a support act for [[Mott the Hoople]]. After touring extensively throughout the UK, the two groups decided to tour together in the US, marking Queen's first tour in the country. The bands would remain on friendly terms for the rest of their career, with [[Ian Hunter (singer)|Ian Hunter]] performing "[[All the Young Dudes]]" at the [[Freddie Mercury Tribute Concert]].<ref>[http://www.ultimatequeen.co.uk/live/queen4.htm#1992freddietribute 1992 The Freddie Mercury Tribute Concert] Ultimate Queen. Retrieved 25 August 2018</ref> Queen played their first US show on 16 April 1974 in Denver, Colorado,<ref name="Loudersound">Everley, Dave. [https://www.loudersound.com/features/queen-we-went-to-extremes-we-put-ourselves-under-pressure "Queen: The Making of Sheer Heart Attack"], ''Loudersound''. 8 November 2016. Retrieved 25 August 2018</ref> as a support, which [[Freddie Mercury]] reportedly disliked, saying: "Being support is one of the most traumatic experiences of my life".<ref name="Melody Maker"/> At the climax of the tour in Boston, [[Brian May]] was discovered to have hepatitis, possibly from the use of a contaminated needle during vaccinations the group received before travelling to Australia.<ref name="Loudersound"/> The remainder of the tour was subsequently cancelled and Queen flew back home, where May was hospitalised.<ref>[https://www.youtube.com/watch?v=-723NWrI93s Sheer Heart Attack & Killer Queen - Days Of Our Lives Documentary] Retrieved 25 August 2018. -via YouTube</ref>
+
+In June, the band gathered together at [[Trident Studios]] to start rehearsing material for the album. Koh Hasebe interviewed Mercury, [[Roger Taylor (Queen drummer)|Roger Taylor]] and [[John Deacon]] when they were rehearsing on 13 June.<ref>{{Cite web |title=Dawn of Aquarius |url=https://a-froger-epic.tumblr.com/post/625893273065701376 |access-date=2021-01-18 |website=Dawn of Aquarius |date=August 2020}}</ref> At the beginning of July, May joined them for rehearsals. The band were just preparing to record, and on 7 July, they trekked three and a half hours to get to the [[Rockfield Studios]] in [[Wales]],<ref>{{Cite web|title=Queen Diary - search|url=http://diary.queensongs.info/fulltext.php?search=%22Rockfield+Studios%22&who=&what=&lan=|access-date=2021-01-18|website=diary.queensongs.info}}</ref> where they would record ten backing tracks, finishing on 28 July.<ref>{{Cite web|title=Sheer Heart Attack :: Queen Songs|url=https://www.queensongs.info/album-statistics/queen/sheer-heart-attack|access-date=2021-01-18|website=Queensongs.info}}</ref> At the start of August, work shifted to [[Wessex Sound Studios]]. Work there would not last long, however, as May, who was starting to feel uneasy, went to a specialist clinic on 2 August. He collapsed at the clinic, as a result of a [[Peptic ulcer disease|duodenal ulcer]],<ref name="auto">{{Cite web|title=Brian May's 1974 Health Problems (Now Updated!)|url=https://rushingheadlong.tumblr.com/post/190042609382/brian-mays-health-problems-of-1974|access-date=2021-01-18|website=one vision}}</ref> and would be operated on the following day, but discharged from the hospital soon after so he could recover at home.<ref name="auto"/> While the band were overdubbing at Wessex, May booked studio time at [[AIR Oxford Circus|AIR Studios]], where he recorded "Dear Friends" and "She Makes Me".<ref>{{Cite book|last=Purvis|first=Georg|url=https://books.google.com/books?id=Z9xkDwAAQBAJ&q=Brian+May+AIR+Studios+1974&pg=PT76|title=Queen: Complete Works (revised and updated)|date=2018-10-30|publisher=Titan Books (US, CA)|isbn=978-1-78909-049-9}}</ref> In the meantime, Taylor and Deacon made an appearance at an [[EMI]]/[[Radio Luxembourg]] motor rally at [[Brands Hatch]] on 11 August.<ref>{{Cite web|title=20 Year Reign|url=https://brianmay.com/queen/queendiary/part3.html|access-date=2021-01-18|website=brianmay.com}}</ref> By late August, May was working with the band again, and the rest of the band would add their parts to the songs he had recorded. There was still one song that needed to be recorded as the band worked into September, and that was "Now I'm Here". They recorded the backing track for this one at Wessex, and saved the rest to be completed during the mixing sessions.<ref>{{Cite book|last=Purvis|first=Georg|url=https://books.google.com/books?id=c084CgAAQBAJ&q=the+march+of+the+black+queen+edits&pg=PT1173|title=Queen: The Complete Works|date=2012-08-28|publisher=Titan Books (US, CA)|isbn=978-1-78116-287-3}}</ref>
+
+Mixing commenced in the middle of September. The band were still overdubbing at this point, so they hired someone to deliver tapes from recording studio to mixing studio via motorcycle. The heart of the mixing sessions took place at Trident Studios, and one or two days was spent mixing each of the majority of the songs. "Brighton Rock", on the other hand, took four days to mix, with six hours' worth of different mixes created during that time. Each song was mixed in little edited sections that were about fifteen to twenty seconds in length.<ref name="gearslutz.com">{{Cite web|title=Did anyone here track or assist tracking Freddie Mercury vocals? - Gearslutz|url=https://www.gearslutz.com/board/so-much-gear-so-little-time/654730-did-anyone-here-track-assist-tracking-freddie-mercury-vocals.html|access-date=2021-01-18|website=Gearslutz.com}}</ref> At this point, Trident had just installed a 24-track machine in their studio that had been around since 1972, but was not functioning until 1974.<ref>{{cite book |author=Nielsen Business Media Inc. |url=https://books.google.com/books?id=eygEAAAAMBAJ&q=billboard+Trident+Studios+1972&pg=PA33 |title=Billboard |date=1972-08-12}}</ref> In fact, the album was Trident's first 24-track project. Even though Trident had expanded their recording flexibility by eight tracks, this was still not enough to be able to mix each track individually. "Bring Back That Leroy Brown", for example, had 70 vocal tracks and had to be mixed down to work with the 24-track mixer.<ref name="gearslutz.com"/>
+
+On 20 September, it was announced the band were attempting to secure a release date for the album of 1 November, though it seemed unlikely that they would be finished in time to meet that deadline.<ref>{{cite web|url=https://www.queenconcerts.com/inc/wanted/fanclub-magazines/1974-september.jpg|format=JPG|title=Photographic image|website=Queenconcerts.com|access-date=27 March 2022}}</ref> They mixed "Now I'm Here", which was the last thing to be mixed, on 22 October. May did an interview the next day (which was published on 26 October) that explained what finishing the album was like.<ref>{{cite web|title=Queen Article Archive|url=https://queenarticlearchive.tumblr.com/post/183993505307/here-is-an-article-on-brian-written-just-after-his|access-date=2021-01-18|website=Queen Article Archive}}</ref> In total, the band used four different studios in the making of ''Sheer Heart Attack'': most of the backing tracks were recorded at Rockfield, two backing tracks and some guitar overdubs were recorded at AIR Studios, most of the overdubs and one backing track were recorded at Wessex, and the mixing was done at Trident.
+
+==Songs==
+The album noticeably shifts away from the [[progressive rock]] themes of its predecessors, and has been categorised as [[hard rock]]<ref name="prown/newquist">{{cite book |author1-last=Prown |author1-first=Pete |author1-link=Pete Prown |author2-last=Newquist |author2-first=HP |author2-link=HP Newquist |title=Legends of Rock Guitar: The Essential Reference of Rock's Greatest Guitarists |year=1997 |page=106 |publisher=Hal Leonard Corporation |isbn=978-0-7935-4042-6}}</ref><ref>{{cite web |url=http://www.uncut.co.uk/queen/queen-the-first-five-albums-review |title=Queen – The First Five Albums |work=Uncut |access-date=25 January 2015}}</ref><ref name="queenarchives">{{cite web|url=https://www.queenarchives.com/index.php?title=Queen_-_10-13-2004_-_Sheer_Heart_Attack_-_Daily_Vault|title=Sheer Heart Attack|publisher=Daily Vault|author=Benjamin Ray|quote="''Sheer Heart Attack'' showcases what the band would soon become while giving a nod to their hard-rock past..."|date=13 October 2004|access-date=19 November 2018}}</ref> and [[glam rock]].<ref name="10 Essential Glam Rock Albums">{{cite web | url= http://www.treblezine.com/10-best-glam-rock-albums/ | title= 10 Essential Glam Rock Albums | publisher=Treblezine | date=6 June 2012 | access-date=19 December 2015}}</ref><ref name="Bennett2005">{{cite book|author=Joe Bennett|title=Complete Guitar Player|date=March 2005|publisher=William S. Konecky Associates, Incorporated|isbn=978-1-56852-513-6|page=81}}</ref><ref>{{cite magazine|url=https://www.pastemagazine.com/music/best-albums/30-greatest-glam-rock-albums-of-all-time|title=The 30 Greatest Glam Rock Albums of All Time|date=17 October 2023|first=Olivia|last=Abercrombie|magazine=[[Paste (magazine)|Paste]]|access-date=9 January 2025}}</ref> The ''Daily Vault'' described it as "an important transition album" because it showcased "what the band would soon become while giving a nod to their hard-rock past,"<ref name="queenarchives" /> while [[Stephen Thomas Erlewine]] of [[AllMusic]] observed that, although there are still references to the fantasy themes of their earlier works, particularly on "In the Lap of the Gods" and "[[Lily of the Valley (song)|Lily of the Valley]]", "the fantasy does not overwhelm as it did on the first two records".<ref name="allmusic" />
+
+"[[Killer Queen]]" was written in a single night, which contrasts with the, as Mercury put it, "ages" it took to write "[[Queen II|The March of the Black Queen]]".<ref name="Melody Maker"/> "Brighton Rock" was written during the making of ''[[Queen II]]''; "[[Stone Cold Crazy]]" had its genesis in Mercury's pre-Queen band [[:nl:Ibex (band)|Wreckage]]; and Mercury wrote "[[Flick of the Wrist]]" during May's illness-induced absence. As it included the first song written by [[John Deacon]] that Queen recorded ("Misfire") alongside tracks written by the other members of the band, ''Sheer Heart Attack'' was the first of the group's albums to contain at least one song written by each member; "Stone Cold Crazy" was the band's first song for which all four members shared the writing credit.
+
+==="Brighton Rock"===
+{{Main|Brighton Rock (song)}}
+"Brighton Rock" was written by [[Brian May]] during the ''[[Queen II]]'' sessions, but was not recorded at that time, as the group felt it would not fit with the rest of the album.<ref>{{cite web | url=http://www.queenonline.com/features/the-black-white-and-grey-of-queen-ii-fan-feature-by-patrick-lemieux | title=The Black, White and Grey of Queen II | publisher=QueenOnline.com | access-date=6 May 2018}}</ref> Lyrically, it tells the story of two young lovers named Jenny and Jimmy, who meet in [[Brighton]] on a [[Holiday|public holiday]].<ref name="Brighton">[http://www.allmusic.com/song/brighton-rock-t860271 Brighton Rock] AllMusic. Retrieved 1 September 2011</ref> [[Mod (subculture)|Mods]] travelling to Brighton on bank holidays was a popular narrative at the time, as in [[the Who]]'s ''[[Quadrophenia]]''.<ref>{{cite web|url=http://www.themodgeneration.co.uk/2011/02/brighton-rock.html|title=Brighton Rock|publisher=The Mod Generation|access-date=29 November 2015}}</ref>
+
+The song includes a three-minute unaccompanied guitar solo interlude,<ref name="Brighton" /> which makes extensive use of [[delay (audio effect)|delay]] to build up guitar harmony and [[contrapuntal]] melodic lines. It grew out of May's experimentation with an [[Echoplex]] unit while he attempted to recreate his guitar orchestrations for live performances of "Son and Daughter". He had made modifications to the original unit so he could change the delay times, and ran each echo through a separate amplifier to avoid interference.<ref name=Guitarworld.com>{{cite magazine | url=https://www.guitarworld.com/features/100-greatest-guitar-solos-no-41-brighton-rock-brian-may | title=100 Greatest Guitar Solos: No. 41 "Brighton Rock" (Brian May) | magazine=Guitar World | access-date=6 May 2018}}</ref>
+
+The studio version of the solo only contains one "main" guitar and one "echoed" guitar for a short section, but, live, May would usually split his guitar signal into one "main" and two "echoed" guitars, with each going to a separate bank of amplifiers. In concert, the solo has been performed as part of "Brighton Rock", in a medley with another song, or as a standalone piece. For example, May performed some of it at the [[2012 Summer Olympics closing ceremony|closing ceremony]] of the [[2012 Summer Olympics]] in London.<ref>[https://www.telegraph.co.uk/sport/olympics/london-2012/9470803/Olympics-closing-ceremony-playlist.html "Olympics closing ceremony – playlist"]. The Telegraph. Retrieved 6 September 2012</ref> Considered one of May's finest solos,<ref name="Brighton" /> ''[[Guitar World]]'' ranked it No. 41 on their list of the ''100 Greatest Guitar Solos of All Time''.<ref name=Guitarworld.com />
+
+At the very start of this song you can hear the sound of a Carousel. This was taken from a sound effects album called "Authentic Sound Effects Volume 1"  originally released in 1960.<ref>{{cite web |title=Sheer Heart Attack Album |url=https://www.shanesqueensite.com/project/sheer-heart-attack |website=Shane's Queen Site |date=8 November 1974 |access-date=15 December 2025}}</ref>
+
+==="Killer Queen"===
+{{Main|Killer Queen}}
+"[[Killer Queen]]" was written by [[Freddie Mercury]] and was the band's first international hit single.<ref>[[Joel Whitburn|Whitburn, Joel]] (2006). The Billboard Book of Top 40 Hits. Billboard Books</ref><ref>Roberts, David (2006). [[British Hit Singles & Albums]]. London: Guinness World Records Limited</ref> Mercury played a [[tack piano|jangle piano]] as well as a [[grand piano]] on the recording. After it charted as a single, the band performed the song on ''[[Top of the Pops]]''.
+
+==="Tenement Funster"/"Flick of the Wrist"/"Lily of the Valley"===
+{{Main|Flick of the Wrist|Lily of the Valley (song)}}
+[[Roger Taylor (Queen drummer)|Roger Taylor]] wrote "Tenement Funster" about youth and rebellion and sang lead vocals, while [[John Deacon]] played the song's prominent acoustic guitar parts in May's absence. It segues into Mercury's "[[Flick of the Wrist]]" (which was released, along with "Killer Queen", as a double A-sided single), and then into a softer, piano-based Mercury song, "[[Lily of the Valley (song)|Lily of the Valley]]", making the three songs continuous.<ref name="AMusic">[http://www.allmusic.com/album/black-clouds-silver-linings-special-edition-r1567154 Black Clouds & Silver Linings (Special Edition)] [[AllMusic]]. Retrieved 1 September 2011</ref>
+
+==="Now I'm Here"===
+{{Main|Now I'm Here}}
+"[[Now I'm Here]]" was written by May while hospitalised, and recalls the group's early tour supporting [[Mott the Hoople]]. It was recorded during the last week of the sessions for the album, with May playing piano.<ref>[http://www.allmusic.com/song/now-im-here-t860276 Now I'm Here] Allmusic. Retrieved 1 September 2011</ref>
+
+==="In the Lap of the Gods"===
+"In the Lap of the Gods" was written by Mercury and featured multiple vocal overdubs from himself and Roger Taylor. It features one of the highest notes on the album, sung by Taylor. {{Citation needed|date=April 2023}}
+
+==="Stone Cold Crazy"===
+{{Main|Stone Cold Crazy}}
+"[[Stone Cold Crazy]]" was one of the earliest tracks that Queen performed live, and had several different arrangements before being recorded for ''Sheer Heart Attack''. No band member was able to remember who had written the lyrics when the album was released, so they shared the writing credit, the first of their songs to do so. The lyrics deal with gangsters and include a reference to [[Al Capone]]. The track has a fast tempo and heavy distortion, presaging [[speed metal]].<ref>{{cite web |url=https://www.bbc.co.uk/music/reviews/xxhj/ |title=Queen: ''Sheer Heart Attack'' Review |author=Jones, Chris |date=7 June 2007 |publisher=BBC |access-date=2 July 2011}}</ref> Music magazine ''[[Q (magazine)|Q]]'' described "Stone Cold Crazy" as "[[thrash metal]] before the term was invented",<ref name="QMagazine">[http://www.brianmay.com/queen/queennews/queennewsfeb11a.html Queen News: February 2011] BrianMay.com. Retrieved 2 July 2011</ref> although this was not the first song in the style of "proto-thrash", with [[Deep Purple]]'s "[[Hard Lovin' Man]]" predating it by four years.<ref>{{cite news|url=https://www.goldminemag.com/articles/the-20-albums-that-invented-thrash|title=The 20 Albums That Invented...Thrash|newspaper=Goldmine Magazine: Record Collector & Music Memorabilia |date=4 May 2022|publisher=[[Goldmine (magazine)|Goldminemag.com]]|access-date=17 August 2025|archive-date=29 November 2022|archive-url=https://web.archive.org/web/20221129194402/https://www.goldminemag.com/articles/the-20-albums-that-invented-thrash|url-status=live}}</ref> The song was played live at almost every Queen concert between 1974 and 1978 and also in the cut version during European leg of The Works Tour in 1984.<ref>[http://www.queenconcerts.com/live/queen/sha.html Queen live on tour: Sheer Heart Attack: Setlist] Queen Concerts. Retrieved 2 July 2011</ref><ref>[http://www.queenconcerts.com/live/queen/anato.html Queen live on tour: A Night At The Opera: Setlist] Queen Concerts. Retrieved 2 July 2011</ref><ref>[http://www.queenconcerts.com/live/queen/adatrna.html Queen live on tour: Day At The Races (world): Setlist] Queen Concerts. Retrieved 2 July 2011</ref><ref>[http://www.queenconcerts.com/live/queen/notwna.html Queen live on tour: News Of The World: Setlist] Queen Concerts. Retrieved 2 July 2011</ref><ref>[http://www.queenconcerts.com/live/queen/1984-works.html Queen live on tour: The Works 1984: Setlist] Queen Concerts. Retrieved 2 July 2011</ref>
+
+[[Metallica]] covered the song as their contribution to the 1990 compilation album ''Rubáiyát: Elektra's 40th Anniversary''. This cover version won a [[Grammy Award]] in 1991; it also appeared on the band's compilation ''[[Garage Inc.]]''
+
+==="Dear Friends"===
+"Dear Friends" is a ballad written by May and sung by Mercury.
+ 
+==="Misfire"===
+"Misfire" was [[John Deacon]]'s first individual composition for the band, and featured him playing the guitar solo and all guitar parts on the track except for some parts at the end of the song, in which Brian's Red Special becomes more prominent.
+ 
+==="Bring Back That Leroy Brown"===
+The title of "Bring Back That Leroy Brown" alludes to the then-recent hit "[[Bad Bad Leroy Brown]]" by American singer-songwriter [[Jim Croce]], who had died in a plane crash the previous year. Written by Mercury, "Bring Back That Leroy Brown" features him playing grand piano and jangle piano, as well as doing multiple vocal overdubs. May plays a short section on [[Banjo ukulele|ukulele-banjo]], and Deacon plays a line on the [[double bass]]. DRUM! Magazine commended Taylor's drum work on the song: "It really shows off Taylor’s versatility. He nails dozens of kicks throughout this fast and tricky song and proves that he could’ve been a big band drummer or ably fit into any theatrical pit band if Queen hadn’t worked out so well for him. Honky-tonk piano, upright bass, ukulele-banjo, and a smokin' drummer all add up to a rollicking good time."<ref>{{Cite web |url=http://www.drummagazine.com/lessons/post/hot-licks-roger-taylor/P3/ |title=Hot Licks: Roger Taylor's Regal Queen Licks - DRUM! Magazine - Play Better Faster |access-date=4 September 2016 |archive-url=https://web.archive.org/web/20160918165638/http://www.drummagazine.com/lessons/post/hot-licks-roger-taylor/P3/ |archive-date=18 September 2016 |url-status=dead}}</ref>
+
+==="She Makes Me (Stormtrooper in Stilettoes)"===
+"She Makes Me (Stormtrooper in Stilettoes)" was written and sung by May with him and Deacon playing acoustic guitars.
+ 
+==="In the Lap of the Gods...Revisited"===
+"In the Lap of the Gods...Revisited" was one of Queen's set-closers from 1974 to 1977. During the 1986 [[Magic Tour (Queen)|Magic tour]], it was performed again in a medley, where it segued into "[[Seven Seas of Rhye]]".
+
+==Reception and legacy==
+{{Music ratings
+|title=Retrospective reviews
+|rev1 = [[AllMusic]]
+|rev1score = {{Rating|4.5|5}}<ref name="allmusic">[{{AllMusic|class=album|id=sheer-heart-attack-r2218691/review|pure_url=yes}} AllMusic review]</ref>
+|rev2 = The Daily Vault
+|rev2score = B+<ref name="queenarchives"/>
+|rev3=Backseat Mafia
+|rev3score=8.5/10<ref name="Backseat">{{cite web|url=http://www.backseatmafia.com/classic-album-queen-sheer-heart-attack/|title=Classic Album: Queen - Sheer Heart Attack|publisher=Backseat Mafia|author=Jon Bryan|date=10 June 2016|access-date=25 May 2019}}</ref>
+|rev4 = ''[[Encyclopedia of Popular Music]]''
+|rev4score = {{Rating|4|5}}<ref>{{cite book|last=Larkin|first=Colin|author-link=Colin Larkin (writer)|year=2011|page=2248|title=[[Encyclopedia of Popular Music]]|publisher=[[Omnibus Press]]|isbn=978-0-85712-595-8|edition=5th}}</ref>
+| rev5      = ''[[MusicHound Rock]]''
+| rev5Score = {{rating|3.5|5}}<ref>{{cite book|editor1-last=Graff|editor1-first=Gary|editor2-last=Durchholz|editor2-first=Daniel|title=MusicHound Rock: The Essential Album Guide|publisher=Visible Ink Press|location=Farmington Hills, MI|year=1999|section=Queen|isbn=1-57859-061-2|pages=909–910}}</ref>
+|rev6 = ''[[Pitchfork Media]]''
+|rev6score = 9/10<ref name="pitchfork">Leone, Dominique. [http://pitchfork.com/reviews/albums/15221-reissues/#review-album-16326 Queen reviews]. [[Pitchfork Media|Pitchfork]]. 24 March 2011. Retrieved 14 December 2011.</ref>
+|rev7 = ''[[PopMatters]]''
+|rev7Score = 8/10<ref>{{cite web|last=Ramirez |first=AJ |date=8 June 2011 |url=http://www.popmatters.com/feature/142525-in-the-lap-of-the-gods-the-first-five-queen-albums/ |title=In the Lap of the Gods: The First Five Queen Albums |work=[[PopMatters]]|access-date=19 April 2016 |archive-url=https://web.archive.org/web/20131126012135/http://www.popmatters.com/feature/142525-in-the-lap-of-the-gods-the-first-five-queen-albums/ |archive-date=26 November 2013 |url-status=unfit }}</ref>
+|rev8 = ''[[Q (magazine)|Q]]''
+|rev8score = {{Rating|4|5}}<ref name="CD">{{cite web|url=http://www.cduniverse.com/productinfo.asp?pid=8535907&style=music|title=Queen – Sheer Heart Attack CD Album|publisher=[[CD Universe]]|access-date=19 April 2016}}</ref>
+|rev9 = ''[[Record Collector]]''
+|rev9Score = {{Rating|4|5}}<ref name="CD" />
+|rev10 = ''[[Uncut (magazine)|Uncut]]''
+|rev10Score = {{Rating|4|5}}<ref name="CD" />
+}}
+
+At the time of its release, ''[[New Musical Express|NME]]'' called the album: "A feast. No duffers, and four songs that will just run and run: 'Killer Queen', 'Flick of the Wrist', 'Now I'm Here', and 'In the Lap of the Gods...Revisited'."<ref name="nme">Quoted in Jacky Gunn, Jim Jenkins. ''Queen. As It Began.'' London: Sidgwick & Jackson, 1992, p. 84. {{ISBN|0-283-06052-2}}</ref> The ''[[Winnipeg Free Press]]'' commended "Brian May's multi-tracked guitar, Freddie Mercury's stunning vocalising and Roy Thomas Baker's dynamic production work", calling the album "a no-holds barred, full-scale attack on the senses".<ref name="winnipeg">[https://web.archive.org/web/20071004225059/http://www.queenarchives.com/viewtopic.php?t=325 Winnipeg Free Press, 5 July 1975 (Queen Archives)], Web.archive.org</ref> ''[[Circus (magazine)|Circus]]'' referred to the album as "perhaps the heaviest, rockingest assault on these shores we've enjoyed in some time".<ref name="jm">{{Cite web|url=http://queenarchives.com/qa/|title=Queen Archives :: Interviews, Articles, Reviews – Freddie Mercury, Brian May, Roger Taylor, John Deacon|website=Queenarchives.com|date=8 March 2020 |access-date=27 March 2022}}</ref> ''[[Rolling Stone]]'' awarded the album a positive rating of 3 stars and wrote: "If it's hard to love, it's hard not to admire: this band is skilled, after all, and it dares."<ref name="rs">{{cite magazine|url=https://www.rollingstone.com/music/albumreviews/sheer-heart-attack-19750508|title=Queen Sheer Heart Attack Album Review|author=Bud Scoppa|date=8 May 1975|magazine=Rolling Stone}}</ref> [[John Mendelsohn (musician)|John Mendelsohn]], however, was unimpressed, writing: "I hunted all over both sides of this latest album for something, anything, even remotely as magnificent as 'Keep Yourself Alive' or 'Father to Son', only to end up empty-eared and bawling."<ref name="jm" /> As 1974 drew to a close, the album was ranked by ''[[Disc (magazine)|Disc]]'' as the third best of the year<ref>''[[Disc (magazine)|Disc]]'', end-of-year list, December 1974</ref> and tied for 24th place on ''NME's'' end-of-year list.<ref>{{Cite web|url=https://www.rocklistmusic.co.uk/1974.html|archive-url=https://archive.today/20120913061101/http://www.rocklistmusic.co.uk/1974.html|url-status=usurped|archive-date=13 September 2012|title=Rocklist.net...NME End Of Year Lists 1974..|website=Rocklistmusic.co.uk|access-date=27 March 2022}}</ref>
+
+In a review for the ''[[Chicago Tribune]]'', Greg Kot awards the album a generally positive rating of 2 and a half stars, while noting that this album was where "...the songs became more concise"<ref>{{Cite web |title=AN 18-RECORD, 80 MILLION-COPY ODYSSEY |url=https://www.chicagotribune.com/news/ct-xpm-1992-04-19-9202040743-story.html |access-date=2023-05-10 |website=Chicago Tribune|date=19 April 1992 }}</ref>
+
+{{Music ratings
+| rev1 = ''[[Chicago Tribune]]''
+| rev1score = {{Rating|2.5|4}}<ref>{{cite news|last=Kot|first=Greg|author-link=Greg Kot|date=19 April 1992|url=https://www.chicagotribune.com/news/ct-xpm-1992-04-19-9202040743-story.html|title=An 18-record, 80 Million-copy Odyssey|newspaper=[[Chicago Tribune]]|access-date=13 April 2022}}</ref>
+| rev2 = ''[[Rolling Stone]]''
+| rev2score = {{Rating|3|5}}{{cite web|url=https://www.rollingstone.com/music/music-album-reviews/sheer-heart-attack-104751/|title=Sheer Heart Attack|date=8 May 1975 |publisher=[[Rolling Stone]]}}
+}}
+
+In a retrospective review, [[AllMusic]] said that "the theatricality is now wielded on everyday affairs, which ironically makes them sound larger than life. And this sense of scale, combined with the heavy guitars, pop hooks, and theatrical style, marks the true unveiling of Queen, making ''Sheer Heart Attack'' as {{sic}} the moment where they truly came into their own."<ref name="allmusic" /> ''[[Q (magazine)|Q]]'' called the record "indispensable" and "one of the great pop/rock admixtures of the '70s".<ref name="CD" /> ''[[Pitchfork (website)|Pitchfork]]'' wrote: "''Sheer Heart Attack'' not only improves on every aspect of their sound suggested by the first two records, but delivers some of the finest music of their career ... this is the band at the height of its powers."<ref name="pitchfork" /> Jon Bryan of ''Backseat Mafia'' described it as "the first album where Queen got it unarguably right", noting that "such obvious arrogance suited them".<ref name="Backseat"/>
+
+Benjamin Ray of the ''Daily Vault'' felt that "Queen somehow manages to sound like every rock band of the 70s on here, including [[Rush (band)|Rush]], [[Led Zeppelin|Zeppelin]] and even [[Uriah Heep (band)|Uriah Heep]]." He noted the difference was that "Queen actually tries to be pretentious and bombastic, and often they are so over the top one can't help but be entertained", finally concluding that it was "their most fun and showcases everything they did right."<ref name="queenarchives" /> The [[BBC]] wrote: "they stretched contemporary production methods to their very limit with multi-layered vocals and guitars and Freddie's vaudevillian streak finally emerged ... this was the album that finally saw Queen find their true voice."<ref name="bbc">{{Cite web|url=https://www.bbc.co.uk/music/reviews/xxhj/|title=BBC - Music - Review of Queen - Sheer Heart Attack|first=Chris|last=Jones|website=Bbc.co.uk|access-date=27 March 2022}}</ref> Rock historian Paul Fowles wrote that ''Sheer Heart Attack'' "saw the band become increasingly focused on the emerging cult figure of Mercury" and his "unique brand of rock theater", especially on the single "Killer Queen".<ref>{{cite book |last=Fowles |first=Paul |title=A Concise History of Rock Music |year=2009| page=244|publisher=Mel Bay Publications, Inc.|isbn=978-0-7866-6643-0}}</ref>
+
+===Accolades===
+{| class="wikitable"
+|-
+! Publication
+! Country
+! Accolade
+! Year
+! Rank
+|-
+| ''[[1001 Albums You Must Hear Before You Die]]''
+| United Kingdom
+| 1001 Albums You Must Hear Before You Die<ref>{{Cite web|url=https://www.rocklistmusic.co.uk/steveparker/1001albums.htm|archive-url=https://web.archive.org/web/20060113075534/http://www.rocklistmusic.co.uk/steveparker/1001albums.htm|url-status=usurped|archive-date=13 January 2006|title=Rocklist.net...Steve Parker...1001 Albums..|website=Rocklistmusic.co.uk|access-date=27 March 2022}}</ref>
+| 2005
+| style="text-align:center;"| *
+|-
+| rowspan=2| ''[[Classic Rock (magazine)|Classic Rock]]''
+| rowspan=2| United Kingdom
+| The 100 Greatest British Rock Albums Ever<ref>{{Cite web|url=https://www.rocklistmusic.co.uk/steveparker/classicrock2.htm|archive-url=https://archive.today/20120628233705/http://www.rocklistmusic.co.uk/steveparker/classicrock2.htm|url-status=usurped|archive-date=28 June 2012|title=Rocklist.net...Steve Parker...More Classic Rock Lists..|website=Rocklistmusic.co.uk|access-date=27 March 2022}}</ref>
+| 2006
+| style="text-align:center;"| 28
+|-
+| The 200 Greatest Albums of the 70's (20 greatest of 1974)<ref>''[[Classic Rock (magazine)|Classic Rock]]/[[Metal Hammer]]'', "The 200 Greatest Albums of the 70s", March 2006</ref>
+| 2006
+| style="text-align:center;"| *
+|-
+| rowspan=2| ''[[Kerrang!]]''
+| rowspan=2| United Kingdom
+| Poll: The 100 Best British Rock Albums Ever<ref>{{usurped|1=[https://web.archive.org/web/20060216032059/http://www.rocklistmusic.co.uk/kerrang.html The 100 Best British Rock Albums Ever!]}}. ''[[Kerrang!]]''. 19 February 2005. Archived at rocklistmusic.co.uk</ref>
+| 2005
+| style="text-align:center;"| 8
+|-
+| The 100 Greatest Rock Albums Ever<ref>"The 100 Greatest Rock Albums Ever", ''[[Kerrang]]'', 8 November 2006</ref>
+| 2007
+| style="text-align:center;"| 45
+|-
+| rowspan=3| ''[[Mojo (magazine)|Mojo]]''
+| rowspan=3| United Kingdom
+| 100 Greatest Guitar Albums<ref>[http://www.muzieklijstjes.nl/Mojo100greatestguitaralbums.htm "100 Greatest Guitar Albums"]. ''[[Mojo (magazine)|Mojo]]'', 2002. Archived at muzieklijstjes.nl</ref>
+| 2002
+| style="text-align:center;"| 72
+|-
+| 70 of the Greatest Albums of the 70's<ref>''[[Mojo (magazine)|Mojo]]'', ''MOJO Classic: The Who & The Story of 70's Rock'', July 2006</ref>
+| 2006
+| style="text-align:center;"| *
+|-
+| The 100 Records That Changed the World<ref>''[[Mojo (magazine)|Mojo]]'', "The 100 Records That Changed the World", June 2007</ref>
+| 2007
+| style="text-align:center;"| 88
+|-
+| ''[[NME]]''
+| United Kingdom
+| Poll: Greatest 100 Albums of All Time<ref>[https://web.archive.org/web/20070408232353/http://entertainment.timesonline.co.uk/tol/arts_and_entertainment/music/article670515.ece "Oasis album voted greatest of all time"]. ''[[The Times]]''. 1 June 2006</ref>
+| 2006
+| style="text-align:center;"| 63
+|-
+| [[Radio Caroline]]
+| United Kingdom
+| Poll: Top 100 Albums<ref>[http://www.timepieces.nl/Top100's/1977RadioCaroline.html Top 100 Albums] {{Webarchive|url=https://web.archive.org/web/20120821100036/http://www.timepieces.nl/Top100's/1977RadioCaroline.html |date=21 August 2012 }}. [[Radio Caroline]]. 1977. Archived at timepieces.nl</ref>
+| 1977
+| style="text-align:center;"| 50
+|-
+| ''[[Trouser Press]]''
+| United States
+| Best Albums of the 1970s<ref>[http://www.stat.ualberta.ca/people/schmu/trouserpress.html "Best Albums of the 1970s"], ''[[Trouser Press]]'', January 1980 (archived at stat.ualberta.ca)</ref>
+| 1980
+| style="text-align:center;"| *
+|-
+| [[Virgin Group|Virgin]]
+| United Kingdom
+| Poll: All Time Album Top 1000 Albums<ref>{{usurped|1=[https://archive.today/20120629064200/http://www.rocklistmusic.co.uk/virgin_1000_v3.htm All-Time Album Top 1000 Albums]}}. [[Virgin Group|Virgin]]. 2000. Archived at rocklistmusic.co.uk</ref>
+| 2000
+| style="text-align:center;"| 492
+|-
+|''[[Rock Hard (magazine)|Rock Hard]]''
+|Germany
+|''The 500 Greatest Rock & Metal Albums of All Time''<ref>{{cite book|title=Best of Rock & Metal - Die 500 stärksten Scheiben aller Zeiten|year=2005|publisher=[[Rock Hard (magazine)|Rock Hard]]|language=de|isbn=3-89880-517-4|page=89}}</ref>
+|2005
+| style="text-align:center;"| 308
+|-
+| colspan="5" style="text-align:center; font-size:10pt;"|* denotes an unranked list
+|}
+
+===Mercury's appraisal===
+{{cquote|The album is very varied, we took it to extreme I suppose, but we are very interested in studio techniques and wanted to use what was available. We learnt a lot about technique while we were making the first two albums. Of course there has been some criticism, and the constructive criticism has been very good for us. But to be frank I'm not that keen on the British music press, and they've been pretty unfair to us. I feel that up and coming journalists, by the large, put themselves above the artists. They've certainly been under a misconception about us. We've been called a supermarket hype. But if you see us up on a stage, that's what we're all about. We are basically a rock band.|25px|25px|Freddie Mercury<ref name="jm"/>}}
+
+===2011 reissue===
+On 8 November 2010, record company [[Universal Music]] announced that a remastered and expanded reissue of the album would be released in May 2011, as part of a new deal between Queen and Universal Music, which meant the band's association with [[EMI Records]] would come to an end after almost 40 years. Queen's entire studio catalogue was reissued in 2011.
+
+==Track listing==
+===Original release===
+All lead vocals by [[Freddie Mercury]] unless noted.
+{{Track listing
+| headline        = Side one
+| extra_column = Lead vocals
+| title1          = [[Brighton Rock (song)|Brighton Rock]]
+| writer1         = [[Brian May]]
+| length1         = 5:08
+| extra1 = Mercury with May
+| title2          = [[Killer Queen]]
+| writer2         = Mercury
+| length2         = 3:01
+| title3          = Tenement Funster
+| writer3         = [[Roger Taylor (Queen drummer)|Roger Taylor]]
+| length3         = 2:48
+| extra3 = Taylor
+| title4          = [[Flick of the Wrist]]
+| writer4         = Mercury
+| length4         = 3:19
+| title5          = [[Lily of the Valley (song)|Lily of the Valley]]
+| writer5         = Mercury
+| length5         = 1:43
+| title6          = [[Now I'm Here]]
+| writer6         = May
+| length6         = 4:10
+}}
+{{Track listing
+| extra_column = Lead vocals
+| headline = Side two
+| title7          = In the Lap of the Gods
+| writer7         = Mercury
+| length7         = 3:20
+| title8          = [[Stone Cold Crazy]]
+| writer8         = {{flatlist|
+* Mercury
+* May
+* Taylor
+* [[John Deacon]]}}
+| length8         = 2:12
+| title9          = Dear Friends
+| writer9         = May
+| length9         = 1:07
+| title10          = Misfire
+| writer10         = Deacon
+| length10         = 1:50
+| title11          = Bring Back That Leroy Brown
+| writer11         = Mercury
+| length11         = 2:13
+| title12          = She Makes Me (Stormtrooper in Stilettoes) <!-- the "e" before the final "s" is "Stilettoes" was removed on the tracklists printed on some later releases of the album -->
+| writer12         = May
+| length12         = 4:08
+| extra12 = May
+| title13          = In the Lap of the Gods...Revisited
+| writer13         = Mercury
+| length13        = 3:42
+| total_length = 38:41
+}}
+
+{{Track listing
+| headline        = Bonus track (1991 [[Hollywood Records]] reissue)
+| title14         = Stone Cold Crazy
+| note14          = 1991 bonus remix by [[Michael Wagener]]
+| length14        = 2:12
+| total_length = 40:53
+}}
+
+===Universal Music reissue (2011)===
+{{Track listing
+| headline        = Bonus EP
+| title1          = Now I'm Here
+| note1           = [[A Night at the Odeon – Hammersmith 1975|live at Hammersmith Odeon]], December 1975
+| length1         = 4:27
+| title2          = [[Flick of the Wrist#BBC Version|Flick Of The Wrist]]
+| note2           = [[BBC]] session, October 1974
+| length2         = 3:26
+| title3          = Tenement Funster
+| note3           = BBC session, October 1974
+| length3         = 2:59
+| title4          = Bring Back That Leroy Brown
+| note4           = a cappella mix 2011
+| length4         = 2:18
+| title5          = In the Lap of the Gods...Revisited
+| note5           = live at Wembley Stadium, July 1986
+| length5         = 2:35
+| total_length = 15:45
+}}
+
+===iTunes deluxe edition===
+{{Track listing
+| headline        = Bonus videos
+| title1          = Killer Queen
+| note1           = ''Top of the Pops'', Version 2
+| title2          = Stone Cold Crazy
+| note2           = live at the Rainbow 1974
+| title3          = Now I'm Here
+| note3           = live at the Forum, Montreal 1981
+}}
+
+==Personnel==
+Personnel taken from ''Sheer Heart Attack'' liner notes.<ref>{{Cite AV media notes |title=Sheet Heart Attack |others=[[Queen (band)|Queen]] |date=1974 |type=Album liner notes}}</ref>
+
+'''Queen'''
+*[[Freddie Mercury]] – vocals, piano, [[Tack piano|jangle piano]]
+*[[Brian May]] – guitars, vocals, [[banjo uke|banjolele]]
+*[[Roger Taylor (Queen drummer)|Roger Taylor]] – drums, vocals, [[percussion instrument|percussion]]
+*[[John Deacon]] – bass guitar, [[double bass]], acoustic guitar, guitars on "Misfire"
+
+'''Production'''
+*[[Roy Thomas Baker]] – production
+*Queen – production, sleeve design
+*[[Mike Stone (music producer)|Mike Stone]] – engineering
+*[[Mick Rock]] – art direction, photography
+
+==Charts==
+{{col-begin}}
+{{col-2}}
+
+===Weekly charts===
+{| class="wikitable sortable plainrowheaders"
+|+Weekly chart performance for ''Sheer Heart Attack''
+! scope="col"| Chart (1974–1975)
+! scope="col"| Peak<br />position
+|-
+! scope="row"| Australian Albums ([[Kent Music Report]])<ref name=aus>{{cite book|last=Kent|first=David|author-link=David Kent (historian)|title=Australian Chart Book 1970–1992|edition=illustrated|publisher=Australian Chart Book|location=St Ives, N.S.W.|year=1993|isbn=0-646-11917-6}}</ref>
+| align="center"| 19
+|-
+{{Album chart|Canada|6|artist=Queen|album=Sheer Heart Attack|chartid=3974a|refname=CAN1|rowheader=true|accessdate=June 6, 2024}}
+|-
+{{Album chart|Netherlands|7|artist=Queen|album=Sheer Heart Attack|rowheader=true|accessdate=June 6, 2024}}
+|-
+! scope="row"| Finnish Albums ([[The Official Finnish Charts]])<ref name=FINI>{{cite book|last=Pennanen|first=Timo|title=Sisältää hitin – levyt ja esittäjät Suomen musiikkilistoilla vuodesta 1972|edition=1st|publisher=Kustannusosakeyhtiö Otava|location=Helsinki|year=2006|isbn=978-951-1-21053-5 | page= 166 | language= fi}}</ref>
+| align="center"| 7
+|-
+!scope="row"| French Albums ([[Syndicat National de l'Édition Phonographique|SNEP]])<ref>{{Cite web|url=http://www.infodisc.fr/Album_Q.php |website =Infodisc.fr |language=fr |access-date=9 June 2012 |title=Le Détail des Albums de chaque Artiste – Q |url-status=dead |archive-url=https://web.archive.org/web/20141022124902/http://infodisc.fr/Album_Q.php |archive-date=22 October 2014}} ''Select ''Queen'' from the menu, then press ''OK''.''</ref>
+| align="center"| 6
+|-
+!scope="row"|Japanese Albums ([[Oricon]])<ref name="JPN">{{cite book|title=Oricon Album Chart Book: Complete Edition 1970–2005|publisher=[[Oricon|Oricon Entertainment]]|location=Roppongi, Tokyo|year=2006|isbn=4-87131-077-9|language=ja}}</ref>
+| align="center"| 23
+|-
+{{Album chart|Norway|9|artist=Queen|album=Sheer Heart Attack|rowheader=true|access-date=6 June 2024}}
+|-
+{{Album chart|UK2|2|date=19741124|rowheader=true|accessdate=June 6, 2024}}
+|-
+{{Album chart|Billboard200|12|artist=Queen|refname=Billboard 200|rowheader=true|access-date=6 June 2024}}
+|}
+
+{| class="wikitable sortable plainrowheaders"
+|+2011 weekly chart performance for ''Sheer Heart Attack''
+! scope="col"| Chart (2011)
+! scope="col"| Peak<br />position
+|-
+{{Album chart|Scotland|83|date=20110320|rowheader=true|accessdate=June 6, 2024}}
+
+|}
+{{col-2}}
+
+===Year-end charts===
+{| class="wikitable sortable plainrowheaders" style="text-align:center;"
+|+Year-end chart performance for ''Sheer Heart Attack''
+! scope="col"| Chart (1975)
+! scope="col"| Peak<br />position
+|-
+!scope="row"|Australian Albums ([[Kent Music Report]])<ref name="auchart">{{cite book |title=[[Kent Music Report|Australian Chart Book 1970–1992]] |last=Kent |first=David |author-link=David Kent (historian) |publisher=Australian Chart Book |location=[[St Ives, New South Wales|St Ives, NSW]] |year=1993 |isbn=0-646-11917-6 }}</ref>
+|96
+|-
+{{Album chart|Canada|43|artist=Queen|album=Sheer Heart Attack|chartid=6489a|refname=CAN2|rowheader=true|accessdate=June 6, 2024}}
+|-
+!scope="row"|Japanese Albums ([[Oricon]])<ref name="JPYearend">{{cite web |url=http://entamedata.web.fc2.com/music/music_a1975.html |script-title=ja:1975年アルバム年間ヒットチャート |trans-title=Japanese Year-End Albums Chart 1975 |publisher=Oricon |language=ja |access-date=3 October 2011}}</ref>
+|32
+|-
+!scope="row"|UK Albums ([[Official Charts Company|OCC]]<ref name="UKYearend">{{cite web |url=http://chartheaven.9.forumer.com/a/complete-uk-yearend-album-charts_post21.html |title=Complete UK Year-End Album Charts |access-date=3 March 2012 |url-status=dead |archive-url=https://archive.today/20120111074744/http://chartheaven.9.forumer.com/a/complete-uk-yearend-album-charts_post21.html |archive-date=11 January 2012}}</ref>
+|39
+|-
+!scope="row"|US ''[[Billboard 200]]''<ref name="USYearend75">{{cite magazine |url=http://www.billboard.biz/bbbiz/charts/archivesearch/article_display/855857?imw=Y |archive-url=https://archive.today/20121208164051/http://www.billboard.biz/bbbiz/charts/archivesearch/article_display/855857?imw=Y |url-status=dead |archive-date=8 December 2012 |title=Top Pop Albums of 1975 |magazine=Billboard|access-date=11 February 2012}}</ref>
+|38
+|}
+{{col-end}}
+
+==Certifications==
+{{Certification Table Top|caption=Certifications for ''Sheer Heart Attack''}}
+{{Certification Table Entry|type=album|relyear=1974|region=Canada|artist=Queen|title=Sheer Jeart Attack|certyear=1981|award=Platinum|certref=<ref>{{cite web |url=https://www.sothebys.com/en/buy/auction/2023/freddie-mercury-a-world-of-his-own-crazy-little-things-2/queen-freddie-mercurys-commemorative-canadian-in|date=18 August 2023|title=Queen - Freddie Mercury's commemorative Canadian in-house sales award - 'Queen Rules Canada', 1992
+}}</ref>}}
+{{Certification Table Entry|type=album|region=Japan|award=Gold|certref=<ref>{{cite web|url=https://www.insider.com/queen-rock-band-50-anniversary-pictures-2021-3#1974-queen-ii-and-sheer-heart-attack-go-gold-7|title=Queen is presented with gold discs for "Queen II" and "Sheer Heart Attack" at the Tokyo Prince Hotel in Tokyo, Japan, on April 18, 1975|website=[[Insider.com]] }}</ref>|certyear=1975}}
+{{Certification Table Entry|title=Sheer Heart Attack|artist=Queen|type=album|relyear=2008|certyear=2009|region=Poland|award=Platinum|note=2008 [[Agora SA]] album reissue|date=8 July 2009}}
+{{Certification Table Entry|type=album|relyear=1974|region=Netherlands|artist=Queen|title=Sheer Heart Attack|certyear=1977|award=Gold|certref=<ref name=NET>{{cite web |url=https://www.sothebys.com/en/buy/auction/2023/freddie-mercury-a-world-of-his-own-crazy-little-things-2/queen-freddie-mercurys-dutch-sales-awards-2|date=20 February 2023|title=Queen – Freddie Mercury's Dutch sales awards
+}}</ref>|salesamount=30,000|salesref=<ref name=NET></ref>}}
+{{Certification Table Entry|type=album|relyear=1974|region=Sweden|artist=Queen|title=Sheer Heart Attack|certyear=1977|award=Gold|certref=<ref>{{cite web |url=https://www.sothebys.com/en/buy/auction/2023/freddie-mercury-a-world-of-his-own-crazy-little-things-2/queen-in-house-swedish-sales-award-for-sheer-heart|date=18 August 2023|title=Queen – in-house Swedish Sales Award For Sheer Heart Attack
+}}</ref>}}
+{{Certification Table Entry|title=Sheer Heart Attack|artist=Queen|type=album|relyear=1974|certyear=1982|region=United Kingdom|award=Platinum|id=5820-1614-2}}
+{{Certification Table Entry|title=Sheer Heart Attack|artist=Queen|type=album|relyear=1974|certyear=1975|region=United States|award=Gold}}
+{{Certification Table Bottom}}
+
+==References==
+{{Reflist}}
+
+==External links==
+*[https://www.queenonline.com/music Queen official website: Discography: Sheer Heart Attack]: includes lyrics of all non-bonus tracks
+*[http://www.queenonline.com/en/the-band/discography/live-wembley-86/#lyrics Lyrics] of "In Lap of the Gods…Revisited" from ''[[Live at Wembley '86]]'' on Queen's official website
+
+{{Queen}}
+{{Authority control}}
+
+[[Category:1974 albums]]
+[[Category:Albums produced by Roy Thomas Baker]]
+[[Category:Albums recorded at Trident Studios]]
+[[Category:Albums with cover art by Mick Rock]]
+[[Category:Elektra Records albums]]
+[[Category:EMI Records albums]]
+[[Category:Hollywood Records albums]]
+[[Category:Parlophone albums]]
+[[Category:Queen (band) albums]]
+[[Category:Albums recorded at Rockfield Studios]]
+[[Category:Albums recorded at AIR Studios]]
