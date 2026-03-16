@@ -9,6 +9,7 @@ import { useBackgroundTasks } from './BackgroundTaskContext'
 function TaskIndicator() {
   const { tasks } = useBackgroundTasks()
   const [open, setOpen] = useState(false)
+  const [discographyMinimized, setDiscographyMinimized] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -17,6 +18,15 @@ function TaskIndicator() {
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      setDiscographyMinimized(detail?.open ?? false)
+    }
+    window.addEventListener('discography-minimized', handler)
+    return () => window.removeEventListener('discography-minimized', handler)
   }, [])
 
   if (!tasks.length) return null
@@ -50,6 +60,14 @@ function TaskIndicator() {
           <div className="px-3 py-2 border-b border-gray-100 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
             Foniniai procesai
           </div>
+          {discographyMinimized && (
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('discography-reopen'))}
+              className="w-full flex items-center gap-2 px-3 py-2.5 border-b border-gray-100 hover:bg-violet-50 transition-colors text-left">
+              <svg className="w-3.5 h-3.5 text-violet-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7"/></svg>
+              <span className="text-sm text-violet-600 font-medium">Atidaryti diskografijos langą</span>
+            </button>
+          )}
           <div className="max-h-64 overflow-y-auto">
             {tasks.map(task => (
               <div key={task.id} className="px-3 py-2.5 flex items-start gap-2.5 border-b border-gray-50 last:border-0">
