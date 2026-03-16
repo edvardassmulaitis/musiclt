@@ -1279,6 +1279,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
         if (albumId && (enrichYoutube||enrichLyrics) && item.tracks?.length)
           await enrichTracks(albumId, artistName, addLog, enrichYoutube, enrichLyrics)
         setItems(p => p.map((it, i) => i === idx ? { ...it, importing: false, imported: true } : it))
+        setSelected(p => { const s = new Set(p); s.delete(idx); return s })
       } catch (e: any) {
         setItems(p => p.map((it, i) => i === idx ? { ...it, importing: false, error: e.message } : it))
         addLog(`✗ ${item.title}: ${e.message}`); fail++
@@ -1370,11 +1371,11 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
   // ── UI helpers ─────────────────────────────────────────────────────────────
 
   const toggleSelect = (i: number) => {
-    if (items[i]?.duplicate) return
+    if (items[i]?.duplicate || items[i]?.imported) return
     setSelected(p => { const s = new Set(p); s.has(i) ? s.delete(i) : s.add(i); return s })
   }
 
-  const toggleSong = (title: string) => setSongs(p => p.map(s => s.title === title && !s.duplicate ? { ...s, selected: !s.selected } : s))
+  const toggleSong = (title: string) => setSongs(p => p.map(s => s.title === title && !s.duplicate && !s.imported ? { ...s, selected: !s.selected } : s))
   const selectAllSongs = (val: boolean) => setSongs(p => p.map(s => s.duplicate || s.imported ? s : { ...s, selected: val }))
 
   const closeModal = () => { if (!importing) { setOpen(false); onClose?.() } }
@@ -1390,16 +1391,26 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
   const songNewCount = songs.filter(s => !s.duplicate && !s.imported).length
 
   // Tab counts
+  const studioImported = studioItems.filter(({ it }) => it.imported).length
+  const otherImported = otherItems.filter(({ it }) => it.imported).length
+  const songsImported = songs.filter(s => s.imported).length
+
   const tabCounts = {
     studio: studioItems.length,
     other: otherItems.length,
     singles: songs.length,
   }
 
+  const tabImported = {
+    studio: studioImported,
+    other: otherImported,
+    singles: songsImported,
+  }
+
   const tabHasNew = {
-    studio: studioItems.some(({ it }) => !it.duplicate),
-    other: otherItems.some(({ it }) => !it.duplicate),
-    singles: songs.some(s => !s.duplicate),
+    studio: studioItems.some(({ it }) => !it.duplicate && !it.imported),
+    other: otherItems.some(({ it }) => !it.duplicate && !it.imported),
+    singles: songs.some(s => !s.duplicate && !s.imported),
   }
 
   const toggleExpand = async (i: number) => {
@@ -1524,10 +1535,10 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
 
   // ── Tab bar ────────────────────────────────────────────────────────────────
 
-  const tabDef: { id: ActiveTab; label: string; count: number; hasNew: boolean; showAlways?: boolean }[] = [
-    { id: 'studio', label: 'Studijiniai', count: tabCounts.studio, hasNew: tabHasNew.studio },
-    { id: 'other', label: 'Kiti albumai', count: tabCounts.other, hasNew: tabHasNew.other },
-    { id: 'singles', label: 'Singlai', count: tabCounts.singles, hasNew: tabHasNew.singles, showAlways: true },
+  const tabDef: { id: ActiveTab; label: string; count: number; imported: number; hasNew: boolean; showAlways?: boolean }[] = [
+    { id: 'studio', label: 'Studijiniai', count: tabCounts.studio, imported: tabImported.studio, hasNew: tabHasNew.studio },
+    { id: 'other', label: 'Kiti albumai', count: tabCounts.other, imported: tabImported.other, hasNew: tabHasNew.other },
+    { id: 'singles', label: 'Singlai', count: tabCounts.singles, imported: tabImported.singles, hasNew: tabHasNew.singles, showAlways: true },
   ]
 
   const hasContent = items.length > 0 || songs.length > 0
@@ -1602,7 +1613,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                       {tab.label}
                       {tab.count > 0 && (
                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${isActive ? 'bg-violet-100 text-violet-600' : 'bg-gray-100 text-gray-500'}`}>
-                          {tab.count}
+                          {tab.imported > 0 ? `${tab.imported}/${tab.count}` : tab.count}
                         </span>
                       )}
                       {tab.hasNew && !isActive && <span className="w-1.5 h-1.5 bg-orange-400 rounded-full" />}
