@@ -117,7 +117,7 @@ function cleanWikiText(raw: string): string {
   s = s.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]+>/g, '')
   // Wiki markup valymas
   s = s.replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, (_: string, _l: string, d: string) => d.replace(/^["'\u201c\u2018]+|["'\u201d\u2019]+$/g, '').trim())
-  s = s.replace(/\[\[([^\]]+)\]\]/g, (_: string, l: string) => l.replace(/_/g, ' ').replace(/^["'\u201c\u2018]+|["'\u201d\u2019]+$/g, '').trim())
+  s = s.replace(/\[\[([^\]]+)\]\]/g, (_: string, l: string) => l.replace(/#[^\]]*$/, '').replace(/_/g, ' ').replace(/^["'\u201c\u2018]+|["'\u201d\u2019]+$/g, '').trim())
   s = s.replace(/\[\[|\]\]/g, '').replace(/\{\{[^}]*\}\}/g, '').replace(/''+/g, '')
   s = s.replace(/\[\w*\s*\d*\]/g, '')
   s = s.replace(/\s*\([^)]*\bsong\b[^)]*\)/gi, '').replace(/\s*\([^)]*\balbum\b[^)]*\)/gi, '')
@@ -714,7 +714,7 @@ function isReissueBlock(h: string, tl: string): boolean {
 
     // Jei bloke yra total_length ir nėra title1 — papildomas blokas
     // BET: nefilttruoti jei pirmas title numeris mažas (≤10) — tai gali būti Side two
-    const hasTitle1 = tl.includes('|title1') || tl.includes('| title1') || tl.includes('| title1')
+    const hasTitle1 = /\|\s*title1\s*=/.test(tl)
     const firstNum = nums.length > 0 ? nums[0] : 0
     if (/\|\s*total_length\s*=/.test(tl) && !hasTitle1 && firstNum >= 11) return true
   }
