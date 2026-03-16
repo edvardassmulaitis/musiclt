@@ -686,14 +686,22 @@ function extractTrackListingsWithPos(wikitext: string): { block: string; pos: nu
   return results
 }
 
-// Rasti artimiausią section heading prieš duotą poziciją
+// Rasti section heading prieš duotą poziciją
+// Grąžina tik headings nuo paskutinio depth-2 heading'o — kad nefiltruotume
+// dėl nesusijusių sekcijų (pvz. ==Reissues== prieš ==Track listing==)
 function getSectionBeforePos(wikitext: string, pos: number): string {
   const textBefore = wikitext.slice(0, pos)
   const headings = [...textBefore.matchAll(/^(==+)\s*(.+?)\s*\1\s*$/gm)]
   if (!headings.length) return ''
-  // Grąžinti VISŲ sekcijų pavadinimus (ne tik paskutinio) — kad pagautume ancestor sekcijas
-  // pvz. "2024 box set reissue" > "Vinyl" > {{Track listing}}
-  return headings.map(h => h[2].toLowerCase()).join(' | ')
+  // Rasti paskutinį depth-2 heading'ą — tai "sekcijos šaknis"
+  // Pvz. ==Track listing== → imame tik headings po jo
+  let lastDepth2Idx = -1
+  for (let i = headings.length - 1; i >= 0; i--) {
+    if (headings[i][1].length === 2) { lastDepth2Idx = i; break }
+  }
+  // Imame tik headings nuo paskutinio depth-2 (įskaitant jį)
+  const relevant = lastDepth2Idx >= 0 ? headings.slice(lastDepth2Idx) : headings
+  return relevant.map(h => h[2].toLowerCase()).join(' | ')
 }
 
 function isReissueBlock(h: string, tl: string): boolean {
