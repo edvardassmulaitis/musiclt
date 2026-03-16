@@ -1409,7 +1409,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
         addLog(`✓ ${item.title} (${item.tracks?.length||0})`)
         ok++
         if (albumId && item.tracks?.length)
-          await enrichTracks(albumId, artistName, addLog, enrichLyrics, (done, total) => updateTask('import', `${item.title}: tekstai ${done}/${total}`))
+          await enrichTracks(albumId, artistName, addLog, enrichLyrics, (done, total) => updateTask('import', `${item.title}: ${done}/${total}`))
         setItems(p => p.map((it, i) => i === idx ? { ...it, importing: false, imported: true } : it))
         setSelected(p => { const s = new Set(p); s.delete(idx); return s })
       } catch (e: any) {
@@ -1448,10 +1448,12 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
     const toImport = songs.filter(s => s.selected && !s.duplicate && !s.imported)
     if (!toImport.length) return
     setImporting(true)
-    let okNew = 0, okMark = 0, fail = 0
+    startTask('import-singles', `Singlai: ${artistName}`)
+    let okNew = 0, okMark = 0, fail = 0, songsDone = 0
     addLog(`🎤 ${toImport.length} dainų...`)
     for (const song of toImport) {
       setSongs(p => p.map(s => s.title === song.title ? { ...s, importing: true } : s))
+      updateTask('import-singles', `${song.title} (${songsDone + 1}/${toImport.length})`)
       try {
         if (song.duplicateId) {
           const res = await fetch(`/api/tracks/${song.duplicateId}`, { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ is_single: true }) })
@@ -1498,9 +1500,12 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
         addLog(`✗ ${song.title}: ${e.message}`); fail++
       }
       await new Promise(r => setTimeout(r, 150))
+      songsDone++
     }
     setImporting(false)
     addLog(`✓ ${okNew} singlų importuota${okMark ? `, ${okMark} pažymėta` : ''}${fail ? `, ${fail} klaida` : ''}`)
+    if (fail > 0) errorTask('import-singles', `${okNew + okMark} importuota, ${fail} klaidos`)
+    else finishTask('import-singles', `${okNew + okMark} singlų importuota`)
     if (okNew + okMark > 0) window.dispatchEvent(new CustomEvent('discography-updated'))
   }
 
