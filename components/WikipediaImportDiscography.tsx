@@ -1029,54 +1029,39 @@ function titleMatches(result: string, query: string): boolean {
   return false
 }
 
-// Ieškoti YouTube URL per MusicBrainz (nemokama, ~1req/s)
-async function findYouTubeViaMB(artistName: string, trackTitle: string, addLog?: (s: string) => void): Promise<string | null> {
+// Ieškoti YouTube URL per YouTube Music InnerTube API (nemokama, greita, patikima)
+async function findYouTubeViaYTMusic(artistName: string, trackTitle: string, addLog?: (s: string) => void): Promise<string | null> {
   try {
-    // 1. Surasti recording MBID — per /api/mb-proxy (tiesioginis MB blokuojamas dėl CORS)
-    const q = `artist:"${artistName}" AND recording:"${trackTitle}"`
-    const r1 = await fetch(`/api/mb-proxy?path=${encodeURIComponent(`recording?query=${encodeURIComponent(q)}&limit=1&fmt=json`)}`)
-    if (!r1.ok) {
-      addLog?.(`    ⚠ MB recording search ${r1.status}: ${trackTitle}`)
+    const q = `${artistName} ${trackTitle}`
+    const r = await fetch(`/api/search/ytmusic?q=${encodeURIComponent(q)}&filter=songs`)
+    if (!r.ok) {
+      addLog?.(`    ⚠ YTMusic ${r.status}: ${trackTitle}`)
       return null
     }
-    const d1 = await r1.json()
-    if (d1.error) {
-      addLog?.(`    ⚠ MB error: ${d1.error}`)
+    const data = await r.json()
+    if (data.error) {
+      addLog?.(`    ⚠ YTMusic: ${data.error.slice(0, 60)}`)
       return null
     }
-    const mbid = d1.recordings?.[0]?.id
-    if (!mbid) {
-      addLog?.(`    · MB: nerastas „${trackTitle}"`)
+    if (data.url && data.videoId) {
+      // Paprastas tikrinimas — ar pavadinimas panašus
+      const resultTitle = (data.title || '').toLowerCase()
+      const searchTitle = trackTitle.toLowerCase()
+      const searchArtist = artistName.toLowerCase()
+      // Priimame jei rezultate yra bent dalis dainos pavadinimo ARBA atlikėjo vardas
+      const titleWords = searchTitle.split(/\s+/).filter(w => w.length > 2)
+      const matchCount = titleWords.filter(w => resultTitle.includes(w)).length
+      if (matchCount >= Math.min(titleWords.length, 2) || resultTitle.includes(searchTitle) || (data.artist || '').toLowerCase().includes(searchArtist)) {
+        addLog?.(`    ✓ YT: ${trackTitle}`)
+        return data.url
+      }
+      addLog?.(`    · YT: netikslu „${data.title}" — ${trackTitle}`)
       return null
     }
-
-    // 2. Gauti URL relationships (ypač YouTube nuorodas)
-    await new Promise(r => setTimeout(r, 1100)) // MB rate limit: 1 req/s
-    const r2 = await fetch(`/api/mb-proxy?path=${encodeURIComponent(`recording/${mbid}?inc=url-rels&fmt=json`)}`)
-    if (!r2.ok) {
-      addLog?.(`    ⚠ MB url-rels ${r2.status}: ${trackTitle}`)
-      return null
-    }
-    const d2 = await r2.json()
-
-    // Ieškoti YouTube arba YouTube Music nuorodų
-    const ytRel = (d2.relations || []).find((rel: any) => {
-      const url: string = rel.url?.resource || ''
-      return url.includes('youtube.com/watch') || url.includes('youtu.be/')
-    })
-    if (ytRel) {
-      const url: string = ytRel.url.resource
-      addLog?.(`    ✓ YT: ${trackTitle}`)
-      return url.replace('music.youtube.com', 'www.youtube.com')
-    }
-    // Nėra YouTube — patikrinti ar yra kitų URL ryšių
-    const relCount = (d2.relations || []).length
-    if (relCount === 0) {
-      addLog?.(`    · MB: 0 URL ryšių — ${trackTitle}`)
-    }
+    addLog?.(`    · YT: nerasta — ${trackTitle}`)
     return null
   } catch (e: any) {
-    addLog?.(`    ✗ MB klaida: ${e.message?.slice(0, 60)}`)
+    addLog?.(`    ✗ YTMusic klaida: ${e.message?.slice(0, 60)}`)
     return null
   }
 }
@@ -1092,10 +1077,12 @@ async function enrichTracks(albumId: number, artistName: string, addLog: (s: str
   for (const t of dbTracks) {
     const u: Record<string,any> = {}
 
-    // YouTube tik per MusicBrainz (nemokama) — praleidžiam jei jau turi video_url
+    // YouTube per YouTube Music InnerTube (nemokama, greita)
     if (!t.video_url) {
-      const mbUrl = await findYouTubeViaMB(artistName, t.title, addLog)
-      if (mbUrl) { u.video_url = mbUrl; mbN++ }
+      const ytUrl = await findYouTubeViaYTMusic(artistName, t.title, addLog)
+      if (ytUrl) { u.video_url = ytUrl; mbN++ }
+      // Trumpa pauzė kad neužspamintume
+      await new Promise(r => setTimeout(r, 300))
     }
 
     if (lyrics && !t.lyrics) try {
@@ -1109,11 +1096,11 @@ async function enrichTracks(albumId: number, artistName: string, addLog: (s: str
 
     done++
     if (done % 3 === 0 || done === dbTracks.length) {
-      addLog(`  ${done}/${dbTracks.length} (YT:${mbN} žodžiai:${lyrN})`)
+      addLog(`  ${done}/${dbTracks.length} (YT:${mbN} tekstai:${lyrN})`)
       onProgress?.(done, dbTracks.length)
     }
   }
-  addLog(`  ✓ YT:${mbN} žodžiai:${lyrN}`)
+  addLog(`  ✓ YT:${mbN} tekstai:${lyrN}`)
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -1419,7 +1406,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
         addLog(`✓ ${item.title} (${item.tracks?.length||0})`)
         ok++
         if (albumId && item.tracks?.length)
-          await enrichTracks(albumId, artistName, addLog, enrichLyrics, (done, total) => updateTask('import', `${item.title}: žodžiai ${done}/${total}`))
+          await enrichTracks(albumId, artistName, addLog, enrichLyrics, (done, total) => updateTask('import', `${item.title}: tekstai ${done}/${total}`))
         setItems(p => p.map((it, i) => i === idx ? { ...it, importing: false, imported: true } : it))
         setSelected(p => { const s = new Set(p); s.delete(idx); return s })
       } catch (e: any) {
@@ -1432,6 +1419,9 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
     addLog(`✓ ${ok} albumų${fail ? `, ${fail} klaida` : ''}`)
     if (fail > 0) errorTask('import', `${ok} importuota, ${fail} klaidos`)
     else finishTask('import', `${ok} albumų importuota`)
+
+    // Pranešti parent page kad diskografija pasikeitė — kad atnaujintų sąrašą
+    if (ok > 0) window.dispatchEvent(new CustomEvent('discography-updated'))
 
     // Po albumų importo — atnaujinti singlų dublikatų statusą
     // (dainos kurios buvo albumuose dabar yra DB, todėl singlų sąraše jos turėtų rodyti "jau yra")
@@ -1482,13 +1472,11 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
           const trackId = newTrack.id || newTrack.track?.id
           if (trackId) {
             const updates: Record<string, any> = {}
-            if (enrichYoutube) {
-              try {
-                const q = `${artistName} ${song.title}`
-                const r = await fetch(`/api/search/youtube?q=${encodeURIComponent(q)}&type=video`)
-                if (r.ok) { const d = await r.json(); if (d.error) addLog(`  ⚠️ YT: ${d.error.slice(0,60)}`); const f = d.results?.[0]; if (f?.videoId && titleMatches(f.title, q)) updates.video_url = `https://www.youtube.com/watch?v=${f.videoId}` }
-              } catch {}
-            }
+            // YouTube per YTMusic InnerTube (visada bandome)
+            try {
+              const ytUrl = await findYouTubeViaYTMusic(artistName, song.title, addLog)
+              if (ytUrl) updates.video_url = ytUrl
+            } catch {}
             if (enrichLyrics) {
               try {
                 const r = await fetch(`/api/search/lyrics?artist=${encodeURIComponent(artistName)}&title=${encodeURIComponent(song.title)}`)
@@ -1510,6 +1498,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
     }
     setImporting(false)
     addLog(`✓ ${okNew} singlų importuota${okMark ? `, ${okMark} pažymėta` : ''}${fail ? `, ${fail} klaida` : ''}`)
+    if (okNew + okMark > 0) window.dispatchEvent(new CustomEvent('discography-updated'))
   }
 
   // ── UI helpers ─────────────────────────────────────────────────────────────
@@ -1742,10 +1731,10 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
 
                 <label className="flex items-center gap-1.5 cursor-pointer text-xs text-gray-500">
                   <input type="checkbox" checked={enrichLyrics} onChange={e => setEnrichLyrics(e.target.checked)} className="accent-violet-600 w-3.5 h-3.5" />
-                  Žodžiai
+                  Dainų tekstai
                 </label>
                 {importing ? (
-                  <button onClick={() => setMinimized(true)} title="Minimizuoti — importas tęsis fone"
+                  <button onClick={() => { setMinimized(true); window.dispatchEvent(new CustomEvent('discography-minimized', { detail: { open: true } })) }} title="Minimizuoti — importas tęsis fone"
                     className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/></svg>
                     Minimizuoti
