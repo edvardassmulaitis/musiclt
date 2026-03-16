@@ -4,7 +4,48 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import AdminSearchModal from './admin-search-modal'
-import { useBackgroundTasks } from './BackgroundTaskContext'
+import { useBackgroundTasks, type BackgroundTask } from './BackgroundTaskContext'
+
+// ── Progress bar po header'iu ─────────────────────────────────────────────────
+
+function ProgressBar({ tasks }: { tasks: BackgroundTask[] }) {
+  const running = tasks.filter(t => t.status === 'running')
+  const done = tasks.filter(t => t.status === 'done')
+  const errors = tasks.filter(t => t.status === 'error')
+
+  if (!running.length && !done.length && !errors.length) return null
+
+  const color = errors.length ? 'bg-red-500' : running.length ? 'bg-violet-500' : 'bg-emerald-500'
+  const isRunning = running.length > 0
+
+  // Parse progress iš detail string (pvz "Made in Heaven: 6/10" → 60%)
+  let percent = -1
+  if (isRunning) {
+    const detail = running[0]?.detail || ''
+    const m = detail.match(/(\d+)\/(\d+)/)
+    if (m) percent = Math.round((parseInt(m[1]) / parseInt(m[2])) * 100)
+  }
+
+  return (
+    <div className="h-[3px] w-full bg-gray-100/50 overflow-hidden">
+      {isRunning ? (
+        percent >= 0 ? (
+          <div className={`h-full ${color} transition-all duration-700 ease-out rounded-r-full`} style={{ width: `${percent}%` }} />
+        ) : (
+          <div className={`h-full w-1/3 ${color} rounded-full`} style={{ animation: 'progress-slide 1.5s ease-in-out infinite' }} />
+        )
+      ) : (
+        <div className={`h-full ${color} w-full`} style={{ animation: 'progress-fade 1s ease-out forwards' }} />
+      )}
+      <style>{`
+        @keyframes progress-slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(400%); } }
+        @keyframes progress-fade { 0% { opacity: 1; } 100% { opacity: 0; } }
+      `}</style>
+    </div>
+  )
+}
+
+// ── Task indicator header'yje ─────────────────────────────────────────────────
 
 function TaskIndicator() {
   const { tasks } = useBackgroundTasks()
@@ -31,13 +72,11 @@ function TaskIndicator() {
 
   if (!tasks.length && !discographyMinimized) return null
 
-  // Jei nėra tasks bet modalas minimizuotas — rodyti tik reopen mygtuką
   if (!tasks.length && discographyMinimized) {
     return (
       <button
         onClick={() => { window.dispatchEvent(new CustomEvent('discography-reopen')); setDiscographyMinimized(false) }}
         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-violet-50 hover:bg-violet-100 transition-colors text-xs text-violet-600 font-medium shrink-0"
-        title="Atidaryti diskografijos langą"
       >
         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7"/></svg>
         Diskografija
@@ -49,62 +88,89 @@ function TaskIndicator() {
   const errors = tasks.filter(t => t.status === 'error')
   const latest = running[0] || tasks[tasks.length - 1]
 
+  // Extract short label (remove "Importuojama: " prefix)
+  const shortLabel = latest.label.replace(/^Importuojam[ao]: /, '').replace(/^Singlai: /, '🎤 ')
+
+  // Extract N/M from detail
+  const progressMatch = latest.detail?.match(/(\d+)\/(\d+)/)
+  const progressText = progressMatch ? `${progressMatch[1]}/${progressMatch[2]}` : ''
+
   return (
     <div ref={ref} className="relative flex items-center shrink-0">
       <button
         onClick={() => setOpen(p => !p)}
-        className="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors text-xs text-gray-500 max-w-[160px] sm:max-w-[220px]"
+        className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg transition-all text-xs max-w-[200px] sm:max-w-[280px] ${
+          running.length ? 'bg-violet-50 text-violet-700 hover:bg-violet-100'
+          : errors.length ? 'bg-red-50 text-red-600 hover:bg-red-100'
+          : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
+        }`}
       >
-        <span className={`w-2 h-2 rounded-full shrink-0 ${
-          errors.length ? 'bg-red-500'
-          : running.length ? 'bg-blue-500 animate-pulse'
-          : 'bg-green-500'
-        }`} />
-        <span className="truncate text-gray-600">
-          {latest.label}
-          {latest.detail && <span className="text-gray-400"> · {latest.detail}</span>}
-        </span>
+        {running.length ? (
+          <svg className="animate-spin w-3.5 h-3.5 shrink-0" viewBox="0 0 16 16" fill="none">
+            <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" opacity="0.2"/>
+            <path d="M14 8a6 6 0 00-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+          </svg>
+        ) : errors.length ? (
+          <span className="shrink-0">✗</span>
+        ) : (
+          <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 10 10"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        )}
+        <span className="truncate font-medium">{shortLabel}</span>
+        {progressText && (
+          <span className="text-[10px] font-mono opacity-60 shrink-0">{progressText}</span>
+        )}
         {tasks.length > 1 && (
-          <span className="bg-gray-200 text-gray-600 rounded px-1 text-[10px] font-bold shrink-0">{tasks.length}</span>
+          <span className="bg-white/50 rounded px-1 text-[10px] font-bold shrink-0">{tasks.length}</span>
         )}
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-1 w-72 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden">
-          <div className="px-3 py-2 border-b border-gray-100 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-            Foniniai procesai
+        <div className="absolute top-full right-0 mt-1.5 w-80 bg-white border border-gray-200 rounded-xl shadow-2xl z-50 overflow-hidden">
+          <div className="px-3.5 py-2 border-b border-gray-100 flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Procesai</span>
+            {discographyMinimized && (
+              <button
+                onClick={() => { window.dispatchEvent(new CustomEvent('discography-reopen')); setDiscographyMinimized(false); setOpen(false) }}
+                className="text-[11px] text-violet-600 font-medium hover:underline">
+                ↑ Atidaryti langą
+              </button>
+            )}
           </div>
-          {discographyMinimized && (
-            <button
-              onClick={() => { window.dispatchEvent(new CustomEvent('discography-reopen')); setDiscographyMinimized(false); setOpen(false) }}
-              className="w-full flex items-center gap-2 px-3 py-2.5 border-b border-gray-100 hover:bg-violet-50 transition-colors text-left">
-              <svg className="w-3.5 h-3.5 text-violet-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7"/></svg>
-              <span className="text-sm text-violet-600 font-medium">Atidaryti diskografijos langą</span>
-            </button>
-          )}
-          <div className="max-h-64 overflow-y-auto">
-            {tasks.map(task => (
-              <div key={task.id} className="px-3 py-2.5 flex items-start gap-2.5 border-b border-gray-50 last:border-0">
-                <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
-                  task.status === 'running' ? 'bg-blue-500 animate-pulse'
-                  : task.status === 'error' ? 'bg-red-500'
-                  : 'bg-green-500'
-                }`} />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-gray-800 truncate">{task.label}</p>
-                  {task.detail && (
-                    <p className={`text-xs truncate mt-0.5 ${
-                      task.status === 'error' ? 'text-red-500' : 'text-gray-400'
-                    }`}>{task.detail}</p>
-                  )}
-                  <p className="text-[10px] text-gray-300 mt-0.5">
-                    {task.status === 'running' ? 'Vykdoma...'
-                    : task.status === 'done' ? '✓ Baigta'
-                    : '✗ Klaida'}
-                  </p>
+          <div className="max-h-72 overflow-y-auto divide-y divide-gray-50">
+            {tasks.map(task => {
+              const taskProgress = task.detail?.match(/(\d+)\/(\d+)/)
+              const taskPercent = taskProgress ? Math.round((parseInt(taskProgress[1]) / parseInt(taskProgress[2])) * 100) : -1
+
+              return (
+                <div key={task.id} className="px-3.5 py-3 flex items-center gap-3">
+                  <div className="shrink-0">
+                    {task.status === 'running' ? (
+                      <div className="w-6 h-6 rounded-full border-2 border-violet-200 border-t-violet-500 animate-spin" />
+                    ) : task.status === 'error' ? (
+                      <div className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center text-red-500 text-xs font-bold">!</div>
+                    ) : (
+                      <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center">
+                        <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" viewBox="0 0 10 10"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-gray-800 truncate">{task.label}</p>
+                    {task.detail && (
+                      <p className={`text-xs truncate mt-0.5 ${task.status === 'error' ? 'text-red-500' : 'text-gray-400'}`}>
+                        {task.detail}
+                      </p>
+                    )}
+                    {/* Mini progress bar dropdown'e */}
+                    {task.status === 'running' && taskPercent >= 0 && (
+                      <div className="mt-1.5 h-1 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-violet-400 rounded-full transition-all duration-500" style={{ width: `${taskPercent}%` }} />
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
@@ -112,8 +178,11 @@ function TaskIndicator() {
   )
 }
 
+// ── Admin Header ──────────────────────────────────────────────────────────────
+
 export default function AdminHeader() {
   const { data: session } = useSession()
+  const { tasks } = useBackgroundTasks()
   const [searchOpen, setSearchOpen] = useState(false)
 
   useEffect(() => {
@@ -170,6 +239,8 @@ export default function AdminHeader() {
             </Link>
           </nav>
         </div>
+        {/* Progress bar — plonas animuotas bar po header'iu */}
+        <ProgressBar tasks={tasks} />
       </header>
       {searchOpen && <AdminSearchModal onClose={() => setSearchOpen(false)} />}
     </>
