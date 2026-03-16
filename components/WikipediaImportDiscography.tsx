@@ -286,15 +286,26 @@ function parseDiscographyPage(wikitext: string): DiscographyItem[] {
 
       // Metai: pirma iš einamos eilutės, tada iš sekančių eilučių (Title-first formatas)
       let year = currentYear
-      const yrInLine = line.match(/\b(19|20)\d{2}\b/)
+      const yrInLine = line.match(/\b((?:19|20)\d{2})\b/)
       if (yrInLine) {
-        year = parseInt(yrInLine[0])
+        year = parseInt(yrInLine[1])
       } else if (!currentYear) {
-        // Pažiūrėti kitas eilutes
-        for (let k = li + 1; k < Math.min(li + 5, lines.length); k++) {
-          if (lines[k].trim() === '|-') break
-          const yrNext = lines[k].match(/^\|\s*(?:rowspan\s*=\s*["']?\d+["']?\s*\|)?\s*((?:19|20)\d{2})\s*$/)
+        // Pažiūrėti kitas eilutes (iki 15) — ieškome:
+        // 1. Standartinės metų eilutės: | 2004
+        // 2. Released: June 15, 2004 (Killers diskografijos stilius)
+        for (let k = li + 1; k < Math.min(li + 15, lines.length); k++) {
+          const nl = lines[k]
+          if (nl.trim() === '|-') break
+          if (/^!\s*[—–-]?\s*scope\s*=\s*['"]row['"]/i.test(nl)) break
+          // Standartinė metų eilutė
+          const yrNext = nl.match(/^\|\s*(?:rowspan\s*=\s*["']?\d+["']?\s*\|)?\s*((?:19|20)\d{2})\s*$/)
           if (yrNext) { year = parseInt(yrNext[1]); break }
+          // "Released:" eilutė
+          const relNext = nl.match(/[Rr]eleased[^|{]*?(\d{4})/)
+          if (relNext) { year = parseInt(relNext[1]); break }
+          // "* Released:" su bullet
+          const relBullet = nl.match(/^\*\s*[Rr]eleased[^|{]*?(\d{4})/)
+          if (relBullet) { year = parseInt(relBullet[1]); break }
         }
       }
 
@@ -1057,15 +1068,38 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       const mainSingles = parseSinglesSection(mainWikitext)
       if (mainSingles.length) foundSongs = mainSingles
 
+      // Discography puslapio URL
+      const discTitle = wikiBase.replace(/_discography$/i, '') + '_discography'
+      const hasDiscPage = discTitle !== wikiBase
+
       if (!wikiAlbums.length) {
-        const discTitle = wikiBase.replace(/_discography$/i, '') + '_discography'
-        if (discTitle !== wikiBase) {
+        if (hasDiscPage) {
           addLog(`→ ${discTitle}`)
           const dw = await fetchWikitext(discTitle)
           if (dw) {
             wikiAlbums = parseDiscographyPage(dw)
             const ds = parseSinglesSection(dw)
             if (ds.length && !foundSongs.length) foundSongs = ds
+          }
+        }
+      } else {
+        // Albumai rasti iš pagrindinio puslapio — bet gali trūkti live/compilation/EP
+        // Krauname discography puslapį dėl pilnesnio sąrašo ir singlų
+        if (hasDiscPage) {
+          addLog(`→ ${discTitle} (papildymas)`)
+          const dw = await fetchWikitext(discTitle)
+          if (dw) {
+            // Jei discography puslapis grąžina daugiau/kitokius albumus — naudoti jį
+            const discAlbums = parseDiscographyPage(dw)
+            if (discAlbums.length > wikiAlbums.length) {
+              wikiAlbums = discAlbums
+              addLog(`✓ Albumai atnaujinti: ${discAlbums.length}`)
+            }
+            // Singlai visada iš discography puslapio (jei ten jų yra)
+            if (!foundSongs.length) {
+              const ds = parseSinglesSection(dw)
+              if (ds.length) foundSongs = ds
+            }
           }
         }
       }
