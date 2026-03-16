@@ -64,7 +64,7 @@ function extractWikiTitle(input: string): string {
 
 async function fetchWikitext(title: string): Promise<string> {
   const res = await fetch(
-    `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(title)}&prop=revisions&rvprop=content&rvslots=main&format=json&origin=*`
+    `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(title)}&prop=revisions&rvprop=content&rvslots=main&format=json&origin=*&redirects=1`
   )
   const json = await res.json()
   const page = Object.values(json.query?.pages || {})[0] as any
