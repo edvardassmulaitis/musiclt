@@ -819,13 +819,18 @@ function parseTracklist(wikitext: string): TrackEntry[] {
         const is_single = singles.size > 0 ? (
           // Tikslus sutapimas
           singles.has(normalizedTitle) ||
-          // "Flash" singlas → "Flash's Theme" trackas (apostrofas + "s" po singlo pavadinimo)
-          // BET NE: "Flash to the Rescue", "Flash's Theme Reprise"
+          // Singlo pavadinimas = tracko pavadinimo pradžia su leistinu sufiksu:
+          // "Flash" → "Flashs Theme" (apostrofo-s forma)
+          // "Las Palabras de Amor" → "Las Palabras de Amor (The Words of Love)"
           [...singles].some(s => {
             if (normalizedTitle === s) return true
+            if (!normalizedTitle.startsWith(s)) return false
             const afterSingle = normalizedTitle.slice(s.length)
-            // Tik apostrofo-s formos: "flashs theme" (iš "Flash's Theme")
-            return normalizedTitle.startsWith(s) && afterSingle.startsWith('s ') && !afterSingle.includes('reprise')
+            // Apostrofo-s: "flashs theme" (iš "Flash's Theme")
+            if (afterSingle.startsWith('s ') && !afterSingle.includes('reprise')) return true
+            // Skliaustų paaiškinimas: "las palabras de amor (the words of love)"
+            if (afterSingle.startsWith(' (')) return true
+            return false
           })
         ) : undefined
         // Nustatyti track tipą iš note ir pavadinimo
@@ -1228,16 +1233,32 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
     const albumsF = foundAlbums.map(it => { const k = it.title.toLowerCase(); return albumDups[k] ? { ...it, duplicate: true, duplicateId: albumDups[k] } : it })
     // Fuzzy matching: singlo pavadinimas gali nesutapti tiksliai su treko pavadinimu
     // pvz. "Flash" singlas vs "Flash's Theme" trackas DB'e
+    // Papildomai: gauti visus atlikėjo trackus trumpais pavadinimais (singlų matching'ui)
+    let allArtistTracks: Record<string, number> = {}
+    try {
+      const allT = await fetch(`/api/tracks?artist_id=${artistId}&limit=500`)
+      if (allT.ok) {
+        const allTData = await allT.json()
+        for (const t of (allTData.tracks || [])) {
+          allArtistTracks[t.title.toLowerCase()] = t.id
+        }
+      }
+    } catch {}
+
     const songsF = foundSongs.map(s => {
       const k = s.title.toLowerCase()
       if (songDups[k]) return { ...s, duplicate: true, duplicateId: songDups[k], selected: false }
-      // Tikrinti fuzzy match: ar singlo pav. yra DB treko pav. pradžia (pvz. "flash" ⊂ "flash's theme")
+      // Fuzzy: ieškoti tarp VISŲ atlikėjo trackų
       const normS = k.replace(/['’]/g, '')
-      const fuzzyMatch = Object.entries(songDups).find(([dbTitle]) => {
+      const fuzzyMatch = Object.entries(allArtistTracks).find(([dbTitle]) => {
         const normD = dbTitle.replace(/['’]/g, '')
         if (normD === normS) return true
-        const after = normD.slice(normS.length)
-        return normD.startsWith(normS) && after.startsWith('s ')
+        // DB trackas prasideda singlu + leistinas sufiksas
+        if (!normD.startsWith(normS)) return false
+        const dbAfter = normD.slice(normS.length)
+        if (dbAfter.startsWith('s ') && !dbAfter.includes('reprise')) return true
+        if (dbAfter.startsWith(' (')) return true
+        return false
       })
       if (fuzzyMatch) return { ...s, duplicate: true, duplicateId: fuzzyMatch[1] as number, selected: false }
       return { ...s, selected: false }
