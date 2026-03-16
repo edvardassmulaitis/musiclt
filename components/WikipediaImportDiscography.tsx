@@ -1598,7 +1598,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
         : 'border-gray-200 bg-white hover:border-gray-300'
       }`}>
         {/* Main row */}
-        <div className={`flex items-center gap-2.5 px-3 py-2 ${it.duplicate ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+        <div className={`flex items-center gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 ${it.duplicate ? 'cursor-not-allowed' : 'cursor-pointer'}`}
           onClick={() => !it.duplicate && !it.imported && toggleSelect(i)}>
           {/* Checkbox */}
           <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
@@ -1609,15 +1609,14 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
             )}
             {it.imported && <svg className="w-2.5 h-2.5 text-emerald-500" fill="none" viewBox="0 0 10 10"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
           </div>
-          {/* Cover */}
-          {it.cover_image_url
-            ? <img src={it.cover_image_url} alt="" referrerPolicy="no-referrer" className="w-9 h-9 rounded object-cover shrink-0" />
-            : <div className="w-9 h-9 rounded bg-gray-100 shrink-0 flex items-center justify-center text-gray-300 text-xs">♪</div>
-          }
+          {/* Cover — tik jei yra nuotrauka */}
+          {it.cover_image_url && (
+            <img src={it.cover_image_url} alt="" referrerPolicy="no-referrer" className="w-8 h-8 sm:w-9 sm:h-9 rounded object-cover shrink-0" />
+          )}
           {/* Info */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-sm font-medium text-gray-900 truncate">{it.title}</span>
+              <span className="text-[13px] sm:text-sm font-medium text-gray-900 truncate">{it.title}</span>
               {it.type === 'ep' && <span className="text-[10px] font-semibold text-violet-500 shrink-0 uppercase tracking-wide">EP</span>}
               {it.extraTypes?.map(et => (
                 <span key={et} className="text-[10px] font-semibold text-blue-400 shrink-0 uppercase tracking-wide">{et === 'soundtrack' ? 'Garso takelis' : et}</span>
@@ -1628,10 +1627,10 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               {it.imported && <span className="text-[10px] text-emerald-500 shrink-0">✓ importuota</span>}
               {it.error && <span className="text-[10px] text-red-400 shrink-0" title={it.error}>klaida</span>}
             </div>
-            <div className="flex items-center gap-2 mt-0.5">
+            <div className="flex items-center gap-1.5 mt-0.5">
               {it.year && <span className="text-[11px] text-gray-400">{it.year}</span>}
               {it.tracks !== undefined && (
-                <span className="text-[11px] text-gray-400">
+                <span className="text-[11px] text-gray-400 hidden sm:inline">
                   {it.tracks.length} dainų{it.tracks.filter(t=>t.is_single).length ? ` · ${it.tracks.filter(t=>t.is_single).length} singlai` : ''}
                 </span>
               )}
@@ -1646,16 +1645,17 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               onClick={e => { e.stopPropagation(); fetchDetails(i) }}
               disabled={it.fetched || importing}
               title={it.fetched ? 'Info parsisiųsta' : 'Parsisiųsti dainas ir viršelį'}
-              className={`shrink-0 flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors disabled:opacity-40 ${
+              className={`shrink-0 flex items-center gap-1 p-1.5 sm:px-2 sm:py-1 rounded-md text-xs transition-colors disabled:opacity-40 ${
                 it.fetched
                   ? 'text-emerald-500 bg-emerald-50'
                   : 'text-gray-500 bg-gray-100 hover:bg-violet-100 hover:text-violet-600'
               }`}>
               {it.fetched ? (
-                <><svg className="w-3 h-3" fill="none" viewBox="0 0 10 10"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg> info</>
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 10 10"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
               ) : (
-                <><svg className="w-3 h-3" fill="none" viewBox="0 0 10 10"><path d="M5 1v6M2 6l3 3 3-3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg> info</>
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 10 10"><path d="M5 1v6M2 6l3 3 3-3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
               )}
+              <span className="hidden sm:inline">{it.fetched ? 'info' : 'info'}</span>
             </button>
           )}
           {/* Expand tracks */}
@@ -1727,9 +1727,9 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       </button>
 
       {open && (
-        <div className={`fixed inset-0 z-50 flex items-start justify-center p-4 pt-[8vh] ${minimized ? 'pointer-events-none' : ''}`} style={minimized ? {display: 'none'} : {}}>
+        <div className={`fixed inset-0 z-50 flex items-end sm:items-start justify-center sm:p-4 sm:pt-[8vh] ${minimized ? 'pointer-events-none' : ''}`} style={minimized ? {display: 'none'} : {}}>
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={closeModal} />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+          <div className="relative bg-white sm:rounded-2xl shadow-2xl w-full sm:max-w-3xl h-full sm:h-auto sm:max-h-[90vh] flex flex-col">
 
             {/* Header */}
             <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-100">
@@ -1748,13 +1748,13 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
             </div>
 
             {/* Search bar */}
-            <div className="px-5 py-2.5 border-b border-gray-100 flex gap-2">
+            <div className="px-3 sm:px-5 py-2 border-b border-gray-100 flex gap-1.5 sm:gap-2">
               <input value={wikiUrl} onChange={e => setWikiUrl(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && !loading && search()}
-                placeholder="Wikipedia URL arba automatinis pagal vardą"
-                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-violet-400 placeholder:text-gray-300 text-gray-900 bg-white" />
+                placeholder="Wikipedia URL arba automatinis"
+                className="flex-1 px-2.5 py-1.5 sm:px-3 sm:py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-violet-400 placeholder:text-gray-300 text-gray-900 bg-white" />
               <button onClick={() => { setSearched(false); search() }} disabled={loading}
-                className="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-sm font-medium disabled:opacity-40 transition-colors shrink-0">
+                className="px-3 sm:px-4 py-1.5 sm:py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-sm font-medium disabled:opacity-40 transition-colors shrink-0">
                 {loading ? '...' : 'Ieškoti'}
               </button>
             </div>
@@ -1779,7 +1779,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                   const isActive = activeTab === tab.id
                   return (
                     <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                      className={`relative flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 transition-colors -mb-px ${
+                      className={`relative flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-2 sm:py-2.5 text-[11px] sm:text-xs font-medium border-b-2 transition-colors -mb-px ${
                         isActive ? 'border-violet-600 text-violet-700' : 'border-transparent text-gray-500 hover:text-gray-700'
                       }`}>
                       {tab.label}
@@ -1969,37 +1969,31 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               )}
             </div>
 
-            {/* Footer */}
-            <div className="px-5 py-3 border-t border-gray-100 flex items-center gap-2">
+            {/* Footer — sticky ant apačios */}
+            <div className="shrink-0 px-3 sm:px-5 py-2.5 sm:py-3 border-t border-gray-100 flex items-center gap-1.5 sm:gap-2 bg-white safe-bottom">
               {activeTab === 'singles' ? (
                 <button onClick={importSongs} disabled={importing || songSelectedCount === 0}
-                  className="flex-1 py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl disabled:opacity-40 transition-colors text-sm">
+                  className="flex-1 py-2 sm:py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl disabled:opacity-40 transition-colors text-sm">
                   {importing ? 'Importuojama...' : `Importuoti ${songSelectedCount} singlų`}
                 </button>
               ) : (
-                <>
-                  <button onClick={importAlbums} disabled={importing || selected.size === 0}
-                    className="flex-1 py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl disabled:opacity-40 transition-colors text-sm">
-                    {importing ? 'Importuojama...' : `Importuoti ${selected.size} albumų`}
-                  </button>
-                  <button onClick={fetchAllDetails} disabled={importing || selected.size === 0}
-                    title="Parsisiųsti info apie visus pažymėtus albumus (dainos + viršeliai)"
-                    className="px-3 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl disabled:opacity-40 transition-colors text-xs font-medium whitespace-nowrap">
-                    ↓ Visi info
-                  </button>
-                </>
+                <button onClick={importAlbums} disabled={importing || selected.size === 0}
+                  className="flex-1 py-2 sm:py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl disabled:opacity-40 transition-colors text-sm">
+                  {importing ? 'Importuojama...' : `Importuoti ${selected.size} albumų`}
+                </button>
               )}
               {hasContent && (
                 <button onClick={enrichFromMB} disabled={importing || mbLoading}
-                  title={activeTab === 'singles' ? 'Papildyti singlus iš MusicBrainz' : 'Papildyti albumus iš MusicBrainz'}
-                  className="px-3 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl disabled:opacity-40 transition-colors text-xs font-medium whitespace-nowrap">
-                  {mbLoading ? '⏳' : 'Papildyti iš MusicBrainz'}
+                  title="Papildyti iš MusicBrainz"
+                  className="shrink-0 px-2.5 py-2 sm:py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl disabled:opacity-40 transition-colors text-xs font-medium whitespace-nowrap">
+                  {mbLoading ? '⏳' : <><span className="hidden sm:inline">Papildyti iš </span>MB</>}
                 </button>
               )}
-              <button onClick={closeModal} className="w-10 h-10 flex items-center justify-center border border-gray-200 text-gray-500 rounded-xl hover:bg-gray-50 transition-colors text-sm">
+              <button onClick={closeModal} className="shrink-0 w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center border border-gray-200 text-gray-500 rounded-xl hover:bg-gray-50 transition-colors text-sm">
                 ✕
               </button>
             </div>
+            <style>{`.safe-bottom { padding-bottom: max(0.625rem, env(safe-area-inset-bottom)); }`}</style>
 
           </div>
         </div>
