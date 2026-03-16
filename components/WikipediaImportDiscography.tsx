@@ -751,17 +751,17 @@ function parseSinglesFromInfobox(wikitext: string): Set<string> {
   if (m) extractSingleNames(m[1])
 
   // Format 2: {{Singles | single1 = [[Song]] | single2 = [[Song]] ... }}
-  // Albumai naudoja: | misc = {{Singles | single1 = ... }} arba {{singles | ...}}
-  const tplRe = /\{\{[Ss]ingles[\s\S]*?(?=\}\}\s*\}\}|\}\}\s*$)/gm
-  let tplM: RegExpExecArray | null
-  while ((tplM = tplRe.exec(wikitext)) !== null) {
-    const tpl = tplM[0]
-    const sRe = /\|\s*single\d+\s*=\s*((?:\[\[[^\]]*\]\]|[^|\n])+)/g
+  // Rasti {{Singles bloko pradžią, tada ieškoti single\d+ laukų iki albumo infobox pabaigos
+  const singlesStart = wikitext.search(/\{\{[Ss]ingles/)
+  if (singlesStart !== -1) {
+    // Ieškoti nuo Singles bloko pradžios iki | prev_title arba }}{{Singles pabaigos
+    // Imti pakankamai teksto (iki 3000 simbolių) - užteks bet kuriam Singles blokui
+    const chunk = wikitext.slice(singlesStart, singlesStart + 3000)
+    const sRe = /\|\s*single(\d+)\s*=\s*((?:\[\[[^\]]*\]\]|[^|\n])+)/g
     let sm: RegExpExecArray | null
-    while ((sm = sRe.exec(tpl)) !== null) {
-      extractSingleNames(sm[1])
+    while ((sm = sRe.exec(chunk)) !== null) {
+      extractSingleNames(sm[2])
     }
-    break  // Only first {{Singles block
   }
 
   return singles
