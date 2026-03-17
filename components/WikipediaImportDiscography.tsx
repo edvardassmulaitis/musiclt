@@ -1823,13 +1823,15 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               <div className="space-y-0.5 max-h-48 overflow-y-auto">
                 {it.tracks.map((t, ti) => (
                   <div key={ti} className="flex items-center gap-2 py-0.5">
-                    <span className="text-[10px] text-gray-300 w-5 text-right shrink-0">{t.sort_order}</span>
+                    <div className="flex items-center justify-end gap-0.5 w-5 shrink-0">
+                      {t.is_single && <span className="w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0" title="Singlas" />}
+                      <span className="text-[10px] text-gray-300 tabular-nums">{t.sort_order}</span>
+                    </div>
                     <span className="text-xs text-gray-700 truncate flex-1">{t.title}</span>
                     {t.type === 'instrumental' && <span className="text-[9px] text-gray-400 shrink-0 font-medium">instr.</span>}
                     {t.type === 'live' && <span className="text-[9px] text-blue-400 shrink-0 font-medium">live</span>}
                     {t.type === 'remix' && <span className="text-[9px] text-purple-400 shrink-0 font-medium">remix</span>}
                     {t.type === 'covers' && <span className="text-[9px] text-orange-400 shrink-0 font-medium">cover</span>}
-                    {t.is_single && <span className="text-[9px] text-violet-400 shrink-0 font-medium">S</span>}
                     {t.duration && <span className="text-[10px] text-gray-300 shrink-0">{t.duration}</span>}
                   </div>
                 ))}
