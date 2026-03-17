@@ -1633,7 +1633,17 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       updateTask('import-singles', `${song.title} (${songsDone + 1}/${toImport.length})`)
       try {
         if (song.duplicateId) {
-          const res = await fetch(`/api/tracks/${song.duplicateId}`, { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ is_single: true }) })
+          // PATCH: pažymėti kaip singlą IR atnaujinti datą jei yra
+          const key = song.title.toLowerCase().replace(/[''"]/g, '')
+          const extra = !song.month ? extraDates.get(key) : null
+          const patchBody: Record<string, any> = { is_single: true }
+          const pYear = extra?.year ?? song.year
+          const pMonth = extra?.month ?? song.month
+          const pDay = extra?.day ?? song.day
+          if (pYear) patchBody.release_year = pYear
+          if (pMonth) patchBody.release_month = pMonth
+          if (pDay) patchBody.release_day = pDay
+          const res = await fetch(`/api/tracks/${song.duplicateId}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(patchBody) })
           if (!res.ok) {
             let errMsg = `PATCH ${res.status}`
             try { const d = await res.json(); errMsg = d.error || d.message || errMsg } catch {}
