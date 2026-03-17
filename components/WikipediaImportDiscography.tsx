@@ -1545,7 +1545,18 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
             type_holiday: item.type==='holiday',
             type_soundtrack: item.type==='soundtrack' || item.extraTypes?.includes('soundtrack') || false,
             type_demo: item.type==='demo',
-            tracks: (item.tracks||[]).map((t,i) => ({ title: t.title, sort_order: i+1, duration: t.duration||null, type: t.type||'normal', disc_number: t.disc_number||1, is_single: t.is_single||false, featuring: t.featuring||[], release_year: item.year||null })),
+            tracks: (item.tracks||[]).map((t,i) => {
+              // Singlui bandyti gauti tikslią datą iš songs state'o
+              const songMatch = t.is_single ? songs.find(s => s.title.toLowerCase() === t.title.toLowerCase()) : null
+              return {
+                title: t.title, sort_order: i+1, duration: t.duration||null,
+                type: t.type||'normal', disc_number: t.disc_number||1,
+                is_single: t.is_single||false, featuring: t.featuring||[],
+                release_year: songMatch?.year ?? item.year ?? null,
+                release_month: songMatch?.month ?? null,
+                release_day: songMatch?.day ?? null,
+              }
+            }),
           }),
         })
         if (!res.ok) throw new Error((await res.json()).error)
