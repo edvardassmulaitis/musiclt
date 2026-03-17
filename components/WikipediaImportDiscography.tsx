@@ -1601,7 +1601,16 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       addLog(`📅 Datos iš ${albumTitles.length} albumų...`)
       for (const albumTitle of albumTitles) {
         try {
-          const wt = await fetchWikitext(albumTitle.replace(/ /g, '_'))
+          const baseTitle = albumTitle.replace(/ /g, '_')
+          // Bandyti pagrindinį pavadinimą, tada su (album) disambiguacija
+          let wt = await fetchWikitext(baseTitle)
+          // Jei negavome {{Singles}} — bandyti su (album) sufiksu
+          if (!wt || !wt.includes('{{Singles') && !wt.includes('{{singles')) {
+            const withAlbum = await fetchWikitext(baseTitle + '_(album)')
+            if (withAlbum && (withAlbum.includes('{{Singles') || withAlbum.includes('{{singles'))) {
+              wt = withAlbum
+            }
+          }
           if (wt) {
             const { dates } = parseSinglesFromInfobox(wt)
             for (const [dKey, dVal] of dates.entries()) {
