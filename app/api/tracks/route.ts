@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
   if (album_id) {
     const { data, error } = await supabase
       .from('album_tracks')
-      .select(`position, tracks(id, title, type, video_url, spotify_id, lyrics, cover_url)`)
+      .select(`position, tracks(id, title, type, video_url, spotify_id, lyrics, cover_url, is_single, release_year, release_month, release_day)`)
       .eq('album_id', parseInt(album_id))
       .order('position', { ascending: true })
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -61,31 +61,30 @@ export async function GET(req: NextRequest) {
       spotify_id: at.tracks?.spotify_id,
       lyrics: at.tracks?.lyrics,
       cover_url: at.tracks?.cover_url,
+      is_single: at.tracks?.is_single || false,
+      release_year: at.tracks?.release_year || null,
+      release_month: at.tracks?.release_month || null,
+      release_day: at.tracks?.release_day || null,
       position: at.position,
     })).filter((t: any) => t.id)
     return NextResponse.json({ tracks, total: tracks.length })
   }
 
+  // ── Pilnas select su release_month, release_day ──
+  const SELECT_FIELDS = `id, title, type, release_date, release_year, release_month, release_day, video_url, spotify_id, is_single, is_new, is_new_date, cover_url, lyrics, artists!tracks_artist_id_fkey(id, name, slug), track_artists(artist_id), album_tracks(position, albums(id, title, year))`
+
   if (search) {
     const { data: artistMatches } = await supabase
       .from('artists').select('id').ilike('name', `%${search}%`).limit(20)
     const artistIds = (artistMatches || []).map((a: any) => a.id)
-
     let query = supabase
       .from('tracks')
-      .select(`id, title, type, release_date, video_url, spotify_id, is_new, is_new_date, cover_url,
-        artists!tracks_artist_id_fkey(id, name, slug),
-        album_tracks(position, albums(id, title, year))`, { count: 'exact' })
+      .select(SELECT_FIELDS, { count: 'exact' })
       .order('title', { ascending: true })
       .range(offset, offset + limit - 1)
-
-    if (artistIds.length > 0)
-      query = query.or(`title.ilike.%${search}%,artist_id.in.(${artistIds.join(',')})`)
-    else
-      query = query.ilike('title', `%${search}%`)
-
+    if (artistIds.length > 0) query = query.or(`title.ilike.%${search}%,artist_id.in.(${artistIds.join(',')})`)
+    else query = query.ilike('title', `%${search}%`)
     if (artist_id) query = query.eq('artist_id', parseInt(artist_id))
-
     const { data, error } = await query
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ tracks: (data || []).map(mapTrack).filter(isRealTrack), total: (data || []).length })
@@ -93,15 +92,10 @@ export async function GET(req: NextRequest) {
 
   let query = supabase
     .from('tracks')
-    .select(`id, title, type, release_date, video_url, spotify_id, is_new, is_new_date, cover_url, lyrics,
-      artists!tracks_artist_id_fkey(id, name, slug),
-      track_artists(artist_id),
-      album_tracks(position, albums(id, title, year))`, { count: 'exact' })
+    .select(SELECT_FIELDS, { count: 'exact' })
     .order('title', { ascending: true })
     .range(offset, offset + limit - 1)
-
   if (artist_id) query = query.eq('artist_id', parseInt(artist_id))
-
   const { data, error, count } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ tracks: (data || []).map(mapTrack), total: count || 0 })
@@ -116,15 +110,26 @@ function mapTrack(t: any) {
     .map((at: any) => at.albums ? { id: at.albums.id, title: at.albums.title, year: at.albums.year, position: at.position } : null)
     .filter(Boolean)
   return {
-    id: t.id, title: t.title, type: t.type, release_date: t.release_date,
+    id: t.id,
+    title: t.title,
+    type: t.type,
+    release_date: t.release_date,
+    release_year: t.release_year || (t.release_date ? new Date(t.release_date).getFullYear() : (albumList[0]?.year || null)),
+    release_month: t.release_month || null,
+    release_day: t.release_day || null,
     is_single: t.is_single || false,
-    video_url: t.video_url, spotify_id: t.spotify_id, is_new: t.is_new,
-    is_new_date: t.is_new_date, cover_url: t.cover_url || null,
-    has_lyrics: !!(t.lyrics), artists: t.artists,
-    artist_name: t.artists?.name || '', artist_slug: t.artists?.slug || '',
+    video_url: t.video_url,
+    spotify_id: t.spotify_id,
+    is_new: t.is_new,
+    is_new_date: t.is_new_date,
+    cover_url: t.cover_url || null,
+    has_lyrics: !!(t.lyrics),
+    artists: t.artists,
+    artist_name: t.artists?.name || '',
+    artist_slug: t.artists?.slug || '',
     featuring_count: (t.track_artists || []).length,
-    album_count: albumList.length, albums_list: albumList,
-    release_year: t.release_date ? new Date(t.release_date).getFullYear() : (albumList[0]?.year || null),
+    album_count: albumList.length,
+    albums_list: albumList,
   }
 }
 
@@ -138,10 +143,11 @@ export async function POST(req: NextRequest) {
   if (!data.title?.trim()) return NextResponse.json({ error: 'Title required' }, { status: 400 })
   if (!data.artist_id) return NextResponse.json({ error: 'Artist required' }, { status: 400 })
 
+  // release_date tik kai žinomas tikslus mėnuo — ne tik metai
   let release_date = data.release_date || null
-  if (!release_date && data.release_year) {
+  if (!release_date && data.release_year && data.release_month) {
     const y = data.release_year
-    const m = String(data.release_month || 1).padStart(2, '0')
+    const m = String(data.release_month).padStart(2, '0')
     const d = String(data.release_day || 1).padStart(2, '0')
     release_date = `${y}-${m}-${d}`
   }
@@ -166,7 +172,7 @@ export async function POST(req: NextRequest) {
       type: data.type || 'normal',
       is_single: data.is_single ?? false,
       release_date,
-      release_year: data.release_year || (release_date ? parseInt(release_date.slice(0,4)) : null),
+      release_year: data.release_year || null,
       release_month: data.release_month || null,
       release_day: data.release_day || null,
       video_url: data.video_url || null,
