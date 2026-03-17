@@ -857,17 +857,22 @@ function parseTracklist(wikitext: string): TrackEntry[] {
         const is_single = singles.size > 0 ? (
           // Tikslus sutapimas
           singles.has(normalizedTitle) ||
-          // Singlo pavadinimas = tracko pavadinimo pradžia su leistinu sufiksu:
-          // "Flash" → "Flashs Theme" (apostrofo-s forma)
-          // "Las Palabras de Amor" → "Las Palabras de Amor (The Words of Love)"
           [...singles].some(s => {
             if (normalizedTitle === s) return true
-            if (!normalizedTitle.startsWith(s)) return false
-            const afterSingle = normalizedTitle.slice(s.length)
-            // Apostrofo-s: "flashs theme" (iš "Flash's Theme")
-            if (afterSingle.startsWith('s ') && !afterSingle.includes('reprise')) return true
-            // Skliaustų paaiškinimas: "las palabras de amor (the words of love)"
-            if (afterSingle.startsWith(' (')) return true
+            // Trackas prasideda singlo pavadinimu: "Flash" → "Flash's Theme"
+            if (normalizedTitle.startsWith(s)) {
+              const after = normalizedTitle.slice(s.length)
+              if (after.startsWith('s ') && !after.includes('reprise')) return true
+              if (after.startsWith(' (')) return true
+            }
+            // Singlas prasideda tracko pavadinimu: "Blasphemous Rumours / Somebody" → "Blasphemous Rumours"
+            // Double A-side: singlo pavadinime yra "/" ir viena pusė atitinka tracką
+            if (s.includes(' / ')) {
+              const parts = s.split(' / ').map(p => p.trim())
+              if (parts.some(p => p === normalizedTitle || normalizedTitle.startsWith(p + ' '))) return true
+            }
+            // Singlo pavadinimas prasideda tracko pavadinimu (pvz. "somebody" → "somebody (remix)")
+            if (s.startsWith(normalizedTitle + ' ') || s.startsWith(normalizedTitle + ' (')) return true
             return false
           })
         ) : undefined
