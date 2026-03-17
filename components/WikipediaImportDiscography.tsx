@@ -1591,6 +1591,34 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
     startTask('import-singles', `Singlai: ${artistName}`)
     let okNew = 0, okMark = 0, fail = 0, songsDone = 0
     addLog(`🎤 ${toImport.length} dainų...`)
+
+    // Prieš importą: surinkti datas iš albumų wikitext'ų į lokalų Map'ą
+    // title.toLowerCase() → { year, month, day }
+    const extraDates = new Map<string, { year: number|null; month: number|null; day: number|null }>()
+    const needsDates = toImport.filter(s => !s.month && s.albumTitle)
+    if (needsDates.length > 0) {
+      const albumTitles = [...new Set(needsDates.map(s => s.albumTitle!))]
+      addLog(`📅 Datos iš ${albumTitles.length} albumų...`)
+      for (const albumTitle of albumTitles) {
+        try {
+          const wt = await fetchWikitext(albumTitle.replace(/ /g, '_'))
+          if (wt) {
+            const { dates } = parseSinglesFromInfobox(wt)
+            for (const [dKey, dVal] of dates.entries()) {
+              extraDates.set(dKey, dVal)
+              // Double A-side — pridėti abi puses
+              if (dKey.includes('/')) {
+                dKey.split('/').map(p => p.replace(/["“”]/g, '').trim()).filter(Boolean)
+                  .forEach(p => { if (!extraDates.has(p)) extraDates.set(p, dVal) })
+              }
+            }
+          }
+        } catch {}
+        await new Promise(r => setTimeout(r, 200))
+      }
+      if (extraDates.size > 0) addLog(`✓ ${extraDates.size} datų rasta`)
+    }
+
     for (const song of toImport) {
       setSongs(p => p.map(s => s.title === song.title ? { ...s, importing: true } : s))
       updateTask('import-singles', `${song.title} (${songsDone + 1}/${toImport.length})`)
@@ -1606,7 +1634,17 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
         } else {
           const res = await fetch('/api/tracks', {
             method: 'POST', headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({ title: song.title, artist_id: artistId, type: 'normal', is_single: true, release_year: song.year, release_month: song.month, release_day: song.day }),
+            body: JSON.stringify((() => {
+              // Naudoti extraDates jei song.month nežinomas
+              const key = song.title.toLowerCase().replace(/['’"]/g, '')
+              const extra = !song.month ? extraDates.get(key) : null
+              return {
+                title: song.title, artist_id: artistId, type: 'normal', is_single: true,
+                release_year: extra?.year ?? song.year,
+                release_month: extra?.month ?? song.month,
+                release_day: extra?.day ?? song.day,
+              }
+            })()),
           })
           if (!res.ok) {
             let errMsg = `POST ${res.status}`
