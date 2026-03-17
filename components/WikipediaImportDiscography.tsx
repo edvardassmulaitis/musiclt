@@ -57,6 +57,43 @@ type SingleSongItem = {
 
 const AUTO_SELECT_TYPES: AlbumType[] = ['studio']
 
+// ─── DiscModal — mobile fullscreen, desktop centered ──────────────────────────
+function DiscModal({ children }: { children: React.ReactNode }) {
+  const [isDesktop, setIsDesktop] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 640px)')
+    setIsDesktop(mq.matches)
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
+
+  if (isDesktop) {
+    return (
+      <div style={{
+        position: 'relative', zIndex: 9999,
+        width: '100%', maxWidth: '48rem',
+        maxHeight: '85vh', marginTop: '8vh',
+        display: 'flex', flexDirection: 'column',
+        background: 'white', overflow: 'hidden',
+        borderRadius: '1rem',
+        boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+      }}>
+        {children}
+      </div>
+    )
+  }
+  return (
+    <div style={{
+      position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+      zIndex: 9999, display: 'flex', flexDirection: 'column',
+      background: 'white', overflow: 'hidden',
+    }}>
+      {children}
+    </div>
+  )
+}
+
 // ─── Wikipedia utils ──────────────────────────────────────────────────────────
 
 function extractWikiTitle(input: string): string {
@@ -1770,15 +1807,11 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       {open && typeof document !== 'undefined' && createPortal(
         <>
           {/* Mobile: fullscreen fixed modal. Desktop: centered overlay. All via inline styles — no Tailwind/CSS conflicts */}
-          <div style={minimized ? {display:'none'} : {position:'fixed',inset:0,zIndex:9998,display:'flex',alignItems:'flex-start',justifyContent:'center'}}>
+          <div style={minimized ? {display:'none'} : {position:'fixed',top:0,left:0,right:0,bottom:0,width:'100vw',height:'100vh',zIndex:9998,display:'flex',alignItems:'flex-start',justifyContent:'center'}}>
             {/* Backdrop — desktop only */}
-            <div onClick={closeModal} className="hidden sm:block" style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',backdropFilter:'blur(4px)'}} />
+            <div onClick={closeModal} className="hidden sm:block" style={{position:'fixed',top:0,left:0,right:0,bottom:0,width:'100vw',height:'100vh',background:'rgba(0,0,0,0.5)',backdropFilter:'blur(4px)'}} />
             {/* Modal panel */}
-            <div style={{
-              position:'fixed', top:0, left:0, width:'100%', height:'100%',
-              zIndex:9999, display:'flex', flexDirection:'column',
-              background:'white', overflow:'hidden',
-            }} className="sm:relative sm:static sm:h-auto sm:max-h-[85vh] sm:w-full sm:max-w-3xl sm:mt-[8vh] sm:rounded-2xl sm:shadow-2xl">
+            <DiscModal>
 
             {/* Header */}
             <div className="flex items-center gap-3 px-3 sm:px-5 py-2.5 sm:py-3 border-b border-gray-100 shrink-0">
@@ -2044,7 +2077,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               </button>
             </div>
 
-            </div>
+            </DiscModal>
           </div>
         </>,
         document.body
