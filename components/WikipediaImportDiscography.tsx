@@ -964,6 +964,7 @@ function parseTracklist(wikitext: string): TrackEntry[] {
 
     // Peržiūrėti filtruotus blokus — jei juose yra singlai kurių dar nėra sąraše,
     // pridėti juos su is_single=true (pvz. "But Not Tonight" CD bonus bloke)
+    // SVARBU: ignoruoti remix/extended variantus — imame tik normalius
     if (singles.size > 0) {
       const filteredBlocks = tlWithPos
         .filter(({ block, pos }) => {
@@ -976,8 +977,11 @@ function parseTracklist(wikitext: string): TrackEntry[] {
       for (const tl of filteredBlocks) {
         for (const t of parseBlock(tl, 1)) {
           const norm = t.title.toLowerCase().replace(/['’]/g, '')
+          // Praleisti remix/extended variantus iš bonus blokų
+          if (t.type === 'remix') continue
           if (!existing.has(norm) && t.is_single) {
-            allTracks.push({ ...t, sort_order: order++ })
+            // Bonus bloke rasto singlo tipą visada nustatyti kaip 'normal'
+            allTracks.push({ ...t, type: 'normal', sort_order: order++ })
             existing.add(norm)
           }
         }
