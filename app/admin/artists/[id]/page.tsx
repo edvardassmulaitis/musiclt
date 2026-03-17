@@ -98,17 +98,18 @@ function formToDb(form: ArtistFormData) {
   }
 }
 
-function TrackRow({ track }: { track: any }) {
+function TrackRow({ track, onDelete }: { track: any; onDelete?: () => void }) {
   const trackId = track.track_id || track.id
   const hasVideo = !!track.video_url
   const hasLyrics = typeof track.lyrics === 'string' && track.lyrics.trim().length > 0
   const featuring: string[] = (track.featuring || []).map((f: any) => typeof f === 'string' ? f : f.name || '')
+  const [confirmDel, setConfirmDel] = useState(false)
   return (
     <div className="flex items-center gap-1.5 px-3 py-1 border-b border-gray-50 last:border-0 hover:bg-gray-50/80 group transition-colors">
-      <span className="relative text-gray-300 text-xs w-5 text-right shrink-0 tabular-nums">
-        {track.sort_order || track.position}.
-        {track.is_single && <span className="absolute -top-0.5 -left-1 w-1.5 h-1.5 rounded-full bg-orange-400" title="Singlas" />}
-      </span>
+      <div className="flex items-center justify-end gap-0.5 w-5 shrink-0">
+        {track.is_single && <span className="w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0" title="Singlas" />}
+        <span className="text-gray-300 text-xs tabular-nums">{track.sort_order || track.position}.</span>
+      </div>
       <div className="flex-1 min-w-0 flex items-baseline gap-1 flex-wrap">
         {trackId ? (
           <a href={`/admin/tracks/${trackId}`} target="_blank" rel="noopener noreferrer"
@@ -120,6 +121,20 @@ function TrackRow({ track }: { track: any }) {
       </div>
       {hasVideo && <span className="text-blue-400 text-xs shrink-0">▶</span>}
       {hasLyrics && <span className="text-green-500 text-xs font-bold shrink-0">T</span>}
+      {onDelete && trackId && (
+        confirmDel ? (
+          <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+            <button onClick={() => { onDelete(); setConfirmDel(false) }} className="px-1.5 py-0.5 text-[10px] bg-red-500 text-white rounded hover:bg-red-600">Taip</button>
+            <button onClick={() => setConfirmDel(false)} className="px-1.5 py-0.5 text-[10px] text-gray-400 hover:text-gray-600">Ne</button>
+          </div>
+        ) : (
+          <button onClick={e => { e.stopPropagation(); setConfirmDel(true) }}
+            className="opacity-0 group-hover:opacity-100 shrink-0 p-0.5 text-gray-300 hover:text-red-400 transition-all"
+            title="Ištrinti">
+            <svg viewBox="0 0 16 16" className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 9h8l1-9"/></svg>
+          </button>
+        )
+      )}
     </div>
   )
 }
@@ -216,7 +231,15 @@ function AlbumCard({ album, defaultOpen, onDeleted }: { album: any; defaultOpen:
             </div>
           ) : tracks.length > 0 ? (
             <>
-              {tracks.map((t: any, i: number) => <TrackRow key={t.track_id || t.id || i} track={t} />)}
+              {tracks.map((t: any, i: number) => (
+                <TrackRow key={t.track_id || t.id || i} track={t}
+                  onDelete={() => {
+                    const tid = t.track_id || t.id
+                    setTracks(p => p.filter((_, idx) => idx !== i))
+                    if (tid) fetch(`/api/tracks/${tid}`, { method: 'DELETE' }).catch(() => {})
+                  }}
+                />
+              ))}
               <div className="px-3 py-1.5 border-t border-gray-50">
                 <a href={`/admin/albums/${album.id}`} className="text-xs text-gray-400 hover:text-blue-500 transition-colors">
                   + Pridėti / redaguoti dainas
