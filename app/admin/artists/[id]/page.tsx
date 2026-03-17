@@ -301,30 +301,37 @@ function DiscographyPanel({ artistId, artistName, artistType, refreshKey, onImpo
 
   return (
     <div className="h-full flex flex-col">
-      <div className="shrink-0 flex items-center gap-1.5 flex-wrap px-3 py-2 border-b border-gray-200 bg-white/80 backdrop-blur sticky top-0 z-10">
-        <span className="text-sm font-bold text-gray-700 hidden lg:inline">Diskografija</span>
-        {albums.length > 0 && (
-          <span className="bg-gray-200 text-gray-600 text-xs font-bold px-1.5 py-0.5 rounded-full hidden lg:inline-flex">{albums.length}</span>
-        )}
-        <div className="flex items-center gap-1.5 ml-auto flex-wrap">
-          {artistName && (
-            <WikipediaImportDiscography
-              artistId={parseInt(artistId)}
-              artistName={artistName}
-              artistWikiTitle={artistName.replace(/ /g, '_')}
-              isSolo={artistType === 'solo'}
-              onClose={onImportClose}
-              buttonClassName="flex items-center gap-1.5 px-2 py-1 bg-violet-50 hover:bg-violet-100 text-violet-600 rounded-lg text-xs font-medium transition-colors"
-              buttonLabel="⚡ Automatinis įkėlimas"
-            />
+      <div className="shrink-0 px-3 py-2 border-b border-gray-200 bg-white/80 backdrop-blur sticky top-0 z-10">
+        {/* Mobile: viena eilutė su visais mygtukais */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm font-bold text-gray-700 hidden lg:inline">Diskografija</span>
+          {albums.length > 0 && (
+            <span className="bg-gray-200 text-gray-600 text-xs font-bold px-1.5 py-0.5 rounded-full hidden lg:inline-flex">{albums.length}</span>
           )}
-          <Link href={`/admin/albums/new?artist_id=${artistId}`}
-            className="flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-colors">
-            + Naujas albumas
+          {/* ⚡ Automatinis — užima likusią vietą ant mobile */}
+          {artistName && (
+            <div className="flex-1 lg:flex-none lg:ml-auto">
+              <WikipediaImportDiscography
+                artistId={parseInt(artistId)}
+                artistName={artistName}
+                artistWikiTitle={artistName.replace(/ /g, '_')}
+                isSolo={artistType === 'solo'}
+                onClose={onImportClose}
+                buttonClassName="w-full lg:w-auto flex items-center justify-center gap-1.5 px-2 py-1.5 bg-violet-50 hover:bg-violet-100 text-violet-600 rounded-lg text-xs font-medium transition-colors"
+                buttonLabel="⚡ Automatinis įkėlimas"
+              />
+            </div>
+          )}
+          {/* + Albumas / + Daina — tik ikona ant mobile, tekstas ant desktop */}
+          <Link href={`/admin/albums/new?artist_id=${artistId}`} title="Naujas albumas"
+            className="shrink-0 flex items-center gap-1 px-1.5 lg:px-2 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-colors">
+            <svg viewBox="0 0 16 16" className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="8" cy="8" r="6.5"/><path d="M8 5v6M5 8h6"/></svg>
+            <span className="hidden lg:inline">Albumas</span>
           </Link>
-          <Link href={`/admin/tracks/new?artist_id=${artistId}`}
-            className="flex items-center gap-1 px-2 py-1 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg text-xs font-medium transition-colors">
-            + Nauja daina
+          <Link href={`/admin/tracks/new?artist_id=${artistId}`} title="Nauja daina"
+            className="shrink-0 flex items-center gap-1 px-1.5 lg:px-2 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg text-xs font-medium transition-colors">
+            <svg viewBox="0 0 16 16" className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="8" cy="8" r="6.5"/><path d="M8 5v6M5 8h6"/></svg>
+            <span className="hidden lg:inline">Daina</span>
           </Link>
         </div>
       </div>
