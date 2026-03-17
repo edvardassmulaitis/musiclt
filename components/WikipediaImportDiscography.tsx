@@ -961,6 +961,28 @@ function parseTracklist(wikitext: string): TrackEntry[] {
         }
       }
     }
+
+    // Peržiūrėti filtruotus blokus — jei juose yra singlai kurių dar nėra sąraše,
+    // pridėti juos su is_single=true (pvz. "But Not Tonight" CD bonus bloke)
+    if (singles.size > 0) {
+      const filteredBlocks = tlWithPos
+        .filter(({ block, pos }) => {
+          const hl = getHeadline(block)
+          if (!isReissueBlock(hl, block)) return false
+          const sectionBefore = getSectionBeforePos(wikitext, pos)
+          return !/reissue|remaster|anniversary|box.?set|collector|deluxe|expanded|demo|outtake/i.test(sectionBefore)
+        })
+        .map(({ block }) => block)
+      for (const tl of filteredBlocks) {
+        for (const t of parseBlock(tl, 1)) {
+          const norm = t.title.toLowerCase().replace(/['’]/g, '')
+          if (!existing.has(norm) && t.is_single) {
+            allTracks.push({ ...t, sort_order: order++ })
+            existing.add(norm)
+          }
+        }
+      }
+    }
   }
   return allTracks
 }
