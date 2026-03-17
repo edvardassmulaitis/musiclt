@@ -748,7 +748,7 @@ function parseSinglesFromInfobox(wikitext: string): { names: Set<string>; dates:
   function extractName(text: string): string {
     const lm = /\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/.exec(text)
     if (!lm) return ''
-    const name = lm[2] ? lm[2].replace(/'+/g, '').trim() : lm[1].replace(/#[^\]]*$/, '').replace(disambigRe, '').replace(/'+/g, '').trim()
+    const name = lm[2] ? lm[2].replace(/['"“”‘’]+/g, '').trim() : lm[1].replace(/#[^\]]*$/, '').replace(disambigRe, '').replace(/['"“”‘’]+/g, '').trim()
     return name.length > 1 ? name : ''
   }
 
@@ -756,7 +756,7 @@ function parseSinglesFromInfobox(wikitext: string): { names: Set<string>; dates:
     const re = /\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/g
     let lm: RegExpExecArray | null
     while ((lm = re.exec(text)) !== null) {
-      const name = lm[2] ? lm[2].replace(/'+/g, '').trim() : lm[1].replace(/#[^\]]*$/, '').replace(disambigRe, '').replace(/'+/g, '').trim()
+      const name = lm[2] ? lm[2].replace(/['"\u201c\u201d\u2018\u2019]+/g, '').trim() : lm[1].replace(/#[^\]]*$/, '').replace(disambigRe, '').replace(/['"\u201c\u201d\u2018\u2019]+/g, '').trim()
       if (name.length > 1) names.add(name.toLowerCase())
     }
   }
@@ -866,10 +866,11 @@ function parseTracklist(wikitext: string): TrackEntry[] {
               if (after.startsWith(' (')) return true
             }
             // Singlas prasideda tracko pavadinimu: "Blasphemous Rumours / Somebody" → "Blasphemous Rumours"
-            // Double A-side: singlo pavadinime yra "/" ir viena pusė atitinka tracką
-            if (s.includes(' / ')) {
-              const parts = s.split(' / ').map(p => p.trim())
-              if (parts.some(p => p === normalizedTitle || normalizedTitle.startsWith(p + ' '))) return true
+            // Double A-side: singlo pavadinime yra "/" (su arba be kabučių)
+            // pvz. 'blasphemous rumours" / "somebody' → ['blasphemous rumours', 'somebody']
+            if (s.includes('/')) {
+              const parts = s.split('/').map(p => p.replace(/["“”]/g, '').trim()).filter(Boolean)
+              if (parts.some(p => p === normalizedTitle || normalizedTitle.startsWith(p + ' ') || p.startsWith(normalizedTitle))) return true
             }
             // Singlo pavadinimas prasideda tracko pavadinimu (pvz. "somebody" → "somebody (remix)")
             if (s.startsWith(normalizedTitle + ' ') || s.startsWith(normalizedTitle + ' (')) return true
