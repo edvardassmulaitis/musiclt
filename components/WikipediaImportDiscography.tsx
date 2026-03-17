@@ -864,9 +864,13 @@ function parseTracklist(wikitext: string): TrackEntry[] {
       const lenM = tl.match(new RegExp(`\\|\\s*length${num}\\s*=\\s*([^|\\n]+)`))
       const noteM = tl.match(new RegExp(`\\|\\s*note${num}\\s*=\\s*([^|\\n]+)`))
 
-      // Skip hidden tracks
+      // Skip hidden tracks — bet tik jei PATS trackas yra hidden, ne jei jis tik "includes" hidden track
+      // pvz. "Pimpf (includes hidden track X)" — Pimpf yra tikras trackas, o hidden track praleisti atskirai
       const noteStr_raw = (noteM?.[1] || '').toLowerCase()
-      if (/hidden\s*track/.test(noteStr_raw)) continue
+      if (/^\s*hidden\s*track/.test(noteStr_raw)) continue  // note prasideda "hidden track"
+      // Jei title pats prasideda "hidden" — taip pat praleisti
+      const titleRaw = (titleM?.[1] || '').toLowerCase()
+      if (/^\s*hidden\s*track/.test(titleRaw)) continue
 
       // Skip extremely short tracks (<10s) — e.g. "Yeah" (0:04)
       const durStr = lenM?.[1]?.trim() || ''
