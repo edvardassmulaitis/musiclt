@@ -821,7 +821,12 @@ function parseSinglesFromInfobox(wikitext: string): { names: Set<string>; dates:
     let sm: RegExpExecArray | null
     const singlesByNum: Record<string, string> = {}
     while ((sm = sRe.exec(chunk)) !== null) {
-      const name = extractName(sm[2])
+      let name = extractName(sm[2])
+      // Fallback: plain text (no wiki link), pvz. | single3 = Perfect
+      if (!name) {
+        const plain = sm[2].replace(/\{\{[^}]*\}\}/g, '').replace(/<[^>]+>/g, '').replace(/['"]+/g, '').trim()
+        if (plain.length > 1 && !plain.includes('|') && !plain.includes('=')) name = plain
+      }
       if (name) { names.add(name.toLowerCase()); singlesByNum[sm[1]] = name.toLowerCase() }
     }
     // Paima datas: | single1date = 4 November 1985 (UK)
