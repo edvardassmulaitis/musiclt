@@ -105,7 +105,10 @@ function TrackRow({ track }: { track: any }) {
   const featuring: string[] = (track.featuring || []).map((f: any) => typeof f === 'string' ? f : f.name || '')
   return (
     <div className="flex items-center gap-1.5 px-3 py-1 border-b border-gray-50 last:border-0 hover:bg-gray-50/80 group transition-colors">
-      <span className="text-gray-300 text-xs w-5 text-right shrink-0 tabular-nums">{track.sort_order || track.position}.</span>
+      <span className="relative text-gray-300 text-xs w-5 text-right shrink-0 tabular-nums">
+        {track.sort_order || track.position}.
+        {track.is_single && <span className="absolute -top-0.5 -left-1 w-1.5 h-1.5 rounded-full bg-orange-400" title="Singlas" />}
+      </span>
       <div className="flex-1 min-w-0 flex items-baseline gap-1 flex-wrap">
         {trackId ? (
           <a href={`/admin/tracks/${trackId}`} target="_blank" rel="noopener noreferrer"
@@ -117,7 +120,6 @@ function TrackRow({ track }: { track: any }) {
       </div>
       {hasVideo && <span className="text-blue-400 text-xs shrink-0">▶</span>}
       {hasLyrics && <span className="text-green-500 text-xs font-bold shrink-0">T</span>}
-      {track.is_single && <span className="text-orange-400 text-xs font-bold shrink-0">S</span>}
     </div>
   )
 }
@@ -246,7 +248,7 @@ function SingleRow({ track, onDelete }: { track: any; onDelete: () => void }) {
           {track.release_year && <span className="text-xs text-gray-400 shrink-0">{track.release_year}</span>}
           {track.video_url && <span className="text-blue-400 text-xs shrink-0">▶</span>}
           {track.has_lyrics && <span className="text-green-500 text-xs font-bold shrink-0">T</span>}
-          {track.is_single && <span className="text-orange-400 text-xs font-bold shrink-0">S</span>}
+    
         </div>
         {track.albums_list?.[0] && <div className="text-[11px] text-gray-400 truncate">{track.albums_list[0].title}</div>}
       </div>
