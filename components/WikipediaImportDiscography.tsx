@@ -1597,40 +1597,49 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
     let okNew = 0, okMark = 0, fail = 0, songsDone = 0
     addLog(`🎤 ${toImport.length} dainų...`)
 
-    // Prieš importą: surinkti datas iš albumų wikitext'ų į lokalų Map'ą
-    // title.toLowerCase() → { year, month, day }
+    // Prieš importą: surinkti singlų datas iš VISŲ albumų wikitext'ų
+    // Naudojame tą patį mechanizmą kaip fetchDetails — parseSinglesFromInfobox
     const extraDates = new Map<string, { year: number|null; month: number|null; day: number|null }>()
-    const needsDates = toImport.filter(s => !s.month && s.albumTitle)
+    const needsDates = toImport.filter(s => !s.month)
     if (needsDates.length > 0) {
-      const albumTitles = [...new Set(needsDates.map(s => s.albumTitle!))]
-      addLog(`📅 Datos iš ${albumTitles.length} albumų...`)
-      for (const albumTitle of albumTitles) {
-        try {
-          const baseTitle = albumTitle.replace(/ /g, '_')
-          // Bandyti pagrindinį pavadinimą, tada su (album) disambiguacija
-          let wt = await fetchWikitext(baseTitle)
-          // Jei negavome {{Singles}} — bandyti su (album) sufiksu
-          if (!wt || !wt.includes('{{Singles') && !wt.includes('{{singles')) {
-            const withAlbum = await fetchWikitext(baseTitle + '_(album)')
-            if (withAlbum && (withAlbum.includes('{{Singles') || withAlbum.includes('{{singles'))) {
-              wt = withAlbum
-            }
-          }
-          if (wt) {
-            const { dates } = parseSinglesFromInfobox(wt)
-            for (const [dKey, dVal] of dates.entries()) {
-              extraDates.set(dKey, dVal)
-              // Double A-side — pridėti abi puses
-              if (dKey.includes('/')) {
-                dKey.split('/').map(p => p.replace(/["“”]/g, '').trim()).filter(Boolean)
-                  .forEach(p => { if (!extraDates.has(p)) extraDates.set(p, dVal) })
+      // Surinkti wikiTitle iš: (a) items su wikiTitle, (b) albumTitle iš songs
+      const wikiTitlesFromItems = items
+        .filter(it => it.wikiTitle)
+        .map(it => it.wikiTitle!)
+      const albumTitlesFromSongs = [...new Set(
+        needsDates.filter(s => s.albumTitle).map(s => s.albumTitle!.replace(/ /g, '_'))
+      )]
+      const allTitles = [...new Set([...wikiTitlesFromItems, ...albumTitlesFromSongs])]
+
+      if (allTitles.length > 0) {
+        addLog(`📅 Datos iš ${allTitles.length} albumų...`)
+        for (const baseTitle of allTitles) {
+          try {
+            let wt = await fetchWikitext(baseTitle)
+            // Jei nėra {{Singles}} — bandyti su _(album) sufiksu
+            if (!wt || (!wt.includes('{{Singles') && !wt.includes('{{singles'))) {
+              const withAlbum = await fetchWikitext(baseTitle + '_(album)')
+              if (withAlbum && (withAlbum.includes('{{Singles') || withAlbum.includes('{{singles'))) {
+                wt = withAlbum
               }
             }
-          }
-        } catch {}
-        await new Promise(r => setTimeout(r, 200))
+            if (wt) {
+              const { dates } = parseSinglesFromInfobox(wt)
+              for (const [dKey, dVal] of dates.entries()) {
+                if (!extraDates.has(dKey)) extraDates.set(dKey, dVal)
+                // Double A-side
+                if (dKey.includes('/')) {
+                  dKey.split('/').map(p => p.replace(/[\u201c\u201d"']/g, '').trim()).filter(Boolean)
+                    .forEach(p => { if (!extraDates.has(p)) extraDates.set(p, dVal) })
+                }
+              }
+            }
+          } catch {}
+          await new Promise(r => setTimeout(r, 150))
+        }
+        if (extraDates.size > 0) addLog(`✓ ${extraDates.size} singlų datų rasta`)
+        else addLog(`⚠ Datų nerasta`)
       }
-      if (extraDates.size > 0) addLog(`✓ ${extraDates.size} datų rasta`)
     }
 
     for (const song of toImport) {
