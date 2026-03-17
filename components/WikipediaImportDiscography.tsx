@@ -1247,6 +1247,30 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       const discTitle = wikiBase.replace(/_discography$/i, '') + '_discography'
       const hasDiscPage = discTitle !== wikiBase
 
+      // Singlų datos iš pagrindinės puslapio infobox (single1date laukai)
+      const enrichSongsWithDates = (songs: SingleSongItem[], wikitext: string): SingleSongItem[] => {
+        const { dates } = parseSinglesFromInfobox(wikitext)
+        if (!dates.size) return songs
+        return songs.map(s => {
+          const key = s.title.toLowerCase().replace(/['’"]/g, '')
+          // Tiesioginis match
+          let dateInfo = dates.get(key)
+          // Jei nėra — ieškoti per "/" split (double A-side)
+          if (!dateInfo) {
+            for (const [dKey, dVal] of dates.entries()) {
+              if (dKey.includes('/')) {
+                const parts = dKey.split('/').map(p => p.replace(/["“”]/g, '').trim())
+                if (parts.some(p => p === key)) { dateInfo = dVal; break }
+              }
+            }
+          }
+          if (dateInfo && (dateInfo.month || dateInfo.day)) {
+            return { ...s, year: dateInfo.year ?? s.year, month: dateInfo.month, day: dateInfo.day }
+          }
+          return s
+        })
+      }
+
       if (!wikiAlbums.length) {
         if (hasDiscPage) {
           addLog(`→ ${discTitle}`)
@@ -1254,12 +1278,17 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
           if (dw) {
             wikiAlbums = parseDiscographyPage(dw)
             const ds = parseSinglesSection(dw)
-            if (ds.length && !foundSongs.length) foundSongs = ds
+            if (ds.length && !foundSongs.length) foundSongs = enrichSongsWithDates(ds, dw)
+            else if (foundSongs.length) foundSongs = enrichSongsWithDates(foundSongs, dw)
           }
+        } else {
+          foundSongs = enrichSongsWithDates(foundSongs, mainWikitext)
         }
       } else {
         // Albumai rasti iš pagrindinio puslapio — bet gali trūkti live/compilation/EP
         // Krauname discography puslapį dėl pilnesnio sąrašo ir singlų
+        // Praturtinti iš main wikitext pirmiausia
+        foundSongs = enrichSongsWithDates(foundSongs, mainWikitext)
         if (hasDiscPage) {
           addLog(`→ ${discTitle} (papildymas)`)
           const dw = await fetchWikitext(discTitle)
@@ -1273,7 +1302,10 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
             // Singlai visada iš discography puslapio (jei ten jų yra)
             if (!foundSongs.length) {
               const ds = parseSinglesSection(dw)
-              if (ds.length) foundSongs = ds
+              if (ds.length) foundSongs = enrichSongsWithDates(ds, dw)
+            } else {
+              // Praturtinti datas iš discography puslapio (gali turėti tikslesnių)
+              foundSongs = enrichSongsWithDates(foundSongs, dw)
             }
           }
         }
