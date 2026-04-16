@@ -16,8 +16,7 @@ type DiscographyItem = {
   type: AlbumType
   extraTypes?: AlbumType[]  // papildomi tipai, pvz. soundtrack + studio
   wikiTitle?: string
-  mbId?: string
-  source: 'musicbrainz' | 'wikipedia'
+  source: 'wikipedia'
   cover_image_url?: string
   tracks?: TrackEntry[]
   fetched?: boolean
@@ -44,7 +43,7 @@ type SingleSongItem = {
   month: number | null
   day: number | null
   albumTitle?: string
-  source: 'wikipedia' | 'musicbrainz'
+  source: 'wikipedia'
   importing?: boolean
   imported?: boolean
   duplicate?: boolean
@@ -1012,100 +1011,6 @@ function parseReleaseDate(wikitext: string): { year: number | null; month: numbe
   return { year: null, month: null, day: null }
 }
 
-// ─── MusicBrainz utils ────────────────────────────────────────────────────────
-
-function mbTypeToLocal(primary?: string, secondary?: string[]): AlbumType {
-  const sec = (secondary || []).map(s => s.toLowerCase())
-  if (sec.includes('compilation') || sec.includes('greatest hits')) return 'compilation'
-  if (sec.includes('live')) return 'live'
-  if (sec.includes('remix')) return 'remix'
-  if (sec.includes('demo')) return 'demo'
-  if (sec.includes('soundtrack')) return 'soundtrack'
-  if (sec.includes('mixtape/street') || sec.includes('bootleg')) return 'other'
-  const p = (primary || '').toLowerCase()
-  if (p === 'single') return 'single'
-  if (p === 'ep') return 'ep'
-  if (p === 'album') return 'studio'
-  return 'other'
-}
-
-async function mbFindArtist(name: string): Promise<{ id: string; name: string } | null> {
-  try {
-    const res = await fetch(`/api/mb-proxy?path=${encodeURIComponent(`artist/?query=${encodeURIComponent('"' + name + '"')}&limit=5&fmt=json`)}`)
-    if (!res.ok) return null
-    const data = await res.json()
-    const best = (data.artists || []).find((a: any) => a.score >= 85) || data.artists?.[0]
-    return best ? { id: best.id, name: best.name } : null
-  } catch { return null }
-}
-
-async function mbFetchDiscography(artistId: string): Promise<DiscographyItem[]> {
-  const items: DiscographyItem[] = []
-  let offset = 0
-  while (true) {
-    const res = await fetch(`/api/mb-proxy?path=${encodeURIComponent(`release-group?artist=${artistId}&limit=100&offset=${offset}&fmt=json`)}`)
-    if (!res.ok) break
-    const data = await res.json()
-    const rgs = data['release-groups'] || []
-    if (!rgs.length) break
-    for (const rg of rgs) {
-      const type = mbTypeToLocal(rg['primary-type'], rg['secondary-types'])
-      if (type === 'single') continue
-      const parts = (rg['first-release-date'] || '').split('-')
-      items.push({ title: rg.title, year: parts[0] ? parseInt(parts[0]) : null, month: parts[1] ? parseInt(parts[1]) : null, day: parts[2] ? parseInt(parts[2]) : null, type, mbId: rg.id, source: 'musicbrainz' })
-    }
-    if (offset + 100 >= (data['release-group-count'] || 0)) break
-    offset += 100
-    await new Promise(r => setTimeout(r, 300))
-  }
-  return items.sort((a, b) => (a.year || 9999) - (b.year || 9999))
-}
-
-async function mbFetchSingles(artistId: string): Promise<SingleSongItem[]> {
-  const items: SingleSongItem[] = []
-  let offset = 0
-  while (true) {
-    const res = await fetch(`/api/mb-proxy?path=${encodeURIComponent(`release-group?artist=${artistId}&type=single&limit=100&offset=${offset}&fmt=json`)}`)
-    if (!res.ok) break
-    const data = await res.json()
-    const rgs = data['release-groups'] || []
-    if (!rgs.length) break
-    for (const rg of rgs) {
-      const parts = (rg['first-release-date'] || '').split('-')
-      items.push({ title: rg.title, year: parts[0] ? parseInt(parts[0]) : null, month: parts[1] ? parseInt(parts[1]) : null, day: parts[2] ? parseInt(parts[2]) : null, source: 'musicbrainz', selected: true })
-    }
-    if (offset + 100 >= (data['release-group-count'] || 0)) break
-    offset += 100
-    await new Promise(r => setTimeout(r, 300))
-  }
-  return items.sort((a, b) => (a.year || 9999) - (b.year || 9999))
-}
-
-async function mbFetchTracks(releaseGroupId: string): Promise<{ tracks: TrackEntry[]; cover: string }> {
-  try {
-    const res = await fetch(`/api/mb-proxy?path=${encodeURIComponent(`release?release-group=${releaseGroupId}&inc=recordings&limit=1&fmt=json`)}`)
-    if (!res.ok) return { tracks: [], cover: '' }
-    const data = await res.json()
-    const release = data.releases?.[0]
-    if (!release) return { tracks: [], cover: '' }
-    const tracks: TrackEntry[] = []
-    let order = 1
-    for (const medium of release.media || []) {
-      for (const track of medium.tracks || []) {
-        const ms = track.length
-        const duration = ms ? `${Math.floor(ms/60000)}:${String(Math.floor((ms%60000)/1000)).padStart(2,'0')}` : undefined
-        tracks.push({ title: track.title || track.recording?.title || '', duration, sort_order: order++, disc_number: medium.position || 1 })
-      }
-    }
-    let cover = ''
-    try {
-      const cr = await fetch(`https://coverartarchive.org/release-group/${releaseGroupId}/front-500`, { redirect: 'follow' })
-      if (cr.ok) cover = cr.url
-    } catch {}
-    return { tracks, cover }
-  } catch { return { tracks: [], cover: '' } }
-}
-
 // ─── DB utils ─────────────────────────────────────────────────────────────────
 
 async function checkAlbumDuplicates(titles: string[], artistId: number): Promise<Record<string, number>> {
@@ -1249,7 +1154,6 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
   const [importing, setImporting] = useState(false)
   const { startTask, updateTask, finishTask, errorTask } = useBackgroundTasks()
   const [sortDesc, setSortDesc] = useState(true)
-  const [mbLoading, setMbLoading] = useState(false)
   const logRef = useRef<HTMLDivElement>(null)
 
   const addLog = (msg: string) => setLog(p => [...p, msg])
@@ -1422,12 +1326,6 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
     if (item.fetched) return
     addLog(`📋 ${item.title}`)
     try {
-      if (item.source === 'musicbrainz' && item.mbId) {
-        const { tracks, cover } = await mbFetchTracks(item.mbId)
-        addLog(`  → ${tracks.length} dainų${cover ? ', viršelis' : ''}`)
-        setItems(p => p.map((it, i) => i === idx ? { ...it, tracks, fetched: true, cover_image_url: cover || it.cover_image_url } : it))
-        return
-      }
       if (!item.wikiTitle) { setItems(p => p.map((it, i) => i === idx ? { ...it, fetched: true, tracks: [] } : it)); return }
       const [wikitext, cover] = await Promise.all([fetchWikitext(item.wikiTitle), fetchCoverImage(item.wikiTitle)])
       const dateInfo = parseReleaseDate(wikitext)
@@ -1464,48 +1362,6 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
     for (let i = 0; i < items.length; i++) {
       if (selected.has(i) && !items[i].fetched) { await fetchDetails(i); await new Promise(r => setTimeout(r, 400)) }
     }
-  }
-
-  // ── MB papildymas ──────────────────────────────────────────────────────────
-
-  const enrichFromMB = async () => {
-    setMbLoading(true)
-    addLog('🎵 MusicBrainz...')
-    const mbArtist = await mbFindArtist(artistName)
-    if (!mbArtist) { addLog('✗ MB: nerastas'); setMbLoading(false); return }
-    addLog(`  → "${mbArtist.name}"`)
-
-    if (activeTab === 'singles' || activeTab === 'songs') {
-      const mbSingles = await mbFetchSingles(mbArtist.id)
-      const existing = new Set(songs.map(s => s.title.toLowerCase()))
-      const newOnes = mbSingles.filter(s => !existing.has(s.title.toLowerCase()))
-      addLog(`✓ MB singlai: ${mbSingles.length} viso, ${newOnes.length} naujų`)
-      if (newOnes.length) {
-        const dups = await checkTrackDuplicates(newOnes.map(s => s.title), artistId)
-        const withDups = newOnes.map(s => {
-          const k = s.title.toLowerCase()
-          if (dups[k]) return { ...s, duplicate: true, duplicateId: dups[k], selected: false }
-          const normS = k.replace(/['’]/g, '')
-          const fuzzy = Object.entries(dups).find(([dt]) => { const nd = dt.replace(/['’]/g,''); const after = nd.slice(normS.length); return nd.startsWith(normS) && after.startsWith('s ') })
-          return fuzzy ? { ...s, duplicate: true, duplicateId: fuzzy[1] as number, selected: false } : s
-        })
-        setSongs(p => [...p, ...withDups].sort((a,b) => (a.year||9999)-(b.year||9999)))
-      }
-    } else {
-      const mbItems = await mbFetchDiscography(mbArtist.id)
-      const existing = new Set(items.map(i => i.title.toLowerCase()))
-      const newOnes = mbItems.filter(i => !existing.has(i.title.toLowerCase()))
-      addLog(`✓ MB albumai: ${mbItems.length} viso, ${newOnes.length} naujų`)
-      if (newOnes.length) {
-        const dups = await checkAlbumDuplicates(newOnes.map(i => i.title), artistId)
-        const withDups = newOnes.map(it => { const k = it.title.toLowerCase(); return dups[k] ? { ...it, duplicate: true, duplicateId: dups[k] } : it })
-        const typeOrder: Record<AlbumType, number> = { studio: 0, ep: 1, single: 2, compilation: 3, live: 4, remix: 5, covers: 6, holiday: 7, soundtrack: 8, demo: 9, other: 10 }
-        const merged = [...items, ...withDups].sort((a,b) => typeOrder[a.type] !== typeOrder[b.type] ? typeOrder[a.type]-typeOrder[b.type] : (a.year||9999)-(b.year||9999))
-        setItems(merged)
-        setSelected(new Set(merged.map((it, i) => (!it.duplicate && AUTO_SELECT_TYPES.includes(it.type)) ? i : -1).filter(i => i !== -1)))
-      }
-    }
-    setMbLoading(false)
   }
 
   // ── Albumų importas ────────────────────────────────────────────────────────
@@ -1843,7 +1699,6 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               {it.extraTypes?.map(et => (
                 <span key={et} className="text-[10px] font-semibold text-blue-400 shrink-0 uppercase tracking-wide">{et === 'soundtrack' ? 'Garso takelis' : et}</span>
               ))}
-              {it.source === 'musicbrainz' && <span className="text-[10px] text-blue-400 shrink-0">MB</span>}
               {it.duplicate && <span className="text-[10px] text-amber-500 shrink-0">jau yra</span>}
               {it.importing && <span className="text-[10px] text-violet-400 animate-pulse shrink-0">importuojama</span>}
               {it.imported && <span className="text-[10px] text-emerald-500 shrink-0">✓ importuota</span>}
@@ -2134,7 +1989,6 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                   {songs.length === 0 ? (
                     <div className="text-center py-12">
                       <p className="text-sm text-gray-500 font-medium mb-1">Singlų nerasta Wikipedia</p>
-                      <p className="text-xs text-gray-400">Bandyk „Papildyti iš MusicBrainz" — ten pilnas sąrašas</p>
                     </div>
                   ) : (
                     <>
@@ -2166,7 +2020,6 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-baseline gap-1.5 flex-wrap">
                                       <span className="text-sm font-medium text-gray-900 truncate">{song.title}</span>
-                                      {song.source === 'musicbrainz' && <span className="text-[10px] text-blue-400 shrink-0">MB</span>}
                                       {song.duplicate && <span className="text-[10px] text-amber-500 shrink-0">jau yra</span>}
                                       {song.imported && <span className="text-[10px] text-emerald-500 shrink-0">importuota</span>}
                                       {song.importing && <span className="text-[10px] text-violet-400 animate-pulse shrink-0">importuojama</span>}
@@ -2209,13 +2062,6 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                 <button onClick={importAlbums} disabled={importing || selected.size === 0}
                   className="flex-1 py-2 sm:py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl disabled:opacity-40 transition-colors text-sm">
                   {importing ? 'Importuojama...' : `Importuoti ${selected.size} albumų`}
-                </button>
-              )}
-              {hasContent && (
-                <button onClick={enrichFromMB} disabled={importing || mbLoading}
-                  title="Papildyti iš MusicBrainz"
-                  className="shrink-0 px-2.5 py-2 sm:py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl disabled:opacity-40 transition-colors text-xs font-medium whitespace-nowrap">
-                  {mbLoading ? '⏳' : <><span className="hidden sm:inline">Papildyti iš </span>MB</>}
                 </button>
               )}
               <button onClick={closeModal} className="shrink-0 w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center border border-gray-200 text-gray-500 rounded-xl hover:bg-gray-50 transition-colors text-sm">

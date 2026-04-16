@@ -46,7 +46,6 @@ export default async function UserProfilePage({ params }: Props) {
 
 function ProfileView({ profile, favoriteArtists, blog, blogPosts, memberSince }: any) {
   const socials = [
-    profile.social_instagram && { name: 'Instagram', url: profile.social_instagram },
     profile.social_twitter && { name: 'X / Twitter', url: profile.social_twitter },
     profile.social_spotify && { name: 'Spotify', url: profile.social_spotify },
     profile.social_youtube && { name: 'YouTube', url: profile.social_youtube },

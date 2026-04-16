@@ -67,7 +67,6 @@ export async function GET(
 
   const links: Record<string, string> = {
     facebook:   artist.facebook   || '',
-    instagram:  artist.instagram  || '',
     youtube:    artist.youtube    || '',
     tiktok:     artist.tiktok     || '',
     spotify:    artist.spotify    || '',
@@ -105,7 +104,7 @@ export async function PATCH(
     'gender','birth_date','death_date','website','subdomain',
     'is_active','is_verified','type_music','type_film','type_dance','type_books',
     'photos','show_updated','active_from','active_until','slug',
-    'facebook','instagram','youtube','tiktok','spotify','soundcloud','bandcamp','twitter',
+    'facebook','youtube','tiktok','spotify','soundcloud','bandcamp','twitter',
   ]
 
   for (const f of dbFields) {
@@ -154,7 +153,7 @@ export async function PATCH(
                 description: m.description || null,
                 gender: m.gender || null,
                 website: m.website || null,
-                facebook: m.facebook || null, instagram: m.instagram || null,
+                facebook: m.facebook || null,
                 twitter: m.twitter || null, spotify: m.spotify || null,
                 youtube: m.youtube || null, soundcloud: m.soundcloud || null,
                 tiktok: m.tiktok || null, bandcamp: m.bandcamp || null,

@@ -39,7 +39,7 @@ function Avatar({ name, src, size = 6 }: { name: string | null; src: string | nu
   const initials = (name || '?').slice(0, 1).toUpperCase()
   return (
     <div className={`w-${size} h-${size} rounded-full flex items-center justify-center text-[10px] font-black flex-shrink-0`}
-      style={{ background: 'rgba(29,78,216,0.25)', color: '#93c5fd' }}>
+      style={{ background: 'var(--avatar-bg)', color: 'var(--avatar-text)' }}>
       {initials}
     </div>
   )

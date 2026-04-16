@@ -58,36 +58,37 @@ function AuthModal({ onClose }: { onClose: () => void }) {
     >
       <div
         className="relative w-full max-w-sm rounded-2xl overflow-hidden"
-        style={{ background: '#0d1320', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 32px 80px rgba(0,0,0,0.6)' }}
+        style={{ background: 'var(--modal-bg)', border: '1px solid var(--modal-border)', boxShadow: 'var(--modal-shadow)' }}
         onClick={e => e.stopPropagation()}
       >
         <button
           onClick={onClose}
           className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded-full text-sm transition-all"
-          style={{ color: '#4a6580', background: 'rgba(255,255,255,0.06)' }}
-          onMouseEnter={e => (e.currentTarget.style.color = '#f2f4f8')}
-          onMouseLeave={e => (e.currentTarget.style.color = '#4a6580')}
+          style={{ color: 'var(--text-muted)', background: 'var(--bg-hover)' }}
+          onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-primary)')}
+          onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
         >✕</button>
 
         <div className="px-7 pt-7 pb-5">
           <div className="font-black text-2xl mb-1">
-            <span style={{ color: '#f2f4f8' }}>music</span>
-            <span className="text-orange-400">.lt</span>
+            <span style={{ color: 'var(--text-primary)' }}>music</span>
+            <span style={{ color: 'var(--accent-orange)' }}>.lt</span>
           </div>
-          <p className="text-[13px]" style={{ color: '#4a6580' }}>Prisijunk prie Lietuvos muzikos bendruomenės</p>
+          <p className="text-[13px]" style={{ color: 'var(--text-muted)' }}>Prisijunk prie Lietuvos muzikos bendruomenės</p>
         </div>
 
         {emailSent ? (
           <div className="px-7 pb-8 text-center">
             <div className="text-4xl mb-4">📬</div>
-            <h3 className="font-black text-lg mb-2" style={{ color: '#f2f4f8' }}>Patikrink el. paštą</h3>
-            <p className="text-sm" style={{ color: '#4a6580' }}>
+            <h3 className="font-black text-lg mb-2" style={{ color: 'var(--text-primary)' }}>Patikrink el. paštą</h3>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
               Išsiuntėme prisijungimo nuorodą į<br />
-              <span style={{ color: '#c8d8f0' }}>{email}</span>
+              <span style={{ color: 'var(--text-secondary)' }}>{email}</span>
             </p>
             <button
               onClick={onClose}
-              className="mt-6 w-full h-11 rounded-xl bg-orange-500 hover:bg-orange-400 text-white font-black text-sm transition-all"
+              className="mt-6 w-full h-11 rounded-xl font-black text-sm transition-all"
+              style={{ background: 'var(--accent-orange)', color: 'var(--text-primary)' }}
             >
               Gerai
             </button>
@@ -134,9 +135,9 @@ function AuthModal({ onClose }: { onClose: () => void }) {
             </button>
 
             <div className="flex items-center gap-3 py-1">
-              <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
-              <span className="text-[11px]" style={{ color: '#2a3a50' }}>arba el. paštu</span>
-              <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
+              <div className="flex-1 h-px" style={{ background: 'var(--border-subtle)' }} />
+              <span className="text-[11px]" style={{ color: 'var(--text-faint)' }}>arba el. paštu</span>
+              <div className="flex-1 h-px" style={{ background: 'var(--border-subtle)' }} />
             </div>
 
             <form onSubmit={handleEmail} className="space-y-2.5">
@@ -147,14 +148,15 @@ function AuthModal({ onClose }: { onClose: () => void }) {
                 onChange={e => setEmail(e.target.value)}
                 required
                 className="w-full h-11 rounded-xl px-4 text-sm focus:outline-none transition-all"
-                style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', color: '#c8d8f0' }}
+                style={{ background: 'var(--input-bg)', border: '1px solid var(--input-border)', color: 'var(--input-text)' }}
                 onFocus={e => (e.currentTarget.style.borderColor = 'rgba(29,78,216,0.7)')}
-                onBlur={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)')}
+                onBlur={e => (e.currentTarget.style.borderColor = 'var(--input-border)')}
               />
               <button
                 type="submit"
                 disabled={loading !== null}
-                className="w-full h-11 rounded-xl bg-orange-500 hover:bg-orange-400 text-white font-black text-[13px] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full h-11 rounded-xl font-black text-[13px] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                style={{ background: 'var(--accent-orange)', color: 'var(--text-primary)' }}
               >
                 {loading === 'email'
                   ? <span className="w-4 h-4 border-2 border-orange-200 border-t-white rounded-full animate-spin" />
@@ -162,9 +164,9 @@ function AuthModal({ onClose }: { onClose: () => void }) {
               </button>
             </form>
 
-            <p className="text-center text-[11px] pt-1" style={{ color: '#2a3a50' }}>
+            <p className="text-center text-[11px] pt-1" style={{ color: 'var(--text-faint)' }}>
               Prisijungdamas sutinki su{' '}
-              <a href="/privatumas" className="hover:text-blue-400 transition-colors">privatumo politika</a>
+              <a href="/privatumas" className="transition-colors" style={{ color: 'var(--accent-link)' }}>privatumo politika</a>
             </p>
           </div>
         )}
@@ -196,9 +198,9 @@ function UserMenu() {
       href={href}
       onClick={() => setOpen(false)}
       className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors"
-      style={{ color: color || '#8aa8cc' }}
-      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = color || '#f2f4f8'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)' }}
-      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = color || '#8aa8cc'; (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+      style={{ color: color || 'var(--text-secondary)' }}
+      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = color || 'var(--text-primary)'; (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)' }}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = color || 'var(--text-secondary)'; (e.currentTarget as HTMLElement).style.background = 'transparent' }}
     >
       {icon} {label}
     </Link>
@@ -224,7 +226,7 @@ function UserMenu() {
         )}
         <svg
           className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`}
-          style={{ color: '#4a6580' }}
+          style={{ color: 'var(--text-muted)' }}
           fill="none" stroke="currentColor" viewBox="0 0 24 24"
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -234,16 +236,16 @@ function UserMenu() {
       {open && (
         <div
           className="absolute right-0 top-full mt-2 w-56 rounded-xl overflow-hidden shadow-2xl z-50"
-          style={{ background: '#0d1320', border: '1px solid rgba(255,255,255,0.1)' }}
+          style={{ background: 'var(--modal-bg)', border: '1px solid var(--modal-border)' }}
         >
           {/* User info */}
-          <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-            <div className="text-sm font-semibold truncate" style={{ color: '#f2f4f8' }}>{session.user.name}</div>
-            <div className="text-xs truncate mt-0.5" style={{ color: '#4a6580' }}>{session.user.email}</div>
+          <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+            <div className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{session.user.name}</div>
+            <div className="text-xs truncate mt-0.5" style={{ color: 'var(--text-muted)' }}>{session.user.email}</div>
             {isAdmin && (
               <span
                 className="inline-block mt-1.5 text-[10px] px-2 py-0.5 rounded-full font-bold"
-                style={{ background: 'rgba(249,115,22,0.15)', color: '#fb923c' }}
+                style={{ background: 'rgba(249,115,22,0.15)', color: 'var(--accent-orange)' }}
               >
                 {session.user.role === 'super_admin' ? '★ Super Admin' : '★ Admin'}
               </span>
@@ -259,20 +261,20 @@ function UserMenu() {
 
           {/* Admin section */}
           {isAdmin && (
-            <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+            <div style={{ borderTop: '1px solid var(--border-subtle)' }}>
               <div className="py-1">
-                {menuItem('/admin', '⚙️', 'Admin panelė', '#fb923c')}
+                {menuItem('/admin', '⚙️', 'Admin panelė', 'var(--accent-orange)')}
               </div>
             </div>
           )}
 
           {/* Logout */}
-          <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }} className="py-1">
+          <div style={{ borderTop: '1px solid var(--border-subtle)' }} className="py-1">
             <button
               onClick={() => { setOpen(false); signOut({ callbackUrl: '/' }) }}
               className="w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-left"
-              style={{ color: '#f87171' }}
-              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)')}
+              style={{ color: 'var(--accent-orange)' }}
+              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)')}
               onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}
             >
               🚪 Atsijungti
@@ -302,7 +304,8 @@ export function HeaderAuth() {
     <>
       <button
         onClick={() => setShowModal(true)}
-        className="flex-shrink-0 bg-orange-500 hover:bg-orange-400 text-white font-bold px-5 py-2 rounded-full text-[13px] transition-all shadow-md hover:scale-[1.02] whitespace-nowrap"
+        className="flex-shrink-0 font-bold px-5 py-2 rounded-full text-[13px] transition-all shadow-md hover:scale-[1.02] whitespace-nowrap"
+        style={{ background: 'var(--accent-orange)', color: 'var(--text-primary)' }}
       >
         Prisijungti
       </button>

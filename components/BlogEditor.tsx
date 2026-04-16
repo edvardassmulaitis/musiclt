@@ -59,11 +59,11 @@ export function BlogEditor({ value, onChange, placeholder }: BlogEditorProps) {
         <button
           type="button"
           onClick={() => setShowEmbedModal(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:bg-white/[.06]"
-          style={{ background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.2)', color: '#f97316' }}>
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+          style={{ background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.2)', color: 'var(--accent-orange)' }}>
           🎵 Įterpti YouTube / Spotify
         </button>
-        <span className="text-[10px]" style={{ color: '#334058' }}>Įklijuok nuorodą ir embed atsiras straipsnyje</span>
+        <span className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>Įklijuok nuorodą ir embed atsiras straipsnyje</span>
       </div>
 
       {/* Existing Tiptap editor with dark theme override */}
@@ -78,21 +78,21 @@ export function BlogEditor({ value, onChange, placeholder }: BlogEditorProps) {
       {/* Embed modal */}
       {showEmbedModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={() => setShowEmbedModal(false)}>
-          <div className="w-full max-w-md rounded-2xl p-6" style={{ background: '#0d1320', border: '1px solid rgba(255,255,255,0.1)' }} onClick={e => e.stopPropagation()}>
-            <h3 className="text-base font-black mb-1" style={{ color: '#f2f4f8' }}>Įterpti muzikos embed</h3>
-            <p className="text-xs mb-4" style={{ color: '#4a6580' }}>Palaikoma: YouTube, Spotify (track, album, playlist)</p>
+          <div className="w-full max-w-md rounded-2xl p-6" style={{ background: 'var(--modal-bg)', border: '1px solid var(--modal-border)' }} onClick={e => e.stopPropagation()}>
+            <h3 className="text-base font-black mb-1" style={{ color: 'var(--text-primary)' }}>Įterpti muzikos embed</h3>
+            <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>Palaikoma: YouTube, Spotify (track, album, playlist)</p>
             <input
               value={embedUrl}
               onChange={e => setEmbedUrl(e.target.value)}
               placeholder="https://youtube.com/watch?v=... arba https://open.spotify.com/track/..."
               className="w-full h-10 rounded-lg px-3 text-sm focus:outline-none mb-3"
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#c8d8f0' }}
+              style={{ background: 'var(--input-bg)', border: '1px solid var(--input-border)', color: 'var(--input-text)' }}
               onKeyDown={e => e.key === 'Enter' && insertEmbed()}
               autoFocus
             />
             <div className="flex gap-2 justify-end">
-              <button onClick={() => setShowEmbedModal(false)} className="px-4 py-2 rounded-lg text-xs font-bold" style={{ color: '#5e7290' }}>Atšaukti</button>
-              <button onClick={insertEmbed} className="px-4 py-2 rounded-lg text-xs font-bold bg-[#f97316] text-white hover:bg-[#ea580c] transition">Įterpti</button>
+              <button onClick={() => setShowEmbedModal(false)} className="px-4 py-2 rounded-lg text-xs font-bold" style={{ color: 'var(--text-muted)' }}>Atšaukti</button>
+              <button onClick={insertEmbed} className="px-4 py-2 rounded-lg text-xs font-bold transition" style={{ background: 'var(--accent-orange)', color: 'var(--text-primary)' }}>Įterpti</button>
             </div>
           </div>
         </div>

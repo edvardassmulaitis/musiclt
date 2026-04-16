@@ -3,9 +3,8 @@
 import { useState, useEffect } from 'react'
 import { COUNTRIES, SUBSTYLES } from '@/lib/constants'
 import { type ArtistFormData, type Break } from './ArtistForm'
-import MusicBrainzImport from './MusicBrainzImport'
 
-type Props = { onImport: (data: Partial<ArtistFormData>) => void; initialSearch?: string; source?: 'wikipedia' | 'musicbrainz' }
+type Props = { onImport: (data: Partial<ArtistFormData>) => void; initialSearch?: string }
 
 const ALL_SUBSTYLES = Object.values(SUBSTYLES).flat()
 
@@ -449,20 +448,7 @@ const SOCIAL_MAP: Record<string, { key: keyof ArtistFormData; url: (v: string) =
   P7589: { key:'bandcamp',   url: v=>`https://bandcamp.com/${v}` },
 }
 const GROUP_QIDS = new Set(['Q215380','Q5741069','Q2088357','Q9212979','Q56816265','Q190445','Q16010345','Q183319'])
-const SKIP_WEB = ['store','shop','merch','bandsintown','songkick','last.fm','allmusic','discogs','musicbrainz','facebook','instagram','twitter','x.com','youtube','spotify','soundcloud','tiktok','bandcamp']
-
-
-function mbSortScore(name: string, query: string): number {
-  const n = name.toLowerCase().trim()
-  const q = query.toLowerCase().trim()
-  if (n === q) return 100
-  if (n.startsWith(q)) return 90
-  if (n.includes(q)) return 80
-  // žodžių atitikimas
-  const qWords = q.split(/\s+/)
-  const matches = qWords.filter(w => n.includes(w)).length
-  return Math.round((matches / qWords.length) * 70)
-}
+const SKIP_WEB = ['store','shop','merch','bandsintown','songkick','last.fm','allmusic','discogs','facebook','instagram','twitter','x.com','youtube','spotify','soundcloud','tiktok','bandcamp']
 
 function WikipediaImportCore({ onImport, initialSearch }: Props) {
   const [url, setUrl] = useState(initialSearch && !initialSearch.includes('wikipedia.org') ? initialSearch : '')
@@ -475,15 +461,12 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
   const [members, setMembers] = useState<BandMember[]>([])
   const [membersLoading, setMembersLoading] = useState(false)
   const [wpResults, setWpResults] = useState<{title:string;description:string}[]>([])
-  const [mbResults, setMbResults] = useState<{title:string;description:string;mbData:any}[]>([])
   const [ytResults, setYtResults] = useState<{title:string;description:string;ytData:any}[]>([])
   const [searchTimer, setSearchTimer] = useState<ReturnType<typeof setTimeout>|null>(null)
-  const [activeTab, setActiveTab] = useState<'wikipedia'|'musicbrainz'|'youtube'>('wikipedia')
+  const [activeTab, setActiveTab] = useState<'wikipedia'|'youtube'>('wikipedia')
   const [wpLoading, setWpLoading] = useState(false)
-  const [mbLoading, setMbLoading] = useState(false)
   const [ytLoading, setYtLoading] = useState(false)
   const [ytError, setYtError] = useState('')
-  const [mbImportData, setMbImportData] = useState<{name:string;mbData:any}|null>(null)
 
   const MUSIC_RE = /\b(band|musician|singer|rapper|artist|group|duo|trio|record|album|guitarist|drummer|bassist|vocalist|DJ|producer|songwriter|rock|pop|hip.hop|jazz|metal|punk|electronic|music)/i
   const ALBUM_RE = /\b(album|discography|soundtrack|compilation|EP|LP|single|filmography|disambiguation)/i
@@ -515,11 +498,11 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
 
   const runSearch = (q: string) => {
     if (q.trim().length < 2) {
-      setWpResults([]); setMbResults([]); setYtResults([])
+      setWpResults([]); setYtResults([])
       setYtError('')
       return
     }
-    // Wikipedia + MusicBrainz - automatiškai (greiti, nemokami)
+    // Wikipedia - automatiškai (greitas, nemokamas)
     setWpLoading(true)
     fetch(`https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(q)}&limit=10&format=json&origin=*`)
       .then(r => r.json()).then(data => {
@@ -532,14 +515,6 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
         const others = all.filter(r => !PERSON_BAND_RE.test(r.title) && !MUSIC_RE.test(r.description) && !MUSIC_RE.test(r.title))
         setWpResults([...withTag, ...musicD, ...others].slice(0, 8))
       }).catch(() => {}).finally(() => setWpLoading(false))
-    setMbLoading(true)
-    fetch(`https://musicbrainz.org/ws/2/artist/?query=${encodeURIComponent(q)}&limit=8&fmt=json`, { headers: { 'User-Agent': 'music.lt/1.0' } })
-      .then(r => r.json()).then(data => {
-        setMbResults((data.artists || [])
-          .map((a: any) => ({ ...a, _sort: mbSortScore(a.name, q) }))
-          .sort((a: any, b: any) => b._sort - a._sort).slice(0, 8)
-          .map((a: any) => ({ title: a.name, description: [a.type, a.country, a['life-span']?.begin?.slice(0,4)].filter(Boolean).join(' · '), mbData: a })))
-      }).catch(() => {}).finally(() => setMbLoading(false))
     // YouTube - tik paspaudus tab (žr. onTabClick)
   }
   useEffect(() => {
@@ -553,26 +528,20 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
   const handleInputChange = (val: string) => {
     setUrl(val)
     setError('')
-    if (isUrl(val)) { setWpResults([]); setMbResults([]); setYtResults([]); return }
+    if (isUrl(val)) { setWpResults([]); setYtResults([]); return }
     if (searchTimer) clearTimeout(searchTimer)
-    if (val.trim().length < 2) { setWpResults([]); setMbResults([]); setYtResults([]); return }
+    if (val.trim().length < 2) { setWpResults([]); setYtResults([]); return }
     const t = setTimeout(() => runSearch(val.trim()), 350)
     setSearchTimer(t)
   }
 
-    const selectResult = (title: string, source?: string, mbData?: any, pkUrl?: string, ytData?: any) => {
-    if (source === 'musicbrainz' && mbData) {
-      setUrl(title)
-      setMbImportData({ name: title, mbData })
-      return
-    }
+    const selectResult = (title: string, source?: string, ytData?: any) => {
     if (source === 'youtube' && ytData) {
       setUrl(title)
       const { genre, substyles } = ytData.genres?.length
         ? mapGenres(ytData.genres)
         : { genre: '', substyles: [] }
       const ytCountry = ytData.country && COUNTRIES.includes(ytData.country) ? ytData.country : ''
-      setMbImportData(null)
       // YouTube: rodome preview su galimybe generuoti aprašymą
       setPreview({
         name: ytData.name || title,
@@ -930,10 +899,6 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
   const currentMembers = members.filter(m => m.isCurrent)
   const pastMembers = members.filter(m => !m.isCurrent)
 
-  if (mbImportData) {
-    return <MusicBrainzImport onImport={onImport} initialSearch={mbImportData.name} initialMbData={mbImportData.mbData} onBack={() => setMbImportData(null)} />
-  }
-
   return (
     <div className="space-y-3">
       {/* Input */}
@@ -963,7 +928,6 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
           <div className="flex border-b border-gray-200 bg-gray-50">
             {([
               { key: 'wikipedia', label: 'Wikipedia', badge: 'W', badgeCls: 'bg-gray-200 text-gray-600', count: wpResults.length, loading: wpLoading },
-              { key: 'musicbrainz', label: 'MusicBrainz', badge: 'MB', badgeCls: 'bg-orange-100 text-orange-600', count: mbResults.length, loading: mbLoading },
               { key: 'youtube', label: 'YouTube', badge: 'YT', badgeCls: 'bg-red-100 text-red-600', count: ytResults.length, loading: ytLoading },
             ] as const).map(tab => (
               <button
@@ -1010,22 +974,6 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
                   </button>
                 ))
             )}
-            {/* MusicBrainz */}
-            {activeTab === 'musicbrainz' && (
-              mbLoading
-                ? <p className="text-xs text-gray-400 px-3 py-3">Ieškoma...</p>
-                : mbResults.length === 0
-                ? <p className="text-xs text-gray-400 px-3 py-3">Nieko nerasta</p>
-                : mbResults.map(r => (
-                  <button key={r.title + r.description} type="button"
-                    onClick={() => selectResult(r.title, 'musicbrainz', r.mbData)}
-                    className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-0"
-                  >
-                    <div className="text-sm text-gray-800 font-medium">{r.title}</div>
-                    {r.description && <div className="text-xs text-gray-400">{r.description}</div>}
-                  </button>
-                ))
-            )}
 
             {/* YouTube */}
             {activeTab === 'youtube' && (
@@ -1037,7 +985,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
                 ? <p className="text-xs text-gray-400 px-3 py-3">Nieko nerasta</p>
                 : ytResults.map(r => (
                   <button key={r.ytData.channelId} type="button"
-                    onClick={() => selectResult(r.title, 'youtube', undefined, undefined, r.ytData)}
+                    onClick={() => selectResult(r.title, 'youtube', r.ytData)}
                     className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-0 flex items-center gap-2"
                   >
                     {r.ytData.thumbnail && <img src={r.ytData.thumbnail} className="w-8 h-8 rounded-full object-cover shrink-0" alt="" />}

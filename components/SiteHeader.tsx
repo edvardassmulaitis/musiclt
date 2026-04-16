@@ -48,22 +48,22 @@ export function SiteHeader() {
   const pathname = usePathname()
   const [menuOpen, setMenuOpen] = useState(false)
 
-  /* ── Theme-aware tokens ── */
-  const bg = dk ? 'rgba(10,14,22,0.97)' : 'rgba(248,250,255,0.97)'
-  const bdr = dk ? '1px solid rgba(255,255,255,0.07)' : '1px solid rgba(0,0,0,0.08)'
-  const navColor = dk ? '#7a98bb' : '#5a7090'
-  const navHover = dk ? '#e2eaf8' : '#0f1a2e'
-  const navHoverBg = dk ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)'
-  const activeColor = '#60a5fa'
-  const activeBg = 'rgba(96,165,250,0.1)'
-  const logoColor = dk ? '#f3f6fc' : '#0f1a2e'
-  const inputBg = dk ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)'
-  const inputBdr = dk ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.1)'
-  const inputColor = dk ? '#c8d8f0' : '#1a2a40'
-  const mutedIcon = dk ? '#4a6888' : '#8899aa'
-  const drawerBg = dk ? '#0c1220' : '#f8faff'
-  const hamColor = dk ? '#5a7898' : '#7a90a8'
-  const sectionLabel = dk ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.3)'
+  /* ── Theme-aware tokens using CSS variables ── */
+  const bg = 'rgba(var(--bg-body-rgb), 0.97)'
+  const bdr = '1px solid var(--border-default)'
+  const navColor = 'var(--text-secondary)'
+  const navHover = 'var(--text-primary)'
+  const navHoverBg = 'var(--bg-hover)'
+  const activeColor = 'var(--accent-link)'
+  const activeBg = 'rgba(96, 165, 250, 0.1)'
+  const logoColor = 'var(--text-primary)'
+  const inputBg = 'var(--input-bg)'
+  const inputBdr = '1px solid var(--input-border)'
+  const inputColor = 'var(--input-text)'
+  const mutedIcon = 'var(--text-muted)'
+  const drawerBg = 'var(--bg-surface)'
+  const hamColor = 'var(--text-muted)'
+  const sectionLabel = 'var(--text-muted)'
 
   const isActive = (href: string) => href === '/' ? pathname === '/' : pathname.startsWith(href)
 
@@ -114,7 +114,7 @@ export function SiteHeader() {
           {/* Logo */}
           <Link href="/" style={{ flexShrink: 0, textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
             <span style={{ fontWeight: 900, fontSize: 21, letterSpacing: '-0.02em', color: logoColor }}>music</span>
-            <span style={{ fontWeight: 900, fontSize: 21, letterSpacing: '-0.02em', color: '#fb923c' }}>.lt</span>
+            <span style={{ fontWeight: 900, fontSize: 21, letterSpacing: '-0.02em', color: 'var(--accent-orange)' }}>.lt</span>
           </Link>
 
           {/* Search bar — desktop */}
@@ -156,7 +156,7 @@ export function SiteHeader() {
         <div style={{ height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 18px', borderBottom: bdr, flexShrink: 0 }}>
           <Link href="/" onClick={() => setMenuOpen(false)} style={{ textDecoration: 'none' }}>
             <span style={{ fontWeight: 900, fontSize: 20, color: logoColor }}>music</span>
-            <span style={{ fontWeight: 900, fontSize: 20, color: '#fb923c' }}>.lt</span>
+            <span style={{ fontWeight: 900, fontSize: 20, color: 'var(--accent-orange)' }}>.lt</span>
           </Link>
           <button onClick={() => setMenuOpen(false)}
             style={{ width: 28, height: 28, borderRadius: 7, border: 'none', background: 'transparent', color: mutedIcon, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -211,9 +211,9 @@ export function SiteHeader() {
         {/* Drawer bottom: theme toggle */}
         <div style={{ padding: '12px 14px', borderTop: bdr }}>
           <button onClick={() => { setTheme(theme === 'dark' ? 'light' : 'dark'); setMenuOpen(false) }}
-            style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 14px', borderRadius: 10, border: 'none', background: dk ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)', color: navColor, fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'background .12s' }}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 14px', borderRadius: 10, border: 'none', background: 'var(--bg-hover)', color: navColor, fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'background .12s' }}
             onMouseEnter={e => (e.currentTarget.style.background = navHoverBg)}
-            onMouseLeave={e => (e.currentTarget.style.background = dk ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)')}>
+            onMouseLeave={e => (e.currentTarget.style.background = 'var(--bg-hover)')}>
             {dk ? <><SunIcon /> Šviesi tema</> : <><MoonIcon /> Tamsi tema</>}
           </button>
         </div>

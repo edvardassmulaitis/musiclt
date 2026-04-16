@@ -243,7 +243,7 @@ async function syncRelations(id: number, data: ArtistFull, skipPhotos = false) {
     }
   }
 
-  const linkPlatforms = ['facebook','instagram','youtube','tiktok','spotify','soundcloud','bandcamp','twitter']
+  const linkPlatforms = ['facebook','youtube','tiktok','spotify','soundcloud','bandcamp','twitter']
   const linkRows = linkPlatforms
     .filter(p => data.links?.[p])
     .map(p => ({ artist_id: id, platform: p, url: data.links[p] }))

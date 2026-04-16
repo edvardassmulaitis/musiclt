@@ -20,7 +20,7 @@ export async function PUT(req: NextRequest) {
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   
   const body = await req.json()
-  const allowed = ['full_name', 'username', 'bio', 'website', 'avatar_url', 'cover_image_url', 'social_instagram', 'social_twitter', 'social_spotify', 'social_youtube', 'social_tiktok', 'is_public']
+  const allowed = ['full_name', 'username', 'bio', 'website', 'avatar_url', 'cover_image_url', 'social_twitter', 'social_spotify', 'social_youtube', 'social_tiktok', 'is_public']
   const updates: Record<string, any> = {}
   for (const k of allowed) if (body[k] !== undefined) updates[k] = body[k]
 

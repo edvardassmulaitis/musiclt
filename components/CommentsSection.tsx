@@ -56,7 +56,7 @@ function Avatar({ name, src, size = 8 }: { name: string | null; src: string | nu
   if (src) return <img src={src} alt={name || ''} className={`${sizeClass} rounded-full object-cover flex-shrink-0`} />
   return (
     <div className={`${sizeClass} rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0`}
-      style={{ background: 'rgba(29,78,216,0.2)', color: '#93c5fd' }}>
+      style={{ background: 'var(--avatar-bg)', color: 'var(--avatar-text)' }}>
       {initials}
     </div>
   )
@@ -85,14 +85,15 @@ function ReportModal({ commentId, onClose }: { commentId: number; onClose: () =>
       style={{ background: 'rgba(0,0,0,0.75)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="w-full max-w-sm rounded-2xl p-5 shadow-2xl"
-        style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.12)' }}>
+        style={{ background: 'var(--modal-bg)', border: '1px solid var(--modal-border)' }}>
         {sent ? (
           <p className="text-center text-green-400 py-4 font-bold">✓ Pranešta. Ačiū!</p>
         ) : (
           <>
-            <h3 className="font-bold text-white mb-4">Pranešti apie komentarą</h3>
+            <h3 className="font-bold mb-4" style={{ color: 'var(--text-primary)' }}>Pranešti apie komentarą</h3>
             <select value={reason} onChange={e => setReason(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm mb-3 focus:outline-none">
+              className="w-full px-3 py-2 rounded-xl text-sm mb-3 focus:outline-none"
+              style={{ background: 'var(--input-bg)', border: '1px solid var(--input-border)', color: 'var(--input-text)' }}>
               <option value="spam">Spam</option>
               <option value="offensive">Įžeidžiantis turinys</option>
               <option value="misinformation">Dezinformacija</option>
@@ -101,9 +102,10 @@ function ReportModal({ commentId, onClose }: { commentId: number; onClose: () =>
             <textarea value={note} onChange={e => setNote(e.target.value)}
               placeholder="Papildoma informacija (nebūtina)..."
               rows={3}
-              className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm mb-3 resize-none focus:outline-none placeholder:text-gray-600" />
+              className="w-full px-3 py-2 rounded-xl text-sm mb-3 resize-none focus:outline-none"
+              style={{ background: 'var(--input-bg)', border: '1px solid var(--input-border)', color: 'var(--input-text)', placeholderColor: 'var(--input-placeholder)' }} />
             <div className="flex gap-2">
-              <button onClick={onClose} className="flex-1 py-2 rounded-xl text-sm text-gray-400 bg-white/5 hover:bg-white/10 transition-colors">Atšaukti</button>
+              <button onClick={onClose} className="flex-1 py-2 rounded-xl text-sm transition-colors" style={{ color: 'var(--text-muted)', background: 'var(--input-bg)' }}>Atšaukti</button>
               <button onClick={submit} disabled={sending}
                 className="flex-1 py-2 rounded-xl text-sm font-bold text-white bg-red-600/80 hover:bg-red-600 transition-colors disabled:opacity-50">
                 {sending ? '...' : 'Pranešti'}
@@ -154,7 +156,7 @@ function CommentNode({
   }
 
   const indent = Math.min(comment.depth, 4)
-  const indentStyle = indent > 0 ? { borderLeft: '2px solid rgba(255,255,255,0.07)', marginLeft: `${indent * 20}px` } : {}
+  const indentStyle = indent > 0 ? { borderLeft: '2px solid var(--border-subtle)', marginLeft: `${indent * 20}px` } : {}
 
   return (
     <div style={indentStyle} className={indent > 0 ? 'pl-4' : ''}>
@@ -165,23 +167,23 @@ function CommentNode({
           <div className="flex-1 min-w-0">
             {/* Header */}
             <div className="flex items-center gap-2 flex-wrap mb-1">
-              <span className="text-xs font-bold text-white">
+              <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>
                 {comment.is_deleted ? '[Pašalinta]' : (comment.author_name || 'Vartotojas')}
               </span>
               {comment.is_archived && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded font-bold"
-                  style={{ background: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.35)' }}>
+                  style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>
                   Archyvinis
                 </span>
               )}
-              <span className="text-[11px] text-gray-600">{timeAgo(comment.created_at)}</span>
+              <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{timeAgo(comment.created_at)}</span>
               {comment.edited_at && (
-                <span className="text-[10px] text-gray-700 italic">(redaguota)</span>
+                <span className="text-[10px] italic" style={{ color: 'var(--text-muted)' }}>(redaguota)</span>
               )}
             </div>
 
             {/* Body */}
-            <div className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap break-words">
+            <div className="text-sm leading-relaxed whitespace-pre-wrap break-words" style={{ color: 'var(--text-secondary)' }}>
               {comment.body}
             </div>
 
@@ -190,9 +192,8 @@ function CommentNode({
               <div className="flex items-center gap-3 mt-2">
                 {/* Like */}
                 <button onClick={handleLike}
-                  className={`flex items-center gap-1 text-xs transition-colors ${
-                    liked ? 'text-orange-400' : 'text-gray-600 hover:text-gray-400'
-                  }`}>
+                  className="flex items-center gap-1 text-xs transition-colors"
+                  style={{ color: liked ? 'var(--accent-orange)' : 'var(--text-muted)' }}>
                   <svg width="11" height="11" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.5">
                     <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
                   </svg>
@@ -202,7 +203,8 @@ function CommentNode({
                 {/* Reply */}
                 {currentUserId && (
                   <button onClick={() => onReply(comment.id, comment.author_name || 'Vartotojas')}
-                    className="text-xs text-gray-600 hover:text-gray-300 transition-colors">
+                    className="text-xs transition-colors"
+                    style={{ color: 'var(--text-muted)' }}>
                     Atsakyti
                   </button>
                 )}
@@ -210,7 +212,8 @@ function CommentNode({
                 {/* Edit */}
                 {canEdit && (
                   <button onClick={() => onEdit(comment.id, comment.body)}
-                    className="text-xs text-gray-600 hover:text-gray-300 transition-colors">
+                    className="text-xs transition-colors"
+                    style={{ color: 'var(--text-muted)' }}>
                     Redaguoti
                   </button>
                 )}
@@ -218,7 +221,8 @@ function CommentNode({
                 {/* Delete */}
                 {canDelete && (
                   <button onClick={() => onDelete(comment.id)}
-                    className="text-xs text-gray-600 hover:text-red-500 transition-colors">
+                    className="text-xs transition-colors"
+                    style={{ color: 'var(--text-muted)' }}>
                     Šalinti
                   </button>
                 )}
@@ -226,7 +230,8 @@ function CommentNode({
                 {/* Report */}
                 {currentUserId && currentUserId !== comment.user_id && (
                   <button onClick={() => setShowReport(true)}
-                    className="text-xs text-gray-700 hover:text-gray-500 transition-colors ml-auto opacity-0 group-hover:opacity-100">
+                    className="text-xs transition-colors ml-auto opacity-0 group-hover:opacity-100"
+                    style={{ color: 'var(--text-faint)' }}>
                     Pranešti
                   </button>
                 )}
@@ -237,7 +242,8 @@ function CommentNode({
           {/* Collapse button */}
           {comment.replies.length > 0 && (
             <button onClick={() => setCollapsed(!collapsed)}
-              className="text-xs text-gray-700 hover:text-gray-400 transition-colors mt-1 flex-shrink-0">
+              className="text-xs transition-colors mt-1 flex-shrink-0"
+              style={{ color: 'var(--text-faint)' }}>
               {collapsed ? `+${comment.replies.length}` : '−'}
             </button>
           )}
@@ -303,20 +309,20 @@ function CommentForm({
         placeholder={placeholder || 'Rašyk komentarą...'}
         rows={3}
         onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleSubmit() }}
-        className="w-full px-4 py-3 rounded-2xl text-sm text-white placeholder:text-gray-600 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition-all"
-        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)' }}
+        className="w-full px-4 py-3 rounded-2xl text-sm resize-none focus:outline-none focus:ring-2 transition-all"
+        style={{ background: 'var(--input-bg)', border: '1px solid var(--input-border)', color: 'var(--input-text)', focusRingColor: 'var(--accent-blue)' }}
       />
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs text-gray-700">Ctrl+Enter — siųsti</span>
+        <span className="text-xs" style={{ color: 'var(--text-faint)' }}>Ctrl+Enter — siųsti</span>
         <div className="flex gap-2">
           {onCancel && (
-            <button onClick={onCancel} className="px-3 py-1.5 text-xs text-gray-500 hover:text-white transition-colors">
+            <button onClick={onCancel} className="px-3 py-1.5 text-xs transition-colors" style={{ color: 'var(--text-muted)' }}>
               Atšaukti
             </button>
           )}
           <button onClick={handleSubmit} disabled={loading || !text.trim()}
-            className="px-4 py-1.5 rounded-xl text-xs font-bold text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-40"
-            style={{ background: 'linear-gradient(135deg, #1d4ed8, #4f46e5)' }}>
+            className="px-4 py-1.5 rounded-xl text-xs font-bold transition-all hover:scale-105 active:scale-95 disabled:opacity-40"
+            style={{ background: 'var(--accent-blue)', color: 'var(--text-primary)' }}>
             {loading ? '⏳' : 'Siųsti'}
           </button>
         </div>
@@ -441,23 +447,25 @@ export default function CommentsSection({ entityType, entityId, title = 'Diskusi
       <div className="flex items-center justify-between mb-5">
         <button onClick={() => setCollapsed(!collapsed)}
           className="flex items-center gap-2 group">
-          <h2 className="text-lg font-black text-white group-hover:text-gray-200 transition-colors">{title}</h2>
+          <h2 className="text-lg font-black transition-colors" style={{ color: 'var(--text-primary)' }}>{title}</h2>
           {commentCount > 0 && (
             <span className="text-xs font-bold px-2 py-0.5 rounded-full"
-              style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.5)' }}>
+              style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>
               {commentCount}
             </span>
           )}
-          <span className="text-gray-700 text-sm">{collapsed ? '▸' : '▾'}</span>
+          <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{collapsed ? '▸' : '▾'}</span>
         </button>
 
         {!collapsed && commentCount > 0 && (
           <div className="flex gap-1">
             {(['popular', 'newest', 'oldest'] as const).map(s => (
               <button key={s} onClick={() => setSort(s)}
-                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
-                  sort === s ? 'bg-white/10 text-white' : 'text-gray-600 hover:text-gray-400'
-                }`}>
+                className="px-3 py-1 rounded-lg text-xs font-semibold transition-all"
+                style={{
+                  background: sort === s ? 'var(--bg-hover)' : 'transparent',
+                  color: sort === s ? 'var(--text-primary)' : 'var(--text-muted)'
+                }}>
                 {s === 'popular' ? 'Populiarūs' : s === 'newest' ? 'Nauji' : 'Seni'}
               </button>
             ))}
@@ -503,17 +511,17 @@ export default function CommentsSection({ entityType, entityId, title = 'Diskusi
             </div>
           ) : (
             <div className="mb-6 px-4 py-3 rounded-2xl text-sm"
-              style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <Link href="/auth/signin" className="text-blue-400 hover:text-blue-300 font-bold transition-colors">
+              style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}>
+              <Link href="/auth/signin" className="font-bold transition-colors" style={{ color: 'var(--accent-link)' }}>
                 Prisijunk
               </Link>
-              <span className="text-gray-500"> kad galėtum komentuoti</span>
+              <span style={{ color: 'var(--text-muted)' }}> kad galėtum komentuoti</span>
             </div>
           )}
 
           {error && (
-            <p className="text-red-400 text-sm mb-3 px-3 py-2 rounded-xl"
-              style={{ background: 'rgba(239,68,68,0.1)' }}>
+            <p className="text-sm mb-3 px-3 py-2 rounded-xl"
+              style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--accent-orange)' }}>
               {error}
             </p>
           )}
@@ -525,11 +533,11 @@ export default function CommentsSection({ entityType, entityId, title = 'Diskusi
             </div>
           ) : tree.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-gray-600 text-sm">Dar nėra komentarų. Būk pirmas!</p>
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Dar nėra komentarų. Būk pirmas!</p>
             </div>
           ) : (
             <div className="space-y-0 divide-y"
-              style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+              style={{ borderColor: 'var(--border-subtle)' }}>
               {tree.map(c => (
                 <CommentNode
                   key={c.id}
