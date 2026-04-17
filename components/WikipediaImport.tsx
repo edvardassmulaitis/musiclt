@@ -501,18 +501,21 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
       setYtError('')
       return
     }
-    // Wikipedia - automatiškai (greitas, nemokamas)
+    // Wikipedia — naudojam query+search API (geresnis relevance ranking nei opensearch)
     setWpLoading(true)
-    fetch(`https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(q)}&limit=10&format=json&origin=*`)
+    fetch(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q)}&srlimit=12&srprop=snippet&format=json&origin=*`)
       .then(r => r.json()).then(data => {
-        const titles: string[] = data[1] || []
-        const descs: string[] = data[2] || []
-        const all = titles.map((title, i) => ({ title, description: descs[i] || '' }))
+        const results = (data?.query?.search || []) as { title: string; snippet: string }[]
+        const qLow = q.toLowerCase()
+        const all = results
+          .map(r => ({ title: r.title, description: r.snippet.replace(/<[^>]+>/g, '').slice(0, 120) }))
           .filter(r => !ALBUM_RE.test(r.description) && !ALBUM_RE.test(r.title))
-        const withTag = all.filter(r => PERSON_BAND_RE.test(r.title))
-        const musicD = all.filter(r => !PERSON_BAND_RE.test(r.title) && (MUSIC_RE.test(r.description) || MUSIC_RE.test(r.title)))
-        const others = all.filter(r => !PERSON_BAND_RE.test(r.title) && !MUSIC_RE.test(r.description) && !MUSIC_RE.test(r.title))
-        setWpResults([...withTag, ...musicD, ...others].slice(0, 8))
+        // Prioritetai: 1) tikslus pavadinimo atitikimas, 2) band/singer tag, 3) muzikos aprašymas, 4) kiti
+        const exact = all.filter(r => r.title.toLowerCase() === qLow || r.title.toLowerCase().startsWith(qLow + ' ('))
+        const withTag = all.filter(r => !exact.includes(r) && PERSON_BAND_RE.test(r.title))
+        const musicD = all.filter(r => !exact.includes(r) && !withTag.includes(r) && (MUSIC_RE.test(r.description) || MUSIC_RE.test(r.title)))
+        const others = all.filter(r => !exact.includes(r) && !withTag.includes(r) && !musicD.includes(r))
+        setWpResults([...exact, ...withTag, ...musicD, ...others].slice(0, 8))
       }).catch(() => {}).finally(() => setWpLoading(false))
     // YouTube - tik paspaudus tab (žr. onTabClick)
   }
