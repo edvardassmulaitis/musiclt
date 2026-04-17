@@ -16,22 +16,13 @@ function AuthModal({ onClose }: { onClose: () => void }) {
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', handleKey)
 
-    // Lock scroll without jumping: pin the body at current scroll position
-    const scrollY = window.scrollY
-    document.body.style.position = 'fixed'
-    document.body.style.top = `-${scrollY}px`
-    document.body.style.left = '0'
-    document.body.style.right = '0'
-    document.body.style.overflow = 'hidden'
+    // Lock background scroll — overflow:hidden on <html> preserves scroll pos
+    // and doesn't create a new containing block (unlike position:fixed on body)
+    document.documentElement.style.overflow = 'hidden'
 
     return () => {
       document.removeEventListener('keydown', handleKey)
-      document.body.style.position = ''
-      document.body.style.top = ''
-      document.body.style.left = ''
-      document.body.style.right = ''
-      document.body.style.overflow = ''
-      window.scrollTo(0, scrollY)
+      document.documentElement.style.overflow = ''
     }
   }, [onClose])
 
