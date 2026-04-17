@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { signIn, signOut, useSession } from 'next-auth/react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -54,7 +55,9 @@ function AuthModal({ onClose }: { onClose: () => void }) {
     }
   }
 
-  return (
+  // Portal to document.body so the modal escapes the header's
+  // backdrop-filter containing block (which breaks fixed positioning)
+  return createPortal(
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center p-4"
       style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(10px)' }}
@@ -175,7 +178,8 @@ function AuthModal({ onClose }: { onClose: () => void }) {
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
