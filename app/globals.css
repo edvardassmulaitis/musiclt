@@ -64,6 +64,82 @@
   --editor-popup-border: rgba(255,255,255,0.10);
   --editor-popup-shadow: 0 8px 24px rgba(0,0,0,0.4);
 
+  /* Admin-specific */
+  --admin-toolbar-bg:     #111827;
+  --admin-toolbar-border: rgba(255,255,255,0.06);
+
+  /* Status colors */
+  --status-success-bg:    rgba(34,197,94,0.1);
+  --status-success-text:  #22c55e;
+  --status-error-bg:      rgba(239,68,68,0.1);
+  --status-error-text:    #ef4444;
+  --status-warning-bg:    rgba(249,115,22,0.1);
+  --status-warning-text:  #f97316;
+
+  /* Hover blue used in admin dropdowns/lists */
+  --hover-blue:           rgba(59,130,246,0.1);
+
+  /* Homepage pill & skeleton */
+  --homepage-pill-bg:     rgba(255,255,255,0.05);
+  --homepage-pill-active: rgba(29,78,216,0.18);
+  --homepage-skeleton-bg: rgba(255,255,255,0.05);
+
+  /* Homepage hero gradients */
+  --homepage-hero-gradient: linear-gradient(135deg,#08101e 0%,#0f1830 55%,#08101e 100%);
+  --homepage-hero-overlay: linear-gradient(to right, rgba(8,13,20,1) 0%, rgba(8,13,20,0.2) 35%, rgba(8,13,20,0.05) 55%, transparent 70%, rgba(8,13,20,0.15) 82%, rgba(8,13,20,0.7) 94%, rgba(8,13,20,1) 100%), linear-gradient(to top, rgba(8,13,20,0.5) 0%, transparent 30%);
+
+  /* Homepage position badges */
+  --homepage-pos-accent: #f97316;
+
+  /* Hero & artist profile specific */
+  --hero-gradient-v: linear-gradient(to top, #080c12 0%, rgba(8,12,18,.85) 30%, rgba(8,12,18,.4) 60%, rgba(8,12,18,.2) 100%);
+  --hero-gradient-h: linear-gradient(to right, rgba(8,12,18,.6) 0%, transparent 50%);
+  --hero-name: #fff;
+  --hero-tag-text: rgba(255,255,255,.7);
+  --hero-tag-bg: rgba(255,255,255,.08);
+  --hero-tag-border: rgba(255,255,255,.12);
+  --hero-chip-bg: rgba(0,0,0,.25);
+  --hero-chip-border: rgba(255,255,255,.08);
+
+  /* Artist profile specific colors */
+  --player-bg: rgba(0,0,0,.25);
+  --cover-placeholder: #111822;
+  --playlist-active-bg: rgba(249,115,22,.05);
+  --section-label: #334058;
+  --section-line: rgba(255,255,255,.06);
+
+  /* Album & track page */
+  --track-link-color: #3a5870;
+  --popup-bg: #1e2d40;
+  --popup-fill: rgba(249,115,22,.8);
+  --dyk-bg: #0f1a10;
+  --dyk-border: rgba(249,115,22,.18);
+  --dyk-text: #8aadcc;
+  --dyk-source: #4a6888;
+  --comment-input-bg: rgba(255,255,255,.06);
+  --comment-border: rgba(255,255,255,.1);
+  --similar-cover-border: rgba(255,255,255,.07);
+  --similar-title: #9cb5d0;
+  --similar-meta: #4a6888;
+  --link-btn-bg: rgba(255,255,255,.07);
+  --link-btn-border: rgba(255,255,255,.1);
+  --link-btn-text: #b0bdd4;
+  --cover-area-bg: #121c28;
+  --comment-quote: #4a7090;
+  --comment-author: #3a5870;
+  --sub-border: rgba(255,255,255,.06);
+  --lyric-text: #c8daf0;
+  --lyric-mark: rgba(249,115,22,.22);
+  --chord-bg: rgba(249,115,22,.1);
+  --chord-text: #f97316;
+  --panel-bg: #0a1220;
+  --card-surface: #0e1520;
+  --card-border-default: rgba(255,255,255,.07);
+  --card-border-subtle: rgba(255,255,255,.055);
+  --card-hover-bg: rgba(255,255,255,.035);
+  --card-active-bg: rgba(249,115,22,.08);
+  --head-text: #c8d8ec;
+
   color-scheme: dark;
 }
 
@@ -120,6 +196,82 @@
   --editor-popup-bg:     #ffffff;
   --editor-popup-border: #e5e7eb;
   --editor-popup-shadow: 0 8px 24px rgba(0,0,0,0.12);
+
+  /* Admin-specific */
+  --admin-toolbar-bg:     #f9fafb;
+  --admin-toolbar-border: rgba(0,0,0,0.06);
+
+  /* Status colors */
+  --status-success-bg:    rgba(34,197,94,0.1);
+  --status-success-text:  #16a34a;
+  --status-error-bg:      rgba(239,68,68,0.1);
+  --status-error-text:    #dc2626;
+  --status-warning-bg:    rgba(249,115,22,0.08);
+  --status-warning-text:  #ea580c;
+
+  /* Hover blue used in admin dropdowns/lists */
+  --hover-blue:           rgba(59,130,246,0.08);
+
+  /* Homepage pill & skeleton */
+  --homepage-pill-bg:     rgba(0,0,0,0.04);
+  --homepage-pill-active: rgba(29,78,216,0.12);
+  --homepage-skeleton-bg: rgba(0,0,0,0.06);
+
+  /* Homepage hero gradients */
+  --homepage-hero-gradient: #f0f4fa;
+  --homepage-hero-overlay: linear-gradient(to right, rgba(240,244,250,1) 0%, rgba(240,244,250,0.2) 35%, rgba(240,244,250,0.05) 55%, transparent 70%, rgba(240,244,250,0.15) 82%, rgba(240,244,250,0.7) 94%, rgba(240,244,250,1) 100%), linear-gradient(to top, rgba(240,244,250,0.5) 0%, transparent 30%);
+
+  /* Homepage position badges */
+  --homepage-pos-accent: #ea6c0a;
+
+  /* Hero & artist profile specific */
+  --hero-gradient-v: linear-gradient(to top, #f0f4fa 0%, rgba(240,244,250,.85) 30%, rgba(240,244,250,.4) 60%, rgba(240,244,250,.2) 100%);
+  --hero-gradient-h: linear-gradient(to right, rgba(240,244,250,.7) 0%, transparent 50%);
+  --hero-name: #0f1a2e;
+  --hero-tag-text: rgba(15,26,46,.7);
+  --hero-tag-bg: rgba(0,0,0,.06);
+  --hero-tag-border: rgba(0,0,0,.12);
+  --hero-chip-bg: rgba(255,255,255,.6);
+  --hero-chip-border: rgba(0,0,0,.1);
+
+  /* Artist profile specific colors */
+  --player-bg: rgba(0,0,0,.04);
+  --cover-placeholder: #e0e8f2;
+  --playlist-active-bg: rgba(249,115,22,.08);
+  --section-label: #bbc8d8;
+  --section-line: rgba(0,0,0,.08);
+
+  /* Album & track page */
+  --track-link-color: #c0d0e0;
+  --popup-bg: #dde6f2;
+  --popup-fill: #f97316;
+  --dyk-bg: #fff8f2;
+  --dyk-border: rgba(249,115,22,.25);
+  --dyk-text: #5a6878;
+  --dyk-source: #99aabb;
+  --comment-input-bg: rgba(0,0,0,.04);
+  --comment-border: rgba(0,0,0,.1);
+  --similar-cover-border: rgba(0,0,0,.08);
+  --similar-title: #2a4a6a;
+  --similar-meta: #8899aa;
+  --link-btn-bg: rgba(0,0,0,.06);
+  --link-btn-border: rgba(0,0,0,.12);
+  --link-btn-text: #3a5a80;
+  --cover-area-bg: #f0f5ff;
+  --comment-quote: #8899bb;
+  --comment-author: #a0b4cc;
+  --sub-border: rgba(0,0,0,.07);
+  --lyric-text: #1a2a40;
+  --lyric-mark: rgba(249,115,22,.16);
+  --chord-bg: rgba(249,115,22,.08);
+  --chord-text: #ea6a00;
+  --panel-bg: #ffffff;
+  --card-surface: #ffffff;
+  --card-border-default: rgba(0,0,0,.08);
+  --card-border-subtle: rgba(0,0,0,.07);
+  --card-hover-bg: rgba(0,0,0,.03);
+  --card-active-bg: rgba(249,115,22,.07);
+  --head-text: #1a2a40;
 
   color-scheme: light;
 }
@@ -211,3 +363,19 @@ html, body {
 .ce-popover { background: var(--editor-popup-bg) !important; border: 1px solid var(--editor-popup-border) !important; border-radius: 10px !important; box-shadow: var(--editor-popup-shadow) !important; }
 .ce-popover-item__title { color: var(--editor-toolbox-text) !important; }
 .ce-popover-item:hover { background: var(--editor-toolbox-hover) !important; }
+
+/* ── Admin utility classes ─────────────────────────────────────────────────── */
+.admin-input {
+  @apply px-2.5 py-1.5 border rounded-lg text-sm transition-colors focus:outline-none;
+  border-color: var(--input-border);
+  background: var(--input-bg);
+  color: var(--input-text);
+}
+.admin-input::placeholder { color: var(--input-placeholder); }
+.admin-input:focus { border-color: #3b82f6; }
+
+.admin-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 0.75rem;
+}

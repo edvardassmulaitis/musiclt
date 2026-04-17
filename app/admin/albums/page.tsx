@@ -69,7 +69,7 @@ function AdminAlbumsContent() {
   if (status === 'loading' || !isAdmin) return null
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[var(--bg-elevated)]">
       <div className="max-w-7xl mx-auto px-6 py-6">
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -77,8 +77,8 @@ function AdminAlbumsContent() {
               ? <Link href={`/admin/artists/${artistId}`} className="text-music-blue hover:text-music-orange text-sm">← {artistName || 'Atlikėjas'}</Link>
               : <Link href="/admin" className="text-music-blue hover:text-music-orange text-sm">← Admin</Link>
             }
-            <h1 className="text-2xl font-black text-gray-900 mt-1">
-              💿 {artistName ? `${artistName} — albumai` : 'Albumai'} <span className="text-gray-400 font-normal text-lg">({total})</span>
+            <h1 className="text-2xl font-black text-[var(--text-primary)] mt-1">
+              💿 {artistName ? `${artistName} — albumai` : 'Albumai'} <span className="text-[var(--text-muted)] font-normal text-lg">({total})</span>
             </h1>
           </div>
           <Link href={`/admin/albums/new${artistId ? `?artist_id=${artistId}` : ''}`}
@@ -87,46 +87,46 @@ function AdminAlbumsContent() {
           </Link>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 mb-4 p-4">
+        <div className="bg-[var(--bg-surface)] rounded-xl shadow-sm border border-[var(--input-border)] mb-4 p-4">
           <input type="text" value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Ieškoti albumų..."
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:border-music-blue" />
+            className="w-full px-4 py-2.5 border border-[var(--input-border)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:border-music-blue" />
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="bg-[var(--bg-surface)] rounded-xl shadow-sm border border-[var(--input-border)] overflow-hidden">
           {loading ? (
             <div className="flex justify-center py-16"><div className="w-8 h-8 border-2 border-music-blue border-t-transparent rounded-full animate-spin" /></div>
           ) : (
             <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-100">
+              <thead className="bg-[var(--bg-elevated)] border-b border-[var(--border-subtle)]">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Albumas</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Atlikėjas</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Tipas</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Metai</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Veiksmai</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-muted)] uppercase">Albumas</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-muted)] uppercase">Atlikėjas</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-muted)] uppercase">Tipas</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-muted)] uppercase">Metai</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-muted)] uppercase">Veiksmai</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-[var(--border-subtle)]">
                 {albums.map(a => (
-                  <tr key={a.id} className="hover:bg-gray-50">
+                  <tr key={a.id} className="hover:bg-[var(--bg-hover)]">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         {a.cover_image_url
                           ? <img src={a.cover_image_url} className="w-10 h-10 rounded object-cover" alt="" />
-                          : <div className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center text-lg">💿</div>}
-                        <span className="font-medium text-gray-900 text-sm">{a.title}</span>
+                          : <div className="w-10 h-10 rounded bg-[var(--bg-elevated)] flex items-center justify-center text-lg">💿</div>}
+                        <span className="font-medium text-[var(--text-primary)] text-sm">{a.title}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{a.artists?.name || '–'}</td>
+                    <td className="px-4 py-3 text-sm text-[var(--text-secondary)]">{a.artists?.name || '–'}</td>
                     <td className="px-4 py-3">
                       <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">{albumType(a)}</span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{a.year || '–'}</td>
+                    <td className="px-4 py-3 text-sm text-[var(--text-secondary)]">{a.year || '–'}</td>
                     <td className="px-4 py-3">
                       <div className="flex gap-2">
                         <Link href={`/admin/albums/${a.id}`}
-                          className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium">
+                          className="px-3 py-1 bg-[var(--bg-elevated)] hover:bg-[var(--bg-active)] text-[var(--text-secondary)] rounded-lg text-xs font-medium">
                           ✏️ Redaguoti
                         </Link>
                         <button onClick={() => del(a.id, a.title)} disabled={deleting === a.id}
@@ -138,7 +138,7 @@ function AdminAlbumsContent() {
                   </tr>
                 ))}
                 {!albums.length && (
-                  <tr><td colSpan={5} className="px-4 py-12 text-center text-gray-400">Albumų nerasta</td></tr>
+                  <tr><td colSpan={5} className="px-4 py-12 text-center text-[var(--text-muted)]">Albumų nerasta</td></tr>
                 )}
               </tbody>
             </table>

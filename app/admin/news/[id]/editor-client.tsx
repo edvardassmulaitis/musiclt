@@ -34,7 +34,7 @@ function Btn({ active, disabled, onClick, title, children }: {
 }
 
 function Divider() {
-  return <div className="w-px h-5 bg-gray-200 mx-0.5" />
+  return <div className="w-px h-5 bg-[var(--input-border)] mx-0.5" />
 }
 
 export function EditorJsClient({ value, onChange, photos, onUploadedImage }: EditorJsClientProps) {
@@ -57,7 +57,7 @@ export function EditorJsClient({ value, onChange, photos, onUploadedImage }: Edi
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
     editorProps: {
       attributes: {
-        class: 'prose prose-sm max-w-none min-h-[300px] px-4 py-3 focus:outline-none text-gray-800',
+        class: 'prose prose-sm max-w-none min-h-[300px] px-4 py-3 focus:outline-none text-[var(--text-primary)]',
       },
     },
   })
@@ -81,8 +81,8 @@ export function EditorJsClient({ value, onChange, photos, onUploadedImage }: Edi
   }
 
   return (
-    <div className="border border-gray-200 rounded-lg bg-white flex flex-col">
-      <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-gray-100 bg-gray-50 flex-wrap rounded-t-lg">
+    <div className="border border-[var(--input-border)] rounded-lg bg-[var(--bg-surface)] flex flex-col">
+      <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)] flex-wrap rounded-t-lg">
         <Btn active={editor.isActive('heading', { level: 2 })} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} title="Antraštė H2">
           <span className="font-bold text-xs">H2</span>
         </Btn>

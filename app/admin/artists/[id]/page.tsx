@@ -7,6 +7,7 @@ import Link from 'next/link'
 import WikipediaImportDiscography from '@/components/WikipediaImportDiscography'
 import WikipediaImport from '@/components/WikipediaImport'
 import ArtistForm, { ArtistFormData, emptyArtistForm } from '@/components/ArtistForm'
+import { extractYouTubeId } from '@/components/ui/helpers'
 
 const GENRE_BY_ID: Record<number, string> = {
   1000001: 'Alternatyvioji muzika',
@@ -104,19 +105,19 @@ function TrackRow({ track, onDelete }: { track: any; onDelete?: () => void }) {
   const featuring: string[] = (track.featuring || []).map((f: any) => typeof f === 'string' ? f : f.name || '')
   const [confirmDel, setConfirmDel] = useState(false)
   return (
-    <div className="flex items-center gap-1.5 px-3 py-1 border-b border-gray-50 last:border-0 hover:bg-gray-50/80 group transition-colors">
+    <div className="flex items-center gap-1.5 px-3 py-1 border-b border-[var(--bg-elevated)] last:border-0 hover:bg-[var(--bg-hover)]/80 group transition-colors">
       <div className="flex items-center justify-end gap-0.5 w-5 shrink-0">
         {track.is_single && <span className="w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0" title="Singlas" />}
-        <span className="text-gray-300 text-xs tabular-nums">{track.sort_order || track.position}.</span>
+        <span className="text-[var(--text-faint)] text-xs tabular-nums">{track.sort_order || track.position}.</span>
       </div>
       <div className="flex-1 min-w-0 flex items-baseline gap-1 flex-wrap">
         {trackId ? (
           <a href={`/admin/tracks/${trackId}`} target="_blank" rel="noopener noreferrer"
-            className="text-sm text-gray-800 hover:text-blue-600 truncate transition-colors">{track.title}</a>
+            className="text-sm text-[var(--text-primary)] hover:text-blue-600 truncate transition-colors">{track.title}</a>
         ) : (
-          <span className="text-sm text-gray-800 truncate">{track.title}</span>
+          <span className="text-sm text-[var(--text-primary)] truncate">{track.title}</span>
         )}
-        {featuring.length > 0 && <span className="text-xs text-gray-400 whitespace-nowrap">su {featuring.join(', ')}</span>}
+        {featuring.length > 0 && <span className="text-xs text-[var(--text-muted)] whitespace-nowrap">su {featuring.join(', ')}</span>}
       </div>
       {hasVideo && <span className="text-blue-400 text-xs shrink-0">▶</span>}
       {hasLyrics && <span className="text-green-500 text-xs font-bold shrink-0">T</span>}
@@ -124,11 +125,11 @@ function TrackRow({ track, onDelete }: { track: any; onDelete?: () => void }) {
         confirmDel ? (
           <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
             <button onClick={() => { onDelete(); setConfirmDel(false) }} className="px-1.5 py-0.5 text-[10px] bg-red-500 text-white rounded hover:bg-red-600">Taip</button>
-            <button onClick={() => setConfirmDel(false)} className="px-1.5 py-0.5 text-[10px] text-gray-400 hover:text-gray-600">Ne</button>
+            <button onClick={() => setConfirmDel(false)} className="px-1.5 py-0.5 text-[10px] text-[var(--text-muted)] hover:text-[var(--text-secondary)]">Ne</button>
           </div>
         ) : (
           <button onClick={e => { e.stopPropagation(); setConfirmDel(true) }}
-            className="opacity-0 group-hover:opacity-100 shrink-0 p-0.5 text-gray-300 hover:text-red-400 transition-all"
+            className="opacity-0 group-hover:opacity-100 shrink-0 p-0.5 text-[var(--text-faint)] hover:text-red-400 transition-all"
             title="Ištrinti">
             <svg viewBox="0 0 16 16" className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 9h8l1-9"/></svg>
           </button>
@@ -186,11 +187,11 @@ function AlbumCard({ album, defaultOpen, onDeleted }: { album: any; defaultOpen:
     : 'Studijinis'
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden group">
-      <div className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-gray-50 transition-colors select-none" onClick={toggleOpen}>
+    <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-subtle)] shadow-sm overflow-hidden group">
+      <div className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-[var(--bg-hover)] transition-colors select-none" onClick={toggleOpen}>
         {album.cover_image_url
           ? <img src={album.cover_image_url} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" referrerPolicy="no-referrer" />
-          : <div className="w-10 h-10 rounded-lg bg-gray-100 shrink-0 flex items-center justify-center text-gray-200">
+          : <div className="w-10 h-10 rounded-lg bg-[var(--bg-elevated)] shrink-0 flex items-center justify-center text-[var(--text-faint)]">
             <svg viewBox="0 0 24 24" className="w-6 h-6" fill="currentColor"><circle cx="12" cy="12" r="10" opacity=".4"/><circle cx="12" cy="12" r="6" opacity=".6"/><circle cx="12" cy="12" r="2.5" opacity=".9"/><circle cx="12" cy="12" r="1" fill="white"/></svg>
           </div>
         }
@@ -198,32 +199,32 @@ function AlbumCard({ album, defaultOpen, onDeleted }: { album: any; defaultOpen:
           <div className="flex items-baseline gap-1.5 flex-wrap">
             <a href={`/admin/albums/${album.id}`} target="_blank" rel="noopener noreferrer"
               onClick={e => e.stopPropagation()}
-              className="text-sm font-semibold text-gray-900 hover:text-blue-600 truncate transition-colors">{album.title}</a>
-            <span className="text-xs text-gray-400 shrink-0">{album.year}</span>
-            <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded shrink-0">{typeLabel}</span>
+              className="text-sm font-semibold text-[var(--text-primary)] hover:text-blue-600 truncate transition-colors">{album.title}</a>
+            <span className="text-xs text-[var(--text-muted)] shrink-0">{album.year}</span>
+            <span className="text-xs text-[var(--text-muted)] bg-[var(--bg-elevated)] px-1.5 py-0.5 rounded shrink-0">{typeLabel}</span>
           </div>
-          <div className="text-xs text-gray-400 mt-0.5">
+          <div className="text-xs text-[var(--text-muted)] mt-0.5">
             {tracksLoaded ? `${tracks.length} dainų` : album.track_count ? `${album.track_count} dainų` : ''}
           </div>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           {!confirmDel ? (
             <button type="button" onClick={e => { e.stopPropagation(); setConfirmDel(true) }}
-              className="opacity-0 group-hover:opacity-100 p-1 text-gray-300 hover:text-red-400 rounded transition-all" title="Ištrinti albumą">
+              className="opacity-0 group-hover:opacity-100 p-1 text-[var(--text-faint)] hover:text-red-400 rounded transition-all" title="Ištrinti albumą">
               <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 9h8l1-9"/></svg>
             </button>
           ) : (
             <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
               <span className="text-xs text-red-500">Trinti?</span>
               <button onClick={handleDelete} className="px-1.5 py-0.5 text-xs bg-red-500 text-white rounded hover:bg-red-600">Taip</button>
-              <button onClick={() => setConfirmDel(false)} className="px-1.5 py-0.5 text-xs text-gray-400 hover:text-gray-600">Ne</button>
+              <button onClick={() => setConfirmDel(false)} className="px-1.5 py-0.5 text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)]">Ne</button>
             </div>
           )}
-          <span className={`text-gray-400 text-xs transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>▼</span>
+          <span className={`text-[var(--text-muted)] text-xs transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>▼</span>
         </div>
       </div>
       {open && (
-        <div className="border-t border-gray-100">
+        <div className="border-t border-[var(--border-subtle)]">
           {loadingTracks ? (
             <div className="py-4 flex justify-center">
               <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
@@ -239,15 +240,15 @@ function AlbumCard({ album, defaultOpen, onDeleted }: { album: any; defaultOpen:
                   }}
                 />
               ))}
-              <div className="px-3 py-1.5 border-t border-gray-50">
-                <a href={`/admin/albums/${album.id}`} className="text-xs text-gray-400 hover:text-blue-500 transition-colors">
+              <div className="px-3 py-1.5 border-t border-[var(--bg-elevated)]">
+                <a href={`/admin/albums/${album.id}`} className="text-xs text-[var(--text-muted)] hover:text-blue-500 transition-colors">
                   + Pridėti / redaguoti dainas
                 </a>
               </div>
             </>
           ) : (
             <div className="py-4 text-center">
-              <p className="text-xs text-gray-400">Nėra dainų</p>
+              <p className="text-xs text-[var(--text-muted)]">Nėra dainų</p>
               <a href={`/admin/albums/${album.id}`} className="text-xs text-blue-500 hover:underline mt-1 block">+ Pridėti dainas</a>
             </div>
           )}
@@ -260,29 +261,29 @@ function AlbumCard({ album, defaultOpen, onDeleted }: { album: any; defaultOpen:
 function SingleRow({ track, onDelete }: { track: any; onDelete: () => void }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50/80 group transition-colors">
+    <div className="flex items-center gap-2 px-3 py-1.5 hover:bg-[var(--bg-hover)]/80 group transition-colors">
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-1.5 flex-wrap">
           <a href={`/admin/tracks/${track.id}`} target="_blank" rel="noopener noreferrer"
-            className="text-sm text-gray-800 hover:text-blue-600 truncate transition-colors">
+            className="text-sm text-[var(--text-primary)] hover:text-blue-600 truncate transition-colors">
             {track.title}
           </a>
-          {track.release_year && <span className="text-xs text-gray-400 shrink-0">{track.release_year}</span>}
+          {track.release_year && <span className="text-xs text-[var(--text-muted)] shrink-0">{track.release_year}</span>}
           {track.video_url && <span className="text-blue-400 text-xs shrink-0">▶</span>}
           {track.has_lyrics && <span className="text-green-500 text-xs font-bold shrink-0">T</span>}
-    
+
         </div>
-        {track.albums_list?.[0] && <div className="text-[11px] text-gray-400 truncate">{track.albums_list[0].title}</div>}
+        {track.albums_list?.[0] && <div className="text-[11px] text-[var(--text-muted)] truncate">{track.albums_list[0].title}</div>}
       </div>
       {confirmDelete ? (
         <div className="flex items-center gap-1 shrink-0">
           <span className="text-xs text-red-500">Tikrai?</span>
           <button onClick={onDelete} className="px-1.5 py-0.5 text-xs bg-red-500 text-white rounded hover:bg-red-600 transition-colors">Taip</button>
-          <button onClick={() => setConfirmDelete(false)} className="px-1.5 py-0.5 text-xs text-gray-400 hover:text-gray-600 transition-colors">Ne</button>
+          <button onClick={() => setConfirmDelete(false)} className="px-1.5 py-0.5 text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors">Ne</button>
         </div>
       ) : (
         <button onClick={() => setConfirmDelete(true)}
-          className="opacity-0 group-hover:opacity-100 shrink-0 p-1 text-gray-300 hover:text-red-400 rounded transition-all"
+          className="opacity-0 group-hover:opacity-100 shrink-0 p-1 text-[var(--text-faint)] hover:text-red-400 rounded transition-all"
           title="Ištrinti">
           <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 9h8l1-9"/>
@@ -325,12 +326,12 @@ function DiscographyPanel({ artistId, artistName, artistType, refreshKey, onImpo
 
   return (
     <div className="h-full flex flex-col">
-      <div className="shrink-0 px-3 py-2 border-b border-gray-200 bg-white/80 backdrop-blur sticky top-0 z-10">
+      <div className="shrink-0 px-3 py-2 border-b border-[var(--input-border)] bg-white/80 backdrop-blur sticky top-0 z-10">
         {/* Mobile: viena eilutė su visais mygtukais */}
         <div className="flex items-center gap-1.5">
-          <span className="text-sm font-bold text-gray-700 hidden lg:inline">Diskografija</span>
+          <span className="text-sm font-bold text-[var(--text-secondary)] hidden lg:inline">Diskografija</span>
           {albums.length > 0 && (
-            <span className="bg-gray-200 text-gray-600 text-xs font-bold px-1.5 py-0.5 rounded-full hidden lg:inline-flex">{albums.length}</span>
+            <span className="bg-[var(--bg-active)] text-[var(--text-secondary)] text-xs font-bold px-1.5 py-0.5 rounded-full hidden lg:inline-flex">{albums.length}</span>
           )}
           {/* ⚡ Automatinis — užima likusią vietą ant mobile */}
           {artistName && (
@@ -367,14 +368,14 @@ function DiscographyPanel({ artistId, artistName, artistType, refreshKey, onImpo
         ) : albums.length === 0 && singles.length === 0 ? (
           <div className="py-12 text-center">
             <div className="flex justify-center mb-3">
-              <svg viewBox="0 0 48 48" className="w-12 h-12 text-gray-200" fill="currentColor">
+              <svg viewBox="0 0 48 48" className="w-12 h-12 text-[var(--text-faint)]" fill="currentColor">
                 <circle cx="24" cy="24" r="22" opacity=".4"/>
                 <circle cx="24" cy="24" r="14" opacity=".6"/>
                 <circle cx="24" cy="24" r="5" opacity=".9"/>
                 <circle cx="24" cy="24" r="2" fill="white"/>
               </svg>
             </div>
-            <p className="text-sm text-gray-400 mb-3">Nėra albumų</p>
+            <p className="text-sm text-[var(--text-muted)] mb-3">Nėra albumų</p>
             <Link href={`/admin/albums/new?artist_id=${artistId}`}
               className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
               + Sukurti pirmą albumą
@@ -391,14 +392,14 @@ function DiscographyPanel({ artistId, artistName, artistType, refreshKey, onImpo
                 onDeleted={loadData} />
             ))}
             {singles.length > 0 && (
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100 bg-gray-50/50">
-                  <span className="text-sm font-semibold text-gray-700">Singlai ir dainos</span>
-                  <span className="text-xs text-gray-400 bg-gray-200 px-1.5 py-0.5 rounded-full font-bold">{singles.length}</span>
+              <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-subtle)] shadow-sm overflow-hidden">
+                <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)]/50">
+                  <span className="text-sm font-semibold text-[var(--text-secondary)]">Singlai ir dainos</span>
+                  <span className="text-xs text-[var(--text-muted)] bg-[var(--bg-active)] px-1.5 py-0.5 rounded-full font-bold">{singles.length}</span>
                   <Link href={`/admin/tracks?artist_id=${artistId}`}
                     className="ml-auto text-xs text-blue-500 hover:underline">Visos dainos →</Link>
                 </div>
-                <div className="divide-y divide-gray-50">
+                <div className="divide-y divide-[var(--bg-elevated)]">
                   {singles.slice(0, 30).map((track: any) => (
                     <SingleRow key={track.id} track={track} onDelete={() => {
                       setSingles(p => p.filter(s => s.id !== track.id))
@@ -430,59 +431,59 @@ function MobileBreadcrumb({ artistName, artistId, albumCount, trackCount, onWiki
   const [open, setOpen] = useState(false)
   return (
     <div className="lg:hidden flex items-center gap-1.5 min-w-0 flex-1">
-      <Link href="/admin/artists" className="text-gray-400 shrink-0 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100">
+      <Link href="/admin/artists" className="text-[var(--text-muted)] shrink-0 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[var(--bg-elevated)]">
         <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
       </Link>
       <div className="relative">
         <button type="button" onClick={() => setOpen(p => !p)}
-          className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors text-gray-500">
+          className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[var(--bg-elevated)] transition-colors text-[var(--text-secondary)]">
           <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
         </button>
         {open && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-            <div className="fixed top-[104px] left-4 right-4 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
-              <div className="px-3 py-2.5 border-b border-gray-100">
-                <p className="text-xs font-semibold text-gray-700 truncate">{artistName}</p>
-                <p className="text-xs text-gray-400 mt-0.5">Navigacija</p>
+            <div className="fixed top-[104px] left-4 right-4 bg-[var(--bg-surface)] rounded-xl shadow-2xl border border-[var(--border-subtle)] z-50 overflow-hidden">
+              <div className="px-3 py-2.5 border-b border-[var(--border-subtle)]">
+                <p className="text-xs font-semibold text-[var(--text-secondary)] truncate">{artistName}</p>
+                <p className="text-xs text-[var(--text-muted)] mt-0.5">Navigacija</p>
               </div>
               <Link href="/admin/artists" onClick={() => setOpen(false)}
-                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2 text-gray-400"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                className="flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]">
+                <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2 text-[var(--text-muted)]"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 Visi atlikėjai
               </Link>
               {albumCount !== null && (
                 <Link href={`/admin/albums?artist_id=${artistId}`} onClick={() => setOpen(false)}
-                  className="flex items-center justify-between px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                  className="flex items-center justify-between px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]">
                   <span className="flex items-center gap-2">
-                    <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2 text-gray-400"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+                    <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2 text-[var(--text-muted)]"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
                     Albumai
                   </span>
-                  <span className="bg-gray-100 text-gray-600 text-xs font-bold px-1.5 py-0.5 rounded-full">{albumCount}</span>
+                  <span className="bg-[var(--bg-elevated)] text-[var(--text-secondary)] text-xs font-bold px-1.5 py-0.5 rounded-full">{albumCount}</span>
                 </Link>
               )}
               {trackCount !== null && (
                 <Link href={`/admin/tracks?artist_id=${artistId}`} onClick={() => setOpen(false)}
-                  className="flex items-center justify-between px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                  className="flex items-center justify-between px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]">
                   <span className="flex items-center gap-2">
-                    <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2 text-gray-400"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                    <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2 text-[var(--text-muted)]"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
                     Dainos
                   </span>
-                  <span className="bg-gray-100 text-gray-600 text-xs font-bold px-1.5 py-0.5 rounded-full">{trackCount}</span>
+                  <span className="bg-[var(--bg-elevated)] text-[var(--text-secondary)] text-xs font-bold px-1.5 py-0.5 rounded-full">{trackCount}</span>
                 </Link>
               )}
-              <div className="border-t border-gray-100">
+              <div className="border-t border-[var(--border-subtle)]">
                 <WikipediaImportCompact artistName={artistName} onImport={(data) => { onWikiImport(data); setOpen(false) }} />
               </div>
-              <div className="border-t border-gray-100 px-3 py-2">
+              <div className="border-t border-[var(--border-subtle)] px-3 py-2">
                 <Link href={`/admin/albums/new?artist_id=${artistId}`} onClick={() => setOpen(false)}
-                  className="flex items-center gap-2 py-1 text-sm text-gray-700 hover:text-blue-600">
-                  <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2 text-gray-400 shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                  className="flex items-center gap-2 py-1 text-sm text-[var(--text-secondary)] hover:text-blue-600">
+                  <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2 text-[var(--text-muted)] shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
                   Naujas albumas
                 </Link>
                 <Link href={`/admin/tracks/new?artist_id=${artistId}`} onClick={() => setOpen(false)}
-                  className="flex items-center gap-2 py-1 text-sm text-gray-700 hover:text-green-600">
-                  <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2 text-gray-400 shrink-0"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  className="flex items-center gap-2 py-1 text-sm text-[var(--text-secondary)] hover:text-green-600">
+                  <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2 text-[var(--text-muted)] shrink-0"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                   Nauja daina
                 </Link>
               </div>
@@ -517,12 +518,12 @@ function WikipediaImportCompact({ onImport, artistName }: { onImport: (data: any
           onClick={e => { if (e.target === e.currentTarget) setOpen(false) }}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-2xl flex flex-col"
+            className="bg-[var(--bg-surface)] rounded-2xl shadow-2xl border border-[var(--input-border)] w-full max-w-2xl flex flex-col"
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 shrink-0">
-              <span className="text-sm font-bold text-gray-700">📖 Atnaujinti iš Wikipedia</span>
-              <button type="button" onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none px-1">✕</button>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-subtle)] shrink-0">
+              <span className="text-sm font-bold text-[var(--text-secondary)]">📖 Atnaujinti iš Wikipedia</span>
+              <button type="button" onClick={() => setOpen(false)} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] text-xl leading-none px-1">✕</button>
             </div>
             <div className="p-4" style={{ overflow: "visible" }}>
               <WikipediaImportWithHint
@@ -596,7 +597,7 @@ export default function EditArtist() {
   }, [artistId])
 
   if (status === 'loading' || !initialData) return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+    <div className="min-h-screen bg-[var(--bg-elevated)] flex items-center justify-center">
       <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
     </div>
   )
@@ -604,33 +605,33 @@ export default function EditArtist() {
   return (
     <div className="flex flex-col bg-[#f8f7f5]" style={{ height: "calc(100vh - 56px)", overflow: "hidden", maxWidth: "100vw" }}>
 
-      <div className="shrink-0 bg-white/95 backdrop-blur border-b border-gray-200" style={{ overflow: "visible" }}>
+      <div className="shrink-0 bg-white/95 backdrop-blur border-b border-[var(--input-border)]" style={{ overflow: "visible" }}>
         <div className="flex items-center justify-between gap-2 px-4 py-2">
 
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <nav className="hidden lg:flex items-center gap-1 text-sm min-w-0 shrink overflow-hidden">
-              <Link href="/admin" className="text-gray-400 hover:text-gray-700 shrink-0">Admin</Link>
-              <span className="text-gray-300 shrink-0">/</span>
-              <Link href="/admin/artists" className="text-gray-400 hover:text-gray-700 shrink-0">Atlikėjai</Link>
-              <span className="text-gray-300 shrink-0">/</span>
-              <span className="text-gray-800 font-semibold truncate">{artistName || '...'}</span>
+              <Link href="/admin" className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] shrink-0">Admin</Link>
+              <span className="text-[var(--text-faint)] shrink-0">/</span>
+              <Link href="/admin/artists" className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] shrink-0">Atlikėjai</Link>
+              <span className="text-[var(--text-faint)] shrink-0">/</span>
+              <span className="text-[var(--text-primary)] font-semibold truncate">{artistName || '...'}</span>
               {albumCount !== null && (
                 <>
-                  <span className="text-gray-300 shrink-0">/</span>
+                  <span className="text-[var(--text-faint)] shrink-0">/</span>
                   <Link href={`/admin/albums?artist_id=${artistId}`}
-                    className="text-gray-400 hover:text-blue-600 shrink-0 flex items-center gap-1 transition-colors">
+                    className="text-[var(--text-muted)] hover:text-blue-600 shrink-0 flex items-center gap-1 transition-colors">
                     Albumai
-                    <span className="bg-gray-100 text-gray-500 text-xs font-bold px-1 py-0.5 rounded leading-none">{albumCount}</span>
+                    <span className="bg-[var(--bg-elevated)] text-[var(--text-secondary)] text-xs font-bold px-1 py-0.5 rounded leading-none">{albumCount}</span>
                   </Link>
                 </>
               )}
               {trackCount !== null && (
                 <>
-                  <span className="text-gray-300 shrink-0">/</span>
+                  <span className="text-[var(--text-faint)] shrink-0">/</span>
                   <Link href={`/admin/tracks?artist_id=${artistId}`}
-                    className="text-gray-400 hover:text-blue-600 shrink-0 flex items-center gap-1 transition-colors">
+                    className="text-[var(--text-muted)] hover:text-blue-600 shrink-0 flex items-center gap-1 transition-colors">
                     Dainos
-                    <span className="bg-gray-100 text-gray-500 text-xs font-bold px-1 py-0.5 rounded leading-none">{trackCount}</span>
+                    <span className="bg-[var(--bg-elevated)] text-[var(--text-secondary)] text-xs font-bold px-1 py-0.5 rounded leading-none">{trackCount}</span>
                   </Link>
                 </>
               )}
@@ -653,7 +654,7 @@ export default function EditArtist() {
               }}
             />
 
-            <div className="hidden lg:flex items-center gap-1 shrink-0 border-l border-gray-200 pl-2 ml-1">
+            <div className="hidden lg:flex items-center gap-1 shrink-0 border-l border-[var(--input-border)] pl-2 ml-1">
               <WikipediaImportCompact
                 artistName={artistName}
                 onImport={(data: Partial<ArtistFormData>) => {
@@ -681,7 +682,7 @@ export default function EditArtist() {
 
           <div className="flex items-center gap-1.5 shrink-0">
             <Link href="/admin/artists"
-              className="px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
+              className="px-3 py-1.5 border border-[var(--input-border)] text-[var(--text-secondary)] rounded-lg text-sm font-medium hover:bg-[var(--bg-hover)] transition-colors">
               Atšaukti
             </Link>
             <button
@@ -695,9 +696,9 @@ export default function EditArtist() {
           </div>
         </div>
 
-        <div className="flex lg:hidden border-t border-gray-100">
+        <div className="flex lg:hidden border-t border-[var(--border-subtle)]">
           <button onClick={() => setTab('form')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold transition-colors ${tab === 'form' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/30' : 'text-gray-400 hover:text-gray-600'}`}>
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold transition-colors ${tab === 'form' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/30' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'}`}>
             <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2 shrink-0">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
@@ -705,7 +706,7 @@ export default function EditArtist() {
             Redagavimas
           </button>
           <button onClick={() => setTab('discography')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold transition-colors ${tab === 'discography' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/30' : 'text-gray-400 hover:text-gray-600'}`}>
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold transition-colors ${tab === 'discography' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/30' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'}`}>
             <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2 shrink-0">
               <circle cx="12" cy="12" r="10"/>
               <circle cx="12" cy="12" r="4"/>
@@ -720,7 +721,7 @@ export default function EditArtist() {
         <div className="shrink-0 px-3 pt-2">
           <div className="p-2.5 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm flex items-center gap-2">
             ❌ {error}
-            <button onClick={() => setError('')} className="ml-auto text-red-400 hover:text-red-600">✕</button>
+            <button onClick={() => setError('')} className="ml-auto text-red-400 hover:text-red-600 transition-colors">✕</button>
           </div>
         </div>
       )}
@@ -741,7 +742,7 @@ export default function EditArtist() {
       </div>
 
       <div className="hidden lg:flex flex-1 min-h-0">
-        <div className="border-r border-gray-200 overflow-y-auto" style={{ width: '60%' }}>
+        <div className="border-r border-[var(--input-border)] overflow-y-auto" style={{ width: '60%' }}>
           <ArtistFormCompact key={formKey} initialData={initialData} artistId={artistId} onSubmit={handleSubmit} saving={saving} onRegisterSubmit={fn => { submitFnRef.current.fn = fn }} />
         </div>
         <div className="overflow-hidden flex flex-col" style={{ width: '40%' }}>

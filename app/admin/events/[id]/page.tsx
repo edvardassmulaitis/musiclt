@@ -121,24 +121,24 @@ export default function AdminEventEditPage() {
   if (status === 'loading' || !isAdmin) return null
 
   // Input styles matching ArtistForm
-  const inputCls = 'w-full h-9 rounded-lg px-3 text-sm border border-gray-200 bg-white focus:outline-none focus:border-blue-300 text-gray-700'
-  const labelCls = 'block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1'
+  const inputCls = 'w-full h-9 rounded-lg px-3 text-sm border border-[var(--input-border)] bg-[var(--bg-surface)] focus:outline-none focus:border-blue-300 text-[var(--text-primary)]'
+  const labelCls = 'block text-xs font-bold text-[var(--text-muted)] uppercase tracking-wide mb-1'
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[var(--bg-elevated)]">
       {/* Breadcrumb bar */}
-      <div className="bg-white/95 backdrop-blur border-b border-gray-200">
+      <div className="bg-[var(--bg-surface)]/95 backdrop-blur border-b border-[var(--input-border)]">
         <div className="flex items-center justify-between gap-2 px-4 py-2">
           <nav className="flex items-center gap-1 text-sm">
-            <Link href="/admin" className="text-gray-400 hover:text-gray-700">Admin</Link>
-            <span className="text-gray-300">/</span>
-            <Link href="/admin/events" className="text-gray-400 hover:text-gray-700">Renginiai</Link>
-            <span className="text-gray-300">/</span>
-            <span className="text-gray-800 font-semibold">{isNew ? 'Naujas' : title || '...'}</span>
+            <Link href="/admin" className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]">Admin</Link>
+            <span className="text-[var(--text-faint)]">/</span>
+            <Link href="/admin/events" className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]">Renginiai</Link>
+            <span className="text-[var(--text-faint)]">/</span>
+            <span className="text-[var(--text-primary)] font-semibold">{isNew ? 'Naujas' : title || '...'}</span>
           </nav>
           <div className="flex items-center gap-1.5">
             <Link href="/admin/events"
-              className="px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
+              className="px-3 py-1.5 border border-[var(--input-border)] text-[var(--text-muted)] rounded-lg text-sm font-medium hover:bg-[var(--bg-hover)] transition-colors">
               Atšaukti
             </Link>
             <button onClick={handleSave} disabled={saving}
@@ -240,10 +240,10 @@ export default function AdminEventEditPage() {
             <input value={artistSearch} onChange={e => setArtistSearch(e.target.value)}
               className={inputCls} placeholder="Ieškoti atlikėjo..." />
             {artistResults.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-1 rounded-lg overflow-hidden z-10 max-h-48 overflow-y-auto bg-white border border-gray-200 shadow-lg">
+              <div className="absolute top-full left-0 right-0 mt-1 rounded-lg overflow-hidden z-10 max-h-48 overflow-y-auto bg-[var(--bg-surface)] border border-[var(--input-border)] shadow-lg">
                 {artistResults.map((a: any) => (
                   <button key={a.id} onClick={() => addArtist(a)}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition flex items-center gap-2 text-gray-700">
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--bg-hover)] transition flex items-center gap-2 text-[var(--text-primary)]">
                     {a.cover_image_url && <img src={a.cover_image_url} alt="" className="w-6 h-6 rounded-full object-cover" />}
                     {a.name}
                   </button>
@@ -254,8 +254,8 @@ export default function AdminEventEditPage() {
           {artists.length > 0 && (
             <div className="space-y-1">
               {artists.map(a => (
-                <div key={a.artist_id} className="flex items-center gap-2 px-3 py-2 bg-white rounded-lg border border-gray-100">
-                  <span className="text-sm text-gray-700 flex-1">{a.name}</span>
+                <div key={a.artist_id} className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-surface)] rounded-lg border border-[var(--input-border)]">
+                  <span className="text-sm text-[var(--text-primary)] flex-1">{a.name}</span>
                   <button onClick={() => setArtists(artists.map(x => x.artist_id === a.artist_id ? { ...x, is_headliner: !x.is_headliner } : x))}
                     className={`text-[10px] font-bold px-2 py-0.5 rounded-full transition ${
                       a.is_headliner ? 'bg-orange-50 text-orange-500 border border-orange-200' : 'text-gray-400 border border-gray-200 hover:text-orange-400'}`}>

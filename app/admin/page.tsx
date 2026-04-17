@@ -48,47 +48,47 @@ export default function AdminDashboardPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[var(--bg-elevated)]">
       <div className="w-full px-6 py-8">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl">
 
           {items.map(item => (
-            <div key={item.href} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-              <Link href={item.href} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors">
+            <div key={item.href} className="bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-xl overflow-hidden">
+              <Link href={item.href} className="flex items-center gap-3 px-4 py-3 hover:bg-[var(--bg-hover)] transition-colors">
                 <span className="text-xl">{item.icon}</span>
-                <span className="font-semibold text-gray-800">{item.label}</span>
+                <span className="font-semibold text-[var(--text-primary)]">{item.label}</span>
                 {item.count !== undefined && (
-                  <span className="ml-auto text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+                  <span className="ml-auto text-xs text-[var(--text-muted)] bg-[var(--bg-elevated)] px-2 py-0.5 rounded-full">
                     {item.count}
                   </span>
                 )}
               </Link>
               <Link href={item.newHref}
-                className="flex items-center justify-center gap-1 w-full py-2 text-xs text-music-blue border-t border-gray-100 hover:bg-blue-50 transition-colors">
+                className="flex items-center justify-center gap-1 w-full py-2 text-xs text-music-blue border-t border-[var(--border-subtle)] hover:bg-[var(--hover-blue)] transition-colors">
                 + Naujas
               </Link>
             </div>
           ))}
 
           {/* TOP sąrašai */}
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden sm:col-span-3">
-            <Link href="/admin/top" className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors">
+          <div className="bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-xl overflow-hidden sm:col-span-3">
+            <Link href="/admin/top" className="flex items-center gap-3 px-4 py-3 hover:bg-[var(--bg-hover)] transition-colors">
               <span className="text-xl">🏆</span>
-              <span className="font-semibold text-gray-800">TOP sąrašai</span>
-              <span className="text-xs text-gray-400 ml-1">TOP 40 · LT TOP 30</span>
+              <span className="font-semibold text-[var(--text-primary)]">TOP sąrašai</span>
+              <span className="text-xs text-[var(--text-muted)] ml-1">TOP 40 · LT TOP 30</span>
               {counts?.top_pending !== undefined && counts.top_pending > 0 && (
                 <span className="ml-auto text-xs font-bold text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full">
                   {counts.top_pending} laukia
                 </span>
               )}
             </Link>
-            <div className="flex border-t border-gray-100">
+            <div className="flex border-t border-[var(--border-subtle)]">
               <Link href="/admin/top?type=top40"
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs text-music-blue hover:bg-blue-50 transition-colors border-r border-gray-100">
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs text-music-blue hover:bg-[var(--hover-blue)] transition-colors border-r border-[var(--border-subtle)]">
                 🌍 TOP 40
               </Link>
               <Link href="/admin/top?type=lt_top30"
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs text-music-blue hover:bg-blue-50 transition-colors">
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs text-music-blue hover:bg-[var(--hover-blue)] transition-colors">
                 🇱🇹 LT TOP 30
               </Link>
             </div>

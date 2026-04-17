@@ -100,9 +100,9 @@ export default function AdminUsersPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-white/10">
-                <th className="text-left px-4 py-3 text-xs text-gray-500 font-medium uppercase tracking-wider">Vartotojas</th>
-                <th className="text-left px-4 py-3 text-xs text-gray-500 font-medium uppercase tracking-wider hidden sm:table-cell">Provider</th>
-                <th className="text-left px-4 py-3 text-xs text-gray-500 font-medium uppercase tracking-wider">Role</th>
+                <th className="text-left px-4 py-3 text-xs text-[var(--text-muted)] font-medium uppercase tracking-wider">Vartotojas</th>
+                <th className="text-left px-4 py-3 text-xs text-[var(--text-muted)] font-medium uppercase tracking-wider hidden sm:table-cell">Provider</th>
+                <th className="text-left px-4 py-3 text-xs text-[var(--text-muted)] font-medium uppercase tracking-wider">Role</th>
                 {isSuperAdmin && <th className="text-left px-4 py-3 text-xs text-gray-500 font-medium uppercase tracking-wider">Keisti</th>}
               </tr>
             </thead>

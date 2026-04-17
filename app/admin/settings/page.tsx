@@ -40,17 +40,17 @@ export default function AdminSettings() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-[var(--bg-elevated)] p-6">
       <div className="max-w-2xl mx-auto space-y-6">
         <div>
           <Link href="/admin/dashboard" className="text-music-blue hover:text-music-orange text-sm">← Grįžti</Link>
-          <h1 className="text-2xl font-black text-gray-900 mt-1">⚙️ Nustatymai & Diagnostika</h1>
+          <h1 className="text-2xl font-black text-[var(--text-primary)] mt-1">⚙️ Nustatymai & Diagnostika</h1>
         </div>
 
         {/* API Status */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
-          <div className="px-5 py-3 border-b border-gray-100">
-            <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide">🔑 Anthropic API</h2>
+        <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--input-border)] shadow-sm">
+          <div className="px-5 py-3 border-b border-[var(--border-subtle)]">
+            <h2 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wide">🔑 Anthropic API</h2>
           </div>
           <div className="p-5 space-y-4">
             <div className="flex gap-3">
@@ -78,7 +78,7 @@ export default function AdminSettings() {
               </div>
             )}
 
-            <div className="text-xs text-gray-500 bg-gray-50 rounded-lg p-3 space-y-1">
+            <div className="text-xs text-[var(--text-muted)] bg-[var(--bg-elevated)] rounded-lg p-3 space-y-1">
               <p><strong>Kaip pridėti ANTHROPIC_API_KEY Vercel'e:</strong></p>
               <p>1. vercel.com → tavo projektas → Settings → Environment Variables</p>
               <p>2. Add: Name = <code className="bg-gray-200 px-1 rounded">ANTHROPIC_API_KEY</code>, Value = sk-ant-...</p>
@@ -89,12 +89,12 @@ export default function AdminSettings() {
         </div>
 
         {/* Data management */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
-          <div className="px-5 py-3 border-b border-gray-100">
-            <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide">🗄️ Duomenų valdymas</h2>
+        <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--input-border)] shadow-sm">
+          <div className="px-5 py-3 border-b border-[var(--border-subtle)]">
+            <h2 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wide">🗄️ Duomenų valdymas</h2>
           </div>
           <div className="p-5 space-y-3">
-            <p className="text-sm text-gray-600">Visi duomenys saugomi naršyklės localStorage.</p>
+            <p className="text-sm text-[var(--text-secondary)]">Visi duomenys saugomi naršyklės localStorage.</p>
             <button
               onClick={() => {
                 const data = localStorage.getItem('artists') || '[]'
@@ -104,7 +104,7 @@ export default function AdminSettings() {
                 a.download = `musiclt-backup-${new Date().toISOString().split('T')[0]}.json`
                 a.click()
               }}
-              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium">
+              className="px-4 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--bg-active)] text-[var(--text-secondary)] rounded-lg text-sm font-medium">
               ⬇️ Eksportuoti duomenis (JSON)
             </button>
           </div>

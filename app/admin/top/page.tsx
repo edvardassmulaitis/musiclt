@@ -255,28 +255,28 @@ function AdminTopInner() {
           <div className="bg-white border border-gray-100 rounded-xl shadow-sm px-4 py-3 mb-5 flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-4 flex-wrap">
               <div>
-                <span className="text-xs text-gray-400 uppercase tracking-wide">Savaitė</span>
-                <p className="text-sm font-semibold text-gray-800">
+                <span className="text-xs text-[var(--text-muted)] uppercase tracking-wide">Savaitė</span>
+                <p className="text-sm font-semibold text-[var(--text-primary)]">
                   {new Date(activeWeek.week_start).toLocaleDateString('lt-LT', { month: 'long', day: 'numeric' })}
                   {' – '}
                   {activeWeek.vote_close ? new Date(activeWeek.vote_close).toLocaleDateString('lt-LT', { month: 'long', day: 'numeric' }) : '—'}
                 </p>
               </div>
               <div>
-                <span className="text-xs text-gray-400 uppercase tracking-wide">
+                <span className="text-xs text-[var(--text-muted)] uppercase tracking-wide">
                   {activeWeek.is_finalized ? 'Finalizuota' : activeWeek.vote_close ? 'Iki pabaigos' : 'Prasideda'}
                 </span>
                 <p className="text-sm font-semibold">
                   {activeWeek.is_finalized
-                    ? <span className="text-gray-500">✓ Baigta · {activeWeek.total_votes} balsų</span>
+                    ? <span className="text-[var(--text-secondary)]">✓ Baigta · {activeWeek.total_votes} balsų</span>
                     : activeWeek.vote_close
                       ? <Countdown targetDate={activeWeek.vote_close} />
                       : <span className="text-gray-400 text-xs">Data nenustatyta</span>}
                 </p>
               </div>
               <div>
-                <span className="text-xs text-gray-400 uppercase tracking-wide">Kandidatai</span>
-                <p className="text-sm font-semibold text-gray-800">{entries.length} dainų</p>
+                <span className="text-xs text-[var(--text-muted)] uppercase tracking-wide">Kandidatai</span>
+                <p className="text-sm font-semibold text-[var(--text-primary)]">{entries.length} dainų</p>
               </div>
             </div>
             {!activeWeek.is_finalized && (
@@ -296,18 +296,18 @@ function AdminTopInner() {
             <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide">💡 Pasiūlymai</h2>
 
             {/* Search */}
-            <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-4">
-              <p className="text-xs text-gray-500 mb-2">Pridėti dainą (admin → automatiškai patvirtinama)</p>
+            <div className="bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-xl shadow-sm p-4">
+              <p className="text-xs text-[var(--text-muted)] mb-2">Pridėti dainą (admin → automatiškai patvirtinama)</p>
               <div className="relative">
                 <input
                   type="text"
                   value={trackSearch}
                   onChange={e => setTrackSearch(e.target.value)}
                   placeholder="Ieškoti pagal dainą arba atlikėją…"
-                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-blue-400 focus:bg-white text-sm transition-colors"
+                  className="w-full px-3 py-2.5 bg-[var(--bg-elevated)] border border-[var(--input-border)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-400 focus:bg-[var(--bg-surface)] text-sm transition-colors"
                 />
                 {trackResults.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl overflow-hidden shadow-xl z-20">
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-xl overflow-hidden shadow-xl z-20">
                     {trackResults.map((t: any) => (
                       <button key={t.id} onClick={() => addAdminSuggestion(t.id)} disabled={addingSuggestion}
                         className="w-full flex items-center gap-3 px-3 py-2 hover:bg-blue-50 transition-colors text-left border-b border-gray-50 last:border-0">
@@ -416,10 +416,10 @@ function AdminTopInner() {
                 <p className="text-xs text-gray-300">Patvirtinti pasiūlymai pateks čia kitą pirmadienį kai prasidės nauja savaitė.</p>
               </div>
             ) : (
-              <div className="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm">
+              <div className="bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-xl overflow-hidden shadow-sm">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-gray-100 text-left text-xs text-gray-400 uppercase tracking-wide bg-gray-50/80">
+                    <tr className="border-b border-[var(--border-subtle)] text-left text-xs text-[var(--text-muted)] uppercase tracking-wide bg-[var(--bg-elevated)]/80">
                       <th className="px-3 py-2.5 w-8">#</th>
                       <th className="px-3 py-2.5">Daina</th>
                       <th className="px-3 py-2.5 text-right w-16">Balsai</th>
@@ -428,9 +428,9 @@ function AdminTopInner() {
                   </thead>
                   <tbody>
                     {entries.map((e, i) => (
-                      <tr key={e.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/80 transition-colors group">
+                      <tr key={e.id} className="border-b border-[var(--border-subtle)] last:border-0 hover:bg-[var(--bg-hover)]/80 transition-colors group">
                         <td className="px-3 py-2.5">
-                          <span className={`text-sm font-black tabular-nums ${i < 3 ? 'text-orange-500' : 'text-gray-600'}`}>
+                          <span className={`text-sm font-black tabular-nums ${i < 3 ? 'text-orange-500' : 'text-[var(--text-secondary)]'}`}>
                             {e.position ?? i + 1}
                           </span>
                         </td>
@@ -448,7 +448,7 @@ function AdminTopInner() {
                           </div>
                         </td>
                         <td className="px-3 py-2.5 text-right">
-                          <span className="text-sm font-bold text-gray-700 tabular-nums">{e.total_votes}</span>
+                          <span className="text-sm font-bold text-[var(--text-secondary)] tabular-nums">{e.total_votes}</span>
                         </td>
                         <td className="px-3 py-2.5">
                           {!activeWeek?.is_finalized && (

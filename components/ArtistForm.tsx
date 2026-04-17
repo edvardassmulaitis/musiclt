@@ -115,12 +115,12 @@ type Props = {
 
 function Inp({ value, onChange, placeholder, type='text', required }: any) {
   return <input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} required={required}
-    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-blue-400 bg-white" />
+    className="w-full px-2.5 py-1.5 border border-[var(--input-border)] rounded-lg text-[var(--text-primary)] text-sm focus:outline-none focus:border-blue-400 bg-[var(--bg-surface)]" />
 }
 
 function Sel({ value, onChange, children, required }: any) {
   return <select value={value} onChange={e=>onChange(e.target.value)} required={required}
-    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-blue-400 bg-white appearance-none cursor-pointer hover:border-gray-300 transition-colors">
+    className="w-full px-2.5 py-1.5 border border-[var(--input-border)] rounded-lg text-[var(--text-primary)] text-sm focus:outline-none focus:border-blue-400 bg-[var(--bg-surface)] appearance-none cursor-pointer hover:border-[var(--text-faint)] transition-colors">
     {children}
   </select>
 }
@@ -137,7 +137,7 @@ function YearInput({ value, onChange, placeholder='MMMM' }: { value:string; onCh
   return <input type="number" value={raw} onChange={e=>setRaw(e.target.value)}
     onBlur={e=>commit(e.target.value)} onKeyDown={e=>e.key==='Enter'&&commit(raw)}
     placeholder={placeholder} min={1900} max={2100}
-    className="w-14 px-1 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-xs focus:outline-none focus:border-blue-400 bg-white text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+    className="w-14 px-1 py-1.5 border border-[var(--input-border)] rounded-lg text-[var(--text-primary)] text-xs focus:outline-none focus:border-blue-400 bg-[var(--bg-surface)] text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
 }
 
 function DateInput({ value, onChange, placeholder='MM' }: { value:string; onChange:(v:string)=>void; placeholder?:string }) {
@@ -154,18 +154,18 @@ function DateInput({ value, onChange, placeholder='MM' }: { value:string; onChan
   return <input type="number" value={raw} onChange={e=>setRaw(e.target.value)}
     onBlur={e=>commit(e.target.value)} onKeyDown={e=>e.key==='Enter'&&commit(raw)}
     placeholder={placeholder} min={1} max={max}
-    className="w-9 px-0.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-xs focus:outline-none focus:border-blue-400 bg-white text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+    className="w-9 px-0.5 py-1.5 border border-[var(--input-border)] rounded-lg text-[var(--text-primary)] text-xs focus:outline-none focus:border-blue-400 bg-[var(--bg-surface)] text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
 }
 
 function DateRow({ label, y, m, d, onY, onM, onD }: any) {
   return (
     <div className="flex-1 min-w-0">
-      <label className="block text-xs font-semibold text-gray-500 mb-1">{label}</label>
+      <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">{label}</label>
       <div className="flex gap-0.5 items-center">
         <YearInput value={y} onChange={onY} />
-        <span className="text-gray-300 text-xs">·</span>
+        <span className="text-[var(--text-faint)] text-xs">·</span>
         <DateInput value={m} onChange={onM} placeholder="MM" />
-        <span className="text-gray-300 text-xs">·</span>
+        <span className="text-[var(--text-faint)] text-xs">·</span>
         <DateInput value={d} onChange={onD} placeholder="DD" />
       </div>
     </div>
@@ -316,13 +316,13 @@ function ImageCropper({ src, onCrop, onCancel }: {
 
   return (
     <div className="fixed inset-0 flex items-center justify-center p-4 bg-black/70" style={{ zIndex: 10000 }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-          <span className="text-sm font-bold text-gray-800">✂️ Apkarpyti nuotrauką</span>
-          <button type="button" onClick={onCancel} className="text-gray-400 hover:text-gray-600 text-xl leading-none px-1">✕</button>
+      <div className="bg-[var(--bg-surface)] rounded-2xl shadow-[var(--modal-shadow)] w-full max-w-sm overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-subtle)]">
+          <span className="text-sm font-bold text-[var(--text-primary)]">✂️ Apkarpyti nuotrauką</span>
+          <button type="button" onClick={onCancel} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] text-xl leading-none px-1">✕</button>
         </div>
         <div className="p-4 flex flex-col items-center gap-3">
-          <div className="relative rounded-xl overflow-hidden border-2 border-gray-200 cursor-grab active:cursor-grabbing select-none"
+          <div className="relative rounded-xl overflow-hidden border-2 border-[var(--input-border)] cursor-grab active:cursor-grabbing select-none"
             style={{ width: SIZE, height: SIZE, maxWidth: '100%' }}>
             <canvas ref={squareRef} width={SIZE} height={SIZE}
               style={{ display: 'block', width: '100%', height: '100%', touchAction: 'none' }}
@@ -335,7 +335,7 @@ function ImageCropper({ src, onCrop, onCancel }: {
           </div>
           <div className="flex items-center gap-2 w-full px-1">
             <button type="button" onClick={() => applyScale(scale / 1.15)}
-              className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-base font-bold text-gray-600 shrink-0 leading-none">−</button>
+              className="w-7 h-7 rounded-full bg-[var(--bg-elevated)] hover:bg-[var(--bg-active)] flex items-center justify-center text-base font-bold text-[var(--text-secondary)] shrink-0 leading-none">−</button>
             <input type="range" min={0} max={100} value={sliderVal}
               onChange={e => {
                 if (!img) return
@@ -343,13 +343,13 @@ function ImageCropper({ src, onCrop, onCancel }: {
               }}
               className="flex-1 accent-music-blue cursor-pointer" />
             <button type="button" onClick={() => applyScale(scale * 1.15)}
-              className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-base font-bold text-gray-600 shrink-0 leading-none">+</button>
+              className="w-7 h-7 rounded-full bg-[var(--bg-elevated)] hover:bg-[var(--bg-active)] flex items-center justify-center text-base font-bold text-[var(--text-secondary)] shrink-0 leading-none">+</button>
           </div>
-          <p className="text-xs text-gray-400 -mt-1">Tempk · Scroll arba žnyplės — zoom · Išsaugo kvadratą + originalą</p>
+          <p className="text-xs text-[var(--text-muted)] -mt-1">Tempk · Scroll arba žnyplės — zoom · Išsaugo kvadratą + originalą</p>
         </div>
         <div className="flex gap-2 px-4 pb-4">
           <button type="button" onClick={onCancel}
-            className="flex-1 py-2 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">
+            className="flex-1 py-2 border border-[var(--input-border)] text-[var(--text-secondary)] rounded-xl text-sm font-medium hover:bg-[var(--bg-hover)] transition-colors">
             Atšaukti
           </button>
           <button type="button" onClick={handleCrop}
@@ -447,7 +447,7 @@ function AvatarUploadCompact({ value, onChange, onOriginalSaved, artistId }: {
       )}
       <div className="flex gap-4 items-start">
         <div
-          className="relative rounded-xl overflow-hidden cursor-pointer group border-2 border-dashed border-gray-200 hover:border-music-blue transition-colors bg-gray-50 shrink-0"
+          className="relative rounded-xl overflow-hidden cursor-pointer group border-2 border-dashed border-[var(--input-border)] hover:border-music-blue transition-colors bg-[var(--bg-elevated)] shrink-0"
           style={{ width: 120, height: 120 }}
           onClick={() => !uploading && fileRef.current?.click()}
           onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f?.type.startsWith('image/')) handleFileSelect(f) }}
@@ -462,7 +462,7 @@ function AvatarUploadCompact({ value, onChange, onOriginalSaved, artistId }: {
               </div>
             </>
           ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 gap-1">
+            <div className="w-full h-full flex flex-col items-center justify-center text-[var(--text-muted)] gap-1">
               <span className="text-3xl">🎤</span>
               <span className="text-xs text-center leading-tight">Įkelti<br/>nuotrauką</span>
             </div>
@@ -477,7 +477,7 @@ function AvatarUploadCompact({ value, onChange, onOriginalSaved, artistId }: {
         <div className="flex-1 min-w-0 space-y-2.5 pt-1">
           <div className="flex gap-2 items-center flex-wrap">
             <button type="button" onClick={() => fileRef.current?.click()}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition-colors">
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--bg-elevated)] hover:bg-[var(--bg-active)] text-[var(--text-secondary)] rounded-lg text-xs font-medium transition-colors">
               <IconUpload /> Įkelti failą
             </button>
           </div>
@@ -490,7 +490,7 @@ function AvatarUploadCompact({ value, onChange, onOriginalSaved, artistId }: {
               onBlur={e => { if (e.target.value && e.target.value !== value) storeUrl(e.target.value) }}
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); storeUrl(urlInput) } }}
               placeholder="https://..."
-              className="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-music-blue bg-white"
+              className="flex-1 min-w-0 px-2 py-1.5 border border-[var(--input-border)] rounded-lg text-xs text-[var(--text-secondary)] focus:outline-none focus:border-music-blue bg-[var(--bg-surface)]"
             />
             <button type="button" onClick={() => storeUrl(urlInput)}
               className="px-2 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-colors shrink-0">→</button>
@@ -581,7 +581,7 @@ function StylePicker({ selected, onChange }: { selected: string[]; onChange: (v:
 
   return (
     <div>
-      <label className="block text-xs font-semibold text-gray-500 mb-1">Stiliai</label>
+      <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">Stiliai</label>
       <div className="flex items-center gap-1 flex-wrap">
         {selected.map(s => (
           <span key={s} className="flex items-center gap-0.5 px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-xs font-medium">
@@ -596,13 +596,13 @@ function StylePicker({ selected, onChange }: { selected: string[]; onChange: (v:
               if (e.key==='Escape') { setInlineQ(''); setInlineSuggestions([]) }
             }}
             placeholder="+ stilius..."
-            className="w-24 px-2 py-0.5 border border-dashed border-gray-300 rounded-full text-xs text-gray-500 focus:outline-none focus:border-blue-400 focus:border-solid bg-white"
+            className="w-24 px-2 py-0.5 border border-dashed border-[var(--text-faint)] rounded-full text-xs text-[var(--text-muted)] focus:outline-none focus:border-blue-400 focus:border-solid bg-[var(--bg-surface)]"
           />
           {inlineSuggestions.length > 0 && (
-            <div className="absolute z-40 top-7 left-0 w-52 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
+            <div className="absolute z-40 top-7 left-0 w-52 bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-xl shadow-xl overflow-hidden">
               {inlineSuggestions.map(s => (
                 <button key={s} type="button" onClick={()=>add(s)}
-                  className={`w-full text-left px-3 py-1.5 text-xs hover:bg-blue-50 transition-colors border-b border-gray-50 last:border-0 ${s.toLowerCase() === inlineQ.toLowerCase() ? 'font-bold text-blue-700 bg-blue-50/50' : 'text-gray-700'}`}>
+                  className={`w-full text-left px-3 py-1.5 text-xs hover:bg-blue-50 transition-colors border-b border-[var(--border-subtle)] last:border-0 ${s.toLowerCase() === inlineQ.toLowerCase() ? 'font-bold text-blue-700 bg-blue-50/50' : 'text-[var(--text-secondary)]'}`}>
                   {s}
                 </button>
               ))}
@@ -610,32 +610,32 @@ function StylePicker({ selected, onChange }: { selected: string[]; onChange: (v:
           )}
         </div>
         <button type="button" onClick={()=>{ setShowAll(true); setModalQ('') }}
-          className="px-2 py-0.5 border border-dashed border-gray-300 rounded-full text-xs text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-colors">
+          className="px-2 py-0.5 border border-dashed border-[var(--text-faint)] rounded-full text-xs text-[var(--text-muted)] hover:border-blue-400 hover:text-blue-500 transition-colors">
           ☰
         </button>
       </div>
 
       {showAll && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-6" onClick={()=>setShowAll(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col" onClick={e=>e.stopPropagation()}>
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 shrink-0">
-              <span className="text-sm font-bold text-gray-800">Stiliai</span>
-              <button type="button" onClick={()=>setShowAll(false)} className="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+          <div className="bg-[var(--bg-surface)] rounded-2xl shadow-[var(--modal-shadow)] w-full max-w-3xl max-h-[85vh] flex flex-col" onClick={e=>e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-subtle)] shrink-0">
+              <span className="text-sm font-bold text-[var(--text-primary)]">Stiliai</span>
+              <button type="button" onClick={()=>setShowAll(false)} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] text-lg leading-none">✕</button>
             </div>
-            <div className="px-4 py-2.5 border-b border-gray-100 shrink-0">
+            <div className="px-4 py-2.5 border-b border-[var(--border-subtle)] shrink-0">
               <input type="text" value={modalQ} onChange={e=>setModalQ(e.target.value)}
                 placeholder="Ieškoti stiliaus..."
-                className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-blue-400"
+                className="w-full px-3 py-1.5 border border-[var(--input-border)] rounded-lg text-sm text-[var(--text-secondary)] focus:outline-none focus:border-blue-400"
                 autoFocus />
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {modalResults !== null ? (
                 <div className="flex flex-wrap gap-1.5">
                   {modalResults.length === 0
-                    ? <p className="text-xs text-gray-400">Nerasta</p>
+                    ? <p className="text-xs text-[var(--text-muted)]">Nerasta</p>
                     : modalResults.map(s => (
                         <button key={s} type="button" onClick={()=>add(s)}
-                          className="px-2.5 py-1 bg-gray-100 hover:bg-blue-100 hover:text-blue-700 text-gray-700 rounded-full text-xs font-medium transition-colors">
+                          className="px-2.5 py-1 bg-[var(--bg-elevated)] hover:bg-blue-100 hover:text-blue-700 text-[var(--text-secondary)] rounded-full text-xs font-medium transition-colors">
                           {s}
                         </button>
                       ))
@@ -647,11 +647,11 @@ function StylePicker({ selected, onChange }: { selected: string[]; onChange: (v:
                   if (available.length === 0) return null
                   return (
                     <div key={genre}>
-                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">{genre}</p>
+                      <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5">{genre}</p>
                       <div className="flex flex-wrap gap-1.5">
                         {available.map(s => (
                           <button key={s} type="button" onClick={()=>add(s)}
-                            className="px-2.5 py-1 bg-gray-100 hover:bg-blue-100 hover:text-blue-700 text-gray-700 rounded-full text-xs font-medium transition-colors">
+                            className="px-2.5 py-1 bg-[var(--bg-elevated)] hover:bg-blue-100 hover:text-blue-700 text-[var(--text-secondary)] rounded-full text-xs font-medium transition-colors">
                             {s}
                           </button>
                         ))}
@@ -662,8 +662,8 @@ function StylePicker({ selected, onChange }: { selected: string[]; onChange: (v:
               )}
             </div>
             {selected.length > 0 && (
-              <div className="px-4 py-3 border-t border-gray-100 shrink-0">
-                <p className="text-xs text-gray-400 mb-2">Pasirinkta:</p>
+              <div className="px-4 py-3 border-t border-[var(--border-subtle)] shrink-0">
+                <p className="text-xs text-[var(--text-muted)] mb-2">Pasirinkta:</p>
                 <div className="flex flex-wrap gap-1.5">
                   {selected.map(s => (
                     <span key={s} className="flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-xs font-medium">
@@ -745,9 +745,9 @@ function DescriptionEditor({ value, onChange, artistName, artistMeta }: {
     <div className="relative">
       {expanded && (
         <div className="fixed inset-0 z-50 bg-black/60 flex flex-col">
-          <div className="bg-white flex flex-col" style={{ height: '100vh' }}>
-            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200 shrink-0">
-              <span className="text-sm font-bold text-gray-800">✏️ Aprašymas</span>
+          <div className="bg-[var(--bg-surface)] flex flex-col" style={{ height: '100vh' }}>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--input-border)] shrink-0">
+              <span className="text-sm font-bold text-[var(--text-primary)]">✏️ Aprašymas</span>
               <div className="flex items-center gap-2">
                 <button type="button" onClick={generate} disabled={generating}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-50 hover:bg-violet-100 text-violet-700 rounded-lg text-xs font-medium transition-colors disabled:opacity-50">
@@ -759,7 +759,7 @@ function DescriptionEditor({ value, onChange, artistName, artistMeta }: {
                 </button>
                 {genError && <span className="text-xs text-red-500">{genError}</span>}
                 <button type="button" onClick={discard}
-                  className="px-4 py-1.5 border border-gray-200 text-gray-500 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
+                  className="px-4 py-1.5 border border-[var(--input-border)] text-[var(--text-muted)] rounded-lg text-sm font-medium hover:bg-[var(--bg-hover)] transition-colors">
                   Atmesti
                 </button>
                 <button type="button" onClick={save}
@@ -779,11 +779,11 @@ function DescriptionEditor({ value, onChange, artistName, artistMeta }: {
           <RichTextEditor value={value} onChange={onChange} placeholder="Trumpas aprašymas..." />
         </div>
         <div className="absolute inset-0 cursor-pointer" onClick={open} />
-        <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+        <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-[var(--bg-surface)] to-transparent pointer-events-none" />
       </div>
       <div className="flex justify-end mt-1">
         <button type="button" onClick={open}
-          className="flex items-center gap-1 px-2 py-1 text-xs text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors">
+          className="flex items-center gap-1 px-2 py-1 text-xs text-[var(--text-muted)] hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors">
           <IconExpand /> Plėsti
         </button>
       </div>
@@ -844,42 +844,42 @@ function ArtistSearch({ label, ph, items, onAdd, onRemove, onYears, filterType }
   return (
     <div className="space-y-2">
       {items.map((item, i) => (
-        <div key={i} className="flex items-center gap-1.5 bg-gray-50 rounded-lg px-2 py-2 flex-wrap">
+        <div key={i} className="flex items-center gap-1.5 bg-[var(--bg-elevated)] rounded-lg px-2 py-2 flex-wrap">
           {(item as any).avatar
-            ? <img src={(item as any).avatar} alt="" referrerPolicy="no-referrer" className="w-6 h-6 rounded-full object-cover flex-shrink-0 border border-gray-200" />
+            ? <img src={(item as any).avatar} alt="" referrerPolicy="no-referrer" className="w-6 h-6 rounded-full object-cover flex-shrink-0 border border-[var(--input-border)]" />
             : <div className="w-6 h-6 rounded-full bg-music-blue flex items-center justify-center text-white text-xs flex-shrink-0">{item.name[0]}</div>
           }
           <a href={`/admin/artists/${item.id}`} target="_blank" rel="noopener noreferrer"
-            className="flex-1 text-xs font-medium text-gray-800 hover:text-blue-600 hover:underline truncate transition-colors">
+            className="flex-1 text-xs font-medium text-[var(--text-primary)] hover:text-blue-600 hover:underline truncate transition-colors">
             {item.name}
           </a>
           <input value={item.yearFrom}
             onChange={e=>onYears(i,'yearFrom',e.target.value.replace(/\D/g,'').slice(0,4))}
             placeholder="MMMM" maxLength={4} inputMode="numeric"
-            className="w-14 px-1 py-1 border border-gray-300 rounded text-xs text-gray-900 focus:outline-none focus:border-music-blue text-center" />
-          <span className="text-gray-400 text-xs">–</span>
+            className="w-14 px-1 py-1 border border-[var(--text-faint)] rounded text-xs text-[var(--text-primary)] focus:outline-none focus:border-music-blue text-center" />
+          <span className="text-[var(--text-muted)] text-xs">–</span>
           <input value={item.yearTo}
             onChange={e=>onYears(i,'yearTo',e.target.value.replace(/\D/g,'').slice(0,4))}
             placeholder="MMMM" maxLength={4} inputMode="numeric"
-            className="w-14 px-1 py-1 border border-gray-300 rounded text-xs text-gray-900 focus:outline-none focus:border-music-blue text-center" />
+            className="w-14 px-1 py-1 border border-[var(--text-faint)] rounded text-xs text-[var(--text-primary)] focus:outline-none focus:border-music-blue text-center" />
           <button type="button" onClick={()=>onRemove(i)} className="text-red-400 hover:text-red-600 font-bold text-base ml-1">×</button>
         </div>
       ))}
       <div className="relative">
         <input type="text" value={q} onChange={e=>setQ(e.target.value)} placeholder={ph}
-          className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-xs focus:outline-none focus:border-blue-400" />
+          className="w-full px-2.5 py-1.5 border border-[var(--input-border)] rounded-lg text-[var(--text-primary)] text-xs focus:outline-none focus:border-blue-400" />
         {results.length > 0 && (
-          <div className="absolute z-50 w-full bg-white border border-gray-200 rounded-xl shadow-xl bottom-full mb-1 overflow-hidden">
+          <div className="absolute z-50 w-full bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-xl shadow-xl bottom-full mb-1 overflow-hidden">
             {results.map(a => (
               <button key={a.id} type="button" onClick={()=>{onAdd({...a, avatar: a.cover_image_url || null});setQ('');setResults([])}}
                 className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 text-left">
                 {a.cover_image_url
-                  ? <img src={a.cover_image_url} alt="" referrerPolicy="no-referrer" className="w-7 h-7 rounded-full object-cover border border-gray-200 shrink-0" />
+                  ? <img src={a.cover_image_url} alt="" referrerPolicy="no-referrer" className="w-7 h-7 rounded-full object-cover border border-[var(--input-border)] shrink-0" />
                   : <div className="w-7 h-7 rounded-full bg-music-blue flex items-center justify-center text-white text-xs shrink-0">{a.name[0]}</div>
                 }
                 <div>
-                  <div className="text-sm font-medium text-gray-900">{a.name}</div>
-                  <div className="text-xs text-gray-400">{a.type==='group'?'Grupė':'Atlikėjas'} · {a.country}</div>
+                  <div className="text-sm font-medium text-[var(--text-primary)]">{a.name}</div>
+                  <div className="text-xs text-[var(--text-muted)]">{a.type==='group'?'Grupė':'Atlikėjas'} · {a.country}</div>
                 </div>
               </button>
             ))}
@@ -890,9 +890,9 @@ function ArtistSearch({ label, ph, items, onAdd, onRemove, onYears, filterType }
         ? <button type="button" onClick={()=>setShowNew(true)} className="text-xs text-music-blue hover:text-music-orange font-medium">+ Sukurti naują ir pridėti</button>
         : <div className="flex gap-2">
             <input type="text" value={newName} onChange={e=>setNewName(e.target.value)} placeholder="Vardas / pavadinimas"
-              className="flex-1 px-2.5 py-1.5 border border-blue-300 rounded-lg text-gray-900 text-xs focus:outline-none focus:border-music-blue" />
+              className="flex-1 px-2.5 py-1.5 border border-blue-300 rounded-lg text-[var(--text-primary)] text-xs focus:outline-none focus:border-music-blue" />
             <button type="button" onClick={addNew} className="px-2.5 py-1.5 bg-music-blue text-white rounded-lg text-xs font-medium">Sukurti</button>
-            <button type="button" onClick={()=>setShowNew(false)} className="px-2.5 py-1.5 bg-gray-100 rounded-lg text-xs text-gray-600">✕</button>
+            <button type="button" onClick={()=>setShowNew(false)} className="px-2.5 py-1.5 bg-[var(--bg-elevated)] rounded-lg text-xs text-[var(--text-secondary)]">✕</button>
           </div>
       }
     </div>
@@ -1014,16 +1014,16 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
         </div>
       )}
 
-      <div className="px-3 py-2 border-b border-gray-100">
+      <div className="px-3 py-2 border-b border-[var(--border-subtle)]">
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2 shrink-0">
-            <span className="text-xs font-semibold text-gray-500">Nuotraukų galerija</span>
-            {photos.length > 0 && <span className="bg-gray-200 text-gray-600 text-xs font-bold px-1.5 py-0.5 rounded-full">{photos.length}</span>}
+            <span className="text-xs font-semibold text-[var(--text-muted)]">Nuotraukų galerija</span>
+            {photos.length > 0 && <span className="bg-[var(--bg-active)] text-[var(--text-secondary)] text-xs font-bold px-1.5 py-0.5 rounded-full">{photos.length}</span>}
           </div>
           <input type="text" value={urlInput} onChange={e => setUrlInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); addUrl() } }}
             placeholder="https://..."
-            className="flex-1 min-w-0 px-2 py-1 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
+            className="flex-1 min-w-0 px-2 py-1 border border-[var(--input-border)] rounded-lg text-xs text-[var(--text-secondary)] focus:outline-none focus:border-blue-400 bg-[var(--bg-surface)]" />
           <button type="button" onClick={() => addUrl()} className="px-2 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-colors shrink-0">→</button>
           <button type="button" onClick={() => setShowWikimedia(true)}
             className="flex items-center gap-1 px-2 py-1 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg text-xs font-medium transition-colors shrink-0">
@@ -1037,7 +1037,7 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
       </div>
 
       {photos.length === 0 ? (
-        <div className="flex items-center justify-center py-6 text-gray-400 text-xs">Nėra nuotraukų</div>
+        <div className="flex items-center justify-center py-6 text-[var(--text-muted)] text-xs">Nėra nuotraukų</div>
       ) : (
         <div className="p-2 grid grid-cols-4 sm:grid-cols-6 gap-1.5">
           {photos.map((p, i) => (
@@ -1047,7 +1047,7 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
               onDragOver={e => onDragOver(e, i)}
               onDrop={() => onDrop(i)}
               onDragEnd={() => { setDragIdx(null); setDragOverIdx(null) }}>
-              <div className={`aspect-square rounded-lg overflow-hidden bg-gray-100 cursor-pointer ring-2 transition-all ${dragOverIdx === i ? 'ring-blue-400 scale-95' : 'ring-transparent'}`}
+              <div className={`aspect-square rounded-lg overflow-hidden bg-[var(--bg-elevated)] cursor-pointer ring-2 transition-all ${dragOverIdx === i ? 'ring-blue-400 scale-95' : 'ring-transparent'}`}
                 onClick={() => setLightboxIdx(i)}>
                 <img src={p.url} alt="" referrerPolicy="no-referrer"
                   className="w-full h-full object-cover group-hover:opacity-85 transition-opacity" />
@@ -1067,18 +1067,18 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
       )}
 
       {editMetaIdx !== null && photos[editMetaIdx] && (
-        <div className="mx-2 mb-2 p-2.5 bg-gray-50 border border-gray-200 rounded-xl space-y-1.5">
+        <div className="mx-2 mb-2 p-2.5 bg-[var(--bg-elevated)] border border-[var(--input-border)] rounded-xl space-y-1.5">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-semibold text-gray-600">Nuotrauka #{editMetaIdx + 1} — metaduomenys</span>
-            <button type="button" onClick={() => setEditMetaIdx(null)} className="text-gray-400 hover:text-gray-600 text-sm leading-none">✕</button>
+            <span className="text-xs font-semibold text-[var(--text-secondary)]">Nuotrauka #{editMetaIdx + 1} — metaduomenys</span>
+            <button type="button" onClick={() => setEditMetaIdx(null)} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] text-sm leading-none">✕</button>
           </div>
           <div className="flex gap-2">
             <input type="text" value={photos[editMetaIdx].author || ''} onChange={e => updateMeta(editMetaIdx, 'author', e.target.value)}
               placeholder="© Autorius / licencija"
-              className="flex-1 px-2 py-1 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
+              className="flex-1 px-2 py-1 border border-[var(--input-border)] rounded-lg text-xs text-[var(--text-secondary)] focus:outline-none focus:border-blue-400 bg-[var(--bg-surface)]" />
             <input type="url" value={photos[editMetaIdx].sourceUrl || ''} onChange={e => updateMeta(editMetaIdx, 'sourceUrl', e.target.value)}
               placeholder="Šaltinio URL"
-              className="flex-1 px-2 py-1 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
+              className="flex-1 px-2 py-1 border border-[var(--input-border)] rounded-lg text-xs text-[var(--text-secondary)] focus:outline-none focus:border-blue-400 bg-[var(--bg-surface)]" />
           </div>
         </div>
       )}
@@ -1098,16 +1098,16 @@ function SocialsSection({ form, set }: { form: ArtistFormData; set: (k: keyof Ar
   return (
     <div>
       <button type="button" onClick={() => setOpen(p => !p)}
-        className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 transition-colors">
+        className="w-full flex items-center justify-between px-3 py-2 hover:bg-[var(--bg-hover)] transition-colors">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-gray-500">Nuorodos</span>
+          <span className="text-xs font-semibold text-[var(--text-muted)]">Nuorodos</span>
           {filledCount > 0 && <span className="bg-blue-100 text-blue-600 text-xs font-bold px-1.5 py-0.5 rounded-full">{filledCount}</span>}
         </div>
-        <span className={`text-gray-400 text-xs transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>▼</span>
+        <span className={`text-[var(--text-muted)] text-xs transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>▼</span>
       </button>
 
       {open && (
-        <div className="border-t border-gray-100 p-3 space-y-1.5">
+        <div className="border-t border-[var(--border-subtle)] p-3 space-y-1.5">
           {SOCIALS.map(({ key, ph }) => (
             <div key={key} className="flex items-center gap-1.5">
               <span className="w-5 flex items-center justify-center shrink-0">{SocialIcons[key]}</span>
@@ -1116,21 +1116,21 @@ function SocialsSection({ form, set }: { form: ArtistFormData; set: (k: keyof Ar
                 value={(form as any)[key] || ''}
                 onChange={e => set(key as keyof ArtistFormData, e.target.value)}
                 placeholder={ph}
-                className="flex-1 px-2 py-1 border border-gray-200 rounded-lg text-gray-900 text-xs focus:outline-none focus:border-blue-400"
+                className="flex-1 px-2 py-1 border border-[var(--input-border)] rounded-lg text-[var(--text-primary)] text-xs focus:outline-none focus:border-blue-400"
               />
               {!!(form as any)[key] && (
                 <button type="button" onClick={() => set(key as keyof ArtistFormData, '')}
-                  className="text-gray-300 hover:text-red-400 text-xs shrink-0">×</button>
+                  className="text-[var(--text-faint)] hover:text-red-400 text-xs shrink-0">×</button>
               )}
             </div>
           ))}
-          <div className="pt-2 border-t border-gray-100">
-            <label className="block text-xs font-semibold text-gray-500 mb-1">Domenas music.lt</label>
+          <div className="pt-2 border-t border-[var(--border-subtle)]">
+            <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">Domenas music.lt</label>
             <div className="flex gap-1">
               <input type="text" value={form.subdomain || ''} onChange={e => set('subdomain', e.target.value)}
                 placeholder="vardas"
-                className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-blue-400 bg-white" />
-              <span className="px-2 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-500 text-sm whitespace-nowrap">.music.lt</span>
+                className="flex-1 px-2 py-1.5 border border-[var(--input-border)] rounded-lg text-[var(--text-primary)] text-sm focus:outline-none focus:border-blue-400 bg-[var(--bg-surface)]" />
+              <span className="px-2 py-1.5 bg-[var(--bg-elevated)] border border-[var(--input-border)] rounded-lg text-[var(--text-muted)] text-sm whitespace-nowrap">.music.lt</span>
             </div>
           </div>
         </div>
@@ -1241,14 +1241,14 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
 
   return (
     <form onSubmit={handleSubmit}>
-      <div className="flex flex-col lg:grid lg:grid-cols-2 gap-0 bg-white border-y lg:border lg:rounded-xl border-gray-100 shadow-sm overflow-hidden mt-2.5 mb-2.5 lg:mx-3">
+      <div className="flex flex-col lg:grid lg:grid-cols-2 gap-0 bg-[var(--bg-surface)] border-y lg:border lg:rounded-xl border-[var(--border-subtle)] shadow-sm overflow-hidden mt-2.5 mb-2.5 lg:mx-3">
 
         {/* ── LEFT COLUMN ── */}
-        <div className="p-2.5 sm:p-3 sm:pt-4 sm:pb-4 border-b lg:border-b-0 lg:border-r border-gray-100 space-y-2 sm:space-y-3">
+        <div className="p-2.5 sm:p-3 sm:pt-4 sm:pb-4 border-b lg:border-b-0 lg:border-r border-[var(--border-subtle)] space-y-2 sm:space-y-3">
 
           <div className="flex gap-2 items-end">
             <div className="flex-1 min-w-0">
-              <label className="block text-xs font-semibold text-gray-500 mb-1">Pavadinimas *</label>
+              <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">Pavadinimas *</label>
               <Inp value={form.name} onChange={(v:string)=>set('name',v)} placeholder="Pvz: Jazzu" required />
               {dupWarning.length > 0 && (
                 <div className="mt-1.5 p-2.5 bg-amber-50 border border-amber-200 rounded-lg">
@@ -1276,7 +1276,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                 {([['group','Grupė', <IconGroup key="g"/>],['solo','Solo', <IconPerson key="s"/>]] as const).map(([v,l,icon]) => (
                   <button key={v} type="button" onClick={()=>set('type',v)}
                     className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                      form.type===v ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      form.type===v ? 'bg-blue-600 text-white shadow-sm' : 'bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:bg-[var(--bg-active)]'
                     }`}>
                     {icon}{l}
                   </button>
@@ -1287,7 +1287,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">Šalis *</label>
+              <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">Šalis *</label>
               <Sel value={form.country} onChange={(v:string)=>set('country',v)} required>
                 {['Lietuva','Latvija','Estija','Lenkija','Vokietija','Prancūzija','JAV','Didžioji Britanija','Švedija','Norvegija','Suomija','Danija'].map(c=><option key={c} value={c}>{c}</option>)}
                 <optgroup label="─────────────">
@@ -1296,7 +1296,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
               </Sel>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">Pagrindinis stilius *</label>
+              <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">Pagrindinis stilius *</label>
               <Sel value={form.genre} onChange={(v:string)=>{ set('genre',v); set('substyles',[]) }} required>
                 <option value="">Pasirinkite...</option>
                 {GENRES.map(g=><option key={g} value={g}>{g}</option>)}
@@ -1308,25 +1308,25 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
 
           <div className="flex flex-col sm:grid sm:grid-cols-2 gap-1.5 sm:gap-3">
             <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">Veiklos laikotarpis</label>
+              <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">Veiklos laikotarpis</label>
               <div className="flex items-center gap-1.5">
                 <YearInput value={form.yearStart} onChange={(v:string)=>set('yearStart',v)} />
-                <span className="text-gray-300 text-sm">—</span>
+                <span className="text-[var(--text-faint)] text-sm">—</span>
                 <YearInput value={form.yearEnd} onChange={(v:string)=>set('yearEnd',v)} />
               </div>
             </div>
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <label className="block text-xs font-semibold text-gray-500">Pertraukos</label>
+                <label className="block text-xs font-semibold text-[var(--text-muted)]">Pertraukos</label>
                 <button type="button" onClick={addBreak} className="text-xs text-blue-500 hover:text-blue-700 font-medium">+ Pridėti</button>
               </div>
               {form.breaks.map((br,i) => (
                 <div key={i} className="flex gap-1 mb-1 items-center">
                   <input value={br.from} onChange={e=>upBreak(i,'from',e.target.value)} placeholder="MMMM"
-                    className="w-14 px-1 py-1 border border-gray-200 rounded-lg text-xs text-gray-900 focus:outline-none focus:border-blue-400 text-center" />
-                  <span className="text-gray-300 text-xs">–</span>
+                    className="w-14 px-1 py-1 border border-[var(--input-border)] rounded-lg text-xs text-[var(--text-primary)] focus:outline-none focus:border-blue-400 text-center" />
+                  <span className="text-[var(--text-faint)] text-xs">–</span>
                   <input value={br.to} onChange={e=>upBreak(i,'to',e.target.value)} placeholder="MMMM"
-                    className="w-14 px-1 py-1 border border-gray-200 rounded-lg text-xs text-gray-900 focus:outline-none focus:border-blue-400 text-center" />
+                    className="w-14 px-1 py-1 border border-[var(--input-border)] rounded-lg text-xs text-[var(--text-primary)] focus:outline-none focus:border-blue-400 text-center" />
                   <button type="button" onClick={()=>rmBreak(i)} className="text-red-400 hover:text-red-600 text-xs">×</button>
                 </div>
               ))}
@@ -1334,15 +1334,15 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
           </div>
 
           {form.type==='solo' && (
-            <div className="space-y-1.5 sm:space-y-3 pt-1.5 sm:pt-2 border-t border-gray-100">
+            <div className="space-y-1.5 sm:space-y-3 pt-1.5 sm:pt-2 border-t border-[var(--border-subtle)]">
               <div className="flex flex-col sm:flex-row sm:items-end sm:gap-4 gap-1">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Lytis</label>
+                  <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">Lytis</label>
                   <div className="flex gap-1">
                     {([['male','Vyras'],['female','Moteris']] as const).map(([v,l]) => (
                       <button key={v} type="button" onClick={()=>set('gender',v)}
                         className={`px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                          form.gender===v ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          form.gender===v ? 'bg-blue-600 text-white shadow-sm' : 'bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:bg-[var(--bg-active)]'
                         }`}>
                         {l}
                       </button>
@@ -1355,7 +1355,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
                   onY={(v:string)=>set('deathYear',v)} onM={(v:string)=>set('deathMonth',v)} onD={(v:string)=>set('deathDay',v)} />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-0.5">Priklauso grupėms</label>
+                <label className="block text-xs font-semibold text-[var(--text-muted)] mb-0.5">Priklauso grupėms</label>
                 <ArtistSearch label="Grupės" ph="Ieškoti grupės..." items={form.groups||[]}
                   onAdd={addGroup} onRemove={rmGroup} onYears={upGroup} filterType="group" />
               </div>
@@ -1363,8 +1363,8 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
           )}
 
           {form.type==='group' && (
-            <div className="pt-1.5 sm:pt-2 border-t border-gray-100">
-              <label className="block text-xs font-semibold text-gray-500 mb-1">Grupės nariai</label>
+            <div className="pt-1.5 sm:pt-2 border-t border-[var(--border-subtle)]">
+              <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">Grupės nariai</label>
               <ArtistSearch label="Nariai" ph="Ieškoti atlikėjo..." items={form.members}
                 onAdd={addMember} onRemove={rmMember} onYears={upMember} filterType="solo" />
             </div>
@@ -1392,7 +1392,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
             }}
           />
 
-          <div className="border-t border-gray-100 pt-3">
+          <div className="border-t border-[var(--border-subtle)] pt-3">
             <DescriptionEditor
               value={form.description}
               onChange={v=>set('description',v)}
@@ -1408,7 +1408,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
             />
           </div>
 
-          <div className="border-t border-gray-100">
+          <div className="border-t border-[var(--border-subtle)]">
             <SocialsSection form={form} set={set} />
           </div>
         </div>
@@ -1424,7 +1424,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
             className="flex-1 bg-gradient-to-r from-music-blue to-blue-600 text-white font-bold py-4 rounded-xl hover:opacity-90 text-lg shadow-md">
             ✓ {submitLabel}
           </button>
-          <Link href={backHref} className="px-8 py-4 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 flex items-center font-medium">
+          <Link href={backHref} className="px-8 py-4 border border-[var(--text-faint)] text-[var(--text-secondary)] rounded-xl hover:bg-[var(--bg-hover)] flex items-center font-medium">
             Atšaukti
           </Link>
         </div>

@@ -80,18 +80,18 @@ export default function NewArtistPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[var(--bg-elevated)]">
 
       {/* ── Sticky header ── */}
-      <header className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-sm">
+      <header className="sticky top-0 z-40 bg-[var(--bg-surface)] border-b border-[var(--input-border)] shadow-sm">
         <div className="px-4 sm:px-6 h-11 flex items-center gap-3">
           {/* Breadcrumbs */}
-          <nav className="flex items-center gap-1.5 text-xs text-gray-400 min-w-0 flex-1 overflow-hidden">
-            <Link href="/admin" className="hover:text-gray-700 shrink-0 transition-colors">Admin</Link>
-            <span className="shrink-0 text-gray-300">/</span>
-            <Link href="/admin/artists" className="hover:text-gray-700 shrink-0 transition-colors">Atlikėjai</Link>
-            <span className="shrink-0 text-gray-300">/</span>
-            <span className="text-gray-700 font-semibold truncate">
+          <nav className="flex items-center gap-1.5 text-xs text-[var(--text-muted)] min-w-0 flex-1 overflow-hidden">
+            <Link href="/admin" className="hover:text-[var(--text-secondary)] shrink-0 transition-colors">Admin</Link>
+            <span className="shrink-0 text-[var(--text-faint)]">/</span>
+            <Link href="/admin/artists" className="hover:text-[var(--text-secondary)] shrink-0 transition-colors">Atlikėjai</Link>
+            <span className="shrink-0 text-[var(--text-faint)]">/</span>
+            <span className="text-[var(--text-secondary)] font-semibold truncate">
               {artistName || 'Naujas atlikėjas'}
             </span>
           </nav>
@@ -99,12 +99,12 @@ export default function NewArtistPage() {
           {/* Action buttons */}
           <div className="flex items-center gap-2 shrink-0">
             <Link href="/admin/artists"
-              className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-800 border border-gray-200 rounded-lg bg-white transition-colors">
+              className="px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--input-border)] rounded-lg bg-[var(--bg-surface)] transition-colors">
               Atšaukti
             </Link>
             {saved && artistId && (
               <Link href={`/admin/artists/${artistId}`}
-                className="px-3 py-1.5 text-xs text-blue-600 border border-blue-200 rounded-lg bg-white hover:bg-blue-50 transition-colors font-medium">
+                className="px-3 py-1.5 text-xs text-blue-600 border border-blue-200 rounded-lg bg-[var(--bg-surface)] hover:bg-blue-50 transition-colors font-medium">
                 Atidaryti →
               </Link>
             )}
@@ -127,7 +127,7 @@ export default function NewArtistPage() {
         <div className="flex-1 min-w-0">
 
           {/* Wikipedia import strip */}
-          <div className="bg-white border-b border-gray-200 px-3 sm:px-4 py-3">
+          <div className="bg-[var(--bg-surface)] border-b border-[var(--input-border)] px-3 sm:px-4 py-3">
             <WikipediaImport onImport={handleWikiImport} />
           </div>
 
@@ -155,10 +155,10 @@ export default function NewArtistPage() {
         </div>
 
         {/* RIGHT — Diskografijos šoninė juosta */}
-        <div className="hidden lg:flex flex-col w-72 xl:w-80 shrink-0 border-l border-gray-200 bg-white min-h-[calc(100vh-44px)] sticky top-11">
+        <div className="hidden lg:flex flex-col w-72 xl:w-80 shrink-0 border-l border-[var(--input-border)] bg-[var(--bg-surface)] min-h-[calc(100vh-44px)] sticky top-11">
           {/* Header */}
-          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-600">Diskografija</span>
+          <div className="px-4 py-3 border-b border-[var(--border-subtle)] flex items-center justify-between">
+            <span className="text-xs font-semibold text-[var(--text-secondary)]">Diskografija</span>
             {artistId && (
               <WikipediaImportDiscography
                 artistId={parseInt(artistId)}
@@ -174,13 +174,13 @@ export default function NewArtistPage() {
           {/* Content */}
           <div className="flex-1 flex items-center justify-center p-6">
             {artistId ? (
-              <p className="text-xs text-gray-400 text-center leading-relaxed">
+              <p className="text-xs text-[var(--text-muted)] text-center leading-relaxed">
                 Albumai rodomi<br/>po Wikipedia importo
               </p>
             ) : (
               <div className="text-center">
                 <div className="text-3xl mb-2 opacity-30">💿</div>
-                <p className="text-xs text-gray-400 leading-relaxed">
+                <p className="text-xs text-[var(--text-muted)] leading-relaxed">
                   Prieinama po<br/>atlikėjo išsaugojimo
                 </p>
               </div>

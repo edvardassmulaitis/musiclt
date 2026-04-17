@@ -4,20 +4,12 @@ import React, { useState, useEffect, use, useRef, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-
-// ── SVG Icons ─────────────────────────────────────────────────────────────────
-const IcoTrash  = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-const IcoCheck  = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-const IcoX      = () => <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-const IcoAlert  = () => <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-const IcoSearch = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-const IcoImage  = () => <svg className="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-const IcoInfo   = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-const IcoText   = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h10" /></svg>
-const IcoBack   = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-const IcoFolder = () => <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-5l-2-2H5a2 2 0 00-2 2z" /></svg>
-const IcoYT     = () => <svg className="w-3 h-3 text-red-500" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
-const IcoSP     = () => <svg className="w-3 h-3 text-green-500" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+import { IcoTrash, IcoCheck, IcoX, IcoAlert, IcoSearch, IcoImage, IcoInfo, IcoText, IcoBack, IcoFolder, IcoYouTube, IcoSpotify } from '@/components/ui/Icons'
+import ArtistSearchInput from '@/components/ui/ArtistSearchInput'
+import DateNumberInput from '@/components/ui/DateNumberInput'
+import YouTubeSearch from '@/components/ui/YouTubeSearch'
+import DescriptionEditor from '@/components/ui/DescriptionEditor'
+import { extractYouTubeId } from '@/components/ui/helpers'
 
 const TRACK_TYPES = ['normal', 'remix', 'live', 'mashup', 'instrumental'] as const
 const TRACK_TYPE_DEFS: Record<string, { label: string; icon: React.ReactNode }> = {
@@ -33,112 +25,6 @@ type FeaturingArtist = { artist_id: number; name: string }
 type AlbumRef = { album_id: number; album_title: string; album_year: number | null; position: number; cover_url?: string | null }
 type YTResult = { videoId: string; title: string; channel: string; thumbnail: string }
 type LyricsTab = 'lyrics' | 'chords'
-
-function extractYouTubeId(url: string): string {
-  return url.match(/(?:v=|youtu\.be\/)([^&?]+)/)?.[1] || ''
-}
-
-function DateNum({ value, onChange, min, max, placeholder, width = 'w-14' }: {
-  value: string; onChange: (v: string) => void
-  min: number; max: number; placeholder: string; width?: string
-}) {
-  const [raw, setRaw] = useState(value)
-  useEffect(() => setRaw(value), [value])
-  const commit = (s: string) => {
-    const n = parseInt(s)
-    if (!s || isNaN(n)) { onChange(''); setRaw('') }
-    else if (n >= min && n <= max) { onChange(String(n)); setRaw(String(n)) }
-    else setRaw(value)
-  }
-  return (
-    <input type="number" value={raw}
-      onChange={e => setRaw(e.target.value)}
-      onBlur={e => commit(e.target.value)}
-      onKeyDown={e => e.key === 'Enter' && commit(raw)}
-      placeholder={placeholder} min={min} max={max}
-      className={`${width} px-2 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-blue-400 bg-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`} />
-  )
-}
-
-function ArtistSearchInput({ placeholder = 'Ieškoti atlikėjo...', onSelect }: {
-  placeholder?: string
-  onSelect: (id: number, name: string, avatar?: string | null) => void
-}) {
-  const [q, setQ] = useState('')
-  const [results, setResults] = useState<any[]>([])
-  useEffect(() => {
-    if (q.length < 2) { setResults([]); return }
-    const t = setTimeout(async () => {
-      const res = await fetch(`/api/artists?search=${encodeURIComponent(q)}&limit=6`)
-      setResults((await res.json()).artists || [])
-    }, 200)
-    return () => clearTimeout(t)
-  }, [q])
-  return (
-    <div className="relative">
-      <input value={q} onChange={e => setQ(e.target.value)} placeholder={placeholder}
-        className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-blue-400 transition-colors bg-white" />
-      {results.length > 0 && (
-        <div className="absolute z-50 w-full bg-white border border-gray-200 rounded-xl shadow-xl mt-1 overflow-hidden">
-          {results.map(a => {
-            const avatar = a.cover_image_url || a.avatar || null
-            return (
-              <button key={a.id} type="button"
-                onClick={() => { onSelect(a.id, a.name, avatar); setQ(''); setResults([]) }}
-                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-blue-50 text-left transition-colors">
-                {avatar
-                  ? <img src={avatar} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" referrerPolicy="no-referrer" />
-                  : <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white text-xs font-bold shrink-0">{a.name[0]}</div>
-                }
-                <span className="font-medium text-gray-900 text-sm">{a.name}</span>
-                <span className="text-gray-400 text-xs ml-auto">{a.country}</span>
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function YouTubeSearch({ initialQuery, onSelect }: { initialQuery: string; onSelect: (url: string) => void }) {
-  const [query, setQuery] = useState(initialQuery)
-  const [results, setResults] = useState<YTResult[]>([])
-  const [loading, setLoading] = useState(false)
-  useEffect(() => { setQuery(initialQuery) }, [initialQuery])
-  const search = async () => {
-    if (!query.trim()) return
-    setLoading(true); setResults([])
-    try { setResults((await (await fetch(`/api/search/youtube?q=${encodeURIComponent(query)}&type=video`)).json()).results || []) }
-    finally { setLoading(false) }
-  }
-  return (
-    <div className="space-y-1.5">
-      <div className="flex gap-1.5">
-        <input value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && search()}
-          placeholder="Ieškoti YouTube..." className="flex-1 px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-blue-400 bg-white" />
-        <button type="button" onClick={search} disabled={loading}
-          className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm disabled:opacity-50 transition-colors shrink-0">
-          {loading ? <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : <IcoSearch />}
-        </button>
-      </div>
-      {results.length > 0 && (
-        <div className="rounded-lg border border-gray-100 overflow-hidden">
-          {results.map(r => (
-            <div key={r.videoId} onClick={() => { onSelect(`https://www.youtube.com/watch?v=${r.videoId}`); setResults([]) }}
-              className="flex items-center gap-2 px-2.5 py-1.5 cursor-pointer hover:bg-blue-50 transition-colors border-b border-gray-50 last:border-0">
-              <img src={r.thumbnail} alt="" className="w-12 h-8 object-cover rounded shrink-0" />
-              <div className="min-w-0">
-                <p className="text-xs font-medium text-gray-900 line-clamp-1">{r.title}</p>
-                <p className="text-xs text-gray-400 truncate">{r.channel}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
 
 function CoverMini({ value, onChange }: { value: string; onChange: (url: string) => void }) {
   const fileRef = useRef<HTMLInputElement>(null)
@@ -177,32 +63,32 @@ function CoverMini({ value, onChange }: { value: string; onChange: (url: string)
           onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f?.type.startsWith('image/')) upload(f) }}
           onDragOver={e => e.preventDefault()}>
           <img src={value} alt="" referrerPolicy="no-referrer"
-            className="w-full object-contain bg-gray-900 group-hover:opacity-90 transition-opacity" style={{ height: '160px' }} />
+            className="w-full object-contain bg-[var(--bg-body)] group-hover:opacity-90 transition-opacity" style={{ height: '160px' }} />
           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
             <span className="text-white text-sm font-medium">Keisti ↗</span>
           </div>
-          {uploading && <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
+          {uploading && <div className="absolute inset-0 bg-[var(--bg-surface)]/80 flex items-center justify-center">
             <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" /></div>}
         </div>
       ) : (
-        <div className="relative w-full rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 cursor-pointer hover:border-blue-400 transition-colors flex items-center justify-center" style={{ height: '160px' }}
+        <div className="relative w-full rounded-lg border-2 border-dashed border-[var(--input-border)] bg-[var(--bg-elevated)] cursor-pointer hover:border-blue-400 transition-colors flex items-center justify-center" style={{ height: '160px' }}
           onClick={() => !uploading && fileRef.current?.click()}
           onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f?.type.startsWith('image/')) upload(f) }}
           onDragOver={e => e.preventDefault()}>
-          <div className="text-center text-gray-400">
+          <div className="text-center text-[var(--text-muted)]">
             <IcoImage />
             <span className="text-xs block mt-1">Įkelti viršelį</span>
           </div>
-          {uploading && <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-lg">
+          {uploading && <div className="absolute inset-0 bg-[var(--bg-surface)]/80 flex items-center justify-center rounded-lg">
             <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" /></div>}
         </div>
       )}
       <div className="flex gap-1.5">
         <input type="text" value={urlInput} onChange={e => setUrlInput(e.target.value)}
           onBlur={e => commitUrl(e.target.value)} onKeyDown={e => e.key === 'Enter' && commitUrl(urlInput)}
-          placeholder="https://..." className="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
+          placeholder="https://..." className="flex-1 min-w-0 px-2 py-1.5 border border-[var(--input-border)] rounded-lg text-xs text-[var(--text-secondary)] focus:outline-none focus:border-blue-400 bg-[var(--bg-surface)]" />
         <button type="button" onClick={() => fileRef.current?.click()}
-          className="p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg transition-colors shrink-0"><IcoFolder /></button>
+          className="p-1.5 bg-[var(--bg-elevated)] hover:bg-[var(--bg-active)] text-[var(--text-secondary)] rounded-lg transition-colors shrink-0"><IcoFolder /></button>
         {value && <button type="button" onClick={() => { onChange(''); setUrlInput('') }}
           className="p-1.5 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg transition-colors shrink-0"><IcoX /></button>}
       </div>
@@ -415,13 +301,13 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
   // ── Info Panel ──────────────────────────────────────────────────────────────
   const InfoPanel = (
     <div className="space-y-2.5 p-3 pb-4">
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 space-y-2.5">
+      <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-subtle)] shadow-sm p-3 space-y-2.5">
 
         <div className="space-y-2 sm:space-y-0 sm:grid sm:grid-cols-[1fr_auto] sm:gap-3 sm:items-start">
           <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-1">Pavadinimas *</label>
+            <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">Pavadinimas *</label>
             <input value={title} onChange={e => { setTitle(e.target.value); setParseResult(null) }} placeholder="Dainos pavadinimas"
-              className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-sm font-medium focus:outline-none focus:border-blue-400 bg-white transition-colors" />
+              className="w-full px-2.5 py-1.5 border border-[var(--input-border)] rounded-lg text-[var(--text-primary)] text-sm font-medium focus:outline-none focus:border-blue-400 bg-[var(--bg-surface)] transition-colors" />
             {hasFeat && (
               <div className="mt-1">
                 <button type="button" onClick={handleParseFeaturing} disabled={parsingFeat}
@@ -433,11 +319,11 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
             {parseResult && <p className={`text-xs mt-0.5 ${parseResult.startsWith('✓') ? 'text-green-600' : 'text-red-500'}`}>{parseResult}</p>}
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-1">Data</label>
+            <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">Data</label>
             <div className="flex gap-1">
-              <DateNum value={releaseYear} onChange={setReleaseYear} min={1900} max={2030} placeholder="Metai" width="w-16" />
-              <DateNum value={releaseMonth} onChange={setReleaseMonth} min={1} max={12} placeholder="Mėn" />
-              <DateNum value={releaseDay} onChange={setReleaseDay} min={1} max={31} placeholder="D" width="w-11" />
+              <DateNumberInput mode="string" value={releaseYear} onChange={setReleaseYear} min={1900} max={2030} placeholder="Metai" width="w-16" />
+              <DateNumberInput mode="string" value={releaseMonth} onChange={setReleaseMonth} min={1} max={12} placeholder="Mėn" />
+              <DateNumberInput mode="string" value={releaseDay} onChange={setReleaseDay} min={1} max={31} placeholder="D" width="w-11" />
             </div>
             {firstAlbumYear && releaseYear !== String(firstAlbumYear) && (
               <button onClick={() => { setReleaseYear(String(firstAlbumYear)); setReleaseMonth(''); setReleaseDay('') }}
@@ -447,7 +333,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-gray-500 mb-1">Atlikėjai *</label>
+          <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">Atlikėjai *</label>
           <div className="flex flex-wrap items-center gap-1.5">
             {artistId ? (
               <div className="flex items-center gap-1.5 bg-blue-50 text-blue-800 border border-blue-200 rounded-full pl-1 pr-2.5 py-1 text-sm font-semibold shrink-0">
@@ -465,10 +351,10 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
               </div>
             )}
             {featuring.map((f, i) => (
-              <div key={f.artist_id} className="flex items-center gap-1 bg-gray-100 text-gray-700 border border-gray-200 rounded-full px-2 py-1 text-xs shrink-0">
-                <span className="text-gray-400">su</span>{f.name}
+              <div key={f.artist_id} className="flex items-center gap-1 bg-[var(--bg-elevated)] text-[var(--text-secondary)] border border-[var(--input-border)] rounded-full px-2 py-1 text-xs shrink-0">
+                <span className="text-[var(--text-muted)]">su</span>{f.name}
                 <button type="button" onClick={() => setFeaturing(p => p.filter((_, j) => j !== i))}
-                  className="text-gray-400 hover:text-red-500 ml-0.5">×</button>
+                  className="text-[var(--text-muted)] hover:text-red-500 ml-0.5">×</button>
               </div>
             ))}
             {artistId > 0 && (
@@ -483,26 +369,26 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-gray-500 mb-1">Tipas</label>
+          <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">Tipas</label>
           <div className="flex flex-wrap gap-1">
             {TRACK_TYPES.map(tp => (
               <button key={tp} type="button" onClick={() => setTrackType(tp)}
                 className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all ${
                   trackType === tp
                     ? 'bg-blue-600 text-white shadow-sm'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    : 'bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:bg-[var(--bg-active)]'
                 }`}>
                 {TRACK_TYPE_DEFS[tp].icon}{TRACK_TYPE_DEFS[tp].label}
               </button>
             ))}
             {/* ── FIX 1: isSingle toggle ────────────────────────────────── */}
             <button type="button" onClick={() => setIsSingle(p => !p)}
-              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all ${isSingle ? 'bg-orange-500 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all ${isSingle ? 'bg-orange-500 text-white shadow-sm' : 'bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:bg-[var(--bg-active)]'}`}>
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" strokeWidth={2}/><circle cx="12" cy="12" r="3" strokeWidth={2}/></svg>
               Singlas
             </button>
             <button type="button" onClick={toggleNew}
-              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all ${isNew ? 'bg-green-500 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all ${isNew ? 'bg-green-500 text-white shadow-sm' : 'bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:bg-[var(--bg-active)]'}`}>
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>Naujas
             </button>
           </div>
@@ -511,20 +397,20 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
       </div>
 
       {albums.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-3 py-2 border-b border-gray-100 flex items-center gap-1.5">
-            <span className="text-xs font-bold text-gray-600">Albumai</span>
-            <span className="bg-gray-200 text-gray-600 text-xs font-bold px-1.5 py-0.5 rounded-full">{albums.length}</span>
+        <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-subtle)] shadow-sm overflow-hidden">
+          <div className="px-3 py-2 border-b border-[var(--border-subtle)] flex items-center gap-1.5">
+            <span className="text-xs font-bold text-[var(--text-secondary)]">Albumai</span>
+            <span className="bg-[var(--bg-active)] text-[var(--text-secondary)] text-xs font-bold px-1.5 py-0.5 rounded-full">{albums.length}</span>
           </div>
           {albums.map(a => (
-            <div key={a.album_id} className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-50 last:border-0 group hover:bg-gray-50 transition-colors">
-              <span className="text-gray-300 text-xs w-4 text-right shrink-0">{a.position}.</span>
+            <div key={a.album_id} className="flex items-center gap-2 px-3 py-1.5 border-b border-[var(--border-subtle)] last:border-0 group hover:bg-[var(--bg-elevated)] transition-colors">
+              <span className="text-[var(--text-faint)] text-xs w-4 text-right shrink-0">{a.position}.</span>
               <div className="flex-1 min-w-0">
-                <Link href={`/admin/albums/${a.album_id}`} className="text-sm text-gray-900 hover:text-blue-600 truncate block transition-colors">{a.album_title}</Link>
-                {a.album_year && <span className="text-xs text-gray-400">{a.album_year}</span>}
+                <Link href={`/admin/albums/${a.album_id}`} className="text-sm text-[var(--text-primary)] hover:text-blue-600 truncate block transition-colors">{a.album_title}</Link>
+                {a.album_year && <span className="text-xs text-[var(--text-muted)]">{a.album_year}</span>}
               </div>
               <button onClick={() => removeFromAlbum(a.album_id)} disabled={removingFromAlbum === a.album_id}
-                className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 text-xs px-1 rounded transition-all disabled:opacity-50">
+                className="opacity-0 group-hover:opacity-100 text-[var(--text-faint)] hover:text-red-500 text-xs px-1 rounded transition-all disabled:opacity-50">
                 {removingFromAlbum === a.album_id ? '...' : '✕'}
               </button>
             </div>
@@ -532,10 +418,10 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 space-y-2.5">
+      <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-subtle)] shadow-sm p-3 space-y-2.5">
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <p className="text-xs font-semibold text-gray-500 mb-1.5">Viršelis</p>
+            <p className="text-xs font-semibold text-[var(--text-muted)] mb-1.5">Viršelis</p>
             <CoverMini value={coverUrl} onChange={v => { setCoverUrl(v); setCoverFetchMsg(null) }} />
             {!coverUrl && (
               <div className="mt-1">
@@ -548,9 +434,9 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
             )}
           </div>
           <div>
-            <p className="text-xs font-semibold text-gray-500 mb-1 flex items-center gap-1"><IcoSP />Spotify</p>
+            <p className="text-xs font-semibold text-[var(--text-muted)] mb-1 flex items-center gap-1"><IcoSpotify className="w-3 h-3 text-green-500" />Spotify</p>
             <input value={spotifyId} onChange={e => setSpotifyId(e.target.value)} placeholder="Track ID..."
-              className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-xs focus:outline-none focus:border-blue-400 font-mono transition-colors bg-white" />
+              className="w-full px-2 py-1.5 border border-[var(--input-border)] rounded-lg text-[var(--text-primary)] text-xs focus:outline-none focus:border-blue-400 font-mono transition-colors bg-[var(--bg-surface)]" />
             {spotifyId && (
               <a href={`https://open.spotify.com/track/${spotifyId}`} target="_blank" rel="noopener noreferrer"
                 className="mt-1 flex items-center gap-1 text-xs text-green-600 hover:text-green-700 transition-colors">🔗 Atidaryti Spotify</a>
@@ -559,18 +445,18 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
               <input value={spUrlInput} onChange={e => setSpUrlInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') { const m = spUrlInput.match(/track\/([A-Za-z0-9]+)/); if (m) { setSpotifyId(m[1]); setSpUrlInput('') } } }}
                 placeholder="Spotify URL..."
-                className="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
+                className="flex-1 min-w-0 px-2 py-1.5 border border-[var(--input-border)] rounded-lg text-xs text-[var(--text-secondary)] focus:outline-none focus:border-blue-400 bg-[var(--bg-surface)]" />
               <button type="button" onClick={() => { const m = spUrlInput.match(/track\/([A-Za-z0-9]+)/); if (m) { setSpotifyId(m[1]); setSpUrlInput('') } }}
                 className="px-2.5 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold transition-colors shrink-0">✓</button>
             </div>
           </div>
         </div>
 
-        <div className="border-t border-gray-100 pt-2.5">
-          <p className="text-xs font-semibold text-gray-500 mb-1 flex items-center gap-1"><IcoYT />YouTube</p>
+        <div className="border-t border-[var(--border-subtle)] pt-2.5">
+          <p className="text-xs font-semibold text-[var(--text-muted)] mb-1 flex items-center gap-1"><IcoYouTube className="w-3 h-3 text-red-500" />YouTube</p>
           <div className="flex gap-1 mb-1.5">
             <input value={videoUrl} onChange={e => setVideoUrl(e.target.value)} placeholder="youtube.com/watch?v=..."
-              className="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
+              className="flex-1 min-w-0 px-2 py-1.5 border border-[var(--input-border)] rounded-lg text-xs text-[var(--text-secondary)] focus:outline-none focus:border-blue-400 bg-[var(--bg-surface)]" />
             {ytId && <button type="button" onClick={() => setVideoUrl('')}
               className="px-2 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg text-xs transition-colors shrink-0">✕</button>}
           </div>
@@ -588,14 +474,14 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
 
   const LyricsPanel = (
     <div className="flex flex-col h-full p-3">
-      <div className="bg-white rounded-t-xl border border-gray-100 shadow-sm shrink-0 flex items-center">
+      <div className="bg-[var(--bg-surface)] rounded-t-xl border border-[var(--border-subtle)] shadow-sm shrink-0 flex items-center">
         <button onClick={() => setLyricsTab('lyrics')}
-          className={`flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-tl-xl transition-colors ${lyricsTab === 'lyrics' ? 'text-blue-600 bg-blue-50/60' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
+          className={`flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-tl-xl transition-colors ${lyricsTab === 'lyrics' ? 'text-blue-600 bg-blue-50/60' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]'}`}>
           Dainos tekstas {hasLyrics && <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />}
         </button>
-        <div className="w-px h-5 bg-gray-200 shrink-0" />
+        <div className="w-px h-5 bg-[var(--bg-active)] shrink-0" />
         <button onClick={() => setLyricsTab('chords')}
-          className={`flex items-center gap-1.5 px-3 py-2 text-sm font-semibold transition-colors ${lyricsTab === 'chords' ? 'text-blue-600 bg-blue-50/60' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
+          className={`flex items-center gap-1.5 px-3 py-2 text-sm font-semibold transition-colors ${lyricsTab === 'chords' ? 'text-blue-600 bg-blue-50/60' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]'}`}>
           Akordai {hasChords && <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />}
         </button>
       </div>
@@ -603,7 +489,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
         value={lyricsTab === 'lyrics' ? lyrics : chords}
         onChange={e => lyricsTab === 'lyrics' ? setLyrics(e.target.value) : setChords(e.target.value)}
         placeholder={lyricsTab === 'lyrics' ? 'Dainos žodžiai...' : 'Am  G  F  G\nVerse 1...'}
-        className="flex-1 w-full px-3 py-2.5 text-sm text-gray-900 bg-white border border-t-0 border-gray-100 shadow-sm rounded-b-xl focus:outline-none resize-none font-mono leading-relaxed"
+        className="flex-1 w-full px-3 py-2.5 text-sm text-[var(--text-primary)] bg-[var(--bg-surface)] border border-t-0 border-[var(--border-subtle)] shadow-sm rounded-b-xl focus:outline-none resize-none font-mono leading-relaxed"
       />
     </div>
   )
@@ -612,44 +498,44 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
     // ── FIX 2: data-theme="light" visam puslapiui ─────────────────────────────
     <div className="overflow-hidden flex flex-col bg-[#f8f7f5]" style={{ height: 'calc(100vh - 56px)' }} data-theme="light">
 
-      <div className="shrink-0 bg-white/95 backdrop-blur border-b border-gray-200">
+      <div className="shrink-0 bg-[var(--bg-surface)]/95 backdrop-blur border-b border-[var(--input-border)]">
         <div className="flex items-center justify-between gap-3 px-3 py-2">
           <nav className="flex items-center gap-1 text-sm min-w-0">
-            <Link href="/admin" className="text-gray-400 hover:text-gray-700 shrink-0 hidden lg:block">Admin</Link>
-            <span className="text-gray-300 hidden lg:block">/</span>
-            <Link href="/admin/artists" className="text-gray-400 hover:text-gray-700 shrink-0 hidden lg:block">Atlikėjai</Link>
+            <Link href="/admin" className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] shrink-0 hidden lg:block">Admin</Link>
+            <span className="text-[var(--text-faint)] hidden lg:block">/</span>
+            <Link href="/admin/artists" className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] shrink-0 hidden lg:block">Atlikėjai</Link>
             {artistId > 0 && <>
-              <span className="text-gray-300 hidden lg:block">/</span>
-              <Link href={`/admin/artists/${artistId}`} className="text-gray-400 hover:text-gray-700 shrink-0 hidden lg:block">{artistName}</Link>
-              <span className="text-gray-300 hidden lg:block">/</span>
-              <Link href={`/admin/albums?artist=${artistId}`} className="text-gray-400 hover:text-gray-700 shrink-0 hidden lg:block">Albumai</Link>
-              <span className="text-gray-300 hidden lg:block">/</span>
-              <Link href={`/admin/tracks?artist=${artistId}`} className="text-gray-400 hover:text-gray-700 shrink-0 hidden lg:block">Dainos</Link>
+              <span className="text-[var(--text-faint)] hidden lg:block">/</span>
+              <Link href={`/admin/artists/${artistId}`} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] shrink-0 hidden lg:block">{artistName}</Link>
+              <span className="text-[var(--text-faint)] hidden lg:block">/</span>
+              <Link href={`/admin/albums?artist=${artistId}`} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] shrink-0 hidden lg:block">Albumai</Link>
+              <span className="text-[var(--text-faint)] hidden lg:block">/</span>
+              <Link href={`/admin/tracks?artist=${artistId}`} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] shrink-0 hidden lg:block">Dainos</Link>
             </>}
             <div className="flex lg:hidden items-center gap-2 min-w-0">
               <Link href={artistId ? `/admin/tracks?artist=${artistId}` : '/admin/tracks'}
-                className="text-gray-400 hover:text-gray-700 shrink-0"><IcoBack /></Link>
-              <span className="text-gray-800 font-semibold truncate">{isNewTrack ? 'Nauja daina' : (title || '...')}</span>
+                className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] shrink-0"><IcoBack /></Link>
+              <span className="text-[var(--text-primary)] font-semibold truncate">{isNewTrack ? 'Nauja daina' : (title || '...')}</span>
               {artistId > 0 && (
                 <div className="relative shrink-0" ref={mobileNavRef}>
                   <button onClick={() => setShowMobileNav(p => !p)}
-                    className="p-1 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
+                    className="p-1 text-[var(--text-muted)] hover:text-[var(--text-secondary)] rounded-lg hover:bg-[var(--bg-elevated)] transition-colors">
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
                   </button>
                   {showMobileNav && (
-                    <div className="absolute left-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-50 min-w-[160px] overflow-hidden">
+                    <div className="absolute left-0 top-full mt-1 bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-xl shadow-[var(--modal-shadow)] z-50 min-w-[160px] overflow-hidden">
                       <Link href={`/admin/artists/${artistId}`} onClick={() => setShowMobileNav(false)}
-                        className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                        className="flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] transition-colors">
+                        <svg className="w-4 h-4 text-[var(--text-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                         {artistName}
                       </Link>
                       <Link href={`/admin/albums?artist=${artistId}`} onClick={() => setShowMobileNav(false)}
-                        className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-t border-gray-50">
-                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" /></svg>
+                        className="flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] transition-colors border-t border-[var(--border-subtle)]">
+                        <svg className="w-4 h-4 text-[var(--text-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" /></svg>
                         Albumai
                       </Link>
                       <Link href={`/admin/tracks?artist=${artistId}`} onClick={() => setShowMobileNav(false)}
-                        className="flex items-center gap-2 px-3 py-2 text-sm text-blue-600 font-medium hover:bg-blue-50 transition-colors border-t border-gray-50">
+                        className="flex items-center gap-2 px-3 py-2 text-sm text-blue-600 font-medium hover:bg-[var(--hover-blue)] transition-colors border-t border-[var(--border-subtle)]">
                         <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h10" /></svg>
                         Dainos
                       </Link>
@@ -658,8 +544,8 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
                 </div>
               )}
             </div>
-            <span className="text-gray-300 hidden lg:block">/</span>
-            <span className="text-gray-800 font-semibold truncate max-w-[260px] hidden lg:block">{isNewTrack ? 'Nauja daina' : (title || '...')}</span>
+            <span className="text-[var(--text-faint)] hidden lg:block">/</span>
+            <span className="text-[var(--text-primary)] font-semibold truncate max-w-[260px] hidden lg:block">{isNewTrack ? 'Nauja daina' : (title || '...')}</span>
           </nav>
 
           <div className="flex items-center gap-1.5 shrink-0">
@@ -670,7 +556,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
               </button>
             )}
             <Link href={artistId ? `/admin/artists/${artistId}` : '/admin/tracks'}
-              className="px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
+              className="px-3 py-1.5 border border-[var(--input-border)] text-[var(--text-secondary)] rounded-lg text-sm font-medium hover:bg-[var(--bg-elevated)] transition-colors">
               Atšaukti
             </Link>
             <button onClick={handleSave} disabled={saving}
@@ -682,13 +568,13 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
           </div>
         </div>
 
-        <div className="flex lg:hidden border-t border-gray-100">
+        <div className="flex lg:hidden border-t border-[var(--border-subtle)]">
           <button onClick={() => setMobileTab('info')}
-            className={`flex-1 py-2 text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 ${mobileTab === 'info' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-gray-500'}`}>
+            className={`flex-1 py-2 text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 ${mobileTab === 'info' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-[var(--text-muted)]'}`}>
             <IcoInfo />Informacija
           </button>
           <button onClick={() => setMobileTab('lyrics')}
-            className={`flex-1 py-2 text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 ${mobileTab === 'lyrics' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-gray-500'}`}>
+            className={`flex-1 py-2 text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 ${mobileTab === 'lyrics' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-[var(--text-muted)]'}`}>
             <IcoText />Tekstas{(hasLyrics || hasChords) && <span className="w-1.5 h-1.5 rounded-full bg-green-400" />}
           </button>
         </div>
@@ -710,7 +596,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
       ) : (
         <>
           <div className="hidden lg:grid flex-1 grid-cols-2 min-h-0">
-            <div className="border-r border-gray-200 overflow-y-auto">{InfoPanel}</div>
+            <div className="border-r border-[var(--input-border)] overflow-y-auto">{InfoPanel}</div>
             <div className="overflow-hidden">{LyricsPanel}</div>
           </div>
           <div className="flex lg:hidden flex-1 min-h-0 overflow-hidden">

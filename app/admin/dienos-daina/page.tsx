@@ -77,8 +77,8 @@ export default function AdminDienesDaina() {
 
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
-          <Link href="/admin" className="text-gray-500 hover:text-white text-sm transition-colors">← Admin</Link>
-          <span className="text-gray-600">/</span>
+          <Link href="/admin" className="text-[var(--text-muted)] hover:text-white text-sm transition-colors">← Admin</Link>
+          <span className="text-[var(--text-secondary)]">/</span>
           <h1 className="text-2xl font-black text-white">🎵 Dienos daina</h1>
           <Link href="/dienos-daina" target="_blank"
             className="ml-auto text-xs text-blue-400 hover:text-blue-300 transition-colors">

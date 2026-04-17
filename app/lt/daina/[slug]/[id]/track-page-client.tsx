@@ -2,7 +2,6 @@
 // app/lt/daina/[slug]/[id]/track-page-client.tsx
 import { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react'
 import Link from 'next/link'
-import { useSite } from '@/components/SiteContext'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -76,7 +75,6 @@ export default function TrackPageClient({
   lyricComments: initialReactions, trivia, relatedTracks,
   aiInterpretation,
 }: Props) {
-  const { dk } = useSite()
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [liked, setLiked] = useState(false)
@@ -158,38 +156,17 @@ export default function TrackPageClient({
       m.get(k)!.push(r)
     }
     return m
-  }, [reactions])
+  }, [reactions]) as Map<string, LyricReaction[]>
 
-  // ── Colours ────────────────────────────────────────────────────────────────
-  const T = useMemo(() => ({
-    bg:        dk ? '#080c12' : '#eef2f8',
-    card:      dk ? '#0e1520' : '#ffffff',
-    border:    dk ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.08)',
-    subBdr:    dk ? 'rgba(255,255,255,.055)' : 'rgba(0,0,0,.07)',
-    bgHov:     dk ? 'rgba(255,255,255,.035)' : 'rgba(0,0,0,.03)',
-    bgAct:     dk ? 'rgba(249,115,22,.08)' : 'rgba(249,115,22,.07)',
-    coverBg:   dk ? '#1a2535' : '#dde6f2',
-    infoBg:    dk ? '#121c28' : '#f0f5ff',
-    dykBg:     dk ? '#0f1a10' : '#fff8f2',
-    dykBdr:    dk ? 'rgba(249,115,22,.18)' : 'rgba(249,115,22,.22)',
-    text:      dk ? '#f0f2f5' : '#0f1a2e',
-    sec:       dk ? '#b0bdd4' : '#3a5a80',
-    muted:     dk ? '#7a9bb8' : '#6a85a0',
-    faint:     dk ? '#4a6888' : '#aabbd0',
-    lyric:     dk ? '#c8daf0' : '#1a2a40',
-    mark:      dk ? 'rgba(249,115,22,.22)' : 'rgba(249,115,22,.16)',
-    inpBg:     dk ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.04)',
-    inpBdr:    dk ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.1)',
-    chBg:      dk ? 'rgba(249,115,22,.1)' : 'rgba(249,115,22,.08)',
-    ch:        dk ? '#f97316' : '#ea6a00',
-    panelBg:   dk ? '#0a1220' : '#ffffff',
-  }), [dk])
+  // ── CSS Variables are used instead of inline theme object ──────────────────
+  // All theme colors are now defined in globals.css with [data-theme] attribute
+  // This keeps the component logic clean and theme management centralized
 
-  const cardStyle: React.CSSProperties = { background: T.card, border: `1px solid ${T.border}`, borderRadius: 16, overflow: 'hidden' }
+  const cardStyle: React.CSSProperties = { background: 'var(--card-surface)', border: '1px solid var(--card-border-default)', borderRadius: 16, overflow: 'hidden' }
   const headStyle: React.CSSProperties = {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    padding: '10px 14px', borderBottom: `1px solid ${T.subBdr}`,
-    fontSize: 11, fontWeight: 700, color: dk ? '#c8d8ec' : '#1a2a40',
+    padding: '10px 14px', borderBottom: '1px solid var(--card-border-subtle)',
+    fontSize: 11, fontWeight: 700, color: 'var(--head-text)',
     fontFamily: 'Outfit,sans-serif', textTransform: 'uppercase', letterSpacing: '.08em',
   }
 
@@ -221,7 +198,7 @@ export default function TrackPageClient({
       selected_text: p.text, type: 'like', text: '', likes: 0,
       created_at: new Date().toISOString(),
     }
-    setReactions(prev => { log(`optimistic add, prev.length=${prev.length}`); return [...prev, temp] })
+    setReactions((prev: LyricReaction[]) => { log(`optimistic add, prev.length=${prev.length}`); return [...prev, temp] })
 
     try {
       const postRes = await fetch(`/api/tracks/${track.id}/lyric-comments`, {
@@ -256,7 +233,7 @@ export default function TrackPageClient({
       selected_text: p.text, type: 'comment', text, likes: 0,
       created_at: new Date().toISOString(),
     }
-    setReactions(prev => { log(`optimistic comment, prev.length=${prev.length}`); return [...prev, temp] })
+    setReactions((prev: LyricReaction[]) => { log(`optimistic comment, prev.length=${prev.length}`); return [...prev, temp] })
 
     try {
       const postRes = await fetch(`/api/tracks/${track.id}/lyric-comments`, {
@@ -295,7 +272,7 @@ export default function TrackPageClient({
     const full = track.lyrics ?? ''
     if (byRange.size === 0) {
       return (
-        <pre style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, lineHeight: 2.1, color: T.lyric, margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+        <pre style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, lineHeight: 2.1, color: 'var(--lyric-text)', margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
           {full}
         </pre>
       )
@@ -303,7 +280,7 @@ export default function TrackPageClient({
 
     // Build sorted ranges
     const ranges: { start: number; end: number; key: string }[] = []
-    byRange.forEach((_, key) => {
+    byRange.forEach((_: LyricReaction[], key: string) => {
       const [s, e] = key.split('-').map(Number)
       if (!isNaN(s) && !isNaN(e) && e > s && e <= full.length) {
         ranges.push({ start: s, end: e, key })
@@ -321,7 +298,7 @@ export default function TrackPageClient({
       const nC = rxns.filter(x => x.type === 'comment').length
       parts.push(
         <span key={r.key}
-          style={{ background: T.mark, borderRadius: 3, borderBottom: '2px solid rgba(249,115,22,.5)', paddingBottom: 1, cursor: 'pointer' }}
+          style={{ background: 'var(--lyric-mark)', borderRadius: 3, borderBottom: '2px solid rgba(249,115,22,.5)', paddingBottom: 1, cursor: 'pointer' }}
           onMouseDown={() => { wasMarkClick.current = true }}
           onClick={() => { setPanel({ text: rxns[0].selected_text, start: r.start, end: r.end }); setPanelTab('react') }}
         >
@@ -338,11 +315,11 @@ export default function TrackPageClient({
     if (pos < full.length) parts.push(<span key="tend">{full.slice(pos)}</span>)
 
     return (
-      <pre style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, lineHeight: 2.1, color: T.lyric, margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+      <pre style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, lineHeight: 2.1, color: 'var(--lyric-text)', margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
         {parts}
       </pre>
     )
-  }, [track.lyrics, byRange, T.mark, T.lyric])
+  }, [track.lyrics, byRange])
 
 
   // ── Panel reactions for current selection ──────────────────────────────────
@@ -356,13 +333,13 @@ export default function TrackPageClient({
 
   const TrackInfoCard = () => (
     <div style={cardStyle}>
-      <div style={{ background: T.infoBg, padding: 14, position: 'relative', opacity: loaded ? 1 : 0, transition: 'opacity .35s' }}>
+      <div style={{ background: 'var(--cover-area-bg)', padding: 14, position: 'relative', opacity: loaded ? 1 : 0, transition: 'opacity .35s' }}>
         <button onClick={() => setLiked(v => !v)}
-          style={{ position: 'absolute', top: 10, right: 12, zIndex: 2, display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: 'pointer', border: `1px solid ${liked ? 'rgba(249,115,22,.4)' : T.border}`, background: liked ? 'rgba(249,115,22,.12)' : 'rgba(255,255,255,.04)', color: liked ? '#f97316' : T.muted, fontFamily: 'Outfit,sans-serif', whiteSpace: 'nowrap' }}>
+          style={{ position: 'absolute', top: 10, right: 12, zIndex: 2, display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: 'pointer', border: `1px solid ${liked ? 'rgba(249,115,22,.4)' : 'var(--card-border-default)'}`, background: liked ? 'rgba(249,115,22,.12)' : 'rgba(255,255,255,.04)', color: liked ? '#f97316' : 'var(--text-muted)', fontFamily: 'Outfit,sans-serif', whiteSpace: 'nowrap' }}>
           {liked ? '♥' : '♡'} {initialLikes + (liked ? 1 : 0)}
         </button>
         <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', paddingRight: 76 }}>
-          <div style={{ flexShrink: 0, width: 100, height: 100, borderRadius: 12, overflow: 'hidden', boxShadow: dk ? '0 10px 32px rgba(0,0,0,.7)' : '0 6px 24px rgba(0,0,0,.2)', background: T.coverBg }}>
+          <div style={{ flexShrink: 0, width: 100, height: 100, borderRadius: 12, overflow: 'hidden', boxShadow: '0 10px 32px rgba(0,0,0,.7)', background: 'var(--cover-placeholder)' }}>
             {primaryAlbum?.cover_image_url
               ? <img src={primaryAlbum.cover_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
               : artist.cover_image_url
@@ -374,32 +351,32 @@ export default function TrackPageClient({
               {track.type === 'normal' ? 'Daina' : (track.type || 'Daina')}
               {track.is_new && <span style={{ marginLeft: 6, fontSize: 8, padding: '1px 6px', borderRadius: 999, background: 'rgba(249,115,22,.18)', border: '1px solid rgba(249,115,22,.3)', color: '#f97316' }}>NEW</span>}
             </div>
-            <h1 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 'clamp(15px,2vw,20px)', fontWeight: 900, lineHeight: 1.1, letterSpacing: '-.025em', color: dk ? '#fff' : '#0f1a2e', margin: '0 0 5px', wordBreak: 'break-word' }}>{track.title}</h1>
+            <h1 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 'clamp(15px,2vw,20px)', fontWeight: 900, lineHeight: 1.1, letterSpacing: '-.025em', color: 'var(--text-primary)', margin: '0 0 5px', wordBreak: 'break-word' }}>{track.title}</h1>
             <Link href={`/atlikejai/${artist.slug}`} style={{ fontSize: 13, fontWeight: 700, color: '#f97316', textDecoration: 'none', display: 'block', marginBottom: 2 }}>{artist.name}</Link>
             {track.featuring.length > 0 && (
-              <div style={{ fontSize: 11, color: T.muted, marginBottom: 2 }}>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>
                 su {track.featuring.map((f, i) => (
                   <span key={f.id}>{i > 0 && ', '}
-                    <Link href={`/atlikejai/${f.slug}`} style={{ color: T.sec, textDecoration: 'none', fontWeight: 600 }}>{f.name}</Link>
+                    <Link href={`/atlikejai/${f.slug}`} style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontWeight: 600 }}>{f.name}</Link>
                   </span>
                 ))}
               </div>
             )}
-            {dateStr && <div style={{ fontSize: 11, color: T.muted }}>{dateStr}</div>}
+            {dateStr && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{dateStr}</div>}
           </div>
         </div>
       </div>
       {albums.length > 0 && (
-        <div style={{ padding: '10px 14px', display: 'flex', gap: 8, flexWrap: 'wrap', borderTop: `1px solid ${T.subBdr}` }}>
-          <span style={{ fontSize: 10, color: T.faint, alignSelf: 'center', fontFamily: 'Outfit,sans-serif', textTransform: 'uppercase', letterSpacing: '.06em' }}>Albumas</span>
+        <div style={{ padding: '10px 14px', display: 'flex', gap: 8, flexWrap: 'wrap', borderTop: '1px solid var(--card-border-subtle)' }}>
+          <span style={{ fontSize: 10, color: 'var(--text-faint)', alignSelf: 'center', fontFamily: 'Outfit,sans-serif', textTransform: 'uppercase', letterSpacing: '.06em' }}>Albumas</span>
           {albums.map(a => (
             <Link key={a.id} href={`/lt/albumas/${a.slug}/${a.id}/`}
-              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '5px 10px 5px 6px', borderRadius: 999, background: T.bgHov, border: `1px solid ${T.border}`, textDecoration: 'none' }}>
+              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '5px 10px 5px 6px', borderRadius: 999, background: 'var(--card-hover-bg)', border: '1px solid var(--card-border-default)', textDecoration: 'none' }}>
               {a.cover_image_url
                 ? <img src={a.cover_image_url} style={{ width: 22, height: 22, borderRadius: 5, objectFit: 'cover' }} alt="" />
-                : <div style={{ width: 22, height: 22, borderRadius: 5, background: T.coverBg }} />}
-              <span style={{ fontSize: 11, fontWeight: 600, color: T.sec }}>{a.title}</span>
-              {a.year && <span style={{ fontSize: 10, color: T.faint }}>{a.year}</span>}
+                : <div style={{ width: 22, height: 22, borderRadius: 5, background: 'var(--cover-placeholder)' }} />}
+              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)' }}>{a.title}</span>
+              {a.year && <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>{a.year}</span>}
             </Link>
           ))}
         </div>
@@ -412,16 +389,16 @@ export default function TrackPageClient({
     if (!vid && !track.show_player) return null
     return (
       <div style={{ ...cardStyle }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '9px 13px 8px', borderBottom: `1px solid ${T.subBdr}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '9px 13px 8px', borderBottom: 'var(--card-border-subtle)' }}>
           <div style={{ width: 28, height: 28, borderRadius: 8, background: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <MusicIcon s={15} />
           </div>
-          <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.08em', color: dk ? '#c8d8ec' : '#1a2a40', fontFamily: 'Outfit,sans-serif' }}>Klausyk</span>
+          <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--head-text)', fontFamily: 'Outfit,sans-serif' }}>Klausyk</span>
         </div>
         {vid && <YoutubeEmbed videoId={vid} />}
         {track.spotify_id && (
-          <iframe src={`https://open.spotify.com/embed/track/${track.spotify_id}?utm_source=generator&theme=${dk ? 0 : 1}`}
-            style={{ width: '100%', height: 80, border: 'none', display: 'block', borderTop: `1px solid ${T.subBdr}` }}
+          <iframe src={`https://open.spotify.com/embed/track/${track.spotify_id}?utm_source=generator&theme=0`}
+            style={{ width: '100%', height: 80, border: 'none', display: 'block', borderTop: '1px solid var(--card-border-subtle)' }}
             allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" />
         )}
       </div>
@@ -435,12 +412,12 @@ export default function TrackPageClient({
       <div style={cardStyle}>
         <div style={headStyle}>
           <span>✦ AI interpretacija</span>
-          {!aiText && <span style={{ fontSize: 9, fontWeight: 400, color: T.faint, textTransform: 'none', letterSpacing: 0 }}>beta</span>}
+          {!aiText && <span style={{ fontSize: 9, fontWeight: 400, color: 'var(--text-faint)', textTransform: 'none', letterSpacing: 0 }}>beta</span>}
         </div>
         <div style={{ padding: 14 }}>
           {!aiText && !aiLoad && !aiErr && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '4px 0' }}>
-              <p style={{ fontSize: 12, color: T.muted, textAlign: 'center', margin: 0, lineHeight: 1.6 }}>
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', margin: 0, lineHeight: 1.6 }}>
                 Claude perskaitys žodžius ir sukurs interpretaciją bei abstraktų paveikslėlį, perteikiantį dainos nuotaiką.
               </p>
               <button onClick={doAI}
@@ -450,19 +427,19 @@ export default function TrackPageClient({
             </div>
           )}
           {aiLoad && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '12px 0', color: T.muted, fontSize: 12 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '12px 0', color: 'var(--text-muted)', fontSize: 12 }}>
               <span style={{ animation: 'spin 1.2s linear infinite', display: 'inline-block', fontSize: 20, color: '#f97316' }}>✦</span>
               Claude analizuoja žodžius…
             </div>
           )}
           {aiErr && (
-            <div style={{ fontSize: 12, color: T.muted, textAlign: 'center', padding: '6px 0' }}>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '6px 0' }}>
               Nepavyko. <button onClick={doAI} style={{ color: '#f97316', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>Bandyti dar kartą</button>
             </div>
           )}
           {aiText && (
             <div>
-              <div style={{ fontSize: 13, color: dk ? '#8aadcc' : '#5a6878', lineHeight: 1.85 }}>
+              <div style={{ fontSize: 13, color: 'var(--dyk-text)', lineHeight: 1.85 }}>
                 {aiText.split('\n\n').filter(p => p.trim()).map((p, i) => (
                   <p key={i} style={{ margin: i > 0 ? '12px 0 0' : 0 }}>{p.trim()}</p>
                 ))}
@@ -478,10 +455,10 @@ export default function TrackPageClient({
   const TriviaCard = () => {
     if (!track.description && !trivia) return null
     return (
-      <div style={{ ...cardStyle, background: T.dykBg, border: `1px solid ${T.dykBdr}` }}>
+      <div style={{ ...cardStyle, background: 'var(--dyk-bg)', border: '1px solid var(--dyk-border)' }}>
         <div style={{ padding: '12px 14px' }}>
           <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.1em', color: '#f97316', fontFamily: 'Outfit,sans-serif', marginBottom: 7 }}>★ Ar žinojai?</div>
-          <p style={{ fontSize: 12, color: dk ? '#8aadcc' : '#5a6878', lineHeight: 1.75, margin: 0 }}>{track.description || trivia}</p>
+          <p style={{ fontSize: 12, color: 'var(--dyk-text)', lineHeight: 1.75, margin: 0 }}>{track.description || trivia}</p>
         </div>
       </div>
     )
@@ -492,25 +469,25 @@ export default function TrackPageClient({
     const vis = showAllV ? versions : versions.slice(0, 4)
     return (
       <div style={cardStyle}>
-        <div style={headStyle}>Versijos ir remixai <span style={{ fontSize: 9, fontWeight: 400, color: T.faint, textTransform: 'none', letterSpacing: 0 }}>{versions.length}</span></div>
+        <div style={headStyle}>Versijos ir remixai <span style={{ fontSize: 9, fontWeight: 400, color: 'var(--text-faint)', textTransform: 'none', letterSpacing: 0 }}>{versions.length}</span></div>
         {vis.map((v, i) => (
           <Link key={v.id} href={`/lt/daina/${v.slug}/${v.id}/`}
-            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', borderBottom: i < vis.length - 1 ? `1px solid ${T.subBdr}` : 'none', textDecoration: 'none' }}
-            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = T.bgHov)}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', borderBottom: i < vis.length - 1 ? '1px solid var(--card-border-subtle)' : 'none', textDecoration: 'none' }}
+            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'var(--card-hover-bg)')}
             onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}>
-            <div style={{ width: 28, height: 28, borderRadius: 6, background: ytId(v.video_url) ? 'rgba(249,115,22,.12)' : T.coverBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: `1px solid ${ytId(v.video_url) ? 'rgba(249,115,22,.2)' : T.border}` }}>
-              {ytId(v.video_url) ? <svg width="9" height="9" viewBox="0 0 10 10" fill="#f97316"><polygon points="2,1 9,5 2,9"/></svg> : <MusicIcon s={11} c={T.faint} />}
+            <div style={{ width: 28, height: 28, borderRadius: 6, background: ytId(v.video_url) ? 'rgba(249,115,22,.12)' : 'var(--cover-placeholder)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: `1px solid ${ytId(v.video_url) ? 'rgba(249,115,22,.2)' : 'var(--card-border-default)'}` }}>
+              {ytId(v.video_url) ? <svg width="9" height="9" viewBox="0 0 10 10" fill="#f97316"><polygon points="2,1 9,5 2,9"/></svg> : <MusicIcon s={11} c="var(--text-faint)" />}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: T.sec, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v.title}</div>
-              <div style={{ fontSize: 10, color: T.faint }}>{v.type === 'normal' ? 'Daina' : v.type}</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v.title}</div>
+              <div style={{ fontSize: 10, color: 'var(--text-faint)' }}>{v.type === 'normal' ? 'Daina' : v.type}</div>
             </div>
-            <span style={{ fontSize: 10, color: T.faint }}>→</span>
+            <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>→</span>
           </Link>
         ))}
         {versions.length > 4 && (
           <button onClick={() => setShowAllV(x => !x)}
-            style={{ width: '100%', padding: 9, background: 'transparent', border: 'none', borderTop: `1px solid ${T.subBdr}`, cursor: 'pointer', fontSize: 11, fontWeight: 700, color: T.muted, fontFamily: 'Outfit,sans-serif' }}>
+            style={{ width: '100%', padding: 9, background: 'transparent', border: 'none', borderTop: '1px solid var(--card-border-subtle)', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'Outfit,sans-serif' }}>
             {showAllV ? '↑ Mažiau' : `Visos ${versions.length} versijos ↓`}
           </button>
         )}
@@ -524,10 +501,10 @@ export default function TrackPageClient({
       <div style={{ padding: '12px 14px' }}>
         <div style={{ display: 'flex', gap: 7, marginBottom: 10 }}>
           <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: 'rgba(249,115,22,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#f97316', fontFamily: 'Outfit,sans-serif' }}>{artist.name[0]}</div>
-          <input placeholder="Rašyk komentarą…" style={{ flex: 1, height: 30, borderRadius: 999, padding: '0 12px', fontSize: 11, background: T.inpBg, border: `1px solid ${T.inpBdr}`, color: T.text, outline: 'none' }} />
+          <input placeholder="Rašyk komentarą…" style={{ flex: 1, height: 30, borderRadius: 999, padding: '0 12px', fontSize: 11, background: 'var(--comment-input-bg)', border: '1px solid var(--comment-border)', color: 'var(--text-primary)', outline: 'none' }} />
           <button style={{ height: 30, padding: '0 12px', borderRadius: 999, background: '#f97316', border: 'none', color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit,sans-serif' }}>Siųsti</button>
         </div>
-        <div style={{ fontSize: 11, color: T.faint, textAlign: 'center' }}>Būk pirmas — palik komentarą!</div>
+        <div style={{ fontSize: 11, color: 'var(--text-faint)', textAlign: 'center' }}>Būk pirmas — palik komentarą!</div>
       </div>
     </div>
   )
@@ -539,14 +516,14 @@ export default function TrackPageClient({
         <div style={headStyle}>Kitos {artist.name} dainos</div>
         {relatedTracks.slice(0, 6).map((t, i) => (
           <Link key={t.id} href={`/lt/daina/${t.slug}/${t.id}/`}
-            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderBottom: i < 5 ? `1px solid ${T.subBdr}` : 'none', textDecoration: 'none' }}
-            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = T.bgHov)}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderBottom: i < 5 ? '1px solid var(--card-border-subtle)' : 'none', textDecoration: 'none' }}
+            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'var(--card-hover-bg)')}
             onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}>
-            <div style={{ width: 30, height: 30, borderRadius: 6, background: T.coverBg, flexShrink: 0, overflow: 'hidden' }}>
+            <div style={{ width: 30, height: 30, borderRadius: 6, background: 'var(--cover-placeholder)', flexShrink: 0, overflow: 'hidden' }}>
               {artist.cover_image_url && <img src={artist.cover_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: T.sec, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.title}</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.title}</div>
             </div>
             {ytId(t.video_url) && (
               <div style={{ width: 18, height: 18, borderRadius: 4, background: 'rgba(249,115,22,.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -563,24 +540,24 @@ export default function TrackPageClient({
   const LyricsCard = () => (
     <div style={cardStyle}>
       {/* Tabs */}
-      <div style={{ display: 'flex', alignItems: 'center', borderBottom: `1px solid ${T.subBdr}`, padding: '0 14px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--card-border-subtle)', padding: '0 14px' }}>
         {(['lyrics', 'chords'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
-            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '11px 12px 10px', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: tab === t ? 800 : 600, color: tab === t ? '#f97316' : T.faint, borderBottom: tab === t ? '2px solid #f97316' : '2px solid transparent', marginBottom: -1, fontFamily: 'Outfit,sans-serif', textTransform: 'uppercase', letterSpacing: '.07em' }}>
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '11px 12px 10px', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: tab === t ? 800 : 600, color: tab === t ? '#f97316' : 'var(--text-faint)', borderBottom: tab === t ? '2px solid #f97316' : '2px solid transparent', marginBottom: -1, fontFamily: 'Outfit,sans-serif', textTransform: 'uppercase', letterSpacing: '.07em' }}>
             {t === 'lyrics'
               ? <><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M3 18h12v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg> Dainos tekstas</>
               : <><GuitarIcon s={11} /> Akordai</>}
           </button>
         ))}
         {tab === 'lyrics' && hasLyrics && (
-          <span style={{ marginLeft: 'auto', fontSize: 9, color: T.faint, fontStyle: 'italic' }}>Pažymėk tekstą</span>
+          <span style={{ marginLeft: 'auto', fontSize: 9, color: 'var(--text-faint)', fontStyle: 'italic' }}>Pažymėk tekstą</span>
         )}
       </div>
 
       {/* Lyrics content */}
       {tab === 'lyrics' && (
         !hasLyrics
-          ? <div style={{ padding: 32, textAlign: 'center', color: T.faint, fontSize: 13 }}>Dainos tekstas dar nepridėtas</div>
+          ? <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-faint)', fontSize: 13 }}>Dainos tekstas dar nepridėtas</div>
           : (
             <div data-lyrics style={{ position: 'relative', padding: '16px 18px', userSelect: 'text', cursor: 'text' }}
               onMouseUp={onMouseUp}>
@@ -592,19 +569,19 @@ export default function TrackPageClient({
       {/* Chords content */}
       {tab === 'chords' && (
         !hasChords
-          ? <div style={{ padding: 32, textAlign: 'center', color: T.faint, fontSize: 13 }}>Akordai dar nepridėti</div>
+          ? <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-faint)', fontSize: 13 }}>Akordai dar nepridėti</div>
           : (
             <div style={{ padding: '12px 18px' }}>
-              <div style={{ marginBottom: 10, fontSize: 11, color: T.muted, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <GuitarIcon c={T.muted} /> Akordai ir žodžiai
+              <div style={{ marginBottom: 10, fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <GuitarIcon c="var(--text-muted)" /> Akordai ir žodžiai
               </div>
-              <pre style={{ fontFamily: "'DM Mono','Fira Mono',monospace", fontSize: 13, lineHeight: 1.9, color: T.lyric, margin: 0, whiteSpace: 'pre-wrap' }}>
+              <pre style={{ fontFamily: "'DM Mono','Fira Mono',monospace", fontSize: 13, lineHeight: 1.9, color: 'var(--lyric-text)', margin: 0, whiteSpace: 'pre-wrap' }}>
                 {(track.chords ?? '').split('\n').map((line, i) => {
                   const isChord = /^[A-G][#bm]?(maj|min|aug|dim|sus|add|M)?[0-9]?(\s+[A-G][#bm]?(maj|min|aug|dim|sus|add|M)?[0-9]?)*\s*$/.test(line)
                   if (isChord) return (
                     <div key={i} style={{ marginBottom: 2 }}>
                       {line.split(/(\s+)/).map((tok, j) => tok.trim()
-                        ? <span key={j} style={{ display: 'inline-block', padding: '1px 6px', borderRadius: 5, background: T.chBg, color: T.ch, fontWeight: 700, marginRight: 4, fontSize: 12 }}>{tok}</span>
+                        ? <span key={j} style={{ display: 'inline-block', padding: '1px 6px', borderRadius: 5, background: 'var(--chord-bg)', color: 'var(--chord-text)', fontWeight: 700, marginRight: 4, fontSize: 12 }}>{tok}</span>
                         : <span key={j}>{tok}</span>)}
                     </div>
                   )
@@ -621,33 +598,33 @@ export default function TrackPageClient({
   // MAIN RETURN
   // ══════════════════════════════════════════════════════════════════════════
   return (
-    <div style={{ background: T.bg, color: T.text, fontFamily: "'DM Sans',system-ui,sans-serif", WebkitFontSmoothing: 'antialiased', minHeight: '100vh' }}>
+    <div style={{ background: 'var(--bg-body)', color: 'var(--text-primary)', fontFamily: "'DM Sans',system-ui,sans-serif", WebkitFontSmoothing: 'antialiased', minHeight: '100vh' }}>
 
       {/* ── Side panel ─────────────────────────────────────────────────────── */}
       {panel && (
         <div data-panel
-          style={{ position: 'fixed', top: 0, right: 0, width: 320, height: '100vh', background: T.panelBg, borderLeft: `1px solid ${T.border}`, boxShadow: '-12px 0 40px rgba(0,0,0,.22)', zIndex: 150, display: 'flex', flexDirection: 'column', animation: 'slideIn .2s ease' }}>
+          style={{ position: 'fixed', top: 0, right: 0, width: 320, height: '100vh', background: 'var(--panel-bg)', borderLeft: '1px solid var(--card-border-default)', boxShadow: '-12px 0 40px rgba(0,0,0,.22)', zIndex: 150, display: 'flex', flexDirection: 'column', animation: 'slideIn .2s ease' }}>
 
           {/* Header */}
-          <div style={{ padding: '14px 16px', borderBottom: `1px solid ${T.subBdr}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.08em', color: T.muted, fontFamily: 'Outfit,sans-serif' }}>Pažymėta vieta</span>
-            <button onClick={() => setPanel(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.faint, padding: 4, borderRadius: 6, display: 'flex' }}>
+          <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--card-border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--text-muted)', fontFamily: 'Outfit,sans-serif' }}>Pažymėta vieta</span>
+            <button onClick={() => setPanel(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-faint)', padding: 4, borderRadius: 6, display: 'flex' }}>
               <XIcon s={16} />
             </button>
           </div>
 
           {/* Quote */}
-          <div style={{ margin: '14px 16px 0', padding: '12px 14px', background: dk ? 'rgba(249,115,22,.06)' : 'rgba(249,115,22,.05)', border: '1px solid rgba(249,115,22,.2)', borderLeft: '3px solid rgba(249,115,22,.6)', borderRadius: '0 10px 10px 0' }}>
-            <p style={{ fontSize: 13, color: T.text, fontStyle: 'italic', lineHeight: 1.65, margin: 0 }}>
+          <div style={{ margin: '14px 16px 0', padding: '12px 14px', background: 'rgba(249,115,22,.06)', border: '1px solid rgba(249,115,22,.2)', borderLeft: '3px solid rgba(249,115,22,.6)', borderRadius: '0 10px 10px 0' }}>
+            <p style={{ fontSize: 13, color: 'var(--text-primary)', fontStyle: 'italic', lineHeight: 1.65, margin: 0 }}>
               „{panel.text.length > 140 ? panel.text.slice(0, 140) + '…' : panel.text}"
             </p>
           </div>
 
           {/* Tabs */}
-          <div style={{ display: 'flex', borderBottom: `1px solid ${T.subBdr}`, padding: '0 16px', marginTop: 12 }}>
+          <div style={{ display: 'flex', borderBottom: '1px solid var(--card-border-subtle)', padding: '0 16px', marginTop: 12 }}>
             {(['react', 'share'] as const).map(t => (
               <button key={t} onClick={() => setPanelTab(t)}
-                style={{ padding: '9px 12px 8px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: panelTab === t ? 800 : 600, color: panelTab === t ? '#f97316' : T.faint, borderBottom: panelTab === t ? '2px solid #f97316' : '2px solid transparent', marginBottom: -1, fontFamily: 'Outfit,sans-serif', textTransform: 'uppercase', letterSpacing: '.06em' }}>
+                style={{ padding: '9px 12px 8px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: panelTab === t ? 800 : 600, color: panelTab === t ? '#f97316' : 'var(--text-faint)', borderBottom: panelTab === t ? '2px solid #f97316' : '2px solid transparent', marginBottom: -1, fontFamily: 'Outfit,sans-serif', textTransform: 'uppercase', letterSpacing: '.06em' }}>
                 {t === 'react' ? 'Reagavimas' : 'Dalintis'}
               </button>
             ))}
@@ -659,13 +636,13 @@ export default function TrackPageClient({
               <>
                 {/* Existing reactions */}
                 {panelRxns.length > 0 && (
-                  <div style={{ padding: '10px 12px', borderRadius: 10, background: T.bgAct, border: '1px solid rgba(249,115,22,.2)' }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: T.faint, textTransform: 'uppercase', letterSpacing: '.07em', fontFamily: 'Outfit,sans-serif', marginBottom: 7 }}>Esamos reakcijos</div>
-                    {panelRxns.filter(r => r.type === 'like').length > 0 && (
-                      <div style={{ fontSize: 12, color: '#f97316', fontWeight: 700, marginBottom: 4 }}>♥ {panelRxns.filter(r => r.type === 'like').length} patinka</div>
+                  <div style={{ padding: '10px 12px', borderRadius: 10, background: 'var(--card-active-bg)', border: '1px solid rgba(249,115,22,.2)' }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '.07em', fontFamily: 'Outfit,sans-serif', marginBottom: 7 }}>Esamos reakcijos</div>
+                    {panelRxns.filter((r: LyricReaction) => r.type === 'like').length > 0 && (
+                      <div style={{ fontSize: 12, color: '#f97316', fontWeight: 700, marginBottom: 4 }}>♥ {panelRxns.filter((r: LyricReaction) => r.type === 'like').length} patinka</div>
                     )}
-                    {panelRxns.filter(r => r.type === 'comment').map(c => (
-                      <div key={c.id} style={{ fontSize: 12, color: T.sec, padding: '4px 0', borderTop: `1px solid ${T.subBdr}` }}>💬 {c.text}</div>
+                    {panelRxns.filter((r: LyricReaction) => r.type === 'comment').map((c: LyricReaction) => (
+                      <div key={c.id} style={{ fontSize: 12, color: 'var(--text-secondary)', padding: '4px 0', borderTop: '1px solid var(--card-border-subtle)' }}>💬 {c.text}</div>
                     ))}
                   </div>
                 )}
@@ -678,19 +655,19 @@ export default function TrackPageClient({
                   <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(249,115,22,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18 }}>♥</div>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 700, color: '#f97316', fontFamily: 'Outfit,sans-serif' }}>Patinka šita vieta</div>
-                    <div style={{ fontSize: 11, color: T.muted, marginTop: 1 }}>Pažymėk kaip mėgstamą</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>Pažymėk kaip mėgstamą</div>
                   </div>
                 </button>
 
                 {/* Comment */}
-                <div style={{ borderRadius: 12, background: T.bgHov, border: `1px solid ${T.subBdr}`, overflow: 'hidden', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: T.text, fontFamily: 'Outfit,sans-serif' }}>💬 Komentuoti</div>
+                <div style={{ borderRadius: 12, background: 'var(--card-hover-bg)', border: '1px solid var(--card-border-subtle)', overflow: 'hidden', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'Outfit,sans-serif' }}>💬 Komentuoti</div>
                   <textarea ref={commentInputRef}
                     placeholder="Tavo mintys apie šią vietą…"
                     rows={3}
-                    style={{ width: '100%', borderRadius: 10, padding: '9px 12px', fontSize: 12, background: T.inpBg, border: `1px solid ${T.inpBdr}`, color: T.text, outline: 'none', resize: 'none', fontFamily: "'DM Sans',sans-serif", boxSizing: 'border-box', lineHeight: 1.55 }}
+                    style={{ width: '100%', borderRadius: 10, padding: '9px 12px', fontSize: 12, background: 'var(--comment-input-bg)', border: '1px solid var(--comment-border)', color: 'var(--text-primary)', outline: 'none', resize: 'none', fontFamily: "'DM Sans',sans-serif", boxSizing: 'border-box', lineHeight: 1.55 }}
                     onFocus={e => (e.currentTarget.style.borderColor = 'rgba(249,115,22,.5)')}
-                    onBlur={e => (e.currentTarget.style.borderColor = T.inpBdr)}
+                    onBlur={e => (e.currentTarget.style.borderColor = 'var(--comment-border)')}
                   />
                   <button onClick={doComment} disabled={saving}
                     style={{ padding: '8px 16px', borderRadius: 999, background: '#f97316', border: 'none', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit,sans-serif', alignSelf: 'flex-end' }}>
@@ -702,17 +679,17 @@ export default function TrackPageClient({
 
             {panelTab === 'share' && (
               <>
-                <div style={{ background: dk ? '#080c12' : '#f0f5ff', border: '1px solid rgba(249,115,22,.2)', borderRadius: 12, padding: 16 }}>
-                  <p style={{ fontSize: 13, fontWeight: 600, color: T.text, lineHeight: 1.65, margin: '0 0 12px', fontStyle: 'italic' }}>
+                <div style={{ background: 'var(--bg-active)', border: '1px solid rgba(249,115,22,.2)', borderRadius: 12, padding: 16 }}>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.65, margin: '0 0 12px', fontStyle: 'italic' }}>
                     „{panel.text.length > 120 ? panel.text.slice(0, 120) + '…' : panel.text}"
                   </p>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     {primaryAlbum?.cover_image_url && <img src={primaryAlbum.cover_image_url} style={{ width: 24, height: 24, borderRadius: 4, objectFit: 'cover' }} alt="" />}
                     <div>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: T.text }}>{track.title}</div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-primary)' }}>{track.title}</div>
                       <div style={{ fontSize: 9, color: '#f97316' }}>{artist.name}</div>
                     </div>
-                    <div style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 800, color: T.faint, fontFamily: 'Outfit,sans-serif' }}>music.lt</div>
+                    <div style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 800, color: 'var(--text-faint)', fontFamily: 'Outfit,sans-serif' }}>music.lt</div>
                   </div>
                 </div>
                 <button

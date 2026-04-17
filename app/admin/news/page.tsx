@@ -77,7 +77,7 @@ export default function NewsAdmin() {
   }
 
   if (status === 'loading' || loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="min-h-screen flex items-center justify-center bg-[var(--bg-elevated)]">
       <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
     </div>
   )
@@ -89,11 +89,11 @@ export default function NewsAdmin() {
         {/* Header */}
         <div className="flex flex-wrap justify-between items-start gap-4 mb-6">
           <div>
-            <Link href="/admin/dashboard" className="text-gray-400 hover:text-gray-600 mb-1 inline-block text-sm">
+            <Link href="/admin/dashboard" className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] mb-1 inline-block text-sm">
               ← Dashboard
             </Link>
-            <h1 className="text-3xl font-black text-gray-900">📰 Naujienos</h1>
-            <p className="text-gray-400 mt-0.5 text-sm">Iš viso: {total}</p>
+            <h1 className="text-3xl font-black text-[var(--text-primary)]">📰 Naujienos</h1>
+            <p className="text-[var(--text-muted)] mt-0.5 text-sm">Iš viso: {total}</p>
           </div>
           <Link href="/admin/news/new"
             className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition-colors">
@@ -108,12 +108,12 @@ export default function NewsAdmin() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Ieškoti naujienų..."
-            className="flex-1 min-w-[200px] max-w-sm px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-blue-400 text-sm"
+            className="flex-1 min-w-[200px] max-w-sm px-4 py-2.5 bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-400 text-sm"
           />
           <select
             value={typeFilter}
             onChange={e => setTypeFilter(e.target.value)}
-            className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-700 focus:outline-none focus:border-blue-400 text-sm"
+            className="px-4 py-2.5 bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-xl text-[var(--text-primary)] focus:outline-none focus:border-blue-400 text-sm"
           >
             <option value="">Visi tipai</option>
             {Object.entries(TYPE_LABELS).map(([v, l]) => (
@@ -124,10 +124,10 @@ export default function NewsAdmin() {
 
         {/* List */}
         {news.length === 0 ? (
-          <div className="bg-white border border-gray-200 rounded-2xl p-16 text-center">
+          <div className="bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-2xl p-16 text-center">
             <div className="text-5xl mb-4">📰</div>
-            <h3 className="text-xl font-bold text-gray-800 mb-2">Nėra naujienų</h3>
-            <p className="text-gray-400 mb-6 text-sm">
+            <h3 className="text-xl font-bold text-[var(--text-primary)] mb-2">Nėra naujienų</h3>
+            <p className="text-[var(--text-muted)] mb-6 text-sm">
               {search ? 'Nieko nerasta pagal paiešką' : 'Pridėkite pirmą naujieną'}
             </p>
             {!search && (
@@ -138,10 +138,10 @@ export default function NewsAdmin() {
             )}
           </div>
         ) : (
-          <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+          <div className="bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-2xl overflow-hidden">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-100 text-left text-xs text-gray-400 uppercase tracking-wide">
+                <tr className="border-b border-[var(--border-subtle)] text-left text-xs text-[var(--text-muted)] uppercase tracking-wide">
                   <th className="px-4 py-3">Naujiena</th>
                   <th className="px-4 py-3 hidden sm:table-cell">Tipas</th>
                   <th className="px-4 py-3 hidden md:table-cell">Atlikėjas</th>
@@ -151,24 +151,24 @@ export default function NewsAdmin() {
               </thead>
               <tbody>
                 {news.map(item => (
-                  <tr key={item.id} className="border-b border-gray-50 hover:bg-gray-50/60 transition-colors">
+                  <tr key={item.id} className="border-b border-[var(--border-subtle)] hover:bg-[var(--bg-hover)]/60 transition-colors">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         {item.image_small_url ? (
                           <img src={item.image_small_url} alt=""
-                            className="w-10 h-10 rounded-lg object-cover shrink-0 bg-gray-100" />
+                            className="w-10 h-10 rounded-lg object-cover shrink-0 bg-[var(--bg-elevated)]" />
                         ) : (
-                          <div className="w-10 h-10 rounded-lg bg-gray-100 shrink-0 flex items-center justify-center text-lg">
+                          <div className="w-10 h-10 rounded-lg bg-[var(--bg-elevated)] shrink-0 flex items-center justify-center text-lg">
                             📰
                           </div>
                         )}
                         <div className="min-w-0">
-                          <div className="font-medium text-gray-900 text-sm truncate max-w-[280px] flex items-center gap-1.5">
+                          <div className="font-medium text-[var(--text-primary)] text-sm truncate max-w-[280px] flex items-center gap-1.5">
                             {item.is_featured && <span className="text-yellow-500 text-xs">★</span>}
-                            {item.is_hidden_home && <span className="text-gray-300 text-xs">👁</span>}
+                            {item.is_hidden_home && <span className="text-[var(--text-faint)] text-xs">👁</span>}
                             {item.title}
                           </div>
-                          <div className="text-xs text-gray-400 mt-0.5">ID: {item.id}</div>
+                          <div className="text-xs text-[var(--text-muted)] mt-0.5">ID: {item.id}</div>
                         </div>
                       </div>
                     </td>
@@ -179,18 +179,18 @@ export default function NewsAdmin() {
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell">
                       {item.artist ? (
-                        <span className="text-sm text-gray-600">{item.artist.name}</span>
+                        <span className="text-sm text-[var(--text-secondary)]">{item.artist.name}</span>
                       ) : (
-                        <span className="text-gray-300 text-sm">—</span>
+                        <span className="text-[var(--text-faint)] text-sm">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 hidden lg:table-cell text-sm text-gray-400">
+                    <td className="px-4 py-3 hidden lg:table-cell text-sm text-[var(--text-muted)]">
                       {new Date(item.published_at).toLocaleDateString('lt-LT')}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1.5 justify-end">
                         <Link href={`/lt/muzika/${item.slug}/${item.id}/`} target="_blank"
-                          className="px-2.5 py-1.5 bg-gray-50 hover:bg-gray-100 rounded-lg text-xs text-gray-400 transition-colors">
+                          className="px-2.5 py-1.5 bg-[var(--bg-elevated)] hover:bg-[var(--bg-active)] rounded-lg text-xs text-[var(--text-muted)] transition-colors">
                           👁
                         </Link>
                         <Link href={`/admin/news/${item.id}`}

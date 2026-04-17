@@ -112,8 +112,8 @@ export async function PUT(
       updates.release_year = y
       updates.release_month = m
       updates.release_day = d
-      updates.release_date = y && m && d
-        ? `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+      updates.release_date = y
+        ? `${y}-${String(m || 1).padStart(2, '0')}-${String(d || 1).padStart(2, '0')}`
         : null
     }
 

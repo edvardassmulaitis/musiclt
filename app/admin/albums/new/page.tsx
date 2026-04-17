@@ -39,9 +39,9 @@ const emptyAlbum: AlbumFull = {
 function Inp({ label, value, onChange, placeholder }: any) {
   return (
     <div>
-      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{label}</label>
+      <label className="block text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1">{label}</label>
       <input value={value || ''} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-music-blue bg-white" />
+        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-lg text-[var(--text-primary)] text-sm focus:outline-none focus:border-music-blue bg-[var(--bg-surface)]" />
     </div>
   )
 }
@@ -49,9 +49,9 @@ function Inp({ label, value, onChange, placeholder }: any) {
 function Sel({ label, value, onChange, children }: any) {
   return (
     <div>
-      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{label}</label>
+      <label className="block text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1">{label}</label>
       <select value={value || ''} onChange={e => onChange(e.target.value)}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-music-blue bg-white">
+        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-lg text-[var(--text-primary)] text-sm focus:outline-none focus:border-music-blue bg-[var(--bg-surface)]">
         {children}
       </select>
     </div>
@@ -60,9 +60,9 @@ function Sel({ label, value, onChange, children }: any) {
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-      <div className="px-5 py-3 border-b border-gray-100">
-        <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide">{title}</h2>
+    <div className="bg-[var(--bg-surface)] rounded-xl shadow-sm border border-[var(--input-border)]">
+      <div className="px-5 py-3 border-b border-[var(--border-subtle)]">
+        <h2 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wide">{title}</h2>
       </div>
       <div className="p-5">{children}</div>
     </div>
@@ -135,12 +135,12 @@ export default function AdminAlbumNewPage() {
   if (status === 'loading' || !isAdmin) return null
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[var(--bg-elevated)]">
       <div className="max-w-5xl mx-auto px-6 py-6">
         <div className="flex items-center justify-between mb-6">
           <div>
             <Link href="/admin/albums" className="text-music-blue hover:text-music-orange text-sm">← Albumai</Link>
-            <h1 className="text-2xl font-black text-gray-900 mt-1">💿 Naujas albumas</h1>
+            <h1 className="text-2xl font-black text-[var(--text-primary)] mt-1">💿 Naujas albumas</h1>
           </div>
           <button onClick={handleSubmit} disabled={saving}
             className="px-6 py-3 bg-music-blue text-white font-bold rounded-xl hover:opacity-90 disabled:opacity-50">
@@ -160,7 +160,7 @@ export default function AdminAlbumNewPage() {
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Atlikėjas *</label>
                   {form.artist_id ? (
                     <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-                      <span className="flex-1 text-sm font-medium text-gray-900">{artistName}</span>
+                      <span className="flex-1 text-sm font-medium text-[var(--text-primary)]">{artistName}</span>
                       <button type="button" onClick={() => { set('artist_id', 0); setArtistName('') }}
                         className="text-red-400 hover:text-red-600 font-bold">×</button>
                     </div>
@@ -174,15 +174,15 @@ export default function AdminAlbumNewPage() {
                         } else setArtistResults([])
                       }}
                         placeholder="Ieškoti atlikėjo..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-music-blue" />
+                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-lg text-sm focus:outline-none focus:border-music-blue" />
                       {artistResults.length > 0 && (
-                        <div className="absolute z-20 w-full bg-white border border-gray-200 rounded-xl shadow-lg mt-1">
+                        <div className="absolute z-20 w-full bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-xl shadow-lg mt-1">
                           {artistResults.map(a => (
                             <button key={a.id} type="button"
                               onClick={() => { set('artist_id', a.id); setArtistName(a.name); setArtistSearch(''); setArtistResults([]) }}
-                              className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 text-left text-sm">
-                              <span className="font-medium text-gray-900">{a.name}</span>
-                              <span className="text-gray-400 text-xs">{a.country}</span>
+                              className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[var(--bg-hover)] text-left text-sm">
+                              <span className="font-medium text-[var(--text-primary)]">{a.name}</span>
+                              <span className="text-[var(--text-muted)] text-xs">{a.country}</span>
                             </button>
                           ))}
                         </div>
@@ -197,7 +197,7 @@ export default function AdminAlbumNewPage() {
                     {ALBUM_TYPE_FIELDS.map(t => (
                       <button key={t.key} type="button" onClick={() => setType(t.key)}
                         className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                          (form as any)[t.key] ? 'bg-music-blue text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          (form as any)[t.key] ? 'bg-music-blue text-white' : 'bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:bg-[var(--bg-active)]'
                         }`}>{t.label}</button>
                     ))}
                   </div>
@@ -241,37 +241,37 @@ export default function AdminAlbumNewPage() {
             <Card title={`Dainų sąrašas (${form.tracks?.length || 0})`}>
               <div className="space-y-2 mb-3 max-h-[500px] overflow-y-auto">
                 {(form.tracks || []).map((t, i) => (
-                  <div key={i} className="bg-gray-50 rounded-lg p-2.5 space-y-2">
+                  <div key={i} className="bg-[var(--bg-elevated)] rounded-lg p-2.5 space-y-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-400 w-5 text-right">{i+1}.</span>
+                      <span className="text-xs text-[var(--text-muted)] w-5 text-right">{i+1}.</span>
                       <input value={t.title} onChange={e => upTrack(i, 'title', e.target.value)}
                         placeholder="Dainos pavadinimas"
-                        className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:border-music-blue" />
+                        className="flex-1 px-2 py-1 border border-[var(--input-border)] rounded text-sm text-[var(--text-primary)] focus:outline-none focus:border-music-blue" />
                       <select value={t.type} onChange={e => upTrack(i, 'type', e.target.value)}
-                        className="px-2 py-1 border border-gray-300 rounded text-xs text-gray-700 focus:outline-none bg-white">
+                        className="px-2 py-1 border border-[var(--input-border)] rounded text-xs text-[var(--text-secondary)] focus:outline-none bg-[var(--bg-surface)]">
                         {TRACK_TYPES.map(tp => <option key={tp} value={tp}>{tp}</option>)}
                       </select>
                     </div>
                     <div className="flex items-center gap-2 pl-7">
                       <input value={t.duration || ''} onChange={e => upTrack(i, 'duration', e.target.value)}
                         placeholder="3:45" maxLength={6}
-                        className="w-16 px-2 py-1 border border-gray-300 rounded text-xs text-gray-900 focus:outline-none text-center" />
-                      <label className="flex items-center gap-1 text-xs text-gray-600 cursor-pointer">
+                        className="w-16 px-2 py-1 border border-[var(--input-border)] rounded text-xs text-[var(--text-primary)] focus:outline-none text-center" />
+                      <label className="flex items-center gap-1 text-xs text-[var(--text-secondary)] cursor-pointer">
                         <input type="checkbox" checked={t.is_single || false} onChange={e => upTrack(i, 'is_single', e.target.checked)} className="accent-music-blue" />
                         Singlas
                       </label>
                       <div className="flex gap-1 ml-auto">
-                        <button type="button" onClick={() => moveTrack(i, -1)} className="px-1.5 py-0.5 bg-gray-200 rounded text-xs hover:bg-gray-300">↑</button>
-                        <button type="button" onClick={() => moveTrack(i, 1)} className="px-1.5 py-0.5 bg-gray-200 rounded text-xs hover:bg-gray-300">↓</button>
+                        <button type="button" onClick={() => moveTrack(i, -1)} className="px-1.5 py-0.5 bg-[var(--bg-active)] rounded text-xs hover:bg-[var(--bg-active)]">↑</button>
+                        <button type="button" onClick={() => moveTrack(i, 1)} className="px-1.5 py-0.5 bg-[var(--bg-active)] rounded text-xs hover:bg-[var(--bg-active)]">↓</button>
                         <button type="button" onClick={() => rmTrack(i)} className="px-1.5 py-0.5 bg-red-100 text-red-600 rounded text-xs hover:bg-red-200">×</button>
                       </div>
                     </div>
                   </div>
                 ))}
-                {!form.tracks?.length && <p className="text-xs text-gray-400 italic text-center py-4">Nėra dainų</p>}
+                {!form.tracks?.length && <p className="text-xs text-[var(--text-muted)] italic text-center py-4">Nėra dainų</p>}
               </div>
               <button type="button" onClick={addTrack}
-                className="w-full py-2 border-2 border-dashed border-gray-300 text-gray-500 rounded-lg text-sm hover:border-music-blue hover:text-music-blue transition-colors">
+                className="w-full py-2 border-2 border-dashed border-[var(--input-border)] text-[var(--text-muted)] rounded-lg text-sm hover:border-music-blue hover:text-music-blue transition-colors">
                 + Pridėti dainą
               </button>
             </Card>
@@ -283,7 +283,7 @@ export default function AdminAlbumNewPage() {
             className="flex-1 py-4 bg-music-blue text-white font-bold rounded-xl hover:opacity-90 disabled:opacity-50 text-lg">
             {saving ? 'Saugoma...' : '✓ Išsaugoti albumą'}
           </button>
-          <Link href="/admin/albums" className="px-8 py-4 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 flex items-center font-medium">
+          <Link href="/admin/albums" className="px-8 py-4 border border-[var(--input-border)] text-[var(--text-secondary)] rounded-xl hover:bg-[var(--bg-hover)] flex items-center font-medium">
             Atšaukti
           </Link>
         </div>

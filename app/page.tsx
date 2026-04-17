@@ -589,52 +589,6 @@ function RowDivider({ icon }: { icon: 'lt' | 'world' }) {
 export default function Home() {
   const { dk } = useSite()
 
-  /* ── Theme tokens ── */
-  const T = {
-    bg:         dk ? '#080d14' : '#f0f4fa',
-    bgCard:     dk ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0.03)',
-    bgCardH:    dk ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.05)',
-    bgPill:     dk ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
-    bgPillAct:  dk ? 'rgba(29,78,216,0.18)' : 'rgba(29,78,216,0.12)',
-    bgHover:    dk ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
-    bgSkel:     dk ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)',
-    bgInput:    dk ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
-    border:     dk ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)',
-    borderH:    dk ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.14)',
-    borderSub:  dk ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)',
-    text:       dk ? '#e0eaf8' : '#0f1a2e',
-    textSec:    dk ? '#9cb5d0' : '#3a5a80',
-    textMuted:  dk ? '#6889a8' : '#8899aa',
-    textFaint:  dk ? '#3a5878' : '#bbc8d8',
-    textPill:   dk ? '#6889a8' : '#6a85a0',
-    textPillAct:dk ? '#90b8e8' : '#1d4ed8',
-    link:       dk ? '#4a7ab5' : '#2563eb',
-    title:      dk ? '#f3f6fc' : '#0f1a2e',
-    subtitle:   dk ? '#5a7898' : '#6a85a0',
-    accent:     '#f97316',
-    accentBlue: '#1d4ed8',
-    heroBg:     dk ? '#080d14' : '#f0f4fa',
-    heroText:   dk ? 'rgba(210,225,245,0.65)' : 'rgba(15,26,46,0.6)',
-    heroOverlay:dk
-      ? 'linear-gradient(to right, rgba(8,13,20,1) 0%, rgba(8,13,20,0.2) 35%, rgba(8,13,20,0.05) 55%, transparent 70%, rgba(8,13,20,0.15) 82%, rgba(8,13,20,0.7) 94%, rgba(8,13,20,1) 100%), linear-gradient(to top, rgba(8,13,20,0.5) 0%, transparent 30%)'
-      : 'linear-gradient(to right, rgba(240,244,250,1) 0%, rgba(240,244,250,0.2) 35%, rgba(240,244,250,0.05) 55%, transparent 70%, rgba(240,244,250,0.15) 82%, rgba(240,244,250,0.7) 94%, rgba(240,244,250,1) 100%), linear-gradient(to top, rgba(240,244,250,0.5) 0%, transparent 30%)',
-    heroGrad:   dk ? 'linear-gradient(135deg,#08101e 0%,#0f1830 55%,#08101e 100%)' : '#f0f4fa',
-    heroTitleC: dk ? '#fff' : '#0f1a2e',
-    chartBg:    dk ? '#080d14' : '#f0f4fa',
-    chartBdr:   dk ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
-    pos123:     dk ? '#f97316' : '#ea6c0a',
-    coverBg:    dk ? '#0e1626' : '#e0e8f2',
-    coverText:  dk ? '#1a3050' : '#8899aa',
-    chipBg:     dk ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
-    chipBdr:    dk ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)',
-    chipText:   dk ? '#e8edf6' : '#1a2a40',
-    vidOverlay: dk ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.7)',
-    ctaBg:      dk ? 'rgba(29,78,216,0.08)' : 'rgba(29,78,216,0.06)',
-    ctaBdr:     dk ? 'rgba(96,165,250,0.15)' : 'rgba(29,78,216,0.15)',
-    ctaText:    dk ? '#c8d8f4' : '#1a2a40',
-    shoutBg:    dk ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0.03)',
-  }
-
   const [chartTab, setChartTab] = useState<'lt' | 'world'>('lt')
 
   /* ── Reels state ── */
@@ -796,16 +750,16 @@ export default function Home() {
         @keyframes hp-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
         @keyframes hp-img-in{from{opacity:0;transform:scale(1.04)}to{opacity:1;transform:scale(1)}}
         @keyframes hp-pulse{0%,100%{opacity:.05}50%{opacity:.08}}
-        .hp-skel{background:${T.bgSkel};animation:hp-pulse 1.8s ease-in-out infinite}
+        .hp-skel{background:var(--homepage-skeleton-bg);animation:hp-pulse 1.8s ease-in-out infinite}
         .hp-scroll{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
         .hp-scroll::-webkit-scrollbar{display:none}
-        .hp-pill{cursor:pointer;padding:5px 13px;border-radius:18px;font-size:11px;font-weight:700;border:1px solid ${T.border};color:${T.textPill};background:transparent;transition:all .15s;white-space:nowrap;font-family:'DM Sans',sans-serif}
-        .hp-pill.hp-act{background:${T.bgPillAct};border-color:${dk ? 'rgba(29,78,216,.32)' : 'rgba(29,78,216,.2)'};color:${T.textPillAct}}
-        .hp-pill:hover{color:${dk ? '#b8d0e8' : '#1a2a40'};border-color:${T.borderH}}
+        .hp-pill{cursor:pointer;padding:5px 13px;border-radius:18px;font-size:11px;font-weight:700;border:1px solid var(--border-default);color:var(--text-muted);background:transparent;transition:all .15s;white-space:nowrap;font-family:'DM Sans',sans-serif}
+        .hp-pill.hp-act{background:var(--homepage-pill-active);border-color:${dk ? 'rgba(29,78,216,.32)' : 'rgba(29,78,216,.2)'};color:var(--accent-blue)}
+        .hp-pill:hover{color:${dk ? '#b8d0e8' : '#1a2a40'};border-color:var(--border-strong)}
         .hp-tr{transition:background .1s}
-        .hp-tr:hover{background:${T.bgHover}!important}
-        .hp-card{background:${T.bgCard};border:1px solid ${T.border};border-radius:11px;text-decoration:none;transition:border-color .15s,background .15s}
-        .hp-card:hover{border-color:${T.borderH};background:${T.bgCardH}}
+        .hp-tr:hover{background:var(--bg-hover)!important}
+        .hp-card{background:var(--card-bg);border:1px solid var(--border-default);border-radius:11px;text-decoration:none;transition:border-color .15s,background .15s}
+        .hp-card:hover{border-color:var(--border-strong);background:var(--card-hover)}
         .hp-art:hover .hp-art-img{transform:scale(1.06)}
         .hp-disc-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
         .hp-feed-strip{display:none}
@@ -833,7 +787,7 @@ export default function Home() {
         .hp-hero-grad{display:none}
         .hp-hero-content{position:relative;z-index:2;display:flex;align-items:stretch;max-width:1360px;margin:0 auto;padding:0 20px;width:100%;flex:1}
         .hp-hero-left{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:36px 0 40px;min-width:0}
-        .hp-hero-right{width:340px;flex-shrink:0;padding:20px 16px 20px 20px;display:flex;flex-direction:column;border-left:1px solid ${T.chartBdr};background:${T.chartBg};position:relative;z-index:3}
+        .hp-hero-right{width:340px;flex-shrink:0;padding:20px 16px 20px 20px;display:flex;flex-direction:column;border-left:1px solid var(--border-default);background:var(--bg-body);position:relative;z-index:3}
 
         @media(max-width:960px){
           .hp-hero{min-height:auto;overflow:hidden;height:420px;flex-direction:column}
@@ -921,7 +875,7 @@ export default function Home() {
               {hero.bgImg ? (
                 <img key={heroIdx} src={hero.bgImg} alt="" onLoad={() => setHeroImgLoaded(true)} style={{ opacity: heroImgLoaded ? 1 : 0 }} />
               ) : (
-                <div style={{ width: '100%', height: '100%', background: T.heroGrad, position: 'relative', overflow: 'hidden' }}>
+                <div style={{ width: '100%', height: '100%', background: 'var(--homepage-hero-gradient)', position: 'relative', overflow: 'hidden' }}>
                   {/* Decorative music bars for slides without image */}
                   <div style={{ position: 'absolute', right: '8%', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'flex-end', gap: 5, opacity: 0.08 }}>
                     {[35, 70, 50, 90, 60, 85, 40, 70, 100, 45, 75].map((h, i) => (
@@ -931,7 +885,7 @@ export default function Home() {
                 </div>
               )}
             </div>
-            <div className="hp-hero-grad" style={{ background: T.heroOverlay }} />
+            <div className="hp-hero-grad" style={{ background: 'var(--homepage-hero-overlay)' }} />
             <div className="hp-hero-content">
               <div className="hp-hero-left">
                 <div key={heroIdx} style={{ animation: 'hp-in .5s ease both', display: 'flex', flexDirection: 'column', flex: 1 }}>
@@ -1050,7 +1004,7 @@ export default function Home() {
                         className="hp-card"
                         style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', textDecoration: 'none' }}>
                         <div style={{ width: 28, flexShrink: 0, textAlign: 'center' }}>
-                          <span style={{ fontSize: 16, fontWeight: 900, fontFamily: 'Outfit,sans-serif', display: 'block', lineHeight: 1, color: t.pos <= 3 ? T.pos123 : (dk ? '#4a6888' : '#c0ccd8') }}>{t.pos}</span>
+                          <span style={{ fontSize: 16, fontWeight: 900, fontFamily: 'Outfit,sans-serif', display: 'block', lineHeight: 1, color: t.pos <= 3 ? 'var(--homepage-pos-accent)' : (dk ? '#4a6888' : '#c0ccd8') }}>{t.pos}</span>
                           <div style={{ marginTop: 2 }}><TrendIcon t={t.trend} /></div>
                         </div>
                         <div style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 8, overflow: 'hidden' }}>
@@ -1161,7 +1115,7 @@ export default function Home() {
                 className="hp-card"
                 style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', textDecoration: 'none' }}>
                 <div style={{ width: 28, flexShrink: 0, textAlign: 'center' }}>
-                  <span style={{ fontSize: 16, fontWeight: 900, fontFamily: 'Outfit,sans-serif', display: 'block', lineHeight: 1, color: t.pos <= 3 ? T.pos123 : (dk ? '#4a6888' : '#c0ccd8') }}>{t.pos}</span>
+                  <span style={{ fontSize: 16, fontWeight: 900, fontFamily: 'Outfit,sans-serif', display: 'block', lineHeight: 1, color: t.pos <= 3 ? 'var(--homepage-pos-accent)' : (dk ? '#4a6888' : '#c0ccd8') }}>{t.pos}</span>
                   <div style={{ marginTop: 2 }}><TrendIcon t={t.trend} /></div>
                 </div>
                 <div style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 8, overflow: 'hidden' }}>

@@ -97,7 +97,7 @@ export default function ArtistsAdmin() {
   }
 
   if (status === 'loading') return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+    <div className="min-h-screen bg-[var(--bg-elevated)] flex items-center justify-center">
       <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
     </div>
   )
@@ -105,20 +105,20 @@ export default function ArtistsAdmin() {
   const confirmArtist = artists.find(a => a.id === confirmId)
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[var(--bg-elevated)]">
       {/* Header */}
-      <div className="sticky top-0 z-30 bg-white border-b border-gray-200 px-4 sm:px-6 py-2.5">
+      <div className="sticky top-0 z-30 bg-[var(--bg-surface)] border-b border-[var(--input-border)] px-4 sm:px-6 py-2.5">
         <div className="max-w-6xl mx-auto flex items-center gap-3">
           <div className="flex items-center gap-1.5 text-sm shrink-0">
-            <Link href="/admin" className="text-gray-400 hover:text-gray-600 transition-colors">Admin</Link>
-            <span className="text-gray-300">/</span>
-            <span className="text-gray-700 font-semibold">Atlikėjai</span>
-            {!loading && <><span className="text-gray-300">/</span><span className="text-gray-400">{total}</span></>}
+            <Link href="/admin" className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors">Admin</Link>
+            <span className="text-[var(--text-faint)]">/</span>
+            <span className="text-[var(--text-primary)] font-semibold">Atlikėjai</span>
+            {!loading && <><span className="text-[var(--text-faint)]">/</span><span className="text-[var(--text-muted)]">{total}</span></>}
           </div>
           <div className="flex-1 max-w-sm ml-4">
             <input type="text" value={search} onChange={e => handleSearch(e.target.value)}
               placeholder="Ieškoti..."
-              className="w-full px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-blue-400 text-sm" />
+              className="w-full px-3 py-1.5 bg-[var(--bg-elevated)] border border-[var(--input-border)] rounded-lg text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-400 text-sm" />
           </div>
           <div className="ml-auto">
             <Link href="/admin/artists/new"
@@ -133,16 +133,16 @@ export default function ArtistsAdmin() {
       {confirmId !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.5)' }} onClick={() => setConfirmId(null)}>
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl" onClick={e => e.stopPropagation()}>
+          <div className="bg-[var(--bg-surface)] rounded-2xl p-6 max-w-sm w-full shadow-[var(--modal-shadow)]" onClick={e => e.stopPropagation()}>
             {confirmMode === 'delete_permanent' ? (
               <>
                 <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">⚠️</div>
-                <h3 className="font-bold text-gray-900 text-lg mb-1 text-center">Ištrinti visam laikui?</h3>
-                <p className="text-sm font-semibold text-gray-700 mb-1 text-center">{confirmArtist?.name}</p>
+                <h3 className="font-bold text-[var(--text-primary)] text-lg mb-1 text-center">Ištrinti visam laikui?</h3>
+                <p className="text-sm font-semibold text-[var(--text-primary)] mb-1 text-center">{confirmArtist?.name}</p>
                 <p className="text-sm text-red-500 mb-5 text-center">Veiksmo negalima atšaukti.</p>
                 <div className="flex gap-3">
                   <button onClick={() => setConfirmId(null)}
-                    className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-semibold transition-colors">
+                    className="flex-1 px-4 py-2.5 bg-[var(--bg-elevated)] hover:bg-[var(--bg-active)] text-[var(--text-secondary)] rounded-xl text-sm font-semibold transition-colors">
                     Atšaukti
                   </button>
                   <button onClick={handleConfirm}
@@ -153,11 +153,11 @@ export default function ArtistsAdmin() {
               </>
             ) : (
               <>
-                <h3 className="font-bold text-gray-900 text-lg mb-2">Deaktyvuoti atlikėją?</h3>
-                <p className="text-sm text-gray-500 mb-5">Bus paslėptas iš svetainės, bet liks duomenų bazėje.</p>
+                <h3 className="font-bold text-[var(--text-primary)] text-lg mb-2">Deaktyvuoti atlikėją?</h3>
+                <p className="text-sm text-[var(--text-muted)] mb-5">Bus paslėptas iš svetainės, bet liks duomenų bazėje.</p>
                 <div className="flex gap-3">
                   <button onClick={() => setConfirmId(null)}
-                    className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-semibold transition-colors">
+                    className="flex-1 px-4 py-2.5 bg-[var(--bg-elevated)] hover:bg-[var(--bg-active)] text-[var(--text-secondary)] rounded-xl text-sm font-semibold transition-colors">
                     Atšaukti
                   </button>
                   <button onClick={handleConfirm}
@@ -178,10 +178,10 @@ export default function ArtistsAdmin() {
             <div className="w-7 h-7 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : artists.length === 0 ? (
-          <div className="bg-white border border-gray-200 rounded-2xl p-14 text-center">
+          <div className="bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-2xl p-14 text-center">
             <div className="text-5xl mb-4">🎤</div>
-            <h3 className="text-lg font-bold text-gray-800 mb-2">Nėra atlikėjų</h3>
-            <p className="text-gray-400 mb-6 text-sm">{search ? 'Nieko nerasta' : 'Pridėkite pirmą atlikėją'}</p>
+            <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">Nėra atlikėjų</h3>
+            <p className="text-[var(--text-muted)] mb-6 text-sm">{search ? 'Nieko nerasta' : 'Pridėkite pirmą atlikėją'}</p>
             {!search && (
               <Link href="/admin/artists/new"
                 className="inline-block px-6 py-2.5 bg-blue-600 text-white rounded-xl font-semibold text-sm hover:bg-blue-700 transition-colors">
@@ -190,21 +190,21 @@ export default function ArtistsAdmin() {
             )}
           </div>
         ) : (
-          <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+          <div className="bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-2xl overflow-hidden">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-100">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">Atlikėjas</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide hidden sm:table-cell">Tipas</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide hidden md:table-cell">Šalis</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide hidden md:table-cell">Aktyvus</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wide">Veiksmai</th>
+                <tr className="border-b border-[var(--border-subtle)]">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">Atlikėjas</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide hidden sm:table-cell">Tipas</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide hidden md:table-cell">Šalis</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide hidden md:table-cell">Aktyvus</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">Veiksmai</th>
                 </tr>
               </thead>
               <tbody>
                 {artists.map(artist => (
                   <tr key={artist.id}
-                    className={`border-b border-gray-50 transition-colors ${artist.is_active === false ? 'opacity-50 bg-red-50/30' : 'hover:bg-gray-50'}`}>
+                    className={`border-b border-[var(--border-subtle)] transition-colors ${artist.is_active === false ? 'opacity-50 bg-red-50/30' : 'hover:bg-[var(--bg-hover)]'}`}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         {artist.cover_image_url ? (
@@ -218,7 +218,7 @@ export default function ArtistsAdmin() {
                         <div>
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <Link href={`/admin/artists/${artist.id}`}
-                              className="font-semibold text-gray-900 text-sm hover:text-blue-600 transition-colors">
+                              className="font-semibold text-[var(--text-primary)] text-sm hover:text-blue-600 transition-colors">
                               {artist.name}
                             </Link>
                             {artist.is_verified && <span className="text-xs text-green-500">✓</span>}
@@ -226,17 +226,17 @@ export default function ArtistsAdmin() {
                               <span className="text-[10px] px-1.5 py-0.5 bg-red-100 text-red-500 rounded-full font-semibold">neaktyvus</span>
                             )}
                           </div>
-                          <div className="text-xs text-gray-400 sm:hidden mt-0.5">
+                          <div className="text-xs text-[var(--text-muted)] sm:hidden mt-0.5">
                             {artist.type === 'group' ? 'Grupė' : 'Solo'}{artist.country ? ` · ${artist.country}` : ''}
                           </div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500 hidden sm:table-cell">
+                    <td className="px-4 py-3 text-sm text-[var(--text-secondary)] hidden sm:table-cell">
                       {artist.type === 'group' ? '🎸 Grupė' : '🎤 Solo'}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500 hidden md:table-cell">{artist.country || '—'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500 hidden md:table-cell">
+                    <td className="px-4 py-3 text-sm text-[var(--text-secondary)] hidden md:table-cell">{artist.country || '—'}</td>
+                    <td className="px-4 py-3 text-sm text-[var(--text-secondary)] hidden md:table-cell">
                       {artist.active_from
                         ? `${artist.active_from}${artist.active_until ? ` – ${artist.active_until}` : ' – dabar'}`
                         : '—'}
@@ -244,7 +244,7 @@ export default function ArtistsAdmin() {
                     <td className="px-4 py-3">
                       <div className="flex gap-1.5 justify-end">
                         <Link href={`/atlikejai/${artist.slug}`} target="_blank" title="Žiūrėti"
-                          className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-xs text-gray-500 transition-colors flex items-center">
+                          className="px-2.5 py-1.5 bg-[var(--bg-elevated)] hover:bg-[var(--bg-active)] rounded-lg text-xs text-[var(--text-secondary)] transition-colors flex items-center">
                           👁
                         </Link>
                         <Link href={`/admin/artists/${artist.id}`} title="Redaguoti"

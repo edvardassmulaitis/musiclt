@@ -58,15 +58,15 @@ export default function AdminEventsPage() {
   const SL: Record<string, string> = { all: 'Visi', upcoming: 'Artėjantys', ongoing: 'Vyksta', past: 'Praėję', cancelled: 'Atšaukti' }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[var(--bg-elevated)]">
       {/* Breadcrumb bar — same style as artist edit */}
-      <div className="bg-white/95 backdrop-blur border-b border-gray-200">
+      <div className="bg-[var(--bg-surface)]/95 backdrop-blur border-b border-[var(--input-border)]">
         <div className="flex items-center justify-between gap-2 px-4 py-2">
           <nav className="flex items-center gap-1 text-sm">
-            <Link href="/admin" className="text-gray-400 hover:text-gray-700">Admin</Link>
-            <span className="text-gray-300">/</span>
-            <span className="text-gray-800 font-semibold">Renginiai</span>
-            {!loading && <span className="bg-gray-100 text-gray-500 text-xs font-bold px-1.5 py-0.5 rounded-full ml-1">{events.length}</span>}
+            <Link href="/admin" className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]">Admin</Link>
+            <span className="text-[var(--text-faint)]">/</span>
+            <span className="text-[var(--text-primary)] font-semibold">Renginiai</span>
+            {!loading && <span className="bg-[var(--bg-elevated)] text-[var(--text-muted)] text-xs font-bold px-1.5 py-0.5 rounded-full ml-1">{events.length}</span>}
           </nav>
           <Link href="/admin/events/new"
             className="flex items-center gap-1.5 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold transition-colors">
@@ -79,7 +79,7 @@ export default function AdminEventsPage() {
         {/* Filters */}
         <div className="flex items-center gap-3 mb-4 flex-wrap">
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Ieškoti..."
-            className="h-8 rounded-lg px-3 text-sm border border-gray-200 bg-white focus:outline-none focus:border-blue-300 text-gray-700 w-48" />
+            className="h-8 rounded-lg px-3 text-sm border border-[var(--input-border)] bg-[var(--bg-surface)] focus:outline-none focus:border-blue-300 text-[var(--text-primary)] w-48" />
           <div className="flex gap-1">
             {Object.keys(SL).map(f => (
               <button key={f} onClick={() => setFilter(f)}
@@ -98,16 +98,16 @@ export default function AdminEventsPage() {
             <Link href="/admin/events/new" className="text-sm text-blue-500 hover:underline">+ Sukurti pirmą renginį</Link>
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm divide-y divide-gray-100 overflow-hidden">
+          <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--input-border)] shadow-sm divide-y divide-[var(--border-subtle)] overflow-hidden">
             {filtered.map(ev => (
-              <div key={ev.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors group">
+              <div key={ev.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-[var(--bg-hover)] transition-colors group">
                 <div className="w-14 text-center flex-shrink-0">
-                  <p className="text-xs font-semibold text-gray-700">{new Date(ev.start_date).toLocaleDateString('lt-LT', { month: 'short', day: 'numeric' })}</p>
-                  <p className="text-[10px] text-gray-400">{new Date(ev.start_date).getFullYear()}</p>
+                  <p className="text-xs font-semibold text-[var(--text-primary)]">{new Date(ev.start_date).toLocaleDateString('lt-LT', { month: 'short', day: 'numeric' })}</p>
+                  <p className="text-[10px] text-[var(--text-muted)]">{new Date(ev.start_date).getFullYear()}</p>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <Link href={`/admin/events/${ev.id}`} className="text-sm font-semibold text-gray-800 hover:text-blue-600 transition truncate block">{ev.title}</Link>
-                  <p className="text-xs text-gray-400">{ev.city || '—'}</p>
+                  <Link href={`/admin/events/${ev.id}`} className="text-sm font-semibold text-[var(--text-primary)] hover:text-blue-600 transition truncate block">{ev.title}</Link>
+                  <p className="text-xs text-[var(--text-muted)]">{ev.city || '—'}</p>
                 </div>
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${SC[ev.status] || 'text-gray-500 bg-gray-100'}`}>{ev.status}</span>
                 <button onClick={() => toggleFeatured(ev.id, ev.is_featured)} title="Featured"

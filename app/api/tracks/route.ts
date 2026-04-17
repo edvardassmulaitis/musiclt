@@ -143,11 +143,11 @@ export async function POST(req: NextRequest) {
   if (!data.title?.trim()) return NextResponse.json({ error: 'Title required' }, { status: 400 })
   if (!data.artist_id) return NextResponse.json({ error: 'Artist required' }, { status: 400 })
 
-  // release_date tik kai žinomas tikslus mėnuo — ne tik metai
+  // release_date — sukuriamas kai yra bent metai
   let release_date = data.release_date || null
-  if (!release_date && data.release_year && data.release_month) {
+  if (!release_date && data.release_year) {
     const y = data.release_year
-    const m = String(data.release_month).padStart(2, '0')
+    const m = String(data.release_month || 1).padStart(2, '0')
     const d = String(data.release_day || 1).padStart(2, '0')
     release_date = `${y}-${m}-${d}`
   }

@@ -5,6 +5,11 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { AlbumFull, TrackInAlbum } from '@/lib/supabase-albums'
+import ArtistSearchInput from '@/components/ui/ArtistSearchInput'
+import DateNumberInput from '@/components/ui/DateNumberInput'
+import YouTubeSearch from '@/components/ui/YouTubeSearch'
+import DescriptionEditor from '@/components/ui/DescriptionEditor'
+import { extractYouTubeId } from '@/components/ui/helpers'
 
 const ALBUM_TYPE_FIELDS = [
   { key: 'type_studio', label: 'Studijinis', icon: <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" strokeWidth={2}/><circle cx="12" cy="12" r="3" strokeWidth={2}/><path strokeLinecap="round" strokeWidth={2} d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg> },
@@ -32,150 +37,6 @@ const emptyAlbum: AlbumFull = {
   tracks: [],
 }
 
-function extractYouTubeId(url: string): string {
-  return url.match(/(?:v=|youtu\.be\/)([^&?]+)/)?.[1] || ''
-}
-
-// ── DateNumberInput ───────────────────────────────────────────────────────────
-function DateNumberInput({ value, onChange, min, max, placeholder }: {
-  value: number | undefined | null
-  onChange: (v: number | null) => void; min: number; max: number; placeholder: string
-}) {
-  const [raw, setRaw] = useState(value ? String(value) : '')
-  useEffect(() => { setRaw(value ? String(value) : '') }, [value])
-  const commit = (s: string) => {
-    const n = parseInt(s)
-    if (!s || isNaN(n)) { onChange(null); setRaw('') }
-    else if (n >= min && n <= max) { onChange(n); setRaw(String(n)) }
-    else setRaw(value ? String(value) : '')
-  }
-  return (
-    <input type="number" value={raw}
-      onChange={e => setRaw(e.target.value)}
-      onBlur={e => commit(e.target.value)}
-      onKeyDown={e => e.key === 'Enter' && commit(raw)}
-      placeholder={placeholder} min={min} max={max}
-      className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-blue-400 bg-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-  )
-}
-
-// ── ArtistSearch ───────────────────────────────────────────────────────────────
-function ArtistSearchInput({ placeholder = 'Ieškoti atlikėjo...', onSelect }: {
-  placeholder?: string
-  onSelect: (id: number, name: string, avatar?: string) => void
-}) {
-  const [q, setQ] = useState('')
-  const [results, setResults] = useState<any[]>([])
-  useEffect(() => {
-    if (q.length < 2) { setResults([]); return }
-    const t = setTimeout(async () => {
-      const res = await fetch(`/api/artists?search=${encodeURIComponent(q)}&limit=6`)
-      setResults((await res.json()).artists || [])
-    }, 200)
-    return () => clearTimeout(t)
-  }, [q])
-  return (
-    <div className="relative">
-      <input value={q} onChange={e => setQ(e.target.value)} placeholder={placeholder}
-        className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-blue-400 transition-colors" />
-      {results.length > 0 && (
-        <div className="absolute z-50 w-full bg-white border border-gray-200 rounded-xl shadow-xl mt-1 overflow-hidden">
-          {results.map(a => (
-            <button key={a.id} type="button"
-              onClick={() => { onSelect(a.id, a.name, a.cover_image_url || a.avatar || null); setQ(''); setResults([]) }}
-              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-blue-50 text-left transition-colors">
-              <div className="w-7 h-7 rounded-full overflow-hidden bg-gray-200 shrink-0">
-                {(a.cover_image_url || a.avatar)
-                  ? <img src={a.cover_image_url || a.avatar} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                  : <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-400 to-indigo-500 text-white text-xs font-bold">{a.name[0]}</div>
-                }
-              </div>
-              <div className="min-w-0">
-                <p className="font-medium text-gray-900 text-sm truncate">{a.name}</p>
-                {a.country && <p className="text-gray-400 text-xs truncate">{a.country}</p>}
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── DescriptionEditor ─────────────────────────────────────────────────────────
-function DescriptionEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const editorRef = useRef<HTMLDivElement>(null)
-  const isUpdating = useRef(false)
-
-  useEffect(() => {
-    if (!editorRef.current || isUpdating.current) return
-    if (editorRef.current.innerHTML !== value) {
-      editorRef.current.innerHTML = value
-    }
-  }, [value])
-
-  const exec = (cmd: string, val?: string) => {
-    document.execCommand(cmd, false, val)
-    editorRef.current?.focus()
-    syncContent()
-  }
-
-  const syncContent = () => {
-    isUpdating.current = true
-    onChange(editorRef.current?.innerHTML || '')
-    setTimeout(() => { isUpdating.current = false }, 0)
-  }
-
-  const tools = [
-    { cmd: 'bold', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 4h8a4 4 0 014 4 4 4 0 01-4 4H6z M6 12h9a4 4 0 014 4 4 4 0 01-4 4H6z"/></svg>, title: 'Bold' },
-    { cmd: 'italic', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="19" y1="4" x2="10" y2="4" strokeWidth={2} strokeLinecap="round"/><line x1="14" y1="20" x2="5" y2="20" strokeWidth={2} strokeLinecap="round"/><line x1="15" y1="4" x2="9" y2="20" strokeWidth={2} strokeLinecap="round"/></svg>, title: 'Italic' },
-    { cmd: 'insertUnorderedList', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>, title: 'Sąrašas' },
-    { cmd: 'insertOrderedList', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6h11M10 12h11M10 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg>, title: 'Numeruotas sąrašas' },
-    { cmd: 'removeFormat', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>, title: 'Išvalyti formatą' },
-  ]
-
-  return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden focus-within:border-blue-400 transition-colors">
-      <div className="flex items-center gap-0.5 px-1.5 py-1 border-b border-gray-100 bg-gray-50">
-        {tools.map(t => (
-          <button key={t.cmd} type="button" title={t.title}
-            onMouseDown={e => { e.preventDefault(); exec(t.cmd) }}
-            className="p-1.5 rounded hover:bg-gray-200 text-gray-500 hover:text-gray-800 transition-colors">
-            {t.icon}
-          </button>
-        ))}
-        <div className="w-px h-4 bg-gray-200 mx-1" />
-        <button type="button" title="Nuoroda"
-          onMouseDown={e => {
-            e.preventDefault()
-            const url = prompt('URL:')
-            if (url) exec('createLink', url)
-          }}
-          className="p-1.5 rounded hover:bg-gray-200 text-gray-500 hover:text-gray-800 transition-colors">
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
-        </button>
-        {value && (
-          <button type="button" title="Išvalyti viską" onMouseDown={e => { e.preventDefault(); onChange(''); if (editorRef.current) editorRef.current.innerHTML = '' }}
-            className="ml-auto p-1.5 rounded hover:bg-red-100 text-gray-400 hover:text-red-500 transition-colors">
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-          </button>
-        )}
-      </div>
-      <div
-        ref={editorRef}
-        contentEditable
-        suppressContentEditableWarning
-        onInput={syncContent}
-        className="min-h-[100px] max-h-[300px] overflow-y-auto p-2.5 text-sm text-gray-800 focus:outline-none prose prose-sm max-w-none"
-        style={{ lineHeight: '1.6' }}
-        data-placeholder="Albumo aprašymas..."
-      />
-      {!value && (
-        <style>{`[data-placeholder]:empty:before { content: attr(data-placeholder); color: #9ca3af; pointer-events: none; }`}</style>
-      )}
-    </div>
-  )
-}
 
 // ── CoverImageField ───────────────────────────────────────────────────────────
 function CoverImageField({ value, onChange }: { value: string; onChange: (url: string) => void }) {
@@ -216,7 +77,7 @@ function CoverImageField({ value, onChange }: { value: string; onChange: (url: s
   return (
     <div className="flex flex-col gap-1.5">
       <div
-        className="relative w-24 h-24 rounded-lg overflow-hidden border border-gray-200 bg-gray-100 cursor-pointer shrink-0 group"
+        className="relative w-24 h-24 rounded-lg overflow-hidden border border-[var(--input-border)] bg-[var(--bg-elevated)] cursor-pointer shrink-0 group"
         onClick={() => !uploading && fileRef.current?.click()}
         onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f?.type.startsWith('image/')) handleFileUpload(f) }}
         onDragOver={e => e.preventDefault()}>
@@ -228,13 +89,13 @@ function CoverImageField({ value, onChange }: { value: string; onChange: (url: s
             </div>
           </>
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 group-hover:text-blue-400 transition-colors">
+          <div className="w-full h-full flex flex-col items-center justify-center text-[var(--text-muted)] group-hover:text-blue-400 transition-colors">
             <svg className="w-7 h-7 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" /></svg>
             <span className="text-[10px]">Viršelis</span>
           </div>
         )}
         {uploading && (
-          <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
+          <div className="absolute inset-0 bg-[var(--bg-surface)]/80 flex items-center justify-center">
             <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
           </div>
         )}
@@ -242,9 +103,9 @@ function CoverImageField({ value, onChange }: { value: string; onChange: (url: s
       <div className="flex gap-1">
         <input type="text" value={urlInput} onChange={e => setUrlInput(e.target.value)}
           onBlur={e => handleUrlCommit(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleUrlCommit(urlInput)}
-          placeholder="https://..." className="flex-1 min-w-0 px-2 py-1 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
+          placeholder="https://..." className="flex-1 min-w-0 px-2 py-1 border border-[var(--input-border)] rounded-lg text-xs text-[var(--text-secondary)] focus:outline-none focus:border-blue-400 bg-[var(--bg-surface)]" />
         <button type="button" onClick={() => fileRef.current?.click()}
-          className="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-500 rounded-lg text-xs transition-colors shrink-0" title="Įkelti failą">
+          className="px-2 py-1 bg-[var(--bg-elevated)] hover:bg-[var(--bg-active)] text-[var(--text-muted)] rounded-lg text-xs transition-colors shrink-0" title="Įkelti failą">
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
         </button>
         {value && (
@@ -257,49 +118,6 @@ function CoverImageField({ value, onChange }: { value: string; onChange: (url: s
       {uploadError && <p className="text-xs text-red-500">{uploadError}</p>}
       <input ref={fileRef} type="file" accept="image/*" className="hidden"
         onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f) }} />
-    </div>
-  )
-}
-
-// ── YouTubeSearch ─────────────────────────────────────────────────────────────
-function YouTubeSearch({ initialQuery, onSelect }: { initialQuery: string; onSelect: (url: string) => void }) {
-  const [query, setQuery] = useState(initialQuery)
-  const [results, setResults] = useState<YTResult[]>([])
-  const [loading, setLoading] = useState(false)
-  useEffect(() => { setQuery(initialQuery) }, [initialQuery])
-  const search = async () => {
-    if (!query.trim()) return
-    setLoading(true); setResults([])
-    try { setResults((await (await fetch(`/api/search/youtube?q=${encodeURIComponent(query)}`)).json()).results || []) }
-    finally { setLoading(false) }
-  }
-  return (
-    <div className="space-y-1.5">
-      <div className="flex gap-1.5">
-        <input value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && search()}
-          placeholder="Ieškoti YouTube..." className="flex-1 px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-blue-400 bg-white" />
-        <button type="button" onClick={search} disabled={loading}
-          className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm disabled:opacity-50 transition-colors shrink-0">
-          {loading
-            ? <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-            : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-          }
-        </button>
-      </div>
-      {results.length > 0 && (
-        <div className="rounded-lg border border-gray-100 overflow-hidden">
-          {results.map(r => (
-            <div key={r.videoId} onClick={() => { onSelect(`https://www.youtube.com/watch?v=${r.videoId}`); setResults([]) }}
-              className="flex items-center gap-2 px-2.5 py-1.5 cursor-pointer hover:bg-blue-50 transition-colors border-b border-gray-50 last:border-0">
-              <img src={r.thumbnail} alt="" className="w-12 h-8 object-cover rounded shrink-0" />
-              <div className="min-w-0">
-                <p className="text-xs font-medium text-gray-900 line-clamp-1">{r.title}</p>
-                <p className="text-xs text-gray-400 truncate">{r.channel}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   )
 }
@@ -341,18 +159,18 @@ function TrackList({ tracks, isMobile, onAdd, onUpdate, onRemove, onHardDelete, 
             draggable={false}
             onDragEnter={() => !isMobile && onDragEnter(i)}
             onDragOver={e => { if (!isMobile) e.preventDefault() }}
-            className={`flex items-center gap-1.5 px-2.5 border-b border-gray-100 transition-colors group ${
+            className={`flex items-center gap-1.5 px-2.5 border-b border-[var(--border-subtle)] transition-colors group ${
               isMobile ? 'py-2' : 'py-1'
-            } ${dragOver === i ? 'bg-blue-50 border-t-2 border-blue-400' : 'hover:bg-gray-50/80'}`}>
+            } ${dragOver === i ? 'bg-blue-50 border-t-2 border-blue-400' : 'hover:bg-[var(--bg-elevated)]/80'}`}>
 
             {isMobile ? (
               <div className="flex flex-col shrink-0">
                 <button type="button" onClick={() => i > 0 && onReorder(i, i - 1)} disabled={i === 0}
-                  className="w-5 h-4 flex items-center justify-center text-gray-400 hover:text-gray-700 disabled:opacity-20">
+                  className="w-5 h-4 flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-secondary)] disabled:opacity-20">
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                 </button>
                 <button type="button" onClick={() => i < tracks.length - 1 && onReorder(i, i + 1)} disabled={i === tracks.length - 1}
-                  className="w-5 h-4 flex items-center justify-center text-gray-400 hover:text-gray-700 disabled:opacity-20">
+                  className="w-5 h-4 flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-secondary)] disabled:opacity-20">
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                 </button>
               </div>
@@ -361,11 +179,11 @@ function TrackList({ tracks, isMobile, onAdd, onUpdate, onRemove, onHardDelete, 
                 onDragStart={e => { e.stopPropagation(); onDragStart(i) }}
                 onDragEnd={e => { e.stopPropagation(); onDragEnd() }}
                 className="cursor-grab active:cursor-grabbing">
-                <svg className="w-3.5 h-3.5 text-gray-300 hover:text-gray-500 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M8 6a2 2 0 100-4 2 2 0 000 4zm0 8a2 2 0 100-4 2 2 0 000 4zm0 8a2 2 0 100-4 2 2 0 000 4zm8-16a2 2 0 100-4 2 2 0 000 4zm0 8a2 2 0 100-4 2 2 0 000 4zm0 8a2 2 0 100-4 2 2 0 000 4z" /></svg>
+                <svg className="w-3.5 h-3.5 text-[var(--text-faint)] hover:text-[var(--text-muted)] shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M8 6a2 2 0 100-4 2 2 0 000 4zm0 8a2 2 0 100-4 2 2 0 000 4zm0 8a2 2 0 100-4 2 2 0 000 4zm8-16a2 2 0 100-4 2 2 0 000 4zm0 8a2 2 0 100-4 2 2 0 000 4zm0 8a2 2 0 100-4 2 2 0 000 4z" /></svg>
               </span>
             )}
 
-            <span className="text-xs text-gray-400 w-4 text-right shrink-0 tabular-nums">{i + 1}</span>
+            <span className="text-xs text-[var(--text-muted)] w-4 text-right shrink-0 tabular-nums">{i + 1}</span>
 
             <div className="flex-1 min-w-0 flex items-baseline gap-1 flex-wrap">
               <input value={t.title} onChange={e => onUpdate(i, 'title', e.target.value)}
@@ -374,9 +192,9 @@ function TrackList({ tracks, isMobile, onAdd, onUpdate, onRemove, onHardDelete, 
                 onDragStart={e => e.preventDefault()}
                 placeholder="Dainos pavadinimas"
                 size={t.title ? Math.max(8, t.title.length + 2) : 20}
-                className="px-1 py-0.5 border border-transparent hover:border-gray-200 focus:border-blue-300 rounded text-sm text-gray-900 focus:outline-none bg-transparent focus:bg-white transition-all" />
+                className="px-1 py-0.5 border border-transparent hover:border-[var(--input-border)] focus:border-blue-300 rounded text-sm text-[var(--text-primary)] focus:outline-none bg-transparent focus:bg-[var(--bg-surface)] transition-all" />
               {featuring.length > 0 && (
-                <span className="text-xs text-gray-400 leading-tight whitespace-nowrap">su {featuring.join(', ')}</span>
+                <span className="text-xs text-[var(--text-muted)] leading-tight whitespace-nowrap">su {featuring.join(', ')}</span>
               )}
             </div>
 
@@ -389,25 +207,25 @@ function TrackList({ tracks, isMobile, onAdd, onUpdate, onRemove, onHardDelete, 
               <input type="checkbox" checked={t.is_single || false}
                 onChange={e => onUpdate(i, 'is_single', e.target.checked)}
                 className="accent-blue-600 w-3 h-3" />
-              <span className="text-xs text-gray-400">S</span>
+              <span className="text-xs text-[var(--text-muted)]">S</span>
             </label>
 
             {trackEditUrl && (
               <a href={trackEditUrl} target="_blank" rel="noopener noreferrer"
                 onClick={e => e.stopPropagation()}
-                className="shrink-0 px-2 py-0.5 text-xs text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors font-medium whitespace-nowrap">
+                className="shrink-0 px-2 py-0.5 text-xs text-blue-500 hover:text-blue-700 hover:bg-[var(--hover-blue)] rounded transition-colors font-medium whitespace-nowrap">
                 {isMobile ? '↗' : 'Redaguoti ↗'}
               </a>
             )}
 
             <button type="button" onClick={() => onRemove(i)} title="Pašalinti iš albumo"
-              className="w-5 h-5 flex items-center justify-center text-gray-300 hover:text-orange-500 hover:bg-orange-50 rounded transition-colors shrink-0 text-sm">
+              className="w-5 h-5 flex items-center justify-center text-[var(--text-faint)] hover:text-orange-500 hover:bg-orange-50 rounded transition-colors shrink-0 text-sm">
               ×
             </button>
 
             {isSaved && (
               <button type="button" onClick={() => onHardDelete(i)} title="Ištrinti dainą visiškai"
-                className="w-5 h-5 flex items-center justify-center text-gray-300 hover:text-red-600 hover:bg-red-50 rounded transition-colors shrink-0 opacity-0 group-hover:opacity-100">
+                className="w-5 h-5 flex items-center justify-center text-[var(--text-faint)] hover:text-red-600 hover:bg-red-50 rounded transition-colors shrink-0 opacity-0 group-hover:opacity-100">
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
               </button>
             )}
@@ -417,14 +235,14 @@ function TrackList({ tracks, isMobile, onAdd, onUpdate, onRemove, onHardDelete, 
 
       {!tracks.length && (
         <div className="py-10 text-center">
-          <svg className="w-8 h-8 text-gray-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" /></svg>
-          <p className="text-sm text-gray-400">Nėra dainų</p>
+          <svg className="w-8 h-8 text-[var(--text-faint)] mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" /></svg>
+          <p className="text-sm text-[var(--text-muted)]">Nėra dainų</p>
         </div>
       )}
 
       <div className="p-2.5">
         <button type="button" onClick={onAdd}
-          className="w-full py-2 border-2 border-dashed border-gray-200 text-gray-400 rounded-xl text-sm hover:border-blue-300 hover:text-blue-500 active:bg-blue-50 transition-colors">
+          className="w-full py-2 border-2 border-dashed border-[var(--input-border)] text-[var(--text-muted)] rounded-xl text-sm hover:border-blue-300 hover:text-blue-500 active:bg-blue-50 transition-colors">
           + Pridėti dainą
         </button>
       </div>
@@ -434,12 +252,12 @@ function TrackList({ tracks, isMobile, onAdd, onUpdate, onRemove, onHardDelete, 
 
 function TracksHeader({ count }: { count: number }) {
   return (
-    <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100 bg-white sticky top-0 z-10">
+    <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] sticky top-0 z-10">
       <div className="flex items-center gap-1.5">
-        <span className="text-sm font-bold text-gray-700">Dainų sąrašas</span>
-        <span className="bg-gray-200 text-gray-600 text-xs font-bold px-1.5 py-0.5 rounded-full">{count}</span>
+        <span className="text-sm font-bold text-[var(--text-secondary)]">Dainų sąrašas</span>
+        <span className="bg-[var(--bg-active)] text-[var(--text-secondary)] text-xs font-bold px-1.5 py-0.5 rounded-full">{count}</span>
       </div>
-      <span className="text-xs text-gray-400 flex items-center gap-1">
+      <span className="text-xs text-[var(--text-muted)] flex items-center gap-1">
         <svg className="w-3 h-3 text-blue-400" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
         video · T žodžiai · S singlas
       </span>
@@ -597,15 +415,15 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
 
   const InfoPanel = (
     <div className="space-y-2.5 p-3 pb-4">
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 space-y-2.5">
+      <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-subtle)] shadow-sm p-3 space-y-2.5">
         <div className="grid grid-cols-[1fr_auto] gap-3 items-start">
           <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-1">Pavadinimas *</label>
+            <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">Pavadinimas *</label>
             <input value={form.title} onChange={e => set('title', e.target.value)} placeholder="Albumo pavadinimas"
-              className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-sm font-medium focus:outline-none focus:border-blue-400 bg-white transition-colors" />
+              className="w-full px-2.5 py-1.5 border border-[var(--input-border)] rounded-lg text-[var(--text-primary)] text-sm font-medium focus:outline-none focus:border-blue-400 bg-[var(--bg-surface)] transition-colors" />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-1">Data</label>
+            <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">Data</label>
             <div className="flex gap-1">
               <div className="w-16"><DateNumberInput value={form.year} onChange={v => set('year', v)} min={1900} max={CY + 2} placeholder="Metai" /></div>
               <div className="w-10"><DateNumberInput value={form.month} onChange={v => set('month', v)} min={1} max={12} placeholder="Mėn" /></div>
@@ -615,27 +433,27 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-gray-500 mb-1">Atlikėjai *</label>
+          <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">Atlikėjai *</label>
           <div className="flex flex-wrap items-center gap-1.5">
             {form.artist_id ? (
-              <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-xl px-2 py-1 shadow-sm shrink-0">
-                <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 shrink-0">
+              <div className="flex items-center gap-1.5 bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-xl px-2 py-1 shadow-sm shrink-0">
+                <div className="w-6 h-6 rounded-full overflow-hidden bg-[var(--bg-active)] shrink-0">
                   {artistAvatar
                     ? <img src={artistAvatar} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     : <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-400 to-indigo-500 text-white text-xs font-bold">{artistName[0]}</div>
                   }
                 </div>
-                <span className="text-gray-900 text-sm font-semibold">{artistName}</span>
+                <span className="text-[var(--text-primary)] text-sm font-semibold">{artistName}</span>
                 <button type="button" onClick={() => { set('artist_id', 0); setArtistName(''); setArtistId(null); setArtistAvatar('') }}
-                  className="text-gray-300 hover:text-red-500 transition-colors ml-0.5 text-base leading-none">×</button>
+                  className="text-[var(--text-faint)] hover:text-red-500 transition-colors ml-0.5 text-base leading-none">×</button>
               </div>
             ) : null}
             {featuredArtists.map((a, i) => (
-              <div key={a.id} className="flex items-center gap-1 bg-white border border-gray-200 rounded-xl px-2 py-1 text-xs shadow-sm shrink-0">
-                <span className="text-gray-400 text-[10px]">su</span>
-                <span className="text-gray-700 font-medium">{a.name}</span>
+              <div key={a.id} className="flex items-center gap-1 bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-xl px-2 py-1 text-xs shadow-sm shrink-0">
+                <span className="text-[var(--text-muted)] text-[10px]">su</span>
+                <span className="text-[var(--text-secondary)] font-medium">{a.name}</span>
                 <button type="button" onClick={() => setFeaturedArtists(p => p.filter((_, j) => j !== i))}
-                  className="text-gray-300 hover:text-red-500 ml-0.5 leading-none">×</button>
+                  className="text-[var(--text-faint)] hover:text-red-500 ml-0.5 leading-none">×</button>
               </div>
             ))}
             <div className="flex-1 min-w-[120px]">
@@ -651,12 +469,12 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-gray-500 mb-1">Tipas</label>
+          <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">Tipas</label>
           <div className="flex flex-wrap gap-1">
             {ALBUM_TYPE_FIELDS.map(t => (
               <button key={t.key} type="button" onClick={() => setType(t.key)}
                 className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all ${
-                  (form as any)[t.key] ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  (form as any)[t.key] ? 'bg-blue-600 text-white shadow-sm' : 'bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:bg-[var(--bg-active)]'
                 }`}>
                 {t.icon} {t.label}
               </button>
@@ -665,23 +483,23 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
+      <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-subtle)] shadow-sm p-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <p className="text-xs font-semibold text-gray-500 mb-1.5">Viršelis</p>
+            <p className="text-xs font-semibold text-[var(--text-muted)] mb-1.5">Viršelis</p>
             <CoverImageField value={form.cover_image_url || ''} onChange={url => set('cover_image_url', url)} />
           </div>
 
           <div className="space-y-2.5 min-w-0">
             <div>
-              <p className="text-xs font-semibold text-gray-500 mb-1 flex items-center gap-1">
+              <p className="text-xs font-semibold text-[var(--text-muted)] mb-1 flex items-center gap-1">
                 <svg className="w-3.5 h-3.5 text-red-500" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
                 YouTube
               </p>
               <div className="flex gap-1 mb-1">
                 <input value={form.video_url || ''} onChange={e => set('video_url', e.target.value)}
                   placeholder="youtube.com/watch?v=..."
-                  className="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white" />
+                  className="flex-1 min-w-0 px-2 py-1.5 border border-[var(--input-border)] rounded-lg text-xs text-[var(--text-secondary)] focus:outline-none focus:border-blue-400 bg-[var(--bg-surface)]" />
                 {ytId && (
                   <button type="button" onClick={() => set('video_url', '')}
                     className="px-2 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg text-xs transition-colors shrink-0">
@@ -701,13 +519,13 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
             </div>
 
             <div>
-              <p className="text-xs font-semibold text-gray-500 mb-1 flex items-center gap-1">
+              <p className="text-xs font-semibold text-[var(--text-muted)] mb-1 flex items-center gap-1">
                 <svg className="w-3.5 h-3.5 text-green-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
                 Spotify
               </p>
               <input value={form.spotify_id || ''} onChange={e => set('spotify_id', e.target.value)}
                 placeholder="Album ID..."
-                className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-gray-900 text-xs focus:outline-none focus:border-blue-400 font-mono transition-colors" />
+                className="w-full px-2 py-1.5 border border-[var(--input-border)] rounded-lg text-[var(--text-primary)] text-xs focus:outline-none focus:border-blue-400 font-mono transition-colors" />
               {form.spotify_id && (
                 <a href={`https://open.spotify.com/album/${form.spotify_id}`} target="_blank" rel="noopener noreferrer"
                   className="mt-1 flex items-center gap-1 text-xs text-green-600 hover:text-green-700 transition-colors">
@@ -719,7 +537,7 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
           </div>
         </div>
         <div className="mt-2.5">
-          <p className="text-xs font-semibold text-gray-500 mb-1">Aprašymas</p>
+          <p className="text-xs font-semibold text-[var(--text-muted)] mb-1">Aprašymas</p>
           <DescriptionEditor value={form.description || ''} onChange={v => set('description', v)} />
         </div>
       </div>
@@ -730,31 +548,31 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
 
   return (
     <div className="min-h-screen bg-[#f8f7f5]">
-      <div className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-gray-200">
+      <div className="sticky top-0 z-40 bg-[var(--bg-surface)]/95 backdrop-blur border-b border-[var(--input-border)]">
         <div className="flex items-center justify-between gap-3 px-4 py-2">
           <nav className="hidden sm:flex items-center gap-1 text-sm min-w-0">
-            <Link href="/admin" className="text-gray-400 hover:text-gray-700 shrink-0">Admin</Link>
-            <span className="text-gray-300">/</span>
-            <Link href="/admin/artists" className="text-gray-400 hover:text-gray-700 shrink-0">Atlikėjai</Link>
+            <Link href="/admin" className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] shrink-0">Admin</Link>
+            <span className="text-[var(--text-faint)]">/</span>
+            <Link href="/admin/artists" className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] shrink-0">Atlikėjai</Link>
             {artistName && artistId && <>
-              <span className="text-gray-300">/</span>
-              <Link href={`/admin/artists/${artistId}`} className="text-gray-400 hover:text-gray-700 shrink-0">{artistName}</Link>
+              <span className="text-[var(--text-faint)]">/</span>
+              <Link href={`/admin/artists/${artistId}`} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] shrink-0">{artistName}</Link>
             </>}
-            <span className="text-gray-300">/</span>
-            <Link href={artistId ? `/admin/albums?artist=${artistId}` : "/admin/albums"} className="text-gray-400 hover:text-gray-700 shrink-0">Albumai</Link>
-            <span className="text-gray-300">/</span>
-            <span className="text-gray-700 truncate max-w-[160px]">{isNew ? 'Naujas' : (form.title || '...')}</span>
+            <span className="text-[var(--text-faint)]">/</span>
+            <Link href={artistId ? `/admin/albums?artist=${artistId}` : "/admin/albums"} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] shrink-0">Albumai</Link>
+            <span className="text-[var(--text-faint)]">/</span>
+            <span className="text-[var(--text-secondary)] truncate max-w-[160px]">{isNew ? 'Naujas' : (form.title || '...')}</span>
             {!isNew && artistId && <>
-              <span className="text-gray-300">/</span>
-              <Link href={`/admin/tracks?artistId=${artistId}`} className="text-gray-400 hover:text-gray-700 shrink-0">Dainos</Link>
+              <span className="text-[var(--text-faint)]">/</span>
+              <Link href={`/admin/tracks?artistId=${artistId}`} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] shrink-0">Dainos</Link>
             </>}
           </nav>
           <div className="flex sm:hidden items-center gap-2 min-w-0">
             <Link href={artistId ? `/admin/artists/${artistId}` : '/admin/albums'}
-              className="text-gray-400 hover:text-gray-700 shrink-0">
+              className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] shrink-0">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
             </Link>
-            <span className="text-gray-800 font-semibold truncate">{isNew ? 'Naujas albumas' : (form.title || '...')}</span>
+            <span className="text-[var(--text-primary)] font-semibold truncate">{isNew ? 'Naujas albumas' : (form.title || '...')}</span>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             {!isNew && (
@@ -765,7 +583,7 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
               </button>
             )}
             <Link href={artistId ? `/admin/artists/${artistId}` : '/admin/albums'}
-              className="px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
+              className="px-3 py-1.5 border border-[var(--input-border)] text-[var(--text-secondary)] rounded-lg text-sm font-medium hover:bg-[var(--bg-elevated)] transition-colors">
               Atšaukti
             </Link>
             <button onClick={handleSubmit} disabled={saving}
@@ -780,16 +598,16 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
           </div>
         </div>
 
-        <div className="flex lg:hidden border-t border-gray-100">
+        <div className="flex lg:hidden border-t border-[var(--border-subtle)]">
           <button onClick={() => setTab('info')}
-            className={`flex-1 py-2 text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 ${tab === 'info' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-gray-500'}`}>
+            className={`flex-1 py-2 text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 ${tab === 'info' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-[var(--text-muted)]'}`}>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
             Informacija
           </button>
           <button onClick={() => setTab('tracks')}
-            className={`flex-1 py-2 text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 ${tab === 'tracks' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-gray-500'}`}>
+            className={`flex-1 py-2 text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 ${tab === 'tracks' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-[var(--text-muted)]'}`}>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" /></svg>
-            Dainos {trackCount > 0 && <span className="bg-gray-200 text-gray-700 text-xs font-bold px-1.5 py-0.5 rounded-full">{trackCount}</span>}
+            Dainos {trackCount > 0 && <span className="bg-[var(--bg-active)] text-[var(--text-secondary)] text-xs font-bold px-1.5 py-0.5 rounded-full">{trackCount}</span>}
           </button>
         </div>
       </div>
@@ -809,7 +627,7 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
       <div className="lg:hidden">
         {tab === 'info' && InfoPanel}
         {tab === 'tracks' && (
-          <div className="bg-white min-h-screen">
+          <div className="bg-[var(--bg-surface)] min-h-screen">
             <TracksHeader count={trackCount} />
             <TrackList tracks={form.tracks || []} isMobile={true}
               onAdd={addTrack} onUpdate={upTrack} onRemove={rmTrack} onHardDelete={hardDeleteTrack} onReorder={reorderTracks} onSave={handleSubmit} />
@@ -818,9 +636,9 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
       </div>
 
       <div className="hidden lg:grid lg:grid-cols-2 items-start">
-        <div className="border-r border-gray-200">{InfoPanel}</div>
+        <div className="border-r border-[var(--input-border)]">{InfoPanel}</div>
         <div className="bg-[#f8f7f5] sticky top-[41px]" style={{ height: 'calc(100vh - 41px)', overflowY: 'auto' }}>
-          <div className="m-3 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="m-3 bg-[var(--bg-surface)] rounded-xl border border-[var(--border-subtle)] shadow-sm overflow-hidden">
             <TracksHeader count={trackCount} />
             <TrackList tracks={form.tracks || []} isMobile={false}
               onAdd={addTrack} onUpdate={upTrack} onRemove={rmTrack} onHardDelete={hardDeleteTrack} onReorder={reorderTracks} onSave={handleSubmit} />
