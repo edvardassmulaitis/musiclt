@@ -425,6 +425,10 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
           // Dešimtmetis — reset ir tęsiame
           skipSubSection = false; hasYearCol = false
           currentYear = null; yearRowspan = 0; pendingTitle = null; pendingAlbum = undefined; pendingYearLine = false
+        } else if (/as lead|as featured|as solo|promotional|charity|other single/i.test(h)) {
+          // Valid singles subsections like "As lead artist", "As featured artist" — continue parsing
+          skipSubSection = false; hasYearCol = false; inTable = false
+          currentYear = null; yearRowspan = 0; pendingTitle = null; pendingAlbum = undefined; pendingYearLine = false
         } else {
           skipSubSection = true
         }
