@@ -150,10 +150,20 @@ export async function POST(req: NextRequest) {
       // Jei nario nėra DB - sukuriame dabar kartu su grupe
       if (!memberId && m.name) {
         try {
+          // First check if artist already exists by name (case-insensitive)
+          const { data: existingByName } = await supabase.from('artists').select('id').ilike('name', m.name).maybeSingle()
+          if (existingByName?.id) {
+            memberId = existingByName.id
+          }
+        } catch {}
+      }
+      if (!memberId && m.name) {
+        try {
           const memberSlug = slugify(m.name)
           let mSlug = memberSlug
           const { data: existingSlug } = await supabase.from('artists').select('id').eq('slug', mSlug).maybeSingle()
-          if (existingSlug) mSlug = `${memberSlug}-${Date.now().toString(36)}`
+          if (existingSlug) { memberId = existingSlug.id }
+          if (memberId) { /* Already exists, skip creation */ } else {
           const birthDate = m.birthYear
             ? `${m.birthYear}-${String(m.birthMonth||1).padStart(2,'0')}-${String(m.birthDay||1).padStart(2,'0')}`
             : null
@@ -200,6 +210,7 @@ export async function POST(req: NextRequest) {
               } catch {}
             }
           }
+          } // close else (not existing)
         } catch (e: any) { console.error('[POST /api/artists] create member error:', (e as any).message) }
       }
       if (memberId) {

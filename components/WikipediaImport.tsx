@@ -20,11 +20,33 @@ function fmtDate(year?: string, month?: string, day?: string): string {
 }
 
 function cleanArtistName(raw: string): string {
-  return raw
+  let name = raw
     .replace(/\s*\(\s*(?:band|group|music(?:al)?\s*(?:group|act)?|singer|rapper|duo|trio|quartet|artist|musician|rock\s*band|pop\s*group)\s*\)/gi, '')
     .replace(/\s*\(\s*the\s+band\s*\)/gi, '')
     .replace(/_/g, ' ')
+    // Remove wikitext/HTML artifacts
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/\{\{[^}]*\}\}/g, '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/'{2,}/g, '')
+    .replace(/\[\[|\]\]/g, '')
     .trim()
+  return name
+}
+
+/** Validate that a parsed name looks like a real artist name, not a wikitext fragment */
+function isValidArtistName(name: string): boolean {
+  if (!name || name.length < 2 || name.length > 80) return false
+  // Reject names with HTML/wikitext artifacts
+  if (/-->|<!--|<\/|<[a-z]|^\s*\||\{\{|\}\}|\[\[|\]\]/.test(name)) return false
+  // Reject names that look like sentences/descriptions (too many words, has punctuation)
+  if (name.split(/\s+/).length > 8) return false
+  if (/[.;]/.test(name) && name.length > 30) return false
+  // Reject names starting with common wikitext prefixes
+  if (/^(as |the following|see also|including|part of|featured|with |and )/i.test(name)) return false
+  // Reject names with too many special characters
+  if ((name.match(/[^a-zA-ZÀ-ÿ0-9\s\-'.&,!()]/g) || []).length > 2) return false
+  return true
 }
 
 type BandMember = {
@@ -84,12 +106,14 @@ function parseBandMembers(wikitext: string): BandMember[] {
       if (/^(plain ?list|flatlist|hlist|br|small|nowrap|ubl|refn|ref|cite)/i.test(display)) continue
       if (wikiTitle.includes(':')) continue
       if (seen.has(wikiTitle)) continue
+      const cleanedName = cleanArtistName(display)
+      if (!isValidArtistName(cleanedName)) continue
       seen.add(wikiTitle)
       const afterLink = block.slice(lm.index + lm[0].length, lm.index + lm[0].length + 100)
       const yearMatch = afterLink.match(/[({](?:\{\{[^}]*\}\}\s*)?\(?(\d{4})\s*[–\-—]+\s*(\d{4}|present|dabar|now)?\)?/)
       const yearFrom = yearMatch ? yearMatch[1] : ''
       const yearTo = yearMatch && yearMatch[2] && !/present|dabar|now/i.test(yearMatch[2]) ? yearMatch[2] : ''
-      members.push({ name: cleanArtistName(display), wikiTitle, isCurrent, yearFrom, yearTo })
+      members.push({ name: cleanedName, wikiTitle, isCurrent, yearFrom, yearTo })
     }
   }
   extractField('current_members', true)
@@ -640,7 +664,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
             const name = (lm[2] || '').trim()
             if (!name || name.includes('See also') || name.includes('Early members') || name.length < 2) return
             const cleanName = cleanArtistName(name)
-            if (!cleanName) return
+            if (!cleanName || !isValidArtistName(cleanName)) return
             htmlMembers.push({ name: cleanName, wikiTitle, isCurrent })
           })
         }
@@ -758,6 +782,8 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
                 const wikiTitle = ent.sitelinks?.enwiki?.title || rawName
                 const gName = rawName.replace(/\s*\([^)]+\)\s*$/, '').trim()
                 console.log('[Groups] checking:', qid, gName)
+                // Validate name is not garbage
+                if (!isValidArtistName(gName)) { console.log('[Groups] invalid name, skipped:', gName); continue }
                 // Praleisti jei tai šalis, miestas ar pan. (pagal label)
                 const skipWords = ['country','city','state','government','organization','award']
                 if (skipWords.some(w => gName.toLowerCase().includes(w))) { console.log('[Groups] skipped:', gName); continue }
