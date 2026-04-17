@@ -439,7 +439,6 @@ function parseYearsActive(raw: string): { yearStart: string; yearEnd: string; br
 
 const SOCIAL_MAP: Record<string, { key: keyof ArtistFormData; url: (v: string) => string }> = {
   P2013: { key:'facebook',   url: v=>`https://www.facebook.com/${v}` },
-  P2003: { key:'instagram',  url: v=>`https://www.instagram.com/${v}` },
   P2002: { key:'twitter',    url: v=>`https://x.com/${v}` },
   P1902: { key:'spotify',    url: v=>`https://open.spotify.com/artist/${v}` },
   P2397: { key:'youtube',    url: v=>`https://www.youtube.com/channel/${v}` },

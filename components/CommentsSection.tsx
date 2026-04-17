@@ -103,7 +103,7 @@ function ReportModal({ commentId, onClose }: { commentId: number; onClose: () =>
               placeholder="Papildoma informacija (nebūtina)..."
               rows={3}
               className="w-full px-3 py-2 rounded-xl text-sm mb-3 resize-none focus:outline-none"
-              style={{ background: 'var(--input-bg)', border: '1px solid var(--input-border)', color: 'var(--input-text)', placeholderColor: 'var(--input-placeholder)' }} />
+              style={{ background: 'var(--input-bg)', border: '1px solid var(--input-border)', color: 'var(--input-text)' }} />
             <div className="flex gap-2">
               <button onClick={onClose} className="flex-1 py-2 rounded-xl text-sm transition-colors" style={{ color: 'var(--text-muted)', background: 'var(--input-bg)' }}>Atšaukti</button>
               <button onClick={submit} disabled={sending}
@@ -310,7 +310,7 @@ function CommentForm({
         rows={3}
         onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleSubmit() }}
         className="w-full px-4 py-3 rounded-2xl text-sm resize-none focus:outline-none focus:ring-2 transition-all"
-        style={{ background: 'var(--input-bg)', border: '1px solid var(--input-border)', color: 'var(--input-text)', focusRingColor: 'var(--accent-blue)' }}
+        style={{ background: 'var(--input-bg)', border: '1px solid var(--input-border)', color: 'var(--input-text)' }}
       />
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs" style={{ color: 'var(--text-faint)' }}>Ctrl+Enter — siųsti</span>
