@@ -505,11 +505,13 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
       // Paimti viską po scope="row"|
       const afterScope = cleanLine.replace(/^.*scope\s*=\s*['"]row['"]\s*\|?\s*/i, '').trim()
 
-      // Surinkti visus wiki links iš IŠVALYTOS eilutės (be ref tagų)
+      // Surinkti wiki links TIK iš pavadinimo dalies (prieš <br) — ne iš featured artistų
+      // pvz. "[[Stay with Me]]"<br>{{small|(with [[Calvin Harris]])}} → tik "Stay with Me"
+      const titlePortion = afterScope.replace(/<br\s*\/?\s*>.*/i, '').replace(/\{\{small\|.*$/i, '')
       const allLinks: string[] = []
       const linkRe = /\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/g
       let lm: RegExpExecArray | null
-      while ((lm = linkRe.exec(cleanLine)) !== null) {
+      while ((lm = linkRe.exec(titlePortion)) !== null) {
         allLinks.push(cleanWikiText(lm[2] || lm[1]))
       }
 
@@ -519,7 +521,7 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
         // Pridėti TIKTAI paprastą skliaustelių suffix po paskutinio wiki link'o
         // pvz. "[[Title]]" (2024 Mix) → "Title (2024 Mix)"
         // Bet NE: "[[Title]]" (released on the single E.P. ...)
-        const afterLastLink = afterScope.replace(/.*\]\]/, '').replace(/<[^>]+>/g, '').replace(/\{\{[^}]*\}\}/g, '').trim()
+        const afterLastLink = titlePortion.replace(/.*\]\]/, '').replace(/<[^>]+>/g, '').replace(/\{\{[^}]*\}\}/g, '').trim()
         const simpleSuffix = afterLastLink.match(/^\s*(\([^)]{1,40}\))/)
         if (simpleSuffix) rawTitle += ' ' + simpleSuffix[1].trim()
       } else {
