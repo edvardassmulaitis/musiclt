@@ -132,7 +132,7 @@ export default function NewArtistPage() {
           </div>
 
           {/* ArtistForm — hideButtons kad nerodo savo mygtukų */}
-          <div data-theme="light">
+          <div>
           <ArtistForm
             key={formKey}
             initialData={initialData as ArtistFormData}

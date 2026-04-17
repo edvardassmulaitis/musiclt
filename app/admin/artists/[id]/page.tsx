@@ -766,7 +766,7 @@ function ArtistFormCompact({ initialData, artistId, onSubmit, saving, onRegister
   onRegisterSubmit?: (fn: () => void) => void
 }) {
   return (
-    <div className="artist-form-compact" data-theme="light">
+    <div className="artist-form-compact">
       <style>{`
         .artist-form-compact { overflow-x: hidden; max-width: 100vw; }
         @media (max-width: 640px) { .artist-form-compact input, .artist-form-compact select, .artist-form-compact textarea { font-size: 16px !important; } }

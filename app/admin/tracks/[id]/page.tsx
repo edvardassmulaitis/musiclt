@@ -495,8 +495,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
   )
 
   return (
-    // ── FIX 2: data-theme="light" visam puslapiui ─────────────────────────────
-    <div className="overflow-hidden flex flex-col bg-[#f8f7f5]" style={{ height: 'calc(100vh - 56px)' }} data-theme="light">
+    <div className="overflow-hidden flex flex-col bg-[#f8f7f5]" style={{ height: 'calc(100vh - 56px)' }}>
 
       <div className="shrink-0 bg-[var(--bg-surface)]/95 backdrop-blur border-b border-[var(--input-border)]">
         <div className="flex items-center justify-between gap-3 px-3 py-2">
