@@ -43,6 +43,7 @@ type SingleSongItem = {
   month: number | null
   day: number | null
   albumTitle?: string
+  featuredArtists?: string[]
   source: 'wikipedia'
   importing?: boolean
   imported?: boolean
@@ -373,6 +374,45 @@ function parseDiscographyPage(wikitext: string): DiscographyItem[] {
   return albums
 }
 
+/** Iš scope="row" eilutės po <br> ištraukti featured artistų vardus */
+function parseFeaturedArtists(fullLine: string): string[] {
+  // Paimti viską po <br> arba {{small|
+  const brMatch = fullLine.match(/<br\s*\/?\s*>(.*)/i)
+  if (!brMatch) return []
+  const afterBr = brMatch[1]
+  // Pašalinti HTML tagus bet palikti wiki links
+  const cleaned = afterBr
+    .replace(/<[^>]+>/g, '')
+    .replace(/\{\{small\|/gi, '')
+    .replace(/\}\}/g, '')
+    .trim()
+  // Tikrinti ar tai featuring/with/and pattern
+  if (!/(?:feat(?:uring)?|with|and|&)\s/i.test(cleaned)) return []
+  // Surinkti wiki links kaip artistų vardus
+  const artists: string[] = []
+  const linkRe = /\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/g
+  let m: RegExpExecArray | null
+  while ((m = linkRe.exec(afterBr)) !== null) {
+    const name = cleanWikiText(m[2] || m[1])
+      .replace(/\s*\((?:singer|rapper|musician|entertainer|DJ|band|group|American|British)\)/gi, '')
+      .trim()
+    if (name && name.length > 1 && name.length < 60) artists.push(name)
+  }
+  // Jei nėra wiki links — bandyti iš teksto
+  if (artists.length === 0) {
+    const textMatch = cleaned.match(/(?:feat(?:uring)?\.?|with)\s+(.+)/i)
+    if (textMatch) {
+      const parts = textMatch[1]
+        .replace(/[()]/g, '')
+        .split(/\s*(?:,\s*|\s+and\s+|\s*&\s*)/i)
+        .map(s => s.trim())
+        .filter(s => s.length > 1 && s.length < 60)
+      artists.push(...parts)
+    }
+  }
+  return artists
+}
+
 // ─── Singlų parsavimas ────────────────────────────────────────────────────────
 // Palaiko du Wikipedia formatus:
 //   A) "Title-first": ! scope="row"| "Title" → kita eilutė = metai (Queen stilius)
@@ -395,6 +435,7 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
   // Title-first formato sekimas
   let pendingTitle: string | null = null
   let pendingAlbum: string | undefined = undefined
+  let pendingFeatured: string[] | undefined = undefined
   let pendingYearLine = false
 
   // Albumo rowspan sekimas — pvz. ''Queen'' rowspan=2 apima Keep Yourself Alive + Liar
@@ -416,7 +457,7 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
 
       if (depth === 2 && /^singles\s*$/i.test(h)) {
         inSingles = true; skipSubSection = false; hasYearCol = false
-        currentYear = null; yearRowspan = 0; pendingTitle = null; pendingAlbum = undefined; pendingYearLine = false
+        currentYear = null; yearRowspan = 0; pendingTitle = null; pendingAlbum = undefined; pendingFeatured = undefined; pendingYearLine = false
         continue
       }
       if (depth === 2 && inSingles) { inSingles = false; inTable = false; continue }
@@ -424,12 +465,12 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
         if (/^\d{4}s?\s*$/i.test(hRaw.trim())) {
           // Dešimtmetis — reset ir tęsiame
           skipSubSection = false; hasYearCol = false
-          currentYear = null; yearRowspan = 0; pendingTitle = null; pendingAlbum = undefined; pendingYearLine = false
+          currentYear = null; yearRowspan = 0; pendingTitle = null; pendingAlbum = undefined; pendingFeatured = undefined; pendingYearLine = false
         } else if (/as lead|as solo|promotional|charity|other single/i.test(h) && !/as featured/i.test(h)) {
           // Valid singles subsections like "As lead artist" — continue parsing
           // Skip "As featured artist" — tik lead artist singlai aktualūs
           skipSubSection = false; hasYearCol = false; inTable = false
-          currentYear = null; yearRowspan = 0; pendingTitle = null; pendingAlbum = undefined; pendingYearLine = false
+          currentYear = null; yearRowspan = 0; pendingTitle = null; pendingAlbum = undefined; pendingFeatured = undefined; pendingYearLine = false
         } else {
           skipSubSection = true
         }
@@ -439,7 +480,7 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
     }
 
     if (!inSingles || skipSubSection) continue
-    if (line.startsWith('{|')) { inTable = true; hasYearCol = false; currentYear = null; yearRowspan = 0; pendingTitle = null; pendingAlbum = undefined; pendingYearLine = false; continue }
+    if (line.startsWith('{|')) { inTable = true; hasYearCol = false; currentYear = null; yearRowspan = 0; pendingTitle = null; pendingAlbum = undefined; pendingFeatured = undefined; pendingYearLine = false; continue }
     if (line.startsWith('|}')) { inTable = false; continue }
     if (!inTable) continue
 
@@ -454,10 +495,13 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
         .replace(/<ref[^/]*\/>/gi, '')
       const qm = cleanH.match(/!\s*"([^"]+)"\s*(.*)/)
       if (qm && hasYearCol) {
-        const rawSuffix = qm[2].replace(/<[^>]+>/g, '').replace(/\{\{[^}]*\}\}/g, '').replace(/\[\d+\]/g, '').trim()
+        // Strip featured artist info prieš suffix parsavimą
+        const suffixBeforeBr = qm[2].replace(/<br\s*\/?\s*>.*/i, '').replace(/\{\{small\|.*$/i, '')
+        const rawSuffix = suffixBeforeBr.replace(/<[^>]+>/g, '').replace(/\{\{[^}]*\}\}/g, '').replace(/\[\d+\]/g, '').trim()
         const simpleSuffix = rawSuffix.match(/^(\([^)]{1,50}\))/)
         let title = simpleSuffix ? `${qm[1]} ${simpleSuffix[1]}` : qm[1]
         title = title.replace(/\s*[\[(](?:re-?release|re-?issue)[)\]]/gi, '').trim()
+        const feat = parseFeaturedArtists(cleanH)
         if (title && title.length > 1) {
           // Albumą rasime iš vėlesnių eilučių
           let albumTitle: string | undefined
@@ -476,10 +520,11 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
             }
           }
           if (yearRowspan > 0) {
-            singles.push({ title, year: currentYear, month: null, day: null, albumTitle, source: 'wikipedia', selected: false })
+            singles.push({ title, year: currentYear, month: null, day: null, albumTitle, featuredArtists: feat.length > 0 ? feat : undefined, source: 'wikipedia', selected: false })
           } else {
             pendingTitle = title
             pendingAlbum = albumTitle
+            pendingFeatured = feat.length > 0 ? feat : undefined
             pendingYearLine = true
           }
         }
@@ -527,14 +572,15 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
         if (simpleSuffix) rawTitle += ' ' + simpleSuffix[1].trim()
       } else {
         // Kabučių pavadinimas: "Title" arba "Title" (Suffix)
-        const qm = afterScope.match(/^"([^"]+)"\s*(.*)/)
+        // Naudojame titlePortion (be <br> ir featured artistų) — kad negautume "(with [[Artist]])" kaip suffix
+        const qm = titlePortion.match(/^"([^"]+)"\s*(.*)/)
         if (qm) {
           // Suffix: pasiimame tik paprastą skliaustelių suffix, be wiki markup
           const rawSuffix = qm[2].replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '').replace(/<[^>]+>/g, '').replace(/\{\{[^}]*\}\}/g, '').replace(/\[\d+\]/g, '').trim()
           const simpleSuffix = rawSuffix.match(/^(\([^)]{1,50}\))/)
           rawTitle = simpleSuffix ? `${qm[1]} ${simpleSuffix[1]}` : qm[1]
         } else {
-          const pm = afterScope.match(/'{2,3}([^']+)'{2,3}/)
+          const pm = titlePortion.match(/'{2,3}([^']+)'{2,3}/)
           if (pm) rawTitle = cleanWikiText(pm[1])
         }
       }
@@ -543,6 +589,9 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
       if (!rawTitle || rawTitle.length < 2 || rawTitle.toLowerCase() === 'row') continue
       // Skip jei tai EP/albumas pavadinimas, ne daina
       if (/\bE\.?P\.?\s*$/i.test(rawTitle)) continue
+
+      // Featured artistai iš <br> dalies
+      const featuredArtists = parseFeaturedArtists(cleanLine)
 
       // Split dvigubų singlų per " / " — kiekvienas tampa atskira daina
       const titleParts = rawTitle.split(/\s*\/\s*/).map(t => t.replace(/^["'\s]+|["'\s]+$/g, '').trim()).filter(t => t.length > 1)
@@ -589,12 +638,13 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
       // Metai
       if (yearRowspan > 0) {
         for (const t of titleParts) {
-          singles.push({ title: t, year: currentYear, month: null, day: null, albumTitle, source: 'wikipedia', selected: false })
+          singles.push({ title: t, year: currentYear, month: null, day: null, albumTitle, featuredArtists: featuredArtists.length > 0 ? featuredArtists : undefined, source: 'wikipedia', selected: false })
         }
       } else {
         // Laukti metų iš kitos eilutės — saugoti visus
         pendingTitle = titleParts.join('\n')  // \n kaip separator
         pendingAlbum = albumTitle
+        pendingFeatured = featuredArtists.length > 0 ? featuredArtists : undefined
         pendingYearLine = true
       }
       continue
@@ -611,9 +661,9 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
         if (pendingTitle && pendingYearLine) {
           const titleParts = pendingTitle.split('\n').filter(t => t.length > 1)
           for (const t of titleParts) {
-            singles.push({ title: t, year: currentYear, month: null, day: null, albumTitle: pendingAlbum, source: 'wikipedia', selected: false })
+            singles.push({ title: t, year: currentYear, month: null, day: null, albumTitle: pendingAlbum, featuredArtists: pendingFeatured, source: 'wikipedia', selected: false })
           }
-          pendingTitle = null; pendingAlbum = undefined; pendingYearLine = false
+          pendingTitle = null; pendingAlbum = undefined; pendingFeatured = undefined; pendingYearLine = false
         }
         continue
       }
@@ -679,7 +729,7 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
   if (pendingTitle) {
     const titleParts = pendingTitle.split('\n').filter(t => t.length > 1)
     for (const t of titleParts) {
-      singles.push({ title: t, year: currentYear, month: null, day: null, albumTitle: pendingAlbum, source: 'wikipedia', selected: false })
+      singles.push({ title: t, year: currentYear, month: null, day: null, albumTitle: pendingAlbum, featuredArtists: pendingFeatured, source: 'wikipedia', selected: false })
     }
   }
 
@@ -791,7 +841,7 @@ function parseSinglesFromInfobox(wikitext: string): { names: Set<string>; dates:
   function extractName(text: string): string {
     const lm = /\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/.exec(text)
     if (!lm) return ''
-    const name = lm[2] ? lm[2].replace(/['"“”‘’]+/g, '').trim() : lm[1].replace(/#[^\]]*$/, '').replace(disambigRe, '').replace(/['"“”‘’]+/g, '').trim()
+    const name = lm[2] ? lm[2].replace(/['"“”'']+/g, '').trim() : lm[1].replace(/#[^\]]*$/, '').replace(disambigRe, '').replace(/['"“”'']+/g, '').trim()
     return name.length > 1 ? name : ''
   }
 
@@ -991,7 +1041,7 @@ function parseTracklist(wikitext: string): TrackEntry[] {
         .map(({ block }) => block)
       for (const tl of filteredBlocks) {
         for (const t of parseBlock(tl, 1)) {
-          const norm = t.title.toLowerCase().replace(/['’]/g, '')
+          const norm = t.title.toLowerCase().replace(/['']/g, '')
           // Praleisti remix/extended variantus iš bonus blokų
           if (t.type === 'remix') continue
           if (!existing.has(norm) && t.is_single) {
@@ -1198,7 +1248,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
         const { dates } = parseSinglesFromInfobox(wikitext)
         if (!dates.size) return songs
         return songs.map(s => {
-          const key = s.title.toLowerCase().replace(/['’"]/g, '')
+          const key = s.title.toLowerCase().replace(/[''"]/g, '')
           // Tiesioginis match
           let dateInfo = dates.get(key)
           // Jei nėra — ieškoti per "/" split (double A-side)
@@ -1299,9 +1349,9 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       const k = s.title.toLowerCase()
       if (songDups[k]) return { ...s, duplicate: true, duplicateId: songDups[k], selected: false }
       // Fuzzy: ieškoti tarp VISŲ atlikėjo trackų
-      const normS = k.replace(/['’]/g, '')
+      const normS = k.replace(/['']/g, '')
       const fuzzyMatch = Object.entries(allArtistTracks).find(([dbTitle]) => {
-        const normD = dbTitle.replace(/['’]/g, '')
+        const normD = dbTitle.replace(/['']/g, '')
         if (normD === normS) return true
         // DB trackas prasideda singlu + leistinas sufiksas
         if (!normD.startsWith(normS)) return false
@@ -1539,19 +1589,47 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
           }
           okMark++
         } else {
+          // Resolve featured artists -> artist IDs
+          const featuring: number[] = []
+          if (song.featuredArtists && song.featuredArtists.length > 0) {
+            for (const fName of song.featuredArtists) {
+              try {
+                const searchRes = await fetch('/api/artists?search=' + encodeURIComponent(fName) + '&limit=1')
+                if (searchRes.ok) {
+                  const searchData = await searchRes.json()
+                  const arr = Array.isArray(searchData) ? searchData : searchData.artists || []
+                  const exact = arr.find((a: any) => a.name.toLowerCase() === fName.toLowerCase())
+                  if (exact) {
+                    featuring.push(exact.id)
+                  } else {
+                    const createRes = await fetch('/api/artists', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ name: fName, type: 'solo' }),
+                    })
+                    if (createRes.ok) {
+                      const created = await createRes.json()
+                      const cId = created.id || created.artist?.id
+                      if (cId) featuring.push(cId)
+                    }
+                  }
+                }
+              } catch {}
+            }
+          }
+
+          // Naudoti extraDates jei song.month nežinomas
+          const key = song.title.toLowerCase().replace(/[''"]/g, '')
+          const extra = !song.month ? extraDates.get(key) : null
           const res = await fetch('/api/tracks', {
             method: 'POST', headers: {'Content-Type':'application/json'},
-            body: JSON.stringify((() => {
-              // Naudoti extraDates jei song.month nežinomas
-              const key = song.title.toLowerCase().replace(/['’"]/g, '')
-              const extra = !song.month ? extraDates.get(key) : null
-              return {
-                title: song.title, artist_id: artistId, type: 'normal', is_single: true,
-                release_year: extra?.year ?? song.year,
-                release_month: extra?.month ?? song.month,
-                release_day: extra?.day ?? song.day,
-              }
-            })()),
+            body: JSON.stringify({
+              title: song.title, artist_id: artistId, type: 'normal', is_single: true,
+              release_year: extra?.year ?? song.year,
+              release_month: extra?.month ?? song.month,
+              release_day: extra?.day ?? song.day,
+              featuring: featuring.length > 0 ? featuring : undefined,
+            }),
           })
           if (!res.ok) {
             let errMsg = `POST ${res.status}`
@@ -2034,6 +2112,9 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                                     </div>
                                     {song.error && <div className="text-[10px] text-red-400 truncate mt-0.5">{song.error}</div>}
                                     {song.albumTitle && !song.error && <div className="text-[11px] text-gray-400 truncate">{song.albumTitle}</div>}
+                                    {song.featuredArtists && song.featuredArtists.length > 0 && !song.error && (
+                                      <div className="text-[10px] text-violet-400 truncate">feat. {song.featuredArtists.join(', ')}</div>
+                                    )}
                                     {song.duplicate && song.duplicateId && (
                                       <a href={`/admin/tracks/${song.duplicateId}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="text-[10px] text-blue-500 hover:underline">atidaryti →</a>
                                     )}
