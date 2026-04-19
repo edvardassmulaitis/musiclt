@@ -310,7 +310,7 @@ function DiscographyPanel({ artistId, artistName, artistType, refreshKey, onImpo
       const sorted = (albumData.albums || []).sort((a: any, b: any) => (b.year || 0) - (a.year || 0))
       setAlbums(sorted)
       const allTracks = (trackData.tracks || [])
-      const singlesOnly = allTracks.filter((t: any) => t.is_single || t.album_count === 0)
+      const singlesOnly = allTracks.filter((t: any) => t.album_count === 0)
       setSingles(singlesOnly.sort((a: any, b: any) => (b.release_year || 0) - (a.release_year || 0)))
     }).finally(() => setLoading(false))
   }, [artistId])
@@ -394,7 +394,7 @@ function DiscographyPanel({ artistId, artistName, artistType, refreshKey, onImpo
             {singles.length > 0 && (
               <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-subtle)] shadow-sm overflow-hidden">
                 <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)]/50">
-                  <span className="text-sm font-semibold text-[var(--text-secondary)]">Singlai ir dainos</span>
+                  <span className="text-sm font-semibold text-[var(--text-secondary)]">Dainos be albumo</span>
                   <span className="text-xs text-[var(--text-muted)] bg-[var(--bg-active)] px-1.5 py-0.5 rounded-full font-bold">{singles.length}</span>
                   <Link href={`/admin/tracks?artist_id=${artistId}`}
                     className="ml-auto text-xs text-blue-500 hover:underline">Visos dainos →</Link>
