@@ -401,23 +401,21 @@ function HeroPositionPicker({ imageUrl, position, onChange }: {
   return (
     <div className="mt-2">
       <label className="block text-[10px] font-semibold text-[var(--text-muted)] mb-1 uppercase tracking-wider">Nuotraukos pozicija</label>
-      <div className="flex gap-2 items-start">
-        <div ref={containerRef}
-          className="relative w-full rounded-lg overflow-hidden border border-[var(--input-border)] cursor-crosshair select-none"
-          style={{ height: 80 }}
-          onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}>
-          <img src={imageUrl} alt="" referrerPolicy="no-referrer"
-            className="w-full h-full object-cover pointer-events-none"
-            style={{ objectPosition: `center ${yPct}%` }} />
-          {/* Viewport indicator line */}
-          <div className="absolute left-0 right-0 pointer-events-none" style={{ top: `${yPct}%`, transform: 'translateY(-50%)' }}>
-            <div className="h-[2px] bg-blue-500 shadow-[0_0_4px_rgba(59,130,246,0.6)]" />
-          </div>
-          {/* Side percentage label */}
-          <div className="absolute right-1 bg-black/60 text-white text-[9px] font-mono px-1 py-0.5 rounded pointer-events-none"
-            style={{ top: `${yPct}%`, transform: 'translateY(-50%)' }}>
-            {yPct}%
-          </div>
+      <div ref={containerRef}
+        className="relative rounded-lg overflow-hidden border border-[var(--input-border)] cursor-crosshair select-none"
+        style={{ width: 160, height: 160 }}
+        onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}>
+        <img src={imageUrl} alt="" referrerPolicy="no-referrer"
+          className="w-full h-full object-cover pointer-events-none"
+          style={{ objectPosition: `center ${yPct}%` }} />
+        {/* Viewport indicator line */}
+        <div className="absolute left-0 right-0 pointer-events-none" style={{ top: `${yPct}%`, transform: 'translateY(-50%)' }}>
+          <div className="h-[2px] bg-blue-500 shadow-[0_0_4px_rgba(59,130,246,0.6)]" />
+        </div>
+        {/* Side percentage label */}
+        <div className="absolute right-1 bg-black/60 text-white text-[9px] font-mono px-1 py-0.5 rounded pointer-events-none"
+          style={{ top: `${yPct}%`, transform: 'translateY(-50%)' }}>
+          {yPct}%
         </div>
       </div>
     </div>
