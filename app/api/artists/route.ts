@@ -12,6 +12,14 @@ function slugify(text: string): string {
     .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
 }
 
+/** Strip Wikipedia disambiguation suffixes like (singer), (rapper), etc. */
+function cleanArtistName(raw: string): string {
+  return raw
+    .replace(/\s*\(\s*(?:singer|rapper|musician|entertainer|DJ|band|group|American|British|record producer|songwriter|actor|actress|performer|vocalist|artist|composer|producer)\s*\)/gi, '')
+    .replace(/_/g, ' ')
+    .trim()
+}
+
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -55,8 +63,12 @@ export async function POST(req: NextRequest) {
     const d = await req.json()
     const supabase = createAdminClient()
 
+    // ── Clean name (strip Wikipedia disambiguation) ─────────────────────────
+    const artistName = cleanArtistName(d.name || '')
+    if (!artistName) return NextResponse.json({ error: 'Name is required' }, { status: 400 })
+
     // ── Slug ──────────────────────────────────────────────────────────────────
-    const baseSlug = slugify(d.name || '')
+    const baseSlug = slugify(artistName)
     let slug = baseSlug
     const { data: existing } = await supabase.from('artists').select('id').eq('slug', slug).maybeSingle()
     if (existing) slug = `${baseSlug}-${Date.now().toString(36)}`
@@ -72,7 +84,7 @@ export async function POST(req: NextRequest) {
     // ── Tik žinomi DB laukai ──────────────────────────────────────────────────
     const insertPayload = {
       slug,
-      name:               d.name || '',
+      name:               artistName,
       type:               d.type || 'group',
       country:            d.country || 'Lietuva',
       active_from:        d.yearStart ? parseInt(d.yearStart) : (d.active_from || null),
@@ -146,6 +158,8 @@ export async function POST(req: NextRequest) {
     const memberRows: any[] = []
     for (const m of members) {
       if (!m?.name && !m?.id) continue
+      // Clean disambiguation from member name
+      if (m.name) m.name = cleanArtistName(m.name)
       let memberId = m.id ? (typeof m.id === 'string' ? parseInt(m.id) : Number(m.id)) : null
       // Jei nario nėra DB - sukuriame dabar kartu su grupe
       if (!memberId && m.name) {
@@ -231,6 +245,8 @@ export async function POST(req: NextRequest) {
     const groupsSource: any[] = d.groups || []
     for (const g of groupsSource) {
       if (!g?.name && !g?.id) continue
+      // Clean disambiguation from group name
+      if (g.name) g.name = cleanArtistName(g.name)
       let groupId = g.id ? (typeof g.id === 'string' ? parseInt(g.id) : Number(g.id)) : null
       if (!groupId && g.name) {
         try {

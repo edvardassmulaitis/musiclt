@@ -161,6 +161,8 @@ function cleanWikiText(raw: string): string {
   s = s.replace(/\[\[|\]\]/g, '').replace(/\{\{[^}]*\}\}/g, '').replace(/''+/g, '')
   s = s.replace(/\[\w*\s*\d*\]/g, '')
   s = s.replace(/\s*\([^)]*\bsong\b[^)]*\)/gi, '').replace(/\s*\([^)]*\balbum\b[^)]*\)/gi, '')
+  // Strip Wikipedia disambiguation suffixes for people
+  s = s.replace(/\s*\(\s*(?:singer|rapper|musician|entertainer|DJ|band|group|American|British|record producer|songwriter|actor|actress|performer|vocalist|artist|composer|producer)\s*\)/gi, '')
   s = s.replace(/^["'\u201c\u2018]+|["'\u201d\u2019]+$/g, '')
   s = s.replace(/\s+/g, ' ')
   return s.trim()
@@ -1614,16 +1616,21 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                     if (exact) foundId = exact.id
                   }
                 }
-                // 3) Jei vis dar nerado — sukurti naują
+                // 3) Jei vis dar nerado — sukurti naują per /api/artists/import (su Wikipedia info)
                 if (!foundId) {
-                  const createRes = await fetch('/api/artists', {
+                  const wikiTitle = fName.replace(/ /g, '_')
+                  const createRes = await fetch('/api/artists/import', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: fName, type: 'solo' }),
+                    body: JSON.stringify({
+                      name: fName,
+                      wiki_title: wikiTitle,
+                      type: 'solo',
+                    }),
                   })
                   if (createRes.ok) {
                     const created = await createRes.json()
-                    foundId = created.id || null
+                    foundId = created.artist_id || created.id || null
                   }
                 }
                 if (foundId) {

@@ -47,6 +47,14 @@ const GENRE_IDS: Record<string, number> = {
   'Sunkioji muzika': 1000008,
 }
 
+/** Strip Wikipedia disambiguation suffixes like (singer), (rapper), etc. */
+function cleanArtistName(raw: string): string {
+  return raw
+    .replace(/\s*\(\s*(?:singer|rapper|musician|entertainer|DJ|band|group|American|British|record producer|songwriter|actor|actress|performer|vocalist|artist|composer|producer)\s*\)/gi, '')
+    .replace(/_/g, ' ')
+    .trim()
+}
+
 // ── Slugify ──────────────────────────────────────────────────────────────────
 function slugify(text: string): string {
   return text
@@ -169,15 +177,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'name is required' }, { status: 400 })
     }
 
+    // Clean disambiguation from name
+    const cleanName = cleanArtistName(name.trim())
+
     const supabase = createAdminClient()
 
     // ── 1. Check if already exists ────────────────────────────────────────
-    const existing = await findExistingArtist(supabase, name)
+    const existing = await findExistingArtist(supabase, cleanName)
     if (existing) {
       return NextResponse.json({
         artist_id: existing.id,
         slug: existing.slug,
-        name: name.trim(),
+        name: cleanName,
         created: false,
         wiki_imported: false,
         discography_imported: false,
@@ -210,8 +221,8 @@ export async function POST(req: NextRequest) {
       ? `${parsedWiki.birthYear}-${String(parsedWiki.birthMonth || 1).padStart(2, '0')}-${String(parsedWiki.birthDay || 1).padStart(2, '0')}`
       : null
     const artistPayload = {
-      name:            name.trim(),
-      slug:            slugify(name.trim()),
+      name:            cleanName,
+      slug:            slugify(cleanName),
       type:            parsedWiki.type    || type,
       country:         parsedWiki.country || country,
       type_music:      true,
@@ -296,7 +307,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       artist_id: newArtist.id,
       slug: newArtist.slug,
-      name: name.trim(),
+      name: cleanName,
       created: true,
       wiki_imported: wikiImported,
       discography_imported: false, // Discography is a separate endpoint
