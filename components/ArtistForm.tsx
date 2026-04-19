@@ -902,8 +902,9 @@ function ArtistSearch({ label, ph, items, onAdd, onRemove, onYears, filterType }
 // ── InlineGallery ─────────────────────────────────────────────────────────────
 type PhotoMeta = Photo & { author?: string; sourceUrl?: string }
 
-function InlineGallery({ photos, onChange, artistName, artistId }: {
+function InlineGallery({ photos, onChange, artistName, artistId, onSetAvatar, currentAvatar }: {
   photos: PhotoMeta[]; onChange: (p: PhotoMeta[]) => void; artistName: string; artistId?: string
+  onSetAvatar?: (url: string) => void; currentAvatar?: string
 }) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
@@ -1054,13 +1055,20 @@ function InlineGallery({ photos, onChange, artistName, artistId }: {
               </div>
               <button type="button" onClick={e => { e.stopPropagation(); remove(i) }}
                 className="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 hover:bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity leading-none">×</button>
+              {onSetAvatar && (
+                <button type="button" onClick={e => { e.stopPropagation(); onSetAvatar(p.url) }}
+                  title="Naudoti kaip profilio nuotrauką"
+                  className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full text-[10px] flex items-center justify-center transition-all ${currentAvatar === p.url ? 'bg-blue-500 text-white opacity-100' : 'bg-black/50 hover:bg-blue-500 text-white opacity-0 group-hover:opacity-100'}`}>
+                  {currentAvatar === p.url ? '★' : '☆'}
+                </button>
+              )}
               {p.author && (
                 <div className="absolute inset-x-0 bottom-0 rounded-b-lg bg-gradient-to-t from-black/75 to-transparent px-1.5 pt-4 pb-1 pointer-events-none">
                   <p className="text-white/90 text-[10px] leading-tight truncate">© {p.author.split(' · ')[0]}</p>
                 </div>
               )}
               <button type="button" onClick={e => { e.stopPropagation(); setEditMetaIdx(editMetaIdx === i ? null : i) }}
-                className="absolute bottom-0.5 left-0.5 w-5 h-5 bg-black/50 hover:bg-blue-500 text-white rounded text-[9px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">©</button>
+                className="absolute bottom-0.5 right-0.5 w-5 h-5 bg-black/50 hover:bg-blue-500 text-white rounded text-[9px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">©</button>
             </div>
           ))}
         </div>
@@ -1415,7 +1423,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
       </div>
 
       <div className="px-0">
-        <InlineGallery photos={form.photos} onChange={setPhotos} artistName={form.name} artistId={artistId} />
+        <InlineGallery photos={form.photos} onChange={setPhotos} artistName={form.name} artistId={artistId} onSetAvatar={setAvatar} currentAvatar={form.avatar} />
       </div>
 
       {!hideButtons && (
