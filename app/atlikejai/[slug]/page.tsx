@@ -61,7 +61,7 @@ export default async function ArtistPage({ params }: Props) {
   let photos: { url: string; caption?: string }[] = dbPhotos.map((p: any) => ({ url: p.url, caption: p.caption }))
   if (artist.photos && Array.isArray(artist.photos)) { for (const p of artist.photos as any[]) { if (p.url && !photos.some(x => x.url === p.url)) photos.push({ url: p.url, caption: p.caption || '' }) } }
 
-  const heroImage = artist.cover_image_wide_url || (photos.length > 0 ? photos[0].url : null)
+  const heroImage = artist.cover_image_wide_url || artist.cover_image_url || (photos.length > 0 ? photos[0].url : null)
 
   const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth() - 16)
   const cutY = cutoff.getFullYear(); const cutM = cutoff.getMonth() + 1
@@ -80,7 +80,7 @@ export default async function ArtistPage({ params }: Props) {
 
   return (
     <ArtistProfileClient
-      artist={{ id: artist.id, slug: artist.slug, name: artist.name, type: artist.type || 'group', country: artist.country, active_from: artist.active_from, active_until: artist.active_until, description: stripStyles(artist.description || ''), cover_image_url: artist.cover_image_url, website: artist.website, spotify_id: artist.spotify_id, is_verified: artist.is_verified, gender: artist.gender, birth_date: artist.birth_date, death_date: artist.death_date }}
+      artist={{ id: artist.id, slug: artist.slug, name: artist.name, type: artist.type || 'group', country: artist.country, active_from: artist.active_from, active_until: artist.active_until, description: stripStyles(artist.description || ''), cover_image_url: artist.cover_image_url, cover_image_position: artist.cover_image_position, website: artist.website, spotify_id: artist.spotify_id, is_verified: artist.is_verified, gender: artist.gender, birth_date: artist.birth_date, death_date: artist.death_date }}
       heroImage={heroImage} genres={genres} links={links} photos={photos} albums={albums as any} tracks={tracks as any}
       members={members} followers={followers} likeCount={likeCount} news={news as any} events={events}
       similar={similar} newTracks={newTracks as any} topVideos={topVideos as any}

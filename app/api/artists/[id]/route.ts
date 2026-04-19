@@ -100,7 +100,7 @@ export async function PATCH(
 
   const updatePayload: any = {}
   const dbFields = [
-    'name','type','country','description','cover_image_url','cover_image_wide_url',
+    'name','type','country','description','cover_image_url','cover_image_wide_url','cover_image_position',
     'gender','birth_date','death_date','website','subdomain',
     'is_active','is_verified','type_music','type_film','type_dance','type_books',
     'photos','show_updated','active_from','active_until','slug',

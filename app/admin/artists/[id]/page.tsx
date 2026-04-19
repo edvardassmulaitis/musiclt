@@ -34,6 +34,7 @@ function dbToForm(data: any): ArtistFormData {
     breaks:      data.breaks || [],
     avatar:      data.cover_image_url || '',
     avatarWide:  data.cover_image_wide_url || '',
+    avatarPosition: data.cover_image_position || 'center 20%',
     photos:      (data.photos || []).filter((p: any, i: number, a: any[]) => p?.url && a.findIndex((x: any) => x.url === p.url) === i),
     website:     data.website || '',
     subdomain:   data.subdomain || '',
@@ -81,7 +82,7 @@ function formToDb(form: ArtistFormData) {
     type_music: true, type_film: false, type_dance: false, type_books: false,
     active_from: form.yearStart ? parseInt(form.yearStart) : null,
     active_until: form.yearEnd ? parseInt(form.yearEnd) : null,
-    description: form.description, cover_image_url: form.avatar, cover_image_wide_url: form.avatarWide || null,
+    description: form.description, cover_image_url: form.avatar, cover_image_wide_url: form.avatarWide || null, cover_image_position: form.avatarPosition || 'center 20%',
     website: form.website, subdomain: form.subdomain, gender: form.gender,
     birth_date: birthDate, death_date: deathDate,
     genres: genreIds, substyleNames: form.substyles || [],
@@ -661,7 +662,7 @@ export default function EditArtist() {
                   setInitialData(prev => {
                     const base = prev || {
                       name:'', type:'solo' as const, country:'Lietuva', genre:'', substyles:[],
-                      description:'', avatar:'', avatarWide:'', website:'', photos:[],
+                      description:'', avatar:'', avatarWide:'', avatarPosition:'center 20%', website:'', photos:[],
                       yearStart:'', yearEnd:'', breaks:[], members:[],
                       birthYear:'', birthMonth:'', birthDay:'',
                       deathYear:'', deathMonth:'', deathDay:'', gender:'' as const,

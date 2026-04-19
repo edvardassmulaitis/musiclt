@@ -82,7 +82,7 @@ export type ArtistFormData = {
   country: string; genre: string; substyles: string[]; description: string
   yearStart: string; yearEnd: string; breaks: Break[]
   members: Member[]; groups: GroupRef[]
-  avatar: string; avatarWide: string; photos: Photo[]
+  avatar: string; avatarWide: string; avatarPosition: string; photos: Photo[]
   website: string; subdomain: string
   birthYear: string; birthMonth: string; birthDay: string
   deathYear: string; deathMonth: string; deathDay: string
@@ -94,7 +94,7 @@ export type ArtistFormData = {
 export const emptyArtistForm: ArtistFormData = {
   name:'', type:'group', country:'Lietuva', genre:'', substyles:[],
   description:'', yearStart:'', yearEnd:'', breaks:[], members:[], groups:[],
-  avatar:'', avatarWide:'', photos:[], website:'', subdomain:'',
+  avatar:'', avatarWide:'', avatarPosition:'center 20%', photos:[], website:'', subdomain:'',
   birthYear:'', birthMonth:'', birthDay:'',
   deathYear:'', deathMonth:'', deathDay:'', gender:'',
   facebook:'', youtube:'', tiktok:'',
@@ -362,12 +362,76 @@ function ImageCropper({ src, onCrop, onCancel }: {
   )
 }
 
+// ── HeroPositionPicker ────────────────────────────────────────────────────────
+function HeroPositionPicker({ imageUrl, position, onChange }: {
+  imageUrl: string
+  position: string    // e.g. "center 20%"
+  onChange: (pos: string) => void
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [dragging, setDragging] = useState(false)
+
+  // Parse vertical % from position string
+  const parseY = (pos: string): number => {
+    const m = pos.match(/(\d+)%/)
+    return m ? parseInt(m[1]) : 20
+  }
+  const [yPct, setYPct] = useState(parseY(position))
+
+  useEffect(() => { setYPct(parseY(position)) }, [position])
+
+  const updatePos = (clientY: number) => {
+    const rect = containerRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const raw = ((clientY - rect.top) / rect.height) * 100
+    const clamped = Math.max(0, Math.min(100, Math.round(raw)))
+    setYPct(clamped)
+    onChange(`center ${clamped}%`)
+  }
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    e.preventDefault()
+    setDragging(true)
+    ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+    updatePos(e.clientY)
+  }
+  const onPointerMove = (e: React.PointerEvent) => { if (dragging) updatePos(e.clientY) }
+  const onPointerUp = () => setDragging(false)
+
+  return (
+    <div className="mt-2">
+      <label className="block text-[10px] font-semibold text-[var(--text-muted)] mb-1 uppercase tracking-wider">Nuotraukos pozicija</label>
+      <div className="flex gap-2 items-start">
+        <div ref={containerRef}
+          className="relative w-full rounded-lg overflow-hidden border border-[var(--input-border)] cursor-crosshair select-none"
+          style={{ height: 80 }}
+          onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}>
+          <img src={imageUrl} alt="" referrerPolicy="no-referrer"
+            className="w-full h-full object-cover pointer-events-none"
+            style={{ objectPosition: `center ${yPct}%` }} />
+          {/* Viewport indicator line */}
+          <div className="absolute left-0 right-0 pointer-events-none" style={{ top: `${yPct}%`, transform: 'translateY(-50%)' }}>
+            <div className="h-[2px] bg-blue-500 shadow-[0_0_4px_rgba(59,130,246,0.6)]" />
+          </div>
+          {/* Side percentage label */}
+          <div className="absolute right-1 bg-black/60 text-white text-[9px] font-mono px-1 py-0.5 rounded pointer-events-none"
+            style={{ top: `${yPct}%`, transform: 'translateY(-50%)' }}>
+            {yPct}%
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── AvatarUploadCompact ───────────────────────────────────────────────────────
-function AvatarUploadCompact({ value, onChange, onOriginalSaved, artistId }: {
+function AvatarUploadCompact({ value, onChange, onOriginalSaved, artistId, avatarPosition, onPositionChange }: {
   value: string
   onChange: (url: string) => void
   onOriginalSaved?: (origUrl: string) => void
   artistId?: string
+  avatarPosition?: string
+  onPositionChange?: (pos: string) => void
 }) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
@@ -499,6 +563,9 @@ function AvatarUploadCompact({ value, onChange, onOriginalSaved, artistId }: {
           {error && <p className="text-xs text-red-500">{error}</p>}
         </div>
       </div>
+      {value && onPositionChange && (
+        <HeroPositionPicker imageUrl={value} position={avatarPosition || 'center 20%'} onChange={onPositionChange} />
+      )}
       <input ref={fileRef} type="file" accept="image/*" className="hidden"
         onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelect(f) }} />
     </>
@@ -1385,6 +1452,8 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
             value={form.avatar}
             onChange={setAvatar}
             artistId={artistId}
+            avatarPosition={form.avatarPosition}
+            onPositionChange={pos => set('avatarPosition', pos)}
             onOriginalSaved={url => {
               if (!formRef.current.photos.find((p: any) => p.url === url)) {
                 const newPhotos = [{ url }, ...formRef.current.photos]

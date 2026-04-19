@@ -140,7 +140,7 @@ export default function ArtistProfileClient({
       <div style={{ position: 'relative', height: 380, overflow: 'hidden' }}>
         {heroImage ? (
           <div style={{ position: 'absolute', inset: 0 }}>
-            <img src={heroImage} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%', display: 'block', animation: 'apHeroZoom 20s ease-in-out infinite alternate' }} />
+            <img src={heroImage} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: artist.cover_image_position || 'center 20%', display: 'block', animation: 'apHeroZoom 20s ease-in-out infinite alternate' }} />
           </div>
         ) : artist.cover_image_url ? (
           <div style={{ position: 'absolute', inset: 0 }}>
