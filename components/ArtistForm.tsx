@@ -518,7 +518,8 @@ function AvatarUploadCompact({ value, onChange, onOriginalSaved, artistId, avata
           {value ? (
             <>
               <img src={value} alt="" referrerPolicy="no-referrer"
-                className="w-full h-full object-cover group-hover:opacity-70 transition-opacity" />
+                className="w-full h-full object-cover group-hover:opacity-70 transition-opacity"
+                style={{ objectPosition: avatarPosition || 'center 20%' }} />
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                 <span className="text-white text-xs font-medium">Keisti</span>
               </div>
