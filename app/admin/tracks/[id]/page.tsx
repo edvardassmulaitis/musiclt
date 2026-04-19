@@ -352,7 +352,9 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
             )}
             {featuring.map((f, i) => (
               <div key={f.artist_id} className="flex items-center gap-1 bg-[var(--bg-elevated)] text-[var(--text-secondary)] border border-[var(--input-border)] rounded-full px-2 py-1 text-xs shrink-0">
-                <span className="text-[var(--text-muted)]">su</span>{f.name}
+                <span className="text-[var(--text-muted)]">su</span>
+                <a href={`/admin/artists/${f.artist_id}`} target="_blank" rel="noreferrer"
+                  className="hover:text-blue-600 hover:underline transition-colors">{f.name}</a>
                 <button type="button" onClick={() => setFeaturing(p => p.filter((_, j) => j !== i))}
                   className="text-[var(--text-muted)] hover:text-red-500 ml-0.5">×</button>
               </div>

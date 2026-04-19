@@ -1594,27 +1594,47 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
           if (song.featuredArtists && song.featuredArtists.length > 0) {
             for (const fName of song.featuredArtists) {
               try {
-                const searchRes = await fetch('/api/artists?search=' + encodeURIComponent(fName) + '&limit=1')
-                if (searchRes.ok) {
-                  const searchData = await searchRes.json()
-                  const arr = Array.isArray(searchData) ? searchData : searchData.artists || []
-                  const exact = arr.find((a: any) => a.name.toLowerCase() === fName.toLowerCase())
-                  if (exact) {
-                    featuring.push(exact.id)
-                  } else {
-                    const createRes = await fetch('/api/artists', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ name: fName, type: 'solo' }),
-                    })
-                    if (createRes.ok) {
-                      const created = await createRes.json()
-                      const cId = created.id || created.artist?.id
-                      if (cId) featuring.push(cId)
-                    }
+                // 1) Tikrinti per check endpoint (slug + name ilike)
+                let foundId: number | null = null
+                const checkRes = await fetch('/api/artists?check=' + encodeURIComponent(fName))
+                if (checkRes.ok) {
+                  const checkArr = await checkRes.json()
+                  if (Array.isArray(checkArr)) {
+                    const exact = checkArr.find((a: any) => a.name.toLowerCase() === fName.toLowerCase())
+                    if (exact) foundId = exact.id
                   }
                 }
-              } catch {}
+                // 2) Jei nerado — bandyti search (platesnė paieška)
+                if (!foundId) {
+                  const searchRes = await fetch('/api/artists?search=' + encodeURIComponent(fName) + '&limit=5')
+                  if (searchRes.ok) {
+                    const searchData = await searchRes.json()
+                    const arr = Array.isArray(searchData) ? searchData : searchData.artists || []
+                    const exact = arr.find((a: any) => a.name.toLowerCase() === fName.toLowerCase())
+                    if (exact) foundId = exact.id
+                  }
+                }
+                // 3) Jei vis dar nerado — sukurti naują
+                if (!foundId) {
+                  const createRes = await fetch('/api/artists', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: fName, type: 'solo' }),
+                  })
+                  if (createRes.ok) {
+                    const created = await createRes.json()
+                    foundId = created.id || null
+                  }
+                }
+                if (foundId) {
+                  featuring.push(foundId)
+                  addLog('  feat. ' + fName + ' -> id ' + foundId)
+                } else {
+                  addLog('  feat. ' + fName + ' -> nepavyko rasti/sukurti')
+                }
+              } catch (e: any) {
+                addLog('  feat. ' + fName + ' -> klaida: ' + (e.message || e))
+              }
             }
           }
 
