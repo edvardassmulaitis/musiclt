@@ -62,6 +62,11 @@ export default function NewArtistPage() {
       const id = artistId || String(json.id || json.artist?.id || '')
       console.log('[SAVE] got id:', id)
 
+      // If this was the first save (POST), redirect to the edit page
+      if (!artistId && id) {
+        window.location.href = `/admin/artists/${id}`
+        return
+      }
       setArtistId(id)
       setArtistName(data.name || artistName)
       setIsSolo(data.type === 'solo')
@@ -102,12 +107,6 @@ export default function NewArtistPage() {
               className="px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--input-border)] rounded-lg bg-[var(--bg-surface)] transition-colors">
               Atšaukti
             </Link>
-            {saved && artistId && (
-              <Link href={`/admin/artists/${artistId}`}
-                className="px-3 py-1.5 text-xs text-blue-600 border border-blue-200 rounded-lg bg-[var(--bg-surface)] hover:bg-blue-50 transition-colors font-medium">
-                Atidaryti →
-              </Link>
-            )}
             <button
               type="button"
               onClick={triggerSave}
