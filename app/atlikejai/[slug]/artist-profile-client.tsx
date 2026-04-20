@@ -2,13 +2,21 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
-function parseCoverPos(pos: string): { y: number; zoom: number } {
-  const yMatch = pos.match(/(\d+)%/)
-  const y = yMatch ? parseInt(yMatch[1]) : 20
+function parseCoverPos(pos: string): { x: number; y: number; zoom: number } {
   const parts = pos.trim().split(/\s+/)
+  if (parts[0] === 'center') {
+    const yMatch = pos.match(/(\d+)%/)
+    const y = yMatch ? parseInt(yMatch[1]) : 20
+    const last = parseFloat(parts[parts.length - 1])
+    const zoom = (!isNaN(last) && last >= 1 && !parts[parts.length - 1].includes('%')) ? last : 1
+    return { x: 50, y, zoom }
+  }
+  const pcts = pos.match(/(\d+)%/g) || []
+  const x = pcts[0] ? parseInt(pcts[0]) : 50
+  const y = pcts[1] ? parseInt(pcts[1]) : 20
   const last = parseFloat(parts[parts.length - 1])
   const zoom = (!isNaN(last) && last >= 1 && !parts[parts.length - 1].includes('%')) ? last : 1
-  return { y, zoom }
+  return { x, y, zoom }
 }
 
 type Genre = { id: number; name: string }
@@ -149,13 +157,16 @@ export default function ArtistProfileClient({
       <div style={{ position: 'relative', height: 380, overflow: 'hidden' }}>
         {heroImage ? (
           <div style={{ position: 'absolute', inset: 0 }}>
-            <img src={heroImage} alt="" style={{
-              width: '100%', height: '100%', objectFit: 'cover',
-              objectPosition: `center ${parseCoverPos(artist.cover_image_position || 'center 20%').y}%`,
-              transform: `scale(${parseCoverPos(artist.cover_image_position || 'center 20%').zoom})`,
-              transformOrigin: `center ${parseCoverPos(artist.cover_image_position || 'center 20%').y}%`,
-              display: 'block', animation: 'apHeroZoom 20s ease-in-out infinite alternate',
-            }} />
+            <img src={heroImage} alt="" style={(() => {
+              const p = parseCoverPos(artist.cover_image_position || 'center 20%')
+              return {
+                width: '100%', height: '100%', objectFit: 'cover' as const,
+                objectPosition: `${p.x}% ${p.y}%`,
+                transform: `scale(${p.zoom})`,
+                transformOrigin: `${p.x}% ${p.y}%`,
+                display: 'block', animation: 'apHeroZoom 20s ease-in-out infinite alternate',
+              }
+            })()} />
           </div>
         ) : artist.cover_image_url ? (
           <div style={{ position: 'absolute', inset: 0 }}>

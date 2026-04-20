@@ -363,18 +363,29 @@ function ImageCropper({ src, onCrop, onCancel }: {
 }
 
 // ── helpers: parse / build position string ────────────────────────────────────
-// Format: "center <y>% <zoom>" — e.g. "center 20% 1.4"
-function parseCoverPosition(pos: string): { y: number; zoom: number } {
-  const yMatch = pos.match(/(\d+)%/)
-  const y = yMatch ? parseInt(yMatch[1]) : 20
-  // zoom is the last space-separated token if it's a number > 0
+// Format: "<x>% <y>% <zoom>" — e.g. "50% 20% 1.4"
+// Legacy: "center <y>%" or "center <y>% <zoom>"
+function parseCoverPosition(pos: string): { x: number; y: number; zoom: number } {
   const parts = pos.trim().split(/\s+/)
+  // Legacy format: "center <y>%" or "center <y>% <zoom>"
+  if (parts[0] === 'center') {
+    const yMatch = pos.match(/(\d+)%/)
+    const y = yMatch ? parseInt(yMatch[1]) : 20
+    const last = parseFloat(parts[parts.length - 1])
+    const zoom = (!isNaN(last) && last >= 1 && !parts[parts.length - 1].includes('%')) ? last : 1
+    return { x: 50, y, zoom }
+  }
+  // New format: "<x>% <y>% <zoom>"
+  const pcts = pos.match(/(\d+)%/g) || []
+  const x = pcts[0] ? parseInt(pcts[0]) : 50
+  const y = pcts[1] ? parseInt(pcts[1]) : 20
   const last = parseFloat(parts[parts.length - 1])
   const zoom = (!isNaN(last) && last >= 1 && !parts[parts.length - 1].includes('%')) ? last : 1
-  return { y, zoom }
+  return { x, y, zoom }
 }
-function buildCoverPosition(y: number, zoom: number): string {
-  return zoom === 1 ? `center ${y}%` : `center ${y}% ${zoom}`
+function buildCoverPosition(x: number, y: number, zoom: number): string {
+  if (zoom === 1) return `${x}% ${y}%`
+  return `${x}% ${y}% ${zoom}`
 }
 
 // ── HeroPositionPicker ────────────────────────────────────────────────────────
@@ -391,19 +402,19 @@ function HeroPositionPicker({ imageUrl, position, onChange }: {
     <div className="mt-2">
       <button type="button" onClick={() => setOpen(true)}
         className="relative rounded-lg overflow-hidden border border-[var(--input-border)] hover:border-blue-400 transition-colors cursor-pointer group"
-        style={{ width: 160, height: 90 }}>
+        style={{ width: 120, height: 120 }}>
         <img src={imageUrl} alt="" referrerPolicy="no-referrer"
           className="w-full h-full object-cover"
           style={{
-            objectPosition: `center ${parsed.y}%`,
+            objectPosition: `${parsed.x}% ${parsed.y}%`,
             transform: `scale(${parsed.zoom})`,
-            transformOrigin: `center ${parsed.y}%`,
+            transformOrigin: `${parsed.x}% ${parsed.y}%`,
           }} />
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
           <span className="text-white text-[10px] font-medium opacity-0 group-hover:opacity-100 transition-opacity">Keisti poziciją</span>
         </div>
         <div className="absolute bottom-1 right-1 bg-black/60 text-white text-[9px] font-mono px-1 py-0.5 rounded">
-          {parsed.y}%{parsed.zoom > 1 ? ` ${parsed.zoom}x` : ''}
+          {parsed.x},{parsed.y}%{parsed.zoom > 1 ? ` ${parsed.zoom}x` : ''}
         </div>
       </button>
       {open && <CropModal imageUrl={imageUrl} position={position} onChange={onChange} onClose={() => setOpen(false)} />}
@@ -416,29 +427,31 @@ function CropModal({ imageUrl, position, onChange, onClose }: {
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const parsed = parseCoverPosition(position)
+  const [xPct, setXPct] = useState(parsed.x)
   const [yPct, setYPct] = useState(parsed.y)
   const [zoom, setZoom] = useState(parsed.zoom)
   const [dragging, setDragging] = useState(false)
-  const lastY = useRef(0)
+  const lastPos = useRef({ x: 0, y: 0 })
 
-  const emit = (y: number, z: number) => onChange(buildCoverPosition(y, z))
+  const emit = (x: number, y: number, z: number) => onChange(buildCoverPosition(x, y, z))
 
   const onPointerDown = (e: React.PointerEvent) => {
     e.preventDefault()
     setDragging(true)
-    lastY.current = e.clientY
+    lastPos.current = { x: e.clientX, y: e.clientY }
     ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
   }
   const onPointerMove = (e: React.PointerEvent) => {
     if (!dragging || !containerRef.current) return
     const rect = containerRef.current.getBoundingClientRect()
-    const delta = ((e.clientY - lastY.current) / rect.height) * 100
-    lastY.current = e.clientY
-    setYPct(prev => {
-      const next = Math.max(0, Math.min(100, Math.round(prev - delta)))
-      emit(next, zoom)
-      return next
-    })
+    const dx = ((e.clientX - lastPos.current.x) / rect.width) * 100
+    const dy = ((e.clientY - lastPos.current.y) / rect.height) * 100
+    lastPos.current = { x: e.clientX, y: e.clientY }
+    const newX = Math.max(0, Math.min(100, Math.round(xPct - dx)))
+    const newY = Math.max(0, Math.min(100, Math.round(yPct - dy)))
+    setXPct(newX)
+    setYPct(newY)
+    emit(newX, newY, zoom)
   }
   const onPointerUp = () => setDragging(false)
 
@@ -447,7 +460,7 @@ function CropModal({ imageUrl, position, onChange, onClose }: {
     const delta = e.deltaY > 0 ? -0.1 : 0.1
     setZoom(prev => {
       const next = Math.round(Math.max(1, Math.min(3, prev + delta)) * 10) / 10
-      emit(yPct, next)
+      emit(xPct, yPct, next)
       return next
     })
   }
@@ -476,9 +489,9 @@ function CropModal({ imageUrl, position, onChange, onClose }: {
           <img src={imageUrl} alt="" referrerPolicy="no-referrer"
             className="w-full h-full object-cover pointer-events-none"
             style={{
-              objectPosition: `center ${yPct}%`,
+              objectPosition: `${xPct}% ${yPct}%`,
               transform: `scale(${zoom})`,
-              transformOrigin: `center ${yPct}%`,
+              transformOrigin: `${xPct}% ${yPct}%`,
             }} />
           {/* Corner guides */}
           <div className="absolute top-2 left-2 w-5 h-5 border-t-2 border-l-2 border-white/50 rounded-tl pointer-events-none" />
@@ -486,16 +499,16 @@ function CropModal({ imageUrl, position, onChange, onClose }: {
           <div className="absolute bottom-2 left-2 w-5 h-5 border-b-2 border-l-2 border-white/50 rounded-bl pointer-events-none" />
           <div className="absolute bottom-2 right-10 w-5 h-5 border-b-2 border-r-2 border-white/50 rounded-br pointer-events-none" />
           <div className="absolute top-2 right-2 bg-black/60 text-white text-xs font-mono px-2 py-1 rounded">
-            {yPct}% · {zoom}x
+            {xPct},{yPct}% · {zoom}x
           </div>
         </div>
         <div className="px-4 py-3 border-t flex items-center gap-3">
           <span className="text-[11px] text-gray-400">Zoom</span>
           <input type="range" min="1" max="3" step="0.1" value={zoom}
-            onChange={e => { const z = parseFloat(e.target.value); setZoom(z); emit(yPct, z) }}
+            onChange={e => { const z = parseFloat(e.target.value); setZoom(z); emit(xPct, yPct, z) }}
             className="flex-1 h-1.5 accent-blue-500" />
           <span className="text-xs font-mono text-gray-500 w-8 text-right">{zoom}x</span>
-          <button type="button" onClick={() => { setYPct(20); setZoom(1); emit(20, 1) }}
+          <button type="button" onClick={() => { setXPct(50); setYPct(20); setZoom(1); emit(50, 20, 1) }}
             className="text-[11px] text-gray-400 hover:text-gray-600 ml-2">Reset</button>
         </div>
       </div>
@@ -600,11 +613,14 @@ function AvatarUploadCompact({ value, onChange, onOriginalSaved, artistId, avata
             <>
               <img src={value} alt="" referrerPolicy="no-referrer"
                 className="w-full h-full object-cover group-hover:opacity-70 transition-opacity"
-                style={{
-                  objectPosition: `center ${parseCoverPosition(avatarPosition || 'center 20%').y}%`,
-                  transform: `scale(${parseCoverPosition(avatarPosition || 'center 20%').zoom})`,
-                  transformOrigin: `center ${parseCoverPosition(avatarPosition || 'center 20%').y}%`,
-                }} />
+                style={(() => {
+                  const p = parseCoverPosition(avatarPosition || 'center 20%')
+                  return {
+                    objectPosition: `${p.x}% ${p.y}%`,
+                    transform: `scale(${p.zoom})`,
+                    transformOrigin: `${p.x}% ${p.y}%`,
+                  }
+                })()} />
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                 <span className="text-white text-xs font-medium">Keisti</span>
               </div>
