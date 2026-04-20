@@ -99,7 +99,25 @@ export default function ScoreModal({ artistId, onClose }: { artistId: string; on
     finally { setSavingOverride(false) }
   }
 
-  const b = data?.breakdown
+  // Handle old breakdown format (flat catalog/media/community/career) → convert to new categories format
+  const rawBreakdown = data?.breakdown
+  const b: Breakdown | null = rawBreakdown
+    ? rawBreakdown.categories
+      ? rawBreakdown as Breakdown  // new format
+      : {  // old format → convert
+          type: 'lt' as const,
+          categories: {
+            catalog:   { points: (rawBreakdown as any).catalog || 0, max: 18, details: '' },
+            media:     { points: (rawBreakdown as any).media || 0, max: 8, details: '' },
+            community: { points: (rawBreakdown as any).community || 0, max: 12, details: '' },
+            career:    { points: (rawBreakdown as any).career || 0, max: 8, details: '' },
+          },
+          total: (rawBreakdown as any).total || 0,
+          score_override: (rawBreakdown as any).score_override || 0,
+          final_score: (rawBreakdown as any).final_score || 0,
+          inputs: {},
+        }
+    : null
   const hasScore = data?.score !== null && data?.score !== undefined
 
   return (
