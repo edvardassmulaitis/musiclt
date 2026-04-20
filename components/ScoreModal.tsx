@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 
 type ScoreCategory = {
   points: number
@@ -120,11 +121,8 @@ export default function ScoreModal({ artistId, onClose }: { artistId: string; on
     : null
   const hasScore = data?.score !== null && data?.score !== undefined
 
-  return (
-    <div
-      className="fixed inset-0 z-[9999]"
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-    >
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999]">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
       {/* Centered modal */}
@@ -274,6 +272,10 @@ export default function ScoreModal({ artistId, onClose }: { artistId: string; on
       </div>
     </div>
   )
+
+  return typeof document !== 'undefined'
+    ? createPortal(modalContent, document.body)
+    : null
 }
 
 /**
