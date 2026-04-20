@@ -525,21 +525,42 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
       setYtError('')
       return
     }
-    // Wikipedia — naudojam query+search API (geresnis relevance ranking nei opensearch)
+    // Wikipedia — du lygiagrečius search: vieną originalų, kitą su "band OR singer OR musician"
+    // Tai užtikrina, kad muzikos rezultatai visada atsiras net jei originalus query jų nepatraukia
     setWpLoading(true)
-    fetch(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q)}&srlimit=12&srprop=snippet&format=json&origin=*`)
-      .then(r => r.json()).then(data => {
-        const results = (data?.query?.search || []) as { title: string; snippet: string }[]
+    const baseUrl = 'https://en.wikipedia.org/w/api.php?action=query&list=search&srprop=snippet&format=json&origin=*&srlimit=12'
+    const musicBias = `${q} band OR singer OR musician`
+    Promise.all([
+      fetch(`${baseUrl}&srsearch=${encodeURIComponent(q)}`).then(r => r.json()),
+      fetch(`${baseUrl}&srsearch=${encodeURIComponent(musicBias)}`).then(r => r.json()),
+    ]).then(([data1, data2]) => {
+        const raw1 = (data1?.query?.search || []) as { title: string; snippet: string }[]
+        const raw2 = (data2?.query?.search || []) as { title: string; snippet: string }[]
+        // Sujungiam ir deduplicuojam (pirma query turi pirmenybę jei dubliuojasi)
+        const seen = new Set<string>()
+        const merged: { title: string; snippet: string }[] = []
+        for (const r of [...raw1, ...raw2]) {
+          if (!seen.has(r.title)) { seen.add(r.title); merged.push(r) }
+        }
         const qLow = q.toLowerCase()
-        const all = results
+        const all = merged
           .map(r => ({ title: r.title, description: r.snippet.replace(/<[^>]+>/g, '').slice(0, 120) }))
           .filter(r => !ALBUM_RE.test(r.description) && !ALBUM_RE.test(r.title))
-        // Prioritetai: 1) tikslus pavadinimo atitikimas, 2) band/singer tag, 3) muzikos aprašymas, 4) kiti
-        const exact = all.filter(r => r.title.toLowerCase() === qLow || r.title.toLowerCase().startsWith(qLow + ' ('))
-        const withTag = all.filter(r => !exact.includes(r) && PERSON_BAND_RE.test(r.title))
-        const musicD = all.filter(r => !exact.includes(r) && !withTag.includes(r) && (MUSIC_RE.test(r.description) || MUSIC_RE.test(r.title)))
-        const others = all.filter(r => !exact.includes(r) && !withTag.includes(r) && !musicD.includes(r))
-        setWpResults([...exact, ...withTag, ...musicD, ...others].slice(0, 8))
+        // Muzikos tag'as pavadinime — "(band)", "(singer)", "(musician)" ir pan.
+        const TITLE_MUSIC_TAG = /\(\s*(band|singer|rapper|musician|group|duo|trio|vocalist|guitarist|drummer|DJ|producer|songwriter|entertainer)\s*\)/i
+        // Prioritetai: 1) tikslus + muzikos tag, 2) tikslus + muzikos aprašymas, 3) tikslus kiti,
+        //              4) band/singer tag, 5) muzikos aprašymas, 6) kiti
+        const isExact = (r: typeof all[0]) => r.title.toLowerCase() === qLow || r.title.toLowerCase().startsWith(qLow + ' (')
+        const isMusicTitle = (r: typeof all[0]) => TITLE_MUSIC_TAG.test(r.title) || PERSON_BAND_RE.test(r.title)
+        const isMusicDesc = (r: typeof all[0]) => MUSIC_RE.test(r.description) || MUSIC_RE.test(r.title)
+        const exactMusic = all.filter(r => isExact(r) && isMusicTitle(r))
+        const exactMusicD = all.filter(r => isExact(r) && !isMusicTitle(r) && isMusicDesc(r))
+        const exactOther = all.filter(r => isExact(r) && !isMusicTitle(r) && !isMusicDesc(r))
+        const rest = all.filter(r => !isExact(r))
+        const withTag = rest.filter(r => isMusicTitle(r))
+        const musicD = rest.filter(r => !isMusicTitle(r) && isMusicDesc(r))
+        const others = rest.filter(r => !isMusicTitle(r) && !isMusicDesc(r))
+        setWpResults([...exactMusic, ...exactMusicD, ...exactOther, ...withTag, ...musicD, ...others].slice(0, 8))
       }).catch(() => {}).finally(() => setWpLoading(false))
     // YouTube - tik paspaudus tab (žr. onTabClick)
   }
