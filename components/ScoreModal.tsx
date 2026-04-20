@@ -122,13 +122,16 @@ export default function ScoreModal({ artistId, onClose }: { artistId: string; on
 
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center px-4 py-4 overflow-y-auto"
-      style={{ zIndex: 9999, background: 'rgba(0,0,0,0.3)' }}
+      className="fixed inset-0 z-[9999]"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="bg-white rounded-2xl shadow-2xl border border-[var(--border-subtle)] w-full max-w-md overflow-hidden my-auto max-h-[calc(100vh-2rem)] overflow-y-auto">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+      {/* Centered modal */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-4">
+        <div className="bg-white rounded-2xl shadow-2xl border border-[var(--border-subtle)] w-full max-w-md max-h-[85vh] overflow-y-auto pointer-events-auto relative">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-[var(--border-subtle)] sticky top-0 bg-white z-10">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-[var(--border-subtle)]">
           <div className="flex items-center gap-2">
             <span className="text-sm font-bold text-[var(--text-secondary)]">Score</span>
             {b && (
@@ -267,6 +270,7 @@ export default function ScoreModal({ artistId, onClose }: { artistId: string; on
             </>
           )}
         </div>
+      </div>
       </div>
     </div>
   )
