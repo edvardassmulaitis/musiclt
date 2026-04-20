@@ -755,7 +755,7 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
 
 function extractTrackListings(wikitext: string): string[] {
   const results: string[] = []
-  const pattern = /\{\{[Tt]rack\s*[Ll]isting/g
+  const pattern = /\{\{\s*[Tt]rack\s*[Ll]isting/g
   let m: RegExpExecArray | null
   while ((m = pattern.exec(wikitext)) !== null) {
     let depth = 0, i = m.index
@@ -771,7 +771,7 @@ function extractTrackListings(wikitext: string): string[] {
 // Grąžina tracklist blokus su jų pozicijomis wikitext'e (reikia konteksto filtravimui)
 function extractTrackListingsWithPos(wikitext: string): { block: string; pos: number }[] {
   const results: { block: string; pos: number }[] = []
-  const pattern = /\{\{[Tt]rack\s*[Ll]isting/g
+  const pattern = /\{\{\s*[Tt]rack\s*[Ll]isting/g
   let m: RegExpExecArray | null
   while ((m = pattern.exec(wikitext)) !== null) {
     let depth = 0, i = m.index
