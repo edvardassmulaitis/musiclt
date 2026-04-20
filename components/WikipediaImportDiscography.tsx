@@ -989,7 +989,8 @@ function parseTracklist(wikitext: string): TrackEntry[] {
             if (normalizedTitle.startsWith(s)) {
               const after = normalizedTitle.slice(s.length)
               if (after.startsWith('s ') && !after.includes('reprise')) return true
-              if (after.startsWith(' (')) return true
+              // "Title (Suffix)" — bet NE remix/version/mix/edit variantai
+              if (after.startsWith(' (') && !/remix|version|mix|edit|live|acoustic|instrumental|demo|dub\b/i.test(after)) return true
             }
             // Singlas prasideda tracko pavadinimu: "Blasphemous Rumours / Somebody" → "Blasphemous Rumours"
             // Double A-side: singlo pavadinime yra "/" (su arba be kabučių)
@@ -998,8 +999,11 @@ function parseTracklist(wikitext: string): TrackEntry[] {
               const parts = s.split('/').map(p => p.replace(/["“”]/g, '').trim()).filter(Boolean)
               if (parts.some(p => p === normalizedTitle || normalizedTitle.startsWith(p + ' ') || p.startsWith(normalizedTitle))) return true
             }
-            // Singlo pavadinimas prasideda tracko pavadinimu (pvz. "somebody" → "somebody (remix)")
-            if (s.startsWith(normalizedTitle + ' ') || s.startsWith(normalizedTitle + ' (')) return true
+            // Singlo pavadinimas prasideda tracko pavadinimu — bet ne remix/version variantai
+            if (s.startsWith(normalizedTitle + ' ')) {
+              const sAfter = s.slice(normalizedTitle.length)
+              if (!/(remix|version|mix|edit|live|acoustic|instrumental|demo|dub)\b/i.test(sAfter)) return true
+            }
             return false
           })
         ) : undefined
