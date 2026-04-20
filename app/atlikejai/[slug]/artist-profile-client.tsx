@@ -2,6 +2,15 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
+function parseCoverPos(pos: string): { y: number; zoom: number } {
+  const yMatch = pos.match(/(\d+)%/)
+  const y = yMatch ? parseInt(yMatch[1]) : 20
+  const parts = pos.trim().split(/\s+/)
+  const last = parseFloat(parts[parts.length - 1])
+  const zoom = (!isNaN(last) && last >= 1 && !parts[parts.length - 1].includes('%')) ? last : 1
+  return { y, zoom }
+}
+
 type Genre = { id: number; name: string }
 type Album = { id: number; slug: string; title: string; year?: number; cover_image_url?: string; type_studio?: boolean; type_ep?: boolean; type_single?: boolean; type_live?: boolean; type_compilation?: boolean; type_remix?: boolean; type_soundtrack?: boolean; type_demo?: boolean }
 type Track = { id: number; slug: string; title: string; type?: string; video_url?: string; cover_url?: string }
@@ -140,7 +149,13 @@ export default function ArtistProfileClient({
       <div style={{ position: 'relative', height: 380, overflow: 'hidden' }}>
         {heroImage ? (
           <div style={{ position: 'absolute', inset: 0 }}>
-            <img src={heroImage} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: artist.cover_image_position || 'center 20%', display: 'block', animation: 'apHeroZoom 20s ease-in-out infinite alternate' }} />
+            <img src={heroImage} alt="" style={{
+              width: '100%', height: '100%', objectFit: 'cover',
+              objectPosition: `center ${parseCoverPos(artist.cover_image_position || 'center 20%').y}%`,
+              transform: `scale(${parseCoverPos(artist.cover_image_position || 'center 20%').zoom})`,
+              transformOrigin: `center ${parseCoverPos(artist.cover_image_position || 'center 20%').y}%`,
+              display: 'block', animation: 'apHeroZoom 20s ease-in-out infinite alternate',
+            }} />
           </div>
         ) : artist.cover_image_url ? (
           <div style={{ position: 'absolute', inset: 0 }}>

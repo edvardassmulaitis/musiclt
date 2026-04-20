@@ -362,23 +362,43 @@ function ImageCropper({ src, onCrop, onCancel }: {
   )
 }
 
+// ── helpers: parse / build position string ────────────────────────────────────
+// Format: "center <y>% <zoom>" — e.g. "center 20% 1.4"
+function parseCoverPosition(pos: string): { y: number; zoom: number } {
+  const yMatch = pos.match(/(\d+)%/)
+  const y = yMatch ? parseInt(yMatch[1]) : 20
+  // zoom is the last space-separated token if it's a number > 0
+  const parts = pos.trim().split(/\s+/)
+  const last = parseFloat(parts[parts.length - 1])
+  const zoom = (!isNaN(last) && last >= 1 && !parts[parts.length - 1].includes('%')) ? last : 1
+  return { y, zoom }
+}
+function buildCoverPosition(y: number, zoom: number): string {
+  return zoom === 1 ? `center ${y}%` : `center ${y}% ${zoom}`
+}
+
 // ── HeroPositionPicker ────────────────────────────────────────────────────────
 function HeroPositionPicker({ imageUrl, position, onChange }: {
   imageUrl: string
-  position: string    // e.g. "center 20%"
+  position: string    // e.g. "center 20%" or "center 20% 1.4"
   onChange: (pos: string) => void
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [dragging, setDragging] = useState(false)
 
-  // Parse vertical % from position string
-  const parseY = (pos: string): number => {
-    const m = pos.match(/(\d+)%/)
-    return m ? parseInt(m[1]) : 20
-  }
-  const [yPct, setYPct] = useState(parseY(position))
+  const parsed = parseCoverPosition(position)
+  const [yPct, setYPct] = useState(parsed.y)
+  const [zoom, setZoom] = useState(parsed.zoom)
 
-  useEffect(() => { setYPct(parseY(position)) }, [position])
+  useEffect(() => {
+    const p = parseCoverPosition(position)
+    setYPct(p.y)
+    setZoom(p.zoom)
+  }, [position])
+
+  const emitChange = (newY: number, newZoom: number) => {
+    onChange(buildCoverPosition(newY, newZoom))
+  }
 
   const updatePos = (clientY: number) => {
     const rect = containerRef.current?.getBoundingClientRect()
@@ -386,7 +406,7 @@ function HeroPositionPicker({ imageUrl, position, onChange }: {
     const raw = ((clientY - rect.top) / rect.height) * 100
     const clamped = Math.max(0, Math.min(100, Math.round(raw)))
     setYPct(clamped)
-    onChange(`center ${clamped}%`)
+    emitChange(clamped, zoom)
   }
 
   const onPointerDown = (e: React.PointerEvent) => {
@@ -398,16 +418,31 @@ function HeroPositionPicker({ imageUrl, position, onChange }: {
   const onPointerMove = (e: React.PointerEvent) => { if (dragging) updatePos(e.clientY) }
   const onPointerUp = () => setDragging(false)
 
+  const onWheel = (e: React.WheelEvent) => {
+    e.preventDefault()
+    const delta = e.deltaY > 0 ? -0.1 : 0.1
+    const newZoom = Math.round(Math.max(1, Math.min(3, zoom + delta)) * 10) / 10
+    setZoom(newZoom)
+    emitChange(yPct, newZoom)
+  }
+
+  const onZoomSlider = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newZoom = parseFloat(e.target.value)
+    setZoom(newZoom)
+    emitChange(yPct, newZoom)
+  }
+
   return (
     <div className="mt-2">
       <label className="block text-[10px] font-semibold text-[var(--text-muted)] mb-1 uppercase tracking-wider">Nuotraukos pozicija</label>
       <div ref={containerRef}
         className="relative rounded-lg overflow-hidden border border-[var(--input-border)] cursor-crosshair select-none"
         style={{ width: 160, height: 160 }}
-        onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}>
+        onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}
+        onWheel={onWheel}>
         <img src={imageUrl} alt="" referrerPolicy="no-referrer"
           className="w-full h-full object-cover pointer-events-none"
-          style={{ objectPosition: `center ${yPct}%` }} />
+          style={{ objectPosition: `center ${yPct}%`, transform: `scale(${zoom})`, transformOrigin: `center ${yPct}%` }} />
         {/* Viewport indicator line */}
         <div className="absolute left-0 right-0 pointer-events-none" style={{ top: `${yPct}%`, transform: 'translateY(-50%)' }}>
           <div className="h-[2px] bg-blue-500 shadow-[0_0_4px_rgba(59,130,246,0.6)]" />
@@ -415,8 +450,16 @@ function HeroPositionPicker({ imageUrl, position, onChange }: {
         {/* Side percentage label */}
         <div className="absolute right-1 bg-black/60 text-white text-[9px] font-mono px-1 py-0.5 rounded pointer-events-none"
           style={{ top: `${yPct}%`, transform: 'translateY(-50%)' }}>
-          {yPct}%
+          {yPct}%{zoom > 1 ? ` ${zoom}x` : ''}
         </div>
+      </div>
+      {/* Zoom slider */}
+      <div className="flex items-center gap-2 mt-1.5">
+        <span className="text-[10px] text-[var(--text-muted)]">🔍</span>
+        <input type="range" min="1" max="3" step="0.1" value={zoom}
+          onChange={onZoomSlider}
+          className="flex-1 h-1 accent-blue-500" />
+        <span className="text-[10px] font-mono text-[var(--text-muted)] w-7 text-right">{zoom}x</span>
       </div>
     </div>
   )
@@ -519,7 +562,11 @@ function AvatarUploadCompact({ value, onChange, onOriginalSaved, artistId, avata
             <>
               <img src={value} alt="" referrerPolicy="no-referrer"
                 className="w-full h-full object-cover group-hover:opacity-70 transition-opacity"
-                style={{ objectPosition: avatarPosition || 'center 20%' }} />
+                style={{
+                  objectPosition: `center ${parseCoverPosition(avatarPosition || 'center 20%').y}%`,
+                  transform: `scale(${parseCoverPosition(avatarPosition || 'center 20%').zoom})`,
+                  transformOrigin: `center ${parseCoverPosition(avatarPosition || 'center 20%').y}%`,
+                }} />
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                 <span className="text-white text-xs font-medium">Keisti</span>
               </div>
