@@ -543,11 +543,13 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
           if (!seen.has(r.title)) { seen.add(r.title); merged.push(r) }
         }
         const qLow = q.toLowerCase()
-        const all = merged
-          .map(r => ({ title: r.title, description: r.snippet.replace(/<[^>]+>/g, '').slice(0, 120) }))
-          .filter(r => !ALBUM_RE.test(r.description) && !ALBUM_RE.test(r.title))
         // Muzikos tag'as pavadinime — "(band)", "(singer)", "(musician)" ir pan.
         const TITLE_MUSIC_TAG = /\(\s*(band|singer|rapper|musician|group|duo|trio|vocalist|guitarist|drummer|DJ|producer|songwriter|entertainer)\s*\)/i
+        const all = merged
+          .map(r => ({ title: r.title, description: r.snippet.replace(/<[^>]+>/g, '').slice(0, 120) }))
+          // Filtruojam albumus/diskografijas pagal PAVADINIMĄ (pvz "Blackout (Scorpions album)")
+          // Bet nefiltruojam jei pavadinime yra muzikos tag'as (pvz "Scorpions (band)")
+          .filter(r => TITLE_MUSIC_TAG.test(r.title) || !ALBUM_RE.test(r.title))
         // Prioritetai: 1) tikslus + muzikos tag, 2) tikslus + muzikos aprašymas, 3) tikslus kiti,
         //              4) band/singer tag, 5) muzikos aprašymas, 6) kiti
         const isExact = (r: typeof all[0]) => r.title.toLowerCase() === qLow || r.title.toLowerCase().startsWith(qLow + ' (')
