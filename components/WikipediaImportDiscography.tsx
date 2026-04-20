@@ -255,7 +255,7 @@ function parseMainPageDiscography(wikitext: string, soloOnly = false, groupFilte
     const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
     if (wm) { wikiTitle = wm[1].trim(); title = cleanWikiText(wm[2] || wm[1]) }
     else { const im = line.match(/'{2,3}([^']+)'{2,3}/); if (im) { title = cleanWikiText(im[1]); wikiTitle = title.replace(/ /g, '_') } }
-    if (!title || title.length < 2 || wikiTitle.includes(':') || /^[A-Z]{2,3}$/.test(title)) continue
+    if (!title || title.length < 2 || /^(Category|File|Wikipedia|Template|Help|Portal|Draft|Module|Talk):/.test(wikiTitle) || /^[A-Z]{2,3}$/.test(title)) continue
     const bad = ['discography', 'songs', 'videography', 'filmography', 'certification', 'chart']
     if (bad.some(b => title.toLowerCase().includes(b) || wikiTitle.toLowerCase().includes(b))) continue
     const yearM = line.match(/\((\d{4})\)/)
@@ -323,7 +323,7 @@ function parseDiscographyPage(wikitext: string): DiscographyItem[] {
       const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
       if (!wm) continue
       const wikiTitle = wm[1].trim(), title = cleanWikiText(wm[2] || wm[1])
-      if (!title || title.length < 2 || wikiTitle.includes(':')) continue
+      if (!title || title.length < 2 || /^(Category|File|Wikipedia|Template|Help|Portal|Draft|Module|Talk):/.test(wikiTitle)) continue
       if (['discography','videography','certification','singles','chart'].some(b => title.toLowerCase().includes(b))) continue
 
       // Metai: pirma iš einamos eilutės, tada iš sekančių eilučių (Title-first formatas)
@@ -359,7 +359,7 @@ function parseDiscographyPage(wikitext: string): DiscographyItem[] {
       const wm = line.match(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/)
       if (wm) {
         const wikiTitle = wm[1].trim(), title = cleanWikiText(wm[2] || wm[1])
-        if (title && title.length > 2 && !wikiTitle.includes(':') && !/^\d{4}/.test(title)) {
+        if (title && title.length > 2 && !/^(Category|File|Wikipedia|Template|Help|Portal|Draft|Module|Talk):/.test(wikiTitle) && !/^\d{4}/.test(title)) {
           const yr = line.match(/\b(19|20)\d{2}\b/)
           albums.push({ title, year: yr ? parseInt(yr[0]) : currentYear, month: null, day: null, type: currentType, wikiTitle, source: 'wikipedia' })
         }
