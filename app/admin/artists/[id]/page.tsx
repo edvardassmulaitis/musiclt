@@ -198,9 +198,9 @@ function AlbumCard({ album, defaultOpen, onDeleted }: { album: any; defaultOpen:
         }
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-1.5 flex-wrap">
-            <a href={`/admin/albums/${album.id}`} target="_blank" rel="noopener noreferrer"
+            <Link href={`/admin/albums/${album.id}`}
               onClick={e => e.stopPropagation()}
-              className="text-sm font-semibold text-[var(--text-primary)] hover:text-blue-600 truncate transition-colors">{album.title}</a>
+              className="text-sm font-semibold text-[var(--text-primary)] hover:text-blue-600 truncate transition-colors">{album.title}</Link>
             <span className="text-xs text-[var(--text-muted)] shrink-0">{album.year}</span>
             <span className="text-xs text-[var(--text-muted)] bg-[var(--bg-elevated)] px-1.5 py-0.5 rounded shrink-0">{typeLabel}</span>
           </div>

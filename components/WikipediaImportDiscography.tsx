@@ -57,6 +57,22 @@ type SingleSongItem = {
 
 const AUTO_SELECT_TYPES: AlbumType[] = ['studio']
 
+// Lithuanian pluralization helper
+// 1 → "1 albumą" (acc. sg), 2-9 → "2 albumus" (acc. pl), 10-20 → "11 albumų" (gen. pl)
+// Pattern: ends in 1 (not 11) → albumą, ends in 2-9 (not 12-19) → albumus, else → albumų
+function getLithuanianPlural(count: number, singular: string, plural2_9: string, plural10plus: string): string {
+  const lastDigit = count % 10
+  const lastTwoDigits = count % 100
+
+  if (lastDigit === 1 && lastTwoDigits !== 11) {
+    return `${count} ${singular}`
+  } else if (lastDigit >= 2 && lastDigit <= 9 && (lastTwoDigits < 12 || lastTwoDigits > 19)) {
+    return `${count} ${plural2_9}`
+  } else {
+    return `${count} ${plural10plus}`
+  }
+}
+
 // ─── DiscModal — mobile fullscreen, desktop centered ──────────────────────────
 function DiscModal({ children }: { children: React.ReactNode }) {
   const [isDesktop, setIsDesktop] = useState(false)
@@ -2338,12 +2354,12 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               {activeTab === 'singles' ? (
                 <button onClick={importSongs} disabled={importing || songSelectedCount === 0}
                   className="flex-1 py-2 sm:py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl disabled:opacity-40 transition-colors text-sm">
-                  {importing ? 'Importuojama...' : `Importuoti ${songSelectedCount} singlų`}
+                  {importing ? 'Importuojama...' : `Importuoti ${getLithuanianPlural(songSelectedCount, 'singlą', 'singlus', 'singlų')}`}
                 </button>
               ) : (
                 <button onClick={importAlbums} disabled={importing || selected.size === 0}
                   className="flex-1 py-2 sm:py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl disabled:opacity-40 transition-colors text-sm">
-                  {importing ? 'Importuojama...' : `Importuoti ${selected.size} albumų`}
+                  {importing ? 'Importuojama...' : `Importuoti ${getLithuanianPlural(selected.size, 'albumą', 'albumus', 'albumų')}`}
                 </button>
               )}
               <button onClick={closeModal} className="shrink-0 w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center border border-gray-200 text-gray-500 rounded-xl hover:bg-gray-50 transition-colors text-sm">

@@ -509,7 +509,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
               <span className="text-[var(--text-faint)] hidden lg:block">/</span>
               <Link href={`/admin/artists/${artistId}`} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] shrink-0 hidden lg:block">{artistName}</Link>
               <span className="text-[var(--text-faint)] hidden lg:block">/</span>
-              <Link href={`/admin/albums?artist=${artistId}`} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] shrink-0 hidden lg:block">Albumai</Link>
+              <Link href={`/admin/artists/${artistId}#albums`} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] shrink-0 hidden lg:block">Albumai</Link>
               <span className="text-[var(--text-faint)] hidden lg:block">/</span>
               <Link href={`/admin/tracks?artist=${artistId}`} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] shrink-0 hidden lg:block">Dainos</Link>
             </>}
@@ -530,7 +530,7 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
                         <svg className="w-4 h-4 text-[var(--text-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                         {artistName}
                       </Link>
-                      <Link href={`/admin/albums?artist=${artistId}`} onClick={() => setShowMobileNav(false)}
+                      <Link href={`/admin/artists/${artistId}#albums`} onClick={() => setShowMobileNav(false)}
                         className="flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] transition-colors border-t border-[var(--border-subtle)]">
                         <svg className="w-4 h-4 text-[var(--text-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" /></svg>
                         Albumai
