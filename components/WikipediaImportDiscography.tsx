@@ -1186,11 +1186,41 @@ async function enrichTracks(albumId: number, artistName: string, addLog: (s: str
   try { dbTracks = (await (await fetch(`/api/tracks?album_id=${albumId}&limit=200`)).json()).tracks || [] } catch { return }
   if (!dbTracks.length) return
   addLog(`  ${dbTracks.length} dainų...`)
-  let mbN = 0, lyrN = 0, done = 0
+  let mbN = 0, lyrN = 0, coverN = 0, done = 0
 
   // Procesavame po vieną
   for (const t of dbTracks) {
     const u: Record<string,any> = {}
+
+    // Singlai: viršelis + tiksli data iš Wikipedia
+    if (t.is_single && !t.cover_url) {
+      try {
+        const wikiTitle = t.title.replace(/ /g, '_')
+        const suffixes = ['', '_(song)', `_(${artistName.replace(/ /g, '_')}_song)`, '_(single)']
+        for (const suffix of suffixes) {
+          const testTitle = wikiTitle + suffix
+          const [testCover, testWt] = await Promise.all([
+            fetchCoverImage(testTitle),
+            (!t.release_month) ? fetchWikitext(testTitle) : Promise.resolve('')
+          ])
+          if (testCover) {
+            u.cover_url = testCover
+            coverN++
+            if (testWt && testWt.includes('released')) {
+              const dateInfo = parseReleaseDate(testWt)
+              if (dateInfo.month) { u.release_year = dateInfo.year; u.release_month = dateInfo.month; u.release_day = dateInfo.day }
+            }
+            break
+          }
+          if (testWt && testWt.includes('released')) {
+            const dateInfo = parseReleaseDate(testWt)
+            if (dateInfo.month) { u.release_year = dateInfo.year; u.release_month = dateInfo.month; u.release_day = dateInfo.day }
+            break
+          }
+          await new Promise(r => setTimeout(r, 100))
+        }
+      } catch {}
+    }
 
     // YouTube — praleidžiam jei jau turi video_url ARBA jau buvo ieškota
     if (!t.video_url && !t.youtube_searched_at) {
@@ -1213,11 +1243,11 @@ async function enrichTracks(albumId: number, artistName: string, addLog: (s: str
 
     done++
     if (done % 3 === 0 || done === dbTracks.length) {
-      addLog(`  ${done}/${dbTracks.length} (YT:${mbN} tekstai:${lyrN})`)
+      addLog(`  ${done}/${dbTracks.length} (YT:${mbN} tekstai:${lyrN}${coverN ? ` viršeliai:${coverN}` : ''})`)
       onProgress?.(done, dbTracks.length)
     }
   }
-  addLog(`  ✓ YT:${mbN} tekstai:${lyrN}`)
+  addLog(`  ✓ YT:${mbN} tekstai:${lyrN}${coverN ? ` viršeliai:${coverN}` : ''}`)
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
