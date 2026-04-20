@@ -278,11 +278,10 @@ function parseDiscographyPage(wikitext: string): DiscographyItem[] {
     const hm = line.match(/^(==+)\s*(.+?)\s*\1/)
     if (hm) {
       const depth = hm[1].length, h = hm[2].toLowerCase()
-      if (depth === 2 && /single|chart|collaborat|video|promo|appear|box.?set/.test(h)) inSinglesSection = true
       if (depth === 2 && /^album/.test(h)) inSinglesSection = false
       skipSection = /video|dvd|film|promo|tour|guest|appear|certif|box.?set|music.video/.test(h)
-      if (h.includes('studio')) { currentType = 'studio'; skipSection = false }
-      else if (h.includes('collaborative') || h.includes('collaboration')) { currentType = 'studio'; skipSection = false }
+      if (h.includes('studio')) { currentType = 'studio'; skipSection = false; inSinglesSection = false }
+      else if (h.includes('collaborative') || h.includes('collaboration')) { currentType = 'studio'; skipSection = false; inSinglesSection = false }
       else if (h.includes('extended play') || h.includes(' ep') || h === 'eps') { currentType = 'ep'; skipSection = false }
       else if (h.includes('single')) { currentType = 'single'; skipSection = true; inSinglesSection = true }
       else if (h.includes('remix')) { currentType = 'remix'; skipSection = false }
@@ -293,6 +292,7 @@ function parseDiscographyPage(wikitext: string): DiscographyItem[] {
       else if (h.includes('compilation') || h.includes('greatest') || h.includes('best of') || h.includes('collection')) { currentType = 'compilation'; skipSection = false }
       else if (h.includes('live') || h.includes('concert')) { currentType = 'live'; skipSection = false }
       else if (h.includes('box')) { currentType = 'other'; skipSection = true }
+      else if (depth === 2 && /chart|video|promo|appear/.test(h)) { inSinglesSection = true; skipSection = true }
       else if (/^\d{4}s?$/.test(h.trim())) { skipSection = inSinglesSection }
       else if (depth >= 3 && inSinglesSection) { skipSection = true }
       yearMode = false; currentYear = null; yearRowspan = 0; continue
@@ -1285,7 +1285,8 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       if (mainSingles.length) foundSongs = mainSingles
 
       // Discography puslapio URL
-      const discTitle = wikiBase.replace(/_discography$/i, '') + '_discography'
+      const artistBase = wikiBase.replace(/_discography$/i, '')
+      const discTitle = artistBase + '_discography'
       const hasDiscPage = discTitle !== wikiBase
 
       // Singlų datos iš pagrindinės puslapio infobox (single1date laukai)
@@ -1293,14 +1294,14 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
         const { dates } = parseSinglesFromInfobox(wikitext)
         if (!dates.size) return songs
         return songs.map(s => {
-          const key = s.title.toLowerCase().replace(/[''"]/g, '')
+          const key = s.title.toLowerCase().replace(/[''”]/g, '')
           // Tiesioginis match
           let dateInfo = dates.get(key)
-          // Jei nėra — ieškoti per "/" split (double A-side)
+          // Jei nėra — ieškoti per “/” split (double A-side)
           if (!dateInfo) {
             for (const [dKey, dVal] of dates.entries()) {
               if (dKey.includes('/')) {
-                const parts = dKey.split('/').map(p => p.replace(/["“”]/g, '').trim())
+                const parts = dKey.split('/').map(p => p.replace(/[“””]/g, '').trim())
                 if (parts.some(p => p === key)) { dateInfo = dVal; break }
               }
             }
@@ -1312,17 +1313,63 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
         })
       }
 
+      // Surinkti galimus atskirus diskografijos puslapius iš {{Main}} šablono
+      const mainTemplateLinks = [...mainWikitext.matchAll(/\{\{Main\|([^}]+)\}\}/gi)]
+        .flatMap(m => m[1].split('|').map(l => l.trim()))
+        .filter(l => /singles?\s*discography/i.test(l) || /albums?\s*discography/i.test(l))
+
+      // Bandyti kraut diskografijos puslapį
+      const fetchDiscographyPages = async (): Promise<{ albumsWt: string | null; singlesWt: string | null }> => {
+        if (!hasDiscPage) return { albumsWt: null, singlesWt: null }
+
+        addLog(`→ ${discTitle}`)
+        const dw = await fetchWikitext(discTitle)
+        if (!dw) return { albumsWt: null, singlesWt: null }
+
+        // Patikrinti ar tai disambiguation puslapis
+        const isDisambig = /\{\{Disambiguation\}\}/i.test(dw)
+        if (!isDisambig) {
+          // Normalus diskografijos puslapis — naudoti tiesiogiai
+          return { albumsWt: dw, singlesWt: dw }
+        }
+
+        // Disambiguation — ieškoti nuorodų į atskirus albums/singles puslapius
+        addLog('  → Disambiguation — ieškoma atskirų puslapių...')
+        const disambigLinks = [...dw.matchAll(/\[\[([^\]|]+)/g)].map(m => m[1].trim())
+        let albumsWt: string | null = null
+        let singlesWt: string | null = null
+
+        // Albums discography
+        const albumsLink = disambigLinks.find(l => /albums?\s*discography/i.test(l))
+          || mainTemplateLinks.find(l => /albums?\s*discography/i.test(l))
+        if (albumsLink) {
+          addLog(`  → ${albumsLink}`)
+          albumsWt = await fetchWikitext(albumsLink.replace(/ /g, '_'))
+        }
+
+        // Singles discography
+        const singlesLink = disambigLinks.find(l => /singles?\s*discography/i.test(l))
+          || mainTemplateLinks.find(l => /singles?\s*discography/i.test(l))
+        if (singlesLink) {
+          addLog(`  → ${singlesLink}`)
+          singlesWt = await fetchWikitext(singlesLink.replace(/ /g, '_'))
+        }
+
+        return { albumsWt, singlesWt }
+      }
+
       if (!wikiAlbums.length) {
-        if (hasDiscPage) {
-          addLog(`→ ${discTitle}`)
-          const dw = await fetchWikitext(discTitle)
-          if (dw) {
-            wikiAlbums = parseDiscographyPage(dw)
-            const ds = parseSinglesSection(dw)
-            if (ds.length && !foundSongs.length) foundSongs = enrichSongsWithDates(ds, dw)
-            else if (foundSongs.length) foundSongs = enrichSongsWithDates(foundSongs, dw)
-          }
-        } else {
+        const { albumsWt, singlesWt } = await fetchDiscographyPages()
+        if (albumsWt) {
+          wikiAlbums = parseDiscographyPage(albumsWt)
+        }
+        // Singlai: iš singlų puslapio (arba to paties diskografijos puslapio)
+        const singlesSource = singlesWt || albumsWt
+        if (singlesSource && !foundSongs.length) {
+          const ds = parseSinglesSection(singlesSource)
+          if (ds.length) foundSongs = enrichSongsWithDates(ds, singlesSource)
+        }
+        if (!foundSongs.length) {
           foundSongs = enrichSongsWithDates(foundSongs, mainWikitext)
         }
       } else {
@@ -1330,24 +1377,35 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
         // Krauname discography puslapį dėl pilnesnio sąrašo ir singlų
         // Praturtinti iš main wikitext pirmiausia
         foundSongs = enrichSongsWithDates(foundSongs, mainWikitext)
-        if (hasDiscPage) {
-          addLog(`→ ${discTitle} (papildymas)`)
-          const dw = await fetchWikitext(discTitle)
-          if (dw) {
-            // Jei discography puslapis grąžina daugiau/kitokius albumus — naudoti jį
-            const discAlbums = parseDiscographyPage(dw)
-            if (discAlbums.length > wikiAlbums.length) {
-              wikiAlbums = discAlbums
-              addLog(`✓ Albumai atnaujinti: ${discAlbums.length}`)
-            }
-            // Singlai visada iš discography puslapio (jei ten jų yra)
-            if (!foundSongs.length) {
-              const ds = parseSinglesSection(dw)
-              if (ds.length) foundSongs = enrichSongsWithDates(ds, dw)
-            } else {
-              // Praturtinti datas iš discography puslapio (gali turėti tikslesnių)
-              foundSongs = enrichSongsWithDates(foundSongs, dw)
-            }
+        const { albumsWt, singlesWt } = await fetchDiscographyPages()
+        if (albumsWt) {
+          const discAlbums = parseDiscographyPage(albumsWt)
+          if (discAlbums.length > wikiAlbums.length) {
+            wikiAlbums = discAlbums
+            addLog(`✓ Albumai atnaujinti: ${discAlbums.length}`)
+          }
+        }
+        // Singlai iš atskiro singlų puslapio arba bendro diskografijos puslapio
+        const singlesSource = singlesWt || albumsWt
+        if (singlesSource) {
+          if (!foundSongs.length) {
+            const ds = parseSinglesSection(singlesSource)
+            if (ds.length) foundSongs = enrichSongsWithDates(ds, singlesSource)
+          } else {
+            foundSongs = enrichSongsWithDates(foundSongs, singlesSource)
+          }
+        }
+      }
+
+      // Jei vis dar nėra singlų — bandyti atskirus puslapius iš {{Main}} šablono
+      if (!foundSongs.length && mainTemplateLinks.length > 0) {
+        const singlesPageTitle = mainTemplateLinks.find(l => /singles?\s*discography/i.test(l))
+        if (singlesPageTitle) {
+          addLog(`→ ${singlesPageTitle} (iš Main šablono)`)
+          const sw = await fetchWikitext(singlesPageTitle.replace(/ /g, '_'))
+          if (sw) {
+            const ds = parseSinglesSection(sw)
+            if (ds.length) foundSongs = enrichSongsWithDates(ds, sw)
           }
         }
       }
