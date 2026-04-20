@@ -164,7 +164,11 @@ export async function createAlbum(data: AlbumFull): Promise<number> {
     description: data.description || null,
   }).select('id').single()
   if (error) throw error
-  if (data.tracks?.length) await syncAlbumTracks(row.id, data.artist_id, data.tracks)
+  console.log('[createAlbum] album created:', row.id, 'tracks count:', data.tracks?.length, 'artist_id:', data.artist_id)
+  if (data.tracks?.length) {
+    console.log('[createAlbum] calling syncAlbumTracks with', data.tracks.length, 'tracks')
+    await syncAlbumTracks(row.id, Number(data.artist_id), data.tracks)
+  }
   return row.id
 }
 
@@ -221,6 +225,7 @@ async function findOrCreateArtist(name: string): Promise<number | null> {
 }
 
 async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackInAlbum[]) {
+  console.log('[syncAlbumTracks] START albumId:', albumId, 'artistId:', artistId, 'tracks:', tracks.length)
   await supabase.from('album_tracks').delete().eq('album_id', albumId)
   if (!tracks.length) return
 
@@ -283,8 +288,9 @@ async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackI
           spotify_id: t.spotify_id || null,
         }).select('id').single()
 
-        if (trackError) { console.error('Failed to insert track:', cleanTitle, trackError.message); continue }
+        if (trackError) { console.error('[syncAlbumTracks] Failed to insert track:', cleanTitle, trackError.message, trackError.details); continue }
         trackId = newTrack?.id
+        console.log('[syncAlbumTracks] created track:', cleanTitle, '→ id:', trackId)
 
         if (trackId && t.featuring && t.featuring.length > 0) {
           for (const featName of t.featuring) {
@@ -309,9 +315,11 @@ async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackI
     }
   }
 
+  console.log('[syncAlbumTracks] trackRows to insert:', trackRows.length, JSON.stringify(trackRows.slice(0, 3)))
   if (trackRows.length) {
     const { error } = await supabase.from('album_tracks').insert(trackRows)
-    if (error) console.error('album_tracks insert error:', error.message)
+    if (error) console.error('[syncAlbumTracks] album_tracks INSERT ERROR:', error.message, error.details, error.hint)
+    else console.log('[syncAlbumTracks] album_tracks inserted successfully:', trackRows.length, 'rows')
   }
 }
 
