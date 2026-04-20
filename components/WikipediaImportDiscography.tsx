@@ -882,10 +882,19 @@ function parseSinglesFromInfobox(wikitext: string): { names: Set<string>; dates:
       let name = extractName(sm[2])
       // Fallback: plain text (no wiki link), pvz. | single3 = Perfect
       if (!name) {
-        const plain = sm[2].replace(/\{\{[^}]*\}\}/g, '').replace(/<[^>]+>/g, '').replace(/['"]+/g, '').trim()
+        const plain = sm[2].replace(/\{\{[^}]*\}\}/g, '').replace(/<[^>]+>/g, '').replace(/['""\u201c\u201d\u2018\u2019]+/g, '').trim()
         if (plain.length > 1 && !plain.includes('|') && !plain.includes('=')) name = plain
       }
       if (name) { names.add(name.toLowerCase()); singlesByNum[sm[1]] = name.toLowerCase() }
+      // Double A-side: extract ALL names from "X" / "Y" format (linked or plain text)
+      const rawVal = sm[2].replace(/\[\[[^\]|]+\|([^\]]+)\]\]/g, '$1').replace(/\[\[([^\]]+)\]\]/g, '$1')
+        .replace(disambigRe, '')
+      if (rawVal.includes('/')) {
+        for (const part of rawVal.split('/')) {
+          const clean = part.replace(/['""\u201c\u201d\u2018\u2019]+/g, '').trim().toLowerCase()
+          if (clean.length > 1) names.add(clean)
+        }
+      }
     }
     // Paima datas: | single1date = 4 November 1985 (UK)
     const dRe = /\|\s*single(\d+)date\s*=\s*([^\n|]+)/g
