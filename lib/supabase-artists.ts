@@ -103,9 +103,16 @@ export async function getArtists(limit = 50, offset = 0, search = '', sort = 'na
     return { artists: results, total: results.length }
   }
 
-  const { data, count, error } = await supabase
+  let query = supabase
     .from('artists')
     .select(selectFields, { count: 'exact' })
+
+  // When sorting by score, only show artists that have a score
+  if (sort === 'score') {
+    query = query.not('score', 'is', null)
+  }
+
+  const { data, count, error } = await query
     .order(orderCol, { ascending: orderAsc, nullsFirst: false })
     .range(offset, offset + limit - 1)
 
