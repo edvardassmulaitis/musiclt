@@ -911,6 +911,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
       avatar: m.avatar || '',
       yearFrom: m.yearFrom || '',
       yearTo: m.yearTo || '',
+      isCurrent: m.isCurrent,
       country: m.country || '',
       yearStart: (m as any).yearStart || '',
       yearEnd: (m as any).yearEnd || '',

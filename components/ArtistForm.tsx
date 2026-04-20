@@ -74,7 +74,7 @@ const IconGroup = () => (
 )
 
 export type Break    = { from: string; to: string }
-export type Member   = { id: string; name: string; yearFrom: string; yearTo: string; avatar?: string }
+export type Member   = { id: string; name: string; yearFrom: string; yearTo: string; avatar?: string; isCurrent?: boolean }
 export type GroupRef = { id: number | string | null; name: string; yearFrom: string; yearTo: string; avatar?: string }
 
 export type ArtistFormData = {
@@ -470,8 +470,7 @@ function CropModal({ imageUrl, position, onChange, onClose }: {
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
         </div>
         <div ref={containerRef}
-          className="relative overflow-hidden cursor-grab active:cursor-grabbing select-none"
-          style={{ height: 320 }}
+          className="relative overflow-hidden cursor-grab active:cursor-grabbing select-none aspect-square"
           onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}
           onWheel={onWheel}>
           <img src={imageUrl} alt="" referrerPolicy="no-referrer"
@@ -481,9 +480,11 @@ function CropModal({ imageUrl, position, onChange, onClose }: {
               transform: `scale(${zoom})`,
               transformOrigin: `center ${yPct}%`,
             }} />
-          {/* Center crop guide */}
-          <div className="absolute inset-x-0 top-0 h-[15%] bg-black/20 pointer-events-none" />
-          <div className="absolute inset-x-0 bottom-0 h-[15%] bg-black/20 pointer-events-none" />
+          {/* Corner guides */}
+          <div className="absolute top-2 left-2 w-5 h-5 border-t-2 border-l-2 border-white/50 rounded-tl pointer-events-none" />
+          <div className="absolute top-2 right-10 w-5 h-5 border-t-2 border-r-2 border-white/50 rounded-tr pointer-events-none" />
+          <div className="absolute bottom-2 left-2 w-5 h-5 border-b-2 border-l-2 border-white/50 rounded-bl pointer-events-none" />
+          <div className="absolute bottom-2 right-10 w-5 h-5 border-b-2 border-r-2 border-white/50 rounded-br pointer-events-none" />
           <div className="absolute top-2 right-2 bg-black/60 text-white text-xs font-mono px-2 py-1 rounded">
             {yPct}% · {zoom}x
           </div>
@@ -942,11 +943,13 @@ function DescriptionEditor({ value, onChange, artistName, artistMeta }: {
 }
 
 // ── ArtistSearch ──────────────────────────────────────────────────────────────
-function ArtistSearch({ label, ph, items, onAdd, onRemove, onYears, filterType }: {
+function ArtistSearch({ label, ph, items, onAdd, onRemove, onYears, filterType, onToggle, toggleIcon }: {
   label:string; ph:string; items:(Member|GroupRef)[]
   onAdd:(a:any)=>void; onRemove:(i:number)=>void
   onYears:(i:number,f:'yearFrom'|'yearTo',v:string)=>void
   filterType:'group'|'solo'|'any'
+  onToggle?:(i:number)=>void
+  toggleIcon?:'demote'|'promote'
 }) {
   const [q, setQ] = useState('')
   const [results, setResults] = useState<any[]>([])
@@ -1012,6 +1015,15 @@ function ArtistSearch({ label, ph, items, onAdd, onRemove, onYears, filterType }
             onChange={e=>onYears(i,'yearTo',e.target.value.replace(/\D/g,'').slice(0,4))}
             placeholder="MMMM" maxLength={4} inputMode="numeric"
             className="w-14 px-1 py-1 border border-[var(--text-faint)] rounded text-xs text-[var(--text-primary)] focus:outline-none focus:border-music-blue text-center" />
+          {onToggle && (
+            <button type="button" onClick={()=>onToggle(i)} title={toggleIcon==='demote' ? 'Perkelti į buvusius' : 'Perkelti į dabartinius'}
+              className="text-[var(--text-muted)] hover:text-blue-600 transition-colors ml-0.5">
+              {toggleIcon==='demote'
+                ? <svg viewBox="0 0 20 20" className="w-3.5 h-3.5 fill-current"><path d="M10 14l-5-5h10z"/></svg>
+                : <svg viewBox="0 0 20 20" className="w-3.5 h-3.5 fill-current"><path d="M10 6l5 5H5z"/></svg>
+              }
+            </button>
+          )}
           <button type="button" onClick={()=>onRemove(i)} className="text-red-400 hover:text-red-600 font-bold text-base ml-1">×</button>
         </div>
       ))}
@@ -1387,9 +1399,10 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
   const upBreak = (i:number, f:'from'|'to', v:string) => { const b=[...formRef.current.breaks]; b[i]={...b[i],[f]:v}; set('breaks',b) }
   const rmBreak = (i:number) => set('breaks', formRef.current.breaks.filter((_,idx)=>idx!==i))
 
-  const addMember = (a:any) => set('members', [...formRef.current.members, { id:a.id, name:a.name, yearFrom:'', yearTo:'' }])
+  const addMember = (a:any, isCurrent = true) => set('members', [...formRef.current.members, { id:a.id, name:a.name, yearFrom:'', yearTo:'', isCurrent }])
   const rmMember  = (i:number) => set('members', formRef.current.members.filter((_,idx)=>idx!==i))
   const upMember  = (i:number, f:'yearFrom'|'yearTo', v:string) => { const m=[...formRef.current.members]; m[i]={...m[i],[f]:v}; set('members',m) }
+  const toggleMemberCurrent = (i:number) => { const m=[...formRef.current.members]; m[i]={...m[i], isCurrent: !m[i].isCurrent}; set('members',m) }
 
   const addGroup = (a:any) => set('groups', [...(formRef.current.groups||[]), { id:a.id, name:a.name, avatar:a.avatar||a.cover_image_url||'', yearFrom:'', yearTo:'' }])
   const rmGroup  = (i:number) => set('groups', (formRef.current.groups||[]).filter((_,idx)=>idx!==i))
@@ -1520,13 +1533,39 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
             </div>
           )}
 
-          {form.type==='group' && (
-            <div className="pt-1.5 sm:pt-2 border-t border-[var(--border-subtle)]">
-              <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">Grupės nariai</label>
-              <ArtistSearch label="Nariai" ph="Ieškoti atlikėjo..." items={form.members}
-                onAdd={addMember} onRemove={rmMember} onYears={upMember} filterType="solo" />
-            </div>
-          )}
+          {form.type==='group' && (() => {
+            const currentMembers = form.members.filter(m => m.isCurrent !== false)
+            const pastMembers = form.members.filter(m => m.isCurrent === false)
+            // Map filtered index back to real index in form.members
+            const realIdx = (filtered: Member[], fi: number) => form.members.indexOf(filtered[fi])
+            return (
+              <div className="pt-1.5 sm:pt-2 border-t border-[var(--border-subtle)] space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">Dabartiniai nariai</label>
+                  <ArtistSearch label="Dabartiniai" ph="Ieškoti atlikėjo..." items={currentMembers}
+                    onAdd={(a) => addMember(a, true)}
+                    onRemove={(fi) => rmMember(realIdx(currentMembers, fi))}
+                    onYears={(fi, f, v) => upMember(realIdx(currentMembers, fi), f, v)}
+                    onToggle={(fi) => toggleMemberCurrent(realIdx(currentMembers, fi))}
+                    toggleIcon="demote"
+                    filterType="solo" />
+                  {currentMembers.length === 0 && <p className="text-xs text-[var(--text-faint)] italic">Nėra dabartinių narių</p>}
+                </div>
+                {pastMembers.length > 0 && (
+                  <div>
+                    <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">Buvę nariai</label>
+                    <ArtistSearch label="Buvę" ph="Ieškoti atlikėjo..." items={pastMembers}
+                      onAdd={(a) => addMember(a, false)}
+                      onRemove={(fi) => rmMember(realIdx(pastMembers, fi))}
+                      onYears={(fi, f, v) => upMember(realIdx(pastMembers, fi), f, v)}
+                      onToggle={(fi) => toggleMemberCurrent(realIdx(pastMembers, fi))}
+                      toggleIcon="promote"
+                      filterType="solo" />
+                  </div>
+                )}
+              </div>
+            )
+          })()}
         </div>
 
         {/* ── RIGHT COLUMN ── */}
