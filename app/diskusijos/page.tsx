@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 
@@ -47,8 +48,9 @@ function NewDiscussionModal({ onClose, onCreated }: { onClose: () => void; onCre
     setSending(false)
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-8 overflow-y-auto"
+  if (typeof document === 'undefined') return null
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center px-4 py-8 overflow-y-auto"
       style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl"
@@ -91,7 +93,8 @@ function NewDiscussionModal({ onClose, onCreated }: { onClose: () => void; onCre
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 

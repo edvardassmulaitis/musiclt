@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { createPortal } from 'react-dom'
+import FullscreenModal from '@/components/ui/FullscreenModal'
 
 type ScoreCategory = {
   points: number
@@ -48,10 +48,12 @@ function ScoreBar({ label, value, max, color, details }: {
         </div>
         <span className="text-xs font-bold text-[var(--text-secondary)] w-12 tabular-nums text-right">{value}/{max}</span>
       </div>
-      <div className="flex items-center gap-3 mt-0.5">
-        <span className="w-24 shrink-0" />
-        <span className="text-[10px] text-[var(--text-faint)] leading-tight">{details}</span>
-      </div>
+      {details && (
+        <div className="flex items-center gap-3 mt-0.5">
+          <span className="w-24 shrink-0" />
+          <span className="text-[10px] text-[var(--text-faint)] leading-tight">{details}</span>
+        </div>
+      )}
     </div>
   )
 }
@@ -104,8 +106,8 @@ export default function ScoreModal({ artistId, onClose }: { artistId: string; on
   const rawBreakdown = data?.breakdown
   const b: Breakdown | null = rawBreakdown
     ? rawBreakdown.categories
-      ? rawBreakdown as Breakdown  // new format
-      : {  // old format → convert
+      ? rawBreakdown as Breakdown
+      : {
           type: 'lt' as const,
           categories: {
             catalog:   { points: (rawBreakdown as any).catalog || 0, max: 18, details: '' },
@@ -121,161 +123,129 @@ export default function ScoreModal({ artistId, onClose }: { artistId: string; on
     : null
   const hasScore = data?.score !== null && data?.score !== undefined
 
-  const modalContent = (
-    <div className="fixed inset-0 z-[9999]">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      {/* Centered modal */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-4">
-        <div className="bg-white rounded-2xl shadow-2xl border border-[var(--border-subtle)] w-full max-w-md max-h-[85vh] overflow-y-auto pointer-events-auto relative">
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-[var(--border-subtle)]">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-[var(--text-secondary)]">Score</span>
-            {b && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--bg-elevated)] text-[var(--text-faint)] font-medium uppercase">
-                {b.type === 'lt' ? 'LT formulė' : 'INT formulė'}
-              </span>
-            )}
+  const formuleBadge = b ? (
+    <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--bg-elevated)] text-[var(--text-faint)] font-medium uppercase">
+      {b.type === 'lt' ? 'LT formulė' : 'INT formulė'}
+    </span>
+  ) : undefined
+
+  return (
+    <FullscreenModal onClose={onClose} title="Score" titleRight={formuleBadge} maxWidth="max-w-md">
+      <div className="px-1">
+        {loading ? (
+          <div className="flex justify-center py-8">
+            <div className="w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
           </div>
-          <button onClick={onClose} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] text-lg leading-none px-1">✕</button>
-        </div>
-
-        <div className="px-5 py-4">
-          {loading ? (
-            <div className="flex justify-center py-8">
-              <div className="w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : !hasScore ? (
-            /* No score yet */
-            <div className="text-center py-6">
-              <div className="text-4xl mb-3 opacity-40">—</div>
-              <p className="text-sm text-[var(--text-muted)] mb-4">Score dar nesuskaičiuotas</p>
-              <button
-                onClick={handleCalculate}
-                disabled={calculating}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-50"
-              >
-                {calculating ? (
-                  <span className="flex items-center gap-2">
-                    <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                    Skaičiuojama...
-                  </span>
-                ) : 'Suskaičiuoti Score'}
-              </button>
-            </div>
-          ) : (
-            /* Score display */
-            <>
-              {/* Big score number */}
-              <div className="text-center mb-5">
-                <div className="inline-flex items-baseline gap-1">
-                  <span className="text-5xl font-black text-[var(--text-primary)] tabular-nums">{data.score}</span>
-                  <span className="text-lg text-[var(--text-faint)]">/100</span>
-                </div>
-                {data.updated_at && (
-                  <p className="text-[10px] text-[var(--text-faint)] mt-1">
-                    Atnaujinta {new Date(data.updated_at).toLocaleDateString('lt-LT')}
-                  </p>
-                )}
+        ) : !hasScore ? (
+          <div className="text-center py-6">
+            <div className="text-4xl mb-3 opacity-40">—</div>
+            <p className="text-sm text-[var(--text-muted)] mb-4">Score dar nesuskaičiuotas</p>
+            <button
+              onClick={handleCalculate}
+              disabled={calculating}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-50"
+            >
+              {calculating ? (
+                <span className="flex items-center gap-2">
+                  <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  Skaičiuojama...
+                </span>
+              ) : 'Suskaičiuoti Score'}
+            </button>
+          </div>
+        ) : (
+          <>
+            {/* Big score number */}
+            <div className="text-center mb-5">
+              <div className="inline-flex items-baseline gap-1">
+                <span className="text-5xl font-black text-[var(--text-primary)] tabular-nums">{data.score}</span>
+                <span className="text-lg text-[var(--text-faint)]">/100</span>
               </div>
-
-              {/* Breakdown bars */}
-              {b && (
-                <div className="mb-5">
-                  {Object.entries(b.categories).map(([key, cat]) => {
-                    const meta = CATEGORY_LABELS[key] || { label: key, color: '#6b7280' }
-                    return (
-                      <ScoreBar
-                        key={key}
-                        label={meta.label}
-                        value={cat.points}
-                        max={cat.max}
-                        color={meta.color}
-                        details={cat.details}
-                      />
-                    )
-                  })}
-
-                  <div className="flex items-center gap-3 py-1.5 mt-2 border-t border-[var(--border-subtle)]">
-                    <span className="text-xs font-semibold text-[var(--text-secondary)] w-24 text-right shrink-0">Bazė</span>
-                    <div className="flex-1" />
-                    <span className="text-xs font-bold text-[var(--text-primary)] w-12 tabular-nums text-right">{b.total}</span>
-                  </div>
-                </div>
+              {data.updated_at && (
+                <p className="text-[10px] text-[var(--text-faint)] mt-1">
+                  Atnaujinta {new Date(data.updated_at).toLocaleDateString('lt-LT')}
+                </p>
               )}
+            </div>
 
-              {/* Missing data warning for INT */}
-              {b && b.type === 'int' && b.categories.chart?.points === 0 && b.categories.commercial?.points === 0 && (
-                <div className="mb-4 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
-                  <p className="text-xs text-amber-700">
-                    Nėra čartų/sertifikatų duomenų. Perbandyk importuoti diskografiją iš Wikipedia — chart positions ir certifications bus ištraukti automatiškai.
-                  </p>
+            {/* Breakdown bars */}
+            {b && (
+              <div className="mb-5">
+                {Object.entries(b.categories).map(([key, cat]) => {
+                  const meta = CATEGORY_LABELS[key] || { label: key, color: '#6b7280' }
+                  return (
+                    <ScoreBar key={key} label={meta.label} value={cat.points} max={cat.max} color={meta.color} details={cat.details} />
+                  )
+                })}
+                <div className="flex items-center gap-3 py-1.5 mt-2 border-t border-[var(--border-subtle)]">
+                  <span className="text-xs font-semibold text-[var(--text-secondary)] w-24 text-right shrink-0">Bazė</span>
+                  <div className="flex-1" />
+                  <span className="text-xs font-bold text-[var(--text-primary)] w-12 tabular-nums text-right">{b.total}</span>
                 </div>
-              )}
-
-              {/* Override control */}
-              <div className="bg-[var(--bg-elevated)] rounded-xl p-4 mb-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-[var(--text-secondary)]">Score Override</span>
-                  <span className="text-xs text-[var(--text-faint)]">±15 max</span>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setOverride(Math.max(-15, override - 1))}
-                    className="w-8 h-8 rounded-lg bg-white border border-[var(--input-border)] text-[var(--text-secondary)] font-bold text-lg hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors flex items-center justify-center"
-                  >−</button>
-
-                  <div className="flex-1 text-center">
-                    <span className={`text-2xl font-black tabular-nums ${
-                      override > 0 ? 'text-green-600' : override < 0 ? 'text-red-500' : 'text-[var(--text-muted)]'
-                    }`}>
-                      {override > 0 ? '+' : ''}{override}
-                    </span>
-                  </div>
-
-                  <button
-                    onClick={() => setOverride(Math.min(15, override + 1))}
-                    className="w-8 h-8 rounded-lg bg-white border border-[var(--input-border)] text-[var(--text-secondary)] font-bold text-lg hover:bg-green-50 hover:text-green-600 hover:border-green-200 transition-colors flex items-center justify-center"
-                  >+</button>
-                </div>
-
-                {override !== (data.score_override || 0) && (
-                  <button
-                    onClick={handleOverrideSave}
-                    disabled={savingOverride}
-                    className="w-full mt-3 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
-                  >
-                    {savingOverride ? 'Saugoma...' : `Išsaugoti (final: ${Math.max(0, Math.min(100, (b?.total || 0) + override))})`}
-                  </button>
-                )}
               </div>
+            )}
 
-              {/* Recalculate button */}
-              <button
-                onClick={handleCalculate}
-                disabled={calculating}
-                className="w-full px-3 py-2 border border-[var(--input-border)] text-[var(--text-secondary)] rounded-lg text-xs font-medium hover:bg-[var(--bg-hover)] transition-colors disabled:opacity-50"
-              >
-                {calculating ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-                    Skaičiuojama...
+            {/* Missing data warning for INT */}
+            {b && b.type === 'int' && b.categories.chart?.points === 0 && b.categories.commercial?.points === 0 && (
+              <div className="mb-4 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-xs text-amber-700">
+                  Nėra čartų/sertifikatų duomenų. Perbandyk importuoti diskografiją iš Wikipedia — chart positions ir certifications bus ištraukti automatiškai.
+                </p>
+              </div>
+            )}
+
+            {/* Override control */}
+            <div className="bg-[var(--bg-elevated)] rounded-xl p-4 mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-[var(--text-secondary)]">Score Override</span>
+                <span className="text-xs text-[var(--text-faint)]">±15 max</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setOverride(Math.max(-15, override - 1))}
+                  className="w-8 h-8 rounded-lg bg-white border border-[var(--input-border)] text-[var(--text-secondary)] font-bold text-lg hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors flex items-center justify-center"
+                >−</button>
+                <div className="flex-1 text-center">
+                  <span className={`text-2xl font-black tabular-nums ${
+                    override > 0 ? 'text-green-600' : override < 0 ? 'text-red-500' : 'text-[var(--text-muted)]'
+                  }`}>
+                    {override > 0 ? '+' : ''}{override}
                   </span>
-                ) : 'Perskaičiuoti Score'}
-              </button>
-            </>
-          )}
-        </div>
+                </div>
+                <button
+                  onClick={() => setOverride(Math.min(15, override + 1))}
+                  className="w-8 h-8 rounded-lg bg-white border border-[var(--input-border)] text-[var(--text-secondary)] font-bold text-lg hover:bg-green-50 hover:text-green-600 hover:border-green-200 transition-colors flex items-center justify-center"
+                >+</button>
+              </div>
+              {override !== (data.score_override || 0) && (
+                <button
+                  onClick={handleOverrideSave}
+                  disabled={savingOverride}
+                  className="w-full mt-3 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
+                >
+                  {savingOverride ? 'Saugoma...' : `Išsaugoti (final: ${Math.max(0, Math.min(100, (b?.total || 0) + override))})`}
+                </button>
+              )}
+            </div>
+
+            {/* Recalculate button */}
+            <button
+              onClick={handleCalculate}
+              disabled={calculating}
+              className="w-full px-3 py-2 border border-[var(--input-border)] text-[var(--text-secondary)] rounded-lg text-xs font-medium hover:bg-[var(--bg-hover)] transition-colors disabled:opacity-50"
+            >
+              {calculating ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                  Skaičiuojama...
+                </span>
+              ) : 'Perskaičiuoti Score'}
+            </button>
+          </>
+        )}
       </div>
-      </div>
-    </div>
+    </FullscreenModal>
   )
-
-  return typeof document !== 'undefined'
-    ? createPortal(modalContent, document.body)
-    : null
 }
 
 /**

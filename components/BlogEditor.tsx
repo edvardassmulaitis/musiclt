@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import dynamic from 'next/dynamic'
 
 // Dynamically import to avoid SSR issues with Tiptap
@@ -76,9 +77,9 @@ export function BlogEditor({ value, onChange, placeholder }: BlogEditorProps) {
       </div>
 
       {/* Embed modal */}
-      {showEmbedModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={() => setShowEmbedModal(false)}>
-          <div className="w-full max-w-md rounded-2xl p-6" style={{ background: 'var(--modal-bg)', border: '1px solid var(--modal-border)' }} onClick={e => e.stopPropagation()}>
+      {showEmbedModal && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={() => setShowEmbedModal(false)}>
+          <div className="w-full max-w-md mx-4 rounded-2xl p-6" style={{ background: 'var(--modal-bg)', border: '1px solid var(--modal-border)' }} onClick={e => e.stopPropagation()}>
             <h3 className="text-base font-black mb-1" style={{ color: 'var(--text-primary)' }}>Įterpti muzikos embed</h3>
             <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>Palaikoma: YouTube, Spotify (track, album, playlist)</p>
             <input
@@ -95,7 +96,8 @@ export function BlogEditor({ value, onChange, placeholder }: BlogEditorProps) {
               <button onClick={insertEmbed} className="px-4 py-2 rounded-lg text-xs font-bold transition" style={{ background: 'var(--accent-orange)', color: 'var(--text-primary)' }}>Įterpti</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       <style jsx global>{`

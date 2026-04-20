@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import FullscreenModal from '@/components/ui/FullscreenModal'
 import { GENRES, SUBSTYLES } from '@/lib/constants'
 
 type Props = {
@@ -60,21 +61,12 @@ export default function StyleModal({ selected, onChange }: Props) {
 
       {/* Modal */}
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setOpen(false)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
-            {/* Header */}
-            <div className="flex justify-between items-center p-5 border-b">
-              <h3 className="text-lg font-bold text-gray-900">
-                Stilių priskyrimas
-                {selected.length > 0 && (
-                  <span className="ml-2 text-sm font-normal text-music-blue">({selected.length} pasirinkta)</span>
-                )}
-              </h3>
-              <button type="button" onClick={() => setOpen(false)}
-                className="text-gray-400 hover:text-gray-700 text-2xl font-light">×</button>
-            </div>
-
+        <FullscreenModal
+          onClose={() => setOpen(false)}
+          title={<span className="text-sm font-bold text-gray-900">Stilių priskyrimas{selected.length > 0 && <span className="ml-2 text-sm font-normal text-music-blue">({selected.length} pasirinkta)</span>}</span>}
+          maxWidth="max-w-2xl"
+          noPadding
+        >
             {/* Search */}
             <div className="p-4 border-b">
               <input ref={inputRef} type="text" value={query} onChange={e => setQuery(e.target.value)}
@@ -121,8 +113,7 @@ export default function StyleModal({ selected, onChange }: Props) {
                 Patvirtinti ({selected.length})
               </button>
             </div>
-          </div>
-        </div>
+        </FullscreenModal>
       )}
     </>
   )

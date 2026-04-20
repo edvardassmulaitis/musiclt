@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import FullscreenModal from '@/components/ui/FullscreenModal'
 import { type Photo } from './PhotoGallery'
 
 type WikiImage = {
@@ -187,16 +188,7 @@ export default function WikimediaSearch({
   }
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center p-4 bg-black/60" style={{ zIndex: 10000 }}>
-      <div className="bg-white rounded-2xl shadow-2xl flex flex-col w-full" style={{ maxWidth: 760, maxHeight: '90vh' }}>
-
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="text-base font-bold text-gray-800">🔍 Wikimedia Commons</span>
-            <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">Laisvos licencijos nuotraukos</span>
-          </div>
-          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none px-1">✕</button>
-        </div>
+    <FullscreenModal onClose={onClose} title="🔍 Wikimedia Commons" titleRight={<span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">Laisvos licencijos nuotraukos</span>} maxWidth="max-w-3xl" noPadding>
 
         <div className="px-5 py-3 border-b border-gray-100 shrink-0">
           <div className="flex gap-2">
@@ -272,7 +264,7 @@ export default function WikimediaSearch({
           )}
         </div>
 
-        <div className="px-5 py-3 border-t border-gray-100 shrink-0 flex items-center justify-between bg-gray-50/80 rounded-b-2xl">
+        <div className="px-5 py-3 border-t border-gray-100 shrink-0 flex items-center justify-between bg-gray-50/80">
           <div className="flex items-center gap-3 text-xs text-gray-500">
             {selected.size > 0
               ? <span className="font-medium text-gray-700">Pasirinkta: {selected.size}</span>
@@ -290,7 +282,6 @@ export default function WikimediaSearch({
             </button>
           </div>
         </div>
-      </div>
-    </div>
+    </FullscreenModal>
   )
 }

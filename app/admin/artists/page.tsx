@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -130,8 +131,8 @@ export default function ArtistsAdmin() {
       </div>
 
       {/* Confirm modal */}
-      {confirmId !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      {confirmId !== null && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.5)' }} onClick={() => setConfirmId(null)}>
           <div className="bg-[var(--bg-surface)] rounded-2xl p-6 max-w-sm w-full shadow-[var(--modal-shadow)]" onClick={e => e.stopPropagation()}>
             {confirmMode === 'delete_permanent' ? (
@@ -168,7 +169,8 @@ export default function ArtistsAdmin() {
               </>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Table */}

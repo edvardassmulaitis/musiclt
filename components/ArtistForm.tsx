@@ -7,6 +7,13 @@ import { GENRES, COUNTRIES } from '@/lib/constants'
 import PhotoGallery, { type Photo } from './PhotoGallery'
 import WikimediaSearch from './WikimediaSearch'
 import RichTextEditor from './RichTextEditor'
+import { createPortal } from 'react-dom'
+
+/** Portal wrapper — renders children in document.body, fullscreen on mobile */
+function MobileFullscreenPortal({ children }: { children: React.ReactNode }) {
+  if (typeof document === 'undefined') return null
+  return createPortal(children, document.body)
+}
 
 const CY = new Date().getFullYear()
 const YEARS = Array.from({ length: CY - 1900 + 1 }, (_, i) => CY - i)
@@ -315,10 +322,11 @@ function ImageCropper({ src, onCrop, onCancel }: {
   const sliderVal = img ? Math.round(((scale - minScale) / (minScale * 7)) * 100) : 0
 
   return (
+    <MobileFullscreenPortal>
     <div className="fixed inset-0 flex items-center justify-center p-4 bg-black/70" style={{ zIndex: 10000 }}>
-      <div className="bg-[var(--bg-surface)] rounded-2xl shadow-[var(--modal-shadow)] w-full max-w-sm overflow-hidden">
+      <div className="bg-[var(--bg-surface)] rounded-2xl shadow-[var(--modal-shadow)] w-full max-w-sm overflow-hidden max-h-[100vh] sm:max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-subtle)]">
-          <span className="text-sm font-bold text-[var(--text-primary)]">✂️ Apkarpyti nuotrauką</span>
+          <span className="text-sm font-bold text-[var(--text-primary)]">Apkarpyti nuotrauką</span>
           <button type="button" onClick={onCancel} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] text-xl leading-none px-1">✕</button>
         </div>
         <div className="p-4 flex flex-col items-center gap-3">
@@ -359,6 +367,7 @@ function ImageCropper({ src, onCrop, onCancel }: {
         </div>
       </div>
     </div>
+    </MobileFullscreenPortal>
   )
 }
 
@@ -473,8 +482,9 @@ function CropModal({ imageUrl, position, onChange, onClose }: {
   }, [onClose])
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl overflow-hidden max-w-lg w-full mx-4" onClick={e => e.stopPropagation()}>
+    <MobileFullscreenPortal>
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl overflow-hidden max-w-lg w-full mx-4 max-h-[100vh] sm:max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="px-4 py-3 border-b flex items-center justify-between">
           <div>
             <h3 className="text-sm font-semibold text-gray-800">Nuotraukos pozicija</h3>
@@ -513,6 +523,7 @@ function CropModal({ imageUrl, position, onChange, onClose }: {
         </div>
       </div>
     </div>
+    </MobileFullscreenPortal>
   )
 }
 
@@ -783,8 +794,9 @@ function StylePicker({ selected, onChange }: { selected: string[]; onChange: (v:
       </div>
 
       {showAll && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-6" onClick={()=>setShowAll(false)}>
-          <div className="bg-[var(--bg-surface)] rounded-2xl shadow-[var(--modal-shadow)] w-full max-w-3xl max-h-[85vh] flex flex-col" onClick={e=>e.stopPropagation()}>
+        <MobileFullscreenPortal>
+        <div className="fixed inset-0 z-[9999] bg-black/50 flex items-center justify-center sm:p-6" onClick={()=>setShowAll(false)}>
+          <div className="bg-[var(--bg-surface)] sm:rounded-2xl shadow-[var(--modal-shadow)] w-full max-w-3xl h-full sm:h-auto sm:max-h-[85vh] flex flex-col" onClick={e=>e.stopPropagation()}>
             <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-subtle)] shrink-0">
               <span className="text-sm font-bold text-[var(--text-primary)]">Stiliai</span>
               <button type="button" onClick={()=>setShowAll(false)} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] text-lg leading-none">✕</button>
@@ -843,6 +855,7 @@ function StylePicker({ selected, onChange }: { selected: string[]; onChange: (v:
             )}
           </div>
         </div>
+        </MobileFullscreenPortal>
       )}
     </div>
   )
@@ -911,7 +924,8 @@ function DescriptionEditor({ value, onChange, artistName, artistMeta }: {
   return (
     <div className="relative">
       {expanded && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex flex-col">
+        <MobileFullscreenPortal>
+        <div className="fixed inset-0 z-[9999] bg-black/60 flex flex-col">
           <div className="bg-[var(--bg-surface)] flex flex-col" style={{ height: '100vh' }}>
             <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--input-border)] shrink-0">
               <span className="text-sm font-bold text-[var(--text-primary)]">✏️ Aprašymas</span>
@@ -940,6 +954,7 @@ function DescriptionEditor({ value, onChange, artistName, artistMeta }: {
             </div>
           </div>
         </div>
+        </MobileFullscreenPortal>
       )}
       <div className="relative overflow-hidden" style={{ height: 160 }}>
         <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ marginTop: -45 }}>
@@ -1172,6 +1187,7 @@ function InlineGallery({ photos, onChange, artistName, artistId, onSetAvatar, cu
       )}
 
       {lightboxIdx !== null && (
+        <MobileFullscreenPortal>
         <div className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center"
           onClick={() => setLightboxIdx(null)}>
           <button type="button" onClick={() => setLightboxIdx(null)}
@@ -1191,6 +1207,7 @@ function InlineGallery({ photos, onChange, artistName, artistId, onSetAvatar, cu
             <span className="text-white/30 text-xs">{lightboxIdx + 1} / {photos.length}</span>
           </div>
         </div>
+        </MobileFullscreenPortal>
       )}
 
       <div className="px-3 py-2 border-b border-[var(--border-subtle)]">

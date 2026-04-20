@@ -9,6 +9,7 @@ import WikipediaImport from '@/components/WikipediaImport'
 import ArtistForm, { ArtistFormData, emptyArtistForm } from '@/components/ArtistForm'
 import { extractYouTubeId } from '@/components/ui/helpers'
 import { ScoreBadge } from '@/components/ScoreModal'
+import FullscreenModal from '@/components/ui/FullscreenModal'
 
 const GENRE_BY_ID: Record<number, string> = {
   1000001: 'Alternatyvioji muzika',
@@ -514,27 +515,12 @@ function WikipediaImportCompact({ onImport, artistName }: { onImport: (data: any
         Įkelti Wiki info
       </button>
       {open && (
-        <div
-          className="fixed inset-0 flex items-center justify-center px-4 py-8"
-          style={{ zIndex: 9999 }}
-          onClick={e => { if (e.target === e.currentTarget) setOpen(false) }}
-        >
-          <div
-            className="bg-[var(--bg-surface)] rounded-2xl shadow-2xl border border-[var(--input-border)] w-full max-w-2xl flex flex-col"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-subtle)] shrink-0">
-              <span className="text-sm font-bold text-[var(--text-secondary)]">📖 Atnaujinti iš Wikipedia</span>
-              <button type="button" onClick={() => setOpen(false)} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] text-xl leading-none px-1">✕</button>
-            </div>
-            <div className="p-4" style={{ overflow: "visible" }}>
-              <WikipediaImportWithHint
-                artistName={artistName}
-                onImport={(data: any) => { onImport(data); setOpen(false) }}
-              />
-            </div>
-          </div>
-        </div>
+        <FullscreenModal onClose={() => setOpen(false)} title="Atnaujinti iš Wikipedia" maxWidth="max-w-2xl">
+          <WikipediaImportWithHint
+            artistName={artistName}
+            onImport={(data: any) => { onImport(data); setOpen(false) }}
+          />
+        </FullscreenModal>
       )}
     </>
   )

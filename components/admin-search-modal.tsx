@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 
 type Artist = { id: number; name: string; cover_image_url?: string }
@@ -51,8 +52,9 @@ export default function AdminSearchModal({ onClose }: { onClose: () => void }) {
   const hasResults = artists.length > 0 || albums.length > 0 || tracks.length > 0
   const noResults = searched && !loading && !hasResults
 
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-white">
+  if (typeof document === 'undefined') return null
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex flex-col bg-white">
 
       {/* Search bar */}
       <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-100 shrink-0">
@@ -181,6 +183,7 @@ export default function AdminSearchModal({ onClose }: { onClose: () => void }) {
 
         </div>
       )}
-    </div>
+    </div>,
+    document.body
   )
 }
