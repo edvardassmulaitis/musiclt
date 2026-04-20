@@ -36,6 +36,8 @@ export type AlbumFull = {
   type_soundtrack: boolean
   type_demo: boolean
   cover_image_url?: string
+  certifications?: { region: string; type: string; multiplier: number }[] | null
+  peak_chart_position?: number | null
   spotify_id?: string
   video_url?: string
   show_artist_name?: boolean
@@ -156,6 +158,8 @@ export async function createAlbum(data: AlbumFull): Promise<number> {
     type_holiday: data.type_holiday, type_soundtrack: data.type_soundtrack,
     type_demo: data.type_demo,
     cover_image_url: data.cover_image_url || null,
+    certifications: data.certifications || null,
+    peak_chart_position: data.peak_chart_position ?? null,
     spotify_id: data.spotify_id || null,
     video_url: data.video_url || null,
     show_artist_name: data.show_artist_name ?? false,
@@ -183,6 +187,8 @@ export async function updateAlbum(id: number, data: AlbumFull): Promise<void> {
     type_holiday: data.type_holiday, type_soundtrack: data.type_soundtrack,
     type_demo: data.type_demo,
     cover_image_url: data.cover_image_url || null,
+    certifications: data.certifications || null,
+    peak_chart_position: data.peak_chart_position ?? null,
     spotify_id: data.spotify_id || null,
     video_url: data.video_url || null,
     show_artist_name: data.show_artist_name ?? false,

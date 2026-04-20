@@ -8,6 +8,12 @@ import { useBackgroundTasks } from '@/components/BackgroundTaskContext'
 
 type AlbumType = 'studio' | 'ep' | 'single' | 'compilation' | 'live' | 'remix' | 'covers' | 'holiday' | 'soundtrack' | 'demo' | 'other'
 
+type CertificationEntry = {
+  region: string   // "US", "UK", "AUS", etc.
+  type: string     // "Gold", "Platinum", "Diamond"
+  multiplier: number // 1 for Gold, 2 for 2× Platinum, etc.
+}
+
 type DiscographyItem = {
   title: string
   year: number | null
@@ -19,6 +25,8 @@ type DiscographyItem = {
   source: 'wikipedia'
   cover_image_url?: string
   tracks?: TrackEntry[]
+  certifications?: CertificationEntry[]
+  peak_chart_position?: number | null  // best (lowest) chart position across all charts
   fetched?: boolean
   importing?: boolean
   imported?: boolean
@@ -280,6 +288,74 @@ function parseMainPageDiscography(wikitext: string, soloOnly = false, groupFilte
   return albums
 }
 
+/**
+ * Extract certifications from Wikipedia table row lines.
+ * Patterns: "RIAA: 6× Platinum", "BPI: Gold", "{{Certification Table Entry|...}}"
+ */
+function parseCertifications(rowLines: string[]): CertificationEntry[] {
+  const certs: CertificationEntry[] = []
+  const text = rowLines.join(' ')
+
+  // Pattern 1: "Region: Nx Type" — e.g. "RIAA: 6× Platinum", "BPI: Gold"
+  const regionMap: Record<string, string> = {
+    riaa: 'US', bpi: 'UK', aria: 'AU', mc: 'CA', bvmi: 'DE', snep: 'FR',
+    fimi: 'IT', nvpi: 'NL', rmnz: 'NZ', ifpi: 'INT', 'riaj': 'JP',
+  }
+  const certRe = /(?:(\w+)\s*:\s*)?(\d+)?[×x]?\s*(Diamond|Platinum|Gold|Silver)/gi
+  let m: RegExpExecArray | null
+  while ((m = certRe.exec(text)) !== null) {
+    const regionKey = (m[1] || '').toLowerCase()
+    const region = regionMap[regionKey] || m[1]?.toUpperCase() || 'US'
+    const multiplier = m[2] ? parseInt(m[2]) : 1
+    const type = m[3].charAt(0).toUpperCase() + m[3].slice(1).toLowerCase()
+    certs.push({ region, type, multiplier })
+  }
+
+  // Pattern 2: {{Certification Table Entry|type=album|region=United States|award=Platinum}}
+  const templateRe = /\{\{[Cc]ertification[^}]*?(?:region|regio)\s*=\s*([^|}]+)[^}]*?award\s*=\s*(\d*)\s*[×x]?\s*(Diamond|Platinum|Gold|Silver)/gi
+  while ((m = templateRe.exec(text)) !== null) {
+    const regionFull = m[1].trim()
+    const regionShort: Record<string, string> = {
+      'united states': 'US', 'united kingdom': 'UK', 'australia': 'AU',
+      'canada': 'CA', 'germany': 'DE', 'france': 'FR', 'japan': 'JP',
+    }
+    const region = regionShort[regionFull.toLowerCase()] || regionFull.substring(0, 2).toUpperCase()
+    const multiplier = m[2] ? parseInt(m[2]) : 1
+    const type = m[3].charAt(0).toUpperCase() + m[3].slice(1).toLowerCase()
+    certs.push({ region, type, multiplier })
+  }
+
+  return certs
+}
+
+/**
+ * Extract best (lowest) peak chart position from Wikipedia table row.
+ * Chart positions appear as numbers in cells separated by || or on separate | lines.
+ */
+function parsePeakChartPosition(rowLines: string[]): number | null {
+  let best: number | null = null
+  for (const line of rowLines) {
+    // Skip lines that are clearly not chart data
+    if (/scope\s*=\s*['"]row['"]/i.test(line)) continue
+    if (/released|label|format|length|recorded|studio|producer|writer|certif/i.test(line)) continue
+
+    // Match cells with just numbers: "| 1 || 5 || — || 12" or "| 66"
+    const cells = line.split(/\|\|/)
+    for (const cell of cells) {
+      const cleaned = cell.replace(/^\s*\|\s*/, '').replace(/<ref[^>]*>.*?<\/ref>/gi, '').replace(/<ref[^>]*\/>/gi, '').trim()
+      // Must be a simple number (1-999), not a year, not part of longer text
+      const numMatch = cleaned.match(/^(\d{1,3})$/)
+      if (numMatch) {
+        const n = parseInt(numMatch[1])
+        if (n >= 1 && n <= 200 && (best === null || n < best)) {
+          best = n
+        }
+      }
+    }
+  }
+  return best
+}
+
 function parseDiscographyPage(wikitext: string): DiscographyItem[] {
   const albums: DiscographyItem[] = []
   const lines = wikitext.split('\n')
@@ -342,45 +418,52 @@ function parseDiscographyPage(wikitext: string): DiscographyItem[] {
       if (!title || title.length < 2 || /^(Category|File|Wikipedia|Template|Help|Portal|Draft|Module|Talk):/.test(wikiTitle)) continue
       if (['discography','videography','certification','singles','chart'].some(b => title.toLowerCase().includes(b))) continue
 
-      // Metai/mėnuo/diena: pirma iš einamos eilutės, tada iš sekančių eilučių
-      let year = currentYear
+      // Surinkti visas eilutės iki kitos row separator (|-) arba naujo row'o
+      const rowLines: string[] = [line]
+      let year: number | null = currentYear
       let month: number | null = null
       let day: number | null = null
       const yrInLine = line.match(/\b((?:19|20)\d{2})\b/)
       if (yrInLine) {
         year = parseInt(yrInLine[1])
-      } else if (!currentYear) {
-        for (let k = li + 1; k < Math.min(li + 15, lines.length); k++) {
-          const nl = lines[k]
-          if (nl.trim() === '|-') break
-          if (/^!\s*[—–-]?\s*scope\s*=\s*['"]row['"]/i.test(nl)) break
+      }
+
+      for (let k = li + 1; k < Math.min(li + 30, lines.length); k++) {
+        const nl = lines[k]
+        if (nl.trim() === '|-' || nl.startsWith('|}')) break
+        if (/^!\s*[—–-]?\s*scope\s*=\s*['"]row['"]/i.test(nl)) break
+        rowLines.push(nl)
+
+        // Metai/data extraction (tik jei dar neturim)
+        if (!year || year === currentYear) {
           const yrNext = nl.match(/^\|\s*(?:rowspan\s*=\s*["']?\d+["']?\s*\|)?\s*((?:19|20)\d{2})\s*$/)
-          if (yrNext) { year = parseInt(yrNext[1]); break }
-          // "Released:" eilutė — pilna data
+          if (yrNext) { year = parseInt(yrNext[1]); continue }
           const relDate = nl.match(/[Rr]eleased[^|{]*?(?:(\d{1,2})\s+)?(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})/i)
           if (relDate) {
             day = relDate[1] ? parseInt(relDate[1]) : null
             const MONTHS: Record<string, number> = { january:1,february:2,march:3,april:4,may:5,june:6,july:7,august:8,september:9,october:10,november:11,december:12 }
             month = MONTHS[relDate[2].toLowerCase()] || null
             year = parseInt(relDate[3])
-            break
+            continue
           }
-          // US format: "Month Day, Year"
           const relUS = nl.match(/[Rr]eleased[^|{]*?(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s*(\d{4})/i)
           if (relUS) {
             const MONTHS: Record<string, number> = { january:1,february:2,march:3,april:4,may:5,june:6,july:7,august:8,september:9,october:10,november:11,december:12 }
             month = MONTHS[relUS[1].toLowerCase()] || null
             day = parseInt(relUS[2])
             year = parseInt(relUS[3])
-            break
+            continue
           }
-          // Tik metai
           const relYearOnly = nl.match(/[Rr]eleased[^|{]*?(\d{4})/)
-          if (relYearOnly) { year = parseInt(relYearOnly[1]); break }
+          if (relYearOnly && !year) { year = parseInt(relYearOnly[1]) }
         }
       }
 
-      albums.push({ title, year, month, day, type: currentType, wikiTitle, source: 'wikipedia' })
+      // Iš surinkto row'o ištraukti chart ir certification duomenis
+      const certifications = parseCertifications(rowLines)
+      const peak_chart_position = parsePeakChartPosition(rowLines)
+
+      albums.push({ title, year, month, day, type: currentType, wikiTitle, source: 'wikipedia', certifications, peak_chart_position })
       continue
     }
 
@@ -1601,6 +1684,8 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
           body: JSON.stringify({
             title: item.title, artist_id: artistId, year: item.year||null, month: item.month||null, day: item.day||null,
             cover_image_url: item.cover_image_url||'',
+            certifications: item.certifications?.length ? item.certifications : null,
+            peak_chart_position: item.peak_chart_position ?? null,
             type_studio: item.type==='studio' || item.extraTypes?.includes('studio') || false,
             type_ep: item.type==='ep' || item.extraTypes?.includes('ep') || false,
             type_single: item.type==='single',

@@ -2,14 +2,19 @@
 
 import { useState, useEffect, useCallback } from 'react'
 
+type ScoreCategory = {
+  points: number
+  max: number
+  details: string
+}
+
 type Breakdown = {
-  catalog: number
-  media: number
-  community: number
-  career: number
+  type: 'lt' | 'int'
+  categories: Record<string, ScoreCategory>
   total: number
   score_override: number
   final_score: number
+  inputs: Record<string, number | string>
 }
 
 type ScoreData = {
@@ -19,15 +24,33 @@ type ScoreData = {
   updated_at: string | null
 }
 
-function ScoreBar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
+const CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
+  catalog:    { label: 'Katalogas', color: '#3b82f6' },
+  media:      { label: 'Media', color: '#8b5cf6' },
+  community:  { label: 'Bendruomenė', color: '#f59e0b' },
+  career:     { label: 'Karjera', color: '#10b981' },
+  chart:      { label: 'Čartai', color: '#ef4444' },
+  commercial: { label: 'Sertifikatai', color: '#f59e0b' },
+  reach:      { label: 'Pasiekiamumas', color: '#10b981' },
+}
+
+function ScoreBar({ label, value, max, color, details }: {
+  label: string; value: number; max: number; color: string; details: string
+}) {
   const pct = max > 0 ? Math.round((value / max) * 100) : 0
   return (
-    <div className="flex items-center gap-3 py-1.5">
-      <span className="text-xs text-[var(--text-muted)] w-20 text-right shrink-0">{label}</span>
-      <div className="flex-1 h-2.5 rounded-full bg-[var(--bg-elevated)] overflow-hidden">
-        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: color }} />
+    <div className="py-2">
+      <div className="flex items-center gap-3">
+        <span className="text-xs font-semibold text-[var(--text-secondary)] w-24 text-right shrink-0">{label}</span>
+        <div className="flex-1 h-2.5 rounded-full bg-[var(--bg-elevated)] overflow-hidden">
+          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: color }} />
+        </div>
+        <span className="text-xs font-bold text-[var(--text-secondary)] w-12 tabular-nums text-right">{value}/{max}</span>
       </div>
-      <span className="text-xs font-bold text-[var(--text-secondary)] w-10 tabular-nums">{value}/{max}</span>
+      <div className="flex items-center gap-3 mt-0.5">
+        <span className="w-24 shrink-0" />
+        <span className="text-[10px] text-[var(--text-faint)] leading-tight">{details}</span>
+      </div>
     </div>
   )
 }
@@ -85,10 +108,17 @@ export default function ScoreModal({ artistId, onClose }: { artistId: string; on
       style={{ zIndex: 9999, background: 'rgba(0,0,0,0.3)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="bg-white rounded-2xl shadow-2xl border border-[var(--border-subtle)] w-full max-w-md overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-2xl border border-[var(--border-subtle)] w-full max-w-md overflow-hidden max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-[var(--border-subtle)]">
-          <span className="text-sm font-bold text-[var(--text-secondary)]">Score</span>
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-[var(--border-subtle)] sticky top-0 bg-white z-10">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold text-[var(--text-secondary)]">Score</span>
+            {b && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--bg-elevated)] text-[var(--text-faint)] font-medium uppercase">
+                {b.type === 'lt' ? 'LT formulė' : 'INT formulė'}
+              </span>
+            )}
+          </div>
           <button onClick={onClose} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] text-lg leading-none px-1">✕</button>
         </div>
 
@@ -134,16 +164,34 @@ export default function ScoreModal({ artistId, onClose }: { artistId: string; on
               {/* Breakdown bars */}
               {b && (
                 <div className="mb-5">
-                  <ScoreBar label="Catalog" value={b.catalog} max={18} color="#3b82f6" />
-                  <ScoreBar label="Media" value={b.media} max={8} color="#8b5cf6" />
-                  <ScoreBar label="Community" value={b.community} max={12} color="#f59e0b" />
-                  <ScoreBar label="Career" value={b.career} max={8} color="#10b981" />
+                  {Object.entries(b.categories).map(([key, cat]) => {
+                    const meta = CATEGORY_LABELS[key] || { label: key, color: '#6b7280' }
+                    return (
+                      <ScoreBar
+                        key={key}
+                        label={meta.label}
+                        value={cat.points}
+                        max={cat.max}
+                        color={meta.color}
+                        details={cat.details}
+                      />
+                    )
+                  })}
 
-                  <div className="flex items-center gap-3 py-1.5 mt-1 border-t border-[var(--border-subtle)]">
-                    <span className="text-xs text-[var(--text-muted)] w-20 text-right shrink-0">Base</span>
+                  <div className="flex items-center gap-3 py-1.5 mt-2 border-t border-[var(--border-subtle)]">
+                    <span className="text-xs font-semibold text-[var(--text-secondary)] w-24 text-right shrink-0">Bazė</span>
                     <div className="flex-1" />
-                    <span className="text-xs font-bold text-[var(--text-primary)] w-10 tabular-nums">{b.total}</span>
+                    <span className="text-xs font-bold text-[var(--text-primary)] w-12 tabular-nums text-right">{b.total}</span>
                   </div>
+                </div>
+              )}
+
+              {/* Missing data warning for INT */}
+              {b && b.type === 'int' && b.categories.chart?.points === 0 && b.categories.commercial?.points === 0 && (
+                <div className="mb-4 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+                  <p className="text-xs text-amber-700">
+                    Nėra čartų/sertifikatų duomenų. Perbandyk importuoti diskografiją iš Wikipedia — chart positions ir certifications bus ištraukti automatiškai.
+                  </p>
                 </div>
               )}
 
