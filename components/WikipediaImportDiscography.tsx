@@ -1673,21 +1673,55 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       }
     }
 
+    // Helper: surasti singlo viršelį ir datą iš Wikipedia puslapio
+    const fetchSingleWikiInfo = async (songTitle: string): Promise<{ coverUrl: string; wikiDate: { year: number|null; month: number|null; day: number|null } | null }> => {
+      let coverUrl = ''
+      let wikiDate: { year: number|null; month: number|null; day: number|null } | null = null
+      const wikiTitle = songTitle.replace(/ /g, '_')
+      try {
+        const suffixes = ['', '_(song)', `_(${artistName.replace(/ /g, '_')}_song)`, '_(single)']
+        for (const suffix of suffixes) {
+          const testTitle = wikiTitle + suffix
+          const [testCover, testWt] = await Promise.all([
+            fetchCoverImage(testTitle),
+            fetchWikitext(testTitle)
+          ])
+          if (testCover) {
+            coverUrl = testCover
+            if (testWt && testWt.includes('released')) {
+              wikiDate = parseReleaseDate(testWt)
+            }
+            break
+          }
+          if (testWt && testWt.includes('released')) {
+            wikiDate = parseReleaseDate(testWt)
+            break
+          }
+          await new Promise(r => setTimeout(r, 100))
+        }
+      } catch {}
+      return { coverUrl, wikiDate }
+    }
+
     for (const song of toImport) {
       setSongs(p => p.map(s => s.title === song.title ? { ...s, importing: true } : s))
       updateTask('import-singles', `${song.title} (${songsDone + 1}/${toImport.length})`)
       try {
+        // Viršelis ir data iš singlo Wikipedia puslapio (bendras abiem šakoms)
+        const key = song.title.toLowerCase().replace(/[''"]/g, '')
+        const extra = !song.month ? extraDates.get(key) : null
+        const { coverUrl, wikiDate } = await fetchSingleWikiInfo(song.title)
+        const finalYear = extra?.year ?? wikiDate?.year ?? song.year
+        const finalMonth = extra?.month ?? wikiDate?.month ?? song.month
+        const finalDay = extra?.day ?? wikiDate?.day ?? song.day
+
         if (song.duplicateId) {
-          // PATCH: pažymėti kaip singlą IR atnaujinti datą jei yra
-          const key = song.title.toLowerCase().replace(/[''"]/g, '')
-          const extra = !song.month ? extraDates.get(key) : null
+          // PATCH: pažymėti kaip singlą, atnaujinti datą ir viršelį
           const patchBody: Record<string, any> = { is_single: true }
-          const pYear = extra?.year ?? song.year
-          const pMonth = extra?.month ?? song.month
-          const pDay = extra?.day ?? song.day
-          if (pYear) patchBody.release_year = pYear
-          if (pMonth) patchBody.release_month = pMonth
-          if (pDay) patchBody.release_day = pDay
+          if (finalYear) patchBody.release_year = finalYear
+          if (finalMonth) patchBody.release_month = finalMonth
+          if (finalDay) patchBody.release_day = finalDay
+          if (coverUrl) patchBody.cover_url = coverUrl
           const res = await fetch(`/api/tracks/${song.duplicateId}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(patchBody) })
           if (!res.ok) {
             let errMsg = `PATCH ${res.status}`
@@ -1749,45 +1783,6 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               }
             }
           }
-
-          // Naudoti extraDates jei song.month nežinomas
-          const key = song.title.toLowerCase().replace(/[''"]/g, '')
-          const extra = !song.month ? extraDates.get(key) : null
-
-          // Viršelis ir data iš singlo Wikipedia puslapio
-          let coverUrl = ''
-          let wikiDate: { year: number|null; month: number|null; day: number|null } | null = null
-          const wikiTitle = song.title.replace(/ /g, '_')
-          try {
-            // Bandyti rasti singlo puslapį
-            const suffixes = ['', '_(song)', `_(${artistName.replace(/ /g, '_')}_song)`, '_(single)']
-            for (const suffix of suffixes) {
-              const testTitle = wikiTitle + suffix
-              const [testCover, testWt] = await Promise.all([
-                fetchCoverImage(testTitle),
-                !extra?.month ? fetchWikitext(testTitle) : Promise.resolve('')
-              ])
-              if (testCover) {
-                coverUrl = testCover
-                if (testWt && testWt.includes('released')) {
-                  wikiDate = parseReleaseDate(testWt)
-                }
-                break
-              }
-              // Jei nerado viršelio — tikrinti ar bent wikitext'as turi released lauką
-              if (testWt && testWt.includes('released')) {
-                wikiDate = parseReleaseDate(testWt)
-                // Bandyti su originalimage iš summary — gal buvo tik thumbnail issue
-                break
-              }
-              await new Promise(r => setTimeout(r, 100))
-            }
-          } catch {}
-
-          // Surinkti galutines datas: extra > wikiDate > song
-          const finalYear = extra?.year ?? wikiDate?.year ?? song.year
-          const finalMonth = extra?.month ?? wikiDate?.month ?? song.month
-          const finalDay = extra?.day ?? wikiDate?.day ?? song.day
 
           const res = await fetch('/api/tracks', {
             method: 'POST', headers: {'Content-Type':'application/json'},
