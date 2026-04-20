@@ -104,15 +104,15 @@ export function computeINTScore(data: {
   const trackPts = Math.min(10, Math.round(Math.log(n_tracks + 1) * 1.8))
   const catalog = Math.min(25, albumPts + trackPts)
 
-  // ② CHART PERFORMANCE (0-35): chart positions
-  const chartedPts = Math.min(10, Math.round(Math.log(n_charted_albums + 1) * 4))
-  const top10Pts = Math.min(15, n_top10_albums * 3)
-  const no1Pts = Math.min(10, n_number1_albums * 5)
+  // ② CHART PERFORMANCE (0-35): sqrt scaling for diminishing returns at the top
+  const chartedPts = Math.min(8, Math.round(Math.sqrt(n_charted_albums) * 2.5))
+  const top10Pts = Math.min(14, Math.round(Math.sqrt(n_top10_albums) * 4.5))
+  const no1Pts = Math.min(13, Math.round(Math.sqrt(n_number1_albums) * 3.5))
   const chart = Math.min(35, chartedPts + top10Pts + no1Pts)
 
-  // ③ COMMERCIAL (0-25): certifications
-  const certPts = Math.min(10, Math.round(Math.log(total_cert_points + 1) * 3))
-  const platPts = Math.min(10, n_platinum_albums * 2)
+  // ③ COMMERCIAL (0-25): sqrt scaling for platinum/diamond
+  const certPts = Math.min(8, Math.round(Math.sqrt(total_cert_points) * 1.8))
+  const platPts = Math.min(12, Math.round(Math.sqrt(n_platinum_albums) * 4))
   const diamondPts = Math.min(5, n_diamond_albums * 5)
   const commercial = Math.min(25, certPts + platPts + diamondPts)
 

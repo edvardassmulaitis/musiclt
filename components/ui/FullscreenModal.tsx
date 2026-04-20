@@ -40,7 +40,7 @@ export default function FullscreenModal({
   }, [onClose])
 
   const modal = (
-    <div className="fixed inset-0 z-[9999]">
+    <div className="fixed inset-0 z-[9999]" data-theme="light">
       {/* Backdrop — hidden on mobile (fullscreen), visible on desktop */}
       <div className="hidden sm:block absolute inset-0 bg-black/40" onClick={onClose} />
 

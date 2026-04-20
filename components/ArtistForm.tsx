@@ -12,7 +12,10 @@ import { createPortal } from 'react-dom'
 /** Portal wrapper — renders children in document.body, fullscreen on mobile */
 function MobileFullscreenPortal({ children }: { children: React.ReactNode }) {
   if (typeof document === 'undefined') return null
-  return createPortal(children, document.body)
+  return createPortal(
+    <div data-theme="light">{children}</div>,
+    document.body
+  )
 }
 
 const CY = new Date().getFullYear()

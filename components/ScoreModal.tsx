@@ -35,6 +35,12 @@ const CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
   reach:      { label: 'Pasiekiamumas', color: '#10b981' },
 }
 
+// Fixed display order — JSONB doesn't preserve key insertion order
+const CATEGORY_ORDER: Record<string, string[]> = {
+  lt:  ['catalog', 'media', 'community', 'career'],
+  int: ['catalog', 'chart', 'commercial', 'reach'],
+}
+
 function ScoreBar({ label, value, max, color, details }: {
   label: string; value: number; max: number; color: string; details: string
 }) {
@@ -171,7 +177,9 @@ export default function ScoreModal({ artistId, onClose }: { artistId: string; on
             {/* Breakdown bars */}
             {b && (
               <div className="mb-5">
-                {Object.entries(b.categories).map(([key, cat]) => {
+                {(CATEGORY_ORDER[b.type] || Object.keys(b.categories)).map(key => {
+                  const cat = b.categories[key]
+                  if (!cat) return null
                   const meta = CATEGORY_LABELS[key] || { label: key, color: '#6b7280' }
                   return (
                     <ScoreBar key={key} label={meta.label} value={cat.points} max={cat.max} color={meta.color} details={cat.details} />
