@@ -12,7 +12,7 @@ async function getArtists() {
   const supabase = createAdminClient()
   const { data } = await supabase
     .from('artists')
-    .select('id, slug, name, country, type, active_from, active_until, cover_image_url, is_verified')
+    .select('id, slug, name, country, type, active_from, active_until, cover_image_url, cover_image_position, is_verified')
     .order('name')
     .limit(200)
   return data || []

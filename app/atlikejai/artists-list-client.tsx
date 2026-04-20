@@ -8,7 +8,24 @@ import { HeaderAuth } from '@/components/HeaderAuth'
 type Artist = {
   id: number; slug: string; name: string; country?: string; type: string
   active_from?: number; active_until?: number; cover_image_url?: string
-  is_verified?: boolean; genres: string[]
+  cover_image_position?: string; is_verified?: boolean; genres: string[]
+}
+
+function parseCoverPos(pos: string): { x: number; y: number; zoom: number } {
+  const parts = pos.trim().split(/\s+/)
+  if (parts[0] === 'center') {
+    const yMatch = pos.match(/(\d+)%/)
+    const y = yMatch ? parseInt(yMatch[1]) : 20
+    const last = parseFloat(parts[parts.length - 1])
+    const zoom = (!isNaN(last) && last >= 1 && !parts[parts.length - 1].includes('%')) ? last : 1
+    return { x: 50, y, zoom }
+  }
+  const pcts = pos.match(/(\d+)%/g) || []
+  const x = pcts[0] ? parseInt(pcts[0]) : 50
+  const y = pcts[1] ? parseInt(pcts[1]) : 20
+  const last = parseFloat(parts[parts.length - 1])
+  const zoom = (!isNaN(last) && last >= 1 && !parts[parts.length - 1].includes('%')) ? last : 1
+  return { x, y, zoom }
 }
 type Genre = { id: number; name: string }
 
@@ -168,7 +185,7 @@ export default function ArtistsListClient({ artists, genres }: { artists: Artist
               <Link key={a.id} href={`/atlikejai/${a.slug}`} className="al-card">
                 <div className="al-card-img">
                   {a.cover_image_url
-                    ? <img src={a.cover_image_url} alt={a.name} />
+                    ? (() => { const p = parseCoverPos(a.cover_image_position || 'center 20%'); return <img src={a.cover_image_url} alt={a.name} style={{ objectPosition: `${p.x}% ${p.y}%`, transform: `scale(${p.zoom})`, transformOrigin: `${p.x}% ${p.y}%` }} /> })()
                     : <div className="al-card-noimg"><span>{a.name[0]}</span></div>}
                   {a.is_verified && (
                     <div className="al-card-verified">
