@@ -306,21 +306,23 @@ async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackI
     }
 
     if (trackId) {
-      trackRows.push({
+      const albumTrackRow = {
         album_id: albumId,
         track_id: trackId,
         position: toInt(t.sort_order) || i + 1,
         is_primary: t.is_single || false,
-      })
+      }
+      const { error: atError } = await supabase.from('album_tracks').insert(albumTrackRow)
+      if (atError) {
+        console.error('[syncAlbumTracks] album_tracks INSERT ERROR for track', trackId, ':', atError.message, atError.details)
+      } else {
+        console.log('[syncAlbumTracks] linked track', trackId, 'to album', albumId, 'pos:', albumTrackRow.position)
+      }
+      trackRows.push(albumTrackRow)
     }
   }
 
-  console.log('[syncAlbumTracks] trackRows to insert:', trackRows.length, JSON.stringify(trackRows.slice(0, 3)))
-  if (trackRows.length) {
-    const { error } = await supabase.from('album_tracks').insert(trackRows)
-    if (error) console.error('[syncAlbumTracks] album_tracks INSERT ERROR:', error.message, error.details, error.hint)
-    else console.log('[syncAlbumTracks] album_tracks inserted successfully:', trackRows.length, 'rows')
-  }
+  console.log('[syncAlbumTracks] total linked:', trackRows.length, 'of', tracks.length, 'tracks')
 }
 
 // ── Tracks ──────────────────────────────────────────────────────────────────
