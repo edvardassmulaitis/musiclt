@@ -64,8 +64,8 @@ export function computeLTScore(data: {
     type: 'lt',
     categories: {
       catalog: { points: catalog, max: 18, details: `${n_albums} alb., ${n_tracks} dainų` },
-      media:   { points: media, max: 8, details: `${n_videos} video, ${n_lyrics} tekstų` },
-      community: { points: community, max: 12, details: `${likes} likes` },
+      media:   { points: media, max: 8, details: `${n_videos} vaizdo klipų, ${n_lyrics} tekstų` },
+      community: { points: community, max: 12, details: `${likes} patiktukų` },
       career:  { points: career, max: 8, details: career_years > 0 ? `${career_years} m. karjera` : 'nenurodyta' },
     },
     total,
@@ -128,15 +128,15 @@ export function computeINTScore(data: {
 
   // Build details strings
   const chartDetails = [
-    n_number1_albums > 0 ? `${n_number1_albums} #1` : '',
+    n_number1_albums > 0 ? `${n_number1_albums} nr. 1` : '',
     n_top10_albums > 0 ? `${n_top10_albums} top 10` : '',
-    n_charted_albums > 0 ? `${n_charted_albums} charted` : 'nėra chart duomenų',
+    n_charted_albums > 0 ? `${n_charted_albums} hitparaduose` : 'nėra hitparadų duomenų',
   ].filter(Boolean).join(', ')
 
   const certDetails = [
-    n_diamond_albums > 0 ? `${n_diamond_albums} diamond` : '',
-    n_platinum_albums > 0 ? `${n_platinum_albums} platinum` : '',
-    n_certified_albums > 0 ? `${n_certified_albums} certified` : 'nėra sertifikatų',
+    n_diamond_albums > 0 ? `${n_diamond_albums} deimantinių` : '',
+    n_platinum_albums > 0 ? `${n_platinum_albums} platininių` : '',
+    n_certified_albums > 0 ? `${n_certified_albums} sertifikuotų` : 'nėra sertifikatų',
   ].filter(Boolean).join(', ')
 
   return {
@@ -145,7 +145,7 @@ export function computeINTScore(data: {
       catalog:    { points: catalog, max: 25, details: `${n_albums} alb., ${n_tracks} dainų` },
       chart:      { points: chart, max: 35, details: chartDetails },
       commercial: { points: commercial, max: 25, details: certDetails },
-      reach:      { points: reach, max: 15, details: career_years > 0 ? `${career_years} m., ${n_videos} video` : 'nenurodyta' },
+      reach:      { points: reach, max: 15, details: career_years > 0 ? `${career_years} m. karjera, ${n_videos} klipų` : 'nenurodyta' },
     },
     total,
     score_override: 0,

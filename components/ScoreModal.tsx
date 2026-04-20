@@ -26,13 +26,13 @@ type ScoreData = {
 }
 
 const CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
-  catalog:    { label: 'Katalogas', color: '#3b82f6' },
-  media:      { label: 'Media', color: '#8b5cf6' },
+  catalog:    { label: 'Diskografija', color: '#3b82f6' },
+  media:      { label: 'Turinys', color: '#8b5cf6' },
   community:  { label: 'Bendruomenė', color: '#f59e0b' },
   career:     { label: 'Karjera', color: '#10b981' },
-  chart:      { label: 'Čartai', color: '#ef4444' },
+  chart:      { label: 'Hitparadai', color: '#ef4444' },
   commercial: { label: 'Sertifikatai', color: '#f59e0b' },
-  reach:      { label: 'Pasiekiamumas', color: '#10b981' },
+  reach:      { label: 'Aprėptis', color: '#10b981' },
 }
 
 // Fixed display order — JSONB doesn't preserve key insertion order
@@ -136,7 +136,7 @@ export default function ScoreModal({ artistId, onClose }: { artistId: string; on
   ) : undefined
 
   return (
-    <FullscreenModal onClose={onClose} title="Score" titleRight={formuleBadge} maxWidth="max-w-md">
+    <FullscreenModal onClose={onClose} title="Reitingas" titleRight={formuleBadge} maxWidth="max-w-md">
       <div className="px-1">
         {loading ? (
           <div className="flex justify-center py-8">
@@ -145,7 +145,7 @@ export default function ScoreModal({ artistId, onClose }: { artistId: string; on
         ) : !hasScore ? (
           <div className="text-center py-6">
             <div className="text-4xl mb-3 opacity-40">—</div>
-            <p className="text-sm text-[var(--text-muted)] mb-4">Score dar nesuskaičiuotas</p>
+            <p className="text-sm text-[var(--text-muted)] mb-4">Reitingas dar nesuskaičiuotas</p>
             <button
               onClick={handleCalculate}
               disabled={calculating}
@@ -156,7 +156,7 @@ export default function ScoreModal({ artistId, onClose }: { artistId: string; on
                   <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                   Skaičiuojama...
                 </span>
-              ) : 'Suskaičiuoti Score'}
+              ) : 'Suskaičiuoti reitingą'}
             </button>
           </div>
         ) : (
@@ -197,7 +197,7 @@ export default function ScoreModal({ artistId, onClose }: { artistId: string; on
             {b && b.type === 'int' && b.categories.chart?.points === 0 && b.categories.commercial?.points === 0 && (
               <div className="mb-4 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
                 <p className="text-xs text-amber-700">
-                  Nėra čartų/sertifikatų duomenų. Perbandyk importuoti diskografiją iš Wikipedia — chart positions ir certifications bus ištraukti automatiškai.
+                  Nėra hitparadų/sertifikatų duomenų. Pabandyk importuoti diskografiją iš Wikipedia — pozicijos hitparaduose ir sertifikatai bus ištraukti automatiškai.
                 </p>
               </div>
             )}
@@ -205,7 +205,7 @@ export default function ScoreModal({ artistId, onClose }: { artistId: string; on
             {/* Override control */}
             <div className="bg-[var(--bg-elevated)] rounded-xl p-4 mb-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-[var(--text-secondary)]">Score Override</span>
+                <span className="text-xs font-bold text-[var(--text-secondary)]">Rankinis koregavimas</span>
                 <span className="text-xs text-[var(--text-faint)]">±15 max</span>
               </div>
               <div className="flex items-center gap-3">
@@ -231,7 +231,7 @@ export default function ScoreModal({ artistId, onClose }: { artistId: string; on
                   disabled={savingOverride}
                   className="w-full mt-3 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
                 >
-                  {savingOverride ? 'Saugoma...' : `Išsaugoti (final: ${Math.max(0, Math.min(100, (b?.total || 0) + override))})`}
+                  {savingOverride ? 'Saugoma...' : `Išsaugoti (galutinis: ${Math.max(0, Math.min(100, (b?.total || 0) + override))})`}
                 </button>
               )}
             </div>
@@ -247,7 +247,7 @@ export default function ScoreModal({ artistId, onClose }: { artistId: string; on
                   <span className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
                   Skaičiuojama...
                 </span>
-              ) : 'Perskaičiuoti Score'}
+              ) : 'Perskaičiuoti'}
             </button>
           </>
         )}
@@ -272,7 +272,7 @@ export function ScoreBadge({ artistId, score }: { artistId: string; score: numbe
             ? 'bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:bg-[var(--bg-active)]'
             : 'bg-amber-50 text-amber-600 hover:bg-amber-100 border border-amber-200'
         }`}
-        title={score !== null ? `Score: ${score}/100` : 'Score nesuskaičiuotas'}
+        title={score !== null ? `Reitingas: ${score}/100` : 'Reitingas nesuskaičiuotas'}
       >
         {score !== null ? (
           <>
@@ -282,7 +282,7 @@ export function ScoreBadge({ artistId, score }: { artistId: string; score: numbe
             <span className="tabular-nums">{score}</span>
           </>
         ) : (
-          <>Score?</>
+          <>Balas?</>
         )}
       </button>
       {open && <ScoreModal artistId={artistId} onClose={() => setOpen(false)} />}

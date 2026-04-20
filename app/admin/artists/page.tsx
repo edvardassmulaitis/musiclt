@@ -36,6 +36,7 @@ export default function ArtistsAdmin() {
   const [deleting, setDeleting] = useState<number | null>(null)
   const [confirmId, setConfirmId] = useState<number | null>(null)
   const [confirmMode, setConfirmMode] = useState<ConfirmMode>('deactivate')
+  const [bulkScoring, setBulkScoring] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
@@ -68,6 +69,15 @@ export default function ArtistsAdmin() {
   const handleSort = (key: SortKey) => {
     setSort(key)
     load(search, key)
+  }
+
+  const handleBulkScore = async () => {
+    setBulkScoring(true)
+    try {
+      await fetch('/api/artists/score', { method: 'POST' })
+      load(search, sort)
+    } catch {}
+    finally { setBulkScoring(false) }
   }
 
   const handleDeactivate = async (id: number) => {
@@ -138,7 +148,16 @@ export default function ArtistsAdmin() {
             <button onClick={() => handleSort('score')}
               className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1 ${sort === 'score' ? 'bg-blue-100 text-blue-700' : 'text-[var(--text-muted)] hover:bg-[var(--bg-hover)]'}`}>
               <svg viewBox="0 0 16 16" className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M8 1l2.1 4.3 4.7.7-3.4 3.3.8 4.7L8 11.8 3.8 14l.8-4.7L1.2 6l4.7-.7z"/></svg>
-              Score
+              Balas
+            </button>
+            <button onClick={handleBulkScore} disabled={bulkScoring}
+              className="px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors text-[var(--text-muted)] hover:bg-[var(--bg-hover)] disabled:opacity-50 flex items-center gap-1"
+              title="Perskaičiuoti visų atlikėjų balus">
+              {bulkScoring ? (
+                <><span className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" /> Skaičiuojama...</>
+              ) : (
+                <>⟳ Visiems</>
+              )}
             </button>
           </div>
           <div className="shrink-0">
@@ -220,7 +239,7 @@ export default function ArtistsAdmin() {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide hidden sm:table-cell">Tipas</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide hidden md:table-cell">Šalis</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide hidden md:table-cell">Aktyvus</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide w-16">Score</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide w-16">Balas</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">Veiksmai</th>
                 </tr>
               </thead>
