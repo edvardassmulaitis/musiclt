@@ -129,7 +129,11 @@ LIETUVIŲ KALBA:
 
     const data = await apiRes.json()
     console.log('[generate-description] response type:', data.type, 'stop:', data.stop_reason, 'content blocks:', data.content?.length)
-    const raw = data.content?.[0]?.text?.trim() || ''
+    const raw = (data.content?.[0]?.text?.trim() || '')
+      // Pašalinam markdown headings, bold ir kitus artefaktus
+      .replace(/^#+\s+.*\n*/gm, '')
+      .replace(/\*\*/g, '')
+      .trim()
     // Paverčiame pastraipas į HTML <p> tagus (redaktorius naudoja HTML)
     const description = raw
       ? '<p>' + raw.split(/\n\n+/).map((p: string) => p.replace(/\n/g, ' ').trim()).filter(Boolean).join('</p><p>') + '</p>'

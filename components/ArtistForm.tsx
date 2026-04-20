@@ -378,88 +378,125 @@ function buildCoverPosition(y: number, zoom: number): string {
 }
 
 // ── HeroPositionPicker ────────────────────────────────────────────────────────
+// Thumbnail that opens a modal for drag-to-pan + scroll-to-zoom
 function HeroPositionPicker({ imageUrl, position, onChange }: {
   imageUrl: string
-  position: string    // e.g. "center 20%" or "center 20% 1.4"
+  position: string
   onChange: (pos: string) => void
 }) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const [dragging, setDragging] = useState(false)
+  const [open, setOpen] = useState(false)
+  const parsed = parseCoverPosition(position)
 
+  return (
+    <div className="mt-2">
+      <button type="button" onClick={() => setOpen(true)}
+        className="relative rounded-lg overflow-hidden border border-[var(--input-border)] hover:border-blue-400 transition-colors cursor-pointer group"
+        style={{ width: 160, height: 90 }}>
+        <img src={imageUrl} alt="" referrerPolicy="no-referrer"
+          className="w-full h-full object-cover"
+          style={{
+            objectPosition: `center ${parsed.y}%`,
+            transform: `scale(${parsed.zoom})`,
+            transformOrigin: `center ${parsed.y}%`,
+          }} />
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+          <span className="text-white text-[10px] font-medium opacity-0 group-hover:opacity-100 transition-opacity">Keisti poziciją</span>
+        </div>
+        <div className="absolute bottom-1 right-1 bg-black/60 text-white text-[9px] font-mono px-1 py-0.5 rounded">
+          {parsed.y}%{parsed.zoom > 1 ? ` ${parsed.zoom}x` : ''}
+        </div>
+      </button>
+      {open && <CropModal imageUrl={imageUrl} position={position} onChange={onChange} onClose={() => setOpen(false)} />}
+    </div>
+  )
+}
+
+function CropModal({ imageUrl, position, onChange, onClose }: {
+  imageUrl: string; position: string; onChange: (pos: string) => void; onClose: () => void
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
   const parsed = parseCoverPosition(position)
   const [yPct, setYPct] = useState(parsed.y)
   const [zoom, setZoom] = useState(parsed.zoom)
+  const [dragging, setDragging] = useState(false)
+  const lastY = useRef(0)
 
-  useEffect(() => {
-    const p = parseCoverPosition(position)
-    setYPct(p.y)
-    setZoom(p.zoom)
-  }, [position])
-
-  const emitChange = (newY: number, newZoom: number) => {
-    onChange(buildCoverPosition(newY, newZoom))
-  }
-
-  const updatePos = (clientY: number) => {
-    const rect = containerRef.current?.getBoundingClientRect()
-    if (!rect) return
-    const raw = ((clientY - rect.top) / rect.height) * 100
-    const clamped = Math.max(0, Math.min(100, Math.round(raw)))
-    setYPct(clamped)
-    emitChange(clamped, zoom)
-  }
+  const emit = (y: number, z: number) => onChange(buildCoverPosition(y, z))
 
   const onPointerDown = (e: React.PointerEvent) => {
     e.preventDefault()
     setDragging(true)
+    lastY.current = e.clientY
     ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
-    updatePos(e.clientY)
   }
-  const onPointerMove = (e: React.PointerEvent) => { if (dragging) updatePos(e.clientY) }
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!dragging || !containerRef.current) return
+    const rect = containerRef.current.getBoundingClientRect()
+    const delta = ((e.clientY - lastY.current) / rect.height) * 100
+    lastY.current = e.clientY
+    setYPct(prev => {
+      const next = Math.max(0, Math.min(100, Math.round(prev - delta)))
+      emit(next, zoom)
+      return next
+    })
+  }
   const onPointerUp = () => setDragging(false)
 
   const onWheel = (e: React.WheelEvent) => {
     e.preventDefault()
     const delta = e.deltaY > 0 ? -0.1 : 0.1
-    const newZoom = Math.round(Math.max(1, Math.min(3, zoom + delta)) * 10) / 10
-    setZoom(newZoom)
-    emitChange(yPct, newZoom)
+    setZoom(prev => {
+      const next = Math.round(Math.max(1, Math.min(3, prev + delta)) * 10) / 10
+      emit(yPct, next)
+      return next
+    })
   }
 
-  const onZoomSlider = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newZoom = parseFloat(e.target.value)
-    setZoom(newZoom)
-    emitChange(yPct, newZoom)
-  }
+  // Close on Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
 
   return (
-    <div className="mt-2">
-      <label className="block text-[10px] font-semibold text-[var(--text-muted)] mb-1 uppercase tracking-wider">Nuotraukos pozicija</label>
-      <div ref={containerRef}
-        className="relative rounded-lg overflow-hidden border border-[var(--input-border)] cursor-crosshair select-none"
-        style={{ width: 160, height: 160 }}
-        onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}
-        onWheel={onWheel}>
-        <img src={imageUrl} alt="" referrerPolicy="no-referrer"
-          className="w-full h-full object-cover pointer-events-none"
-          style={{ objectPosition: `center ${yPct}%`, transform: `scale(${zoom})`, transformOrigin: `center ${yPct}%` }} />
-        {/* Viewport indicator line */}
-        <div className="absolute left-0 right-0 pointer-events-none" style={{ top: `${yPct}%`, transform: 'translateY(-50%)' }}>
-          <div className="h-[2px] bg-blue-500 shadow-[0_0_4px_rgba(59,130,246,0.6)]" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl overflow-hidden max-w-lg w-full mx-4" onClick={e => e.stopPropagation()}>
+        <div className="px-4 py-3 border-b flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-800">Nuotraukos pozicija</h3>
+            <p className="text-[11px] text-gray-400">Tempk nuotrauką ir naudok scroll zoom'ui</p>
+          </div>
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
         </div>
-        {/* Side percentage label */}
-        <div className="absolute right-1 bg-black/60 text-white text-[9px] font-mono px-1 py-0.5 rounded pointer-events-none"
-          style={{ top: `${yPct}%`, transform: 'translateY(-50%)' }}>
-          {yPct}%{zoom > 1 ? ` ${zoom}x` : ''}
+        <div ref={containerRef}
+          className="relative overflow-hidden cursor-grab active:cursor-grabbing select-none"
+          style={{ height: 320 }}
+          onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}
+          onWheel={onWheel}>
+          <img src={imageUrl} alt="" referrerPolicy="no-referrer"
+            className="w-full h-full object-cover pointer-events-none"
+            style={{
+              objectPosition: `center ${yPct}%`,
+              transform: `scale(${zoom})`,
+              transformOrigin: `center ${yPct}%`,
+            }} />
+          {/* Center crop guide */}
+          <div className="absolute inset-x-0 top-0 h-[15%] bg-black/20 pointer-events-none" />
+          <div className="absolute inset-x-0 bottom-0 h-[15%] bg-black/20 pointer-events-none" />
+          <div className="absolute top-2 right-2 bg-black/60 text-white text-xs font-mono px-2 py-1 rounded">
+            {yPct}% · {zoom}x
+          </div>
         </div>
-      </div>
-      {/* Zoom slider */}
-      <div className="flex items-center gap-2 mt-1.5">
-        <span className="text-[10px] text-[var(--text-muted)]">🔍</span>
-        <input type="range" min="1" max="3" step="0.1" value={zoom}
-          onChange={onZoomSlider}
-          className="flex-1 h-1 accent-blue-500" />
-        <span className="text-[10px] font-mono text-[var(--text-muted)] w-7 text-right">{zoom}x</span>
+        <div className="px-4 py-3 border-t flex items-center gap-3">
+          <span className="text-[11px] text-gray-400">Zoom</span>
+          <input type="range" min="1" max="3" step="0.1" value={zoom}
+            onChange={e => { const z = parseFloat(e.target.value); setZoom(z); emit(yPct, z) }}
+            className="flex-1 h-1.5 accent-blue-500" />
+          <span className="text-xs font-mono text-gray-500 w-8 text-right">{zoom}x</span>
+          <button type="button" onClick={() => { setYPct(20); setZoom(1); emit(20, 1) }}
+            className="text-[11px] text-gray-400 hover:text-gray-600 ml-2">Reset</button>
+        </div>
       </div>
     </div>
   )

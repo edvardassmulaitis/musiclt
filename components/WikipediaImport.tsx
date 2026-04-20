@@ -42,8 +42,10 @@ function isValidArtistName(name: string): boolean {
   // Reject names that look like sentences/descriptions (too many words, has punctuation)
   if (name.split(/\s+/).length > 8) return false
   if (/[.;]/.test(name) && name.length > 30) return false
-  // Reject names starting with common wikitext prefixes
-  if (/^(as |the following|see also|including|part of|featured|with |and )/i.test(name)) return false
+  // Reject names starting with common wikitext prefixes or that are Wikipedia navigation
+  if (/^(as |the following|see also|including|part of|featured|with |and |list$)/i.test(name)) return false
+  // Reject generic Wikipedia link words
+  if (/^(list|lists|see|more|others|various|none|unknown|many|several|show|hide|edit|note|notes)$/i.test(name)) return false
   // Reject names with too many special characters
   if ((name.match(/[^a-zA-ZÀ-ÿ0-9\s\-'.&,!()]/g) || []).length > 2) return false
   return true
