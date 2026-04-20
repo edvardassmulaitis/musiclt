@@ -326,32 +326,45 @@ function parseDiscographyPage(wikitext: string): DiscographyItem[] {
       if (!title || title.length < 2 || /^(Category|File|Wikipedia|Template|Help|Portal|Draft|Module|Talk):/.test(wikiTitle)) continue
       if (['discography','videography','certification','singles','chart'].some(b => title.toLowerCase().includes(b))) continue
 
-      // Metai: pirma iš einamos eilutės, tada iš sekančių eilučių (Title-first formatas)
+      // Metai/mėnuo/diena: pirma iš einamos eilutės, tada iš sekančių eilučių
       let year = currentYear
+      let month: number | null = null
+      let day: number | null = null
       const yrInLine = line.match(/\b((?:19|20)\d{2})\b/)
       if (yrInLine) {
         year = parseInt(yrInLine[1])
       } else if (!currentYear) {
-        // Pažiūrėti kitas eilutes (iki 15) — ieškome:
-        // 1. Standartinės metų eilutės: | 2004
-        // 2. Released: June 15, 2004 (Killers diskografijos stilius)
         for (let k = li + 1; k < Math.min(li + 15, lines.length); k++) {
           const nl = lines[k]
           if (nl.trim() === '|-') break
           if (/^!\s*[—–-]?\s*scope\s*=\s*['"]row['"]/i.test(nl)) break
-          // Standartinė metų eilutė
           const yrNext = nl.match(/^\|\s*(?:rowspan\s*=\s*["']?\d+["']?\s*\|)?\s*((?:19|20)\d{2})\s*$/)
           if (yrNext) { year = parseInt(yrNext[1]); break }
-          // "Released:" eilutė
-          const relNext = nl.match(/[Rr]eleased[^|{]*?(\d{4})/)
-          if (relNext) { year = parseInt(relNext[1]); break }
-          // "* Released:" su bullet
-          const relBullet = nl.match(/^\*\s*[Rr]eleased[^|{]*?(\d{4})/)
-          if (relBullet) { year = parseInt(relBullet[1]); break }
+          // "Released:" eilutė — pilna data
+          const relDate = nl.match(/[Rr]eleased[^|{]*?(?:(\d{1,2})\s+)?(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})/i)
+          if (relDate) {
+            day = relDate[1] ? parseInt(relDate[1]) : null
+            const MONTHS: Record<string, number> = { january:1,february:2,march:3,april:4,may:5,june:6,july:7,august:8,september:9,october:10,november:11,december:12 }
+            month = MONTHS[relDate[2].toLowerCase()] || null
+            year = parseInt(relDate[3])
+            break
+          }
+          // US format: "Month Day, Year"
+          const relUS = nl.match(/[Rr]eleased[^|{]*?(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s*(\d{4})/i)
+          if (relUS) {
+            const MONTHS: Record<string, number> = { january:1,february:2,march:3,april:4,may:5,june:6,july:7,august:8,september:9,october:10,november:11,december:12 }
+            month = MONTHS[relUS[1].toLowerCase()] || null
+            day = parseInt(relUS[2])
+            year = parseInt(relUS[3])
+            break
+          }
+          // Tik metai
+          const relYearOnly = nl.match(/[Rr]eleased[^|{]*?(\d{4})/)
+          if (relYearOnly) { year = parseInt(relYearOnly[1]); break }
         }
       }
 
-      albums.push({ title, year, month: null, day: null, type: currentType, wikiTitle, source: 'wikipedia' })
+      albums.push({ title, year, month, day, type: currentType, wikiTitle, source: 'wikipedia' })
       continue
     }
 
@@ -1068,12 +1081,33 @@ function parseTracklist(wikitext: string): TrackEntry[] {
 }
 
 function parseReleaseDate(wikitext: string): { year: number | null; month: number | null; day: number | null } {
-  const s1 = wikitext.match(/\{\{[Ss]tart\s*date\|(\d{4})\|?(\d{1,2})?\|?(\d{1,2})?/)
+  const MONTHS: Record<string, number> = { january:1,february:2,march:3,april:4,may:5,june:6,july:7,august:8,september:9,october:10,november:11,december:12 }
+
+  // {{Start date|YYYY|MM|DD}} arba {{Start date and age|YYYY|MM|DD}} arba {{Start date|df=yes|YYYY|MM|DD}}
+  const s1 = wikitext.match(/\{\{[Ss]tart\s*date(?:\s*and\s*age)?\s*\|(?:df\s*=\s*(?:yes|no)\s*\|)?(\d{4})\|?(\d{1,2})?\|?(\d{1,2})?/)
   if (s1) return { year: parseInt(s1[1]), month: s1[2] ? parseInt(s1[2]) : null, day: s1[3] ? parseInt(s1[3]) : null }
+
+  // | released = YYYY-MM-DD
   const i1 = wikitext.match(/\|\s*released\s*=\s*(\d{4})-(\d{2})-(\d{2})/)
   if (i1) return { year: parseInt(i1[1]), month: parseInt(i1[2]), day: parseInt(i1[3]) }
+
+  // {{Release date|YYYY|MM|DD}} arba {{Release date and age|YYYY|MM|DD}}
+  const rd1 = wikitext.match(/\{\{[Rr]elease\s*date(?:\s*and\s*age)?\s*\|(?:df\s*=\s*(?:yes|no)\s*\|)?(\d{4})\|(\d{1,2})\|(\d{1,2})/)
+  if (rd1) return { year: parseInt(rd1[1]), month: parseInt(rd1[2]), day: parseInt(rd1[3]) }
+
+  // UK date: | released = 14 May 2007
+  const uk1 = wikitext.match(/\|\s*released\s*=\s*[^|{[\n]*?(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})/i)
+  if (uk1) return { year: parseInt(uk1[3]), month: MONTHS[uk1[2].toLowerCase()] || null, day: parseInt(uk1[1]) }
+
+  // US date: | released = May 14, 2007
+  const us1 = wikitext.match(/\|\s*released\s*=\s*[^|{[\n]*?(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s*(\d{4})/i)
+  if (us1) return { year: parseInt(us1[3]), month: MONTHS[us1[1].toLowerCase()] || null, day: parseInt(us1[2]) }
+
+  // Generic US format fallback (using Date parser)
   const r1 = wikitext.match(/\|\s*released\s*=\s*[^|{[\n]*?(\w+ \d{1,2},?\s*\d{4})/)
   if (r1) { const d = new Date(r1[1]); if (!isNaN(d.getTime())) return { year: d.getFullYear(), month: d.getMonth()+1, day: d.getDate() } }
+
+  // Year only
   const y1 = wikitext.match(/\|\s*released\s*=\s*.*?(\d{4})/)
   if (y1) return { year: parseInt(y1[1]), month: null, day: null }
   return { year: null, month: null, day: null }
@@ -1573,8 +1607,45 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
           await new Promise(r => setTimeout(r, 150))
         }
         if (extraDates.size > 0) addLog(`✓ ${extraDates.size} singlų datų rasta`)
-        else addLog(`⚠ Datų nerasta`)
+        else addLog(`⚠ Datų nerasta iš albumų infobox`)
       }
+    }
+
+    // Žingsnis 2: singlams, kuriems vis dar nėra datos — bandyti iš individualios singlo Wikipedia puslapio
+    const stillNeedsDates = toImport.filter(s => {
+      const key = s.title.toLowerCase().replace(/[''"]/g, '')
+      return !s.month && !extraDates.get(key)?.month
+    })
+    if (stillNeedsDates.length > 0) {
+      addLog(`📅 Ieškoma datų iš ${stillNeedsDates.length} singlų Wiki puslapių...`)
+      let foundFromPages = 0
+      for (const song of stillNeedsDates) {
+        try {
+          const wikiTitle = song.title.replace(/ /g, '_')
+          let wt = await fetchWikitext(wikiTitle)
+          // Jei nerado — bandyti su disambig sufixais
+          if (!wt || !wt.includes('released')) {
+            const suffixes = ['_(song)', `_(${artistName.replace(/ /g, '_')}_song)`, '_(single)']
+            for (const suffix of suffixes) {
+              const wt2 = await fetchWikitext(wikiTitle + suffix)
+              if (wt2 && wt2.includes('released')) { wt = wt2; break }
+              await new Promise(r => setTimeout(r, 100))
+            }
+          }
+          if (wt && wt.includes('released')) {
+            const dateInfo = parseReleaseDate(wt)
+            if (dateInfo.month) {
+              const key = song.title.toLowerCase().replace(/[''"]/g, '')
+              if (!extraDates.has(key)) {
+                extraDates.set(key, dateInfo)
+                foundFromPages++
+              }
+            }
+          }
+        } catch {}
+        await new Promise(r => setTimeout(r, 200))
+      }
+      if (foundFromPages > 0) addLog(`✓ ${foundFromPages} datų iš singlų puslapių`)
     }
 
     for (const song of toImport) {
