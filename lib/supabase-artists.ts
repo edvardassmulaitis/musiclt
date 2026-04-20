@@ -27,6 +27,10 @@ export type ArtistRow = {
   birth_date?: string
   death_date?: string
   is_verified?: boolean
+  score?: number | null
+  score_override?: number
+  score_breakdown?: Record<string, number> | null
+  score_updated_at?: string | null
 }
 
 export type ArtistFull = ArtistRow & {

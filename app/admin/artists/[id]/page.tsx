@@ -8,6 +8,7 @@ import WikipediaImportDiscography from '@/components/WikipediaImportDiscography'
 import WikipediaImport from '@/components/WikipediaImport'
 import ArtistForm, { ArtistFormData, emptyArtistForm } from '@/components/ArtistForm'
 import { extractYouTubeId } from '@/components/ui/helpers'
+import { ScoreBadge } from '@/components/ScoreModal'
 
 const GENRE_BY_ID: Record<number, string> = {
   1000001: 'Alternatyvioji muzika',
@@ -554,6 +555,7 @@ export default function EditArtist() {
   const [tab, setTab] = useState<'form' | 'discography'>('form')
   const [discographyKey, setDiscographyKey] = useState(0)
   const [formKey, setFormKey] = useState(0)
+  const [artistScore, setArtistScore] = useState<number | null>(null)
   const submitFnRef = useRef<{ fn: (() => void) | null }>({ fn: null })
 
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
@@ -578,6 +580,9 @@ export default function EditArtist() {
 
     fetch(`/api/tracks?artist_id=${artistId}&limit=1`)
       .then(r => r.json()).then(d => setTrackCount(d.total ?? null)).catch(() => {})
+
+    fetch(`/api/artists/${artistId}/score`)
+      .then(r => r.json()).then(d => setArtistScore(d.score ?? null)).catch(() => {})
   }, [status, isAdmin, artistId, router])
 
   const handleSubmit = useCallback(async (form: ArtistFormData) => {
@@ -682,6 +687,7 @@ export default function EditArtist() {
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
+            <ScoreBadge artistId={artistId} score={artistScore} />
             <Link href="/admin/artists"
               className="px-3 py-1.5 border border-[var(--input-border)] text-[var(--text-secondary)] rounded-lg text-sm font-medium hover:bg-[var(--bg-hover)] transition-colors">
               Atšaukti
