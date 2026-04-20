@@ -1232,7 +1232,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
                 {(preview as any)?._descEditing && (
                   <div className="mt-2">
                     <textarea
-                      className="w-full text-xs border border-gray-300 rounded-lg p-2.5 leading-relaxed focus:ring-1 focus:ring-blue-400 focus:border-blue-400 resize-y"
+                      className="w-full text-xs text-gray-800 border border-gray-300 rounded-lg p-2.5 leading-relaxed focus:ring-1 focus:ring-blue-400 focus:border-blue-400 resize-y"
                       rows={8}
                       defaultValue={p.description.replace(/<\/?p>/g, '\n\n').replace(/<[^>]+>/g, '').trim()}
                       onBlur={e => {

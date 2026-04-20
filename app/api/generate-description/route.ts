@@ -75,28 +75,36 @@ Parašyk ORIGINALŲ aprašymą LIETUVIŲ kalba. NE versk šaltinio — perskaity
 TURINYS (prioriteto tvarka):
 1. Kokią muziką kuria? Koks žanras, stilius, garsas?
 2. Kodėl svarbus? Įtaka scenai, novatoriškumas, pasiekimai
-3. Svarbiausi albumai ir dainos — ne visi, tik patys reikšmingiausi
+3. Svarbiausi albumai ir dainos - ne visi, tik patys reikšmingiausi
 4. Kaip keitėsi stilius per karjerą?
 5. NEMINĖK: gimimo datos, tikro vardo, šeimyninių detalių, socialinių tinklų
+
+SVARBU - LAIKO NEUTRALUMAS:
+- NIEKADA nerašyk apie "naujausią albumą", "paskutinį darbą", "neseniai išleido" ar "šiuo metu"
+- Nerašyk nieko, kas pasens per metus (pvz. "2022 m. išleistas albumas rodo, kad...")
+- Rašyk taip, kad tekstas būtų aktualus ir po 5 metų
+- Vietoj "naujausias albumas X" rašyk apie atlikėjo palikimą ir reikšmę apskritai
+- Paskutinėje pastraipoje galima apibendrinti karjeros reikšmę, bet be nuorodų į konkrečius dabartinio laikotarpio įvykius
 
 STILIUS:
 - Rašyk kaip muzikos kritikas žurnale, NE kaip Vikipedijos straipsnį
 - Pirmas sakinys turi iškart pasakyti kas šis atlikėjas yra muzikoje (ne biografija)
 - Trečiasis asmuo, bet gyvas, ne sausas
-- Galima turėti nuomonę — "vienas įtakingiausių", "išskirtinis", "legendinis"
+- Galima turėti nuomonę - "vienas įtakingiausių", "išskirtinis", "legendinis"
 
 FORMATAS:
 - Ilgis: ${lengthInstruction}
 - Pastraipos atskirtos tuščia eilute
-- Jokių antraščių, sąrašų, bullet points — tik teksto pastraipos
-- Naudok paprastą brūkšnelį "-", ne ilgąjį "–"
+- Jokių antraščių, sąrašų, bullet points - tik teksto pastraipos
+- Naudok paprastą brūkšnelį "-", ne ilgąjį "–" ar "—"
 
 LIETUVIŲ KALBA:
-- Tekstas turi skambėti NATŪRALIAI — kaip parašytas gimtakalbio
-- Vartok lietuviškus muzikinius terminus kur įmanoma (albumas, daina, roko muzika, sunkusis metalas)
-- Bet palik angliškai: albumų pavadinimus, dainų pavadinimus, žanrus kurie neturi nusistovėjusio LT atitikmens (pvz. "grunge", "shoegaze")
-- Vengk vertimo klišių: "yra žinomas dėl" → "išgarsėjo", "buvo įkurta" → "susibūrė"
-- Sakiniai turi būti įvairūs — ne visi pradėti nuo atlikėjo vardo`
+- Tekstas turi skambėti NATŪRALIAI - kaip parašytas gimtakalbio
+- NUOSEKLUMAS: pasirink VIENĄ termino formą ir naudok visame tekste. Pvz. jei rašai "rokas" - visur "rokas", ne kartais "rokas" kartais "rokeris". Jei "roko muzika" - visur "roko", ne kartais "rocko"
+- Nusistovėję LT terminai: rokas (ne "rockas"), roko muzika, sunkusis metalas, pankrokas, alternatyvusis rokas, popmuzika, repo muzika, elektroninė muzika, hiphopas, džiazas, bliuzas, kantri, soulas, fankas, regetonas, disko
+- Palik angliškai: albumų ir dainų pavadinimus, žanrus be nusistovėjusio LT atitikmens (grunge, shoegaze, post-punk, trip-hop, drum and bass)
+- Vengk vertimo klišių: "yra žinomas dėl" -> "išgarsėjo", "buvo įkurta" -> "susibūrė", "gimė ir užaugo" -> neminėk
+- Sakiniai turi būti įvairūs - ne visi pradėti nuo atlikėjo vardo`
 
     console.log('[generate-description] wikiTitle:', wikiTitle, 'type:', type, 'sourceText length:', sourceText.length, 'apiKey set:', !!process.env.ANTHROPIC_API_KEY)
     const apiRes = await fetch('https://api.anthropic.com/v1/messages', {
