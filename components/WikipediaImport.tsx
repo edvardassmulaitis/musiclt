@@ -1205,10 +1205,47 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
 
           {/* Description */}
           <div className="px-4 py-2.5">
-            {p.description
-              ? <p className="text-xs text-gray-500 leading-relaxed line-clamp-3">{p.description}</p>
-              : null
-            }
+            {p.description ? (
+              <div>
+                <div
+                  className="text-xs text-gray-600 leading-relaxed cursor-pointer"
+                  style={{ maxHeight: (preview as any)?._descExpanded ? 'none' : '4.5em', overflow: 'hidden', position: 'relative' }}
+                  onClick={() => setPreview(prev => prev ? { ...prev, _descExpanded: !(prev as any)._descExpanded } as any : prev)}
+                >
+                  <div dangerouslySetInnerHTML={{ __html: p.description }} />
+                  {!(preview as any)?._descExpanded && (
+                    <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white to-transparent" />
+                  )}
+                </div>
+                <div className="flex items-center gap-3 mt-1">
+                  <button type="button"
+                    className="text-[11px] text-gray-400 hover:text-gray-600"
+                    onClick={() => setPreview(prev => prev ? { ...prev, _descExpanded: !(prev as any)._descExpanded } as any : prev)}>
+                    {(preview as any)?._descExpanded ? '▲ Sutraukti' : '▼ Rodyti visą'}
+                  </button>
+                  <button type="button"
+                    className="text-[11px] text-blue-500 hover:text-blue-700"
+                    onClick={() => setPreview(prev => prev ? { ...prev, _descEditing: true, _descExpanded: true } as any : prev)}>
+                    ✎ Redaguoti
+                  </button>
+                </div>
+                {(preview as any)?._descEditing && (
+                  <div className="mt-2">
+                    <textarea
+                      className="w-full text-xs border border-gray-300 rounded-lg p-2.5 leading-relaxed focus:ring-1 focus:ring-blue-400 focus:border-blue-400 resize-y"
+                      rows={8}
+                      defaultValue={p.description.replace(/<\/?p>/g, '\n\n').replace(/<[^>]+>/g, '').trim()}
+                      onBlur={e => {
+                        const text = e.target.value.trim()
+                        const html = text ? '<p>' + text.split(/\n\n+/).map(s => s.replace(/\n/g, ' ').trim()).filter(Boolean).join('</p><p>') + '</p>' : ''
+                        setPreview(prev => prev ? { ...prev, description: html, _descEditing: false } : prev)
+                      }}
+                    />
+                    <div className="text-[10px] text-gray-400 mt-0.5">Pastraipos skiriamos tuščia eilute. Paspauskit kitur kad išsaugoti.</div>
+                  </div>
+                )}
+              </div>
+            ) : null}
             <button
               type="button"
               onClick={async () => {
@@ -1217,16 +1254,16 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
                   const dr = await fetch('/api/generate-description', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                      wikiTitle: extractSlug(url) || undefined, 
+                    body: JSON.stringify({
+                      wikiTitle: extractSlug(url) || undefined,
                       ytDescription: !extractSlug(url) ? (p as any).rawDescription || p.description || undefined : undefined,
-                      type: p.type 
+                      type: p.type
                     }),
                   })
                   if (dr.ok) {
                     const d: any = await dr.json()
                     if (d.description) {
-                      setPreview(prev => prev ? { ...prev, description: d.description } : prev)
+                      setPreview(prev => prev ? { ...prev, description: d.description, _descExpanded: true, _descEditing: false } as any : prev)
                       setTranslateOk(true)
                     }
                   }

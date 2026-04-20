@@ -62,30 +62,41 @@ Reikalavimai:
       lengthInstruction = isGroup ? '2–3 pastraipos (apie 120–180 žodžių)' : '1–2 pastraipos (apie 80–130 žodžių)'
     }
 
-    const prompt = `Esi patyręs muzikos žurnalistas, rašantis lietuviškam muzikos portalui Music.lt.
+    const prompt = `Tu esi patyręs lietuvių muzikos žurnalistas, rašantis portalui Music.lt. Tavo tekstai skaitomi žmonių, kurie domisi muzika ir nori sužinoti, kodėl šis atlikėjas svarbus.
 
-Remdamasis šia informacija apie atlikėją, parašyk REDAKCINĮ APRAŠYMĄ lietuvių kalba:
+Štai angliškas šaltinis apie atlikėją:
 
 ---
 ${sourceText}
 ---
 
-STILIUS ir TURINYS:
-- Rašyk kaip muzikos kritikas - ne biografas ar enciklopedistas
-- Pagrindinis akcentas: MUZIKA, ĮTAKA, STILIUS, REIKŠMĖ - ne biografija
-- Neminėk gimimo datos, tikro vardo, šeimyninių detalių (tai rodoma kitur)
-- Minėk svarbiausius albumus, hitus, žanrą, stilistinę evoliuciją, palikimą
-- Rašyk trečiuoju asmeniu, natūraliai ir įtraukiančiai
+Parašyk ORIGINALŲ aprašymą LIETUVIŲ kalba. NE versk šaltinio — perskaityk, suprask esmę, ir parašyk savo žodžiais.
+
+TURINYS (prioriteto tvarka):
+1. Kokią muziką kuria? Koks žanras, stilius, garsas?
+2. Kodėl svarbus? Įtaka scenai, novatoriškumas, pasiekimai
+3. Svarbiausi albumai ir dainos — ne visi, tik patys reikšmingiausi
+4. Kaip keitėsi stilius per karjerą?
+5. NEMINĖK: gimimo datos, tikro vardo, šeimyninių detalių, socialinių tinklų
+
+STILIUS:
+- Rašyk kaip muzikos kritikas žurnale, NE kaip Vikipedijos straipsnį
+- Pirmas sakinys turi iškart pasakyti kas šis atlikėjas yra muzikoje (ne biografija)
+- Trečiasis asmuo, bet gyvas, ne sausas
+- Galima turėti nuomonę — "vienas įtakingiausių", "išskirtinis", "legendinis"
 
 FORMATAS:
 - Ilgis: ${lengthInstruction}
-- Kiekviena pastraipa atskirta tuščia eilute
-- Jokių antraščių, sąrašų ar formatavimo - tik grynas tekstas
-- Naudok tik paprastą brūkšnelį "-", NE "–" ar "—"
+- Pastraipos atskirtos tuščia eilute
+- Jokių antraščių, sąrašų, bullet points — tik teksto pastraipos
+- Naudok paprastą brūkšnelį "-", ne ilgąjį "–"
 
-KALBA:
-- Taisyklinga, natūrali lietuvių kalba - NE vertimas
-- Tekstas turi skambėti kaip parašytas žmogaus`
+LIETUVIŲ KALBA:
+- Tekstas turi skambėti NATŪRALIAI — kaip parašytas gimtakalbio
+- Vartok lietuviškus muzikinius terminus kur įmanoma (albumas, daina, roko muzika, sunkusis metalas)
+- Bet palik angliškai: albumų pavadinimus, dainų pavadinimus, žanrus kurie neturi nusistovėjusio LT atitikmens (pvz. "grunge", "shoegaze")
+- Vengk vertimo klišių: "yra žinomas dėl" → "išgarsėjo", "buvo įkurta" → "susibūrė"
+- Sakiniai turi būti įvairūs — ne visi pradėti nuo atlikėjo vardo`
 
     console.log('[generate-description] wikiTitle:', wikiTitle, 'type:', type, 'sourceText length:', sourceText.length, 'apiKey set:', !!process.env.ANTHROPIC_API_KEY)
     const apiRes = await fetch('https://api.anthropic.com/v1/messages', {
