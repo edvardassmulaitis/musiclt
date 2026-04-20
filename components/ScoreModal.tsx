@@ -104,11 +104,11 @@ export default function ScoreModal({ artistId, onClose }: { artistId: string; on
 
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center px-4"
+      className="fixed inset-0 flex items-center justify-center px-4 py-4 overflow-y-auto"
       style={{ zIndex: 9999, background: 'rgba(0,0,0,0.3)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="bg-white rounded-2xl shadow-2xl border border-[var(--border-subtle)] w-full max-w-md overflow-hidden max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl border border-[var(--border-subtle)] w-full max-w-md overflow-hidden my-auto max-h-[calc(100vh-2rem)] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-[var(--border-subtle)] sticky top-0 bg-white z-10">
           <div className="flex items-center gap-2">
