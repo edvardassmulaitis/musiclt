@@ -45,8 +45,9 @@ export async function GET(req: NextRequest) {
   const limit = parseInt(searchParams.get('limit') || '50')
   const offset = parseInt(searchParams.get('offset') || '0')
   const search = searchParams.get('search') || ''
+  const sort = searchParams.get('sort') || 'name'
   try {
-    const result = await getArtists(limit, offset, search)
+    const result = await getArtists(limit, offset, search, sort)
     return NextResponse.json(result)
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })

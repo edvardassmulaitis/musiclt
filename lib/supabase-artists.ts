@@ -72,7 +72,13 @@ function decodeCaption(caption: string | null): { author?: string; sourceUrl?: s
   return { caption }
 }
 
-export async function getArtists(limit = 50, offset = 0, search = '') {
+export async function getArtists(limit = 50, offset = 0, search = '', sort = 'name') {
+  const selectFields = 'id, slug, name, country, type, active_from, active_until, cover_image_url, is_verified, is_active, score'
+
+  // Determine order
+  const orderCol = sort === 'score' ? 'score' : 'name'
+  const orderAsc = sort !== 'score' // score descending, name ascending
+
   if (search) {
     const { data, error } = await supabase.rpc('search_artists', {
       search_term: search,
@@ -82,20 +88,25 @@ export async function getArtists(limit = 50, offset = 0, search = '') {
     if (error) {
       const { data: fallback, count, error: e2 } = await supabase
         .from('artists')
-        .select('id, slug, name, country, type, active_from, active_until, cover_image_url, is_verified', { count: 'exact' })
+        .select(selectFields, { count: 'exact' })
         .ilike('name', `%${search}%`)
-        .order('name')
+        .order(orderCol, { ascending: orderAsc, nullsFirst: false })
         .range(offset, offset + limit - 1)
       if (e2) throw e2
       return { artists: fallback || [], total: count || 0 }
     }
-    return { artists: data || [], total: data?.length || 0 }
+    // RPC doesn't support sorting, so sort client-side if needed
+    let results = data || []
+    if (sort === 'score') {
+      results = [...results].sort((a: any, b: any) => (b.score ?? -1) - (a.score ?? -1))
+    }
+    return { artists: results, total: results.length }
   }
 
   const { data, count, error } = await supabase
     .from('artists')
-    .select('id, slug, name, country, type, active_from, active_until, cover_image_url, is_verified', { count: 'exact' })
-    .order('name')
+    .select(selectFields, { count: 'exact' })
+    .order(orderCol, { ascending: orderAsc, nullsFirst: false })
     .range(offset, offset + limit - 1)
 
   if (error) throw error

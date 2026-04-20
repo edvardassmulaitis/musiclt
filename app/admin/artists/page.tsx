@@ -18,7 +18,10 @@ type Artist = {
   cover_image_url?: string
   is_verified?: boolean
   is_active?: boolean
+  score?: number | null
 }
+
+type SortKey = 'name' | 'score'
 
 type ConfirmMode = 'deactivate' | 'delete_permanent'
 
@@ -28,6 +31,7 @@ export default function ArtistsAdmin() {
   const [artists, setArtists] = useState<Artist[]>([])
   const [total, setTotal] = useState(0)
   const [search, setSearch] = useState('')
+  const [sort, setSort] = useState<SortKey>('name')
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState<number | null>(null)
   const [confirmId, setConfirmId] = useState<number | null>(null)
@@ -37,17 +41,17 @@ export default function ArtistsAdmin() {
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
   const isSuperAdmin = session?.user?.role === 'super_admin'
 
-  const load = useCallback(async (q: string) => {
+  const load = useCallback(async (q: string, s: SortKey = sort) => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/artists?limit=100&search=${encodeURIComponent(q)}&includeInactive=true`)
+      const res = await fetch(`/api/artists?limit=100&search=${encodeURIComponent(q)}&sort=${s}&includeInactive=true`)
       const data = await res.json()
       setArtists(data.artists || [])
       setTotal(data.total || 0)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [sort])
 
   useEffect(() => {
     if (status === 'unauthenticated') { router.push('/auth/signin'); return }
@@ -58,7 +62,12 @@ export default function ArtistsAdmin() {
   const handleSearch = (value: string) => {
     setSearch(value)
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => load(value), 500)
+    debounceRef.current = setTimeout(() => load(value, sort), 500)
+  }
+
+  const handleSort = (key: SortKey) => {
+    setSort(key)
+    load(search, key)
   }
 
   const handleDeactivate = async (id: number) => {
@@ -121,7 +130,18 @@ export default function ArtistsAdmin() {
               placeholder="Ieškoti..."
               className="w-full px-3 py-1.5 bg-[var(--bg-elevated)] border border-[var(--input-border)] rounded-lg text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-400 text-sm" />
           </div>
-          <div className="ml-auto">
+          <div className="flex items-center gap-1 shrink-0">
+            <button onClick={() => handleSort('name')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${sort === 'name' ? 'bg-blue-100 text-blue-700' : 'text-[var(--text-muted)] hover:bg-[var(--bg-hover)]'}`}>
+              A–Z
+            </button>
+            <button onClick={() => handleSort('score')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1 ${sort === 'score' ? 'bg-blue-100 text-blue-700' : 'text-[var(--text-muted)] hover:bg-[var(--bg-hover)]'}`}>
+              <svg viewBox="0 0 16 16" className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M8 1l2.1 4.3 4.7.7-3.4 3.3.8 4.7L8 11.8 3.8 14l.8-4.7L1.2 6l4.7-.7z"/></svg>
+              Score
+            </button>
+          </div>
+          <div className="shrink-0">
             <Link href="/admin/artists/new"
               className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-sm transition-colors whitespace-nowrap">
               + Naujas
@@ -200,6 +220,7 @@ export default function ArtistsAdmin() {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide hidden sm:table-cell">Tipas</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide hidden md:table-cell">Šalis</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide hidden md:table-cell">Aktyvus</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide w-16">Score</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">Veiksmai</th>
                 </tr>
               </thead>
@@ -242,6 +263,16 @@ export default function ArtistsAdmin() {
                       {artist.active_from
                         ? `${artist.active_from}${artist.active_until ? ` – ${artist.active_until}` : ' – dabar'}`
                         : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {artist.score != null ? (
+                        <span className="inline-flex items-center gap-0.5 text-xs font-bold tabular-nums text-[var(--text-secondary)]">
+                          <svg viewBox="0 0 16 16" className="w-3 h-3 text-amber-400" fill="currentColor" stroke="none"><path d="M8 1l2.1 4.3 4.7.7-3.4 3.3.8 4.7L8 11.8 3.8 14l.8-4.7L1.2 6l4.7-.7z"/></svg>
+                          {artist.score}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-[var(--text-faint)]">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1.5 justify-end">
