@@ -1669,43 +1669,6 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       }
     }
 
-    // Žingsnis 2: singlams, kuriems vis dar nėra datos — bandyti iš individualios singlo Wikipedia puslapio
-    const stillNeedsDates = toImport.filter(s => {
-      const key = s.title.toLowerCase().replace(/[''"]/g, '')
-      return !s.month && !extraDates.get(key)?.month
-    })
-    if (stillNeedsDates.length > 0) {
-      addLog(`📅 Ieškoma datų iš ${stillNeedsDates.length} singlų Wiki puslapių...`)
-      let foundFromPages = 0
-      for (const song of stillNeedsDates) {
-        try {
-          const wikiTitle = song.title.replace(/ /g, '_')
-          let wt = await fetchWikitext(wikiTitle)
-          // Jei nerado — bandyti su disambig sufixais
-          if (!wt || !wt.includes('released')) {
-            const suffixes = ['_(song)', `_(${artistName.replace(/ /g, '_')}_song)`, '_(single)']
-            for (const suffix of suffixes) {
-              const wt2 = await fetchWikitext(wikiTitle + suffix)
-              if (wt2 && wt2.includes('released')) { wt = wt2; break }
-              await new Promise(r => setTimeout(r, 100))
-            }
-          }
-          if (wt && wt.includes('released')) {
-            const dateInfo = parseReleaseDate(wt)
-            if (dateInfo.month) {
-              const key = song.title.toLowerCase().replace(/[''"]/g, '')
-              if (!extraDates.has(key)) {
-                extraDates.set(key, dateInfo)
-                foundFromPages++
-              }
-            }
-          }
-        } catch {}
-        await new Promise(r => setTimeout(r, 200))
-      }
-      if (foundFromPages > 0) addLog(`✓ ${foundFromPages} datų iš singlų puslapių`)
-    }
-
     for (const song of toImport) {
       setSongs(p => p.map(s => s.title === song.title ? { ...s, importing: true } : s))
       updateTask('import-singles', `${song.title} (${songsDone + 1}/${toImport.length})`)
@@ -1786,13 +1749,50 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
           // Naudoti extraDates jei song.month nežinomas
           const key = song.title.toLowerCase().replace(/[''"]/g, '')
           const extra = !song.month ? extraDates.get(key) : null
+
+          // Viršelis ir data iš singlo Wikipedia puslapio
+          let coverUrl = ''
+          let wikiDate: { year: number|null; month: number|null; day: number|null } | null = null
+          const wikiTitle = song.title.replace(/ /g, '_')
+          try {
+            // Bandyti rasti singlo puslapį
+            const suffixes = ['', '_(song)', `_(${artistName.replace(/ /g, '_')}_song)`, '_(single)']
+            for (const suffix of suffixes) {
+              const testTitle = wikiTitle + suffix
+              const [testCover, testWt] = await Promise.all([
+                fetchCoverImage(testTitle),
+                !extra?.month ? fetchWikitext(testTitle) : Promise.resolve('')
+              ])
+              if (testCover) {
+                coverUrl = testCover
+                if (testWt && testWt.includes('released')) {
+                  wikiDate = parseReleaseDate(testWt)
+                }
+                break
+              }
+              // Jei nerado viršelio — tikrinti ar bent wikitext'as turi released lauką
+              if (testWt && testWt.includes('released')) {
+                wikiDate = parseReleaseDate(testWt)
+                // Bandyti su originalimage iš summary — gal buvo tik thumbnail issue
+                break
+              }
+              await new Promise(r => setTimeout(r, 100))
+            }
+          } catch {}
+
+          // Surinkti galutines datas: extra > wikiDate > song
+          const finalYear = extra?.year ?? wikiDate?.year ?? song.year
+          const finalMonth = extra?.month ?? wikiDate?.month ?? song.month
+          const finalDay = extra?.day ?? wikiDate?.day ?? song.day
+
           const res = await fetch('/api/tracks', {
             method: 'POST', headers: {'Content-Type':'application/json'},
             body: JSON.stringify({
               title: song.title, artist_id: artistId, type: 'normal', is_single: true,
-              release_year: extra?.year ?? song.year,
-              release_month: extra?.month ?? song.month,
-              release_day: extra?.day ?? song.day,
+              release_year: finalYear,
+              release_month: finalMonth,
+              release_day: finalDay,
+              cover_url: coverUrl || undefined,
               featuring: featuring.length > 0 ? featuring : undefined,
             }),
           })
