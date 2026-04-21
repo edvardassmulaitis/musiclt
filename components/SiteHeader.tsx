@@ -11,6 +11,7 @@ const NAV = [
   { label: 'Topai',             href: '/topas' },
   { label: 'Naujienos',         href: '/naujienos' },
   { label: 'Renginiai',         href: '/renginiai' },
+  { label: 'Balsavimai',        href: '/balsavimai' },
   { label: 'Diskusijos',        href: '/diskusijos' },
 ]
 

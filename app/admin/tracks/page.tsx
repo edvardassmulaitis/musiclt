@@ -21,6 +21,15 @@ function AdminTracksContent() {
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState<number | null>(null)
   const [artistName, setArtistName] = useState<string | null>(null)
+  // Bulk action state — checkbox'ai naudojami merge flow'ui (reikia lygiai 2 pažymėtų dainų).
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+  const toggleSelected = (id: number) => setSelected(prev => {
+    const next = new Set(prev)
+    if (next.has(id)) next.delete(id); else next.add(id)
+    return next
+  })
+  const clearSelection = () => setSelected(new Set())
+  const selectedArr = [...selected]
 
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
 
@@ -57,7 +66,18 @@ function AdminTracksContent() {
     await fetch(`/api/tracks/${id}`, { method: 'DELETE' })
     setTracks(p => p.filter(t => t.id !== id))
     setTotal(p => p - 1)
+    setSelected(prev => { const n = new Set(prev); n.delete(id); return n })
     setDeleting(null)
+  }
+
+  // Selection reset kai keičiasi atlikėjas arba paieškos rezultatai — apsauga,
+  // kad nesukeltume merge'o tarp dainų iš skirtingų filtrų
+  useEffect(() => { clearSelection() }, [artistId])
+
+  const goMergeSelected = () => {
+    if (selectedArr.length !== 2) return
+    const [a, b] = selectedArr
+    router.push(`/admin/tracks/merge?a=${a}&b=${b}`)
   }
 
   if (status === 'loading' || !isAdmin) return null
@@ -75,10 +95,19 @@ function AdminTracksContent() {
               🎵 {artistName ? `${artistName} — dainos` : 'Dainos'} <span className="text-[var(--text-muted)] font-normal text-lg">({total})</span>
             </h1>
           </div>
-          <Link href={`/admin/tracks/new${artistId ? `?artist_id=${artistId}` : ''}`}
-            className="px-5 py-2.5 bg-music-blue text-white rounded-xl font-bold hover:opacity-90">
-            + Nauja daina
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/admin/tracks/merge"
+              className="px-4 py-2.5 bg-[var(--bg-surface)] border border-[var(--input-border)] text-[var(--text-secondary)] rounded-xl font-medium hover:border-music-blue hover:text-music-blue transition-colors"
+              title="Atskiras merge įrankis — paieška dviem dainoms iš bet kur"
+            >
+              🔀 Sulieti dainas
+            </Link>
+            <Link href={`/admin/tracks/new${artistId ? `?artist_id=${artistId}` : ''}`}
+              className="px-5 py-2.5 bg-music-blue text-white rounded-xl font-bold hover:opacity-90">
+              + Nauja daina
+            </Link>
+          </div>
         </div>
 
         <div className="bg-[var(--bg-surface)] rounded-xl shadow-sm border border-[var(--input-border)] mb-4 p-4">
@@ -96,6 +125,9 @@ function AdminTracksContent() {
             <table className="w-full">
               <thead className="bg-[var(--bg-elevated)] border-b border-[var(--border-subtle)]">
                 <tr>
+                  <th className="px-3 py-3 w-10">
+                    <span className="sr-only">Pažymėti</span>
+                  </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">Daina</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">Atlikėjas</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">Albumas</th>
@@ -106,7 +138,19 @@ function AdminTracksContent() {
               </thead>
               <tbody className="divide-y divide-[var(--border-subtle)]">
                 {tracks.map(t => (
-                  <tr key={t.id} className="hover:bg-[var(--bg-hover)] group">
+                  <tr
+                    key={t.id}
+                    className={`group ${selected.has(t.id) ? 'bg-music-blue/5' : 'hover:bg-[var(--bg-hover)]'}`}
+                  >
+                    <td className="px-3 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selected.has(t.id)}
+                        onChange={() => toggleSelected(t.id)}
+                        aria-label={`Pažymėti dainą ${t.title}`}
+                        className="w-4 h-4 accent-music-blue cursor-pointer"
+                      />
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <span className="text-base">{t.video_url ? '🎬' : '🎵'}</span>
@@ -156,7 +200,7 @@ function AdminTracksContent() {
                 ))}
                 {!tracks.length && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-16 text-center text-gray-400">
+                    <td colSpan={7} className="px-4 py-16 text-center text-gray-400">
                       <div className="text-4xl mb-3">🎵</div>
                       <div className="font-medium">Dainų nerasta</div>
                     </td>
@@ -167,6 +211,46 @@ function AdminTracksContent() {
           )}
         </div>
       </div>
+
+      {/* Bulk action bar — atsiranda kai yra bent 1 pažymėta daina.
+          Merge reikalauja lygiai 2 pažymėtų; kitaip mygtukas disabled ir rodo hint'ą. */}
+      {selected.size > 0 && (
+        <div
+          className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--input-border)] bg-[var(--bg-surface)] shadow-[0_-4px_16px_rgba(0,0,0,0.06)]"
+          role="region"
+          aria-label="Masinių veiksmų juosta"
+        >
+          <div className="max-w-full px-6 py-3 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={clearSelection}
+                className="text-[var(--text-muted)] hover:text-[var(--text-primary)] text-sm"
+                aria-label="Atšaukti žymėjimą"
+              >
+                ✕
+              </button>
+              <span className="text-sm font-medium text-[var(--text-primary)]">
+                Pažymėta: {selected.size}
+              </span>
+              {selected.size !== 2 && (
+                <span className="text-xs text-[var(--text-muted)]">
+                  (merge'ui reikia lygiai 2)
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={goMergeSelected}
+                disabled={selected.size !== 2}
+                className="px-4 py-2 bg-music-blue text-white rounded-lg font-semibold text-sm hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+                title={selected.size === 2 ? 'Pereiti į merge preview' : 'Pažymėk lygiai dvi dainas'}
+              >
+                🔀 Sulieti pažymėtas ({selected.size})
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

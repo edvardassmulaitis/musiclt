@@ -551,6 +551,15 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
 
           <div className="flex items-center gap-1.5 shrink-0">
             {!isNewTrack && (
+              <Link
+                href={`/admin/tracks/merge?a=${id}`}
+                className="flex items-center gap-1 px-2.5 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] rounded-lg text-sm font-medium transition-colors"
+                title="Sulieti šią dainą su kita (duplikato sujungimas)"
+              >
+                <span aria-hidden>🔀</span><span className="hidden sm:inline">Sulieti</span>
+              </Link>
+            )}
+            {!isNewTrack && (
               <button onClick={handleDelete} disabled={deleting}
                 className="flex items-center gap-1 px-2.5 py-1.5 text-red-500 hover:bg-red-50 rounded-lg text-sm font-medium transition-colors disabled:opacity-50">
                 <IcoTrash /><span className="hidden sm:inline">Ištrinti</span>

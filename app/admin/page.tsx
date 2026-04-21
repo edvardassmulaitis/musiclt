@@ -45,6 +45,7 @@ export default function AdminDashboardPage() {
     { href: '/admin/tracks', newHref: '/admin/tracks/new', icon: '🎵', label: 'Dainos', count: counts?.tracks },
     { href: '/admin/news', newHref: '/admin/news/new', icon: '📰', label: 'Naujienos', count: counts?.news },
     { href: '/admin/events', newHref: '/admin/events/new', icon: '📅', label: 'Renginiai', count: counts?.events },
+    { href: '/admin/voting', newHref: '/admin/voting', icon: '🗳️', label: 'Balsavimai' },
   ]
 
   return (
