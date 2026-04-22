@@ -75,6 +75,7 @@ export default function EditionAdmin({ params }: { params: Promise<{ channelId: 
   const [loadingParticipants, setLoadingParticipants] = useState(false)
   const [showNewEvent, setShowNewEvent] = useState(false)
   const [showImport, setShowImport] = useState(false)
+  const [showEditionImport, setShowEditionImport] = useState(false)
   const [showNewParticipant, setShowNewParticipant] = useState(false)
 
   useEffect(() => {
@@ -148,12 +149,21 @@ export default function EditionAdmin({ params }: { params: Promise<{ channelId: 
           <h1 className="text-2xl font-bold">{edition.name}</h1>
           <div className="text-xs text-gray-500">/{edition.slug} · {STATUS_LABELS[edition.status] || edition.status}</div>
         </div>
-        <button
-          onClick={() => setShowNewEvent(true)}
-          className="px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600 text-sm font-medium"
-        >
-          + Nauji rinkimai
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowEditionImport(true)}
+            className="px-4 py-2 border border-orange-500 text-orange-600 rounded hover:bg-orange-50 text-sm font-medium"
+            title="Importuoti visas kategorijas + nominantus iš Wikipedia (Awards-style)"
+          >
+            📥 Importuoti iš Wikipedia
+          </button>
+          <button
+            onClick={() => setShowNewEvent(true)}
+            className="px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600 text-sm font-medium"
+          >
+            + Nauji rinkimai
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
@@ -373,6 +383,17 @@ export default function EditionAdmin({ params }: { params: Promise<{ channelId: 
           }}
         />
       )}
+
+      {showEditionImport && (
+        <WikipediaVotingImport
+          editionId={edition.id}
+          onClose={() => setShowEditionImport(false)}
+          onDone={() => {
+            setShowEditionImport(false)
+            loadEdition()
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -460,7 +481,7 @@ function NewEventModal({
           )}
         </div>
         <div className="mt-4 p-3 rounded bg-orange-50 border border-orange-200 text-xs text-orange-900">
-          💡 <strong>Po sukūrimo</strong> galėsi importuoti dalyvius iš Wikipedia (kairėje pasirink rinkimus → „Importas iš Wikipedia") arba pridėti rankiniu būdu.
+          💡 Rankinis kūrimas tinka <strong>Eurovision-style</strong> rinkimams (vienas event'as, daug dalyvių). <strong>Awards-style</strong> leidimams (Grammy, MAMA su ~30 kategorijų) — uždaryk šį langą ir naudok <strong>„📥 Importuoti iš Wikipedia"</strong> button'ą viršuje: parseris pats atpažins visas kategorijas, nustatys tipus ir užpildys nominantus.
         </div>
         <div className="flex justify-end gap-2 mt-5">
           <button onClick={onClose} className="px-4 py-2 border rounded">Atšaukti</button>
