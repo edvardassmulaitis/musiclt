@@ -993,6 +993,9 @@ export default function WikipediaVotingImport({ eventId, editionId, onDone, onCl
   const [importing, setImporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [replaceExisting, setReplaceExisting] = useState(false)
+  // Inline edit'ui reikalingi state'ai: kuris nominantas šiuo metu edit'inamas ir draft'as
+  const [editingArtist, setEditingArtist] = useState<{ ci: number; ni: number } | null>(null)
+  const [editDraft, setEditDraft] = useState('')
   const [parseStage, setParseStage] = useState<string | null>(null)
   const [importProgress, setImportProgress] = useState<{ done: number; total: number; current?: string } | null>(null)
 
@@ -1329,6 +1332,56 @@ export default function WikipediaVotingImport({ eventId, editionId, onDone, onCl
     })
   }
 
+  /** Inline edit: pakeičia pagrindinį atlikėjo vardą. Kai user'is paredaguoja vardą,
+   *  DB match invaliduojamas (existing_artist_id išvalomas) — backend'as per importą
+   *  pats pakartos match'ą su nauju vardu. */
+  function updateMainArtist(catIdx: number, nomIdx: number, newName: string) {
+    if (!result || result.mode !== 'awards') return
+    const trimmed = newName.trim()
+    if (!trimmed) return
+    setResult({
+      ...result,
+      categories: result.categories.map((c, i) => i !== catIdx ? c : {
+        ...c,
+        nominees: c.nominees.map((n, j) => {
+          if (j !== nomIdx) return n
+          const hasFeat = !!(n.parsed_artists && n.parsed_artists.length > 1)
+          return {
+            ...n,
+            artist_name: hasFeat ? n.artist_name : trimmed,
+            parsed_artists: hasFeat ? [trimmed, ...n.parsed_artists!.slice(1)] : n.parsed_artists,
+            existing_artist_id: undefined,
+            group_match: false,
+          }
+        }),
+      }),
+    })
+  }
+
+  /** Ištrina `featIdx`-ąjį featuring atlikėją iš `parsed_artists` sąrašo.
+   *  Jei po ištrynimo lieka tik vienas atlikėjas — parsed_artists panaikinamas. */
+  function removeFeaturing(catIdx: number, nomIdx: number, featIdx: number) {
+    if (!result || result.mode !== 'awards') return
+    setResult({
+      ...result,
+      categories: result.categories.map((c, i) => i !== catIdx ? c : {
+        ...c,
+        nominees: c.nominees.map((n, j) => {
+          if (j !== nomIdx) return n
+          if (!n.parsed_artists || n.parsed_artists.length <= 1) return n
+          // featIdx=0 reiškia pirmąjį FEAT (t.y. parsed_artists[1])
+          const newList = n.parsed_artists.filter((_, k) => k !== featIdx + 1)
+          return {
+            ...n,
+            parsed_artists: newList.length > 1 ? newList : undefined,
+            // artist_name atnaujinam į main (pirmąjį), jei buvo featuring struktūra
+            artist_name: newList[0] || n.artist_name,
+          }
+        }),
+      }),
+    })
+  }
+
   function toggleAllCategories() {
     if (!result || result.mode !== 'awards') return
     const all = result.categories.every(c => c.selected)
@@ -1513,12 +1566,25 @@ export default function WikipediaVotingImport({ eventId, editionId, onDone, onCl
                           const hasMainArtist = n.parsed_artists && n.parsed_artists.length > 0
                           const mainArtist = hasMainArtist ? n.parsed_artists![0] : n.artist_name
                           const featuring = hasMainArtist ? n.parsed_artists!.slice(1) : []
+                          const isEditing = editingArtist?.ci === ci && editingArtist?.ni === ni
+                          const commitEdit = () => {
+                            if (editDraft.trim() && editDraft.trim() !== mainArtist) {
+                              updateMainArtist(ci, ni, editDraft.trim())
+                            }
+                            setEditingArtist(null)
+                            setEditDraft('')
+                          }
                           return (
-                          <label
+                          <div
                             key={ni}
-                            className={`flex items-start gap-2 py-1.5 px-2 cursor-pointer hover:bg-[var(--bg-hover)] rounded ${!n.selected ? 'opacity-40' : ''}`}
+                            className={`flex items-start gap-2 py-1.5 px-2 hover:bg-[var(--bg-hover)] rounded ${!n.selected ? 'opacity-40' : ''}`}
                           >
-                            <input type="checkbox" className="mt-1" checked={n.selected} onChange={() => toggleNominee(ci, ni)} />
+                            <input
+                              type="checkbox"
+                              className="mt-1 cursor-pointer"
+                              checked={n.selected}
+                              onChange={() => toggleNominee(ci, ni)}
+                            />
                             {n.is_winner && <span className="text-xs mt-0.5">🏆</span>}
                             <div className="flex-1 min-w-0">
                               {/* Raw Wikipedia tekstas */}
@@ -1533,16 +1599,47 @@ export default function WikipediaVotingImport({ eventId, editionId, onDone, onCl
                               </div>
                               {/* Parsed preview: kas bus sukurta DB */}
                               {(featuring.length > 0 || n.song_title || n.album_title || n.existing_artist_id) ? (
-                                <div className="text-xs text-[var(--text-muted)] mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5">
-                                  <span className="text-[var(--text-faint)]">
-                                    → 🎤 <strong className={n.existing_artist_id ? 'text-emerald-600' : 'text-[var(--text-secondary)]'}>{mainArtist}</strong>
-                                    {n.existing_artist_id
-                                      ? <span className="ml-1 text-emerald-600" title="Atlikėjas jau yra DB">✓ #{n.existing_artist_id}</span>
-                                      : <span className="ml-1 text-blue-500" title="Bus sukurtas naujas">➕</span>}
-                                    {n.group_match && <span className="ml-1 text-purple-600" title="Rastas kaip grupė — nedalinta į feat">· grupė</span>}
+                                <div className="text-xs text-[var(--text-muted)] mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 items-center">
+                                  <span className="text-[var(--text-faint)] inline-flex items-center gap-1">
+                                    → 🎤{' '}
+                                    {isEditing ? (
+                                      <input
+                                        autoFocus
+                                        value={editDraft}
+                                        onChange={e => setEditDraft(e.target.value)}
+                                        onBlur={commitEdit}
+                                        onKeyDown={e => {
+                                          if (e.key === 'Enter') { e.preventDefault(); commitEdit() }
+                                          else if (e.key === 'Escape') { setEditingArtist(null); setEditDraft('') }
+                                        }}
+                                        className="px-1 py-0 text-xs border border-orange-300 rounded bg-white text-[var(--text-primary)] min-w-[120px]"
+                                      />
+                                    ) : (
+                                      <strong
+                                        className={`${n.existing_artist_id ? 'text-emerald-600' : 'text-[var(--text-secondary)]'} cursor-pointer hover:underline decoration-dashed`}
+                                        title="Paspausk, kad paredaguotum pagrindinį atlikėją"
+                                        onClick={() => { setEditingArtist({ ci, ni }); setEditDraft(mainArtist) }}
+                                      >
+                                        {mainArtist}
+                                      </strong>
+                                    )}
+                                    {!isEditing && (n.existing_artist_id
+                                      ? <span className="text-emerald-600" title="Atlikėjas jau yra DB">✓ #{n.existing_artist_id}</span>
+                                      : <span className="text-blue-500" title="Bus sukurtas naujas">➕</span>)}
+                                    {n.group_match && !isEditing && <span className="text-purple-600" title="Rastas kaip grupė — nedalinta į feat">· grupė</span>}
                                   </span>
                                   {featuring.map((f, fi) => (
-                                    <span key={fi} className="text-[var(--text-faint)]">+ feat. <span className="text-[var(--text-secondary)]">{f}</span></span>
+                                    <span key={fi} className="text-[var(--text-faint)] inline-flex items-center gap-0.5">
+                                      + feat. <span className="text-[var(--text-secondary)]">{f}</span>
+                                      <button
+                                        type="button"
+                                        onClick={e => { e.preventDefault(); removeFeaturing(ci, ni, fi) }}
+                                        className="ml-0.5 text-red-500 hover:text-red-700 font-bold px-1 rounded hover:bg-red-50 leading-none"
+                                        title={`Pašalinti „${f}" iš featuring sąrašo`}
+                                      >
+                                        ×
+                                      </button>
+                                    </span>
                                   ))}
                                   {n.song_title && (
                                     <span className="text-[var(--text-faint)]">
@@ -1564,7 +1661,7 @@ export default function WikipediaVotingImport({ eventId, editionId, onDone, onCl
                                 </div>
                               )}
                             </div>
-                          </label>
+                          </div>
                           )
                         })}
                       </div>
