@@ -112,7 +112,7 @@ export default function ChannelAdmin({ params }: { params: Promise<{ channelId: 
 
       {showNew && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowNew(false)}>
-          <div className="bg-white dark:bg-gray-900 p-6 rounded-lg shadow-lg w-full max-w-md m-4" onClick={evt => evt.stopPropagation()}>
+          <div className="bg-[var(--modal-bg)] border border-[var(--modal-border)] p-6 rounded-lg shadow-[var(--modal-shadow)] w-full max-w-md m-4" onClick={evt => evt.stopPropagation()}>
             <h2 className="text-xl font-bold mb-4">Naujas leidimas</h2>
             <div className="space-y-3">
               <div>

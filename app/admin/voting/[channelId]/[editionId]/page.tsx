@@ -167,7 +167,7 @@ export default function EditionAdmin({ params }: { params: Promise<{ channelId: 
                 onClick={() => setActiveEventId(e.id)}
                 className={`w-full text-left p-3 rounded border transition ${
                   activeEventId === e.id
-                    ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
+                    ? 'border-orange-500 bg-orange-50'
                     : 'border-[var(--border-default)] hover:bg-[var(--bg-hover)]'
                 }`}
               >
@@ -220,7 +220,7 @@ export default function EditionAdmin({ params }: { params: Promise<{ channelId: 
                   <select
                     value={activeEvent.status}
                     onChange={e => updateEvent({ status: e.target.value as any })}
-                    className="w-full px-2 py-1 border rounded bg-white dark:bg-gray-900"
+                    className="w-full px-2 py-1 border rounded bg-white"
                   >
                     <option value="draft">Juodraštis</option>
                     <option value="voting_open">Balsavimas atidarytas</option>
@@ -233,7 +233,7 @@ export default function EditionAdmin({ params }: { params: Promise<{ channelId: 
                   <select
                     value={activeEvent.voting_type}
                     onChange={e => updateEvent({ voting_type: e.target.value as any })}
-                    className="w-full px-2 py-1 border rounded bg-white dark:bg-gray-900"
+                    className="w-full px-2 py-1 border rounded bg-white"
                   >
                     <option value="single">Vienas balsas</option>
                     <option value="top_n">TOP-N</option>
@@ -247,7 +247,7 @@ export default function EditionAdmin({ params }: { params: Promise<{ channelId: 
                       type="number"
                       defaultValue={activeEvent.voting_top_n || 10}
                       onBlur={e => updateEvent({ voting_top_n: parseInt(e.target.value) || undefined })}
-                      className="w-full px-2 py-1 border rounded bg-white dark:bg-gray-900"
+                      className="w-full px-2 py-1 border rounded bg-white"
                     />
                   </div>
                 )}
@@ -256,7 +256,7 @@ export default function EditionAdmin({ params }: { params: Promise<{ channelId: 
                   <select
                     value={activeEvent.participant_type}
                     onChange={e => updateEvent({ participant_type: e.target.value as any })}
-                    className="w-full px-2 py-1 border rounded bg-white dark:bg-gray-900"
+                    className="w-full px-2 py-1 border rounded bg-white"
                   >
                     <option value="artist">Tik atlikėjas</option>
                     <option value="artist_song">Atlikėjas + daina</option>
@@ -268,7 +268,7 @@ export default function EditionAdmin({ params }: { params: Promise<{ channelId: 
                   <select
                     value={activeEvent.results_visible}
                     onChange={e => updateEvent({ results_visible: e.target.value as any })}
-                    className="w-full px-2 py-1 border rounded bg-white dark:bg-gray-900"
+                    className="w-full px-2 py-1 border rounded bg-white"
                   >
                     <option value="always">Visada</option>
                     <option value="after_close">Tik po uždarymo</option>
@@ -280,7 +280,7 @@ export default function EditionAdmin({ params }: { params: Promise<{ channelId: 
                   <select
                     value={activeEvent.requires_login ? 'y' : 'n'}
                     onChange={e => updateEvent({ requires_login: e.target.value === 'y' })}
-                    className="w-full px-2 py-1 border rounded bg-white dark:bg-gray-900"
+                    className="w-full px-2 py-1 border rounded bg-white"
                   >
                     <option value="n">Anon + registruoti</option>
                     <option value="y">Tik registruoti</option>
@@ -410,7 +410,7 @@ function NewEventModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white dark:bg-gray-900 p-6 rounded-lg shadow-lg w-full max-w-md m-4" onClick={e => e.stopPropagation()}>
+      <div className="bg-[var(--modal-bg)] border border-[var(--modal-border)] p-6 rounded-lg shadow-[var(--modal-shadow)] w-full max-w-md m-4" onClick={e => e.stopPropagation()}>
         <h2 className="text-xl font-bold mb-4">Nauji rinkimai</h2>
         <div className="space-y-3">
           <div>
@@ -458,6 +458,9 @@ function NewEventModal({
               />
             </div>
           )}
+        </div>
+        <div className="mt-4 p-3 rounded bg-orange-50 border border-orange-200 text-xs text-orange-900">
+          💡 <strong>Po sukūrimo</strong> galėsi importuoti dalyvius iš Wikipedia (kairėje pasirink rinkimus → „Importas iš Wikipedia") arba pridėti rankiniu būdu.
         </div>
         <div className="flex justify-end gap-2 mt-5">
           <button onClick={onClose} className="px-4 py-2 border rounded">Atšaukti</button>
@@ -507,7 +510,7 @@ function NewParticipantModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white dark:bg-gray-900 p-6 rounded-lg shadow-lg w-full max-w-md m-4" onClick={e => e.stopPropagation()}>
+      <div className="bg-[var(--modal-bg)] border border-[var(--modal-border)] p-6 rounded-lg shadow-[var(--modal-shadow)] w-full max-w-md m-4" onClick={e => e.stopPropagation()}>
         <h2 className="text-xl font-bold mb-4">Naujas dalyvis</h2>
         <div className="space-y-3">
           <div>

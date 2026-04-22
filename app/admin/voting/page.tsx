@@ -140,7 +140,7 @@ export default function VotingChannelsAdmin() {
 
       {showNew && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowNew(false)}>
-          <div className="bg-white dark:bg-gray-900 p-6 rounded-lg shadow-lg w-full max-w-md m-4" onClick={e => e.stopPropagation()}>
+          <div className="bg-[var(--modal-bg)] border border-[var(--modal-border)] p-6 rounded-lg shadow-[var(--modal-shadow)] w-full max-w-md m-4" onClick={e => e.stopPropagation()}>
             <h2 className="text-xl font-bold mb-4">Naujas kanalas</h2>
             <div className="space-y-3">
               <div>
