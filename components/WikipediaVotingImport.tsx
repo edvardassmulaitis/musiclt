@@ -166,10 +166,21 @@ async function fetchWikipediaHtml(host: string, title: string): Promise<string |
 
 /**
  * Fetch'ina dainos Wikipedia page'ą ir ištraukia TIKRĄ atlikėjo/grupės vardą iš infobox.
- * Song infobox'as turi „Artist:" arba „by", „Performer" eilutę, kurioje surašyti atlikėjai.
  * Songwriter'iai ir kompozitoriai yra ATSKIROJ eilutėj, todėl jie NEBUS paimti.
  *
  * Pvz. en.wikipedia.org/wiki/APT._(song) → Artist: Rosé & Bruno Mars (ne 9 songwriter'iai!)
+ *
+ * Wikipedia song/album infobox struktūra:
+ *   <tr class="description">
+ *     <th colspan="2">Single by <a href="/wiki/Rosé...">Rosé</a> and <a>Bruno Mars</a></th>
+ *   </tr>
+ *   <tr class="description">  ← šį PRALEIDŽIAM (nukreipia į albumą, ne atlikėją)
+ *     <th colspan="2">from the album <i><a>Rosie</a></i></th>
+ *   </tr>
+ *   <tr><th scope="row">Released</th><td>...</td></tr>  ← standart label row
+ *
+ * Strategy 1: description row su „[Type] by [Artists]" pattern (vyraujantis variantas)
+ * Strategy 2: klasikinis <th>Artist</th><td>...</td> row (fallback, retas songuose)
  */
 async function fetchSongArtistFromWiki(host: string, title: string): Promise<string | null> {
   const html = await fetchWikipediaHtml(host, title)
@@ -181,30 +192,71 @@ async function fetchSongArtistFromWiki(host: string, title: string): Promise<str
   const infobox = doc.querySelector('table.infobox') as Element | null
   if (!infobox) return null
 
-  const rows = infobox.querySelectorAll('tr')
-  for (const row of Array.from(rows)) {
+  const rows = Array.from(infobox.querySelectorAll('tr'))
+
+  // === Strategy 1: description row (singles, albumai, EP'ai) ===
+  // Description klasė gali būti ant <tr> (daina: APT, Wildflower) ARBA ant <th> (albumas: Chromakopia, Rosie).
+  for (const row of rows) {
+    const header = row.querySelector('th')
+    if (!header) continue
+    const isDesc = (row as Element).classList.contains('description') ||
+                   header.classList.contains('description')
+    if (!isDesc) continue
+
+    const rawText = (header.textContent || '').replace(/\s+/g, ' ').trim()
+    // Praleidžiam „from the album X" — tai albumas, ne atlikėjas
+    if (/^from\s+/i.test(rawText)) continue
+    // Turi turėti „ by " separatoriu (išfiltruoja „Tyler, the Creator chronology" ir pan.)
+    if (!/\s+by\s+/i.test(rawText)) continue
+
+    const clone = header.cloneNode(true) as Element
+    clone.querySelectorAll('sup, style, .reference, .mw-editsection, .noprint, .hatnote').forEach(n => n.remove())
+
+    // Renkame visus <a> linkus ir atmetam tipo link'us (Single/Song/Album — jie nurodo į meta puslapius)
+    const links = Array.from(clone.querySelectorAll('a')).map(a => ({
+      text: (a.textContent || '').replace(/\s+/g, ' ').trim(),
+      href: a.getAttribute('href') || '',
+    })).filter(l => l.text)
+
+    const TYPE_HREF = /^\/wiki\/(Single_\(music\)|Song|EP_\(music\)|Extended_play|Studio_album|Live_album|Compilation_album|Soundtrack_album|Album|Mixtape)\b/i
+    const TYPE_TEXT = /^(single|song|ep|studio\s*album|live\s*album|compilation\s*album|soundtrack|album|mixtape|extended\s*play)s?$/i
+
+    const artistLinks = links.filter(l => !TYPE_HREF.test(l.href) && !TYPE_TEXT.test(l.text))
+    if (artistLinks.length) {
+      const names = [...new Set(artistLinks.map(l => l.text))].filter(n => n.length >= 2 && n.length <= 80)
+      if (names.length) return names.join(' & ')
+    }
+
+    // Fallback — tekstas po „ by "
+    const byMatch = rawText.match(/\s+by\s+(.+)$/i)
+    if (byMatch) {
+      const after = byMatch[1].trim().replace(/\s+and\s+/gi, ' & ')
+      if (after.length >= 2 && after.length <= 200) return after
+    }
+  }
+
+  // === Strategy 2: klasikinis <th>Artist</th><td>...</td> row ===
+  for (const row of rows) {
     const th = row.querySelector('th')
     const td = row.querySelector('td')
     if (!th || !td) continue
     const label = (th.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase()
-    // Atpažįstam EN ir LT variantus — TIK atlikėjo eilutę, NE „Written by"/„Songwriter(s)"/„Composer"
     if (!/^(artists?|by|performed\s+by|performer(?:\(s\))?|singers?|vocalists?|atlik[eė]jas|atlik[eė]jai)\s*$/i.test(label))
       continue
 
     const clone = td.cloneNode(true) as Element
     clone.querySelectorAll('sup, style, .reference, .mw-editsection, .noprint, .hatnote').forEach(n => n.remove())
 
-    // Prioritetas — <a> linkai (tai Wiki atlikėjų page'ai)
     const links = Array.from(clone.querySelectorAll('a'))
       .map(a => (a.textContent || '').replace(/\s+/g, ' ').trim())
       .filter(Boolean)
     const uniqueLinks = [...new Set(links)].filter(n => n.length >= 2 && n.length <= 80)
     if (uniqueLinks.length) return uniqueLinks.join(' & ')
 
-    // Fallback — tekstas (kartais atlikėjas be wiki link'o)
     const textOnly = (clone.textContent || '').replace(/\[\d+\]/g, '').replace(/\s+/g, ' ').trim()
     if (textOnly && textOnly.length >= 2 && textOnly.length <= 200) return textOnly
   }
+
   return null
 }
 
