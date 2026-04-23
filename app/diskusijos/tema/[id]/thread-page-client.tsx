@@ -434,6 +434,14 @@ export default function ThreadPageClient({
         .wysiwyg iframe { max-width: 100%; border-radius: 6px; margin: 6px 0; border: 1px solid var(--border-subtle); }
         .wysiwyg img { max-width: 100%; height: auto; border-radius: 6px; }
         .wysiwyg a { color: #f97316; }
+        .wysiwyg ul { list-style: disc; padding-left: 20px; margin: 4px 0; }
+        .wysiwyg ol { list-style: decimal; padding-left: 24px; margin: 4px 0; }
+        .wysiwyg li { margin: 2px 0; }
+        .wysiwyg blockquote { border-left: 3px solid #f97316; padding-left: 10px; margin: 6px 0; color: var(--text-muted); }
+        .post-body ul { list-style: disc; padding-left: 20px; margin: 4px 0; }
+        .post-body ol { list-style: decimal; padding-left: 24px; margin: 4px 0; }
+        .post-body li { margin: 2px 0; }
+        .post-body blockquote { border-left: 3px solid #f97316; padding-left: 10px; margin: 6px 0; color: var(--text-muted); }
       `}</style>
 
       <div style={{ maxWidth: 880, margin: '0 auto', padding: '32px 24px 80px' }}>
@@ -707,8 +715,22 @@ function ReplyComposer({
     setSearching(false)
   }
 
+  /** Run an execCommand on the editor while preserving caret & selection. */
   const exec = (cmd: string, arg?: string) => {
-    editorRef.current?.focus()
+    const el = editorRef.current
+    if (!el) return
+    el.focus()
+    // If the current selection isn't inside the editor, move caret to the end.
+    const sel = window.getSelection()
+    if (!sel || sel.rangeCount === 0 || !el.contains(sel.anchorNode)) {
+      const range = document.createRange()
+      range.selectNodeContents(el)
+      range.collapse(false)
+      sel?.removeAllRanges()
+      sel?.addRange(range)
+    }
+    // Use styleWithCSS=false so lists render as real <ul>/<ol> tags.
+    try { document.execCommand('styleWithCSS', false, 'false') } catch { /* ignore */ }
     document.execCommand(cmd, false, arg)
   }
   const addLink = () => {
@@ -717,9 +739,22 @@ function ReplyComposer({
     const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]{11})/)
     if (yt) {
       const iframe = `<iframe src="https://www.youtube.com/embed/${yt[1]}" width="560" height="315" frameborder="0" allowfullscreen></iframe><p></p>`
+      editorRef.current?.focus()
       document.execCommand('insertHTML', false, iframe)
     } else {
       exec('createLink', url)
+    }
+  }
+
+  /** Intercept paste: if user pastes a YouTube URL, embed it directly. */
+  const onEditorPaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+    const text = e.clipboardData.getData('text/plain').trim()
+    const yt = text.match(/^https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([\w-]{11})/)
+    if (yt) {
+      e.preventDefault()
+      const iframe = `<iframe src="https://www.youtube.com/embed/${yt[1]}" width="560" height="315" frameborder="0" allowfullscreen></iframe><p></p>`
+      editorRef.current?.focus()
+      document.execCommand('insertHTML', false, iframe)
     }
   }
 
@@ -829,6 +864,7 @@ function ReplyComposer({
               className="wysiwyg"
               contentEditable
               suppressContentEditableWarning
+              onPaste={onEditorPaste}
               data-placeholder={parentPostLegacyId ? 'Atsakyk…' : 'Rašyk komentarą…'}
             />
             {attached.length > 0 && (

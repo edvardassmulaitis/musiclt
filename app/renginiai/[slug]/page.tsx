@@ -72,32 +72,31 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
 
       <div className="max-w-[1360px] mx-auto px-5 lg:px-8">
 
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-xs py-4" style={{ color: '#3d5878' }}>
-          <Link href="/renginiai" className="hover:text-blue-400 transition">Renginiai</Link>
-          <span style={{ color: '#1e2e42' }}>/</span>
-          <span className="truncate" style={{ color: '#5e7290' }}>{ev.title}</span>
-        </div>
+        {/* HERO: image left (only if present), info right */}
+        <div className={`flex flex-col lg:flex-row gap-8 ${ev.cover_image_url ? 'mb-10' : 'mb-6 pt-8'}`}>
 
-        {/* HERO: image left, info right */}
-        <div className="flex flex-col lg:flex-row gap-8 mb-10">
-
-          {/* Left: Cover */}
-          <div className="lg:w-[55%] flex-shrink-0">
-            {ev.cover_image_url ? (
+          {/* Left: Cover (hidden entirely when no image to avoid a broken placeholder box) */}
+          {ev.cover_image_url && (
+            <div className="lg:w-[55%] flex-shrink-0">
               <div className="rounded-2xl overflow-hidden aspect-[4/3] lg:aspect-auto lg:h-full relative">
-                <img src={ev.cover_image_url} alt={ev.title} className="w-full h-full object-cover" />
+                <img
+                  src={ev.cover_image_url}
+                  alt={ev.title}
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    // Hide the whole cover wrapper if the source is unreachable
+                    const wrapper = e.currentTarget.closest('div.lg\\:w-\\[55\\%\\]') as HTMLElement | null
+                    if (wrapper) wrapper.style.display = 'none'
+                  }}
+                />
                 <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(transparent 60%, rgba(8,12,18,0.4))' }} />
               </div>
-            ) : (
-              <div className="rounded-2xl aspect-[4/3] flex items-center justify-center" style={{ background: 'linear-gradient(135deg, rgba(29,78,216,0.1), rgba(249,115,22,0.06))' }}>
-                <span className="text-7xl opacity-20">&#127908;</span>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Right: Info */}
-          <div className="lg:w-[45%] flex flex-col justify-center">
+          <div className={`${ev.cover_image_url ? 'lg:w-[45%]' : 'w-full max-w-3xl'} flex flex-col justify-center`}>
 
             {/* Badges */}
             <div className="flex items-center gap-2 mb-3">
