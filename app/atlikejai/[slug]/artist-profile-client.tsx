@@ -331,22 +331,21 @@ function MusicSection({
     <section id="music">
       <SectionTitle label="Populiariausios dainos" />
       <div className="overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
-        {/* Video + Tracks grid — cells stretch to match video's aspect-video height on desktop */}
+        {/* Video + Tracks grid — video cell dictates row height via aspect-video;
+            right cell stretches to match (items-stretch by default) */}
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          {/* Video cell */}
-          <div className="relative flex aspect-video items-stretch bg-black lg:aspect-auto">
+          {/* Video cell — always aspect-video, defines row height */}
+          <div className="relative aspect-video overflow-hidden bg-black">
             {displayVid ? (
-              <div className="aspect-video w-full self-stretch lg:aspect-auto lg:h-full">
-                <iframe
-                  key={displayVid}
-                  src={`https://www.youtube.com/embed/${displayVid}?rel=0${activeVid ? '&autoplay=1' : ''}`}
-                  allow="autoplay;encrypted-media"
-                  allowFullScreen
-                  className="h-full w-full border-0"
-                />
-              </div>
+              <iframe
+                key={displayVid}
+                src={`https://www.youtube.com/embed/${displayVid}?rel=0${activeVid ? '&autoplay=1' : ''}`}
+                allow="autoplay;encrypted-media"
+                allowFullScreen
+                className="absolute inset-0 h-full w-full border-0"
+              />
             ) : (
-              <div className="flex w-full flex-col items-center justify-center gap-3 px-6 py-8 text-center">
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
                 <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/5 ring-1 ring-white/10">
                   <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/50">
                     <path d="M23 7l-7 5 7 5V7z" />
@@ -363,8 +362,8 @@ function MusicSection({
             )}
           </div>
 
-          {/* Tabs + Tracks list cell */}
-          <div className="flex min-h-0 flex-col border-t border-[var(--border-default)] lg:border-l lg:border-t-0">
+          {/* Tabs + Tracks list cell — flex-col stretches to match video cell height */}
+          <div className="flex min-h-0 flex-col overflow-hidden border-t border-[var(--border-default)] lg:border-l lg:border-t-0">
             <div className="flex shrink-0 border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-2 pt-1">
               <TabButton active={tab === 'all'} onClick={() => setTab('all')}>
                 Populiariausios <span className="ml-1 text-[var(--text-faint)]">·{tracksAllTime.length}</span>
@@ -378,7 +377,7 @@ function MusicSection({
               </TabButton>
             </div>
             <div
-              className="min-h-[300px] max-h-[360px] flex-1 overflow-y-auto bg-[var(--bg-surface)] lg:max-h-none"
+              className="max-h-[360px] min-h-[260px] flex-1 overflow-y-auto bg-[var(--bg-surface)] lg:max-h-none"
               style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--border-default) transparent' }}
             >
               {list.length === 0 ? (
