@@ -111,13 +111,19 @@ export async function getAlbumById(id: number): Promise<AlbumFull & { tracks: Tr
 
   const { data: trackRows } = await supabase
     .from('album_tracks')
-    .select('*, tracks(id, title, slug, type, video_url, spotify_id, lyrics, track_artists(is_primary, artists(id, name)))')
+    .select('*, tracks(id, title, slug, type, video_url, spotify_id, lyrics, is_single, track_artists(is_primary, artists(id, name)))')
     .eq('album_id', id)
     .order('position')
+    .order('track_id')  // stable tiebreaker kai visi position=0
+
+  // Jei visi tracks turi position=0 (legacy scrape limit'as — music.lt nepateikia
+  // track order'io album puslapyje), fallback'inam į array indeksą, kad UI nerodytų
+  // "1. 1. 1. ...". Jei bent vienas turi real position — pasitikim DB.
+  const allZero = (trackRows || []).every((r: any) => (r.position || 0) === 0)
 
   return {
     ...album,
-    tracks: (trackRows || []).map((r: any) => {
+    tracks: (trackRows || []).map((r: any, idx: number) => {
       const featuring: string[] = (r.tracks?.track_artists || [])
         .filter((ta: any) => !ta.is_primary)
         .map((ta: any) => ta.artists?.name)
@@ -126,12 +132,14 @@ export async function getAlbumById(id: number): Promise<AlbumFull & { tracks: Tr
         track_id: r.track_id,
         title: r.tracks?.title || '',
         slug: r.tracks?.slug || '',
-        sort_order: r.position || 1,
+        sort_order: allZero ? idx + 1 : (r.position || idx + 1),
         disc_number: 1,
         type: r.tracks?.type || 'normal',
         video_url: r.tracks?.video_url || '',
         spotify_id: r.tracks?.spotify_id || '',
-        is_single: r.is_primary || false,
+        // is_single dabar skaitomas iš TRACKS lentelės (t.y. tikras single flag'as),
+        // ne iš album_tracks.is_primary (kuri reiškia "primary album version")
+        is_single: r.tracks?.is_single || false,
         lyrics: r.tracks?.lyrics || '',
         featuring,
       }

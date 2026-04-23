@@ -4,6 +4,11 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
 
+// Next.js 15 by default cache'ina GET responses. Admin UI reikia live data,
+// nes tracks/albums gali keistis tuo pačiu metu — force dynamic.
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   try {

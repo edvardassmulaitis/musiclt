@@ -2,6 +2,7 @@
 // app/lt/daina/[slug]/[id]/track-page-client.tsx
 import { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react'
 import Link from 'next/link'
+import LegacyLikesPanel, { LegacyBadge, type LegacyLikeUser } from '@/components/LegacyLikesPanel'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -26,7 +27,8 @@ type Props = {
   lyricComments: LyricReaction[]; trivia: string | null
   relatedTracks: Track[]
   aiInterpretation?: string | null
-
+  isLegacy?: boolean
+  legacyLikes?: { count: number; users: LegacyLikeUser[] }
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -74,7 +76,10 @@ export default function TrackPageClient({
   track, artist, albums, versions, likes: initialLikes,
   lyricComments: initialReactions, trivia, relatedTracks,
   aiInterpretation,
+  isLegacy = false,
+  legacyLikes,
 }: Props) {
+  const hasLegacyLikes = !!legacyLikes && legacyLikes.count > 0
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [liked, setLiked] = useState(false)
@@ -347,9 +352,10 @@ export default function TrackPageClient({
                 : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>🎵</div>}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.12em', color: '#f97316', fontFamily: 'Outfit,sans-serif', marginBottom: 3 }}>
-              {track.type === 'normal' ? 'Daina' : (track.type || 'Daina')}
-              {track.is_new && <span style={{ marginLeft: 6, fontSize: 8, padding: '1px 6px', borderRadius: 999, background: 'rgba(249,115,22,.18)', border: '1px solid rgba(249,115,22,.3)', color: '#f97316' }}>NEW</span>}
+            <div style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.12em', color: '#f97316', fontFamily: 'Outfit,sans-serif', marginBottom: 3, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <span>{track.type === 'normal' ? 'Daina' : (track.type || 'Daina')}</span>
+              {track.is_new && <span style={{ fontSize: 8, padding: '1px 6px', borderRadius: 999, background: 'rgba(249,115,22,.18)', border: '1px solid rgba(249,115,22,.3)', color: '#f97316' }}>NEW</span>}
+              {isLegacy && <LegacyBadge label="archyvas" />}
             </div>
             <h1 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 'clamp(15px,2vw,20px)', fontWeight: 900, lineHeight: 1.1, letterSpacing: '-.025em', color: 'var(--text-primary)', margin: '0 0 5px', wordBreak: 'break-word' }}>{track.title}</h1>
             <Link href={`/atlikejai/${artist.slug}`} style={{ fontSize: 13, fontWeight: 700, color: '#f97316', textDecoration: 'none', display: 'block', marginBottom: 2 }}>{artist.name}</Link>
@@ -713,6 +719,14 @@ export default function TrackPageClient({
           <TriviaCard />
           <VersionsCard />
           <DiscussionsCard />
+          {hasLegacyLikes && legacyLikes && (
+            <LegacyLikesPanel
+              count={legacyLikes.count}
+              users={legacyLikes.users}
+              entityLabel={`vartotojų patiko „${track.title}" music.lt archyve`}
+              maxUsers={30}
+            />
+          )}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <LyricsCard />
@@ -729,6 +743,14 @@ export default function TrackPageClient({
         <TriviaCard />
         <VersionsCard />
         <DiscussionsCard />
+        {hasLegacyLikes && legacyLikes && (
+          <LegacyLikesPanel
+            count={legacyLikes.count}
+            users={legacyLikes.users}
+            entityLabel={`vartotojų patiko „${track.title}" music.lt archyve`}
+            maxUsers={30}
+          />
+        )}
         <RelatedCard />
       </div>
 

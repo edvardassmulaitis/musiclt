@@ -15,8 +15,85 @@ async function getArtist(slug: string) {
 async function getGenres(id: number) { const sb = createAdminClient(); const { data } = await sb.from('artist_genres').select('genre_id, genres(id, name)').eq('artist_id', id); return (data || []).map((g: any) => g.genres).filter(Boolean) }
 async function getLinks(id: number) { const sb = createAdminClient(); const { data } = await sb.from('artist_links').select('platform, url').eq('artist_id', id); return data || [] }
 async function getPhotos(id: number) { const sb = createAdminClient(); const { data } = await sb.from('artist_photos').select('id, url, caption, sort_order').eq('artist_id', id).order('sort_order'); return data || [] }
-async function getAlbums(id: number) { const sb = createAdminClient(); const { data } = await sb.from('albums').select('id, slug, title, year, month, cover_image_url, type_studio, type_compilation, type_ep, type_single, type_live, type_remix, type_soundtrack, type_demo, spotify_id, video_url').eq('artist_id', id).order('year', { ascending: false }); return data || [] }
-async function getTracks(id: number) { const sb = createAdminClient(); const { data } = await sb.from('tracks').select('id, slug, title, type, video_url, spotify_id, cover_url, release_date, lyrics, is_new, is_new_date, release_year, release_month').eq('artist_id', id).order('created_at', { ascending: false }).limit(40); return data || [] }
+async function getAlbums(id: number) { const sb = createAdminClient(); const { data } = await sb.from('albums').select('id, slug, title, year, month, cover_image_url, type_studio, type_compilation, type_ep, type_single, type_live, type_remix, type_soundtrack, type_demo, spotify_id, video_url, legacy_id').eq('artist_id', id).order('year', { ascending: false }); return data || [] }
+async function getTracks(id: number) { const sb = createAdminClient(); const { data } = await sb.from('tracks').select('id, slug, title, type, video_url, spotify_id, cover_url, release_date, lyrics, is_new, is_new_date, release_year, release_month, legacy_id').eq('artist_id', id).order('created_at', { ascending: false }).limit(40); return data || [] }
+async function getAllArtistTrackLegacyIds(id: number) { const sb = createAdminClient(); const { data } = await sb.from('tracks').select('legacy_id').eq('artist_id', id).not('legacy_id', 'is', null); return (data || []).map((t: any) => t.legacy_id).filter((x: any) => typeof x === 'number') }
+
+/** Sumedžioja legacy community info: visus likes artist + visiems jo albumams + tracks.
+ * Grąžina suma, unikalūs vartotojai, top fans (su like_count). */
+async function getLegacyCommunity(
+  artistLegacyId: number | null,
+  albumLegacyIds: number[],
+  trackLegacyIds: number[],
+) {
+  if (!artistLegacyId) {
+    return { totalEvents: 0, distinctUsers: 0, topFans: [] as { user_username: string; user_rank: string | null; like_count: number }[] }
+  }
+  const sb = createAdminClient()
+
+  // PostgREST default row limit; .range(0, 9999) paima iki 10k
+  const artistLikesP = sb
+    .from('legacy_likes')
+    .select('user_username, user_rank')
+    .eq('entity_type', 'artist')
+    .eq('entity_legacy_id', artistLegacyId)
+    .range(0, 9999)
+
+  const albumLikesP = albumLegacyIds.length > 0
+    ? sb.from('legacy_likes')
+        .select('user_username, user_rank')
+        .eq('entity_type', 'album')
+        .in('entity_legacy_id', albumLegacyIds)
+        .range(0, 9999)
+    : Promise.resolve({ data: [] as any[] })
+
+  const trackLikesP = trackLegacyIds.length > 0
+    ? sb.from('legacy_likes')
+        .select('user_username, user_rank')
+        .eq('entity_type', 'track')
+        .in('entity_legacy_id', trackLegacyIds)
+        .range(0, 9999)
+    : Promise.resolve({ data: [] as any[] })
+
+  const [a, al, tr] = await Promise.all([artistLikesP, albumLikesP, trackLikesP])
+  const all = [...((a as any).data || []), ...((al as any).data || []), ...((tr as any).data || [])] as { user_username: string; user_rank: string | null }[]
+
+  const tally = new Map<string, { count: number; rank: string | null }>()
+  for (const l of all) {
+    const ex = tally.get(l.user_username) || { count: 0, rank: null }
+    tally.set(l.user_username, { count: ex.count + 1, rank: ex.rank || l.user_rank })
+  }
+
+  const topFans = Array.from(tally.entries())
+    .map(([u, v]) => ({ user_username: u, user_rank: v.rank, like_count: v.count }))
+    .sort((a, b) => b.like_count - a.like_count || a.user_username.localeCompare(b.user_username))
+    .slice(0, 30)
+
+  return { totalEvents: all.length, distinctUsers: tally.size, topFans }
+}
+
+/** Randame forum_threads, kurie surišti su šiuo atlikėju per URL/slug.
+ * Music.lt diskusijos patternai:
+ *  - /lt/diskusijos/tema/{id}/{slug}/   (naujesnis)
+ *  - /lt/diskusijos/{slug}-diskusijosg-{id}.html  (legacy)
+ * Kadangi `title`/`post_count`/`last_post_at` scrape'e netrimti (visi null),
+ * rendering'e title deriviname iš `slug`, o sort'us darome pagal legacy_id desc
+ * (music.lt ID'ai monotoniški — didesnis = naujesnis thread). */
+async function getLegacyForumThreads(artist: { name: string; slug: string }, limit = 6) {
+  if (!artist.slug) return []
+  const sb = createAdminClient()
+  // Sanitize slug — tik a-z/0-9/- (ILIKE yra case-insensitive, saugu)
+  const needle = artist.slug.toLowerCase().replace(/[^a-z0-9-]/g, '')
+  if (!needle || needle.length < 3) return []
+  const pat = `%${needle}%`
+  const { data } = await sb
+    .from('forum_threads')
+    .select('legacy_id, slug, source_url')
+    .or(`source_url.ilike.${pat},slug.ilike.${pat}`)
+    .order('legacy_id', { ascending: false })
+    .limit(limit)
+  return data || []
+}
 async function getMembers(id: number) { const sb = createAdminClient(); const { data } = await sb.from('artist_related').select('related_artist_id, year_from, year_until, artists:related_artist_id(id, slug, name, cover_image_url, type)').eq('artist_id', id); return (data || []).map((r: any) => ({ ...(r.artists || {}), member_from: r.year_from, member_until: r.year_until })).filter((m: any) => m.id) }
 async function getFollowers(id: number) { const sb = createAdminClient(); const { count } = await sb.from('artist_follows').select('*', { count: 'exact', head: true }).eq('artist_id', id); return count || 0 }
 async function getLikeCount(id: number) { const sb = createAdminClient(); const { count } = await sb.from('artist_likes').select('*', { count: 'exact', head: true }).eq('artist_id', id); return count || 0 }
@@ -52,11 +129,23 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ArtistPage({ params }: Props) {
   const { slug } = await params; const artist = await getArtist(slug); if (!artist) notFound()
-  const [genres, links, dbPhotos, albums, tracks, members, followers, likeCount, news, rawEvents] = await Promise.all([
+  const [genres, links, dbPhotos, albums, tracks, members, followers, likeCount, news, rawEvents, allTrackLegacyIds, legacyThreads] = await Promise.all([
     getGenres(artist.id), getLinks(artist.id), getPhotos(artist.id), getAlbums(artist.id), getTracks(artist.id),
     getMembers(artist.id), getFollowers(artist.id), getLikeCount(artist.id), getNews(artist.id), getEvents(artist.id),
+    getAllArtistTrackLegacyIds(artist.id),
+    getLegacyForumThreads({ name: artist.name, slug: artist.slug }),
   ])
   const similar = await getSimilar(artist.id, genres.map((g: any) => g.id))
+
+  // Legacy community — aggregated likes (artist + all his albums + tracks)
+  const albumLegacyIds = (albums as any[])
+    .map((a) => a.legacy_id)
+    .filter((x) => typeof x === 'number')
+  const legacyCommunity = await getLegacyCommunity(
+    (artist as any).legacy_id ?? null,
+    albumLegacyIds,
+    allTrackLegacyIds,
+  )
 
   let photos: { url: string; caption?: string }[] = dbPhotos.map((p: any) => ({ url: p.url, caption: p.caption }))
   if (artist.photos && Array.isArray(artist.photos)) { for (const p of artist.photos as any[]) { if (p.url && !photos.some(x => x.url === p.url)) photos.push({ url: p.url, caption: p.caption || '' }) } }
@@ -80,11 +169,12 @@ export default async function ArtistPage({ params }: Props) {
 
   return (
     <ArtistProfileClient
-      artist={{ id: artist.id, slug: artist.slug, name: artist.name, type: artist.type || 'group', country: artist.country, active_from: artist.active_from, active_until: artist.active_until, description: stripStyles(artist.description || ''), cover_image_url: artist.cover_image_url, cover_image_position: artist.cover_image_position, website: artist.website, spotify_id: artist.spotify_id, is_verified: artist.is_verified, gender: artist.gender, birth_date: artist.birth_date, death_date: artist.death_date }}
+      artist={{ id: artist.id, slug: artist.slug, name: artist.name, type: artist.type || 'group', country: artist.country, active_from: artist.active_from, active_until: artist.active_until, description: stripStyles(artist.description || ''), cover_image_url: artist.cover_image_url, cover_image_position: artist.cover_image_position, website: artist.website, spotify_id: artist.spotify_id, is_verified: artist.is_verified, gender: artist.gender, birth_date: artist.birth_date, death_date: artist.death_date, legacy_id: (artist as any).legacy_id ?? null, source: (artist as any).source ?? null }}
       heroImage={heroImage} genres={genres} links={links} photos={photos} albums={albums as any} tracks={tracks as any}
       members={members} followers={followers} likeCount={likeCount} news={news as any} events={events}
       similar={similar} newTracks={newTracks as any} topVideos={topVideos as any}
       chartData={mockChart(albums)} hasNewMusic={newTracks.length > 0}
+      legacyCommunity={legacyCommunity} legacyThreads={legacyThreads as any}
     />
   )
 }

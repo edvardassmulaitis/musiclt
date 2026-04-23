@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import LegacyLikesPanel, { LegacyBadge, type LegacyLikeUser } from '@/components/LegacyLikesPanel'
 
 function parseCoverPos(pos: string): { x: number; y: number; zoom: number } {
   const parts = pos.trim().split(/\s+/)
@@ -24,13 +25,31 @@ type Album = { id: number; slug: string; title: string; year?: number; cover_ima
 type Track = { id: number; slug: string; title: string; type?: string; video_url?: string; cover_url?: string }
 type Member = { id: number; slug: string; name: string; cover_image_url?: string; member_from?: number; member_until?: number }
 type ChartPt = { year: number; value: number }
+type LegacyCommunity = {
+  totalEvents: number
+  distinctUsers: number
+  topFans: (LegacyLikeUser & { like_count: number })[]
+}
+type LegacyThread = { legacy_id: number; slug: string; source_url: string }
 type Props = {
   artist: any; heroImage: string | null; genres: Genre[]; links: { platform: string; url: string }[]; photos: { url: string; caption?: string }[]
   albums: Album[]; tracks: Track[]; members: Member[]; followers: number; likeCount: number
   news: any[]; events: any[]; similar: any[]; newTracks: Track[]; topVideos: Track[]; chartData: ChartPt[]; hasNewMusic: boolean
+  legacyCommunity?: LegacyCommunity
+  legacyThreads?: LegacyThread[]
 }
 
 const yt = (u?: string | null) => { if (!u) return null; const m = u.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/); return m ? m[1] : null }
+/** Music.lt forum slugas saugo titule dashes'ais, be LT simbolių. Grąžinam žmogaus
+ * skaitomą aproximaciją iš to, kas turima — naujam scrape'ui atvykus su realiu
+ * title, ši derivacija bus nebereikalinga. */
+function slugToForumTitle(slug: string): string {
+  return (slug || '')
+    .replace(/\/$/, '')
+    .replace(/-/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim() || 'Diskusija music.lt archyve'
+}
 const aType = (a: Album) => { if (a.type_ep) return 'EP'; if (a.type_single) return 'Singlas'; if (a.type_live) return 'Live'; if (a.type_compilation) return 'Rinkinys'; if (a.type_remix) return 'Remix'; if (a.type_soundtrack) return 'OST'; if (a.type_demo) return 'Demo'; return 'Albumas' }
 const FLAGS: Record<string, string> = { 'Lietuva': '🇱🇹', 'Latvija': '🇱🇻', 'Estija': '🇪🇪', 'Lenkija': '🇵🇱', 'Vokietija': '🇩🇪', 'Prancūzija': '🇫🇷', 'Italija': '🇮🇹', 'Ispanija': '🇪🇸', 'Didžioji Britanija': '🇬🇧', 'JAV': '🇺🇸', 'Kanada': '🇨🇦', 'Australija': '🇦🇺', 'Japonija': '🇯🇵', 'Švedija': '🇸🇪', 'Norvegija': '🇳🇴', 'Danija': '🇩🇰', 'Suomija': '🇫🇮', 'Airija': '🇮🇪', 'Olandija': '🇳🇱', 'Rusija': '🇷🇺', 'Ukraina': '🇺🇦' }
 const SOC: Record<string, { l: string; c: string; d: string }> = {
@@ -131,8 +150,12 @@ function Gallery({ photos }: { photos: { url: string; caption?: string }[] }) {
 }
 
 export default function ArtistProfileClient({
-  artist, heroImage, genres, links, photos, albums, tracks, members, followers, likeCount, news, events, similar, newTracks, topVideos, chartData, hasNewMusic
+  artist, heroImage, genres, links, photos, albums, tracks, members, followers, likeCount, news, events, similar, newTracks, topVideos, chartData, hasNewMusic,
+  legacyCommunity, legacyThreads = [],
 }: Props) {
+  const isLegacy = typeof artist.source === 'string' && artist.source.startsWith('legacy')
+  const hasLegacyCommunity = !!legacyCommunity && legacyCommunity.distinctUsers > 0
+  const hasLegacyThreads = legacyThreads.length > 0
   const [pid, setPid] = useState<number | null>(null)
   const [df, setDf] = useState('all')
   const [loaded, setLoaded] = useState(false)
@@ -185,6 +208,7 @@ export default function ArtistProfileClient({
               {artist.is_verified && <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, background: '#3b82f6', borderRadius: '50%', marginLeft: 6, verticalAlign: 'middle' }}><svg width="12" height="12" viewBox="0 0 24 24" fill="#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg></span>}
             </h1>
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
+              {isLegacy && <LegacyBadge label="music.lt archyvas" />}
               {genres.map(g => <span key={g.id} style={{ fontSize: 10, fontWeight: 700, color: 'var(--hero-tag-text)', background: 'var(--hero-tag-bg)', border: '1px solid var(--hero-tag-border)', borderRadius: 100, padding: '3px 10px', fontFamily: 'Outfit,sans-serif', backdropFilter: 'blur(4px)' }}>{g.name}</span>)}
               <button style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 12px', borderRadius: 100, border: '1px solid rgba(249,115,22,.25)', fontSize: 11, fontWeight: 800, cursor: 'pointer', fontFamily: 'Outfit,sans-serif', background: 'rgba(249,115,22,.1)', color: '#f97316' }}>
                 <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 11, height: 11 }}><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
@@ -241,6 +265,23 @@ export default function ArtistProfileClient({
             <div style={ST}>Muzika<span style={{ flex: 1, height: 1, background: 'var(--section-line)' }} /></div>
             {hasNewMusic && newTracks.length > 0 && <MusicRow label="Nauja muzika" list={newTracks.slice(0, 6)} playingId={pid} onPlay={setPid} />}
             {topVideos.length > 0 && <MusicRow label={hasNewMusic ? 'Populiariausia' : ''} list={topVideos} playingId={pid} onPlay={setPid} />}
+          </section>
+        )}
+
+        {/* Iš music.lt archyvo — legacy community signal */}
+        {hasLegacyCommunity && legacyCommunity && (
+          <section style={{ paddingTop: 24 }}>
+            <div style={ST}>Iš music.lt archyvo<span style={{ flex: 1, height: 1, background: 'var(--section-line)' }} /></div>
+            <LegacyLikesPanel
+              count={legacyCommunity.distinctUsers}
+              users={legacyCommunity.topFans}
+              entityLabel={
+                legacyCommunity.totalEvents > legacyCommunity.distinctUsers
+                  ? `vartotojų prisilietę ${artist.name} muzikos music.lt archyve (${legacyCommunity.totalEvents.toLocaleString('lt-LT')} „patinka" žymos)`
+                  : `vartotojų patiko ${artist.name} music.lt archyve`
+              }
+              maxUsers={30}
+            />
           </section>
         )}
 
@@ -358,11 +399,51 @@ export default function ArtistProfileClient({
         {/* Discussions */}
         <section style={{ paddingTop: 24 }}>
           <div style={ST}>Diskusijos<span style={{ flex: 1, height: 1, background: 'var(--section-line)' }} /></div>
-          <div style={{ border: '1px dashed var(--border-default)', borderRadius: 10, padding: 24, textAlign: 'center' }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 2 }}>Dar nėra diskusijų apie {artist.name}</div>
-            <div style={{ fontSize: 10, color: 'var(--text-faint)' }}>Būk pirmas — pradėk diskusiją!</div>
-            <button style={{ marginTop: 8, padding: '6px 16px', borderRadius: 100, border: '1px solid var(--border-default)', background: 'var(--card-bg)', color: 'var(--text-secondary)', fontSize: 10, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit,sans-serif' }}>+ Nauja diskusija</button>
-          </div>
+          {hasLegacyThreads ? (
+            <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 12, overflow: 'hidden' }}>
+              <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'Outfit,sans-serif', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.12em', color: 'var(--text-secondary)' }}>
+                <span>Archyvinės temos · {legacyThreads.length}</span>
+                <span style={{ flex: 1 }} />
+                <LegacyBadge label="music.lt" />
+              </div>
+              <div>
+                {legacyThreads.map((t, i) => {
+                  const title = slugToForumTitle(t.slug)
+                  return (
+                    <a
+                      key={t.legacy_id}
+                      href={t.source_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: i < legacyThreads.length - 1 ? '1px solid var(--border-subtle)' : 'none', textDecoration: 'none', transition: 'background .12s' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <div style={{ width: 28, height: 28, borderRadius: 6, background: 'rgba(251,191,36,.08)', border: '1px solid rgba(251,191,36,.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fbbf24' }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" /></svg>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
+                        <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 1, fontFamily: 'Outfit,sans-serif' }}>music.lt diskusija · #{t.legacy_id}</div>
+                      </div>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" strokeWidth="2" style={{ flexShrink: 0 }}>
+                        <path d="M7 17L17 7M17 7H8M17 7v9" />
+                      </svg>
+                    </a>
+                  )
+                })}
+              </div>
+              <div style={{ padding: '9px 14px', background: 'rgba(251,191,36,.03)', borderTop: '1px solid var(--border-subtle)', fontSize: 10, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                <span>Diskusijos atidaromos senajame music.lt — komentarų turinys dar nerestauruotas naujoje versijoje</span>
+              </div>
+            </div>
+          ) : (
+            <div style={{ border: '1px dashed var(--border-default)', borderRadius: 10, padding: 24, textAlign: 'center' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 2 }}>Dar nėra diskusijų apie {artist.name}</div>
+              <div style={{ fontSize: 10, color: 'var(--text-faint)' }}>Būk pirmas — pradėk diskusiją!</div>
+              <button style={{ marginTop: 8, padding: '6px 16px', borderRadius: 100, border: '1px solid var(--border-default)', background: 'var(--card-bg)', color: 'var(--text-secondary)', fontSize: 10, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit,sans-serif' }}>+ Nauja diskusija</button>
+            </div>
+          )}
         </section>
 
         {/* Similar */}

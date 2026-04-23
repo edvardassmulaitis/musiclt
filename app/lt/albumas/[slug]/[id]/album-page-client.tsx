@@ -2,6 +2,7 @@
 // app/lt/albumas/[slug]/[id]/album-page-client.tsx
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import LegacyLikesPanel, { LegacyBadge, type LegacyLikeUser } from '@/components/LegacyLikesPanel'
 
 type Track = {
   id: number; slug: string; title: string; type: string
@@ -25,6 +26,8 @@ type Props = {
   album: Album; artist: Artist; tracks: Track[]
   otherAlbums: SimpleAlbum[]; similarAlbums: any[]
   likes: number; relatedNews?: NewsItem[]
+  isLegacy?: boolean
+  legacyLikes?: { count: number; users: LegacyLikeUser[] }
 }
 
 function ytId(url?: string | null) {
@@ -49,7 +52,7 @@ function MusicIcon({ size = 16, color = '#fff' }: { size?: number; color?: strin
   )
 }
 
-export default function AlbumPageClient({ album, artist, tracks, otherAlbums, similarAlbums, likes, relatedNews = [] }: Props) {
+export default function AlbumPageClient({ album, artist, tracks, otherAlbums, similarAlbums, likes, relatedNews = [], isLegacy = false, legacyLikes }: Props) {
   const [playingIdx, setPlayingIdx] = useState(-1)
   const [liked, setLiked] = useState(false)
   const [loaded, setLoaded] = useState(false)
@@ -65,9 +68,17 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
   const activeVid = currentVid || albumVid
 
   const VISIBLE = 5
-  const sortedTracks = [...tracks].sort((a, b) => a.position - b.position)
+  // Jei visų tracks position vienoda (import'e praradom originalią tvarką),
+  // UI neturi rodyti klaidinančių numerių — vietoj to sortinam pagal įrašymo
+  // eilę (tracks.id) ir rodom disc icon'ą. Importo side pataisa bus kitam thread'e.
+  const positionsUnknown = tracks.length > 1 && tracks.every(t => t.position === tracks[0].position)
+  const sortedTracks = positionsUnknown
+    ? [...tracks].sort((a, b) => a.id - b.id)
+    : [...tracks].sort((a, b) => a.position - b.position)
   const mobileVisible = expanded ? sortedTracks : sortedTracks.slice(0, VISIBLE)
   const hasMore = tracks.length > VISIBLE
+
+  const hasLegacyLikes = !!legacyLikes && legacyLikes.count > 0
 
   const maxPop = tracks.length
   const popScore = (t: Track) => Math.min(1, (maxPop - t.position + 1) / maxPop + (t.is_single ? 0.3 : 0))
@@ -108,9 +119,10 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
             : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30 }}>💿</div>}
         </div>
         <div style={{ flex: 1, minWidth: 0, paddingRight: 48 }}>
-          <div style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.12em', color: '#f97316', fontFamily: 'Outfit, sans-serif', marginBottom: 3 }}>
-            {albumTypeLabel}
-            {album.is_upcoming && <span style={{ marginLeft: 6, fontSize: 8, padding: '1px 6px', borderRadius: 999, background: 'rgba(249,115,22,.18)', border: '1px solid rgba(249,115,22,.3)', color: '#f97316' }}>Greitai</span>}
+          <div style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.12em', color: '#f97316', fontFamily: 'Outfit, sans-serif', marginBottom: 3, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <span>{albumTypeLabel}</span>
+            {album.is_upcoming && <span style={{ fontSize: 8, padding: '1px 6px', borderRadius: 999, background: 'rgba(249,115,22,.18)', border: '1px solid rgba(249,115,22,.3)', color: '#f97316' }}>Greitai</span>}
+            {isLegacy && <LegacyBadge label="archyvas" />}
           </div>
           <h1 style={{ fontFamily: 'Outfit, sans-serif', fontSize: 'clamp(16px,2vw,20px)', fontWeight: 900, lineHeight: 1.1, letterSpacing: '-.025em', color: 'var(--text-primary)', margin: '0 0 5px', wordBreak: 'break-word' }}>{album.title}</h1>
           <Link href={`/atlikejai/${artist.slug}`} style={{ fontSize: 13, fontWeight: 700, color: '#f97316', textDecoration: 'none', display: 'block', marginBottom: 4 }}
@@ -180,10 +192,19 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
         {/* ── desktop layout ── */}
         {desktop ? (
           <>
-            {/* Position number */}
-            <span style={{ width: 22, textAlign: 'center', fontSize: 11, flexShrink: 0, fontFamily: 'Outfit, sans-serif', color: numCol, fontWeight: isPlaying ? 800 : 400 }}>
-              {t.position}
-            </span>
+            {/* Position number — arba disc icon jei originali tvarka prarasta */}
+            {positionsUnknown ? (
+              <span style={{ width: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: numCol, opacity: isPlaying ? 1 : 0.55 }} title="Originalios tvarkos nėra music.lt archyve">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <circle cx="12" cy="12" r="9" />
+                  <circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" />
+                </svg>
+              </span>
+            ) : (
+              <span style={{ width: 22, textAlign: 'center', fontSize: 11, flexShrink: 0, fontFamily: 'Outfit, sans-serif', color: numCol, fontWeight: isPlaying ? 800 : 400 }}>
+                {t.position}
+              </span>
+            )}
 
             {/* Thumbnail — purely decorative on desktop */}
             <div style={{ width: 34, height: 34, borderRadius: 6, flexShrink: 0, overflow: 'hidden', background: 'var(--cover-placeholder)', position: 'relative' }}>
@@ -263,9 +284,18 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
           /* ── mobile layout (unchanged) ── */
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ width: 20, textAlign: 'center', fontSize: 11, flexShrink: 0, fontFamily: 'Outfit, sans-serif', color: numCol, fontWeight: isPlaying ? 800 : 400 }}>
-                {t.position}
-              </span>
+              {positionsUnknown ? (
+                <span style={{ width: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: numCol, opacity: isPlaying ? 1 : 0.55 }} title="Originalios tvarkos nėra music.lt archyve">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <circle cx="12" cy="12" r="9" />
+                    <circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" />
+                  </svg>
+                </span>
+              ) : (
+                <span style={{ width: 20, textAlign: 'center', fontSize: 11, flexShrink: 0, fontFamily: 'Outfit, sans-serif', color: numCol, fontWeight: isPlaying ? 800 : 400 }}>
+                  {t.position}
+                </span>
+              )}
               <div
                 onClick={canPlay ? () => setPlayingIdx(tracks.indexOf(t)) : undefined}
                 style={{ width: 36, height: 36, borderRadius: 7, flexShrink: 0, overflow: 'hidden', background: 'var(--cover-placeholder)', position: 'relative', cursor: canPlay ? 'pointer' : 'default' }}
@@ -418,12 +448,30 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
           <PlayerCard />
           <SidebarExtras />
         </div>
-        <div style={card}>
-          <div style={cardHead}>Dainos</div>
-          {tracks.length === 0
-            ? <div style={{ padding: 28, textAlign: 'center', fontSize: 12, color: 'var(--text-faint)' }}>Dainų nėra</div>
-            : <DesktopTrackList />
-          }
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
+          <div style={card}>
+            <div style={cardHead}>
+              <span>Dainos {tracks.length > 0 && <span style={{ fontSize: 9, fontWeight: 400, color: 'var(--text-faint)', textTransform: 'none', letterSpacing: 0, marginLeft: 6 }}>{tracks.length}</span>}</span>
+              {positionsUnknown && tracks.length > 0 && (
+                <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'none', letterSpacing: 0, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9" /><path d="M12 8v4M12 16h.01" /></svg>
+                  Tvarka — archyve neužfiksuota
+                </span>
+              )}
+            </div>
+            {tracks.length === 0
+              ? <div style={{ padding: 28, textAlign: 'center', fontSize: 12, color: 'var(--text-faint)' }}>Dainų nėra</div>
+              : <DesktopTrackList />
+            }
+          </div>
+          {hasLegacyLikes && legacyLikes && (
+            <LegacyLikesPanel
+              count={legacyLikes.count}
+              users={legacyLikes.users}
+              entityLabel={`vartotojų patiko „${album.title}" music.lt archyve`}
+              maxUsers={30}
+            />
+          )}
         </div>
       </div>
 
@@ -446,12 +494,25 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
           )}
           <div style={{ ...cardHead, borderTop: '1px solid var(--sub-border)' }}>
             <span>{expanded ? 'Dainos' : 'Top dainos'}</span>
+            {positionsUnknown && tracks.length > 0 && (
+              <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'none', letterSpacing: 0 }}>
+                · archyve tvarka neužfiksuota
+              </span>
+            )}
           </div>
           {tracks.length === 0
             ? <div style={{ padding: 20, textAlign: 'center', fontSize: 12, color: 'var(--text-faint)' }}>Dainų nėra</div>
             : <MobileTrackList />
           }
         </div>
+        {hasLegacyLikes && legacyLikes && (
+          <LegacyLikesPanel
+            count={legacyLikes.count}
+            users={legacyLikes.users}
+            entityLabel={`vartotojų patiko „${album.title}" music.lt archyve`}
+            maxUsers={30}
+          />
+        )}
         <SidebarExtras />
       </div>
 

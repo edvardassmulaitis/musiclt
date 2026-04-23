@@ -95,6 +95,27 @@ async function getAlbumLikes(albumId: number) {
   return count || 0
 }
 
+async function getLegacyAlbumLikes(albumLegacyId: number | null) {
+  if (!albumLegacyId) return { count: 0, users: [] as { user_username: string; user_rank: string | null }[] }
+  const sb = createAdminClient()
+  const [cntRes, usersRes] = await Promise.all([
+    sb.from('legacy_likes')
+      .select('*', { count: 'exact', head: true })
+      .eq('entity_type', 'album')
+      .eq('entity_legacy_id', albumLegacyId),
+    sb.from('legacy_likes')
+      .select('user_username, user_rank')
+      .eq('entity_type', 'album')
+      .eq('entity_legacy_id', albumLegacyId)
+      .order('id', { ascending: true })
+      .limit(30),
+  ])
+  return {
+    count: cntRes.count || 0,
+    users: (usersRes.data as any[]) || [],
+  }
+}
+
 async function getRelatedNews(artistId: number) {
   const sb = createAdminClient()
   const { data } = await sb
@@ -151,11 +172,12 @@ export default async function AlbumPage({ params }: Props) {
   if (!album) notFound()
 
   const artist = album.artists
-  const [tracks, otherAlbums, similarAlbums, likes] = await Promise.all([
+  const [tracks, otherAlbums, similarAlbums, likes, legacyLikes] = await Promise.all([
     getAlbumTracks(albumId),
     getOtherAlbums(artist.id, albumId),
     getSimilarAlbums(artist.id, albumId),
     getAlbumLikes(albumId),
+    getLegacyAlbumLikes(album.legacy_id ?? null),
   ])
 
   return (
@@ -184,6 +206,8 @@ export default async function AlbumPage({ params }: Props) {
       otherAlbums={otherAlbums.map((a: any) => ({ ...a, type: albumType(a) }))}
       similarAlbums={similarAlbums}
       likes={likes}
+      isLegacy={typeof album.source === 'string' && album.source.startsWith('legacy')}
+      legacyLikes={legacyLikes}
     />
   )
 }

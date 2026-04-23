@@ -33,7 +33,7 @@ export default async function TrackPage({ params }: { params: Promise<{ slug: st
       id, slug, title, type, video_url, spotify_id, release_date,
       lyrics, chords, description, show_player, is_new, show_ai_interpretation,
       ai_interpretation, ai_image_url,
-      artist_id
+      artist_id, legacy_id, source
     `)
     .eq('id', id)
     .single()
@@ -79,6 +79,30 @@ export default async function TrackPage({ params }: { params: Promise<{ slug: st
     .from('track_likes')
     .select('*', { count: 'exact', head: true })
     .eq('track_id', id)
+
+  // ── Fetch legacy likes from music.lt archive ───────────────────────────────
+  const trackLegacyId = (track as any).legacy_id ?? null
+  const [legacyCntRes, legacyUsersRes] = trackLegacyId
+    ? await Promise.all([
+        supabase
+          .from('legacy_likes')
+          .select('*', { count: 'exact', head: true })
+          .eq('entity_type', 'track')
+          .eq('entity_legacy_id', trackLegacyId),
+        supabase
+          .from('legacy_likes')
+          .select('user_username, user_rank')
+          .eq('entity_type', 'track')
+          .eq('entity_legacy_id', trackLegacyId)
+          .order('id', { ascending: true })
+          .limit(30),
+      ])
+    : [{ count: 0 } as any, { data: [] } as any]
+  const legacyLikes = {
+    count: legacyCntRes.count || 0,
+    users: (legacyUsersRes.data as any[]) || [],
+  }
+  const isLegacy = typeof (track as any).source === 'string' && (track as any).source.startsWith('legacy')
 
   // ── Fetch lyric reactions ──────────────────────────────────────────────────
   const { data: lyricComments } = await supabase
@@ -132,6 +156,8 @@ export default async function TrackPage({ params }: { params: Promise<{ slug: st
       trivia={trivia}
       relatedTracks={relatedTracks as any}
       aiInterpretation={(track as any).ai_interpretation ?? null}
+      isLegacy={isLegacy}
+      legacyLikes={legacyLikes}
     />
   )
 }
