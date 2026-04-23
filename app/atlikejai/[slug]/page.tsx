@@ -189,6 +189,53 @@ async function getSimilar(artistId: number, genreIds: number[]) {
   return out
 }
 
+/** Simple rank snapshot.
+ * Country: position among artists of same country by legacy_like_count (when available)
+ * Genre: position in top genre by like count.
+ * These are coarse approximations — they use legacy_like_count as proxy for popularity.
+ * Real rank (by plays) will come once we have listening-session data.
+ * Returns the set of ranks that make sense to show. */
+async function getArtistRanks(
+  artistId: number,
+  country: string | null,
+  genres: { id: number; name: string }[],
+  legacyLikeCount: number,
+): Promise<{ category: string; rank: number; total: number; scope: 'country' | 'genre' | 'global' }[]> {
+  if (legacyLikeCount <= 0) return []
+  const sb = createAdminClient()
+  const out: { category: string; rank: number; total: number; scope: 'country' | 'genre' | 'global' }[] = []
+
+  // Country rank
+  if (country) {
+    const { data: peers } = await sb
+      .from('artists')
+      .select('id, legacy_like_count')
+      .eq('country', country)
+      .not('legacy_like_count', 'is', null)
+    const rows = (peers || []).filter((p: any) => p.id !== artistId)
+    const higher = rows.filter((p: any) => (p.legacy_like_count ?? 0) > legacyLikeCount).length
+    out.push({ category: country, rank: higher + 1, total: rows.length + 1, scope: 'country' })
+  }
+
+  // Genre rank (top genre only)
+  if (genres.length > 0) {
+    const g = genres[0]
+    const { data: gpeers } = await sb
+      .from('artist_genres')
+      .select('artist_id, artists!inner(id, legacy_like_count)')
+      .eq('genre_id', g.id)
+    const rows = (gpeers || [])
+      .map((r: any) => r.artists)
+      .filter((a: any) => a && a.id !== artistId && a.legacy_like_count != null)
+    const higher = rows.filter((a: any) => (a.legacy_like_count ?? 0) > legacyLikeCount).length
+    if (rows.length + 1 >= 2) {
+      out.push({ category: g.name, rank: higher + 1, total: rows.length + 1, scope: 'genre' })
+    }
+  }
+
+  return out
+}
+
 function stripStyles(html: string) { return (html || '').replace(/style="[^"]*"/gi, '').replace(/style='[^']*'/gi, '') }
 function plain(html: string) { return (html || '').replace(/<[^>]+>/g, '').slice(0, 200) }
 function mockChart(albums: any[]) {
@@ -230,7 +277,8 @@ export default async function ArtistPage({ params }: Props) {
 
   const heroImage = artist.cover_image_wide_url || artist.cover_image_url || (photos.length > 0 ? photos[0].url : null)
 
-  const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth() - 16)
+  // Trending — tracks released in last 24 months (2 years)
+  const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth() - 24)
   const cutY = cutoff.getFullYear(); const cutM = cutoff.getMonth() + 1
   const newTracks = tracks.filter((t: any) => {
     if (t.is_new) return true; if (t.is_new_date) return new Date(t.is_new_date) >= cutoff
@@ -242,14 +290,23 @@ export default async function ArtistPage({ params }: Props) {
 
   const events = rawEvents
 
+  // Compute ranks (country, genre) using legacy_like_count as proxy
+  const ranks = await getArtistRanks(
+    artist.id,
+    artist.country || null,
+    genres as { id: number; name: string }[],
+    (artist as any).legacy_like_count ?? 0,
+  )
+
   return (
     <ArtistProfileClient
-      artist={{ id: artist.id, slug: artist.slug, name: artist.name, type: artist.type || 'group', country: artist.country, active_from: artist.active_from, active_until: artist.active_until, description: stripStyles(artist.description || ''), cover_image_url: artist.cover_image_url, cover_image_position: artist.cover_image_position, website: artist.website, spotify_id: artist.spotify_id, is_verified: artist.is_verified, gender: artist.gender, birth_date: artist.birth_date, death_date: artist.death_date, legacy_id: (artist as any).legacy_id ?? null, source: (artist as any).source ?? null }}
+      artist={{ id: artist.id, slug: artist.slug, name: artist.name, type: artist.type || 'group', country: artist.country, active_from: artist.active_from, active_until: artist.active_until, description: stripStyles(artist.description || ''), cover_image_url: artist.cover_image_url, cover_image_position: artist.cover_image_position, website: artist.website, spotify_id: artist.spotify_id, is_verified: artist.is_verified, gender: artist.gender, birth_date: artist.birth_date, death_date: artist.death_date, legacy_id: (artist as any).legacy_id ?? null, source: (artist as any).source ?? null, legacy_like_count: (artist as any).legacy_like_count ?? 0 }}
       heroImage={heroImage} genres={genres} links={links} photos={photos} albums={albums as any} tracks={tracks as any}
       members={members} followers={followers} likeCount={likeCount} news={news as any} events={events}
       similar={similar} newTracks={newTracks as any} topVideos={topVideos as any}
       chartData={mockChart(albums)} hasNewMusic={newTracks.length > 0}
       legacyCommunity={legacyCommunity} legacyThreads={legacyThreads as any} legacyNews={legacyNews as any}
+      ranks={ranks}
     />
   )
 }
