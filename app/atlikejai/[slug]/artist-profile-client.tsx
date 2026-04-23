@@ -29,7 +29,9 @@ type ChartPt = { year: number; value: number }
 type LegacyCommunity = {
   totalEvents: number
   distinctUsers: number
+  artistLikes: number
   topFans: (LegacyLikeUser & { like_count: number })[]
+  allArtistFans: LegacyLikeUser[]
 }
 type LegacyThread = { legacy_id: number; slug: string; source_url: string }
 type Props = {
@@ -170,12 +172,11 @@ export default function ArtistProfileClient({
   const solo = artist.type === 'solo'
   const age = solo && artist.birth_date ? Math.floor((Date.now() - new Date(artist.birth_date).getTime()) / 31557600000) : null
   const active = artist.active_from ? `${artist.active_from}–${artist.active_until || 'dabar'}` : null
-  // Unified likes count — modern artist_likes + legacy music.lt community
-  // (distinctUsers, ne totalEvents, nes kiti 2333 "patinka" žymos kyla iš
-  // vartotojų patikusių album/track — ne pakartotinai skaičiuojame).
-  const legacyLikeCount = legacyCommunity?.distinctUsers || 0
-  const likes = likeCount + followers + legacyLikeCount
-  const allLikesUsers: any[] = legacyCommunity?.topFans || []
+  // Artist-level likes only — match'ina music.lt UI skaičių.
+  // Album/track fans rodomi atskirai (jie pateks į atitinkamus puslapius).
+  const legacyArtistLikes = legacyCommunity?.artistLikes || 0
+  const likes = likeCount + followers + legacyArtistLikes
+  const allLikesUsers: any[] = legacyCommunity?.allArtistFans || []
   const atypes = [...new Set(albums.map(aType))]
   const fAlbums = df === 'all' ? albums : albums.filter(a => aType(a) === df)
   const yr = new Date().getFullYear()
@@ -410,11 +411,9 @@ export default function ArtistProfileClient({
               {legacyNews.slice(0, 12).map((n) => {
                 const title = slugToForumTitle(n.slug)
                 return (
-                  <a
+                  <Link
                     key={n.legacy_id}
-                    href={n.source_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href={`/diskusijos/archyvas/${n.legacy_id}`}
                     style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '12px 14px', borderRadius: 12, background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', textDecoration: 'none', transition: 'all .15s' }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.background = 'var(--bg-hover)' }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-subtle)'; e.currentTarget.style.background = 'var(--bg-surface)' }}
@@ -426,7 +425,7 @@ export default function ArtistProfileClient({
                       <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--text-muted)', fontFamily: 'Outfit,sans-serif', letterSpacing: '.1em', textTransform: 'uppercase' }}>Naujiena</div>
                     </div>
                     <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.35 }}>{title}</div>
-                  </a>
+                  </Link>
                 )
               })}
             </div>
@@ -446,26 +445,24 @@ export default function ArtistProfileClient({
                 {legacyThreads.map((t, i) => {
                   const title = slugToForumTitle(t.slug)
                   return (
-                    <a
+                    <Link
                       key={t.legacy_id}
-                      href={t.source_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      href={`/diskusijos/archyvas/${t.legacy_id}`}
                       style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: i < legacyThreads.length - 1 ? '1px solid var(--border-subtle)' : 'none', textDecoration: 'none', transition: 'background .12s' }}
                       onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
                       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                     >
-                      <div style={{ width: 28, height: 28, borderRadius: 6, background: 'rgba(251,191,36,.08)', border: '1px solid rgba(251,191,36,.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fbbf24' }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 6, background: 'rgba(59,130,246,.08)', border: '1px solid rgba(59,130,246,.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#3b82f6' }}>
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" /></svg>
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
-                        <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 1, fontFamily: 'Outfit,sans-serif' }}>music.lt diskusija · #{t.legacy_id}</div>
+                        <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 1, fontFamily: 'Outfit,sans-serif' }}>diskusija · #{t.legacy_id}</div>
                       </div>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" strokeWidth="2" style={{ flexShrink: 0 }}>
-                        <path d="M7 17L17 7M17 7H8M17 7v9" />
+                        <path d="M9 18l6-6-6-6" />
                       </svg>
-                    </a>
+                    </Link>
                   )
                 })}
               </div>
