@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import LegacyLikesPanel, { LegacyBadge, type LegacyLikeUser } from '@/components/LegacyLikesPanel'
+import LikesModal from '@/components/LikesModal'
 
 function parseCoverPos(pos: string): { x: number; y: number; zoom: number } {
   const parts = pos.trim().split(/\s+/)
@@ -37,6 +38,7 @@ type Props = {
   news: any[]; events: any[]; similar: any[]; newTracks: Track[]; topVideos: Track[]; chartData: ChartPt[]; hasNewMusic: boolean
   legacyCommunity?: LegacyCommunity
   legacyThreads?: LegacyThread[]
+  legacyNews?: LegacyThread[]
 }
 
 const yt = (u?: string | null) => { if (!u) return null; const m = u.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/); return m ? m[1] : null }
@@ -48,7 +50,7 @@ function slugToForumTitle(slug: string): string {
     .replace(/\/$/, '')
     .replace(/-/g, ' ')
     .replace(/\s+/g, ' ')
-    .trim() || 'Diskusija music.lt archyve'
+    .trim() || 'Diskusija'
 }
 const aType = (a: Album) => { if (a.type_ep) return 'EP'; if (a.type_single) return 'Singlas'; if (a.type_live) return 'Live'; if (a.type_compilation) return 'Rinkinys'; if (a.type_remix) return 'Remix'; if (a.type_soundtrack) return 'OST'; if (a.type_demo) return 'Demo'; return 'Albumas' }
 const FLAGS: Record<string, string> = { 'Lietuva': '🇱🇹', 'Latvija': '🇱🇻', 'Estija': '🇪🇪', 'Lenkija': '🇵🇱', 'Vokietija': '🇩🇪', 'Prancūzija': '🇫🇷', 'Italija': '🇮🇹', 'Ispanija': '🇪🇸', 'Didžioji Britanija': '🇬🇧', 'JAV': '🇺🇸', 'Kanada': '🇨🇦', 'Australija': '🇦🇺', 'Japonija': '🇯🇵', 'Švedija': '🇸🇪', 'Norvegija': '🇳🇴', 'Danija': '🇩🇰', 'Suomija': '🇫🇮', 'Airija': '🇮🇪', 'Olandija': '🇳🇱', 'Rusija': '🇷🇺', 'Ukraina': '🇺🇦' }
@@ -151,14 +153,16 @@ function Gallery({ photos }: { photos: { url: string; caption?: string }[] }) {
 
 export default function ArtistProfileClient({
   artist, heroImage, genres, links, photos, albums, tracks, members, followers, likeCount, news, events, similar, newTracks, topVideos, chartData, hasNewMusic,
-  legacyCommunity, legacyThreads = [],
+  legacyCommunity, legacyThreads = [], legacyNews = [],
 }: Props) {
   const isLegacy = typeof artist.source === 'string' && artist.source.startsWith('legacy')
   const hasLegacyCommunity = !!legacyCommunity && legacyCommunity.distinctUsers > 0
   const hasLegacyThreads = legacyThreads.length > 0
+  const hasLegacyNews = legacyNews.length > 0
   const [pid, setPid] = useState<number | null>(null)
   const [df, setDf] = useState('all')
   const [loaded, setLoaded] = useState(false)
+  const [likesModalOpen, setLikesModalOpen] = useState(false)
   useEffect(() => { setLoaded(true) }, [])
 
   const flag = FLAGS[artist.country] || (artist.country ? '🌍' : '')
@@ -166,7 +170,12 @@ export default function ArtistProfileClient({
   const solo = artist.type === 'solo'
   const age = solo && artist.birth_date ? Math.floor((Date.now() - new Date(artist.birth_date).getTime()) / 31557600000) : null
   const active = artist.active_from ? `${artist.active_from}–${artist.active_until || 'dabar'}` : null
-  const likes = likeCount + followers
+  // Unified likes count — modern artist_likes + legacy music.lt community
+  // (distinctUsers, ne totalEvents, nes kiti 2333 "patinka" žymos kyla iš
+  // vartotojų patikusių album/track — ne pakartotinai skaičiuojame).
+  const legacyLikeCount = legacyCommunity?.distinctUsers || 0
+  const likes = likeCount + followers + legacyLikeCount
+  const allLikesUsers: any[] = legacyCommunity?.topFans || []
   const atypes = [...new Set(albums.map(aType))]
   const fAlbums = df === 'all' ? albums : albums.filter(a => aType(a) === df)
   const yr = new Date().getFullYear()
@@ -208,11 +217,16 @@ export default function ArtistProfileClient({
               {artist.is_verified && <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, background: '#3b82f6', borderRadius: '50%', marginLeft: 6, verticalAlign: 'middle' }}><svg width="12" height="12" viewBox="0 0 24 24" fill="#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg></span>}
             </h1>
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
-              {isLegacy && <LegacyBadge label="music.lt archyvas" />}
               {genres.map(g => <span key={g.id} style={{ fontSize: 10, fontWeight: 700, color: 'var(--hero-tag-text)', background: 'var(--hero-tag-bg)', border: '1px solid var(--hero-tag-border)', borderRadius: 100, padding: '3px 10px', fontFamily: 'Outfit,sans-serif', backdropFilter: 'blur(4px)' }}>{g.name}</span>)}
-              <button style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 12px', borderRadius: 100, border: '1px solid rgba(249,115,22,.25)', fontSize: 11, fontWeight: 800, cursor: 'pointer', fontFamily: 'Outfit,sans-serif', background: 'rgba(249,115,22,.1)', color: '#f97316' }}>
+              <button
+                onClick={() => likes > 0 && setLikesModalOpen(true)}
+                title={likes > 0 ? `Pažiūrėti visus ${likes.toLocaleString('lt-LT')} vartotojus` : 'Dar niekas nepaspaudė'}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 12px', borderRadius: 100, border: '1px solid rgba(249,115,22,.25)', fontSize: 11, fontWeight: 800, cursor: likes > 0 ? 'pointer' : 'default', fontFamily: 'Outfit,sans-serif', background: 'rgba(249,115,22,.1)', color: '#f97316', transition: 'all .15s' }}
+                onMouseEnter={(e) => { if (likes > 0) { e.currentTarget.style.background = 'rgba(249,115,22,.2)'; e.currentTarget.style.borderColor = 'rgba(249,115,22,.45)' } }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(249,115,22,.1)'; e.currentTarget.style.borderColor = 'rgba(249,115,22,.25)' }}
+              >
                 <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 11, height: 11 }}><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
-                {likes > 0 ? likes : '0'}
+                {likes > 0 ? likes.toLocaleString('lt-LT') : '0'}
               </button>
               {solo && members.map(m => (
                 <Link key={m.id} href={`/atlikejai/${m.slug}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 100, border: '1px solid var(--hero-tag-border)', background: 'var(--hero-tag-bg)', textDecoration: 'none', fontSize: 10, fontWeight: 700, color: 'var(--hero-name)', fontFamily: 'Outfit,sans-serif', backdropFilter: 'blur(4px)' }}>
@@ -268,22 +282,14 @@ export default function ArtistProfileClient({
           </section>
         )}
 
-        {/* Iš music.lt archyvo — legacy community signal */}
-        {hasLegacyCommunity && legacyCommunity && (
-          <section style={{ paddingTop: 24 }}>
-            <div style={ST}>Iš music.lt archyvo<span style={{ flex: 1, height: 1, background: 'var(--section-line)' }} /></div>
-            <LegacyLikesPanel
-              count={legacyCommunity.distinctUsers}
-              users={legacyCommunity.topFans}
-              entityLabel={
-                legacyCommunity.totalEvents > legacyCommunity.distinctUsers
-                  ? `vartotojų prisilietę ${artist.name} muzikos music.lt archyve (${legacyCommunity.totalEvents.toLocaleString('lt-LT')} „patinka" žymos)`
-                  : `vartotojų patiko ${artist.name} music.lt archyve`
-              }
-              maxUsers={30}
-            />
-          </section>
-        )}
+        {/* Likes modalas — atidaromas per main ♥ button'ą hero'e */}
+        <LikesModal
+          open={likesModalOpen}
+          onClose={() => setLikesModalOpen(false)}
+          title={`„${artist.name}" patinka`}
+          count={likes}
+          users={allLikesUsers}
+        />
 
         {/* Discography */}
         {albums.length > 0 && (
@@ -396,15 +402,45 @@ export default function ArtistProfileClient({
           </section>
         )}
 
+        {/* News (from music.lt archyvo) — above discussions */}
+        {hasLegacyNews && (
+          <section style={{ paddingTop: 24 }}>
+            <div style={ST}>Naujienos · {legacyNews.length}<span style={{ flex: 1, height: 1, background: 'var(--section-line)' }} /></div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 }}>
+              {legacyNews.slice(0, 12).map((n) => {
+                const title = slugToForumTitle(n.slug)
+                return (
+                  <a
+                    key={n.legacy_id}
+                    href={n.source_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '12px 14px', borderRadius: 12, background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', textDecoration: 'none', transition: 'all .15s' }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.background = 'var(--bg-hover)' }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-subtle)'; e.currentTarget.style.background = 'var(--bg-surface)' }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ width: 22, height: 22, borderRadius: 5, background: 'rgba(249,115,22,.1)', border: '1px solid rgba(249,115,22,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f97316', flexShrink: 0 }}>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M20 3H4a2 2 0 00-2 2v14a2 2 0 002 2h16a2 2 0 002-2V5a2 2 0 00-2-2zm-9 14H5v-2h6v2zm0-4H5v-2h6v2zm0-4H5V7h6v2zm8 8h-6v-2h6v2zm0-4h-6V7h6v6z" /></svg>
+                      </div>
+                      <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--text-muted)', fontFamily: 'Outfit,sans-serif', letterSpacing: '.1em', textTransform: 'uppercase' }}>Naujiena</div>
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.35 }}>{title}</div>
+                  </a>
+                )
+              })}
+            </div>
+          </section>
+        )}
+
         {/* Discussions */}
         <section style={{ paddingTop: 24 }}>
           <div style={ST}>Diskusijos<span style={{ flex: 1, height: 1, background: 'var(--section-line)' }} /></div>
           {hasLegacyThreads ? (
             <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 12, overflow: 'hidden' }}>
               <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'Outfit,sans-serif', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.12em', color: 'var(--text-secondary)' }}>
-                <span>Archyvinės temos · {legacyThreads.length}</span>
+                <span>Temos · {legacyThreads.length}</span>
                 <span style={{ flex: 1 }} />
-                <LegacyBadge label="music.lt" />
               </div>
               <div>
                 {legacyThreads.map((t, i) => {

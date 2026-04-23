@@ -104,7 +104,7 @@ async function getLegacyAlbumLikes(albumLegacyId: number | null) {
       .eq('entity_type', 'album')
       .eq('entity_legacy_id', albumLegacyId),
     sb.from('legacy_likes')
-      .select('user_username, user_rank, user_avatar_url')
+      .select('user_username, user_rank')
       .eq('entity_type', 'album')
       .eq('entity_legacy_id', albumLegacyId)
       .order('id', { ascending: true })

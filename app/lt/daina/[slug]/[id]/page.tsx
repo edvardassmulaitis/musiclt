@@ -91,7 +91,7 @@ export default async function TrackPage({ params }: { params: Promise<{ slug: st
           .eq('entity_legacy_id', trackLegacyId),
         supabase
           .from('legacy_likes')
-          .select('user_username, user_rank, user_avatar_url')
+          .select('user_username, user_rank')
           .eq('entity_type', 'track')
           .eq('entity_legacy_id', trackLegacyId)
           .order('id', { ascending: true })

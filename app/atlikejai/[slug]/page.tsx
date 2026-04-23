@@ -92,7 +92,25 @@ async function getLegacyForumThreads(artist: { name: string; slug: string }, lim
   const pat = `%${needle}%`
   const { data } = await sb
     .from('forum_threads')
-    .select('legacy_id, slug, source_url')
+    .select('legacy_id, slug, source_url, kind')
+    .eq('kind', 'discussion')
+    .or(`source_url.ilike.${pat},slug.ilike.${pat}`)
+    .order('legacy_id', { ascending: false })
+    .limit(limit)
+  return data || []
+}
+
+/** Atskirai paimam news — naudoja tokį patį URL pattern, bet kind='news' */
+async function getLegacyNewsThreads(artist: { name: string; slug: string }, limit = 12) {
+  if (!artist.slug) return []
+  const sb = createAdminClient()
+  const needle = artist.slug.toLowerCase().replace(/[^a-z0-9-]/g, '')
+  if (!needle || needle.length < 3) return []
+  const pat = `%${needle}%`
+  const { data } = await sb
+    .from('forum_threads')
+    .select('legacy_id, slug, source_url, kind')
+    .eq('kind', 'news')
     .or(`source_url.ilike.${pat},slug.ilike.${pat}`)
     .order('legacy_id', { ascending: false })
     .limit(limit)
@@ -133,11 +151,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ArtistPage({ params }: Props) {
   const { slug } = await params; const artist = await getArtist(slug); if (!artist) notFound()
-  const [genres, links, dbPhotos, albums, tracks, members, followers, likeCount, news, rawEvents, allTrackLegacyIds, legacyThreads] = await Promise.all([
+  const [genres, links, dbPhotos, albums, tracks, members, followers, likeCount, news, rawEvents, allTrackLegacyIds, legacyThreads, legacyNews] = await Promise.all([
     getGenres(artist.id), getLinks(artist.id), getPhotos(artist.id), getAlbums(artist.id), getTracks(artist.id),
     getMembers(artist.id), getFollowers(artist.id), getLikeCount(artist.id), getNews(artist.id), getEvents(artist.id),
     getAllArtistTrackLegacyIds(artist.id),
     getLegacyForumThreads({ name: artist.name, slug: artist.slug }),
+    getLegacyNewsThreads({ name: artist.name, slug: artist.slug }, 12),
   ])
   const similar = await getSimilar(artist.id, genres.map((g: any) => g.id))
 
@@ -178,7 +197,7 @@ export default async function ArtistPage({ params }: Props) {
       members={members} followers={followers} likeCount={likeCount} news={news as any} events={events}
       similar={similar} newTracks={newTracks as any} topVideos={topVideos as any}
       chartData={mockChart(albums)} hasNewMusic={newTracks.length > 0}
-      legacyCommunity={legacyCommunity} legacyThreads={legacyThreads as any}
+      legacyCommunity={legacyCommunity} legacyThreads={legacyThreads as any} legacyNews={legacyNews as any}
     />
   )
 }
