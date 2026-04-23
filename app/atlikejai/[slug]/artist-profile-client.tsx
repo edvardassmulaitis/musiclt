@@ -5,13 +5,13 @@ import LikesModal from '@/components/LikesModal'
 import type { LegacyLikeUser } from '@/components/LegacyLikesPanel'
 
 /* ═══════════════════════════════════════════════════════════════════
-   Artist profile — hero v4.
-   - Hero is a true 50/50 split: photo cell (left) + solid-bg player
-     cell (right). Photo stays contained, player always readable
-     regardless of theme.
-   - Hero text is minimal (years + name + genres). Everything else
-     (country, stats, ranks, members, links) lives in rich Details
-     sidebar next to the bio.
+   Artist profile — v5 (Spotify/Tidal-style banner + sectioned content).
+   Research pattern: full-width banner hero ~35-45vh with artist photo
+   at cover, dark gradient for legibility, meta + rank pills + huge name
+   + genres at bottom-left. Primary actions in a bar beneath hero. Music
+   as its own prominent section (video + tracks). About with trim sidebar.
+   Works equally well with horizontal/vertical/missing photos via
+   object-cover + gradient + initial-watermark fallback.
    ═══════════════════════════════════════════════════════════════════ */
 
 // ── Types ───────────────────────────────────────────────────────────
@@ -53,14 +53,14 @@ function parseCoverPos(pos: string): { x: number; y: number; zoom: number } {
   const parts = pos.trim().split(/\s+/)
   if (parts[0] === 'center') {
     const yMatch = pos.match(/(\d+)%/)
-    const y = yMatch ? parseInt(yMatch[1]) : 20
+    const y = yMatch ? parseInt(yMatch[1]) : 30
     const last = parseFloat(parts[parts.length - 1])
     const zoom = (!isNaN(last) && last >= 1 && !parts[parts.length - 1].includes('%')) ? last : 1
     return { x: 50, y, zoom }
   }
   const pcts = pos.match(/(\d+)%/g) || []
   const x = pcts[0] ? parseInt(pcts[0]) : 50
-  const y = pcts[1] ? parseInt(pcts[1]) : 20
+  const y = pcts[1] ? parseInt(pcts[1]) : 30
   const last = parseFloat(parts[parts.length - 1])
   const zoom = (!isNaN(last) && last >= 1 && !parts[parts.length - 1].includes('%')) ? last : 1
   return { x, y, zoom }
@@ -109,7 +109,7 @@ const SOC: Record<string, { l: string; c: string; d: string }> = {
 function SectionTitle({ label, count }: { label: string; count?: number }) {
   return (
     <div className="mb-5 flex items-baseline gap-3 sm:mb-6">
-      <h2 className="font-['Outfit',sans-serif] text-[22px] font-black leading-none text-[var(--text-primary)] sm:text-[26px] lg:text-[30px]">
+      <h2 className="font-['Outfit',sans-serif] text-[22px] font-black leading-none tracking-[-0.01em] text-[var(--text-primary)] sm:text-[26px] lg:text-[30px]">
         {label}
       </h2>
       {typeof count === 'number' && (
@@ -119,293 +119,146 @@ function SectionTitle({ label, count }: { label: string; count?: number }) {
   )
 }
 
-// ── Hero v4: 50/50 split — photo (left) + solid player (right) ─────
+// ── Hero v5: Spotify-style full-width banner ───────────────────────
 
 function Hero({
-  artist, heroImage, genres, loaded, active,
-  tracksAllTime, tracksTrending, activeTrackId, onSelectTrack, hasAnyVideo,
+  artist, heroImage, genres, loaded, flag, active, ranks,
 }: {
   artist: any; heroImage: string | null; genres: Genre[]; loaded: boolean
-  active: string | null
-  tracksAllTime: Track[]; tracksTrending: Track[]
-  activeTrackId: number | null; onSelectTrack: (id: number) => void; hasAnyVideo: boolean
+  flag: string; active: string | null; ranks: Rank[]
 }) {
+  const hasPhoto = !!heroImage
+
   return (
-    <section className="w-full bg-[var(--bg-body)]">
-      <div className="grid grid-cols-1 lg:min-h-[560px] lg:grid-cols-2">
-        {/* LEFT: photo with artist name overlay (always dark-friendly) */}
-        <div className="relative isolate min-h-[380px] overflow-hidden bg-black sm:min-h-[440px] lg:min-h-0">
-          {heroImage ? (
-            <img
-              src={heroImage}
-              alt={artist.name}
-              className="absolute inset-0 block h-full w-full animate-[apHeroZoom_32s_ease-in-out_infinite_alternate] object-cover"
-              style={(() => {
-                const p = parseCoverPos(artist.cover_image_position || 'center 20%')
-                return { objectPosition: `${p.x}% ${p.y}%`, transformOrigin: `${p.x}% ${p.y}%` }
-              })()}
-            />
-          ) : (
-            <div className="absolute inset-0 bg-gradient-to-br from-[#1a2436] to-[#0a0f1a]" />
-          )}
-          {/* Legibility gradients — text is always readable */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/40 via-transparent to-transparent" />
-
-          {/* Bottom-left text overlay */}
+    <section
+      className="relative isolate w-full overflow-hidden"
+      style={{ height: 'clamp(380px,45vh,560px)' }}
+    >
+      {/* Background — photo or fallback gradient */}
+      {hasPhoto ? (
+        <img
+          src={heroImage}
+          alt={artist.name}
+          className="absolute inset-0 block h-full w-full animate-[apHeroZoom_32s_ease-in-out_infinite_alternate] object-cover"
+          style={(() => {
+            const p = parseCoverPos(artist.cover_image_position || 'center 30%')
+            return { objectPosition: `${p.x}% ${p.y}%`, transformOrigin: `${p.x}% ${p.y}%` }
+          })()}
+        />
+      ) : (
+        // No-photo fallback: rich gradient + huge faded initial watermark
+        <>
           <div
-            className={[
-              'absolute inset-x-0 bottom-0 px-6 pb-8 sm:px-10 sm:pb-10 lg:px-12 lg:pb-12',
-              'transition-[opacity,transform] duration-700 ease-out',
-              loaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
-            ].join(' ')}
-          >
-            {active && (
-              <div className="mb-3 font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.22em] text-white/60 sm:text-[12px]">
-                {active}
-              </div>
-            )}
-            <h1
-              className="mb-5 font-['Outfit',sans-serif] font-black leading-[0.9] tracking-[-0.035em] text-white drop-shadow-[0_6px_32px_rgba(0,0,0,0.8)]"
-              style={{ fontSize: 'clamp(2.2rem,6vw,5rem)' }}
-            >
-              {artist.name}
-              {artist.is_verified && (
-                <span className="ml-3 inline-flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#3b82f6] to-[#1d4ed8] align-middle shadow-[0_4px_16px_rgba(59,130,246,0.5)] sm:h-8 sm:w-8">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>
-                </span>
-              )}
-            </h1>
-            {genres.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {genres.slice(0, 5).map(g => (
-                  <span
-                    key={g.id}
-                    className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-bold text-white/90 backdrop-blur-md"
-                  >
-                    {g.name}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <style>{`@keyframes apHeroZoom{0%{transform:scale(1.02)}100%{transform:scale(1.1)}}`}</style>
-        </div>
-
-        {/* RIGHT: solid-bg player cell */}
-        <div className="flex flex-col border-t border-[var(--border-default)] bg-[var(--bg-surface)] lg:border-l lg:border-t-0">
-          <PlayerCard
-            tracksAllTime={tracksAllTime}
-            tracksTrending={tracksTrending}
-            activeTrackId={activeTrackId}
-            onSelectTrack={onSelectTrack}
-            hasAnyVideo={hasAnyVideo}
+            className="absolute inset-0"
+            style={{
+              background: 'linear-gradient(135deg, #1a2436 0%, #0a1028 40%, #2c1d3d 100%)',
+            }}
           />
-        </div>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span
+              className="select-none font-['Outfit',sans-serif] font-black leading-none tracking-[-0.1em] text-white/[0.04]"
+              style={{ fontSize: 'clamp(18rem, 40vw, 36rem)' }}
+            >
+              {artist.name?.[0]?.toUpperCase() || '♪'}
+            </span>
+          </div>
+        </>
+      )}
+
+      {/* Dark legibility gradient — bottom-up */}
+      <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-body)] via-[var(--bg-body)]/40 to-transparent" />
+      {/* Subtle left wash to anchor text column */}
+      <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-transparent to-transparent" />
+
+      <style>{`@keyframes apHeroZoom{0%{transform:scale(1.02)}100%{transform:scale(1.08)}}`}</style>
+
+      {/* Content: bottom-left content */}
+      <div
+        className={[
+          'relative mx-auto flex h-full max-w-[1320px] flex-col justify-end px-4 pb-6 sm:px-6 sm:pb-8 lg:px-10 lg:pb-10',
+          'transition-[opacity,transform] duration-700 ease-out',
+          loaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
+        ].join(' ')}
+      >
+        {/* Rank pills row (shown just above meta) */}
+        {ranks.length > 0 && (
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            {ranks.slice(0, 3).map((r, i) => (
+              <span
+                key={i}
+                className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(249,115,22,0.45)] bg-[rgba(249,115,22,0.14)] px-3 py-1 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.12em] text-white backdrop-blur-md sm:text-[12px]"
+              >
+                <span className="leading-none">{r.scope === 'country' ? '🌍' : r.scope === 'genre' ? '🎵' : '🏆'}</span>
+                <span className="text-[var(--accent-orange)]">#{r.rank}</span>
+                <span>{r.category}</span>
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Meta tag line — just years */}
+        {active && (
+          <div className="mb-3 font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.22em] text-white/70 sm:text-[12px]">
+            {active}
+          </div>
+        )}
+
+        {/* Huge artist name */}
+        <h1
+          className="mb-4 font-['Outfit',sans-serif] font-black leading-[0.9] tracking-[-0.04em] text-white drop-shadow-[0_6px_32px_rgba(0,0,0,0.8)]"
+          style={{ fontSize: 'clamp(2.25rem,6vw,5rem)' }}
+        >
+          {artist.name}
+          {artist.is_verified && (
+            <span className="ml-3 inline-flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#3b82f6] to-[#1d4ed8] align-middle shadow-[0_4px_16px_rgba(59,130,246,0.5)] sm:h-8 sm:w-8">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>
+            </span>
+          )}
+        </h1>
+
+        {/* Genre pills */}
+        {genres.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {genres.slice(0, 5).map(g => (
+              <span
+                key={g.id}
+                className="rounded-full border border-white/20 bg-white/10 px-3 py-1 font-['Outfit',sans-serif] text-[11px] font-bold text-white/85 backdrop-blur-md sm:text-[12px]"
+              >
+                {g.name}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   )
 }
 
-// ── PlayerCard: solid surface, theme-aware ─────────────────────────
-
-function PlayerCard({
-  tracksAllTime, tracksTrending, activeTrackId, onSelectTrack, hasAnyVideo,
-}: {
-  tracksAllTime: Track[]; tracksTrending: Track[]
-  activeTrackId: number | null; onSelectTrack: (id: number) => void; hasAnyVideo: boolean
-}) {
-  const [tab, setTab] = useState<'all' | 'trending'>(
-    tracksTrending.length > 0 ? 'trending' : 'all'
-  )
-  const list = tab === 'trending' ? tracksTrending : tracksAllTime
-  const activeTrack = [...tracksAllTime, ...tracksTrending].find(t => t.id === activeTrackId)
-  const activeVid = yt(activeTrack?.video_url)
-  const firstWithVideo = list.find(t => yt(t.video_url)) || tracksAllTime.find(t => yt(t.video_url))
-  const displayVid = activeVid || yt(firstWithVideo?.video_url)
-  const displayTrack = activeTrack || firstWithVideo
-
-  return (
-    <div className="flex h-full flex-col">
-      {/* Video area */}
-      <div className="relative aspect-video w-full overflow-hidden bg-black">
-        {displayVid ? (
-          <iframe
-            key={displayVid}
-            src={`https://www.youtube.com/embed/${displayVid}?rel=0${activeVid ? '&autoplay=1' : ''}`}
-            allow="autoplay;encrypted-media"
-            allowFullScreen
-            className="absolute inset-0 h-full w-full border-0"
-          />
-        ) : (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 px-4 text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/5 ring-1 ring-white/10">
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/50">
-                <path d="M23 7l-7 5 7 5V7z" />
-                <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-              </svg>
-            </div>
-            <div className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.15em] text-white/60">
-              Video dar nėra
-            </div>
-            <div className="max-w-[260px] text-[12px] text-white/40">
-              Dainoms nepridėtos YouTube nuorodos
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Now playing strip */}
-      {displayTrack && (
-        <div className="flex items-center gap-3 border-b border-[var(--border-default)] bg-[var(--bg-elevated)] px-4 py-2.5">
-          <div className={[
-            'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
-            activeVid ? 'bg-[var(--accent-orange)] shadow-[0_4px_16px_rgba(249,115,22,0.4)]' : 'bg-[var(--card-bg)]',
-          ].join(' ')}>
-            {activeVid ? (
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
-            ) : (
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="text-[var(--text-muted)]"><path d="M8 5v14l11-7z" /></svg>
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="truncate font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)]">
-              {displayTrack.title}
-            </div>
-            <div className="font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.18em] text-[var(--accent-orange)]">
-              {activeVid ? 'Groja' : 'Paruošta'}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Tabs */}
-      <div className="flex border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-2 pt-1">
-        <TabButton active={tab === 'all'} onClick={() => setTab('all')}>
-          Populiariausios <span className="ml-1 text-[var(--text-faint)]">·{tracksAllTime.length}</span>
-        </TabButton>
-        <TabButton
-          active={tab === 'trending'}
-          disabled={tracksTrending.length === 0}
-          onClick={() => setTab('trending')}
-        >
-          Trending <span className="ml-1 text-[var(--text-faint)]">·{tracksTrending.length}</span>
-        </TabButton>
-      </div>
-
-      {/* Tracks list */}
-      <div
-        className="flex-1 overflow-y-auto bg-[var(--bg-surface)]"
-        style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--border-default) transparent', minHeight: '200px', maxHeight: '320px' }}
-      >
-        {list.length === 0 ? (
-          <div className="flex h-full min-h-[160px] flex-col items-center justify-center gap-1 px-6 text-center">
-            <div className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-wider text-[var(--text-muted)]">Nieko</div>
-            <div className="text-[11px] text-[var(--text-faint)]">
-              {tab === 'trending' ? 'Per 2 metus naujų nebuvo' : 'Dainų nėra'}
-            </div>
-          </div>
-        ) : (
-          <ul className="divide-y divide-[var(--border-subtle)]">
-            {list.map((t, i) => {
-              const v = yt(t.video_url)
-              const isActive = t.id === activeTrackId
-              return (
-                <li key={t.id}>
-                  <button
-                    onClick={() => v && onSelectTrack(t.id)}
-                    disabled={!v}
-                    className={[
-                      'flex w-full items-center gap-3 border-0 bg-transparent px-4 py-2 text-left transition-colors',
-                      v ? 'cursor-pointer' : 'cursor-default opacity-55',
-                      isActive ? 'bg-[rgba(249,115,22,0.08)]' : 'hover:bg-[var(--bg-hover)]',
-                    ].join(' ')}
-                  >
-                    <span
-                      className={[
-                        'w-6 shrink-0 text-center font-["Outfit",sans-serif] text-[13px] font-bold tabular-nums',
-                        isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]',
-                      ].join(' ')}
-                    >
-                      {isActive && v ? (
-                        <span className="inline-flex h-5 w-5 items-center justify-center">
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
-                        </span>
-                      ) : (
-                        i + 1
-                      )}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className={[
-                        'truncate font-["Outfit",sans-serif] text-[13px] font-bold leading-tight',
-                        isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-primary)]',
-                      ].join(' ')}>
-                        {t.title}
-                      </div>
-                    </div>
-                    {v ? (
-                      <div className={[
-                        'flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors',
-                        isActive ? 'bg-[var(--accent-orange)] text-white' : 'bg-[var(--card-bg)] text-[var(--text-muted)]',
-                      ].join(' ')}>
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
-                      </div>
-                    ) : (
-                      <div className="shrink-0 font-['Outfit',sans-serif] text-[9px] font-bold uppercase tracking-wider text-[var(--text-faint)]">—</div>
-                    )}
-                  </button>
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </div>
-      {!hasAnyVideo && (
-        <div className="border-t border-[var(--border-default)] bg-[var(--bg-elevated)] px-4 py-2 text-center font-['Outfit',sans-serif] text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-          💡 Pridėk YouTube nuorodas dainoms
-        </div>
-      )}
-    </div>
-  )
-}
-
-function TabButton({ active, disabled, onClick, children }: {
-  active: boolean; disabled?: boolean; onClick: () => void; children: React.ReactNode
-}) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={[
-        'relative border-0 bg-transparent px-4 py-3 font-["Outfit",sans-serif] text-[11px] font-extrabold uppercase tracking-[0.15em] transition-colors',
-        active ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]',
-        disabled ? 'cursor-not-allowed opacity-30' : 'cursor-pointer',
-      ].join(' ')}
-    >
-      {children}
-      {active && (
-        <span className="absolute -bottom-px left-3 right-3 h-[2px] rounded-full bg-[var(--accent-orange)]" />
-      )}
-    </button>
-  )
-}
-
-// ── ActionBar (compact, actions only) ──────────────────────────────
+// ── ActionBar: primary actions below hero ──────────────────────────
 
 function ActionBar({
-  likes, onLike, links, website,
+  onPlay, canPlay, likes, onLike, links, website,
 }: {
+  onPlay: () => void; canPlay: boolean
   likes: number; onLike: () => void
   links: { platform: string; url: string }[]; website?: string | null
 }) {
   return (
     <div className="border-b border-[var(--border-default)] bg-[var(--bg-surface)]">
-      <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-2 px-4 py-3 sm:gap-3 sm:px-6 lg:px-10">
+      <div className="mx-auto flex max-w-[1320px] flex-wrap items-center gap-2.5 px-4 py-4 sm:gap-3 sm:px-6 lg:px-10">
+        <button
+          onClick={onPlay}
+          disabled={!canPlay}
+          className="group inline-flex h-12 items-center gap-2 rounded-full bg-[var(--accent-orange)] px-6 font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-wider text-white shadow-[0_8px_24px_rgba(249,115,22,0.4)] transition-all hover:shadow-[0_12px_32px_rgba(249,115,22,0.55)] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+        >
+          <svg className="h-4 w-4 transition-transform group-hover:scale-110" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+          Klausytis
+        </button>
+
         <button
           onClick={onLike}
           disabled={!likes}
-          className="inline-flex h-10 items-center gap-2 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-4 font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] disabled:cursor-default disabled:opacity-60"
+          className="inline-flex h-12 items-center gap-2 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-4 font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] disabled:cursor-default disabled:opacity-60"
         >
           <svg className="h-4 w-4 text-[var(--accent-orange)]" viewBox="0 0 24 24" fill="currentColor">
             <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
@@ -414,7 +267,7 @@ function ActionBar({
         </button>
 
         <button
-          className="inline-flex h-10 items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-4 font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+          className="hidden h-12 items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-4 font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] sm:inline-flex"
           title="Sekti atlikėją"
         >
           <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14" /></svg>
@@ -454,38 +307,214 @@ function ActionBar({
   )
 }
 
-// ── DetailsSidebar: rich info next to bio ──────────────────────────
+// ── Music section: video + tabs + tracks list ──────────────────────
+
+function MusicSection({
+  tracksAllTime, tracksTrending, activeTrackId, onSelectTrack, hasAnyVideo,
+}: {
+  tracksAllTime: Track[]; tracksTrending: Track[]
+  activeTrackId: number | null; onSelectTrack: (id: number) => void; hasAnyVideo: boolean
+}) {
+  const [tab, setTab] = useState<'all' | 'trending'>(
+    tracksTrending.length > 0 ? 'trending' : 'all'
+  )
+  const list = tab === 'trending' ? tracksTrending : tracksAllTime
+  const activeTrack = [...tracksAllTime, ...tracksTrending].find(t => t.id === activeTrackId)
+  const activeVid = yt(activeTrack?.video_url)
+  const firstWithVideo = list.find(t => yt(t.video_url)) || tracksAllTime.find(t => yt(t.video_url))
+  const displayVid = activeVid || yt(firstWithVideo?.video_url)
+  const displayTrack = activeTrack || firstWithVideo
+
+  if (tracksAllTime.length === 0 && tracksTrending.length === 0) return null
+
+  return (
+    <section id="music">
+      <SectionTitle label="Populiariausios dainos" />
+      <div className="overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          {/* Video */}
+          <div className="relative bg-black">
+            {displayVid ? (
+              <div className="aspect-video">
+                <iframe
+                  key={displayVid}
+                  src={`https://www.youtube.com/embed/${displayVid}?rel=0${activeVid ? '&autoplay=1' : ''}`}
+                  allow="autoplay;encrypted-media"
+                  allowFullScreen
+                  className="h-full w-full border-0"
+                />
+              </div>
+            ) : (
+              <div className="flex aspect-video flex-col items-center justify-center gap-3 px-6 text-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/5 ring-1 ring-white/10">
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/50">
+                    <path d="M23 7l-7 5 7 5V7z" />
+                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                  </svg>
+                </div>
+                <div className="font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.15em] text-white/60">
+                  Video dar nėra
+                </div>
+                <div className="max-w-[300px] text-[12px] text-white/40">
+                  Šio atlikėjo dainos dar nesusietos su YouTube video
+                </div>
+              </div>
+            )}
+            {displayTrack && (
+              <div className="flex items-center gap-3 border-t border-[var(--border-default)] bg-[var(--bg-elevated)] px-4 py-3">
+                <div className={[
+                  'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
+                  activeVid ? 'bg-[var(--accent-orange)] shadow-[0_4px_16px_rgba(249,115,22,0.4)]' : 'bg-[var(--card-bg)]',
+                ].join(' ')}>
+                  {activeVid ? (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="#fff"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
+                  ) : (
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" className="text-[var(--text-muted)]"><path d="M8 5v14l11-7z" /></svg>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">
+                    {displayTrack.title}
+                  </div>
+                  <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.15em] text-[var(--accent-orange)]">
+                    {activeVid ? 'Groja' : 'Paruošta'}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Tabs + Tracks list */}
+          <div className="flex flex-col border-t border-[var(--border-default)] lg:border-l lg:border-t-0">
+            <div className="flex border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-2 pt-1">
+              <TabButton active={tab === 'all'} onClick={() => setTab('all')}>
+                Populiariausios <span className="ml-1 text-[var(--text-faint)]">·{tracksAllTime.length}</span>
+              </TabButton>
+              <TabButton
+                active={tab === 'trending'}
+                disabled={tracksTrending.length === 0}
+                onClick={() => setTab('trending')}
+              >
+                Trending <span className="ml-1 text-[var(--text-faint)]">·{tracksTrending.length}</span>
+              </TabButton>
+            </div>
+            <div
+              className="flex-1 overflow-y-auto bg-[var(--bg-surface)]"
+              style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--border-default) transparent', minHeight: '260px', maxHeight: '480px' }}
+            >
+              {list.length === 0 ? (
+                <div className="flex h-full min-h-[200px] flex-col items-center justify-center gap-1 px-6 text-center">
+                  <div className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-wider text-[var(--text-muted)]">Nieko</div>
+                  <div className="text-[11px] text-[var(--text-faint)]">
+                    {tab === 'trending' ? 'Per 2 metus naujų nebuvo' : 'Dainų nėra'}
+                  </div>
+                </div>
+              ) : (
+                <ul className="divide-y divide-[var(--border-subtle)]">
+                  {list.map((t, i) => {
+                    const v = yt(t.video_url)
+                    const isActive = t.id === activeTrackId
+                    return (
+                      <li key={t.id}>
+                        <button
+                          onClick={() => v && onSelectTrack(t.id)}
+                          disabled={!v}
+                          className={[
+                            'flex w-full items-center gap-3 border-0 bg-transparent px-4 py-2.5 text-left transition-colors',
+                            v ? 'cursor-pointer' : 'cursor-default opacity-55',
+                            isActive ? 'bg-[rgba(249,115,22,0.08)]' : 'hover:bg-[var(--bg-hover)]',
+                          ].join(' ')}
+                        >
+                          <span
+                            className={[
+                              'w-6 shrink-0 text-center font-["Outfit",sans-serif] text-[13px] font-bold tabular-nums',
+                              isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]',
+                            ].join(' ')}
+                          >
+                            {isActive && v ? (
+                              <span className="inline-flex h-5 w-5 items-center justify-center">
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
+                              </span>
+                            ) : (
+                              i + 1
+                            )}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className={[
+                              'truncate font-["Outfit",sans-serif] text-[14px] font-bold leading-tight',
+                              isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-primary)]',
+                            ].join(' ')}>
+                              {t.title}
+                            </div>
+                          </div>
+                          {v ? (
+                            <div className={[
+                              'flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors',
+                              isActive ? 'bg-[var(--accent-orange)] text-white' : 'bg-[var(--card-bg)] text-[var(--text-muted)]',
+                            ].join(' ')}>
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                            </div>
+                          ) : (
+                            <div className="shrink-0 font-['Outfit',sans-serif] text-[9px] font-bold uppercase tracking-wider text-[var(--text-faint)]">—</div>
+                          )}
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </div>
+            {!hasAnyVideo && (
+              <div className="border-t border-[var(--border-default)] bg-[var(--bg-elevated)] px-4 py-2.5 text-center font-['Outfit',sans-serif] text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                💡 Pridėk YouTube nuorodas dainoms
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function TabButton({ active, disabled, onClick, children }: {
+  active: boolean; disabled?: boolean; onClick: () => void; children: React.ReactNode
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={[
+        'relative border-0 bg-transparent px-4 py-3 font-["Outfit",sans-serif] text-[11px] font-extrabold uppercase tracking-[0.15em] transition-colors',
+        active ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]',
+        disabled ? 'cursor-not-allowed opacity-30' : 'cursor-pointer',
+      ].join(' ')}
+    >
+      {children}
+      {active && (
+        <span className="absolute -bottom-px left-3 right-3 h-[2px] rounded-full bg-[var(--accent-orange)]" />
+      )}
+    </button>
+  )
+}
+
+// ── DetailsSidebar (simplified) ────────────────────────────────────
 
 function DetailsSidebar({
   artist, flag, active, age, solo, genres, albums, tracks, likes,
-  totalThreads, totalEvents, ranks, members,
+  totalThreads, totalEvents, ranks,
 }: {
   artist: any; flag: string; active: string | null; age: number | null; solo: boolean
   genres: Genre[]; albums: Album[]; tracks: Track[]; likes: number
-  totalThreads: number; totalEvents: number; ranks: Rank[]; members: Member[]
+  totalThreads: number; totalEvents: number; ranks: Rank[]
 }) {
-  // Album type breakdown
-  const byType: Record<string, number> = {}
-  for (const a of albums) {
-    const t = aType(a)
-    byType[t] = (byType[t] || 0) + 1
-  }
-  const typeOrder = ['Studijinis', 'EP', 'Singlas', 'Live', 'Rinkinys', 'Remix', 'OST', 'Demo']
-  const typeBreakdown = typeOrder.filter(t => byType[t]).map(t => ({ type: t, count: byType[t] }))
-
   return (
     <aside className="space-y-5 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5 lg:sticky lg:top-4">
-      {/* Informacija */}
       <SidebarSection title="Informacija">
-        {artist.country && (
-          <SidebarRow label="Kilmė" value={<span>{flag} {artist.country}</span>} />
-        )}
+        {artist.country && <SidebarRow label="Kilmė" value={<span>{flag} {artist.country}</span>} />}
         {active && <SidebarRow label={solo ? 'Karjera' : 'Susikūrę'} value={active} />}
         {solo && age && <SidebarRow label="Amžius" value={`${age} m.`} />}
-        {artist.type && <SidebarRow label="Tipas" value={artist.type === 'solo' ? 'Atlikėjas' : 'Grupė'} />}
       </SidebarSection>
 
-      {/* Žanrai */}
       {genres.length > 0 && (
         <SidebarSection title="Žanrai">
           <div className="flex flex-wrap gap-1.5">
@@ -498,16 +527,9 @@ function DetailsSidebar({
         </SidebarSection>
       )}
 
-      {/* Statistika */}
       {(albums.length > 0 || tracks.length > 0 || likes > 0 || totalThreads > 0) && (
         <SidebarSection title="Statistika">
-          {typeBreakdown.map(({ type, count }) => (
-            <SidebarRow
-              key={type}
-              label={type === 'Studijinis' ? 'Studijiniai' : type === 'EP' ? 'EP' : type === 'Singlas' ? 'Singlai' : type}
-              value={String(count)}
-            />
-          ))}
+          {albums.length > 0 && <SidebarRow label="Albumai" value={String(albums.length)} />}
           {tracks.length > 0 && <SidebarRow label="Dainos" value={`${tracks.length}+`} />}
           {likes > 0 && <SidebarRow label="Gerbėjai" value={likes.toLocaleString('lt-LT')} />}
           {totalEvents > 0 && <SidebarRow label="Renginiai" value={String(totalEvents)} />}
@@ -515,7 +537,6 @@ function DetailsSidebar({
         </SidebarSection>
       )}
 
-      {/* Pozicijos */}
       {ranks.length > 0 && (
         <SidebarSection title="Pozicijos">
           {ranks.map((r, i) => (
@@ -531,35 +552,6 @@ function DetailsSidebar({
           ))}
         </SidebarSection>
       )}
-
-      {/* Nariai */}
-      {!solo && members.length > 0 && (
-        <SidebarSection title={`Nariai · ${members.length}`}>
-          <div className="space-y-1.5">
-            {members.map(m => (
-              <Link
-                key={m.id}
-                href={`/atlikejai/${m.slug}`}
-                className="flex items-center gap-2.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-2 no-underline transition-colors hover:border-[var(--border-default)] hover:bg-[var(--bg-hover)]"
-              >
-                {m.cover_image_url ? (
-                  <img src={m.cover_image_url} alt={m.name} className="h-9 w-9 shrink-0 rounded-full object-cover" />
-                ) : (
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--cover-placeholder)] font-['Outfit',sans-serif] text-[12px] font-black text-[var(--text-faint)]">
-                    {m.name[0]}
-                  </div>
-                )}
-                <div className="min-w-0">
-                  <div className="truncate font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-primary)]">{m.name}</div>
-                  {m.member_from && (
-                    <div className="text-[10px] text-[var(--text-muted)]">{m.member_from}–{m.member_until || 'dabar'}</div>
-                  )}
-                </div>
-              </Link>
-            ))}
-          </div>
-        </SidebarSection>
-      )}
     </aside>
   )
 }
@@ -570,9 +562,7 @@ function SidebarSection({ title, children }: { title: string; children: React.Re
       <div className="mb-2.5 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
         {title}
       </div>
-      <div className="space-y-1">
-        {children}
-      </div>
+      <div className="space-y-1">{children}</div>
     </div>
   )
 }
@@ -616,6 +606,42 @@ function BioExpand({ html }: { html: string }) {
           {expanded ? 'Suskleisti ↑' : 'Skaityti toliau ↓'}
         </button>
       )}
+    </div>
+  )
+}
+
+// ── Members row ────────────────────────────────────────────────────
+
+function MembersRow({ members }: { members: Member[] }) {
+  if (!members.length) return null
+  return (
+    <div className="mt-8">
+      <div className="mb-3 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+        Nariai · {members.length}
+      </div>
+      <div className="flex flex-wrap gap-3">
+        {members.map(m => (
+          <Link
+            key={m.id}
+            href={`/atlikejai/${m.slug}`}
+            className="group flex items-center gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-2.5 no-underline transition-all hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-lg"
+          >
+            {m.cover_image_url ? (
+              <img src={m.cover_image_url} alt={m.name} className="h-11 w-11 shrink-0 rounded-full object-cover" />
+            ) : (
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--cover-placeholder)] font-['Outfit',sans-serif] text-[14px] font-black text-[var(--text-faint)]">
+                {m.name[0]}
+              </div>
+            )}
+            <div>
+              <div className="font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)]">{m.name}</div>
+              {m.member_from && (
+                <div className="text-[11px] text-[var(--text-muted)]">{m.member_from}–{m.member_until || 'dabar'}</div>
+              )}
+            </div>
+          </Link>
+        ))}
+      </div>
     </div>
   )
 }
@@ -806,7 +832,7 @@ export default function ArtistProfileClient({
   const likes = likeCount + followers + authoritativeLegacy
   const allLikesUsers: any[] = legacyCommunity?.allArtistFans || []
 
-  // Discography filter: default to Studijinis if any exist
+  // Discography filter
   const atypes = [...new Set(albums.map(aType))]
   const hasStudio = atypes.includes('Studijinis')
   const [df, setDf] = useState<string>(hasStudio ? 'Studijinis' : 'all')
@@ -834,6 +860,17 @@ export default function ArtistProfileClient({
   const bioHtml: string = artist.description || ''
   const totalThreads = legacyThreads.length + legacyNews.length
 
+  // Primary play handler — scroll to music section and start first playable
+  const handlePlay = () => {
+    const first = tracksAllTime.find(t => yt(t.video_url)) || tracksTrending.find(t => yt(t.video_url))
+    if (first) {
+      setPid(first.id)
+      setTimeout(() => {
+        document.getElementById('music')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 50)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[var(--bg-body)] font-['DM_Sans',system-ui,sans-serif] text-[var(--text-primary)] antialiased">
       <Hero
@@ -841,15 +878,14 @@ export default function ArtistProfileClient({
         heroImage={heroImage}
         genres={genres}
         loaded={loaded}
+        flag={flag}
         active={active}
-        tracksAllTime={tracksAllTime}
-        tracksTrending={tracksTrending}
-        activeTrackId={pid}
-        onSelectTrack={setPid}
-        hasAnyVideo={hasAnyVideo}
+        ranks={ranks}
       />
 
       <ActionBar
+        onPlay={handlePlay}
+        canPlay={hasAnyVideo}
         likes={likes}
         onLike={() => likes > 0 && setLikesModalOpen(true)}
         links={links}
@@ -864,46 +900,56 @@ export default function ArtistProfileClient({
         users={allLikesUsers}
       />
 
-      <main className="mx-auto max-w-[1400px] space-y-14 px-4 pb-24 pt-10 sm:space-y-20 sm:px-6 sm:pt-14 lg:px-10">
+      <main className="mx-auto max-w-[1320px] space-y-14 px-4 pb-24 pt-10 sm:space-y-20 sm:px-6 sm:pt-14 lg:px-10">
 
-        {/* ═ Apie + Details sidebar + Upcoming events ═ */}
-        <section className="grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-12">
-          {/* Main column: Apie + Artimiausi renginiai */}
-          <div className="min-w-0 space-y-14">
-            {hasBio && (
-              <div>
-                <SectionTitle label="Apie" />
-                <BioExpand html={bioHtml} />
-              </div>
-            )}
+        {/* ═ Artimiausi renginiai (if any) ═ */}
+        {upcomingEvents.length > 0 && (
+          <section>
+            <SectionTitle label="Artimiausi renginiai" count={upcomingEvents.length} />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {upcomingEvents.map((e: any) => <EventCard key={e.id} e={e} variant="upcoming" />)}
+            </div>
+          </section>
+        )}
 
-            {upcomingEvents.length > 0 && (
-              <div>
-                <SectionTitle label="Artimiausi renginiai" count={upcomingEvents.length} />
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  {upcomingEvents.map((e: any) => <EventCard key={e.id} e={e} variant="upcoming" />)}
-                </div>
-              </div>
-            )}
-          </div>
+        {/* ═ Muzika (video + tabs + tracks) ═ */}
+        <MusicSection
+          tracksAllTime={tracksAllTime}
+          tracksTrending={tracksTrending}
+          activeTrackId={pid}
+          onSelectTrack={setPid}
+          hasAnyVideo={hasAnyVideo}
+        />
 
-          {/* Details sidebar — rich info */}
-          <DetailsSidebar
-            artist={artist}
-            flag={flag}
-            active={active}
-            age={age}
-            solo={solo}
-            genres={genres}
-            albums={albums}
-            tracks={tracks}
-            likes={likes}
-            totalThreads={totalThreads}
-            totalEvents={events.length}
-            ranks={ranks}
-            members={members}
-          />
-        </section>
+        {/* ═ Apie + Details sidebar ═ */}
+        {(hasBio || members.length > 0 || genres.length > 0) && (
+          <section className="grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-12">
+            <div className="min-w-0">
+              {hasBio && (
+                <>
+                  <SectionTitle label="Apie" />
+                  <BioExpand html={bioHtml} />
+                </>
+              )}
+              {!solo && members.length > 0 && <MembersRow members={members} />}
+            </div>
+
+            <DetailsSidebar
+              artist={artist}
+              flag={flag}
+              active={active}
+              age={age}
+              solo={solo}
+              genres={genres}
+              albums={albums}
+              tracks={tracks}
+              likes={likes}
+              totalThreads={totalThreads}
+              totalEvents={events.length}
+              ranks={ranks}
+            />
+          </section>
+        )}
 
         {/* ═ Diskografija ═ */}
         {albums.length > 0 && (

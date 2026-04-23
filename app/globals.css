@@ -12,7 +12,9 @@
 :root,
 [data-theme="dark"] {
   --bg-body:         #080d14;
+  --bg-body-rgb:     8, 13, 20;
   --bg-surface:      #0d1320;
+  --bg-surface-rgb:  13, 19, 32;
   --bg-elevated:     #111827;
   --bg-hover:        rgba(255,255,255,0.04);
   --bg-active:       rgba(255,255,255,0.06);
@@ -145,7 +147,9 @@
 
 [data-theme="light"] {
   --bg-body:         #f0f4fa;
+  --bg-body-rgb:     240, 244, 250;
   --bg-surface:      #ffffff;
+  --bg-surface-rgb:  255, 255, 255;
   --bg-elevated:     #f8faff;
   --bg-hover:        rgba(0,0,0,0.03);
   --bg-active:       rgba(0,0,0,0.05);
