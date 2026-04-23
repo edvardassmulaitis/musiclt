@@ -27,21 +27,21 @@ async function getLegacyCommunity(
   trackLegacyIds: number[],
 ) {
   if (!artistLegacyId) {
-    return { totalEvents: 0, distinctUsers: 0, topFans: [] as { user_username: string; user_rank: string | null; like_count: number }[] }
+    return { totalEvents: 0, distinctUsers: 0, topFans: [] as { user_username: string; user_rank: string | null; user_avatar_url: string | null; like_count: number }[] }
   }
   const sb = createAdminClient()
 
   // PostgREST default row limit; .range(0, 9999) paima iki 10k
   const artistLikesP = sb
     .from('legacy_likes')
-    .select('user_username, user_rank')
+    .select('user_username, user_rank, user_avatar_url')
     .eq('entity_type', 'artist')
     .eq('entity_legacy_id', artistLegacyId)
     .range(0, 9999)
 
   const albumLikesP = albumLegacyIds.length > 0
     ? sb.from('legacy_likes')
-        .select('user_username, user_rank')
+        .select('user_username, user_rank, user_avatar_url')
         .eq('entity_type', 'album')
         .in('entity_legacy_id', albumLegacyIds)
         .range(0, 9999)
@@ -49,23 +49,27 @@ async function getLegacyCommunity(
 
   const trackLikesP = trackLegacyIds.length > 0
     ? sb.from('legacy_likes')
-        .select('user_username, user_rank')
+        .select('user_username, user_rank, user_avatar_url')
         .eq('entity_type', 'track')
         .in('entity_legacy_id', trackLegacyIds)
         .range(0, 9999)
     : Promise.resolve({ data: [] as any[] })
 
   const [a, al, tr] = await Promise.all([artistLikesP, albumLikesP, trackLikesP])
-  const all = [...((a as any).data || []), ...((al as any).data || []), ...((tr as any).data || [])] as { user_username: string; user_rank: string | null }[]
+  const all = [...((a as any).data || []), ...((al as any).data || []), ...((tr as any).data || [])] as { user_username: string; user_rank: string | null; user_avatar_url: string | null }[]
 
-  const tally = new Map<string, { count: number; rank: string | null }>()
+  const tally = new Map<string, { count: number; rank: string | null; avatar: string | null }>()
   for (const l of all) {
-    const ex = tally.get(l.user_username) || { count: 0, rank: null }
-    tally.set(l.user_username, { count: ex.count + 1, rank: ex.rank || l.user_rank })
+    const ex = tally.get(l.user_username) || { count: 0, rank: null, avatar: null }
+    tally.set(l.user_username, {
+      count: ex.count + 1,
+      rank: ex.rank || l.user_rank,
+      avatar: ex.avatar || l.user_avatar_url,
+    })
   }
 
   const topFans = Array.from(tally.entries())
-    .map(([u, v]) => ({ user_username: u, user_rank: v.rank, like_count: v.count }))
+    .map(([u, v]) => ({ user_username: u, user_rank: v.rank, user_avatar_url: v.avatar, like_count: v.count }))
     .sort((a, b) => b.like_count - a.like_count || a.user_username.localeCompare(b.user_username))
     .slice(0, 30)
 
