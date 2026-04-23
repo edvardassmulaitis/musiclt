@@ -26,7 +26,7 @@ export async function getEvents(opts: {
     .from('events')
     .select(`
       id, title, slug, description, start_date, end_date,
-      venue_name, city, address, cover_image_url,
+      venue_name, venue_id, city, address, cover_image_url,
       ticket_url, price_from, price_to,
       status, is_featured, created_at,
       event_artists(
@@ -88,7 +88,7 @@ export async function getEventBySlug(slug: string) {
     .from('events')
     .select(`
       id, title, slug, description, start_date, end_date,
-      venue_name, city, address, cover_image_url,
+      venue_name, venue_id, city, address, cover_image_url,
       ticket_url, price_from, price_to,
       status, is_featured, created_at, updated_at,
       event_artists(
@@ -110,7 +110,7 @@ export async function getEventById(id: string) {
     .from('events')
     .select(`
       id, title, slug, description, start_date, end_date,
-      venue_name, city, address, cover_image_url,
+      venue_name, venue_id, city, address, cover_image_url,
       ticket_url, price_from, price_to,
       status, is_featured, created_at, updated_at,
       event_artists(

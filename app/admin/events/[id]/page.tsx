@@ -37,6 +37,7 @@ export default function AdminEventEditPage() {
   const [wikiOpen, setWikiOpen] = useState(false)
   const [venueOptions, setVenueOptions] = useState<Array<{ id: number; legacy_id: number | null; name: string; city: string | null; address: string | null }>>([])
   const [showVenueDrop, setShowVenueDrop] = useState(false)
+  const [venueId, setVenueId] = useState<number | null>(null)
 
   // Load venues on mount for suggestion dropdown
   useEffect(() => {
@@ -46,9 +47,13 @@ export default function AdminEventEditPage() {
       .catch(() => setVenueOptions([]))
   }, [])
 
-  const filteredVenues = venueOptions
-    .filter(v => v.name.toLowerCase().includes(venueName.toLowerCase()))
-    .slice(0, 10)
+  const filteredVenues = (venueName.trim().length === 0
+    ? venueOptions
+    : venueOptions.filter(v =>
+        v.name.toLowerCase().includes(venueName.toLowerCase()) ||
+        (v.city || '').toLowerCase().includes(venueName.toLowerCase())
+      )
+  ).slice(0, 12)
 
   useEffect(() => { if (status === 'unauthenticated') router.push('/') }, [status])
 
@@ -63,6 +68,7 @@ export default function AdminEventEditPage() {
         setVenueName(ev.venue_name || '')
         setCity(ev.city || '')
         setAddress(ev.address || '')
+        setVenueId(ev.venue_id ?? null)
         setCoverUrl(ev.cover_image_url || '')
         setTicketUrl(ev.ticket_url || '')
         setPriceFrom(ev.price_from?.toString() || '')
@@ -107,6 +113,7 @@ export default function AdminEventEditPage() {
       start_date: new Date(startDate).toISOString(),
       end_date: endDate ? new Date(endDate).toISOString() : null,
       venue_name: venueName || null,
+      venue_id: venueId,
       city: city || null,
       address: address || null,
       cover_image_url: coverUrl || null,
@@ -216,8 +223,9 @@ export default function AdminEventEditPage() {
                       onMouseDown={(e) => {
                         e.preventDefault()
                         setVenueName(v.name)
-                        if (v.city && !city) setCity(v.city)
-                        if (v.address && !address) setAddress(v.address)
+                        setVenueId(v.id)
+                        if (v.city) setCity(v.city)
+                        if (v.address) setAddress(v.address)
                         setShowVenueDrop(false)
                       }}
                       className="w-full text-left px-3 py-1.5 hover:bg-gray-50 text-xs"
