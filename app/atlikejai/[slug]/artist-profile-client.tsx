@@ -260,28 +260,54 @@ export default function ArtistProfileClient({
       <div style={{ maxWidth: 1400, margin: '0 auto', padding: '0 24px' }}>
 
         {/* Events */}
-        {events.length > 0 && (
-          <section style={{ paddingTop: 24 }}>
-            <div style={ST}>Artimiausi renginiai<span style={{ flex: 1, height: 1, background: 'var(--section-line)' }} /></div>
-            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none' }}>
-              {events.map((e: any) => {
-                const d = new Date(e.event_date); const sy = d.getFullYear() !== yr
-                return (
-                  <div key={e.id} style={{ flexShrink: 0, display: 'flex', gap: 12, alignItems: 'center', borderRadius: 12, border: '1px solid rgba(249,115,22,.12)', background: 'rgba(249,115,22,.03)', padding: '14px 18px', cursor: 'pointer', minWidth: 220 }}>
-                    <div style={{ textAlign: 'center', minWidth: 40, background: 'rgba(249,115,22,.1)', borderRadius: 8, padding: '5px 4px' }}>
-                      <div style={{ fontSize: 9, fontWeight: 700, color: '#f97316', textTransform: 'capitalize', lineHeight: 1.2 }}>{d.toLocaleDateString('lt-LT', { month: 'long' })}{sy ? `, ${d.getFullYear()}` : ''}</div>
-                      <div style={{ fontSize: 20, fontWeight: 900, color: 'var(--hero-name)', fontFamily: 'Outfit,sans-serif', lineHeight: 1 }}>{d.getDate()}</div>
+        {events.length > 0 && (() => {
+          const now = Date.now()
+          const upcoming = events.filter((e: any) => new Date(e.start_date).getTime() >= now)
+          const past = events.filter((e: any) => new Date(e.start_date).getTime() < now)
+          const label = upcoming.length > 0 ? 'Artimiausi renginiai' : 'Istoriniai renginiai'
+          return (
+            <section style={{ paddingTop: 24 }}>
+              <div style={ST}>{label} · {events.length}<span style={{ flex: 1, height: 1, background: 'var(--section-line)' }} /></div>
+              <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 4 }}>
+                {events.map((e: any) => {
+                  const d = new Date(e.start_date)
+                  const isPast = d.getTime() < now
+                  const venue = [e.venue_name, e.city].filter(Boolean).join(', ')
+                  return (
+                    <div
+                      key={e.id}
+                      style={{
+                        flexShrink: 0,
+                        display: 'flex', gap: 12, alignItems: 'center',
+                        borderRadius: 12,
+                        border: `1px solid ${isPast ? 'var(--border-subtle)' : 'rgba(249,115,22,.22)'}`,
+                        background: isPast ? 'var(--bg-surface)' : 'rgba(249,115,22,.04)',
+                        padding: '12px 16px', cursor: 'pointer', minWidth: 240,
+                        opacity: isPast ? 0.85 : 1,
+                      }}
+                    >
+                      <div style={{ textAlign: 'center', minWidth: 44, background: isPast ? 'var(--card-bg)' : 'rgba(249,115,22,.1)', borderRadius: 8, padding: '5px 4px' }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: isPast ? 'var(--text-muted)' : '#f97316', textTransform: 'capitalize', lineHeight: 1.2 }}>
+                          {d.toLocaleDateString('lt-LT', { month: 'short' }).replace('.', '')} {d.getFullYear()}
+                        </div>
+                        <div style={{ fontSize: 20, fontWeight: 900, color: 'var(--hero-name)', fontFamily: 'Outfit,sans-serif', lineHeight: 1 }}>{d.getDate()}</div>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--hero-name)', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.title}</div>
+                        {venue && (
+                          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{venue}</div>
+                        )}
+                        {isPast && (
+                          <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 2, fontFamily: 'Outfit,sans-serif', fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase' }}>archyvas</div>
+                        )}
+                      </div>
                     </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--hero-name)', lineHeight: 1.2 }}>{e.title}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>{e.venues?.name || e.venue_custom || ''}{e.venues?.city ? `, ${e.venues.city}` : ''}</div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </section>
-        )}
+                  )
+                })}
+              </div>
+            </section>
+          )
+        })()}
 
         {/* Music */}
         {(topVideos.length > 0 || newTracks.length > 0) && (

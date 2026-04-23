@@ -163,8 +163,22 @@ async function getLikeCount(id: number) { const sb = createAdminClient(); const 
 async function getNews(id: number) { const sb = createAdminClient(); const { data } = await sb.from('news').select('id, slug, title, image_small_url, published_at, type').eq('artist_id', id).order('published_at', { ascending: false }).limit(4); return data || [] }
 async function getEvents(id: number) {
   const sb = createAdminClient()
-  const { data } = await sb.from('event_artists').select('event_id, events(id, slug, title, event_date, venue_custom, image_small_url, venues(name, city))').eq('artist_id', id)
-  return (data || []).map((ea: any) => ea.events).filter((e: any) => e && new Date(e.event_date) >= new Date()).sort((a: any, b: any) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime()).slice(0, 6)
+  const { data } = await sb
+    .from('event_artists')
+    .select('event_id, events(id, slug, title, start_date, end_date, venue_name, city, cover_image_url, status)')
+    .eq('artist_id', id)
+  const now = Date.now()
+  const events = (data || [])
+    .map((ea: any) => ea.events)
+    .filter((e: any) => e && e.start_date)
+  // Upcoming (asc) first, then past (desc). Cap at 12 combined.
+  const upcoming = events
+    .filter((e: any) => new Date(e.start_date).getTime() >= now)
+    .sort((a: any, b: any) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime())
+  const past = events
+    .filter((e: any) => new Date(e.start_date).getTime() < now)
+    .sort((a: any, b: any) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime())
+  return [...upcoming, ...past].slice(0, 12)
 }
 async function getSimilar(artistId: number, genreIds: number[]) {
   if (!genreIds.length) return []
@@ -226,10 +240,7 @@ export default async function ArtistPage({ params }: Props) {
   })
   const topVideos = tracks.filter((t: any) => t.video_url).slice(0, 8)
 
-  const events = rawEvents.length > 0 ? rawEvents : [
-    { id: 901, slug: 'mock', title: `${artist.name} koncertas Vilniuje`, event_date: new Date(Date.now() + 30 * 86400000).toISOString(), venue_custom: 'Compensa koncertų salė', venues: { name: 'Compensa', city: 'Vilnius' } },
-    { id: 902, slug: 'mock2', title: `${artist.name} @ Kauno arena`, event_date: new Date(Date.now() + 60 * 86400000).toISOString(), venues: { name: 'Žalgirio arena', city: 'Kaunas' } },
-  ]
+  const events = rawEvents
 
   return (
     <ArtistProfileClient
