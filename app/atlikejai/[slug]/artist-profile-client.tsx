@@ -331,55 +331,56 @@ function MusicSection({
     <section id="music">
       <SectionTitle label="Populiariausios dainos" />
       <div className="overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
-        {/* Video + Tracks grid — video cell dictates row height via aspect-video;
-            right cell stretches to match (items-stretch by default) */}
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          {/* Video cell — always aspect-video, defines row height */}
-          <div className="relative aspect-video overflow-hidden bg-black">
-            {displayVid ? (
-              <iframe
-                key={displayVid}
-                src={`https://www.youtube.com/embed/${displayVid}?rel=0${activeVid ? '&autoplay=1' : ''}`}
-                allow="autoplay;encrypted-media"
-                allowFullScreen
-                className="absolute inset-0 h-full w-full border-0"
-              />
-            ) : (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/5 ring-1 ring-white/10">
-                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/50">
-                    <path d="M23 7l-7 5 7 5V7z" />
-                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-                  </svg>
+        {/* Wrapper with aspect-[32/9] on desktop — two 16:9 cells side by side.
+            This gives the grid a KNOWN height without grid-stretch overriding child aspects. */}
+        <div className="lg:aspect-[32/9]">
+          <div className="grid h-full grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            {/* Video cell */}
+            <div className="relative aspect-video overflow-hidden bg-black lg:aspect-auto lg:h-full">
+              {displayVid ? (
+                <iframe
+                  key={displayVid}
+                  src={`https://www.youtube.com/embed/${displayVid}?rel=0${activeVid ? '&autoplay=1' : ''}`}
+                  allow="autoplay;encrypted-media"
+                  allowFullScreen
+                  className="absolute inset-0 h-full w-full border-0"
+                />
+              ) : (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/5 ring-1 ring-white/10">
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/50">
+                      <path d="M23 7l-7 5 7 5V7z" />
+                      <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                    </svg>
+                  </div>
+                  <div className="font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.15em] text-white/60">
+                    Video dar nėra
+                  </div>
+                  <div className="max-w-[300px] text-[12px] text-white/40">
+                    Šio atlikėjo dainos dar nesusietos su YouTube video
+                  </div>
                 </div>
-                <div className="font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.15em] text-white/60">
-                  Video dar nėra
-                </div>
-                <div className="max-w-[300px] text-[12px] text-white/40">
-                  Šio atlikėjo dainos dar nesusietos su YouTube video
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Tabs + Tracks list cell — flex-col stretches to match video cell height */}
-          <div className="flex min-h-0 flex-col overflow-hidden border-t border-[var(--border-default)] lg:border-l lg:border-t-0">
-            <div className="flex shrink-0 border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-2 pt-1">
-              <TabButton active={tab === 'all'} onClick={() => setTab('all')}>
-                Populiariausios <span className="ml-1 text-[var(--text-faint)]">·{tracksAllTime.length}</span>
-              </TabButton>
-              <TabButton
-                active={tab === 'trending'}
-                disabled={tracksTrending.length === 0}
-                onClick={() => setTab('trending')}
-              >
-                Trending <span className="ml-1 text-[var(--text-faint)]">·{tracksTrending.length}</span>
-              </TabButton>
+              )}
             </div>
-            <div
-              className="max-h-[360px] min-h-[260px] flex-1 overflow-y-auto bg-[var(--bg-surface)] lg:max-h-none"
-              style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--border-default) transparent' }}
-            >
+
+            {/* Tabs + Tracks list cell */}
+            <div className="flex min-h-0 flex-col overflow-hidden border-t border-[var(--border-default)] lg:h-full lg:border-l lg:border-t-0">
+              <div className="flex shrink-0 border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-2 pt-1">
+                <TabButton active={tab === 'all'} onClick={() => setTab('all')}>
+                  Populiariausios <span className="ml-1 text-[var(--text-faint)]">·{tracksAllTime.length}</span>
+                </TabButton>
+                <TabButton
+                  active={tab === 'trending'}
+                  disabled={tracksTrending.length === 0}
+                  onClick={() => setTab('trending')}
+                >
+                  Trending <span className="ml-1 text-[var(--text-faint)]">·{tracksTrending.length}</span>
+                </TabButton>
+              </div>
+              <div
+                className="max-h-[360px] min-h-[240px] flex-1 overflow-y-auto bg-[var(--bg-surface)] lg:max-h-none"
+                style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--border-default) transparent' }}
+              >
               {list.length === 0 ? (
                 <div className="flex h-full min-h-[200px] flex-col items-center justify-center gap-1 px-6 text-center">
                   <div className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-wider text-[var(--text-muted)]">Nieko</div>
@@ -442,6 +443,7 @@ function MusicSection({
                 </ul>
               )}
             </div>
+          </div>
           </div>
         </div>
 
