@@ -355,7 +355,7 @@ export default function TrackPageClient({
             <div style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.12em', color: '#f97316', fontFamily: 'Outfit,sans-serif', marginBottom: 3, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               <span>{track.type === 'normal' ? 'Daina' : (track.type || 'Daina')}</span>
               {track.is_new && <span style={{ fontSize: 8, padding: '1px 6px', borderRadius: 999, background: 'rgba(249,115,22,.18)', border: '1px solid rgba(249,115,22,.3)', color: '#f97316' }}>NEW</span>}
-              {isLegacy && <LegacyBadge label="archyvas" />}
+              {/* archive label removed */}
             </div>
             <h1 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 'clamp(15px,2vw,20px)', fontWeight: 900, lineHeight: 1.1, letterSpacing: '-.025em', color: 'var(--text-primary)', margin: '0 0 5px', wordBreak: 'break-word' }}>{track.title}</h1>
             <Link href={`/atlikejai/${artist.slug}`} style={{ fontSize: 13, fontWeight: 700, color: '#f97316', textDecoration: 'none', display: 'block', marginBottom: 2 }}>{artist.name}</Link>
@@ -723,7 +723,7 @@ export default function TrackPageClient({
             <LegacyLikesPanel
               count={legacyLikes.count}
               users={legacyLikes.users}
-              entityLabel={`vartotojų patiko „${track.title}" music.lt archyve`}
+              entityLabel={`vartotojų patiko „${track.title}"`}
               maxUsers={30}
             />
           )}
@@ -747,7 +747,7 @@ export default function TrackPageClient({
           <LegacyLikesPanel
             count={legacyLikes.count}
             users={legacyLikes.users}
-            entityLabel={`vartotojų patiko „${track.title}" music.lt archyve`}
+            entityLabel={`vartotojų patiko „${track.title}"`}
             maxUsers={30}
           />
         )}

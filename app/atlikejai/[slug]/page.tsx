@@ -27,21 +27,28 @@ async function getLegacyCommunity(
   trackLegacyIds: number[],
 ) {
   if (!artistLegacyId) {
-    return { totalEvents: 0, distinctUsers: 0, topFans: [] as { user_username: string; user_rank: string | null; like_count: number }[] }
+    return {
+      totalEvents: 0,
+      distinctUsers: 0,
+      artistLikes: 0,
+      topFans: [] as { user_username: string; user_rank: string | null; user_avatar_url: string | null; like_count: number }[],
+      allArtistFans: [] as { user_username: string; user_rank: string | null; user_avatar_url: string | null }[],
+    }
   }
   const sb = createAdminClient()
 
-  // PostgREST default row limit; .range(0, 9999) paima iki 10k
+  // Artist-level likes — tai kas rodoma main ♥ button'e (match'ina music.lt UI).
+  // Albumų/tracks likes reikalingi tik aggregate distinctUsers stat'ui (modal'o info).
   const artistLikesP = sb
     .from('legacy_likes')
-    .select('user_username, user_rank')
+    .select('user_username, user_rank, user_avatar_url')
     .eq('entity_type', 'artist')
     .eq('entity_legacy_id', artistLegacyId)
     .range(0, 9999)
 
   const albumLikesP = albumLegacyIds.length > 0
     ? sb.from('legacy_likes')
-        .select('user_username, user_rank')
+        .select('user_username, user_rank, user_avatar_url')
         .eq('entity_type', 'album')
         .in('entity_legacy_id', albumLegacyIds)
         .range(0, 9999)
@@ -49,27 +56,60 @@ async function getLegacyCommunity(
 
   const trackLikesP = trackLegacyIds.length > 0
     ? sb.from('legacy_likes')
-        .select('user_username, user_rank')
+        .select('user_username, user_rank, user_avatar_url')
         .eq('entity_type', 'track')
         .in('entity_legacy_id', trackLegacyIds)
         .range(0, 9999)
     : Promise.resolve({ data: [] as any[] })
 
   const [a, al, tr] = await Promise.all([artistLikesP, albumLikesP, trackLikesP])
-  const all = [...((a as any).data || []), ...((al as any).data || []), ...((tr as any).data || [])] as { user_username: string; user_rank: string | null }[]
+  const artistRows = ((a as any).data || []) as { user_username: string; user_rank: string | null; user_avatar_url: string | null }[]
+  const all = [...artistRows, ...((al as any).data || []), ...((tr as any).data || [])] as typeof artistRows
 
-  const tally = new Map<string, { count: number; rank: string | null }>()
+  // Artist fans — unique, sort by rank priority + alpha
+  const seenArtist = new Set<string>()
+  const allArtistFans = artistRows
+    .filter(r => { if (seenArtist.has(r.user_username)) return false; seenArtist.add(r.user_username); return true })
+    .sort((a, b) => rankPriority(b.user_rank) - rankPriority(a.user_rank) || a.user_username.localeCompare(b.user_username))
+
+  // Aggregate tally (for distinctUsers stat)
+  const tally = new Map<string, { count: number; rank: string | null; avatar: string | null }>()
   for (const l of all) {
-    const ex = tally.get(l.user_username) || { count: 0, rank: null }
-    tally.set(l.user_username, { count: ex.count + 1, rank: ex.rank || l.user_rank })
+    const ex = tally.get(l.user_username) || { count: 0, rank: null, avatar: null }
+    tally.set(l.user_username, {
+      count: ex.count + 1,
+      rank: ex.rank || l.user_rank,
+      avatar: ex.avatar || l.user_avatar_url,
+    })
   }
 
   const topFans = Array.from(tally.entries())
-    .map(([u, v]) => ({ user_username: u, user_rank: v.rank, like_count: v.count }))
+    .map(([u, v]) => ({ user_username: u, user_rank: v.rank, user_avatar_url: v.avatar, like_count: v.count }))
     .sort((a, b) => b.like_count - a.like_count || a.user_username.localeCompare(b.user_username))
     .slice(0, 30)
 
-  return { totalEvents: all.length, distinctUsers: tally.size, topFans }
+  return {
+    totalEvents: all.length,
+    distinctUsers: tally.size,
+    artistLikes: allArtistFans.length,  // <- match'ina music.lt UI skaičių
+    topFans,
+    allArtistFans,
+  }
+}
+
+/** Rank priority — aukštesni statusai (VIP, Super) sort'ui į viršų. */
+function rankPriority(rank: string | null | undefined): number {
+  if (!rank) return 0
+  const r = rank.toLowerCase()
+  if (r.includes('super')) return 100
+  if (r.includes('ultra')) return 90
+  if (r.includes('vip')) return 80
+  if (r.includes('įsibėgėjantis') || r.includes('isibegejantis')) return 70
+  if (r.includes('aktyvus narys')) return 60
+  if (r.includes('narys')) return 50
+  if (r.includes('aktyvus naujokas')) return 40
+  if (r.includes('naujokas')) return 30
+  return 10
 }
 
 /** Randame forum_threads, kurie surišti su šiuo atlikėju per URL/slug.
@@ -88,7 +128,25 @@ async function getLegacyForumThreads(artist: { name: string; slug: string }, lim
   const pat = `%${needle}%`
   const { data } = await sb
     .from('forum_threads')
-    .select('legacy_id, slug, source_url')
+    .select('legacy_id, slug, source_url, kind')
+    .eq('kind', 'discussion')
+    .or(`source_url.ilike.${pat},slug.ilike.${pat}`)
+    .order('legacy_id', { ascending: false })
+    .limit(limit)
+  return data || []
+}
+
+/** Atskirai paimam news — naudoja tokį patį URL pattern, bet kind='news' */
+async function getLegacyNewsThreads(artist: { name: string; slug: string }, limit = 12) {
+  if (!artist.slug) return []
+  const sb = createAdminClient()
+  const needle = artist.slug.toLowerCase().replace(/[^a-z0-9-]/g, '')
+  if (!needle || needle.length < 3) return []
+  const pat = `%${needle}%`
+  const { data } = await sb
+    .from('forum_threads')
+    .select('legacy_id, slug, source_url, kind')
+    .eq('kind', 'news')
     .or(`source_url.ilike.${pat},slug.ilike.${pat}`)
     .order('legacy_id', { ascending: false })
     .limit(limit)
@@ -129,11 +187,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ArtistPage({ params }: Props) {
   const { slug } = await params; const artist = await getArtist(slug); if (!artist) notFound()
-  const [genres, links, dbPhotos, albums, tracks, members, followers, likeCount, news, rawEvents, allTrackLegacyIds, legacyThreads] = await Promise.all([
+  const [genres, links, dbPhotos, albums, tracks, members, followers, likeCount, news, rawEvents, allTrackLegacyIds, legacyThreads, legacyNews] = await Promise.all([
     getGenres(artist.id), getLinks(artist.id), getPhotos(artist.id), getAlbums(artist.id), getTracks(artist.id),
     getMembers(artist.id), getFollowers(artist.id), getLikeCount(artist.id), getNews(artist.id), getEvents(artist.id),
     getAllArtistTrackLegacyIds(artist.id),
     getLegacyForumThreads({ name: artist.name, slug: artist.slug }),
+    getLegacyNewsThreads({ name: artist.name, slug: artist.slug }, 12),
   ])
   const similar = await getSimilar(artist.id, genres.map((g: any) => g.id))
 
@@ -174,7 +233,7 @@ export default async function ArtistPage({ params }: Props) {
       members={members} followers={followers} likeCount={likeCount} news={news as any} events={events}
       similar={similar} newTracks={newTracks as any} topVideos={topVideos as any}
       chartData={mockChart(albums)} hasNewMusic={newTracks.length > 0}
-      legacyCommunity={legacyCommunity} legacyThreads={legacyThreads as any}
+      legacyCommunity={legacyCommunity} legacyThreads={legacyThreads as any} legacyNews={legacyNews as any}
     />
   )
 }

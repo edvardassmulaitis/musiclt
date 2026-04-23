@@ -122,7 +122,7 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
           <div style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.12em', color: '#f97316', fontFamily: 'Outfit, sans-serif', marginBottom: 3, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             <span>{albumTypeLabel}</span>
             {album.is_upcoming && <span style={{ fontSize: 8, padding: '1px 6px', borderRadius: 999, background: 'rgba(249,115,22,.18)', border: '1px solid rgba(249,115,22,.3)', color: '#f97316' }}>Greitai</span>}
-            {isLegacy && <LegacyBadge label="archyvas" />}
+            {/* archive label removed */}
           </div>
           <h1 style={{ fontFamily: 'Outfit, sans-serif', fontSize: 'clamp(16px,2vw,20px)', fontWeight: 900, lineHeight: 1.1, letterSpacing: '-.025em', color: 'var(--text-primary)', margin: '0 0 5px', wordBreak: 'break-word' }}>{album.title}</h1>
           <Link href={`/atlikejai/${artist.slug}`} style={{ fontSize: 13, fontWeight: 700, color: '#f97316', textDecoration: 'none', display: 'block', marginBottom: 4 }}
@@ -194,7 +194,7 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
           <>
             {/* Position number — arba disc icon jei originali tvarka prarasta */}
             {positionsUnknown ? (
-              <span style={{ width: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: numCol, opacity: isPlaying ? 1 : 0.55 }} title="Originalios tvarkos nėra music.lt archyve">
+              <span style={{ width: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: numCol, opacity: isPlaying ? 1 : 0.55 }} title="Originalios tvarkos nėra">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                   <circle cx="12" cy="12" r="9" />
                   <circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" />
@@ -285,7 +285,7 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               {positionsUnknown ? (
-                <span style={{ width: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: numCol, opacity: isPlaying ? 1 : 0.55 }} title="Originalios tvarkos nėra music.lt archyve">
+                <span style={{ width: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: numCol, opacity: isPlaying ? 1 : 0.55 }} title="Originalios tvarkos nėra">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                     <circle cx="12" cy="12" r="9" />
                     <circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" />
@@ -455,7 +455,7 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
               {positionsUnknown && tracks.length > 0 && (
                 <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'none', letterSpacing: 0, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9" /><path d="M12 8v4M12 16h.01" /></svg>
-                  Tvarka — archyve neužfiksuota
+                  Tvarka nenurodyta
                 </span>
               )}
             </div>
@@ -468,7 +468,7 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
             <LegacyLikesPanel
               count={legacyLikes.count}
               users={legacyLikes.users}
-              entityLabel={`vartotojų patiko „${album.title}" music.lt archyve`}
+              entityLabel={`vartotojų patiko „${album.title}"`}
               maxUsers={30}
             />
           )}
@@ -496,7 +496,7 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
             <span>{expanded ? 'Dainos' : 'Top dainos'}</span>
             {positionsUnknown && tracks.length > 0 && (
               <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'none', letterSpacing: 0 }}>
-                · archyve tvarka neužfiksuota
+                · tvarka nenurodyta
               </span>
             )}
           </div>
@@ -509,7 +509,7 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
           <LegacyLikesPanel
             count={legacyLikes.count}
             users={legacyLikes.users}
-            entityLabel={`vartotojų patiko „${album.title}" music.lt archyve`}
+            entityLabel={`vartotojų patiko „${album.title}"`}
             maxUsers={30}
           />
         )}
