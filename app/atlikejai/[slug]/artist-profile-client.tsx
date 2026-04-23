@@ -529,6 +529,12 @@ function EventCard({ e, variant = 'upcoming-row' }: { e: any; variant?: 'upcomin
   const href = `/renginiai/${e.slug}`
   const monthShort = d.toLocaleDateString('lt-LT', { month: 'short' }).replace('.', '')
 
+  // Track whether the cover image actually loads; if not, fall back to the
+  // compact date badge — avoids ugly "?" placeholders for events whose music.lt
+  // hotlink is blocked or missing.
+  const [coverFailed, setCoverFailed] = useState(false)
+  const hasCover = !!e.cover_image_url && !coverFailed
+
   if (variant === 'past-grid') {
     return (
       <Link
@@ -543,11 +549,12 @@ function EventCard({ e, variant = 'upcoming-row' }: { e: any; variant?: 'upcomin
         onMouseEnter={(ev) => { ev.currentTarget.style.borderColor = 'var(--border-strong)'; ev.currentTarget.style.background = 'var(--bg-hover)' }}
         onMouseLeave={(ev) => { ev.currentTarget.style.borderColor = 'var(--border-subtle)'; ev.currentTarget.style.background = 'var(--bg-surface)' }}
       >
-        {e.cover_image_url ? (
+        {hasCover ? (
           <img
             src={e.cover_image_url}
             alt={e.title}
             referrerPolicy="no-referrer"
+            onError={() => setCoverFailed(true)}
             style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border-subtle)' }}
           />
         ) : (

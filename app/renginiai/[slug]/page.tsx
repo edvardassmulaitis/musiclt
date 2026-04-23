@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getEventBySlug } from '@/lib/supabase-events'
+import EventCoverImage from './event-cover-image'
 
 type Artist = { id: number; name: string; slug: string; cover_image_url: string | null }
 
@@ -75,25 +76,8 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
         {/* HERO: image left (only if present), info right */}
         <div className={`flex flex-col lg:flex-row gap-8 ${ev.cover_image_url ? 'mb-10' : 'mb-6 pt-8'}`}>
 
-          {/* Left: Cover (hidden entirely when no image to avoid a broken placeholder box) */}
-          {ev.cover_image_url && (
-            <div className="lg:w-[55%] flex-shrink-0">
-              <div className="rounded-2xl overflow-hidden aspect-[4/3] lg:aspect-auto lg:h-full relative">
-                <img
-                  src={ev.cover_image_url}
-                  alt={ev.title}
-                  referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    // Hide the whole cover wrapper if the source is unreachable
-                    const wrapper = e.currentTarget.closest('div.lg\\:w-\\[55\\%\\]') as HTMLElement | null
-                    if (wrapper) wrapper.style.display = 'none'
-                  }}
-                />
-                <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(transparent 60%, rgba(8,12,18,0.4))' }} />
-              </div>
-            </div>
-          )}
+          {/* Left: Cover (client component so onError can gracefully hide it without SSR crash) */}
+          {ev.cover_image_url && <EventCoverImage src={ev.cover_image_url} alt={ev.title} />}
 
           {/* Right: Info */}
           <div className={`${ev.cover_image_url ? 'lg:w-[45%]' : 'w-full max-w-3xl'} flex flex-col justify-center`}>
