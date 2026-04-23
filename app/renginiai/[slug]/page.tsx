@@ -49,7 +49,7 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
     location: { '@type': 'Place', name: ev.venue_name || '', address: { '@type': 'PostalAddress', addressLocality: ev.city || '', streetAddress: ev.address || '', addressCountry: 'LT' } },
     ...(ev.cover_image_url ? { image: ev.cover_image_url } : {}),
     ...(ev.ticket_url ? { offers: { '@type': 'Offer', url: ev.ticket_url, ...(ev.price_from ? { lowPrice: ev.price_from } : {}), ...(ev.price_to ? { highPrice: ev.price_to } : {}), priceCurrency: 'EUR', availability: isPast ? 'https://schema.org/SoldOut' : 'https://schema.org/InStock' } } : {}),
-    performer: allArtists.map(ea => { const a = getArtist(ea); return a ? { '@type': 'MusicGroup', name: a.name, url: `${siteUrl}/atlikejas/${a.slug || a.id}` } : null }).filter(Boolean),
+    performer: allArtists.map(ea => { const a = getArtist(ea); return a ? { '@type': 'MusicGroup', name: a.name, url: `${siteUrl}/atlikejai/${a.slug || a.id}` } : null }).filter(Boolean),
     organizer: { '@type': 'Organization', name: 'Music.lt', url: siteUrl },
   }
 
@@ -155,7 +155,7 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
                     const a = getArtist(ea)
                     if (!a) return null
                     return (
-                      <Link key={a.id} href={`/atlikejas/${a.slug || a.id}`}
+                      <Link key={a.id} href={`/atlikejai/${a.slug || a.id}`}
                         className="flex items-center gap-2 pl-1 pr-3 py-1 rounded-full transition-all hover:bg-white/[.06] group"
                         style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
                         <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"

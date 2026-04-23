@@ -259,51 +259,16 @@ export default function ArtistProfileClient({
       {/* ═══ CONTENT ═══ */}
       <div style={{ maxWidth: 1400, margin: '0 auto', padding: '0 24px' }}>
 
-        {/* Events */}
-        {events.length > 0 && (() => {
+        {/* Upcoming events only — top of page. Past events render near news. */}
+        {(() => {
           const now = Date.now()
           const upcoming = events.filter((e: any) => new Date(e.start_date).getTime() >= now)
-          const past = events.filter((e: any) => new Date(e.start_date).getTime() < now)
-          const label = upcoming.length > 0 ? 'Artimiausi renginiai' : 'Istoriniai renginiai'
+          if (upcoming.length === 0) return null
           return (
             <section style={{ paddingTop: 24 }}>
-              <div style={ST}>{label} · {events.length}<span style={{ flex: 1, height: 1, background: 'var(--section-line)' }} /></div>
+              <div style={ST}>Artimiausi renginiai · {upcoming.length}<span style={{ flex: 1, height: 1, background: 'var(--section-line)' }} /></div>
               <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 4 }}>
-                {events.map((e: any) => {
-                  const d = new Date(e.start_date)
-                  const isPast = d.getTime() < now
-                  const venue = [e.venue_name, e.city].filter(Boolean).join(', ')
-                  return (
-                    <div
-                      key={e.id}
-                      style={{
-                        flexShrink: 0,
-                        display: 'flex', gap: 12, alignItems: 'center',
-                        borderRadius: 12,
-                        border: `1px solid ${isPast ? 'var(--border-subtle)' : 'rgba(249,115,22,.22)'}`,
-                        background: isPast ? 'var(--bg-surface)' : 'rgba(249,115,22,.04)',
-                        padding: '12px 16px', cursor: 'pointer', minWidth: 240,
-                        opacity: isPast ? 0.85 : 1,
-                      }}
-                    >
-                      <div style={{ textAlign: 'center', minWidth: 44, background: isPast ? 'var(--card-bg)' : 'rgba(249,115,22,.1)', borderRadius: 8, padding: '5px 4px' }}>
-                        <div style={{ fontSize: 9, fontWeight: 700, color: isPast ? 'var(--text-muted)' : '#f97316', textTransform: 'capitalize', lineHeight: 1.2 }}>
-                          {d.toLocaleDateString('lt-LT', { month: 'short' }).replace('.', '')} {d.getFullYear()}
-                        </div>
-                        <div style={{ fontSize: 20, fontWeight: 900, color: 'var(--hero-name)', fontFamily: 'Outfit,sans-serif', lineHeight: 1 }}>{d.getDate()}</div>
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--hero-name)', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.title}</div>
-                        {venue && (
-                          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{venue}</div>
-                        )}
-                        {isPast && (
-                          <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 2, fontFamily: 'Outfit,sans-serif', fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase' }}>archyvas</div>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
+                {upcoming.map((e: any) => <EventCard key={e.id} e={e} />)}
               </div>
             </section>
           )
@@ -438,6 +403,21 @@ export default function ArtistProfileClient({
           </section>
         )}
 
+        {/* Past events — near news */}
+        {(() => {
+          const now = Date.now()
+          const past = events.filter((e: any) => new Date(e.start_date).getTime() < now)
+          if (past.length === 0) return null
+          return (
+            <section style={{ paddingTop: 24 }}>
+              <div style={ST}>Įvykę renginiai · {past.length}<span style={{ flex: 1, height: 1, background: 'var(--section-line)' }} /></div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 }}>
+                {past.map((e: any) => <EventCard key={e.id} e={e} variant="past-grid" />)}
+              </div>
+            </section>
+          )
+        })()}
+
         {/* News (from music.lt archyvo) — above discussions */}
         {hasLegacyNews && (
           <section style={{ paddingTop: 24 }}>
@@ -538,5 +518,79 @@ export default function ArtistProfileClient({
 
       </div>
     </div>
+  )
+}
+
+function EventCard({ e, variant = 'upcoming-row' }: { e: any; variant?: 'upcoming-row' | 'past-grid' }) {
+  const d = new Date(e.start_date)
+  const now = Date.now()
+  const isPast = d.getTime() < now
+  const venue = [e.venue_name, e.city].filter(Boolean).join(', ')
+  const href = `/renginiai/${e.slug}`
+  const monthShort = d.toLocaleDateString('lt-LT', { month: 'short' }).replace('.', '')
+
+  if (variant === 'past-grid') {
+    return (
+      <Link
+        href={href}
+        style={{
+          display: 'flex', gap: 12, alignItems: 'center',
+          padding: '12px 14px', borderRadius: 12,
+          background: 'var(--bg-surface)',
+          border: '1px solid var(--border-subtle)',
+          textDecoration: 'none', transition: 'all .15s',
+        }}
+        onMouseEnter={(ev) => { ev.currentTarget.style.borderColor = 'var(--border-strong)'; ev.currentTarget.style.background = 'var(--bg-hover)' }}
+        onMouseLeave={(ev) => { ev.currentTarget.style.borderColor = 'var(--border-subtle)'; ev.currentTarget.style.background = 'var(--bg-surface)' }}
+      >
+        {e.cover_image_url ? (
+          <img
+            src={e.cover_image_url}
+            alt={e.title}
+            referrerPolicy="no-referrer"
+            style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border-subtle)' }}
+          />
+        ) : (
+          <div style={{ textAlign: 'center', minWidth: 48, background: 'var(--card-bg)', borderRadius: 8, padding: '6px 4px' }}>
+            <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'capitalize', lineHeight: 1.2 }}>{monthShort} {d.getFullYear()}</div>
+            <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--hero-name)', fontFamily: 'Outfit,sans-serif', lineHeight: 1 }}>{d.getDate()}</div>
+          </div>
+        )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.title}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, fontFamily: 'Outfit,sans-serif', fontWeight: 600 }}>
+            {d.getFullYear()}-{String(d.getMonth() + 1).padStart(2, '0')}-{String(d.getDate()).padStart(2, '0')}
+            {venue && <> · {venue}</>}
+          </div>
+        </div>
+      </Link>
+    )
+  }
+
+  return (
+    <Link
+      href={href}
+      style={{
+        flexShrink: 0, display: 'flex', gap: 12, alignItems: 'center',
+        borderRadius: 12,
+        border: `1px solid ${isPast ? 'var(--border-subtle)' : 'rgba(249,115,22,.22)'}`,
+        background: isPast ? 'var(--bg-surface)' : 'rgba(249,115,22,.04)',
+        padding: '12px 16px', cursor: 'pointer', minWidth: 240,
+        textDecoration: 'none',
+      }}
+    >
+      <div style={{ textAlign: 'center', minWidth: 44, background: isPast ? 'var(--card-bg)' : 'rgba(249,115,22,.1)', borderRadius: 8, padding: '5px 4px' }}>
+        <div style={{ fontSize: 9, fontWeight: 700, color: isPast ? 'var(--text-muted)' : '#f97316', textTransform: 'capitalize', lineHeight: 1.2 }}>
+          {monthShort} {d.getFullYear()}
+        </div>
+        <div style={{ fontSize: 20, fontWeight: 900, color: 'var(--hero-name)', fontFamily: 'Outfit,sans-serif', lineHeight: 1 }}>{d.getDate()}</div>
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--hero-name)', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.title}</div>
+        {venue && (
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{venue}</div>
+        )}
+      </div>
+    </Link>
   )
 }
