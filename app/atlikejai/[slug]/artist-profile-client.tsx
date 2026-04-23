@@ -413,7 +413,7 @@ export default function ArtistProfileClient({
                 return (
                   <Link
                     key={n.legacy_id}
-                    href={`/diskusijos/archyvas/${n.legacy_id}`}
+                    href={`/diskusijos/tema/${n.legacy_id}`}
                     style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '12px 14px', borderRadius: 12, background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', textDecoration: 'none', transition: 'all .15s' }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.background = 'var(--bg-hover)' }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-subtle)'; e.currentTarget.style.background = 'var(--bg-surface)' }}
@@ -447,7 +447,7 @@ export default function ArtistProfileClient({
                   return (
                     <Link
                       key={t.legacy_id}
-                      href={`/diskusijos/archyvas/${t.legacy_id}`}
+                      href={`/diskusijos/tema/${t.legacy_id}`}
                       style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: i < legacyThreads.length - 1 ? '1px solid var(--border-subtle)' : 'none', textDecoration: 'none', transition: 'background .12s' }}
                       onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
                       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
