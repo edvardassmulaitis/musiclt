@@ -172,10 +172,11 @@ export default function ArtistProfileClient({
   const solo = artist.type === 'solo'
   const age = solo && artist.birth_date ? Math.floor((Date.now() - new Date(artist.birth_date).getTime()) / 31557600000) : null
   const active = artist.active_from ? `${artist.active_from}–${artist.active_until || 'dabar'}` : null
-  // Artist-level likes only — match'ina music.lt UI skaičių.
-  // Album/track fans rodomi atskirai (jie pateks į atitinkamus puslapius).
-  const legacyArtistLikes = legacyCommunity?.artistLikes || 0
-  const likes = likeCount + followers + legacyArtistLikes
+  // Authoritative count iš artist page label (music.lt stored counter).
+  // Tai match'ina music.lt UI tiksliai, nors kelios user'ių ID'ai gali būti
+  // deleted/banned — rate;list fetch'as grąžina mažiau nei counter'is rodo.
+  const authoritativeLegacy = (artist as any).legacy_like_count ?? legacyCommunity?.artistLikes ?? 0
+  const likes = likeCount + followers + authoritativeLegacy
   const allLikesUsers: any[] = legacyCommunity?.allArtistFans || []
   const atypes = [...new Set(albums.map(aType))]
   const fAlbums = df === 'all' ? albums : albums.filter(a => aType(a) === df)

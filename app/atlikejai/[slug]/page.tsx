@@ -12,6 +12,11 @@ async function getArtist(slug: string) {
   if (!data) { const id = parseInt(slug); if (!isNaN(id)) { const r = await sb.from('artists').select('*').eq('id', id).single(); data = r.data } }
   return data
 }
+
+/** music.lt authoritative count nuo artist page label. Scrape metu paimtas. */
+function getAuthoritativeLegacyCount(artist: any): number {
+  return artist?.legacy_like_count ?? 0
+}
 async function getGenres(id: number) { const sb = createAdminClient(); const { data } = await sb.from('artist_genres').select('genre_id, genres(id, name)').eq('artist_id', id); return (data || []).map((g: any) => g.genres).filter(Boolean) }
 async function getLinks(id: number) { const sb = createAdminClient(); const { data } = await sb.from('artist_links').select('platform, url').eq('artist_id', id); return data || [] }
 async function getPhotos(id: number) { const sb = createAdminClient(); const { data } = await sb.from('artist_photos').select('id, url, caption, sort_order').eq('artist_id', id).order('sort_order'); return data || [] }
