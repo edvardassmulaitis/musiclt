@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
+import WikimediaSearch from '@/components/WikimediaSearch'
 
 type ArtistRow = { artist_id: number; name: string; is_headliner: boolean }
 
@@ -33,6 +34,21 @@ export default function AdminEventEditPage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
+  const [wikiOpen, setWikiOpen] = useState(false)
+  const [venueOptions, setVenueOptions] = useState<Array<{ id: number; legacy_id: number | null; name: string; city: string | null; address: string | null }>>([])
+  const [showVenueDrop, setShowVenueDrop] = useState(false)
+
+  // Load venues on mount for suggestion dropdown
+  useEffect(() => {
+    fetch('/api/venues')
+      .then(r => r.ok ? r.json() : { venues: [] })
+      .then(d => setVenueOptions(d.venues || []))
+      .catch(() => setVenueOptions([]))
+  }, [])
+
+  const filteredVenues = venueOptions
+    .filter(v => v.name.toLowerCase().includes(venueName.toLowerCase()))
+    .slice(0, 10)
 
   useEffect(() => { if (status === 'unauthenticated') router.push('/') }, [status])
 
@@ -182,7 +198,37 @@ export default function AdminEventEditPage() {
         <div className="grid grid-cols-3 gap-4">
           <div>
             <label className={labelCls}>Vieta</label>
-            <input value={venueName} onChange={e => setVenueName(e.target.value)} className={inputCls} placeholder="Žalgirio Arena" />
+            <div className="relative">
+              <input
+                value={venueName}
+                onChange={e => { setVenueName(e.target.value); setShowVenueDrop(true) }}
+                onFocus={() => setShowVenueDrop(true)}
+                onBlur={() => setTimeout(() => setShowVenueDrop(false), 150)}
+                className={inputCls}
+                placeholder="Žalgirio Arena"
+              />
+              {showVenueDrop && filteredVenues.length > 0 && (
+                <div className="absolute top-full left-0 right-0 z-20 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-y-auto">
+                  {filteredVenues.map(v => (
+                    <button
+                      key={v.id}
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        setVenueName(v.name)
+                        if (v.city && !city) setCity(v.city)
+                        if (v.address && !address) setAddress(v.address)
+                        setShowVenueDrop(false)
+                      }}
+                      className="w-full text-left px-3 py-1.5 hover:bg-gray-50 text-xs"
+                    >
+                      <div className="font-semibold text-gray-900">{v.name}</div>
+                      {v.city && <div className="text-gray-500 text-[10px]">{v.city}{v.address ? ` · ${v.address}` : ''}</div>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           <div>
             <label className={labelCls}>Miestas</label>
@@ -204,10 +250,43 @@ export default function AdminEventEditPage() {
 
         {/* Cover */}
         <div>
-          <label className={labelCls}>Cover nuotraukos URL</label>
-          <input value={coverUrl} onChange={e => setCoverUrl(e.target.value)} className={inputCls} placeholder="https://..." />
+          <label className={labelCls}>Cover nuotrauka</label>
+          <div className="flex gap-2">
+            <input
+              value={coverUrl}
+              onChange={e => setCoverUrl(e.target.value)}
+              className={`${inputCls} flex-1`}
+              placeholder="https://..."
+            />
+            <button
+              type="button"
+              onClick={() => setWikiOpen(true)}
+              className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-semibold whitespace-nowrap"
+              title="Ieškoti nuotraukos Wikipedijoje"
+            >
+              🔍 Wiki
+            </button>
+          </div>
           {coverUrl && (
-            <img src={coverUrl} alt="" className="mt-2 h-24 rounded-lg object-cover" onError={e => (e.currentTarget.style.display = 'none')} />
+            <img
+              src={coverUrl}
+              alt=""
+              referrerPolicy="no-referrer"
+              className="mt-2 h-32 rounded-lg object-cover border border-gray-200"
+              onError={e => (e.currentTarget.style.display = 'none')}
+            />
+          )}
+          {wikiOpen && (
+            <WikimediaSearch
+              artistName={title || ''}
+              onAddMultiple={(photos) => {
+                if (photos.length > 0) {
+                  setCoverUrl(photos[0].url)
+                }
+                setWikiOpen(false)
+              }}
+              onClose={() => setWikiOpen(false)}
+            />
           )}
         </div>
 
