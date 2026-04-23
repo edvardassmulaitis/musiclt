@@ -140,6 +140,13 @@ export default async function LegacyDiscussionPage({ params }: Props) {
 
   return (
     <div style={{ background: 'var(--bg-body)', color: 'var(--text-primary)', minHeight: '100vh', fontFamily: "'DM Sans',system-ui,sans-serif" }}>
+      <style>{`
+        .post-body img { max-width: 100%; height: auto; border-radius: 6px; vertical-align: middle; }
+        .post-body img[src*="/emotions/"], .post-body img[src*="/smiles/"] { display: inline-block; width: 20px; height: 20px; vertical-align: text-bottom; }
+        .post-body iframe { max-width: 100%; border-radius: 8px; margin: 8px 0; }
+        .post-body p { margin: 0 0 8px; }
+        .post-body a { color: #f97316; }
+      `}</style>
       <div style={{ maxWidth: 880, margin: '0 auto', padding: '48px 24px 80px' }}>
         {/* Breadcrumbs */}
         <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'Outfit,sans-serif', fontWeight: 700, letterSpacing: '.04em', marginBottom: 20 }}>
@@ -202,56 +209,70 @@ export default async function LegacyDiscussionPage({ params }: Props) {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {posts.map((p) => (
-              <div
-                key={p.legacy_id}
-                style={{
-                  background: 'var(--bg-surface)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: 12,
-                  padding: '16px 20px',
-                  display: 'flex', gap: 14,
-                }}
-              >
-                <Avatar username={p.author_username ?? '?'} url={avatars[p.author_username ?? ''] ?? null} size={42} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{
-                    display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap',
-                    marginBottom: 6,
-                  }}>
-                    <Link
-                      href={`/vartotojas/ghost/${encodeURIComponent(p.author_username ?? '')}`}
-                      style={{
-                        fontSize: 14, fontWeight: 800, color: '#f97316',
-                        textDecoration: 'none', fontFamily: 'Outfit,sans-serif',
-                      }}
-                    >
-                      {p.author_username ?? 'nežinomas'}
-                    </Link>
-                    <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>
-                      {formatLtDate(p.created_at)}
-                    </span>
-                    {(p.like_count ?? 0) > 0 && (
-                      <span style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 4,
-                        fontSize: 11, color: '#f97316', fontWeight: 700,
-                        padding: '2px 8px', borderRadius: 100,
-                        background: 'rgba(249,115,22,.1)',
-                      }}>
-                        ♥ {p.like_count}
+            {posts.map((p) => {
+              const { cleanHtml, attachments } = splitAttachments(p.content_html ?? p.content_text ?? '')
+              return (
+                <div
+                  key={p.legacy_id}
+                  style={{
+                    background: 'var(--bg-surface)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 12,
+                    padding: '16px 20px',
+                    display: 'flex', gap: 14,
+                  }}
+                >
+                  <Avatar username={p.author_username ?? '?'} url={avatars[p.author_username ?? ''] ?? null} size={42} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap',
+                      marginBottom: 6,
+                    }}>
+                      <Link
+                        href={`/vartotojas/ghost/${encodeURIComponent(p.author_username ?? '')}`}
+                        style={{
+                          fontSize: 14, fontWeight: 800, color: '#f97316',
+                          textDecoration: 'none', fontFamily: 'Outfit,sans-serif',
+                        }}
+                      >
+                        {p.author_username ?? 'nežinomas'}
+                      </Link>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>
+                        {formatLtDate(p.created_at)}
                       </span>
+                      {(p.like_count ?? 0) > 0 && (
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                          fontSize: 11, color: '#f97316', fontWeight: 700,
+                          padding: '2px 8px', borderRadius: 100,
+                          background: 'rgba(249,115,22,.1)',
+                        }}>
+                          ♥ {p.like_count}
+                        </span>
+                      )}
+                    </div>
+                    <div
+                      className="post-body"
+                      style={{
+                        fontSize: 14, lineHeight: 1.6, color: 'var(--text-primary)',
+                        wordBreak: 'break-word',
+                      }}
+                      dangerouslySetInnerHTML={{ __html: sanitizePostHtml(cleanHtml) }}
+                    />
+                    {attachments.length > 0 && (
+                      <div style={{
+                        display: 'flex', flexWrap: 'wrap', gap: 8,
+                        marginTop: 10,
+                      }}>
+                        {attachments.map((a, idx) => (
+                          <AttachmentCard key={`${a.type}-${a.legacy_id}-${idx}`} a={a} />
+                        ))}
+                      </div>
                     )}
                   </div>
-                  <div
-                    style={{
-                      fontSize: 14, lineHeight: 1.6, color: 'var(--text-primary)',
-                      wordBreak: 'break-word',
-                    }}
-                    dangerouslySetInnerHTML={{ __html: sanitizePostHtml(p.content_html ?? p.content_text ?? '') }}
-                  />
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>
@@ -260,26 +281,104 @@ export default async function LegacyDiscussionPage({ params }: Props) {
 }
 
 /**
- * Server-side sanitizer: strips scripts, on*, iframe, form, input, style attributes
- * while preserving basic text formatting. music.lt original posts use minimal HTML
- * (bold/italic/linebreaks + rank;list links that we convert below).
+ * Server-side sanitizer. Allows paragraphs, basic formatting, images from
+ * music.lt, and YouTube embeds. Strips scripts, on*-handlers, javascript: URLs,
+ * forms, inputs. Converts /user/ links to our /vartotojas/ghost/ path.
  */
 function sanitizePostHtml(html: string): string {
   if (!html) return ''
   let s = html
-  // Strip script/style blocks
   s = s.replace(/<script[\s\S]*?<\/script>/gi, '')
   s = s.replace(/<style[\s\S]*?<\/style>/gi, '')
-  s = s.replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
   s = s.replace(/<form[\s\S]*?<\/form>/gi, '')
-  // Strip javascript: hrefs + on* handlers
+  s = s.replace(/<input[^>]*>/gi, '')
+  // Only allow YouTube iframes — strip all others
+  s = s.replace(/<iframe([^>]*)>([\s\S]*?)<\/iframe>/gi, (m, attrs) => {
+    const srcMatch = attrs.match(/src="([^"]+)"/i)
+    if (!srcMatch) return ''
+    const src = srcMatch[1]
+    if (!/^https?:\/\/(www\.)?(youtube\.com|youtu\.be|youtube-nocookie\.com)\//.test(src)) return ''
+    return `<iframe src="${src}" width="560" height="315" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`
+  })
+  // Strip javascript:, on-handlers
   s = s.replace(/\son\w+="[^"]*"/gi, '')
   s = s.replace(/\son\w+='[^']*'/gi, '')
   s = s.replace(/javascript:/gi, '')
-  // Convert music.lt relative user links
+  // Convert music.lt /user/ links
   s = s.replace(/href="\/user\/([^"]+)"/g, 'href="/vartotojas/ghost/$1"')
-  // Remove post_actions and reply buttons
+  // Remove post_actions
   s = s.replace(/<div\s+class="post_actions"[\s\S]*?<\/div>/gi, '')
-  // Remove trailing "____________________" signature separator artifacts
   return s
+}
+
+type MusicAttachment = {
+  type: 'daina' | 'albumas' | 'grupe'
+  legacy_id: number
+  title: string | null
+  artist: string | null
+  image_url: string | null
+  fav_count: number | null
+}
+
+/** Parse `<div class="music-attachments" data-items="JSON">` out of content HTML
+ *  and return both the cleaned HTML (without the marker) and the attachments. */
+function splitAttachments(html: string): { cleanHtml: string; attachments: MusicAttachment[] } {
+  if (!html) return { cleanHtml: '', attachments: [] }
+  const match = html.match(/<div class="music-attachments" data-items='([^']*)'><\/div>/)
+  if (!match) return { cleanHtml: html, attachments: [] }
+  let items: MusicAttachment[] = []
+  try {
+    items = JSON.parse(match[1].replace(/&apos;/g, "'"))
+  } catch {
+    items = []
+  }
+  return { cleanHtml: html.replace(match[0], ''), attachments: items }
+}
+
+function AttachmentCard({ a }: { a: MusicAttachment }) {
+  const href =
+    a.type === 'daina'
+      ? `/lt/daina/slug/${a.legacy_id}`
+      : a.type === 'albumas'
+      ? `/lt/albumas/slug/${a.legacy_id}`
+      : '#'
+  const kindLabel = a.type === 'daina' ? 'Daina' : a.type === 'albumas' ? 'Albumas' : 'Atlikėjas'
+  const tint = a.type === 'daina' ? '#3b82f6' : a.type === 'albumas' ? '#f97316' : '#a855f7'
+  return (
+    <a
+      href={href}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '8px 10px', borderRadius: 10,
+        background: 'var(--card-bg)',
+        border: '1px solid var(--border-subtle)',
+        textDecoration: 'none', minWidth: 220, flex: '1 1 220px',
+      }}
+    >
+      {a.image_url ? (
+        <img
+          src={a.image_url}
+          alt={a.title || 'attachment'}
+          referrerPolicy="no-referrer"
+          style={{ width: 36, height: 36, borderRadius: 6, objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border-subtle)' }}
+        />
+      ) : (
+        <div style={{ width: 36, height: 36, borderRadius: 6, background: `${tint}22`, flexShrink: 0 }} />
+      )}
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ fontSize: 9, color: tint, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', fontFamily: 'Outfit,sans-serif' }}>
+          {kindLabel}
+          {typeof a.fav_count === 'number' && a.fav_count > 0 && <> · ♥ {a.fav_count}</>}
+        </div>
+        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {a.title || `#${a.legacy_id}`}
+        </div>
+        {a.artist && (
+          <div style={{ fontSize: 10, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {a.artist}
+          </div>
+        )}
+      </div>
+    </a>
+  )
 }
