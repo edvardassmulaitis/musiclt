@@ -332,9 +332,10 @@ function MusicSection({
       <SectionTitle label="Populiariausios dainos" />
       <div className="overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
         {/* Wrapper with aspect-[32/9] on desktop — two 16:9 cells side by side.
-            This gives the grid a KNOWN height without grid-stretch overriding child aspects. */}
+            This gives the grid a KNOWN height without grid-stretch overriding child aspects.
+            lg:grid-rows-1 forces the single row to fill 100%% of the wrapper height. */}
         <div className="lg:aspect-[32/9]">
-          <div className="grid h-full grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <div className="grid h-full grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:grid-rows-1">
             {/* Video cell */}
             <div className="relative aspect-video overflow-hidden bg-black lg:aspect-auto lg:h-full">
               {displayVid ? (
