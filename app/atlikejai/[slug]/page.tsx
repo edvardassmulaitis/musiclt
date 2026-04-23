@@ -133,10 +133,10 @@ async function getLegacyForumThreads(artist: { name: string; slug: string }, lim
   const pat = `%${needle}%`
   const { data } = await sb
     .from('forum_threads')
-    .select('legacy_id, slug, source_url, kind')
+    .select('legacy_id, slug, source_url, kind, title, post_count, last_post_at')
     .eq('kind', 'discussion')
     .or(`source_url.ilike.${pat},slug.ilike.${pat}`)
-    .order('legacy_id', { ascending: false })
+    .order('last_post_at', { ascending: false, nullsFirst: false })
     .limit(limit)
   return data || []
 }
@@ -150,10 +150,10 @@ async function getLegacyNewsThreads(artist: { name: string; slug: string }, limi
   const pat = `%${needle}%`
   const { data } = await sb
     .from('forum_threads')
-    .select('legacy_id, slug, source_url, kind')
+    .select('legacy_id, slug, source_url, kind, title, post_count, first_post_at, last_post_at')
     .eq('kind', 'news')
     .or(`source_url.ilike.${pat},slug.ilike.${pat}`)
-    .order('legacy_id', { ascending: false })
+    .order('first_post_at', { ascending: false, nullsFirst: false })
     .limit(limit)
   return data || []
 }

@@ -33,7 +33,15 @@ type LegacyCommunity = {
   topFans: (LegacyLikeUser & { like_count: number })[]
   allArtistFans: LegacyLikeUser[]
 }
-type LegacyThread = { legacy_id: number; slug: string; source_url: string }
+type LegacyThread = {
+  legacy_id: number
+  slug: string
+  source_url: string
+  title?: string | null
+  post_count?: number | null
+  first_post_at?: string | null
+  last_post_at?: string | null
+}
 type Props = {
   artist: any; heroImage: string | null; genres: Genre[]; links: { platform: string; url: string }[]; photos: { url: string; caption?: string }[]
   albums: Album[]; tracks: Track[]; members: Member[]; followers: number; likeCount: number
@@ -410,7 +418,8 @@ export default function ArtistProfileClient({
             <div style={ST}>Naujienos · {legacyNews.length}<span style={{ flex: 1, height: 1, background: 'var(--section-line)' }} /></div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 }}>
               {legacyNews.slice(0, 12).map((n) => {
-                const title = slugToForumTitle(n.slug)
+                const title = n.title || slugToForumTitle(n.slug)
+                const pc = n.post_count ?? 0
                 return (
                   <Link
                     key={n.legacy_id}
@@ -424,6 +433,9 @@ export default function ArtistProfileClient({
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M20 3H4a2 2 0 00-2 2v14a2 2 0 002 2h16a2 2 0 002-2V5a2 2 0 00-2-2zm-9 14H5v-2h6v2zm0-4H5v-2h6v2zm0-4H5V7h6v2zm8 8h-6v-2h6v2zm0-4h-6V7h6v6z" /></svg>
                       </div>
                       <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--text-muted)', fontFamily: 'Outfit,sans-serif', letterSpacing: '.1em', textTransform: 'uppercase' }}>Naujiena</div>
+                      {pc > 0 && (
+                        <div style={{ marginLeft: 'auto', fontSize: 9, color: 'var(--text-muted)', fontFamily: 'Outfit,sans-serif', fontWeight: 700 }}>{pc} komentarai</div>
+                      )}
                     </div>
                     <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.35 }}>{title}</div>
                   </Link>
@@ -444,7 +456,8 @@ export default function ArtistProfileClient({
               </div>
               <div>
                 {legacyThreads.map((t, i) => {
-                  const title = slugToForumTitle(t.slug)
+                  const title = t.title || slugToForumTitle(t.slug)
+                  const pc = t.post_count ?? 0
                   return (
                     <Link
                       key={t.legacy_id}
@@ -458,7 +471,10 @@ export default function ArtistProfileClient({
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
-                        <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 1, fontFamily: 'Outfit,sans-serif' }}>diskusija · #{t.legacy_id}</div>
+                        <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 1, fontFamily: 'Outfit,sans-serif' }}>
+                          diskusija · #{t.legacy_id}
+                          {pc > 0 && <> · {pc} komentarai</>}
+                        </div>
                       </div>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" strokeWidth="2" style={{ flexShrink: 0 }}>
                         <path d="M9 18l6-6-6-6" />
@@ -466,9 +482,6 @@ export default function ArtistProfileClient({
                     </Link>
                   )
                 })}
-              </div>
-              <div style={{ padding: '9px 14px', background: 'rgba(251,191,36,.03)', borderTop: '1px solid var(--border-subtle)', fontSize: 10, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                <span>Diskusijos atidaromos senajame music.lt — komentarų turinys dar nerestauruotas naujoje versijoje</span>
               </div>
             </div>
           ) : (
