@@ -204,39 +204,90 @@ export default function AdminEventEditPage() {
         {/* Venue */}
         <div className="grid grid-cols-3 gap-4">
           <div>
-            <label className={labelCls}>Vieta</label>
+            <label className={labelCls}>
+              Vieta
+              {venueId && (
+                <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-black uppercase rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  🔗 Susieta
+                </span>
+              )}
+            </label>
             <div className="relative">
-              <input
-                value={venueName}
-                onChange={e => { setVenueName(e.target.value); setShowVenueDrop(true) }}
-                onFocus={() => setShowVenueDrop(true)}
-                onBlur={() => setTimeout(() => setShowVenueDrop(false), 150)}
-                className={inputCls}
-                placeholder="Žalgirio Arena"
-              />
-              {showVenueDrop && filteredVenues.length > 0 && (
-                <div className="absolute top-full left-0 right-0 z-20 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-y-auto">
-                  {filteredVenues.map(v => (
-                    <button
-                      key={v.id}
-                      type="button"
-                      onMouseDown={(e) => {
-                        e.preventDefault()
-                        setVenueName(v.name)
-                        setVenueId(v.id)
-                        if (v.city) setCity(v.city)
-                        if (v.address) setAddress(v.address)
+              <div className="flex gap-2">
+                <input
+                  value={venueName}
+                  onChange={e => {
+                    setVenueName(e.target.value)
+                    setVenueId(null) // unlink when user types free text
+                    setShowVenueDrop(true)
+                  }}
+                  onFocus={() => setShowVenueDrop(true)}
+                  onBlur={() => setTimeout(() => setShowVenueDrop(false), 200)}
+                  className={`${inputCls} flex-1`}
+                  placeholder="Žalgirio Arena"
+                />
+                <button
+                  type="button"
+                  onMouseDown={(e) => { e.preventDefault(); setShowVenueDrop(d => !d) }}
+                  className="px-2 py-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700"
+                  title="Rodyti sąrašą"
+                >
+                  ▾
+                </button>
+                {venueId && (
+                  <button
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      setVenueId(null)
+                    }}
+                    className="px-2 py-1.5 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg text-xs font-semibold text-red-600"
+                    title="Atsieti nuo venues lentelės"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+              {showVenueDrop && (
+                <div className="absolute top-full left-0 right-0 z-20 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-72 overflow-y-auto">
+                  {venueOptions.length === 0 ? (
+                    <div className="px-3 py-2 text-xs text-gray-500">Kraunu vietas…</div>
+                  ) : filteredVenues.length === 0 ? (
+                    <>
+                      <div className="px-3 py-2 text-[10px] text-gray-500 uppercase font-bold tracking-wide bg-gray-50 border-b border-gray-100">
+                        Nerasta pagal „{venueName}" — galima naudoti laisvu tekstu arba išrinkti iš sąrašo:
+                      </div>
+                      {venueOptions.slice(0, 20).map(v => (
+                        <VenueRow key={v.id} v={v} onPick={() => {
+                          setVenueName(v.name); setVenueId(v.id)
+                          if (v.city) setCity(v.city); if (v.address) setAddress(v.address)
+                          setShowVenueDrop(false)
+                        }} />
+                      ))}
+                    </>
+                  ) : (
+                    filteredVenues.map(v => (
+                      <VenueRow key={v.id} v={v} highlighted={v.id === venueId} onPick={() => {
+                        setVenueName(v.name); setVenueId(v.id)
+                        if (v.city) setCity(v.city); if (v.address) setAddress(v.address)
                         setShowVenueDrop(false)
-                      }}
-                      className="w-full text-left px-3 py-1.5 hover:bg-gray-50 text-xs"
-                    >
-                      <div className="font-semibold text-gray-900">{v.name}</div>
-                      {v.city && <div className="text-gray-500 text-[10px]">{v.city}{v.address ? ` · ${v.address}` : ''}</div>}
-                    </button>
-                  ))}
+                      }} />
+                    ))
+                  )}
+                  <Link
+                    href="/admin/venues/new"
+                    className="block px-3 py-2 text-xs text-blue-600 hover:bg-blue-50 border-t border-gray-100 font-semibold"
+                  >
+                    + Sukurti naują vietą…
+                  </Link>
                 </div>
               )}
             </div>
+            {venueId && (
+              <div className="mt-1 text-[10px] text-emerald-700 font-semibold">
+                FK → venues.id = {venueId}
+              </div>
+            )}
           </div>
           <div>
             <label className={labelCls}>Miestas</label>
@@ -357,5 +408,31 @@ export default function AdminEventEditPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+function VenueRow({ v, highlighted, onPick }: {
+  v: { id: number; name: string; city: string | null; address: string | null }
+  highlighted?: boolean
+  onPick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onMouseDown={(e) => { e.preventDefault(); onPick() }}
+      className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${
+        highlighted ? 'bg-emerald-50 hover:bg-emerald-100' : 'hover:bg-gray-50'
+      }`}
+    >
+      <div className="font-semibold text-gray-900 flex items-center gap-1">
+        {v.name}
+        {highlighted && <span className="text-[9px] text-emerald-600 font-bold">✓ pasirinkta</span>}
+      </div>
+      {(v.city || v.address) && (
+        <div className="text-gray-500 text-[10px]">
+          {v.city}{v.city && v.address ? ' · ' : ''}{v.address}
+        </div>
+      )}
+    </button>
   )
 }
