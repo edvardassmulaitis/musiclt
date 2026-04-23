@@ -1,8 +1,13 @@
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase'
-import Link from 'next/link'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import ThreadPageClient from './thread-page-client'
 
-type Props = { params: Promise<{ id: string }> }
+type Props = {
+  params: Promise<{ id: string }>
+  searchParams?: Promise<{ sort?: string }>
+}
 
 type ThreadRow = {
   legacy_id: number
@@ -14,6 +19,8 @@ type ThreadRow = {
   pagination_count: number | null
   first_post_at: string | null
   last_post_at: string | null
+  like_count: number | null
+  artist_id: number | null
 }
 
 type PostRow = {
@@ -27,21 +34,49 @@ type PostRow = {
   like_count: number | null
 }
 
+type ArtistLink = { id: number; slug: string; name: string; cover_image_url: string | null }
+
+/** Strip accents & normalize to URL-safe lowercase slug. */
+function toSlug(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/„|"|"|'|'/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80)
+}
+
 async function getThread(legacyId: number): Promise<ThreadRow | null> {
   const sb = createAdminClient()
   const { data } = await sb
     .from('forum_threads')
-    .select('legacy_id,slug,source_url,kind,title,post_count,pagination_count,first_post_at,last_post_at')
+    .select(
+      'legacy_id,slug,source_url,kind,title,post_count,pagination_count,first_post_at,last_post_at,like_count,artist_id',
+    )
     .eq('legacy_id', legacyId)
     .maybeSingle()
   return (data as ThreadRow | null) ?? null
+}
+
+async function getArtist(id: number): Promise<ArtistLink | null> {
+  const sb = createAdminClient()
+  const { data } = await sb
+    .from('artists')
+    .select('id,slug,name,cover_image_url')
+    .eq('id', id)
+    .maybeSingle()
+  return (data as ArtistLink | null) ?? null
 }
 
 async function getPosts(threadLegacyId: number): Promise<PostRow[]> {
   const sb = createAdminClient()
   const { data } = await sb
     .from('forum_posts')
-    .select('legacy_id,page_number,author_username,author_numeric_id,created_at,content_html,content_text,like_count')
+    .select(
+      'legacy_id,page_number,author_username,author_numeric_id,created_at,content_html,content_text,like_count',
+    )
     .eq('thread_legacy_id', threadLegacyId)
     .order('created_at', { ascending: true })
   return (data as PostRow[] | null) ?? []
@@ -61,324 +96,124 @@ async function getGhostAvatars(usernames: string[]): Promise<Record<string, stri
   return out
 }
 
-function slugToTitle(slug: string | null): string {
-  if (!slug) return ''
-  return slug.replace(/\/$/, '').replace(/-/g, ' ').replace(/\s+/g, ' ').trim()
-}
-
-const LT_MONTHS = [
-  'sausio', 'vasario', 'kovo', 'balandžio', 'gegužės', 'birželio',
-  'liepos', 'rugpjūčio', 'rugsėjo', 'spalio', 'lapkričio', 'gruodžio',
-]
-
-function formatLtDate(iso: string | null): string {
-  if (!iso) return ''
-  const d = new Date(iso)
-  const y = d.getUTCFullYear()
-  const m = LT_MONTHS[d.getUTCMonth()]
-  const day = d.getUTCDate()
-  const hh = d.getUTCHours().toString().padStart(2, '0')
-  const mm = d.getUTCMinutes().toString().padStart(2, '0')
-  return `${y} m. ${m} ${day} d. ${hh}:${mm}`
-}
-
-function strHash(s: string) {
-  let h = 0
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0
-  return Math.abs(h)
-}
-
-function Avatar({ username, url, size = 40 }: { username: string; url?: string | null; size?: number }) {
-  const initial = username[0]?.toUpperCase() || '?'
-  if (url) {
-    return (
-      <img
-        src={url}
-        alt={username}
-        referrerPolicy="no-referrer"
-        style={{
-          width: size, height: size, borderRadius: '50%',
-          border: '1px solid var(--border-subtle)', objectFit: 'cover',
-          flexShrink: 0, background: 'var(--bg-elevated)',
-        }}
-      />
-    )
+/** Match legacy music attachment IDs to real tables → return slug map. */
+async function resolveAttachments(
+  attachmentIds: { type: 'daina' | 'albumas' | 'grupe'; legacy_id: number }[],
+): Promise<Record<string, { slug: string; id: number }>> {
+  const sb = createAdminClient()
+  const byType: Record<string, number[]> = { daina: [], albumas: [], grupe: [] }
+  for (const a of attachmentIds) {
+    if (byType[a.type]) byType[a.type].push(a.legacy_id)
   }
-  return (
-    <div
-      style={{
-        width: size, height: size, borderRadius: '50%',
-        background: `hsl(${strHash(username) % 360}, 40%, 22%)`,
-        color: `hsl(${strHash(username) % 360}, 60%, 62%)`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        flexShrink: 0, fontSize: size * 0.42, fontWeight: 800,
-        fontFamily: 'Outfit,sans-serif',
-      }}
-    >{initial}</div>
-  )
+  const out: Record<string, { slug: string; id: number }> = {}
+  if (byType.daina.length) {
+    const { data } = await sb
+      .from('tracks')
+      .select('id,slug,legacy_id')
+      .in('legacy_id', byType.daina)
+    for (const r of (data as Array<{ id: number; slug: string; legacy_id: number }> | null) ?? []) {
+      out[`daina:${r.legacy_id}`] = { slug: r.slug, id: r.id }
+    }
+  }
+  if (byType.albumas.length) {
+    const { data } = await sb
+      .from('albums')
+      .select('id,slug,legacy_id')
+      .in('legacy_id', byType.albumas)
+    for (const r of (data as Array<{ id: number; slug: string; legacy_id: number }> | null) ?? []) {
+      out[`albumas:${r.legacy_id}`] = { slug: r.slug, id: r.id }
+    }
+  }
+  if (byType.grupe.length) {
+    const { data } = await sb
+      .from('artists')
+      .select('id,slug,legacy_id')
+      .in('legacy_id', byType.grupe)
+    for (const r of (data as Array<{ id: number; slug: string; legacy_id: number }> | null) ?? []) {
+      out[`grupe:${r.legacy_id}`] = { slug: r.slug, id: r.id }
+    }
+  }
+  return out
 }
 
-export default async function LegacyDiscussionPage({ params }: Props) {
+export default async function LegacyDiscussionPage({ params, searchParams }: Props) {
   const { id } = await params
+  const sp = searchParams ? await searchParams : {}
+
+  // /diskusijos/tema/<numeric>  →  canonical redirect /diskusijos/tema/<numeric>/<slug>
   const legacyId = parseInt(id)
   if (!legacyId) notFound()
   const thread = await getThread(legacyId)
   if (!thread) notFound()
 
-  const posts = await getPosts(legacyId)
-  const usernames = Array.from(new Set(posts.map((p) => p.author_username).filter(Boolean))) as string[]
+  const displayTitle = thread.title || (thread.slug || '').replace(/\/$/, '').replace(/-/g, ' ')
+  const slugSeg = toSlug(displayTitle)
+  if (slugSeg) {
+    const canonical = `/diskusijos/tema/${legacyId}/${slugSeg}`
+    redirect(canonical + (sp.sort ? `?sort=${sp.sort}` : ''))
+  }
+
+  // Fallback (slug can't be derived) — render without redirect
+  return renderThread(thread, sp.sort)
+}
+
+export async function renderThread(thread: ThreadRow, sortParam?: string) {
+  const posts = await getPosts(thread.legacy_id)
+  const usernames = Array.from(
+    new Set(posts.map((p) => p.author_username).filter(Boolean)),
+  ) as string[]
   const avatars = await getGhostAvatars(usernames)
 
-  const title = thread.title || slugToTitle(thread.slug)
-  const isNews = thread.kind === 'news'
-  const kindLabel = isNews ? 'Naujiena' : 'Diskusija'
-  const kindColor = isNews ? '#f97316' : '#3b82f6'
-
-  const firstAt = thread.first_post_at
-  const lastAt = thread.last_post_at
-  const postCount = thread.post_count ?? posts.length
-
-  return (
-    <div style={{ background: 'var(--bg-body)', color: 'var(--text-primary)', minHeight: '100vh', fontFamily: "'DM Sans',system-ui,sans-serif" }}>
-      <style>{`
-        .post-body img { max-width: 100%; height: auto; border-radius: 6px; vertical-align: middle; }
-        .post-body img[src*="/emotions/"], .post-body img[src*="/smiles/"] { display: inline-block; width: 20px; height: 20px; vertical-align: text-bottom; }
-        .post-body iframe { max-width: 100%; border-radius: 8px; margin: 8px 0; }
-        .post-body p { margin: 0 0 8px; }
-        .post-body a { color: #f97316; }
-      `}</style>
-      <div style={{ maxWidth: 880, margin: '0 auto', padding: '48px 24px 80px' }}>
-        {/* Breadcrumbs */}
-        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'Outfit,sans-serif', fontWeight: 700, letterSpacing: '.04em', marginBottom: 20 }}>
-          <Link href="/" style={{ color: 'inherit', textDecoration: 'none' }}>music.lt</Link>
-          {' / '}
-          <Link href="/diskusijos" style={{ color: 'inherit', textDecoration: 'none' }}>Diskusijos</Link>
-        </div>
-
-        {/* Kind badge */}
-        <div style={{
-          display: 'inline-block', padding: '4px 12px', borderRadius: 100,
-          background: isNews ? 'rgba(249,115,22,.1)' : 'rgba(59,130,246,.1)',
-          border: `1px solid ${isNews ? 'rgba(249,115,22,.3)' : 'rgba(59,130,246,.3)'}`,
-          fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.1em',
-          color: kindColor, fontFamily: 'Outfit,sans-serif', marginBottom: 14,
-        }}>
-          {kindLabel}
-        </div>
-
-        {/* Title */}
-        <h1 style={{
-          fontFamily: 'Outfit,sans-serif', fontSize: '2.2rem', fontWeight: 900,
-          lineHeight: 1.15, letterSpacing: '-.02em', margin: '0 0 12px',
-          color: 'var(--text-primary)',
-        }}>
-          {title}
-        </h1>
-
-        {/* Meta row */}
-        <div style={{
-          display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center',
-          fontSize: 12, color: 'var(--text-muted)', fontFamily: 'Outfit,sans-serif', fontWeight: 600,
-          marginBottom: 32,
-        }}>
-          <span>music.lt #{thread.legacy_id}</span>
-          {postCount > 0 && <span>· {postCount} komentarai</span>}
-          {firstAt && <span>· Pradžia: {formatLtDate(firstAt)}</span>}
-          {lastAt && firstAt !== lastAt && <span>· Paskutinė: {formatLtDate(lastAt)}</span>}
-          {thread.source_url && (
-            <a
-              href={thread.source_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: kindColor, textDecoration: 'none', marginLeft: 'auto' }}
-            >
-              Originalas music.lt →
-            </a>
-          )}
-        </div>
-
-        {/* Comments list */}
-        {posts.length === 0 ? (
-          <div style={{
-            background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)',
-            borderRadius: 12, padding: '28px 26px', marginBottom: 24,
-          }}>
-            <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-              Šioje {isNews ? 'naujienoje' : 'diskusijoje'} kol kas nėra komentarų.
-            </div>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {posts.map((p) => {
-              const { cleanHtml, attachments } = splitAttachments(p.content_html ?? p.content_text ?? '')
-              return (
-                <div
-                  key={p.legacy_id}
-                  style={{
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: 12,
-                    padding: '16px 20px',
-                    display: 'flex', gap: 14,
-                  }}
-                >
-                  <Avatar username={p.author_username ?? '?'} url={avatars[p.author_username ?? ''] ?? null} size={42} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{
-                      display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap',
-                      marginBottom: 6,
-                    }}>
-                      <Link
-                        href={`/vartotojas/ghost/${encodeURIComponent(p.author_username ?? '')}`}
-                        style={{
-                          fontSize: 14, fontWeight: 800, color: '#f97316',
-                          textDecoration: 'none', fontFamily: 'Outfit,sans-serif',
-                        }}
-                      >
-                        {p.author_username ?? 'nežinomas'}
-                      </Link>
-                      <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>
-                        {formatLtDate(p.created_at)}
-                      </span>
-                      {(p.like_count ?? 0) > 0 && (
-                        <span style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 4,
-                          fontSize: 11, color: '#f97316', fontWeight: 700,
-                          padding: '2px 8px', borderRadius: 100,
-                          background: 'rgba(249,115,22,.1)',
-                        }}>
-                          ♥ {p.like_count}
-                        </span>
-                      )}
-                    </div>
-                    <div
-                      className="post-body"
-                      style={{
-                        fontSize: 14, lineHeight: 1.6, color: 'var(--text-primary)',
-                        wordBreak: 'break-word',
-                      }}
-                      dangerouslySetInnerHTML={{ __html: sanitizePostHtml(cleanHtml) }}
-                    />
-                    {attachments.length > 0 && (
-                      <div style={{
-                        display: 'flex', flexWrap: 'wrap', gap: 8,
-                        marginTop: 10,
-                      }}>
-                        {attachments.map((a, idx) => (
-                          <AttachmentCard key={`${a.type}-${a.legacy_id}-${idx}`} a={a} />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-/**
- * Server-side sanitizer. Allows paragraphs, basic formatting, images from
- * music.lt, and YouTube embeds. Strips scripts, on*-handlers, javascript: URLs,
- * forms, inputs. Converts /user/ links to our /vartotojas/ghost/ path.
- */
-function sanitizePostHtml(html: string): string {
-  if (!html) return ''
-  let s = html
-  s = s.replace(/<script[\s\S]*?<\/script>/gi, '')
-  s = s.replace(/<style[\s\S]*?<\/style>/gi, '')
-  s = s.replace(/<form[\s\S]*?<\/form>/gi, '')
-  s = s.replace(/<input[^>]*>/gi, '')
-  // Only allow YouTube iframes — strip all others
-  s = s.replace(/<iframe([^>]*)>([\s\S]*?)<\/iframe>/gi, (m, attrs) => {
-    const srcMatch = attrs.match(/src="([^"]+)"/i)
-    if (!srcMatch) return ''
-    const src = srcMatch[1]
-    if (!/^https?:\/\/(www\.)?(youtube\.com|youtu\.be|youtube-nocookie\.com)\//.test(src)) return ''
-    return `<iframe src="${src}" width="560" height="315" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`
-  })
-  // Strip javascript:, on-handlers
-  s = s.replace(/\son\w+="[^"]*"/gi, '')
-  s = s.replace(/\son\w+='[^']*'/gi, '')
-  s = s.replace(/javascript:/gi, '')
-  // Convert music.lt /user/ links
-  s = s.replace(/href="\/user\/([^"]+)"/g, 'href="/vartotojas/ghost/$1"')
-  // Remove post_actions
-  s = s.replace(/<div\s+class="post_actions"[\s\S]*?<\/div>/gi, '')
-  return s
-}
-
-type MusicAttachment = {
-  type: 'daina' | 'albumas' | 'grupe'
-  legacy_id: number
-  title: string | null
-  artist: string | null
-  image_url: string | null
-  fav_count: number | null
-}
-
-/** Parse `<div class="music-attachments" data-items="JSON">` out of content HTML
- *  and return both the cleaned HTML (without the marker) and the attachments. */
-function splitAttachments(html: string): { cleanHtml: string; attachments: MusicAttachment[] } {
-  if (!html) return { cleanHtml: '', attachments: [] }
-  const match = html.match(/<div class="music-attachments" data-items='([^']*)'><\/div>/)
-  if (!match) return { cleanHtml: html, attachments: [] }
-  let items: MusicAttachment[] = []
-  try {
-    items = JSON.parse(match[1].replace(/&apos;/g, "'"))
-  } catch {
-    items = []
+  // Parse attachments from every post to resolve in bulk
+  const allAttachments: { type: 'daina' | 'albumas' | 'grupe'; legacy_id: number }[] = []
+  for (const p of posts) {
+    const items = extractAttachmentItems(p.content_html ?? '')
+    for (const a of items) allAttachments.push({ type: a.type, legacy_id: a.legacy_id })
   }
-  return { cleanHtml: html.replace(match[0], ''), attachments: items }
+  const attachmentSlugs = await resolveAttachments(allAttachments)
+
+  const artist = thread.artist_id ? await getArtist(thread.artist_id) : null
+  const session = await getServerSession(authOptions)
+  const role = (session?.user as { role?: string } | undefined)?.role
+  const isAdmin = role === 'admin' || role === 'super_admin'
+
+  return (
+    <ThreadPageClient
+      thread={thread}
+      posts={posts}
+      avatars={avatars}
+      attachmentSlugs={attachmentSlugs}
+      artist={artist}
+      isAdmin={isAdmin}
+      currentUser={
+        session?.user
+          ? {
+              email: session.user.email ?? null,
+              name: session.user.name ?? null,
+              image: session.user.image ?? null,
+            }
+          : null
+      }
+      sortParam={sortParam ?? 'desc'}
+    />
+  )
 }
 
-function AttachmentCard({ a }: { a: MusicAttachment }) {
-  const href =
-    a.type === 'daina'
-      ? `/lt/daina/slug/${a.legacy_id}`
-      : a.type === 'albumas'
-      ? `/lt/albumas/slug/${a.legacy_id}`
-      : '#'
-  const kindLabel = a.type === 'daina' ? 'Daina' : a.type === 'albumas' ? 'Albumas' : 'Atlikėjas'
-  const tint = a.type === 'daina' ? '#3b82f6' : a.type === 'albumas' ? '#f97316' : '#a855f7'
-  return (
-    <a
-      href={href}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 10,
-        padding: '8px 10px', borderRadius: 10,
-        background: 'var(--card-bg)',
-        border: '1px solid var(--border-subtle)',
-        textDecoration: 'none', minWidth: 220, flex: '1 1 220px',
-      }}
-    >
-      {a.image_url ? (
-        <img
-          src={a.image_url}
-          alt={a.title || 'attachment'}
-          referrerPolicy="no-referrer"
-          style={{ width: 36, height: 36, borderRadius: 6, objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border-subtle)' }}
-        />
-      ) : (
-        <div style={{ width: 36, height: 36, borderRadius: 6, background: `${tint}22`, flexShrink: 0 }} />
-      )}
-      <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ fontSize: 9, color: tint, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', fontFamily: 'Outfit,sans-serif' }}>
-          {kindLabel}
-          {typeof a.fav_count === 'number' && a.fav_count > 0 && <> · ♥ {a.fav_count}</>}
-        </div>
-        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {a.title || `#${a.legacy_id}`}
-        </div>
-        {a.artist && (
-          <div style={{ fontSize: 10, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {a.artist}
-          </div>
-        )}
-      </div>
-    </a>
-  )
+/** Parse attachment JSON markers out of content_html. Shared with client. */
+export function extractAttachmentItems(html: string) {
+  if (!html) return []
+  const match = html.match(/<div class="music-attachments" data-items='([^']*)'><\/div>/)
+  if (!match) return []
+  try {
+    return JSON.parse(match[1].replace(/&apos;/g, "'")) as Array<{
+      type: 'daina' | 'albumas' | 'grupe'
+      legacy_id: number
+      title: string | null
+      artist: string | null
+      image_url: string | null
+      fav_count: number | null
+    }>
+  } catch {
+    return []
+  }
 }
