@@ -34,7 +34,14 @@ type PostRow = {
   like_count: number | null
 }
 
-type ArtistLink = { id: number; slug: string; name: string; cover_image_url: string | null }
+type ArtistLink = {
+  id: number
+  slug: string
+  name: string
+  cover_image_url: string | null
+  cover_image_wide_url: string | null
+  legacy_id: number | null
+}
 
 /** Strip accents & normalize to URL-safe lowercase slug. */
 function toSlug(s: string): string {
@@ -64,10 +71,22 @@ async function getArtist(id: number): Promise<ArtistLink | null> {
   const sb = createAdminClient()
   const { data } = await sb
     .from('artists')
-    .select('id,slug,name,cover_image_url')
+    .select('id,slug,name,cover_image_url,cover_image_wide_url,legacy_id')
     .eq('id', id)
     .maybeSingle()
   return (data as ArtistLink | null) ?? null
+}
+
+type ThreadLikeUser = { user_username: string; user_rank?: string | null; user_avatar_url?: string | null }
+
+async function getThreadLikers(threadLegacyId: number): Promise<ThreadLikeUser[]> {
+  const sb = createAdminClient()
+  const { data } = await sb
+    .from('legacy_likes')
+    .select('user_username,user_rank,user_avatar_url')
+    .eq('entity_type', 'thread')
+    .eq('entity_legacy_id', threadLegacyId)
+  return (data as ThreadLikeUser[] | null) ?? []
 }
 
 async function getPosts(threadLegacyId: number): Promise<PostRow[]> {
@@ -173,6 +192,7 @@ export async function renderThread(thread: ThreadRow, sortParam?: string) {
   const attachmentSlugs = await resolveAttachments(allAttachments)
 
   const artist = thread.artist_id ? await getArtist(thread.artist_id) : null
+  const threadLikers = await getThreadLikers(thread.legacy_id)
   const session = await getServerSession(authOptions)
   const role = (session?.user as { role?: string } | undefined)?.role
   const isAdmin = role === 'admin' || role === 'super_admin'
@@ -184,6 +204,7 @@ export async function renderThread(thread: ThreadRow, sortParam?: string) {
       avatars={avatars}
       attachmentSlugs={attachmentSlugs}
       artist={artist}
+      threadLikers={threadLikers}
       isAdmin={isAdmin}
       currentUser={
         session?.user

@@ -16,10 +16,32 @@ type AttachmentIn = {
 type PostInput = {
   thread_legacy_id: number
   text: string
+  html?: string
   attachments?: AttachmentIn[]
 }
 
-/** Lightweight HTML escape for user text → stored as content_html wrapped in <p>. */
+/** Sanitize WYSIWYG HTML — keep basic formatting + YouTube iframes, strip everything dangerous. */
+function sanitizeHtml(raw: string): string {
+  if (!raw) return ''
+  let s = raw
+  s = s.replace(/<script[\s\S]*?<\/script>/gi, '')
+  s = s.replace(/<style[\s\S]*?<\/style>/gi, '')
+  s = s.replace(/<form[\s\S]*?<\/form>/gi, '')
+  s = s.replace(/<input[^>]*>/gi, '')
+  s = s.replace(/<iframe([^>]*)>([\s\S]*?)<\/iframe>/gi, (m, attrs: string) => {
+    const srcMatch = attrs.match(/src="([^"]+)"/i)
+    if (!srcMatch) return ''
+    const src = srcMatch[1]
+    if (!/^https?:\/\/(www\.)?(youtube\.com|youtu\.be|youtube-nocookie\.com)\//.test(src)) return ''
+    return `<iframe src="${src}" width="560" height="315" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`
+  })
+  s = s.replace(/\son\w+="[^"]*"/gi, '')
+  s = s.replace(/\son\w+='[^']*'/gi, '')
+  s = s.replace(/javascript:/gi, '')
+  return s.trim()
+}
+
+/** Fallback text-to-HTML for the case where the client didn't send html. */
 function textToHtml(raw: string) {
   return raw
     .split(/\r?\n\r?\n/)
@@ -69,8 +91,9 @@ export async function POST(request: Request) {
     .eq('email', session.user.email)
     .maybeSingle()
 
-  // Build content_html = user text + attachments marker (same shape as scraper)
-  let contentHtml = text ? textToHtml(text) : ''
+  // Build content_html — prefer the sanitized HTML from the WYSIWYG editor; fall back
+  // to naive text→html when the client only sent `text`.
+  let contentHtml = body.html ? sanitizeHtml(body.html) : text ? textToHtml(text) : ''
   if (attachments.length > 0) {
     const items = attachments.map((a) => ({
       type: a.type,
