@@ -5,11 +5,9 @@ import LikesModal from '@/components/LikesModal'
 import type { LegacyLikeUser } from '@/components/LegacyLikesPanel'
 
 /* ═══════════════════════════════════════════════════════════════════
-   Artist profile — split hero redesign.
-   Desktop (lg+): 50/50 hero — left cinematic photo, right YouTube
-   player + All-time/Trending tabs + track list.
-   Below hero: rank/badges bar, upcoming events, bio intro (expand),
-   discography, discussions, past events, news, masonry gallery, similar.
+   Artist profile — hero v3: photo backdrop + floating glass player
+   card. Modern streaming-app feel. Fixed hero heights (not vw-based)
+   so title is always above fold.
    ═══════════════════════════════════════════════════════════════════ */
 
 // ── Types ───────────────────────────────────────────────────────────
@@ -74,6 +72,8 @@ function slugToForumTitle(slug: string): string {
   return (slug || '').replace(/\/$/, '').replace(/-/g, ' ').replace(/\s+/g, ' ').trim() || 'Diskusija'
 }
 
+/** aType: returns human-readable category label for an album.
+ * "Studijinis" = studio album (default when no other type flag is set). */
 const aType = (a: Album) => {
   if (a.type_ep) return 'EP'
   if (a.type_single) return 'Singlas'
@@ -82,7 +82,7 @@ const aType = (a: Album) => {
   if (a.type_remix) return 'Remix'
   if (a.type_soundtrack) return 'OST'
   if (a.type_demo) return 'Demo'
-  return 'Albumas'
+  return 'Studijinis'
 }
 
 const FLAGS: Record<string, string> = {
@@ -102,112 +102,165 @@ const SOC: Record<string, { l: string; c: string; d: string }> = {
   soundcloud: { l: 'SoundCloud', c: '#FF5500', d: 'M1.175 12.225c-.051 0-.094.046-.101.1l-.233 2.154.233 2.105c.007.058.05.098.101.098.05 0 .09-.04.099-.098l.255-2.105-.27-2.154c-.009-.06-.05-.1-.084-.1z' },
 }
 
-// ── Small shared ────────────────────────────────────────────────────
+// ── Shared tiny components ─────────────────────────────────────────
 
 function SectionTitle({ label, count }: { label: string; count?: number }) {
   return (
     <div className="mb-5 flex items-baseline gap-3 sm:mb-6">
-      <h2 className="font-['Outfit',sans-serif] text-[20px] font-black leading-none text-[var(--text-primary)] sm:text-[24px] lg:text-[28px]">
+      <h2 className="font-['Outfit',sans-serif] text-[22px] font-black leading-none text-[var(--text-primary)] sm:text-[26px] lg:text-[30px]">
         {label}
       </h2>
       {typeof count === 'number' && (
-        <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-faint)] sm:text-[16px]">{count}</span>
+        <span className="font-['Outfit',sans-serif] text-[15px] font-bold text-[var(--text-faint)] sm:text-[17px]">{count}</span>
       )}
     </div>
   )
 }
 
-// ── HeroLeft: cinematic photo with artist name overlay ─────────────
+// ── HERO v3: photo backdrop + glass player card ────────────────────
 
-function HeroLeft({
+function Hero({
   artist, heroImage, genres, loaded, flag, active,
+  tracksAllTime, tracksTrending, activeTrackId, onSelectTrack, hasAnyVideo,
+  quickStats,
 }: {
-  artist: any; heroImage: string | null; genres: Genre[]; loaded: boolean; flag: string; active: string | null
+  artist: any; heroImage: string | null; genres: Genre[]; loaded: boolean
+  flag: string; active: string | null
+  tracksAllTime: Track[]; tracksTrending: Track[]
+  activeTrackId: number | null; onSelectTrack: (id: number) => void; hasAnyVideo: boolean
+  quickStats: { value: string; label: string }[]
 }) {
   return (
-    <div className="relative overflow-hidden bg-[var(--bg-body)]" style={{ minHeight: 'clamp(340px,50vw,620px)' }}>
-      {heroImage ? (
-        <img
-          src={heroImage}
-          alt=""
-          className="absolute inset-0 block h-full w-full animate-[apHeroZoom_28s_ease-in-out_infinite_alternate] object-cover"
-          style={(() => {
-            const p = parseCoverPos(artist.cover_image_position || 'center 20%')
-            return {
-              objectPosition: `${p.x}% ${p.y}%`,
-              transformOrigin: `${p.x}% ${p.y}%`,
-            }
-          })()}
-        />
-      ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-[var(--bg-surface)] to-[var(--bg-body)]" />
-      )}
-
-      {/* Gradient for text legibility */}
-      <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-body)] via-[var(--bg-body)]/60 to-transparent" />
-      <div className="absolute inset-0 bg-gradient-to-tr from-[var(--bg-body)]/40 via-transparent to-transparent" />
-
-      {/* Content pinned bottom-left */}
-      <div
-        className={[
-          'absolute inset-x-0 bottom-0 px-5 pb-6 sm:px-8 sm:pb-8 lg:px-10 lg:pb-10',
-          'transition-[opacity,transform] duration-700 ease-out',
-          loaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
-        ].join(' ')}
-      >
-        <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.2em] text-white/70 sm:text-[12px]">
-          {artist.country && (
-            <span>
-              {flag && <span className="mr-1.5 text-[1.2em] leading-none">{flag}</span>}
-              {artist.country}
-            </span>
-          )}
-          {active && <span>· {active}</span>}
-          {artist.type === 'solo' && <span>· Atlikėjas</span>}
-          {artist.type === 'group' && <span>· Grupė</span>}
-        </div>
-
-        <h1
-          className="mb-4 font-['Outfit',sans-serif] font-black leading-[0.92] tracking-[-0.035em] text-white drop-shadow-[0_4px_28px_rgba(0,0,0,0.6)]"
-          style={{ fontSize: 'clamp(2rem,6.5vw,4.5rem)' }}
-        >
-          {artist.name}
-          {artist.is_verified && (
-            <span className="ml-2.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#3b82f6] align-middle sm:h-7 sm:w-7">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>
-            </span>
-          )}
-        </h1>
-
-        {genres.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {genres.slice(0, 5).map(g => (
-              <span
-                key={g.id}
-                className="rounded-full border border-white/15 bg-white/10 px-2.5 py-1 font-['Outfit',sans-serif] text-[11px] font-semibold text-white/85 backdrop-blur-[6px]"
-              >
-                {g.name}
-              </span>
-            ))}
-          </div>
+    <section className="relative isolate overflow-hidden bg-[var(--bg-body)]">
+      {/* Backdrop photo layer */}
+      <div className="absolute inset-0 -z-10">
+        {heroImage ? (
+          <img
+            src={heroImage}
+            alt=""
+            className="h-full w-full animate-[apHeroZoom_32s_ease-in-out_infinite_alternate] object-cover"
+            style={(() => {
+              const p = parseCoverPos(artist.cover_image_position || 'center 20%')
+              return {
+                objectPosition: `${p.x}% ${p.y}%`,
+                transformOrigin: `${p.x}% ${p.y}%`,
+              }
+            })()}
+          />
+        ) : (
+          <div className="h-full w-full bg-gradient-to-br from-[var(--bg-surface)] to-[var(--bg-body)]" />
         )}
+        {/* Color + dark overlays */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_80%_50%,transparent_0%,rgba(0,0,0,0.4)_60%,rgba(0,0,0,0.7)_100%)]" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-body)] via-[var(--bg-body)]/50 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[var(--bg-body)]/80 via-[var(--bg-body)]/10 to-transparent" />
       </div>
 
-      <style>{`@keyframes apHeroZoom{0%{transform:scale(1)}100%{transform:scale(1.06)}}`}</style>
-    </div>
+      <style>{`@keyframes apHeroZoom{0%{transform:scale(1.02)}100%{transform:scale(1.1)}}`}</style>
+
+      <div className="relative mx-auto max-w-[1400px] px-4 py-10 sm:px-6 sm:py-14 lg:px-10 lg:py-16 xl:py-20">
+        <div className="grid grid-cols-1 items-end gap-10 lg:grid-cols-[1fr_minmax(420px,500px)] lg:gap-16">
+          {/* Left: title + meta + genres + quick stats */}
+          <div
+            className={[
+              'flex min-h-[260px] flex-col justify-end lg:min-h-[520px]',
+              'transition-[opacity,transform] duration-700 ease-out',
+              loaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
+            ].join(' ')}
+          >
+            {/* Meta tag line */}
+            <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.22em] text-white/70 sm:text-[12px]">
+              {artist.country && (
+                <span className="inline-flex items-center gap-1.5">
+                  {flag && <span className="text-[1.25em] leading-none">{flag}</span>}
+                  <span>{artist.country}</span>
+                </span>
+              )}
+              {active && <span className="text-white/40">·</span>}
+              {active && <span>{active}</span>}
+              {artist.type && (
+                <>
+                  <span className="text-white/40">·</span>
+                  <span>{artist.type === 'solo' ? 'Atlikėjas' : 'Grupė'}</span>
+                </>
+              )}
+            </div>
+
+            {/* Artist name */}
+            <h1
+              className="mb-6 font-['Outfit',sans-serif] font-black leading-[0.9] tracking-[-0.04em] text-white drop-shadow-[0_6px_32px_rgba(0,0,0,0.8)]"
+              style={{ fontSize: 'clamp(2.5rem,7vw,6rem)' }}
+            >
+              <span className="block">
+                {artist.name}
+                {artist.is_verified && (
+                  <span className="ml-3 inline-flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#3b82f6] to-[#1d4ed8] align-middle shadow-[0_4px_16px_rgba(59,130,246,0.5)] sm:h-8 sm:w-8">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>
+                  </span>
+                )}
+              </span>
+            </h1>
+
+            {/* Genres */}
+            {genres.length > 0 && (
+              <div className="mb-6 flex flex-wrap gap-2">
+                {genres.slice(0, 6).map(g => (
+                  <span
+                    key={g.id}
+                    className="rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 font-['Outfit',sans-serif] text-[12px] font-bold text-white/90 backdrop-blur-md"
+                  >
+                    {g.name}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* Quick stats inline */}
+            {quickStats.length > 0 && (
+              <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
+                {quickStats.map((s, i) => (
+                  <div key={i} className="flex items-baseline gap-1.5">
+                    <span className="font-['Outfit',sans-serif] text-[22px] font-black leading-none text-white sm:text-[26px]">
+                      {s.value}
+                    </span>
+                    <span className="font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.12em] text-white/50">
+                      {s.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Right: floating glass player card */}
+          <div
+            className={[
+              'relative',
+              'transition-[opacity,transform] duration-700 ease-out delay-150',
+              loaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
+            ].join(' ')}
+          >
+            <PlayerCard
+              tracksAllTime={tracksAllTime}
+              tracksTrending={tracksTrending}
+              activeTrackId={activeTrackId}
+              onSelectTrack={onSelectTrack}
+              hasAnyVideo={hasAnyVideo}
+            />
+          </div>
+        </div>
+      </div>
+    </section>
   )
 }
 
-// ── HeroRight: YouTube player + tabs + tracks list ─────────────────
+// ── PlayerCard: glass morphism video + tabs + tracks ───────────────
 
-function HeroRight({
+function PlayerCard({
   tracksAllTime, tracksTrending, activeTrackId, onSelectTrack, hasAnyVideo,
 }: {
-  tracksAllTime: Track[]
-  tracksTrending: Track[]
-  activeTrackId: number | null
-  onSelectTrack: (id: number) => void
-  hasAnyVideo: boolean
+  tracksAllTime: Track[]; tracksTrending: Track[]
+  activeTrackId: number | null; onSelectTrack: (id: number) => void; hasAnyVideo: boolean
 }) {
   const [tab, setTab] = useState<'all' | 'trending'>(
     tracksTrending.length > 0 ? 'trending' : 'all'
@@ -220,7 +273,7 @@ function HeroRight({
   const displayTrack = activeTrack || firstWithVideo
 
   return (
-    <div className="flex flex-col bg-[var(--bg-surface)]">
+    <div className="overflow-hidden rounded-[20px] border border-white/10 bg-black/55 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)] ring-1 ring-inset ring-white/5 backdrop-blur-2xl">
       {/* Video area */}
       <div className="relative aspect-video w-full overflow-hidden bg-black">
         {displayVid ? (
@@ -232,18 +285,18 @@ function HeroRight({
             className="absolute inset-0 h-full w-full border-0"
           />
         ) : (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/5">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/30">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 px-4 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/5 ring-1 ring-white/10">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/40">
                 <path d="M23 7l-7 5 7 5V7z" />
                 <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
               </svg>
             </div>
-            <div className="font-['Outfit',sans-serif] text-[13px] font-bold uppercase tracking-[0.15em] text-white/40">
+            <div className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.15em] text-white/50">
               Video dar nėra
             </div>
-            <div className="max-w-[280px] text-[12px] text-white/30">
-              Šio atlikėjo dainos dar nesusietos su YouTube video
+            <div className="max-w-[260px] text-[12px] text-white/30">
+              Dainoms nepridėtos YouTube nuorodos
             </div>
           </div>
         )}
@@ -251,8 +304,11 @@ function HeroRight({
 
       {/* Now playing strip */}
       {displayTrack && (
-        <div className="flex items-center gap-3 border-b border-[var(--border-default)] bg-[var(--bg-elevated)] px-4 py-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--accent-orange)]">
+        <div className="flex items-center gap-3 border-b border-white/10 bg-white/[0.03] px-4 py-2.5">
+          <div className={[
+            'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
+            activeVid ? 'bg-[var(--accent-orange)] shadow-[0_4px_16px_rgba(249,115,22,0.4)]' : 'bg-white/10',
+          ].join(' ')}>
             {activeVid ? (
               <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
             ) : (
@@ -260,44 +316,44 @@ function HeroRight({
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="truncate font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">
+            <div className="truncate font-['Outfit',sans-serif] text-[13px] font-bold text-white">
               {displayTrack.title}
             </div>
-            <div className="font-['Outfit',sans-serif] text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--accent-orange)]">
-              {activeVid ? 'Groja' : 'Paspausk, kad paleistum'}
+            <div className="font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.18em] text-[var(--accent-orange)]">
+              {activeVid ? 'Groja' : 'Paruošta'}
             </div>
           </div>
         </div>
       )}
 
       {/* Tabs */}
-      <div className="flex border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-2 pt-2">
+      <div className="flex border-b border-white/10 bg-white/[0.02] px-2 pt-1">
         <TabButton active={tab === 'all'} onClick={() => setTab('all')}>
-          Populiariausios <span className="ml-1 text-[var(--text-faint)]">· {tracksAllTime.length}</span>
+          Populiariausios <span className="ml-1 text-white/30">·{tracksAllTime.length}</span>
         </TabButton>
         <TabButton
           active={tab === 'trending'}
           disabled={tracksTrending.length === 0}
           onClick={() => setTab('trending')}
         >
-          Trending <span className="ml-1 text-[var(--text-faint)]">· {tracksTrending.length}</span>
+          Trending <span className="ml-1 text-white/30">·{tracksTrending.length}</span>
         </TabButton>
       </div>
 
-      {/* Tracks list — scrollable */}
+      {/* Tracks list */}
       <div
-        className="flex-1 overflow-y-auto"
-        style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--border-default) transparent', minHeight: '220px', maxHeight: '360px' }}
+        className="overflow-y-auto"
+        style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.15) transparent', minHeight: '200px', maxHeight: '280px' }}
       >
         {list.length === 0 ? (
           <div className="flex h-full min-h-[160px] flex-col items-center justify-center gap-1 px-6 text-center">
-            <div className="font-['Outfit',sans-serif] text-[12px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Nieko</div>
-            <div className="text-[11px] text-[var(--text-faint)]">
-              {tab === 'trending' ? 'Pastaraisiais 2 metais naujų dainų nebuvo' : 'Dainų nėra'}
+            <div className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-wider text-white/50">Nieko</div>
+            <div className="text-[11px] text-white/30">
+              {tab === 'trending' ? 'Per 2 metus naujų nebuvo' : 'Dainų nėra'}
             </div>
           </div>
         ) : (
-          <ul className="divide-y divide-[var(--border-subtle)]">
+          <ul className="divide-y divide-white/5">
             {list.map((t, i) => {
               const v = yt(t.video_url)
               const isActive = t.id === activeTrackId
@@ -307,15 +363,15 @@ function HeroRight({
                     onClick={() => v && onSelectTrack(t.id)}
                     disabled={!v}
                     className={[
-                      'flex w-full items-center gap-3 border-0 bg-transparent px-4 py-2.5 text-left transition-colors',
-                      v ? 'cursor-pointer' : 'cursor-default opacity-60',
-                      isActive ? 'bg-[rgba(249,115,22,0.08)]' : 'hover:bg-[var(--bg-hover)]',
+                      'flex w-full items-center gap-3 border-0 bg-transparent px-4 py-2 text-left transition-colors',
+                      v ? 'cursor-pointer' : 'cursor-default opacity-50',
+                      isActive ? 'bg-[rgba(249,115,22,0.1)]' : 'hover:bg-white/5',
                     ].join(' ')}
                   >
                     <span
                       className={[
-                        'w-6 shrink-0 text-center font-["Outfit",sans-serif] text-[13px] font-bold',
-                        isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]',
+                        'w-6 shrink-0 text-center font-["Outfit",sans-serif] text-[13px] font-bold tabular-nums',
+                        isActive ? 'text-[var(--accent-orange)]' : 'text-white/40',
                       ].join(' ')}
                     >
                       {isActive && v ? (
@@ -328,22 +384,22 @@ function HeroRight({
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className={[
-                        'truncate font-["Outfit",sans-serif] text-[14px] font-bold leading-tight',
-                        isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-primary)]',
+                        'truncate font-["Outfit",sans-serif] text-[13px] font-bold leading-tight',
+                        isActive ? 'text-[var(--accent-orange)]' : 'text-white/90',
                       ].join(' ')}>
                         {t.title}
                       </div>
                     </div>
                     {v ? (
                       <div className={[
-                        'flex h-7 w-7 shrink-0 items-center justify-center rounded-full',
-                        isActive ? 'bg-[var(--accent-orange)] text-white' : 'bg-[var(--card-bg)] text-[var(--text-muted)]',
+                        'flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors',
+                        isActive ? 'bg-[var(--accent-orange)] text-white' : 'bg-white/10 text-white/70',
                       ].join(' ')}>
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
                       </div>
                     ) : (
-                      <div className="shrink-0 font-['Outfit',sans-serif] text-[9px] font-bold uppercase tracking-wider text-[var(--text-faint)]">
-                        Be video
+                      <div className="shrink-0 font-['Outfit',sans-serif] text-[9px] font-bold uppercase tracking-wider text-white/20">
+                        —
                       </div>
                     )}
                   </button>
@@ -354,17 +410,15 @@ function HeroRight({
         )}
       </div>
       {!hasAnyVideo && (
-        <div className="border-t border-[var(--border-default)] bg-[var(--bg-elevated)] px-4 py-2.5 text-center font-['Outfit',sans-serif] text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
-          Tip: pridėk YouTube nuorodas dainoms — atsiras video player
+        <div className="border-t border-white/10 bg-white/[0.02] px-4 py-2 text-center font-['Outfit',sans-serif] text-[10px] font-bold uppercase tracking-[0.12em] text-white/40">
+          💡 Pridėk YouTube nuorodas dainoms
         </div>
       )}
     </div>
   )
 }
 
-function TabButton({
-  active, disabled, onClick, children,
-}: {
+function TabButton({ active, disabled, onClick, children }: {
   active: boolean; disabled?: boolean; onClick: () => void; children: React.ReactNode
 }) {
   return (
@@ -372,22 +426,22 @@ function TabButton({
       onClick={onClick}
       disabled={disabled}
       className={[
-        'relative border-0 bg-transparent px-4 py-3 font-["Outfit",sans-serif] text-[12px] font-extrabold uppercase tracking-[0.12em] transition-colors',
-        active ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]',
-        disabled ? 'cursor-not-allowed opacity-40' : 'cursor-pointer',
+        'relative border-0 bg-transparent px-4 py-3 font-["Outfit",sans-serif] text-[11px] font-extrabold uppercase tracking-[0.15em] transition-colors',
+        active ? 'text-white' : 'text-white/50 hover:text-white/80',
+        disabled ? 'cursor-not-allowed opacity-30' : 'cursor-pointer',
       ].join(' ')}
     >
       {children}
       {active && (
-        <span className="absolute -bottom-px left-3 right-3 h-0.5 bg-[var(--accent-orange)]" />
+        <span className="absolute -bottom-px left-3 right-3 h-[2px] rounded-full bg-[var(--accent-orange)]" />
       )}
     </button>
   )
 }
 
-// ── InfoBar: rank badges + socials + likes + follow ────────────────
+// ── ActionBar: compact actions + ranks strip below hero ────────────
 
-function InfoBar({
+function ActionBar({
   ranks, likes, onLike, links, website, genres,
 }: {
   ranks: Rank[]; likes: number; onLike: () => void
@@ -395,30 +449,20 @@ function InfoBar({
   genres: Genre[]
 }) {
   return (
-    <div className="border-y border-[var(--border-default)] bg-[var(--bg-surface)]">
-      <div className="mx-auto flex max-w-[1200px] flex-wrap items-center gap-3 px-4 py-4 sm:gap-4 sm:px-6 lg:px-8">
-        {/* Ranks */}
+    <div className="border-b border-[var(--border-default)] bg-[var(--bg-surface)]">
+      <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-3 px-4 py-4 sm:gap-4 sm:px-6 lg:px-10">
+        {/* Ranks / badges on left */}
         <div className="flex flex-wrap items-center gap-2">
-          {ranks.length > 0 ? ranks.map((r, i) => (
-            <RankBadge key={i} r={r} />
-          )) : (
-            // Fallback: show activity badges based on likes
-            <>
-              {likes >= 1000 && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.1)] px-3 py-1.5 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
-                  🔥 Populiarus
-                </span>
-              )}
-              {genres[0] && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-3 py-1.5 font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--text-secondary)]">
-                  {genres[0].name}
-                </span>
-              )}
-            </>
+          {ranks.length > 0 ? ranks.map((r, i) => <RankBadge key={i} r={r} />) : (
+            likes >= 500 && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.1)] px-3 py-1.5 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
+                🔥 Populiarus
+              </span>
+            )
           )}
         </div>
 
-        {/* Right side: actions */}
+        {/* Right: actions */}
         <div className="ml-auto flex items-center gap-2">
           <button
             onClick={onLike}
@@ -474,18 +518,87 @@ function InfoBar({
 }
 
 function RankBadge({ r }: { r: Rank }) {
-  const scopeLabel = r.scope === 'country' ? `${r.category}` : r.scope === 'genre' ? `${r.category}` : 'Pasaulyje'
   const scopeIcon = r.scope === 'country' ? '🌍' : r.scope === 'genre' ? '🎵' : '🏆'
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.08)] px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-primary)]">
       <span className="text-[13px]">{scopeIcon}</span>
       <span className="text-[var(--accent-orange)]">#{r.rank}</span>
-      <span className="text-[var(--text-muted)]">{scopeLabel}</span>
+      <span className="text-[var(--text-muted)]">{r.category}</span>
     </span>
   )
 }
 
-// ── EventCard for upcoming/past ────────────────────────────────────
+// ── BioExpand ──────────────────────────────────────────────────────
+
+function BioExpand({ html }: { html: string }) {
+  const [expanded, setExpanded] = useState(false)
+  const plainLen = html.replace(/<[^>]+>/g, '').length
+  const isLong = plainLen > 450
+  return (
+    <div>
+      <div
+        className={[
+          'text-[15px] leading-[1.78] text-[var(--text-secondary)]',
+          '[&_a:hover]:text-[var(--accent-blue)] [&_a]:text-[var(--accent-link)] [&_a]:underline',
+          '[&_em]:italic [&_ol]:mb-4 [&_ol]:list-decimal [&_ol]:pl-6',
+          '[&_p]:mb-4 [&_strong]:font-bold [&_strong]:text-[var(--text-primary)]',
+          '[&_ul]:mb-4 [&_ul]:list-disc [&_ul]:pl-6',
+          isLong && !expanded ? 'relative max-h-[240px] overflow-hidden' : '',
+        ].join(' ')}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+      {isLong && !expanded && (
+        <div className="pointer-events-none -mt-[70px] h-[70px] bg-gradient-to-t from-[var(--bg-body)] to-transparent" />
+      )}
+      {isLong && (
+        <button
+          onClick={() => setExpanded(v => !v)}
+          className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-4 py-1.5 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-primary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+        >
+          {expanded ? 'Suskleisti ↑' : 'Skaityti toliau ↓'}
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ── Members: horizontal scroll with photos ─────────────────────────
+
+function MembersStrip({ members }: { members: Member[] }) {
+  if (!members.length) return null
+  return (
+    <div className="mt-8">
+      <div className="mb-3 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+        Nariai · {members.length}
+      </div>
+      <div className="flex flex-wrap gap-3">
+        {members.map(m => (
+          <Link
+            key={m.id}
+            href={`/atlikejai/${m.slug}`}
+            className="group flex items-center gap-3 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-3 no-underline transition-all hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-lg"
+          >
+            {m.cover_image_url ? (
+              <img src={m.cover_image_url} alt={m.name} className="h-12 w-12 shrink-0 rounded-full object-cover" />
+            ) : (
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--cover-placeholder)] font-['Outfit',sans-serif] text-[15px] font-black text-[var(--text-faint)]">
+                {m.name[0]}
+              </div>
+            )}
+            <div>
+              <div className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">{m.name}</div>
+              {m.member_from && (
+                <div className="mt-0.5 text-[11px] text-[var(--text-muted)]">{m.member_from}–{m.member_until || 'dabar'}</div>
+              )}
+            </div>
+          </Link>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── EventCard ──────────────────────────────────────────────────────
 
 function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' | 'past' }) {
   const d = new Date(e.start_date)
@@ -564,7 +677,7 @@ function AlbumCard({ a }: { a: Album }) {
             <div className="flex h-full w-full items-center justify-center text-4xl text-[var(--text-faint)]">💿</div>
           )}
         </div>
-        {type !== 'Albumas' && (
+        {type !== 'Studijinis' && (
           <span className="absolute left-2 top-2 rounded-md bg-black/70 px-2 py-1 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-wider text-white backdrop-blur-sm">
             {type}
           </span>
@@ -582,14 +695,12 @@ function AlbumCard({ a }: { a: Album }) {
   )
 }
 
-// ── MasonryGallery: CSS columns, adapts to photo aspect ratios ─────
+// ── MasonryGallery ─────────────────────────────────────────────────
 
 function MasonryGallery({ photos }: { photos: { url: string; caption?: string }[] }) {
   const [lb, setLb] = useState<number | null>(null)
   const limited = photos.slice(0, 24)
-
   if (!limited.length) return null
-
   return (
     <>
       <div className="columns-2 gap-2 sm:columns-3 md:gap-3 lg:columns-4">
@@ -650,53 +761,6 @@ function MasonryGallery({ photos }: { photos: { url: string; caption?: string }[
   )
 }
 
-// ── BioExpand: short intro + read-more ─────────────────────────────
-
-function BioExpand({ html }: { html: string }) {
-  const [expanded, setExpanded] = useState(false)
-  // Estimate content length to decide whether to show expander
-  const plainLen = html.replace(/<[^>]+>/g, '').length
-  const isLong = plainLen > 500
-
-  return (
-    <div>
-      <div
-        className={[
-          'text-[15px] leading-[1.75] text-[var(--text-secondary)]',
-          '[&_a:hover]:text-[var(--accent-blue)] [&_a]:text-[var(--accent-link)] [&_a]:underline',
-          '[&_em]:italic [&_ol]:mb-4 [&_ol]:list-decimal [&_ol]:pl-6',
-          '[&_p]:mb-4 [&_strong]:font-bold [&_strong]:text-[var(--text-primary)]',
-          '[&_ul]:mb-4 [&_ul]:list-disc [&_ul]:pl-6',
-          isLong && !expanded ? 'relative max-h-[280px] overflow-hidden' : '',
-        ].join(' ')}
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
-      {isLong && !expanded && (
-        <div className="pointer-events-none -mt-[80px] h-[80px] bg-gradient-to-t from-[var(--bg-body)] to-transparent" />
-      )}
-      {isLong && (
-        <button
-          onClick={() => setExpanded(v => !v)}
-          className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-4 py-1.5 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-primary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
-        >
-          {expanded ? 'Suskleisti ↑' : 'Daugiau ↓'}
-        </button>
-      )}
-    </div>
-  )
-}
-
-// ── Fact: facts sidebar row ────────────────────────────────────────
-
-function Fact({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div>
-      <dt className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--text-faint)]">{label}</dt>
-      <dd className="mt-0.5 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">{value}</dd>
-    </div>
-  )
-}
-
 // ── Main ────────────────────────────────────────────────────────────
 
 export default function ArtistProfileClient({
@@ -705,7 +769,6 @@ export default function ArtistProfileClient({
   legacyCommunity, legacyThreads = [], legacyNews = [], ranks = [],
 }: Props) {
   const [pid, setPid] = useState<number | null>(null)
-  const [df, setDf] = useState('all')
   const [loaded, setLoaded] = useState(false)
   const [likesModalOpen, setLikesModalOpen] = useState(false)
   useEffect(() => { setLoaded(true) }, [])
@@ -720,19 +783,21 @@ export default function ArtistProfileClient({
   const authoritativeLegacy = (artist as any).legacy_like_count ?? legacyCommunity?.artistLikes ?? 0
   const likes = likeCount + followers + authoritativeLegacy
   const allLikesUsers: any[] = legacyCommunity?.allArtistFans || []
+
+  // Discography filter: default to Studijiniai if any exist, else 'all'
   const atypes = [...new Set(albums.map(aType))]
+  const hasStudio = atypes.includes('Studijinis')
+  const [df, setDf] = useState<string>(hasStudio ? 'Studijinis' : 'all')
   const fAlbums = df === 'all' ? albums : albums.filter(a => aType(a) === df)
 
-  // All-time tracks list — prefer videos, fallback to all tracks
+  // Track lists
   const tracksAllTime = useMemo(() => {
     const withVideo = tracks.filter(t => yt(t.video_url))
     if (withVideo.length >= 10) return withVideo.slice(0, 30)
-    // Mix: videos first, then other tracks
     const rest = tracks.filter(t => !yt(t.video_url))
     return [...withVideo, ...rest].slice(0, 30)
   }, [tracks])
 
-  // Trending = newTracks (last 24 months — set by page.tsx)
   const tracksTrending = useMemo(() => {
     const withVideo = newTracks.filter(t => yt(t.video_url))
     const rest = newTracks.filter(t => !yt(t.video_url))
@@ -744,33 +809,32 @@ export default function ArtistProfileClient({
   const now = Date.now()
   const upcomingEvents = events.filter((e: any) => new Date(e.start_date).getTime() >= now)
   const pastEvents = events.filter((e: any) => new Date(e.start_date).getTime() < now)
-
-  // Bio HTML — used in intro section
   const bioHtml: string = artist.description || ''
+
+  // Quick stats shown in hero: 3 most important
+  const quickStats: { value: string; label: string }[] = []
+  if (albums.length > 0) quickStats.push({ value: String(albums.length), label: 'Albumai' })
+  if (tracks.length > 0) quickStats.push({ value: `${tracks.length}+`, label: 'Dainos' })
+  if (likes > 0) quickStats.push({ value: likes.toLocaleString('lt-LT'), label: 'Gerbėjai' })
 
   return (
     <div className="min-h-screen bg-[var(--bg-body)] font-['DM_Sans',system-ui,sans-serif] text-[var(--text-primary)] antialiased">
-      {/* ═══ HERO SPLIT ═══ */}
-      <section className="grid grid-cols-1 lg:grid-cols-2">
-        <HeroLeft
-          artist={artist}
-          heroImage={heroImage}
-          genres={genres}
-          loaded={loaded}
-          flag={flag}
-          active={active}
-        />
-        <HeroRight
-          tracksAllTime={tracksAllTime}
-          tracksTrending={tracksTrending}
-          activeTrackId={pid}
-          onSelectTrack={setPid}
-          hasAnyVideo={hasAnyVideo}
-        />
-      </section>
+      <Hero
+        artist={artist}
+        heroImage={heroImage}
+        genres={genres}
+        loaded={loaded}
+        flag={flag}
+        active={active}
+        tracksAllTime={tracksAllTime}
+        tracksTrending={tracksTrending}
+        activeTrackId={pid}
+        onSelectTrack={setPid}
+        hasAnyVideo={hasAnyVideo}
+        quickStats={quickStats}
+      />
 
-      {/* ═══ INFO BAR: ranks + likes + socials ═══ */}
-      <InfoBar
+      <ActionBar
         ranks={ranks}
         likes={likes}
         onLike={() => likes > 0 && setLikesModalOpen(true)}
@@ -787,85 +851,31 @@ export default function ArtistProfileClient({
         users={allLikesUsers}
       />
 
-      <main className="mx-auto max-w-[1200px] space-y-12 px-4 pb-20 pt-10 sm:space-y-16 sm:px-6 sm:pt-12 lg:px-8">
+      <main className="mx-auto max-w-[1400px] space-y-14 px-4 pb-24 pt-12 sm:space-y-20 sm:px-6 sm:pt-16 lg:px-10">
 
-        {/* ═ Upcoming events + About intro — side by side on desktop ═ */}
-        {(upcomingEvents.length > 0 || hasBio) && (
-          <section className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_360px] lg:gap-12">
+        {/* ═ About + Upcoming events ═ */}
+        {(hasBio || upcomingEvents.length > 0 || members.length > 0) && (
+          <section className="grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:gap-16">
             <div className="min-w-0">
-              {upcomingEvents.length > 0 && (
-                <div className="mb-10">
-                  <SectionTitle label="Artimiausi renginiai" count={upcomingEvents.length} />
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    {upcomingEvents.map((e: any) => <EventCard key={e.id} e={e} variant="upcoming" />)}
-                  </div>
-                </div>
-              )}
-
               {hasBio && (
-                <div>
+                <>
                   <SectionTitle label="Apie" />
                   <BioExpand html={bioHtml} />
-                </div>
+                </>
               )}
+              {!solo && members.length > 0 && <MembersStrip members={members} />}
             </div>
 
-            {/* Facts sidebar */}
-            <aside className="self-start rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5 lg:sticky lg:top-4">
-              <div className="mb-4 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.15em] text-[var(--text-muted)]">
-                Detalės
-              </div>
-              <dl className="space-y-3.5">
-                {active && <Fact label={solo ? 'Karjera' : 'Susikūrę'} value={active} />}
-                {solo && age && <Fact label="Amžius" value={`${age} m.`} />}
-                {artist.country && <Fact label="Kilmė" value={<>{flag} {artist.country}</>} />}
-                {genres.length > 0 && (
-                  <div>
-                    <dt className="mb-1.5 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--text-faint)]">Žanrai</dt>
-                    <dd className="flex flex-wrap gap-1">
-                      {genres.map(g => (
-                        <span key={g.id} className="rounded-md border border-[var(--border-default)] bg-[var(--card-bg)] px-2 py-0.5 text-[11px] font-semibold text-[var(--text-secondary)]">
-                          {g.name}
-                        </span>
-                      ))}
-                    </dd>
+            <div className="min-w-0">
+              {upcomingEvents.length > 0 && (
+                <>
+                  <SectionTitle label="Artimiausi renginiai" count={upcomingEvents.length} />
+                  <div className="flex flex-col gap-4">
+                    {upcomingEvents.map((e: any) => <EventCard key={e.id} e={e} variant="upcoming" />)}
                   </div>
-                )}
-                <Fact label="Albumai" value={String(albums.length)} />
-                <Fact label="Dainos" value={`${tracks.length}+`} />
-                {likes > 0 && <Fact label="Gerbėjai" value={likes.toLocaleString('lt-LT')} />}
-                {!solo && members.length > 0 && (
-                  <div>
-                    <dt className="mb-1.5 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--text-faint)]">
-                      Nariai · {members.length}
-                    </dt>
-                    <dd className="space-y-1.5">
-                      {members.map(m => (
-                        <Link
-                          key={m.id}
-                          href={`/atlikejai/${m.slug}`}
-                          className="flex items-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1.5 no-underline transition-colors hover:border-[var(--border-default)] hover:bg-[var(--bg-hover)]"
-                        >
-                          {m.cover_image_url ? (
-                            <img src={m.cover_image_url} alt={m.name} className="h-8 w-8 shrink-0 rounded-full object-cover" />
-                          ) : (
-                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--cover-placeholder)] font-['Outfit',sans-serif] text-[11px] font-black text-[var(--text-faint)]">
-                              {m.name[0]}
-                            </div>
-                          )}
-                          <div className="min-w-0">
-                            <div className="truncate text-[12px] font-bold text-[var(--text-primary)]">{m.name}</div>
-                            {m.member_from && (
-                              <div className="text-[10px] text-[var(--text-muted)]">{m.member_from}–{m.member_until || 'dabar'}</div>
-                            )}
-                          </div>
-                        </Link>
-                      ))}
-                    </dd>
-                  </div>
-                )}
-              </dl>
-            </aside>
+                </>
+              )}
+            </div>
           </section>
         )}
 
@@ -875,8 +885,9 @@ export default function ArtistProfileClient({
             <SectionTitle label="Diskografija" count={albums.length} />
             {atypes.length > 1 && (
               <div className="mb-5 flex flex-wrap gap-1.5 sm:gap-2">
-                {['all', ...atypes].map(t => {
+                {[...atypes, 'all'].map(t => {
                   const count = t === 'all' ? albums.length : albums.filter(a => aType(a) === t).length
+                  const label = t === 'all' ? 'Visi' : (t === 'Studijinis' ? 'Studijiniai' : t)
                   return (
                     <button
                       key={t}
@@ -888,7 +899,7 @@ export default function ArtistProfileClient({
                           : 'border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]',
                       ].join(' ')}
                     >
-                      {t === 'all' ? 'Visi' : t}
+                      {label}
                       <span className={df === t ? 'opacity-80' : 'text-[var(--text-faint)]'}>· {count}</span>
                     </button>
                   )
