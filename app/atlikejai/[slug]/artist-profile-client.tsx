@@ -331,11 +331,12 @@ function MusicSection({
     <section id="music">
       <SectionTitle label="Populiariausios dainos" />
       <div className="overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
+        {/* Video + Tracks grid — cells stretch to match video's aspect-video height on desktop */}
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          {/* Video */}
-          <div className="relative bg-black">
+          {/* Video cell */}
+          <div className="relative flex aspect-video items-stretch bg-black lg:aspect-auto">
             {displayVid ? (
-              <div className="aspect-video">
+              <div className="aspect-video w-full self-stretch lg:aspect-auto lg:h-full">
                 <iframe
                   key={displayVid}
                   src={`https://www.youtube.com/embed/${displayVid}?rel=0${activeVid ? '&autoplay=1' : ''}`}
@@ -345,7 +346,7 @@ function MusicSection({
                 />
               </div>
             ) : (
-              <div className="flex aspect-video flex-col items-center justify-center gap-3 px-6 text-center">
+              <div className="flex w-full flex-col items-center justify-center gap-3 px-6 py-8 text-center">
                 <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/5 ring-1 ring-white/10">
                   <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/50">
                     <path d="M23 7l-7 5 7 5V7z" />
@@ -360,33 +361,11 @@ function MusicSection({
                 </div>
               </div>
             )}
-            {displayTrack && (
-              <div className="flex items-center gap-3 border-t border-[var(--border-default)] bg-[var(--bg-elevated)] px-4 py-3">
-                <div className={[
-                  'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
-                  activeVid ? 'bg-[var(--accent-orange)] shadow-[0_4px_16px_rgba(249,115,22,0.4)]' : 'bg-[var(--card-bg)]',
-                ].join(' ')}>
-                  {activeVid ? (
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="#fff"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
-                  ) : (
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" className="text-[var(--text-muted)]"><path d="M8 5v14l11-7z" /></svg>
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">
-                    {displayTrack.title}
-                  </div>
-                  <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.15em] text-[var(--accent-orange)]">
-                    {activeVid ? 'Groja' : 'Paruošta'}
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
 
-          {/* Tabs + Tracks list */}
-          <div className="flex flex-col border-t border-[var(--border-default)] lg:border-l lg:border-t-0">
-            <div className="flex border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-2 pt-1">
+          {/* Tabs + Tracks list cell */}
+          <div className="flex min-h-0 flex-col border-t border-[var(--border-default)] lg:border-l lg:border-t-0">
+            <div className="flex shrink-0 border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-2 pt-1">
               <TabButton active={tab === 'all'} onClick={() => setTab('all')}>
                 Populiariausios <span className="ml-1 text-[var(--text-faint)]">·{tracksAllTime.length}</span>
               </TabButton>
@@ -399,8 +378,8 @@ function MusicSection({
               </TabButton>
             </div>
             <div
-              className="flex-1 overflow-y-auto bg-[var(--bg-surface)]"
-              style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--border-default) transparent', minHeight: '260px', maxHeight: '480px' }}
+              className="min-h-[300px] max-h-[360px] flex-1 overflow-y-auto bg-[var(--bg-surface)] lg:max-h-none"
+              style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--border-default) transparent' }}
             >
               {list.length === 0 ? (
                 <div className="flex h-full min-h-[200px] flex-col items-center justify-center gap-1 px-6 text-center">
@@ -464,13 +443,38 @@ function MusicSection({
                 </ul>
               )}
             </div>
-            {!hasAnyVideo && (
-              <div className="border-t border-[var(--border-default)] bg-[var(--bg-elevated)] px-4 py-2.5 text-center font-['Outfit',sans-serif] text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                💡 Pridėk YouTube nuorodas dainoms
-              </div>
-            )}
           </div>
         </div>
+
+        {/* Now-playing strip — full-width below the grid */}
+        {displayTrack && (
+          <div className="flex items-center gap-3 border-t border-[var(--border-default)] bg-[var(--bg-elevated)] px-4 py-3 sm:px-5">
+            <div className={[
+              'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
+              activeVid ? 'bg-[var(--accent-orange)] shadow-[0_4px_16px_rgba(249,115,22,0.4)]' : 'bg-[var(--card-bg)]',
+            ].join(' ')}>
+              {activeVid ? (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="#fff"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
+              ) : (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" className="text-[var(--text-muted)]"><path d="M8 5v14l11-7z" /></svg>
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">
+                {displayTrack.title}
+              </div>
+              <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.15em] text-[var(--accent-orange)]">
+                {activeVid ? 'Groja' : 'Paspausk, kad paleistum'}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!hasAnyVideo && (
+          <div className="border-t border-[var(--border-default)] bg-[var(--bg-elevated)] px-4 py-2.5 text-center font-['Outfit',sans-serif] text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+            💡 Pridėk YouTube nuorodas dainoms
+          </div>
+        )}
       </div>
     </section>
   )
