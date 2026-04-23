@@ -15,6 +15,7 @@ type AttachmentIn = {
 
 type PostInput = {
   thread_legacy_id: number
+  parent_post_legacy_id?: number | null
   text: string
   html?: string
   attachments?: AttachmentIn[]
@@ -115,6 +116,7 @@ export async function POST(request: Request) {
     .insert({
       legacy_id: newLegacyId,
       thread_legacy_id: body.thread_legacy_id,
+      parent_post_legacy_id: body.parent_post_legacy_id ?? null,
       page_number: 1,
       author_username: authorUsername,
       author_avatar_url: profile?.avatar_url ?? session.user.image ?? null,

@@ -28,10 +28,12 @@ type PostRow = {
   page_number: number | null
   author_username: string | null
   author_numeric_id: number | null
+  author_avatar_url: string | null
   created_at: string | null
   content_html: string | null
   content_text: string | null
   like_count: number | null
+  parent_post_legacy_id: number | null
 }
 
 type ArtistLink = {
@@ -94,11 +96,32 @@ async function getPosts(threadLegacyId: number): Promise<PostRow[]> {
   const { data } = await sb
     .from('forum_posts')
     .select(
-      'legacy_id,page_number,author_username,author_numeric_id,created_at,content_html,content_text,like_count',
+      'legacy_id,page_number,author_username,author_numeric_id,author_avatar_url,created_at,content_html,content_text,like_count,parent_post_legacy_id',
     )
     .eq('thread_legacy_id', threadLegacyId)
     .order('created_at', { ascending: true })
   return (data as PostRow[] | null) ?? []
+}
+
+/** All likers keyed by post legacy_id, for modal on each comment. */
+async function getPostLikers(postLegacyIds: number[]): Promise<Record<number, import('@/components/LikesModal').LikeUser[]>> {
+  if (postLegacyIds.length === 0) return {}
+  const sb = createAdminClient()
+  const { data } = await sb
+    .from('legacy_likes')
+    .select('entity_legacy_id,user_username,user_rank,user_avatar_url')
+    .eq('entity_type', 'post')
+    .in('entity_legacy_id', postLegacyIds)
+  const out: Record<number, import('@/components/LikesModal').LikeUser[]> = {}
+  for (const row of (data as Array<{ entity_legacy_id: number; user_username: string; user_rank: string | null; user_avatar_url: string | null }> | null) ?? []) {
+    if (!out[row.entity_legacy_id]) out[row.entity_legacy_id] = []
+    out[row.entity_legacy_id].push({
+      user_username: row.user_username,
+      user_rank: row.user_rank,
+      user_avatar_url: row.user_avatar_url,
+    })
+  }
+  return out
 }
 
 async function getGhostAvatars(usernames: string[]): Promise<Record<string, string>> {
@@ -193,6 +216,7 @@ export async function renderThread(thread: ThreadRow, sortParam?: string) {
 
   const artist = thread.artist_id ? await getArtist(thread.artist_id) : null
   const threadLikers = await getThreadLikers(thread.legacy_id)
+  const postLikers = await getPostLikers(posts.map((p) => p.legacy_id))
   const session = await getServerSession(authOptions)
   const role = (session?.user as { role?: string } | undefined)?.role
   const isAdmin = role === 'admin' || role === 'super_admin'
@@ -205,6 +229,7 @@ export async function renderThread(thread: ThreadRow, sortParam?: string) {
       attachmentSlugs={attachmentSlugs}
       artist={artist}
       threadLikers={threadLikers}
+      postLikers={postLikers}
       isAdmin={isAdmin}
       currentUser={
         session?.user
