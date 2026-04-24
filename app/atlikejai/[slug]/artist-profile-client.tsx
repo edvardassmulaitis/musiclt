@@ -309,14 +309,26 @@ function PlayerCard({
               className="absolute inset-0 h-full w-full border-0"
             />
           ) : (
-            // Initial / not-yet-played state: just thumbnail + title.
-            // No overlay play button — the list's per-track play button is
-            // the single source of truth, avoiding duplicate affordances.
-            <div className="absolute inset-0">
+            // Initial / not-yet-played state: thumbnail + big central play
+            // button. Clicking the button (or anywhere on the thumbnail)
+            // flips to the iframe. No title overlay — it already lives in
+            // the list row below. Once the user has hit play the button
+            // disappears; YT's native controls + the per-track button take
+            // over. This gives a clear "click me" affordance on the video.
+            <button
+              type="button"
+              onClick={() => {
+                // Start playback of the first available track if none picked.
+                if (!activeTrackId && firstWithVideo) onSelectTrack(firstWithVideo.id)
+                onRequestPlay()
+              }}
+              aria-label="Paleisti"
+              className="group absolute inset-0 block cursor-pointer overflow-hidden border-0 bg-black p-0"
+            >
               <img
                 src={`https://img.youtube.com/vi/${displayVid}/maxresdefault.jpg`}
-                alt={displayTrack?.title || ''}
-                className="absolute inset-0 h-full w-full object-cover"
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
                 onError={(e) => {
                   const el = e.currentTarget as HTMLImageElement
                   if (!el.dataset.fallback) {
@@ -325,15 +337,13 @@ function PlayerCard({
                   }
                 }}
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-              {displayTrack && (
-                <div className="absolute inset-x-0 bottom-0 px-4 pb-3 text-left">
-                  <div className="truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
-                    {displayTrack.title}
-                  </div>
-                </div>
-              )}
-            </div>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent" />
+              <span className="absolute left-1/2 top-1/2 flex h-[72px] w-[72px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_10px_40px_rgba(249,115,22,0.5)] ring-[6px] ring-white/10 transition-transform duration-200 group-hover:scale-110">
+                <svg viewBox="0 0 24 24" width="26" height="26" fill="#fff" aria-hidden>
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </span>
+            </button>
           )
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 px-6 text-center">
@@ -769,7 +779,12 @@ function Hero({
 
       <style>{`@keyframes apHeroZoom{0%{transform:scale(1.02)}100%{transform:scale(1.08)}}`}</style>
 
-      <div className="relative mx-auto grid max-w-[1400px] grid-cols-1 gap-6 px-4 pb-10 pt-5 sm:px-6 lg:grid-cols-[1fr_460px] lg:gap-10 lg:min-h-[580px] lg:px-10 lg:py-10">
+      <div
+        className={[
+          'relative mx-auto grid max-w-[1400px] grid-cols-1 gap-6 px-4 pb-10 pt-5 sm:px-6 lg:gap-10 lg:min-h-[580px] lg:px-10 lg:py-10',
+          hasAnyVideo ? 'lg:grid-cols-[1fr_460px]' : '',
+        ].join(' ')}
+      >
         {/* Title column */}
         <div
           className={[
@@ -803,7 +818,11 @@ function Hero({
           </div>
         </div>
 
-        {/* Player column */}
+        {/* Player column — only rendered when the artist has at least one
+            track with a YouTube URL. Without videos the right column would
+            be a sad "Video dar nėra" placeholder, so we drop it entirely
+            and let the hero breathe. */}
+        {hasAnyVideo && (
         <div
           className={[
             'flex min-w-0 lg:items-center',
@@ -824,6 +843,7 @@ function Hero({
             />
           </div>
         </div>
+        )}
       </div>
     </section>
   )
