@@ -718,19 +718,19 @@ function SideInfo({
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3 sm:gap-x-6 sm:px-5">
         {artist.country && (
           <div className="flex items-baseline gap-2">
+            {countryRank && <RankChip n={countryRank.rank} />}
             <span className="inline-flex items-baseline gap-1.5 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">
               <span>{artist.country}</span>
               <span className="text-[16px] leading-none">{flag}</span>
             </span>
-            {countryRank && <RankChip n={countryRank.rank} />}
           </div>
         )}
         {genres[0] && (
           <div className="flex items-baseline gap-2">
+            {genreRank && <RankChip n={genreRank.rank} />}
             <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">
               {genres[0].name}
             </span>
-            {genreRank && <RankChip n={genreRank.rank} />}
             {substyles.length > 0 && (
               <span className="text-[12px] text-[var(--text-muted)]">
                 · {substyles.map(s => s.name).join(', ')}
@@ -740,8 +740,8 @@ function SideInfo({
         )}
         {globalRank && (
           <div className="flex items-baseline gap-2">
-            <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">Pasaulyje</span>
             <RankChip n={globalRank.rank} />
+            <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">Pasaulyje</span>
           </div>
         )}
         {hasSocials && (
@@ -781,26 +781,26 @@ function SideInfo({
   // ── Vertical variant — sidebar card ──────────────────────────────
   return (
     <aside className="space-y-4 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5">
-      {/* Country — name first, flag after, so country + genre text lines
-          align flush-left. */}
+      {/* Country — rank chip first, then name, then flag after. Keeps the
+          text baselines flush-left between country + genre rows. */}
       {artist.country && (
         <div className="flex flex-wrap items-baseline gap-2">
+          {countryRank && <RankChip n={countryRank.rank} />}
           <span className="inline-flex items-baseline gap-1.5 font-['Outfit',sans-serif] text-[15px] font-bold text-[var(--text-primary)]">
             <span>{artist.country}</span>
             <span className="text-[17px] leading-none">{flag}</span>
           </span>
-          {countryRank && <RankChip n={countryRank.rank} />}
         </div>
       )}
 
-      {/* Main genre + rank + substyles */}
+      {/* Main genre — rank chip first, then name, then substyles below */}
       {genres[0] && (
         <div>
           <div className="flex flex-wrap items-center gap-2">
+            {genreRank && <RankChip n={genreRank.rank} />}
             <span className="font-['Outfit',sans-serif] text-[15px] font-bold text-[var(--text-primary)]">
               {genres[0].name}
             </span>
-            {genreRank && <RankChip n={genreRank.rank} />}
           </div>
           {substyles.length > 0 && (
             <div className="mt-1.5 text-[12px] leading-[1.5] text-[var(--text-muted)]">
@@ -812,8 +812,8 @@ function SideInfo({
 
       {globalRank && (
         <div className="flex items-center gap-2">
-          <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">Pasaulyje</span>
           <RankChip n={globalRank.rank} />
+          <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">Pasaulyje</span>
         </div>
       )}
 

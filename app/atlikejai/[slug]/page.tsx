@@ -80,9 +80,13 @@ async function getTracks(id: number) {
   // album_tracks junction table or similar). Keeping select without it so
   // the query doesn't fail. "Kitos dainos" orphan tab disabled client-side
   // until we resolve the correct relationship.
+  // NOTE: `duration` column isn't in the public.tracks table yet (only in
+  // lib/supabase-albums.ts TrackFull type + admin album form). Once the
+  // migration lands, add it back here and the player will pick it up
+  // automatically because the column is already optional on the Track type.
   const { data } = await sb
     .from('tracks')
-    .select('id, slug, title, type, video_url, spotify_id, cover_url, release_date, lyrics, duration, is_new, is_new_date, release_year, release_month, legacy_id')
+    .select('id, slug, title, type, video_url, spotify_id, cover_url, release_date, lyrics, is_new, is_new_date, release_year, release_month, legacy_id')
     .eq('artist_id', id)
     .order('created_at', { ascending: false })
     .limit(120)
