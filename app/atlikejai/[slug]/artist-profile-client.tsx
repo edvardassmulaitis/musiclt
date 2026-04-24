@@ -133,8 +133,8 @@ const FILTER_LABEL: Record<string, string> = {
   Studijinis: 'Studijiniai albumai',
   EP: 'EP albumai',
   Singlas: 'Singlai',
-  Live: 'Live albumai',
-  Rinkinys: 'Rinkinių albumai',
+  Live: 'Gyvai įrašyti albumai',
+  Rinkinys: 'Rinkiniai',
   Remix: 'Remiksų albumai',
   OST: 'OST albumai',
   Demo: 'Demo albumai',
@@ -926,7 +926,7 @@ function SideInfo({
 
   // ── Vertical variant — sidebar card ──────────────────────────────
   return (
-    <aside className="space-y-4 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5">
+    <aside className="flex h-full min-h-[200px] flex-col gap-4 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5">
       {/* Country — rank chip first, then name, then flag after. Keeps the
           text baselines flush-left between country + genre rows. */}
       {artist.country && (
@@ -964,7 +964,7 @@ function SideInfo({
       )}
 
       {hasSocials && (
-        <div className="pt-1">
+        <div className="mt-auto pt-2">
           <div className="flex flex-wrap gap-1">
             {links.filter(l => SOC[l.platform]).map(l => {
               const p = SOC[l.platform]
@@ -1201,7 +1201,7 @@ function MasonryGallery({ photos, onOpen }: { photos: { url: string; caption?: s
 
 // ── EventCard ──────────────────────────────────────────────────────
 
-function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' | 'past' }) {
+function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' | 'past' | 'compact' }) {
   const d = new Date(e.start_date)
   const venue = [e.venue_name, e.city].filter(Boolean).join(', ')
   const href = `/renginiai/${e.slug}`
@@ -1223,6 +1223,35 @@ function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' |
         <div className="min-w-0 flex-1">
           <div className="truncate text-[14px] font-bold leading-tight text-[var(--text-primary)]">{e.title}</div>
           {venue && <div className="mt-0.5 truncate text-[12px] text-[var(--text-muted)]">{venue}</div>}
+        </div>
+      </Link>
+    )
+  }
+
+  if (variant === 'compact') {
+    // Compact sidebar variant — used when upcoming events sit in a narrow
+    // right column beside the bio. Big date block + title, no hero image
+    // (sidebar is too narrow to make it flattering).
+    return (
+      <Link
+        href={href}
+        className="group flex items-stretch gap-3 overflow-hidden rounded-2xl border border-[rgba(249,115,22,0.3)] bg-gradient-to-br from-[rgba(249,115,22,0.1)] to-transparent p-3 no-underline transition-all hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.55)] hover:shadow-[0_10px_28px_rgba(249,115,22,0.15)]"
+      >
+        <div className="flex min-w-[62px] flex-col items-center justify-center rounded-xl bg-[rgba(249,115,22,0.15)] px-2 py-2 text-center">
+          <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase leading-tight text-[var(--accent-orange)]">{monthShort}</span>
+          <span className="font-['Outfit',sans-serif] text-[26px] font-black leading-none text-[var(--text-primary)]">{d.getDate()}</span>
+          <span className="mt-0.5 font-['Outfit',sans-serif] text-[9px] font-bold text-[var(--text-muted)]">{d.getFullYear()}</span>
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col justify-center">
+          <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--accent-orange)]">
+            Artimiausias renginys
+          </div>
+          <div className="mt-1 line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-bold leading-snug text-[var(--text-primary)]">
+            {e.title}
+          </div>
+          {venue && (
+            <div className="mt-1 truncate text-[12px] text-[var(--text-secondary)]">📍 {venue}</div>
+          )}
         </div>
       </Link>
     )
@@ -1266,31 +1295,32 @@ function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' |
 
 // ── AlbumCard ──────────────────────────────────────────────────────
 
-function AlbumCard({ a }: { a: Album }) {
+function AlbumCard({ a, popularity }: { a: Album; popularity?: number }) {
   const type = aType(a)
   return (
     <Link href={`/lt/albumas/${a.slug}/${a.id}/`} className="group block no-underline">
-      <div className="relative overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] transition-all group-hover:border-[var(--border-strong)] group-hover:shadow-[0_12px_32px_rgba(0,0,0,0.3)]">
+      <div className="relative overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] transition-all group-hover:border-[var(--border-strong)] group-hover:shadow-[0_10px_28px_rgba(0,0,0,0.3)]">
         <div className="aspect-square">
           {a.cover_image_url ? (
             <img src={a.cover_image_url} alt={a.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-4xl text-[var(--text-faint)]">💿</div>
+            <div className="flex h-full w-full items-center justify-center text-3xl text-[var(--text-faint)]">💿</div>
           )}
         </div>
         {type !== 'Studijinis' && (
-          <span className="absolute left-2 top-2 rounded-md bg-black/70 px-2 py-1 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-wider text-white backdrop-blur-sm">
+          <span className="absolute left-1.5 top-1.5 rounded bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-wider text-white backdrop-blur-sm">
             {type}
           </span>
         )}
         {a.year && (
-          <span className="absolute bottom-2 right-2 rounded-md bg-black/70 px-2 py-1 font-['Outfit',sans-serif] text-[10px] font-bold text-white backdrop-blur-sm">
+          <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[10px] font-bold text-white backdrop-blur-sm">
             {a.year}
           </span>
         )}
       </div>
-      <div className="mt-2.5 px-1">
-        <div className="truncate font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)] sm:text-[14px]">{a.title}</div>
+      <div className="mt-2 px-0.5">
+        <div className="truncate font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-primary)] sm:text-[13px]">{a.title}</div>
+        {typeof popularity === 'number' && <PopBar level={popularity} />}
       </div>
     </Link>
   )
@@ -1298,40 +1328,35 @@ function AlbumCard({ a }: { a: Album }) {
 
 // ── TrackRow: compact row for orphan tracks (no big placeholder square) ─
 
-function TrackRow({ t }: { t: Track }) {
+function TrackRow({ t, popularity }: { t: Track; popularity?: number }) {
   const v = yt(t.video_url)
   const cover = t.cover_url || (v ? `https://img.youtube.com/vi/${v}/mqdefault.jpg` : null)
   return (
     <Link
       href={`/lt/daina/${t.slug}/${t.id}/`}
-      className="group flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-2.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+      className="group flex items-center gap-2.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-2 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
     >
-      <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md bg-[var(--cover-placeholder)] sm:h-14 sm:w-14">
+      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md bg-[var(--cover-placeholder)]">
         {cover ? (
           <img src={cover} alt={t.title} className="h-full w-full object-cover" />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-[var(--text-faint)]">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z" /></svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z" /></svg>
           </div>
         )}
         {v && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover:bg-black/45 group-hover:opacity-100">
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_4px_12px_rgba(249,115,22,0.5)]">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg>
+            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_4px_12px_rgba(249,115,22,0.5)]">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg>
             </div>
           </div>
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <div className="truncate font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)] sm:text-[14px]">
+        <div className="truncate font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-primary)] sm:text-[13px]">
           {t.title}
         </div>
-        {v && (
-          <div className="mt-0.5 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-[var(--accent-orange)]">
-            <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
-            Video
-          </div>
-        )}
+        {typeof popularity === 'number' && <PopBar level={popularity} />}
       </div>
     </Link>
   )
@@ -1551,8 +1576,21 @@ export default function ArtistProfileClient({
   const hasAnyVideo = tracksAllTime.some(t => yt(t.video_url)) || tracksTrending.some(t => yt(t.video_url))
 
   const now = Date.now()
+  // Keep only fresh past content — anything older than ~2 months is noise
+  // that pushes the gallery/discussions out of view without adding value.
+  const TWO_MONTHS_MS = 62 * 24 * 60 * 60 * 1000
+  const freshnessCutoff = now - TWO_MONTHS_MS
   const upcomingEvents = events.filter((e: any) => new Date(e.start_date).getTime() >= now)
-  const pastEvents = events.filter((e: any) => new Date(e.start_date).getTime() < now)
+  const pastEvents = events.filter((e: any) => {
+    const ts = new Date(e.start_date).getTime()
+    return ts < now && ts >= freshnessCutoff
+  })
+  const freshLegacyNews = (legacyNews || []).filter((n: any) => {
+    const raw = n.last_post_at || n.first_post_at
+    if (!raw) return false
+    const ts = new Date(raw).getTime()
+    return isFinite(ts) && ts >= freshnessCutoff
+  })
   const bioHtml: string = artist.description || ''
 
   // Gallery photos excluding the hero image
@@ -1695,28 +1733,45 @@ export default function ArtistProfileClient({
 
       <main className="mx-auto max-w-[1400px] space-y-10 px-4 pb-24 pt-8 sm:space-y-14 sm:px-6 lg:px-10">
 
-        {/* Upcoming events */}
-        {upcomingEvents.length > 0 && (
-          <section>
-            <SectionTitle label="Artimiausi renginiai" count={upcomingEvents.length} />
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {upcomingEvents.map((e: any) => <EventCard key={e.id} e={e} variant="upcoming" />)}
-            </div>
-          </section>
-        )}
-
-        {/* BIO + MEMBERS + SIDE INFO — adaptive layout:
-            long bio → 2-col [bio | vertical sidebar];
-            short/empty bio → stacked with horizontal info strip. */}
+        {/* BIO + MEMBERS + SIDE INFO + UPCOMING EVENTS — single adaptive block.
+            When there are upcoming events, they dock compactly into the right
+            sidebar beside the bio so a lone event doesn't eat a whole row.
+            Bio gets an "Apie grupę/atlikėją" header in that case so there's
+            a clear visual separation. */}
         {(() => {
           const bioLen = stripHtml(bioHtml).length
           const isShortBio = bioLen < 200
           const sideInfoAvailable = !!artist.country || genres.length > 0 || links.length > 0 || artist.website
+          const bioHeader = solo ? 'Apie atlikėją' : 'Apie grupę'
+          const hasUpcoming = upcomingEvents.length > 0
 
-          if (!hasBio && members.length === 0 && !sideInfoAvailable) return null
+          if (!hasBio && members.length === 0 && !sideInfoAvailable && !hasUpcoming) return null
 
-          if (isShortBio) {
-            // Horizontal info strip + bio/members stacked below
+          const SideRail = (
+            <div className="flex flex-col gap-4">
+              {hasUpcoming && (
+                <div className="flex flex-col gap-3">
+                  {upcomingEvents.slice(0, 3).map((e: any) => (
+                    <EventCard key={e.id} e={e} variant="compact" />
+                  ))}
+                </div>
+              )}
+              {sideInfoAvailable && (
+                <SideInfo
+                  artist={artist}
+                  flag={flag}
+                  genres={genres}
+                  substyles={substyles}
+                  ranks={ranks}
+                  links={links}
+                  website={artist.website}
+                />
+              )}
+            </div>
+          )
+
+          if (isShortBio && !hasUpcoming) {
+            // Short bio + no events → keep the horizontal info strip layout.
             return (
               <section className="space-y-6">
                 {sideInfoAvailable && (
@@ -1741,22 +1796,25 @@ export default function ArtistProfileClient({
             )
           }
 
-          // Long bio — 2-col
+          // 2-col layout — bio on the left, events + details in the right rail.
           return (
             <section className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-10">
               <div className="min-w-0">
-                <BioPreview html={bioHtml} onOpen={() => setBioModalOpen(true)} maxChars={700} />
+                {(hasUpcoming && hasBio) && (
+                  <h2 className="mb-3 font-['Outfit',sans-serif] text-[18px] font-black tracking-[-0.01em] text-[var(--text-primary)] sm:text-[20px]">
+                    {bioHeader}
+                  </h2>
+                )}
+                {hasBio && (
+                  <BioPreview
+                    html={bioHtml}
+                    onOpen={() => setBioModalOpen(true)}
+                    maxChars={isShortBio ? 400 : 700}
+                  />
+                )}
                 {!solo && members.length > 0 && <MembersInline members={members} />}
               </div>
-              <SideInfo
-                artist={artist}
-                flag={flag}
-                genres={genres}
-                substyles={substyles}
-                ranks={ranks}
-                links={links}
-                website={artist.website}
-              />
+              {SideRail}
             </section>
           )
         })()}
@@ -1803,23 +1861,29 @@ export default function ArtistProfileClient({
                 )}
               </div>
 
-              {/* Albums grid */}
+              {/* Albums grid — tighter columns (more per row) now that
+                  each card is smaller. Popularity tier is index-based: the
+                  first 10% of visible albums get the fullest bar. */}
               {visibleAlbums.length > 0 && (
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-                  {visibleAlbums.map(a => <AlbumCard key={a.id} a={a} />)}
+                <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 sm:gap-3 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7">
+                  {visibleAlbums.map((a, i) => (
+                    <AlbumCard key={a.id} a={a} popularity={popLevel(i, visibleAlbums.length)} />
+                  ))}
                 </div>
               )}
 
               {/* Orphan tracks — compact list below albums when included */}
               {showOrphans && orphanTracks.length > 0 && (
-                <div className={visibleAlbums.length > 0 ? 'mt-8' : ''}>
+                <div className={visibleAlbums.length > 0 ? 'mt-6' : ''}>
                   {visibleAlbums.length > 0 && (
-                    <div className="mb-3 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+                    <div className="mb-2.5 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.15em] text-[var(--text-muted)]">
                       Kitos dainos · {orphanTracks.length}
                     </div>
                   )}
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                    {orphanTracks.map(t => <TrackRow key={t.id} t={t} />)}
+                  <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+                    {orphanTracks.map((t, i) => (
+                      <TrackRow key={t.id} t={t} popularity={popLevel(i, orphanTracks.length)} />
+                    ))}
                   </div>
                 </div>
               )}
@@ -1851,19 +1915,19 @@ export default function ArtistProfileClient({
         {/* Past events */}
         {pastEvents.length > 0 && (
           <section>
-            <SectionTitle label="Įvykę renginiai" count={pastEvents.length} />
+            <SectionTitle label="Įvykę renginiai" />
             <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
               {pastEvents.map((e: any) => <EventCard key={e.id} e={e} variant="past" />)}
             </div>
           </section>
         )}
 
-        {/* Legacy news */}
-        {legacyNews.length > 0 && (
+        {/* Legacy news — only recent (<=2mo) to avoid stale archive noise */}
+        {freshLegacyNews.length > 0 && (
           <section>
-            <SectionTitle label="Naujienų archyvas" count={legacyNews.length} />
+            <SectionTitle label="Naujienos" />
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {legacyNews.slice(0, 12).map(n => {
+              {freshLegacyNews.slice(0, 12).map(n => {
                 const title = n.title || slugToForumTitle(n.slug)
                 const pc = n.post_count ?? 0
                 return (
