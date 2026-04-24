@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useMemo, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import LikesModal from '@/components/LikesModal'
 import { LikePill } from '@/components/LikePill'
@@ -802,6 +803,7 @@ function Hero({
   artist, heroImage, loaded, likes, selfLiked, onToggleLike, onOpenLikersModal, selfLikePending,
   tracksAllTime, tracksTrending, activeTrackId, onSelectTrack,
   playing, onRequestPlay, onOpenTrackInfo, hasAnyVideo,
+  upcomingEvents, onOpenEventsModal,
 }: {
   artist: any; heroImage: string | null; loaded: boolean
   likes: number; selfLiked?: boolean
@@ -811,6 +813,8 @@ function Hero({
   playing: boolean; onRequestPlay: () => void
   onOpenTrackInfo: (t: Track) => void
   hasAnyVideo: boolean
+  upcomingEvents: any[]
+  onOpenEventsModal: () => void
 }) {
   const coverPos = parseCoverPos(artist.cover_image_position || 'center 30%')
 
@@ -860,8 +864,8 @@ function Hero({
           ].join(' ')}
         >
           <h1
-            className="mb-6 font-['Outfit',sans-serif] font-black leading-[0.9] tracking-[-0.04em] text-[var(--text-primary)] sm:mb-7 lg:text-white lg:drop-shadow-[0_6px_32px_rgba(0,0,0,0.8)]"
-            style={{ fontSize: 'clamp(2.25rem,6.5vw,5rem)' }}
+            className="mb-5 font-['Outfit',sans-serif] font-black leading-[0.9] tracking-[-0.04em] text-[var(--text-primary)] sm:mb-6 lg:text-white lg:drop-shadow-[0_6px_32px_rgba(0,0,0,0.8)]"
+            style={{ fontSize: 'clamp(2.25rem,6vw,4.5rem)' }}
           >
             {artist.name}
             {artist.is_verified && (
@@ -882,6 +886,35 @@ function Hero({
               variant="light"
             />
           </div>
+
+          {/* Upcoming events strip — lives inside the hero so a single event
+              doesn't create an empty-looking row below. Shows up to 2 cards
+              inline; overflow collapses into a "+N" tile that opens a modal
+              with the full list. */}
+          {upcomingEvents.length > 0 && (() => {
+            const MAX_VISIBLE = 2
+            const hasOverflow = upcomingEvents.length > MAX_VISIBLE
+            const visible = hasOverflow
+              ? upcomingEvents.slice(0, MAX_VISIBLE)
+              : upcomingEvents
+            const overflow = upcomingEvents.length - visible.length
+            return (
+              <div className="mt-6">
+                <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.18em] text-[var(--accent-orange)] lg:text-white/85">
+                  Artimiausi renginiai
+                </div>
+                <div className={[
+                  'grid gap-2 sm:gap-3',
+                  hasOverflow ? 'grid-cols-1 sm:grid-cols-[1fr_1fr_auto]' : 'grid-cols-1 sm:grid-cols-2',
+                ].join(' ')}>
+                  {visible.map((e: any) => (
+                    <EventCard key={e.id} e={e} variant="upcoming" />
+                  ))}
+                  {hasOverflow && <MoreEventsTile count={overflow} onClick={onOpenEventsModal} />}
+                </div>
+              </div>
+            )
+          })()}
         </div>
 
         {/* Player column — only rendered when the artist has at least one
@@ -1432,18 +1465,17 @@ function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' |
     )
   }
 
-  // Upcoming event card — horizontal layout. Image on the left (~40% width)
-  // with the date block overlaid; title + venue sit to the right. Keeps the
-  // visual weight of a cover photo without stretching the row vertically —
-  // 2-3 events fit comfortably in a grid without empty air.
+  // Upcoming event card — horizontal layout. Image on the left (~40% width),
+  // date + title + venue on the right. We keep the compact footprint but the
+  // card is a bit taller so text has breathing room. Date moved out of the
+  // image overlay so it reads naturally with the title.
   return (
     <Link
       href={href}
       className="group flex items-stretch gap-0 overflow-hidden rounded-2xl border border-[rgba(249,115,22,0.25)] bg-gradient-to-br from-[rgba(249,115,22,0.08)] to-transparent no-underline transition-all hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.5)] hover:shadow-[0_12px_32px_rgba(249,115,22,0.15)]"
     >
-      {/* Left: cover image with date badge overlay. Fixed aspect so all
-          cards share the same horizontal footprint. */}
-      <div className="relative w-[40%] min-w-[120px] max-w-[200px] shrink-0 overflow-hidden bg-[rgba(249,115,22,0.1)]">
+      {/* Left: cover image. No badge overlay anymore — date moved to text column. */}
+      <div className="relative w-[42%] min-w-[120px] max-w-[190px] shrink-0 overflow-hidden bg-[rgba(249,115,22,0.1)]">
         {hasCover ? (
           <img
             src={e.cover_image_url}
@@ -1454,27 +1486,160 @@ function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' |
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--accent-orange)]/40">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--accent-orange)]/40">
               <path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
         )}
-        <div className="absolute left-2 top-2 rounded-lg bg-black/75 px-2 py-1 text-center backdrop-blur-sm">
-          <div className="font-['Outfit',sans-serif] text-[9px] font-bold uppercase text-[var(--accent-orange)]">{monthShort} {d.getFullYear()}</div>
-          <div className="font-['Outfit',sans-serif] text-[20px] font-black leading-none text-white">{d.getDate()}</div>
-        </div>
       </div>
 
-      {/* Right: title + venue */}
-      <div className="flex min-w-0 flex-1 flex-col justify-center px-4 py-3">
+      {/* Right: date + title + venue. Extra vertical padding keeps the card
+          from feeling squashed while still remaining compact. */}
+      <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5 px-4 py-4 sm:px-5">
+        <div className="inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.08em] text-[var(--accent-orange)]">
+          <span>{d.getDate()}</span>
+          <span className="capitalize">{monthShort}</span>
+          <span>{d.getFullYear()}</span>
+        </div>
         <div className="line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-bold leading-snug text-[var(--text-primary)] sm:text-[15px]">
           {e.title}
         </div>
         {venue && (
-          <div className="mt-1.5 line-clamp-2 text-[12px] leading-snug text-[var(--text-secondary)]">
+          <div className="line-clamp-2 text-[12px] leading-snug text-[var(--text-secondary)]">
             📍 {venue}
           </div>
         )}
+      </div>
+    </Link>
+  )
+}
+
+// ── MoreEventsTile + EventsModal ───────────────────────────────────
+//
+// Shown when there are more upcoming events than we can fit inline in the
+// hero. Clicking opens a portal modal with every event at larger size.
+
+function MoreEventsTile({ count, onClick }: { count: number; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex items-center justify-center gap-2 overflow-hidden rounded-2xl border border-dashed border-[rgba(249,115,22,0.4)] bg-gradient-to-br from-[rgba(249,115,22,0.05)] to-transparent px-5 py-5 transition-all hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.7)] hover:bg-[rgba(249,115,22,0.08)]"
+    >
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white shadow-[0_4px_14px_rgba(249,115,22,0.35)]">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+      </span>
+      <span className="text-left">
+        <span className="block font-['Outfit',sans-serif] text-[15px] font-extrabold text-[var(--accent-orange)]">
+          +{count}
+        </span>
+        <span className="block text-[11px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
+          daugiau renginių
+        </span>
+      </span>
+    </button>
+  )
+}
+
+function EventsModal({
+  open, events, onClose,
+}: { open: boolean; events: any[]; onClose: () => void }) {
+  useEffect(() => {
+    if (!open) return
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', h)
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', h)
+      document.body.style.overflow = ''
+    }
+  }, [open, onClose])
+
+  if (!open || typeof document === 'undefined') return null
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-8"
+      style={{ background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(8px)' }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div className="flex max-h-[90vh] w-full max-w-[1100px] flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[0_40px_80px_-20px_rgba(0,0,0,0.6)]">
+        <div className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
+          <div>
+            <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.2em] text-[var(--text-muted)]">
+              Artimiausi renginiai
+            </div>
+            <div className="mt-0.5 font-['Outfit',sans-serif] text-[17px] font-extrabold text-[var(--text-primary)]">
+              {events.length} renginiai
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Uždaryti"
+            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[10px] border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+          >
+            <svg viewBox="0 0 16 16" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+              <path d="M3 3l10 10M13 3L3 13" />
+            </svg>
+          </button>
+        </div>
+        <div className="overflow-y-auto px-5 py-5">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {events.map((e: any) => <EventBigCard key={e.id} e={e} />)}
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
+/** Larger hero-style event card used inside EventsModal so the full list
+ *  showcases each event with cover art + more visual weight. */
+function EventBigCard({ e }: { e: any }) {
+  const d = new Date(e.start_date)
+  const venue = [e.venue_name, e.city].filter(Boolean).join(', ')
+  const href = `/renginiai/${e.slug}`
+  const monthShort = d.toLocaleDateString('lt-LT', { month: 'short' }).replace('.', '')
+  const [coverFailed, setCoverFailed] = useState(false)
+  const hasCover = !!e.cover_image_url && !coverFailed
+  return (
+    <Link
+      href={href}
+      className="group flex flex-col overflow-hidden rounded-2xl border border-[rgba(249,115,22,0.25)] bg-gradient-to-br from-[rgba(249,115,22,0.08)] to-transparent no-underline transition-all hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.5)] hover:shadow-[0_12px_32px_rgba(249,115,22,0.15)]"
+    >
+      {hasCover ? (
+        <div className="relative aspect-[16/9] overflow-hidden">
+          <img
+            src={e.cover_image_url}
+            alt={e.title}
+            referrerPolicy="no-referrer"
+            onError={() => setCoverFailed(true)}
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/55 to-transparent" />
+          <div className="absolute left-3 top-3 rounded-lg bg-black/70 px-2.5 py-1.5 text-center backdrop-blur-sm">
+            <div className="font-['Outfit',sans-serif] text-[9px] font-bold uppercase tracking-wider text-[var(--accent-orange)]">
+              <span className="capitalize">{monthShort}</span> {d.getFullYear()}
+            </div>
+            <div className="font-['Outfit',sans-serif] text-[22px] font-black leading-none text-white">{d.getDate()}</div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex aspect-[16/9] items-center justify-center bg-[rgba(249,115,22,0.1)]">
+          <div className="text-center">
+            <div className="font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-wider text-[var(--accent-orange)]">
+              <span className="capitalize">{monthShort}</span> {d.getFullYear()}
+            </div>
+            <div className="font-['Outfit',sans-serif] text-[52px] font-black leading-none text-[var(--text-primary)]">{d.getDate()}</div>
+          </div>
+        </div>
+      )}
+      <div className="p-4">
+        <div className="line-clamp-2 font-['Outfit',sans-serif] text-[15px] font-bold leading-snug text-[var(--text-primary)] sm:text-[16px]">{e.title}</div>
+        {venue && <div className="mt-1 truncate text-[12px] text-[var(--text-secondary)] sm:text-[13px]">📍 {venue}</div>}
       </div>
     </Link>
   )
@@ -1648,6 +1813,7 @@ export default function ArtistProfileClient({
   const [pid, setPid] = useState<number | null>(null)
   const [playing, setPlaying] = useState(false)
   const [trackInfoOpen, setTrackInfoOpen] = useState<Track | null>(null)
+  const [eventsModalOpen, setEventsModalOpen] = useState(false)
   const [loaded, setLoaded] = useState(false)
   const [likesModalOpen, setLikesModalOpen] = useState(false)
   const [bioModalOpen, setBioModalOpen] = useState(false)
@@ -1850,6 +2016,14 @@ export default function ArtistProfileClient({
         onRequestPlay={() => setPlaying(true)}
         onOpenTrackInfo={(t) => setTrackInfoOpen(t)}
         hasAnyVideo={hasAnyVideo}
+        upcomingEvents={upcomingEvents}
+        onOpenEventsModal={() => setEventsModalOpen(true)}
+      />
+
+      <EventsModal
+        open={eventsModalOpen}
+        events={upcomingEvents}
+        onClose={() => setEventsModalOpen(false)}
       />
 
       <LikesModal
@@ -1955,19 +2129,9 @@ export default function ArtistProfileClient({
 
       <main className="mx-auto max-w-[1400px] space-y-10 px-4 pb-24 pt-8 sm:space-y-14 sm:px-6 lg:px-10">
 
-        {/* Upcoming events — full card with cover photo. Events are high-value
-            so they deserve visual weight; a single event card fills a third
-            of the row and 2-3 events pack the grid. */}
-        {upcomingEvents.length > 0 && (
-          <section>
-            <SectionTitle label="Artimiausi renginiai" />
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {upcomingEvents.map((e: any) => (
-                <EventCard key={e.id} e={e} variant="upcoming" />
-              ))}
-            </div>
-          </section>
-        )}
+        {/* Upcoming events live in the Hero now (see Hero component) so a
+            lone event doesn't leave empty air below the title. Overflow
+            opens EventsModal. */}
 
         {/* BIO + MEMBERS + SIDE INFO — adaptive layout.
             With events present, the bio section gets a heading so the two
