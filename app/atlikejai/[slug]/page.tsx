@@ -90,7 +90,40 @@ async function getTracks(id: number) {
     .eq('artist_id', id)
     .order('created_at', { ascending: false })
     .limit(120)
-  return data || []
+  const tracks = (data || []) as any[]
+  if (tracks.length === 0) return tracks
+
+  // Attach like counts (modern track_likes + legacy_likes). Two grouped reads
+  // rather than N subqueries keeps this cheap even for 100+ track artists.
+  const trackIds = tracks.map((t) => t.id)
+  const legacyIds = tracks.map((t) => t.legacy_id).filter((x): x is number => typeof x === 'number')
+
+  const [modernLikes, legacyLikes] = await Promise.all([
+    sb.from('track_likes').select('track_id').in('track_id', trackIds),
+    legacyIds.length > 0
+      ? sb.from('legacy_likes')
+          .select('entity_legacy_id')
+          .eq('entity_type', 'track')
+          .in('entity_legacy_id', legacyIds)
+      : Promise.resolve({ data: [] as any[] }),
+  ])
+
+  const byTrack = new Map<number, number>()
+  for (const r of (modernLikes.data || []) as any[]) {
+    byTrack.set(r.track_id, (byTrack.get(r.track_id) || 0) + 1)
+  }
+  const byLegacy = new Map<number, number>()
+  for (const r of (legacyLikes.data || []) as any[]) {
+    byLegacy.set(r.entity_legacy_id, (byLegacy.get(r.entity_legacy_id) || 0) + 1)
+  }
+
+  for (const t of tracks) {
+    const modern = byTrack.get(t.id) || 0
+    const legacy = typeof t.legacy_id === 'number' ? (byLegacy.get(t.legacy_id) || 0) : 0
+    t.like_count = modern + legacy
+  }
+
+  return tracks
 }
 async function getAllArtistTrackLegacyIds(id: number) { const sb = createAdminClient(); const { data } = await sb.from('tracks').select('legacy_id').eq('artist_id', id).not('legacy_id', 'is', null); return (data || []).map((t: any) => t.legacy_id).filter((x: any) => typeof x === 'number') }
 

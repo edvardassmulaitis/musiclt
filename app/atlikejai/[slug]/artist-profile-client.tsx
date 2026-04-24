@@ -36,6 +36,9 @@ type Track = {
   /** Duration in seconds (integer) or "mm:ss" string — we handle both at render time. */
   duration?: number | string | null
   lyrics?: string | null
+  /** Aggregated like count — modern track_likes + legacy_likes combined.
+   *  Set server-side in getTracks(). */
+  like_count?: number | null
 }
 type Member = { id: number; slug: string; name: string; cover_image_url?: string; member_from?: number; member_until?: number }
 type ChartPt = { year: number; value: number }
@@ -228,6 +231,26 @@ function PlayerCard({
   const displayVid = activeVid || yt(firstWithVideo?.video_url)
   const displayTrack = activeTrack || firstWithVideo
 
+  // YouTube player state — we hide YT's own controls via `controls=0` and
+  // drive play/pause ourselves via postMessage. That requires
+  // `enablejsapi=1` and an origin-qualified src so the iframe accepts
+  // commands. We toggle our overlay's isPaused state on each click.
+  const iframeRef = useRef<HTMLIFrameElement>(null)
+  const [isPaused, setIsPaused] = useState(false)
+  // Re-arm "not paused" whenever the active video changes (user picked a new track).
+  useEffect(() => { setIsPaused(false) }, [displayVid, playing])
+
+  const ytCommand = (func: 'playVideo' | 'pauseVideo') => {
+    const w = iframeRef.current?.contentWindow
+    if (!w) return
+    w.postMessage(JSON.stringify({ event: 'command', func, args: [] }), '*')
+  }
+
+  const togglePlayPause = () => {
+    if (isPaused) { ytCommand('playVideo'); setIsPaused(false) }
+    else { ytCommand('pauseVideo'); setIsPaused(true) }
+  }
+
   // When the user picks a different track from the list, treat it as an
   // immediate play request (swap overlay → iframe w/ autoplay).
   const handleSelect = (id: number) => {
@@ -240,15 +263,44 @@ function PlayerCard({
       <div className="relative aspect-video overflow-hidden bg-black">
         {displayVid ? (
           playing ? (
-            // Once the user has hit play, mount the iframe with autoplay so
-            // YouTube's Watch/Share chrome never sees the start-screen.
-            <iframe
-              key={displayVid}
-              src={`https://www.youtube.com/embed/${displayVid}?rel=0&autoplay=1&modestbranding=1&playsinline=1`}
-              allow="autoplay;encrypted-media"
-              allowFullScreen
-              className="absolute inset-0 h-full w-full border-0"
-            />
+            // Once the user has hit play, mount the iframe with autoplay and
+            // NO YT controls — our overlay drives play/pause via postMessage.
+            // The "watch on YouTube" / title / share chrome is part of the
+            // default controls bar, so hiding controls hides it too.
+            <>
+              <iframe
+                ref={iframeRef}
+                key={displayVid}
+                src={`https://www.youtube.com/embed/${displayVid}?rel=0&autoplay=1&controls=0&modestbranding=1&playsinline=1&iv_load_policy=3&disablekb=1&enablejsapi=1`}
+                allow="autoplay;encrypted-media"
+                allowFullScreen
+                className="absolute inset-0 h-full w-full border-0"
+              />
+              {/* Hover-only pause/play overlay — only visible while the user
+                  is mousing over the video. Click swaps between states. */}
+              <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-200 hover:opacity-100 focus-within:opacity-100 peer-hover:opacity-100 [:hover>&]:opacity-100">
+                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/0 to-transparent" />
+              </div>
+              <button
+                type="button"
+                onClick={togglePlayPause}
+                aria-label={isPaused ? 'Tęsti' : 'Pauzė'}
+                className="group absolute inset-0 z-10 flex cursor-pointer items-end justify-start border-0 bg-transparent p-0 opacity-0 transition-opacity duration-200 hover:opacity-100 focus:opacity-100"
+              >
+                <span className="m-3 flex h-11 w-11 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white shadow-[0_6px_20px_rgba(249,115,22,0.5)] ring-2 ring-white/20 transition-transform group-hover:scale-110">
+                  {isPaused ? (
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden>
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden>
+                      <rect x="6" y="5" width="4" height="14" rx="1" />
+                      <rect x="14" y="5" width="4" height="14" rx="1" />
+                    </svg>
+                  )}
+                </span>
+              </button>
+            </>
           ) : (
             // Initial state — thumbnail + big orange play button. One click
             // flips `playing` to true, which mounts the iframe above.
@@ -361,9 +413,10 @@ function PlayerCard({
                         ].join(' ')}
                       >
                         {isActive && v ? (
-                          <span className="inline-flex h-5 w-5 items-center justify-center">
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
-                          </span>
+                          // Active-track indicator — 3 pulsing bars (equalizer).
+                          // Intentionally NOT a pause icon, since we can't
+                          // truthfully say the track is paused/playing.
+                          <Equalizer />
                         ) : (
                           i + 1
                         )}
@@ -379,14 +432,23 @@ function PlayerCard({
                       </div>
                     </button>
 
-                    {/* Right column — duration + info button */}
-                    <div className="flex shrink-0 items-center gap-1">
-                      {dur ? (
+                    {/* Right column — likes, duration, info button */}
+                    <div className="flex shrink-0 items-center gap-2">
+                      {typeof t.like_count === 'number' && t.like_count > 0 && (
+                        <span
+                          title={`${t.like_count.toLocaleString('lt-LT')} patinka`}
+                          className="inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[11px] font-semibold tabular-nums text-[var(--text-muted)]"
+                        >
+                          <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" className="text-[var(--accent-orange)]" aria-hidden>
+                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                          </svg>
+                          {t.like_count.toLocaleString('lt-LT')}
+                        </span>
+                      )}
+                      {dur && (
                         <span className="font-['Outfit',sans-serif] text-[11px] font-semibold tabular-nums text-[var(--text-muted)]">
                           {dur}
                         </span>
-                      ) : (
-                        <span className="font-['Outfit',sans-serif] text-[11px] font-semibold text-[var(--text-faint)]">—</span>
                       )}
                       <button
                         onClick={(e) => { e.stopPropagation(); onOpenTrackInfo(t) }}
@@ -427,6 +489,30 @@ function popLevel(index: number, total: number): number {
   return 1
 }
 
+/** Active-track indicator — 3 bars that bounce independently. We use this in
+ *  place of a pause icon because we genuinely can't tell if the iframe is
+ *  paused; showing "pause" would be a lie. An equalizer just says "this is
+ *  the track you picked", which is always true. */
+function Equalizer() {
+  return (
+    <span className="relative inline-flex h-4 w-4 items-end justify-center gap-[2px]" aria-hidden>
+      <span
+        className="w-[3px] origin-bottom rounded-[1px] bg-[var(--accent-orange)]"
+        style={{ animation: 'eqBar 1.0s ease-in-out -0.20s infinite' }}
+      />
+      <span
+        className="w-[3px] origin-bottom rounded-[1px] bg-[var(--accent-orange)]"
+        style={{ animation: 'eqBar 1.0s ease-in-out -0.45s infinite' }}
+      />
+      <span
+        className="w-[3px] origin-bottom rounded-[1px] bg-[var(--accent-orange)]"
+        style={{ animation: 'eqBar 1.0s ease-in-out -0.10s infinite' }}
+      />
+      <style>{`@keyframes eqBar { 0%,100% { height: 30%; } 50% { height: 100%; } }`}</style>
+    </span>
+  )
+}
+
 /** 4-dot popularity bar — mirrors the rank bar pattern used on liker cards. */
 function PopBar({ level }: { level: number }) {
   const total = 4
@@ -451,59 +537,92 @@ function PopBar({ level }: { level: number }) {
 
 // ── TrackInfoModal ─────────────────────────────────────────────────
 //
-// Lightweight track summary launched from the player's info button. Keeps
-// metadata in one place (duration, release year, lyrics preview) plus a link
-// to the full /lt/daina page for deeper actions. We deliberately don't
-// duplicate the whole track page here — this is a quick read.
+// Slide-in side drawer (right edge) so the artist page + player remain
+// visible behind it. Shows the track's duration, release year, like count,
+// and a lyrics preview, plus a link to the full /lt/daina page.
 
 function TrackInfoModal({
   track, artistName, artistSlug, onClose,
 }: {
   track: Track | null; artistName: string; artistSlug: string; onClose: () => void
 }) {
+  // We use an internal `mounted` flag so the slide-out animation gets a chance
+  // to run before the component unmounts. When a new track replaces the
+  // previous one, we re-use the mounted drawer.
+  const [mounted, setMounted] = useState(false)
   useEffect(() => {
-    if (!track) return
-    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', h)
-    document.body.style.overflow = 'hidden'
-    return () => {
-      window.removeEventListener('keydown', h)
-      document.body.style.overflow = ''
+    if (track) {
+      // Defer to next frame so the element can transition in.
+      const r = requestAnimationFrame(() => setMounted(true))
+      const h = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose() }
+      window.addEventListener('keydown', h)
+      return () => {
+        cancelAnimationFrame(r)
+        window.removeEventListener('keydown', h)
+      }
     }
-  }, [track, onClose])
+    setMounted(false)
+    return
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [track?.id])
+
+  const handleClose = () => {
+    setMounted(false)
+    // Let the transition play before actually clearing the track.
+    window.setTimeout(onClose, 200)
+  }
 
   if (!track) return null
 
   const dur = fmtDur(track.duration)
   const year = track.release_year || (track.release_date ? new Date(track.release_date).getFullYear() : null)
+  const likes = typeof track.like_count === 'number' ? track.like_count : 0
   const lyrics = (track.lyrics || '').trim()
-  // Plain-text preview, first ~8 lines, strip HTML.
   const lyricsPreview = lyrics
-    ? lyrics.replace(/<[^>]+>/g, '').split(/\n+/).filter(Boolean).slice(0, 10).join('\n')
+    ? lyrics.replace(/<[^>]+>/g, '').split(/\n+/).filter(Boolean).slice(0, 14).join('\n')
     : null
   const trackHref = `/lt/daina/${track.slug}/${track.id}`
 
   return (
+    // Backdrop is intentionally subtle + click-through-friendly: we don't
+    // want to block the hero/player behind the drawer. Clicking anywhere
+    // outside the panel dismisses.
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 px-4 py-8 backdrop-blur-sm"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+      className="fixed inset-0 z-[9999]"
+      onClick={(e) => { if (e.target === e.currentTarget) handleClose() }}
     >
-      <div className="flex max-h-[88vh] w-full max-w-[640px] flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[0_40px_80px_-20px_rgba(0,0,0,0.6)]">
+      <div
+        className={[
+          'absolute inset-0 bg-black/30 transition-opacity duration-200',
+          mounted ? 'opacity-100' : 'opacity-0',
+        ].join(' ')}
+        onClick={handleClose}
+      />
+
+      <aside
+        role="dialog"
+        aria-label={`Apie dainą ${track.title}`}
+        className={[
+          'absolute right-0 top-0 flex h-full w-full max-w-[440px] flex-col border-l border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[-24px_0_60px_-10px_rgba(0,0,0,0.5)]',
+          'transition-transform duration-200 ease-out',
+          mounted ? 'translate-x-0' : 'translate-x-full',
+        ].join(' ')}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
+        <div className="flex items-start justify-between gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
           <div className="min-w-0 flex-1">
-            <div className="truncate font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)]">
+            <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.2em] text-[var(--text-muted)]">
+              Daina
+            </div>
+            <div className="mt-0.5 truncate font-['Outfit',sans-serif] text-[17px] font-extrabold text-[var(--text-primary)]">
               {track.title}
             </div>
             <div className="truncate text-[12px] text-[var(--text-muted)]">
               {artistName}
-              {year ? <> · {year}</> : null}
-              {dur ? <> · {dur}</> : null}
-              {track.type ? <> · {track.type}</> : null}
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             aria-label="Uždaryti"
             className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[10px] border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
           >
@@ -511,6 +630,34 @@ function TrackInfoModal({
               <path d="M3 3l10 10M13 3L3 13" />
             </svg>
           </button>
+        </div>
+
+        {/* Meta chips — likes / year / duration / type */}
+        <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border-subtle)] px-5 py-3">
+          <span
+            title={likes > 0 ? `${likes.toLocaleString('lt-LT')} patinka` : 'Dar niekas nepaspaudė'}
+            className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-extrabold tabular-nums text-[var(--text-primary)]"
+          >
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" className="text-[var(--accent-orange)]" aria-hidden>
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+            </svg>
+            {likes.toLocaleString('lt-LT')}
+          </span>
+          {year && (
+            <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]">
+              {year}
+            </span>
+          )}
+          {dur && (
+            <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-extrabold tabular-nums text-[var(--text-primary)]">
+              {dur}
+            </span>
+          )}
+          {track.type && (
+            <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-1.5 font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">
+              {track.type}
+            </span>
+          )}
         </div>
 
         {/* Body */}
@@ -522,7 +669,7 @@ function TrackInfoModal({
               </div>
               <div className="whitespace-pre-wrap font-['DM_Sans',system-ui,sans-serif] text-[14px] leading-[1.6] text-[var(--text-primary)]">
                 {lyricsPreview}
-                {lyrics.split(/\n+/).length > 10 && (
+                {lyrics.split(/\n+/).length > 14 && (
                   <span className="text-[var(--text-muted)]">…</span>
                 )}
               </div>
@@ -546,7 +693,7 @@ function TrackInfoModal({
             </svg>
           </Link>
         </div>
-      </div>
+      </aside>
     </div>
   )
   // artistSlug is kept for future deep-links (e.g. "More from artist")
