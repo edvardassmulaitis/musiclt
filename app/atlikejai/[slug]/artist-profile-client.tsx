@@ -253,63 +253,114 @@ function PlayerCard({
   const displayVid = activeVid || yt(firstWithVideo?.video_url)
   const displayTrack = activeTrack || firstWithVideo
 
-  // YouTube player plumbing: we use native YT controls (autoplay blockers
-  // make hiding them fragile) but keep `enablejsapi=1` so our per-track
-  // play button can still play/pause the active track. A message listener
-  // keeps local `isPaused` in sync with YT state so the equalizer only
-  // animates while the video is actually playing.
-  const iframeRef = useRef<HTMLIFrameElement>(null)
+  // YouTube IFrame Player API integration.
+  //
+  // Why not a plain iframe + autoplay=1? On mobile, `autoplay=1` only fires
+  // when the iframe is in the DOM at gesture time. Our flow mounts the
+  // iframe *after* the tap (React state → rerender), which meant users
+  // had to tap twice — first tap loaded YT, second tap played.
+  //
+  // With the IFrame API we instantiate YT.Player inside the tap handler
+  // (via a ref'd container div) so the Player's own API call is still
+  // within the user-gesture context; browsers allow playback.
+  const containerRef = useRef<HTMLDivElement>(null)
+  const playerRef = useRef<any>(null)
+  const [apiReady, setApiReady] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
 
-  // Re-arm "not paused" whenever the active video changes (user picked a
-  // new track). YT will then post state updates that refine it.
-  useEffect(() => { setIsPaused(false) }, [displayVid, playing])
-
-  const ytCommand = (func: 'playVideo' | 'pauseVideo') => {
-    const w = iframeRef.current?.contentWindow
-    if (!w) return
-    w.postMessage(JSON.stringify({ event: 'command', func, args: [] }), '*')
-  }
-
-  // Subscribe to YT postMessage state events so our equalizer reflects
-  // reality (including when the user pauses via YT's own native button).
-  //
-  // YT player states: -1 unstarted, 0 ended, 1 playing, 2 paused,
-  // 3 buffering, 5 cued. We treat anything that isn't 1 or 3 as paused.
+  // Load the IFrame API script once per session.
   useEffect(() => {
-    if (!playing) return
-    const onMessage = (e: MessageEvent) => {
-      if (!/^https:\/\/(www\.)?youtube(-nocookie)?\.com$/.test(e.origin)) return
-      let data: any
-      try { data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data } catch { return }
-      const state = data?.info?.playerState ?? (data?.event === 'onStateChange' ? data?.info : undefined)
-      if (typeof state === 'number') {
-        setIsPaused(!(state === 1 || state === 3))
-      }
+    const W = window as any
+    if (W.YT && W.YT.Player) { setApiReady(true); return }
+    if (!document.getElementById('yt-iframe-api')) {
+      const s = document.createElement('script')
+      s.id = 'yt-iframe-api'
+      s.src = 'https://www.youtube.com/iframe_api'
+      document.head.appendChild(s)
     }
-    window.addEventListener('message', onMessage)
-    return () => window.removeEventListener('message', onMessage)
-  }, [playing, displayVid])
+    // YouTube calls this global when the API is ready. Preserve any existing
+    // handler other components might have registered.
+    const prev = W.onYouTubeIframeAPIReady
+    W.onYouTubeIframeAPIReady = () => { if (typeof prev === 'function') prev(); setApiReady(true) }
+    // If the script was already injected by a previous instance, poll briefly.
+    const iv = window.setInterval(() => {
+      if (W.YT && W.YT.Player) { setApiReady(true); window.clearInterval(iv) }
+    }, 120)
+    return () => window.clearInterval(iv)
+  }, [])
 
-  // On iframe load, register as a listener so YT starts posting state events.
-  const handleIframeLoad = () => {
-    const w = iframeRef.current?.contentWindow
-    if (!w) return
-    w.postMessage(JSON.stringify({ event: 'listening' }), '*')
+  // Create the player when `playing` becomes true and we have a video.
+  // Re-creating on each videoId change is simpler than managing loadVideoById
+  // (and matches the iframe `key` pattern we used before).
+  useEffect(() => {
+    if (!apiReady || !playing || !displayVid || !containerRef.current) return
+
+    // Clean up prior player instance (video switch).
+    if (playerRef.current) {
+      try { playerRef.current.destroy() } catch {}
+      playerRef.current = null
+    }
+
+    const W = window as any
+    playerRef.current = new W.YT.Player(containerRef.current, {
+      videoId: displayVid,
+      width: '100%',
+      height: '100%',
+      playerVars: {
+        autoplay: 1,
+        controls: 1,
+        modestbranding: 1,
+        rel: 0,
+        playsinline: 1,
+        iv_load_policy: 3,
+        origin: typeof window !== 'undefined' ? window.location.origin : undefined,
+      },
+      events: {
+        onReady: (e: any) => {
+          // Ensure playback starts — on mobile the API call within the
+          // same gesture chain is what unlocks it.
+          try { e.target.playVideo() } catch {}
+        },
+        onStateChange: (e: any) => {
+          // YT states: -1 unstarted, 0 ended, 1 playing, 2 paused,
+          // 3 buffering, 5 cued. Active only when playing or buffering.
+          setIsPaused(!(e.data === 1 || e.data === 3))
+        },
+      },
+    })
+
+    return () => {
+      try { playerRef.current?.destroy() } catch {}
+      playerRef.current = null
+    }
+  }, [apiReady, playing, displayVid])
+
+  /** Fire-and-forget play-count ping. We don't block the UI on it; failures
+   *  are silent since playback is already handled by YT. */
+  const pingPlay = (trackId: number) => {
+    try {
+      fetch(`/api/tracks/${trackId}/play`, { method: 'POST', keepalive: true }).catch(() => {})
+    } catch {}
   }
 
   // Toggle per-track play button: same track + playing → pause; same track
   // + paused → resume; different track → switch + autoplay.
   const handleSelect = (id: number) => {
     if (id === activeTrackId && playing) {
-      // Pause/resume via YT API
-      if (isPaused) { ytCommand('playVideo'); setIsPaused(false) }
-      else { ytCommand('pauseVideo'); setIsPaused(true) }
+      if (isPaused) {
+        try { playerRef.current?.playVideo() } catch {}
+        setIsPaused(false)
+        pingPlay(id)
+      } else {
+        try { playerRef.current?.pauseVideo() } catch {}
+        setIsPaused(true)
+      }
       return
     }
     onSelectTrack(id)
     onRequestPlay()
     setIsPaused(false)
+    pingPlay(id)
   }
 
   return (
@@ -317,19 +368,10 @@ function PlayerCard({
       <div className="relative aspect-video overflow-hidden bg-black">
         {displayVid ? (
           playing ? (
-            // Standard YT controls (play/pause/fullscreen) are reliable and
-            // handle autoplay edge cases better than a fully custom overlay.
-            // We keep enablejsapi=1 so our per-track play button can still
-            // drive pause/resume + our equalizer stays in sync with YT state.
-            <iframe
-              ref={iframeRef}
-              key={displayVid}
-              src={`https://www.youtube.com/embed/${displayVid}?rel=0&autoplay=1&modestbranding=1&playsinline=1&iv_load_policy=3&enablejsapi=1`}
-              allow="autoplay;encrypted-media"
-              allowFullScreen
-              onLoad={handleIframeLoad}
-              className="absolute inset-0 h-full w-full border-0"
-            />
+            // YT IFrame API mounts an iframe inside this container. We don't
+            // render an <iframe> ourselves — YT.Player does, inside the user
+            // gesture, which is what unlocks mobile autoplay.
+            <div ref={containerRef} key={displayVid} className="absolute inset-0 h-full w-full" />
           ) : (
             // Initial / not-yet-played state: thumbnail + big central play
             // button. Clicking the button (or anywhere on the thumbnail)
@@ -341,8 +383,10 @@ function PlayerCard({
               type="button"
               onClick={() => {
                 // Start playback of the first available track if none picked.
-                if (!activeTrackId && firstWithVideo) onSelectTrack(firstWithVideo.id)
+                const target = activeTrackId ?? firstWithVideo?.id
+                if (target != null && target !== activeTrackId) onSelectTrack(target)
                 onRequestPlay()
+                if (target != null) pingPlay(target)
               }}
               aria-label="Paleisti"
               className="group absolute inset-0 block cursor-pointer overflow-hidden border-0 bg-black p-0"
@@ -1388,37 +1432,49 @@ function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' |
     )
   }
 
+  // Upcoming event card — horizontal layout. Image on the left (~40% width)
+  // with the date block overlaid; title + venue sit to the right. Keeps the
+  // visual weight of a cover photo without stretching the row vertically —
+  // 2-3 events fit comfortably in a grid without empty air.
   return (
     <Link
       href={href}
-      className="group flex flex-col overflow-hidden rounded-2xl border border-[rgba(249,115,22,0.25)] bg-gradient-to-br from-[rgba(249,115,22,0.08)] to-transparent no-underline transition-all hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.5)] hover:shadow-[0_12px_32px_rgba(249,115,22,0.15)]"
+      className="group flex items-stretch gap-0 overflow-hidden rounded-2xl border border-[rgba(249,115,22,0.25)] bg-gradient-to-br from-[rgba(249,115,22,0.08)] to-transparent no-underline transition-all hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.5)] hover:shadow-[0_12px_32px_rgba(249,115,22,0.15)]"
     >
-      {hasCover ? (
-        <div className="relative aspect-[16/9] overflow-hidden">
+      {/* Left: cover image with date badge overlay. Fixed aspect so all
+          cards share the same horizontal footprint. */}
+      <div className="relative w-[40%] min-w-[120px] max-w-[200px] shrink-0 overflow-hidden bg-[rgba(249,115,22,0.1)]">
+        {hasCover ? (
           <img
             src={e.cover_image_url}
             alt={e.title}
             referrerPolicy="no-referrer"
             onError={() => setCoverFailed(true)}
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-          <div className="absolute left-3 top-3 rounded-lg bg-black/70 px-2.5 py-1.5 text-center backdrop-blur-sm">
-            <div className="font-['Outfit',sans-serif] text-[9px] font-bold uppercase text-[var(--accent-orange)]">{monthShort} {d.getFullYear()}</div>
-            <div className="font-['Outfit',sans-serif] text-[22px] font-black leading-none text-white">{d.getDate()}</div>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--accent-orange)]/40">
+              <path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </div>
+        )}
+        <div className="absolute left-2 top-2 rounded-lg bg-black/75 px-2 py-1 text-center backdrop-blur-sm">
+          <div className="font-['Outfit',sans-serif] text-[9px] font-bold uppercase text-[var(--accent-orange)]">{monthShort} {d.getFullYear()}</div>
+          <div className="font-['Outfit',sans-serif] text-[20px] font-black leading-none text-white">{d.getDate()}</div>
         </div>
-      ) : (
-        <div className="flex aspect-[16/9] items-center justify-center bg-[rgba(249,115,22,0.1)]">
-          <div className="text-center">
-            <div className="font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-wider text-[var(--accent-orange)]">{monthShort} {d.getFullYear()}</div>
-            <div className="font-['Outfit',sans-serif] text-[56px] font-black leading-none text-[var(--text-primary)]">{d.getDate()}</div>
+      </div>
+
+      {/* Right: title + venue */}
+      <div className="flex min-w-0 flex-1 flex-col justify-center px-4 py-3">
+        <div className="line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-bold leading-snug text-[var(--text-primary)] sm:text-[15px]">
+          {e.title}
+        </div>
+        {venue && (
+          <div className="mt-1.5 line-clamp-2 text-[12px] leading-snug text-[var(--text-secondary)]">
+            📍 {venue}
           </div>
-        </div>
-      )}
-      <div className="p-4">
-        <div className="truncate font-['Outfit',sans-serif] text-[15px] font-bold text-[var(--text-primary)] sm:text-[16px]">{e.title}</div>
-        {venue && <div className="mt-1 truncate text-[12px] text-[var(--text-secondary)] sm:text-[13px]">📍 {venue}</div>}
+        )}
       </div>
     </Link>
   )

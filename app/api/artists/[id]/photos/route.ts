@@ -33,21 +33,27 @@ function slugifyName(name: string): string {
     .slice(0, 80) || 'fotografas'
 }
 
-/** Return the id of an existing photographer row that matches `name`, or
- *  create one and return its new id. Idempotent + safe to call repeatedly. */
+/** Return the id of an existing photographer row that matches, or create
+ *  one and return its new id. Dedup order:
+ *    1. Case-insensitive name match
+ *    2. Wikimedia username canonical URL (falls back to external_url eq)
+ *    3. Insert new row
+ *  Keeping the URL-based match means the same Wikimedia user always lands
+ *  on the same photographer row even if attributions vary (trailing
+ *  whitespace, "(photographer)", etc.). */
 async function resolvePhotographerId(name: string, sourceUrl: string | null): Promise<number | null> {
   const n = name.trim()
   if (!n) return null
 
-  // 1) Try existing by case-insensitive name
-  const { data: existing } = await supabase
+  // 1) Case-insensitive name match
+  const { data: byName } = await supabase
     .from('photographers')
     .select('id')
     .ilike('name', n)
     .limit(1)
-  if (existing && existing[0]) return (existing[0] as any).id as number
+  if (byName && byName[0]) return (byName[0] as any).id as number
 
-  // 2) Infer source (wikimedia username vs. direct) from the photo's source URL
+  // 2) Infer canonical source + external URL
   let source: string | null = null
   let externalUrl: string | null = null
   if (sourceUrl) {
@@ -55,7 +61,6 @@ async function resolvePhotographerId(name: string, sourceUrl: string | null): Pr
       const host = new URL(sourceUrl).hostname
       if (host.includes('wikimedia.org') || host.includes('wikipedia.org')) {
         source = 'wikimedia'
-        // Wikimedia user page follows a stable format.
         externalUrl = `https://commons.wikimedia.org/wiki/User:${encodeURIComponent(n)}`
       } else if (host.includes('flickr')) {
         source = 'flickr'
@@ -65,7 +70,19 @@ async function resolvePhotographerId(name: string, sourceUrl: string | null): Pr
     } catch {}
   }
 
-  // 3) Ensure slug uniqueness — collisions are rare but possible.
+  // 3) Match existing by external_url (strong signal for Wikimedia + others
+  //    that carry a canonical profile link). If the URL is already taken,
+  //    reuse that row regardless of how the name was spelled this time.
+  if (externalUrl) {
+    const { data: byUrl } = await supabase
+      .from('photographers')
+      .select('id')
+      .eq('external_url', externalUrl)
+      .limit(1)
+    if (byUrl && byUrl[0]) return (byUrl[0] as any).id as number
+  }
+
+  // 4) Ensure slug uniqueness — collisions are rare but possible
   const base = slugifyName(n)
   let slug = base
   for (let i = 2; i < 20; i++) {
