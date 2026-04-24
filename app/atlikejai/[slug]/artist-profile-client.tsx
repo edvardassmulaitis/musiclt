@@ -55,6 +55,9 @@ type Props = {
   legacyCommunity?: LegacyCommunity
   legacyThreads?: LegacyThread[]; legacyNews?: LegacyThread[]
   ranks?: Rank[]
+  /** Set of track ids that are linked to this artist's albums (via album_tracks
+   *  junction). Tracks NOT in this list are considered orphan ("Kitos dainos"). */
+  linkedTrackIds?: number[]
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -607,25 +610,23 @@ function SideInfo({
 
   // ── Vertical variant — sidebar card ──────────────────────────────
   return (
-    <aside className="space-y-5 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5">
+    <aside className="space-y-4 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5">
+      {/* Country — no label, flag + name is self-explanatory */}
       {artist.country && (
-        <div>
-          <Label>Kilmė</Label>
-          <div className="flex flex-wrap items-baseline gap-2">
-            <span className="inline-flex items-center gap-2 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">
-              <span className="text-[18px] leading-none">{flag}</span>
-              <span>{artist.country}</span>
-            </span>
-            {countryRank && <RankChip n={countryRank.rank} />}
-          </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-2 font-['Outfit',sans-serif] text-[15px] font-bold text-[var(--text-primary)]">
+            <span className="text-[20px] leading-none">{flag}</span>
+            <span>{artist.country}</span>
+          </span>
+          {countryRank && <RankChip n={countryRank.rank} />}
         </div>
       )}
 
+      {/* Main genre + rank + substyles */}
       {genres[0] && (
         <div>
-          <Label>Stilius</Label>
-          <div className="flex flex-wrap items-baseline gap-2">
-            <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-['Outfit',sans-serif] text-[15px] font-bold text-[var(--text-primary)]">
               {genres[0].name}
             </span>
             {genreRank && <RankChip n={genreRank.rank} />}
@@ -639,17 +640,14 @@ function SideInfo({
       )}
 
       {globalRank && (
-        <div>
-          <Label>Pasaulyje</Label>
-          <span className="inline-flex items-center rounded-full bg-[rgba(249,115,22,0.14)] px-3 py-1 font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--accent-orange)]">
-            #{globalRank.rank} {globalRank.category}
-          </span>
+        <div className="flex items-center gap-2">
+          <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">Pasaulyje</span>
+          <RankChip n={globalRank.rank} />
         </div>
       )}
 
       {hasSocials && (
-        <div>
-          <Label>Klausyk ir sek</Label>
+        <div className="pt-1">
           <div className="flex flex-wrap gap-1.5">
             {links.filter(l => SOC[l.platform]).map(l => {
               const p = SOC[l.platform]
@@ -1070,6 +1068,7 @@ export default function ArtistProfileClient({
   artist, heroImage, genres, substyles = [], links, photos, albums, tracks, members, followers, likeCount,
   events, similar, newTracks,
   legacyCommunity, legacyThreads = [], legacyNews = [], ranks = [],
+  linkedTrackIds = [],
 }: Props) {
   const [pid, setPid] = useState<number | null>(null)
   const [loaded, setLoaded] = useState(false)
@@ -1146,11 +1145,16 @@ export default function ArtistProfileClient({
   const likes = modernLikeCount + followers + authoritativeLegacy
   const allLikesUsers: any[] = legacyCommunity?.allArtistFans || []
 
-  // Discography filters — types present in albums
-  // NOTE: "Kitos dainos" (orphan tracks) tab disabled — tracks.album_id column
-  // doesn't exist; needs schema investigation before we can surface it.
+  // Discography filters — album types present + "Kitos dainos" when orphan
+  // tracks exist (tracks not linked to any album via album_tracks junction).
   const atypes = [...new Set(albums.map(aType))]
   const hasStudio = atypes.includes('Studijinis')
+  const linkedSet = useMemo(() => new Set(linkedTrackIds), [linkedTrackIds])
+  const orphanTracks = useMemo(
+    () => tracks.filter(t => !linkedSet.has(t.id)),
+    [tracks, linkedSet],
+  )
+  const hasOrphanTracks = orphanTracks.length > 0
   const [df, setDf] = useState<string>(hasStudio ? 'Studijinis' : 'all')
   const fAlbums = df === 'all' ? albums : albums.filter(a => aType(a) === df)
 
@@ -1305,10 +1309,10 @@ export default function ArtistProfileClient({
           )
         })()}
 
-        {/* Diskografija — no count in header; renamed filters */}
-        {albums.length > 0 && (
+        {/* Muzika (buvo Diskografija) — no count in header, adds "Kitos dainos" tab */}
+        {(albums.length > 0 || hasOrphanTracks) && (
           <section>
-            <SectionTitle label="Diskografija" />
+            <SectionTitle label="Muzika" />
             <div className="mb-5 flex flex-wrap gap-1.5 sm:gap-2">
               {atypes.map(t => {
                 const count = albums.filter(a => aType(a) === t).length
@@ -1329,6 +1333,20 @@ export default function ArtistProfileClient({
                   </button>
                 )
               })}
+              {hasOrphanTracks && (
+                <button
+                  onClick={() => setDf('orphan')}
+                  className={[
+                    'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-["Outfit",sans-serif] text-[12px] font-bold transition-all',
+                    df === 'orphan'
+                      ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white shadow-[0_4px_12px_rgba(249,115,22,0.3)]'
+                      : 'border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]',
+                  ].join(' ')}
+                >
+                  {FILTER_LABEL.orphan}
+                  <span className={df === 'orphan' ? 'opacity-80' : 'text-[var(--text-faint)]'}>· {orphanTracks.length}</span>
+                </button>
+              )}
               {atypes.length > 1 && (
                 <button
                   onClick={() => setDf('all')}
@@ -1345,7 +1363,10 @@ export default function ArtistProfileClient({
               )}
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-              {fAlbums.map(a => <AlbumCard key={a.id} a={a} />)}
+              {df === 'orphan'
+                ? orphanTracks.map(t => <TrackCard key={t.id} t={t} />)
+                : fAlbums.map(a => <AlbumCard key={a.id} a={a} />)
+              }
             </div>
           </section>
         )}

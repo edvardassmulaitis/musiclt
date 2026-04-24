@@ -18,7 +18,60 @@ function getAuthoritativeLegacyCount(artist: any): number {
   return artist?.legacy_like_count ?? 0
 }
 async function getGenres(id: number) { const sb = createAdminClient(); const { data } = await sb.from('artist_genres').select('genre_id, genres(id, name)').eq('artist_id', id); return (data || []).map((g: any) => g.genres).filter(Boolean) }
-async function getLinks(id: number) { const sb = createAdminClient(); const { data } = await sb.from('artist_links').select('platform, url').eq('artist_id', id); return data || [] }
+async function getLinks(id: number) {
+  const sb = createAdminClient()
+  const { data } = await sb.from('artist_links').select('platform, url').eq('artist_id', id)
+  return data || []
+}
+
+/** Admin stores social URLs as columns on the artists table (spotify, youtube,
+ *  facebook, tiktok, twitter, soundcloud, bandcamp). The artist_links junction
+ *  isn't used by the current admin form, so pull socials from the artist row
+ *  and merge with any legacy artist_links rows — deduped by platform. */
+function buildSocialLinks(
+  artist: any,
+  tableLinks: { platform: string; url: string }[],
+): { platform: string; url: string }[] {
+  const fromCols: { platform: string; url: string }[] = []
+  const fields: Array<keyof any> = ['spotify', 'youtube', 'facebook', 'tiktok', 'twitter', 'soundcloud', 'bandcamp']
+  for (const f of fields) {
+    const val = (artist as any)[f]
+    if (val && typeof val === 'string' && val.trim()) {
+      fromCols.push({ platform: f as string, url: val.trim() })
+    }
+  }
+  const seen = new Set<string>()
+  const out: { platform: string; url: string }[] = []
+  for (const l of [...fromCols, ...tableLinks]) {
+    if (!l.platform || !l.url) continue
+    if (seen.has(l.platform)) continue
+    seen.add(l.platform)
+    out.push(l)
+  }
+  return out
+}
+
+/** Set of track ids that ARE linked to any album of this artist.
+ *  Tracks not in this set = "kitos dainos" (orphan tracks). */
+async function getLinkedTrackIds(artistId: number): Promise<Set<number>> {
+  const sb = createAdminClient()
+  const linked = new Set<number>()
+  try {
+    const { data: albums } = await sb.from('albums').select('id').eq('artist_id', artistId)
+    const albumIds = (albums || []).map((a: any) => a.id).filter((n: any) => typeof n === 'number')
+    if (albumIds.length === 0) return linked
+    const { data: rows } = await sb
+      .from('album_tracks')
+      .select('track_id')
+      .in('album_id', albumIds)
+    for (const r of (rows || []) as any[]) {
+      if (typeof r.track_id === 'number') linked.add(r.track_id)
+    }
+  } catch {
+    // album_tracks query failed — return empty set (no orphan detection possible)
+  }
+  return linked
+}
 async function getPhotos(id: number) { const sb = createAdminClient(); const { data } = await sb.from('artist_photos').select('id, url, caption, sort_order').eq('artist_id', id).order('sort_order'); return data || [] }
 async function getAlbums(id: number) { const sb = createAdminClient(); const { data } = await sb.from('albums').select('id, slug, title, year, month, cover_image_url, type_studio, type_compilation, type_ep, type_single, type_live, type_remix, type_soundtrack, type_demo, spotify_id, video_url, legacy_id').eq('artist_id', id).order('year', { ascending: false }); return data || [] }
 async function getTracks(id: number) {
@@ -294,9 +347,8 @@ async function getArtistRanks(
       .map((r: any) => r.artists)
       .filter((a: any) => a && a.id !== artistId && a.legacy_like_count != null)
     const higher = rows.filter((a: any) => (a.legacy_like_count ?? 0) > legacyLikeCount).length
-    if (rows.length + 1 >= 2) {
-      out.push({ category: g.name, rank: higher + 1, total: rows.length + 1, scope: 'genre' })
-    }
+    // Always surface the genre rank — #1 out of 1 is still valid ("#1 in the genre").
+    out.push({ category: g.name, rank: higher + 1, total: rows.length + 1, scope: 'genre' })
   }
 
   return out
@@ -319,13 +371,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ArtistPage({ params }: Props) {
   const { slug } = await params; const artist = await getArtist(slug); if (!artist) notFound()
-  const [genres, substyles, links, dbPhotos, albums, tracks, members, followers, likeCount, news, rawEvents, allTrackLegacyIds, legacyThreads, legacyNews] = await Promise.all([
+  const [genres, substyles, tableLinks, dbPhotos, albums, tracks, members, followers, likeCount, news, rawEvents, allTrackLegacyIds, legacyThreads, legacyNews, linkedTrackIdSet] = await Promise.all([
     getGenres(artist.id), getSubstyles(artist.id), getLinks(artist.id), getPhotos(artist.id), getAlbums(artist.id), getTracks(artist.id),
     getMembers(artist.id), getFollowers(artist.id), getLikeCount(artist.id), getNews(artist.id), getEvents(artist.id),
     getAllArtistTrackLegacyIds(artist.id),
     getLegacyForumThreads({ name: artist.name, slug: artist.slug }),
     getLegacyNewsThreads({ name: artist.name, slug: artist.slug }, 12),
+    getLinkedTrackIds(artist.id),
   ])
+  const links = buildSocialLinks(artist, tableLinks as { platform: string; url: string }[])
+  const linkedTrackIds = Array.from(linkedTrackIdSet)
   const similar = await getSimilar(artist.id, genres.map((g: any) => g.id))
 
   // Legacy community — aggregated likes (artist + all his albums + tracks)
@@ -398,6 +453,7 @@ export default async function ArtistPage({ params }: Props) {
       legacyCommunity={legacyCommunity} legacyThreads={legacyThreadsWithPosts as any} legacyNews={legacyNewsWithPosts as any}
       ranks={ranks}
       substyles={substyles}
+      linkedTrackIds={linkedTrackIds}
     />
   )
 }
