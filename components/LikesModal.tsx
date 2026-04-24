@@ -21,6 +21,14 @@ type Props = {
   title: string
   count: number
   users: LikeUser[]
+  /** Optional self-like integration. When selfLiked is provided (not undefined),
+   *  a banner with "Patinka ir man" / "Tau patinka" appears at the top of the
+   *  body. If the viewer is not signed in, pass authed=false to render a sign-in
+   *  prompt instead of a toggle. */
+  selfLiked?: boolean
+  authed?: boolean
+  onToggleSelfLike?: () => void
+  selfLikePending?: boolean
 }
 
 const PAGE_SIZE = 60
@@ -47,7 +55,10 @@ function canonicalRank(r?: string | null): string {
   return r
 }
 
-export default function LikesModal({ open, onClose, title, count, users }: Props) {
+export default function LikesModal({
+  open, onClose, title, count, users,
+  selfLiked, authed, onToggleSelfLike, selfLikePending,
+}: Props) {
   const [rankFilter, setRankFilter] = useState<string>('all')
   const [shown, setShown] = useState(PAGE_SIZE)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -189,6 +200,58 @@ export default function LikesModal({ open, onClose, title, count, users }: Props
                 </button>
               )
             })}
+          </div>
+        )}
+
+        {/* Self-like banner (optional) */}
+        {selfLiked !== undefined && (
+          <div style={{
+            padding: '14px 22px',
+            borderBottom: '1px solid var(--border-subtle)',
+            background: 'var(--bg-elevated)',
+            flexShrink: 0,
+          }}>
+            {authed === false ? (
+              <Link
+                href="/auth/signin"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 10,
+                  padding: '10px 18px', borderRadius: 100,
+                  background: 'var(--accent-orange)', color: '#fff',
+                  fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 800,
+                  textDecoration: 'none',
+                  boxShadow: '0 6px 20px rgba(249,115,22,0.35)',
+                  transition: 'transform .15s, box-shadow .15s',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 10px 28px rgba(249,115,22,0.5)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 6px 20px rgba(249,115,22,0.35)' }}
+              >
+                <HeartIcon size={14} />
+                Prisijunk, kad įdėtum „Patinka"
+              </Link>
+            ) : (
+              <button
+                onClick={() => onToggleSelfLike && onToggleSelfLike()}
+                disabled={selfLikePending}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 10,
+                  padding: '10px 18px', borderRadius: 100,
+                  border: `1px solid ${selfLiked ? 'var(--accent-orange)' : 'var(--border-default)'}`,
+                  background: selfLiked ? 'var(--accent-orange)' : 'var(--card-bg)',
+                  color: selfLiked ? '#fff' : 'var(--text-primary)',
+                  fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 800,
+                  cursor: selfLikePending ? 'wait' : 'pointer',
+                  opacity: selfLikePending ? 0.7 : 1,
+                  transition: 'all .2s',
+                  boxShadow: selfLiked ? '0 6px 20px rgba(249,115,22,0.35)' : 'none',
+                }}
+              >
+                <svg viewBox="0 0 24 24" width={14} height={14} fill={selfLiked ? '#fff' : 'none'} stroke={selfLiked ? '#fff' : 'var(--accent-orange)'} strokeWidth={2}>
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                </svg>
+                {selfLiked ? 'Tau patinka' : 'Patinka ir man'}
+              </button>
+            )}
           </div>
         )}
 

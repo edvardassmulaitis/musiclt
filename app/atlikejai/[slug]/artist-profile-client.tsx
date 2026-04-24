@@ -294,11 +294,11 @@ function TabButton({ active, disabled, onClick, children }: {
 // ── Hero v8: split photo + player inside (v6 style) ────────────────
 
 function Hero({
-  artist, heroImage, loaded, ranks, likes, onLikes,
+  artist, heroImage, loaded, ranks, likes, onLikes, selfLiked,
   tracksAllTime, tracksTrending, activeTrackId, onSelectTrack, hasAnyVideo,
 }: {
   artist: any; heroImage: string | null; loaded: boolean
-  ranks: Rank[]; likes: number; onLikes: () => void
+  ranks: Rank[]; likes: number; onLikes: () => void; selfLiked?: boolean
   tracksAllTime: Track[]; tracksTrending: Track[]
   activeTrackId: number | null; onSelectTrack: (id: number) => void; hasAnyVideo: boolean
 }) {
@@ -350,17 +350,21 @@ function Hero({
 
           {/* Below title: likes + rank pills */}
           <div className="flex flex-wrap items-center gap-2">
-            {likes > 0 && (
-              <button
-                onClick={onLikes}
-                className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.1em] text-[var(--text-primary)] backdrop-blur-md transition-colors hover:bg-[var(--bg-hover)] lg:border-white/20 lg:bg-white/10 lg:text-white lg:hover:bg-white/20 sm:text-[13px]"
-              >
-                <svg viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5 text-[var(--accent-orange)]">
-                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                </svg>
-                {likes.toLocaleString('lt-LT')}
-              </button>
-            )}
+            <button
+              onClick={onLikes}
+              className={[
+                'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-["Outfit",sans-serif] text-[12px] font-extrabold uppercase tracking-[0.1em] backdrop-blur-md transition-colors sm:text-[13px]',
+                selfLiked
+                  ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white shadow-[0_6px_18px_rgba(249,115,22,0.4)] hover:bg-[color-mix(in_srgb,var(--accent-orange)_90%,#000)]'
+                  : 'border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)] lg:border-white/20 lg:bg-white/10 lg:text-white lg:hover:bg-white/20',
+              ].join(' ')}
+              title={selfLiked ? 'Tau patinka — paspausk, kad pamatytum visus' : 'Pažiūrėk, kam patinka + patiktuk ir pats'}
+            >
+              <svg viewBox="0 0 24 24" fill={selfLiked ? '#fff' : 'currentColor'} className={['h-3.5 w-3.5', selfLiked ? 'text-white' : 'text-[var(--accent-orange)]'].join(' ')}>
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+              </svg>
+              {likes > 0 ? likes.toLocaleString('lt-LT') : 'Patinka'}
+            </button>
             {ranks.slice(0, 3).map((r, i) => (
               <span
                 key={i}
@@ -728,14 +732,69 @@ export default function ArtistProfileClient({
   const [pid, setPid] = useState<number | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [likesModalOpen, setLikesModalOpen] = useState(false)
+
+  // Self-like state — fetched from API on mount.
+  //  selfLiked === undefined -> not yet loaded
+  //  authed === undefined -> unknown; set to false if 401 on POST
+  const [selfLiked, setSelfLiked] = useState<boolean | undefined>(undefined)
+  const [authed, setAuthed] = useState<boolean | undefined>(undefined)
+  const [modernLikeCount, setModernLikeCount] = useState<number>(likeCount)
+  const [selfLikePending, setSelfLikePending] = useState(false)
+
   useEffect(() => { setLoaded(true) }, [])
+
+  // Fetch initial like state from server
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/artists/${artist.id}/like`, { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (cancelled || !data) return
+        if (typeof data.liked === 'boolean') setSelfLiked(data.liked)
+        if (typeof data.count === 'number') setModernLikeCount(data.count)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [artist.id])
+
+  const toggleSelfLike = async () => {
+    if (selfLikePending) return
+    setSelfLikePending(true)
+    const prev = selfLiked
+    // Optimistic toggle
+    setSelfLiked(prev ? false : true)
+    setModernLikeCount(c => c + (prev ? -1 : 1))
+    try {
+      const res = await fetch(`/api/artists/${artist.id}/like`, { method: 'POST' })
+      if (res.status === 401) {
+        // Revert
+        setSelfLiked(prev)
+        setModernLikeCount(c => c - (prev ? -1 : 1))
+        setAuthed(false)
+      } else if (res.ok) {
+        const data = await res.json()
+        if (typeof data.liked === 'boolean') setSelfLiked(data.liked)
+        if (typeof data.count === 'number') setModernLikeCount(data.count)
+        setAuthed(true)
+      } else {
+        // Revert on failure
+        setSelfLiked(prev)
+        setModernLikeCount(c => c - (prev ? -1 : 1))
+      }
+    } catch {
+      setSelfLiked(prev)
+      setModernLikeCount(c => c - (prev ? -1 : 1))
+    } finally {
+      setSelfLikePending(false)
+    }
+  }
 
   const flag = FLAGS[artist.country] || (artist.country ? '🌍' : '')
   const hasBio = artist.description?.trim().length > 10
   const solo = artist.type === 'solo'
   const active = artist.active_from ? `${artist.active_from}–${artist.active_until || 'dabar'}` : null
   const authoritativeLegacy = (artist as any).legacy_like_count ?? legacyCommunity?.artistLikes ?? 0
-  const likes = likeCount + followers + authoritativeLegacy
+  const likes = modernLikeCount + followers + authoritativeLegacy
   const allLikesUsers: any[] = legacyCommunity?.allArtistFans || []
 
   // Discography filter
@@ -773,7 +832,8 @@ export default function ArtistProfileClient({
         loaded={loaded}
         ranks={ranks}
         likes={likes}
-        onLikes={() => likes > 0 && setLikesModalOpen(true)}
+        onLikes={() => setLikesModalOpen(true)}
+        selfLiked={selfLiked}
         tracksAllTime={tracksAllTime}
         tracksTrending={tracksTrending}
         activeTrackId={pid}
@@ -787,6 +847,10 @@ export default function ArtistProfileClient({
         title={`„${artist.name}" patinka`}
         count={likes}
         users={allLikesUsers}
+        selfLiked={selfLiked}
+        authed={authed}
+        onToggleSelfLike={toggleSelfLike}
+        selfLikePending={selfLikePending}
       />
 
       <main className="mx-auto max-w-[1400px] space-y-10 px-4 pb-24 pt-8 sm:space-y-14 sm:px-6 lg:px-10">
