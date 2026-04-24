@@ -2,12 +2,17 @@
 import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import LikesModal from '@/components/LikesModal'
+import BioModal from '@/components/BioModal'
 import type { LegacyLikeUser } from '@/components/LegacyLikesPanel'
 
 /* ═══════════════════════════════════════════════════════════════════
-   Artist profile — v8 (reverted to v6 split hero + v7 info layout).
-   Desktop: photo left, player right (both inside hero, fade between).
-   Below hero: info bar → apie+bio-meta → members → rest.
+   Artist profile — v9.
+   Desktop: 3-col hero [photo | info strip | player]. The middle strip
+   holds country+rank, genre+rank (with subtle substyles), socials and
+   website — visually separates photo from player.
+   Below hero: bio + compact inline members on left; gallery collage
+   (excludes hero photo) on right. No big "Apie"/"Nariai" headers.
+   Short bio preview → BioModal on "Skaityti daugiau".
    ═══════════════════════════════════════════════════════════════════ */
 
 // ── Types ───────────────────────────────────────────────────────────
@@ -105,11 +110,11 @@ const SOC: Record<string, { l: string; c: string; d: string }> = {
 function SectionTitle({ label, count }: { label: string; count?: number }) {
   return (
     <div className="mb-5 flex items-baseline gap-3 sm:mb-6">
-      <h2 className="font-['Outfit',sans-serif] text-[22px] font-black leading-none tracking-[-0.01em] text-[var(--text-primary)] sm:text-[26px] lg:text-[30px]">
+      <h2 className="font-['Outfit',sans-serif] text-[22px] font-black leading-none tracking-[-0.01em] text-[var(--text-primary)] sm:text-[26px] lg:text-[28px]">
         {label}
       </h2>
       {typeof count === 'number' && (
-        <span className="font-['Outfit',sans-serif] text-[15px] font-bold text-[var(--text-faint)] sm:text-[17px]">{count}</span>
+        <span className="font-['Outfit',sans-serif] text-[15px] font-bold text-[var(--text-faint)] sm:text-[16px]">{count}</span>
       )}
     </div>
   )
@@ -291,101 +296,232 @@ function TabButton({ active, disabled, onClick, children }: {
   )
 }
 
-// ── Hero v8: split photo + player inside (v6 style) ────────────────
+// ── InfoStrip: vertical middle column between photo and player ─────
+
+function InfoStrip({
+  artist, flag, genres, substyles, ranks, links, website,
+}: {
+  artist: any; flag: string; genres: Genre[]; substyles: Genre[]
+  ranks: Rank[]
+  links: { platform: string; url: string }[]; website?: string | null
+}) {
+  const countryRank = ranks.find(r => r.scope === 'country')
+  const genreRank = ranks.find(r => r.scope === 'genre')
+  const hasSocials = links.some(l => SOC[l.platform]) || !!website
+
+  return (
+    <div className="flex flex-col gap-5 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5 lg:justify-between">
+      {/* Country with rank */}
+      {artist.country && (
+        <div>
+          <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+            Kilmė
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-2 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">
+              <span className="text-[18px] leading-none">{flag}</span>
+              <span>{artist.country}</span>
+            </span>
+            {countryRank && (
+              <span className="inline-flex items-center rounded-full bg-[rgba(249,115,22,0.12)] px-2 py-0.5 font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--accent-orange)]">
+                #{countryRank.rank}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Main genre + subtle substyles + rank */}
+      {genres[0] && (
+        <div>
+          <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+            Stilius
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">
+              {genres[0].name}
+            </span>
+            {genreRank && (
+              <span className="inline-flex items-center rounded-full bg-[rgba(249,115,22,0.12)] px-2 py-0.5 font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--accent-orange)]">
+                #{genreRank.rank}
+              </span>
+            )}
+          </div>
+          {/* Substyles — subtle, smaller, lighter */}
+          {substyles.length > 0 && (
+            <div className="mt-1 text-[12px] leading-[1.45] text-[var(--text-muted)]">
+              {substyles.map(s => s.name).join(' · ')}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Socials */}
+      {hasSocials && (
+        <div>
+          <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+            Klausyk ir sek
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {links.filter(l => SOC[l.platform]).map(l => {
+              const p = SOC[l.platform]
+              return (
+                <a
+                  key={l.platform}
+                  href={l.url}
+                  target="_blank"
+                  rel="noopener"
+                  title={p.l}
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+                >
+                  <svg viewBox="0 0 24 24" fill={p.c} width="14" height="14"><path d={p.d} /></svg>
+                </a>
+              )
+            })}
+            {website && (
+              <a
+                href={website}
+                target="_blank"
+                rel="noopener"
+                title="Oficiali svetainė"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Global rank (if present, below socials) */}
+      {(() => {
+        const globalRank = ranks.find(r => r.scope === 'global')
+        if (!globalRank) return null
+        return (
+          <div>
+            <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+              Pasaulyje
+            </div>
+            <div className="inline-flex items-center rounded-full bg-[rgba(249,115,22,0.12)] px-3 py-1 font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--accent-orange)]">
+              #{globalRank.rank} {globalRank.category}
+            </div>
+          </div>
+        )
+      })()}
+    </div>
+  )
+}
+
+// ── Hero v9: 3-col [photo | strip | player] ────────────────────────
 
 function Hero({
   artist, heroImage, loaded, ranks, likes, onLikes, selfLiked,
+  genres, substyles, links,
   tracksAllTime, tracksTrending, activeTrackId, onSelectTrack, hasAnyVideo,
 }: {
   artist: any; heroImage: string | null; loaded: boolean
   ranks: Rank[]; likes: number; onLikes: () => void; selfLiked?: boolean
+  genres: Genre[]; substyles: Genre[]
+  links: { platform: string; url: string }[]
   tracksAllTime: Track[]; tracksTrending: Track[]
   activeTrackId: number | null; onSelectTrack: (id: number) => void; hasAnyVideo: boolean
 }) {
   const coverPos = parseCoverPos(artist.cover_image_position || 'center 30%')
+  const flag = FLAGS[artist.country] || (artist.country ? '🌍' : '')
 
   return (
-    <section className="relative isolate w-full bg-[var(--bg-surface)]">
-      {/* Photo backdrop — mobile: aspect-video at top; desktop: absolute left 62%, fades into solid */}
-      <div className="relative aspect-video w-full overflow-hidden bg-black sm:aspect-[16/9] lg:absolute lg:inset-y-0 lg:left-0 lg:right-[38%] lg:aspect-auto">
-        {heroImage ? (
-          <img
-            src={heroImage}
-            alt={artist.name}
-            className="block h-full w-full animate-[apHeroZoom_36s_ease-in-out_infinite_alternate] object-cover"
-            style={{
-              objectPosition: `${coverPos.x}% ${coverPos.y}%`,
-              transformOrigin: `${coverPos.x}% ${coverPos.y}%`,
-            }}
-          />
-        ) : (
-          <div className="h-full w-full bg-gradient-to-br from-[#1a2436] to-[#0a0f1a]" />
-        )}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
-        <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[35%] bg-gradient-to-r from-transparent to-[var(--bg-surface)] lg:block" />
-      </div>
+    <section className="relative isolate w-full bg-[var(--bg-body)]">
+      <div className="mx-auto max-w-[1400px] px-4 pb-6 pt-5 sm:px-6 sm:pb-8 sm:pt-6 lg:px-10 lg:pb-10 lg:pt-8">
+        {/* 3-col grid on desktop */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_220px_440px] lg:gap-6">
 
-      <style>{`@keyframes apHeroZoom{0%{transform:scale(1.02)}100%{transform:scale(1.08)}}`}</style>
+          {/* PHOTO col */}
+          <div className="relative overflow-hidden rounded-2xl bg-black">
+            <div className="relative aspect-video lg:aspect-[5/4] lg:min-h-[520px]">
+              {heroImage ? (
+                <img
+                  src={heroImage}
+                  alt={artist.name}
+                  className="absolute inset-0 block h-full w-full animate-[apHeroZoom_36s_ease-in-out_infinite_alternate] object-cover"
+                  style={{
+                    objectPosition: `${coverPos.x}% ${coverPos.y}%`,
+                    transformOrigin: `${coverPos.x}% ${coverPos.y}%`,
+                  }}
+                />
+              ) : (
+                <div className="absolute inset-0 bg-gradient-to-br from-[#1a2436] to-[#0a0f1a]" />
+              )}
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
 
-      <div className="relative mx-auto grid max-w-[1400px] grid-cols-1 gap-6 px-4 pb-10 pt-5 sm:px-6 lg:grid-cols-[1fr_460px] lg:gap-10 lg:min-h-[580px] lg:px-10 lg:py-10">
-        {/* Title column */}
-        <div
-          className={[
-            'flex min-w-0 flex-col justify-end',
-            'transition-[opacity,transform] duration-700 ease-out',
-            loaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
-          ].join(' ')}
-        >
-          <h1
-            className="mb-4 font-['Outfit',sans-serif] font-black leading-[0.9] tracking-[-0.04em] text-[var(--text-primary)] lg:text-white lg:drop-shadow-[0_6px_32px_rgba(0,0,0,0.8)]"
-            style={{ fontSize: 'clamp(2.25rem,6.5vw,5rem)' }}
-          >
-            {artist.name}
-            {artist.is_verified && (
-              <span className="ml-3 inline-flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#3b82f6] to-[#1d4ed8] align-middle shadow-[0_4px_16px_rgba(59,130,246,0.5)] sm:h-8 sm:w-8">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>
-              </span>
-            )}
-          </h1>
+              <style>{`@keyframes apHeroZoom{0%{transform:scale(1.02)}100%{transform:scale(1.08)}}`}</style>
 
-          {/* Below title: likes + rank pills */}
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={onLikes}
-              className={[
-                'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-["Outfit",sans-serif] text-[12px] font-extrabold uppercase tracking-[0.1em] backdrop-blur-md transition-colors sm:text-[13px]',
-                selfLiked
-                  ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white shadow-[0_6px_18px_rgba(249,115,22,0.4)] hover:bg-[color-mix(in_srgb,var(--accent-orange)_90%,#000)]'
-                  : 'border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)] lg:border-white/20 lg:bg-white/10 lg:text-white lg:hover:bg-white/20',
-              ].join(' ')}
-              title={selfLiked ? 'Tau patinka — paspausk, kad pamatytum visus' : 'Pažiūrėk, kam patinka + patiktuk ir pats'}
-            >
-              <svg viewBox="0 0 24 24" fill={selfLiked ? '#fff' : 'currentColor'} className={['h-3.5 w-3.5', selfLiked ? 'text-white' : 'text-[var(--accent-orange)]'].join(' ')}>
-                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-              </svg>
-              {likes > 0 ? likes.toLocaleString('lt-LT') : 'Patinka'}
-            </button>
-            {ranks.slice(0, 3).map((r, i) => (
-              <span
-                key={i}
-                className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(249,115,22,0.45)] bg-[rgba(249,115,22,0.14)] px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.1em] text-[var(--text-primary)] backdrop-blur-md lg:text-white sm:text-[13px]"
+              {/* Title overlay bottom-left */}
+              <div
+                className={[
+                  'absolute inset-x-0 bottom-0 px-5 pb-5 sm:px-8 sm:pb-8',
+                  'transition-[opacity,transform] duration-700 ease-out',
+                  loaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
+                ].join(' ')}
               >
-                <span className="text-[var(--accent-orange)]">#{r.rank}</span>
-                <span>{r.category}</span>
-              </span>
-            ))}
-          </div>
-        </div>
+                <h1
+                  className="mb-4 font-['Outfit',sans-serif] font-black leading-[0.9] tracking-[-0.04em] text-white drop-shadow-[0_6px_32px_rgba(0,0,0,0.8)]"
+                  style={{ fontSize: 'clamp(2rem,5.5vw,4.5rem)' }}
+                >
+                  {artist.name}
+                  {artist.is_verified && (
+                    <span className="ml-3 inline-flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#3b82f6] to-[#1d4ed8] align-middle shadow-[0_4px_16px_rgba(59,130,246,0.5)] sm:h-8 sm:w-8">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>
+                    </span>
+                  )}
+                </h1>
 
-        {/* Player column */}
-        <div
-          className={[
-            'flex min-w-0 lg:items-center',
-            'transition-[opacity,transform] duration-700 delay-150 ease-out',
-            loaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
-          ].join(' ')}
-        >
-          <div className="w-full">
+                {/* Likes pill only — no rank pills (ranks are in the strip) */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={onLikes}
+                    className={[
+                      'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-["Outfit",sans-serif] text-[12px] font-extrabold uppercase tracking-[0.1em] backdrop-blur-md transition-colors sm:text-[13px]',
+                      selfLiked
+                        ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white shadow-[0_6px_18px_rgba(249,115,22,0.4)]'
+                        : 'border-white/20 bg-white/10 text-white hover:bg-white/20',
+                    ].join(' ')}
+                    title={selfLiked ? 'Tau patinka — paspausk, kad pamatytum visus' : 'Pažiūrėk, kam patinka + patiktuk ir pats'}
+                  >
+                    <svg viewBox="0 0 24 24" fill={selfLiked ? '#fff' : 'currentColor'} className={['h-3.5 w-3.5', selfLiked ? 'text-white' : 'text-[var(--accent-orange)]'].join(' ')}>
+                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                    </svg>
+                    {likes > 0 ? likes.toLocaleString('lt-LT') : 'Patinka'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* INFO STRIP col */}
+          <div
+            className={[
+              'min-w-0 transition-[opacity,transform] duration-700 delay-75 ease-out',
+              loaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
+            ].join(' ')}
+          >
+            <InfoStrip
+              artist={artist}
+              flag={flag}
+              genres={genres}
+              substyles={substyles}
+              ranks={ranks}
+              links={links}
+              website={artist.website}
+            />
+          </div>
+
+          {/* PLAYER col */}
+          <div
+            className={[
+              'min-w-0 transition-[opacity,transform] duration-700 delay-150 ease-out',
+              loaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
+            ].join(' ')}
+          >
             <PlayerCard
               tracksAllTime={tracksAllTime}
               tracksTrending={tracksTrending}
@@ -400,162 +536,193 @@ function Hero({
   )
 }
 
-// ── InfoBar: country + genre + socials (no Sekti, it's redundant) ──
+// ── BioPreview: short text + "Skaityti daugiau" opens modal ────────
 
-function InfoBar({
-  artist, flag, genres, links, website,
-}: {
-  artist: any; flag: string; genres: Genre[]
-  links: { platform: string; url: string }[]; website?: string | null
-}) {
-  const hasSocials = links.some(l => SOC[l.platform]) || !!website
-
+function BioPreview({ html, active, onOpen }: { html: string; active: string | null; onOpen: () => void }) {
+  const plain = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  const excerpt = plain.slice(0, 320)
+  const isLong = plain.length > 320
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3 sm:gap-4 sm:px-5">
-      {artist.country && (
-        <span className="inline-flex items-center gap-2 font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)] sm:text-[14px]">
-          <span className="text-[18px] leading-none">{flag}</span>
-          <span>{artist.country}</span>
+    <div className="text-[15px] leading-[1.7] text-[var(--text-secondary)]">
+      {active && (
+        <span className="font-['Outfit',sans-serif] text-[12px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+          {active}
         </span>
       )}
-
-      {genres[0] && (
+      {active && <span className="mx-2 text-[var(--text-faint)]">·</span>}
+      {excerpt}
+      {isLong && '…'}
+      {isLong && (
         <>
-          <span className="text-[var(--border-strong)]">·</span>
-          <span className="font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-secondary)] sm:text-[14px]">
-            {genres[0].name}
-          </span>
+          {' '}
+          <button
+            onClick={onOpen}
+            className="inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--accent-orange)] transition-colors hover:text-[color-mix(in_srgb,var(--accent-orange)_80%,#fff)]"
+          >
+            Skaityti daugiau →
+          </button>
         </>
-      )}
-
-      {hasSocials && (
-        <div className="ml-auto flex items-center gap-1">
-          {links.filter(l => SOC[l.platform]).map(l => {
-            const p = SOC[l.platform]
-            return (
-              <a
-                key={l.platform}
-                href={l.url}
-                target="_blank"
-                rel="noopener"
-                title={p.l}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
-              >
-                <svg viewBox="0 0 24 24" fill={p.c} width="14" height="14"><path d={p.d} /></svg>
-              </a>
-            )
-          })}
-          {website && (
-            <a
-              href={website}
-              target="_blank"
-              rel="noopener"
-              title="Oficiali svetainė"
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
-            </a>
-          )}
-        </div>
       )}
     </div>
   )
 }
 
-// ── BioMeta: years + all styles (genres + substyles) ───────────────
+// ── Members: compact inline pills right below bio ──────────────────
 
-function BioMeta({ active, genres, substyles }: {
-  active: string | null; genres: Genre[]; substyles: Genre[]
-}) {
-  // Merge genres + substyles, dedupe by name
-  const styleMap = new Map<string, string>()
-  for (const g of genres) if (g.name) styleMap.set(g.name.toLowerCase(), g.name)
-  for (const s of substyles) if (s.name) styleMap.set(s.name.toLowerCase(), s.name)
-  const allStyles = Array.from(styleMap.values())
-
-  const parts: string[] = []
-  if (active) parts.push(active)
-  if (allStyles.length > 0) parts.push(allStyles.join(', '))
-  if (parts.length === 0) return null
+function MembersInline({ members }: { members: Member[] }) {
+  if (!members.length) return null
   return (
-    <div className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-1 font-['Outfit',sans-serif] text-[13px] font-semibold text-[var(--text-muted)] sm:text-[14px]">
-      {parts.map((p, i) => (
-        <span key={i} className="flex items-center gap-3">
-          {i > 0 && <span className="text-[var(--text-faint)]">·</span>}
-          <span>{p}</span>
-        </span>
+    <div className="mt-5 flex flex-wrap gap-2">
+      <span className="mr-1 inline-flex items-center font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+        Nariai · {members.length}
+      </span>
+      {members.map(m => (
+        <Link
+          key={m.id}
+          href={`/atlikejai/${m.slug}`}
+          className="inline-flex items-center gap-2 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] py-1 pl-1 pr-3 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+        >
+          {m.cover_image_url ? (
+            <img src={m.cover_image_url} alt={m.name} className="h-7 w-7 shrink-0 rounded-full object-cover" />
+          ) : (
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--cover-placeholder)] font-['Outfit',sans-serif] text-[11px] font-black text-[var(--text-faint)]">
+              {m.name[0]}
+            </div>
+          )}
+          <span className="font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)]">{m.name}</span>
+          {m.member_from && (
+            <span className="text-[11px] font-semibold text-[var(--text-muted)]">{m.member_from}–{m.member_until || 'dabar'}</span>
+          )}
+        </Link>
       ))}
     </div>
   )
 }
 
-// ── BioExpand ──────────────────────────────────────────────────────
+// ── GalleryCollage: 2x2 grid with +X overlay ──────────────────────
 
-function BioExpand({ html }: { html: string }) {
-  const [expanded, setExpanded] = useState(false)
-  const plainLen = html.replace(/<[^>]+>/g, '').length
-  const isLong = plainLen > 450
+function GalleryCollage({
+  photos, onOpenAll, totalCount,
+}: {
+  photos: { url: string; caption?: string }[]
+  onOpenAll: (startIndex: number) => void
+  totalCount: number
+}) {
+  const shown = photos.slice(0, 4)
+  if (shown.length === 0) return null
+  const extra = totalCount - shown.length
   return (
-    <div>
-      <div
-        className={[
-          'text-[15px] leading-[1.78] text-[var(--text-secondary)]',
-          '[&_a:hover]:text-[var(--accent-blue)] [&_a]:text-[var(--accent-link)] [&_a]:underline',
-          '[&_em]:italic [&_ol]:mb-4 [&_ol]:list-decimal [&_ol]:pl-6',
-          '[&_p]:mb-4 [&_strong]:font-bold [&_strong]:text-[var(--text-primary)]',
-          '[&_ul]:mb-4 [&_ul]:list-disc [&_ul]:pl-6',
-          isLong && !expanded ? 'relative max-h-[260px] overflow-hidden' : '',
-        ].join(' ')}
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
-      {isLong && !expanded && (
-        <div className="pointer-events-none -mt-[80px] h-[80px] bg-gradient-to-t from-[var(--bg-body)] to-transparent" />
-      )}
-      {isLong && (
-        <button
-          onClick={() => setExpanded(v => !v)}
-          className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-4 py-1.5 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-primary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
-        >
-          {expanded ? 'Suskleisti ↑' : 'Skaityti toliau ↓'}
-        </button>
-      )}
+    <div className="grid grid-cols-2 gap-1.5 overflow-hidden rounded-2xl">
+      {shown.map((p, i) => {
+        const isLast = i === shown.length - 1
+        const showOverlay = isLast && extra > 0
+        return (
+          <button
+            key={i}
+            onClick={() => onOpenAll(i)}
+            className="group relative block aspect-[4/3] overflow-hidden border-0 bg-transparent p-0"
+          >
+            <img
+              src={p.url}
+              alt={p.caption || ''}
+              loading="lazy"
+              className="h-full w-full cursor-zoom-in object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+            />
+            {showOverlay && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/55 backdrop-blur-[1px]">
+                <span className="font-['Outfit',sans-serif] text-[22px] font-black text-white">
+                  +{extra}
+                </span>
+              </div>
+            )}
+          </button>
+        )
+      })}
     </div>
   )
 }
 
-// ── Members section ────────────────────────────────────────────────
+// ── Lightbox (reused by both collage and masonry) ──────────────────
 
-function MembersSection({ members }: { members: Member[] }) {
-  if (!members.length) return null
+function Lightbox({
+  photos, index, onClose, onIndex,
+}: {
+  photos: { url: string; caption?: string }[]
+  index: number
+  onClose: () => void
+  onIndex: (i: number) => void
+}) {
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+      if (e.key === 'ArrowLeft' && index > 0) onIndex(index - 1)
+      if (e.key === 'ArrowRight' && index < photos.length - 1) onIndex(index + 1)
+    }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [index, photos.length, onClose, onIndex])
+
   return (
-    <section>
-      <SectionTitle label="Nariai" count={members.length} />
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-        {members.map(m => (
-          <Link
-            key={m.id}
-            href={`/atlikejai/${m.slug}`}
-            className="group flex flex-col items-center gap-2 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 no-underline transition-all hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-lg"
-          >
-            <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border-2 border-[var(--border-default)] transition-transform group-hover:scale-105 sm:h-24 sm:w-24">
-              {m.cover_image_url ? (
-                <img src={m.cover_image_url} alt={m.name} className="h-full w-full object-cover" />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center bg-[var(--cover-placeholder)] font-['Outfit',sans-serif] text-[26px] font-black text-[var(--text-faint)]">
-                  {m.name[0]}
-                </div>
-              )}
-            </div>
-            <div className="text-center">
-              <div className="font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)]">{m.name}</div>
-              {m.member_from && (
-                <div className="mt-0.5 text-[11px] text-[var(--text-muted)]">{m.member_from}–{m.member_until || 'dabar'}</div>
-              )}
-            </div>
-          </Link>
-        ))}
+    <div
+      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/95 p-4 backdrop-blur-xl"
+      onClick={onClose}
+    >
+      <button
+        onClick={e => { e.stopPropagation(); onClose() }}
+        className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full border-0 bg-white/10 text-xl text-white/70 transition-colors hover:bg-white/20"
+      >
+        ✕
+      </button>
+      {index > 0 && (
+        <button
+          onClick={e => { e.stopPropagation(); onIndex(index - 1) }}
+          className="absolute left-2 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border-0 bg-white/10 text-3xl text-white/70 transition-colors hover:bg-white/20 sm:left-6"
+        >
+          ‹
+        </button>
+      )}
+      <div className="flex max-h-[90vh] max-w-[92vw] flex-col items-center" onClick={e => e.stopPropagation()}>
+        <img src={photos[index].url} alt="" className="max-h-[82vh] max-w-full rounded-lg object-contain" />
+        {photos[index].caption && <p className="mt-2 text-[12px] text-white/50">{photos[index].caption}</p>}
       </div>
-    </section>
+      {index < photos.length - 1 && (
+        <button
+          onClick={e => { e.stopPropagation(); onIndex(index + 1) }}
+          className="absolute right-2 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border-0 bg-white/10 text-3xl text-white/70 transition-colors hover:bg-white/20 sm:right-6"
+        >
+          ›
+        </button>
+      )}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 font-['Outfit',sans-serif] text-[12px] font-bold text-white/40">
+        {index + 1}/{photos.length}
+      </div>
+    </div>
+  )
+}
+
+// ── MasonryGallery (full section) ──────────────────────────────────
+
+function MasonryGallery({ photos, onOpen }: { photos: { url: string; caption?: string }[]; onOpen: (i: number) => void }) {
+  const limited = photos.slice(0, 24)
+  if (!limited.length) return null
+  return (
+    <div className="columns-2 gap-2 sm:columns-3 md:gap-3 lg:columns-4">
+      {limited.map((p, i) => (
+        <button
+          key={i}
+          onClick={() => onOpen(i)}
+          className="mb-2 block w-full overflow-hidden rounded-xl border-0 bg-transparent p-0 md:mb-3"
+          style={{ breakInside: 'avoid' }}
+        >
+          <img
+            src={p.url}
+            alt={p.caption || ''}
+            loading="lazy"
+            className="block w-full cursor-zoom-in object-cover transition-transform duration-500 hover:scale-[1.02]"
+          />
+        </button>
+      ))}
+    </div>
   )
 }
 
@@ -656,72 +823,6 @@ function AlbumCard({ a }: { a: Album }) {
   )
 }
 
-// ── MasonryGallery ─────────────────────────────────────────────────
-
-function MasonryGallery({ photos }: { photos: { url: string; caption?: string }[] }) {
-  const [lb, setLb] = useState<number | null>(null)
-  const limited = photos.slice(0, 24)
-  if (!limited.length) return null
-  return (
-    <>
-      <div className="columns-2 gap-2 sm:columns-3 md:gap-3 lg:columns-4">
-        {limited.map((p, i) => (
-          <button
-            key={i}
-            onClick={() => setLb(i)}
-            className="mb-2 block w-full overflow-hidden rounded-xl border-0 bg-transparent p-0 md:mb-3"
-            style={{ breakInside: 'avoid' }}
-          >
-            <img
-              src={p.url}
-              alt={p.caption || ''}
-              loading="lazy"
-              className="block w-full cursor-zoom-in object-cover transition-transform duration-500 hover:scale-[1.02]"
-            />
-          </button>
-        ))}
-      </div>
-
-      {lb !== null && (
-        <div
-          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/95 p-4 backdrop-blur-xl"
-          onClick={() => setLb(null)}
-        >
-          <button
-            onClick={e => { e.stopPropagation(); setLb(null) }}
-            className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full border-0 bg-white/10 text-xl text-white/70 transition-colors hover:bg-white/20"
-          >
-            ✕
-          </button>
-          {lb > 0 && (
-            <button
-              onClick={e => { e.stopPropagation(); setLb(lb - 1) }}
-              className="absolute left-2 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border-0 bg-white/10 text-3xl text-white/70 transition-colors hover:bg-white/20 sm:left-6"
-            >
-              ‹
-            </button>
-          )}
-          <div className="flex max-h-[90vh] max-w-[92vw] flex-col items-center" onClick={e => e.stopPropagation()}>
-            <img src={limited[lb].url} alt="" className="max-h-[82vh] max-w-full rounded-lg object-contain" />
-            {limited[lb].caption && <p className="mt-2 text-[12px] text-white/50">{limited[lb].caption}</p>}
-          </div>
-          {lb < limited.length - 1 && (
-            <button
-              onClick={e => { e.stopPropagation(); setLb(lb + 1) }}
-              className="absolute right-2 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border-0 bg-white/10 text-3xl text-white/70 transition-colors hover:bg-white/20 sm:right-6"
-            >
-              ›
-            </button>
-          )}
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 font-['Outfit',sans-serif] text-[12px] font-bold text-white/40">
-            {lb + 1}/{limited.length}
-          </div>
-        </div>
-      )}
-    </>
-  )
-}
-
 // ── Main ────────────────────────────────────────────────────────────
 
 export default function ArtistProfileClient({
@@ -732,10 +833,10 @@ export default function ArtistProfileClient({
   const [pid, setPid] = useState<number | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [likesModalOpen, setLikesModalOpen] = useState(false)
+  const [bioModalOpen, setBioModalOpen] = useState(false)
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
 
-  // Self-like state — fetched from API on mount.
-  //  selfLiked === undefined -> not yet loaded
-  //  authed === undefined -> unknown; set to false if 401 on POST
+  // Self-like state
   const [selfLiked, setSelfLiked] = useState<boolean | undefined>(undefined)
   const [authed, setAuthed] = useState<boolean | undefined>(undefined)
   const [modernLikeCount, setModernLikeCount] = useState<number>(likeCount)
@@ -743,7 +844,6 @@ export default function ArtistProfileClient({
 
   useEffect(() => { setLoaded(true) }, [])
 
-  // Fetch initial like state from server
   useEffect(() => {
     let cancelled = false
     fetch(`/api/artists/${artist.id}/like`, { cache: 'no-store' })
@@ -761,13 +861,11 @@ export default function ArtistProfileClient({
     if (selfLikePending) return
     setSelfLikePending(true)
     const prev = selfLiked
-    // Optimistic toggle
     setSelfLiked(prev ? false : true)
     setModernLikeCount(c => c + (prev ? -1 : 1))
     try {
       const res = await fetch(`/api/artists/${artist.id}/like`, { method: 'POST' })
       if (res.status === 401) {
-        // Revert
         setSelfLiked(prev)
         setModernLikeCount(c => c - (prev ? -1 : 1))
         setAuthed(false)
@@ -777,7 +875,6 @@ export default function ArtistProfileClient({
         if (typeof data.count === 'number') setModernLikeCount(data.count)
         setAuthed(true)
       } else {
-        // Revert on failure
         setSelfLiked(prev)
         setModernLikeCount(c => c - (prev ? -1 : 1))
       }
@@ -789,7 +886,6 @@ export default function ArtistProfileClient({
     }
   }
 
-  const flag = FLAGS[artist.country] || (artist.country ? '🌍' : '')
   const hasBio = artist.description?.trim().length > 10
   const solo = artist.type === 'solo'
   const active = artist.active_from ? `${artist.active_from}–${artist.active_until || 'dabar'}` : null
@@ -797,13 +893,11 @@ export default function ArtistProfileClient({
   const likes = modernLikeCount + followers + authoritativeLegacy
   const allLikesUsers: any[] = legacyCommunity?.allArtistFans || []
 
-  // Discography filter
   const atypes = [...new Set(albums.map(aType))]
   const hasStudio = atypes.includes('Studijinis')
   const [df, setDf] = useState<string>(hasStudio ? 'Studijinis' : 'all')
   const fAlbums = df === 'all' ? albums : albums.filter(a => aType(a) === df)
 
-  // Track lists
   const tracksAllTime = useMemo(() => {
     const withVideo = tracks.filter(t => yt(t.video_url))
     if (withVideo.length >= 10) return withVideo.slice(0, 30)
@@ -824,6 +918,19 @@ export default function ArtistProfileClient({
   const pastEvents = events.filter((e: any) => new Date(e.start_date).getTime() < now)
   const bioHtml: string = artist.description || ''
 
+  // Filter hero photo out of gallery to avoid duplication.
+  // Hero-photo selection is separate from gallery-profile photo.
+  const galleryPhotos = useMemo(
+    () => photos.filter(p => p.url !== heroImage),
+    [photos, heroImage],
+  )
+
+  const bioSubtitle = [
+    active,
+    genres[0]?.name,
+    substyles.map(s => s.name).join(', '),
+  ].filter(Boolean).join(' · ')
+
   return (
     <div className="min-h-screen bg-[var(--bg-body)] font-['DM_Sans',system-ui,sans-serif] text-[var(--text-primary)] antialiased">
       <Hero
@@ -834,6 +941,9 @@ export default function ArtistProfileClient({
         likes={likes}
         onLikes={() => setLikesModalOpen(true)}
         selfLiked={selfLiked}
+        genres={genres}
+        substyles={substyles}
+        links={links}
         tracksAllTime={tracksAllTime}
         tracksTrending={tracksTrending}
         activeTrackId={pid}
@@ -853,18 +963,26 @@ export default function ArtistProfileClient({
         selfLikePending={selfLikePending}
       />
 
-      <main className="mx-auto max-w-[1400px] space-y-10 px-4 pb-24 pt-8 sm:space-y-14 sm:px-6 lg:px-10">
+      <BioModal
+        open={bioModalOpen}
+        onClose={() => setBioModalOpen(false)}
+        title={`Apie ${artist.name}`}
+        subtitle={bioSubtitle}
+        html={bioHtml}
+      />
 
-        {/* Info bar — horizontal strip with country, genre, socials */}
-        <InfoBar
-          artist={artist}
-          flag={flag}
-          genres={genres}
-          links={links}
-          website={artist.website}
+      {lightboxIndex !== null && photos.length > 0 && (
+        <Lightbox
+          photos={photos}
+          index={lightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+          onIndex={setLightboxIndex}
         />
+      )}
 
-        {/* Upcoming events (if any) */}
+      <main className="mx-auto max-w-[1400px] space-y-10 px-4 pb-24 pt-4 sm:space-y-14 sm:px-6 lg:px-10">
+
+        {/* Upcoming events */}
         {upcomingEvents.length > 0 && (
           <section>
             <SectionTitle label="Artimiausi renginiai" count={upcomingEvents.length} />
@@ -874,17 +992,31 @@ export default function ArtistProfileClient({
           </section>
         )}
 
-        {/* Apie section with BioMeta subtitle */}
-        {hasBio && (
-          <section>
-            <SectionTitle label="Apie" />
-            <BioMeta active={active} genres={genres} substyles={substyles} />
-            <BioExpand html={bioHtml} />
+        {/* BIO + MEMBERS + GALLERY COLLAGE — compact layout, no big headers */}
+        {(hasBio || members.length > 0 || galleryPhotos.length > 0) && (
+          <section className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-10">
+            <div className="min-w-0">
+              {hasBio && (
+                <BioPreview
+                  html={bioHtml}
+                  active={active}
+                  onOpen={() => setBioModalOpen(true)}
+                />
+              )}
+              {!solo && members.length > 0 && <MembersInline members={members} />}
+            </div>
+
+            {galleryPhotos.length > 0 && (
+              <div>
+                <GalleryCollage
+                  photos={galleryPhotos}
+                  totalCount={galleryPhotos.length}
+                  onOpenAll={(idx) => setLightboxIndex(idx)}
+                />
+              </div>
+            )}
           </section>
         )}
-
-        {/* Members (below bio, per user request) */}
-        {!solo && members.length > 0 && <MembersSection members={members} />}
 
         {/* Diskografija */}
         {albums.length > 0 && (
@@ -1003,11 +1135,14 @@ export default function ArtistProfileClient({
           </section>
         )}
 
-        {/* Galerija */}
-        {photos.length > 0 && (
+        {/* Galerija (full masonry, excluding hero photo) */}
+        {galleryPhotos.length > 0 && (
           <section>
-            <SectionTitle label="Galerija" count={photos.length} />
-            <MasonryGallery photos={photos} />
+            <SectionTitle label="Galerija" count={galleryPhotos.length} />
+            <MasonryGallery
+              photos={galleryPhotos}
+              onOpen={(i) => setLightboxIndex(i)}
+            />
           </section>
         )}
 
