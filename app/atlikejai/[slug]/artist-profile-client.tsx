@@ -348,7 +348,6 @@ function LikePill({
   /** 'light' = on-photo (white/glass). 'surface' = on normal bg. */
   variant?: 'light' | 'surface'
 }) {
-  // Heart side = toggle, count side = open likers modal
   const heartFilled = !!selfLiked
   const baseWrap = variant === 'light'
     ? 'border border-white/20 bg-white/10 backdrop-blur-md text-white'
@@ -363,33 +362,38 @@ function LikePill({
         heartFilled ? '!border-[var(--accent-orange)] !bg-[var(--accent-orange)] !text-white shadow-[0_6px_18px_rgba(249,115,22,0.4)]' : '',
       ].join(' ')}
     >
-      {/* Heart toggle */}
+      {/* Heart zone — toggles like */}
       <button
         onClick={onToggle}
         disabled={pending}
         title={heartFilled ? 'Tau patinka — atšaukti' : 'Paspausk „Patinka"'}
+        aria-label={heartFilled ? 'Atšaukti patinka' : 'Pažymėti patinka'}
         aria-pressed={heartFilled}
         className={[
-          'flex items-center gap-1.5 px-3.5 py-1.5 font-["Outfit",sans-serif] text-[13px] font-extrabold uppercase tracking-[0.08em] transition-colors',
+          'flex items-center justify-center px-3.5 py-2 transition-colors',
           pending ? 'cursor-wait opacity-70' : 'cursor-pointer',
           !heartFilled && variant === 'light' ? 'hover:bg-white/10' : '',
           !heartFilled && variant === 'surface' ? 'hover:bg-[var(--bg-hover)]' : '',
           heartFilled ? 'hover:opacity-90' : '',
         ].join(' ')}
       >
-        <svg viewBox="0 0 24 24" fill={heartFilled ? '#fff' : 'currentColor'} className={['h-4 w-4', heartFilled ? 'text-white' : 'text-[var(--accent-orange)]'].join(' ')}>
+        <svg
+          viewBox="0 0 24 24"
+          fill={heartFilled ? '#fff' : 'currentColor'}
+          className={['h-[17px] w-[17px] transition-transform', heartFilled ? 'text-white scale-110' : 'text-[var(--accent-orange)]'].join(' ')}
+        >
           <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
         </svg>
-        <span>{heartFilled ? 'Patinka' : 'Patinka'}</span>
       </button>
 
-      {/* Count — clickable if we have likers to show */}
+      {/* Count zone — opens modal */}
       <button
         onClick={onOpenModal}
         disabled={likes === 0}
         title={likes > 0 ? 'Pamatyk kam patinka' : ''}
+        aria-label="Pamatyk kam patinka"
         className={[
-          'flex items-center border-l px-3.5 py-1.5 font-["Outfit",sans-serif] text-[13px] font-extrabold tabular-nums tracking-wide transition-colors',
+          'flex items-center border-l px-4 py-2 font-["Outfit",sans-serif] text-[13px] font-extrabold tabular-nums tracking-wide transition-colors',
           dividerColor,
           heartFilled ? '!border-white/30' : '',
           likes === 0 ? 'cursor-default opacity-70' : 'cursor-pointer',
@@ -459,7 +463,7 @@ function Hero({
           ].join(' ')}
         >
           <h1
-            className="mb-4 font-['Outfit',sans-serif] font-black leading-[0.9] tracking-[-0.04em] text-[var(--text-primary)] lg:text-white lg:drop-shadow-[0_6px_32px_rgba(0,0,0,0.8)]"
+            className="mb-6 font-['Outfit',sans-serif] font-black leading-[0.9] tracking-[-0.04em] text-[var(--text-primary)] sm:mb-7 lg:text-white lg:drop-shadow-[0_6px_32px_rgba(0,0,0,0.8)]"
             style={{ fontSize: 'clamp(2.25rem,6.5vw,5rem)' }}
           >
             {artist.name}
@@ -509,11 +513,15 @@ function Hero({
 // ── SideInfo: card beside bio with Kilmė / Stilius / Klausyk ───────
 
 function SideInfo({
-  artist, flag, genres, substyles, ranks, links, website,
+  artist, flag, genres, substyles, ranks, links, website, horizontal = false,
 }: {
   artist: any; flag: string; genres: Genre[]; substyles: Genre[]
   ranks: Rank[]
   links: { platform: string; url: string }[]; website?: string | null
+  /** When true, renders the info card as a horizontal wrap-flow so it can
+   *  sit as a full-width strip instead of a tall right sidebar. Used when
+   *  bio is short/empty to avoid wasted vertical space. */
+  horizontal?: boolean
 }) {
   const countryRank = ranks.find(r => r.scope === 'country')
   const genreRank = ranks.find(r => r.scope === 'genre')
@@ -531,6 +539,73 @@ function SideInfo({
     </span>
   )
 
+  // ── Horizontal variant — single wrapping row ──────────────────────
+  if (horizontal) {
+    return (
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3 sm:gap-x-6 sm:px-5">
+        {artist.country && (
+          <div className="flex items-baseline gap-2">
+            <span className="inline-flex items-center gap-2 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">
+              <span className="text-[18px] leading-none">{flag}</span>
+              <span>{artist.country}</span>
+            </span>
+            {countryRank && <RankChip n={countryRank.rank} />}
+          </div>
+        )}
+        {genres[0] && (
+          <div className="flex items-baseline gap-2">
+            <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">
+              {genres[0].name}
+            </span>
+            {genreRank && <RankChip n={genreRank.rank} />}
+            {substyles.length > 0 && (
+              <span className="text-[12px] text-[var(--text-muted)]">
+                · {substyles.map(s => s.name).join(', ')}
+              </span>
+            )}
+          </div>
+        )}
+        {globalRank && (
+          <div className="flex items-baseline gap-2">
+            <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">Pasaulyje</span>
+            <RankChip n={globalRank.rank} />
+          </div>
+        )}
+        {hasSocials && (
+          <div className="ml-auto flex items-center gap-1">
+            {links.filter(l => SOC[l.platform]).map(l => {
+              const p = SOC[l.platform]
+              return (
+                <a
+                  key={l.platform}
+                  href={l.url}
+                  target="_blank"
+                  rel="noopener"
+                  title={p.l}
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+                >
+                  <svg viewBox="0 0 24 24" fill={p.c} width="14" height="14"><path d={p.d} /></svg>
+                </a>
+              )
+            })}
+            {website && (
+              <a
+                href={website}
+                target="_blank"
+                rel="noopener"
+                title="Oficiali svetainė"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
+              </a>
+            )}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ── Vertical variant — sidebar card ──────────────────────────────
   return (
     <aside className="space-y-5 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5">
       {artist.country && (
@@ -611,10 +686,15 @@ function SideInfo({
 
 // ── BioPreview + MembersInline ─────────────────────────────────────
 
-function BioPreview({ html, onOpen }: { html: string; onOpen: () => void }) {
+function BioPreview({ html, onOpen, maxChars = 700 }: { html: string; onOpen: () => void; maxChars?: number }) {
   const plain = stripHtml(html)
-  const excerpt = plain.slice(0, 320)
-  const isLong = plain.length > 320
+  // Nicer cut at last word boundary within maxChars so the preview doesn't end mid-word.
+  let excerpt = plain.slice(0, maxChars)
+  if (plain.length > maxChars) {
+    const lastSpace = excerpt.lastIndexOf(' ')
+    if (lastSpace > maxChars * 0.8) excerpt = excerpt.slice(0, lastSpace)
+  }
+  const isLong = plain.length > maxChars
   return (
     <div className="text-[15px] leading-[1.72] text-[var(--text-secondary)]">
       {excerpt}{isLong && '…'}
@@ -1040,10 +1120,17 @@ export default function ArtistProfileClient({
         if (typeof data.count === 'number') setModernLikeCount(data.count)
         setAuthed(true)
       } else {
+        // Server error — surface details so we can debug column/schema issues.
+        let detail: any = null
+        try { detail = await res.json() } catch {}
+        // eslint-disable-next-line no-console
+        console.error('[like toggle] server error', res.status, detail)
         setSelfLiked(prev)
         setModernLikeCount(c => c - (prev ? -1 : 1))
       }
-    } catch {
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('[like toggle] network error', err)
       setSelfLiked(prev)
       setModernLikeCount(c => c - (prev ? -1 : 1))
     } finally {
@@ -1162,27 +1249,61 @@ export default function ArtistProfileClient({
           </section>
         )}
 
-        {/* BIO + MEMBERS on left, SIDE INFO (country/genre/socials) on right */}
-        {(hasBio || members.length > 0) && (
-          <section className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-10">
-            <div className="min-w-0">
-              {hasBio && (
-                <BioPreview html={bioHtml} onOpen={() => setBioModalOpen(true)} />
-              )}
-              {!solo && members.length > 0 && <MembersInline members={members} />}
-            </div>
+        {/* BIO + MEMBERS + SIDE INFO — adaptive layout:
+            long bio → 2-col [bio | vertical sidebar];
+            short/empty bio → stacked with horizontal info strip. */}
+        {(() => {
+          const bioLen = stripHtml(bioHtml).length
+          const isShortBio = bioLen < 200
+          const sideInfoAvailable = !!artist.country || genres.length > 0 || links.length > 0 || artist.website
 
-            <SideInfo
-              artist={artist}
-              flag={flag}
-              genres={genres}
-              substyles={substyles}
-              ranks={ranks}
-              links={links}
-              website={artist.website}
-            />
-          </section>
-        )}
+          if (!hasBio && members.length === 0 && !sideInfoAvailable) return null
+
+          if (isShortBio) {
+            // Horizontal info strip + bio/members stacked below
+            return (
+              <section className="space-y-6">
+                {sideInfoAvailable && (
+                  <SideInfo
+                    artist={artist}
+                    flag={flag}
+                    genres={genres}
+                    substyles={substyles}
+                    ranks={ranks}
+                    links={links}
+                    website={artist.website}
+                    horizontal
+                  />
+                )}
+                {(hasBio || members.length > 0) && (
+                  <div>
+                    {hasBio && <BioPreview html={bioHtml} onOpen={() => setBioModalOpen(true)} maxChars={400} />}
+                    {!solo && members.length > 0 && <MembersInline members={members} />}
+                  </div>
+                )}
+              </section>
+            )
+          }
+
+          // Long bio — 2-col
+          return (
+            <section className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-10">
+              <div className="min-w-0">
+                <BioPreview html={bioHtml} onOpen={() => setBioModalOpen(true)} maxChars={700} />
+                {!solo && members.length > 0 && <MembersInline members={members} />}
+              </div>
+              <SideInfo
+                artist={artist}
+                flag={flag}
+                genres={genres}
+                substyles={substyles}
+                ranks={ranks}
+                links={links}
+                website={artist.website}
+              />
+            </section>
+          )
+        })()}
 
         {/* Diskografija — no count in header; renamed filters */}
         {albums.length > 0 && (
