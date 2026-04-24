@@ -231,13 +231,16 @@ function PlayerCard({
   const displayVid = activeVid || yt(firstWithVideo?.video_url)
   const displayTrack = activeTrack || firstWithVideo
 
-  // YouTube player state — we hide YT's own controls via `controls=0` and
-  // drive play/pause ourselves via postMessage. That requires
-  // `enablejsapi=1` and an origin-qualified src so the iframe accepts
-  // commands. We toggle our overlay's isPaused state on each click.
+  // YouTube player plumbing: we use native YT controls (autoplay blockers
+  // make hiding them fragile) but keep `enablejsapi=1` so our per-track
+  // play button can still play/pause the active track. A message listener
+  // keeps local `isPaused` in sync with YT state so the equalizer only
+  // animates while the video is actually playing.
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [isPaused, setIsPaused] = useState(false)
-  // Re-arm "not paused" whenever the active video changes (user picked a new track).
+
+  // Re-arm "not paused" whenever the active video changes (user picked a
+  // new track). YT will then post state updates that refine it.
   useEffect(() => { setIsPaused(false) }, [displayVid, playing])
 
   const ytCommand = (func: 'playVideo' | 'pauseVideo') => {
@@ -246,16 +249,45 @@ function PlayerCard({
     w.postMessage(JSON.stringify({ event: 'command', func, args: [] }), '*')
   }
 
-  const togglePlayPause = () => {
-    if (isPaused) { ytCommand('playVideo'); setIsPaused(false) }
-    else { ytCommand('pauseVideo'); setIsPaused(true) }
+  // Subscribe to YT postMessage state events so our equalizer reflects
+  // reality (including when the user pauses via YT's own native button).
+  //
+  // YT player states: -1 unstarted, 0 ended, 1 playing, 2 paused,
+  // 3 buffering, 5 cued. We treat anything that isn't 1 or 3 as paused.
+  useEffect(() => {
+    if (!playing) return
+    const onMessage = (e: MessageEvent) => {
+      if (!/^https:\/\/(www\.)?youtube(-nocookie)?\.com$/.test(e.origin)) return
+      let data: any
+      try { data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data } catch { return }
+      const state = data?.info?.playerState ?? (data?.event === 'onStateChange' ? data?.info : undefined)
+      if (typeof state === 'number') {
+        setIsPaused(!(state === 1 || state === 3))
+      }
+    }
+    window.addEventListener('message', onMessage)
+    return () => window.removeEventListener('message', onMessage)
+  }, [playing, displayVid])
+
+  // On iframe load, register as a listener so YT starts posting state events.
+  const handleIframeLoad = () => {
+    const w = iframeRef.current?.contentWindow
+    if (!w) return
+    w.postMessage(JSON.stringify({ event: 'listening' }), '*')
   }
 
-  // When the user picks a different track from the list, treat it as an
-  // immediate play request (swap overlay → iframe w/ autoplay).
+  // Toggle per-track play button: same track + playing → pause; same track
+  // + paused → resume; different track → switch + autoplay.
   const handleSelect = (id: number) => {
+    if (id === activeTrackId && playing) {
+      // Pause/resume via YT API
+      if (isPaused) { ytCommand('playVideo'); setIsPaused(false) }
+      else { ytCommand('pauseVideo'); setIsPaused(true) }
+      return
+    }
     onSelectTrack(id)
     onRequestPlay()
+    setIsPaused(false)
   }
 
   return (
@@ -263,75 +295,29 @@ function PlayerCard({
       <div className="relative aspect-video overflow-hidden bg-black">
         {displayVid ? (
           playing ? (
-            // Once the user has hit play, mount the iframe with autoplay and
-            // NO YT controls — our bottom bar drives play/pause + fullscreen
-            // via postMessage and iframe.requestFullscreen(). Hiding YT's
-            // native controls also hides the "Watch on YouTube" / share
-            // chrome that was cluttering the frame.
-            <>
-              <iframe
-                ref={iframeRef}
-                key={displayVid}
-                src={`https://www.youtube.com/embed/${displayVid}?rel=0&autoplay=1&controls=0&modestbranding=1&playsinline=1&iv_load_policy=3&disablekb=1&enablejsapi=1`}
-                allow="autoplay;encrypted-media"
-                allowFullScreen
-                className="absolute inset-0 h-full w-full border-0"
-              />
-              {/* Always-visible bottom bar — play/pause on the left,
-                  fullscreen on the right. Slim + translucent so it doesn't
-                  steal attention from the video. */}
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-gradient-to-t from-black/75 via-black/40 to-transparent px-3 py-2">
-                <button
-                  type="button"
-                  onClick={togglePlayPause}
-                  aria-label={isPaused ? 'Tęsti' : 'Pauzė'}
-                  title={isPaused ? 'Tęsti' : 'Pauzė'}
-                  className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white shadow-[0_4px_14px_rgba(249,115,22,0.45)] ring-2 ring-white/15 transition-transform hover:scale-105"
-                >
-                  {isPaused ? (
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden>
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
-                  ) : (
-                    <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden>
-                      <rect x="6" y="5" width="4" height="14" rx="1" />
-                      <rect x="14" y="5" width="4" height="14" rx="1" />
-                    </svg>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const el = iframeRef.current as any
-                    if (!el) return
-                    const req = el.requestFullscreen || el.webkitRequestFullscreen || el.webkitEnterFullscreen || el.msRequestFullscreen
-                    if (req) req.call(el).catch(() => {})
-                  }}
-                  aria-label="Per visą ekraną"
-                  title="Per visą ekraną"
-                  className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80"
-                >
-                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <path d="M3 8V3h5M21 8V3h-5M3 16v5h5M21 16v5h-5" />
-                  </svg>
-                </button>
-              </div>
-            </>
+            // Standard YT controls (play/pause/fullscreen) are reliable and
+            // handle autoplay edge cases better than a fully custom overlay.
+            // We keep enablejsapi=1 so our per-track play button can still
+            // drive pause/resume + our equalizer stays in sync with YT state.
+            <iframe
+              ref={iframeRef}
+              key={displayVid}
+              src={`https://www.youtube.com/embed/${displayVid}?rel=0&autoplay=1&modestbranding=1&playsinline=1&iv_load_policy=3&enablejsapi=1`}
+              allow="autoplay;encrypted-media"
+              allowFullScreen
+              onLoad={handleIframeLoad}
+              className="absolute inset-0 h-full w-full border-0"
+            />
           ) : (
-            // Initial state — thumbnail + big orange play button. One click
-            // flips `playing` to true, which mounts the iframe above.
-            <button
-              type="button"
-              onClick={onRequestPlay}
-              aria-label="Paleisti"
-              className="group absolute inset-0 h-full w-full cursor-pointer overflow-hidden border-0 bg-black p-0"
-            >
+            // Initial / not-yet-played state: just thumbnail + title.
+            // No overlay play button — the list's per-track play button is
+            // the single source of truth, avoiding duplicate affordances.
+            <div className="absolute inset-0">
               <img
                 src={`https://img.youtube.com/vi/${displayVid}/maxresdefault.jpg`}
                 alt={displayTrack?.title || ''}
-                className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                className="absolute inset-0 h-full w-full object-cover"
                 onError={(e) => {
-                  // maxres not always available — fall back to hqdefault.
                   const el = e.currentTarget as HTMLImageElement
                   if (!el.dataset.fallback) {
                     el.dataset.fallback = '1'
@@ -340,17 +326,6 @@ function PlayerCard({
                 }}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-
-              {/* Our own play button */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_10px_40px_rgba(249,115,22,0.5)] ring-[6px] ring-white/10 transition-transform duration-200 group-hover:scale-110">
-                  <svg viewBox="0 0 24 24" width="28" height="28" fill="#fff" aria-hidden>
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                </span>
-              </div>
-
-              {/* Title overlay at the bottom — no YT chrome, just our own */}
               {displayTrack && (
                 <div className="absolute inset-x-0 bottom-0 px-4 pb-3 text-left">
                   <div className="truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
@@ -358,7 +333,7 @@ function PlayerCard({
                   </div>
                 </div>
               )}
-            </button>
+            </div>
           )
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 px-6 text-center">
@@ -378,11 +353,11 @@ function PlayerCard({
       {/* Tabs — brighter active color + thicker underline */}
       <div className="flex items-center gap-1 border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-3 pt-1">
         <TabButton active={tab === 'all'} onClick={() => setTab('all')}>
-          Populiaru <span className="ml-1 text-[var(--text-faint)]">·{tracksAllTime.length}</span>
+          Top dainos
         </TabButton>
         {hasTrending && (
           <TabButton active={tab === 'trending'} onClick={() => setTab('trending')}>
-            Nauja <span className="ml-1 text-[var(--text-faint)]">·{tracksTrending.length}</span>
+            Naujos dainos
           </TabButton>
         )}
       </div>
@@ -403,6 +378,7 @@ function PlayerCard({
             {list.map((t, i) => {
               const v = yt(t.video_url)
               const isActive = t.id === activeTrackId
+              const isActivelyPlaying = isActive && playing && !isPaused
               const pop = popLevel(i, list.length)
               return (
                 <li key={t.id}>
@@ -412,7 +388,8 @@ function PlayerCard({
                       isActive ? 'bg-[rgba(249,115,22,0.08)]' : 'hover:bg-[var(--bg-hover)]',
                     ].join(' ')}
                   >
-                    {/* Position number / active equalizer */}
+                    {/* Position / active equalizer — animates only while YT
+                        reports the player as playing (not paused/stopped). */}
                     <span
                       className={[
                         'w-5 shrink-0 text-center font-["Outfit",sans-serif] text-[12px] font-bold tabular-nums',
@@ -420,33 +397,11 @@ function PlayerCard({
                       ].join(' ')}
                       aria-hidden
                     >
-                      {isActive && v ? <Equalizer /> : i + 1}
+                      {isActivelyPlaying ? <Equalizer /> : i + 1}
                     </span>
 
-                    {/* Dedicated play button — always present so the most
-                        important action is one tap away on mobile. Clicking
-                        it never opens the drawer. */}
-                    <button
-                      onClick={() => v && handleSelect(t.id)}
-                      disabled={!v}
-                      aria-label={v ? `Leisti ${t.title}` : 'Video nėra'}
-                      title={v ? 'Leisti' : ''}
-                      className={[
-                        'flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors',
-                        v
-                          ? isActive
-                            ? 'bg-[var(--accent-orange)] text-white shadow-[0_4px_14px_rgba(249,115,22,0.35)]'
-                            : 'bg-[var(--card-bg)] text-[var(--text-primary)] hover:bg-[var(--accent-orange)] hover:text-white'
-                          : 'cursor-default bg-transparent text-[var(--text-faint)] opacity-50',
-                      ].join(' ')}
-                    >
-                      <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-hidden>
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                    </button>
-
-                    {/* Title area — click opens the side drawer with full
-                        details + lyrics. Separate hit target from play. */}
+                    {/* Title — click opens the side drawer with duration +
+                        full lyrics + likes. */}
                     <button
                       type="button"
                       onClick={() => onOpenTrackInfo(t)}
@@ -461,18 +416,42 @@ function PlayerCard({
                       <PopBar level={pop} />
                     </button>
 
-                    {/* Right column — likes only; duration moved to drawer */}
-                    {typeof t.like_count === 'number' && t.like_count > 0 && (
-                      <span
-                        title={`${t.like_count.toLocaleString('lt-LT')} patinka`}
-                        className="inline-flex shrink-0 items-center gap-1 font-['Outfit',sans-serif] text-[11px] font-semibold tabular-nums text-[var(--text-muted)]"
-                      >
-                        <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" className="text-[var(--accent-orange)]" aria-hidden>
-                          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                    {/* Play / pause — right-hand side. On the active track
+                        this toggles the YT player; on any other track it
+                        switches + autoplays that track. */}
+                    <button
+                      onClick={() => v && handleSelect(t.id)}
+                      disabled={!v}
+                      aria-label={
+                        !v ? 'Video nėra'
+                        : isActivelyPlaying ? `Pauzė ${t.title}`
+                        : `Leisti ${t.title}`
+                      }
+                      title={
+                        !v ? ''
+                        : isActivelyPlaying ? 'Pauzė'
+                        : 'Leisti'
+                      }
+                      className={[
+                        'flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors',
+                        v
+                          ? isActive
+                            ? 'bg-[var(--accent-orange)] text-white shadow-[0_4px_14px_rgba(249,115,22,0.35)]'
+                            : 'bg-[var(--card-bg)] text-[var(--text-primary)] hover:bg-[var(--accent-orange)] hover:text-white'
+                          : 'cursor-default bg-transparent text-[var(--text-faint)] opacity-50',
+                      ].join(' ')}
+                    >
+                      {isActivelyPlaying ? (
+                        <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" aria-hidden>
+                          <rect x="6" y="5" width="4" height="14" rx="1" />
+                          <rect x="14" y="5" width="4" height="14" rx="1" />
                         </svg>
-                        {t.like_count.toLocaleString('lt-LT')}
-                      </span>
-                    )}
+                      ) : (
+                        <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-hidden>
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      )}
+                    </button>
                   </div>
                 </li>
               )
