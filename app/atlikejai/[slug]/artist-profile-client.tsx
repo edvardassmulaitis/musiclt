@@ -1,18 +1,22 @@
 'use client'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import LikesModal from '@/components/LikesModal'
 import BioModal from '@/components/BioModal'
 import type { LegacyLikeUser } from '@/components/LegacyLikesPanel'
 
 /* ═══════════════════════════════════════════════════════════════════
-   Artist profile — v9.
-   Desktop: 3-col hero [photo | info strip | player]. The middle strip
-   holds country+rank, genre+rank (with subtle substyles), socials and
-   website — visually separates photo from player.
-   Below hero: bio + compact inline members on left; gallery collage
-   (excludes hero photo) on right. No big "Apie"/"Nariai" headers.
-   Short bio preview → BioModal on "Skaityti daugiau".
+   Artist profile — v10.
+   - Hero: split (photo + player), no middle strip.
+   - HORIZONTAL InfoBar below hero: country(#rank), genre(#rank) + subtle
+     substyles, socials, website. Spans full content width.
+   - Below: 2-col. Left = bio preview + compact members. Right = gallery
+     collage (player-width, below the player visually).
+   - Like button toggles without opening modal. Separate "Kam patinka"
+     link opens LikesModal.
+   - Discography: no count in header, filters renamed with "albumai",
+     added "Kitos dainos" tab for orphan tracks.
+   - Diskusijos: no ID, shows last comment preview on the right.
    ═══════════════════════════════════════════════════════════════════ */
 
 // ── Types ───────────────────────────────────────────────────────────
@@ -23,7 +27,11 @@ type Album = {
   type_studio?: boolean; type_ep?: boolean; type_single?: boolean; type_live?: boolean
   type_compilation?: boolean; type_remix?: boolean; type_soundtrack?: boolean; type_demo?: boolean
 }
-type Track = { id: number; slug: string; title: string; type?: string; video_url?: string; cover_url?: string }
+type Track = {
+  id: number; slug: string; title: string; type?: string
+  video_url?: string; cover_url?: string
+  album_id?: number | null; release_year?: number
+}
 type Member = { id: number; slug: string; name: string; cover_image_url?: string; member_from?: number; member_until?: number }
 type ChartPt = { year: number; value: number }
 type LegacyCommunity = {
@@ -35,6 +43,7 @@ type LegacyThread = {
   legacy_id: number; slug: string; source_url: string
   title?: string | null; post_count?: number | null
   first_post_at?: string | null; last_post_at?: string | null
+  last_post?: { body: string; author_username: string | null; created_at: string | null } | null
 }
 type Rank = { category: string; rank: number; total: number; scope: 'country' | 'genre' | 'global' }
 type Props = {
@@ -86,6 +95,39 @@ const aType = (a: Album) => {
   if (a.type_soundtrack) return 'OST'
   if (a.type_demo) return 'Demo'
   return 'Studijinis'
+}
+
+/** Filter-tab labels — user asked filters read as "* albumai" where it makes
+ *  sense, plus a distinct "Kitos dainos" bucket. "all" = all albums of any type. */
+const FILTER_LABEL: Record<string, string> = {
+  all: 'Visi albumai',
+  Studijinis: 'Studijiniai albumai',
+  EP: 'EP albumai',
+  Singlas: 'Singlai',
+  Live: 'Live albumai',
+  Rinkinys: 'Rinkinių albumai',
+  Remix: 'Remiksų albumai',
+  OST: 'OST albumai',
+  Demo: 'Demo albumai',
+  orphan: 'Kitos dainos',
+}
+
+function stripHtml(html: string): string {
+  return (html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+function timeAgo(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const t = Date.parse(iso)
+  if (isNaN(t)) return ''
+  const diff = Date.now() - t
+  const day = 86400000
+  if (diff < day) return 'šiandien'
+  if (diff < 2 * day) return 'vakar'
+  if (diff < 7 * day) return `prieš ${Math.floor(diff / day)} d.`
+  if (diff < 30 * day) return `prieš ${Math.floor(diff / (7 * day))} sav.`
+  if (diff < 365 * day) return `prieš ${Math.floor(diff / (30 * day))} mėn.`
+  return `prieš ${Math.floor(diff / (365 * day))} m.`
 }
 
 const FLAGS: Record<string, string> = {
@@ -296,232 +338,113 @@ function TabButton({ active, disabled, onClick, children }: {
   )
 }
 
-// ── InfoStrip: vertical middle column between photo and player ─────
-
-function InfoStrip({
-  artist, flag, genres, substyles, ranks, links, website,
-}: {
-  artist: any; flag: string; genres: Genre[]; substyles: Genre[]
-  ranks: Rank[]
-  links: { platform: string; url: string }[]; website?: string | null
-}) {
-  const countryRank = ranks.find(r => r.scope === 'country')
-  const genreRank = ranks.find(r => r.scope === 'genre')
-  const hasSocials = links.some(l => SOC[l.platform]) || !!website
-
-  return (
-    <div className="flex flex-col gap-5 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5 lg:justify-between">
-      {/* Country with rank */}
-      {artist.country && (
-        <div>
-          <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
-            Kilmė
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-2 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">
-              <span className="text-[18px] leading-none">{flag}</span>
-              <span>{artist.country}</span>
-            </span>
-            {countryRank && (
-              <span className="inline-flex items-center rounded-full bg-[rgba(249,115,22,0.12)] px-2 py-0.5 font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--accent-orange)]">
-                #{countryRank.rank}
-              </span>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Main genre + subtle substyles + rank */}
-      {genres[0] && (
-        <div>
-          <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
-            Stilius
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">
-              {genres[0].name}
-            </span>
-            {genreRank && (
-              <span className="inline-flex items-center rounded-full bg-[rgba(249,115,22,0.12)] px-2 py-0.5 font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--accent-orange)]">
-                #{genreRank.rank}
-              </span>
-            )}
-          </div>
-          {/* Substyles — subtle, smaller, lighter */}
-          {substyles.length > 0 && (
-            <div className="mt-1 text-[12px] leading-[1.45] text-[var(--text-muted)]">
-              {substyles.map(s => s.name).join(' · ')}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Socials */}
-      {hasSocials && (
-        <div>
-          <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
-            Klausyk ir sek
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {links.filter(l => SOC[l.platform]).map(l => {
-              const p = SOC[l.platform]
-              return (
-                <a
-                  key={l.platform}
-                  href={l.url}
-                  target="_blank"
-                  rel="noopener"
-                  title={p.l}
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
-                >
-                  <svg viewBox="0 0 24 24" fill={p.c} width="14" height="14"><path d={p.d} /></svg>
-                </a>
-              )
-            })}
-            {website && (
-              <a
-                href={website}
-                target="_blank"
-                rel="noopener"
-                title="Oficiali svetainė"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
-              </a>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Global rank (if present, below socials) */}
-      {(() => {
-        const globalRank = ranks.find(r => r.scope === 'global')
-        if (!globalRank) return null
-        return (
-          <div>
-            <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
-              Pasaulyje
-            </div>
-            <div className="inline-flex items-center rounded-full bg-[rgba(249,115,22,0.12)] px-3 py-1 font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--accent-orange)]">
-              #{globalRank.rank} {globalRank.category}
-            </div>
-          </div>
-        )
-      })()}
-    </div>
-  )
-}
-
-// ── Hero v9: 3-col [photo | strip | player] ────────────────────────
+// ── Hero: split photo + player, title + likes below title ──────────
 
 function Hero({
-  artist, heroImage, loaded, ranks, likes, onLikes, selfLiked,
-  genres, substyles, links,
+  artist, heroImage, loaded, likes, selfLiked, onToggleLike, onOpenLikersModal, selfLikePending,
   tracksAllTime, tracksTrending, activeTrackId, onSelectTrack, hasAnyVideo,
 }: {
   artist: any; heroImage: string | null; loaded: boolean
-  ranks: Rank[]; likes: number; onLikes: () => void; selfLiked?: boolean
-  genres: Genre[]; substyles: Genre[]
-  links: { platform: string; url: string }[]
+  likes: number; selfLiked?: boolean
+  onToggleLike: () => void; onOpenLikersModal: () => void; selfLikePending: boolean
   tracksAllTime: Track[]; tracksTrending: Track[]
   activeTrackId: number | null; onSelectTrack: (id: number) => void; hasAnyVideo: boolean
 }) {
   const coverPos = parseCoverPos(artist.cover_image_position || 'center 30%')
-  const flag = FLAGS[artist.country] || (artist.country ? '🌍' : '')
 
   return (
-    <section className="relative isolate w-full bg-[var(--bg-body)]">
-      <div className="mx-auto max-w-[1400px] px-4 pb-6 pt-5 sm:px-6 sm:pb-8 sm:pt-6 lg:px-10 lg:pb-10 lg:pt-8">
-        {/* 3-col grid on desktop */}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_220px_440px] lg:gap-6">
+    <section className="relative isolate w-full bg-[var(--bg-surface)]">
+      {/* Photo backdrop — mobile: aspect-video at top; desktop: absolute left 62%, fades into solid */}
+      <div className="relative aspect-video w-full overflow-hidden bg-black sm:aspect-[16/9] lg:absolute lg:inset-y-0 lg:left-0 lg:right-[38%] lg:aspect-auto">
+        {heroImage ? (
+          <img
+            id="hero-photo"
+            src={heroImage}
+            alt={artist.name}
+            onClick={() => {
+              // Desktop: scroll to galerija section. Mobile: do nothing (user taps the collage/lightbox instead).
+              if (typeof window === 'undefined') return
+              if (window.innerWidth < 1024) return
+              const el = document.getElementById('galerija')
+              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            }}
+            className="block h-full w-full animate-[apHeroZoom_36s_ease-in-out_infinite_alternate] cursor-zoom-in object-cover"
+            style={{
+              objectPosition: `${coverPos.x}% ${coverPos.y}%`,
+              transformOrigin: `${coverPos.x}% ${coverPos.y}%`,
+            }}
+          />
+        ) : (
+          <div className="h-full w-full bg-gradient-to-br from-[#1a2436] to-[#0a0f1a]" />
+        )}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[35%] bg-gradient-to-r from-transparent to-[var(--bg-surface)] lg:block" />
+      </div>
 
-          {/* PHOTO col */}
-          <div className="relative overflow-hidden rounded-2xl bg-black">
-            <div className="relative aspect-video lg:aspect-[5/4] lg:min-h-[520px]">
-              {heroImage ? (
-                <img
-                  src={heroImage}
-                  alt={artist.name}
-                  className="absolute inset-0 block h-full w-full animate-[apHeroZoom_36s_ease-in-out_infinite_alternate] object-cover"
-                  style={{
-                    objectPosition: `${coverPos.x}% ${coverPos.y}%`,
-                    transformOrigin: `${coverPos.x}% ${coverPos.y}%`,
-                  }}
-                />
-              ) : (
-                <div className="absolute inset-0 bg-gradient-to-br from-[#1a2436] to-[#0a0f1a]" />
-              )}
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+      <style>{`@keyframes apHeroZoom{0%{transform:scale(1.02)}100%{transform:scale(1.08)}}`}</style>
 
-              <style>{`@keyframes apHeroZoom{0%{transform:scale(1.02)}100%{transform:scale(1.08)}}`}</style>
+      <div className="relative mx-auto grid max-w-[1400px] grid-cols-1 gap-6 px-4 pb-10 pt-5 sm:px-6 lg:grid-cols-[1fr_460px] lg:gap-10 lg:min-h-[580px] lg:px-10 lg:py-10">
+        {/* Title column */}
+        <div
+          className={[
+            'flex min-w-0 flex-col justify-end',
+            'transition-[opacity,transform] duration-700 ease-out',
+            loaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
+          ].join(' ')}
+        >
+          <h1
+            className="mb-4 font-['Outfit',sans-serif] font-black leading-[0.9] tracking-[-0.04em] text-[var(--text-primary)] lg:text-white lg:drop-shadow-[0_6px_32px_rgba(0,0,0,0.8)]"
+            style={{ fontSize: 'clamp(2.25rem,6.5vw,5rem)' }}
+          >
+            {artist.name}
+            {artist.is_verified && (
+              <span className="ml-3 inline-flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#3b82f6] to-[#1d4ed8] align-middle shadow-[0_4px_16px_rgba(59,130,246,0.5)] sm:h-8 sm:w-8">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>
+              </span>
+            )}
+          </h1>
 
-              {/* Title overlay bottom-left */}
-              <div
-                className={[
-                  'absolute inset-x-0 bottom-0 px-5 pb-5 sm:px-8 sm:pb-8',
-                  'transition-[opacity,transform] duration-700 ease-out',
-                  loaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
-                ].join(' ')}
+          {/* Like (toggle) + "Kam patinka" (modal) — two separate actions */}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={onToggleLike}
+              disabled={selfLikePending}
+              className={[
+                'inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 font-["Outfit",sans-serif] text-[12px] font-extrabold uppercase tracking-[0.1em] backdrop-blur-md transition-all sm:text-[13px]',
+                selfLikePending ? 'cursor-wait opacity-70' : 'cursor-pointer',
+                selfLiked
+                  ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white shadow-[0_6px_18px_rgba(249,115,22,0.4)] hover:opacity-90'
+                  : 'border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)] lg:border-white/20 lg:bg-white/10 lg:text-white lg:hover:bg-white/20',
+              ].join(' ')}
+              title={selfLiked ? 'Tau patinka (paspausk, kad atšauktum)' : 'Paspausk „Patinka"'}
+            >
+              <svg viewBox="0 0 24 24" fill={selfLiked ? '#fff' : 'currentColor'} className={['h-3.5 w-3.5', selfLiked ? 'text-white' : 'text-[var(--accent-orange)]'].join(' ')}>
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+              </svg>
+              {likes > 0 ? likes.toLocaleString('lt-LT') : 'Patinka'}
+            </button>
+
+            {likes > 0 && (
+              <button
+                onClick={onOpenLikersModal}
+                className="inline-flex items-center gap-1.5 rounded-full border border-transparent bg-transparent px-2.5 py-1.5 font-['Outfit',sans-serif] text-[12px] font-semibold text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] lg:text-white/70 lg:hover:bg-white/10 lg:hover:text-white"
+                title="Pamatyk kam patinka"
               >
-                <h1
-                  className="mb-4 font-['Outfit',sans-serif] font-black leading-[0.9] tracking-[-0.04em] text-white drop-shadow-[0_6px_32px_rgba(0,0,0,0.8)]"
-                  style={{ fontSize: 'clamp(2rem,5.5vw,4.5rem)' }}
-                >
-                  {artist.name}
-                  {artist.is_verified && (
-                    <span className="ml-3 inline-flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#3b82f6] to-[#1d4ed8] align-middle shadow-[0_4px_16px_rgba(59,130,246,0.5)] sm:h-8 sm:w-8">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>
-                    </span>
-                  )}
-                </h1>
-
-                {/* Likes pill only — no rank pills (ranks are in the strip) */}
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    onClick={onLikes}
-                    className={[
-                      'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-["Outfit",sans-serif] text-[12px] font-extrabold uppercase tracking-[0.1em] backdrop-blur-md transition-colors sm:text-[13px]',
-                      selfLiked
-                        ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white shadow-[0_6px_18px_rgba(249,115,22,0.4)]'
-                        : 'border-white/20 bg-white/10 text-white hover:bg-white/20',
-                    ].join(' ')}
-                    title={selfLiked ? 'Tau patinka — paspausk, kad pamatytum visus' : 'Pažiūrėk, kam patinka + patiktuk ir pats'}
-                  >
-                    <svg viewBox="0 0 24 24" fill={selfLiked ? '#fff' : 'currentColor'} className={['h-3.5 w-3.5', selfLiked ? 'text-white' : 'text-[var(--accent-orange)]'].join(' ')}>
-                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                    </svg>
-                    {likes > 0 ? likes.toLocaleString('lt-LT') : 'Patinka'}
-                  </button>
-                </div>
-              </div>
-            </div>
+                Kam patinka →
+              </button>
+            )}
           </div>
+        </div>
 
-          {/* INFO STRIP col */}
-          <div
-            className={[
-              'min-w-0 transition-[opacity,transform] duration-700 delay-75 ease-out',
-              loaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
-            ].join(' ')}
-          >
-            <InfoStrip
-              artist={artist}
-              flag={flag}
-              genres={genres}
-              substyles={substyles}
-              ranks={ranks}
-              links={links}
-              website={artist.website}
-            />
-          </div>
-
-          {/* PLAYER col */}
-          <div
-            className={[
-              'min-w-0 transition-[opacity,transform] duration-700 delay-150 ease-out',
-              loaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
-            ].join(' ')}
-          >
+        {/* Player column */}
+        <div
+          className={[
+            'flex min-w-0 lg:items-center',
+            'transition-[opacity,transform] duration-700 delay-150 ease-out',
+            loaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
+          ].join(' ')}
+        >
+          <div className="w-full">
             <PlayerCard
               tracksAllTime={tracksAllTime}
               tracksTrending={tracksTrending}
@@ -536,22 +459,110 @@ function Hero({
   )
 }
 
-// ── BioPreview: short text + "Skaityti daugiau" opens modal ────────
+// ── InfoBar: horizontal strip below hero ───────────────────────────
 
-function BioPreview({ html, active, onOpen }: { html: string; active: string | null; onOpen: () => void }) {
-  const plain = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+function InfoBar({
+  artist, flag, genres, substyles, ranks, links, website,
+}: {
+  artist: any; flag: string; genres: Genre[]; substyles: Genre[]
+  ranks: Rank[]
+  links: { platform: string; url: string }[]; website?: string | null
+}) {
+  const countryRank = ranks.find(r => r.scope === 'country')
+  const genreRank = ranks.find(r => r.scope === 'genre')
+  const globalRank = ranks.find(r => r.scope === 'global')
+  const hasSocials = links.some(l => SOC[l.platform]) || !!website
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3 sm:gap-x-6 sm:px-5 sm:py-4">
+      {/* Country + rank */}
+      {artist.country && (
+        <div className="flex flex-wrap items-baseline gap-2">
+          <span className="inline-flex items-center gap-2 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)] sm:text-[15px]">
+            <span className="text-[18px] leading-none">{flag}</span>
+            <span>{artist.country}</span>
+          </span>
+          {countryRank && (
+            <span className="inline-flex items-center rounded-full bg-[rgba(249,115,22,0.14)] px-2 py-0.5 font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--accent-orange)]">
+              #{countryRank.rank}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Genre + rank + subtle substyles */}
+      {genres[0] && (
+        <div className="flex min-w-0 flex-wrap items-baseline gap-2">
+          <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)] sm:text-[15px]">
+            {genres[0].name}
+          </span>
+          {genreRank && (
+            <span className="inline-flex items-center rounded-full bg-[rgba(249,115,22,0.14)] px-2 py-0.5 font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--accent-orange)]">
+              #{genreRank.rank}
+            </span>
+          )}
+          {substyles.length > 0 && (
+            <span className="text-[12px] text-[var(--text-muted)]">
+              + {substyles.map(s => s.name).join(', ')}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Global rank if present */}
+      {globalRank && (
+        <div className="flex items-baseline gap-2">
+          <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)] sm:text-[15px]">Pasaulyje</span>
+          <span className="inline-flex items-center rounded-full bg-[rgba(249,115,22,0.14)] px-2 py-0.5 font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--accent-orange)]">
+            #{globalRank.rank}
+          </span>
+        </div>
+      )}
+
+      {/* Push right: socials */}
+      {hasSocials && (
+        <div className="ml-auto flex items-center gap-1">
+          {links.filter(l => SOC[l.platform]).map(l => {
+            const p = SOC[l.platform]
+            return (
+              <a
+                key={l.platform}
+                href={l.url}
+                target="_blank"
+                rel="noopener"
+                title={p.l}
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+              >
+                <svg viewBox="0 0 24 24" fill={p.c} width="14" height="14"><path d={p.d} /></svg>
+              </a>
+            )
+          })}
+          {website && (
+            <a
+              href={website}
+              target="_blank"
+              rel="noopener"
+              title="Oficiali svetainė"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
+            </a>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── BioPreview + MembersInline ─────────────────────────────────────
+
+function BioPreview({ html, onOpen }: { html: string; onOpen: () => void }) {
+  const plain = stripHtml(html)
   const excerpt = plain.slice(0, 320)
   const isLong = plain.length > 320
   return (
-    <div className="text-[15px] leading-[1.7] text-[var(--text-secondary)]">
-      {active && (
-        <span className="font-['Outfit',sans-serif] text-[12px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
-          {active}
-        </span>
-      )}
-      {active && <span className="mx-2 text-[var(--text-faint)]">·</span>}
-      {excerpt}
-      {isLong && '…'}
+    <div className="text-[15px] leading-[1.72] text-[var(--text-secondary)]">
+      {excerpt}{isLong && '…'}
       {isLong && (
         <>
           {' '}
@@ -566,8 +577,6 @@ function BioPreview({ html, active, onOpen }: { html: string; active: string | n
     </div>
   )
 }
-
-// ── Members: compact inline pills right below bio ──────────────────
 
 function MembersInline({ members }: { members: Member[] }) {
   if (!members.length) return null
@@ -599,50 +608,60 @@ function MembersInline({ members }: { members: Member[] }) {
   )
 }
 
-// ── GalleryCollage: 2x2 grid with +X overlay ──────────────────────
+// ── GalleryCollage (beside bio) ────────────────────────────────────
 
 function GalleryCollage({
-  photos, onOpenAll, totalCount,
+  photos, totalCount, onOpen, onScrollToFull,
 }: {
   photos: { url: string; caption?: string }[]
-  onOpenAll: (startIndex: number) => void
   totalCount: number
+  onOpen: (i: number) => void           // mobile: lightbox
+  onScrollToFull: () => void             // desktop: scroll to galerija
 }) {
+  if (photos.length === 0) return null
   const shown = photos.slice(0, 4)
-  if (shown.length === 0) return null
   const extra = totalCount - shown.length
+
   return (
-    <div className="grid grid-cols-2 gap-1.5 overflow-hidden rounded-2xl">
-      {shown.map((p, i) => {
-        const isLast = i === shown.length - 1
-        const showOverlay = isLast && extra > 0
-        return (
-          <button
-            key={i}
-            onClick={() => onOpenAll(i)}
-            className="group relative block aspect-[4/3] overflow-hidden border-0 bg-transparent p-0"
-          >
-            <img
-              src={p.url}
-              alt={p.caption || ''}
-              loading="lazy"
-              className="h-full w-full cursor-zoom-in object-cover transition-transform duration-500 group-hover:scale-[1.04]"
-            />
-            {showOverlay && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/55 backdrop-blur-[1px]">
-                <span className="font-['Outfit',sans-serif] text-[22px] font-black text-white">
-                  +{extra}
-                </span>
-              </div>
-            )}
-          </button>
-        )
-      })}
+    <div>
+      <div className="grid grid-cols-2 gap-2 overflow-hidden rounded-2xl">
+        {shown.map((p, i) => {
+          const isLast = i === shown.length - 1
+          const showOverlay = isLast && extra > 0
+          return (
+            <button
+              key={i}
+              onClick={() => {
+                if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+                  onScrollToFull()
+                } else {
+                  onOpen(i)
+                }
+              }}
+              className="group relative block aspect-[4/3] overflow-hidden rounded-xl border-0 bg-transparent p-0"
+            >
+              <img
+                src={p.url}
+                alt={p.caption || ''}
+                loading="lazy"
+                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+              />
+              {showOverlay && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/55 backdrop-blur-[1px] transition-colors group-hover:bg-black/45">
+                  <span className="font-['Outfit',sans-serif] text-[24px] font-black text-white">
+                    +{extra}
+                  </span>
+                </div>
+              )}
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }
 
-// ── Lightbox (reused by both collage and masonry) ──────────────────
+// ── Lightbox ───────────────────────────────────────────────────────
 
 function Lightbox({
   photos, index, onClose, onIndex,
@@ -659,7 +678,11 @@ function Lightbox({
       if (e.key === 'ArrowRight' && index < photos.length - 1) onIndex(index + 1)
     }
     window.addEventListener('keydown', h)
-    return () => window.removeEventListener('keydown', h)
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', h)
+      document.body.style.overflow = ''
+    }
   }, [index, photos.length, onClose, onIndex])
 
   return (
@@ -700,7 +723,7 @@ function Lightbox({
   )
 }
 
-// ── MasonryGallery (full section) ──────────────────────────────────
+// ── MasonryGallery ─────────────────────────────────────────────────
 
 function MasonryGallery({ photos, onOpen }: { photos: { url: string; caption?: string }[]; onOpen: (i: number) => void }) {
   const limited = photos.slice(0, 24)
@@ -823,6 +846,89 @@ function AlbumCard({ a }: { a: Album }) {
   )
 }
 
+// ── TrackCard: for "Kitos dainos" filter ───────────────────────────
+
+function TrackCard({ t }: { t: Track }) {
+  const v = yt(t.video_url)
+  const cover = t.cover_url || (v ? `https://img.youtube.com/vi/${v}/mqdefault.jpg` : null)
+  return (
+    <Link href={`/lt/daina/${t.slug}/${t.id}/`} className="group block no-underline">
+      <div className="relative overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] transition-all group-hover:border-[var(--border-strong)] group-hover:shadow-[0_12px_32px_rgba(0,0,0,0.3)]">
+        <div className="aspect-square">
+          {cover ? (
+            <img src={cover} alt={t.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-4xl text-[var(--text-faint)]">♪</div>
+          )}
+        </div>
+        {v && (
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_6px_20px_rgba(249,115,22,0.5)]">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg>
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="mt-2.5 px-1">
+        <div className="truncate font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)] sm:text-[14px]">{t.title}</div>
+      </div>
+    </Link>
+  )
+}
+
+// ── DiscussionRow: title + last post preview on the right ──────────
+
+function DiscussionRow({ t, isLast }: { t: LegacyThread; isLast: boolean }) {
+  const title = t.title || slugToForumTitle(t.slug)
+  const pc = t.post_count ?? 0
+  const lastPost = t.last_post
+  const lastText = lastPost?.body ? stripHtml(lastPost.body).slice(0, 120) : ''
+
+  return (
+    <Link
+      href={`/diskusijos/tema/${t.legacy_id}`}
+      className={[
+        'flex items-stretch gap-4 px-4 py-4 no-underline transition-colors hover:bg-[var(--bg-hover)] sm:px-5',
+        !isLast ? 'border-b border-[var(--border-subtle)]' : '',
+      ].join(' ')}
+    >
+      {/* Left: icon */}
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center self-start rounded-xl border border-[rgba(59,130,246,0.2)] bg-[rgba(59,130,246,0.1)] text-[#3b82f6] sm:h-12 sm:w-12">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" /></svg>
+      </div>
+
+      {/* Middle: title + meta */}
+      <div className="flex min-w-0 flex-1 flex-col justify-center sm:flex-[1.5]">
+        <div className="line-clamp-1 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)] sm:text-[15px]">{title}</div>
+        <div className="mt-1 text-[12px] text-[var(--text-muted)]">
+          {pc > 0 ? `${pc} komentarai` : 'Dar nekomentuota'}
+          {lastPost?.created_at && <> · {timeAgo(lastPost.created_at)}</>}
+        </div>
+      </div>
+
+      {/* Right: last post preview (hidden on small screens) */}
+      {lastText && (
+        <div className="hidden min-w-0 flex-1 items-start sm:flex">
+          <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-2">
+            {lastPost?.author_username && (
+              <div className="mb-0.5 font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--text-secondary)]">
+                {lastPost.author_username}
+              </div>
+            )}
+            <div className="line-clamp-2 text-[12px] leading-[1.45] text-[var(--text-muted)]">
+              {lastText}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <svg className="self-center text-[var(--text-faint)]" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M9 18l6-6-6-6" />
+      </svg>
+    </Link>
+  )
+}
+
 // ── Main ────────────────────────────────────────────────────────────
 
 export default function ArtistProfileClient({
@@ -835,6 +941,8 @@ export default function ArtistProfileClient({
   const [likesModalOpen, setLikesModalOpen] = useState(false)
   const [bioModalOpen, setBioModalOpen] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
+
+  const galerijaRef = useRef<HTMLDivElement>(null)
 
   // Self-like state
   const [selfLiked, setSelfLiked] = useState<boolean | undefined>(undefined)
@@ -869,6 +977,8 @@ export default function ArtistProfileClient({
         setSelfLiked(prev)
         setModernLikeCount(c => c - (prev ? -1 : 1))
         setAuthed(false)
+        // Open modal so user sees the "Prisijunk" CTA
+        setLikesModalOpen(true)
       } else if (res.ok) {
         const data = await res.json()
         if (typeof data.liked === 'boolean') setSelfLiked(data.liked)
@@ -886,6 +996,7 @@ export default function ArtistProfileClient({
     }
   }
 
+  const flag = FLAGS[artist.country] || (artist.country ? '🌍' : '')
   const hasBio = artist.description?.trim().length > 10
   const solo = artist.type === 'solo'
   const active = artist.active_from ? `${artist.active_from}–${artist.active_until || 'dabar'}` : null
@@ -893,8 +1004,15 @@ export default function ArtistProfileClient({
   const likes = modernLikeCount + followers + authoritativeLegacy
   const allLikesUsers: any[] = legacyCommunity?.allArtistFans || []
 
+  // Discography filters — types present in albums + "orphan" tracks bucket
   const atypes = [...new Set(albums.map(aType))]
   const hasStudio = atypes.includes('Studijinis')
+  // orphan tracks: tracks not linked to an album (album_id null/undefined)
+  const orphanTracks = useMemo(
+    () => tracks.filter(t => t.album_id == null),
+    [tracks],
+  )
+  const hasOrphanTracks = orphanTracks.length > 0
   const [df, setDf] = useState<string>(hasStudio ? 'Studijinis' : 'all')
   const fAlbums = df === 'all' ? albums : albums.filter(a => aType(a) === df)
 
@@ -918,8 +1036,7 @@ export default function ArtistProfileClient({
   const pastEvents = events.filter((e: any) => new Date(e.start_date).getTime() < now)
   const bioHtml: string = artist.description || ''
 
-  // Filter hero photo out of gallery to avoid duplication.
-  // Hero-photo selection is separate from gallery-profile photo.
+  // Gallery photos excluding the hero image
   const galleryPhotos = useMemo(
     () => photos.filter(p => p.url !== heroImage),
     [photos, heroImage],
@@ -931,19 +1048,21 @@ export default function ArtistProfileClient({
     substyles.map(s => s.name).join(', '),
   ].filter(Boolean).join(' · ')
 
+  const scrollToGalerija = () => {
+    galerijaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   return (
     <div className="min-h-screen bg-[var(--bg-body)] font-['DM_Sans',system-ui,sans-serif] text-[var(--text-primary)] antialiased">
       <Hero
         artist={artist}
         heroImage={heroImage}
         loaded={loaded}
-        ranks={ranks}
         likes={likes}
-        onLikes={() => setLikesModalOpen(true)}
         selfLiked={selfLiked}
-        genres={genres}
-        substyles={substyles}
-        links={links}
+        selfLikePending={selfLikePending}
+        onToggleLike={toggleSelfLike}
+        onOpenLikersModal={() => setLikesModalOpen(true)}
         tracksAllTime={tracksAllTime}
         tracksTrending={tracksTrending}
         activeTrackId={pid}
@@ -971,16 +1090,27 @@ export default function ArtistProfileClient({
         html={bioHtml}
       />
 
-      {lightboxIndex !== null && photos.length > 0 && (
+      {lightboxIndex !== null && galleryPhotos.length > 0 && (
         <Lightbox
-          photos={photos}
+          photos={galleryPhotos}
           index={lightboxIndex}
           onClose={() => setLightboxIndex(null)}
           onIndex={setLightboxIndex}
         />
       )}
 
-      <main className="mx-auto max-w-[1400px] space-y-10 px-4 pb-24 pt-4 sm:space-y-14 sm:px-6 lg:px-10">
+      <main className="mx-auto max-w-[1400px] space-y-10 px-4 pb-24 pt-8 sm:space-y-14 sm:px-6 lg:px-10">
+
+        {/* Horizontal info strip below hero */}
+        <InfoBar
+          artist={artist}
+          flag={flag}
+          genres={genres}
+          substyles={substyles}
+          ranks={ranks}
+          links={links}
+          website={artist.website}
+        />
 
         {/* Upcoming events */}
         {upcomingEvents.length > 0 && (
@@ -992,97 +1122,97 @@ export default function ArtistProfileClient({
           </section>
         )}
 
-        {/* BIO + MEMBERS + GALLERY COLLAGE — compact layout, no big headers */}
+        {/* BIO + MEMBERS on left, GALLERY COLLAGE on right (player-width) */}
         {(hasBio || members.length > 0 || galleryPhotos.length > 0) && (
-          <section className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-10">
+          <section className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_460px] lg:gap-10">
             <div className="min-w-0">
               {hasBio && (
-                <BioPreview
-                  html={bioHtml}
-                  active={active}
-                  onOpen={() => setBioModalOpen(true)}
-                />
+                <BioPreview html={bioHtml} onOpen={() => setBioModalOpen(true)} />
               )}
               {!solo && members.length > 0 && <MembersInline members={members} />}
             </div>
 
             {galleryPhotos.length > 0 && (
-              <div>
-                <GalleryCollage
-                  photos={galleryPhotos}
-                  totalCount={galleryPhotos.length}
-                  onOpenAll={(idx) => setLightboxIndex(idx)}
-                />
-              </div>
+              <GalleryCollage
+                photos={galleryPhotos}
+                totalCount={galleryPhotos.length}
+                onOpen={(i) => setLightboxIndex(i)}
+                onScrollToFull={scrollToGalerija}
+              />
             )}
           </section>
         )}
 
-        {/* Diskografija */}
-        {albums.length > 0 && (
+        {/* Diskografija — no count; renamed filters; +Kitos dainos */}
+        {(albums.length > 0 || hasOrphanTracks) && (
           <section>
-            <SectionTitle label="Diskografija" count={albums.length} />
-            {atypes.length > 1 && (
-              <div className="mb-5 flex flex-wrap gap-1.5 sm:gap-2">
-                {[...atypes, 'all'].map(t => {
-                  const count = t === 'all' ? albums.length : albums.filter(a => aType(a) === t).length
-                  const label = t === 'all' ? 'Visi' : (t === 'Studijinis' ? 'Studijiniai' : t === 'Singlas' ? 'Singlai' : t)
-                  return (
-                    <button
-                      key={t}
-                      onClick={() => setDf(t)}
-                      className={[
-                        'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-["Outfit",sans-serif] text-[12px] font-bold transition-all',
-                        df === t
-                          ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white shadow-[0_4px_12px_rgba(249,115,22,0.3)]'
-                          : 'border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]',
-                      ].join(' ')}
-                    >
-                      {label}
-                      <span className={df === t ? 'opacity-80' : 'text-[var(--text-faint)]'}>· {count}</span>
-                    </button>
-                  )
-                })}
-              </div>
-            )}
+            <SectionTitle label="Diskografija" />
+            <div className="mb-5 flex flex-wrap gap-1.5 sm:gap-2">
+              {atypes.map(t => {
+                const count = albums.filter(a => aType(a) === t).length
+                const active = df === t
+                return (
+                  <button
+                    key={t}
+                    onClick={() => setDf(t)}
+                    className={[
+                      'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-["Outfit",sans-serif] text-[12px] font-bold transition-all',
+                      active
+                        ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white shadow-[0_4px_12px_rgba(249,115,22,0.3)]'
+                        : 'border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]',
+                    ].join(' ')}
+                  >
+                    {FILTER_LABEL[t] || t}
+                    <span className={active ? 'opacity-80' : 'text-[var(--text-faint)]'}>· {count}</span>
+                  </button>
+                )
+              })}
+              {hasOrphanTracks && (
+                <button
+                  onClick={() => setDf('orphan')}
+                  className={[
+                    'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-["Outfit",sans-serif] text-[12px] font-bold transition-all',
+                    df === 'orphan'
+                      ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white shadow-[0_4px_12px_rgba(249,115,22,0.3)]'
+                      : 'border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]',
+                  ].join(' ')}
+                >
+                  {FILTER_LABEL.orphan}
+                  <span className={df === 'orphan' ? 'opacity-80' : 'text-[var(--text-faint)]'}>· {orphanTracks.length}</span>
+                </button>
+              )}
+              {atypes.length > 1 && (
+                <button
+                  onClick={() => setDf('all')}
+                  className={[
+                    'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-["Outfit",sans-serif] text-[12px] font-bold transition-all',
+                    df === 'all'
+                      ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white shadow-[0_4px_12px_rgba(249,115,22,0.3)]'
+                      : 'border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]',
+                  ].join(' ')}
+                >
+                  {FILTER_LABEL.all}
+                  <span className={df === 'all' ? 'opacity-80' : 'text-[var(--text-faint)]'}>· {albums.length}</span>
+                </button>
+              )}
+            </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-              {fAlbums.map(a => <AlbumCard key={a.id} a={a} />)}
+              {df === 'orphan'
+                ? orphanTracks.map(t => <TrackCard key={t.id} t={t} />)
+                : fAlbums.map(a => <AlbumCard key={a.id} a={a} />)
+              }
             </div>
           </section>
         )}
 
-        {/* Diskusijos */}
+        {/* Diskusijos — no #ID, last comment preview on right */}
         <section>
           <SectionTitle label="Diskusijos" count={legacyThreads.length || undefined} />
           {legacyThreads.length > 0 ? (
             <div className="overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
-              {legacyThreads.map((t, i) => {
-                const title = t.title || slugToForumTitle(t.slug)
-                const pc = t.post_count ?? 0
-                return (
-                  <Link
-                    key={t.legacy_id}
-                    href={`/diskusijos/tema/${t.legacy_id}`}
-                    className={[
-                      'flex items-center gap-4 px-4 py-4 no-underline transition-colors hover:bg-[var(--bg-hover)] sm:px-5',
-                      i < legacyThreads.length - 1 ? 'border-b border-[var(--border-subtle)]' : '',
-                    ].join(' ')}
-                  >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[rgba(59,130,246,0.2)] bg-[rgba(59,130,246,0.1)] text-[#3b82f6] sm:h-12 sm:w-12">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" /></svg>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)] sm:text-[15px]">{title}</div>
-                      <div className="mt-1 text-[12px] text-[var(--text-muted)]">
-                        #{t.legacy_id}{pc > 0 && <> · {pc} komentarai</>}
-                      </div>
-                    </div>
-                    <svg className="shrink-0 text-[var(--text-faint)]" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M9 18l6-6-6-6" />
-                    </svg>
-                  </Link>
-                )
-              })}
+              {legacyThreads.map((t, i) => (
+                <DiscussionRow key={t.legacy_id} t={t} isLast={i === legacyThreads.length - 1} />
+              ))}
             </div>
           ) : (
             <div className="rounded-2xl border border-dashed border-[var(--border-default)] p-8 text-center">
@@ -1135,9 +1265,9 @@ export default function ArtistProfileClient({
           </section>
         )}
 
-        {/* Galerija (full masonry, excluding hero photo) */}
+        {/* Galerija (masonry) */}
         {galleryPhotos.length > 0 && (
-          <section>
+          <section ref={galerijaRef} id="galerija">
             <SectionTitle label="Galerija" count={galleryPhotos.length} />
             <MasonryGallery
               photos={galleryPhotos}

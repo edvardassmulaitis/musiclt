@@ -21,7 +21,18 @@ async function getGenres(id: number) { const sb = createAdminClient(); const { d
 async function getLinks(id: number) { const sb = createAdminClient(); const { data } = await sb.from('artist_links').select('platform, url').eq('artist_id', id); return data || [] }
 async function getPhotos(id: number) { const sb = createAdminClient(); const { data } = await sb.from('artist_photos').select('id, url, caption, sort_order').eq('artist_id', id).order('sort_order'); return data || [] }
 async function getAlbums(id: number) { const sb = createAdminClient(); const { data } = await sb.from('albums').select('id, slug, title, year, month, cover_image_url, type_studio, type_compilation, type_ep, type_single, type_live, type_remix, type_soundtrack, type_demo, spotify_id, video_url, legacy_id').eq('artist_id', id).order('year', { ascending: false }); return data || [] }
-async function getTracks(id: number) { const sb = createAdminClient(); const { data } = await sb.from('tracks').select('id, slug, title, type, video_url, spotify_id, cover_url, release_date, lyrics, is_new, is_new_date, release_year, release_month, legacy_id').eq('artist_id', id).order('created_at', { ascending: false }).limit(40); return data || [] }
+async function getTracks(id: number) {
+  const sb = createAdminClient()
+  // album_id added so the client can show orphan tracks ("Kitos dainos") —
+  // tracks not tied to any album. Limit is higher to include more orphans.
+  const { data } = await sb
+    .from('tracks')
+    .select('id, slug, title, type, video_url, spotify_id, cover_url, release_date, lyrics, is_new, is_new_date, release_year, release_month, legacy_id, album_id')
+    .eq('artist_id', id)
+    .order('created_at', { ascending: false })
+    .limit(80)
+  return data || []
+}
 async function getAllArtistTrackLegacyIds(id: number) { const sb = createAdminClient(); const { data } = await sb.from('tracks').select('legacy_id').eq('artist_id', id).not('legacy_id', 'is', null); return (data || []).map((t: any) => t.legacy_id).filter((x: any) => typeof x === 'number') }
 
 /** Sumedžioja legacy community info: visus likes artist + visiems jo albumams + tracks.
@@ -139,6 +150,37 @@ async function getLegacyForumThreads(artist: { name: string; slug: string }, lim
     .order('last_post_at', { ascending: false, nullsFirst: false })
     .limit(limit)
   return data || []
+}
+
+/** For a set of thread legacy_ids, fetch the most recent forum post body + author.
+ *  Returns a Map keyed by thread_legacy_id → { body, author_username, created_at }.
+ *  Used to enrich thread cards with a teaser of the last comment so the UI can
+ *  show what people are saying instead of a bare row. */
+async function getLastPostsByThread(threadIds: number[]): Promise<Map<number, { body: string; author_username: string | null; created_at: string | null }>> {
+  const out = new Map<number, { body: string; author_username: string | null; created_at: string | null }>()
+  if (threadIds.length === 0) return out
+  const sb = createAdminClient()
+  try {
+    // Latest-first; first occurrence per thread wins as the "last post".
+    const { data } = await sb
+      .from('forum_posts')
+      .select('thread_legacy_id, body, author_username, created_at')
+      .in('thread_legacy_id', threadIds)
+      .order('created_at', { ascending: false })
+      .limit(500)
+    for (const p of (data || []) as any[]) {
+      if (!out.has(p.thread_legacy_id)) {
+        out.set(p.thread_legacy_id, {
+          body: p.body || '',
+          author_username: p.author_username || null,
+          created_at: p.created_at || null,
+        })
+      }
+    }
+  } catch {
+    // If forum_posts schema varies, silently return empty map
+  }
+  return out
 }
 
 /** Atskirai paimam news — naudoja tokį patį URL pattern, bet kind='news' */
@@ -329,6 +371,21 @@ export default async function ArtistPage({ params }: Props) {
     (artist as any).legacy_like_count ?? 0,
   )
 
+  // Enrich forum threads with last post preview so the UI can show a teaser
+  const allThreadIds = [
+    ...(legacyThreads as any[]).map((t) => t.legacy_id),
+    ...(legacyNews as any[]).map((t) => t.legacy_id),
+  ]
+  const lastPosts = await getLastPostsByThread(allThreadIds)
+  const legacyThreadsWithPosts = (legacyThreads as any[]).map((t) => ({
+    ...t,
+    last_post: lastPosts.get(t.legacy_id) || null,
+  }))
+  const legacyNewsWithPosts = (legacyNews as any[]).map((t) => ({
+    ...t,
+    last_post: lastPosts.get(t.legacy_id) || null,
+  }))
+
   return (
     <ArtistProfileClient
       artist={{ id: artist.id, slug: artist.slug, name: artist.name, type: artist.type || 'group', country: artist.country, active_from: artist.active_from, active_until: artist.active_until, description: stripStyles(artist.description || ''), cover_image_url: artist.cover_image_url, cover_image_position: artist.cover_image_position, website: artist.website, spotify_id: artist.spotify_id, is_verified: artist.is_verified, gender: artist.gender, birth_date: artist.birth_date, death_date: artist.death_date, legacy_id: (artist as any).legacy_id ?? null, source: (artist as any).source ?? null, legacy_like_count: (artist as any).legacy_like_count ?? 0 }}
@@ -336,7 +393,7 @@ export default async function ArtistPage({ params }: Props) {
       members={members} followers={followers} likeCount={likeCount} news={news as any} events={events}
       similar={similar} newTracks={newTracks as any} topVideos={topVideos as any}
       chartData={mockChart(albums)} hasNewMusic={newTracks.length > 0}
-      legacyCommunity={legacyCommunity} legacyThreads={legacyThreads as any} legacyNews={legacyNews as any}
+      legacyCommunity={legacyCommunity} legacyThreads={legacyThreadsWithPosts as any} legacyNews={legacyNewsWithPosts as any}
       ranks={ranks}
       substyles={substyles}
     />
