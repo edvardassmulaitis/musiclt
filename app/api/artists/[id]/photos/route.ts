@@ -8,6 +8,91 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+/** Extract photographer name + license from the caption "author" string.
+ *  Formats seen so far:
+ *    - "Brianhphoto · CC BY-SA 4.0"
+ *    - "Brianhphoto - CC BY-SA 4.0"
+ *    - "Jonas Petraitis" (no license)
+ *  We split on the common separators and treat everything after as the
+ *  license. Input should already be trimmed. */
+function splitAuthorLicense(raw: string): { name: string; license: string | null } {
+  if (!raw) return { name: '', license: null }
+  const m = raw.match(/^(.+?)\s*[·•|]\s*(.+)$/) || raw.match(/^(.+?)\s+-\s+(.+)$/)
+  if (m) return { name: m[1].trim(), license: m[2].trim() }
+  return { name: raw.trim(), license: null }
+}
+
+function slugifyName(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')     // strip diacritics
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 80) || 'fotografas'
+}
+
+/** Return the id of an existing photographer row that matches `name`, or
+ *  create one and return its new id. Idempotent + safe to call repeatedly. */
+async function resolvePhotographerId(name: string, sourceUrl: string | null): Promise<number | null> {
+  const n = name.trim()
+  if (!n) return null
+
+  // 1) Try existing by case-insensitive name
+  const { data: existing } = await supabase
+    .from('photographers')
+    .select('id')
+    .ilike('name', n)
+    .limit(1)
+  if (existing && existing[0]) return (existing[0] as any).id as number
+
+  // 2) Infer source (wikimedia username vs. direct) from the photo's source URL
+  let source: string | null = null
+  let externalUrl: string | null = null
+  if (sourceUrl) {
+    try {
+      const host = new URL(sourceUrl).hostname
+      if (host.includes('wikimedia.org') || host.includes('wikipedia.org')) {
+        source = 'wikimedia'
+        // Wikimedia user page follows a stable format.
+        externalUrl = `https://commons.wikimedia.org/wiki/User:${encodeURIComponent(n)}`
+      } else if (host.includes('flickr')) {
+        source = 'flickr'
+      } else {
+        source = 'direct'
+      }
+    } catch {}
+  }
+
+  // 3) Ensure slug uniqueness — collisions are rare but possible.
+  const base = slugifyName(n)
+  let slug = base
+  for (let i = 2; i < 20; i++) {
+    const { data: clash } = await supabase
+      .from('photographers')
+      .select('id')
+      .eq('slug', slug)
+      .limit(1)
+    if (!clash || clash.length === 0) break
+    slug = `${base}-${i}`
+  }
+
+  const { data: inserted, error } = await supabase
+    .from('photographers')
+    .insert({ name: n, slug, source, external_url: externalUrl })
+    .select('id')
+    .single()
+  if (error) {
+    console.error('[photos] photographer insert failed:', error.message)
+    return null
+  }
+  return inserted?.id ?? null
+}
+
+/** Legacy caption encoding — preserved so existing readers that parse the
+ *  JSON blob keep working. Going forward, photographer_id / license /
+ *  source_url are the canonical storage. */
 function encodeCaption(p: any): string | null {
   const a = p.author || ''
   const s = p.sourceUrl || ''
@@ -15,7 +100,13 @@ function encodeCaption(p: any): string | null {
   return JSON.stringify({ a, s })
 }
 
-// PUT /api/artists/[id]/photos — replace all photos for artist
+// PUT /api/artists/[id]/photos — replace all photos for artist.
+//
+// For each incoming photo we:
+//   1. Split the author string into { name, license }.
+//   2. Resolve (or create) a photographer row for the name.
+//   3. Store photographer_id + license + source_url on the artist_photos row.
+//   4. Keep the legacy JSON caption populated for backward compatibility.
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const session = await getServerSession(authOptions)
@@ -34,14 +125,26 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (delError) return NextResponse.json({ error: delError.message }, { status: 500 })
 
   if (validPhotos.length > 0) {
-    const { error: insError } = await supabase.from('artist_photos').insert(
-      validPhotos.map((p: any, i: number) => ({
+    // Resolve photographer ids sequentially — small N (< ~50) and we want
+    // strict ordering on inserts/slugs to avoid race conditions.
+    const rows: any[] = []
+    for (let i = 0; i < validPhotos.length; i++) {
+      const p = validPhotos[i]
+      const { name, license } = splitAuthorLicense(p.author || '')
+      const sourceUrl = typeof p.sourceUrl === 'string' ? p.sourceUrl : null
+      const photographerId = name ? await resolvePhotographerId(name, sourceUrl) : null
+      rows.push({
         artist_id: artistId,
         url: p.url,
         caption: encodeCaption(p),
+        photographer_id: photographerId,
+        license,
+        source_url: sourceUrl,
         sort_order: i,
-      }))
-    )
+      })
+    }
+
+    const { error: insError } = await supabase.from('artist_photos').insert(rows)
     if (insError) return NextResponse.json({ error: insError.message }, { status: 500 })
   }
 

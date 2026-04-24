@@ -264,16 +264,21 @@ async function getLastPostsByThread(threadIds: number[]): Promise<Map<number, { 
   const sb = createAdminClient()
   try {
     // Latest-first; first occurrence per thread wins as the "last post".
+    // NOTE: forum_posts stores the body in `content_text` / `content_html`
+    // (not `body`). The client-facing field is named `body` so we map here.
     const { data } = await sb
       .from('forum_posts')
-      .select('thread_legacy_id, body, author_username, created_at')
+      .select('thread_legacy_id, content_text, content_html, author_username, created_at')
       .in('thread_legacy_id', threadIds)
       .order('created_at', { ascending: false })
       .limit(500)
     for (const p of (data || []) as any[]) {
       if (!out.has(p.thread_legacy_id)) {
+        const text = (p.content_text && String(p.content_text).trim())
+          || (p.content_html && String(p.content_html).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim())
+          || ''
         out.set(p.thread_legacy_id, {
-          body: p.body || '',
+          body: text,
           author_username: p.author_username || null,
           created_at: p.created_at || null,
         })

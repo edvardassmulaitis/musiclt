@@ -1033,7 +1033,7 @@ function MembersInline({ members }: { members: Member[] }) {
   return (
     <div className="mt-5 flex flex-wrap gap-2">
       <span className="mr-1 inline-flex items-center font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
-        Nariai · {members.length}
+        Nariai
       </span>
       {members.map(m => (
         <Link
@@ -1113,6 +1113,61 @@ function GalleryCollage({
 
 // ── Lightbox ───────────────────────────────────────────────────────
 
+/** Parse the photo's caption into a clean { author, source } pair.
+ *
+ *  The scraper saves a JSON blob in `caption`, shaped {"a": "...", "s": "..."}:
+ *    a = author + license label (e.g. "Brianhphoto · CC BY-SA 4.0")
+ *    s = source URL (Wikipedia, Flickr, etc.)
+ *
+ *  Hand-entered captions are plain strings — pass them through. Anything
+ *  unparseable falls back to the raw string (or null). */
+function parsePhotoCaption(raw?: string): { author: string | null; sourceUrl: string | null; sourceHost: string | null; plain: string | null } {
+  if (!raw) return { author: null, sourceUrl: null, sourceHost: null, plain: null }
+  const trimmed = raw.trim()
+  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+    try {
+      const j = JSON.parse(trimmed)
+      const author = typeof j.a === 'string' ? j.a : null
+      const sourceUrl = typeof j.s === 'string' ? j.s : null
+      let sourceHost: string | null = null
+      if (sourceUrl) {
+        try { sourceHost = new URL(sourceUrl).hostname.replace(/^www\./, '') } catch {}
+      }
+      return { author, sourceUrl, sourceHost, plain: null }
+    } catch {}
+  }
+  return { author: null, sourceUrl: null, sourceHost: null, plain: trimmed }
+}
+
+/** Lightbox caption renderer — compact, no raw URLs. */
+function PhotoCredit({ caption }: { caption?: string }) {
+  const info = parsePhotoCaption(caption)
+  if (!info.author && !info.sourceUrl && !info.plain) return null
+  return (
+    <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[12px] text-white/60">
+      {info.plain && <span>{info.plain}</span>}
+      {info.author && <span className="text-white/80">{info.author}</span>}
+      {info.sourceUrl && info.sourceHost && (
+        <a
+          href={info.sourceUrl}
+          target="_blank"
+          rel="noopener"
+          onClick={(e) => e.stopPropagation()}
+          className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-white/70 transition-colors hover:border-white/30 hover:text-white"
+          title={info.sourceUrl}
+        >
+          <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+            <path d="M15 3h6v6" />
+            <path d="M10 14L21 3" />
+          </svg>
+          {info.sourceHost}
+        </a>
+      )}
+    </div>
+  )
+}
+
 function Lightbox({
   photos, index, onClose, onIndex,
 }: {
@@ -1156,7 +1211,7 @@ function Lightbox({
       )}
       <div className="flex max-h-[90vh] max-w-[92vw] flex-col items-center" onClick={e => e.stopPropagation()}>
         <img src={photos[index].url} alt="" className="max-h-[82vh] max-w-full rounded-lg object-contain" />
-        {photos[index].caption && <p className="mt-2 text-[12px] text-white/50">{photos[index].caption}</p>}
+        <PhotoCredit caption={photos[index].caption} />
       </div>
       {index < photos.length - 1 && (
         <button
@@ -1177,24 +1232,56 @@ function Lightbox({
 
 function MasonryGallery({ photos, onOpen }: { photos: { url: string; caption?: string }[]; onOpen: (i: number) => void }) {
   const limited = photos.slice(0, 24)
+  // We measure each image's natural aspect ratio on load so landscape photos
+  // can occupy more horizontal space than portrait ones. The mosaic uses CSS
+  // grid with `grid-auto-flow: dense` so images automatically pack into the
+  // available slots — eliminating gaps when neighbours span 2 columns.
+  const [ar, setAr] = useState<Record<number, number>>({})
+  const onImgLoad = (i: number, w: number, h: number) => {
+    if (!w || !h) return
+    setAr((prev) => (prev[i] ? prev : { ...prev, [i]: w / h }))
+  }
+
   if (!limited.length) return null
   return (
-    <div className="columns-2 gap-2 sm:columns-3 md:gap-3 lg:columns-4">
-      {limited.map((p, i) => (
-        <button
-          key={i}
-          onClick={() => onOpen(i)}
-          className="mb-2 block w-full overflow-hidden rounded-xl border-0 bg-transparent p-0 md:mb-3"
-          style={{ breakInside: 'avoid' }}
-        >
-          <img
-            src={p.url}
-            alt={p.caption || ''}
-            loading="lazy"
-            className="block w-full cursor-zoom-in object-cover transition-transform duration-500 hover:scale-[1.02]"
-          />
-        </button>
-      ))}
+    <div
+      className="grid grid-cols-4 gap-2 md:gap-3 sm:grid-cols-6 lg:grid-cols-8"
+      style={{ gridAutoFlow: 'dense', gridAutoRows: '1fr' }}
+    >
+      {limited.map((p, i) => {
+        const aspect = ar[i]
+        // Landscape (≥1.6) → 2-col + 1-row (wide banner).
+        // Portrait (<0.8)  → 1-col + 2-row (tall strip).
+        // Square-ish      → 1-col + 1-row.
+        // Unknown (unloaded) → default 1x1; image will settle once loaded.
+        let colSpan = 'col-span-2'
+        let rowSpan = 'row-span-2'
+        if (aspect) {
+          if (aspect >= 1.6) { colSpan = 'col-span-4 sm:col-span-4'; rowSpan = 'row-span-2' }
+          else if (aspect >= 1.15) { colSpan = 'col-span-3'; rowSpan = 'row-span-2' }
+          else if (aspect >= 0.8) { colSpan = 'col-span-2'; rowSpan = 'row-span-2' }
+          else { colSpan = 'col-span-2'; rowSpan = 'row-span-3' }
+        }
+        return (
+          <button
+            key={i}
+            onClick={() => onOpen(i)}
+            className={`group relative block overflow-hidden rounded-xl border-0 bg-[var(--cover-placeholder)] p-0 ${colSpan} ${rowSpan}`}
+            style={{ aspectRatio: aspect ? String(aspect) : undefined }}
+          >
+            <img
+              src={p.url}
+              alt={parsePhotoCaption(p.caption).author || ''}
+              loading="lazy"
+              onLoad={(e) => {
+                const t = e.currentTarget
+                onImgLoad(i, t.naturalWidth, t.naturalHeight)
+              }}
+              className="absolute inset-0 h-full w-full cursor-zoom-in object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+            />
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -1733,11 +1820,23 @@ export default function ArtistProfileClient({
 
       <main className="mx-auto max-w-[1400px] space-y-10 px-4 pb-24 pt-8 sm:space-y-14 sm:px-6 lg:px-10">
 
-        {/* BIO + MEMBERS + SIDE INFO + UPCOMING EVENTS — single adaptive block.
-            When there are upcoming events, they dock compactly into the right
-            sidebar beside the bio so a lone event doesn't eat a whole row.
-            Bio gets an "Apie grupę/atlikėją" header in that case so there's
-            a clear visual separation. */}
+        {/* Upcoming events — own full-width row so they're clearly visible.
+            Compact variant (date block + title, no hero image) keeps the row
+            slim when there's only one event, and 2-3 fill the grid cleanly. */}
+        {upcomingEvents.length > 0 && (
+          <section>
+            <SectionTitle label="Artimiausi renginiai" />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {upcomingEvents.map((e: any) => (
+                <EventCard key={e.id} e={e} variant="compact" />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* BIO + MEMBERS + SIDE INFO — adaptive layout.
+            With events present, the bio section gets a heading so the two
+            sections stay visually separated. */}
         {(() => {
           const bioLen = stripHtml(bioHtml).length
           const isShortBio = bioLen < 200
@@ -1745,33 +1844,9 @@ export default function ArtistProfileClient({
           const bioHeader = solo ? 'Apie atlikėją' : 'Apie grupę'
           const hasUpcoming = upcomingEvents.length > 0
 
-          if (!hasBio && members.length === 0 && !sideInfoAvailable && !hasUpcoming) return null
+          if (!hasBio && members.length === 0 && !sideInfoAvailable) return null
 
-          const SideRail = (
-            <div className="flex flex-col gap-4">
-              {hasUpcoming && (
-                <div className="flex flex-col gap-3">
-                  {upcomingEvents.slice(0, 3).map((e: any) => (
-                    <EventCard key={e.id} e={e} variant="compact" />
-                  ))}
-                </div>
-              )}
-              {sideInfoAvailable && (
-                <SideInfo
-                  artist={artist}
-                  flag={flag}
-                  genres={genres}
-                  substyles={substyles}
-                  ranks={ranks}
-                  links={links}
-                  website={artist.website}
-                />
-              )}
-            </div>
-          )
-
-          if (isShortBio && !hasUpcoming) {
-            // Short bio + no events → keep the horizontal info strip layout.
+          if (isShortBio) {
             return (
               <section className="space-y-6">
                 {sideInfoAvailable && (
@@ -1788,6 +1863,11 @@ export default function ArtistProfileClient({
                 )}
                 {(hasBio || members.length > 0) && (
                   <div>
+                    {hasUpcoming && hasBio && (
+                      <h2 className="mb-3 font-['Outfit',sans-serif] text-[18px] font-black tracking-[-0.01em] text-[var(--text-primary)] sm:text-[20px]">
+                        {bioHeader}
+                      </h2>
+                    )}
                     {hasBio && <BioPreview html={bioHtml} onOpen={() => setBioModalOpen(true)} maxChars={400} />}
                     {!solo && members.length > 0 && <MembersInline members={members} />}
                   </div>
@@ -1796,25 +1876,26 @@ export default function ArtistProfileClient({
             )
           }
 
-          // 2-col layout — bio on the left, events + details in the right rail.
           return (
             <section className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-10">
               <div className="min-w-0">
-                {(hasUpcoming && hasBio) && (
+                {hasUpcoming && hasBio && (
                   <h2 className="mb-3 font-['Outfit',sans-serif] text-[18px] font-black tracking-[-0.01em] text-[var(--text-primary)] sm:text-[20px]">
                     {bioHeader}
                   </h2>
                 )}
-                {hasBio && (
-                  <BioPreview
-                    html={bioHtml}
-                    onOpen={() => setBioModalOpen(true)}
-                    maxChars={isShortBio ? 400 : 700}
-                  />
-                )}
+                <BioPreview html={bioHtml} onOpen={() => setBioModalOpen(true)} maxChars={700} />
                 {!solo && members.length > 0 && <MembersInline members={members} />}
               </div>
-              {SideRail}
+              <SideInfo
+                artist={artist}
+                flag={flag}
+                genres={genres}
+                substyles={substyles}
+                ranks={ranks}
+                links={links}
+                website={artist.website}
+              />
             </section>
           )
         })()}
@@ -1877,7 +1958,7 @@ export default function ArtistProfileClient({
                 <div className={visibleAlbums.length > 0 ? 'mt-6' : ''}>
                   {visibleAlbums.length > 0 && (
                     <div className="mb-2.5 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.15em] text-[var(--text-muted)]">
-                      Kitos dainos · {orphanTracks.length}
+                      Kitos dainos
                     </div>
                   )}
                   <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
@@ -1893,7 +1974,7 @@ export default function ArtistProfileClient({
 
         {/* Diskusijos — no #ID, last comment preview on right */}
         <section>
-          <SectionTitle label="Diskusijos" count={legacyThreads.length || undefined} />
+          <SectionTitle label="Diskusijos" />
           {legacyThreads.length > 0 ? (
             <div className="overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
               {legacyThreads.map((t, i) => (
