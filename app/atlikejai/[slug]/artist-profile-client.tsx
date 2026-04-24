@@ -1096,11 +1096,15 @@ export default function ArtistProfileClient({
   // Self-like state
   const [selfLiked, setSelfLiked] = useState<boolean | undefined>(undefined)
   const [authed, setAuthed] = useState<boolean | undefined>(undefined)
+  const [isAnonLike, setIsAnonLike] = useState<boolean>(false)
   const [modernLikeCount, setModernLikeCount] = useState<number>(likeCount)
   const [selfLikePending, setSelfLikePending] = useState(false)
   // Surfaces DB-schema mismatches (e.g. the FK migration hasn't been applied)
   // so the user sees an actionable toast instead of silent failure.
   const [likeErrorMsg, setLikeErrorMsg] = useState<string | null>(null)
+  // One-time nudge after the user's first anonymous like explaining
+  // that signing in makes their vote count more.
+  const [anonNudge, setAnonNudge] = useState(false)
 
   useEffect(() => { setLoaded(true) }, [])
 
@@ -1112,6 +1116,9 @@ export default function ArtistProfileClient({
         if (cancelled || !data) return
         if (typeof data.liked === 'boolean') setSelfLiked(data.liked)
         if (typeof data.count === 'number') setModernLikeCount(data.count)
+        if (typeof data.anonymous === 'boolean') setIsAnonLike(data.anonymous)
+        // authed derived: if anonymous flag is false and response succeeded, user is signed in
+        if (typeof data.anonymous === 'boolean') setAuthed(!data.anonymous)
       })
       .catch(() => {})
     return () => { cancelled = true }
@@ -1125,30 +1132,31 @@ export default function ArtistProfileClient({
     setModernLikeCount(c => c + (prev ? -1 : 1))
     try {
       const res = await fetch(`/api/artists/${artist.id}/like`, { method: 'POST' })
-      if (res.status === 401) {
-        setSelfLiked(prev)
-        setModernLikeCount(c => c - (prev ? -1 : 1))
-        setAuthed(false)
-        // Open modal so user sees the "Prisijunk" CTA
-        setLikesModalOpen(true)
-      } else if (res.ok) {
+      if (res.ok) {
         const data = await res.json()
         if (typeof data.liked === 'boolean') setSelfLiked(data.liked)
         if (typeof data.count === 'number') setModernLikeCount(data.count)
-        setAuthed(true)
+        if (typeof data.anonymous === 'boolean') {
+          setIsAnonLike(data.anonymous)
+          setAuthed(!data.anonymous)
+          // First anonymous like from this device — show a one-time sign-in nudge
+          if (data.anonymous && data.firstAnon && data.liked) {
+            setAnonNudge(true)
+          }
+        }
       } else {
-        // Server error — surface details so we can debug column/schema issues.
+        // Server error — surface details so we can debug.
         let detail: any = null
         try { detail = await res.json() } catch {}
         // eslint-disable-next-line no-console
         console.error('[like toggle] server error', res.status, detail)
         setSelfLiked(prev)
         setModernLikeCount(c => c - (prev ? -1 : 1))
-        // Detect the foreign-key mismatch between artist_likes.user_id → auth.users
-        // vs our profiles.id — surface a clear migration prompt instead of silent revert.
         const errStr = String(detail?.error || '')
         if (/foreign key constraint/i.test(errStr) && /user_id_fkey/i.test(errStr)) {
           setLikeErrorMsg('Duomenų bazės migracija dar neatlikta: artist_likes FK rodo į auth.users vietoj profiles. Paleisk supabase/migrations/20260424_artist_likes_profile_fk.sql.')
+        } else if (/anon_artist_likes/i.test(errStr)) {
+          setLikeErrorMsg('Lentelė anon_artist_likes nesukurta. Paleisk supabase/migrations/20260424b_anon_artist_likes.sql.')
         } else if (errStr) {
           setLikeErrorMsg(`Nepavyko: ${errStr}`)
         }
@@ -1314,6 +1322,40 @@ export default function ArtistProfileClient({
             </div>
             <button
               onClick={() => setLikeErrorMsg(null)}
+              aria-label="Uždaryti"
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--bg-hover)]"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Anonymous-like nudge (one-time, after first anon like) */}
+      {anonNudge && (
+        <div className="fixed bottom-4 left-1/2 z-[2000] -translate-x-1/2 sm:bottom-6">
+          <div className="flex max-w-[520px] items-start gap-3 rounded-2xl border border-[rgba(249,115,22,0.35)] bg-[var(--bg-surface)] p-4 shadow-[0_18px_44px_-10px_rgba(0,0,0,0.5)]">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_4px_14px_rgba(249,115,22,0.4)]">
+              <svg viewBox="0 0 24 24" fill="#fff" width="16" height="16">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+              </svg>
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="mb-1 font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)]">
+                Tavo „Patinka" užskaitytas ✓
+              </div>
+              <div className="text-[12px] leading-[1.5] text-[var(--text-secondary)]">
+                Jei prisijungsi, tavo balsas turės didesnę vertę rank'uose ir visoje bendruomenėje.
+              </div>
+              <a
+                href="/auth/signin"
+                className="mt-2 inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] hover:underline"
+              >
+                Prisijungti →
+              </a>
+            </div>
+            <button
+              onClick={() => setAnonNudge(false)}
               aria-label="Uždaryti"
               className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--bg-hover)]"
             >
