@@ -126,6 +126,23 @@ function fmtDur(d: number | string | null | undefined): string | null {
   return `${m}:${sec.toString().padStart(2, '0')}`
 }
 
+/** Format a date in Lithuanian convention — year first. Two variants:
+ *    short: "2026 bal. 6"           (compact cards)
+ *    long:  "2026 m. balandžio 6 d." (modal / hero variant)
+ *
+ *  Lithuanian reads year→month→day. We intentionally avoid ISO ("2026-04-06")
+ *  because month names carry more meaning at a glance. */
+function formatLtDate(d: Date, opts: { long?: boolean } = {}): string {
+  if (opts.long) {
+    // toLocaleDateString already renders in genitive form in LT locale:
+    // "2026 m. balandžio 6 d."
+    return d.toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' })
+  }
+  // Short — keep month abbreviation + trailing "." plus day, year-first:
+  const m = d.toLocaleDateString('lt-LT', { month: 'short' }).replace(/\.?$/, '.')
+  return `${d.getFullYear()} ${m} ${d.getDate()}`
+}
+
 /** Year-only rendering for a photo's `taken_at`. Returns null for missing
  *  or unparseable dates so callers can fall back silently. */
 function photoYear(raw?: string | null): number | null {
@@ -844,6 +861,10 @@ function Hero({
           <div className="h-full w-full bg-gradient-to-br from-[#1a2436] to-[#0a0f1a]" />
         )}
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
+        {/* Mobile: soft fade at the bottom edge into the page surface so the
+            photo doesn't end in a hard horizontal line. Hidden on desktop
+            where the right-side fade takes care of blending. */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[30%] bg-gradient-to-t from-[var(--bg-surface)] via-[var(--bg-surface)]/70 to-transparent lg:hidden" />
         <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[35%] bg-gradient-to-r from-transparent to-[var(--bg-surface)] lg:block" />
       </div>
 
@@ -887,27 +908,44 @@ function Hero({
             />
           </div>
 
-          {/* Upcoming events strip — lives inside the hero so a single event
-              doesn't create an empty-looking row below. Shows up to 2 cards
-              inline; overflow collapses into a "+N" tile that opens a modal
-              with the full list. */}
+          {/* Upcoming events strip.
+              Mobile: horizontal snap scroll with all events inline — no
+                overflow modal, swipe to browse.
+              Desktop: show up to 2 cards inline, "+N" tile for the rest
+                which opens EventsModal. */}
           {upcomingEvents.length > 0 && (() => {
             const MAX_VISIBLE = 2
             const hasOverflow = upcomingEvents.length > MAX_VISIBLE
-            const visible = hasOverflow
+            const desktopVisible = hasOverflow
               ? upcomingEvents.slice(0, MAX_VISIBLE)
               : upcomingEvents
-            const overflow = upcomingEvents.length - visible.length
+            const overflow = upcomingEvents.length - desktopVisible.length
             return (
               <div className="mt-6">
                 <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.18em] text-[var(--accent-orange)] lg:text-white/85">
                   Artimiausi renginiai
                 </div>
+
+                {/* Mobile — horizontal scroll. Each card locks 85% of the
+                    viewport so the next card peeks in to hint at scrollability. */}
+                <div className="flex gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:hidden" style={{ scrollSnapType: 'x mandatory' }}>
+                  {upcomingEvents.map((e: any) => (
+                    <div
+                      key={e.id}
+                      className="w-[86%] shrink-0"
+                      style={{ scrollSnapAlign: 'start' }}
+                    >
+                      <EventCard e={e} variant="upcoming" />
+                    </div>
+                  ))}
+                </div>
+
+                {/* Desktop — grid + "+N" tile */}
                 <div className={[
-                  'grid gap-2 sm:gap-3',
-                  hasOverflow ? 'grid-cols-1 sm:grid-cols-[1fr_1fr_auto]' : 'grid-cols-1 sm:grid-cols-2',
+                  'hidden gap-2 sm:grid sm:gap-3',
+                  hasOverflow ? 'sm:grid-cols-[1fr_1fr_auto]' : 'sm:grid-cols-2',
                 ].join(' ')}>
-                  {visible.map((e: any) => (
+                  {desktopVisible.map((e: any) => (
                     <EventCard key={e.id} e={e} variant="upcoming" />
                   ))}
                   {hasOverflow && <MoreEventsTile count={overflow} onClick={onOpenEventsModal} />}
@@ -1423,10 +1461,10 @@ function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' |
         href={href}
         className="flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3 no-underline transition-all hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
       >
-        <div className="flex min-w-[54px] flex-col items-center justify-center rounded-lg bg-[var(--card-bg)] px-2 py-1.5 text-center">
+        <div className="flex min-w-[64px] flex-col items-center justify-center rounded-lg bg-[var(--card-bg)] px-2 py-1.5 text-center">
+          <span className="font-['Outfit',sans-serif] text-[9px] font-bold leading-tight text-[var(--text-muted)]">{d.getFullYear()}</span>
           <span className="font-['Outfit',sans-serif] text-[10px] font-bold capitalize leading-tight text-[var(--text-muted)]">{monthShort}</span>
           <span className="font-['Outfit',sans-serif] text-[20px] font-black leading-none text-[var(--text-primary)]">{d.getDate()}</span>
-          <span className="mt-0.5 font-['Outfit',sans-serif] text-[9px] font-bold text-[var(--text-muted)]">{d.getFullYear()}</span>
         </div>
         <div className="min-w-0 flex-1">
           <div className="truncate text-[14px] font-bold leading-tight text-[var(--text-primary)]">{e.title}</div>
@@ -1496,10 +1534,8 @@ function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' |
       {/* Right: date + title + venue. Extra vertical padding keeps the card
           from feeling squashed while still remaining compact. */}
       <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5 px-4 py-4 sm:px-5">
-        <div className="inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.08em] text-[var(--accent-orange)]">
-          <span>{d.getDate()}</span>
-          <span className="capitalize">{monthShort}</span>
-          <span>{d.getFullYear()}</span>
+        <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.08em] text-[var(--accent-orange)]">
+          {formatLtDate(d)}
         </div>
         <div className="line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-bold leading-snug text-[var(--text-primary)] sm:text-[15px]">
           {e.title}
@@ -1602,7 +1638,7 @@ function EventBigCard({ e }: { e: any }) {
   const d = new Date(e.start_date)
   const venue = [e.venue_name, e.city].filter(Boolean).join(', ')
   const href = `/renginiai/${e.slug}`
-  const monthShort = d.toLocaleDateString('lt-LT', { month: 'short' }).replace('.', '')
+  const longDate = formatLtDate(d, { long: true })
   const [coverFailed, setCoverFailed] = useState(false)
   const hasCover = !!e.cover_image_url && !coverFailed
   return (
@@ -1620,25 +1656,19 @@ function EventBigCard({ e }: { e: any }) {
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/55 to-transparent" />
-          <div className="absolute left-3 top-3 rounded-lg bg-black/70 px-2.5 py-1.5 text-center backdrop-blur-sm">
-            <div className="font-['Outfit',sans-serif] text-[9px] font-bold uppercase tracking-wider text-[var(--accent-orange)]">
-              <span className="capitalize">{monthShort}</span> {d.getFullYear()}
-            </div>
-            <div className="font-['Outfit',sans-serif] text-[22px] font-black leading-none text-white">{d.getDate()}</div>
-          </div>
         </div>
       ) : (
         <div className="flex aspect-[16/9] items-center justify-center bg-[rgba(249,115,22,0.1)]">
-          <div className="text-center">
-            <div className="font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-wider text-[var(--accent-orange)]">
-              <span className="capitalize">{monthShort}</span> {d.getFullYear()}
-            </div>
-            <div className="font-['Outfit',sans-serif] text-[52px] font-black leading-none text-[var(--text-primary)]">{d.getDate()}</div>
-          </div>
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.25" className="text-[var(--accent-orange)]/40">
+            <path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </div>
       )}
       <div className="p-4">
-        <div className="line-clamp-2 font-['Outfit',sans-serif] text-[15px] font-bold leading-snug text-[var(--text-primary)] sm:text-[16px]">{e.title}</div>
+        <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--accent-orange)]">
+          {longDate}
+        </div>
+        <div className="mt-1 line-clamp-2 font-['Outfit',sans-serif] text-[15px] font-bold leading-snug text-[var(--text-primary)] sm:text-[16px]">{e.title}</div>
         {venue && <div className="mt-1 truncate text-[12px] text-[var(--text-secondary)] sm:text-[13px]">📍 {venue}</div>}
       </div>
     </Link>
@@ -2133,68 +2163,44 @@ export default function ArtistProfileClient({
             lone event doesn't leave empty air below the title. Overflow
             opens EventsModal. */}
 
-        {/* BIO + MEMBERS + SIDE INFO — adaptive layout.
-            With events present, the bio section gets a heading so the two
-            sections stay visually separated. */}
+        {/* SIDE INFO (horizontal strip) + BIO + MEMBERS — stacked.
+            Single column: details chip row on top, bio + members below.
+            Replaces the old 2-col [bio | 320px sidebar] layout because the
+            sidebar variant shipped too many empty-feeling columns and the
+            user preferred seeing details up front. */}
         {(() => {
-          const bioLen = stripHtml(bioHtml).length
-          const isShortBio = bioLen < 200
           const sideInfoAvailable = !!artist.country || genres.length > 0 || links.length > 0 || artist.website
           const bioHeader = solo ? 'Apie atlikėją' : 'Apie grupę'
-          const hasUpcoming = upcomingEvents.length > 0
 
           if (!hasBio && members.length === 0 && !sideInfoAvailable) return null
 
-          if (isShortBio) {
-            return (
-              <section className="space-y-6">
-                {sideInfoAvailable && (
-                  <SideInfo
-                    artist={artist}
-                    flag={flag}
-                    genres={genres}
-                    substyles={substyles}
-                    ranks={ranks}
-                    links={links}
-                    website={artist.website}
-                    horizontal
-                  />
-                )}
-                {(hasBio || members.length > 0) && (
-                  <div>
-                    {hasUpcoming && hasBio && (
+          return (
+            <section className="space-y-6">
+              {sideInfoAvailable && (
+                <SideInfo
+                  artist={artist}
+                  flag={flag}
+                  genres={genres}
+                  substyles={substyles}
+                  ranks={ranks}
+                  links={links}
+                  website={artist.website}
+                  horizontal
+                />
+              )}
+              {(hasBio || members.length > 0) && (
+                <div>
+                  {hasBio && (
+                    <>
                       <h2 className="mb-3 font-['Outfit',sans-serif] text-[18px] font-black tracking-[-0.01em] text-[var(--text-primary)] sm:text-[20px]">
                         {bioHeader}
                       </h2>
-                    )}
-                    {hasBio && <BioPreview html={bioHtml} onOpen={() => setBioModalOpen(true)} maxChars={400} />}
-                    {!solo && members.length > 0 && <MembersInline members={members} />}
-                  </div>
-                )}
-              </section>
-            )
-          }
-
-          return (
-            <section className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-10">
-              <div className="min-w-0">
-                {hasUpcoming && hasBio && (
-                  <h2 className="mb-3 font-['Outfit',sans-serif] text-[18px] font-black tracking-[-0.01em] text-[var(--text-primary)] sm:text-[20px]">
-                    {bioHeader}
-                  </h2>
-                )}
-                <BioPreview html={bioHtml} onOpen={() => setBioModalOpen(true)} maxChars={700} />
-                {!solo && members.length > 0 && <MembersInline members={members} />}
-              </div>
-              <SideInfo
-                artist={artist}
-                flag={flag}
-                genres={genres}
-                substyles={substyles}
-                ranks={ranks}
-                links={links}
-                website={artist.website}
-              />
+                      <BioPreview html={bioHtml} onOpen={() => setBioModalOpen(true)} maxChars={700} />
+                    </>
+                  )}
+                  {!solo && members.length > 0 && <MembersInline members={members} />}
+                </div>
+              )}
             </section>
           )
         })()}
@@ -2241,13 +2247,24 @@ export default function ArtistProfileClient({
                 )}
               </div>
 
-              {/* Albums grid — tighter columns (more per row) now that
-                  each card is smaller. Popularity tier is index-based: the
-                  first 10% of visible albums get the fullest bar. */}
+              {/* Albums — horizontal scroll carousel. Fixed-width cards
+                  snap as you swipe; keeps the page short for artists with
+                  long discographies instead of a multi-row wall. Popularity
+                  tier is index-based: first 10% of visible albums get the
+                  fullest bar. */}
               {visibleAlbums.length > 0 && (
-                <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 sm:gap-3 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7">
+                <div
+                  className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:-mx-0 sm:px-0 [-ms-overflow-style:none] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[var(--border-default)]"
+                  style={{ scrollSnapType: 'x mandatory' }}
+                >
                   {visibleAlbums.map((a, i) => (
-                    <AlbumCard key={a.id} a={a} popularity={popLevel(i, visibleAlbums.length)} />
+                    <div
+                      key={a.id}
+                      className="w-[130px] shrink-0 sm:w-[150px] lg:w-[160px]"
+                      style={{ scrollSnapAlign: 'start' }}
+                    >
+                      <AlbumCard a={a} popularity={popLevel(i, visibleAlbums.length)} />
+                    </div>
                   ))}
                 </div>
               )}
