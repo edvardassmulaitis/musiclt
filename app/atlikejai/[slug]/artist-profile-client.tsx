@@ -264,9 +264,10 @@ function PlayerCard({
         {displayVid ? (
           playing ? (
             // Once the user has hit play, mount the iframe with autoplay and
-            // NO YT controls — our overlay drives play/pause via postMessage.
-            // The "watch on YouTube" / title / share chrome is part of the
-            // default controls bar, so hiding controls hides it too.
+            // NO YT controls — our bottom bar drives play/pause + fullscreen
+            // via postMessage and iframe.requestFullscreen(). Hiding YT's
+            // native controls also hides the "Watch on YouTube" / share
+            // chrome that was cluttering the frame.
             <>
               <iframe
                 ref={iframeRef}
@@ -276,30 +277,45 @@ function PlayerCard({
                 allowFullScreen
                 className="absolute inset-0 h-full w-full border-0"
               />
-              {/* Hover-only pause/play overlay — only visible while the user
-                  is mousing over the video. Click swaps between states. */}
-              <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-200 hover:opacity-100 focus-within:opacity-100 peer-hover:opacity-100 [:hover>&]:opacity-100">
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/0 to-transparent" />
-              </div>
-              <button
-                type="button"
-                onClick={togglePlayPause}
-                aria-label={isPaused ? 'Tęsti' : 'Pauzė'}
-                className="group absolute inset-0 z-10 flex cursor-pointer items-end justify-start border-0 bg-transparent p-0 opacity-0 transition-opacity duration-200 hover:opacity-100 focus:opacity-100"
-              >
-                <span className="m-3 flex h-11 w-11 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white shadow-[0_6px_20px_rgba(249,115,22,0.5)] ring-2 ring-white/20 transition-transform group-hover:scale-110">
+              {/* Always-visible bottom bar — play/pause on the left,
+                  fullscreen on the right. Slim + translucent so it doesn't
+                  steal attention from the video. */}
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-gradient-to-t from-black/75 via-black/40 to-transparent px-3 py-2">
+                <button
+                  type="button"
+                  onClick={togglePlayPause}
+                  aria-label={isPaused ? 'Tęsti' : 'Pauzė'}
+                  title={isPaused ? 'Tęsti' : 'Pauzė'}
+                  className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white shadow-[0_4px_14px_rgba(249,115,22,0.45)] ring-2 ring-white/15 transition-transform hover:scale-105"
+                >
                   {isPaused ? (
-                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden>
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden>
                       <path d="M8 5v14l11-7z" />
                     </svg>
                   ) : (
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden>
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden>
                       <rect x="6" y="5" width="4" height="14" rx="1" />
                       <rect x="14" y="5" width="4" height="14" rx="1" />
                     </svg>
                   )}
-                </span>
-              </button>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const el = iframeRef.current as any
+                    if (!el) return
+                    const req = el.requestFullscreen || el.webkitRequestFullscreen || el.webkitEnterFullscreen || el.msRequestFullscreen
+                    if (req) req.call(el).catch(() => {})
+                  }}
+                  aria-label="Per visą ekraną"
+                  title="Per visą ekraną"
+                  className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80"
+                >
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M3 8V3h5M21 8V3h-5M3 16v5h5M21 16v5h-5" />
+                  </svg>
+                </button>
+              </div>
             </>
           ) : (
             // Initial state — thumbnail + big orange play button. One click
@@ -388,80 +404,75 @@ function PlayerCard({
               const v = yt(t.video_url)
               const isActive = t.id === activeTrackId
               const pop = popLevel(i, list.length)
-              const dur = fmtDur(t.duration)
               return (
                 <li key={t.id}>
                   <div
                     className={[
-                      'flex w-full items-center gap-3 px-4 py-2 transition-colors',
+                      'flex w-full items-center gap-2 px-3 py-2 transition-colors',
                       isActive ? 'bg-[rgba(249,115,22,0.08)]' : 'hover:bg-[var(--bg-hover)]',
                     ].join(' ')}
                   >
+                    {/* Position number / active equalizer */}
+                    <span
+                      className={[
+                        'w-5 shrink-0 text-center font-["Outfit",sans-serif] text-[12px] font-bold tabular-nums',
+                        isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]',
+                      ].join(' ')}
+                      aria-hidden
+                    >
+                      {isActive && v ? <Equalizer /> : i + 1}
+                    </span>
+
+                    {/* Dedicated play button — always present so the most
+                        important action is one tap away on mobile. Clicking
+                        it never opens the drawer. */}
                     <button
                       onClick={() => v && handleSelect(t.id)}
                       disabled={!v}
-                      aria-label={v ? `Leisti ${t.title}` : t.title}
+                      aria-label={v ? `Leisti ${t.title}` : 'Video nėra'}
+                      title={v ? 'Leisti' : ''}
                       className={[
-                        'flex min-w-0 flex-1 items-center gap-3 border-0 bg-transparent p-0 text-left',
-                        v ? 'cursor-pointer' : 'cursor-default opacity-55',
+                        'flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors',
+                        v
+                          ? isActive
+                            ? 'bg-[var(--accent-orange)] text-white shadow-[0_4px_14px_rgba(249,115,22,0.35)]'
+                            : 'bg-[var(--card-bg)] text-[var(--text-primary)] hover:bg-[var(--accent-orange)] hover:text-white'
+                          : 'cursor-default bg-transparent text-[var(--text-faint)] opacity-50',
                       ].join(' ')}
                     >
-                      <span
-                        className={[
-                          'w-6 shrink-0 text-center font-["Outfit",sans-serif] text-[12px] font-bold tabular-nums',
-                          isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]',
-                        ].join(' ')}
-                      >
-                        {isActive && v ? (
-                          // Active-track indicator — 3 pulsing bars (equalizer).
-                          // Intentionally NOT a pause icon, since we can't
-                          // truthfully say the track is paused/playing.
-                          <Equalizer />
-                        ) : (
-                          i + 1
-                        )}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className={[
-                          'truncate font-["Outfit",sans-serif] text-[13px] font-bold leading-tight',
-                          isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-primary)]',
-                        ].join(' ')}>
-                          {t.title}
-                        </div>
-                        <PopBar level={pop} />
-                      </div>
+                      <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-hidden>
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
                     </button>
 
-                    {/* Right column — likes, duration, info button */}
-                    <div className="flex shrink-0 items-center gap-2">
-                      {typeof t.like_count === 'number' && t.like_count > 0 && (
-                        <span
-                          title={`${t.like_count.toLocaleString('lt-LT')} patinka`}
-                          className="inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[11px] font-semibold tabular-nums text-[var(--text-muted)]"
-                        >
-                          <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" className="text-[var(--accent-orange)]" aria-hidden>
-                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                          </svg>
-                          {t.like_count.toLocaleString('lt-LT')}
-                        </span>
-                      )}
-                      {dur && (
-                        <span className="font-['Outfit',sans-serif] text-[11px] font-semibold tabular-nums text-[var(--text-muted)]">
-                          {dur}
-                        </span>
-                      )}
-                      <button
-                        onClick={(e) => { e.stopPropagation(); onOpenTrackInfo(t) }}
-                        aria-label="Dainos informacija"
-                        title="Dainos informacija"
-                        className="flex h-6 w-6 items-center justify-center rounded-full text-[var(--text-faint)] transition-colors hover:bg-[var(--card-bg)] hover:text-[var(--text-primary)]"
+                    {/* Title area — click opens the side drawer with full
+                        details + lyrics. Separate hit target from play. */}
+                    <button
+                      type="button"
+                      onClick={() => onOpenTrackInfo(t)}
+                      className="flex min-w-0 flex-1 cursor-pointer flex-col items-start border-0 bg-transparent p-0 text-left"
+                    >
+                      <div className={[
+                        'w-full truncate font-["Outfit",sans-serif] text-[13px] font-bold leading-tight',
+                        isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-primary)]',
+                      ].join(' ')}>
+                        {t.title}
+                      </div>
+                      <PopBar level={pop} />
+                    </button>
+
+                    {/* Right column — likes only; duration moved to drawer */}
+                    {typeof t.like_count === 'number' && t.like_count > 0 && (
+                      <span
+                        title={`${t.like_count.toLocaleString('lt-LT')} patinka`}
+                        className="inline-flex shrink-0 items-center gap-1 font-['Outfit',sans-serif] text-[11px] font-semibold tabular-nums text-[var(--text-muted)]"
                       >
-                        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2">
-                          <circle cx="12" cy="12" r="9" />
-                          <path d="M12 8v.01M12 11v5" strokeLinecap="round" />
+                        <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" className="text-[var(--accent-orange)]" aria-hidden>
+                          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
                         </svg>
-                      </button>
-                    </div>
+                        {t.like_count.toLocaleString('lt-LT')}
+                      </span>
+                    )}
                   </div>
                 </li>
               )
@@ -542,9 +553,11 @@ function PopBar({ level }: { level: number }) {
 // and a lyrics preview, plus a link to the full /lt/daina page.
 
 function TrackInfoModal({
-  track, artistName, artistSlug, onClose,
+  track, artistName, artistSlug, onClose, onPlay,
 }: {
   track: Track | null; artistName: string; artistSlug: string; onClose: () => void
+  /** Start playback of this track in the main player. Drawer stays open. */
+  onPlay?: (t: Track) => void
 }) {
   // We use an internal `mounted` flag so the slide-out animation gets a chance
   // to run before the component unmounts. When a new track replaces the
@@ -578,9 +591,7 @@ function TrackInfoModal({
   const year = track.release_year || (track.release_date ? new Date(track.release_date).getFullYear() : null)
   const likes = typeof track.like_count === 'number' ? track.like_count : 0
   const lyrics = (track.lyrics || '').trim()
-  const lyricsPreview = lyrics
-    ? lyrics.replace(/<[^>]+>/g, '').split(/\n+/).filter(Boolean).slice(0, 14).join('\n')
-    : null
+  const lyricsText = lyrics ? lyrics.replace(/<[^>]+>/g, '').trim() : null
   const trackHref = `/lt/daina/${track.slug}/${track.id}`
 
   return (
@@ -603,9 +614,9 @@ function TrackInfoModal({
         role="dialog"
         aria-label={`Apie dainą ${track.title}`}
         className={[
-          'absolute right-0 top-0 flex h-full w-full max-w-[440px] flex-col border-l border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[-24px_0_60px_-10px_rgba(0,0,0,0.5)]',
+          'absolute left-0 top-0 flex h-full w-full max-w-[440px] flex-col border-r border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[24px_0_60px_-10px_rgba(0,0,0,0.5)]',
           'transition-transform duration-200 ease-out',
-          mounted ? 'translate-x-0' : 'translate-x-full',
+          mounted ? 'translate-x-0' : '-translate-x-full',
         ].join(' ')}
       >
         {/* Header */}
@@ -660,18 +671,15 @@ function TrackInfoModal({
           )}
         </div>
 
-        {/* Body */}
+        {/* Body — full lyrics (scrollable) */}
         <div className="flex-1 overflow-y-auto px-5 py-5">
-          {lyricsPreview ? (
+          {lyricsText ? (
             <div>
               <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.2em] text-[var(--text-muted)]">
                 Tekstas
               </div>
               <div className="whitespace-pre-wrap font-['DM_Sans',system-ui,sans-serif] text-[14px] leading-[1.6] text-[var(--text-primary)]">
-                {lyricsPreview}
-                {lyrics.split(/\n+/).length > 14 && (
-                  <span className="text-[var(--text-muted)]">…</span>
-                )}
+                {lyricsText}
               </div>
             </div>
           ) : (
@@ -681,11 +689,23 @@ function TrackInfoModal({
           )}
         </div>
 
-        {/* Footer action */}
-        <div className="flex items-center justify-end gap-2 border-t border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-5 py-3">
+        {/* Footer actions — Play (accent) + secondary link to full page */}
+        <div className="flex items-center justify-between gap-2 border-t border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-5 py-3">
+          {onPlay && yt(track.video_url) ? (
+            <button
+              type="button"
+              onClick={() => onPlay(track)}
+              className="inline-flex items-center gap-2 rounded-full bg-[var(--accent-orange)] px-4 py-2 font-['Outfit',sans-serif] text-[12px] font-extrabold text-white shadow-[0_4px_14px_rgba(249,115,22,0.35)] transition-transform hover:scale-[1.02]"
+            >
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden>
+                <path d="M8 5v14l11-7z" />
+              </svg>
+              Klausyti
+            </button>
+          ) : <span />}
           <Link
             href={trackHref}
-            className="inline-flex items-center gap-2 rounded-full bg-[var(--accent-orange)] px-4 py-2 font-['Outfit',sans-serif] text-[12px] font-extrabold text-white shadow-[0_4px_14px_rgba(249,115,22,0.35)] transition-transform hover:scale-[1.02]"
+            className="inline-flex items-center gap-2 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-4 py-2 font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
           >
             Dainos puslapis
             <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -1620,6 +1640,7 @@ export default function ArtistProfileClient({
         artistName={artist.name}
         artistSlug={artist.slug}
         onClose={() => setTrackInfoOpen(null)}
+        onPlay={(t) => { setPid(t.id); setPlaying(true) }}
       />
 
       {lightboxIndex !== null && galleryPhotos.length > 0 && (
