@@ -133,6 +133,16 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       const { name, license } = splitAuthorLicense(p.author || '')
       const sourceUrl = typeof p.sourceUrl === 'string' ? p.sourceUrl : null
       const photographerId = name ? await resolvePhotographerId(name, sourceUrl) : null
+      // Accept `takenAt` / `taken_at` / `date` — stored as DATE, so normalize
+      // anything that looks like an ISO-ish string into yyyy-mm-dd.
+      const rawDate = p.takenAt || p.taken_at || p.date || null
+      let takenAt: string | null = null
+      if (typeof rawDate === 'string' && rawDate.trim()) {
+        const d = new Date(rawDate.trim())
+        if (isFinite(d.getTime())) {
+          takenAt = d.toISOString().slice(0, 10)
+        }
+      }
       rows.push({
         artist_id: artistId,
         url: p.url,
@@ -140,6 +150,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         photographer_id: photographerId,
         license,
         source_url: sourceUrl,
+        taken_at: takenAt,
         sort_order: i,
       })
     }

@@ -72,7 +72,33 @@ async function getLinkedTrackIds(artistId: number): Promise<Set<number>> {
   }
   return linked
 }
-async function getPhotos(id: number) { const sb = createAdminClient(); const { data } = await sb.from('artist_photos').select('id, url, caption, sort_order').eq('artist_id', id).order('sort_order'); return data || [] }
+async function getPhotos(id: number) {
+  const sb = createAdminClient()
+  // Try the enriched query first (requires 20260424c_photographers +
+  // 20260424d_photo_taken_at migrations). If the join fails because either
+  // migration hasn't landed in this environment, fall back to the plain
+  // shape so the gallery never stops rendering.
+  const enriched = await sb
+    .from('artist_photos')
+    .select('id, url, caption, sort_order, taken_at, source_url, license, photographer:photographers(id, slug, name)')
+    .eq('artist_id', id)
+    .order('sort_order')
+  if (!enriched.error && enriched.data) {
+    return (enriched.data as any[]).map((r) => ({
+      id: r.id,
+      url: r.url,
+      caption: r.caption,
+      sort_order: r.sort_order,
+      taken_at: r.taken_at || null,
+      source_url: r.source_url || null,
+      license: r.license || null,
+      photographer_slug: r.photographer?.slug || null,
+      photographer_name: r.photographer?.name || null,
+    }))
+  }
+  const { data } = await sb.from('artist_photos').select('id, url, caption, sort_order').eq('artist_id', id).order('sort_order')
+  return data || []
+}
 async function getAlbums(id: number) { const sb = createAdminClient(); const { data } = await sb.from('albums').select('id, slug, title, year, month, cover_image_url, type_studio, type_compilation, type_ep, type_single, type_live, type_remix, type_soundtrack, type_demo, spotify_id, video_url, legacy_id').eq('artist_id', id).order('year', { ascending: false }); return data || [] }
 async function getTracks(id: number) {
   const sb = createAdminClient()

@@ -41,6 +41,19 @@ type Track = {
   like_count?: number | null
 }
 type Member = { id: number; slug: string; name: string; cover_image_url?: string; member_from?: number; member_until?: number }
+type Photo = {
+  url: string
+  /** Legacy JSON blob — {"a":"author · license","s":"source url"}. Parsed via parsePhotoCaption. */
+  caption?: string
+  /** Date the photo was taken (preferred) — ISO string. */
+  taken_at?: string | null
+  /** Canonical source URL (Wikimedia file page, Flickr page, etc.). */
+  source_url?: string | null
+  license?: string | null
+  /** Resolved photographer row — only present once the photographer_id FK lands. */
+  photographer_slug?: string | null
+  photographer_name?: string | null
+}
 type ChartPt = { year: number; value: number }
 type LegacyCommunity = {
   totalEvents: number; distinctUsers: number; artistLikes: number
@@ -56,7 +69,7 @@ type LegacyThread = {
 type Rank = { category: string; rank: number; total: number; scope: 'country' | 'genre' | 'global' }
 type Props = {
   artist: any; heroImage: string | null; genres: Genre[]; substyles?: Genre[]
-  links: { platform: string; url: string }[]; photos: { url: string; caption?: string }[]
+  links: { platform: string; url: string }[]; photos: Photo[]
   albums: Album[]; tracks: Track[]; members: Member[]; followers: number; likeCount: number
   news: any[]; events: any[]; similar: any[]
   newTracks: Track[]; topVideos: Track[]; chartData: ChartPt[]; hasNewMusic: boolean
@@ -110,6 +123,15 @@ function fmtDur(d: number | string | null | undefined): string | null {
   const m = Math.floor(s / 60)
   const sec = s % 60
   return `${m}:${sec.toString().padStart(2, '0')}`
+}
+
+/** Year-only rendering for a photo's `taken_at`. Returns null for missing
+ *  or unparseable dates so callers can fall back silently. */
+function photoYear(raw?: string | null): number | null {
+  if (!raw) return null
+  const t = new Date(raw).getTime()
+  if (!isFinite(t)) return null
+  return new Date(t).getFullYear()
 }
 
 function slugToForumTitle(slug: string): string {
@@ -1083,7 +1105,7 @@ function MembersInline({ members }: { members: Member[] }) {
 function GalleryCollage({
   photos, totalCount, onOpen, onScrollToFull,
 }: {
-  photos: { url: string; caption?: string }[]
+  photos: Photo[]
   totalCount: number
   onOpen: (i: number) => void           // mobile: lightbox
   onScrollToFull: () => void             // desktop: scroll to galerija
@@ -1159,29 +1181,52 @@ function parsePhotoCaption(raw?: string): { author: string | null; sourceUrl: st
   return { author: null, sourceUrl: null, sourceHost: null, plain: trimmed }
 }
 
-/** Lightbox caption renderer — compact, no raw URLs. */
-function PhotoCredit({ caption }: { caption?: string }) {
-  const info = parsePhotoCaption(caption)
-  if (!info.author && !info.sourceUrl && !info.plain) return null
+/** Lightbox caption renderer — compact: author as a link to their showcase,
+ *  source URL as an icon-only button (no visible domain). */
+function PhotoCredit({ photo }: { photo: Photo }) {
+  const parsed = parsePhotoCaption(photo.caption)
+  // Prefer structured DB fields when present; fall back to parsed caption.
+  const author = photo.photographer_name || parsed.author
+  const sourceUrl = photo.source_url || parsed.sourceUrl
+  const authorHref = photo.photographer_slug ? `/fotografas/${photo.photographer_slug}` : null
+  const year = photoYear(photo.taken_at)
+
+  if (!author && !sourceUrl && !parsed.plain && !year) return null
   return (
     <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[12px] text-white/60">
-      {info.plain && <span>{info.plain}</span>}
-      {info.author && <span className="text-white/80">{info.author}</span>}
-      {info.sourceUrl && info.sourceHost && (
+      {parsed.plain && <span>{parsed.plain}</span>}
+      {author && (
+        authorHref ? (
+          <a
+            href={authorHref}
+            target="_blank"
+            rel="noopener"
+            onClick={(e) => e.stopPropagation()}
+            className="text-white/85 underline decoration-white/30 underline-offset-2 hover:text-white hover:decoration-white/80"
+            title={`Visos ${author} nuotraukos`}
+          >
+            {author}
+          </a>
+        ) : (
+          <span className="text-white/80">{author}</span>
+        )
+      )}
+      {year && <span className="text-white/50">· {year}</span>}
+      {sourceUrl && (
         <a
-          href={info.sourceUrl}
+          href={sourceUrl}
           target="_blank"
           rel="noopener"
           onClick={(e) => e.stopPropagation()}
-          className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-white/70 transition-colors hover:border-white/30 hover:text-white"
-          title={info.sourceUrl}
+          className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white/70 transition-colors hover:border-white/30 hover:text-white"
+          title="Originalas"
+          aria-label="Nuotraukos šaltinis"
         >
           <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
             <path d="M15 3h6v6" />
             <path d="M10 14L21 3" />
           </svg>
-          {info.sourceHost}
         </a>
       )}
     </div>
@@ -1191,7 +1236,7 @@ function PhotoCredit({ caption }: { caption?: string }) {
 function Lightbox({
   photos, index, onClose, onIndex,
 }: {
-  photos: { url: string; caption?: string }[]
+  photos: Photo[]
   index: number
   onClose: () => void
   onIndex: (i: number) => void
@@ -1231,7 +1276,7 @@ function Lightbox({
       )}
       <div className="flex max-h-[90vh] max-w-[92vw] flex-col items-center" onClick={e => e.stopPropagation()}>
         <img src={photos[index].url} alt="" className="max-h-[82vh] max-w-full rounded-lg object-contain" />
-        <PhotoCredit caption={photos[index].caption} />
+        <PhotoCredit photo={photos[index]} />
       </div>
       {index < photos.length - 1 && (
         <button
@@ -1250,55 +1295,34 @@ function Lightbox({
 
 // ── MasonryGallery ─────────────────────────────────────────────────
 
-function MasonryGallery({ photos, onOpen }: { photos: { url: string; caption?: string }[]; onOpen: (i: number) => void }) {
+function MasonryGallery({ photos, onOpen }: { photos: Photo[]; onOpen: (i: number) => void }) {
   const limited = photos.slice(0, 24)
-  // We measure each image's natural aspect ratio on load so landscape photos
-  // can occupy more horizontal space than portrait ones. The mosaic uses CSS
-  // grid with `grid-auto-flow: dense` so images automatically pack into the
-  // available slots — eliminating gaps when neighbours span 2 columns.
-  const [ar, setAr] = useState<Record<number, number>>({})
-  const onImgLoad = (i: number, w: number, h: number) => {
-    if (!w || !h) return
-    setAr((prev) => (prev[i] ? prev : { ...prev, [i]: w / h }))
-  }
-
   if (!limited.length) return null
+  // CSS-columns masonry — flows naturally by image aspect ratio, no JS
+  // measurement, no layout shift, images keep their true shape. Simpler
+  // and tidier than a row/col-span grid.
   return (
-    <div
-      className="grid grid-cols-4 gap-2 md:gap-3 sm:grid-cols-6 lg:grid-cols-8"
-      style={{ gridAutoFlow: 'dense', gridAutoRows: '1fr' }}
-    >
+    <div className="columns-2 gap-2 sm:columns-3 md:gap-3 lg:columns-4">
       {limited.map((p, i) => {
-        const aspect = ar[i]
-        // Landscape (≥1.6) → 2-col + 1-row (wide banner).
-        // Portrait (<0.8)  → 1-col + 2-row (tall strip).
-        // Square-ish      → 1-col + 1-row.
-        // Unknown (unloaded) → default 1x1; image will settle once loaded.
-        let colSpan = 'col-span-2'
-        let rowSpan = 'row-span-2'
-        if (aspect) {
-          if (aspect >= 1.6) { colSpan = 'col-span-4 sm:col-span-4'; rowSpan = 'row-span-2' }
-          else if (aspect >= 1.15) { colSpan = 'col-span-3'; rowSpan = 'row-span-2' }
-          else if (aspect >= 0.8) { colSpan = 'col-span-2'; rowSpan = 'row-span-2' }
-          else { colSpan = 'col-span-2'; rowSpan = 'row-span-3' }
-        }
+        const year = photoYear(p.taken_at)
         return (
           <button
             key={i}
             onClick={() => onOpen(i)}
-            className={`group relative block overflow-hidden rounded-xl border-0 bg-[var(--cover-placeholder)] p-0 ${colSpan} ${rowSpan}`}
-            style={{ aspectRatio: aspect ? String(aspect) : undefined }}
+            className="group relative mb-2 block w-full overflow-hidden rounded-xl border-0 bg-transparent p-0 md:mb-3"
+            style={{ breakInside: 'avoid' }}
           >
             <img
               src={p.url}
               alt={parsePhotoCaption(p.caption).author || ''}
               loading="lazy"
-              onLoad={(e) => {
-                const t = e.currentTarget
-                onImgLoad(i, t.naturalWidth, t.naturalHeight)
-              }}
-              className="absolute inset-0 h-full w-full cursor-zoom-in object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+              className="block w-full cursor-zoom-in object-cover transition-transform duration-500 group-hover:scale-[1.02]"
             />
+            {year && (
+              <span className="absolute bottom-1.5 right-1.5 rounded-md bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[10px] font-bold text-white backdrop-blur-sm">
+                {year}
+              </span>
+            )}
           </button>
         )
       })}
@@ -1475,50 +1499,85 @@ function DiscussionRow({ t, isLast }: { t: LegacyThread; isLast: boolean }) {
   const title = t.title || slugToForumTitle(t.slug)
   const pc = t.post_count ?? 0
   const lastPost = t.last_post
-  const lastText = lastPost?.body ? stripHtml(lastPost.body).slice(0, 120) : ''
+  const lastText = lastPost?.body ? stripHtml(lastPost.body).slice(0, 90) : ''
+  const author = lastPost?.author_username || ''
 
   return (
     <Link
       href={`/diskusijos/tema/${t.legacy_id}`}
       className={[
-        'flex items-stretch gap-4 px-4 py-4 no-underline transition-colors hover:bg-[var(--bg-hover)] sm:px-5',
+        'flex items-center gap-3 px-3 py-2.5 no-underline transition-colors hover:bg-[var(--bg-hover)] sm:px-4 sm:py-3',
         !isLast ? 'border-b border-[var(--border-subtle)]' : '',
       ].join(' ')}
     >
-      {/* Left: icon */}
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center self-start rounded-xl border border-[rgba(59,130,246,0.2)] bg-[rgba(59,130,246,0.1)] text-[#3b82f6] sm:h-12 sm:w-12">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" /></svg>
+      {/* Thread icon — smaller to save vertical space */}
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[rgba(59,130,246,0.2)] bg-[rgba(59,130,246,0.1)] text-[#3b82f6]">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" /></svg>
       </div>
 
-      {/* Middle: title + meta */}
-      <div className="flex min-w-0 flex-1 flex-col justify-center sm:flex-[1.5]">
-        <div className="line-clamp-1 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)] sm:text-[15px]">{title}</div>
-        <div className="mt-1 text-[12px] text-[var(--text-muted)]">
+      {/* Title + plain comment count (no timeago here — that belongs on the
+          comment itself so the reader sees "when was this last replied to"
+          right next to the text). */}
+      <div className="flex min-w-0 flex-[1.2] flex-col justify-center">
+        <div className="line-clamp-1 font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)] sm:text-[14px]">{title}</div>
+        <div className="mt-0.5 text-[11px] text-[var(--text-muted)]">
           {pc > 0 ? `${pc} komentarai` : 'Dar nekomentuota'}
-          {lastPost?.created_at && <> · {timeAgo(lastPost.created_at)}</>}
         </div>
       </div>
 
-      {/* Right: last post preview (hidden on small screens) */}
+      {/* Last comment — hidden on small screens. Compact single row:
+          avatar + (author · timeago) + preview line. */}
       {lastText && (
-        <div className="hidden min-w-0 flex-1 items-start sm:flex">
-          <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-2">
-            {lastPost?.author_username && (
-              <div className="mb-0.5 font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--text-secondary)]">
-                {lastPost.author_username}
-              </div>
-            )}
-            <div className="line-clamp-2 text-[12px] leading-[1.45] text-[var(--text-muted)]">
+        <div className="hidden min-w-0 flex-1 items-center gap-2 sm:flex">
+          <AvatarBubble name={author} />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline gap-1.5">
+              <span className="truncate font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--text-secondary)]">
+                {author || 'Anonimas'}
+              </span>
+              {lastPost?.created_at && (
+                <span className="shrink-0 text-[10px] text-[var(--text-faint)]">
+                  · {timeAgo(lastPost.created_at)}
+                </span>
+              )}
+            </div>
+            <div className="line-clamp-1 text-[12px] leading-tight text-[var(--text-muted)]">
               {lastText}
             </div>
           </div>
         </div>
       )}
 
-      <svg className="self-center text-[var(--text-faint)]" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <svg className="shrink-0 text-[var(--text-faint)]" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M9 18l6-6-6-6" />
       </svg>
     </Link>
+  )
+}
+
+/** Small circular avatar placeholder — shows the user's first initial on a
+ *  deterministically-tinted background so repeat visitors see the same hue
+ *  for the same username. Used in DiscussionRow. */
+function AvatarBubble({ name, size = 28 }: { name: string; size?: number }) {
+  const initial = (name || '?').trim().charAt(0).toUpperCase() || '?'
+  const hue = (() => {
+    let h = 0
+    for (let i = 0; i < name.length; i++) h = ((h << 5) - h) + name.charCodeAt(i), h |= 0
+    return Math.abs(h) % 360
+  })()
+  return (
+    <div
+      style={{
+        width: size, height: size, borderRadius: '50%',
+        background: `hsl(${hue}, 40%, 22%)`,
+        color: `hsl(${hue}, 60%, 62%)`,
+        fontSize: size * 0.42,
+      }}
+      className="flex shrink-0 items-center justify-center font-['Outfit',sans-serif] font-extrabold"
+      aria-hidden
+    >
+      {initial}
+    </div>
   )
 }
 
@@ -1840,15 +1899,15 @@ export default function ArtistProfileClient({
 
       <main className="mx-auto max-w-[1400px] space-y-10 px-4 pb-24 pt-8 sm:space-y-14 sm:px-6 lg:px-10">
 
-        {/* Upcoming events — own full-width row so they're clearly visible.
-            Compact variant (date block + title, no hero image) keeps the row
-            slim when there's only one event, and 2-3 fill the grid cleanly. */}
+        {/* Upcoming events — full card with cover photo. Events are high-value
+            so they deserve visual weight; a single event card fills a third
+            of the row and 2-3 events pack the grid. */}
         {upcomingEvents.length > 0 && (
           <section>
             <SectionTitle label="Artimiausi renginiai" />
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {upcomingEvents.map((e: any) => (
-                <EventCard key={e.id} e={e} variant="compact" />
+                <EventCard key={e.id} e={e} variant="upcoming" />
               ))}
             </div>
           </section>
