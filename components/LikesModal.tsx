@@ -1,9 +1,14 @@
 'use client'
 // components/LikesModal.tsx
 //
-// Reusable modalas, rodantis visus vartotojus, kurie patiko šį entity
-// (atlikėjas / albumas / daina). Gauna pilną users array (gali būti 700+),
-// rodo chunked (pirmus 60), infinite-scroll load more, filter pagal rank'ą.
+// Modal listing everyone who has liked an entity (artist / album / track).
+// Users are auto-sorted by rank priority (Super → Ultra → VIP → ... → Naujokas)
+// then alphabetically. No filter tabs — the ordering handles segmentation.
+//
+// Each user's rank is shown as a 4-dot progress bar (hover shows actual name).
+// Header is minimal: just a close button and the self-like pill. Artist name /
+// count aren't repeated inside — the user clicked in from the artist page so
+// the context is obvious, and the count lives on the pill on that page.
 
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
@@ -18,13 +23,9 @@ export type LikeUser = {
 type Props = {
   open: boolean
   onClose: () => void
-  title: string
-  count: number
+  title: string   // kept in prop signature for other callers; not rendered
+  count: number   // kept for compatibility; not rendered
   users: LikeUser[]
-  /** Optional self-like integration. When selfLiked is provided (not undefined),
-   *  a banner with "Patinka ir man" / "Tau patinka" appears at the top of the
-   *  body. If the viewer is not signed in, pass authed=false to render a sign-in
-   *  prompt instead of a toggle. */
   selfLiked?: boolean
   authed?: boolean
   onToggleSelfLike?: () => void
@@ -33,51 +34,50 @@ type Props = {
 
 const PAGE_SIZE = 60
 
-/** Rank order — matches server rankPriority. */
-const RANK_ORDER = [
-  'Super narys',
-  'Ultra narys',
-  'VIP narys',
-  'Įsibėgėjantis narys',
-  'Aktyvus narys',
-  'Narys',
-  'Aktyvus naujokas',
-  'Naujokas',
-]
+/** Rank priority — higher = more senior. Used for sorting.
+ *  Mirrors the server-side rankPriority but with slightly different numeric
+ *  buckets (server uses 100/90/80/...). 0 = no rank. */
+function rankWeight(rank: string | null | undefined): number {
+  if (!rank) return 0
+  const r = rank.toLowerCase()
+  if (r.includes('super')) return 100
+  if (r.includes('ultra')) return 90
+  if (r.includes('vip')) return 80
+  if (r.includes('įsibėgėjantis') || r.includes('isibegejantis')) return 70
+  if (r.includes('aktyvus narys')) return 60
+  if (r.includes('narys')) return 50
+  if (r.includes('aktyvus naujokas')) return 40
+  if (r.includes('naujokas')) return 30
+  return 10
+}
 
-/** Normalize a rank string into canonical buckets. */
-function canonicalRank(r?: string | null): string {
-  if (!r) return 'Nežinomas'
-  const low = r.toLowerCase()
-  for (const bucket of RANK_ORDER) {
-    if (low.includes(bucket.toLowerCase())) return bucket
-  }
-  return r
+/** Map rank weight to a 1–4 level for the progress-bar visualization.
+ *  4 = top tier, 1 = newcomer. */
+function rankLevel(rank: string | null | undefined): number {
+  const w = rankWeight(rank)
+  if (w >= 90) return 4   // Super, Ultra
+  if (w >= 70) return 3   // VIP, Įsibėgėjantis
+  if (w >= 50) return 2   // Aktyvus narys, Narys
+  if (w > 0)   return 1   // Naujokas tier
+  return 0
 }
 
 export default function LikesModal({
-  open, onClose, title, count, users,
+  open, onClose, users,
   selfLiked, authed, onToggleSelfLike, selfLikePending,
 }: Props) {
-  const [rankFilter, setRankFilter] = useState<string>('all')
   const [shown, setShown] = useState(PAGE_SIZE)
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  // Group users by canonical rank (memoized)
-  const { filtered, rankBuckets } = useMemo(() => {
-    const buckets = new Map<string, number>()
-    for (const u of users) {
-      const r = canonicalRank(u.user_rank)
-      buckets.set(r, (buckets.get(r) || 0) + 1)
-    }
-    const filt = rankFilter === 'all'
-      ? users
-      : users.filter((u) => canonicalRank(u.user_rank) === rankFilter)
-    return { filtered: filt, rankBuckets: buckets }
-  }, [users, rankFilter])
+  // Auto-sorted users (by rank desc, then username)
+  const sortedUsers = useMemo(() => {
+    return [...users].sort((a, b) =>
+      rankWeight(b.user_rank) - rankWeight(a.user_rank)
+      || a.user_username.localeCompare(b.user_username)
+    )
+  }, [users])
 
-  // Reset pagination when filter changes or modal reopens
-  useEffect(() => { setShown(PAGE_SIZE) }, [rankFilter, open])
+  useEffect(() => { setShown(PAGE_SIZE) }, [open])
 
   // Escape close + scroll lock
   useEffect(() => {
@@ -91,30 +91,17 @@ export default function LikesModal({
     }
   }, [open, onClose])
 
-  // Infinite scroll — near bottom of scroll container, load more
   const onScroll = useCallback(() => {
     const el = scrollRef.current
     if (!el) return
     if (el.scrollHeight - el.scrollTop - el.clientHeight < 250) {
-      setShown((s) => Math.min(s + PAGE_SIZE, filtered.length))
+      setShown((s) => Math.min(s + PAGE_SIZE, sortedUsers.length))
     }
-  }, [filtered.length])
+  }, [sortedUsers.length])
 
   if (!open || typeof document === 'undefined') return null
 
-  // Ordered filter tabs — only show buckets with counts
-  const tabs = [
-    { key: 'all', label: 'Visi', n: users.length },
-    ...RANK_ORDER
-      .filter((r) => (rankBuckets.get(r) || 0) > 0)
-      .map((r) => ({ key: r, label: r, n: rankBuckets.get(r) || 0 })),
-    ...Array.from(rankBuckets.keys())
-      .filter((r) => !RANK_ORDER.includes(r) && r !== 'Nežinomas')
-      .map((r) => ({ key: r, label: r, n: rankBuckets.get(r) || 0 })),
-    ...(rankBuckets.get('Nežinomas') ? [{ key: 'Nežinomas', label: 'Be rango', n: rankBuckets.get('Nežinomas') || 0 }] : []),
-  ]
-
-  const visibleUsers = filtered.slice(0, shown)
+  const visibleUsers = sortedUsers.slice(0, shown)
 
   return createPortal(
     <div
@@ -128,34 +115,16 @@ export default function LikesModal({
     >
       <div
         style={{
-          width: '100%', maxWidth: 820, maxHeight: '88vh', display: 'flex', flexDirection: 'column',
+          width: '100%', maxWidth: 820, maxHeight: '88vh',
+          display: 'flex', flexDirection: 'column',
           background: 'var(--bg-surface)',
           border: '1px solid var(--border-default)',
           borderRadius: 20, overflow: 'hidden',
           boxShadow: '0 40px 80px -20px rgba(0,0,0,0.6)',
         }}
       >
-        {/* Header */}
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '18px 22px', borderBottom: '1px solid var(--border-subtle)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-            <HeartIcon size={18} />
-            <div style={{ minWidth: 0 }}>
-              <div style={{
-                fontFamily: 'Outfit,sans-serif', fontWeight: 800, fontSize: 16,
-                color: 'var(--text-primary)', lineHeight: 1.1,
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              }}>{title}</div>
-              <div style={{
-                fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, marginTop: 2,
-              }}>
-                {count.toLocaleString('lt-LT')} patinka
-                {rankFilter !== 'all' && ` · ${filtered.length.toLocaleString('lt-LT')} „${rankFilter}"`}
-              </div>
-            </div>
-          </div>
+        {/* Close button in its own compact row — no title/subtitle clutter */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '12px 14px 0' }}>
           <button
             onClick={onClose}
             aria-label="Uždaryti"
@@ -174,43 +143,9 @@ export default function LikesModal({
           </button>
         </div>
 
-        {/* Filter tabs */}
-        {tabs.length > 2 && (
-          <div style={{
-            display: 'flex', gap: 6, padding: '10px 22px', borderBottom: '1px solid var(--border-subtle)',
-            overflowX: 'auto', scrollbarWidth: 'thin', flexShrink: 0,
-          }}>
-            {tabs.map((t) => {
-              const isActive = rankFilter === t.key
-              return (
-                <button
-                  key={t.key}
-                  onClick={() => setRankFilter(t.key)}
-                  style={{
-                    flexShrink: 0, padding: '5px 12px', borderRadius: 100,
-                    border: `1px solid ${isActive ? '#f97316' : 'var(--border-subtle)'}`,
-                    background: isActive ? 'rgba(249,115,22,.15)' : 'var(--card-bg)',
-                    color: isActive ? '#f97316' : 'var(--text-secondary)',
-                    fontSize: 11, fontWeight: 700, cursor: 'pointer',
-                    fontFamily: 'Outfit,sans-serif',
-                    whiteSpace: 'nowrap', transition: 'all .15s',
-                  }}
-                >
-                  {t.label} <span style={{ opacity: 0.6, marginLeft: 4 }}>{t.n}</span>
-                </button>
-              )
-            })}
-          </div>
-        )}
-
-        {/* Self-like banner (optional) */}
+        {/* Self-like pill — prominent at top */}
         {selfLiked !== undefined && (
-          <div style={{
-            padding: '14px 22px',
-            borderBottom: '1px solid var(--border-subtle)',
-            background: 'var(--bg-elevated)',
-            flexShrink: 0,
-          }}>
+          <div style={{ padding: '6px 24px 18px', flexShrink: 0 }}>
             {authed === false ? (
               <Link
                 href="/auth/signin"
@@ -255,30 +190,31 @@ export default function LikesModal({
           </div>
         )}
 
-        {/* Body — scrollable user grid with infinite load */}
+        {/* Body — sorted user grid with infinite load */}
         <div
           ref={scrollRef}
           onScroll={onScroll}
-          style={{ flex: 1, overflowY: 'auto', padding: '16px 22px 22px 22px' }}
+          style={{ flex: 1, overflowY: 'auto', padding: '4px 22px 22px' }}
         >
-          {filtered.length === 0 ? (
+          {sortedUsers.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)', fontSize: 13 }}>
-              Nėra vartotojų su pasirinktu statusu.
+              Dar niekas nepaspaudė.
             </div>
           ) : (
             <>
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
                 gap: 10,
               }}>
                 {visibleUsers.map((u) => (
                   <Link
                     key={u.user_username}
                     href={`/vartotojas/ghost/${encodeURIComponent(u.user_username)}`}
+                    title={u.user_rank || ''}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 10,
-                      padding: '8px 10px', borderRadius: 10,
+                      padding: '8px 12px', borderRadius: 12,
                       background: 'var(--card-bg)',
                       border: '1px solid var(--border-subtle)',
                       textDecoration: 'none', minWidth: 0,
@@ -287,26 +223,21 @@ export default function LikesModal({
                     onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.background = 'var(--bg-hover)' }}
                     onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-subtle)'; e.currentTarget.style.background = 'var(--card-bg)' }}
                   >
-                    <UserAvatar user={u} size={34} />
+                    <UserAvatar user={u} size={36} />
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <div style={{
                         fontSize: 13, fontWeight: 700, color: 'var(--text-primary)',
                         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        fontFamily: 'Outfit,sans-serif',
                       }}>{u.user_username}</div>
-                      {u.user_rank && (
-                        <div style={{
-                          fontSize: 10, color: 'var(--text-muted)', fontWeight: 600,
-                          fontFamily: 'Outfit,sans-serif', letterSpacing: '.02em',
-                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                        }}>{u.user_rank}</div>
-                      )}
+                      <RankBar level={rankLevel(u.user_rank)} />
                     </div>
                   </Link>
                 ))}
               </div>
-              {shown < filtered.length && (
+              {shown < sortedUsers.length && (
                 <div style={{ padding: '14px 0 2px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 11 }}>
-                  Rodoma {shown.toLocaleString('lt-LT')} iš {filtered.length.toLocaleString('lt-LT')} · scrollink žemyn
+                  Rodoma {shown.toLocaleString('lt-LT')} iš {sortedUsers.length.toLocaleString('lt-LT')} · scrollink žemyn
                 </div>
               )}
             </>
@@ -315,6 +246,32 @@ export default function LikesModal({
       </div>
     </div>,
     document.body,
+  )
+}
+
+// ── Rank bar — 4 dots filled up to user's level ──────────────────────
+
+function RankBar({ level }: { level: number }) {
+  const total = 4
+  return (
+    <div style={{ display: 'flex', gap: 3, marginTop: 5 }} aria-hidden>
+      {Array.from({ length: total }).map((_, i) => {
+        const filled = i < level
+        return (
+          <span
+            key={i}
+            style={{
+              height: 3,
+              width: 16,
+              borderRadius: 2,
+              background: filled ? 'var(--accent-orange)' : 'var(--border-default)',
+              opacity: filled ? 0.6 + (0.4 * (i + 1) / total) : 1,
+              transition: 'background .2s',
+            }}
+          />
+        )
+      })}
+    </div>
   )
 }
 
@@ -356,14 +313,17 @@ function UserAvatar({ user, size = 34 }: { user: LikeUser; size?: number }) {
 
 function HeartIcon({ size = 16 }: { size?: number }) {
   return (
-    <svg viewBox="0 0 24 24" width={size} height={size} fill="#f97316" stroke="#f97316">
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="#fff" stroke="#fff">
       <path d="M12 21s-7-4.5-9.5-9A5.5 5.5 0 0 1 12 6a5.5 5.5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9z" />
     </svg>
   )
 }
 
-function strHash(s: string) {
+function strHash(s: string): number {
   let h = 0
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0
+  for (let i = 0; i < s.length; i++) {
+    h = ((h << 5) - h) + s.charCodeAt(i)
+    h |= 0
+  }
   return Math.abs(h)
 }
