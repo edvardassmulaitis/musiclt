@@ -169,15 +169,25 @@ async function getLegacyCommunity(
 }
 
 /** Rank priority — aukštesni statusai (VIP, Super) sort'ui į viršų. */
+/** Rank priority — actual music.lt point-based hierarchy:
+ *    0–100     Naujokas
+ *    100–300   Aktyvus naujokas
+ *    300–500   Įsibėgėjantis narys
+ *    500–1000  Narys
+ *    1000–2000 Aktyvus narys
+ *    2000–3000 Ultra narys
+ *    3000–5000 Super narys
+ *    5000+     VIP narys          ← top */
 function rankPriority(rank: string | null | undefined): number {
   if (!rank) return 0
   const r = rank.toLowerCase()
-  if (r.includes('super')) return 100
-  if (r.includes('ultra')) return 90
-  if (r.includes('vip')) return 80
-  if (r.includes('įsibėgėjantis') || r.includes('isibegejantis')) return 70
-  if (r.includes('aktyvus narys')) return 60
-  if (r.includes('narys')) return 50
+  if (r.includes('vip')) return 100
+  if (r.includes('super')) return 90
+  if (r.includes('ultra')) return 80
+  if (r.includes('aktyvus narys')) return 70
+  // Check "įsibėgėjantis" BEFORE plain "narys" — it contains the substring "narys"
+  if (r.includes('įsibėgėjantis') || r.includes('isibegejantis')) return 50
+  if (r.includes('narys')) return 60
   if (r.includes('aktyvus naujokas')) return 40
   if (r.includes('naujokas')) return 30
   return 10

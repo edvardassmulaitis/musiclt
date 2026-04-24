@@ -34,31 +34,47 @@ type Props = {
 
 const PAGE_SIZE = 60
 
-/** Rank priority — higher = more senior. Used for sorting.
- *  Mirrors the server-side rankPriority but with slightly different numeric
- *  buckets (server uses 100/90/80/...). 0 = no rank. */
+/** Rank priority — higher = more senior. Actual music.lt point thresholds:
+ *    0–100     Naujokas
+ *    100–300   Aktyvus naujokas
+ *    300–500   Įsibėgėjantis narys
+ *    500–1000  Narys
+ *    1000–2000 Aktyvus narys
+ *    2000–3000 Ultra narys
+ *    3000–5000 Super narys
+ *    5000+     VIP narys          ← top
+ *  Order of checks matters: more specific strings ("aktyvus narys",
+ *  "aktyvus naujokas") are tested BEFORE their shorter suffixes. */
 function rankWeight(rank: string | null | undefined): number {
   if (!rank) return 0
   const r = rank.toLowerCase()
-  if (r.includes('super')) return 100
-  if (r.includes('ultra')) return 90
-  if (r.includes('vip')) return 80
-  if (r.includes('įsibėgėjantis') || r.includes('isibegejantis')) return 70
-  if (r.includes('aktyvus narys')) return 60
-  if (r.includes('narys')) return 50
+  if (r.includes('vip')) return 100
+  if (r.includes('super')) return 90
+  if (r.includes('ultra')) return 80
+  if (r.includes('aktyvus narys')) return 70
+  // Check "įsibėgėjantis" BEFORE plain "narys" — contains "narys" substring
+  if (r.includes('įsibėgėjantis') || r.includes('isibegejantis')) return 50
+  if (r.includes('narys')) return 60
   if (r.includes('aktyvus naujokas')) return 40
   if (r.includes('naujokas')) return 30
   return 10
 }
 
-/** Map rank weight to a 1–4 level for the progress-bar visualization.
- *  4 = top tier, 1 = newcomer. */
+/** Map rank to a 1–4 tier for the progress-bar visualization.
+ *  Groups adjacent ranks so bar growth tracks the point ladder evenly:
+ *    Tier 4: Super, VIP          (3000+ pts)
+ *    Tier 3: Aktyvus narys, Ultra (1000–3000)
+ *    Tier 2: Įsibėgėjantis, Narys (300–1000)
+ *    Tier 1: Naujokas, Aktyvus naujokas (0–300)   */
 function rankLevel(rank: string | null | undefined): number {
-  const w = rankWeight(rank)
-  if (w >= 90) return 4   // Super, Ultra
-  if (w >= 70) return 3   // VIP, Įsibėgėjantis
-  if (w >= 50) return 2   // Aktyvus narys, Narys
-  if (w > 0)   return 1   // Naujokas tier
+  if (!rank) return 0
+  const r = rank.toLowerCase()
+  if (r.includes('vip') || r.includes('super')) return 4
+  if (r.includes('ultra') || r.includes('aktyvus narys')) return 3
+  // Check "įsibėgėjantis" + plain "narys" before naujokas branch.
+  if (r.includes('įsibėgėjantis') || r.includes('isibegejantis')) return 2
+  if (r.includes('narys')) return 2
+  if (r.includes('naujokas')) return 1
   return 0
 }
 
