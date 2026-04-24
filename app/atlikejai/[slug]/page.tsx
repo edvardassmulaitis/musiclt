@@ -23,11 +23,13 @@ async function getPhotos(id: number) { const sb = createAdminClient(); const { d
 async function getAlbums(id: number) { const sb = createAdminClient(); const { data } = await sb.from('albums').select('id, slug, title, year, month, cover_image_url, type_studio, type_compilation, type_ep, type_single, type_live, type_remix, type_soundtrack, type_demo, spotify_id, video_url, legacy_id').eq('artist_id', id).order('year', { ascending: false }); return data || [] }
 async function getTracks(id: number) {
   const sb = createAdminClient()
-  // album_id added so the client can show orphan tracks ("Kitos dainos") —
-  // tracks not tied to any album. Limit is higher to include more orphans.
+  // NOTE: album_id column doesn't exist on tracks (relationship is via
+  // album_tracks junction table or similar). Keeping select without it so
+  // the query doesn't fail. "Kitos dainos" orphan tab disabled client-side
+  // until we resolve the correct relationship.
   const { data } = await sb
     .from('tracks')
-    .select('id, slug, title, type, video_url, spotify_id, cover_url, release_date, lyrics, is_new, is_new_date, release_year, release_month, legacy_id, album_id')
+    .select('id, slug, title, type, video_url, spotify_id, cover_url, release_date, lyrics, is_new, is_new_date, release_year, release_month, legacy_id')
     .eq('artist_id', id)
     .order('created_at', { ascending: false })
     .limit(80)

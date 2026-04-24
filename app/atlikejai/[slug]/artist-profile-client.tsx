@@ -338,6 +338,72 @@ function TabButton({ active, disabled, onClick, children }: {
   )
 }
 
+// ── LikePill: single element with two click zones (heart + count) ──
+
+function LikePill({
+  likes, selfLiked, onToggle, onOpenModal, pending, variant = 'light',
+}: {
+  likes: number; selfLiked?: boolean; onToggle: () => void
+  onOpenModal: () => void; pending: boolean
+  /** 'light' = on-photo (white/glass). 'surface' = on normal bg. */
+  variant?: 'light' | 'surface'
+}) {
+  // Heart side = toggle, count side = open likers modal
+  const heartFilled = !!selfLiked
+  const baseWrap = variant === 'light'
+    ? 'border border-white/20 bg-white/10 backdrop-blur-md text-white'
+    : 'border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-primary)]'
+  const dividerColor = variant === 'light' ? 'border-white/15' : 'border-[var(--border-subtle)]'
+
+  return (
+    <div
+      className={[
+        'inline-flex overflow-hidden rounded-full transition-colors',
+        baseWrap,
+        heartFilled ? '!border-[var(--accent-orange)] !bg-[var(--accent-orange)] !text-white shadow-[0_6px_18px_rgba(249,115,22,0.4)]' : '',
+      ].join(' ')}
+    >
+      {/* Heart toggle */}
+      <button
+        onClick={onToggle}
+        disabled={pending}
+        title={heartFilled ? 'Tau patinka — atšaukti' : 'Paspausk „Patinka"'}
+        aria-pressed={heartFilled}
+        className={[
+          'flex items-center gap-1.5 px-3.5 py-1.5 font-["Outfit",sans-serif] text-[13px] font-extrabold uppercase tracking-[0.08em] transition-colors',
+          pending ? 'cursor-wait opacity-70' : 'cursor-pointer',
+          !heartFilled && variant === 'light' ? 'hover:bg-white/10' : '',
+          !heartFilled && variant === 'surface' ? 'hover:bg-[var(--bg-hover)]' : '',
+          heartFilled ? 'hover:opacity-90' : '',
+        ].join(' ')}
+      >
+        <svg viewBox="0 0 24 24" fill={heartFilled ? '#fff' : 'currentColor'} className={['h-4 w-4', heartFilled ? 'text-white' : 'text-[var(--accent-orange)]'].join(' ')}>
+          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+        </svg>
+        <span>{heartFilled ? 'Patinka' : 'Patinka'}</span>
+      </button>
+
+      {/* Count — clickable if we have likers to show */}
+      <button
+        onClick={onOpenModal}
+        disabled={likes === 0}
+        title={likes > 0 ? 'Pamatyk kam patinka' : ''}
+        className={[
+          'flex items-center border-l px-3.5 py-1.5 font-["Outfit",sans-serif] text-[13px] font-extrabold tabular-nums tracking-wide transition-colors',
+          dividerColor,
+          heartFilled ? '!border-white/30' : '',
+          likes === 0 ? 'cursor-default opacity-70' : 'cursor-pointer',
+          !heartFilled && variant === 'light' ? 'hover:bg-white/10' : '',
+          !heartFilled && variant === 'surface' ? 'hover:bg-[var(--bg-hover)]' : '',
+          heartFilled ? 'hover:opacity-90' : '',
+        ].join(' ')}
+      >
+        {likes.toLocaleString('lt-LT')}
+      </button>
+    </div>
+  )
+}
+
 // ── Hero: split photo + player, title + likes below title ──────────
 
 function Hero({
@@ -404,35 +470,16 @@ function Hero({
             )}
           </h1>
 
-          {/* Like (toggle) + "Kam patinka" (modal) — two separate actions */}
+          {/* Like pill — single element with two zones (heart toggle + count → modal) */}
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={onToggleLike}
-              disabled={selfLikePending}
-              className={[
-                'inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 font-["Outfit",sans-serif] text-[12px] font-extrabold uppercase tracking-[0.1em] backdrop-blur-md transition-all sm:text-[13px]',
-                selfLikePending ? 'cursor-wait opacity-70' : 'cursor-pointer',
-                selfLiked
-                  ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white shadow-[0_6px_18px_rgba(249,115,22,0.4)] hover:opacity-90'
-                  : 'border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)] lg:border-white/20 lg:bg-white/10 lg:text-white lg:hover:bg-white/20',
-              ].join(' ')}
-              title={selfLiked ? 'Tau patinka (paspausk, kad atšauktum)' : 'Paspausk „Patinka"'}
-            >
-              <svg viewBox="0 0 24 24" fill={selfLiked ? '#fff' : 'currentColor'} className={['h-3.5 w-3.5', selfLiked ? 'text-white' : 'text-[var(--accent-orange)]'].join(' ')}>
-                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-              </svg>
-              {likes > 0 ? likes.toLocaleString('lt-LT') : 'Patinka'}
-            </button>
-
-            {likes > 0 && (
-              <button
-                onClick={onOpenLikersModal}
-                className="inline-flex items-center gap-1.5 rounded-full border border-transparent bg-transparent px-2.5 py-1.5 font-['Outfit',sans-serif] text-[12px] font-semibold text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] lg:text-white/70 lg:hover:bg-white/10 lg:hover:text-white"
-                title="Pamatyk kam patinka"
-              >
-                Kam patinka →
-              </button>
-            )}
+            <LikePill
+              likes={likes}
+              selfLiked={selfLiked}
+              onToggle={onToggleLike}
+              onOpenModal={onOpenLikersModal}
+              pending={selfLikePending}
+              variant="light"
+            />
           </div>
         </div>
 
@@ -459,9 +506,9 @@ function Hero({
   )
 }
 
-// ── InfoBar: horizontal strip below hero ───────────────────────────
+// ── SideInfo: card beside bio with Kilmė / Stilius / Klausyk ───────
 
-function InfoBar({
+function SideInfo({
   artist, flag, genres, substyles, ranks, links, website,
 }: {
   artist: any; flag: string; genres: Genre[]; substyles: Genre[]
@@ -473,84 +520,92 @@ function InfoBar({
   const globalRank = ranks.find(r => r.scope === 'global')
   const hasSocials = links.some(l => SOC[l.platform]) || !!website
 
+  const Label = ({ children }: { children: React.ReactNode }) => (
+    <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+      {children}
+    </div>
+  )
+  const RankChip = ({ n }: { n: number }) => (
+    <span className="inline-flex items-center rounded-full bg-[rgba(249,115,22,0.14)] px-2 py-0.5 font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--accent-orange)]">
+      #{n}
+    </span>
+  )
+
   return (
-    <div className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3 sm:gap-x-6 sm:px-5 sm:py-4">
-      {/* Country + rank */}
+    <aside className="space-y-5 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5">
       {artist.country && (
-        <div className="flex flex-wrap items-baseline gap-2">
-          <span className="inline-flex items-center gap-2 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)] sm:text-[15px]">
-            <span className="text-[18px] leading-none">{flag}</span>
-            <span>{artist.country}</span>
-          </span>
-          {countryRank && (
-            <span className="inline-flex items-center rounded-full bg-[rgba(249,115,22,0.14)] px-2 py-0.5 font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--accent-orange)]">
-              #{countryRank.rank}
+        <div>
+          <Label>Kilmė</Label>
+          <div className="flex flex-wrap items-baseline gap-2">
+            <span className="inline-flex items-center gap-2 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">
+              <span className="text-[18px] leading-none">{flag}</span>
+              <span>{artist.country}</span>
             </span>
-          )}
+            {countryRank && <RankChip n={countryRank.rank} />}
+          </div>
         </div>
       )}
 
-      {/* Genre + rank + subtle substyles */}
       {genres[0] && (
-        <div className="flex min-w-0 flex-wrap items-baseline gap-2">
-          <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)] sm:text-[15px]">
-            {genres[0].name}
-          </span>
-          {genreRank && (
-            <span className="inline-flex items-center rounded-full bg-[rgba(249,115,22,0.14)] px-2 py-0.5 font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--accent-orange)]">
-              #{genreRank.rank}
+        <div>
+          <Label>Stilius</Label>
+          <div className="flex flex-wrap items-baseline gap-2">
+            <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">
+              {genres[0].name}
             </span>
-          )}
+            {genreRank && <RankChip n={genreRank.rank} />}
+          </div>
           {substyles.length > 0 && (
-            <span className="text-[12px] text-[var(--text-muted)]">
-              + {substyles.map(s => s.name).join(', ')}
-            </span>
+            <div className="mt-1.5 text-[12px] leading-[1.5] text-[var(--text-muted)]">
+              {substyles.map(s => s.name).join(' · ')}
+            </div>
           )}
         </div>
       )}
 
-      {/* Global rank if present */}
       {globalRank && (
-        <div className="flex items-baseline gap-2">
-          <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)] sm:text-[15px]">Pasaulyje</span>
-          <span className="inline-flex items-center rounded-full bg-[rgba(249,115,22,0.14)] px-2 py-0.5 font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--accent-orange)]">
-            #{globalRank.rank}
+        <div>
+          <Label>Pasaulyje</Label>
+          <span className="inline-flex items-center rounded-full bg-[rgba(249,115,22,0.14)] px-3 py-1 font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--accent-orange)]">
+            #{globalRank.rank} {globalRank.category}
           </span>
         </div>
       )}
 
-      {/* Push right: socials */}
       {hasSocials && (
-        <div className="ml-auto flex items-center gap-1">
-          {links.filter(l => SOC[l.platform]).map(l => {
-            const p = SOC[l.platform]
-            return (
+        <div>
+          <Label>Klausyk ir sek</Label>
+          <div className="flex flex-wrap gap-1.5">
+            {links.filter(l => SOC[l.platform]).map(l => {
+              const p = SOC[l.platform]
+              return (
+                <a
+                  key={l.platform}
+                  href={l.url}
+                  target="_blank"
+                  rel="noopener"
+                  title={p.l}
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+                >
+                  <svg viewBox="0 0 24 24" fill={p.c} width="14" height="14"><path d={p.d} /></svg>
+                </a>
+              )
+            })}
+            {website && (
               <a
-                key={l.platform}
-                href={l.url}
+                href={website}
                 target="_blank"
                 rel="noopener"
-                title={p.l}
+                title="Oficiali svetainė"
                 className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
               >
-                <svg viewBox="0 0 24 24" fill={p.c} width="14" height="14"><path d={p.d} /></svg>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
               </a>
-            )
-          })}
-          {website && (
-            <a
-              href={website}
-              target="_blank"
-              rel="noopener"
-              title="Oficiali svetainė"
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
-            </a>
-          )}
+            )}
+          </div>
         </div>
       )}
-    </div>
+    </aside>
   )
 }
 
@@ -1004,15 +1059,11 @@ export default function ArtistProfileClient({
   const likes = modernLikeCount + followers + authoritativeLegacy
   const allLikesUsers: any[] = legacyCommunity?.allArtistFans || []
 
-  // Discography filters — types present in albums + "orphan" tracks bucket
+  // Discography filters — types present in albums
+  // NOTE: "Kitos dainos" (orphan tracks) tab disabled — tracks.album_id column
+  // doesn't exist; needs schema investigation before we can surface it.
   const atypes = [...new Set(albums.map(aType))]
   const hasStudio = atypes.includes('Studijinis')
-  // orphan tracks: tracks not linked to an album (album_id null/undefined)
-  const orphanTracks = useMemo(
-    () => tracks.filter(t => t.album_id == null),
-    [tracks],
-  )
-  const hasOrphanTracks = orphanTracks.length > 0
   const [df, setDf] = useState<string>(hasStudio ? 'Studijinis' : 'all')
   const fAlbums = df === 'all' ? albums : albums.filter(a => aType(a) === df)
 
@@ -1101,17 +1152,6 @@ export default function ArtistProfileClient({
 
       <main className="mx-auto max-w-[1400px] space-y-10 px-4 pb-24 pt-8 sm:space-y-14 sm:px-6 lg:px-10">
 
-        {/* Horizontal info strip below hero */}
-        <InfoBar
-          artist={artist}
-          flag={flag}
-          genres={genres}
-          substyles={substyles}
-          ranks={ranks}
-          links={links}
-          website={artist.website}
-        />
-
         {/* Upcoming events */}
         {upcomingEvents.length > 0 && (
           <section>
@@ -1122,9 +1162,9 @@ export default function ArtistProfileClient({
           </section>
         )}
 
-        {/* BIO + MEMBERS on left, GALLERY COLLAGE on right (player-width) */}
-        {(hasBio || members.length > 0 || galleryPhotos.length > 0) && (
-          <section className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_460px] lg:gap-10">
+        {/* BIO + MEMBERS on left, SIDE INFO (country/genre/socials) on right */}
+        {(hasBio || members.length > 0) && (
+          <section className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-10">
             <div className="min-w-0">
               {hasBio && (
                 <BioPreview html={bioHtml} onOpen={() => setBioModalOpen(true)} />
@@ -1132,19 +1172,20 @@ export default function ArtistProfileClient({
               {!solo && members.length > 0 && <MembersInline members={members} />}
             </div>
 
-            {galleryPhotos.length > 0 && (
-              <GalleryCollage
-                photos={galleryPhotos}
-                totalCount={galleryPhotos.length}
-                onOpen={(i) => setLightboxIndex(i)}
-                onScrollToFull={scrollToGalerija}
-              />
-            )}
+            <SideInfo
+              artist={artist}
+              flag={flag}
+              genres={genres}
+              substyles={substyles}
+              ranks={ranks}
+              links={links}
+              website={artist.website}
+            />
           </section>
         )}
 
-        {/* Diskografija — no count; renamed filters; +Kitos dainos */}
-        {(albums.length > 0 || hasOrphanTracks) && (
+        {/* Diskografija — no count in header; renamed filters */}
+        {albums.length > 0 && (
           <section>
             <SectionTitle label="Diskografija" />
             <div className="mb-5 flex flex-wrap gap-1.5 sm:gap-2">
@@ -1167,20 +1208,6 @@ export default function ArtistProfileClient({
                   </button>
                 )
               })}
-              {hasOrphanTracks && (
-                <button
-                  onClick={() => setDf('orphan')}
-                  className={[
-                    'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-["Outfit",sans-serif] text-[12px] font-bold transition-all',
-                    df === 'orphan'
-                      ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white shadow-[0_4px_12px_rgba(249,115,22,0.3)]'
-                      : 'border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]',
-                  ].join(' ')}
-                >
-                  {FILTER_LABEL.orphan}
-                  <span className={df === 'orphan' ? 'opacity-80' : 'text-[var(--text-faint)]'}>· {orphanTracks.length}</span>
-                </button>
-              )}
               {atypes.length > 1 && (
                 <button
                   onClick={() => setDf('all')}
@@ -1197,10 +1224,7 @@ export default function ArtistProfileClient({
               )}
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-              {df === 'orphan'
-                ? orphanTracks.map(t => <TrackCard key={t.id} t={t} />)
-                : fAlbums.map(a => <AlbumCard key={a.id} a={a} />)
-              }
+              {fAlbums.map(a => <AlbumCard key={a.id} a={a} />)}
             </div>
           </section>
         )}
