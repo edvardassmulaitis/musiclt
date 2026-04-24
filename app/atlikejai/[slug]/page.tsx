@@ -157,7 +157,29 @@ async function getLegacyNewsThreads(artist: { name: string; slug: string }, limi
     .limit(limit)
   return data || []
 }
-async function getMembers(id: number) { const sb = createAdminClient(); const { data } = await sb.from('artist_related').select('related_artist_id, year_from, year_until, artists:related_artist_id(id, slug, name, cover_image_url, type)').eq('artist_id', id); return (data || []).map((r: any) => ({ ...(r.artists || {}), member_from: r.year_from, member_until: r.year_until })).filter((m: any) => m.id) }
+/** Members — admin saves to artist_members (group_id + member_id pair).
+ * When this artist IS the group, rows where group_id = artistId; join artists
+ * on member_id to get the member's profile. */
+async function getMembers(id: number) {
+  const sb = createAdminClient()
+  const { data } = await sb
+    .from('artist_members')
+    .select('member_id, year_from, year_to, is_current, artists:member_id(id, slug, name, cover_image_url, type)')
+    .eq('group_id', id)
+  return (data || [])
+    .map((r: any) => ({ ...(r.artists || {}), member_from: r.year_from, member_until: r.is_current ? null : r.year_to }))
+    .filter((m: any) => m.id)
+}
+
+/** Substyles — admin saves additional music styles to artist_substyles. */
+async function getSubstyles(id: number): Promise<{ id: number; name: string }[]> {
+  const sb = createAdminClient()
+  const { data } = await sb
+    .from('artist_substyles')
+    .select('substyle_id, substyles:substyle_id(id, name)')
+    .eq('artist_id', id)
+  return (data || []).map((r: any) => r.substyles).filter(Boolean)
+}
 async function getFollowers(id: number) { const sb = createAdminClient(); const { count } = await sb.from('artist_follows').select('*', { count: 'exact', head: true }).eq('artist_id', id); return count || 0 }
 async function getLikeCount(id: number) { const sb = createAdminClient(); const { count } = await sb.from('artist_likes').select('*', { count: 'exact', head: true }).eq('artist_id', id); return count || 0 }
 async function getNews(id: number) { const sb = createAdminClient(); const { data } = await sb.from('news').select('id, slug, title, image_small_url, published_at, type').eq('artist_id', id).order('published_at', { ascending: false }).limit(4); return data || [] }
@@ -253,8 +275,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ArtistPage({ params }: Props) {
   const { slug } = await params; const artist = await getArtist(slug); if (!artist) notFound()
-  const [genres, links, dbPhotos, albums, tracks, members, followers, likeCount, news, rawEvents, allTrackLegacyIds, legacyThreads, legacyNews] = await Promise.all([
-    getGenres(artist.id), getLinks(artist.id), getPhotos(artist.id), getAlbums(artist.id), getTracks(artist.id),
+  const [genres, substyles, links, dbPhotos, albums, tracks, members, followers, likeCount, news, rawEvents, allTrackLegacyIds, legacyThreads, legacyNews] = await Promise.all([
+    getGenres(artist.id), getSubstyles(artist.id), getLinks(artist.id), getPhotos(artist.id), getAlbums(artist.id), getTracks(artist.id),
     getMembers(artist.id), getFollowers(artist.id), getLikeCount(artist.id), getNews(artist.id), getEvents(artist.id),
     getAllArtistTrackLegacyIds(artist.id),
     getLegacyForumThreads({ name: artist.name, slug: artist.slug }),
@@ -316,6 +338,7 @@ export default async function ArtistPage({ params }: Props) {
       chartData={mockChart(albums)} hasNewMusic={newTracks.length > 0}
       legacyCommunity={legacyCommunity} legacyThreads={legacyThreads as any} legacyNews={legacyNews as any}
       ranks={ranks}
+      substyles={substyles}
     />
   )
 }

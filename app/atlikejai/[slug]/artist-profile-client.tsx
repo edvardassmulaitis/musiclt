@@ -5,12 +5,9 @@ import LikesModal from '@/components/LikesModal'
 import type { LegacyLikeUser } from '@/components/LegacyLikesPanel'
 
 /* ═══════════════════════════════════════════════════════════════════
-   Artist profile — v7 (sticky player + info-bar).
-   Desktop: 2-col grid [1fr | 440px]. LEFT scrolls (photo-hero, info
-   bar, apie, nariai, diskografija, etc). RIGHT is the PlayerCard
-   pinned sticky so it stays visible while scrolling through content.
-   Mobile: everything stacks, player renders inline between hero and
-   info bar.
+   Artist profile — v8 (reverted to v6 split hero + v7 info layout).
+   Desktop: photo left, player right (both inside hero, fade between).
+   Below hero: info bar → apie+bio-meta → members → rest.
    ═══════════════════════════════════════════════════════════════════ */
 
 // ── Types ───────────────────────────────────────────────────────────
@@ -36,7 +33,7 @@ type LegacyThread = {
 }
 type Rank = { category: string; rank: number; total: number; scope: 'country' | 'genre' | 'global' }
 type Props = {
-  artist: any; heroImage: string | null; genres: Genre[]
+  artist: any; heroImage: string | null; genres: Genre[]; substyles?: Genre[]
   links: { platform: string; url: string }[]; photos: { url: string; caption?: string }[]
   albums: Album[]; tracks: Track[]; members: Member[]; followers: number; likeCount: number
   news: any[]; events: any[]; similar: any[]
@@ -108,17 +105,17 @@ const SOC: Record<string, { l: string; c: string; d: string }> = {
 function SectionTitle({ label, count }: { label: string; count?: number }) {
   return (
     <div className="mb-5 flex items-baseline gap-3 sm:mb-6">
-      <h2 className="font-['Outfit',sans-serif] text-[22px] font-black leading-none tracking-[-0.01em] text-[var(--text-primary)] sm:text-[26px] lg:text-[28px]">
+      <h2 className="font-['Outfit',sans-serif] text-[22px] font-black leading-none tracking-[-0.01em] text-[var(--text-primary)] sm:text-[26px] lg:text-[30px]">
         {label}
       </h2>
       {typeof count === 'number' && (
-        <span className="font-['Outfit',sans-serif] text-[15px] font-bold text-[var(--text-faint)] sm:text-[16px]">{count}</span>
+        <span className="font-['Outfit',sans-serif] text-[15px] font-bold text-[var(--text-faint)] sm:text-[17px]">{count}</span>
       )}
     </div>
   )
 }
 
-// ── PlayerCard (unchanged from v6) ─────────────────────────────────
+// ── PlayerCard ─────────────────────────────────────────────────────
 
 function PlayerCard({
   tracksAllTime, tracksTrending, activeTrackId, onSelectTrack, hasAnyVideo,
@@ -200,7 +197,7 @@ function PlayerCard({
 
       <div
         className="overflow-y-auto bg-[var(--bg-surface)]"
-        style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--border-default) transparent', maxHeight: '260px' }}
+        style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--border-default) transparent', maxHeight: '240px' }}
       >
         {list.length === 0 ? (
           <div className="flex min-h-[160px] flex-col items-center justify-center gap-1 px-6 py-8 text-center">
@@ -294,48 +291,54 @@ function TabButton({ active, disabled, onClick, children }: {
   )
 }
 
-// ── HeroPhoto: rounded photo with title + likes + rank pills ──────
+// ── Hero v8: split photo + player inside (v6 style) ────────────────
 
-function HeroPhoto({
+function Hero({
   artist, heroImage, loaded, ranks, likes, onLikes,
+  tracksAllTime, tracksTrending, activeTrackId, onSelectTrack, hasAnyVideo,
 }: {
   artist: any; heroImage: string | null; loaded: boolean
   ranks: Rank[]; likes: number; onLikes: () => void
+  tracksAllTime: Track[]; tracksTrending: Track[]
+  activeTrackId: number | null; onSelectTrack: (id: number) => void; hasAnyVideo: boolean
 }) {
   const coverPos = parseCoverPos(artist.cover_image_position || 'center 30%')
 
   return (
-    <section className="relative overflow-hidden rounded-none bg-black sm:rounded-2xl">
-      <div className="relative aspect-video lg:aspect-[3/2]">
+    <section className="relative isolate w-full bg-[var(--bg-surface)]">
+      {/* Photo backdrop — mobile: aspect-video at top; desktop: absolute left 62%, fades into solid */}
+      <div className="relative aspect-video w-full overflow-hidden bg-black sm:aspect-[16/9] lg:absolute lg:inset-y-0 lg:left-0 lg:right-[38%] lg:aspect-auto">
         {heroImage ? (
           <img
             src={heroImage}
             alt={artist.name}
-            className="absolute inset-0 block h-full w-full animate-[apHeroZoom_36s_ease-in-out_infinite_alternate] object-cover"
+            className="block h-full w-full animate-[apHeroZoom_36s_ease-in-out_infinite_alternate] object-cover"
             style={{
               objectPosition: `${coverPos.x}% ${coverPos.y}%`,
               transformOrigin: `${coverPos.x}% ${coverPos.y}%`,
             }}
           />
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-[#1a2436] to-[#0a0f1a]" />
+          <div className="h-full w-full bg-gradient-to-br from-[#1a2436] to-[#0a0f1a]" />
         )}
-        {/* Dark gradient for text */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-transparent" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[35%] bg-gradient-to-r from-transparent to-[var(--bg-surface)] lg:block" />
+      </div>
 
-        <style>{`@keyframes apHeroZoom{0%{transform:scale(1.02)}100%{transform:scale(1.08)}}`}</style>
+      <style>{`@keyframes apHeroZoom{0%{transform:scale(1.02)}100%{transform:scale(1.08)}}`}</style>
 
-        {/* Title + pills overlay */}
+      <div className="relative mx-auto grid max-w-[1400px] grid-cols-1 gap-6 px-4 pb-10 pt-5 sm:px-6 lg:grid-cols-[1fr_460px] lg:gap-10 lg:min-h-[580px] lg:px-10 lg:py-10">
+        {/* Title column */}
         <div
           className={[
-            'absolute inset-x-0 bottom-0 px-6 pb-6 sm:px-8 sm:pb-8 lg:px-10 lg:pb-10',
+            'flex min-w-0 flex-col justify-end',
             'transition-[opacity,transform] duration-700 ease-out',
             loaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
           ].join(' ')}
         >
           <h1
-            className="mb-4 font-['Outfit',sans-serif] font-black leading-[0.88] tracking-[-0.04em] text-white drop-shadow-[0_6px_32px_rgba(0,0,0,0.8)]"
-            style={{ fontSize: 'clamp(2.25rem,6vw,5rem)' }}
+            className="mb-4 font-['Outfit',sans-serif] font-black leading-[0.9] tracking-[-0.04em] text-[var(--text-primary)] lg:text-white lg:drop-shadow-[0_6px_32px_rgba(0,0,0,0.8)]"
+            style={{ fontSize: 'clamp(2.25rem,6.5vw,5rem)' }}
           >
             {artist.name}
             {artist.is_verified && (
@@ -350,7 +353,7 @@ function HeroPhoto({
             {likes > 0 && (
               <button
                 onClick={onLikes}
-                className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.1em] text-white backdrop-blur-md transition-colors hover:bg-white/20 sm:text-[13px]"
+                className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.1em] text-[var(--text-primary)] backdrop-blur-md transition-colors hover:bg-[var(--bg-hover)] lg:border-white/20 lg:bg-white/10 lg:text-white lg:hover:bg-white/20 sm:text-[13px]"
               >
                 <svg viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5 text-[var(--accent-orange)]">
                   <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
@@ -361,7 +364,7 @@ function HeroPhoto({
             {ranks.slice(0, 3).map((r, i) => (
               <span
                 key={i}
-                className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(249,115,22,0.45)] bg-[rgba(249,115,22,0.18)] px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.1em] text-white backdrop-blur-md sm:text-[13px]"
+                className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(249,115,22,0.45)] bg-[rgba(249,115,22,0.14)] px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.1em] text-[var(--text-primary)] backdrop-blur-md lg:text-white sm:text-[13px]"
               >
                 <span className="text-[var(--accent-orange)]">#{r.rank}</span>
                 <span>{r.category}</span>
@@ -369,12 +372,31 @@ function HeroPhoto({
             ))}
           </div>
         </div>
+
+        {/* Player column */}
+        <div
+          className={[
+            'flex min-w-0 lg:items-center',
+            'transition-[opacity,transform] duration-700 delay-150 ease-out',
+            loaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
+          ].join(' ')}
+        >
+          <div className="w-full">
+            <PlayerCard
+              tracksAllTime={tracksAllTime}
+              tracksTrending={tracksTrending}
+              activeTrackId={activeTrackId}
+              onSelectTrack={onSelectTrack}
+              hasAnyVideo={hasAnyVideo}
+            />
+          </div>
+        </div>
       </div>
     </section>
   )
 }
 
-// ── InfoBar: country + genre(s) + socials + Sekti ─────────────────
+// ── InfoBar: country + genre + socials (no Sekti, it's redundant) ──
 
 function InfoBar({
   artist, flag, genres, links, website,
@@ -386,7 +408,6 @@ function InfoBar({
 
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3 sm:gap-4 sm:px-5">
-      {/* Country */}
       {artist.country && (
         <span className="inline-flex items-center gap-2 font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)] sm:text-[14px]">
           <span className="text-[18px] leading-none">{flag}</span>
@@ -394,7 +415,6 @@ function InfoBar({
         </span>
       )}
 
-      {/* Main genre (first) */}
       {genres[0] && (
         <>
           <span className="text-[var(--border-strong)]">·</span>
@@ -404,59 +424,54 @@ function InfoBar({
         </>
       )}
 
-      {/* Push right: Sekti + socials */}
-      <div className="ml-auto flex items-center gap-2">
-        <button
-          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-3.5 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-primary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
-          title="Sekti atlikėją"
-        >
-          <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14" /></svg>
-          Sekti
-        </button>
-
-        {hasSocials && (
-          <div className="flex items-center gap-1">
-            {links.filter(l => SOC[l.platform]).map(l => {
-              const p = SOC[l.platform]
-              return (
-                <a
-                  key={l.platform}
-                  href={l.url}
-                  target="_blank"
-                  rel="noopener"
-                  title={p.l}
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
-                >
-                  <svg viewBox="0 0 24 24" fill={p.c} width="14" height="14"><path d={p.d} /></svg>
-                </a>
-              )
-            })}
-            {website && (
+      {hasSocials && (
+        <div className="ml-auto flex items-center gap-1">
+          {links.filter(l => SOC[l.platform]).map(l => {
+            const p = SOC[l.platform]
+            return (
               <a
-                href={website}
+                key={l.platform}
+                href={l.url}
                 target="_blank"
                 rel="noopener"
-                title="Oficiali svetainė"
+                title={p.l}
                 className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
               >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
+                <svg viewBox="0 0 24 24" fill={p.c} width="14" height="14"><path d={p.d} /></svg>
               </a>
-            )}
-          </div>
-        )}
-      </div>
+            )
+          })}
+          {website && (
+            <a
+              href={website}
+              target="_blank"
+              rel="noopener"
+              title="Oficiali svetainė"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
+            </a>
+          )}
+        </div>
+      )}
     </div>
   )
 }
 
-// ── BioMeta: years + all genres (inline subtitle above bio) ────────
+// ── BioMeta: years + all styles (genres + substyles) ───────────────
 
-function BioMeta({ active, solo, genres }: {
-  active: string | null; solo: boolean; genres: Genre[]
+function BioMeta({ active, genres, substyles }: {
+  active: string | null; genres: Genre[]; substyles: Genre[]
 }) {
+  // Merge genres + substyles, dedupe by name
+  const styleMap = new Map<string, string>()
+  for (const g of genres) if (g.name) styleMap.set(g.name.toLowerCase(), g.name)
+  for (const s of substyles) if (s.name) styleMap.set(s.name.toLowerCase(), s.name)
+  const allStyles = Array.from(styleMap.values())
+
   const parts: string[] = []
   if (active) parts.push(active)
-  if (genres.length > 0) parts.push(genres.map(g => g.name).join(', '))
+  if (allStyles.length > 0) parts.push(allStyles.join(', '))
   if (parts.length === 0) return null
   return (
     <div className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-1 font-['Outfit',sans-serif] text-[13px] font-semibold text-[var(--text-muted)] sm:text-[14px]">
@@ -706,7 +721,7 @@ function MasonryGallery({ photos }: { photos: { url: string; caption?: string }[
 // ── Main ────────────────────────────────────────────────────────────
 
 export default function ArtistProfileClient({
-  artist, heroImage, genres, links, photos, albums, tracks, members, followers, likeCount,
+  artist, heroImage, genres, substyles = [], links, photos, albums, tracks, members, followers, likeCount,
   events, similar, newTracks,
   legacyCommunity, legacyThreads = [], legacyNews = [], ranks = [],
 }: Props) {
@@ -750,16 +765,22 @@ export default function ArtistProfileClient({
   const pastEvents = events.filter((e: any) => new Date(e.start_date).getTime() < now)
   const bioHtml: string = artist.description || ''
 
-  const playerProps = {
-    tracksAllTime,
-    tracksTrending,
-    activeTrackId: pid,
-    onSelectTrack: setPid,
-    hasAnyVideo,
-  }
-
   return (
     <div className="min-h-screen bg-[var(--bg-body)] font-['DM_Sans',system-ui,sans-serif] text-[var(--text-primary)] antialiased">
+      <Hero
+        artist={artist}
+        heroImage={heroImage}
+        loaded={loaded}
+        ranks={ranks}
+        likes={likes}
+        onLikes={() => likes > 0 && setLikesModalOpen(true)}
+        tracksAllTime={tracksAllTime}
+        tracksTrending={tracksTrending}
+        activeTrackId={pid}
+        onSelectTrack={setPid}
+        hasAnyVideo={hasAnyVideo}
+      />
+
       <LikesModal
         open={likesModalOpen}
         onClose={() => setLikesModalOpen(false)}
@@ -768,215 +789,188 @@ export default function ArtistProfileClient({
         users={allLikesUsers}
       />
 
-      <div className="mx-auto max-w-[1400px] px-4 pb-20 pt-4 sm:px-6 sm:pt-6 lg:px-10">
-        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_440px] lg:gap-8">
+      <main className="mx-auto max-w-[1400px] space-y-10 px-4 pb-24 pt-8 sm:space-y-14 sm:px-6 lg:px-10">
 
-          {/* ═══ LEFT SCROLLABLE COLUMN ═══ */}
-          <div className="min-w-0 space-y-8 sm:space-y-10">
+        {/* Info bar — horizontal strip with country, genre, socials */}
+        <InfoBar
+          artist={artist}
+          flag={flag}
+          genres={genres}
+          links={links}
+          website={artist.website}
+        />
 
-            <HeroPhoto
-              artist={artist}
-              heroImage={heroImage}
-              loaded={loaded}
-              ranks={ranks}
-              likes={likes}
-              onLikes={() => likes > 0 && setLikesModalOpen(true)}
-            />
-
-            {/* Mobile-only player between hero and info bar */}
-            <div className="lg:hidden">
-              <PlayerCard {...playerProps} />
+        {/* Upcoming events (if any) */}
+        {upcomingEvents.length > 0 && (
+          <section>
+            <SectionTitle label="Artimiausi renginiai" count={upcomingEvents.length} />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {upcomingEvents.map((e: any) => <EventCard key={e.id} e={e} variant="upcoming" />)}
             </div>
+          </section>
+        )}
 
-            <InfoBar
-              artist={artist}
-              flag={flag}
-              genres={genres}
-              links={links}
-              website={artist.website}
-            />
+        {/* Apie section with BioMeta subtitle */}
+        {hasBio && (
+          <section>
+            <SectionTitle label="Apie" />
+            <BioMeta active={active} genres={genres} substyles={substyles} />
+            <BioExpand html={bioHtml} />
+          </section>
+        )}
 
-            {/* Apie */}
-            {hasBio && (
-              <section>
-                <SectionTitle label="Apie" />
-                <BioMeta active={active} solo={solo} genres={genres} />
-                <BioExpand html={bioHtml} />
-              </section>
+        {/* Members (below bio, per user request) */}
+        {!solo && members.length > 0 && <MembersSection members={members} />}
+
+        {/* Diskografija */}
+        {albums.length > 0 && (
+          <section>
+            <SectionTitle label="Diskografija" count={albums.length} />
+            {atypes.length > 1 && (
+              <div className="mb-5 flex flex-wrap gap-1.5 sm:gap-2">
+                {[...atypes, 'all'].map(t => {
+                  const count = t === 'all' ? albums.length : albums.filter(a => aType(a) === t).length
+                  const label = t === 'all' ? 'Visi' : (t === 'Studijinis' ? 'Studijiniai' : t === 'Singlas' ? 'Singlai' : t)
+                  return (
+                    <button
+                      key={t}
+                      onClick={() => setDf(t)}
+                      className={[
+                        'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-["Outfit",sans-serif] text-[12px] font-bold transition-all',
+                        df === t
+                          ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white shadow-[0_4px_12px_rgba(249,115,22,0.3)]'
+                          : 'border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]',
+                      ].join(' ')}
+                    >
+                      {label}
+                      <span className={df === t ? 'opacity-80' : 'text-[var(--text-faint)]'}>· {count}</span>
+                    </button>
+                  )
+                })}
+              </div>
             )}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+              {fAlbums.map(a => <AlbumCard key={a.id} a={a} />)}
+            </div>
+          </section>
+        )}
 
-            {/* Nariai (below bio, per user request) */}
-            {!solo && members.length > 0 && <MembersSection members={members} />}
-
-            {/* Artimiausi renginiai */}
-            {upcomingEvents.length > 0 && (
-              <section>
-                <SectionTitle label="Artimiausi renginiai" count={upcomingEvents.length} />
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  {upcomingEvents.map((e: any) => <EventCard key={e.id} e={e} variant="upcoming" />)}
-                </div>
-              </section>
-            )}
-
-            {/* Diskografija */}
-            {albums.length > 0 && (
-              <section>
-                <SectionTitle label="Diskografija" count={albums.length} />
-                {atypes.length > 1 && (
-                  <div className="mb-5 flex flex-wrap gap-1.5 sm:gap-2">
-                    {[...atypes, 'all'].map(t => {
-                      const count = t === 'all' ? albums.length : albums.filter(a => aType(a) === t).length
-                      const label = t === 'all' ? 'Visi' : (t === 'Studijinis' ? 'Studijiniai' : t === 'Singlas' ? 'Singlai' : t)
-                      return (
-                        <button
-                          key={t}
-                          onClick={() => setDf(t)}
-                          className={[
-                            'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-["Outfit",sans-serif] text-[12px] font-bold transition-all',
-                            df === t
-                              ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white shadow-[0_4px_12px_rgba(249,115,22,0.3)]'
-                              : 'border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]',
-                          ].join(' ')}
-                        >
-                          {label}
-                          <span className={df === t ? 'opacity-80' : 'text-[var(--text-faint)]'}>· {count}</span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4">
-                  {fAlbums.map(a => <AlbumCard key={a.id} a={a} />)}
-                </div>
-              </section>
-            )}
-
-            {/* Diskusijos */}
-            <section>
-              <SectionTitle label="Diskusijos" count={legacyThreads.length || undefined} />
-              {legacyThreads.length > 0 ? (
-                <div className="overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
-                  {legacyThreads.map((t, i) => {
-                    const title = t.title || slugToForumTitle(t.slug)
-                    const pc = t.post_count ?? 0
-                    return (
-                      <Link
-                        key={t.legacy_id}
-                        href={`/diskusijos/tema/${t.legacy_id}`}
-                        className={[
-                          'flex items-center gap-4 px-4 py-4 no-underline transition-colors hover:bg-[var(--bg-hover)] sm:px-5',
-                          i < legacyThreads.length - 1 ? 'border-b border-[var(--border-subtle)]' : '',
-                        ].join(' ')}
-                      >
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[rgba(59,130,246,0.2)] bg-[rgba(59,130,246,0.1)] text-[#3b82f6] sm:h-12 sm:w-12">
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" /></svg>
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)] sm:text-[15px]">{title}</div>
-                          <div className="mt-1 text-[12px] text-[var(--text-muted)]">
-                            #{t.legacy_id}{pc > 0 && <> · {pc} komentarai</>}
-                          </div>
-                        </div>
-                        <svg className="shrink-0 text-[var(--text-faint)]" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M9 18l6-6-6-6" />
-                        </svg>
-                      </Link>
-                    )
-                  })}
-                </div>
-              ) : (
-                <div className="rounded-2xl border border-dashed border-[var(--border-default)] p-8 text-center">
-                  <div className="mb-2 text-[14px] font-bold text-[var(--text-muted)]">Dar nėra diskusijų apie {artist.name}</div>
-                  <div className="mb-4 text-[12px] text-[var(--text-faint)]">Būk pirmas — pradėk diskusiją!</div>
-                  <button className="inline-flex items-center gap-2 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-4 py-2 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14" /></svg>
-                    Nauja diskusija
-                  </button>
-                </div>
-              )}
-            </section>
-
-            {/* Past events */}
-            {pastEvents.length > 0 && (
-              <section>
-                <SectionTitle label="Įvykę renginiai" count={pastEvents.length} />
-                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                  {pastEvents.map((e: any) => <EventCard key={e.id} e={e} variant="past" />)}
-                </div>
-              </section>
-            )}
-
-            {/* Legacy news */}
-            {legacyNews.length > 0 && (
-              <section>
-                <SectionTitle label="Naujienų archyvas" count={legacyNews.length} />
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {legacyNews.slice(0, 12).map(n => {
-                    const title = n.title || slugToForumTitle(n.slug)
-                    const pc = n.post_count ?? 0
-                    return (
-                      <Link
-                        key={n.legacy_id}
-                        href={`/diskusijos/tema/${n.legacy_id}`}
-                        className="group flex flex-col gap-3 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5 no-underline transition-all hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.2)]"
-                      >
-                        <div className="flex items-center gap-2">
-                          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-[rgba(249,115,22,0.2)] bg-[rgba(249,115,22,0.1)] text-[var(--accent-orange)]">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M20 3H4a2 2 0 00-2 2v14a2 2 0 002 2h16a2 2 0 002-2V5a2 2 0 00-2-2z" /></svg>
-                          </div>
-                          <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--accent-orange)]">Naujiena</div>
-                          {pc > 0 && <div className="ml-auto text-[11px] font-semibold text-[var(--text-muted)]">{pc} komentarai</div>}
-                        </div>
-                        <div className="text-[14px] font-bold leading-snug text-[var(--text-primary)] sm:text-[15px]">{title}</div>
-                      </Link>
-                    )
-                  })}
-                </div>
-              </section>
-            )}
-
-            {/* Galerija */}
-            {photos.length > 0 && (
-              <section>
-                <SectionTitle label="Galerija" count={photos.length} />
-                <MasonryGallery photos={photos} />
-              </section>
-            )}
-
-            {/* Similar */}
-            {similar.length > 0 && (
-              <section>
-                <SectionTitle label="Panaši muzika" />
-                <div className="flex snap-x gap-4 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  {similar.map((a: any) => (
-                    <Link key={a.id} href={`/atlikejai/${a.slug}`} className="w-[110px] shrink-0 snap-start text-center no-underline sm:w-[130px]">
-                      <div className="relative mx-auto mb-2.5 h-[90px] w-[90px] overflow-hidden rounded-full border-2 border-[var(--border-default)] transition-all hover:scale-105 hover:border-[var(--border-strong)] sm:h-[108px] sm:w-[108px]">
-                        {a.cover_image_url ? (
-                          <img src={a.cover_image_url} alt={a.name} className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center bg-[var(--cover-placeholder)] font-['Outfit',sans-serif] text-[24px] font-black text-[var(--text-faint)]">
-                            {a.name[0]}
-                          </div>
-                        )}
+        {/* Diskusijos */}
+        <section>
+          <SectionTitle label="Diskusijos" count={legacyThreads.length || undefined} />
+          {legacyThreads.length > 0 ? (
+            <div className="overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
+              {legacyThreads.map((t, i) => {
+                const title = t.title || slugToForumTitle(t.slug)
+                const pc = t.post_count ?? 0
+                return (
+                  <Link
+                    key={t.legacy_id}
+                    href={`/diskusijos/tema/${t.legacy_id}`}
+                    className={[
+                      'flex items-center gap-4 px-4 py-4 no-underline transition-colors hover:bg-[var(--bg-hover)] sm:px-5',
+                      i < legacyThreads.length - 1 ? 'border-b border-[var(--border-subtle)]' : '',
+                    ].join(' ')}
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[rgba(59,130,246,0.2)] bg-[rgba(59,130,246,0.1)] text-[#3b82f6] sm:h-12 sm:w-12">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" /></svg>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)] sm:text-[15px]">{title}</div>
+                      <div className="mt-1 text-[12px] text-[var(--text-muted)]">
+                        #{t.legacy_id}{pc > 0 && <> · {pc} komentarai</>}
                       </div>
-                      <div className="truncate font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)]">{a.name}</div>
-                    </Link>
-                  ))}
-                </div>
-              </section>
-            )}
-
-          </div>
-
-          {/* ═══ RIGHT STICKY COLUMN (desktop only) ═══ */}
-          <div className="hidden lg:block">
-            <div className="sticky top-[72px]">
-              <PlayerCard {...playerProps} />
+                    </div>
+                    <svg className="shrink-0 text-[var(--text-faint)]" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M9 18l6-6-6-6" />
+                    </svg>
+                  </Link>
+                )
+              })}
             </div>
-          </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-[var(--border-default)] p-8 text-center">
+              <div className="mb-2 text-[14px] font-bold text-[var(--text-muted)]">Dar nėra diskusijų apie {artist.name}</div>
+              <div className="mb-4 text-[12px] text-[var(--text-faint)]">Būk pirmas — pradėk diskusiją!</div>
+              <button className="inline-flex items-center gap-2 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-4 py-2 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14" /></svg>
+                Nauja diskusija
+              </button>
+            </div>
+          )}
+        </section>
 
-        </div>
-      </div>
+        {/* Past events */}
+        {pastEvents.length > 0 && (
+          <section>
+            <SectionTitle label="Įvykę renginiai" count={pastEvents.length} />
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+              {pastEvents.map((e: any) => <EventCard key={e.id} e={e} variant="past" />)}
+            </div>
+          </section>
+        )}
+
+        {/* Legacy news */}
+        {legacyNews.length > 0 && (
+          <section>
+            <SectionTitle label="Naujienų archyvas" count={legacyNews.length} />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {legacyNews.slice(0, 12).map(n => {
+                const title = n.title || slugToForumTitle(n.slug)
+                const pc = n.post_count ?? 0
+                return (
+                  <Link
+                    key={n.legacy_id}
+                    href={`/diskusijos/tema/${n.legacy_id}`}
+                    className="group flex flex-col gap-3 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5 no-underline transition-all hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.2)]"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-[rgba(249,115,22,0.2)] bg-[rgba(249,115,22,0.1)] text-[var(--accent-orange)]">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M20 3H4a2 2 0 00-2 2v14a2 2 0 002 2h16a2 2 0 002-2V5a2 2 0 00-2-2z" /></svg>
+                      </div>
+                      <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--accent-orange)]">Naujiena</div>
+                      {pc > 0 && <div className="ml-auto text-[11px] font-semibold text-[var(--text-muted)]">{pc} komentarai</div>}
+                    </div>
+                    <div className="text-[14px] font-bold leading-snug text-[var(--text-primary)] sm:text-[15px]">{title}</div>
+                  </Link>
+                )
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* Galerija */}
+        {photos.length > 0 && (
+          <section>
+            <SectionTitle label="Galerija" count={photos.length} />
+            <MasonryGallery photos={photos} />
+          </section>
+        )}
+
+        {/* Similar */}
+        {similar.length > 0 && (
+          <section>
+            <SectionTitle label="Panaši muzika" />
+            <div className="flex snap-x gap-4 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {similar.map((a: any) => (
+                <Link key={a.id} href={`/atlikejai/${a.slug}`} className="w-[110px] shrink-0 snap-start text-center no-underline sm:w-[130px]">
+                  <div className="relative mx-auto mb-2.5 h-[90px] w-[90px] overflow-hidden rounded-full border-2 border-[var(--border-default)] transition-all hover:scale-105 hover:border-[var(--border-strong)] sm:h-[108px] sm:w-[108px]">
+                    {a.cover_image_url ? (
+                      <img src={a.cover_image_url} alt={a.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-[var(--cover-placeholder)] font-['Outfit',sans-serif] text-[24px] font-black text-[var(--text-faint)]">
+                        {a.name[0]}
+                      </div>
+                    )}
+                  </div>
+                  <div className="truncate font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)]">{a.name}</div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+      </main>
     </div>
   )
 }
