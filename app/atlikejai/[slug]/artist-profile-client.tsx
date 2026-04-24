@@ -31,7 +31,11 @@ type Album = {
 type Track = {
   id: number; slug: string; title: string; type?: string
   video_url?: string; cover_url?: string
-  album_id?: number | null; release_year?: number
+  album_id?: number | null; release_year?: number; release_month?: number
+  release_date?: string | null
+  /** Duration in seconds (integer) or "mm:ss" string — we handle both at render time. */
+  duration?: number | string | null
+  lyrics?: string | null
 }
 type Member = { id: number; slug: string; name: string; cover_image_url?: string; member_from?: number; member_until?: number }
 type ChartPt = { year: number; value: number }
@@ -84,6 +88,25 @@ const yt = (u?: string | null) => {
   if (!u) return null
   const m = u.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/)
   return m ? m[1] : null
+}
+
+/** Format track duration as "m:ss". Accepts integer seconds or "mm:ss" strings
+ *  (the column sometimes stores one, sometimes the other). Returns null when
+ *  the input is unusable. */
+function fmtDur(d: number | string | null | undefined): string | null {
+  if (d == null) return null
+  if (typeof d === 'string') {
+    // Already "m:ss" or "h:mm:ss" — return as-is if it looks valid.
+    if (/^\d{1,2}:\d{2}(?::\d{2})?$/.test(d.trim())) return d.trim()
+    const n = Number(d)
+    if (!isFinite(n) || n <= 0) return null
+    d = n
+  }
+  if (typeof d !== 'number' || !isFinite(d) || d <= 0) return null
+  const s = Math.round(d)
+  const m = Math.floor(s / 60)
+  const sec = s % 60
+  return `${m}:${sec.toString().padStart(2, '0')}`
 }
 
 function slugToForumTitle(slug: string): string {
@@ -171,16 +194,33 @@ function SectionTitle({ label, count }: { label: string; count?: number }) {
 }
 
 // ── PlayerCard ─────────────────────────────────────────────────────
+// Behaviour:
+//  - Default state: big thumbnail + our own play button (no YouTube chrome).
+//    First click starts autoplay inside the embedded iframe.
+//  - Once playing, user controls via the iframe itself (we can't observe its
+//    state, so we don't claim to — no "Groja"/"Paruošta" label).
+//  - List rows show position, title, a 4-dot popularity bar (relative to the
+//    list rank), the duration, and an info button that opens a track modal.
+//  - Tabs: "Populiaru" and "Nauja" (latter hidden entirely when empty).
 
 function PlayerCard({
-  tracksAllTime, tracksTrending, activeTrackId, onSelectTrack, hasAnyVideo,
+  tracksAllTime, tracksTrending, activeTrackId, onSelectTrack,
+  playing, onRequestPlay, onOpenTrackInfo, hasAnyVideo,
 }: {
   tracksAllTime: Track[]; tracksTrending: Track[]
-  activeTrackId: number | null; onSelectTrack: (id: number) => void; hasAnyVideo: boolean
+  activeTrackId: number | null; onSelectTrack: (id: number) => void
+  /** True once the user has hit our own play button at least once — we swap
+   *  the thumbnail overlay for the autoplay-embed iframe. */
+  playing: boolean
+  onRequestPlay: () => void
+  onOpenTrackInfo: (t: Track) => void
+  hasAnyVideo: boolean
 }) {
-  const [tab, setTab] = useState<'all' | 'trending'>(
-    tracksTrending.length > 0 ? 'trending' : 'all'
-  )
+  const hasTrending = tracksTrending.length > 0
+  const [tab, setTab] = useState<'all' | 'trending'>(hasTrending ? 'trending' : 'all')
+  // If "Nauja" becomes empty (e.g. tracks reshuffle), snap back to "Populiaru".
+  useEffect(() => { if (!hasTrending && tab === 'trending') setTab('all') }, [hasTrending, tab])
+
   const list = tab === 'trending' ? tracksTrending : tracksAllTime
   const activeTrack = [...tracksAllTime, ...tracksTrending].find(t => t.id === activeTrackId)
   const activeVid = yt(activeTrack?.video_url)
@@ -188,17 +228,70 @@ function PlayerCard({
   const displayVid = activeVid || yt(firstWithVideo?.video_url)
   const displayTrack = activeTrack || firstWithVideo
 
+  // When the user picks a different track from the list, treat it as an
+  // immediate play request (swap overlay → iframe w/ autoplay).
+  const handleSelect = (id: number) => {
+    onSelectTrack(id)
+    onRequestPlay()
+  }
+
   return (
     <div className="overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-elevated)] shadow-[0_20px_60px_-20px_rgba(0,0,0,0.4)]">
       <div className="relative aspect-video overflow-hidden bg-black">
         {displayVid ? (
-          <iframe
-            key={displayVid}
-            src={`https://www.youtube.com/embed/${displayVid}?rel=0${activeVid ? '&autoplay=1' : ''}`}
-            allow="autoplay;encrypted-media"
-            allowFullScreen
-            className="absolute inset-0 h-full w-full border-0"
-          />
+          playing ? (
+            // Once the user has hit play, mount the iframe with autoplay so
+            // YouTube's Watch/Share chrome never sees the start-screen.
+            <iframe
+              key={displayVid}
+              src={`https://www.youtube.com/embed/${displayVid}?rel=0&autoplay=1&modestbranding=1&playsinline=1`}
+              allow="autoplay;encrypted-media"
+              allowFullScreen
+              className="absolute inset-0 h-full w-full border-0"
+            />
+          ) : (
+            // Initial state — thumbnail + big orange play button. One click
+            // flips `playing` to true, which mounts the iframe above.
+            <button
+              type="button"
+              onClick={onRequestPlay}
+              aria-label="Paleisti"
+              className="group absolute inset-0 h-full w-full cursor-pointer overflow-hidden border-0 bg-black p-0"
+            >
+              <img
+                src={`https://img.youtube.com/vi/${displayVid}/maxresdefault.jpg`}
+                alt={displayTrack?.title || ''}
+                className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                onError={(e) => {
+                  // maxres not always available — fall back to hqdefault.
+                  const el = e.currentTarget as HTMLImageElement
+                  if (!el.dataset.fallback) {
+                    el.dataset.fallback = '1'
+                    el.src = `https://img.youtube.com/vi/${displayVid}/hqdefault.jpg`
+                  }
+                }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+
+              {/* Our own play button */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_10px_40px_rgba(249,115,22,0.5)] ring-[6px] ring-white/10 transition-transform duration-200 group-hover:scale-110">
+                  <svg viewBox="0 0 24 24" width="28" height="28" fill="#fff" aria-hidden>
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </span>
+              </div>
+
+              {/* Title overlay at the bottom — no YT chrome, just our own */}
+              {displayTrack && (
+                <div className="absolute inset-x-0 bottom-0 px-4 pb-3 text-left">
+                  <div className="truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
+                    {displayTrack.title}
+                  </div>
+                </div>
+              )}
+            </button>
+          )
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 px-6 text-center">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/5 ring-1 ring-white/10">
@@ -214,45 +307,21 @@ function PlayerCard({
         )}
       </div>
 
-      {displayTrack && (
-        <div className="flex items-center gap-3 border-b border-[var(--border-default)] bg-[var(--bg-elevated)] px-4 py-2.5">
-          <div className={[
-            'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
-            activeVid ? 'bg-[var(--accent-orange)] shadow-[0_4px_14px_rgba(249,115,22,0.4)]' : 'bg-[var(--card-bg)]',
-          ].join(' ')}>
-            {activeVid ? (
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
-            ) : (
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="text-[var(--text-muted)]"><path d="M8 5v14l11-7z" /></svg>
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="truncate font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)]">
-              {displayTrack.title}
-            </div>
-            <div className="font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.18em] text-[var(--accent-orange)]">
-              {activeVid ? 'Groja' : 'Paruošta'}
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="flex border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-2 pt-1">
+      {/* Tabs — brighter active color + thicker underline */}
+      <div className="flex items-center gap-1 border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-3 pt-1">
         <TabButton active={tab === 'all'} onClick={() => setTab('all')}>
-          Populiariausios <span className="ml-1 text-[var(--text-faint)]">·{tracksAllTime.length}</span>
+          Populiaru <span className="ml-1 text-[var(--text-faint)]">·{tracksAllTime.length}</span>
         </TabButton>
-        <TabButton
-          active={tab === 'trending'}
-          disabled={tracksTrending.length === 0}
-          onClick={() => setTab('trending')}
-        >
-          Trending <span className="ml-1 text-[var(--text-faint)]">·{tracksTrending.length}</span>
-        </TabButton>
+        {hasTrending && (
+          <TabButton active={tab === 'trending'} onClick={() => setTab('trending')}>
+            Nauja <span className="ml-1 text-[var(--text-faint)]">·{tracksTrending.length}</span>
+          </TabButton>
+        )}
       </div>
 
       <div
         className="overflow-y-auto bg-[var(--bg-surface)]"
-        style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--border-default) transparent', maxHeight: '240px' }}
+        style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--border-default) transparent', maxHeight: '260px' }}
       >
         {list.length === 0 ? (
           <div className="flex min-h-[160px] flex-col items-center justify-center gap-1 px-6 py-8 text-center">
@@ -266,50 +335,72 @@ function PlayerCard({
             {list.map((t, i) => {
               const v = yt(t.video_url)
               const isActive = t.id === activeTrackId
+              const pop = popLevel(i, list.length)
+              const dur = fmtDur(t.duration)
               return (
                 <li key={t.id}>
-                  <button
-                    onClick={() => v && onSelectTrack(t.id)}
-                    disabled={!v}
+                  <div
                     className={[
-                      'flex w-full items-center gap-3 border-0 bg-transparent px-4 py-2 text-left transition-colors',
-                      v ? 'cursor-pointer' : 'cursor-default opacity-55',
+                      'flex w-full items-center gap-3 px-4 py-2 transition-colors',
                       isActive ? 'bg-[rgba(249,115,22,0.08)]' : 'hover:bg-[var(--bg-hover)]',
                     ].join(' ')}
                   >
-                    <span
+                    <button
+                      onClick={() => v && handleSelect(t.id)}
+                      disabled={!v}
+                      aria-label={v ? `Leisti ${t.title}` : t.title}
                       className={[
-                        'w-6 shrink-0 text-center font-["Outfit",sans-serif] text-[12px] font-bold tabular-nums',
-                        isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]',
+                        'flex min-w-0 flex-1 items-center gap-3 border-0 bg-transparent p-0 text-left',
+                        v ? 'cursor-pointer' : 'cursor-default opacity-55',
                       ].join(' ')}
                     >
-                      {isActive && v ? (
-                        <span className="inline-flex h-5 w-5 items-center justify-center">
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
+                      <span
+                        className={[
+                          'w-6 shrink-0 text-center font-["Outfit",sans-serif] text-[12px] font-bold tabular-nums',
+                          isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]',
+                        ].join(' ')}
+                      >
+                        {isActive && v ? (
+                          <span className="inline-flex h-5 w-5 items-center justify-center">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
+                          </span>
+                        ) : (
+                          i + 1
+                        )}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className={[
+                          'truncate font-["Outfit",sans-serif] text-[13px] font-bold leading-tight',
+                          isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-primary)]',
+                        ].join(' ')}>
+                          {t.title}
+                        </div>
+                        <PopBar level={pop} />
+                      </div>
+                    </button>
+
+                    {/* Right column — duration + info button */}
+                    <div className="flex shrink-0 items-center gap-1">
+                      {dur ? (
+                        <span className="font-['Outfit',sans-serif] text-[11px] font-semibold tabular-nums text-[var(--text-muted)]">
+                          {dur}
                         </span>
                       ) : (
-                        i + 1
+                        <span className="font-['Outfit',sans-serif] text-[11px] font-semibold text-[var(--text-faint)]">—</span>
                       )}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className={[
-                        'truncate font-["Outfit",sans-serif] text-[13px] font-bold leading-tight',
-                        isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-primary)]',
-                      ].join(' ')}>
-                        {t.title}
-                      </div>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onOpenTrackInfo(t) }}
+                        aria-label="Dainos informacija"
+                        title="Dainos informacija"
+                        className="flex h-6 w-6 items-center justify-center rounded-full text-[var(--text-faint)] transition-colors hover:bg-[var(--card-bg)] hover:text-[var(--text-primary)]"
+                      >
+                        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="12" cy="12" r="9" />
+                          <path d="M12 8v.01M12 11v5" strokeLinecap="round" />
+                        </svg>
+                      </button>
                     </div>
-                    {v ? (
-                      <div className={[
-                        'flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-colors',
-                        isActive ? 'bg-[var(--accent-orange)] text-white' : 'bg-[var(--card-bg)] text-[var(--text-muted)]',
-                      ].join(' ')}>
-                        <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
-                      </div>
-                    ) : (
-                      <div className="shrink-0 font-['Outfit',sans-serif] text-[9px] font-bold uppercase tracking-wider text-[var(--text-faint)]">—</div>
-                    )}
-                  </button>
+                  </div>
                 </li>
               )
             })}
@@ -325,6 +416,143 @@ function PlayerCard({
   )
 }
 
+/** Relative popularity tier for a track based on its position in the list.
+ *  Top 10% → 4, top 30% → 3, top 60% → 2, rest → 1. */
+function popLevel(index: number, total: number): number {
+  if (total <= 1) return 4
+  const pct = index / (total - 1)
+  if (pct <= 0.1) return 4
+  if (pct <= 0.3) return 3
+  if (pct <= 0.6) return 2
+  return 1
+}
+
+/** 4-dot popularity bar — mirrors the rank bar pattern used on liker cards. */
+function PopBar({ level }: { level: number }) {
+  const total = 4
+  return (
+    <div className="mt-1 flex gap-[3px]" aria-hidden>
+      {Array.from({ length: total }).map((_, i) => {
+        const filled = i < level
+        return (
+          <span
+            key={i}
+            className={[
+              'h-[3px] w-[14px] rounded-[2px] transition-colors',
+              filled ? 'bg-[var(--accent-orange)]' : 'bg-[var(--border-default)]',
+            ].join(' ')}
+            style={{ opacity: filled ? 0.55 + (0.45 * (i + 1) / total) : 1 }}
+          />
+        )
+      })}
+    </div>
+  )
+}
+
+// ── TrackInfoModal ─────────────────────────────────────────────────
+//
+// Lightweight track summary launched from the player's info button. Keeps
+// metadata in one place (duration, release year, lyrics preview) plus a link
+// to the full /lt/daina page for deeper actions. We deliberately don't
+// duplicate the whole track page here — this is a quick read.
+
+function TrackInfoModal({
+  track, artistName, artistSlug, onClose,
+}: {
+  track: Track | null; artistName: string; artistSlug: string; onClose: () => void
+}) {
+  useEffect(() => {
+    if (!track) return
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', h)
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', h)
+      document.body.style.overflow = ''
+    }
+  }, [track, onClose])
+
+  if (!track) return null
+
+  const dur = fmtDur(track.duration)
+  const year = track.release_year || (track.release_date ? new Date(track.release_date).getFullYear() : null)
+  const lyrics = (track.lyrics || '').trim()
+  // Plain-text preview, first ~8 lines, strip HTML.
+  const lyricsPreview = lyrics
+    ? lyrics.replace(/<[^>]+>/g, '').split(/\n+/).filter(Boolean).slice(0, 10).join('\n')
+    : null
+  const trackHref = `/lt/daina/${track.slug}/${track.id}`
+
+  return (
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 px-4 py-8 backdrop-blur-sm"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div className="flex max-h-[88vh] w-full max-w-[640px] flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[0_40px_80px_-20px_rgba(0,0,0,0.6)]">
+        {/* Header */}
+        <div className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
+          <div className="min-w-0 flex-1">
+            <div className="truncate font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)]">
+              {track.title}
+            </div>
+            <div className="truncate text-[12px] text-[var(--text-muted)]">
+              {artistName}
+              {year ? <> · {year}</> : null}
+              {dur ? <> · {dur}</> : null}
+              {track.type ? <> · {track.type}</> : null}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Uždaryti"
+            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[10px] border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+          >
+            <svg viewBox="0 0 16 16" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+              <path d="M3 3l10 10M13 3L3 13" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-5 py-5">
+          {lyricsPreview ? (
+            <div>
+              <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.2em] text-[var(--text-muted)]">
+                Tekstas
+              </div>
+              <div className="whitespace-pre-wrap font-['DM_Sans',system-ui,sans-serif] text-[14px] leading-[1.6] text-[var(--text-primary)]">
+                {lyricsPreview}
+                {lyrics.split(/\n+/).length > 10 && (
+                  <span className="text-[var(--text-muted)]">…</span>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="py-8 text-center text-[13px] text-[var(--text-muted)]">
+              Teksto dar nėra.
+            </div>
+          )}
+        </div>
+
+        {/* Footer action */}
+        <div className="flex items-center justify-end gap-2 border-t border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-5 py-3">
+          <Link
+            href={trackHref}
+            className="inline-flex items-center gap-2 rounded-full bg-[var(--accent-orange)] px-4 py-2 font-['Outfit',sans-serif] text-[12px] font-extrabold text-white shadow-[0_4px_14px_rgba(249,115,22,0.35)] transition-transform hover:scale-[1.02]"
+          >
+            Dainos puslapis
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <path d="M5 12h14M13 6l6 6-6 6" />
+            </svg>
+          </Link>
+        </div>
+      </div>
+    </div>
+  )
+  // artistSlug is kept for future deep-links (e.g. "More from artist")
+  void artistSlug
+}
+
 function TabButton({ active, disabled, onClick, children }: {
   active: boolean; disabled?: boolean; onClick: () => void; children: React.ReactNode
 }) {
@@ -333,8 +561,8 @@ function TabButton({ active, disabled, onClick, children }: {
       onClick={onClick}
       disabled={disabled}
       className={[
-        'relative border-0 bg-transparent px-4 py-2.5 font-["Outfit",sans-serif] text-[11px] font-extrabold uppercase tracking-[0.15em] transition-colors',
-        active ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]',
+        'relative border-0 bg-transparent px-4 py-3 font-["Outfit",sans-serif] text-[12px] font-extrabold uppercase tracking-[0.14em] transition-colors',
+        active ? 'text-[var(--accent-orange)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]',
         disabled ? 'cursor-not-allowed opacity-30' : 'cursor-pointer',
       ].join(' ')}
     >
@@ -350,13 +578,17 @@ function TabButton({ active, disabled, onClick, children }: {
 
 function Hero({
   artist, heroImage, loaded, likes, selfLiked, onToggleLike, onOpenLikersModal, selfLikePending,
-  tracksAllTime, tracksTrending, activeTrackId, onSelectTrack, hasAnyVideo,
+  tracksAllTime, tracksTrending, activeTrackId, onSelectTrack,
+  playing, onRequestPlay, onOpenTrackInfo, hasAnyVideo,
 }: {
   artist: any; heroImage: string | null; loaded: boolean
   likes: number; selfLiked?: boolean
   onToggleLike: () => void; onOpenLikersModal: () => void; selfLikePending: boolean
   tracksAllTime: Track[]; tracksTrending: Track[]
-  activeTrackId: number | null; onSelectTrack: (id: number) => void; hasAnyVideo: boolean
+  activeTrackId: number | null; onSelectTrack: (id: number) => void
+  playing: boolean; onRequestPlay: () => void
+  onOpenTrackInfo: (t: Track) => void
+  hasAnyVideo: boolean
 }) {
   const coverPos = parseCoverPos(artist.cover_image_position || 'center 30%')
 
@@ -439,6 +671,9 @@ function Hero({
               tracksTrending={tracksTrending}
               activeTrackId={activeTrackId}
               onSelectTrack={onSelectTrack}
+              playing={playing}
+              onRequestPlay={onRequestPlay}
+              onOpenTrackInfo={onOpenTrackInfo}
               hasAnyVideo={hasAnyVideo}
             />
           </div>
@@ -483,9 +718,9 @@ function SideInfo({
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3 sm:gap-x-6 sm:px-5">
         {artist.country && (
           <div className="flex items-baseline gap-2">
-            <span className="inline-flex items-center gap-2 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">
-              <span className="text-[18px] leading-none">{flag}</span>
+            <span className="inline-flex items-baseline gap-1.5 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">
               <span>{artist.country}</span>
+              <span className="text-[16px] leading-none">{flag}</span>
             </span>
             {countryRank && <RankChip n={countryRank.rank} />}
           </div>
@@ -546,12 +781,13 @@ function SideInfo({
   // ── Vertical variant — sidebar card ──────────────────────────────
   return (
     <aside className="space-y-4 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5">
-      {/* Country — no label, flag + name is self-explanatory */}
+      {/* Country — name first, flag after, so country + genre text lines
+          align flush-left. */}
       {artist.country && (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-2 font-['Outfit',sans-serif] text-[15px] font-bold text-[var(--text-primary)]">
-            <span className="text-[20px] leading-none">{flag}</span>
+        <div className="flex flex-wrap items-baseline gap-2">
+          <span className="inline-flex items-baseline gap-1.5 font-['Outfit',sans-serif] text-[15px] font-bold text-[var(--text-primary)]">
             <span>{artist.country}</span>
+            <span className="text-[17px] leading-none">{flag}</span>
           </span>
           {countryRank && <RankChip n={countryRank.rank} />}
         </div>
@@ -583,7 +819,7 @@ function SideInfo({
 
       {hasSocials && (
         <div className="pt-1">
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-1">
             {links.filter(l => SOC[l.platform]).map(l => {
               const p = SOC[l.platform]
               return (
@@ -593,9 +829,9 @@ function SideInfo({
                   target="_blank"
                   rel="noopener"
                   title={p.l}
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+                  className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
                 >
-                  <svg viewBox="0 0 24 24" fill={p.c || 'currentColor'} width="14" height="14" className={p.c ? '' : 'text-[var(--text-primary)]'}><path d={p.d} /></svg>
+                  <svg viewBox="0 0 24 24" fill={p.c || 'currentColor'} width="13" height="13" className={p.c ? '' : 'text-[var(--text-primary)]'}><path d={p.d} /></svg>
                 </a>
               )
             })}
@@ -605,9 +841,9 @@ function SideInfo({
                 target="_blank"
                 rel="noopener"
                 title="Oficiali svetainė"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
               >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
               </a>
             )}
           </div>
@@ -1017,6 +1253,8 @@ export default function ArtistProfileClient({
   linkedTrackIds = [],
 }: Props) {
   const [pid, setPid] = useState<number | null>(null)
+  const [playing, setPlaying] = useState(false)
+  const [trackInfoOpen, setTrackInfoOpen] = useState<Track | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [likesModalOpen, setLikesModalOpen] = useState(false)
   const [bioModalOpen, setBioModalOpen] = useState(false)
@@ -1153,15 +1391,15 @@ export default function ArtistProfileClient({
 
   const tracksAllTime = useMemo(() => {
     const withVideo = tracks.filter(t => yt(t.video_url))
-    if (withVideo.length >= 10) return withVideo.slice(0, 30)
+    if (withVideo.length >= 10) return withVideo.slice(0, 100)
     const rest = tracks.filter(t => !yt(t.video_url))
-    return [...withVideo, ...rest].slice(0, 30)
+    return [...withVideo, ...rest].slice(0, 100)
   }, [tracks])
 
   const tracksTrending = useMemo(() => {
     const withVideo = newTracks.filter(t => yt(t.video_url))
     const rest = newTracks.filter(t => !yt(t.video_url))
-    return [...withVideo, ...rest].slice(0, 30)
+    return [...withVideo, ...rest].slice(0, 100)
   }, [newTracks])
 
   const hasAnyVideo = tracksAllTime.some(t => yt(t.video_url)) || tracksTrending.some(t => yt(t.video_url))
@@ -1202,6 +1440,9 @@ export default function ArtistProfileClient({
         tracksTrending={tracksTrending}
         activeTrackId={pid}
         onSelectTrack={setPid}
+        playing={playing}
+        onRequestPlay={() => setPlaying(true)}
+        onOpenTrackInfo={(t) => setTrackInfoOpen(t)}
         hasAnyVideo={hasAnyVideo}
       />
 
@@ -1225,6 +1466,13 @@ export default function ArtistProfileClient({
         title={`Apie ${artist.name}`}
         subtitle={bioSubtitle}
         html={bioHtml}
+      />
+
+      <TrackInfoModal
+        track={trackInfoOpen}
+        artistName={artist.name}
+        artistSlug={artist.slug}
+        onClose={() => setTrackInfoOpen(null)}
       />
 
       {lightboxIndex !== null && galleryPhotos.length > 0 && (

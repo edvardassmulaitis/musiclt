@@ -82,10 +82,10 @@ async function getTracks(id: number) {
   // until we resolve the correct relationship.
   const { data } = await sb
     .from('tracks')
-    .select('id, slug, title, type, video_url, spotify_id, cover_url, release_date, lyrics, is_new, is_new_date, release_year, release_month, legacy_id')
+    .select('id, slug, title, type, video_url, spotify_id, cover_url, release_date, lyrics, duration, is_new, is_new_date, release_year, release_month, legacy_id')
     .eq('artist_id', id)
     .order('created_at', { ascending: false })
-    .limit(80)
+    .limit(120)
   return data || []
 }
 async function getAllArtistTrackLegacyIds(id: number) { const sb = createAdminClient(); const { data } = await sb.from('tracks').select('legacy_id').eq('artist_id', id).not('legacy_id', 'is', null); return (data || []).map((t: any) => t.legacy_id).filter((x: any) => typeof x === 'number') }

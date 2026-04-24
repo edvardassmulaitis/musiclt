@@ -159,49 +159,47 @@ export default function LikesModal({
             flexShrink: 0, minWidth: 0,
           }}
         >
-          {/* Left: subject */}
-          {subjectName ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-              {subjectPhoto ? (
-                <img
-                  src={subjectPhoto}
-                  alt={subjectName}
-                  referrerPolicy="no-referrer"
-                  style={{
-                    width: 40, height: 40, borderRadius: 10,
-                    objectFit: 'cover', flexShrink: 0,
-                    border: '1px solid var(--border-subtle)',
-                    background: 'var(--bg-elevated)',
-                  }}
-                />
-              ) : (
+          {/* Left: subject (mini photo + name) + LikePill right next to it —
+              the like element visually belongs to the artist, not to the X. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 }}>
+            {subjectName ? (
+              <>
+                {subjectPhoto ? (
+                  <img
+                    src={subjectPhoto}
+                    alt={subjectName}
+                    referrerPolicy="no-referrer"
+                    style={{
+                      width: 40, height: 40, borderRadius: 10,
+                      objectFit: 'cover', flexShrink: 0,
+                      border: '1px solid var(--border-subtle)',
+                      background: 'var(--bg-elevated)',
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+                      background: 'var(--bg-elevated)',
+                      border: '1px solid var(--border-subtle)',
+                    }}
+                  />
+                )}
                 <div
                   style={{
-                    width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-                    background: 'var(--bg-elevated)',
-                    border: '1px solid var(--border-subtle)',
+                    fontFamily: 'Outfit,sans-serif',
+                    fontSize: 15, fontWeight: 800,
+                    color: 'var(--text-primary)',
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    minWidth: 0,
                   }}
-                />
-              )}
-              <div
-                style={{
-                  fontFamily: 'Outfit,sans-serif',
-                  fontSize: 15, fontWeight: 800,
-                  color: 'var(--text-primary)',
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                  minWidth: 0,
-                }}
-                title={subjectName}
-              >
-                {subjectName}
-              </div>
-            </div>
-          ) : (
-            <div />
-          )}
+                  title={subjectName}
+                >
+                  {subjectName}
+                </div>
+              </>
+            ) : null}
 
-          {/* Right: LikePill (if we have toggle wiring) + close */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
             {selfLiked !== undefined && onToggleSelfLike && (
               authed === false ? (
                 <Link
@@ -211,7 +209,7 @@ export default function LikesModal({
                     padding: '8px 14px', borderRadius: 100,
                     background: 'var(--accent-orange)', color: '#fff',
                     fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 800,
-                    textDecoration: 'none',
+                    textDecoration: 'none', flexShrink: 0,
                     boxShadow: '0 4px 14px rgba(249,115,22,0.3)',
                   }}
                 >
@@ -228,23 +226,25 @@ export default function LikesModal({
                 />
               )
             )}
-            <button
-              onClick={onClose}
-              aria-label="Uždaryti"
-              style={{
-                width: 32, height: 32, borderRadius: 10, border: '1px solid var(--border-subtle)',
-                background: 'var(--card-bg)', color: 'var(--text-secondary)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', transition: 'all .15s', flexShrink: 0,
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'var(--border-strong)' }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.borderColor = 'var(--border-subtle)' }}
-            >
-              <svg viewBox="0 0 16 16" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-                <path d="M3 3l10 10M13 3L3 13" />
-              </svg>
-            </button>
           </div>
+
+          {/* Right: close */}
+          <button
+            onClick={onClose}
+            aria-label="Uždaryti"
+            style={{
+              width: 32, height: 32, borderRadius: 10, border: '1px solid var(--border-subtle)',
+              background: 'var(--card-bg)', color: 'var(--text-secondary)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', transition: 'all .15s', flexShrink: 0,
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'var(--border-strong)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.borderColor = 'var(--border-subtle)' }}
+          >
+            <svg viewBox="0 0 16 16" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+              <path d="M3 3l10 10M13 3L3 13" />
+            </svg>
+          </button>
         </div>
 
         {/* Body — sorted user grid with infinite load */}
