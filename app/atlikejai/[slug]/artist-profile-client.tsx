@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import LikesModal from '@/components/LikesModal'
+import { LikePill } from '@/components/LikePill'
 import BioModal from '@/components/BioModal'
 import type { LegacyLikeUser } from '@/components/LegacyLikesPanel'
 
@@ -342,76 +343,6 @@ function TabButton({ active, disabled, onClick, children }: {
         <span className="absolute -bottom-px left-3 right-3 h-[2px] rounded-full bg-[var(--accent-orange)]" />
       )}
     </button>
-  )
-}
-
-// ── LikePill: single element with two click zones (heart + count) ──
-
-function LikePill({
-  likes, selfLiked, onToggle, onOpenModal, pending, variant = 'light',
-}: {
-  likes: number; selfLiked?: boolean; onToggle: () => void
-  onOpenModal: () => void; pending: boolean
-  /** 'light' = on-photo (white/glass). 'surface' = on normal bg. */
-  variant?: 'light' | 'surface'
-}) {
-  const heartFilled = !!selfLiked
-  const baseWrap = variant === 'light'
-    ? 'border border-white/20 bg-white/10 backdrop-blur-md text-white'
-    : 'border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-primary)]'
-  const dividerColor = variant === 'light' ? 'border-white/15' : 'border-[var(--border-subtle)]'
-
-  return (
-    <div
-      className={[
-        'inline-flex overflow-hidden rounded-full transition-colors',
-        baseWrap,
-        heartFilled ? '!border-[var(--accent-orange)] !bg-[var(--accent-orange)] !text-white shadow-[0_6px_18px_rgba(249,115,22,0.4)]' : '',
-      ].join(' ')}
-    >
-      {/* Heart zone — toggles like */}
-      <button
-        onClick={onToggle}
-        disabled={pending}
-        title={heartFilled ? 'Tau patinka — atšaukti' : 'Paspausk „Patinka"'}
-        aria-label={heartFilled ? 'Atšaukti patinka' : 'Pažymėti patinka'}
-        aria-pressed={heartFilled}
-        className={[
-          'flex items-center justify-center px-3.5 py-2 transition-colors',
-          pending ? 'cursor-wait opacity-70' : 'cursor-pointer',
-          !heartFilled && variant === 'light' ? 'hover:bg-white/10' : '',
-          !heartFilled && variant === 'surface' ? 'hover:bg-[var(--bg-hover)]' : '',
-          heartFilled ? 'hover:opacity-90' : '',
-        ].join(' ')}
-      >
-        <svg
-          viewBox="0 0 24 24"
-          fill={heartFilled ? '#fff' : 'currentColor'}
-          className={['h-[17px] w-[17px] transition-transform', heartFilled ? 'text-white scale-110' : 'text-[var(--accent-orange)]'].join(' ')}
-        >
-          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-        </svg>
-      </button>
-
-      {/* Count zone — opens modal */}
-      <button
-        onClick={onOpenModal}
-        disabled={likes === 0}
-        title={likes > 0 ? 'Pamatyk kam patinka' : ''}
-        aria-label="Pamatyk kam patinka"
-        className={[
-          'flex items-center border-l px-4 py-2 font-["Outfit",sans-serif] text-[13px] font-extrabold tabular-nums tracking-wide transition-colors',
-          dividerColor,
-          heartFilled ? '!border-white/30' : '',
-          likes === 0 ? 'cursor-default opacity-70' : 'cursor-pointer',
-          !heartFilled && variant === 'light' ? 'hover:bg-white/10' : '',
-          !heartFilled && variant === 'surface' ? 'hover:bg-[var(--bg-hover)]' : '',
-          heartFilled ? 'hover:opacity-90' : '',
-        ].join(' ')}
-      >
-        {likes.toLocaleString('lt-LT')}
-      </button>
-    </div>
   )
 }
 
@@ -1280,6 +1211,8 @@ export default function ArtistProfileClient({
         title={`„${artist.name}" patinka`}
         count={likes}
         users={allLikesUsers}
+        subjectName={artist.name}
+        subjectPhoto={heroImage}
         selfLiked={selfLiked}
         authed={authed}
         onToggleSelfLike={toggleSelfLike}

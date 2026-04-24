@@ -6,13 +6,16 @@
 // then alphabetically. No filter tabs — the ordering handles segmentation.
 //
 // Each user's rank is shown as a 4-dot progress bar (hover shows actual name).
-// Header is minimal: just a close button and the self-like pill. Artist name /
-// count aren't repeated inside — the user clicked in from the artist page so
-// the context is obvious, and the count lives on the pill on that page.
+// Header shows a mini subject photo + name on the left and the SAME LikePill
+// element that lives on the artist hero on the right — so the viewer is never
+// looking at two different "patinka" controls. When subjectName is omitted
+// (legacy callers like thread post likes), we fall back to a minimal header
+// with just the close button.
 
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
+import { LikePill } from './LikePill'
 
 export type LikeUser = {
   user_username: string
@@ -24,8 +27,13 @@ type Props = {
   open: boolean
   onClose: () => void
   title: string   // kept in prop signature for other callers; not rendered
-  count: number   // kept for compatibility; not rendered
+  count: number   // used by the LikePill in the header
   users: LikeUser[]
+  /** Subject being liked — artist/album/track name. When provided (with
+   *  subjectPhoto), the modal shows a rich header with mini photo + name +
+   *  LikePill. Omitted callers get a minimal header (just the close X). */
+  subjectName?: string
+  subjectPhoto?: string | null
   selfLiked?: boolean
   authed?: boolean
   onToggleSelfLike?: () => void
@@ -79,7 +87,8 @@ function rankLevel(rank: string | null | undefined): number {
 }
 
 export default function LikesModal({
-  open, onClose, users,
+  open, onClose, count, users,
+  subjectName, subjectPhoto,
   selfLiked, authed, onToggleSelfLike, selfLikePending,
 }: Props) {
   const [shown, setShown] = useState(PAGE_SIZE)
@@ -139,72 +148,104 @@ export default function LikesModal({
           boxShadow: '0 40px 80px -20px rgba(0,0,0,0.6)',
         }}
       >
-        {/* Close button in its own compact row — no title/subtitle clutter */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '12px 14px 0' }}>
-          <button
-            onClick={onClose}
-            aria-label="Uždaryti"
-            style={{
-              width: 32, height: 32, borderRadius: 10, border: '1px solid var(--border-subtle)',
-              background: 'var(--card-bg)', color: 'var(--text-secondary)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', transition: 'all .15s',
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'var(--border-strong)' }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.borderColor = 'var(--border-subtle)' }}
-          >
-            <svg viewBox="0 0 16 16" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-              <path d="M3 3l10 10M13 3L3 13" />
-            </svg>
-          </button>
-        </div>
+        {/* Header row — subject (mini photo + name) on the left,
+            LikePill + close on the right. Using the SAME pill element as
+            the artist hero keeps the like UI consistent across surfaces. */}
+        <div
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            gap: 12, padding: '14px 18px',
+            borderBottom: '1px solid var(--border-subtle)',
+            flexShrink: 0, minWidth: 0,
+          }}
+        >
+          {/* Left: subject */}
+          {subjectName ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+              {subjectPhoto ? (
+                <img
+                  src={subjectPhoto}
+                  alt={subjectName}
+                  referrerPolicy="no-referrer"
+                  style={{
+                    width: 40, height: 40, borderRadius: 10,
+                    objectFit: 'cover', flexShrink: 0,
+                    border: '1px solid var(--border-subtle)',
+                    background: 'var(--bg-elevated)',
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+                    background: 'var(--bg-elevated)',
+                    border: '1px solid var(--border-subtle)',
+                  }}
+                />
+              )}
+              <div
+                style={{
+                  fontFamily: 'Outfit,sans-serif',
+                  fontSize: 15, fontWeight: 800,
+                  color: 'var(--text-primary)',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  minWidth: 0,
+                }}
+                title={subjectName}
+              >
+                {subjectName}
+              </div>
+            </div>
+          ) : (
+            <div />
+          )}
 
-        {/* Self-like pill — prominent at top */}
-        {selfLiked !== undefined && (
-          <div style={{ padding: '6px 24px 18px', flexShrink: 0 }}>
-            {authed === false ? (
-              <Link
-                href="/auth/signin"
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 10,
-                  padding: '10px 18px', borderRadius: 100,
-                  background: 'var(--accent-orange)', color: '#fff',
-                  fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 800,
-                  textDecoration: 'none',
-                  boxShadow: '0 6px 20px rgba(249,115,22,0.35)',
-                  transition: 'transform .15s, box-shadow .15s',
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 10px 28px rgba(249,115,22,0.5)' }}
-                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 6px 20px rgba(249,115,22,0.35)' }}
-              >
-                <HeartIcon size={14} />
-                Prisijunk, kad įdėtum „Patinka"
-              </Link>
-            ) : (
-              <button
-                onClick={() => onToggleSelfLike && onToggleSelfLike()}
-                disabled={selfLikePending}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 10,
-                  padding: '10px 18px', borderRadius: 100,
-                  border: `1px solid ${selfLiked ? 'var(--accent-orange)' : 'var(--border-default)'}`,
-                  background: selfLiked ? 'var(--accent-orange)' : 'var(--card-bg)',
-                  color: selfLiked ? '#fff' : 'var(--text-primary)',
-                  fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 800,
-                  cursor: selfLikePending ? 'wait' : 'pointer',
-                  opacity: selfLikePending ? 0.7 : 1,
-                  transition: 'all .2s',
-                  boxShadow: selfLiked ? '0 6px 20px rgba(249,115,22,0.35)' : 'none',
-                }}
-              >
-                <svg viewBox="0 0 24 24" width={14} height={14} fill={selfLiked ? '#fff' : 'none'} stroke={selfLiked ? '#fff' : 'var(--accent-orange)'} strokeWidth={2}>
-                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                </svg>
-                {selfLiked ? 'Tau patinka' : 'Patinka ir man'}
-              </button>
+          {/* Right: LikePill (if we have toggle wiring) + close */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            {selfLiked !== undefined && onToggleSelfLike && (
+              authed === false ? (
+                <Link
+                  href="/auth/signin"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 8,
+                    padding: '8px 14px', borderRadius: 100,
+                    background: 'var(--accent-orange)', color: '#fff',
+                    fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 800,
+                    textDecoration: 'none',
+                    boxShadow: '0 4px 14px rgba(249,115,22,0.3)',
+                  }}
+                >
+                  <HeartIcon size={12} />
+                  Prisijunk
+                </Link>
+              ) : (
+                <LikePill
+                  likes={count}
+                  selfLiked={selfLiked}
+                  onToggle={onToggleSelfLike}
+                  pending={selfLikePending}
+                  variant="surface"
+                />
+              )
             )}
+            <button
+              onClick={onClose}
+              aria-label="Uždaryti"
+              style={{
+                width: 32, height: 32, borderRadius: 10, border: '1px solid var(--border-subtle)',
+                background: 'var(--card-bg)', color: 'var(--text-secondary)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', transition: 'all .15s', flexShrink: 0,
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'var(--border-strong)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.borderColor = 'var(--border-subtle)' }}
+            >
+              <svg viewBox="0 0 16 16" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                <path d="M3 3l10 10M13 3L3 13" />
+              </svg>
+            </button>
           </div>
-        )}
+        </div>
 
         {/* Body — sorted user grid with infinite load */}
         <div
