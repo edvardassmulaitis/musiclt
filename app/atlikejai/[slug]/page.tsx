@@ -275,7 +275,16 @@ export default async function ArtistPage({ params }: Props) {
   let photos: { url: string; caption?: string }[] = dbPhotos.map((p: any) => ({ url: p.url, caption: p.caption }))
   if (artist.photos && Array.isArray(artist.photos)) { for (const p of artist.photos as any[]) { if (p.url && !photos.some(x => x.url === p.url)) photos.push({ url: p.url, caption: p.caption || '' }) } }
 
-  const heroImage = artist.cover_image_wide_url || artist.cover_image_url || (photos.length > 0 ? photos[0].url : null)
+  // Hero image preference:
+  //  1. Explicitly set wide cover (admin-chosen)
+  //  2. First photo from gallery — typically higher-res than the small square cover
+  //  3. Standard cover_image_url (often a low-res profile square) as last resort
+  // TODO: add hero_photo_id FK so admin can pick a specific gallery photo.
+  const galleryFirst = photos.length > 0 ? photos[0].url : null
+  const heroImage = artist.cover_image_wide_url
+    || (galleryFirst && galleryFirst !== artist.cover_image_url ? galleryFirst : null)
+    || artist.cover_image_url
+    || galleryFirst
 
   // Trending — tracks released in last 24 months (2 years)
   const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth() - 24)
