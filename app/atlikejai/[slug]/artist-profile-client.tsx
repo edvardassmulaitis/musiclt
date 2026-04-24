@@ -127,20 +127,19 @@ function fmtDur(d: number | string | null | undefined): string | null {
 }
 
 /** Format a date in Lithuanian convention — year first. Two variants:
- *    short: "2026 bal. 6"           (compact cards)
- *    long:  "2026 m. balandžio 6 d." (modal / hero variant)
+ *    short: "2026 04 30"              (compact cards, numeric, no trailing dot)
+ *    long:  "2026 m. balandžio 6 d."  (modal / hero variant)
  *
  *  Lithuanian reads year→month→day. We intentionally avoid ISO ("2026-04-06")
- *  because month names carry more meaning at a glance. */
+ *  because bare spaces read more naturally in prose. */
 function formatLtDate(d: Date, opts: { long?: boolean } = {}): string {
   if (opts.long) {
-    // toLocaleDateString already renders in genitive form in LT locale:
-    // "2026 m. balandžio 6 d."
     return d.toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' })
   }
-  // Short — keep month abbreviation + trailing "." plus day, year-first:
-  const m = d.toLocaleDateString('lt-LT', { month: 'short' }).replace(/\.?$/, '.')
-  return `${d.getFullYear()} ${m} ${d.getDate()}`
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y} ${m} ${day}`
 }
 
 /** Year-only rendering for a photo's `taken_at`. Returns null for missing
@@ -927,12 +926,22 @@ function Hero({
                 </div>
 
                 {/* Mobile — horizontal scroll. Each card locks 85% of the
-                    viewport so the next card peeks in to hint at scrollability. */}
-                <div className="flex gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:hidden" style={{ scrollSnapType: 'x mandatory' }}>
+                    viewport so the next card peeks in to hint at scrollability.
+                    `items-stretch` + h-full keeps all cards the same height
+                    regardless of title / venue length differences. */}
+                <div
+                  className="flex items-stretch gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:hidden"
+                  style={{
+                    scrollSnapType: 'x mandatory',
+                    scrollPaddingLeft: '1rem',
+                    overscrollBehaviorX: 'contain',
+                    WebkitOverflowScrolling: 'touch',
+                  }}
+                >
                   {upcomingEvents.map((e: any) => (
                     <div
                       key={e.id}
-                      className="w-[86%] shrink-0"
+                      className="flex w-[86%] shrink-0"
                       style={{ scrollSnapAlign: 'start' }}
                     >
                       <EventCard e={e} variant="upcoming" />
@@ -1016,65 +1025,71 @@ function SideInfo({
   )
 
   // ── Horizontal variant — single wrapping row ──────────────────────
+  // Primary row: country + main genre + socials. Substyles get their own
+  // subtle line below so the top row stays clean on mobile where a long
+  // substyle list otherwise wraps awkwardly into the genre cell.
   if (horizontal) {
     return (
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3 sm:gap-x-6 sm:px-5">
-        {artist.country && (
-          <div className="flex items-baseline gap-2">
-            {countryRank && <RankChip n={countryRank.rank} />}
-            <span className="inline-flex items-baseline gap-1.5 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">
-              <span>{artist.country}</span>
-              <span className="text-[16px] leading-none">{flag}</span>
-            </span>
-          </div>
-        )}
-        {genres[0] && (
-          <div className="flex items-baseline gap-2">
-            {genreRank && <RankChip n={genreRank.rank} />}
-            <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">
-              {genres[0].name}
-            </span>
-            {substyles.length > 0 && (
-              <span className="text-[12px] text-[var(--text-muted)]">
-                · {substyles.map(s => s.name).join(', ')}
+      <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3 sm:px-5">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 sm:gap-x-6">
+          {artist.country && (
+            <div className="flex items-baseline gap-2">
+              {countryRank && <RankChip n={countryRank.rank} />}
+              <span className="inline-flex items-baseline gap-1.5 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">
+                <span>{artist.country}</span>
+                <span className="text-[16px] leading-none">{flag}</span>
               </span>
-            )}
-          </div>
-        )}
-        {globalRank && (
-          <div className="flex items-baseline gap-2">
-            <RankChip n={globalRank.rank} />
-            <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">Pasaulyje</span>
-          </div>
-        )}
-        {hasSocials && (
-          <div className="ml-auto flex items-center gap-1">
-            {links.filter(l => SOC[l.platform]).map(l => {
-              const p = SOC[l.platform]
-              return (
+            </div>
+          )}
+          {genres[0] && (
+            <div className="flex items-baseline gap-2">
+              {genreRank && <RankChip n={genreRank.rank} />}
+              <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">
+                {genres[0].name}
+              </span>
+            </div>
+          )}
+          {globalRank && (
+            <div className="flex items-baseline gap-2">
+              <RankChip n={globalRank.rank} />
+              <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">Pasaulyje</span>
+            </div>
+          )}
+          {hasSocials && (
+            <div className="ml-auto flex items-center gap-1">
+              {links.filter(l => SOC[l.platform]).map(l => {
+                const p = SOC[l.platform]
+                return (
+                  <a
+                    key={l.platform}
+                    href={l.url}
+                    target="_blank"
+                    rel="noopener"
+                    title={p.l}
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+                  >
+                    <svg viewBox="0 0 24 24" fill={p.c || 'currentColor'} width="14" height="14" className={p.c ? '' : 'text-[var(--text-primary)]'}><path d={p.d} /></svg>
+                  </a>
+                )
+              })}
+              {website && (
                 <a
-                  key={l.platform}
-                  href={l.url}
+                  href={website}
                   target="_blank"
                   rel="noopener"
-                  title={p.l}
+                  title="Oficiali svetainė"
                   className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
                 >
-                  <svg viewBox="0 0 24 24" fill={p.c || 'currentColor'} width="14" height="14" className={p.c ? '' : 'text-[var(--text-primary)]'}><path d={p.d} /></svg>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
                 </a>
-              )
-            })}
-            {website && (
-              <a
-                href={website}
-                target="_blank"
-                rel="noopener"
-                title="Oficiali svetainė"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
-              </a>
-            )}
+              )}
+            </div>
+          )}
+        </div>
+        {/* Substyles on their own subtle line so the top row stays clean. */}
+        {substyles.length > 0 && (
+          <div className="mt-2 text-[12px] leading-[1.5] text-[var(--text-muted)]">
+            {substyles.map(s => s.name).join(' · ')}
           </div>
         )}
       </div>
@@ -1510,7 +1525,7 @@ function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' |
   return (
     <Link
       href={href}
-      className="group flex items-stretch gap-0 overflow-hidden rounded-2xl border border-[rgba(249,115,22,0.25)] bg-gradient-to-br from-[rgba(249,115,22,0.08)] to-transparent no-underline transition-all hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.5)] hover:shadow-[0_12px_32px_rgba(249,115,22,0.15)]"
+      className="group flex min-h-[130px] w-full items-stretch gap-0 overflow-hidden rounded-2xl border border-[rgba(249,115,22,0.25)] bg-gradient-to-br from-[rgba(249,115,22,0.08)] to-transparent no-underline transition-all hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.5)] hover:shadow-[0_12px_32px_rgba(249,115,22,0.15)]"
     >
       {/* Left: cover image. No badge overlay anymore — date moved to text column. */}
       <div className="relative w-[42%] min-w-[120px] max-w-[190px] shrink-0 overflow-hidden bg-[rgba(249,115,22,0.1)]">
@@ -1672,6 +1687,83 @@ function EventBigCard({ e }: { e: any }) {
         {venue && <div className="mt-1 truncate text-[12px] text-[var(--text-secondary)] sm:text-[13px]">📍 {venue}</div>}
       </div>
     </Link>
+  )
+}
+
+// ── MobileFilterRow ────────────────────────────────────────────────
+// A compact mobile filter bar: shows "Visi įrašai" + any active filters +
+// a "…" toggle that reveals the full chip list. Desktop keeps the full
+// chip wrap (rendered separately above).
+
+type FilterItem = { key: string; label: string; count: number }
+
+function MobileFilterRow({
+  all, items, activeFilters, onToggle,
+}: {
+  all: FilterItem
+  items: FilterItem[]
+  activeFilters: Set<string>
+  onToggle: (k: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  // Treat "all" as implicit when nothing else is selected.
+  const activeOthers = items.filter((i) => activeFilters.has(i.key))
+  const allActive = activeFilters.has('all')
+  const visible: FilterItem[] = allActive
+    ? [all]
+    : activeOthers.length > 0
+      ? activeOthers
+      : [all]
+
+  const Chip = ({ item, active }: { item: FilterItem; active: boolean }) => (
+    <button
+      onClick={() => onToggle(item.key)}
+      className={[
+        'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-["Outfit",sans-serif] text-[12px] font-bold transition-all',
+        active
+          ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white shadow-[0_4px_12px_rgba(249,115,22,0.3)]'
+          : 'border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]',
+      ].join(' ')}
+    >
+      {item.label}
+      <span className={active ? 'text-white/80' : 'text-[var(--text-faint)]'}>· {item.count}</span>
+    </button>
+  )
+
+  return (
+    <div className="mb-5 sm:hidden">
+      <div className="flex flex-wrap items-center gap-1.5">
+        {visible.map((item) => (
+          <Chip key={item.key} item={item} active={activeFilters.has(item.key) || (item.key === 'all' && allActive)} />
+        ))}
+        <button
+          onClick={() => setOpen(v => !v)}
+          aria-expanded={open}
+          aria-label="Daugiau filtrų"
+          title="Daugiau filtrų"
+          className={[
+            'flex h-8 w-8 items-center justify-center rounded-full border transition-colors',
+            open
+              ? 'border-[var(--accent-orange)] bg-[rgba(249,115,22,0.15)] text-[var(--accent-orange)]'
+              : 'border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:border-[var(--border-strong)]',
+          ].join(' ')}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+            <circle cx="5" cy="12" r="2" />
+            <circle cx="12" cy="12" r="2" />
+            <circle cx="19" cy="12" r="2" />
+          </svg>
+        </button>
+      </div>
+      {open && (
+        <div className="mt-2 flex flex-wrap gap-1.5 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-3">
+          <Chip item={all} active={allActive} />
+          {items.map((item) => (
+            <Chip key={item.key} item={item} active={activeFilters.has(item.key)} />
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -2163,11 +2255,11 @@ export default function ArtistProfileClient({
             lone event doesn't leave empty air below the title. Overflow
             opens EventsModal. */}
 
-        {/* SIDE INFO (horizontal strip) + BIO + MEMBERS — stacked.
-            Single column: details chip row on top, bio + members below.
-            Replaces the old 2-col [bio | 320px sidebar] layout because the
-            sidebar variant shipped too many empty-feeling columns and the
-            user preferred seeing details up front. */}
+        {/* BIO + MEMBERS + SIDE INFO — adaptive layout.
+            Mobile: stacked — horizontal SideInfo strip on top, bio + members below.
+            Desktop: 2-col — [bio | vertical SideInfo 320px].
+            The mobile stack surfaces details (country / genre / socials)
+            above the bio so they're the first thing seen without scrolling. */}
         {(() => {
           const sideInfoAvailable = !!artist.country || genres.length > 0 || links.length > 0 || artist.website
           const bioHeader = solo ? 'Apie atlikėją' : 'Apie grupę'
@@ -2175,21 +2267,26 @@ export default function ArtistProfileClient({
           if (!hasBio && members.length === 0 && !sideInfoAvailable) return null
 
           return (
-            <section className="space-y-6">
+            <section>
+              {/* Mobile: horizontal strip on top */}
               {sideInfoAvailable && (
-                <SideInfo
-                  artist={artist}
-                  flag={flag}
-                  genres={genres}
-                  substyles={substyles}
-                  ranks={ranks}
-                  links={links}
-                  website={artist.website}
-                  horizontal
-                />
+                <div className="mb-6 lg:hidden">
+                  <SideInfo
+                    artist={artist}
+                    flag={flag}
+                    genres={genres}
+                    substyles={substyles}
+                    ranks={ranks}
+                    links={links}
+                    website={artist.website}
+                    horizontal
+                  />
+                </div>
               )}
-              {(hasBio || members.length > 0) && (
-                <div>
+              {/* 2-col on desktop, single column on mobile (mobile already
+                  saw the horizontal strip above). */}
+              <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-10">
+                <div className="min-w-0">
                   {hasBio && (
                     <>
                       <h2 className="mb-3 font-['Outfit',sans-serif] text-[18px] font-black tracking-[-0.01em] text-[var(--text-primary)] sm:text-[20px]">
@@ -2200,7 +2297,21 @@ export default function ArtistProfileClient({
                   )}
                   {!solo && members.length > 0 && <MembersInline members={members} />}
                 </div>
-              )}
+                {/* Vertical sidebar — desktop only (mobile has the strip above). */}
+                {sideInfoAvailable && (
+                  <div className="hidden lg:block">
+                    <SideInfo
+                      artist={artist}
+                      flag={flag}
+                      genres={genres}
+                      substyles={substyles}
+                      ranks={ranks}
+                      links={links}
+                      website={artist.website}
+                    />
+                  </div>
+                )}
+              </div>
             </section>
           )
         })()}
@@ -2229,10 +2340,10 @@ export default function ArtistProfileClient({
           return (
             <section>
               <SectionTitle label="Muzika" />
-              <div className="mb-5 flex flex-wrap gap-1.5 sm:gap-2">
-                {/* "Visi įrašai" first */}
+
+              {/* Desktop: all filter chips wrap on one row */}
+              <div className="mb-5 hidden flex-wrap gap-1.5 sm:flex sm:gap-2">
                 <FilterChip k="all" label={FILTER_LABEL.all} count={allCount} />
-                {/* Album types in natural order */}
                 {atypes.map(t => (
                   <FilterChip
                     key={t}
@@ -2241,26 +2352,43 @@ export default function ArtistProfileClient({
                     count={albums.filter(a => aType(a) === t).length}
                   />
                 ))}
-                {/* "Kitos dainos" last */}
                 {hasOrphanTracks && (
                   <FilterChip k="orphan" label={FILTER_LABEL.orphan} count={orphanTracks.length} />
                 )}
               </div>
 
-              {/* Albums — horizontal scroll carousel. Fixed-width cards
-                  snap as you swipe; keeps the page short for artists with
-                  long discographies instead of a multi-row wall. Popularity
-                  tier is index-based: first 10% of visible albums get the
-                  fullest bar. */}
+              {/* Mobile: show only active filters + a "…" toggle that opens
+                  the full filter list. Keeps the header tight when many
+                  filter types exist (otherwise 6+ chips would eat a lot of
+                  vertical space above the albums). */}
+              <MobileFilterRow
+                all={{ key: 'all', label: FILTER_LABEL.all, count: allCount }}
+                items={[
+                  ...atypes.map(t => ({ key: t, label: FILTER_LABEL[t] || t, count: albums.filter(a => aType(a) === t).length })),
+                  ...(hasOrphanTracks ? [{ key: 'orphan', label: FILTER_LABEL.orphan, count: orphanTracks.length }] : []),
+                ]}
+                activeFilters={activeFilters}
+                onToggle={toggleFilter}
+              />
+
+              {/* Albums — horizontal scroll carousel. Card widths sized so
+                  exactly 2 recent albums fill the mobile viewport with the
+                  next card peeking in; desktop gets bigger tiles. Snap +
+                  touch momentum for a smooth swipe feel. */}
               {visibleAlbums.length > 0 && (
                 <div
                   className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:-mx-0 sm:px-0 [-ms-overflow-style:none] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[var(--border-default)]"
-                  style={{ scrollSnapType: 'x mandatory' }}
+                  style={{
+                    scrollSnapType: 'x mandatory',
+                    scrollPaddingLeft: '1rem',
+                    overscrollBehaviorX: 'contain',
+                    WebkitOverflowScrolling: 'touch',
+                  }}
                 >
                   {visibleAlbums.map((a, i) => (
                     <div
                       key={a.id}
-                      className="w-[130px] shrink-0 sm:w-[150px] lg:w-[160px]"
+                      className="w-[46vw] max-w-[180px] shrink-0 sm:w-[170px] lg:w-[190px]"
                       style={{ scrollSnapAlign: 'start' }}
                     >
                       <AlbumCard a={a} popularity={popLevel(i, visibleAlbums.length)} />
