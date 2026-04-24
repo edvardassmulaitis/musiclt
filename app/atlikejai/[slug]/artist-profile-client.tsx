@@ -100,10 +100,9 @@ const aType = (a: Album) => {
   return 'Studijinis'
 }
 
-/** Filter-tab labels — user asked filters read as "* albumai" where it makes
- *  sense, plus a distinct "Kitos dainos" bucket. "all" = all albums of any type. */
+/** Filter-tab labels. 'all' acts as reset-to-everything. */
 const FILTER_LABEL: Record<string, string> = {
-  all: 'Visi albumai',
+  all: 'Visi įrašai',
   Studijinis: 'Studijiniai albumai',
   EP: 'EP albumai',
   Singlas: 'Singlai',
@@ -141,13 +140,18 @@ const FLAGS: Record<string, string> = {
   'Suomija': '🇫🇮', 'Airija': '🇮🇪', 'Olandija': '🇳🇱', 'Rusija': '🇷🇺', 'Ukraina': '🇺🇦',
 }
 
-const SOC: Record<string, { l: string; c: string; d: string }> = {
+/** Brand colors for social icons. `null` means "inherit current text color"
+ *  — we use that for X/Twitter which has a white-on-black glyph and needs to
+ *  adapt to the theme instead of being hardcoded white (invisible on light). */
+const SOC: Record<string, { l: string; c: string | null; d: string }> = {
   spotify: { l: 'Spotify', c: '#1DB954', d: 'M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.52 17.34c-.24.36-.66.48-1.02.24-2.82-1.74-6.36-2.1-10.56-1.14-.42.12-.78-.18-.9-.54-.12-.42.18-.78.54-.9 4.56-1.02 8.52-.6 11.64 1.32.42.18.48.66.3 1.02z' },
   youtube: { l: 'YouTube', c: '#FF0000', d: 'M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.38.55A3.02 3.02 0 0 0 .5 6.19 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.81 3.02 3.02 0 0 0 2.12 2.14c1.88.55 9.38.55 9.38.55s7.5 0 9.38-.55a3.02 3.02 0 0 0 2.12-2.14A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.81zM9.54 15.57V8.43L15.82 12l-6.28 3.57z' },
-  tiktok: { l: 'TikTok', c: '#00f2ea', d: 'M12.53.02C13.84 0 15.14.01 16.44 0c.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.96-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z' },
+  tiktok: { l: 'TikTok', c: '#00c8c0', d: 'M12.53.02C13.84 0 15.14.01 16.44 0c.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.96-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z' },
   facebook: { l: 'Facebook', c: '#1877F2', d: 'M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z' },
-  twitter: { l: 'X', c: '#fff', d: 'M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z' },
-  soundcloud: { l: 'SoundCloud', c: '#FF5500', d: 'M1.175 12.225c-.051 0-.094.046-.101.1l-.233 2.154.233 2.105c.007.058.05.098.101.098.05 0 .09-.04.099-.098l.255-2.105-.27-2.154c-.009-.06-.05-.1-.084-.1z' },
+  // X/Twitter: no fixed color — inherits current text color so it's visible on both themes
+  twitter: { l: 'X', c: null, d: 'M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z' },
+  soundcloud: { l: 'SoundCloud', c: '#FF5500', d: 'M11.56 8.87V17h8.76c1.85-.13 3.31-1.65 3.31-3.52 0-1.95-1.58-3.53-3.53-3.53-.48 0-.94.1-1.36.27-.28-3.14-2.92-5.61-6.13-5.61-.78 0-1.54.15-2.23.42-.27.1-.34.21-.34.44V8.87zm-1.04-.05c-.32-.09-.66-.15-1.01-.15-.36 0-.7.05-1.02.14V17h2.03V8.82zm-3.1.92c-.32-.21-.68-.36-1.08-.44V17h1.98V9.96zm-3.13-.17c-.3.04-.59.12-.87.24V17h1.74V9.74c-.28-.12-.57-.2-.87-.24zm-2.95 1.15c-.22-.13-.47-.22-.74-.26V17h1.48V10.5c-.22.05-.5.15-.74.22zM0 14.13c0-.8.14-1.56.39-2.27V17h-.17c-.12-.9-.22-1.8-.22-2.87z' },
+  bandcamp: { l: 'Bandcamp', c: '#629aa9', d: 'M0 18.75l7.437-13.5H24l-7.438 13.5H0z' },
 }
 
 // ── Shared ──────────────────────────────────────────────────────────
@@ -587,7 +591,7 @@ function SideInfo({
                   title={p.l}
                   className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
                 >
-                  <svg viewBox="0 0 24 24" fill={p.c} width="14" height="14"><path d={p.d} /></svg>
+                  <svg viewBox="0 0 24 24" fill={p.c || 'currentColor'} width="14" height="14" className={p.c ? '' : 'text-[var(--text-primary)]'}><path d={p.d} /></svg>
                 </a>
               )
             })}
@@ -660,7 +664,7 @@ function SideInfo({
                   title={p.l}
                   className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
                 >
-                  <svg viewBox="0 0 24 24" fill={p.c} width="14" height="14"><path d={p.d} /></svg>
+                  <svg viewBox="0 0 24 24" fill={p.c || 'currentColor'} width="14" height="14" className={p.c ? '' : 'text-[var(--text-primary)]'}><path d={p.d} /></svg>
                 </a>
               )
             })}
@@ -979,31 +983,42 @@ function AlbumCard({ a }: { a: Album }) {
   )
 }
 
-// ── TrackCard: for "Kitos dainos" filter ───────────────────────────
+// ── TrackRow: compact row for orphan tracks (no big placeholder square) ─
 
-function TrackCard({ t }: { t: Track }) {
+function TrackRow({ t }: { t: Track }) {
   const v = yt(t.video_url)
   const cover = t.cover_url || (v ? `https://img.youtube.com/vi/${v}/mqdefault.jpg` : null)
   return (
-    <Link href={`/lt/daina/${t.slug}/${t.id}/`} className="group block no-underline">
-      <div className="relative overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] transition-all group-hover:border-[var(--border-strong)] group-hover:shadow-[0_12px_32px_rgba(0,0,0,0.3)]">
-        <div className="aspect-square">
-          {cover ? (
-            <img src={cover} alt={t.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-4xl text-[var(--text-faint)]">♪</div>
-          )}
-        </div>
+    <Link
+      href={`/lt/daina/${t.slug}/${t.id}/`}
+      className="group flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-2.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+    >
+      <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md bg-[var(--cover-placeholder)] sm:h-14 sm:w-14">
+        {cover ? (
+          <img src={cover} alt={t.title} className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-[var(--text-faint)]">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z" /></svg>
+          </div>
+        )}
         {v && (
-          <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_6px_20px_rgba(249,115,22,0.5)]">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg>
+          <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover:bg-black/45 group-hover:opacity-100">
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_4px_12px_rgba(249,115,22,0.5)]">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg>
             </div>
           </div>
         )}
       </div>
-      <div className="mt-2.5 px-1">
-        <div className="truncate font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)] sm:text-[14px]">{t.title}</div>
+      <div className="min-w-0 flex-1">
+        <div className="truncate font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)] sm:text-[14px]">
+          {t.title}
+        </div>
+        {v && (
+          <div className="mt-0.5 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-[var(--accent-orange)]">
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+            Video
+          </div>
+        )}
       </div>
     </Link>
   )
@@ -1083,6 +1098,9 @@ export default function ArtistProfileClient({
   const [authed, setAuthed] = useState<boolean | undefined>(undefined)
   const [modernLikeCount, setModernLikeCount] = useState<number>(likeCount)
   const [selfLikePending, setSelfLikePending] = useState(false)
+  // Surfaces DB-schema mismatches (e.g. the FK migration hasn't been applied)
+  // so the user sees an actionable toast instead of silent failure.
+  const [likeErrorMsg, setLikeErrorMsg] = useState<string | null>(null)
 
   useEffect(() => { setLoaded(true) }, [])
 
@@ -1126,6 +1144,14 @@ export default function ArtistProfileClient({
         console.error('[like toggle] server error', res.status, detail)
         setSelfLiked(prev)
         setModernLikeCount(c => c - (prev ? -1 : 1))
+        // Detect the foreign-key mismatch between artist_likes.user_id → auth.users
+        // vs our profiles.id — surface a clear migration prompt instead of silent revert.
+        const errStr = String(detail?.error || '')
+        if (/foreign key constraint/i.test(errStr) && /user_id_fkey/i.test(errStr)) {
+          setLikeErrorMsg('Duomenų bazės migracija dar neatlikta: artist_likes FK rodo į auth.users vietoj profiles. Paleisk supabase/migrations/20260424_artist_likes_profile_fk.sql.')
+        } else if (errStr) {
+          setLikeErrorMsg(`Nepavyko: ${errStr}`)
+        }
       }
     } catch (err) {
       // eslint-disable-next-line no-console
@@ -1145,8 +1171,8 @@ export default function ArtistProfileClient({
   const likes = modernLikeCount + followers + authoritativeLegacy
   const allLikesUsers: any[] = legacyCommunity?.allArtistFans || []
 
-  // Discography filters — album types present + "Kitos dainos" when orphan
-  // tracks exist (tracks not linked to any album via album_tracks junction).
+  // Discography filters — album types + "Kitos dainos" (orphan tracks).
+  // Multi-select: Set of active keys. 'all' sentinel = show everything.
   const atypes = [...new Set(albums.map(aType))]
   const hasStudio = atypes.includes('Studijinis')
   const linkedSet = useMemo(() => new Set(linkedTrackIds), [linkedTrackIds])
@@ -1155,8 +1181,36 @@ export default function ArtistProfileClient({
     [tracks, linkedSet],
   )
   const hasOrphanTracks = orphanTracks.length > 0
-  const [df, setDf] = useState<string>(hasStudio ? 'Studijinis' : 'all')
-  const fAlbums = df === 'all' ? albums : albums.filter(a => aType(a) === df)
+  // Default: Studijiniai + Kitos dainos (if any). Fallback to 'all' if no studio.
+  const [activeFilters, setActiveFilters] = useState<Set<string>>(() => {
+    const init = new Set<string>()
+    if (hasStudio) init.add('Studijinis')
+    else init.add('all')
+    if (hasOrphanTracks) init.add('orphan')
+    return init
+  })
+
+  const toggleFilter = (key: string) => {
+    setActiveFilters(prev => {
+      const next = new Set(prev)
+      if (key === 'all') {
+        // "Visi įrašai" resets — selects only itself
+        return new Set(['all'])
+      }
+      next.delete('all') // selecting a specific type removes the all-reset
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      // If nothing left active, fall back to 'all' so content isn't empty
+      if (next.size === 0) next.add('all')
+      return next
+    })
+  }
+
+  const showAll = activeFilters.has('all')
+  const visibleAlbums = showAll
+    ? albums
+    : albums.filter(a => activeFilters.has(aType(a)))
+  const showOrphans = hasOrphanTracks && (showAll || activeFilters.has('orphan'))
 
   const tracksAllTime = useMemo(() => {
     const withVideo = tracks.filter(t => yt(t.video_url))
@@ -1241,6 +1295,34 @@ export default function ArtistProfileClient({
         />
       )}
 
+      {/* Like-error toast (FK migration hint) */}
+      {likeErrorMsg && (
+        <div className="fixed bottom-4 left-1/2 z-[2000] -translate-x-1/2 sm:bottom-6">
+          <div className="flex max-w-[560px] items-start gap-3 rounded-2xl border border-[rgba(239,68,68,0.35)] bg-[var(--bg-surface)] p-4 shadow-[0_18px_44px_-10px_rgba(0,0,0,0.5)]">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" className="mt-0.5 shrink-0">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            <div className="min-w-0 flex-1">
+              <div className="mb-1 font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)]">
+                Patinka neišsaugotas
+              </div>
+              <div className="text-[12px] leading-[1.5] text-[var(--text-secondary)]">
+                {likeErrorMsg}
+              </div>
+            </div>
+            <button
+              onClick={() => setLikeErrorMsg(null)}
+              aria-label="Uždaryti"
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--bg-hover)]"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
       <main className="mx-auto max-w-[1400px] space-y-10 px-4 pb-24 pt-8 sm:space-y-14 sm:px-6 lg:px-10">
 
         {/* Upcoming events */}
@@ -1309,67 +1391,71 @@ export default function ArtistProfileClient({
           )
         })()}
 
-        {/* Muzika (buvo Diskografija) — no count in header, adds "Kitos dainos" tab */}
-        {(albums.length > 0 || hasOrphanTracks) && (
-          <section>
-            <SectionTitle label="Muzika" />
-            <div className="mb-5 flex flex-wrap gap-1.5 sm:gap-2">
-              {atypes.map(t => {
-                const count = albums.filter(a => aType(a) === t).length
-                const active = df === t
-                return (
-                  <button
+        {/* Muzika — multi-select filters. "Visi įrašai" first, then types,
+            "Kitos dainos" last. Multiple can be active simultaneously. */}
+        {(albums.length > 0 || hasOrphanTracks) && (() => {
+          const allCount = albums.length + orphanTracks.length
+          const FilterChip = ({ k, label, count }: { k: string; label: string; count: number }) => {
+            const active = activeFilters.has(k)
+            return (
+              <button
+                onClick={() => toggleFilter(k)}
+                className={[
+                  'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-["Outfit",sans-serif] text-[12px] font-bold transition-all',
+                  active
+                    ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white shadow-[0_4px_12px_rgba(249,115,22,0.3)]'
+                    : 'border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]',
+                ].join(' ')}
+              >
+                {label}
+                <span className={active ? 'opacity-80' : 'text-[var(--text-faint)]'}>· {count}</span>
+              </button>
+            )
+          }
+          return (
+            <section>
+              <SectionTitle label="Muzika" />
+              <div className="mb-5 flex flex-wrap gap-1.5 sm:gap-2">
+                {/* "Visi įrašai" first */}
+                <FilterChip k="all" label={FILTER_LABEL.all} count={allCount} />
+                {/* Album types in natural order */}
+                {atypes.map(t => (
+                  <FilterChip
                     key={t}
-                    onClick={() => setDf(t)}
-                    className={[
-                      'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-["Outfit",sans-serif] text-[12px] font-bold transition-all',
-                      active
-                        ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white shadow-[0_4px_12px_rgba(249,115,22,0.3)]'
-                        : 'border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]',
-                    ].join(' ')}
-                  >
-                    {FILTER_LABEL[t] || t}
-                    <span className={active ? 'opacity-80' : 'text-[var(--text-faint)]'}>· {count}</span>
-                  </button>
-                )
-              })}
-              {hasOrphanTracks && (
-                <button
-                  onClick={() => setDf('orphan')}
-                  className={[
-                    'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-["Outfit",sans-serif] text-[12px] font-bold transition-all',
-                    df === 'orphan'
-                      ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white shadow-[0_4px_12px_rgba(249,115,22,0.3)]'
-                      : 'border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]',
-                  ].join(' ')}
-                >
-                  {FILTER_LABEL.orphan}
-                  <span className={df === 'orphan' ? 'opacity-80' : 'text-[var(--text-faint)]'}>· {orphanTracks.length}</span>
-                </button>
+                    k={t}
+                    label={FILTER_LABEL[t] || t}
+                    count={albums.filter(a => aType(a) === t).length}
+                  />
+                ))}
+                {/* "Kitos dainos" last */}
+                {hasOrphanTracks && (
+                  <FilterChip k="orphan" label={FILTER_LABEL.orphan} count={orphanTracks.length} />
+                )}
+              </div>
+
+              {/* Albums grid */}
+              {visibleAlbums.length > 0 && (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                  {visibleAlbums.map(a => <AlbumCard key={a.id} a={a} />)}
+                </div>
               )}
-              {atypes.length > 1 && (
-                <button
-                  onClick={() => setDf('all')}
-                  className={[
-                    'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-["Outfit",sans-serif] text-[12px] font-bold transition-all',
-                    df === 'all'
-                      ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white shadow-[0_4px_12px_rgba(249,115,22,0.3)]'
-                      : 'border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]',
-                  ].join(' ')}
-                >
-                  {FILTER_LABEL.all}
-                  <span className={df === 'all' ? 'opacity-80' : 'text-[var(--text-faint)]'}>· {albums.length}</span>
-                </button>
+
+              {/* Orphan tracks — compact list below albums when included */}
+              {showOrphans && orphanTracks.length > 0 && (
+                <div className={visibleAlbums.length > 0 ? 'mt-8' : ''}>
+                  {visibleAlbums.length > 0 && (
+                    <div className="mb-3 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+                      Kitos dainos · {orphanTracks.length}
+                    </div>
+                  )}
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {orphanTracks.map(t => <TrackRow key={t.id} t={t} />)}
+                  </div>
+                </div>
               )}
-            </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-              {df === 'orphan'
-                ? orphanTracks.map(t => <TrackCard key={t.id} t={t} />)
-                : fAlbums.map(a => <AlbumCard key={a.id} a={a} />)
-              }
-            </div>
-          </section>
-        )}
+            </section>
+          )
+        })()}
 
         {/* Diskusijos — no #ID, last comment preview on right */}
         <section>
