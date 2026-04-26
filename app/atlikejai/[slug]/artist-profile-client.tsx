@@ -6,6 +6,7 @@ import LikesModal from '@/components/LikesModal'
 import { LikePill } from '@/components/LikePill'
 import BioModal from '@/components/BioModal'
 import ScoreCard from '@/components/ScoreCard'
+import ArtistAwards, { type AwardRow } from '@/components/ArtistAwards'
 import type { LegacyLikeUser } from '@/components/LegacyLikesPanel'
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -81,6 +82,7 @@ type Props = {
   /** Set of track ids that are linked to this artist's albums (via album_tracks
    *  junction). Tracks NOT in this list are considered orphan ("Kitos dainos"). */
   linkedTrackIds?: number[]
+  awards?: AwardRow[]
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -1931,7 +1933,7 @@ export default function ArtistProfileClient({
   artist, heroImage, genres, substyles = [], links, photos, albums, tracks, members, followers, likeCount,
   events, similar, newTracks,
   legacyCommunity, legacyThreads = [], legacyNews = [], ranks = [],
-  linkedTrackIds = [],
+  linkedTrackIds = [], awards = [],
 }: Props) {
   const [pid, setPid] = useState<number | null>(null)
   const [playing, setPlaying] = useState(false)
@@ -2442,6 +2444,9 @@ export default function ArtistProfileClient({
             </section>
           )
         })()}
+
+        {/* Apdovanojimai — Wikipedia awards article duomenys */}
+        {awards.length > 0 && <ArtistAwards awards={awards} />}
 
         {/* Diskusijos — no #ID, last comment preview on right */}
         <section>

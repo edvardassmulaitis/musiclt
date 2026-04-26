@@ -1,8 +1,8 @@
 /**
  * Music.lt Artist Scoring System
  *
- * LT artists:  Catalog/18 + Media/8 + Community/12 + Career/8 = max ~46
- * INT artists: Catalog/25 + Chart/35 + Commercial/25 + Reach/15 = max 100
+ * LT artists:  Catalog/15 + Media/7 + Community/10 + Career/7 + Awards/11 = max 50
+ * INT artists: Catalog/20 + Chart/30 + Commercial/20 + Reach/15 + Awards/15 = max 100
  *
  * LT artists naturally score lower — they don't have global chart/cert data.
  * score_override (±15) allows admin to adjust for cultural impact.
@@ -26,6 +26,85 @@ export type ScoreBreakdown = {
   inputs: Record<string, number | string>
 }
 
+// ── Awards aggregation ────────────────────────────────────────
+// Major awards get higher per-entry weight. Channel name match (case-insensitive
+// substring) — keeps simple, matches common usage on Wikipedia article headings.
+
+const MAJOR_AWARD_KEYWORDS = [
+  'grammy', 'brit award', 'ivor novello',
+  'hall of fame', 'rock and roll hall',
+  'mtv video music award', 'mtv europe music award',
+  'nme award', 'billboard music award',
+  'aria award', 'echo award', 'q award',
+  'juno award', 'apra music award',
+  'rolling stone',
+]
+
+function isMajorAward(channelName: string): boolean {
+  const low = (channelName || '').toLowerCase()
+  return MAJOR_AWARD_KEYWORDS.some(k => low.includes(k))
+}
+
+export type AwardAggregation = {
+  major_won: number
+  major_nominated: number
+  major_inducted: number
+  other_won: number
+  other_nominated: number
+  channels: number
+}
+
+export function aggregateAwardsData(
+  awards: { channel_name: string; result: string }[]
+): AwardAggregation {
+  const channels = new Set<string>()
+  let majorWon = 0, majorNom = 0, majorInd = 0
+  let otherWon = 0, otherNom = 0
+  for (const a of awards) {
+    channels.add(a.channel_name)
+    const major = isMajorAward(a.channel_name)
+    if (a.result === 'won') major ? majorWon++ : otherWon++
+    else if (a.result === 'nominated') major ? majorNom++ : otherNom++
+    else if (a.result === 'inducted') majorInd++  // Hall of Fame etc — always major
+  }
+  return {
+    major_won: majorWon, major_nominated: majorNom, major_inducted: majorInd,
+    other_won: otherWon, other_nominated: otherNom,
+    channels: channels.size,
+  }
+}
+
+/** Awards subscore. Same formula across LT/INT (just different caps).
+ *  Returns { points, max, details } shape ready for breakdown.categories.awards. */
+export function computeAwardsSubscore(agg: AwardAggregation, type: 'lt' | 'int'): ScoreCategory {
+  const cap = type === 'int' ? 15 : 11
+  // Major won: 5 each, capped at 10
+  const majorWonPts = Math.min(10, agg.major_won * 5)
+  // Major nom: 2 each, capped at 6
+  const majorNomPts = Math.min(6, agg.major_nominated * 2)
+  // Inducted: 5 each, capped at 5
+  const inductedPts = Math.min(5, agg.major_inducted * 5)
+  // Other won: 1 each, capped at 4
+  const otherWonPts = Math.min(4, agg.other_won * 1)
+  // Other nominated: 0.5 each, capped at 2 (we round)
+  const otherNomPts = Math.min(2, Math.round(agg.other_nominated * 0.5))
+
+  const raw = majorWonPts + majorNomPts + inductedPts + otherWonPts + otherNomPts
+  const points = Math.min(cap, raw)
+
+  const parts: string[] = []
+  if (agg.major_won > 0) parts.push(`${agg.major_won} major laimėjo`)
+  if (agg.major_inducted > 0) parts.push(`${agg.major_inducted} HoF`)
+  if (agg.major_nominated > 0) parts.push(`${agg.major_nominated} major nom.`)
+  if (agg.other_won > 0) parts.push(`${agg.other_won} kt. laimėjo`)
+  if (agg.other_nominated > 0) parts.push(`${agg.other_nominated} kt. nom.`)
+  const details = parts.length > 0
+    ? parts.join(', ')
+    : 'nėra apdovanojimų duomenų'
+
+  return { points, max: cap, details }
+}
+
 // ── LT Scoring ─────────────────────────────────────────────────
 
 export function computeLTScore(data: {
@@ -35,38 +114,44 @@ export function computeLTScore(data: {
   n_lyrics: number
   likes: number
   career_years: number
+  awards?: AwardAggregation
 }): ScoreBreakdown {
-  const { n_albums, n_tracks, n_videos, n_lyrics, likes, career_years } = data
+  const { n_albums, n_tracks, n_videos, n_lyrics, likes, career_years, awards } = data
 
-  // ① CATALOG (0-18): albums (log scale) + tracks
-  const albumPts = Math.min(15, Math.round(Math.log(n_albums + 1) * 4.5))
-  const trackPts = Math.min(5, Math.round(Math.log(n_tracks + 1) * 1.0))
-  const catalog = Math.min(18, albumPts + trackPts)
+  // ① CATALOG (0-15): albums (log scale) + tracks
+  const albumPts = Math.min(12, Math.round(Math.log(n_albums + 1) * 4.0))
+  const trackPts = Math.min(4, Math.round(Math.log(n_tracks + 1) * 0.9))
+  const catalog = Math.min(15, albumPts + trackPts)
 
-  // ② MEDIA (0-8): videos + lyrics coverage
-  const videoPts = Math.min(5, Math.round(Math.sqrt(n_videos) * 1.5))
+  // ② MEDIA (0-7): videos + lyrics coverage
+  const videoPts = Math.min(4, Math.round(Math.sqrt(n_videos) * 1.3))
   const lyricsPts = Math.min(3, Math.round(Math.log(n_lyrics + 1) * 0.7))
-  const media = Math.min(8, videoPts + lyricsPts)
+  const media = Math.min(7, videoPts + lyricsPts)
 
-  // ③ COMMUNITY (0-12): likes — log scale
+  // ③ COMMUNITY (0-10): likes — log scale
   const community = likes > 0
-    ? Math.min(12, Math.round(Math.log(likes + 1) * 1.6))
+    ? Math.min(10, Math.round(Math.log(likes + 1) * 1.4))
     : 0
 
-  // ④ CAREER BONUS (0-8): bonus only, no penalty for short careers
+  // ④ CAREER BONUS (0-7): bonus only, no penalty for short careers
   const career = career_years >= 5
-    ? Math.min(8, Math.round(Math.log(career_years) * 2.2))
+    ? Math.min(7, Math.round(Math.log(career_years) * 2.0))
     : 0
 
-  const total = Math.min(100, catalog + media + community + career)
+  // ⑤ AWARDS (0-11): aggregated wins + noms across channels
+  const awardsAgg = awards || { major_won:0, major_nominated:0, major_inducted:0, other_won:0, other_nominated:0, channels:0 }
+  const awardsCat = computeAwardsSubscore(awardsAgg, 'lt')
+
+  const total = Math.min(50, catalog + media + community + career + awardsCat.points)
 
   return {
     type: 'lt',
     categories: {
-      catalog: { points: catalog, max: 18, details: `${n_albums} alb., ${n_tracks} dainų` },
-      media:   { points: media, max: 8, details: `${n_videos} vaizdo klipų, ${n_lyrics} tekstų` },
-      community: { points: community, max: 12, details: `${likes} patiktukų` },
-      career:  { points: career, max: 8, details: career_years > 0 ? `${career_years} m. karjera` : 'nenurodyta' },
+      catalog: { points: catalog, max: 15, details: `${n_albums} alb., ${n_tracks} dainų` },
+      media:   { points: media, max: 7, details: `${n_videos} vaizdo klipų, ${n_lyrics} tekstų` },
+      community: { points: community, max: 10, details: `${likes} patiktukų` },
+      career:  { points: career, max: 7, details: career_years > 0 ? `${career_years} m. karjera` : 'nenurodyta' },
+      awards:  awardsCat,
     },
     total,
     score_override: 0,
@@ -92,29 +177,31 @@ export function computeINTScore(data: {
   n_platinum_albums: number   // albums with Platinum or higher
   n_diamond_albums: number    // albums with Diamond certification
   total_cert_points: number   // weighted sum: Gold=1, Plat=2, 2xPlat=3, Diamond=10
+  awards?: AwardAggregation
 }): ScoreBreakdown {
   const {
     n_albums, n_tracks, n_videos, n_lyrics, likes, career_years,
     n_charted_albums, n_top10_albums, n_number1_albums,
     n_certified_albums, n_platinum_albums, n_diamond_albums, total_cert_points,
+    awards,
   } = data
 
-  // ① CATALOG (0-25): studio albums + tracks depth
-  const albumPts = Math.min(15, Math.round(Math.log(n_albums + 1) * 5))
-  const trackPts = Math.min(10, Math.round(Math.log(n_tracks + 1) * 1.8))
-  const catalog = Math.min(25, albumPts + trackPts)
+  // ① CATALOG (0-20): studio albums + tracks depth
+  const albumPts = Math.min(12, Math.round(Math.log(n_albums + 1) * 4.2))
+  const trackPts = Math.min(8, Math.round(Math.log(n_tracks + 1) * 1.5))
+  const catalog = Math.min(20, albumPts + trackPts)
 
-  // ② CHART PERFORMANCE (0-35): sqrt scaling for diminishing returns at the top
-  const chartedPts = Math.min(8, Math.round(Math.sqrt(n_charted_albums) * 2.5))
-  const top10Pts = Math.min(14, Math.round(Math.sqrt(n_top10_albums) * 4.5))
-  const no1Pts = Math.min(13, Math.round(Math.sqrt(n_number1_albums) * 3.5))
-  const chart = Math.min(35, chartedPts + top10Pts + no1Pts)
+  // ② CHART PERFORMANCE (0-30): sqrt scaling for diminishing returns at the top
+  const chartedPts = Math.min(7, Math.round(Math.sqrt(n_charted_albums) * 2.2))
+  const top10Pts = Math.min(12, Math.round(Math.sqrt(n_top10_albums) * 4.0))
+  const no1Pts = Math.min(11, Math.round(Math.sqrt(n_number1_albums) * 3.0))
+  const chart = Math.min(30, chartedPts + top10Pts + no1Pts)
 
-  // ③ COMMERCIAL (0-25): sqrt scaling for platinum/diamond
-  const certPts = Math.min(8, Math.round(Math.sqrt(total_cert_points) * 1.8))
-  const platPts = Math.min(12, Math.round(Math.sqrt(n_platinum_albums) * 4))
-  const diamondPts = Math.min(5, n_diamond_albums * 5)
-  const commercial = Math.min(25, certPts + platPts + diamondPts)
+  // ③ COMMERCIAL (0-20): sqrt scaling for platinum/diamond
+  const certPts = Math.min(6, Math.round(Math.sqrt(total_cert_points) * 1.5))
+  const platPts = Math.min(10, Math.round(Math.sqrt(n_platinum_albums) * 3.5))
+  const diamondPts = Math.min(4, n_diamond_albums * 4)
+  const commercial = Math.min(20, certPts + platPts + diamondPts)
 
   // ④ REACH (0-15): career span + media presence
   const careerPts = career_years >= 5
@@ -124,7 +211,11 @@ export function computeINTScore(data: {
   const communityPts = likes > 0 ? Math.min(3, Math.round(Math.log(likes + 1) * 0.5)) : 0
   const reach = Math.min(15, careerPts + mediaPts + communityPts)
 
-  const total = Math.min(100, catalog + chart + commercial + reach)
+  // ⑤ AWARDS (0-15): Grammy/Brit/Hall of Fame etc. + other industry awards
+  const awardsAgg = awards || { major_won:0, major_nominated:0, major_inducted:0, other_won:0, other_nominated:0, channels:0 }
+  const awardsCat = computeAwardsSubscore(awardsAgg, 'int')
+
+  const total = Math.min(100, catalog + chart + commercial + reach + awardsCat.points)
 
   // Build details strings
   const chartDetails = [
@@ -142,10 +233,11 @@ export function computeINTScore(data: {
   return {
     type: 'int',
     categories: {
-      catalog:    { points: catalog, max: 25, details: `${n_albums} alb., ${n_tracks} dainų` },
-      chart:      { points: chart, max: 35, details: chartDetails },
-      commercial: { points: commercial, max: 25, details: certDetails },
+      catalog:    { points: catalog, max: 20, details: `${n_albums} alb., ${n_tracks} dainų` },
+      chart:      { points: chart, max: 30, details: chartDetails },
+      commercial: { points: commercial, max: 20, details: certDetails },
       reach:      { points: reach, max: 15, details: career_years > 0 ? `${career_years} m. karjera, ${n_videos} klipų` : 'nenurodyta' },
+      awards:     awardsCat,
     },
     total,
     score_override: 0,
@@ -520,6 +612,23 @@ export async function calculateArtistScore(
   const activeUntil = artist?.active_until || currentYear
   const career_years = activeFrom > 0 ? (activeUntil - activeFrom) : 0
 
+  // Awards aggregate (from voting_participants ↔ channels metadata)
+  // We join 3 levels: participants → events → editions → channels.
+  // Filter by metadata.imported_from_award so only Wikipedia-imported entries
+  // (not user-voted active competitions) feed into the score.
+  const { data: awardRows } = await supabase
+    .from('voting_participants')
+    .select('metadata, voting_events!inner(voting_editions!inner(voting_channels!inner(name)))')
+    .eq('artist_id', artistId)
+  const awardEntries: { channel_name: string; result: string }[] = []
+  for (const r of (awardRows || []) as any[]) {
+    if (!r.metadata?.imported_from_award) continue
+    const ch = r.voting_events?.voting_editions?.voting_channels
+    if (!ch?.name) continue
+    awardEntries.push({ channel_name: ch.name, result: r.metadata?.result || 'other' })
+  }
+  const awardsAgg = aggregateAwardsData(awardEntries)
+
   const baseData = {
     n_albums: n_albums || 0,
     n_tracks: n_tracks || 0,
@@ -527,6 +636,7 @@ export async function calculateArtistScore(
     n_lyrics: n_lyrics || 0,
     likes: likes || 0,
     career_years,
+    awards: awardsAgg,
   }
 
   let breakdown: ScoreBreakdown

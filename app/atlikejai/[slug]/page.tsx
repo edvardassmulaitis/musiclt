@@ -432,6 +432,56 @@ async function getArtistRanks(
   return out
 }
 
+/** Awards for this artist — joined view from voting_participants ↔ events/editions/channels.
+ *  Each row represents one nomination/win at a specific ceremony.
+ *  `participants_in_event` is the # of participants in same event (1 = ceremony partially imported). */
+async function getArtistAwards(artistId: number) {
+  const sb = createAdminClient()
+  const { data: parts } = await sb
+    .from('voting_participants')
+    .select('id, event_id, album_id, track_id, display_subtitle, metadata, voting_events!inner(id, name, slug, edition_id, voting_editions!inner(id, year, channel_id, voting_channels!inner(id, name, slug)))')
+    .eq('artist_id', artistId)
+  const rows: any[] = (parts || []) as any[]
+  // Filter to award-imported only (metadata.imported_from_award)
+  const awardRows = rows.filter(r => r.metadata?.imported_from_award)
+  if (awardRows.length === 0) return []
+
+  // Count participants per event (for completeness indicator)
+  const eventIds = [...new Set(awardRows.map(r => r.event_id))]
+  const partCounts = new Map<number, number>()
+  if (eventIds.length > 0) {
+    const { data: countRows } = await sb
+      .from('voting_participants')
+      .select('event_id')
+      .in('event_id', eventIds)
+    for (const r of (countRows || []) as any[]) {
+      partCounts.set(r.event_id, (partCounts.get(r.event_id) || 0) + 1)
+    }
+  }
+
+  return awardRows.map(r => {
+    const ev = r.voting_events
+    const ed = ev?.voting_editions
+    const ch = ed?.voting_channels
+    return {
+      id: r.id,
+      result: r.metadata?.result || 'other',
+      work: r.display_subtitle || null,
+      album_id: r.album_id ?? null,
+      track_id: r.track_id ?? null,
+      event_id: r.event_id,
+      event_name: ev?.name || '',
+      event_slug: ev?.slug || '',
+      edition_id: ed?.id,
+      edition_year: ed?.year,
+      channel_id: ch?.id,
+      channel_name: ch?.name || '',
+      channel_slug: ch?.slug || '',
+      participants_in_event: partCounts.get(r.event_id) || 0,
+    }
+  })
+}
+
 function stripStyles(html: string) { return (html || '').replace(/style="[^"]*"/gi, '').replace(/style='[^']*'/gi, '') }
 function plain(html: string) { return (html || '').replace(/<[^>]+>/g, '').slice(0, 200) }
 function mockChart(albums: any[]) {
@@ -449,13 +499,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ArtistPage({ params }: Props) {
   const { slug } = await params; const artist = await getArtist(slug); if (!artist) notFound()
-  const [genres, substyles, tableLinks, dbPhotos, albums, tracks, members, followers, likeCount, news, rawEvents, allTrackLegacyIds, legacyThreads, legacyNews, linkedTrackIdSet] = await Promise.all([
+  const [genres, substyles, tableLinks, dbPhotos, albums, tracks, members, followers, likeCount, news, rawEvents, allTrackLegacyIds, legacyThreads, legacyNews, linkedTrackIdSet, awards] = await Promise.all([
     getGenres(artist.id), getSubstyles(artist.id), getLinks(artist.id), getPhotos(artist.id), getAlbums(artist.id), getTracks(artist.id),
     getMembers(artist.id), getFollowers(artist.id), getLikeCount(artist.id), getNews(artist.id), getEvents(artist.id),
     getAllArtistTrackLegacyIds(artist.id),
     getLegacyForumThreads({ name: artist.name, slug: artist.slug }),
     getLegacyNewsThreads({ name: artist.name, slug: artist.slug }, 12),
     getLinkedTrackIds(artist.id),
+    getArtistAwards(artist.id),
   ])
   const links = buildSocialLinks(artist, tableLinks as { platform: string; url: string }[])
   const linkedTrackIds = Array.from(linkedTrackIdSet)
@@ -532,6 +583,7 @@ export default async function ArtistPage({ params }: Props) {
       ranks={ranks}
       substyles={substyles}
       linkedTrackIds={linkedTrackIds}
+      awards={awards}
     />
   )
 }

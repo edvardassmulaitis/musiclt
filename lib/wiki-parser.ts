@@ -252,10 +252,22 @@ export function parseCertifications(rowLines: string[]): CertificationEntry[] {
 }
 
 /**
- * Extract best (lowest) peak chart position from Wikipedia table row.
+ * Extract peak chart position from Wikipedia table row.
+ *
+ * Strategy: Wikipedia discography pages list countries in fixed column order,
+ * with the artist's HOME country usually first (UK band → UK column first).
+ * Return the FIRST numeric cell, not the minimum across all countries.
+ *
+ * Why: previous min-across-all approach made every DM album look like #1
+ * because at least one country charted them at #1. The first column is
+ * typically the meaningful "home market" peak.
+ *
+ * Trade-off: for non-home country artists or unusual disco page layouts,
+ * we might pick a less-relevant chart. Acceptable — admin can manually fix
+ * peak_chart_position in the album form. Better than misleading #1 across
+ * the catalog.
  */
 export function parsePeakChartPosition(rowLines: string[]): number | null {
-  let best: number | null = null
   for (const line of rowLines) {
     if (/scope\s*=\s*['"]row['"]/i.test(line)) continue
     if (/released|label|format|length|recorded|studio|producer|writer|certif/i.test(line)) continue
@@ -263,16 +275,16 @@ export function parsePeakChartPosition(rowLines: string[]): number | null {
     const cells = line.split(/\|\|/)
     for (const cell of cells) {
       const cleaned = cell.replace(/^\s*\|\s*/, '').replace(/<ref[^>]*>.*?<\/ref>/gi, '').replace(/<ref[^>]*\/>/gi, '').trim()
+      // Skip — common (em-dash for "did not chart") — return null only after exhausting all
+      if (cleaned === '—' || cleaned === '-' || cleaned === '–') continue
       const numMatch = cleaned.match(/^(\d{1,3})$/)
       if (numMatch) {
         const n = parseInt(numMatch[1])
-        if (n >= 1 && n <= 200 && (best === null || n < best)) {
-          best = n
-        }
+        if (n >= 1 && n <= 200) return n  // ← first numeric cell wins
       }
     }
   }
-  return best
+  return null
 }
 
 /**

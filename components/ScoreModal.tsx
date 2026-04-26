@@ -33,12 +33,13 @@ const CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
   chart:      { label: 'Pasirodymai topuose', color: '#ef4444' },
   commercial: { label: 'Sertifikatai', color: '#f59e0b' },
   reach:      { label: 'Aprėptis', color: '#10b981' },
+  awards:     { label: 'Apdovanojimai', color: '#eab308' },
 }
 
 // Fixed display order — JSONB doesn't preserve key insertion order
 const CATEGORY_ORDER: Record<string, string[]> = {
-  lt:  ['catalog', 'media', 'community', 'career'],
-  int: ['catalog', 'chart', 'commercial', 'reach'],
+  lt:  ['catalog', 'media', 'community', 'career', 'awards'],
+  int: ['catalog', 'chart', 'commercial', 'reach', 'awards'],
 }
 
 function ScoreBar({ label, value, max, color, details }: {

@@ -23,13 +23,14 @@ type FlatBreakdown = {
 }
 
 const ARTIST_CATS: Record<string, { label: string; color: string; ltMax?: number; intMax?: number }> = {
-  catalog:    { label: 'Diskografija', color: '#3b82f6', ltMax: 18, intMax: 25 },
-  media:      { label: 'Turinys',      color: '#8b5cf6', ltMax: 8 },
-  community:  { label: 'Bendruomenė',  color: '#f59e0b', ltMax: 12 },
-  career:     { label: 'Karjera',      color: '#10b981', ltMax: 8 },
-  chart:      { label: 'Pasirodymai topuose',   color: '#ef4444', intMax: 35 },
-  commercial: { label: 'Sertifikatai', color: '#f59e0b', intMax: 25 },
+  catalog:    { label: 'Diskografija', color: '#3b82f6', ltMax: 15, intMax: 20 },
+  media:      { label: 'Turinys',      color: '#8b5cf6', ltMax: 7 },
+  community:  { label: 'Bendruomenė',  color: '#f59e0b', ltMax: 10 },
+  career:     { label: 'Karjera',      color: '#10b981', ltMax: 7 },
+  chart:      { label: 'Pasirodymai topuose', color: '#ef4444', intMax: 30 },
+  commercial: { label: 'Sertifikatai', color: '#f59e0b', intMax: 20 },
   reach:      { label: 'Aprėptis',     color: '#10b981', intMax: 15 },
+  awards:     { label: 'Apdovanojimai', color: '#eab308', ltMax: 11, intMax: 15 },
 }
 
 const ALBUM_CATS: Record<string, { label: string; color: string; max: number }> = {
@@ -51,8 +52,8 @@ const TRACK_CATS: Record<string, { label: string; color: string; max: number }> 
   artist_score:   { label: 'Atlikėjo balas',  color: '#6366f1', max: 8 },
 }
 
-const ARTIST_LT_ORDER = ['catalog', 'media', 'community', 'career']
-const ARTIST_INT_ORDER = ['catalog', 'chart', 'commercial', 'reach']
+const ARTIST_LT_ORDER = ['catalog', 'media', 'community', 'career', 'awards']
+const ARTIST_INT_ORDER = ['catalog', 'chart', 'commercial', 'reach', 'awards']
 const ALBUM_ORDER = ['type', 'certifications', 'chart', 'track_count', 'year', 'artist_score']
 const TRACK_ORDER = ['single', 'certifications', 'chart', 'lyrics', 'video', 'year', 'artist_score']
 
