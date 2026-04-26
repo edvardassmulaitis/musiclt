@@ -1038,8 +1038,9 @@ export function parseAwardsArticle(wikitext: string): AwardEntry[] {
           if (carry[pos].remaining === 0) delete carry[pos]
         } else if (rawIdx < cells.length) {
           let raw = cells[rawIdx]
-          // rowspan="N" parsing — strip attribute, set carry
-          const rs = raw.match(/^rowspan\s*=\s*"?(\d+)"?\s*\|\s*([\s\S]*)/i)
+          // rowspan="N" parsing — Wikipedia accepts both `rowspan="N"| value`
+          // (pipe separator) AND `rowspan="N" value` (space). Match either.
+          const rs = raw.match(/^rowspan\s*=\s*"?(\d+)"?\s*(?:\||\s)\s*([\s\S]*)/i)
           let val: string
           if (rs) {
             val = rs[2].trim()
