@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import WikipediaImportDiscography from '@/components/WikipediaImportDiscography'
 import WikipediaImport from '@/components/WikipediaImport'
+import WikipediaImportAwards from '@/components/WikipediaImportAwards'
 import ArtistForm, { ArtistFormData, emptyArtistForm } from '@/components/ArtistForm'
 import { extractYouTubeId } from '@/components/ui/helpers'
 import { ScoreBadge } from '@/components/ScoreModal'
@@ -349,6 +350,15 @@ function DiscographyPanel({ artistId, artistName, artistType, refreshKey, onImpo
                 buttonLabel="⚡ Automatinis įkėlimas"
               />
             </div>
+          )}
+          {/* 🏆 Apdovanojimai — disabled kol nėra diskografijos */}
+          {artistName && (
+            <WikipediaImportAwards
+              artistId={parseInt(artistId)}
+              artistName={artistName}
+              disabled={albums.length === 0}
+              onClose={onImportClose}
+            />
           )}
           {/* + Albumas / + Daina — tik ikona ant mobile, tekstas ant desktop */}
           <Link href={`/admin/albums/new?artist_id=${artistId}`} title="Naujas albumas"
