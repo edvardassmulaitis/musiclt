@@ -955,7 +955,7 @@ function awardsCleanCell(raw: string): string {
   // Italic/bold
   s = s.replace(/'{2,}/g, '')
   // refs
-  s = s.replace(/<ref[^>]*>.*?<\/ref>/gis, '').replace(/<ref[^>]*\/>/gi, '')
+  s = s.replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '').replace(/<ref[^>]*\/>/gi, '')
   s = s.replace(/<[^>]+>/g, '')
   s = s.replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim()
   return s
