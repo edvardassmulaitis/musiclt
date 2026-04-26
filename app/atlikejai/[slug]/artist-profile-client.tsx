@@ -5,6 +5,7 @@ import Link from 'next/link'
 import LikesModal from '@/components/LikesModal'
 import { LikePill } from '@/components/LikePill'
 import BioModal from '@/components/BioModal'
+import ScoreCard from '@/components/ScoreCard'
 import type { LegacyLikeUser } from '@/components/LegacyLikesPanel'
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -2283,6 +2284,16 @@ export default function ArtistProfileClient({
                   />
                 </div>
               )}
+              {/* Mobile: score card below sideinfo strip */}
+              {artist.score !== null && artist.score !== undefined && (
+                <div className="mb-6 lg:hidden">
+                  <ScoreCard
+                    entityType="artist"
+                    score={artist.score}
+                    breakdown={artist.score_breakdown}
+                  />
+                </div>
+              )}
               {/* 2-col on desktop, single column on mobile (mobile already
                   saw the horizontal strip above). */}
               <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-10">
@@ -2299,7 +2310,7 @@ export default function ArtistProfileClient({
                 </div>
                 {/* Vertical sidebar — desktop only (mobile has the strip above). */}
                 {sideInfoAvailable && (
-                  <div className="hidden lg:block">
+                  <div className="hidden lg:flex lg:flex-col lg:gap-4">
                     <SideInfo
                       artist={artist}
                       flag={flag}
@@ -2308,6 +2319,22 @@ export default function ArtistProfileClient({
                       ranks={ranks}
                       links={links}
                       website={artist.website}
+                    />
+                    {artist.score !== null && artist.score !== undefined && (
+                      <ScoreCard
+                        entityType="artist"
+                        score={artist.score}
+                        breakdown={artist.score_breakdown}
+                      />
+                    )}
+                  </div>
+                )}
+                {!sideInfoAvailable && artist.score !== null && artist.score !== undefined && (
+                  <div className="hidden lg:block">
+                    <ScoreCard
+                      entityType="artist"
+                      score={artist.score}
+                      breakdown={artist.score_breakdown}
                     />
                   </div>
                 )}

@@ -33,7 +33,8 @@ export default async function TrackPage({ params }: { params: Promise<{ slug: st
       id, slug, title, type, video_url, spotify_id, release_date,
       lyrics, chords, description, show_player, is_new, show_ai_interpretation,
       ai_interpretation, ai_image_url,
-      artist_id, legacy_id, source
+      artist_id, legacy_id, source,
+      score, score_breakdown, peak_chart_position, certifications
     `)
     .eq('id', id)
     .single()

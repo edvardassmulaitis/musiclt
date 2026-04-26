@@ -195,6 +195,10 @@ export default async function AlbumPage({ params }: Props) {
         video_url: album.video_url || null,
         show_player: album.show_player || false,
         is_upcoming: album.is_upcoming || false,
+        score: (album as any).score ?? null,
+        score_breakdown: (album as any).score_breakdown ?? null,
+        peak_chart_position: (album as any).peak_chart_position ?? null,
+        certifications: (album as any).certifications ?? null,
       }}
       artist={{
         id: artist.id,

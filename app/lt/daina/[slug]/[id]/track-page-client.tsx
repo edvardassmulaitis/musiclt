@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react'
 import Link from 'next/link'
 import LegacyLikesPanel, { LegacyBadge, type LegacyLikeUser } from '@/components/LegacyLikesPanel'
+import ScoreCard from '@/components/ScoreCard'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -13,6 +14,8 @@ type Track = {
   lyrics: string | null; chords: string | null; description: string | null
   show_player: boolean; is_new: boolean; featuring: Artist[]
   show_ai_interpretation: boolean
+  score?: number | null; score_breakdown?: any
+  peak_chart_position?: number | null; certifications?: any
 }
 type Album = { id: number; slug: string; title: string; year?: number; cover_image_url: string | null; type: string }
 type LyricReaction = {
@@ -714,6 +717,9 @@ export default function TrackPageClient({
       <div className="tr-desk" style={{ maxWidth: 1400, margin: '0 auto', padding: '14px 20px 60px', display: 'grid', gridTemplateColumns: '2fr 3fr', gap: 14, alignItems: 'start' }}>
         <div style={{ position: 'sticky', top: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <TrackInfoCard />
+          {track.score !== null && track.score !== undefined && (
+            <ScoreCard entityType="track" score={track.score} breakdown={track.score_breakdown} />
+          )}
           {PlayerCard}
           <AICard />
           <TriviaCard />
@@ -737,6 +743,9 @@ export default function TrackPageClient({
       {/* ── Mobile ─────────────────────────────────────────────────────────── */}
       <div className="tr-mob" style={{ display: 'none', padding: '12px 14px 56px', flexDirection: 'column', gap: 12 }}>
         <TrackInfoCard />
+        {track.score !== null && track.score !== undefined && (
+          <ScoreCard entityType="track" score={track.score} breakdown={track.score_breakdown} />
+        )}
         {PlayerCard}
         <LyricsCard />
         <AICard />

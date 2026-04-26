@@ -206,6 +206,267 @@ export function aggregateCertData(albums: AlbumCertRow[]) {
   }
 }
 
+// ── ALBUM SCORING (mirrors Python wiki_worker.compute_album_score) ─
+// Scale 0-100. Inputs: album type, certifications, peak chart, track_count, year, artist_score.
+
+export type AlbumScoreInputs = {
+  type_studio?: boolean
+  type_ep?: boolean
+  type_compilation?: boolean
+  type_remix?: boolean
+  type_live?: boolean
+  type_single?: boolean
+  certifications?: { type: string; multiplier?: number }[] | null
+  peak_chart_position?: number | null
+  track_count?: number | null
+  year?: number | null
+}
+
+export type AlbumScoreResult = {
+  final_score: number
+  breakdown: {
+    categories: Record<string, number>
+    inputs: Record<string, any>
+  }
+}
+
+export function computeAlbumScore(album: AlbumScoreInputs, artistScore: number = 0): AlbumScoreResult {
+  let score = 0
+  const categories: Record<string, number> = {}
+
+  // Type bonus
+  let typePts = 0
+  if (album.type_studio) typePts = 10
+  else if (album.type_ep) typePts = 6
+  else if (album.type_compilation) typePts = 4
+  else if (album.type_remix) typePts = 3
+  categories.type = typePts
+  score += typePts
+
+  // Certifications
+  let certPts = 0
+  let hasPlatinum = false
+  let hasDiamond = false
+  const certs = album.certifications || []
+  for (const c of certs) {
+    const t = (c.type || '').toLowerCase()
+    const m = c.multiplier || 1
+    if (t === 'diamond') { hasDiamond = true; certPts += 30 }
+    else if (t === 'platinum') { hasPlatinum = true; certPts += 10 + 3 * m }
+    else if (t === 'gold') { certPts += 6 }
+  }
+  certPts = Math.min(40, certPts)
+  categories.certifications = certPts
+  score += certPts
+
+  // Peak chart
+  let chartPts = 0
+  const peak = album.peak_chart_position
+  if (peak) {
+    if (peak === 1) chartPts = 25
+    else if (peak <= 10) chartPts = 15
+    else if (peak <= 50) chartPts = 8
+    else chartPts = 3
+  }
+  categories.chart = chartPts
+  score += chartPts
+
+  // Track count (log)
+  const tc = album.track_count || 0
+  const tcPts = tc > 0 ? Math.min(10, Math.round(Math.log(tc + 1) * 3)) : 0
+  categories.track_count = tcPts
+  score += tcPts
+
+  // Year recency
+  const year = album.year || 0
+  if (year) {
+    const age = Math.max(0, 2026 - year)
+    const yearPts = age < 50 ? Math.max(0, Math.min(5, Math.round(5 - age * 0.05))) : 1
+    categories.year = yearPts
+    score += yearPts
+  }
+
+  // Inherit a fraction of artist score (0-10)
+  const artistPts = Math.min(10, Math.floor(artistScore / 10))
+  categories.artist_score = artistPts
+  score += artistPts
+
+  return {
+    final_score: Math.min(100, score),
+    breakdown: {
+      categories,
+      inputs: {
+        certifications_count: certs.length,
+        has_diamond: hasDiamond,
+        has_platinum: hasPlatinum,
+        peak_chart_position: peak ?? null,
+        track_count: tc,
+        year,
+        artist_score: artistScore,
+      },
+    },
+  }
+}
+
+export async function calculateAlbumScore(
+  supabase: any,
+  albumId: number
+): Promise<AlbumScoreResult> {
+  const { data: album } = await supabase
+    .from('albums')
+    .select('type_studio, type_ep, type_compilation, type_remix, type_live, type_single, certifications, peak_chart_position, track_count, year, artist_id')
+    .eq('id', albumId)
+    .single()
+  if (!album) {
+    return { final_score: 0, breakdown: { categories: {}, inputs: {} } }
+  }
+  let artistScore = 0
+  if (album.artist_id) {
+    const { data: artistRow } = await supabase
+      .from('artists')
+      .select('score')
+      .eq('id', album.artist_id)
+      .single()
+    artistScore = artistRow?.score || 0
+  }
+  return computeAlbumScore(album, artistScore)
+}
+
+// ── TRACK SCORING (mirrors Python wiki_worker.compute_track_score) ─
+// Scale 0-100. Inputs: is_single, certifications, peak chart, lyrics, video, year, artist_score.
+
+export type TrackScoreInputs = {
+  type?: string | null
+  is_single?: boolean
+  certifications?: { type: string; multiplier?: number }[] | null
+  peak_chart_position?: number | null
+  lyrics?: string | null
+  video_url?: string | null
+  release_year?: number | null
+}
+
+export type TrackScoreResult = AlbumScoreResult  // same shape
+
+export function computeTrackScore(
+  track: TrackScoreInputs,
+  album?: { year?: number | null } | null,
+  artistScore: number = 0
+): TrackScoreResult {
+  let score = 0
+  const categories: Record<string, number> = {}
+
+  // Single bonus
+  const isSingle = track.is_single || track.type === 'single'
+  if (isSingle) {
+    score += 8
+    categories.single = 8
+  } else {
+    categories.single = 0
+  }
+
+  // Certifications (per-track)
+  let certPts = 0
+  const certs = track.certifications || []
+  for (const c of certs) {
+    const t = (c.type || '').toLowerCase()
+    const m = c.multiplier || 1
+    if (t === 'diamond') certPts += 25
+    else if (t === 'platinum') certPts += 10 + 2 * m
+    else if (t === 'gold') certPts += 5
+  }
+  certPts = Math.min(35, certPts)
+  categories.certifications = certPts
+  score += certPts
+
+  // Peak chart
+  let chartPts = 0
+  const peak = track.peak_chart_position
+  if (peak) {
+    if (peak === 1) chartPts = 25
+    else if (peak <= 10) chartPts = 15
+    else if (peak <= 50) chartPts = 8
+  }
+  categories.chart = chartPts
+  score += chartPts
+
+  // Lyrics / video
+  const hasLyrPts = track.lyrics ? 5 : 0
+  const hasVidPts = track.video_url ? 8 : 0
+  categories.lyrics = hasLyrPts
+  categories.video = hasVidPts
+  score += hasLyrPts + hasVidPts
+
+  // Year
+  const year = track.release_year || album?.year || 0
+  if (year) {
+    const age = Math.max(0, 2026 - year)
+    const yearPts = age < 50 ? Math.max(0, Math.min(3, Math.round(3 - age * 0.04))) : 1
+    categories.year = yearPts
+    score += yearPts
+  }
+
+  // Inherit artist score (0-8)
+  const artistPts = Math.min(8, Math.floor(artistScore / 12))
+  categories.artist_score = artistPts
+  score += artistPts
+
+  return {
+    final_score: Math.min(100, score),
+    breakdown: {
+      categories,
+      inputs: {
+        is_single: isSingle,
+        peak_chart_position: peak ?? null,
+        has_lyrics: !!track.lyrics,
+        has_video: !!track.video_url,
+        year,
+        artist_score: artistScore,
+      },
+    },
+  }
+}
+
+export async function calculateTrackScore(
+  supabase: any,
+  trackId: number
+): Promise<TrackScoreResult> {
+  const { data: track } = await supabase
+    .from('tracks')
+    .select('type, peak_chart_position, certifications, lyrics, video_url, release_year, artist_id')
+    .eq('id', trackId)
+    .single()
+  if (!track) {
+    return { final_score: 0, breakdown: { categories: {}, inputs: {} } }
+  }
+  // Album + artist score lookups
+  let albumYear: number | null = null
+  const { data: at } = await supabase
+    .from('album_tracks')
+    .select('is_primary, albums!album_tracks_album_id_fkey(year)')
+    .eq('track_id', trackId)
+    .limit(1)
+  let isSingle = false
+  if (at && at.length > 0) {
+    const row: any = at[0]
+    isSingle = !!row.is_primary
+    albumYear = row.albums?.year ?? null
+  }
+  let artistScore = 0
+  if (track.artist_id) {
+    const { data: artistRow } = await supabase
+      .from('artists')
+      .select('score')
+      .eq('id', track.artist_id)
+      .single()
+    artistScore = artistRow?.score || 0
+  }
+  return computeTrackScore(
+    { ...track, is_single: isSingle },
+    { year: albumYear },
+    artistScore
+  )
+}
+
 // ── Main scoring function ──────────────────────────────────────
 
 export async function calculateArtistScore(

@@ -502,6 +502,56 @@ function WikipediaImportWithHint({ artistName, onImport }: { artistName?: string
   return <WikipediaImport onImport={onImport} initialSearch={artistName} />
 }
 
+/** Manual cascade recalc — recomputes artist + all its albums + tracks scores.
+ *  Useful for entities that were imported before the TS scoring layer existed.
+ *  One click, fire-and-forget; UI shows last result inline. */
+function RecalcCascadeButton({ artistId }: { artistId: string }) {
+  const [status, setStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
+  const [result, setResult] = useState<{ artist: number; albums: number; tracks: number } | null>(null)
+
+  const run = async () => {
+    setStatus('running')
+    setResult(null)
+    try {
+      const r = await fetch(`/api/admin/recalc-artist-cascade?artist_id=${artistId}`, { method: 'POST' })
+      const j = await r.json()
+      if (!r.ok) throw new Error(j?.error || 'fail')
+      setResult({
+        artist: j.artist_score ?? 0,
+        albums: j.albums_scored ?? 0,
+        tracks: j.tracks_scored ?? 0,
+      })
+      setStatus('done')
+      setTimeout(() => setStatus('idle'), 4000)
+    } catch {
+      setStatus('error')
+      setTimeout(() => setStatus('idle'), 4000)
+    }
+  }
+
+  const label = status === 'running' ? 'Skaičiuoja…'
+              : status === 'done' && result
+                ? `✓ ${result.artist} / ${result.albums} alb. / ${result.tracks} d.`
+              : status === 'error' ? 'Klaida'
+              : '↻ Perskaičiuoti balus'
+
+  return (
+    <button
+      type="button"
+      onClick={run}
+      disabled={status === 'running'}
+      className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
+        status === 'done'  ? 'bg-green-50 text-green-700 border border-green-200'
+        : status === 'error' ? 'bg-red-50 text-red-700 border border-red-200'
+        : 'bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200'
+      } disabled:opacity-50`}
+      title="Perskaičiuoja artist + visų albumų + visų dainų balus"
+    >
+      {label}
+    </button>
+  )
+}
+
 function WikipediaImportCompact({ onImport, artistName }: { onImport: (data: any) => void; artistName?: string }) {
   const [open, setOpen] = useState(false)
   return (
@@ -674,6 +724,7 @@ export default function EditArtist() {
 
           <div className="flex items-center gap-1.5 shrink-0">
             <ScoreBadge artistId={artistId} score={artistScore} />
+            <RecalcCascadeButton artistId={artistId} />
             <Link href="/admin/artists"
               className="px-3 py-1.5 border border-[var(--input-border)] text-[var(--text-secondary)] rounded-lg text-sm font-medium hover:bg-[var(--bg-hover)] transition-colors">
               Atšaukti
@@ -729,6 +780,9 @@ export default function EditArtist() {
               setDiscographyKey(k => k + 1)
               fetch(`/api/albums?artist_id=${artistId}&limit=1`).then(r => r.json()).then(d => setAlbumCount(d.total ?? 0)).catch(() => {})
               fetch(`/api/tracks?artist_id=${artistId}&limit=1`).then(r => r.json()).then(d => setTrackCount(d.total ?? null)).catch(() => {})
+              // Cascade-recalc scores for artist + all albums + all tracks.
+              // Fire-and-forget: success state shown next time admin refreshes.
+              fetch(`/api/admin/recalc-artist-cascade?artist_id=${artistId}`, { method: 'POST' }).catch(() => {})
             }}
           />
         )}
@@ -744,6 +798,9 @@ export default function EditArtist() {
               setDiscographyKey(k => k + 1)
               fetch(`/api/albums?artist_id=${artistId}&limit=1`).then(r => r.json()).then(d => setAlbumCount(d.total ?? 0)).catch(() => {})
               fetch(`/api/tracks?artist_id=${artistId}&limit=1`).then(r => r.json()).then(d => setTrackCount(d.total ?? null)).catch(() => {})
+              // Cascade-recalc scores for artist + all albums + all tracks.
+              // Fire-and-forget: success state shown next time admin refreshes.
+              fetch(`/api/admin/recalc-artist-cascade?artist_id=${artistId}`, { method: 'POST' }).catch(() => {})
             }}
           />
         </div>

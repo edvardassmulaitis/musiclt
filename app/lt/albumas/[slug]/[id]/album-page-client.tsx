@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import LegacyLikesPanel, { LegacyBadge, type LegacyLikeUser } from '@/components/LegacyLikesPanel'
+import ScoreCard from '@/components/ScoreCard'
 
 type Track = {
   id: number; slug: string; title: string; type: string
@@ -17,6 +18,8 @@ type Album = {
   cover_image_url: string | null; video_url: string | null
   show_player: boolean; is_upcoming: boolean
   type_studio?: boolean
+  score?: number | null; score_breakdown?: any
+  peak_chart_position?: number | null; certifications?: any
 }
 type Artist = { id: number; slug: string; name: string; cover_image_url: string | null }
 type SimpleAlbum = { id: number; slug: string; title: string; year?: number; cover_image_url?: string; type: string }
@@ -445,6 +448,9 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
       <div className="ab-desktop" style={{ maxWidth: 1400, margin: '0 auto', padding: '14px 20px 60px', display: 'grid', gridTemplateColumns: '2fr 3fr', gap: 14, alignItems: 'start' }}>
         <div style={{ position: 'sticky', top: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <AlbumInfoCard coverSize={100} />
+          {album.score !== null && album.score !== undefined && (
+            <ScoreCard entityType="album" score={album.score} breakdown={album.score_breakdown} />
+          )}
           <PlayerCard />
           <SidebarExtras />
         </div>
@@ -478,6 +484,9 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
       {/* ══ MOBILE ══ */}
       <div className="ab-mobile" style={{ display: 'none', padding: '12px 14px 56px', flexDirection: 'column', gap: 12 }}>
         <AlbumInfoCard coverSize={100} />
+        {album.score !== null && album.score !== undefined && (
+          <ScoreCard entityType="album" score={album.score} breakdown={album.score_breakdown} />
+        )}
         <div style={card}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '9px 13px 8px', borderBottom: '1px solid var(--sub-border)' }}>
             <div style={{ width: 28, height: 28, borderRadius: 8, background: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
