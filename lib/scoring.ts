@@ -130,7 +130,7 @@ export function computeINTScore(data: {
   const chartDetails = [
     n_number1_albums > 0 ? `${n_number1_albums} nr. 1` : '',
     n_top10_albums > 0 ? `${n_top10_albums} top 10` : '',
-    n_charted_albums > 0 ? `${n_charted_albums} hitparaduose` : 'nėra hitparadų duomenų',
+    n_charted_albums > 0 ? `${n_charted_albums} topuose` : 'nėra duomenų apie pasirodymus topuose',
   ].filter(Boolean).join(', ')
 
   const certDetails = [

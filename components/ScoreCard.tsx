@@ -27,7 +27,7 @@ const ARTIST_CATS: Record<string, { label: string; color: string; ltMax?: number
   media:      { label: 'Turinys',      color: '#8b5cf6', ltMax: 8 },
   community:  { label: 'Bendruomenė',  color: '#f59e0b', ltMax: 12 },
   career:     { label: 'Karjera',      color: '#10b981', ltMax: 8 },
-  chart:      { label: 'Hitparadai',   color: '#ef4444', intMax: 35 },
+  chart:      { label: 'Pasirodymai topuose',   color: '#ef4444', intMax: 35 },
   commercial: { label: 'Sertifikatai', color: '#f59e0b', intMax: 25 },
   reach:      { label: 'Aprėptis',     color: '#10b981', intMax: 15 },
 }
@@ -35,7 +35,7 @@ const ARTIST_CATS: Record<string, { label: string; color: string; ltMax?: number
 const ALBUM_CATS: Record<string, { label: string; color: string; max: number }> = {
   type:           { label: 'Tipas',           color: '#3b82f6', max: 10 },
   certifications: { label: 'Sertifikatai',    color: '#f59e0b', max: 40 },
-  chart:          { label: 'Hitparadai',      color: '#ef4444', max: 25 },
+  chart:          { label: 'Pasirodymai topuose',      color: '#ef4444', max: 25 },
   track_count:    { label: 'Dainų kiekis',    color: '#8b5cf6', max: 10 },
   year:           { label: 'Metų bonusas',    color: '#10b981', max: 5 },
   artist_score:   { label: 'Atlikėjo balas',  color: '#6366f1', max: 10 },
@@ -44,7 +44,7 @@ const ALBUM_CATS: Record<string, { label: string; color: string; max: number }> 
 const TRACK_CATS: Record<string, { label: string; color: string; max: number }> = {
   single:         { label: 'Singlas',         color: '#3b82f6', max: 8 },
   certifications: { label: 'Sertifikatai',    color: '#f59e0b', max: 35 },
-  chart:          { label: 'Hitparadai',      color: '#ef4444', max: 25 },
+  chart:          { label: 'Pasirodymai topuose',      color: '#ef4444', max: 25 },
   lyrics:         { label: 'Žodžiai',         color: '#8b5cf6', max: 5 },
   video:          { label: 'Vaizdo klipas',   color: '#06b6d4', max: 8 },
   year:           { label: 'Metų bonusas',    color: '#10b981', max: 3 },
