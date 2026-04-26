@@ -9,6 +9,10 @@
     {
       "path": "/api/top/cron",
       "schedule": "0 13 * * 0"
+    },
+    {
+      "path": "/api/admin/internal/score-recalc?limit=50",
+      "schedule": "0 3 * * *"
     }
   ]
 }

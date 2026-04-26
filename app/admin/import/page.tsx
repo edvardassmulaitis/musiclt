@@ -156,6 +156,24 @@ export default function AdminImportPage() {
     }
   }
 
+  const triggerScoreRecalc = async () => {
+    if (!confirm('Pažymėti VISUS atlikėjus score recalc\'ui? Cron periodiškai perskaičiuos.')) return
+    setActionLoading(true); setActionMsg(null)
+    try {
+      const r = await fetch('/api/admin/internal/score-recalc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ all: true }),
+      })
+      const data = await r.json()
+      setActionMsg(data.ok ? `${data.message} (${data.stale_count} stale)` : `Klaida: ${data.error}`)
+    } catch (e: any) {
+      setActionMsg(`Klaida: ${e?.message || e}`)
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
   const runJob = async (jobType: 'wiki' | 'scrape', legacyIds: number[]) => {
     setActionLoading(true)
     setActionMsg(null)
@@ -196,7 +214,17 @@ export default function AdminImportPage() {
               Wiki + music.lt scrape per grupę. Worker'is veikia ant Mac'o (žr. scraper/wiki_worker.py ir scrape_worker.py).
             </p>
           </div>
-          <Link href="/admin" className="text-sm text-music-blue hover:underline">← Admin</Link>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={triggerScoreRecalc}
+              disabled={actionLoading}
+              className="px-3 py-1.5 text-xs bg-amber-50 text-amber-700 rounded-lg border border-amber-200 hover:bg-amber-100 disabled:opacity-50"
+              title="Pažymi visus atlikėjus stale → Vercel cron periodiškai perskaičiuoja kas naktį"
+            >
+              🎯 Recalc visi score
+            </button>
+            <Link href="/admin" className="text-sm text-music-blue hover:underline">← Admin</Link>
+          </div>
         </div>
 
         {/* Stats cards */}
