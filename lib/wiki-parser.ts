@@ -83,7 +83,13 @@ export type Break = { from: string; to: string }
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
-const ALL_SUBSTYLES = Object.values(SUBSTYLES).flat()
+// Lazy getter — `SUBSTYLES` is empty at module-load time and only populated
+// by `initializeConstants()` later (called from /api/admin/wiki/parse + UI).
+// A const computed eagerly here would freeze `[]` and substyle matching
+// would silently always return [].
+function ALL_SUBSTYLES(): string[] {
+  return Object.values(SUBSTYLES).flat()
+}
 
 export const QID_COUNTRY: Record<string, string> = {
   Q142:'Prancūzija',Q183:'Vokietija',Q30:'JAV',Q145:'Didžioji Britanija',
@@ -836,9 +842,11 @@ export function mapGenres(genreLabels: string[]): { genre: string; substyles: st
     const score = lower.reduce((a, gl) => a + kws.reduce((s, kw) => s + (gl === kw || gl.includes(kw) ? 1 : 0), 0), 0)
     if (score > bestScore) { bestScore = score; best = g }
   }
+  const all = ALL_SUBSTYLES()
   const substyles: string[] = []
   for (const g of genreLabels) {
-    const found = ALL_SUBSTYLES.find(s => s.toLowerCase() === g.toLowerCase().trim())
+    const norm = g.toLowerCase().trim().replace(/[-\s]+/g, '')
+    const found = all.find(s => s.toLowerCase().replace(/[-\s]+/g, '') === norm)
     if (found && !substyles.includes(found)) substyles.push(found)
   }
   return { genre: best, substyles }
