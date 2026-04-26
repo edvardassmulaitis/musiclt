@@ -693,13 +693,20 @@ export function parseTracklist(wikitext: string): TrackEntry[] {
 
     const toUse = standard.length ? standard : [tlBlocks[0]]
 
+    // Normalize for dedupe — strip ALL apostrophe variants (straight + curly)
+    // so "Just Can't Get Enough" and "Just Can’t Get Enough" collapse.
+    // Without this, the same track from a reissue block sneaks past the
+    // existing-set check (Speak & Spell repro: track #11 vs #13).
+    const dedupeKey = (s: string) => s.toLowerCase().replace(/[‘’“”'"]/g, '').trim()
+
     const existing = new Set<string>()
     let order = 1
     for (const tl of toUse) {
       for (const t of parseBlock(tl, order)) {
-        if (!existing.has(t.title.toLowerCase())) {
+        const k = dedupeKey(t.title)
+        if (!existing.has(k)) {
           allTracks.push({ ...t, sort_order: order++ })
-          existing.add(t.title.toLowerCase())
+          existing.add(k)
         }
       }
     }
@@ -715,11 +722,11 @@ export function parseTracklist(wikitext: string): TrackEntry[] {
         .map(({ block }) => block)
       for (const tl of filteredBlocks) {
         for (const t of parseBlock(tl, 1)) {
-          const norm = t.title.toLowerCase().replace(/['']/g, '')
+          const k = dedupeKey(t.title)
           if (t.type === 'remix') continue
-          if (!existing.has(norm) && t.is_single) {
+          if (!existing.has(k) && t.is_single) {
             allTracks.push({ ...t, type: 'normal', sort_order: order++ })
-            existing.add(norm)
+            existing.add(k)
           }
         }
       }
