@@ -593,16 +593,11 @@ export function parseTracklist(wikitext: string): TrackEntry[] {
   const tlBlocks = tlWithPos.map(t => t.block)
 
   if (!tlBlocks.length) {
-    const tracks: TrackEntry[] = []
-    let order = 1
-    for (const line of wikitext.split('\n')) {
-      const m = line.match(/^#+\s*(.+)/)
-      if (m) {
-        const { cleanTitle, featuring } = parseFeaturing(cleanWikiText(m[1]))
-        if (cleanTitle.length > 1) tracks.push({ title: cleanTitle, sort_order: order++, featuring: featuring.length ? featuring : undefined })
-      }
-    }
-    return tracks
+    // No {{Track listing}} template — many live/compilation articles fall here.
+    // The old fallback parsed every `#numbered` line as a track; that picked up
+    // citations and bullet lists, producing 800+ false positives on pages like
+    // "Recording the Angel". Return [] instead — UI/admin can fill manually.
+    return []
   }
 
   const parseBlock = (tl: string, startOrder: number): TrackEntry[] => {
