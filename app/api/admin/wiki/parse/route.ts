@@ -162,6 +162,12 @@ export async function POST(req: NextRequest) {
         break
       }
 
+      case 'awards_article': {
+        if (!wikitext) return NextResponse.json({ ok: false, error: 'wikitext required' }, { status: 400 })
+        data = wikiParser.parseAwardsArticle(wikitext)
+        break
+      }
+
       default:
         return NextResponse.json({ ok: false, error: `Unknown type: ${type}` }, { status: 400 })
     }

@@ -913,3 +913,176 @@ export function parseYearsActive(raw: string): { yearStart: string; yearEnd: str
   }
   return { yearStart, yearEnd, breaks }
 }
+
+// ─── AWARDS PARSER ────────────────────────────────────────────────────────────
+
+export type AwardEntry = {
+  channel: string         // "Grammy Awards", "Brit Awards"
+  channelSlug: string     // "grammy-awards"
+  year: number | null     // 2020
+  category: string        // "Best Pop Vocal Album"
+  work: string            // "Spirit" — album/song title or "Themselves"
+  workType: 'album' | 'track' | 'video' | 'self' | 'unknown'
+  result: 'won' | 'nominated' | 'inducted' | 'other'
+  sourceLine?: string     // raw row, for debugging
+}
+
+const AWARD_RESULT_MAP: Record<string, AwardEntry['result']> = {
+  won: 'won', win: 'won', winner: 'won',
+  nom: 'nominated', nominated: 'nominated', nomination: 'nominated',
+  shortlisted: 'nominated',
+  inducted: 'inducted',
+  pending: 'other', tba: 'other',
+}
+
+function awardsSlugify(s: string): string {
+  return s.toLowerCase().trim()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+}
+
+/** Strip wikilinks/templates to readable text, preserving displayed label. */
+function awardsCleanCell(raw: string): string {
+  let s = raw.trim()
+  // {{Brit|1991}} → 1991
+  s = s.replace(/\{\{[^|{}]+\|(\d{4})\}\}/g, '$1')
+  // {{nom}}, {{won}}, etc — keep raw token for result detection
+  s = s.replace(/\{\{(nom|won|shortlist[a-z]*|inducted|pending|tba)\b[^}]*\}\}/gi, '$1')
+  // Remove other templates entirely
+  s = s.replace(/\{\{[^{}]*\}\}/g, '')
+  // [[X|Y]] → Y, [[X]] → X
+  s = s.replace(/\[\[([^\]|]+\|)?([^\]]+)\]\]/g, '$2')
+  // Italic/bold
+  s = s.replace(/'{2,}/g, '')
+  // refs
+  s = s.replace(/<ref[^>]*>.*?<\/ref>/gis, '').replace(/<ref[^>]*\/>/gi, '')
+  s = s.replace(/<[^>]+>/g, '')
+  s = s.replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim()
+  return s
+}
+
+function detectWorkType(workRaw: string, workClean: string): AwardEntry['workType'] {
+  if (!workClean || /^themselves$/i.test(workClean) || /^self$/i.test(workClean)) return 'self'
+  // Italics typically = album/film, quotes = song
+  if (/'{2,}/.test(workRaw)) return 'album'
+  if (/"[^"]+"/.test(workRaw) || /^"/.test(workRaw.trim())) return 'track'
+  if (/video|film|tour/i.test(workClean)) return 'video'
+  return 'unknown'
+}
+
+function detectResult(cell: string): AwardEntry['result'] {
+  const low = cell.toLowerCase().trim()
+  for (const k of Object.keys(AWARD_RESULT_MAP)) {
+    if (low === k || low.startsWith(k)) return AWARD_RESULT_MAP[k]
+  }
+  return 'other'
+}
+
+function extractYear(cell: string): number | null {
+  // Try direct 4-digit
+  const m = cell.match(/\b(19|20)\d{2}\b/)
+  return m ? parseInt(m[0]) : null
+}
+
+/**
+ * Parse a Wikipedia "List of awards and nominations received by X" article.
+ * Returns flat list of award entries grouped by channel (award type).
+ *
+ * Wikipedia format:
+ *   == Grammy Awards ==
+ *   {{awards table}}
+ *   |- | year | work | category | {{nom|won}}
+ *   |- ... (rowspan="N" carries first cell across N rows)
+ *   {{end}}
+ */
+export function parseAwardsArticle(wikitext: string): AwardEntry[] {
+  const out: AwardEntry[] = []
+  if (!wikitext) return out
+
+  // Find each "== Section ==" + content up to next "==" or end
+  const sectionRe = /==+\s*([^=\n]+?)\s*==+\s*\n([\s\S]*?)(?=\n==+\s*[^=]|\n*$)/g
+  let m: RegExpExecArray | null
+  while ((m = sectionRe.exec(wikitext)) !== null) {
+    const heading = awardsCleanCell(m[1]).trim()
+    if (!heading || /references|external|notes|see also|footnotes|bibliography/i.test(heading)) continue
+    const body = m[2]
+    if (!/\{\{awards table\}\}/i.test(body)) continue
+
+    const channel = heading
+    const channelSlug = awardsSlugify(channel)
+
+    // Extract content between {{awards table}} and {{end}}
+    const tblMatch = body.match(/\{\{awards table\}\}([\s\S]*?)\{\{end\}\}/i)
+    if (!tblMatch) continue
+
+    const rows = tblMatch[1].split(/\n\|-\s*\n?/).map(r => r.trim()).filter(Boolean)
+
+    // Track rowspan-spanned values across rows (cell index → { value, remaining })
+    const carry: Record<number, { value: string; remaining: number }> = {}
+
+    for (const row of rows) {
+      // Row contains "| cell | cell | cell | cell" — split by leading pipe on new line OR " || "
+      // Wikipedia table rows: each cell on its own line "| cell"
+      // Let's parse by splitting on /\n\|/ but the first cell starts with "|"
+      const text = row.replace(/^\|/, '')
+      const cells = text.split(/\n\s*\|/).map(c => c.trim())
+
+      // Build effective row: insert carried values at appropriate positions
+      const effective: string[] = []
+      let rawIdx = 0
+      const expected = 4  // year, work, category, result
+      for (let pos = 0; pos < expected; pos++) {
+        if (carry[pos] && carry[pos].remaining > 0) {
+          effective.push(carry[pos].value)
+          carry[pos].remaining -= 1
+          if (carry[pos].remaining === 0) delete carry[pos]
+        } else if (rawIdx < cells.length) {
+          let raw = cells[rawIdx]
+          // rowspan="N" parsing — strip attribute, set carry
+          const rs = raw.match(/^rowspan\s*=\s*"?(\d+)"?\s*\|\s*([\s\S]*)/i)
+          let val: string
+          if (rs) {
+            val = rs[2].trim()
+            const span = parseInt(rs[1])
+            if (span > 1) carry[pos] = { value: val, remaining: span - 1 }
+          } else {
+            val = raw
+          }
+          effective.push(val)
+          rawIdx++
+        } else {
+          effective.push('')
+        }
+      }
+
+      const [yearRaw, workRaw, catRaw, resRaw] = effective
+      if (!yearRaw && !workRaw && !catRaw) continue
+
+      const yearClean = awardsCleanCell(yearRaw)
+      const workClean = awardsCleanCell(workRaw)
+      const catClean = awardsCleanCell(catRaw)
+      const resClean = awardsCleanCell(resRaw)
+
+      const year = extractYear(yearClean)
+      const result = detectResult(resClean)
+      const workType = detectWorkType(workRaw, workClean)
+
+      // Skip header rows / empty cells
+      if (!catClean || catClean.length < 3) continue
+      if (/^year$|^category$|^result$|^work$/i.test(catClean)) continue
+
+      out.push({
+        channel,
+        channelSlug,
+        year,
+        category: catClean,
+        work: workClean,
+        workType,
+        result,
+        sourceLine: row.slice(0, 200),
+      })
+    }
+  }
+
+  return out
+}
