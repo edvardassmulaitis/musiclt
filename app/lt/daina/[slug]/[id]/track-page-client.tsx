@@ -380,11 +380,12 @@ export default function TrackPageClient({
           />
         </div>
         <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', paddingRight: 76 }}>
-          {/* Profile thumb. Anksčiau buvo 100x100 — bet music.lt avatar'ai
-              nedidesni nei ~80-100px → display'inant 100x100 dažnai vyksta
-              upscale, atrodo pikselizuotai. Sumažintas iki 72x72 (visada
-              <= source dimensijų) + subtle blur, kad smooth-out artifact'ai. */}
-          <div style={{ flexShrink: 0, width: 72, height: 72, borderRadius: 12, overflow: 'hidden', boxShadow: '0 10px 32px rgba(0,0,0,.7)', background: 'var(--cover-placeholder)', position: 'relative' }}>
+          {/* Profile thumb. Iteracijų istorija: 100x100 (per didelis, upscale
+              artifact'ai) → 72x72 (vis dar matosi pixelation) → 56x56. Music.lt
+              cover/avatar dažnai 60-80px source → bet kas <60px display'inant
+              GUARANTUOJA, kad nevyksta upscale, todėl natūralus rendering'as.
+              Be filter — smaller box nereikalauja smoothing'o. */}
+          <div style={{ flexShrink: 0, width: 56, height: 56, borderRadius: 10, overflow: 'hidden', boxShadow: '0 6px 18px rgba(0,0,0,.5)', background: 'var(--cover-placeholder)', position: 'relative' }}>
             {(() => {
               const thumbSrc = primaryAlbum?.cover_image_url || artist.cover_image_url || null
               return thumbSrc ? (
@@ -393,12 +394,11 @@ export default function TrackPageClient({
                   alt=""
                   style={{
                     width: '100%', height: '100%', objectFit: 'cover', display: 'block',
-                    filter: 'blur(0.3px) saturate(1.1) contrast(1.03)',
                     imageRendering: 'auto',
                   }}
                 />
               ) : (
-                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>🎵</div>
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🎵</div>
               )
             })()}
           </div>

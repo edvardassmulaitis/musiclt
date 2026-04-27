@@ -42,8 +42,37 @@ export async function GET(
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
+
+  // Avatar fallback: artist/album/track scraping istoriškai nepagaudavo
+  // user_avatar_url'ų (parse_like_list regex'as veikia comment listing'ams,
+  // bet ne entity-rate;list page'ams). Comment likes scraping pagauna avatars.
+  // Užpildom missing avatarus iš bet kurio kito likes row'o tos pačios
+  // username'os su ne null avatar_url. Taip user'is mato avatarą bet kuriame
+  // modal'e, jei jis kažkur scrap'inant buvo pagautas.
+  const users = data || []
+  const missing = users.filter(u => !u.user_avatar_url).map(u => u.user_username)
+  if (missing.length > 0) {
+    const { data: avatarRows } = await sb
+      .from('likes')
+      .select('user_username, user_avatar_url')
+      .in('user_username', missing)
+      .not('user_avatar_url', 'is', null)
+      .limit(2000)
+    const avMap = new Map<string, string>()
+    for (const r of avatarRows || []) {
+      if (r.user_username && r.user_avatar_url && !avMap.has(r.user_username)) {
+        avMap.set(r.user_username, r.user_avatar_url)
+      }
+    }
+    for (const u of users) {
+      if (!u.user_avatar_url && avMap.has(u.user_username)) {
+        u.user_avatar_url = avMap.get(u.user_username)!
+      }
+    }
+  }
+
   return NextResponse.json({
-    count: count || (data?.length ?? 0),
-    users: data || [],
+    count: count || users.length,
+    users,
   })
 }
