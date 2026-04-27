@@ -1098,9 +1098,10 @@ function ArtistSearch({ label, ph, items, onAdd, onRemove, onYears, filterType, 
 // ── InlineGallery ─────────────────────────────────────────────────────────────
 type PhotoMeta = Photo & { author?: string; sourceUrl?: string }
 
-function InlineGallery({ photos, onChange, artistName, artistId, onSetAvatar, currentAvatar }: {
+function InlineGallery({ photos, onChange, artistName, artistId, onSetAvatar, currentAvatar, onSetHero, currentHero }: {
   photos: PhotoMeta[]; onChange: (p: PhotoMeta[]) => void; artistName: string; artistId?: string
   onSetAvatar?: (url: string) => void; currentAvatar?: string
+  onSetHero?: (url: string) => void; currentHero?: string
 }) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
@@ -1286,9 +1287,16 @@ function InlineGallery({ photos, onChange, artistName, artistId, onSetAvatar, cu
               </button>
               {onSetAvatar && (
                 <button type="button" onClick={e => { e.stopPropagation(); onSetAvatar(p.url) }}
-                  title="Naudoti kaip profilio nuotrauką"
+                  title="Naudoti kaip profilio nuotrauką (mažas thumb kortelėms)"
                   className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full text-[10px] flex items-center justify-center transition-all ${currentAvatar === p.url ? 'bg-blue-500 text-white opacity-100' : 'bg-black/50 hover:bg-blue-500 text-white opacity-0 group-hover:opacity-100'}`}>
                   {currentAvatar === p.url ? '★' : '☆'}
+                </button>
+              )}
+              {onSetHero && (
+                <button type="button" onClick={e => { e.stopPropagation(); onSetHero(p.url) }}
+                  title="Naudoti kaip hero nuotrauką (didelė viršuje viešame puslapyje)"
+                  className={`absolute top-0.5 left-6 w-5 h-5 rounded text-[9px] font-bold flex items-center justify-center transition-all ${currentHero === p.url ? 'bg-purple-500 text-white opacity-100' : 'bg-black/50 hover:bg-purple-500 text-white opacity-0 group-hover:opacity-100'}`}>
+                  H
                 </button>
               )}
               {p.author && (
@@ -1450,6 +1458,15 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
 
   const setAvatar = (url: string) => {
     const next = { ...formRef.current, avatar: url }
+    formRef.current = next
+    setForm(next)
+    if (onChange) onChange(next)
+  }
+
+  const setHero = (url: string) => {
+    // Toggle: paspaudimas ant aktyvaus hero — nuima
+    const newUrl = formRef.current.avatarWide === url ? '' : url
+    const next = { ...formRef.current, avatarWide: newUrl }
     formRef.current = next
     setForm(next)
     if (onChange) onChange(next)
@@ -1681,7 +1698,7 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
       </div>
 
       <div className="px-0">
-        <InlineGallery photos={form.photos} onChange={setPhotos} artistName={form.name} artistId={artistId} onSetAvatar={setAvatar} currentAvatar={form.avatar} />
+        <InlineGallery photos={form.photos} onChange={setPhotos} artistName={form.name} artistId={artistId} onSetAvatar={setAvatar} currentAvatar={form.avatar} onSetHero={setHero} currentHero={form.avatarWide} />
       </div>
 
       {!hideButtons && (

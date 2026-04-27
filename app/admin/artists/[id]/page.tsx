@@ -13,15 +13,19 @@ import { extractYouTubeId } from '@/components/ui/helpers'
 import { ScoreBadge } from '@/components/ScoreModal'
 import FullscreenModal from '@/components/ui/FullscreenModal'
 
+// IDs match seed migration `seed_genres` rows in Supabase. Verified 2026-04-27
+// — anksčiau čia buvo prisirašyti 1000001..1000008 IDs kurie netaikomi (DB
+// turi 1000556..1000563). Dėl to admin'as neparodydavo main genre net jei
+// jis būdavo įdėtas į `artist_genres` junction lentelę.
 const GENRE_BY_ID: Record<number, string> = {
-  1000001: 'Alternatyvioji muzika',
-  1000002: 'Elektroninė, šokių muzika',
-  1000003: "Hip-hop'o muzika",
-  1000004: 'Kitų stilių muzika',
-  1000005: 'Pop, R&B muzika',
-  1000006: 'Rimtoji muzika',
-  1000007: 'Roko muzika',
-  1000008: 'Sunkioji muzika',
+  1000556: 'Alternatyvioji muzika',
+  1000557: 'Elektroninė, šokių muzika',
+  1000558: "Hip-hop'o muzika",
+  1000559: 'Kitų stilių muzika',
+  1000560: 'Pop, R&B muzika',
+  1000561: 'Rimtoji muzika',
+  1000562: 'Roko muzika',
+  1000563: 'Sunkioji muzika',
 }
 
 function dbToForm(data: any): ArtistFormData {
@@ -62,14 +66,14 @@ function dbToForm(data: any): ArtistFormData {
 }
 
 const GENRE_IDS: Record<string, number> = {
-  'Alternatyvioji muzika': 1000001,
-  'Elektroninė, šokių muzika': 1000002,
-  "Hip-hop'o muzika": 1000003,
-  'Kitų stilių muzika': 1000004,
-  'Pop, R&B muzika': 1000005,
-  'Rimtoji muzika': 1000006,
-  'Roko muzika': 1000007,
-  'Sunkioji muzika': 1000008,
+  'Alternatyvioji muzika': 1000556,
+  'Elektroninė, šokių muzika': 1000557,
+  "Hip-hop'o muzika": 1000558,
+  'Kitų stilių muzika': 1000559,
+  'Pop, R&B muzika': 1000560,
+  'Rimtoji muzika': 1000561,
+  'Roko muzika': 1000562,
+  'Sunkioji muzika': 1000563,
 }
 
 function formToDb(form: ArtistFormData) {
