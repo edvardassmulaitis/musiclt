@@ -1499,7 +1499,13 @@ function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' |
   const href = `/renginiai/${e.slug}`
   const monthShort = d.toLocaleDateString('lt-LT', { month: 'short' }).replace('.', '')
   const [coverFailed, setCoverFailed] = useState(false)
-  const hasCover = !!e.cover_image_url && !coverFailed
+  // Music.lt event cover URL'ai dažniausiai grąžina stub-PNG (calendar+? glyph)
+  // — request grįžta 200, bet vaizdas yra placeholder. Sunku skirti programiškai
+  // (PNG load'inasi sėkmingai, dimensijos > 80px). Saugiausia — visai ne'rodyti
+  // music.lt cover URL'ų. Kai admin'as įkels savo nuotrauką į mūsų storage,
+  // URL nebus music.lt → bus parodyta normaliai.
+  const isMusicLtUrl = typeof e.cover_image_url === 'string' && /(?:^|\/\/)(?:www\.)?music\.lt\//i.test(e.cover_image_url)
+  const hasCover = !!e.cover_image_url && !coverFailed && !isMusicLtUrl
 
   if (variant === 'past') {
     return (
@@ -1701,7 +1707,13 @@ function EventBigCard({ e }: { e: any }) {
   const href = `/renginiai/${e.slug}`
   const longDate = formatLtDate(d, { long: true })
   const [coverFailed, setCoverFailed] = useState(false)
-  const hasCover = !!e.cover_image_url && !coverFailed
+  // Music.lt event cover URL'ai dažniausiai grąžina stub-PNG (calendar+? glyph)
+  // — request grįžta 200, bet vaizdas yra placeholder. Sunku skirti programiškai
+  // (PNG load'inasi sėkmingai, dimensijos > 80px). Saugiausia — visai ne'rodyti
+  // music.lt cover URL'ų. Kai admin'as įkels savo nuotrauką į mūsų storage,
+  // URL nebus music.lt → bus parodyta normaliai.
+  const isMusicLtUrl = typeof e.cover_image_url === 'string' && /(?:^|\/\/)(?:www\.)?music\.lt\//i.test(e.cover_image_url)
+  const hasCover = !!e.cover_image_url && !coverFailed && !isMusicLtUrl
   return (
     <Link
       href={href}
