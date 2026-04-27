@@ -419,13 +419,34 @@ async function getArtistRanks(
     return counts
   }
 
+  // Helper: filter peer IDs to artists su pilnu profile (real description ≥100 chars).
+  // Anksčiau placeholder atlikėjai (6 chars description) konkuravo dėl rank'o ir
+  // Atlanta kuri vienintelė turi pilną info gaudavo žemesnį rank'ą už tuščias
+  // korteles vien dėl legacy_likes count'o.
+  async function filterRealArtists(ids: number[]): Promise<number[]> {
+    if (ids.length === 0) return []
+    const real = new Set<number>()
+    for (let i = 0; i < ids.length; i += 200) {
+      const chunk = ids.slice(i, i + 200)
+      const { data } = await sb
+        .from('artists')
+        .select('id, description')
+        .in('id', chunk)
+      for (const r of (data || []) as any[]) {
+        if (r.description && r.description.trim().length >= 100) real.add(r.id)
+      }
+    }
+    return ids.filter(id => real.has(id))
+  }
+
   // Country rank
   if (country) {
     const { data: peers } = await sb
       .from('artists')
       .select('id')
       .eq('country', country)
-    const peerIds = (peers || []).map((p: any) => p.id).filter((x: number) => x !== artistId)
+    const allPeerIds = (peers || []).map((p: any) => p.id).filter((x: number) => x !== artistId)
+    const peerIds = await filterRealArtists(allPeerIds)
     if (peerIds.length > 0) {
       const counts = await countLikesByArtist(peerIds)
       const higher = peerIds.filter(pid => (counts.get(pid) || 0) > artistLikeCount).length
@@ -442,7 +463,8 @@ async function getArtistRanks(
       .from('artist_genres')
       .select('artist_id')
       .eq('genre_id', g.id)
-    const peerIds = (gpeers || []).map((r: any) => r.artist_id).filter((x: number) => x !== artistId)
+    const allPeerIds = (gpeers || []).map((r: any) => r.artist_id).filter((x: number) => x !== artistId)
+    const peerIds = await filterRealArtists(allPeerIds)
     if (peerIds.length > 0) {
       const counts = await countLikesByArtist(peerIds)
       const higher = peerIds.filter(pid => (counts.get(pid) || 0) > artistLikeCount).length

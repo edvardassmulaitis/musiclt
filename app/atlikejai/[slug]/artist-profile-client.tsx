@@ -411,22 +411,10 @@ function PlayerCard({
               aria-label="Paleisti"
               className="group absolute inset-0 block cursor-pointer overflow-hidden border-0 bg-gradient-to-br from-[#1a2436] to-[#0a0f1a] p-0"
             >
-              {/* Pirma rodom orange kortelę kaip backdrop'ą — taip nesikelia
-                  YT broken icon žiburiai jei thumb fail'ina. Po thumbnail load'o
-                  jis užklojo virš (jei sėkmingas).
-                  YT'as ištrintiems video grąžina default 120x90 stub-image —
-                  patikrinam onLoad ir jei dimensijos per mažos, slepiame img'ą. */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/5 ring-1 ring-white/10">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/40">
-                    <path d="M23 7l-7 5 7 5V7z" />
-                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-                  </svg>
-                </div>
-                <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.15em] text-white/50">
-                  YouTube · {displayTrack?.title ? displayTrack.title.slice(0, 50) : 'video'}
-                </div>
-              </div>
+              {/* Tylus dark backdrop'as — slepia YT broken-icon stub'ą jei
+                  thumb fail'ina. Be jokio teksto/ikonų, kad nesikalbėtų su
+                  Play mygtuku centre. */}
+              <div className="absolute inset-0 bg-gradient-to-br from-[#1a2436] to-[#0a0f1a]" />
               <img
                 src={`https://img.youtube.com/vi/${displayVid}/maxresdefault.jpg`}
                 alt=""
@@ -1592,13 +1580,14 @@ function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' |
             className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
         )}
-        {/* Fallback layer — visada parodoma jei nėra cover'io arba jis krito.
-            Padaryta calendar block su didele data. Atrodo profesionaliai. */}
+        {/* Fallback layer — kai nėra cover'io arba jis krito. Tik subtle
+            kalendoriaus ikona; data jau matosi dešinėje korteleje, tad
+            čia jos nedubliuojam. Browser native broken-image ikoną slepiame. */}
         {!hasCover && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 px-2 text-center">
-            <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase leading-tight text-[var(--accent-orange)]">{monthShort}</span>
-            <span className="font-['Outfit',sans-serif] text-[44px] font-black leading-none text-white">{d.getDate()}</span>
-            <span className="font-['Outfit',sans-serif] text-[10px] font-bold leading-tight text-white/60">{d.getFullYear()}</span>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" className="text-[var(--accent-orange)]/40">
+              <path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </div>
         )}
       </div>
@@ -2167,11 +2156,11 @@ export default function ArtistProfileClient({
   })
   const bioHtml: string = artist.description || ''
 
-  // Gallery photos excluding the hero image
-  const galleryPhotos = useMemo(
-    () => photos.filter(p => p.url !== heroImage),
-    [photos, heroImage],
-  )
+  // Galerija — visos aktyvios nuotraukos. Anksčiau filtruodavom hero foto
+  // (kad nesi-dubliuotų), bet jei active'ių tik 2 ir viena tampa hero'jum,
+  // galerija lieka su 1. Dabar paliekam visas — vartotojas mato pilną
+  // foto sąrašą + lengvai matosi kuri yra hero (ji dažnai pirma sort_order).
+  const galleryPhotos = useMemo(() => photos, [photos])
 
   const bioSubtitle = [
     active,

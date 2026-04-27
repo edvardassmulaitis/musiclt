@@ -41,6 +41,11 @@ export default async function TrackPage({ params }: { params: Promise<{ slug: st
 
   if (!track || track.slug !== slug) notFound()
 
+  // Score'ą rodom tik admin'ams (atskira admin form'a redagavimui).
+  // Public puslapis NIEKADA nerodo score breakdown'o.
+  ;(track as any).score = null
+  ;(track as any).score_breakdown = null
+
   // ── Fetch primary artist ───────────────────────────────────────────────────
   const { data: artistRow } = await supabase
     .from('artists')
@@ -113,6 +118,20 @@ export default async function TrackPage({ params }: { params: Promise<{ slug: st
     .eq('track_id', id)
     .order('created_at', { ascending: true })
 
+  // ── Fetch entity_comments (music.lt komentarai prie dainos) ───────────────
+  // Music.lt'e kiekvienos dainos puslapyje yra "Komentarai (N)" sekcija.
+  // Scraper'is parsina jas į entity_comments lentelę su entity_type='track'
+  // ir entity_legacy_id = music.lt track legacy_id.
+  const trackLegacyIdForComments = (track as any).legacy_id ?? null
+  const { data: entityComments } = trackLegacyIdForComments
+    ? await supabase
+        .from('entity_comments')
+        .select('legacy_id, author_username, author_avatar_url, created_at, content_html, content_text, like_count')
+        .eq('entity_type', 'track')
+        .eq('entity_legacy_id', trackLegacyIdForComments)
+        .order('created_at', { ascending: true })
+    : { data: [] as any[] }
+
   // ── Fetch other versions / remixes ─────────────────────────────────────────
   // Same title base or related by artist, different id
   const { data: versionRows } = await supabase
@@ -155,6 +174,7 @@ export default async function TrackPage({ params }: { params: Promise<{ slug: st
       versions={(versionRows ?? []) as any}
       likes={likes ?? 0}
       lyricComments={(lyricComments ?? []) as any}
+      entityComments={(entityComments ?? []) as any}
       trivia={trivia}
       relatedTracks={relatedTracks as any}
       aiInterpretation={(track as any).ai_interpretation ?? null}

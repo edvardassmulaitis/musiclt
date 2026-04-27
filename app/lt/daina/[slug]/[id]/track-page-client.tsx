@@ -24,6 +24,15 @@ type LyricReaction = {
   likes: number; created_at: string
 }
 type Version = { id: number; slug: string; title: string; type: string; video_url: string | null }
+type EntityComment = {
+  legacy_id: number
+  author_username: string | null
+  author_avatar_url: string | null
+  created_at: string | null
+  content_html: string | null
+  content_text: string | null
+  like_count: number
+}
 type Props = {
   track: Track; artist: Artist; albums: Album[]
   versions: Version[]; likes: number
@@ -32,6 +41,8 @@ type Props = {
   aiInterpretation?: string | null
   isLegacy?: boolean
   legacyLikes?: { count: number; users: LegacyLikeUser[] }
+  /** Music.lt komentarai prie šios dainos (entity_comments lentelė). */
+  entityComments?: EntityComment[]
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -81,6 +92,7 @@ export default function TrackPageClient({
   aiInterpretation,
   isLegacy = false,
   legacyLikes,
+  entityComments = [],
 }: Props) {
   const hasLegacyLikes = !!legacyLikes && legacyLikes.count > 0
 
@@ -506,14 +518,42 @@ export default function TrackPageClient({
 
   const DiscussionsCard = () => (
     <div style={cardStyle}>
-      <div style={headStyle}>Diskusijos</div>
+      <div style={headStyle}>Komentarai{entityComments.length > 0 ? ` (${entityComments.length})` : ''}</div>
       <div style={{ padding: '12px 14px' }}>
         <div style={{ display: 'flex', gap: 7, marginBottom: 10 }}>
           <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: 'rgba(249,115,22,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#f97316', fontFamily: 'Outfit,sans-serif' }}>{artist.name[0]}</div>
           <input placeholder="Rašyk komentarą…" style={{ flex: 1, height: 30, borderRadius: 999, padding: '0 12px', fontSize: 11, background: 'var(--comment-input-bg)', border: '1px solid var(--comment-border)', color: 'var(--text-primary)', outline: 'none' }} />
           <button style={{ height: 30, padding: '0 12px', borderRadius: 999, background: '#f97316', border: 'none', color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit,sans-serif' }}>Siųsti</button>
         </div>
-        <div style={{ fontSize: 11, color: 'var(--text-faint)', textAlign: 'center' }}>Būk pirmas — palik komentarą!</div>
+        {entityComments.length === 0 ? (
+          <div style={{ fontSize: 11, color: 'var(--text-faint)', textAlign: 'center' }}>Būk pirmas — palik komentarą!</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 6 }}>
+            {entityComments.map(c => {
+              const initial = (c.author_username || '?').charAt(0).toUpperCase()
+              const dateLabel = c.created_at ? new Date(c.created_at).toLocaleDateString('lt-LT', { year: 'numeric', month: 'short', day: 'numeric' }) : ''
+              return (
+                <div key={c.legacy_id} style={{ display: 'flex', gap: 8, paddingTop: 8, borderTop: '1px solid var(--card-border-subtle)' }}>
+                  {c.author_avatar_url ? (
+                    <img src={c.author_avatar_url} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                  ) : (
+                    <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: 'rgba(99,102,241,.18)', color: '#818cf8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, fontFamily: 'Outfit,sans-serif' }}>{initial}</div>
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'baseline', marginBottom: 2 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>{c.author_username || 'anon'}</span>
+                      {dateLabel && <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>· {dateLabel}</span>}
+                      {c.like_count > 0 && <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--accent-orange)' }}>♥ {c.like_count}</span>}
+                    </div>
+                    <div style={{ fontSize: 12, lineHeight: 1.45, color: 'var(--text-primary)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                      {c.content_text || ''}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
     </div>
   )
