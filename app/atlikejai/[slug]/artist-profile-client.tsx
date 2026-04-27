@@ -1005,6 +1005,7 @@ function Hero({
               id="hero-photo"
               src={heroImage}
               alt={artist.name}
+              referrerPolicy="no-referrer"
               onClick={() => {
                 if (typeof window === 'undefined') return
                 if (window.innerWidth < 1024) return
@@ -1610,6 +1611,7 @@ function MasonryGallery({ photos, onOpen }: { photos: Photo[]; onOpen: (i: numbe
               src={p.url}
               alt={parsePhotoCaption(p.caption).author || ''}
               loading="lazy"
+              referrerPolicy="no-referrer"
               className="block w-full cursor-zoom-in object-cover transition-transform duration-500 group-hover:scale-[1.02]"
             />
             {year && (
@@ -2796,7 +2798,7 @@ export default function ArtistProfileClient({
                 <Link key={a.id} href={`/atlikejai/${a.slug}`} className="w-[110px] shrink-0 snap-start text-center no-underline sm:w-[130px]">
                   <div className="relative mx-auto mb-2.5 h-[90px] w-[90px] overflow-hidden rounded-full border-2 border-[var(--border-default)] transition-all hover:scale-105 hover:border-[var(--border-strong)] sm:h-[108px] sm:w-[108px]">
                     {a.cover_image_url ? (
-                      <img src={a.cover_image_url} alt={a.name} className="h-full w-full object-cover" />
+                      <img src={a.cover_image_url} alt={a.name} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center bg-[var(--cover-placeholder)] font-['Outfit',sans-serif] text-[24px] font-black text-[var(--text-faint)]">
                         {a.name[0]}
