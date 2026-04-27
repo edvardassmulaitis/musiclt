@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import LegacyLikesPanel, { LegacyBadge, type LegacyLikeUser } from '@/components/LegacyLikesPanel'
 import ScoreCard from '@/components/ScoreCard'
+import { proxyImg } from '@/lib/img-proxy'
 
 type Track = {
   id: number; slug: string; title: string; type: string
@@ -118,7 +119,7 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
         <div style={{ position: 'absolute', top: 10, right: 12 }}><LikeBtn /></div>
         <div style={{ flexShrink: 0, width: coverSize, height: coverSize, borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--shadow-card)', background: 'var(--cover-placeholder)' }}>
           {album.cover_image_url
-            ? <img src={album.cover_image_url} alt={album.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            ? <img src={proxyImg(album.cover_image_url)} alt={album.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
             : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30 }}>💿</div>}
         </div>
         <div style={{ flex: 1, minWidth: 0, paddingRight: 48 }}>
@@ -212,7 +213,7 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
             {/* Thumbnail — purely decorative on desktop */}
             <div style={{ width: 34, height: 34, borderRadius: 6, flexShrink: 0, overflow: 'hidden', background: 'var(--cover-placeholder)', position: 'relative' }}>
               {album.cover_image_url
-                ? <img src={album.cover_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                ? <img src={proxyImg(album.cover_image_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                 : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11 }}>🎵</div>}
               {isPlaying && (
                 <div style={{ position: 'absolute', inset: 0, background: 'rgba(249,115,22,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -304,7 +305,7 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
                 style={{ width: 36, height: 36, borderRadius: 7, flexShrink: 0, overflow: 'hidden', background: 'var(--cover-placeholder)', position: 'relative', cursor: canPlay ? 'pointer' : 'default' }}
               >
                 {album.cover_image_url
-                  ? <img src={album.cover_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  ? <img src={proxyImg(album.cover_image_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                   : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11 }}>🎵</div>}
                 {isPlaying && (
                   <div style={{ position: 'absolute', inset: 0, background: 'rgba(249,115,22,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -416,7 +417,7 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
           <div style={{ display: 'flex', gap: 8, padding: '10px 12px', overflowX: 'auto', scrollbarWidth: 'none' }}>
             {otherAlbums.map(a => (
               <Link key={a.id} href={`/lt/albumas/${a.slug}/${a.id}/`} style={{ flexShrink: 0, width: 80, textDecoration: 'none' }}>
-                {a.cover_image_url ? <img src={a.cover_image_url} alt={a.title} style={{ width: 80, height: 80, borderRadius: 9, objectFit: 'cover', display: 'block', border: '1px solid var(--similar-cover-border)', marginBottom: 5 }} /> : <div style={{ width: 80, height: 80, borderRadius: 9, background: 'var(--cover-placeholder)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, marginBottom: 5 }}>💿</div>}
+                {a.cover_image_url ? <img src={proxyImg(a.cover_image_url)} alt={a.title} style={{ width: 80, height: 80, borderRadius: 9, objectFit: 'cover', display: 'block', border: '1px solid var(--similar-cover-border)', marginBottom: 5 }} /> : <div style={{ width: 80, height: 80, borderRadius: 9, background: 'var(--cover-placeholder)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, marginBottom: 5 }}>💿</div>}
                 <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--similar-title)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.title}</div>
                 <div style={{ fontSize: 9, color: 'var(--similar-meta)', marginTop: 1 }}>{a.year}</div>
               </Link>
@@ -430,7 +431,7 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
           <div style={{ display: 'flex', gap: 8, padding: '10px 12px', overflowX: 'auto', scrollbarWidth: 'none' }}>
             {similarAlbums.map((a: any) => (
               <Link key={a.id} href={`/lt/albumas/${a.slug}/${a.id}/`} style={{ flexShrink: 0, width: 80, textDecoration: 'none' }}>
-                {a.cover_image_url ? <img src={a.cover_image_url} alt={a.title} style={{ width: 80, height: 80, borderRadius: 9, objectFit: 'cover', display: 'block', border: '1px solid var(--similar-cover-border)', marginBottom: 5 }} /> : <div style={{ width: 80, height: 80, borderRadius: 9, background: 'var(--cover-placeholder)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, marginBottom: 5 }}>🎵</div>}
+                {a.cover_image_url ? <img src={proxyImg(a.cover_image_url)} alt={a.title} style={{ width: 80, height: 80, borderRadius: 9, objectFit: 'cover', display: 'block', border: '1px solid var(--similar-cover-border)', marginBottom: 5 }} /> : <div style={{ width: 80, height: 80, borderRadius: 9, background: 'var(--cover-placeholder)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, marginBottom: 5 }}>🎵</div>}
                 <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--similar-title)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.title}</div>
                 <div style={{ fontSize: 9, color: 'var(--similar-meta)', marginTop: 1 }}>{a.artists?.name} · {a.year}</div>
               </Link>
