@@ -43,6 +43,11 @@
   --card-bg:         rgba(255,255,255,0.03);
   --card-hover:      rgba(255,255,255,0.05);
 
+  /* Player placeholder gradient — dark mode tylus tamsus dangus + subtle
+     orange centerless ring. Light mode'e overrid'inamas į šviesų gradient'ą,
+     kad neatrodytų kaip svetimkūnis tamsus stačiakampis. */
+  --player-placeholder-bg: linear-gradient(135deg, #1a2436 0%, #0f1825 50%, #0a0f1a 100%);
+
   /* Inputs & forms */
   --input-bg:        rgba(255,255,255,0.05);
   --input-border:    rgba(255,255,255,0.10);
@@ -177,6 +182,10 @@
   /* Cards */
   --card-bg:         rgba(0,0,0,0.03);
   --card-hover:      rgba(0,0,0,0.05);
+
+  /* Player placeholder light mode override — soft blue-gray gradient su
+     subtle orange tint, kad neatrodytų kaip svetimkūnis tamsus stačiakampis. */
+  --player-placeholder-bg: linear-gradient(135deg, #e8eef7 0%, #dde6f3 50%, #d3deee 100%);
 
   /* Inputs & forms */
   --input-bg:        rgba(0,0,0,0.04);

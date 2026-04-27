@@ -409,18 +409,15 @@ function PlayerCard({
                 if (target != null) pingPlay(target)
               }}
               aria-label="Paleisti"
-              className="group absolute inset-0 block cursor-pointer overflow-hidden border-0 bg-gradient-to-br from-[#1a2436] to-[#0a0f1a] p-0"
+              className="group absolute inset-0 block cursor-pointer overflow-hidden border-0 p-0"
+              style={{ background: 'var(--player-placeholder-bg, linear-gradient(135deg, #1a2436 0%, #0f1825 50%, #0a0f1a 100%))' }}
             >
-              {/* Visada rodom tylų dark gradient backdrop'ą — NE YT thumbnail.
-                  Anksčiau bandėm užkrauti maxresdefault/hqdefault, bet:
-                    1. YT'as ištrintiems video grąžina pilką "?" stub'ą kuris
-                       atrodo kaip broken icon
-                    2. Aspect ratio detection (120x90) nepagavo 480x360 stub'o
-                  Variantų abu nepatenkinama → tiesiog ne'įdedam thumbnail'o.
-                  Vartotojas pamato Play mygtuką ant švaraus tamsaus fono;
-                  paspaudus pasileidžia YT iframe (kuris pats parodo
-                  "Video unavailable" jei reikia). */}
-              <div className="absolute inset-0 bg-gradient-to-br from-[#1a2436] via-[#0f1825] to-[#0a0f1a]" />
+              {/* Tylus gradient backdrop — switch'ina tarp dark/light per CSS
+                  variable --player-placeholder-bg (definuota globals.css).
+                  Anksčiau buvo hardcode'inti dark hex'ai → light mode'e
+                  atrodė kaip svetimkūnis tamsus stačiakampis. Anksčiau bandėm
+                  užkrauti YT thumbnail'ą, bet stub'ai nepatenkinami →
+                  paliekam švarų gradient'ą su Play mygtuku. */}
               {/* Subtle vinyl-like centerless ring for visual texture. */}
               <div className="absolute inset-0 opacity-[0.03]" style={{
                 backgroundImage: 'radial-gradient(circle at center, transparent 30%, rgba(249,115,22,0.4) 30.5%, transparent 31.5%, transparent 60%, rgba(249,115,22,0.2) 60.5%, transparent 61.5%)',
@@ -1533,7 +1530,8 @@ function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' |
     return (
       <Link
         href={href}
-        className="group flex items-stretch gap-3 overflow-hidden rounded-2xl border border-[rgba(249,115,22,0.3)] bg-gradient-to-br from-[rgba(249,115,22,0.1)] to-transparent p-3 no-underline transition-all hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.55)] hover:shadow-[0_10px_28px_rgba(249,115,22,0.15)]"
+        className="group flex items-stretch gap-3 overflow-hidden rounded-2xl border border-[rgba(249,115,22,0.3)] p-3 no-underline transition-all hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.55)] hover:shadow-[0_10px_28px_rgba(249,115,22,0.15)]"
+        style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.18), rgba(249,115,22,0.04) 70%), var(--bg-elevated)' }}
       >
         <div className="flex min-w-[62px] flex-col items-center justify-center rounded-xl bg-[rgba(249,115,22,0.15)] px-2 py-2 text-center">
           <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase leading-tight text-[var(--accent-orange)]">{monthShort}</span>
@@ -1562,7 +1560,8 @@ function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' |
   return (
     <Link
       href={href}
-      className="group flex min-h-[130px] w-full items-stretch gap-0 overflow-hidden rounded-2xl border border-[rgba(249,115,22,0.25)] bg-gradient-to-br from-[rgba(249,115,22,0.08)] to-transparent no-underline transition-all hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.5)] hover:shadow-[0_12px_32px_rgba(249,115,22,0.15)]"
+      className="group flex min-h-[130px] w-full items-stretch gap-0 overflow-hidden rounded-2xl border border-[rgba(249,115,22,0.25)] no-underline transition-all hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.5)] hover:shadow-[0_12px_32px_rgba(249,115,22,0.15)]"
+      style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.16), rgba(249,115,22,0.04) 70%), var(--bg-elevated)' }}
     >
       {/* Cover area: backdrop fallback ALWAYS rendered (calendar + orange
           gradient). img layer ant viršaus jei yra cover_image_url. Jei img
@@ -1717,7 +1716,8 @@ function EventBigCard({ e }: { e: any }) {
   return (
     <Link
       href={href}
-      className="group flex flex-col overflow-hidden rounded-2xl border border-[rgba(249,115,22,0.25)] bg-gradient-to-br from-[rgba(249,115,22,0.08)] to-transparent no-underline transition-all hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.5)] hover:shadow-[0_12px_32px_rgba(249,115,22,0.15)]"
+      className="group flex flex-col overflow-hidden rounded-2xl border border-[rgba(249,115,22,0.25)] no-underline transition-all hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.5)] hover:shadow-[0_12px_32px_rgba(249,115,22,0.15)]"
+      style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.16), rgba(249,115,22,0.04) 70%), var(--bg-elevated)' }}
     >
       {hasCover ? (
         <div className="relative aspect-[16/9] overflow-hidden">
