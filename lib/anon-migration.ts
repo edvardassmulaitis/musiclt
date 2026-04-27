@@ -5,9 +5,9 @@
 // as a standalone function for any future manual "reconcile" endpoint.
 //
 // Design notes:
-//  - Idempotent: safe to re-run. Rows already in the registered table are
-//    detected up-front and skipped (we don't rely on a UNIQUE constraint
-//    necessarily being present, though one exists for artist_likes).
+//  - Idempotent: safe to re-run. Rows already owned by the profile are
+//    detected up-front and skipped (likes UNIQUE (entity_type, entity_id, user_username)
+//    saugiklis užtikrina kad nedubliuosis).
 //  - Per-table branches return the count migrated so signIn can log a summary.
 //  - We DON'T clear the anon cookie after migration — the anon_id stays so we
 //    can still correlate past anon activity with this device for analytics,
@@ -34,53 +34,53 @@ export async function readAnonIdFromCookie(): Promise<string | null> {
   }
 }
 
-/** Move anon_artist_likes rows (for a given anon_id) into artist_likes under
- *  the given profile_id. Skips artists the profile has already liked. Returns
- *  the number of new rows inserted. */
+/** Migrate anon_artist_likes from likes table (source='anon') to the given profile_id
+ *  by updating user_id and source. Skips artists the profile has already liked.
+ *  Returns the number of rows updated. */
 async function migrateArtistLikes(
   sb: ReturnType<typeof createAdminClient>,
   anonId: string,
   profileId: string,
+  userUsername: string,
 ): Promise<number> {
   try {
+    // Find all anon likes for this anon_id (anonymous user, not ghost)
     const { data: anonRows } = await sb
-      .from('anon_artist_likes')
-      .select('artist_id')
+      .from('likes')
+      .select('id, entity_id')
+      .eq('source', 'anon')
       .eq('anon_id', anonId)
-    const artistIds = Array.from(new Set(
-      (anonRows || []).map((r: any) => r.artist_id).filter((n: any) => typeof n === 'number'),
-    )) as number[]
+      .eq('entity_type', 'artist')
+    const likeIds = (anonRows || []).map((r: any) => r.id)
+    const artistIds = (anonRows || []).map((r: any) => r.entity_id)
     if (artistIds.length === 0) return 0
 
     // Skip artists the profile has already liked while signed in.
     const { data: existing } = await sb
-      .from('artist_likes')
-      .select('artist_id')
+      .from('likes')
+      .select('entity_id')
       .eq('user_id', profileId)
-      .in('artist_id', artistIds)
-    const already = new Set((existing || []).map((r: any) => r.artist_id))
+      .eq('entity_type', 'artist')
+      .eq('source', 'auth')
+      .in('entity_id', artistIds)
+    const already = new Set((existing || []).map((r: any) => r.entity_id))
 
-    const toInsert = artistIds
-      .filter(aid => !already.has(aid))
-      .map(aid => ({ artist_id: aid, user_id: profileId }))
+    const toUpdate = artistIds.filter((aid: number) => !already.has(aid))
+    const toUpdateIds = likeIds.filter((_: any, i: number) => !already.has(artistIds[i]))
 
-    if (toInsert.length > 0) {
-      const { error } = await sb.from('artist_likes').insert(toInsert)
+    if (toUpdateIds.length > 0) {
+      // Update anon rows to be owned by the new user
+      const { error } = await sb
+        .from('likes')
+        .update({ user_id: profileId, user_username: userUsername, source: 'auth', anon_id: null })
+        .in('id', toUpdateIds)
       if (error) {
-        console.error('[anon-migration] artist_likes insert failed:', error.message)
+        console.error('[anon-migration] likes update failed:', error.message)
         return 0
       }
     }
 
-    // Remove anon rows for the artists we considered — both inserted and
-    // already-present. Keeps the anon table tidy and prevents re-migration.
-    await sb
-      .from('anon_artist_likes')
-      .delete()
-      .eq('anon_id', anonId)
-      .in('artist_id', artistIds)
-
-    return toInsert.length
+    return toUpdateIds.length
   } catch (e: any) {
     console.error('[anon-migration] artist_likes unexpected error:', e?.message || e)
     return 0
@@ -93,8 +93,9 @@ async function migrateArtistLikes(
 export async function migrateAnonToProfile(
   anonId: string,
   profileId: string,
+  userUsername: string,
 ): Promise<{ artistLikes: number }> {
   const sb = createAdminClient()
-  const artistLikes = await migrateArtistLikes(sb, anonId, profileId)
+  const artistLikes = await migrateArtistLikes(sb, anonId, profileId, userUsername)
   return { artistLikes }
 }

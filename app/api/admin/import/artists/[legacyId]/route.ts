@@ -61,10 +61,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ leg
       .select('id, url, caption, source_url, photographer_id, taken_at, sort_order')
       .eq('artist_id', artist.id)
       .order('sort_order'),
-    supabase.from('legacy_likes')
+    // Count likes from unified likes table for this artist's modern ID
+    supabase.from('likes')
       .select('id', { count: 'exact', head: true })
       .eq('entity_type', 'artist')
-      .eq('entity_legacy_id', legacyId),
+      .eq('entity_id', artist.id),
   ])
 
   return NextResponse.json({

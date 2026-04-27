@@ -50,8 +50,9 @@ async function getGhostUser(username: string): Promise<GhostUser | null> {
 
 async function getGhostActivity(username: string) {
   const sb = createAdminClient()
+  // Query unified likes table for all likes by this ghost user (identified by username)
   const { data } = await sb
-    .from('legacy_likes')
+    .from('likes')
     .select('entity_type, entity_legacy_id, user_rank')
     .eq('user_username', username)
     .range(0, 9999)

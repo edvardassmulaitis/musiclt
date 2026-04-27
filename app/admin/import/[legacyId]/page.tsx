@@ -81,7 +81,7 @@ type DetailData = {
   albums: Album[]
   standalone_tracks: Track[]
   photos: Photo[]
-  legacy_like_count: number
+  legacy_like_count: number  // pavadinimas paliktas backward-compat su API; vidiniai count'ai dabar ateina iš `likes` lentelės
 }
 
 export default function AdminImportDetailPage() {

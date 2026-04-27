@@ -600,11 +600,14 @@ export async function calculateArtistScore(
     .eq('artist_id', artistId)
     .not('lyrics', 'is', null)
 
-  // Get likes count
-  const { count: likes } = await supabase
-    .from('artist_likes')
+  // Vieningas likes count — viena lentelė (`likes`) saugo modern auth +
+  // legacy music.lt + anon. Score formulai svarbu tik bendras skaičius.
+  const { count: likeCount } = await supabase
+    .from('likes')
     .select('*', { count: 'exact', head: true })
-    .eq('artist_id', artistId)
+    .eq('entity_type', 'artist')
+    .eq('entity_id', artistId)
+  const likes = likeCount || 0
 
   // Calculate career years
   const currentYear = new Date().getFullYear()

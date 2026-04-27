@@ -60,7 +60,14 @@ export const authOptions: AuthOptions = {
           try {
             const anonId = await readAnonIdFromCookie()
             if (anonId) {
-              const summary = await migrateAnonToProfile(anonId, user.id as string)
+              // Get the username to pass to migrateAnonToProfile (unified likes requires user_username)
+              const { data: profileData } = await supabase
+                .from('profiles')
+                .select('username')
+                .eq('id', user.id)
+                .single()
+              const userUsername = profileData?.username || `user_${(user.id as string).substring(0, 8)}`
+              const summary = await migrateAnonToProfile(anonId, user.id as string, userUsername)
               if (summary.artistLikes > 0) {
                 console.log(`[anon-migration] ${user.email}: migrated ${summary.artistLikes} artist like(s)`)
               }

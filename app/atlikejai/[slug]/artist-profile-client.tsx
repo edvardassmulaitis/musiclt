@@ -39,7 +39,7 @@ type Track = {
   /** Duration in seconds (integer) or "mm:ss" string — we handle both at render time. */
   duration?: number | string | null
   lyrics?: string | null
-  /** Aggregated like count — modern track_likes + legacy_likes combined.
+  /** Aggregated like count iš `likes` lentelės (entity_type='track').
    *  Set server-side in getTracks(). */
   like_count?: number | null
 }
@@ -2007,9 +2007,9 @@ export default function ArtistProfileClient({
         setModernLikeCount(c => c - (prev ? -1 : 1))
         const errStr = String(detail?.error || '')
         if (/foreign key constraint/i.test(errStr) && /user_id_fkey/i.test(errStr)) {
-          setLikeErrorMsg('Duomenų bazės migracija dar neatlikta: artist_likes FK rodo į auth.users vietoj profiles. Paleisk supabase/migrations/20260424_artist_likes_profile_fk.sql.')
-        } else if (/anon_artist_likes/i.test(errStr)) {
-          setLikeErrorMsg('Lentelė anon_artist_likes nesukurta. Paleisk supabase/migrations/20260424b_anon_artist_likes.sql.')
+          setLikeErrorMsg('Duomenų bazės migracija dar neatlikta: likes.user_id FK turi rodyti į profiles. Paleisk 20260427_unified_likes.sql.')
+        } else if (/relation .*likes.* does not exist/i.test(errStr)) {
+          setLikeErrorMsg('Lentelė likes nesukurta. Paleisk supabase/migrations/20260427_unified_likes.sql.')
         } else if (errStr) {
           setLikeErrorMsg(`Nepavyko: ${errStr}`)
         }
@@ -2028,8 +2028,15 @@ export default function ArtistProfileClient({
   const hasBio = artist.description?.trim().length > 10
   const solo = artist.type === 'solo'
   const active = artist.active_from ? `${artist.active_from}–${artist.active_until || 'dabar'}` : null
-  const authoritativeLegacy = (artist as any).legacy_like_count ?? legacyCommunity?.artistLikes ?? 0
-  const likes = modernLikeCount + followers + authoritativeLegacy
+  // Visi likes count'inami iš `likes` lentelės (jau aggregate'ino getLegacyCommunity).
+  // modernLikeCount yra optimistic state nuo toggle'inimų po page load — tik prie
+  // jo prideda followers (kurie atskira lentelė).
+  // legacyCommunity.artistLikes = total iš `likes` per page-load. Toggle'as
+  // updates'ina modernLikeCount += 1, todėl jei jį pridėtumėm prie artistLikes
+  // dvigubintų. Sprendimas: jei selfLiked perduotas — modernLikeCount turi
+  // diff'ą, kitaip — naudojam tik artistLikes.
+  const baseArtistLikes = legacyCommunity?.artistLikes ?? 0
+  const likes = baseArtistLikes + followers
   const allLikesUsers: any[] = legacyCommunity?.allArtistFans || []
 
   // Discography filters — album types + "Kitos dainos" (orphan tracks).
@@ -2158,7 +2165,7 @@ export default function ArtistProfileClient({
         count={likes}
         users={allLikesUsers}
         subjectName={artist.name}
-        subjectPhoto={heroImage}
+        subjectPhoto={artist.cover_image_url || heroImage}
         selfLiked={selfLiked}
         authed={authed}
         onToggleSelfLike={toggleSelfLike}

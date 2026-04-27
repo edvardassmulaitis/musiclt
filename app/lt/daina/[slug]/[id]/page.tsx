@@ -75,23 +75,24 @@ export default async function TrackPage({ params }: { params: Promise<{ slug: st
       type: a.type_studio ? 'Studijinis albumas' : (a.type ?? 'Albumas'),
     }))
 
-  // ── Fetch likes ────────────────────────────────────────────────────────────
+  // ── Fetch likes from unified likes table ──────────────────────────────────
   const { count: likes } = await supabase
-    .from('track_likes')
+    .from('likes')
     .select('*', { count: 'exact', head: true })
-    .eq('track_id', id)
+    .eq('entity_type', 'track')
+    .eq('entity_id', id)
 
-  // ── Fetch legacy likes from music.lt archive ───────────────────────────────
+  // ── Fetch legacy likes from unified table (entity_legacy_id tracking) ──────
   const trackLegacyId = (track as any).legacy_id ?? null
   const [legacyCntRes, legacyUsersRes] = trackLegacyId
     ? await Promise.all([
         supabase
-          .from('legacy_likes')
+          .from('likes')
           .select('*', { count: 'exact', head: true })
           .eq('entity_type', 'track')
           .eq('entity_legacy_id', trackLegacyId),
         supabase
-          .from('legacy_likes')
+          .from('likes')
           .select('user_username, user_rank, user_avatar_url')
           .eq('entity_type', 'track')
           .eq('entity_legacy_id', trackLegacyId)

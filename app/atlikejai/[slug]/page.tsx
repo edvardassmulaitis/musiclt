@@ -13,10 +13,9 @@ async function getArtist(slug: string) {
   return data
 }
 
-/** music.lt authoritative count nuo artist page label. Scrape metu paimtas. */
-function getAuthoritativeLegacyCount(artist: any): number {
-  return artist?.legacy_like_count ?? 0
-}
+// (legacy_like_count cache buvo pašalintas — visus likes count'us imam tiesiai
+// iš `likes` lentelės. Šis helper'is liko tik komentaru, kad būtų aišku
+// kodėl nebėra fallback'o.)
 async function getGenres(id: number) { const sb = createAdminClient(); const { data } = await sb.from('artist_genres').select('genre_id, genres(id, name)').eq('artist_id', id); return (data || []).map((g: any) => g.genres).filter(Boolean) }
 async function getLinks(id: number) {
   const sb = createAdminClient()
@@ -120,80 +119,66 @@ async function getTracks(id: number) {
   const tracks = (data || []) as any[]
   if (tracks.length === 0) return tracks
 
-  // Attach like counts (modern track_likes + legacy_likes). Two grouped reads
-  // rather than N subqueries keeps this cheap even for 100+ track artists.
+  // Attach like counts iš unified `likes` lentelės. Vienas SELECT — visi
+  // tracks vienu šūviu (entity_type='track' AND entity_id IN (...)).
   const trackIds = tracks.map((t) => t.id)
-  const legacyIds = tracks.map((t) => t.legacy_id).filter((x): x is number => typeof x === 'number')
-
-  const [modernLikes, legacyLikes] = await Promise.all([
-    sb.from('track_likes').select('track_id').in('track_id', trackIds),
-    legacyIds.length > 0
-      ? sb.from('legacy_likes')
-          .select('entity_legacy_id')
-          .eq('entity_type', 'track')
-          .in('entity_legacy_id', legacyIds)
-      : Promise.resolve({ data: [] as any[] }),
-  ])
-
+  const { data: likeRows } = await sb
+    .from('likes')
+    .select('entity_id')
+    .eq('entity_type', 'track')
+    .in('entity_id', trackIds)
   const byTrack = new Map<number, number>()
-  for (const r of (modernLikes.data || []) as any[]) {
-    byTrack.set(r.track_id, (byTrack.get(r.track_id) || 0) + 1)
+  for (const r of (likeRows || []) as any[]) {
+    byTrack.set(r.entity_id, (byTrack.get(r.entity_id) || 0) + 1)
   }
-  const byLegacy = new Map<number, number>()
-  for (const r of (legacyLikes.data || []) as any[]) {
-    byLegacy.set(r.entity_legacy_id, (byLegacy.get(r.entity_legacy_id) || 0) + 1)
+  for (const t of tracks) {
+    t.like_count = byTrack.get(t.id) || 0
   }
 
-  for (const t of tracks) {
-    const modern = byTrack.get(t.id) || 0
-    const legacy = typeof t.legacy_id === 'number' ? (byLegacy.get(t.legacy_id) || 0) : 0
-    t.like_count = modern + legacy
-  }
+  // Sort by popularity (likes desc, tiebreak by created_at desc which is
+  // already the initial sort). UI's "Top dainos" tab assumes the list is
+  // popularity-sorted — anksčiau buvo created_at desc, todėl seniausi liko
+  // viršuje.
+  tracks.sort((a, b) => (b.like_count || 0) - (a.like_count || 0))
 
   return tracks
 }
 async function getAllArtistTrackLegacyIds(id: number) { const sb = createAdminClient(); const { data } = await sb.from('tracks').select('legacy_id').eq('artist_id', id).not('legacy_id', 'is', null); return (data || []).map((t: any) => t.legacy_id).filter((x: any) => typeof x === 'number') }
 
-/** Sumedžioja legacy community info: visus likes artist + visiems jo albumams + tracks.
- * Grąžina suma, unikalūs vartotojai, top fans (su like_count). */
+/** Sumedžioja community info: visus likes artist + visiems jo albumams + tracks.
+ * Grąžina suma, unikalūs vartotojai, top fans (su like_count).
+ *
+ * Naudoja unified `likes` lentelę su entity_id (modern PK, ne legacy_id).
+ * Anksčiau buvo legacy_likes su entity_legacy_id — dabar viskas vienoje vietoje. */
 async function getLegacyCommunity(
-  artistLegacyId: number | null,
-  albumLegacyIds: number[],
-  trackLegacyIds: number[],
+  artistId: number,
+  albumIds: number[],
+  trackIds: number[],
 ) {
-  if (!artistLegacyId) {
-    return {
-      totalEvents: 0,
-      distinctUsers: 0,
-      artistLikes: 0,
-      topFans: [] as { user_username: string; user_rank: string | null; user_avatar_url: string | null; like_count: number }[],
-      allArtistFans: [] as { user_username: string; user_rank: string | null; user_avatar_url: string | null }[],
-    }
-  }
   const sb = createAdminClient()
 
-  // Artist-level likes — tai kas rodoma main ♥ button'e (match'ina music.lt UI).
-  // Albumų/tracks likes reikalingi tik aggregate distinctUsers stat'ui (modal'o info).
+  // Artist-level likes — tai kas rodoma main ♥ button'e.
+  // Albumų/tracks likes reikalingi tik aggregate distinctUsers stat'ui.
   const artistLikesP = sb
-    .from('legacy_likes')
+    .from('likes')
     .select('user_username, user_rank, user_avatar_url')
     .eq('entity_type', 'artist')
-    .eq('entity_legacy_id', artistLegacyId)
+    .eq('entity_id', artistId)
     .range(0, 9999)
 
-  const albumLikesP = albumLegacyIds.length > 0
-    ? sb.from('legacy_likes')
+  const albumLikesP = albumIds.length > 0
+    ? sb.from('likes')
         .select('user_username, user_rank, user_avatar_url')
         .eq('entity_type', 'album')
-        .in('entity_legacy_id', albumLegacyIds)
+        .in('entity_id', albumIds)
         .range(0, 9999)
     : Promise.resolve({ data: [] as any[] })
 
-  const trackLikesP = trackLegacyIds.length > 0
-    ? sb.from('legacy_likes')
+  const trackLikesP = trackIds.length > 0
+    ? sb.from('likes')
         .select('user_username, user_rank, user_avatar_url')
         .eq('entity_type', 'track')
-        .in('entity_legacy_id', trackLegacyIds)
+        .in('entity_id', trackIds)
         .range(0, 9999)
     : Promise.resolve({ data: [] as any[] })
 
@@ -357,7 +342,15 @@ async function getSubstyles(id: number): Promise<{ id: number; name: string }[]>
   return (data || []).map((r: any) => r.substyles).filter(Boolean)
 }
 async function getFollowers(id: number) { const sb = createAdminClient(); const { count } = await sb.from('artist_follows').select('*', { count: 'exact', head: true }).eq('artist_id', id); return count || 0 }
-async function getLikeCount(id: number) { const sb = createAdminClient(); const { count } = await sb.from('artist_likes').select('*', { count: 'exact', head: true }).eq('artist_id', id); return count || 0 }
+async function getLikeCount(id: number) {
+  const sb = createAdminClient()
+  const { count } = await sb
+    .from('likes')
+    .select('*', { count: 'exact', head: true })
+    .eq('entity_type', 'artist')
+    .eq('entity_id', id)
+  return count || 0
+}
 async function getNews(id: number) { const sb = createAdminClient(); const { data } = await sb.from('news').select('id, slug, title, image_small_url, published_at, type').eq('artist_id', id).order('published_at', { ascending: false }).limit(4); return data || [] }
 async function getEvents(id: number) {
   const sb = createAdminClient()
@@ -388,31 +381,58 @@ async function getSimilar(artistId: number, genreIds: number[]) {
 }
 
 /** Simple rank snapshot.
- * Country: position among artists of same country by legacy_like_count (when available)
+ * Country: position among artists of same country by like count.
  * Genre: position in top genre by like count.
- * These are coarse approximations — they use legacy_like_count as proxy for popularity.
+ * These are coarse approximations — they use total likes as proxy for popularity.
  * Real rank (by plays) will come once we have listening-session data.
+ *
+ * Naudoja unified `likes` lentelę. Anksčiau buvo `legacy_like_count` cache
+ * kolumna ant artists, bet po unified migracijos count'inam tiesiai.
  * Returns the set of ranks that make sense to show. */
 async function getArtistRanks(
   artistId: number,
   country: string | null,
   genres: { id: number; name: string }[],
-  legacyLikeCount: number,
+  artistLikeCount: number,
 ): Promise<{ category: string; rank: number; total: number; scope: 'country' | 'genre' | 'global' }[]> {
-  if (legacyLikeCount <= 0) return []
+  if (artistLikeCount <= 0) return []
   const sb = createAdminClient()
   const out: { category: string; rank: number; total: number; scope: 'country' | 'genre' | 'global' }[] = []
+
+  // Helper: get peers' like counts efficiently — viena query'ė pagal entity_type='artist'
+  // ir IN (peer_ids), aggregate'inam JS'e.
+  async function countLikesByArtist(ids: number[]): Promise<Map<number, number>> {
+    if (ids.length === 0) return new Map()
+    const counts = new Map<number, number>()
+    // Chunked po 200 kad nepražengtumėm URL ribos
+    for (let i = 0; i < ids.length; i += 200) {
+      const chunk = ids.slice(i, i + 200)
+      const { data } = await sb
+        .from('likes')
+        .select('entity_id')
+        .eq('entity_type', 'artist')
+        .in('entity_id', chunk)
+      for (const r of (data || []) as any[]) {
+        counts.set(r.entity_id, (counts.get(r.entity_id) || 0) + 1)
+      }
+    }
+    return counts
+  }
 
   // Country rank
   if (country) {
     const { data: peers } = await sb
       .from('artists')
-      .select('id, legacy_like_count')
+      .select('id')
       .eq('country', country)
-      .not('legacy_like_count', 'is', null)
-    const rows = (peers || []).filter((p: any) => p.id !== artistId)
-    const higher = rows.filter((p: any) => (p.legacy_like_count ?? 0) > legacyLikeCount).length
-    out.push({ category: country, rank: higher + 1, total: rows.length + 1, scope: 'country' })
+    const peerIds = (peers || []).map((p: any) => p.id).filter((x: number) => x !== artistId)
+    if (peerIds.length > 0) {
+      const counts = await countLikesByArtist(peerIds)
+      const higher = peerIds.filter(pid => (counts.get(pid) || 0) > artistLikeCount).length
+      out.push({ category: country, rank: higher + 1, total: peerIds.length + 1, scope: 'country' })
+    } else {
+      out.push({ category: country, rank: 1, total: 1, scope: 'country' })
+    }
   }
 
   // Genre rank (top genre only)
@@ -420,14 +440,16 @@ async function getArtistRanks(
     const g = genres[0]
     const { data: gpeers } = await sb
       .from('artist_genres')
-      .select('artist_id, artists!inner(id, legacy_like_count)')
+      .select('artist_id')
       .eq('genre_id', g.id)
-    const rows = (gpeers || [])
-      .map((r: any) => r.artists)
-      .filter((a: any) => a && a.id !== artistId && a.legacy_like_count != null)
-    const higher = rows.filter((a: any) => (a.legacy_like_count ?? 0) > legacyLikeCount).length
-    // Always surface the genre rank — #1 out of 1 is still valid ("#1 in the genre").
-    out.push({ category: g.name, rank: higher + 1, total: rows.length + 1, scope: 'genre' })
+    const peerIds = (gpeers || []).map((r: any) => r.artist_id).filter((x: number) => x !== artistId)
+    if (peerIds.length > 0) {
+      const counts = await countLikesByArtist(peerIds)
+      const higher = peerIds.filter(pid => (counts.get(pid) || 0) > artistLikeCount).length
+      out.push({ category: g.name, rank: higher + 1, total: peerIds.length + 1, scope: 'genre' })
+    } else {
+      out.push({ category: g.name, rank: 1, total: 1, scope: 'genre' })
+    }
   }
 
   return out
@@ -513,15 +535,11 @@ export default async function ArtistPage({ params }: Props) {
   const linkedTrackIds = Array.from(linkedTrackIdSet)
   const similar = await getSimilar(artist.id, genres.map((g: any) => g.id))
 
-  // Legacy community — aggregated likes (artist + all his albums + tracks)
-  const albumLegacyIds = (albums as any[])
-    .map((a) => a.legacy_id)
-    .filter((x) => typeof x === 'number')
-  const legacyCommunity = await getLegacyCommunity(
-    (artist as any).legacy_id ?? null,
-    albumLegacyIds,
-    allTrackLegacyIds,
-  )
+  // Community — aggregated likes (artist + all his albums + tracks).
+  // Naudoja modern PK'us (entity_id), ne legacy_id.
+  const albumIds = (albums as any[]).map((a: any) => a.id).filter((x: any) => typeof x === 'number')
+  const allTrackIds = (tracks as any[]).map((t: any) => t.id).filter((x: any) => typeof x === 'number')
+  const legacyCommunity = await getLegacyCommunity(artist.id, albumIds, allTrackIds)
 
   // Photos shown publicly — only is_active=true (or undefined for legacy rows
   // without that column). Inactive photos exist but waiting for admin approval.
@@ -552,12 +570,13 @@ export default async function ArtistPage({ params }: Props) {
 
   const events = rawEvents
 
-  // Compute ranks (country, genre) using legacy_like_count as proxy
+  // Compute ranks (country, genre) — naudoja `legacyCommunity.artistLikes` kaip
+  // popularity proxy (visi likes iš unified `likes` lentelės).
   const ranks = await getArtistRanks(
     artist.id,
     artist.country || null,
     genres as { id: number; name: string }[],
-    (artist as any).legacy_like_count ?? 0,
+    legacyCommunity.artistLikes,
   )
 
   // Enrich forum threads with last post preview so the UI can show a teaser
@@ -577,7 +596,7 @@ export default async function ArtistPage({ params }: Props) {
 
   return (
     <ArtistProfileClient
-      artist={{ id: artist.id, slug: artist.slug, name: artist.name, type: artist.type || 'group', country: artist.country, active_from: artist.active_from, active_until: artist.active_until, description: stripStyles(artist.description || ''), cover_image_url: artist.cover_image_url, cover_image_position: artist.cover_image_position, website: artist.website, spotify_id: artist.spotify_id, is_verified: artist.is_verified, gender: artist.gender, birth_date: artist.birth_date, death_date: artist.death_date, legacy_id: (artist as any).legacy_id ?? null, source: (artist as any).source ?? null, legacy_like_count: (artist as any).legacy_like_count ?? 0, score: (artist as any).score ?? null, score_breakdown: (artist as any).score_breakdown ?? null, score_updated_at: (artist as any).score_updated_at ?? null }}
+      artist={{ id: artist.id, slug: artist.slug, name: artist.name, type: artist.type || 'group', country: artist.country, active_from: artist.active_from, active_until: artist.active_until, description: stripStyles(artist.description || ''), cover_image_url: artist.cover_image_url, cover_image_position: artist.cover_image_position, website: artist.website, spotify_id: artist.spotify_id, is_verified: artist.is_verified, gender: artist.gender, birth_date: artist.birth_date, death_date: artist.death_date, legacy_id: (artist as any).legacy_id ?? null, source: (artist as any).source ?? null, score: (artist as any).score ?? null, score_breakdown: (artist as any).score_breakdown ?? null, score_updated_at: (artist as any).score_updated_at ?? null }}
       heroImage={heroImage} genres={genres} links={links} photos={photos} albums={albums as any} tracks={tracks as any}
       members={members} followers={followers} likeCount={likeCount} news={news as any} events={events}
       similar={similar} newTracks={newTracks as any} topVideos={topVideos as any}

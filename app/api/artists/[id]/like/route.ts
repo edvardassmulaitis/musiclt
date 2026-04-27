@@ -1,18 +1,22 @@
 // app/api/artists/[id]/like/route.ts
 //
-// Artist like toggle. Two paths depending on auth:
+// Artist like toggle. Vieninga `likes` lentelė pakeitė atskiras
+// artist_likes / anon_artist_likes / legacy_likes lenteles.
 //
-//  - Signed-in user (NextAuth session): resolves profiles.id by email, writes
-//    to artist_likes. FK: user_id → profiles.id. Weight = 1.
+// Trys atvejai (vienoje lentelėje, atskiras `source` discriminator'iu):
 //
-//  - Anonymous visitor: identified by an httpOnly UUID cookie (ml_anon_id),
-//    writes to anon_artist_likes. Unique (artist_id, anon_id) so a device can
-//    only like an artist once. Lower weight signal, but still counted so the
-//    user gets immediate feedback. user_agent stored for abuse triage /
-//    anon-trend analytics; no IPs persisted.
+//  - **Auth user** (NextAuth session): resolve'ina profiles.id, INSERT'ina
+//    su user_id + user_username (denormalized snapshot). source='auth'.
 //
-// Returned count = registered + anonymous combined. Client decides whether to
-// surface a "sign-in to make it count more" nudge based on the `anonymous` flag.
+//  - **Anonymous** (httpOnly UUID cookie ml_anon_id): INSERT'ina su anon_id
+//    + pseudo username 'anon_<8chars>'. source='anon'.
+//
+//  - **Music.lt scrape** (legacy_scrape) — niekur čia nerašom; importuoja
+//    scraper'is su user_id=NULL ir tikru music.lt username. source='legacy_scrape'.
+//
+// Dedupe per `UNIQUE (entity_type, entity_id, user_username)` — toks pat
+// pavadinimas užregistravęsi user'is bus matched į ghost row pagal username
+// ir merge'inamas (per ateities claim flow).
 
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
@@ -22,7 +26,7 @@ import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
 
 const ANON_COOKIE = 'ml_anon_id'
-const ANON_COOKIE_MAX_AGE = 60 * 60 * 24 * 365 // 1 year
+const ANON_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 
 function jsonErr(msg: string, status = 500, extra?: Record<string, unknown>) {
   return NextResponse.json({ error: msg, ...(extra || {}) }, { status })
@@ -32,33 +36,32 @@ function isValidUuid(v: string | undefined | null): v is string {
   return !!v && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
 }
 
-/** Read existing anon cookie (doesn't create). */
 async function readAnonCookie(): Promise<string | null> {
   const store = await cookies()
   const v = store.get(ANON_COOKIE)?.value
   return isValidUuid(v) ? v : null
 }
 
-/** Resolve profiles.id from signed-in user's email. Null if not signed in or
- *  profile row missing. */
-async function resolveProfileId(
+async function resolveProfile(
   sb: ReturnType<typeof createAdminClient>,
   email: string,
-): Promise<string | null> {
-  const { data } = await sb.from('profiles').select('id').eq('email', email).maybeSingle()
-  return data?.id || null
+): Promise<{ id: string; username: string } | null> {
+  const { data } = await sb.from('profiles').select('id, username').eq('email', email).maybeSingle()
+  if (!data?.id) return null
+  return { id: data.id, username: data.username || `user_${String(data.id).slice(0, 8)}` }
 }
 
-/** Aggregate counts for an artist across both modern + anonymous tables. */
+/** Total like count for an artist — single SELECT iš unified likes lentelės. */
 async function getTotalCount(
   sb: ReturnType<typeof createAdminClient>,
   artistId: number,
 ): Promise<number> {
-  const [regular, anon] = await Promise.all([
-    sb.from('artist_likes').select('*', { count: 'exact', head: true }).eq('artist_id', artistId),
-    sb.from('anon_artist_likes').select('*', { count: 'exact', head: true }).eq('artist_id', artistId),
-  ])
-  return (regular.count || 0) + (anon.count || 0)
+  const { count } = await sb
+    .from('likes')
+    .select('*', { count: 'exact', head: true })
+    .eq('entity_type', 'artist')
+    .eq('entity_id', artistId)
+  return count || 0
 }
 
 // ── GET: returns { liked, count, anonymous } for the current viewer ────
@@ -77,13 +80,14 @@ export async function GET(
   let anonymous = false
 
   if (session?.user?.email) {
-    const profileId = await resolveProfileId(sb, session.user.email)
-    if (profileId) {
+    const profile = await resolveProfile(sb, session.user.email)
+    if (profile) {
       const { data } = await sb
-        .from('artist_likes')
-        .select('*')
-        .eq('artist_id', artistId)
-        .eq('user_id', profileId)
+        .from('likes')
+        .select('id')
+        .eq('entity_type', 'artist')
+        .eq('entity_id', artistId)
+        .eq('user_id', profile.id)
         .limit(1)
         .maybeSingle()
       liked = !!data
@@ -92,9 +96,10 @@ export async function GET(
     const anonId = await readAnonCookie()
     if (anonId) {
       const { data } = await sb
-        .from('anon_artist_likes')
+        .from('likes')
         .select('id')
-        .eq('artist_id', artistId)
+        .eq('entity_type', 'artist')
+        .eq('entity_id', artistId)
         .eq('anon_id', anonId)
         .limit(1)
         .maybeSingle()
@@ -107,7 +112,7 @@ export async function GET(
   return NextResponse.json({ liked, count, anonymous })
 }
 
-// ── POST: toggles like, returns { liked, count, anonymous, firstAnon? } ─
+// ── POST: toggles like ────
 
 export async function POST(
   req: NextRequest,
@@ -120,30 +125,46 @@ export async function POST(
   const sb = createAdminClient()
   const session = await getServerSession(authOptions)
 
-  // ── Signed-in branch ──
+  // ── Auth branch ──
   if (session?.user?.email) {
-    const profileId = await resolveProfileId(sb, session.user.email)
-    if (!profileId) {
+    const profile = await resolveProfile(sb, session.user.email)
+    if (!profile) {
       return jsonErr('Tavo profilis dar nesukurtas — atsijunk ir prisijunk iš naujo', 500)
     }
 
-    const { data: existing, error: checkErr } = await sb
-      .from('artist_likes')
-      .select('*')
-      .eq('artist_id', artistId)
-      .eq('user_id', profileId)
+    const { data: existing } = await sb
+      .from('likes')
+      .select('id')
+      .eq('entity_type', 'artist')
+      .eq('entity_id', artistId)
+      .eq('user_id', profile.id)
       .limit(1)
       .maybeSingle()
-    if (checkErr && checkErr.code !== 'PGRST116') {
-      return jsonErr(`Nepavyko patikrinti: ${checkErr.message}`, 500)
-    }
 
     if (existing) {
-      const { error } = await sb.from('artist_likes').delete().eq('artist_id', artistId).eq('user_id', profileId)
+      const { error } = await sb.from('likes').delete().eq('id', existing.id)
       if (error) return jsonErr(`Nepavyko pašalinti: ${error.message}`, 500)
     } else {
-      const { error } = await sb.from('artist_likes').insert({ artist_id: artistId, user_id: profileId })
-      if (error) return jsonErr(`Nepavyko išsaugoti: ${error.message}`, 500, { hint: 'Patikrink artist_likes FK į profiles' })
+      const { error } = await sb.from('likes').insert({
+        entity_type: 'artist',
+        entity_id: artistId,
+        user_id: profile.id,
+        user_username: profile.username,
+        source: 'auth',
+      })
+      if (error) {
+        // Username collision (e.g. ghost user su tuo pačiu username) → atnaujinam
+        // existing eilutę su user_id (claim).
+        if (error.code === '23505') {
+          await sb.from('likes')
+            .update({ user_id: profile.id, source: 'auth' })
+            .eq('entity_type', 'artist')
+            .eq('entity_id', artistId)
+            .eq('user_username', profile.username)
+        } else {
+          return jsonErr(`Nepavyko išsaugoti: ${error.message}`, 500)
+        }
+      }
     }
 
     const count = await getTotalCount(sb, artistId)
@@ -168,36 +189,31 @@ export async function POST(
 
   const userAgent = req.headers.get('user-agent')?.slice(0, 500) || null
 
-  const { data: existing, error: checkErr } = await sb
-    .from('anon_artist_likes')
+  const { data: existing } = await sb
+    .from('likes')
     .select('id')
-    .eq('artist_id', artistId)
+    .eq('entity_type', 'artist')
+    .eq('entity_id', artistId)
     .eq('anon_id', anonId)
     .limit(1)
     .maybeSingle()
-  if (checkErr && checkErr.code !== 'PGRST116') {
-    return jsonErr(`Nepavyko patikrinti (anon): ${checkErr.message}`, 500)
-  }
 
   let firstAnon = false
   if (existing) {
-    const { error } = await sb.from('anon_artist_likes').delete().eq('artist_id', artistId).eq('anon_id', anonId)
+    const { error } = await sb.from('likes').delete().eq('id', existing.id)
     if (error) return jsonErr(`Nepavyko pašalinti (anon): ${error.message}`, 500)
   } else {
-    const { error } = await sb.from('anon_artist_likes').insert({
-      artist_id: artistId,
+    const { error } = await sb.from('likes').insert({
+      entity_type: 'artist',
+      entity_id: artistId,
       anon_id: anonId,
+      user_username: `anon_${String(anonId).slice(0, 8)}`,
       user_agent: userAgent,
+      source: 'anon',
     })
-    if (error) {
-      // Unique violation means double-click raced — treat as success since row exists
-      if (error.code !== '23505') {
-        return jsonErr(`Nepavyko išsaugoti (anon): ${error.message}`, 500, {
-          hint: 'Jei table nerasta — paleisk 20260424b_anon_artist_likes.sql',
-        })
-      }
+    if (error && error.code !== '23505') {
+      return jsonErr(`Nepavyko išsaugoti (anon): ${error.message}`, 500)
     }
-    // First-ever anon like from this device — we show a "you're not signed in" nudge once.
     firstAnon = cookieIsFresh
   }
 

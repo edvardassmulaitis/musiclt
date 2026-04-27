@@ -83,11 +83,13 @@ type ThreadLikeUser = { user_username: string; user_rank?: string | null; user_a
 
 async function getThreadLikers(threadLegacyId: number): Promise<ThreadLikeUser[]> {
   const sb = createAdminClient()
+  // Unified `likes` lentelė. forum_threads.legacy_id == thread PK migracijoje,
+  // todėl entity_id == threadLegacyId (žr. 20260427_unified_likes.sql).
   const { data } = await sb
-    .from('legacy_likes')
+    .from('likes')
     .select('user_username,user_rank,user_avatar_url')
     .eq('entity_type', 'thread')
-    .eq('entity_legacy_id', threadLegacyId)
+    .eq('entity_id', threadLegacyId)
   return (data as ThreadLikeUser[] | null) ?? []
 }
 
@@ -107,15 +109,17 @@ async function getPosts(threadLegacyId: number): Promise<PostRow[]> {
 async function getPostLikers(postLegacyIds: number[]): Promise<Record<number, import('@/components/LikesModal').LikeUser[]>> {
   if (postLegacyIds.length === 0) return {}
   const sb = createAdminClient()
+  // Unified `likes` lentelė. forum_posts.legacy_id == post PK migracijoje,
+  // todėl entity_id == postLegacyId.
   const { data } = await sb
-    .from('legacy_likes')
-    .select('entity_legacy_id,user_username,user_rank,user_avatar_url')
+    .from('likes')
+    .select('entity_id,user_username,user_rank,user_avatar_url')
     .eq('entity_type', 'post')
-    .in('entity_legacy_id', postLegacyIds)
+    .in('entity_id', postLegacyIds)
   const out: Record<number, import('@/components/LikesModal').LikeUser[]> = {}
-  for (const row of (data as Array<{ entity_legacy_id: number; user_username: string; user_rank: string | null; user_avatar_url: string | null }> | null) ?? []) {
-    if (!out[row.entity_legacy_id]) out[row.entity_legacy_id] = []
-    out[row.entity_legacy_id].push({
+  for (const row of (data as Array<{ entity_id: number; user_username: string; user_rank: string | null; user_avatar_url: string | null }> | null) ?? []) {
+    if (!out[row.entity_id]) out[row.entity_id] = []
+    out[row.entity_id].push({
       user_username: row.user_username,
       user_rank: row.user_rank,
       user_avatar_url: row.user_avatar_url,

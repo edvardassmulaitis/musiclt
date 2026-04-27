@@ -88,22 +88,25 @@ async function getSimilarAlbums(artistId: number, currentId: number) {
 
 async function getAlbumLikes(albumId: number) {
   const sb = createAdminClient()
+  // Unified likes table: count auth + legacy_scrape + anon likes for this album
   const { count } = await sb
-    .from('album_likes')
+    .from('likes')
     .select('*', { count: 'exact', head: true })
-    .eq('album_id', albumId)
+    .eq('entity_type', 'album')
+    .eq('entity_id', albumId)
   return count || 0
 }
 
 async function getLegacyAlbumLikes(albumLegacyId: number | null) {
   if (!albumLegacyId) return { count: 0, users: [] as { user_username: string; user_rank: string | null }[] }
   const sb = createAdminClient()
+  // Query unified likes table for legacy_scrape + auth users who liked via music.lt legacy
   const [cntRes, usersRes] = await Promise.all([
-    sb.from('legacy_likes')
+    sb.from('likes')
       .select('*', { count: 'exact', head: true })
       .eq('entity_type', 'album')
       .eq('entity_legacy_id', albumLegacyId),
-    sb.from('legacy_likes')
+    sb.from('likes')
       .select('user_username, user_rank, user_avatar_url')
       .eq('entity_type', 'album')
       .eq('entity_legacy_id', albumLegacyId)
