@@ -1969,10 +1969,12 @@ function AlbumCard({ a, popularity, artistSlug }: { a: Album; popularity?: numbe
   const type = aType(a)
   const href = artistSlug ? `/albumai/${artistSlug}-${a.slug}-${a.id}` : `/albumai/${a.slug}-${a.id}`
   // Music.lt'as kai albumui nėra realios cover'io, grąžina placeholder PNG
-  // su tipinėmis URL filename'omis (`jpg_10.jpg`, `1.jpg`, `none.jpg`,
-  // `noimage*`). Filtruojam tokias prieš render'inant — geriau parodyti 💿
-  // ikoną nei music.lt placeholder'į.
-  const PLACEHOLDER_RE = /\/(?:jpg_\d+|none|noimage|no-?cover|placeholder|default|empty|1)\.(?:jpg|jpeg|png|gif)(?:\?.*)?$/i
+  // su filename pattern'u `jpg_NN.jpg` (jpg_10 dažniausiai, kiti — jpg_6,
+  // jpg_19, jpg_1779). Realios cover'iai turi descriptive filename'us
+  // ('siaure2.jpg', 'andriaus-mamontovo-...jpg', 'paleisk viršelis-3.jpg').
+  // Filtruojam tik aiškiai apibrėžtą placeholder pattern'ą — ne per
+  // generic'ą (kad nepagaudytume realių cover'ių su 1.jpg ar kt.).
+  const PLACEHOLDER_RE = /\/(?:jpg_\d+|noimage|no-?cover|placeholder|default|empty)\.(?:jpg|jpeg|png|gif)(?:\?.*)?$/i
   const [coverFailed, setCoverFailed] = useState(false)
   const coverUrl = a.cover_image_url
   const isPlaceholder = typeof coverUrl === 'string' && PLACEHOLDER_RE.test(coverUrl)
