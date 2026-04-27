@@ -5,6 +5,7 @@ import Link from 'next/link'
 import LegacyLikesPanel, { LegacyBadge, type LegacyLikeUser } from '@/components/LegacyLikesPanel'
 import ScoreCard from '@/components/ScoreCard'
 import { LikePill } from '@/components/LikePill'
+import { proxyImg } from '@/lib/img-proxy'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -387,10 +388,13 @@ export default function TrackPageClient({
               Be filter — smaller box nereikalauja smoothing'o. */}
           <div style={{ flexShrink: 0, width: 56, height: 56, borderRadius: 10, overflow: 'hidden', boxShadow: '0 6px 18px rgba(0,0,0,.5)', background: 'var(--cover-placeholder)', position: 'relative' }}>
             {(() => {
-              const thumbSrc = primaryAlbum?.cover_image_url || artist.cover_image_url || null
+              // Priority: newest galerijos foto > primary album cover > artist legacy thumb.
+              // Galerijos foto dažniausiai didesnės rezoliucijos nei legacy thumb,
+              // todėl matomas mažas profile thumb atrodo aštresnis.
+              const thumbSrc = (artist as any).profile_thumb_url || primaryAlbum?.cover_image_url || artist.cover_image_url || null
               return thumbSrc ? (
                 <img
-                  src={thumbSrc}
+                  src={proxyImg(thumbSrc)}
                   alt=""
                   style={{
                     width: '100%', height: '100%', objectFit: 'cover', display: 'block',
@@ -432,7 +436,7 @@ export default function TrackPageClient({
             <Link key={a.id} href={`/albumai/${artist.slug}-${a.slug}-${a.id}`}
               style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '5px 10px 5px 6px', borderRadius: 999, background: 'var(--card-hover-bg)', border: '1px solid var(--card-border-default)', textDecoration: 'none' }}>
               {a.cover_image_url
-                ? <img src={a.cover_image_url} style={{ width: 22, height: 22, borderRadius: 5, objectFit: 'cover' }} alt="" />
+                ? <img src={proxyImg(a.cover_image_url)} style={{ width: 22, height: 22, borderRadius: 5, objectFit: 'cover' }} alt="" />
                 : <div style={{ width: 22, height: 22, borderRadius: 5, background: 'var(--cover-placeholder)' }} />}
               <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)' }}>{a.title}</span>
               {a.year && <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>{a.year}</span>}
@@ -573,7 +577,7 @@ export default function TrackPageClient({
               return (
                 <div key={c.legacy_id} style={{ display: 'flex', gap: 8, paddingTop: 8, borderTop: '1px solid var(--card-border-subtle)' }}>
                   {c.author_avatar_url ? (
-                    <img src={c.author_avatar_url} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                    <img src={proxyImg(c.author_avatar_url)} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
                   ) : (
                     <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: 'rgba(99,102,241,.18)', color: '#818cf8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, fontFamily: 'Outfit,sans-serif' }}>{initial}</div>
                   )}
@@ -615,7 +619,7 @@ export default function TrackPageClient({
             onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'var(--card-hover-bg)')}
             onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}>
             <div style={{ width: 30, height: 30, borderRadius: 6, background: 'var(--cover-placeholder)', flexShrink: 0, overflow: 'hidden' }}>
-              {artist.cover_image_url && <img src={artist.cover_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+              {artist.cover_image_url && <img src={proxyImg(artist.cover_image_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.title}</div>
@@ -781,7 +785,7 @@ export default function TrackPageClient({
                     „{panel.text.length > 120 ? panel.text.slice(0, 120) + '…' : panel.text}"
                   </p>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {primaryAlbum?.cover_image_url && <img src={primaryAlbum.cover_image_url} style={{ width: 24, height: 24, borderRadius: 4, objectFit: 'cover' }} alt="" />}
+                    {primaryAlbum?.cover_image_url && <img src={proxyImg(primaryAlbum.cover_image_url)} style={{ width: 24, height: 24, borderRadius: 4, objectFit: 'cover' }} alt="" />}
                     <div>
                       <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-primary)' }}>{track.title}</div>
                       <div style={{ fontSize: 9, color: '#f97316' }}>{artist.name}</div>
@@ -873,7 +877,7 @@ export default function TrackPageClient({
                   {likersModalUsers.map(u => (
                     <div key={u.user_username} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 6, borderRadius: 8, background: 'var(--card-hover-bg)' }}>
                       {u.user_avatar_url ? (
-                        <img src={u.user_avatar_url} alt="" style={{ width: 26, height: 26, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                        <img src={proxyImg(u.user_avatar_url)} alt="" style={{ width: 26, height: 26, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
                       ) : (
                         <div style={{ width: 26, height: 26, borderRadius: '50%', flexShrink: 0, background: 'rgba(99,102,241,.18)', color: '#818cf8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, fontFamily: 'Outfit,sans-serif' }}>{u.user_username.charAt(0).toUpperCase()}</div>
                       )}

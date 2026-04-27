@@ -977,8 +977,14 @@ function Hero({
 
   return (
     <section className="relative isolate w-full bg-[var(--bg-surface)]">
-      {/* Photo backdrop — mobile: aspect-video at top; desktop: absolute left 62%, fades into solid */}
-      <div className="relative aspect-video w-full overflow-hidden bg-black sm:aspect-[16/9] lg:absolute lg:inset-y-0 lg:left-0 lg:right-[38%] lg:aspect-auto">
+      {/* Photo backdrop:
+          - Mobile: aspect-[16/10] at top (vietoj aspect-video — mažiau
+            išplėtimo → mažiau upscale artifact'ų low-res nuotraukoms).
+          - Desktop: absolute left, plotis ~55% (anksčiau buvo ~62%), todėl
+            mažesnė nuotrauka mažiau išplečiama. Side gradient overlays
+            (kairėje + dešinėje) blend'ina į solid bg, kad rib'os neatrodytų
+            kietos. */}
+      <div className="relative aspect-[16/10] w-full overflow-hidden bg-black lg:absolute lg:inset-y-0 lg:left-0 lg:right-[45%] lg:aspect-auto">
         {heroImage ? (
           <>
             {/* Layer 1 — strong blur backdrop (visada matomas kraštuose).
@@ -1030,7 +1036,12 @@ function Hero({
             photo doesn't end in a hard horizontal line. Hidden on desktop
             where the right-side fade takes care of blending. */}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[30%] bg-gradient-to-t from-[var(--bg-surface)] via-[var(--bg-surface)]/70 to-transparent lg:hidden" />
-        <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[35%] bg-gradient-to-r from-transparent to-[var(--bg-surface)] lg:block" />
+        {/* Desktop: dvejos gradient juostos, kairė + dešinė. Anksčiau buvo
+            tik dešinė ~35% (kad blend'intųsi į solid bg šalia Player'io).
+            Dabar pridėjom ~12% kairę juostą — total photo region užima ~38%
+            viewport pločio, mažiau išplečiama → ryškesnė kokybė. */}
+        <div className="pointer-events-none absolute inset-y-0 left-0 hidden w-[12%] bg-gradient-to-r from-[var(--bg-surface)] via-[var(--bg-surface)]/40 to-transparent lg:block" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[28%] bg-gradient-to-r from-transparent to-[var(--bg-surface)] lg:block" />
       </div>
 
       <style>{`@keyframes apHeroZoom{0%{transform:scale(1.02)}100%{transform:scale(1.08)}}`}</style>

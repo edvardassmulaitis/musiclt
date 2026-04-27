@@ -55,6 +55,23 @@ export default async function TrackPage({ params }: { params: Promise<{ slug: st
 
   if (!artistRow) notFound()
 
+  // ── Fetch newest active gallery photo iš artist'o galerijos ──────────────
+  // Naudosim track header'io thumb'ui — galerijos foto dažniausiai yra
+  // didesnės rezoliucijos nei `artists.cover_image_url` (legacy thumb).
+  // Jei galerija tuščia — fallback į cover_image_url.
+  const { data: newestPhoto } = await supabase
+    .from('artist_photos')
+    .select('url')
+    .eq('artist_id', artistRow.id)
+    .eq('is_active', true)
+    .order('taken_at', { ascending: false, nullsFirst: false })
+    .order('id', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (newestPhoto?.url) {
+    ;(artistRow as any).profile_thumb_url = newestPhoto.url
+  }
+
   // ── Fetch featuring artists ────────────────────────────────────────────────
   const { data: featuringRows } = await supabase
     .from('track_artists')
