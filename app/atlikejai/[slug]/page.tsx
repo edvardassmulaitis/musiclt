@@ -242,25 +242,20 @@ function rankPriority(rank: string | null | undefined): number {
   return 10
 }
 
-/** Randame forum_threads, kurie surišti su šiuo atlikėju per URL/slug.
- * Music.lt diskusijos patternai:
- *  - /lt/diskusijos/tema/{id}/{slug}/   (naujesnis)
- *  - /lt/diskusijos/{slug}-diskusijosg-{id}.html  (legacy)
- * Kadangi `title`/`post_count`/`last_post_at` scrape'e netrimti (visi null),
- * rendering'e title deriviname iš `slug`, o sort'us darome pagal legacy_id desc
- * (music.lt ID'ai monotoniški — didesnis = naujesnis thread). */
-async function getLegacyForumThreads(artist: { name: string; slug: string }, limit = 6) {
-  if (!artist.slug) return []
+/** Randame forum_threads, kurie surišti su šiuo atlikėju per artist_id.
+ * Anksčiau buvo slug-pattern matching (`source_url.ilike.%slug%`) — bet jis
+ * praleisdavo song-level diskusijas, kurių slug'as gali turėti tik artist'o
+ * vardo deklinaciją (pvz. „Atlantos" vs slug „atlanta"). Dabar scrape'e
+ * forum_threads.artist_id pildomas tiesiogiai, todėl query'inam tiesiai per
+ * FK. */
+async function getLegacyForumThreads(artistId: number, limit = 12) {
+  if (!artistId) return []
   const sb = createAdminClient()
-  // Sanitize slug — tik a-z/0-9/- (ILIKE yra case-insensitive, saugu)
-  const needle = artist.slug.toLowerCase().replace(/[^a-z0-9-]/g, '')
-  if (!needle || needle.length < 3) return []
-  const pat = `%${needle}%`
   const { data } = await sb
     .from('forum_threads')
     .select('legacy_id, slug, source_url, kind, title, post_count, last_post_at')
+    .eq('artist_id', artistId)
     .eq('kind', 'discussion')
-    .or(`source_url.ilike.${pat},slug.ilike.${pat}`)
     .order('last_post_at', { ascending: false, nullsFirst: false })
     .limit(limit)
   return data || []
@@ -302,18 +297,17 @@ async function getLastPostsByThread(threadIds: number[]): Promise<Map<number, { 
   return out
 }
 
-/** Atskirai paimam news — naudoja tokį patį URL pattern, bet kind='news' */
-async function getLegacyNewsThreads(artist: { name: string; slug: string }, limit = 12) {
-  if (!artist.slug) return []
+/** Atskirai paimam news per artist_id (kind='news').
+ * limit padidintas iki 200 — music.lt populiariems atlikėjams gali būti 80+
+ * naujienų thread'ų. UI client'as patys suskirsto į recent + archyvą. */
+async function getLegacyNewsThreads(artistId: number, limit = 200) {
+  if (!artistId) return []
   const sb = createAdminClient()
-  const needle = artist.slug.toLowerCase().replace(/[^a-z0-9-]/g, '')
-  if (!needle || needle.length < 3) return []
-  const pat = `%${needle}%`
   const { data } = await sb
     .from('forum_threads')
     .select('legacy_id, slug, source_url, kind, title, post_count, first_post_at, last_post_at')
+    .eq('artist_id', artistId)
     .eq('kind', 'news')
-    .or(`source_url.ilike.${pat},slug.ilike.${pat}`)
     .order('first_post_at', { ascending: false, nullsFirst: false })
     .limit(limit)
   return data || []
@@ -548,8 +542,8 @@ export default async function ArtistPage({ params }: Props) {
     getGenres(artist.id), getSubstyles(artist.id), getLinks(artist.id), getPhotos(artist.id), getAlbums(artist.id), getTracks(artist.id),
     getMembers(artist.id), getFollowers(artist.id), getLikeCount(artist.id), getNews(artist.id), getEvents(artist.id),
     getAllArtistTrackLegacyIds(artist.id),
-    getLegacyForumThreads({ name: artist.name, slug: artist.slug }),
-    getLegacyNewsThreads({ name: artist.name, slug: artist.slug }, 12),
+    getLegacyForumThreads(artist.id),
+    getLegacyNewsThreads(artist.id),
     getLinkedTrackIds(artist.id),
     getArtistAwards(artist.id),
   ])
