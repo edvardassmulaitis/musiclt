@@ -66,33 +66,35 @@ DROP VIEW IF EXISTS public.v_top_likers CASCADE;
 -- 1. legacy_likes → likes
 --    Music.lt scrape įrašai. user_id=NULL, source='legacy_scrape'.
 --    Apima visus tipus: artist/album/track/event + thread/post.
---    Thread/post entity_id = entity_legacy_id (forum_threads, forum_posts
---    PK yra legacy_id pati, todėl mapping trivial).
+--    Filtruojam SELECT'e nesusiej-amus rows — kitaip krenta NOT NULL constraint
+--    ant entity_id (pvz. likes track'ams kurių artist'as dar nebuvo imported,
+--    todėl tracks lentelėje neegzistuoja).
 INSERT INTO public.likes
   (entity_type, entity_id, entity_legacy_id, user_username, user_rank, user_avatar_url, source, created_at)
-SELECT
-  ll.entity_type,
-  CASE ll.entity_type
-    WHEN 'artist' THEN (SELECT id FROM public.artists WHERE legacy_id = ll.entity_legacy_id)
-    WHEN 'album'  THEN (SELECT id FROM public.albums  WHERE legacy_id = ll.entity_legacy_id)
-    WHEN 'track'  THEN (SELECT id FROM public.tracks  WHERE legacy_id = ll.entity_legacy_id)
-    WHEN 'event'  THEN (SELECT id FROM public.events_legacy WHERE legacy_id = ll.entity_legacy_id)
-    WHEN 'thread' THEN ll.entity_legacy_id  -- forum_threads.legacy_id IS the PK
-    WHEN 'post'   THEN ll.entity_legacy_id  -- forum_posts.legacy_id IS the PK
-    ELSE NULL
-  END AS entity_id,
-  ll.entity_legacy_id,
-  ll.user_username,
-  ll.user_rank,
-  ll.user_avatar_url,
-  'legacy_scrape',
-  COALESCE(ll.imported_at, now())
-FROM public.legacy_likes ll
-WHERE ll.entity_type IN ('artist','album','track','event','thread','post')
+SELECT entity_type, entity_id, entity_legacy_id, user_username, user_rank, user_avatar_url, source, created_at
+FROM (
+  SELECT
+    ll.entity_type,
+    CASE ll.entity_type
+      WHEN 'artist' THEN (SELECT id FROM public.artists WHERE legacy_id = ll.entity_legacy_id)
+      WHEN 'album'  THEN (SELECT id FROM public.albums  WHERE legacy_id = ll.entity_legacy_id)
+      WHEN 'track'  THEN (SELECT id FROM public.tracks  WHERE legacy_id = ll.entity_legacy_id)
+      WHEN 'event'  THEN (SELECT id FROM public.events_legacy WHERE legacy_id = ll.entity_legacy_id)
+      WHEN 'thread' THEN ll.entity_legacy_id  -- forum_threads.legacy_id IS the PK
+      WHEN 'post'   THEN ll.entity_legacy_id  -- forum_posts.legacy_id IS the PK
+      ELSE NULL
+    END AS entity_id,
+    ll.entity_legacy_id,
+    ll.user_username,
+    ll.user_rank,
+    ll.user_avatar_url,
+    'legacy_scrape' AS source,
+    COALESCE(ll.imported_at, now()) AS created_at
+  FROM public.legacy_likes ll
+  WHERE ll.entity_type IN ('artist','album','track','event','thread','post')
+) resolved
+WHERE resolved.entity_id IS NOT NULL
 ON CONFLICT (entity_type, entity_id, user_username) DO NOTHING;
-
--- Cleanup: drop rows where entity_id couldn't be resolved (entity not yet imported).
-DELETE FROM public.likes WHERE entity_id IS NULL;
 
 -- 2. artist_likes → likes (modern auth users)
 INSERT INTO public.likes
