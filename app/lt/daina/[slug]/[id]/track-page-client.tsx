@@ -359,12 +359,25 @@ export default function TrackPageClient({
           {liked ? '♥' : '♡'} {initialLikes + (liked ? 1 : 0)}
         </button>
         <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', paddingRight: 76 }}>
-          <div style={{ flexShrink: 0, width: 100, height: 100, borderRadius: 12, overflow: 'hidden', boxShadow: '0 10px 32px rgba(0,0,0,.7)', background: 'var(--cover-placeholder)' }}>
-            {primaryAlbum?.cover_image_url
-              ? <img src={primaryAlbum.cover_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-              : artist.cover_image_url
-                ? <img src={artist.cover_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>🎵</div>}
+          <div style={{ flexShrink: 0, width: 100, height: 100, borderRadius: 12, overflow: 'hidden', boxShadow: '0 10px 32px rgba(0,0,0,.7)', background: 'var(--cover-placeholder)', position: 'relative' }}>
+            {/* Profile thumb su subtle blur — anksčiau music.lt 100x100 thumb
+                stretch'inant atrodė pikselizuotai. Subtle blur + saturate
+                boost suteikia glotnesnę išvaizdą. */}
+            {(() => {
+              const thumbSrc = primaryAlbum?.cover_image_url || artist.cover_image_url || null
+              return thumbSrc ? (
+                <img
+                  src={thumbSrc}
+                  alt=""
+                  style={{
+                    width: '100%', height: '100%', objectFit: 'cover', display: 'block',
+                    filter: 'blur(0.6px) saturate(1.15) contrast(1.05)',
+                  }}
+                />
+              ) : (
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>🎵</div>
+              )
+            })()}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.12em', color: '#f97316', fontFamily: 'Outfit,sans-serif', marginBottom: 3, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -373,16 +386,18 @@ export default function TrackPageClient({
               {/* archive label removed */}
             </div>
             <h1 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 'clamp(15px,2vw,20px)', fontWeight: 900, lineHeight: 1.1, letterSpacing: '-.025em', color: 'var(--text-primary)', margin: '0 0 5px', wordBreak: 'break-word' }}>{track.title}</h1>
-            <Link href={`/atlikejai/${artist.slug}`} style={{ fontSize: 13, fontWeight: 700, color: '#f97316', textDecoration: 'none', display: 'block', marginBottom: 2 }}>{artist.name}</Link>
-            {track.featuring.length > 0 && (
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>
-                su {track.featuring.map((f, i) => (
-                  <span key={f.id}>{i > 0 && ', '}
-                    <Link href={`/atlikejai/${f.slug}`} style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontWeight: 600 }}>{f.name}</Link>
-                  </span>
-                ))}
-              </div>
-            )}
+            {/* Visi atlikėjai vienoje eilutėje: "Atlanta ir Andrius Mamontovas".
+                Anksčiau primary atskirai + "su X" antroje eilutėje, dabar
+                sujungtas su jungtuku "ir". */}
+            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 2, lineHeight: 1.3 }}>
+              <Link href={`/atlikejai/${artist.slug}`} style={{ color: '#f97316', textDecoration: 'none' }}>{artist.name}</Link>
+              {track.featuring.map((f, i) => (
+                <span key={f.id}>
+                  <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}> {i === 0 ? 'ir' : ','} </span>
+                  <Link href={`/atlikejai/${f.slug}`} style={{ color: '#f97316', textDecoration: 'none' }}>{f.name}</Link>
+                </span>
+              ))}
+            </div>
             {dateStr && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{dateStr}</div>}
           </div>
         </div>
@@ -588,9 +603,11 @@ export default function TrackPageClient({
   // ── Lyrics ─────────────────────────────────────────────────────────────────
   const LyricsCard = () => (
     <div style={cardStyle}>
-      {/* Tabs */}
+      {/* Tabs — Akordai tabas rodomas TIK jei yra akordų. Anksčiau buvo
+          rodomas su "Akordai dar nepridėti" empty state, bet vis tiek
+          užimdavo vietą. */}
       <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--card-border-subtle)', padding: '0 14px' }}>
-        {(['lyrics', 'chords'] as const).map(t => (
+        {(['lyrics', 'chords'] as const).filter(t => t === 'lyrics' || hasChords).map(t => (
           <button key={t} onClick={() => setTab(t)}
             style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '11px 12px 10px', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: tab === t ? 800 : 600, color: tab === t ? '#f97316' : 'var(--text-faint)', borderBottom: tab === t ? '2px solid #f97316' : '2px solid transparent', marginBottom: -1, fontFamily: 'Outfit,sans-serif', textTransform: 'uppercase', letterSpacing: '.07em' }}>
             {t === 'lyrics'
@@ -765,14 +782,9 @@ export default function TrackPageClient({
           <TriviaCard />
           <VersionsCard />
           <DiscussionsCard />
-          {hasLegacyLikes && legacyLikes && (
-            <LegacyLikesPanel
-              count={legacyLikes.count}
-              users={legacyLikes.users}
-              entityLabel={`vartotojų patiko „${track.title}"`}
-              maxUsers={30}
-            />
-          )}
+          {/* ARCHYVAS panel pašalintas — likes count ir likers sąrašas
+              dabar atsiskleidžia per ♥ mygtuką viršuje. Vienas vieta visiems
+              likes (modern + legacy), nereikia atskiro "archyvinio" panel'o. */}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <LyricsCard />
