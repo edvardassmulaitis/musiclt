@@ -1,5 +1,11 @@
 // app/albumai/[slugId]/page.tsx
-import { notFound } from 'next/navigation'
+//
+// URL pattern: /albumai/{artist-slug}-{album-slug}-{id}
+//   pvz. /albumai/atlanta-vejas-man-pasake-12345
+//
+// Slug verifikacija po DB lookup'o; jei neatitinka — 301 redirect į canonical
+// (su artist prefix'u). Apsaugo nuo legacy URL'ų be artist + spelling renames.
+import { notFound, redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase'
 import AlbumPageClient from '@/app/lt/albumas/[slug]/[id]/album-page-client'
 import type { Metadata } from 'next'
@@ -186,9 +192,19 @@ export default async function AlbumPage({ params }: Props) {
 
   const { slug, id: albumId } = parsed
   const album = await getAlbum(albumId)
-  if (!album || album.slug !== slug) notFound()
+  if (!album) notFound()
 
   const artist = album.artists
+
+  // Canonical: /albumai/{artist-slug}-{album-slug}-{id}
+  if (artist?.slug) {
+    const canonicalSlug = `${artist.slug}-${album.slug}`
+    if (slug !== canonicalSlug) {
+      redirect(`/albumai/${canonicalSlug}-${albumId}`)
+    }
+  } else if (album.slug !== slug) {
+    notFound()
+  }
   const [tracks, otherAlbums, similarAlbums, likes, legacyLikes] = await Promise.all([
     getAlbumTracks(albumId),
     getOtherAlbums(artist.id, albumId),

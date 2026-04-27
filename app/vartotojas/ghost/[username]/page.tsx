@@ -360,7 +360,7 @@ export default async function GhostUserPage({ params }: Props) {
             {activity.albums.map((a) => (
               <Link
                 key={a.id}
-                href={`/albumai/${a.slug}-${a.id}`}
+                href={a.artist?.slug ? `/albumai/${a.artist.slug}-${a.slug}-${a.id}` : `/albumai/${a.slug}-${a.id}`}
                 style={{
                   display: 'block',
                   borderRadius: 10,
@@ -408,7 +408,7 @@ export default async function GhostUserPage({ params }: Props) {
             {activity.tracks.map((t, i) => (
               <Link
                 key={t.id}
-                href={`/dainos/${t.slug}-${t.id}`}
+                href={t.artist?.slug ? `/dainos/${t.artist.slug}-${t.slug}-${t.id}` : `/dainos/${t.slug}-${t.id}`}
                 style={{
                   display: 'flex',
                   alignItems: 'center',

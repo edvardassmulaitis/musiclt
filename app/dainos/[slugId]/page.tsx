@@ -1,6 +1,15 @@
 // app/dainos/[slugId]/page.tsx
+//
+// URL pattern: /dainos/{artist-slug}-{track-slug}-{id}
+//   pvz. /dainos/atlanta-kregzdutes-kregzdutes-29293
+//
+// SEO: artist name URL'e — Genius/SoundCloud style. ID gale dėl unikalumo.
+// Slug verifikuojamas po DB lookup'o; jei neatitinka → 301 redirect į
+// canonical. Tai apsaugo nuo:
+//   - Senų URL'ų be artist prefix'o (/dainos/kregzdutes-29293)
+//   - Spelling renames (po artist/track slug pakeitimo)
 import React from 'react'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase'
 import TrackPageClient from '@/app/lt/daina/[slug]/[id]/track-page-client'
 
@@ -54,7 +63,7 @@ export default async function DainaPage({ params }: { params: Promise<{ slugId: 
     .eq('id', id)
     .single()
 
-  if (!track || track.slug !== slug) notFound()
+  if (!track) notFound()
 
   // Score'ą rodom tik admin'ams (atskira admin form'a redagavimui).
   // Public puslapis NIEKADA nerodo score breakdown'o.
@@ -69,6 +78,15 @@ export default async function DainaPage({ params }: { params: Promise<{ slugId: 
     .single()
 
   if (!artistRow) notFound()
+
+  // ── Canonical slug check ─────────────────────────────────────────────────
+  // Canonical URL: /dainos/{artist-slug}-{track-slug}-{id}
+  // Jei vartotojas atėjo URL'u be artist prefix'o (legacy) arba su pasenusiu
+  // slug'u, redirect'inam 301 į canonical.
+  const canonicalSlug = `${artistRow.slug}-${track.slug}`
+  if (slug !== canonicalSlug) {
+    redirect(`/dainos/${canonicalSlug}-${id}`)
+  }
 
   // ── Fetch featuring artists ────────────────────────────────────────────────
   const { data: featuringRows } = await supabase

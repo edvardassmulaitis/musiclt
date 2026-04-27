@@ -680,7 +680,7 @@ function TrackInfoModal({
   const likes = typeof track.like_count === 'number' ? track.like_count : 0
   const lyrics = (track.lyrics || '').trim()
   const lyricsText = lyrics ? lyrics.replace(/<[^>]+>/g, '').trim() : null
-  const trackHref = `/dainos/${track.slug}-${track.id}`
+  const trackHref = `/dainos/${artistSlug}-${track.slug}-${track.id}`
 
   return (
     // Backdrop is intentionally subtle + click-through-friendly: we don't
@@ -1815,10 +1815,11 @@ function MobileFilterRow({
 
 // ── AlbumCard ──────────────────────────────────────────────────────
 
-function AlbumCard({ a, popularity }: { a: Album; popularity?: number }) {
+function AlbumCard({ a, popularity, artistSlug }: { a: Album; popularity?: number; artistSlug?: string }) {
   const type = aType(a)
+  const href = artistSlug ? `/albumai/${artistSlug}-${a.slug}-${a.id}` : `/albumai/${a.slug}-${a.id}`
   return (
-    <Link href={`/albumai/${a.slug}-${a.id}`} className="group block no-underline">
+    <Link href={href} className="group block no-underline">
       <div className="relative overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] transition-all group-hover:border-[var(--border-strong)] group-hover:shadow-[0_10px_28px_rgba(0,0,0,0.3)]">
         <div className="aspect-square">
           {a.cover_image_url ? (
@@ -1848,12 +1849,16 @@ function AlbumCard({ a, popularity }: { a: Album; popularity?: number }) {
 
 // ── TrackRow: compact row for orphan tracks (no big placeholder square) ─
 
-function TrackRow({ t, popularity }: { t: Track; popularity?: number }) {
+function TrackRow({ t, popularity, artistSlug }: { t: Track; popularity?: number; artistSlug?: string }) {
   const v = yt(t.video_url)
   const cover = t.cover_url || (v ? `https://img.youtube.com/vi/${v}/mqdefault.jpg` : null)
+  // Canonical URL su artist prefix'u jei perduotas; antraip page redirect'ins.
+  const href = artistSlug
+    ? `/dainos/${artistSlug}-${t.slug}-${t.id}`
+    : `/dainos/${t.slug}-${t.id}`
   return (
     <Link
-      href={`/dainos/${t.slug}-${t.id}`}
+      href={href}
       className="group flex items-center gap-2.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-2 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
     >
       <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md bg-[var(--cover-placeholder)]">
@@ -2470,7 +2475,7 @@ export default function ArtistProfileClient({
                       className="w-[46vw] max-w-[180px] shrink-0 sm:w-[170px] lg:w-[190px]"
                       style={{ scrollSnapAlign: 'start' }}
                     >
-                      <AlbumCard a={a} popularity={popLevel(i, visibleAlbums.length)} />
+                      <AlbumCard a={a} artistSlug={artist.slug} popularity={popLevel(i, visibleAlbums.length)} />
                     </div>
                   ))}
                 </div>
@@ -2486,7 +2491,7 @@ export default function ArtistProfileClient({
                   )}
                   <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
                     {orphanTracks.map((t, i) => (
-                      <TrackRow key={t.id} t={t} popularity={popLevel(i, orphanTracks.length)} />
+                      <TrackRow key={t.id} t={t} artistSlug={artist.slug} popularity={popLevel(i, orphanTracks.length)} />
                     ))}
                   </div>
                 </div>

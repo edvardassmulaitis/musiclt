@@ -419,7 +419,7 @@ export default function TrackPageClient({
         <div style={{ padding: '10px 14px', display: 'flex', gap: 8, flexWrap: 'wrap', borderTop: '1px solid var(--card-border-subtle)' }}>
           <span style={{ fontSize: 10, color: 'var(--text-faint)', alignSelf: 'center', fontFamily: 'Outfit,sans-serif', textTransform: 'uppercase', letterSpacing: '.06em' }}>Albumas</span>
           {albums.map(a => (
-            <Link key={a.id} href={`/albumai/${a.slug}-${a.id}`}
+            <Link key={a.id} href={`/albumai/${artist.slug}-${a.slug}-${a.id}`}
               style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '5px 10px 5px 6px', borderRadius: 999, background: 'var(--card-hover-bg)', border: '1px solid var(--card-border-default)', textDecoration: 'none' }}>
               {a.cover_image_url
                 ? <img src={a.cover_image_url} style={{ width: 22, height: 22, borderRadius: 5, objectFit: 'cover' }} alt="" />
@@ -520,7 +520,7 @@ export default function TrackPageClient({
       <div style={cardStyle}>
         <div style={headStyle}>Versijos ir remixai <span style={{ fontSize: 9, fontWeight: 400, color: 'var(--text-faint)', textTransform: 'none', letterSpacing: 0 }}>{versions.length}</span></div>
         {vis.map((v, i) => (
-          <Link key={v.id} href={`/dainos/${v.slug}-${v.id}`}
+          <Link key={v.id} href={`/dainos/${artist.slug}-${v.slug}-${v.id}`}
             style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', borderBottom: i < vis.length - 1 ? '1px solid var(--card-border-subtle)' : 'none', textDecoration: 'none' }}
             onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'var(--card-hover-bg)')}
             onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}>
@@ -600,7 +600,7 @@ export default function TrackPageClient({
       <div style={cardStyle}>
         <div style={headStyle}>Kitos {artist.name} dainos</div>
         {relatedTracks.slice(0, 6).map((t, i) => (
-          <Link key={t.id} href={`/dainos/${t.slug}-${t.id}`}
+          <Link key={t.id} href={`/dainos/${artist.slug}-${t.slug}-${t.id}`}
             style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderBottom: i < 5 ? '1px solid var(--card-border-subtle)' : 'none', textDecoration: 'none' }}
             onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'var(--card-hover-bg)')}
             onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}>
