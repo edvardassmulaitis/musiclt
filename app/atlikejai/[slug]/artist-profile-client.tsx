@@ -1968,17 +1968,12 @@ function MobileFilterRow({
 function AlbumCard({ a, popularity, artistSlug }: { a: Album; popularity?: number; artistSlug?: string }) {
   const type = aType(a)
   const href = artistSlug ? `/albumai/${artistSlug}-${a.slug}-${a.id}` : `/albumai/${a.slug}-${a.id}`
-  // Music.lt'as kai albumui nėra realios cover'io, grąžina placeholder PNG
-  // su filename pattern'u `jpg_NN.jpg` (jpg_10 dažniausiai, kiti — jpg_6,
-  // jpg_19, jpg_1779). Realios cover'iai turi descriptive filename'us
-  // ('siaure2.jpg', 'andriaus-mamontovo-...jpg', 'paleisk viršelis-3.jpg').
-  // Filtruojam tik aiškiai apibrėžtą placeholder pattern'ą — ne per
-  // generic'ą (kad nepagaudytume realių cover'ių su 1.jpg ar kt.).
-  const PLACEHOLDER_RE = /\/(?:jpg_\d+|noimage|no-?cover|placeholder|default|empty)\.(?:jpg|jpeg|png|gif)(?:\?.*)?$/i
+  // Music.lt naudoja tą patį filename pattern'ą (`jpg_10.jpg`) skirtinguose
+  // album folder'iuose — TAI YRA REALŪS cover'iai, ne placeholder'iai. Todėl
+  // filename-pattern filtras BUVO klaidingas; rely tik ant onError fallback'o.
   const [coverFailed, setCoverFailed] = useState(false)
   const coverUrl = a.cover_image_url
-  const isPlaceholder = typeof coverUrl === 'string' && PLACEHOLDER_RE.test(coverUrl)
-  const showCover = !!coverUrl && !coverFailed && !isPlaceholder
+  const showCover = !!coverUrl && !coverFailed
   return (
     <Link href={href} className="group block no-underline">
       <div className="relative overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] transition-all group-hover:border-[var(--border-strong)] group-hover:shadow-[0_10px_28px_rgba(0,0,0,0.3)]">
@@ -1988,15 +1983,8 @@ function AlbumCard({ a, popularity, artistSlug }: { a: Album; popularity?: numbe
               src={coverUrl}
               alt={a.title}
               referrerPolicy="no-referrer"
+              loading="lazy"
               onError={() => setCoverFailed(true)}
-              onLoad={(ev) => {
-                // Music.lt placeholder PNG dažniausiai būna mažas (~100x100)
-                // su generic glyph'u. Jei vaizdas labai mažas — slepiam.
-                const el = ev.currentTarget as HTMLImageElement
-                if (el.naturalWidth > 0 && el.naturalWidth < 80) {
-                  setCoverFailed(true)
-                }
-              }}
               className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
               style={{ filter: 'blur(0.5px) saturate(1.15) contrast(1.05)' }}
             />
