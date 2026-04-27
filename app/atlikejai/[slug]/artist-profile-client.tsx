@@ -409,17 +409,42 @@ function PlayerCard({
                 if (target != null) pingPlay(target)
               }}
               aria-label="Paleisti"
-              className="group absolute inset-0 block cursor-pointer overflow-hidden border-0 bg-black p-0"
+              className="group absolute inset-0 block cursor-pointer overflow-hidden border-0 bg-gradient-to-br from-[#1a2436] to-[#0a0f1a] p-0"
             >
+              {/* Pirma rodom orange kortelę kaip backdrop'ą — taip nesikelia
+                  YT broken icon žiburiai jei thumb fail'ina. Po thumbnail load'o
+                  jis užklojo virš (jei sėkmingas).
+                  YT'as ištrintiems video grąžina default 120x90 stub-image —
+                  patikrinam onLoad ir jei dimensijos per mažos, slepiame img'ą. */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/5 ring-1 ring-white/10">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/40">
+                    <path d="M23 7l-7 5 7 5V7z" />
+                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                  </svg>
+                </div>
+                <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.15em] text-white/50">
+                  YouTube · {displayTrack?.title ? displayTrack.title.slice(0, 50) : 'video'}
+                </div>
+              </div>
               <img
                 src={`https://img.youtube.com/vi/${displayVid}/maxresdefault.jpg`}
                 alt=""
                 className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                onLoad={(e) => {
+                  // YT'as ištrintiems video grąžina 120x90 placeholder. Slepiam.
+                  const el = e.currentTarget as HTMLImageElement
+                  if (el.naturalWidth <= 120 && el.naturalHeight <= 90) {
+                    el.style.display = 'none'
+                  }
+                }}
                 onError={(e) => {
                   const el = e.currentTarget as HTMLImageElement
                   if (!el.dataset.fallback) {
                     el.dataset.fallback = '1'
                     el.src = `https://img.youtube.com/vi/${displayVid}/hqdefault.jpg`
+                  } else {
+                    el.style.display = 'none'
                   }
                 }}
               />
@@ -842,23 +867,39 @@ function Hero({
       {/* Photo backdrop — mobile: aspect-video at top; desktop: absolute left 62%, fades into solid */}
       <div className="relative aspect-video w-full overflow-hidden bg-black sm:aspect-[16/9] lg:absolute lg:inset-y-0 lg:left-0 lg:right-[38%] lg:aspect-auto">
         {heroImage ? (
-          <img
-            id="hero-photo"
-            src={heroImage}
-            alt={artist.name}
-            onClick={() => {
-              // Desktop: scroll to galerija section. Mobile: do nothing (user taps the collage/lightbox instead).
-              if (typeof window === 'undefined') return
-              if (window.innerWidth < 1024) return
-              const el = document.getElementById('galerija')
-              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-            }}
-            className="block h-full w-full animate-[apHeroZoom_36s_ease-in-out_infinite_alternate] cursor-zoom-in object-cover"
-            style={{
-              objectPosition: `${coverPos.x}% ${coverPos.y}%`,
-              transformOrigin: `${coverPos.x}% ${coverPos.y}%`,
-            }}
-          />
+          <>
+            {/* Blurred backdrop layer — užpildo visa konteineris su to paties
+                paveiksliukio strong blur'inta versija. Maskuoja low-res
+                upscaling artifacts kai music.lt thumb mažas. */}
+            <div
+              aria-hidden
+              className="absolute inset-0 scale-110"
+              style={{
+                backgroundImage: `url(${heroImage})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                filter: 'blur(36px) saturate(1.1)',
+              }}
+            />
+            {/* Original hero — sharp centered. Low-res atveju bus mažesnis,
+                bet aplinkui matysis blurred backdrop'as → atrodo profesionaliai. */}
+            <img
+              id="hero-photo"
+              src={heroImage}
+              alt={artist.name}
+              onClick={() => {
+                if (typeof window === 'undefined') return
+                if (window.innerWidth < 1024) return
+                const el = document.getElementById('galerija')
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }}
+              className="relative block h-full w-full animate-[apHeroZoom_36s_ease-in-out_infinite_alternate] cursor-zoom-in object-cover"
+              style={{
+                objectPosition: `${coverPos.x}% ${coverPos.y}%`,
+                transformOrigin: `${coverPos.x}% ${coverPos.y}%`,
+              }}
+            />
+          </>
         ) : (
           <div className="h-full w-full bg-gradient-to-br from-[#1a2436] to-[#0a0f1a]" />
         )}
@@ -1530,9 +1571,11 @@ function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' |
       href={href}
       className="group flex min-h-[130px] w-full items-stretch gap-0 overflow-hidden rounded-2xl border border-[rgba(249,115,22,0.25)] bg-gradient-to-br from-[rgba(249,115,22,0.08)] to-transparent no-underline transition-all hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.5)] hover:shadow-[0_12px_32px_rgba(249,115,22,0.15)]"
     >
-      {/* Left: cover image. No badge overlay anymore — date moved to text column. */}
-      <div className="relative w-[42%] min-w-[120px] max-w-[190px] shrink-0 overflow-hidden bg-[rgba(249,115,22,0.1)]">
-        {hasCover ? (
+      {/* Left: cover image arba dailus calendar fallback su didele data.
+          Browser native broken-image ikoną slepiame — jei img krenta arba
+          jos visai nėra, rodom Atlanta-stiliaus orange kalendoriaus dizainą. */}
+      <div className="relative w-[42%] min-w-[120px] max-w-[190px] shrink-0 overflow-hidden bg-gradient-to-br from-[rgba(249,115,22,0.18)] to-[rgba(249,115,22,0.05)]">
+        {hasCover && (
           <img
             src={e.cover_image_url}
             alt={e.title}
@@ -1540,11 +1583,14 @@ function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' |
             onError={() => setCoverFailed(true)}
             className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--accent-orange)]/40">
-              <path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+        )}
+        {/* Fallback layer — visada parodoma jei nėra cover'io arba jis krito.
+            Padaryta calendar block su didele data. Atrodo profesionaliai. */}
+        {!hasCover && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 px-2 text-center">
+            <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase leading-tight text-[var(--accent-orange)]">{monthShort}</span>
+            <span className="font-['Outfit',sans-serif] text-[44px] font-black leading-none text-white">{d.getDate()}</span>
+            <span className="font-['Outfit',sans-serif] text-[10px] font-bold leading-tight text-white/60">{d.getFullYear()}</span>
           </div>
         )}
       </div>

@@ -81,11 +81,8 @@ export async function GET(
     breaks = (breakRows || []).map((b: any) => ({ from: b.year_from ? String(b.year_from) : '', to: b.year_to ? String(b.year_to) : '' }))
   } catch {}
 
-  // Photos: kanoninis šaltinis = artist_photos lentelė (music.lt scrape +
-  // wiki + manual'iai įkeltos visos čia). Foto eilutės gali turėti
-  // is_active=false (music.lt importuoja inactive — admin patvirtina UI).
-  // Legacy artists.photos JSON kolumna paliekama backward-compat dėl seno
-  // PATCH flow'o, bet UI naudoja tik artist_photos.
+  // Photos: artist_photos lentelė yra vienintelis šaltinis. Legacy JSON
+  // kolumna `artists.photos` jau drop'inta (db-cleanup-atlanta.sql).
   let photosForUi: any[] = []
   try {
     const { data: photoRows } = await supabase
@@ -124,7 +121,7 @@ export async function GET(
 
   return NextResponse.json({
     ...artist,
-    photos: photosForUi,         // override JSON column with junction-table rows
+    photos: photosForUi,
     genres,
     substyleNames,
     related,
@@ -152,7 +149,9 @@ export async function PATCH(
     'name','type','country','description','cover_image_url','cover_image_wide_url','cover_image_position',
     'gender','birth_date','death_date','website','subdomain',
     'is_active','is_verified','type_music','type_film','type_dance','type_books',
-    'photos','show_updated','active_from','active_until','slug',
+    'show_updated','active_from','active_until','slug',
+    // NB: 'photos' column DROPPED (db-cleanup-atlanta.sql). Photo data
+    // dabar gyvena tik artist_photos lentelėje per /api/artists/[id]/photos PUT.
     'facebook','youtube','tiktok','spotify','soundcloud','bandcamp','twitter',
   ]
 
@@ -207,7 +206,7 @@ export async function PATCH(
                 youtube: m.youtube || null, soundcloud: m.soundcloud || null,
                 tiktok: m.tiktok || null, bandcamp: m.bandcamp || null,
                 is_active: true, is_verified: false, show_updated: false,
-                type_music: true, type_film: false, type_dance: false, type_books: false, photos: [],
+                type_music: true, type_film: false, type_dance: false, type_books: false,
               }).select('id').single()
               if (newMember?.id) memberId = newMember.id
             }

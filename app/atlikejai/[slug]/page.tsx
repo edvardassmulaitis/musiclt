@@ -2,6 +2,8 @@
 import { notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase'
 import ArtistProfileClient from './artist-profile-client'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import type { Metadata } from 'next'
 
 type Props = { params: Promise<{ slug: string }> }
@@ -541,12 +543,13 @@ export default async function ArtistPage({ params }: Props) {
   const allTrackIds = (tracks as any[]).map((t: any) => t.id).filter((x: any) => typeof x === 'number')
   const legacyCommunity = await getLegacyCommunity(artist.id, albumIds, allTrackIds)
 
-  // Photos shown publicly — only is_active=true (or undefined for legacy rows
-  // without that column). Inactive photos exist but waiting for admin approval.
-  let photos: { url: string; caption?: string }[] = dbPhotos
-    .filter((p: any) => p.is_active === undefined || p.is_active === true)
+  // Photos shown publicly — TIK is_active=true. artist_photos lentelė yra
+  // kanoninis šaltinis; legacy `artists.photos` JSON kolumna jau nebenaudojama
+  // (anksčiau čia būdavo merge'inama be is_active filter'io ir todėl rodėsi
+  // hidden nuotraukos viešai).
+  const photos: { url: string; caption?: string }[] = dbPhotos
+    .filter((p: any) => p.is_active === true)
     .map((p: any) => ({ url: p.url, caption: p.caption }))
-  if (artist.photos && Array.isArray(artist.photos)) { for (const p of artist.photos as any[]) { if (p.url && !photos.some(x => x.url === p.url)) photos.push({ url: p.url, caption: p.caption || '' }) } }
 
   // Hero image preference (NEVER cover_image_url — that's a small profile thumb):
   //  1. Explicitly set wide cover (admin-chosen)
@@ -594,9 +597,15 @@ export default async function ArtistPage({ params }: Props) {
     last_post: lastPosts.get(t.legacy_id) || null,
   }))
 
+  // Score breakdown is sensitive admin info — pass tik admin'ams. Public
+  // user'iai mato tik balas ant artist puslapio kortelės nieko daugiau,
+  // bet detalų breakdown'ą — niekada.
+  const session = await getServerSession(authOptions)
+  const isAdmin = session?.user?.role && ['admin', 'super_admin'].includes(session.user.role as string)
+
   return (
     <ArtistProfileClient
-      artist={{ id: artist.id, slug: artist.slug, name: artist.name, type: artist.type || 'group', country: artist.country, active_from: artist.active_from, active_until: artist.active_until, description: stripStyles(artist.description || ''), cover_image_url: artist.cover_image_url, cover_image_position: artist.cover_image_position, website: artist.website, spotify_id: artist.spotify_id, is_verified: artist.is_verified, gender: artist.gender, birth_date: artist.birth_date, death_date: artist.death_date, legacy_id: (artist as any).legacy_id ?? null, source: (artist as any).source ?? null, score: (artist as any).score ?? null, score_breakdown: (artist as any).score_breakdown ?? null, score_updated_at: (artist as any).score_updated_at ?? null }}
+      artist={{ id: artist.id, slug: artist.slug, name: artist.name, type: artist.type || 'group', country: artist.country, active_from: artist.active_from, active_until: artist.active_until, description: stripStyles(artist.description || ''), cover_image_url: artist.cover_image_url, cover_image_position: artist.cover_image_position, website: artist.website, spotify_id: artist.spotify_id, is_verified: artist.is_verified, gender: artist.gender, birth_date: artist.birth_date, death_date: artist.death_date, legacy_id: (artist as any).legacy_id ?? null, source: (artist as any).source ?? null, score: isAdmin ? ((artist as any).score ?? null) : null, score_breakdown: isAdmin ? ((artist as any).score_breakdown ?? null) : null, score_updated_at: isAdmin ? ((artist as any).score_updated_at ?? null) : null }}
       heroImage={heroImage} genres={genres} links={links} photos={photos} albums={albums as any} tracks={tracks as any}
       members={members} followers={followers} likeCount={likeCount} news={news as any} events={events}
       similar={similar} newTracks={newTracks as any} topVideos={topVideos as any}
