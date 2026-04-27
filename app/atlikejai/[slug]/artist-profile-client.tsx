@@ -411,32 +411,23 @@ function PlayerCard({
               aria-label="Paleisti"
               className="group absolute inset-0 block cursor-pointer overflow-hidden border-0 bg-gradient-to-br from-[#1a2436] to-[#0a0f1a] p-0"
             >
-              {/* Tylus dark backdrop'as — slepia YT broken-icon stub'ą jei
-                  thumb fail'ina. Be jokio teksto/ikonų, kad nesikalbėtų su
-                  Play mygtuku centre. */}
-              <div className="absolute inset-0 bg-gradient-to-br from-[#1a2436] to-[#0a0f1a]" />
-              <img
-                src={`https://img.youtube.com/vi/${displayVid}/maxresdefault.jpg`}
-                alt=""
-                className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-                onLoad={(e) => {
-                  // YT'as ištrintiems video grąžina 120x90 placeholder. Slepiam.
-                  const el = e.currentTarget as HTMLImageElement
-                  if (el.naturalWidth <= 120 && el.naturalHeight <= 90) {
-                    el.style.display = 'none'
-                  }
-                }}
-                onError={(e) => {
-                  const el = e.currentTarget as HTMLImageElement
-                  if (!el.dataset.fallback) {
-                    el.dataset.fallback = '1'
-                    el.src = `https://img.youtube.com/vi/${displayVid}/hqdefault.jpg`
-                  } else {
-                    el.style.display = 'none'
-                  }
-                }}
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent" />
+              {/* Visada rodom tylų dark gradient backdrop'ą — NE YT thumbnail.
+                  Anksčiau bandėm užkrauti maxresdefault/hqdefault, bet:
+                    1. YT'as ištrintiems video grąžina pilką "?" stub'ą kuris
+                       atrodo kaip broken icon
+                    2. Aspect ratio detection (120x90) nepagavo 480x360 stub'o
+                  Variantų abu nepatenkinama → tiesiog ne'įdedam thumbnail'o.
+                  Vartotojas pamato Play mygtuką ant švaraus tamsaus fono;
+                  paspaudus pasileidžia YT iframe (kuris pats parodo
+                  "Video unavailable" jei reikia). */}
+              <div className="absolute inset-0 bg-gradient-to-br from-[#1a2436] via-[#0f1825] to-[#0a0f1a]" />
+              {/* Subtle vinyl-like centerless ring for visual texture. */}
+              <div className="absolute inset-0 opacity-[0.03]" style={{
+                backgroundImage: 'radial-gradient(circle at center, transparent 30%, rgba(249,115,22,0.4) 30.5%, transparent 31.5%, transparent 60%, rgba(249,115,22,0.2) 60.5%, transparent 61.5%)',
+                backgroundSize: '400px 400px',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat',
+              }} />
               <span className="absolute left-1/2 top-1/2 flex h-[72px] w-[72px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_10px_40px_rgba(249,115,22,0.5)] ring-[6px] ring-white/10 transition-transform duration-200 group-hover:scale-110">
                 <svg viewBox="0 0 24 24" width="26" height="26" fill="#fff" aria-hidden>
                   <path d="M8 5v14l11-7z" />
@@ -1567,28 +1558,37 @@ function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' |
       href={href}
       className="group flex min-h-[130px] w-full items-stretch gap-0 overflow-hidden rounded-2xl border border-[rgba(249,115,22,0.25)] bg-gradient-to-br from-[rgba(249,115,22,0.08)] to-transparent no-underline transition-all hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.5)] hover:shadow-[0_12px_32px_rgba(249,115,22,0.15)]"
     >
-      {/* Left: cover image arba dailus calendar fallback su didele data.
-          Browser native broken-image ikoną slepiame — jei img krenta arba
-          jos visai nėra, rodom Atlanta-stiliaus orange kalendoriaus dizainą. */}
+      {/* Cover area: backdrop fallback ALWAYS rendered (calendar + orange
+          gradient). img layer ant viršaus jei yra cover_image_url. Jei img
+          krenta — slepiam su display:none, ir matosi backdrop. Vengiame
+          conditional rendering kuris paliktų browser native broken-image
+          ikoną iki onError fire. */}
       <div className="relative w-[42%] min-w-[120px] max-w-[190px] shrink-0 overflow-hidden bg-gradient-to-br from-[rgba(249,115,22,0.18)] to-[rgba(249,115,22,0.05)]">
+        {/* Always-on fallback layer */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" className="text-[var(--accent-orange)]/40">
+            <path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
         {hasCover && (
           <img
             src={e.cover_image_url}
             alt={e.title}
             referrerPolicy="no-referrer"
-            onError={() => setCoverFailed(true)}
+            onError={(ev) => {
+              setCoverFailed(true)
+              ;(ev.currentTarget as HTMLImageElement).style.display = 'none'
+            }}
+            onLoad={(ev) => {
+              // Music.lt event default placeholder: 100x100 white square ar pan.
+              // Patikrinam realias dimensijas — jei akivaizdus stub'as, slepiam.
+              const el = ev.currentTarget as HTMLImageElement
+              if (el.naturalWidth < 80 || el.naturalHeight < 80) {
+                el.style.display = 'none'
+              }
+            }}
             className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
-        )}
-        {/* Fallback layer — kai nėra cover'io arba jis krito. Tik subtle
-            kalendoriaus ikona; data jau matosi dešinėje korteleje, tad
-            čia jos nedubliuojam. Browser native broken-image ikoną slepiame. */}
-        {!hasCover && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" className="text-[var(--accent-orange)]/40">
-              <path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </div>
         )}
       </div>
 
@@ -1823,7 +1823,12 @@ function AlbumCard({ a, popularity, artistSlug }: { a: Album; popularity?: numbe
       <div className="relative overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] transition-all group-hover:border-[var(--border-strong)] group-hover:shadow-[0_10px_28px_rgba(0,0,0,0.3)]">
         <div className="aspect-square">
           {a.cover_image_url ? (
-            <img src={a.cover_image_url} alt={a.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+            <img
+              src={a.cover_image_url}
+              alt={a.title}
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+              style={{ filter: 'blur(0.5px) saturate(1.15) contrast(1.05)' }}
+            />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-3xl text-[var(--text-faint)]">💿</div>
           )}
@@ -2144,21 +2149,34 @@ export default function ArtistProfileClient({
   const hasAnyVideo = tracksAllTime.some(t => yt(t.video_url)) || tracksTrending.some(t => yt(t.video_url))
 
   const now = Date.now()
-  // Keep only fresh past content — anything older than ~2 months is noise
-  // that pushes the gallery/discussions out of view without adding value.
+  // Default rodymas: tik šviežias content (~2 mėn). Vartotojas gali atidaryti
+  // archyvą per "Žiūrėti archyvą" mygtuką → matosi visi past events + senos
+  // naujienos.
   const TWO_MONTHS_MS = 62 * 24 * 60 * 60 * 1000
   const freshnessCutoff = now - TWO_MONTHS_MS
   const upcomingEvents = events.filter((e: any) => new Date(e.start_date).getTime() >= now)
-  const pastEvents = events.filter((e: any) => {
-    const ts = new Date(e.start_date).getTime()
-    return ts < now && ts >= freshnessCutoff
+  const allPastEvents = events.filter((e: any) => new Date(e.start_date).getTime() < now)
+  const allLegacyNews = (legacyNews || []).filter((n: any) => {
+    const raw = n.last_post_at || n.first_post_at || true
+    if (!raw) return true
+    return true  // visi naujienų items įtraukti į allLegacyNews; freshness filter taikomas atskirai žemiau
   })
+  const pastEvents = allPastEvents.filter((e: any) => new Date(e.start_date).getTime() >= freshnessCutoff)
   const freshLegacyNews = (legacyNews || []).filter((n: any) => {
     const raw = n.last_post_at || n.first_post_at
     if (!raw) return false
     const ts = new Date(raw).getTime()
     return isFinite(ts) && ts >= freshnessCutoff
   })
+  const archivedPastEvents = allPastEvents.filter((e: any) => new Date(e.start_date).getTime() < freshnessCutoff)
+  const archivedLegacyNews = (legacyNews || []).filter((n: any) => {
+    const raw = n.last_post_at || n.first_post_at
+    if (!raw) return true  // su null timestamp — į archive, ne fresh
+    const ts = new Date(raw).getTime()
+    return !isFinite(ts) || ts < freshnessCutoff
+  })
+  const [showArchive, setShowArchive] = useState(false)
+  void allLegacyNews // keep var to avoid lint
   const bioHtml: string = artist.description || ''
 
   // Galerija — visos aktyvios nuotraukos. Anksčiau filtruodavom hero foto
@@ -2524,22 +2542,50 @@ export default function ArtistProfileClient({
           )}
         </section>
 
-        {/* Past events */}
-        {pastEvents.length > 0 && (
+        {/* Past events — fresh only; archyvas atidaromas pagal showArchive */}
+        {(pastEvents.length > 0 || archivedPastEvents.length > 0) && (
           <section>
-            <SectionTitle label="Įvykę renginiai" />
+            <div className="flex items-center justify-between">
+              <SectionTitle label="Įvykę renginiai" />
+              {archivedPastEvents.length > 0 && (
+                <button
+                  onClick={() => setShowArchive(v => !v)}
+                  title={showArchive ? 'Slėpti senesnius' : `Rodyti senus renginius (${archivedPastEvents.length})`}
+                  className="ml-2 inline-flex items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-1.5 text-[11px] font-bold text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  {showArchive ? 'Slėpti archyvą' : `Archyvas (${archivedPastEvents.length})`}
+                </button>
+              )}
+            </div>
             <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-              {pastEvents.map((e: any) => <EventCard key={e.id} e={e} variant="past" />)}
+              {(showArchive ? [...pastEvents, ...archivedPastEvents] : pastEvents).map((e: any) => <EventCard key={e.id} e={e} variant="past" />)}
             </div>
           </section>
         )}
 
-        {/* Legacy news — only recent (<=2mo) to avoid stale archive noise */}
-        {freshLegacyNews.length > 0 && (
+        {/* Legacy news — fresh only by default; archyvas via showArchive */}
+        {(freshLegacyNews.length > 0 || archivedLegacyNews.length > 0) && (
           <section>
-            <SectionTitle label="Naujienos" />
+            <div className="flex items-center justify-between">
+              <SectionTitle label="Naujienos" />
+              {archivedLegacyNews.length > 0 && (
+                <button
+                  onClick={() => setShowArchive(v => !v)}
+                  title={showArchive ? 'Slėpti senesnes' : `Rodyti senas naujienas (${archivedLegacyNews.length})`}
+                  className="ml-2 inline-flex items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-1.5 text-[11px] font-bold text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  {showArchive ? 'Slėpti archyvą' : `Archyvas (${archivedLegacyNews.length})`}
+                </button>
+              )}
+            </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {freshLegacyNews.slice(0, 12).map(n => {
+              {(showArchive ? [...freshLegacyNews, ...archivedLegacyNews].slice(0, 60) : freshLegacyNews.slice(0, 12)).map(n => {
                 const title = n.title || slugToForumTitle(n.slug)
                 const pc = n.post_count ?? 0
                 return (
