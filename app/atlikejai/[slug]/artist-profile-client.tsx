@@ -33,6 +33,7 @@ type Album = {
 }
 type Track = {
   id: number; slug: string; title: string; type?: string
+  legacy_id?: number | null
   video_url?: string; cover_url?: string
   album_id?: number | null; release_year?: number; release_month?: number
   release_date?: string | null
@@ -628,6 +629,16 @@ function PopBar({ level }: { level: number }) {
 // visible behind it. Shows the track's duration, release year, like count,
 // and a lyrics preview, plus a link to the full /lt/daina page.
 
+type EntityComment = {
+  legacy_id: number
+  author_username: string | null
+  author_avatar_url: string | null
+  created_at: string | null
+  content_text: string | null
+  content_html: string | null
+  like_count: number
+}
+
 function TrackInfoModal({
   track, artistName, artistSlug, onClose, onPlay,
 }: {
@@ -639,12 +650,29 @@ function TrackInfoModal({
   // to run before the component unmounts. When a new track replaces the
   // previous one, we re-use the mounted drawer.
   const [mounted, setMounted] = useState(false)
+  // Local "self liked" toggle for the LikePill — track page'as pats turi pilną
+  // optimistic-update logiką. Drawer'is paprastesnis: vizualus toggle, kad
+  // user'is matytų reakciją; pilnas like persist'inimas vyksta track puslapyje.
+  const [selfLiked, setSelfLiked] = useState(false)
+  // Likers modal valdymas — atidarymas iš LikePill onOpenModal callback'o.
+  const [likersOpen, setLikersOpen] = useState(false)
+  const [likersUsers, setLikersUsers] = useState<Array<{ user_username: string; user_rank: string | null; user_avatar_url: string | null }> | null>(null)
+  // Music.lt entity_comments šitai dainai
+  const [comments, setComments] = useState<EntityComment[] | null>(null)
+
   useEffect(() => {
     if (track) {
       // Defer to next frame so the element can transition in.
       const r = requestAnimationFrame(() => setMounted(true))
       const h = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose() }
       window.addEventListener('keydown', h)
+      // Fetch comments + reset like state per naują track'ą
+      setSelfLiked(false)
+      setComments(null)
+      fetch(`/api/tracks/${track.id}/comments`)
+        .then(r => r.json())
+        .then(d => setComments(d.comments || []))
+        .catch(() => setComments([]))
       return () => {
         cancelAnimationFrame(r)
         window.removeEventListener('keydown', h)
@@ -654,6 +682,16 @@ function TrackInfoModal({
     return
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [track?.id])
+
+  // Atidaryti likers modal'ą — fetch'inam list'ą per /api/likes/track/{id}
+  useEffect(() => {
+    if (!likersOpen || !track) { setLikersUsers(null); return }
+    setLikersUsers(null)
+    fetch(`/api/likes/track/${track.id}`)
+      .then(r => r.json())
+      .then(d => setLikersUsers(d.users || []))
+      .catch(() => setLikersUsers([]))
+  }, [likersOpen, track?.id])
 
   const handleClose = () => {
     setMounted(false)
@@ -665,7 +703,8 @@ function TrackInfoModal({
 
   const dur = fmtDur(track.duration)
   const year = track.release_year || (track.release_date ? new Date(track.release_date).getFullYear() : null)
-  const likes = typeof track.like_count === 'number' ? track.like_count : 0
+  const baseLikes = typeof track.like_count === 'number' ? track.like_count : 0
+  const likes = baseLikes + (selfLiked ? 1 : 0)
   const lyrics = (track.lyrics || '').trim()
   const lyricsText = lyrics ? lyrics.replace(/<[^>]+>/g, '').trim() : null
   const trackHref = `/dainos/${artistSlug}-${track.slug}-${track.id}`
@@ -695,16 +734,13 @@ function TrackInfoModal({
           mounted ? 'translate-x-0' : '-translate-x-full',
         ].join(' ')}
       >
-        {/* Header */}
+        {/* Header — be "Daina" prefix'o, tik track title + artist name */}
         <div className="flex items-start justify-between gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
           <div className="min-w-0 flex-1">
-            <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.2em] text-[var(--text-muted)]">
-              Daina
-            </div>
-            <div className="mt-0.5 truncate font-['Outfit',sans-serif] text-[17px] font-extrabold text-[var(--text-primary)]">
+            <div className="truncate font-['Outfit',sans-serif] text-[18px] font-extrabold leading-tight text-[var(--text-primary)]">
               {track.title}
             </div>
-            <div className="truncate text-[12px] text-[var(--text-muted)]">
+            <div className="mt-0.5 truncate text-[12px] text-[var(--text-muted)]">
               {artistName}
             </div>
           </div>
@@ -719,17 +755,17 @@ function TrackInfoModal({
           </button>
         </div>
 
-        {/* Meta chips — likes / year / duration / type */}
+        {/* Meta chips — clickable LikePill / year / duration. Track type
+            ("NORMAL" ir pan.) pašalintas — angliškas tag'as nesako nieko
+            naudingo galutiniam naudotojui. */}
         <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border-subtle)] px-5 py-3">
-          <span
-            title={likes > 0 ? `${likes.toLocaleString('lt-LT')} patinka` : 'Dar niekas nepaspaudė'}
-            className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-extrabold tabular-nums text-[var(--text-primary)]"
-          >
-            <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" className="text-[var(--accent-orange)]" aria-hidden>
-              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-            </svg>
-            {likes.toLocaleString('lt-LT')}
-          </span>
+          <LikePill
+            likes={likes}
+            selfLiked={selfLiked}
+            onToggle={() => setSelfLiked(v => !v)}
+            onOpenModal={() => setLikersOpen(true)}
+            variant="surface"
+          />
           {year && (
             <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]">
               {year}
@@ -740,14 +776,9 @@ function TrackInfoModal({
               {dur}
             </span>
           )}
-          {track.type && (
-            <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-1.5 font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">
-              {track.type}
-            </span>
-          )}
         </div>
 
-        {/* Body — full lyrics (scrollable) */}
+        {/* Body — full lyrics + comments (scrollable) */}
         <div className="flex-1 overflow-y-auto px-5 py-5">
           {lyricsText ? (
             <div>
@@ -763,6 +794,58 @@ function TrackInfoModal({
               Teksto dar nėra.
             </div>
           )}
+
+          {/* Komentarai — music.lt entity_comments archyvas + future-proof
+              vieta naujiems user komentarams. Drawer'is rodo read-only;
+              pilnas comment posting'as veikia track puslapyje. */}
+          <div className="mt-6 border-t border-[var(--border-subtle)] pt-5">
+            <div className="mb-3 flex items-center gap-2">
+              <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.2em] text-[var(--text-muted)]">
+                Komentarai
+              </div>
+              {comments && comments.length > 0 && (
+                <span className="font-['Outfit',sans-serif] text-[11px] font-extrabold tabular-nums text-[var(--text-faint)]">
+                  ({comments.length})
+                </span>
+              )}
+            </div>
+            {comments === null ? (
+              <div className="py-4 text-center text-[12px] text-[var(--text-faint)]">Kraunama…</div>
+            ) : comments.length === 0 ? (
+              <div className="py-4 text-center text-[12px] text-[var(--text-faint)]">Komentarų dar nėra.</div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {comments.map(c => {
+                  const initial = (c.author_username || '?').charAt(0).toUpperCase()
+                  const dateLabel = c.created_at ? new Date(c.created_at).toLocaleDateString('lt-LT', { year: 'numeric', month: 'short', day: 'numeric' }) : ''
+                  return (
+                    <div key={c.legacy_id} className="flex gap-2">
+                      {c.author_avatar_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={c.author_avatar_url} alt="" className="h-7 w-7 flex-shrink-0 rounded-full object-cover" />
+                      ) : (
+                        <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-[rgba(99,102,241,0.18)] font-['Outfit',sans-serif] text-[10px] font-bold text-[#818cf8]">
+                          {initial}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-[11px] font-bold text-[var(--text-secondary)]">{c.author_username || 'anon'}</span>
+                          {dateLabel && <span className="text-[10px] text-[var(--text-faint)]">· {dateLabel}</span>}
+                          {c.like_count > 0 && (
+                            <span className="ml-auto text-[10px] font-bold text-[var(--accent-orange)]">♥ {c.like_count}</span>
+                          )}
+                        </div>
+                        <div className="mt-0.5 whitespace-pre-wrap break-words text-[12px] leading-[1.45] text-[var(--text-primary)]">
+                          {c.content_text || ''}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Footer actions — Play (accent) + secondary link to full page */}
@@ -790,6 +873,59 @@ function TrackInfoModal({
           </Link>
         </div>
       </aside>
+
+      {/* Likers modal — atsidaro paspaudus LikePill count'ą. Z-index aukštesnis
+          už drawer'į, kad būtų matomas viršuje. */}
+      {likersOpen && (
+        <div
+          className="fixed inset-0 z-[10000] flex items-center justify-center p-5"
+          style={{ background: 'rgba(0,0,0,0.7)' }}
+          onClick={() => setLikersOpen(false)}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="max-h-[80vh] w-full max-w-[520px] overflow-auto rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]"
+          >
+            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
+              <div className="font-['Outfit',sans-serif] text-[13px] font-extrabold">
+                Patiko dainą
+                {likersUsers && <span className="ml-2 text-[11px] text-[var(--text-muted)]">({likersUsers.length})</span>}
+              </div>
+              <button
+                onClick={() => setLikersOpen(false)}
+                aria-label="Uždaryti"
+                className="text-[18px] text-[var(--text-muted)]"
+              >✕</button>
+            </div>
+            <div className="px-4 py-3">
+              {likersUsers === null ? (
+                <div className="py-7 text-center text-[12px] text-[var(--text-faint)]">Kraunama…</div>
+              ) : likersUsers.length === 0 ? (
+                <div className="py-7 text-center text-[12px] text-[var(--text-faint)]">Nėra žinomų užliejusių (likers nebuvo importuoti)</div>
+              ) : (
+                <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))' }}>
+                  {likersUsers.map(u => (
+                    <div key={u.user_username} className="flex items-center gap-2 rounded-lg bg-[var(--card-hover)] p-1.5">
+                      {u.user_avatar_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={u.user_avatar_url} alt="" className="h-[26px] w-[26px] flex-shrink-0 rounded-full object-cover" />
+                      ) : (
+                        <div className="flex h-[26px] w-[26px] flex-shrink-0 items-center justify-center rounded-full bg-[rgba(99,102,241,0.18)] font-['Outfit',sans-serif] text-[10px] font-bold text-[#818cf8]">
+                          {u.user_username.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <div className="truncate text-[12px] font-bold text-[var(--text-primary)]">{u.user_username}</div>
+                        {u.user_rank && <div className="truncate text-[10px] text-[var(--text-faint)]">{u.user_rank}</div>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
   // artistSlug is kept for future deep-links (e.g. "More from artist")
