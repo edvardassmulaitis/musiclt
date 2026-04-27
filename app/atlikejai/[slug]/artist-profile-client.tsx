@@ -8,6 +8,7 @@ import BioModal from '@/components/BioModal'
 import ScoreCard from '@/components/ScoreCard'
 import ArtistAwards, { type AwardRow } from '@/components/ArtistAwards'
 import type { LegacyLikeUser } from '@/components/LegacyLikesPanel'
+import { proxyImg } from '@/lib/img-proxy'
 
 /* ═══════════════════════════════════════════════════════════════════
    Artist profile — v10.
@@ -822,7 +823,7 @@ function TrackInfoModal({
                     <div key={c.legacy_id} className="flex gap-2">
                       {c.author_avatar_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={c.author_avatar_url} alt="" className="h-7 w-7 flex-shrink-0 rounded-full object-cover" />
+                        <img src={proxyImg(c.author_avatar_url)} alt="" className="h-7 w-7 flex-shrink-0 rounded-full object-cover" />
                       ) : (
                         <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-[rgba(99,102,241,0.18)] font-['Outfit',sans-serif] text-[10px] font-bold text-[#818cf8]">
                           {initial}
@@ -908,7 +909,7 @@ function TrackInfoModal({
                     <div key={u.user_username} className="flex items-center gap-2 rounded-lg bg-[var(--card-hover)] p-1.5">
                       {u.user_avatar_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={u.user_avatar_url} alt="" className="h-[26px] w-[26px] flex-shrink-0 rounded-full object-cover" />
+                        <img src={proxyImg(u.user_avatar_url)} alt="" className="h-[26px] w-[26px] flex-shrink-0 rounded-full object-cover" />
                       ) : (
                         <div className="flex h-[26px] w-[26px] flex-shrink-0 items-center justify-center rounded-full bg-[rgba(99,102,241,0.18)] font-['Outfit',sans-serif] text-[10px] font-bold text-[#818cf8]">
                           {u.user_username.charAt(0).toUpperCase()}
@@ -987,7 +988,7 @@ function Hero({
               aria-hidden
               className="absolute inset-0"
               style={{
-                backgroundImage: `url(${heroImage})`,
+                backgroundImage: `url(${proxyImg(heroImage)})`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
                 filter: 'blur(60px) saturate(1.3) brightness(0.85)',
@@ -1003,7 +1004,7 @@ function Hero({
                 "softfocus" tipo nuotrauką, ne pixelated artefaktą. */}
             <img
               id="hero-photo"
-              src={heroImage}
+              src={proxyImg(heroImage)}
               alt={artist.name}
               referrerPolicy="no-referrer"
               onClick={() => {
@@ -1379,7 +1380,7 @@ function MembersInline({ members }: { members: Member[] }) {
           className="inline-flex items-center gap-2 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] py-1 pl-1 pr-3 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
         >
           {m.cover_image_url ? (
-            <img src={m.cover_image_url} alt={m.name} className="h-7 w-7 shrink-0 rounded-full object-cover" />
+            <img src={proxyImg(m.cover_image_url)} alt={m.name} className="h-7 w-7 shrink-0 rounded-full object-cover" />
           ) : (
             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--cover-placeholder)] font-['Outfit',sans-serif] text-[11px] font-black text-[var(--text-faint)]">
               {m.name[0]}
@@ -1428,7 +1429,7 @@ function GalleryCollage({
               className="group relative block aspect-[4/3] overflow-hidden rounded-xl border-0 bg-transparent p-0"
             >
               <img
-                src={p.url}
+                src={proxyImg(p.url)}
                 alt={p.caption || ''}
                 loading="lazy"
                 className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
@@ -1570,7 +1571,7 @@ function Lightbox({
         </button>
       )}
       <div className="flex max-h-[90vh] max-w-[92vw] flex-col items-center" onClick={e => e.stopPropagation()}>
-        <img src={photos[index].url} alt="" className="max-h-[82vh] max-w-full rounded-lg object-contain" />
+        <img src={proxyImg(photos[index].url)} alt="" className="max-h-[82vh] max-w-full rounded-lg object-contain" />
         <PhotoCredit photo={photos[index]} />
       </div>
       {index < photos.length - 1 && (
@@ -1608,7 +1609,7 @@ function MasonryGallery({ photos, onOpen }: { photos: Photo[]; onOpen: (i: numbe
             style={{ breakInside: 'avoid' }}
           >
             <img
-              src={p.url}
+              src={proxyImg(p.url)}
               alt={parsePhotoCaption(p.caption).author || ''}
               loading="lazy"
               referrerPolicy="no-referrer"
@@ -1715,7 +1716,7 @@ function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' |
         </div>
         {hasCover && (
           <img
-            src={e.cover_image_url}
+            src={proxyImg(e.cover_image_url)}
             alt={e.title}
             referrerPolicy="no-referrer"
             onError={(ev) => {
@@ -1860,7 +1861,7 @@ function EventBigCard({ e }: { e: any }) {
       {hasCover ? (
         <div className="relative aspect-[16/9] overflow-hidden">
           <img
-            src={e.cover_image_url}
+            src={proxyImg(e.cover_image_url)}
             alt={e.title}
             referrerPolicy="no-referrer"
             onError={() => setCoverFailed(true)}
@@ -1980,7 +1981,7 @@ function AlbumCard({ a, popularity, artistSlug }: { a: Album; popularity?: numbe
         <div className="aspect-square">
           {showCover ? (
             <img
-              src={coverUrl}
+              src={proxyImg(coverUrl)}
               alt={a.title}
               referrerPolicy="no-referrer"
               loading="lazy"
@@ -2027,7 +2028,7 @@ function TrackRow({ t, popularity, artistSlug }: { t: Track; popularity?: number
     >
       <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md bg-[var(--cover-placeholder)]">
         {cover ? (
-          <img src={cover} alt={t.title} className="h-full w-full object-cover" />
+          <img src={proxyImg(cover)} alt={t.title} className="h-full w-full object-cover" />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-[var(--text-faint)]">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z" /></svg>
@@ -2788,7 +2789,7 @@ export default function ArtistProfileClient({
                 <Link key={a.id} href={`/atlikejai/${a.slug}`} className="w-[110px] shrink-0 snap-start text-center no-underline sm:w-[130px]">
                   <div className="relative mx-auto mb-2.5 h-[90px] w-[90px] overflow-hidden rounded-full border-2 border-[var(--border-default)] transition-all hover:scale-105 hover:border-[var(--border-strong)] sm:h-[108px] sm:w-[108px]">
                     {a.cover_image_url ? (
-                      <img src={a.cover_image_url} alt={a.name} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                      <img src={proxyImg(a.cover_image_url)} alt={a.name} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center bg-[var(--cover-placeholder)] font-['Outfit',sans-serif] text-[24px] font-black text-[var(--text-faint)]">
                         {a.name[0]}
