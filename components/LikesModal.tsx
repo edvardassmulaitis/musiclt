@@ -16,6 +16,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { LikePill } from './LikePill'
+import { proxyImg } from '@/lib/img-proxy'
 
 export type LikeUser = {
   user_username: string
@@ -166,7 +167,7 @@ export default function LikesModal({
               <>
                 {subjectPhoto ? (
                   <img
-                    src={subjectPhoto}
+                    src={proxyImg(subjectPhoto)}
                     alt={subjectName}
                     referrerPolicy="no-referrer"
                     style={{
@@ -337,7 +338,7 @@ function UserAvatar({ user, size = 34 }: { user: LikeUser; size?: number }) {
   if (user.user_avatar_url) {
     return (
       <img
-        src={user.user_avatar_url}
+        src={proxyImg(user.user_avatar_url)}
         alt={user.user_username}
         referrerPolicy="no-referrer"
         style={{

@@ -9,6 +9,7 @@
 // nuo produkto pagrindinio orange (#f97316) be konfliktų.
 
 import Link from 'next/link'
+import { proxyImg } from '@/lib/img-proxy'
 
 export type LegacyLikeUser = {
   user_username: string
@@ -179,7 +180,7 @@ function LegacyUserTile({ user }: { user: LegacyLikeUser }) {
     >
       {user.user_avatar_url ? (
         <img
-          src={user.user_avatar_url}
+          src={proxyImg(user.user_avatar_url)}
           alt={user.user_username}
           referrerPolicy="no-referrer"
           style={{
