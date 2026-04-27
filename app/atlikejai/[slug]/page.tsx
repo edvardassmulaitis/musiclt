@@ -80,7 +80,7 @@ async function getPhotos(id: number) {
   // shape so the gallery never stops rendering.
   const enriched = await sb
     .from('artist_photos')
-    .select('id, url, caption, sort_order, taken_at, source_url, license, photographer:photographers(id, slug, name)')
+    .select('id, url, caption, sort_order, taken_at, source_url, license, is_active, photographer:photographers(id, slug, name)')
     .eq('artist_id', id)
     .order('sort_order')
   if (!enriched.error && enriched.data) {
@@ -92,11 +92,12 @@ async function getPhotos(id: number) {
       taken_at: r.taken_at || null,
       source_url: r.source_url || null,
       license: r.license || null,
+      is_active: r.is_active,
       photographer_slug: r.photographer?.slug || null,
       photographer_name: r.photographer?.name || null,
     }))
   }
-  const { data } = await sb.from('artist_photos').select('id, url, caption, sort_order').eq('artist_id', id).order('sort_order')
+  const { data } = await sb.from('artist_photos').select('id, url, caption, sort_order, is_active').eq('artist_id', id).order('sort_order')
   return data || []
 }
 async function getAlbums(id: number) { const sb = createAdminClient(); const { data } = await sb.from('albums').select('id, slug, title, year, month, cover_image_url, type_studio, type_compilation, type_ep, type_single, type_live, type_remix, type_soundtrack, type_demo, spotify_id, video_url, legacy_id').eq('artist_id', id).order('year', { ascending: false }); return data || [] }
@@ -522,19 +523,21 @@ export default async function ArtistPage({ params }: Props) {
     allTrackLegacyIds,
   )
 
-  let photos: { url: string; caption?: string }[] = dbPhotos.map((p: any) => ({ url: p.url, caption: p.caption }))
+  // Photos shown publicly — only is_active=true (or undefined for legacy rows
+  // without that column). Inactive photos exist but waiting for admin approval.
+  let photos: { url: string; caption?: string }[] = dbPhotos
+    .filter((p: any) => p.is_active === undefined || p.is_active === true)
+    .map((p: any) => ({ url: p.url, caption: p.caption }))
   if (artist.photos && Array.isArray(artist.photos)) { for (const p of artist.photos as any[]) { if (p.url && !photos.some(x => x.url === p.url)) photos.push({ url: p.url, caption: p.caption || '' }) } }
 
-  // Hero image preference:
+  // Hero image preference (NEVER cover_image_url — that's a small profile thumb):
   //  1. Explicitly set wide cover (admin-chosen)
-  //  2. First photo from gallery — typically higher-res than the small square cover
-  //  3. Standard cover_image_url (often a low-res profile square) as last resort
-  // TODO: add hero_photo_id FK so admin can pick a specific gallery photo.
+  //  2. First active photo from gallery — typically higher-res
+  //  3. null → no hero shown (better than blurry small thumb)
   const galleryFirst = photos.length > 0 ? photos[0].url : null
   const heroImage = artist.cover_image_wide_url
-    || (galleryFirst && galleryFirst !== artist.cover_image_url ? galleryFirst : null)
-    || artist.cover_image_url
     || galleryFirst
+    || null
 
   // Trending — tracks released in last 24 months (2 years)
   const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth() - 24)
