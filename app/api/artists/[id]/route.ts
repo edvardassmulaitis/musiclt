@@ -81,7 +81,56 @@ export async function GET(
     breaks = (breakRows || []).map((b: any) => ({ from: b.year_from ? String(b.year_from) : '', to: b.year_to ? String(b.year_to) : '' }))
   } catch {}
 
-  return NextResponse.json({ ...artist, genres, substyleNames, related, links, breaks })
+  // Photos: kanoninis šaltinis = artist_photos lentelė (music.lt scrape +
+  // wiki + manual'iai įkeltos visos čia). Foto eilutės gali turėti
+  // is_active=false (music.lt importuoja inactive — admin patvirtina UI).
+  // Legacy artists.photos JSON kolumna paliekama backward-compat dėl seno
+  // PATCH flow'o, bet UI naudoja tik artist_photos.
+  let photosForUi: any[] = []
+  try {
+    const { data: photoRows } = await supabase
+      .from('artist_photos')
+      .select('id, url, caption, sort_order, is_active, photographer_id, license, source_url, taken_at')
+      .eq('artist_id', id)
+      .order('sort_order', { ascending: true })
+    photosForUi = (photoRows || []).map((p: any) => {
+      // Decode legacy JSON caption ({a, s}) → author + sourceUrl
+      let author = ''
+      let sourceUrl = p.source_url || ''
+      let caption = p.caption || ''
+      if (caption && caption.startsWith('{') && caption.endsWith('}')) {
+        try {
+          const j = JSON.parse(caption)
+          author = j.a || ''
+          if (!sourceUrl) sourceUrl = j.s || ''
+          caption = ''
+        } catch {}
+      }
+      return {
+        id: p.id,
+        url: p.url,
+        author,
+        sourceUrl,
+        license: p.license || '',
+        takenAt: p.taken_at || '',
+        caption,
+        is_active: p.is_active !== false, // null/undef treat as active
+        sort_order: p.sort_order,
+      }
+    })
+  } catch (e: any) {
+    console.error('[GET /artists/:id] photos query failed:', e?.message)
+  }
+
+  return NextResponse.json({
+    ...artist,
+    photos: photosForUi,         // override JSON column with junction-table rows
+    genres,
+    substyleNames,
+    related,
+    links,
+    breaks,
+  })
 }
 
 // ── PATCH /api/artists/[id] ───────────────────────────────────────────────────

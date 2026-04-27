@@ -138,43 +138,86 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const validPhotos = photos.filter((p: any) => p?.url && typeof p.url === 'string' && !p.url.startsWith('data:'))
 
-  const { error: delError } = await supabase.from('artist_photos').delete().eq('artist_id', artistId)
-  if (delError) return NextResponse.json({ error: delError.message }, { status: 500 })
+  // STRATEGY: nebebandom DELETE-all + INSERT, nes prarandam is_active flag'us
+  // (music.lt scrape importuoja photos su is_active=false; admin paskui
+  // patvirtina). Vietoj to: UPSERT pagal id (jei eilutė turi `id`) ARBA
+  // pridedam naujas. Atskirai trinam tik tas eilutes, kurios buvo DB'oje
+  // bet dingo iš formų sąrašo.
+  // 1. Get current photo ids in DB
+  const { data: existingRows } = await supabase
+    .from('artist_photos')
+    .select('id, url')
+    .eq('artist_id', artistId)
+  const existingIds = new Set<number>((existingRows || []).map((r: any) => r.id))
 
-  if (validPhotos.length > 0) {
-    // Resolve photographer ids sequentially — small N (< ~50) and we want
-    // strict ordering on inserts/slugs to avoid race conditions.
-    const rows: any[] = []
-    for (let i = 0; i < validPhotos.length; i++) {
-      const p = validPhotos[i]
-      const { name, license } = splitAuthorLicense(p.author || '')
-      const sourceUrl = typeof p.sourceUrl === 'string' ? p.sourceUrl : null
-      const photographerId = name ? await resolvePhotographerId(name, sourceUrl) : null
-      // Accept `takenAt` / `taken_at` / `date` — stored as DATE, so normalize
-      // anything that looks like an ISO-ish string into yyyy-mm-dd.
-      const rawDate = p.takenAt || p.taken_at || p.date || null
-      let takenAt: string | null = null
-      if (typeof rawDate === 'string' && rawDate.trim()) {
-        const d = new Date(rawDate.trim())
-        if (isFinite(d.getTime())) {
-          takenAt = d.toISOString().slice(0, 10)
-        }
+  // 2. Walk incoming list, build update + insert sets
+  const incomingIds = new Set<number>()
+  const updates: { id: number; patch: any }[] = []
+  const inserts: any[] = []
+
+  for (let i = 0; i < validPhotos.length; i++) {
+    const p = validPhotos[i]
+    const { name, license } = splitAuthorLicense(p.author || '')
+    const sourceUrl = typeof p.sourceUrl === 'string' ? p.sourceUrl : null
+    const photographerId = name ? await resolvePhotographerId(name, sourceUrl) : null
+    const rawDate = p.takenAt || p.taken_at || p.date || null
+    let takenAt: string | null = null
+    if (typeof rawDate === 'string' && rawDate.trim()) {
+      const d = new Date(rawDate.trim())
+      if (isFinite(d.getTime())) {
+        takenAt = d.toISOString().slice(0, 10)
       }
-      rows.push({
-        artist_id: artistId,
-        url: p.url,
-        caption: encodeCaption(p),
-        photographer_id: photographerId,
-        license,
-        source_url: sourceUrl,
-        taken_at: takenAt,
-        sort_order: i,
-      })
     }
+    const base: any = {
+      url: p.url,
+      caption: encodeCaption(p),
+      photographer_id: photographerId,
+      license,
+      source_url: sourceUrl,
+      taken_at: takenAt,
+      sort_order: i,
+    }
+    // is_active gali ateiti iš formos. Default true jei undefined.
+    if (typeof p.is_active === 'boolean') base.is_active = p.is_active
 
-    const { error: insError } = await supabase.from('artist_photos').insert(rows)
+    if (p.id && existingIds.has(Number(p.id))) {
+      incomingIds.add(Number(p.id))
+      updates.push({ id: Number(p.id), patch: base })
+    } else {
+      inserts.push({ ...base, artist_id: artistId })
+    }
+  }
+
+  // 3. DELETE rows that exist in DB but not in incoming list
+  const toDelete = [...existingIds].filter(id => !incomingIds.has(id))
+  if (toDelete.length > 0) {
+    const { error: delError } = await supabase
+      .from('artist_photos')
+      .delete()
+      .in('id', toDelete)
+    if (delError) return NextResponse.json({ error: delError.message }, { status: 500 })
+  }
+
+  // 4. UPDATE existing rows (sequentially, small N)
+  for (const u of updates) {
+    const { error: upErr } = await supabase
+      .from('artist_photos')
+      .update(u.patch)
+      .eq('id', u.id)
+    if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 })
+  }
+
+  // 5. INSERT new rows
+  if (inserts.length > 0) {
+    const { error: insError } = await supabase.from('artist_photos').insert(inserts)
     if (insError) return NextResponse.json({ error: insError.message }, { status: 500 })
   }
 
-  return NextResponse.json({ ok: true, saved: validPhotos.length })
+  return NextResponse.json({
+    ok: true,
+    saved: validPhotos.length,
+    inserted: inserts.length,
+    updated: updates.length,
+    deleted: toDelete.length,
+  })
 }

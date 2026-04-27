@@ -4,10 +4,16 @@ import { useState, useRef } from 'react'
 import WikimediaSearch from './WikimediaSearch'
 
 export type Photo = {
+  id?: number
   url: string
   caption?: string
   author?: string
   authorUrl?: string
+  sourceUrl?: string
+  license?: string
+  takenAt?: string
+  is_active?: boolean
+  sort_order?: number
 }
 
 type LogEntry = { time: string; msg: string; ok: boolean }

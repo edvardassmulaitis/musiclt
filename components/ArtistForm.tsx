@@ -1157,6 +1157,20 @@ function InlineGallery({ photos, onChange, artistName, artistId, onSetAvatar, cu
     onChange(next); saveToDb(next)
   }
 
+  const toggleActive = (i: number) => {
+    const next = photos.map((p, idx) => idx === i
+      ? { ...p, is_active: p.is_active === false ? true : false }
+      : p)
+    onChange(next); saveToDb(next)
+  }
+
+  const activateAll = () => {
+    const next = photos.map(p => ({ ...p, is_active: true }))
+    onChange(next); saveToDb(next)
+  }
+
+  const inactiveCount = photos.filter(p => p.is_active === false).length
+
   const onDragStart = (i: number) => setDragIdx(i)
   const onDragOver = (e: React.DragEvent, i: number) => { e.preventDefault(); setDragOverIdx(i) }
   const onDrop = (i: number) => {
@@ -1218,6 +1232,13 @@ function InlineGallery({ photos, onChange, artistName, artistId, onSetAvatar, cu
           <div className="flex items-center gap-2 shrink-0">
             <span className="text-xs font-semibold text-[var(--text-muted)]">Nuotraukų galerija</span>
             {photos.length > 0 && <span className="bg-[var(--bg-active)] text-[var(--text-secondary)] text-xs font-bold px-1.5 py-0.5 rounded-full">{photos.length}</span>}
+            {inactiveCount > 0 && (
+              <button type="button" onClick={activateAll}
+                title="Aktyvuoti visas neaktyvias nuotraukas (rodomos viešai)"
+                className="bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 text-[10px] font-semibold px-1.5 py-0.5 rounded-full transition-colors">
+                {inactiveCount} neakt. → aktyvuoti
+              </button>
+            )}
           </div>
           <input type="text" value={urlInput} onChange={e => setUrlInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); addUrl() } }}
@@ -1246,13 +1267,23 @@ function InlineGallery({ photos, onChange, artistName, artistId, onSetAvatar, cu
               onDragOver={e => onDragOver(e, i)}
               onDrop={() => onDrop(i)}
               onDragEnd={() => { setDragIdx(null); setDragOverIdx(null) }}>
-              <div className={`aspect-square rounded-lg overflow-hidden bg-[var(--bg-elevated)] cursor-pointer ring-2 transition-all ${dragOverIdx === i ? 'ring-blue-400 scale-95' : 'ring-transparent'}`}
+              <div className={`aspect-square rounded-lg overflow-hidden bg-[var(--bg-elevated)] cursor-pointer ring-2 transition-all ${dragOverIdx === i ? 'ring-blue-400 scale-95' : p.is_active === false ? 'ring-amber-300' : 'ring-transparent'}`}
                 onClick={() => setLightboxIdx(i)}>
                 <img src={p.url} alt="" referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover group-hover:opacity-85 transition-opacity" />
+                  className={`w-full h-full object-cover group-hover:opacity-85 transition-opacity ${p.is_active === false ? 'opacity-50 grayscale' : ''}`} />
+                {p.is_active === false && (
+                  <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 text-center pointer-events-none">
+                    <span className="bg-amber-500/90 text-white text-[9px] font-bold uppercase px-1.5 py-0.5 rounded">neaktyvi</span>
+                  </div>
+                )}
               </div>
               <button type="button" onClick={e => { e.stopPropagation(); remove(i) }}
                 className="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 hover:bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity leading-none">×</button>
+              <button type="button" onClick={e => { e.stopPropagation(); toggleActive(i) }}
+                title={p.is_active === false ? 'Aktyvuoti — bus rodoma viešai' : 'Pažymėti kaip neaktyvią — nebus rodoma viešai'}
+                className={`absolute top-0.5 right-5 w-4 h-4 rounded-full text-[8px] font-bold flex items-center justify-center transition-all ${p.is_active === false ? 'bg-amber-400 hover:bg-amber-500 text-white opacity-100' : 'bg-black/50 hover:bg-amber-500 text-white opacity-0 group-hover:opacity-100'}`}>
+                {p.is_active === false ? '✓' : '✕'}
+              </button>
               {onSetAvatar && (
                 <button type="button" onClick={e => { e.stopPropagation(); onSetAvatar(p.url) }}
                   title="Naudoti kaip profilio nuotrauką"
