@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react'
 import Link from 'next/link'
 import LegacyLikesPanel, { LegacyBadge, type LegacyLikeUser } from '@/components/LegacyLikesPanel'
 import ScoreCard from '@/components/ScoreCard'
+import { LikePill } from '@/components/LikePill'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -367,15 +368,23 @@ export default function TrackPageClient({
   const TrackInfoCard = () => (
     <div style={cardStyle}>
       <div style={{ background: 'var(--cover-area-bg)', padding: 14, position: 'relative', opacity: loaded ? 1 : 0, transition: 'opacity .35s' }}>
-        <button onClick={() => setLiked(v => !v)}
-          style={{ position: 'absolute', top: 10, right: 12, zIndex: 2, display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: 'pointer', border: `1px solid ${liked ? 'rgba(249,115,22,.4)' : 'var(--card-border-default)'}`, background: liked ? 'rgba(249,115,22,.12)' : 'rgba(255,255,255,.04)', color: liked ? '#f97316' : 'var(--text-muted)', fontFamily: 'Outfit,sans-serif', whiteSpace: 'nowrap' }}>
-          {liked ? '♥' : '♡'} {initialLikes + (liked ? 1 : 0)}
-        </button>
+        {/* Like pill — heart toggle'ina vartotojo like'ą, count atidaro
+            modal'ą su visais user'iais kuriems patiko (kaip artist page'e). */}
+        <div style={{ position: 'absolute', top: 10, right: 12, zIndex: 2 }}>
+          <LikePill
+            likes={initialLikes + (liked ? 1 : 0)}
+            selfLiked={liked}
+            onToggle={() => setLiked(v => !v)}
+            onOpenModal={() => setLikersModalEntity({ type: 'track', id: track.id, label: 'dainą' })}
+            variant="surface"
+          />
+        </div>
         <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', paddingRight: 76 }}>
-          <div style={{ flexShrink: 0, width: 100, height: 100, borderRadius: 12, overflow: 'hidden', boxShadow: '0 10px 32px rgba(0,0,0,.7)', background: 'var(--cover-placeholder)', position: 'relative' }}>
-            {/* Profile thumb su subtle blur — anksčiau music.lt 100x100 thumb
-                stretch'inant atrodė pikselizuotai. Subtle blur + saturate
-                boost suteikia glotnesnę išvaizdą. */}
+          {/* Profile thumb. Anksčiau buvo 100x100 — bet music.lt avatar'ai
+              nedidesni nei ~80-100px → display'inant 100x100 dažnai vyksta
+              upscale, atrodo pikselizuotai. Sumažintas iki 72x72 (visada
+              <= source dimensijų) + subtle blur, kad smooth-out artifact'ai. */}
+          <div style={{ flexShrink: 0, width: 72, height: 72, borderRadius: 12, overflow: 'hidden', boxShadow: '0 10px 32px rgba(0,0,0,.7)', background: 'var(--cover-placeholder)', position: 'relative' }}>
             {(() => {
               const thumbSrc = primaryAlbum?.cover_image_url || artist.cover_image_url || null
               return thumbSrc ? (
@@ -384,11 +393,12 @@ export default function TrackPageClient({
                   alt=""
                   style={{
                     width: '100%', height: '100%', objectFit: 'cover', display: 'block',
-                    filter: 'blur(0.6px) saturate(1.15) contrast(1.05)',
+                    filter: 'blur(0.3px) saturate(1.1) contrast(1.03)',
+                    imageRendering: 'auto',
                   }}
                 />
               ) : (
-                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>🎵</div>
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>🎵</div>
               )
             })()}
           </div>
