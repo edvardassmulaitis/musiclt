@@ -680,7 +680,7 @@ function TrackInfoModal({
   const likes = typeof track.like_count === 'number' ? track.like_count : 0
   const lyrics = (track.lyrics || '').trim()
   const lyricsText = lyrics ? lyrics.replace(/<[^>]+>/g, '').trim() : null
-  const trackHref = `/lt/daina/${track.slug}/${track.id}`
+  const trackHref = `/dainos/${track.slug}-${track.id}`
 
   return (
     // Backdrop is intentionally subtle + click-through-friendly: we don't
@@ -1818,7 +1818,7 @@ function MobileFilterRow({
 function AlbumCard({ a, popularity }: { a: Album; popularity?: number }) {
   const type = aType(a)
   return (
-    <Link href={`/lt/albumas/${a.slug}/${a.id}/`} className="group block no-underline">
+    <Link href={`/albumai/${a.slug}-${a.id}`} className="group block no-underline">
       <div className="relative overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] transition-all group-hover:border-[var(--border-strong)] group-hover:shadow-[0_10px_28px_rgba(0,0,0,0.3)]">
         <div className="aspect-square">
           {a.cover_image_url ? (
@@ -1853,7 +1853,7 @@ function TrackRow({ t, popularity }: { t: Track; popularity?: number }) {
   const cover = t.cover_url || (v ? `https://img.youtube.com/vi/${v}/mqdefault.jpg` : null)
   return (
     <Link
-      href={`/lt/daina/${t.slug}/${t.id}/`}
+      href={`/dainos/${t.slug}-${t.id}`}
       className="group flex items-center gap-2.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-2 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
     >
       <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md bg-[var(--cover-placeholder)]">

@@ -102,6 +102,19 @@ export default function TrackPageClient({
   const [showAllV, setShowAllV] = useState(false)
   const [loaded, setLoaded] = useState(false)
 
+  // Likers modal — universal'us pop-over visiems entity types (comment / track /
+  // album / post). Atidaromas paspaudus ant ♥N badge'o.
+  const [likersModalEntity, setLikersModalEntity] = useState<{ type: string; id: number; label: string } | null>(null)
+  const [likersModalUsers, setLikersModalUsers] = useState<Array<{ user_username: string; user_rank: string | null; user_avatar_url: string | null }> | null>(null)
+  useEffect(() => {
+    if (!likersModalEntity) { setLikersModalUsers(null); return }
+    setLikersModalUsers(null)
+    fetch(`/api/likes/${likersModalEntity.type}/${likersModalEntity.id}`)
+      .then(r => r.json())
+      .then(d => setLikersModalUsers(d.users || []))
+      .catch(() => setLikersModalUsers([]))
+  }, [likersModalEntity])
+
   // Reactions — initialise from server props; refreshed on mount via API
   const [reactions, setReactions] = useState<LyricReaction[]>(initialReactions)
 
@@ -406,7 +419,7 @@ export default function TrackPageClient({
         <div style={{ padding: '10px 14px', display: 'flex', gap: 8, flexWrap: 'wrap', borderTop: '1px solid var(--card-border-subtle)' }}>
           <span style={{ fontSize: 10, color: 'var(--text-faint)', alignSelf: 'center', fontFamily: 'Outfit,sans-serif', textTransform: 'uppercase', letterSpacing: '.06em' }}>Albumas</span>
           {albums.map(a => (
-            <Link key={a.id} href={`/lt/albumas/${a.slug}/${a.id}/`}
+            <Link key={a.id} href={`/albumai/${a.slug}-${a.id}`}
               style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '5px 10px 5px 6px', borderRadius: 999, background: 'var(--card-hover-bg)', border: '1px solid var(--card-border-default)', textDecoration: 'none' }}>
               {a.cover_image_url
                 ? <img src={a.cover_image_url} style={{ width: 22, height: 22, borderRadius: 5, objectFit: 'cover' }} alt="" />
@@ -507,7 +520,7 @@ export default function TrackPageClient({
       <div style={cardStyle}>
         <div style={headStyle}>Versijos ir remixai <span style={{ fontSize: 9, fontWeight: 400, color: 'var(--text-faint)', textTransform: 'none', letterSpacing: 0 }}>{versions.length}</span></div>
         {vis.map((v, i) => (
-          <Link key={v.id} href={`/lt/daina/${v.slug}/${v.id}/`}
+          <Link key={v.id} href={`/dainos/${v.slug}-${v.id}`}
             style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', borderBottom: i < vis.length - 1 ? '1px solid var(--card-border-subtle)' : 'none', textDecoration: 'none' }}
             onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'var(--card-hover-bg)')}
             onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}>
@@ -558,7 +571,15 @@ export default function TrackPageClient({
                     <div style={{ display: 'flex', gap: 6, alignItems: 'baseline', marginBottom: 2 }}>
                       <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>{c.author_username || 'anon'}</span>
                       {dateLabel && <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>· {dateLabel}</span>}
-                      {c.like_count > 0 && <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--accent-orange)' }}>♥ {c.like_count}</span>}
+                      {c.like_count > 0 && (
+                        <button
+                          onClick={() => setLikersModalEntity({ type: 'comment', id: c.legacy_id, label: `Komentaras` })}
+                          style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--accent-orange)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                          title="Žiūrėti, kas patiko šį komentarą"
+                        >
+                          ♥ {c.like_count}
+                        </button>
+                      )}
                     </div>
                     <div style={{ fontSize: 12, lineHeight: 1.45, color: 'var(--text-primary)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
                       {c.content_text || ''}
@@ -579,7 +600,7 @@ export default function TrackPageClient({
       <div style={cardStyle}>
         <div style={headStyle}>Kitos {artist.name} dainos</div>
         {relatedTracks.slice(0, 6).map((t, i) => (
-          <Link key={t.id} href={`/lt/daina/${t.slug}/${t.id}/`}
+          <Link key={t.id} href={`/dainos/${t.slug}-${t.id}`}
             style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderBottom: i < 5 ? '1px solid var(--card-border-subtle)' : 'none', textDecoration: 'none' }}
             onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'var(--card-hover-bg)')}
             onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}>
@@ -814,6 +835,50 @@ export default function TrackPageClient({
         )}
         <RelatedCard />
       </div>
+
+      {/* Likers modal — universal'us pop-over visiems entity types */}
+      {likersModalEntity && (
+        <div
+          onClick={() => setLikersModalEntity(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.7)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ background: 'var(--bg-surface)', borderRadius: 16, maxWidth: 520, width: '100%', maxHeight: '80vh', overflow: 'auto', border: '1px solid var(--border-default)' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', borderBottom: '1px solid var(--border-subtle)' }}>
+              <div style={{ fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 800 }}>
+                Patiko {likersModalEntity.label}
+                {likersModalUsers && <span style={{ marginLeft: 8, color: 'var(--text-muted)', fontSize: 11 }}>({likersModalUsers.length})</span>}
+              </div>
+              <button onClick={() => setLikersModalEntity(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 18, cursor: 'pointer' }}>✕</button>
+            </div>
+            <div style={{ padding: '12px 18px' }}>
+              {likersModalUsers === null ? (
+                <div style={{ textAlign: 'center', padding: 30, color: 'var(--text-faint)' }}>Kraunama…</div>
+              ) : likersModalUsers.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: 30, color: 'var(--text-faint)' }}>Nėra žinomų užliejusių (likers nebuvo importuoti)</div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8 }}>
+                  {likersModalUsers.map(u => (
+                    <div key={u.user_username} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 6, borderRadius: 8, background: 'var(--card-hover-bg)' }}>
+                      {u.user_avatar_url ? (
+                        <img src={u.user_avatar_url} alt="" style={{ width: 26, height: 26, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                      ) : (
+                        <div style={{ width: 26, height: 26, borderRadius: '50%', flexShrink: 0, background: 'rgba(99,102,241,.18)', color: '#818cf8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, fontFamily: 'Outfit,sans-serif' }}>{u.user_username.charAt(0).toUpperCase()}</div>
+                      )}
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.user_username}</div>
+                        {u.user_rank && <div style={{ fontSize: 10, color: 'var(--text-faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.user_rank}</div>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`
         @media(max-width:860px){.tr-desk{display:none!important}.tr-mob{display:flex!important}}

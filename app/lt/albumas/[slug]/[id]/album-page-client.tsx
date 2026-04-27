@@ -230,7 +230,7 @@ export default function AlbumPageClient({ album, artist, tracks, otherAlbums, si
             {/* Title + comment */}
             <div style={{ flex: 1, minWidth: 0 }}>
               <Link
-                href={`/lt/daina/${t.slug}/${t.id}/`}
+                href={`/dainos/${t.slug}-${t.id}`}
                 style={{ fontSize: 13, fontWeight: isPlaying ? 700 : 600, color: titleCol, textDecoration: 'none', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
                 onMouseEnter={e => { if (!isPlaying) e.currentTarget.style.color = '#f97316' }}
                 onMouseLeave={e => { if (!isPlaying) e.currentTarget.style.color = titleCol }}

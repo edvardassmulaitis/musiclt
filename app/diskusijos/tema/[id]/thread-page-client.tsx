@@ -177,9 +177,9 @@ function AttachmentCard({ a, resolved }: { a: MusicAttachment; resolved?: { slug
   const tint = a.type === 'daina' ? '#3b82f6' : a.type === 'albumas' ? '#f97316' : '#a855f7'
   const href = resolved
     ? a.type === 'daina'
-      ? `/lt/daina/${resolved.slug}/${resolved.id}`
+      ? `/dainos/${resolved.slug}-${resolved.id}`
       : a.type === 'albumas'
-      ? `/lt/albumas/${resolved.slug}/${resolved.id}`
+      ? `/albumai/${resolved.slug}-${resolved.id}`
       : `/atlikejai/${resolved.slug}`
     : null
   const body = (
