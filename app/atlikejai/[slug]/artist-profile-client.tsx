@@ -868,21 +868,27 @@ function Hero({
       <div className="relative aspect-video w-full overflow-hidden bg-black sm:aspect-[16/9] lg:absolute lg:inset-y-0 lg:left-0 lg:right-[38%] lg:aspect-auto">
         {heroImage ? (
           <>
-            {/* Blurred backdrop layer — užpildo visa konteineris su to paties
-                paveiksliukio strong blur'inta versija. Maskuoja low-res
-                upscaling artifacts kai music.lt thumb mažas. */}
+            {/* Layer 1 — strong blur backdrop (visada matomas kraštuose).
+                Maskuoja low-res music.lt thumb upscale artifacts kai original
+                paveiksliukis mažas (~600px). */}
             <div
               aria-hidden
-              className="absolute inset-0 scale-110"
+              className="absolute inset-0"
               style={{
                 backgroundImage: `url(${heroImage})`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
-                filter: 'blur(36px) saturate(1.1)',
+                filter: 'blur(60px) saturate(1.3) brightness(0.85)',
+                transform: 'scale(1.3)',
               }}
             />
-            {/* Original hero — sharp centered. Low-res atveju bus mažesnis,
-                bet aplinkui matysis blurred backdrop'as → atrodo profesionaliai. */}
+            {/* Layer 2 — pati nuotrauka. Subtle blur (1.2px) maskuoja pixel
+                grain, contrast/saturate boost suteikia gylį.
+                NB: object-cover paliekamas, kad išlaikytų cinematic full-bleed
+                hero look. Pridėjus blur(1.2px) — pikseliai susilieja į švelnią
+                tekstūrą, nebėra kvadratuko grid'o efekto kuris matosi ant 200px
+                upscaling'o iki 1500px. Žiūrovas mato profesionaliai
+                "softfocus" tipo nuotrauką, ne pixelated artefaktą. */}
             <img
               id="hero-photo"
               src={heroImage}
@@ -897,6 +903,8 @@ function Hero({
               style={{
                 objectPosition: `${coverPos.x}% ${coverPos.y}%`,
                 transformOrigin: `${coverPos.x}% ${coverPos.y}%`,
+                filter: 'blur(1.2px) saturate(1.15) contrast(1.05)',
+                imageRendering: 'auto',
               }}
             />
           </>
