@@ -978,13 +978,13 @@ function Hero({
   return (
     <section className="relative isolate w-full bg-[var(--bg-surface)]">
       {/* Photo backdrop:
-          - Mobile: aspect-[16/10] at top (vietoj aspect-video — mažiau
-            išplėtimo → mažiau upscale artifact'ų low-res nuotraukoms).
-          - Desktop: absolute left, plotis ~55% (anksčiau buvo ~62%), todėl
-            mažesnė nuotrauka mažiau išplečiama. Side gradient overlays
-            (kairėje + dešinėje) blend'ina į solid bg, kad rib'os neatrodytų
-            kietos. */}
-      <div className="relative aspect-[16/10] w-full overflow-hidden bg-black lg:absolute lg:inset-y-0 lg:left-0 lg:right-[45%] lg:aspect-auto">
+          - Mobile: aspect-[3/2] (max ~67% body height) — siauresnis nei
+            aspect-video, mažiau upscale artifact'ų low-res nuotraukoms.
+          - Desktop: foto užima TIK kairę pusę šalia player'io. plotis ~33%
+            (right-[67%]) — tai reiškia ~470px ant 1400px viewport'e, t.y.
+            artima player'io 460px. Mažas plotas → minimalus upscale →
+            ryškesnė kokybė. */}
+      <div className="relative aspect-[3/2] w-full overflow-hidden bg-black lg:absolute lg:inset-y-0 lg:left-0 lg:right-[67%] lg:aspect-auto">
         {heroImage ? (
           <>
             {/* Layer 1 — strong blur backdrop (visada matomas kraštuose).
@@ -1023,7 +1023,12 @@ function Hero({
               style={{
                 objectPosition: `${coverPos.x}% ${coverPos.y}%`,
                 transformOrigin: `${coverPos.x}% ${coverPos.y}%`,
-                filter: 'blur(1.2px) saturate(1.15) contrast(1.05)',
+                // Anksčiau čia buvo `filter: blur(1.2px)` — turėjo maskuoti
+                // pixel grain'ą upscale'inant. Bet su sumažintu hero plotiu
+                // upscale'inimas jau minimalus, o blur'as faktiškai pablogina
+                // kokybę (ypač mobile). Pašalinta — saturate/contrast palikta
+                // šiek tiek pagilinti spalvas.
+                filter: 'saturate(1.1) contrast(1.03)',
                 imageRendering: 'auto',
               }}
             />
@@ -1036,12 +1041,11 @@ function Hero({
             photo doesn't end in a hard horizontal line. Hidden on desktop
             where the right-side fade takes care of blending. */}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[30%] bg-gradient-to-t from-[var(--bg-surface)] via-[var(--bg-surface)]/70 to-transparent lg:hidden" />
-        {/* Desktop: dvejos gradient juostos, kairė + dešinė. Anksčiau buvo
-            tik dešinė ~35% (kad blend'intųsi į solid bg šalia Player'io).
-            Dabar pridėjom ~12% kairę juostą — total photo region užima ~38%
-            viewport pločio, mažiau išplečiama → ryškesnė kokybė. */}
-        <div className="pointer-events-none absolute inset-y-0 left-0 hidden w-[12%] bg-gradient-to-r from-[var(--bg-surface)] via-[var(--bg-surface)]/40 to-transparent lg:block" />
-        <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[28%] bg-gradient-to-r from-transparent to-[var(--bg-surface)] lg:block" />
+        {/* Desktop overlays — foto kraštai blend'inami į solid bg, kad
+            netaptų kietos linijos. Foto dabar užima tik ~33% kairę pusę,
+            tad dešinės ~25% gradient juostos užtenka glotniam transition'ui
+            į solid surface (player'io background'ą). */}
+        <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[35%] bg-gradient-to-r from-transparent to-[var(--bg-surface)] lg:block" />
       </div>
 
       <style>{`@keyframes apHeroZoom{0%{transform:scale(1.02)}100%{transform:scale(1.08)}}`}</style>

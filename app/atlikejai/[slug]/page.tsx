@@ -251,7 +251,7 @@ function rankPriority(rank: string | null | undefined): number {
  * vardo deklinaciją (pvz. „Atlantos" vs slug „atlanta"). Dabar scrape'e
  * forum_threads.artist_id pildomas tiesiogiai, todėl query'inam tiesiai per
  * FK. */
-async function getLegacyForumThreads(artistId: number, limit = 12) {
+async function getLegacyForumThreads(artistId: number, limit = 200) {
   if (!artistId) return []
   const sb = createAdminClient()
   const { data } = await sb
