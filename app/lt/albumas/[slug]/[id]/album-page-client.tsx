@@ -241,44 +241,52 @@ export default function AlbumPageClient({
     setPlaying(true)
   }
 
-  // ── Album info card (sidebar) — cover + title + artist + date + LikePill ──
+  // ── Album info card (sidebar) ──
+  // Cover'is ~220px (ne pilnas sidebar plotis), title + meta dešinėje arba
+  // apačioje pagal vietos. Cover'is ne 100% width — kad music.lt'o low-res
+  // 200px paveikslo neišdidintų į matomą blur'ą + kad sidebar'as neatrodytų
+  // kaip vienas didelis viršelis.
   const AlbumInfoCard = (
-    <div className="overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
-      <div className="aspect-square w-full overflow-hidden bg-[var(--cover-placeholder)]">
-        {album.cover_image_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={proxyImg(album.cover_image_url)}
-            alt={album.title}
-            referrerPolicy="no-referrer"
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-[48px]">💿</div>
-        )}
-      </div>
-      <div className="flex flex-col gap-2.5 p-4">
-        <div className="flex flex-wrap items-center gap-2 font-['Outfit',sans-serif] text-[9.5px] font-extrabold uppercase tracking-[0.18em] text-[var(--accent-orange)]">
-          <span>{albumTypeLabel}</span>
-          {album.is_upcoming && (
-            <span className="rounded-full border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.18)] px-2 py-0.5">Greitai</span>
-          )}
-        </div>
-        <h1 className="font-['Outfit',sans-serif] text-[20px] font-black leading-[1.1] tracking-[-0.015em] text-[var(--text-primary)]">
-          {album.title}
-        </h1>
-        <Link
-          href={`/atlikejai/${artist.slug}`}
-          className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-80"
-        >
-          {artist.name}
-        </Link>
-        {dateStr && (
-          <div className="font-['Outfit',sans-serif] text-[12px] font-medium text-[var(--text-muted)]">
-            {dateStr}
+    <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
+      <div className="flex flex-col gap-3">
+        <div className="flex gap-3.5">
+          <div className="aspect-square w-[120px] shrink-0 overflow-hidden rounded-xl bg-[var(--cover-placeholder)]">
+            {album.cover_image_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={proxyImg(album.cover_image_url)}
+                alt={album.title}
+                referrerPolicy="no-referrer"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-[36px]">💿</div>
+            )}
           </div>
-        )}
-        <div className="mt-1">
+          <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-2 font-['Outfit',sans-serif] text-[9.5px] font-extrabold uppercase tracking-[0.18em] text-[var(--accent-orange)]">
+              <span>{albumTypeLabel}</span>
+              {album.is_upcoming && (
+                <span className="rounded-full border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.18)] px-2 py-0.5">Greitai</span>
+              )}
+            </div>
+            <h1 className="font-['Outfit',sans-serif] text-[18px] font-black leading-[1.1] tracking-[-0.015em] text-[var(--text-primary)]">
+              {album.title}
+            </h1>
+            <Link
+              href={`/atlikejai/${artist.slug}`}
+              className="font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-80"
+            >
+              {artist.name}
+            </Link>
+            {dateStr && (
+              <div className="font-['Outfit',sans-serif] text-[11.5px] font-medium text-[var(--text-muted)]">
+                {dateStr}
+              </div>
+            )}
+          </div>
+        </div>
+        <div>
           <LikePill
             likes={likeCount}
             selfLiked={selfLiked}
@@ -297,9 +305,10 @@ export default function AlbumPageClient({
       <main className="mx-auto max-w-[1400px] px-4 pb-24 pt-6 sm:px-6 lg:px-10">
 
         {/* 2-COL split — kairėje sidebar (info + comments + similar),
-            dešinėje main (player + tracks). Mobile stack'inasi natūraliai:
-            info viršuje, paskui player + tracks, paskui likusios sekcijos. */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[340px_minmax(0,1fr)] lg:gap-8">
+            dešinėje main (player + tracks). Sidebar pakankamai platus, kad
+            erdvė nebūtų suspaustas — ten dar pridėsim daugiau vidiniu turinio
+            (atributai, šaltiniai, susiję). Mobile stack'inasi natūraliai. */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[440px_minmax(0,1fr)] lg:gap-7">
 
           {/* ─── LEFT SIDEBAR ─── */}
           <aside className="flex flex-col gap-5">
@@ -403,33 +412,21 @@ export default function AlbumPageClient({
 
           {/* ─── RIGHT MAIN — player + track list ─── */}
           <section className="flex min-w-0 flex-col gap-4">
-          {/* Player */}
+          {/* Player — be header'io, tik iframe'as borderiniame container'yje.
+              Active track'o pavadinimas matomas track'ų sąraše (highlight'as
+              + orange play btn), todėl atskira "BALINTOS SIENOS" eilutė virš
+              player'io tampa nereikalinga. */}
           <div className="overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
-            <div className="flex items-center gap-2 border-b border-[var(--border-subtle)] px-3 py-2.5">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--accent-orange)] text-white">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z" /></svg>
-              </div>
-              <span className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--text-primary)]">
-                {activeTrack ? activeTrack.title : 'Albumo muzika'}
-              </span>
-              {activeTrack?.featuring?.length ? (
-                <span className="font-['Outfit',sans-serif] text-[11px] font-medium text-[var(--text-muted)]">
-                  · su {activeTrack.featuring.join(', ')}
-                </span>
-              ) : null}
-            </div>
             {hasAnyVideo ? (
-              <div className="mx-auto w-full max-w-[920px]">
-                <iframe
-                  key={playerVid}
-                  src={`https://www.youtube.com/embed/${playerVid}?rel=0&autoplay=${playing ? 1 : 0}`}
-                  allow="autoplay; encrypted-media"
-                  allowFullScreen
-                  className="block aspect-video w-full border-0"
-                />
-              </div>
+              <iframe
+                key={playerVid}
+                src={`https://www.youtube.com/embed/${playerVid}?rel=0&autoplay=${playing ? 1 : 0}`}
+                allow="autoplay; encrypted-media"
+                allowFullScreen
+                className="block aspect-video w-full border-0"
+              />
             ) : (
-              <div className="flex aspect-video w-full max-w-[920px] mx-auto flex-col items-center justify-center gap-2 bg-[var(--cover-area-bg)]">
+              <div className="flex aspect-video w-full flex-col items-center justify-center gap-2 bg-[var(--cover-area-bg)]">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--text-faint)]">
                   <path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z" />
                 </svg>
