@@ -1072,14 +1072,16 @@ function Hero({
 
       <div
         className={[
-          'relative mx-auto grid max-w-[1400px] grid-cols-1 gap-6 px-4 pb-6 pt-5 sm:px-6 lg:gap-8 lg:min-h-[440px] lg:px-10 lg:py-8',
-          hasAnyVideo ? 'lg:grid-cols-[1fr_460px]' : '',
+          'relative mx-auto grid max-w-[1400px] grid-cols-1 gap-6 px-4 pb-6 pt-5 sm:px-6 lg:gap-6 lg:min-h-[440px] lg:px-10 lg:py-8',
+          // 3-col layout greta photo'os (kuri yra absolute):
+          // [title 1fr] [events 280px] [player 460px]
+          // Title columnas pradeda nuo photo's dešinės krašto via padding.
+          hasAnyVideo
+            ? 'lg:grid-cols-[1fr_280px_460px]'
+            : 'lg:grid-cols-[1fr_280px]',
         ].join(' ')}
       >
-        {/* Title column — title + likes (events pavažiavę žemiau, į savo
-            sekciją po hero). Title columnas dabar ne 1fr per visą plotį,
-            o pradeda nuo photo's krašto, todėl natūraliai gali wrap'inti
-            ilgus pavadinimus. */}
+        {/* Title column — title + likes. Padding offset'as nuo photo's. */}
         <div
           className={[
             'flex min-w-0 flex-col justify-end gap-4',
@@ -1090,13 +1092,13 @@ function Hero({
         >
           <h1
             className="font-['Outfit',sans-serif] font-black leading-[0.95] tracking-[-0.04em] text-[var(--text-primary)] lg:text-white lg:drop-shadow-[0_6px_32px_rgba(0,0,0,0.8)]"
-            style={{ fontSize: 'clamp(2rem,5vw,3.75rem)' }}
+            style={{ fontSize: 'clamp(2rem,4vw,3.25rem)' }}
           >
             {artist.name}
             {artist.is_verified && (
               <span className="ml-3 inline-flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#3b82f6] to-[#1d4ed8] align-middle shadow-[0_4px_16px_rgba(59,130,246,0.5)] sm:h-8 sm:w-8">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>
-              </span>
+            </span>
             )}
           </h1>
           <div className="flex flex-wrap items-center gap-2">
@@ -1110,6 +1112,35 @@ function Hero({
             />
           </div>
         </div>
+
+        {/* Events column (desktop) — kompaktiškas vertikalus stack'as
+            tarp title ir player'io. Mobile lieka horizontal scroll žemiau
+            (atskira sekcija). */}
+        {upcomingEvents.length > 0 && (() => {
+          const MAX_VISIBLE = 2
+          const hasOverflow = upcomingEvents.length > MAX_VISIBLE
+          const desktopVisible = hasOverflow ? upcomingEvents.slice(0, MAX_VISIBLE) : upcomingEvents
+          const overflow = upcomingEvents.length - desktopVisible.length
+          return (
+            <div className="hidden flex-col gap-2 lg:flex">
+              <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.18em] text-white/85">
+                Artimiausi renginiai
+              </div>
+              {desktopVisible.map((e: any) => (
+                <EventCard key={e.id} e={e} variant="vertical" />
+              ))}
+              {hasOverflow && (
+                <button
+                  type="button"
+                  onClick={onOpenEventsModal}
+                  className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-[rgba(249,115,22,0.4)] bg-[rgba(249,115,22,0.06)] px-3 py-2 text-[11px] font-extrabold text-[var(--accent-orange)] transition-all hover:border-[rgba(249,115,22,0.7)] hover:bg-[rgba(249,115,22,0.10)]"
+                >
+                  Žiūrėti visus +{overflow}
+                </button>
+              )}
+            </div>
+          )
+        })()}
 
         {/* Player column — only rendered when the artist has at least one
             track with a YouTube URL. Without videos the right column would
@@ -1139,53 +1170,34 @@ function Hero({
         )}
       </div>
 
-      {/* Events strip — atskira sekcija PO hero grid'u, full width. Anksčiau
-          buvo title columnoje (overlap'inami su photo). Dabar matomi visi 3
-          events horizontaliai, +N tile'as overflow'ui. Mobile lieka snap
-          scroll'inamas. */}
-      {upcomingEvents.length > 0 && (() => {
-        const MAX_VISIBLE = 3
-        const hasOverflow = upcomingEvents.length > MAX_VISIBLE
-        const desktopVisible = hasOverflow ? upcomingEvents.slice(0, MAX_VISIBLE) : upcomingEvents
-        const overflow = upcomingEvents.length - desktopVisible.length
-        return (
-          <div className="mx-auto max-w-[1400px] px-4 pb-6 pt-2 sm:px-6 lg:px-10">
-            <div className="mb-3 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.18em] text-[var(--accent-orange)]">
-              Artimiausi renginiai
-            </div>
-            {/* Mobile — horizontal snap scroll */}
-            <div
-              className="flex items-stretch gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:hidden"
-              style={{
-                scrollSnapType: 'x mandatory',
-                scrollPaddingLeft: '1rem',
-                overscrollBehaviorX: 'contain',
-                WebkitOverflowScrolling: 'touch',
-              }}
-            >
-              {upcomingEvents.map((e: any) => (
-                <div
-                  key={e.id}
-                  className="flex w-[86%] shrink-0"
-                  style={{ scrollSnapAlign: 'start' }}
-                >
-                  <EventCard e={e} variant="upcoming" />
-                </div>
-              ))}
-            </div>
-            {/* Desktop / tablet — grid 2-3 col + overflow tile */}
-            <div className={[
-              'hidden gap-3 sm:grid',
-              hasOverflow ? 'sm:grid-cols-[1fr_1fr_1fr_auto]' : 'sm:grid-cols-3',
-            ].join(' ')}>
-              {desktopVisible.map((e: any) => (
-                <EventCard key={e.id} e={e} variant="vertical" />
-              ))}
-              {hasOverflow && <MoreEventsTile count={overflow} onClick={onOpenEventsModal} />}
-            </div>
+      {/* Mobile-only events strip — horizontal snap scroll po hero.
+          Desktop'e events yra grid'o 2-oje kolonoje, todėl čia paslėpta. */}
+      {upcomingEvents.length > 0 && (
+        <div className="mx-auto max-w-[1400px] px-4 pb-4 sm:px-6 lg:hidden">
+          <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.18em] text-[var(--accent-orange)]">
+            Artimiausi renginiai
           </div>
-        )
-      })()}
+          <div
+            className="flex items-stretch gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            style={{
+              scrollSnapType: 'x mandatory',
+              scrollPaddingLeft: '1rem',
+              overscrollBehaviorX: 'contain',
+              WebkitOverflowScrolling: 'touch',
+            }}
+          >
+            {upcomingEvents.map((e: any) => (
+              <div
+                key={e.id}
+                className="flex w-[86%] shrink-0"
+                style={{ scrollSnapAlign: 'start' }}
+              >
+                <EventCard e={e} variant="upcoming" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   )
 }
