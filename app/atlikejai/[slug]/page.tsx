@@ -651,30 +651,20 @@ export default async function ArtistPage({ params }: Props) {
     || galleryFirst
     || null
 
-  // Trending — tracks released in last 24 months (2 years).
-  // Fallback'as kai music.lt'as nepateikia datų: artist'o naujausios pagal
-  // `legacy_id` (ID'us music.lt'as duoda chronologically). Imam top ~12 %
-  // (max 10 trackų) rikiuojant pagal legacy_id desc, kurie neturi
-  // jokio release_year/release_date — laikom juos "kandidatais naujom".
-  // Tai ypatinga aktualu LT-only artist'ams (Mikutavičius, Foje), kurių
-  // tracks rečiau būna susieti su albumais ir release info nesurinkta.
+  // Trending — tracks released in last 24 months (2 years). Tik tikra
+  // datos info — be guesstimate'ų. Anksčiau buvo legacy_id fallback'as
+  // (top 12% pagal legacy_id desc), bet jis maišė senus tracks'us be
+  // datos su tikrais naujausiais. Dabar: jei track neturi datos info —
+  // tab paprasčiausiai jo nerodo. Atitinkama tab'as nepasirodys
+  // artist'ams, kurie neturi ne vieno track'o su release_year/date.
   const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth() - 24)
   const cutY = cutoff.getFullYear(); const cutM = cutoff.getMonth() + 1
-  const recentByLegacyId = new Set<number>()
-  if (tracks.length > 0) {
-    const undated = (tracks as any[])
-      .filter((t) => !t.release_year && !t.release_date && !t.is_new_date && typeof t.legacy_id === 'number')
-      .sort((a, b) => (b.legacy_id || 0) - (a.legacy_id || 0))
-    const fallbackN = Math.min(10, Math.max(3, Math.floor(tracks.length * 0.12)))
-    for (const t of undated.slice(0, fallbackN)) recentByLegacyId.add(t.id)
-  }
   const newTracks = tracks.filter((t: any) => {
     if (t.is_new) return true
     if (t.is_new_date) return new Date(t.is_new_date) >= cutoff
     if (t.release_date) return new Date(t.release_date) >= cutoff
     if (t.release_year && t.release_month) return t.release_year > cutY || (t.release_year === cutY && t.release_month >= cutM)
     if (t.release_year) return t.release_year >= cutY
-    if (recentByLegacyId.has(t.id)) return true
     return false
   })
   const topVideos = tracks.filter((t: any) => t.video_url).slice(0, 8)

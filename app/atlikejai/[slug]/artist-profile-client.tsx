@@ -574,18 +574,14 @@ function PlayerCard({
               const v = yt(t.video_url)
               const isActive = t.id === activeTrackId
               const isActivelyPlaying = isActive && playing && !isPaused
-              // Popularity bar:
-              //  - Jei track turi >0 likes — relatyviai prieš artist'o
-              //    didžiausią (top → 5 dashes).
-              //  - Jei 0 likes (typical "Naujos dainos" — niekas dar
-              //    nepatiko) — krintam į position-based fallback'ą,
-              //    kad bar'as nebūtų tuščias. "Kitos dainos" sąrašas
-              //    naudoja tą patį `popLevel` — tai logika visur ta
-              //    pati ir atrodo nuosekliai.
-              const lc = (t as any).like_count
-              const pop = (typeof lc === 'number' && lc > 0)
-                ? popLevelRelative(lc, maxTrackLikes)
-                : popLevel(i, list.length)
+              // Popularity bar — vieninga logika visur: relatyvus tier
+              // pagal track'o likes prieš artist'o didžiausią. Tas pats
+              // track gauna tą patį dash skaičių nepriklausomai nuo to,
+              // kuriame tab'e (Top / Naujos / Kitos) yra rodomas. Žr.
+              // popLevelRelative — ji garantuoja min 1 dash kai artist
+              // turi bet kokios like'ų aktyvumo, ir 0 dashes kai
+              // duomenų iš viso nėra.
+              const pop = popLevelRelative((t as any).like_count || 0, maxTrackLikes)
               return (
                 <li key={t.id}>
                   <div
@@ -708,9 +704,16 @@ function popLevelByCount(count: number): number {
  *  gauna 5 dashes lygiai kaip Mamontovo topas (322 likes) — abu HIT'ai
  *  savo scope'e. */
 function popLevelRelative(value: number, max: number): number {
-  if (!value || value <= 0) return 0
+  // Jei artist'as iš viso neturi likes data (max=0), grąžinam 0 — bar'as
+  // tuščias visam sąrašui (sąžiningai sako "neturime info"). Bet jei
+  // bent vienas track turi like'ų, kiekvienas track gauna bent 1 dash —
+  // 0-likes track'ai yra ne "trūkstami duomenys", o tikrai mažiausi
+  // populiariumu. Vienoda logika visur: tas pats track tas pats bar'as,
+  // nepriklausomai nuo to, kuriame tab'e ar sąraše rodosi.
   if (!max || max <= 0) return 0
-  const pct = value / max
+  const v = value || 0
+  if (v <= 0) return 1
+  const pct = v / max
   if (pct >= 0.80) return 5
   if (pct >= 0.55) return 4
   if (pct >= 0.30) return 3
@@ -3231,6 +3234,18 @@ export default function ArtistProfileClient({
     return max
   }, [albums])
 
+  // Max track likes per artist — naudojam tam, kad ir orphan ("Kitos
+  // dainos") sąraše PopBar atrodytų vienodai kaip player'io track sąraše.
+  // Pasiekiama iš tracks + newTracks visumos (player'is parent'e gauna abu).
+  const maxTrackLikes = useMemo(() => {
+    let max = 0
+    for (const t of [...tracks, ...newTracks]) {
+      const lk = (t as any).like_count
+      if (typeof lk === 'number' && lk > max) max = lk
+    }
+    return max
+  }, [tracks, newTracks])
+
   // Player'is rodo tracks be cap'o — vartotojas gali scroll'inti per visą
   // diskografiją. Anksčiau buvo .slice(0, 100), bet kai kurie atlikėjai
   // (Mamontovas 220+, didžiosios DJ'jaus kompiliacijos 1000+) turi gerokai
@@ -3638,8 +3653,13 @@ export default function ArtistProfileClient({
                     </div>
                   )}
                   <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
-                    {orphanTracks.map((t, i) => (
-                      <TrackRow key={t.id} t={t} artistSlug={artist.slug} popularity={popLevel(i, orphanTracks.length)} />
+                    {orphanTracks.map((t) => (
+                      <TrackRow
+                        key={t.id}
+                        t={t}
+                        artistSlug={artist.slug}
+                        popularity={popLevelRelative((t as any).like_count || 0, maxTrackLikes)}
+                      />
                     ))}
                   </div>
                 </div>
