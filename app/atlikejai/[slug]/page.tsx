@@ -395,71 +395,28 @@ async function getArtistRanks(
   artistId: number,
   country: string | null,
   genres: { id: number; name: string }[],
-  artistLikeCount: number,
+  artistScore: number,
 ): Promise<{ category: string; rank: number; total: number; scope: 'country' | 'genre' | 'global' }[]> {
-  if (artistLikeCount <= 0) return []
+  if (!artistScore || artistScore <= 0) return []
   const sb = createAdminClient()
   const out: { category: string; rank: number; total: number; scope: 'country' | 'genre' | 'global' }[] = []
 
-  // Helper: get peers' like counts efficiently — viena query'ė pagal entity_type='artist'
-  // ir IN (peer_ids), aggregate'inam JS'e.
-  async function countLikesByArtist(ids: number[]): Promise<Map<number, number>> {
-    if (ids.length === 0) return new Map()
-    const counts = new Map<number, number>()
-    // Chunked po 200 kad nepražengtumėm URL ribos
-    for (let i = 0; i < ids.length; i += 200) {
-      const chunk = ids.slice(i, i + 200)
-      const { data } = await sb
-        .from('likes')
-        .select('entity_id')
-        .eq('entity_type', 'artist')
-        .in('entity_id', chunk)
-      for (const r of (data || []) as any[]) {
-        counts.set(r.entity_id, (counts.get(r.entity_id) || 0) + 1)
-      }
-    }
-    return counts
-  }
-
-  // Helper: filter peer IDs to artists su pilnu profile (real description ≥100 chars).
-  // Anksčiau placeholder atlikėjai (6 chars description) konkuravo dėl rank'o ir
-  // Atlanta kuri vienintelė turi pilną info gaudavo žemesnį rank'ą už tuščias
-  // korteles vien dėl legacy_likes count'o.
-  // Tikrinam ABU stulpelius: `description` (Wiki) ir `description_legacy`
-  // (music.lt scrape) — kuris nors turi >=100 ch reiškia atlikėjas turi bio.
-  async function filterRealArtists(ids: number[]): Promise<number[]> {
-    if (ids.length === 0) return []
-    const real = new Set<number>()
-    for (let i = 0; i < ids.length; i += 200) {
-      const chunk = ids.slice(i, i + 200)
-      const { data } = await sb
-        .from('artists')
-        .select('id, description, description_legacy')
-        .in('id', chunk)
-      for (const r of (data || []) as any[]) {
-        const wikiOk = !!(r.description && r.description.trim().length >= 100)
-        const legacyOk = !!(r.description_legacy && r.description_legacy.trim().length >= 100)
-        if (wikiOk || legacyOk) real.add(r.id)
-      }
-    }
-    return ids.filter(id => real.has(id))
-  }
+  // Score'as yra unifikuotas popularity metric'as — surenka likes, awards,
+  // tracks, albums, comments, threads ir kt. Score=0 reiškia placeholder
+  // atlikėją be jokio scrape'o, kuris natūraliai iškrenta iš pool'o.
+  // Rank'inam tarp peerių su score > 0.
 
   // Country rank
   if (country) {
     const { data: peers } = await sb
       .from('artists')
-      .select('id')
+      .select('id, score')
       .eq('country', country)
-    const allPeerIds = (peers || []).map((p: any) => p.id).filter((x: number) => x !== artistId)
-    const peerIds = await filterRealArtists(allPeerIds)
-    if (peerIds.length > 0) {
-      const counts = await countLikesByArtist(peerIds)
-      const higher = peerIds.filter(pid => (counts.get(pid) || 0) > artistLikeCount).length
-      out.push({ category: country, rank: higher + 1, total: peerIds.length + 1, scope: 'country' })
-    } else {
-      out.push({ category: country, rank: 1, total: 1, scope: 'country' })
-    }
+      .gt('score', 0)
+    const peerScores = (peers || []) as { id: number; score: number }[]
+    const others = peerScores.filter(p => p.id !== artistId)
+    const higher = others.filter(p => (p.score || 0) > artistScore).length
+    out.push({ category: country, rank: higher + 1, total: others.length + 1, scope: 'country' })
   }
 
   // Genre rank (top genre only)
@@ -467,17 +424,15 @@ async function getArtistRanks(
     const g = genres[0]
     const { data: gpeers } = await sb
       .from('artist_genres')
-      .select('artist_id')
+      .select('artist_id, artists:artist_id(id, score)')
       .eq('genre_id', g.id)
-    const allPeerIds = (gpeers || []).map((r: any) => r.artist_id).filter((x: number) => x !== artistId)
-    const peerIds = await filterRealArtists(allPeerIds)
-    if (peerIds.length > 0) {
-      const counts = await countLikesByArtist(peerIds)
-      const higher = peerIds.filter(pid => (counts.get(pid) || 0) > artistLikeCount).length
-      out.push({ category: g.name, rank: higher + 1, total: peerIds.length + 1, scope: 'genre' })
-    } else {
-      out.push({ category: g.name, rank: 1, total: 1, scope: 'genre' })
-    }
+    const peerScores = (gpeers || [])
+      .map((r: any) => r.artists)
+      .filter(Boolean)
+      .filter((a: any) => (a.score || 0) > 0) as { id: number; score: number }[]
+    const others = peerScores.filter(p => p.id !== artistId)
+    const higher = others.filter(p => (p.score || 0) > artistScore).length
+    out.push({ category: g.name, rank: higher + 1, total: others.length + 1, scope: 'genre' })
   }
 
   return out
@@ -599,13 +554,14 @@ export default async function ArtistPage({ params }: Props) {
 
   const events = rawEvents
 
-  // Compute ranks (country, genre) — naudoja `legacyCommunity.artistLikes` kaip
-  // popularity proxy (visi likes iš unified `likes` lentelės).
+  // Compute ranks (country, genre) — naudoja unified `score` kaip popularity
+  // metric'ą. Score apskaičiuojamas iš likes + tracks + albums + awards +
+  // comments + threads — pilnas portretas, ne tik likes.
   const ranks = await getArtistRanks(
     artist.id,
     artist.country || null,
     genres as { id: number; name: string }[],
-    legacyCommunity.artistLikes,
+    (artist as any).score || 0,
   )
 
   // Enrich forum threads with last post preview so the UI can show a teaser
