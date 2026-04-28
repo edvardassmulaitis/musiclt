@@ -7,13 +7,11 @@
 //   1. Legacy entity_comments (read-only archive scraped iš music.lt)
 //   2. Modern comments (user-editable, replies, likes, edit, delete)
 //
-// Both are fetched in parallel, merged by created_at, rendered into one list
-// with a small "archyvas" badge on legacy items so the user understands where
-// each comment comes from.
-//
-// Composer at the bottom posts modern comments (auth required). Per-comment
-// like toggle works on modern only; legacy items show a read-only count.
-// Replies are flat-threaded (parent_id) up to depth 4.
+// Both are fetched in parallel, merged into one list. Composer is at the TOP
+// (encourages writing — first thing the user sees). Replies show an orange
+// quote of the parent comment using the shared `.quote1` style. Likes use the
+// shared LikePill — heart toggles, count opens LikesModal. Music attachments
+// open in an overlay modal so the composer never shifts layout.
 //
 // Variants:
 //   - default: standalone block (track page, album page)
@@ -23,16 +21,16 @@
 //   - Modern: /api/comments  (GET / POST / PATCH / DELETE)
 //   - Modern likes: /api/comments/likes  (GET / POST)
 //   - Legacy: /api/{tracks|albums|artists}/[id]/comments  (GET only)
-//
-// NOTE: This component DOESN'T render music attachments yet — that's
-// MusicSearchPicker integration (separate component). It's wired so adding
-// it later means dropping the picker into the composer area.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { proxyImg } from '@/lib/img-proxy'
-import MusicSearchPicker, { AttachmentChips, type AttachmentHit } from './MusicSearchPicker'
+import { type AttachmentHit } from './MusicSearchPicker'
+import MusicSearchModal from './MusicSearchModal'
+import { LikePill } from './LikePill'
+import LikesModal, { type LikeUser } from './LikesModal'
+import { relativeTime } from '@/lib/relative-time'
 
 type ModernComment = {
   id: number
@@ -75,17 +73,21 @@ type Props = {
   title?: string
 }
 
-const LT_MONTHS = ['sausio','vasario','kovo','balandžio','gegužės','birželio','liepos','rugpjūčio','rugsėjo','spalio','lapkričio','gruodžio']
-
-function formatLtDate(iso?: string | null): string {
-  if (!iso) return ''
-  const d = new Date(iso)
-  if (isNaN(d.getTime())) return ''
-  return `${d.getFullYear()} m. ${LT_MONTHS[d.getMonth()]} ${d.getDate()} d.`
-}
-
 function stripHtml(html?: string | null): string {
   return (html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+/** Parses a body that begins with the diskusijos-style reply prefix
+ *  ("Author rašė:\nquoted text\n\nactual reply") and splits into the orange
+ *  quote block + remainder. If no prefix is present, returns null quote and
+ *  the full body. Keeps everything string-based — same wire format as the
+ *  thread modal so we don't need a separate column. */
+function parseReplyBody(body: string): { quoteAuthor: string | null; quoteText: string | null; rest: string } {
+  // Match "<author> rašė:\n<...>\n\n<rest>" — author can contain spaces but
+  // not a colon. Use [\s\S] to allow newlines inside the quoted part.
+  const m = body.match(/^(.+?) rašė:\n([\s\S]*?)\n\n([\s\S]*)$/)
+  if (!m) return { quoteAuthor: null, quoteText: null, rest: body }
+  return { quoteAuthor: m[1].trim(), quoteText: m[2].trim(), rest: m[3] }
 }
 
 /** Tinted-initial fallback avatar. */
@@ -132,10 +134,12 @@ export default function EntityCommentsBlock({
   const [sort, setSort] = useState<'newest' | 'oldest' | 'popular'>('newest')
   const [draft, setDraft] = useState('')
   const [posting, setPosting] = useState(false)
-  const [replyTo, setReplyTo] = useState<{ id: number; name: string } | null>(null)
+  const [replyTo, setReplyTo] = useState<{ id: number; name: string; text: string } | null>(null)
   const [error, setError] = useState('')
   const [attached, setAttached] = useState<AttachmentHit[]>([])
-  const [showPicker, setShowPicker] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [likersFor, setLikersFor] = useState<{ entityType: string; entityId: number; count: number } | null>(null)
+  const [likersUsers, setLikersUsers] = useState<LikeUser[]>([])
   const draftRef = useRef<HTMLTextAreaElement | null>(null)
 
   const legacyUrl = legacyEndpoint || `/api/${entityType}s/${entityId}/comments`
@@ -173,6 +177,16 @@ export default function EntityCommentsBlock({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entityType, entityId])
 
+  // Fetch likers when modal opens
+  useEffect(() => {
+    if (!likersFor) { setLikersUsers([]); return }
+    setLikersUsers([])
+    fetch(`/api/likes/${likersFor.entityType}/${likersFor.entityId}`)
+      .then(r => r.json())
+      .then(d => setLikersUsers(d.users || []))
+      .catch(() => setLikersUsers([]))
+  }, [likersFor])
+
   // Merge + sort
   const sortedAll = useMemo(() => {
     const arr: AnyComment[] = [...(modern || []), ...(legacy || [])]
@@ -193,8 +207,14 @@ export default function EntityCommentsBlock({
       setError('Reikia prisijungti, kad galėtum komentuoti.')
       return
     }
-    const text = draft.trim()
-    if (!text && attached.length === 0) return
+    const rawText = draft.trim()
+    if (!rawText && attached.length === 0) return
+    // Naudojam tą patį "Author rašė:\nquote\n\nreply" wire format kaip
+    // diskusijos modal'as — taip viename body field'e telpa ir citata, ir
+    // atsakymas, o display logic'as parse'ina ir piešia orange quote box'ą.
+    const finalText = replyTo && rawText
+      ? `${replyTo.name} rašė:\n${replyTo.text.slice(0, 240)}\n\n${rawText}`
+      : rawText
     setPosting(true)
     setError('')
     try {
@@ -205,7 +225,7 @@ export default function EntityCommentsBlock({
           entity_type: entityType,
           entity_id: entityId,
           parent_id: replyTo?.id || null,
-          text,
+          text: finalText,
           attachments: attached.length > 0 ? attached : undefined,
         }),
       })
@@ -217,7 +237,6 @@ export default function EntityCommentsBlock({
       setDraft('')
       setReplyTo(null)
       setAttached([])
-      setShowPicker(false)
       reload()
     } catch {
       setError('Tinklo klaida.')
@@ -232,7 +251,7 @@ export default function EntityCommentsBlock({
     if (prev) next.delete(commentId); else next.add(commentId)
     setLikedIds(next)
     setModern(curr => curr ? curr.map(c => c.id === commentId
-      ? { ...c, like_count: c.like_count + (prev ? -1 : 1) }
+      ? { ...c, like_count: Math.max(0, c.like_count + (prev ? -1 : 1)) }
       : c) : curr)
     try {
       const res = await fetch('/api/comments/likes', {
@@ -249,8 +268,8 @@ export default function EntityCommentsBlock({
     }
   }
 
-  const avatarSize = compact ? 24 : 32
-  const fontSize = compact ? 12 : 13
+  const avatarSize = compact ? 26 : 32
+  const fontSize = compact ? 12.5 : 13.5
   const headerSize = compact ? 13 : 15
 
   const SortChip = ({ k, label }: { k: 'newest' | 'oldest' | 'popular'; label: string }) => (
@@ -266,6 +285,115 @@ export default function EntityCommentsBlock({
     >
       {label}
     </button>
+  )
+
+  // Composer block — extracted, used as the FIRST element inside the section
+  // so the user is invited to write before scrolling through existing posts.
+  const Composer = (
+    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3">
+      {replyTo && (
+        <div className="mb-2 flex items-start gap-2 rounded-lg border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.08)] px-3 py-2">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="mt-0.5 shrink-0 text-[var(--accent-orange)]"><polyline points="9 14 4 9 9 4" /><path d="M20 20v-7a4 4 0 0 0-4-4H4" /></svg>
+          <div className="min-w-0 flex-1">
+            <div className="font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-[var(--accent-orange)]">
+              Atsakant: {replyTo.name}
+            </div>
+            <div className="mt-0.5 line-clamp-2 text-[11.5px] text-[var(--text-muted)]">
+              {replyTo.text}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setReplyTo(null)}
+            aria-label="Atšaukti atsakymą"
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-[var(--text-faint)] transition-colors hover:text-[var(--text-primary)]"
+          >
+            <svg viewBox="0 0 16 16" width={11} height={11} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+              <path d="M3 3l10 10M13 3L3 13" />
+            </svg>
+          </button>
+        </div>
+      )}
+      {attached.length > 0 && (
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          {attached.map((hit, i) => (
+            <span
+              key={`att-${hit.type}-${hit.id}-${i}`}
+              className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.08)] py-1 pl-1 pr-2 text-[var(--text-primary)]"
+            >
+              <span className="h-5 w-5 shrink-0 overflow-hidden rounded-sm bg-[var(--cover-placeholder)]">
+                {hit.image_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={proxyImg(hit.image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                ) : null}
+              </span>
+              <span className="font-['Outfit',sans-serif] text-[11.5px] font-bold">{hit.title}</span>
+              <button
+                type="button"
+                onClick={() => setAttached(a => a.filter((_, idx) => idx !== i))}
+                aria-label="Pašalinti"
+                className="flex h-4 w-4 items-center justify-center rounded-full text-[var(--text-faint)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+              >
+                <svg viewBox="0 0 16 16" width={9} height={9} fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round">
+                  <path d="M3 3l10 10M13 3L3 13" />
+                </svg>
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      {/* Composer body — textarea full-width on top, action row below.
+          Buttons sit on their own row underneath so the textarea can stay
+          generously wide even on narrow modal columns. */}
+      <textarea
+        ref={draftRef}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        placeholder={replyTo ? `Atsakyti @${replyTo.name}...` : 'Pasidalink mintimi...'}
+        rows={compact ? 3 : 3}
+        className="w-full resize-none rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-2.5 text-[13.5px] leading-snug text-[var(--text-primary)] outline-none transition-colors placeholder:text-[var(--text-faint)] focus:border-[var(--accent-orange)]"
+      />
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={() => setPickerOpen(true)}
+          aria-label="Pridėti muzikos"
+          className={[
+            "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-['Outfit',sans-serif] text-[11px] font-extrabold transition-colors",
+            attached.length > 0
+              ? 'border-[var(--accent-orange)] bg-[rgba(249,115,22,0.12)] text-[var(--accent-orange)]'
+              : 'border-[var(--border-subtle)] bg-transparent text-[var(--text-muted)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]',
+          ].join(' ')}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z" /></svg>
+          {attached.length > 0 ? `Pridėta (${attached.length})` : 'Pridėti muzikos'}
+        </button>
+        <button
+          type="button"
+          onClick={submit}
+          disabled={(!draft.trim() && attached.length === 0) || posting || !session?.user?.id}
+          className="inline-flex items-center gap-1.5 rounded-full bg-[var(--accent-orange)] px-4 py-1.5 font-['Outfit',sans-serif] text-[11.5px] font-extrabold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {posting ? 'Siunčiama…' : (
+            <>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M2 21l21-9L2 3v7l15 2-15 2z" /></svg>
+              Siųsti
+            </>
+          )}
+        </button>
+      </div>
+      {error && (
+        <div className="mt-2 text-[11px] font-bold text-[#ef4444]">{error}</div>
+      )}
+      {!session?.user?.id && (
+        <div className="mt-2 text-[11px] text-[var(--text-faint)]">
+          <Link href="/auth/signin" className="font-bold text-[var(--accent-orange)] no-underline hover:underline">
+            Prisijunk
+          </Link>
+          {' '}— ir parašyk komentarą.
+        </div>
+      )}
+    </div>
   )
 
   return (
@@ -287,6 +415,9 @@ export default function EntityCommentsBlock({
         </div>
       </div>
 
+      {/* Composer — TOP. Encourages writing before reading. */}
+      {Composer}
+
       {/* List */}
       {modern === null || legacy === null ? (
         <div className="space-y-2">
@@ -298,7 +429,7 @@ export default function EntityCommentsBlock({
         <div className="rounded-xl border border-dashed border-[var(--border-default)] px-4 py-6 text-center">
           <div className="text-[12.5px] font-bold text-[var(--text-muted)]">Komentarų dar nėra</div>
           <div className="mt-1 text-[11px] text-[var(--text-faint)]">
-            {session?.user?.id ? 'Būk pirmas — parašyk apačioje.' : 'Prisijunk ir būk pirmas.'}
+            {session?.user?.id ? 'Būk pirmas — parašyk viršuje.' : 'Prisijunk ir būk pirmas.'}
           </div>
         </div>
       ) : (
@@ -309,12 +440,16 @@ export default function EntityCommentsBlock({
               ? (c.author_name || 'Vartotojas')
               : (c.author_username || 'Anonimas')
             const avatarUrl = isModern ? c.author_avatar : c.author_avatar_url
-            const dateStr = formatLtDate(c.created_at)
-            const text = isModern
-              ? c.body
-              : (c.content_text || stripHtml(c.content_html))
+            const rel = relativeTime(c.created_at)
             const id = isModern ? c.id : c.legacy_id
             const liked = isModern ? likedIds.has(c.id) : false
+            // Reply parsing — both modern (text-based prefix) and legacy
+            // (already HTML quote, but we run heuristic too just in case some
+            // got scraped without HTML).
+            const rawText = isModern
+              ? c.body
+              : (c.content_text || stripHtml(c.content_html))
+            const { quoteAuthor, quoteText, rest } = parseReplyBody(rawText)
             return (
               <li
                 key={`${c.source}-${id}`}
@@ -330,27 +465,31 @@ export default function EntityCommentsBlock({
                       >
                         {author}
                       </span>
-                      {dateStr && (
-                        <span className="text-[10.5px] font-medium tabular-nums text-[var(--text-faint)]">{dateStr}</span>
-                      )}
-                      {!isModern && (
-                        <span
-                          className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[8.5px] font-extrabold uppercase tracking-wide text-[var(--text-faint)]"
-                          title="Importuota iš senosios music.lt versijos"
-                        >
-                          archyvas
-                        </span>
+                      {rel && (
+                        <span className="text-[10.5px] font-medium text-[var(--text-faint)]">{rel}</span>
                       )}
                     </div>
+                    {/* Reply quote — orange left-border block, parent author
+                        + collapsed quoted text. Matches diskusijos .quote1
+                        styling from artist-profile-client. */}
+                    {quoteAuthor && quoteText && (
+                      <div className="mt-1.5 rounded border-l-[3px] border-[var(--accent-orange)] bg-[var(--bg-elevated)] px-2.5 py-1.5">
+                        <div className="font-['Outfit',sans-serif] text-[10.5px] font-extrabold text-[var(--text-secondary)]">
+                          {quoteAuthor} rašė:
+                        </div>
+                        <div className="mt-0.5 line-clamp-3 text-[11.5px] italic text-[var(--text-muted)]">
+                          {quoteText}
+                        </div>
+                      </div>
+                    )}
                     <div
                       className="mt-1 whitespace-pre-wrap break-words text-[var(--text-primary)]"
                       style={{ fontSize, lineHeight: 1.55 }}
                     >
-                      {text}
+                      {rest}
                     </div>
-                    {/* Music attachments (modern + legacy abu palaiko) —
-                        kortelinis chip strip'as su cover thumb + title +
-                        type label. Click navigates į entity puslapį. */}
+                    {/* Music attachments — chip strip su cover thumb +
+                        title, click navigates į entity puslapį. */}
                     {Array.isArray(c.music_attachments) && c.music_attachments.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         {c.music_attachments.slice(0, 8).map((a: any, i: number) => {
@@ -382,23 +521,20 @@ export default function EntityCommentsBlock({
                         })}
                       </div>
                     )}
-                    {/* Footer — likes + reply (modern only) */}
-                    <div className="mt-2 flex items-center gap-3">
+                    {/* Footer — LikePill (heart toggle + count opens likers
+                        modal) + reply button. Modern only — legacy users
+                        can't be liked because we don't track those. */}
+                    <div className="mt-2 flex items-center gap-2">
                       {isModern ? (
-                        <button
-                          type="button"
-                          onClick={() => toggleLike(c.id)}
-                          className={[
-                            "inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[10.5px] font-extrabold transition-colors",
-                            liked ? 'text-[var(--accent-orange)]' : 'text-[var(--text-muted)] hover:text-[var(--accent-orange)]',
-                          ].join(' ')}
-                          aria-label={liked ? 'Atšaukti patiko' : 'Patinka'}
-                        >
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
-                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                          </svg>
-                          {c.like_count}
-                        </button>
+                        <LikePill
+                          likes={c.like_count || 0}
+                          selfLiked={liked}
+                          onToggle={() => toggleLike(c.id)}
+                          onOpenModal={(c.like_count || 0) > 0
+                            ? () => setLikersFor({ entityType: 'comment', entityId: c.id, count: c.like_count || 0 })
+                            : undefined}
+                          variant="surface"
+                        />
                       ) : (
                         c.like_count > 0 && (
                           <span className="inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[10.5px] font-extrabold text-[var(--accent-orange)]">
@@ -411,10 +547,13 @@ export default function EntityCommentsBlock({
                         <button
                           type="button"
                           onClick={() => {
-                            setReplyTo({ id: c.id, name: author })
+                            setReplyTo({ id: c.id, name: author, text: rest.slice(0, 240) })
                             requestAnimationFrame(() => draftRef.current?.focus())
+                            // Scroll composer into view since it's at the
+                            // top — UX cue for "we moved your cursor".
+                            requestAnimationFrame(() => draftRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
                           }}
-                          className="inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[10.5px] font-extrabold text-[var(--text-muted)] transition-colors hover:text-[var(--accent-orange)]"
+                          className="inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--text-muted)] transition-colors hover:text-[var(--accent-orange)]"
                         >
                           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="9 14 4 9 9 4" /><path d="M20 20v-7a4 4 0 0 0-4-4H4" /></svg>
                           Atsakyti
@@ -429,100 +568,25 @@ export default function EntityCommentsBlock({
         </ul>
       )}
 
-      {/* Composer */}
-      <div className="mt-1">
-        {replyTo && (
-          <div className="mb-2 flex items-start gap-2 rounded-lg border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.06)] px-3 py-2">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="mt-0.5 shrink-0 text-[var(--accent-orange)]"><polyline points="9 14 4 9 9 4" /><path d="M20 20v-7a4 4 0 0 0-4-4H4" /></svg>
-            <div className="min-w-0 flex-1 font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-[var(--accent-orange)]">
-              Atsakant: {replyTo.name}
-            </div>
-            <button
-              type="button"
-              onClick={() => setReplyTo(null)}
-              aria-label="Atšaukti"
-              className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-[var(--text-faint)] hover:text-[var(--text-primary)]"
-            >
-              <svg viewBox="0 0 16 16" width={10} height={10} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-                <path d="M3 3l10 10M13 3L3 13" />
-              </svg>
-            </button>
-          </div>
-        )}
-        {session?.user?.id ? (
-          <>
-            {/* Pridėtų music attachment chips strip — virš textarea */}
-            {attached.length > 0 && (
-              <div className="mb-2">
-                <AttachmentChips
-                  items={attached}
-                  onRemove={(idx) => setAttached(a => a.filter((_, i) => i !== idx))}
-                  compact={compact}
-                />
-              </div>
-            )}
-            {/* Toggle'inamas picker'is */}
-            {showPicker && (
-              <div className="mb-2">
-                <MusicSearchPicker
-                  attached={attached}
-                  onAdd={(hit) => setAttached(a => [...a, hit])}
-                  placeholder="Surask atlikėją, albumą ar dainą..."
-                  compact={compact}
-                />
-              </div>
-            )}
-            <div className="flex items-end gap-2">
-              <textarea
-                ref={draftRef}
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                placeholder={replyTo ? `Atsakyti @${replyTo.name}...` : 'Rašyk komentarą...'}
-                rows={compact ? 2 : 3}
-                className="flex-1 resize-none rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-2 text-[13px] leading-snug text-[var(--text-primary)] outline-none transition-colors placeholder:text-[var(--text-faint)] focus:border-[var(--accent-orange)]"
-              />
-              <div className="flex flex-col gap-1">
-                <button
-                  type="button"
-                  onClick={() => setShowPicker(v => !v)}
-                  aria-label={showPicker ? 'Slėpti muzikos paiešką' : 'Pridėti muzikos'}
-                  title={showPicker ? 'Slėpti' : 'Pridėti muzikos'}
-                  className={[
-                    'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors',
-                    showPicker
-                      ? 'border-[var(--accent-orange)] bg-[rgba(249,115,22,0.12)] text-[var(--accent-orange)]'
-                      : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-muted)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]',
-                  ].join(' ')}
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z" /></svg>
-                </button>
-                <button
-                  type="button"
-                  onClick={submit}
-                  disabled={(!draft.trim() && attached.length === 0) || posting}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-orange)] text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-                  aria-label="Siųsti"
-                  title="Siųsti"
-                >
-                  {posting ? '⏳' : (
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M2 21l21-9L2 3v7l15 2-15 2z" /></svg>
-                  )}
-                </button>
-              </div>
-            </div>
-          </>
-        ) : (
-          <Link
-            href="/auth/signin"
-            className="block rounded-xl border border-dashed border-[var(--border-default)] px-4 py-3 text-center font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-muted)] no-underline transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
-          >
-            Prisijunk, kad galėtum komentuoti →
-          </Link>
-        )}
-        {error && (
-          <div className="mt-2 text-[11px] font-bold text-[#ef4444]">{error}</div>
-        )}
-      </div>
+      {/* Music attachment overlay modal — atskiras nuo composer'io taip,
+          kad search results scrollas neperstumdytų teksto laukelio ar
+          komentarų sąrašo. */}
+      <MusicSearchModal
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        attached={attached}
+        onAdd={(hit) => setAttached(a => [...a, hit])}
+        onRemove={(idx) => setAttached(a => a.filter((_, i) => i !== idx))}
+      />
+
+      {/* Likers modal — kas patiko šį komentarą. */}
+      <LikesModal
+        open={!!likersFor}
+        onClose={() => setLikersFor(null)}
+        title="Patiko"
+        count={likersFor?.count || 0}
+        users={likersUsers}
+      />
     </section>
   )
 }

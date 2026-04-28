@@ -820,24 +820,15 @@ function TrackInfoModal({
   // Likers modal valdymas — atidarymas iš LikePill onOpenModal callback'o.
   const [likersOpen, setLikersOpen] = useState(false)
   const [likersUsers, setLikersUsers] = useState<Array<{ user_username: string; user_rank: string | null; user_avatar_url: string | null }> | null>(null)
-  // Music.lt entity_comments šitai dainai
-  const [comments, setComments] = useState<EntityComment[] | null>(null)
-  // Ref'as komentarų sekcijai — header'io comment chip'as scroll'ina į ją.
-  const commentsRef = useRef<HTMLDivElement | null>(null)
-
   useEffect(() => {
     if (track) {
       // Defer to next frame so the element can transition in.
       const r = requestAnimationFrame(() => setMounted(true))
       const h = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose() }
       window.addEventListener('keydown', h)
-      // Fetch comments + reset like state per naują track'ą
+      // Reset like state per naują track'ą — komentarus dabar fetch'ina pats
+      // EntityCommentsBlock'as, drawer'is jais nesidomi.
       setSelfLiked(false)
-      setComments(null)
-      fetch(`/api/tracks/${track.id}/comments`)
-        .then(r => r.json())
-        .then(d => setComments(d.comments || []))
-        .catch(() => setComments([]))
       return () => {
         cancelAnimationFrame(r)
         window.removeEventListener('keydown', h)
@@ -880,10 +871,6 @@ function TrackInfoModal({
   const lyrics = (track.lyrics || '').trim()
   const lyricsText = lyrics ? lyrics.replace(/<[^>]+>/g, '').trim() : null
   const trackHref = `/dainos/${artistSlug}-${track.slug}-${track.id}`
-  const commentsCount = comments?.length ?? 0
-  const scrollToComments = () => {
-    commentsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
 
   return (
     // Backdrop is intentionally subtle + click-through-friendly: we don't
@@ -905,7 +892,11 @@ function TrackInfoModal({
         role="dialog"
         aria-label={`Apie dainą ${track.title}`}
         className={[
-          'absolute left-0 top-0 flex h-full w-full max-w-[440px] flex-col border-r border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[24px_0_60px_-10px_rgba(0,0,0,0.5)]',
+          // Wider drawer kai turim lyrics → desktop'e telpa split-column
+          // layout (lyrics kairėje, komentarai dešinėje). Be lyrics —
+          // siauresnis (komentarai užima visą plotą be padalijimo).
+          'absolute left-0 top-0 flex h-full w-full flex-col border-r border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[24px_0_60px_-10px_rgba(0,0,0,0.5)]',
+          lyricsText ? 'max-w-[860px]' : 'max-w-[440px]',
           'transition-transform duration-200 ease-out',
           mounted ? 'translate-x-0' : '-translate-x-full',
         ].join(' ')}
@@ -940,9 +931,10 @@ function TrackInfoModal({
           </button>
         </div>
 
-        {/* Meta chips — LikePill + Comments (su scroll'inimu) + data + duration.
-            Singlams data orange ir prominent (release moment akcentuotas);
-            albume esantiems track'ams — muted year tik. */}
+        {/* Meta chips — LikePill + data + duration. Comments chip pašalinta:
+            ant desktop komentarai matosi šalia teksto (split-column), o ant
+            mobile vis tiek sutilpta po tekstu (be reikalo dubliuoti chip'o
+            navigaciją scroll'inimo logikai). */}
         <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border-subtle)] px-5 py-3">
           <LikePill
             likes={likes}
@@ -951,20 +943,6 @@ function TrackInfoModal({
             onOpenModal={() => setLikersOpen(true)}
             variant="surface"
           />
-          {/* Comments chip — visi komentarų skaičius + scrolls žemyn į
-              komentarų sekciją. Pellet'as visada matosi (net kai 0), kad
-              vartotojas iš karto suprastų, kur palikti komentarą. */}
-          <button
-            type="button"
-            onClick={scrollToComments}
-            className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
-            aria-label={`${commentsCount} komentarai — slinkti žemyn`}
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" />
-            </svg>
-            {commentsCount}
-          </button>
           {dateLabel && (
             <span
               className={[
@@ -984,38 +962,49 @@ function TrackInfoModal({
           )}
         </div>
 
-        {/* Body — full lyrics + comments (scrollable) */}
-        <div className="flex-1 overflow-y-auto px-5 py-5">
+        {/* Body — desktop'e (lg+) split-column: lyrics kairėje, komentarai
+            dešinėje (kiekvienas su savo scroll'u). Mobile/tablet — stacked,
+            kaip anksčiau. Be lyrics — komentarai užima visą plotą.
+            Naudojam grid'ą su minmax kraštais, kad textas neperbristų pernelyg
+            siaurai sklieto kolonose. */}
+        <div className={[
+          'flex-1 min-h-0',
+          lyricsText
+            ? 'grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:divide-x lg:divide-[var(--border-subtle)]'
+            : 'overflow-y-auto',
+        ].join(' ')}>
           {lyricsText ? (
-            <div>
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.2em] text-[var(--text-muted)]">
-                  Tekstas
+            <>
+              <div className="overflow-y-auto px-5 py-5">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.2em] text-[var(--text-muted)]">
+                    Tekstas
+                  </div>
+                  <span className="font-['Outfit',sans-serif] text-[9.5px] font-medium text-[var(--text-faint)]">
+                    Pažymėk eilutę → reaguok
+                  </span>
                 </div>
-                <span className="font-['Outfit',sans-serif] text-[9.5px] font-medium text-[var(--text-faint)]">
-                  Pažymėk eilutę → reaguok
-                </span>
+                <LyricsWithReactions trackId={track.id} lyrics={lyricsText} compact />
               </div>
-              <LyricsWithReactions trackId={track.id} lyrics={lyricsText} compact />
-            </div>
+              <div className="overflow-y-auto px-5 py-5">
+                <EntityCommentsBlock
+                  entityType="track"
+                  entityId={track.id}
+                  compact
+                  title="Komentarai"
+                />
+              </div>
+            </>
           ) : (
-            <div className="py-8 text-center text-[13px] text-[var(--text-muted)]">
-              Teksto dar nėra.
+            <div className="px-5 py-5">
+              <EntityCommentsBlock
+                entityType="track"
+                entityId={track.id}
+                compact
+                title="Komentarai"
+              />
             </div>
           )}
-
-          {/* Komentarai — shared EntityCommentsBlock. Renderina BOTH legacy
-              entity_comments archyvą IR modern user komentarus, su composer'iu
-              + replies + likes apačioj. Tas pats komponentas naudojamas album
-              puslapyje + track puslapyje, kad UX visur identiškas. */}
-          <div ref={commentsRef} className="mt-6 border-t border-[var(--border-subtle)] pt-5">
-            <EntityCommentsBlock
-              entityType="track"
-              entityId={track.id}
-              compact
-              title="Komentarai"
-            />
-          </div>
         </div>
 
         {/* Footer actions — Play (accent) + secondary link to full page */}
@@ -1023,7 +1012,18 @@ function TrackInfoModal({
           {onPlay && yt(track.video_url) ? (
             <button
               type="button"
-              onClick={() => onPlay(track)}
+              onClick={() => {
+                // Mobile'e drawer'is uždengia visą hero'jų — jei nepalik-
+                // sim atviro modal'o, vartotojas nieko nemato, nors player'is
+                // jau startavo. Uždarant modal'ą iškart po play tampa
+                // matoma hero player kortelė. Desktop'e tas pats elgesys
+                // pridedamai naudingas — prisistato player'is, modal'as
+                // uždarėjo. Kad išliktų scroll'inta vieta, naudojam mažą
+                // delay (0ms) — leidžia onPlay state setteriams suveikti
+                // pirma.
+                onPlay(track)
+                setTimeout(handleClose, 0)
+              }}
               className="inline-flex items-center gap-2 rounded-full bg-[var(--accent-orange)] px-4 py-2 font-['Outfit',sans-serif] text-[12px] font-extrabold text-white shadow-[0_4px_14px_rgba(249,115,22,0.35)] transition-transform hover:scale-[1.02]"
             >
               <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden>
