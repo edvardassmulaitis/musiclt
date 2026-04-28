@@ -55,7 +55,9 @@ export default function MusicSearchPicker({
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement | null>(null)
 
-  // Debounced search
+  // Debounced search — short delay (120ms) since results refresh feels
+  // sluggish at 220ms. AbortController so a previous slow request doesn't
+  // overwrite a newer one's results.
   useEffect(() => {
     const term = q.trim()
     if (term.length < 2) {
@@ -64,18 +66,19 @@ export default function MusicSearchPicker({
       return
     }
     setLoading(true)
+    const ctrl = new AbortController()
     const t = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/search-entities?q=${encodeURIComponent(term)}`)
+        const res = await fetch(`/api/search-entities?q=${encodeURIComponent(term)}`, { signal: ctrl.signal })
         const data = await res.json()
         setResults(data.results || [])
-      } catch {
-        setResults([])
+      } catch (e: any) {
+        if (e?.name !== 'AbortError') setResults([])
       } finally {
         setLoading(false)
       }
-    }, 220)
-    return () => clearTimeout(t)
+    }, 120)
+    return () => { clearTimeout(t); ctrl.abort() }
   }, [q])
 
   // Close on outside click
@@ -133,7 +136,10 @@ export default function MusicSearchPicker({
       {open && q.trim().length >= 2 && (
         <div className="absolute left-0 right-0 z-50 mt-1.5 max-h-[360px] overflow-y-auto rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[0_18px_40px_-10px_rgba(0,0,0,0.45)]">
           {loading ? (
-            <div className="px-3 py-4 text-center text-[12px] text-[var(--text-faint)]">Ieškoma…</div>
+            <div className="flex items-center justify-center gap-2.5 px-3 py-5 text-[11px] font-bold uppercase tracking-wider text-[var(--text-faint)]">
+              <EqualizerLoader />
+              <span>Ieškoma</span>
+            </div>
           ) : filtered.length === 0 ? (
             <div className="px-3 py-4 text-center text-[12px] text-[var(--text-faint)]">
               {results.length > 0 ? 'Visi rasti jau pridėti.' : 'Nieko nerasta.'}
@@ -186,6 +192,34 @@ export default function MusicSearchPicker({
         </div>
       )}
     </div>
+  )
+}
+
+/** Equalizer-style loading indicator — 4 vertical bars bouncing in
+ *  staggered pulses. Themed in orange to match the rest of the UI. Uses
+ *  inline keyframes so the component is self-contained. */
+function EqualizerLoader() {
+  return (
+    <span className="inline-flex h-3 items-end gap-[2px]">
+      {[0, 0.12, 0.24, 0.36].map((delay, i) => (
+        <span
+          key={i}
+          style={{ animationDelay: `${delay}s` }}
+          className="block w-[3px] rounded-sm bg-[var(--accent-orange)]"
+        />
+      ))}
+      <style jsx>{`
+        span > span {
+          animation: eqBar 0.85s ease-in-out infinite alternate;
+          height: 30%;
+        }
+        @keyframes eqBar {
+          0% { height: 30%; }
+          50% { height: 100%; }
+          100% { height: 50%; }
+        }
+      `}</style>
+    </span>
   )
 }
 

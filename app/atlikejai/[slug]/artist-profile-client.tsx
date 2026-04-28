@@ -796,18 +796,23 @@ type EntityComment = {
 }
 
 function TrackInfoModal({
-  track, artistName, artistSlug, artistThumbUrl, isSingle, onClose, onPlay,
+  track, artistName, artistSlug, artistThumbUrl, onClose, onPlay, onPause,
+  activeTrackId, playing,
 }: {
   track: Track | null; artistName: string; artistSlug: string
-  /** Artist'o profilio nuotrauka headeryje šalia title + name. Padeda
-   *  vartotojui akimirksniu suprasti kontekstą (kieno ši daina). */
+  /** Artist'o profilio nuotrauka headeryje šalia title + name. */
   artistThumbUrl?: string | null
-  /** Track yra single (nepriklauso jokiam albumui)? Jei taip — release
-   *  date'ą rodom orange spalva (pabrėžta), kitaip — muted. */
-  isSingle?: boolean
   onClose: () => void
   /** Start playback of this track in the main player. Drawer stays open. */
   onPlay?: (t: Track) => void
+  /** Pause the player (only when this track is currently the active one). */
+  onPause?: () => void
+  /** Currently active track id in the hero player — used to determine
+   *  whether the modal should show Play or Pause for THIS track. */
+  activeTrackId?: number | null
+  /** Hero player's `playing` state — paired with `activeTrackId` to decide
+   *  the play/pause icon. */
+  playing?: boolean
 }) {
   // We use an internal `mounted` flag so the slide-out animation gets a chance
   // to run before the component unmounts. When a new track replaces the
@@ -913,40 +918,81 @@ function TrackInfoModal({
           mounted ? 'translate-x-0' : '-translate-x-full',
         ].join(' ')}
       >
-        {/* Header — artist'o thumb + title + name + close */}
-        <div className="flex items-start gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
-          {artistThumbUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={proxyImg(artistThumbUrl)}
-              alt={artistName}
-              referrerPolicy="no-referrer"
-              className="h-11 w-11 shrink-0 rounded-full border border-[var(--border-subtle)] object-cover"
-            />
-          )}
-          <div className="min-w-0 flex-1">
-            <div className="truncate font-['Outfit',sans-serif] text-[18px] font-extrabold leading-tight text-[var(--text-primary)]">
-              {track.title}
+        {/* Header — artist'o thumb + title + name + action icons (play/pause,
+            external link to full track page, close).
+            Profile thumb yra rounded-xl (ne circle) kad nebūtų nukerpamų
+            atlikėjo veidų ant kraštų — kvadratuko forma su apvaliais
+            kraštais grąžina maždaug 90% nuotraukos, nepraranda detalių. */}
+        {(() => {
+          const vid = yt(track.video_url)
+          const isThisActive = !!vid && activeTrackId === track.id && !!playing
+          return (
+            <div className="flex items-center gap-3 border-b border-[var(--border-subtle)] px-5 py-3">
+              {artistThumbUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={proxyImg(artistThumbUrl)}
+                  alt={artistName}
+                  referrerPolicy="no-referrer"
+                  className="h-11 w-11 shrink-0 rounded-xl border border-[var(--border-subtle)] object-cover"
+                />
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-['Outfit',sans-serif] text-[17px] font-extrabold leading-tight text-[var(--text-primary)]">
+                  {track.title}
+                </div>
+                <div className="mt-0.5 truncate text-[12px] text-[var(--text-muted)]">
+                  {artistName}
+                </div>
+              </div>
+              {/* Action icons: play/pause (only if track has video), external
+                  link to full daina page, close. All ~32px square buttons. */}
+              {vid && (onPlay || onPause) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isThisActive && onPause) onPause()
+                    else if (onPlay) onPlay(track)
+                  }}
+                  aria-label={isThisActive ? 'Pauzė' : 'Klausyti'}
+                  title={isThisActive ? 'Pauzė' : 'Klausyti'}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-[var(--accent-orange)] text-white shadow-[0_4px_14px_rgba(249,115,22,0.35)] transition-transform hover:scale-105"
+                >
+                  {isThisActive ? (
+                    <svg viewBox="0 0 24 24" width={13} height={13} fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" width={13} height={13} fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                  )}
+                </button>
+              )}
+              <Link
+                href={trackHref}
+                target="_blank"
+                rel="noopener"
+                title="Atidaryti dainos puslapį"
+                aria-label="Atidaryti dainos puslapį"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+              >
+                <svg viewBox="0 0 24 24" width={13} height={13} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 3h7v7M21 3l-9 9M5 5h6M5 5v14h14v-6" />
+                </svg>
+              </Link>
+              <button
+                onClick={handleClose}
+                aria-label="Uždaryti"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+              >
+                <svg viewBox="0 0 16 16" width={13} height={13} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                  <path d="M3 3l10 10M13 3L3 13" />
+                </svg>
+              </button>
             </div>
-            <div className="mt-0.5 truncate text-[12px] text-[var(--text-muted)]">
-              {artistName}
-            </div>
-          </div>
-          <button
-            onClick={handleClose}
-            aria-label="Uždaryti"
-            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[10px] border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
-          >
-            <svg viewBox="0 0 16 16" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-              <path d="M3 3l10 10M13 3L3 13" />
-            </svg>
-          </button>
-        </div>
+          )
+        })()}
 
-        {/* Meta chips — LikePill + data + duration. Comments chip pašalinta:
-            ant desktop komentarai matosi šalia teksto (split-column), o ant
-            mobile vis tiek sutilpta po tekstu (be reikalo dubliuoti chip'o
-            navigaciją scroll'inimo logikai). */}
+        {/* Meta chips — LikePill + data + duration. Release date'as visada
+            muted (orange highlight'as singlams pašalintas — tikrai nereikalingas
+            akcentas). */}
         <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border-subtle)] px-5 py-3">
           <LikePill
             likes={likes}
@@ -956,14 +1002,7 @@ function TrackInfoModal({
             variant="surface"
           />
           {dateLabel && (
-            <span
-              className={[
-                "inline-flex items-center rounded-full border px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-extrabold",
-                isSingle
-                  ? 'border-[rgba(249,115,22,0.4)] bg-[rgba(249,115,22,0.10)] text-[var(--accent-orange)]'
-                  : 'border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-primary)]',
-              ].join(' ')}
-            >
+            <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]">
               {dateLabel}
             </span>
           )}
@@ -1024,12 +1063,12 @@ function TrackInfoModal({
                 'overflow-y-auto px-5 py-5',
                 mobileTab === 'lyrics' ? 'block h-full' : 'hidden lg:block',
               ].join(' ')}>
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.2em] text-[var(--text-muted)]">
-                    Tekstas
+                <div className="mb-2 flex items-baseline gap-2">
+                  <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                    Dainos tekstas
                   </div>
-                  <span className="font-['Outfit',sans-serif] text-[9.5px] font-medium text-[var(--text-faint)]">
-                    Pažymėk eilutę → reaguok
+                  <span className="font-['Outfit',sans-serif] text-[10px] font-medium text-[var(--text-faint)]">
+                    pažymėk → reaguok
                   </span>
                 </div>
                 <LyricsWithReactions trackId={track.id} lyrics={lyricsText} compact />
@@ -1060,36 +1099,8 @@ function TrackInfoModal({
           )}
         </div>
 
-        {/* Footer actions — Play (accent) + secondary link to full page */}
-        <div className="flex items-center justify-between gap-2 border-t border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-5 py-3">
-          {onPlay && yt(track.video_url) ? (
-            <button
-              type="button"
-              onClick={() => onPlay(track)}
-              className="inline-flex items-center gap-2 rounded-full bg-[var(--accent-orange)] px-4 py-2 font-['Outfit',sans-serif] text-[12px] font-extrabold text-white shadow-[0_4px_14px_rgba(249,115,22,0.35)] transition-transform hover:scale-[1.02]"
-            >
-              <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden>
-                <path d="M8 5v14l11-7z" />
-              </svg>
-              Klausyti
-            </button>
-          ) : <span />}
-          {/* External-link icon — atidaro pilną dainos puslapį naujame tab'e
-              (taip pat kaip diskusijos modal'as daro). Mažas footprint, leng-
-              vai randamas, neužima erdvės bekraščiu CTA tekstu. */}
-          <Link
-            href={trackHref}
-            target="_blank"
-            rel="noopener"
-            title="Atidaryti dainos puslapį"
-            aria-label="Atidaryti dainos puslapį"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
-          >
-            <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M14 3h7v7M21 3l-9 9M5 5h6M5 5v14h14v-6" />
-            </svg>
-          </Link>
-        </div>
+        {/* Footer pašalintas — play/pause + external-link mygtukai
+            perkelti į header'į (aukščiau). */}
       </aside>
 
       {/* Likers modal — atsidaro paspaudus LikePill count'ą. Z-index aukštesnis
@@ -3506,9 +3517,11 @@ export default function ArtistProfileClient({
         artistName={artist.name}
         artistSlug={artist.slug}
         artistThumbUrl={artist.cover_image_url}
-        isSingle={!!trackInfoOpen && !linkedSet.has(trackInfoOpen.id)}
         onClose={() => setTrackInfoOpen(null)}
         onPlay={(t) => { setPid(t.id); setPlaying(true) }}
+        onPause={() => setPlaying(false)}
+        activeTrackId={pid}
+        playing={playing}
       />
 
       {lightboxIndex !== null && galleryPhotos.length > 0 && (

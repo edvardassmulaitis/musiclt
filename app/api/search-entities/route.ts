@@ -66,24 +66,27 @@ export async function GET(request: Request) {
   let compoundTrackHits: Array<any> = []
   let compoundAlbumHits: Array<any> = []
   if (compound) {
-    const [a, b] = [tokens[0], tokens.slice(1).join(' ')]
-    const [b2, a2] = [tokens[tokens.length - 1], tokens.slice(0, -1).join(' ')]
-    // PostgREST doesn't support OR across embedded joins in one call, so we
-    // do two-token interpretations and merge.
+    // BOTH orderings — first token as artist OR last token as artist. The
+    // earlier code computed the same destructure twice, so "vartai marijonas"
+    // worked for "marijonas vartai" but not the reverse. Now we explicitly
+    // try both interpretations.
     const variants = [
-      { artistTok: a, titleTok: b },
-      { artistTok: a2, titleTok: b2 },
+      // First token as artist, rest as title.
+      { artistTok: tokens[0], titleTok: tokens.slice(1).join(' ') },
+      // Last token as artist, rest as title.
+      { artistTok: tokens[tokens.length - 1], titleTok: tokens.slice(0, -1).join(' ') },
     ]
-    for (const { artistTok, titleTok } of variants) {
+    // Run BOTH variants in parallel — saves a round-trip when both orderings
+    // need to be checked.
+    const variantResults = await Promise.all(variants.map(async ({ artistTok, titleTok }) => {
       const aPat = `%${safe(artistTok)}%`
       const tPat = `%${safe(titleTok)}%`
-      // First find artist IDs matching the artist token
       const { data: matchArtists } = await sb
         .from('artists')
         .select('id,name')
         .ilike('name', aPat)
         .limit(5)
-      if (!matchArtists || matchArtists.length === 0) continue
+      if (!matchArtists || matchArtists.length === 0) return { tracks: [], albums: [] }
       const artistIds = matchArtists.map((x: any) => x.id)
       const [tHit, alHit] = await Promise.all([
         sb.from('tracks')
@@ -97,8 +100,11 @@ export async function GET(request: Request) {
           .ilike('title', tPat)
           .limit(6),
       ])
-      compoundTrackHits.push(...(tHit.data || []))
-      compoundAlbumHits.push(...(alHit.data || []))
+      return { tracks: tHit.data || [], albums: alHit.data || [] }
+    }))
+    for (const v of variantResults) {
+      compoundTrackHits.push(...v.tracks)
+      compoundAlbumHits.push(...v.albums)
     }
   }
 

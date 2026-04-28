@@ -28,7 +28,6 @@ import Link from 'next/link'
 import { proxyImg } from '@/lib/img-proxy'
 import { type AttachmentHit } from './MusicSearchPicker'
 import MusicSearchModal from './MusicSearchModal'
-import { LikePill } from './LikePill'
 import LikesModal, { type LikeUser } from './LikesModal'
 import { relativeTime } from '@/lib/relative-time'
 
@@ -135,6 +134,57 @@ function InitialBubble({ name, size }: { name: string; size: number }) {
     >
       <span style={{ fontSize: Math.max(9, Math.floor(size * 0.4)) }}>{initial}</span>
     </div>
+  )
+}
+
+/** Compact like control for comments — heart icon + count, no pill chrome.
+ *  When count = 0, count number is hidden (just clickable heart). When count
+ *  > 0, count is rendered next to heart and clicking it opens the likers
+ *  modal via onOpenModal. */
+function CommentLike({
+  count, liked, onToggle, onOpenModal, disabled,
+}: {
+  count: number
+  liked: boolean
+  onToggle: () => void
+  onOpenModal?: () => void
+  disabled?: boolean
+}) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      <button
+        type="button"
+        onClick={onToggle}
+        disabled={disabled}
+        aria-label={liked ? 'Atšaukti patinka' : 'Pažymėti patinka'}
+        title={liked ? 'Patinka' : 'Pažymėti patinka'}
+        className={[
+          'flex items-center justify-center transition-colors',
+          liked ? 'text-[var(--accent-orange)]' : 'text-[var(--text-muted)] hover:text-[var(--accent-orange)]',
+          disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
+        ].join(' ')}
+      >
+        <svg width="13" height="13" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
+          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+        </svg>
+      </button>
+      {count > 0 && (
+        onOpenModal ? (
+          <button
+            type="button"
+            onClick={onOpenModal}
+            title="Pamatyk kam patinka"
+            className="font-['Outfit',sans-serif] text-[10.5px] font-extrabold tabular-nums text-[var(--text-muted)] transition-colors hover:text-[var(--accent-orange)]"
+          >
+            {count}
+          </button>
+        ) : (
+          <span className="font-['Outfit',sans-serif] text-[10.5px] font-extrabold tabular-nums text-[var(--text-muted)]">
+            {count}
+          </span>
+        )
+      )}
+    </span>
   )
 }
 
@@ -582,28 +632,25 @@ export default function EntityCommentsBlock({
                         can't be liked because we don't track those. */}
                     <div className="mt-2 flex items-center gap-2">
                       {isModern ? (
-                        <LikePill
-                          likes={c.like_count || 0}
-                          selfLiked={liked}
+                        <CommentLike
+                          count={c.like_count || 0}
+                          liked={liked}
                           onToggle={() => toggleLike(c.id)}
                           onOpenModal={(c.like_count || 0) > 0
                             ? () => setLikersFor({ entityType: 'comment', entityId: c.id, count: c.like_count || 0 })
                             : undefined}
-                          variant="surface"
                         />
                       ) : (
                         // Legacy comment — likes were imported from music.lt.
-                        // We can't toggle (no FK from modern users to legacy
-                        // ids yet), but at least let the user CLICK the
-                        // count to see who liked it. Same LikesModal as
-                        // modern, just with read-only LikePill heart.
+                        // Toggle disabled (no FK yet for modern user → legacy
+                        // id likes), but count is clickable to see who liked.
                         c.like_count > 0 && (
-                          <LikePill
-                            likes={c.like_count}
-                            selfLiked={false}
+                          <CommentLike
+                            count={c.like_count}
+                            liked={false}
                             onToggle={() => {/* TODO: extend likes table to support legacy_id */}}
                             onOpenModal={() => setLikersFor({ entityType: 'comment', entityId: c.legacy_id, count: c.like_count || 0 })}
-                            variant="surface"
+                            disabled
                           />
                         )
                       )}

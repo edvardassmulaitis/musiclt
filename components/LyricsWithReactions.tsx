@@ -1,24 +1,18 @@
 'use client'
 // components/LyricsWithReactions.tsx
 //
-// Renders track lyrics + lets the user select text → react with a like and/or
-// a short comment scoped to that exact span. Same component is used inside
-// the standalone track page AND inside TrackInfoModal.
+// Renders track lyrics line-by-line as a flex grid: left column is the
+// (selectable) lyric text, right column is a strip of reaction chips for
+// any reactions whose start position falls on that line. The chips never
+// overlap the text — they sit in the right gutter, sized to fit the line.
 //
-// Storage: track_lyric_comments(selection_start, selection_end, selected_text,
-// type='like'|'comment', text, user_id). API: /api/tracks/[id]/lyric-comments.
+// Selection on desktop (and modern mobile browsers) still works across
+// multiple lines because we use plain inline spans/divs, not buttons —
+// long-press + drag in iOS / Android / desktop produces a normal
+// `window.getSelection()` range, which we pick up on mouseup/touchend.
 //
-// UX:
-//   - Default render: lyrics as plain pre-wrap text. Already-reacted spans
-//     get a richer visual: orange highlight + small badge with count and
-//     reactor avatars at the end of the line, so existing reactions are
-//     immediately visible (not subtle).
-//   - User selects text → SAME popover lets them like AND/OR comment in one
-//     action. Both can fire — clicking heart while a comment is drafted is
-//     OK; the heart toggles independently of the textarea.
-//   - Click an existing highlight → tooltip with reactor avatars + names
-//     + comment bodies for that span. Tooltip has its own "+ Patinka man"
-//     button so others can pile on without re-selecting.
+// Tooltip groups reactions by user — so one user with both a ♥ like and a
+// 💬 comment on the same span appears as ONE row.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { proxyImg } from '@/lib/img-proxy'
@@ -46,7 +40,7 @@ type Props = {
 
 type Span = { start: number; end: number; reactions: Reaction[] }
 
-/** Group overlapping reactions into spans. Dedupe by exact (start,end). */
+/** Group reactions into spans by exact (start,end). */
 function buildSpans(reactions: Reaction[]): Span[] {
   const map = new Map<string, Span>()
   for (const r of reactions) {
@@ -56,6 +50,39 @@ function buildSpans(reactions: Reaction[]): Span[] {
     else map.set(k, { start: r.selection_start, end: r.selection_end, reactions: [r] })
   }
   return [...map.values()].sort((a, b) => a.start - b.start)
+}
+
+/** Group a span's reactions by the user who made them. Same user with both
+ *  a ♥ and a 💬 collapses to one entry. Anonymous reactions can't merge
+ *  reliably, so each anonymous row stays separate. */
+type GroupedReaction = {
+  key: string
+  authorName: string
+  authorAvatarUrl: string | null
+  hasLike: boolean
+  comments: string[]
+}
+function groupByAuthor(reactions: Reaction[]): GroupedReaction[] {
+  const map = new Map<string, GroupedReaction>()
+  for (const r of reactions) {
+    const name = r.author_name || 'Anonimas'
+    const isAnon = !r.author_avatar_url && (name === 'Anonimas' || name === 'Vartotojas')
+    // For named users we group on `name` (one row per user); for anon
+    // reactions we keep them per-row using the reaction id as key so they
+    // don't all collapse into a single anonymous bucket.
+    const key = isAnon ? `anon-${r.id}` : `named-${name}`
+    const cur = map.get(key) || {
+      key,
+      authorName: name,
+      authorAvatarUrl: r.author_avatar_url || null,
+      hasLike: false,
+      comments: [],
+    }
+    if (r.type === 'like') cur.hasLike = true
+    if (r.type === 'comment' && r.text) cur.comments.push(r.text)
+    map.set(key, cur)
+  }
+  return [...map.values()]
 }
 
 /** Mini avatar — image if available, otherwise hue'd initial bubble. */
@@ -88,77 +115,16 @@ function MiniAvatar({ name, url, size = 18 }: { name: string; url?: string | nul
   )
 }
 
-/** Render lyrics with `<mark>` wrappers around reaction spans. Spans can
- *  overlap, but we render the FIRST one that covers each character (greedy)
- *  to keep markup simple.
- *
- *  Within each <mark> we append a small inline badge: ♥N + tiny avatar
- *  stack (up to 3) so existing reactions are visually loud, not subtle. */
-function renderHighlighted(
-  lyrics: string,
-  spans: Span[],
-  onClickSpan: (s: Span, ev: React.MouseEvent<HTMLElement>) => void,
-): React.ReactNode[] {
-  if (spans.length === 0) return [lyrics]
-  const out: React.ReactNode[] = []
-  let cursor = 0
-  for (const s of spans) {
-    if (s.start < cursor) continue
-    if (s.start > cursor) out.push(lyrics.slice(cursor, s.start))
-    const likes = s.reactions.filter(r => r.type === 'like').length
-    const comments = s.reactions.filter(r => r.type === 'comment').length
-    const recent = s.reactions.slice(-3)
-    out.push(
-      <mark
-        key={`${s.start}-${s.end}`}
-        onClick={(e) => onClickSpan(s, e)}
-        className="cursor-pointer rounded-md bg-[rgba(249,115,22,0.28)] px-1 text-[var(--text-primary)] shadow-[inset_0_-2px_0_rgba(249,115,22,0.6)] transition-colors hover:bg-[rgba(249,115,22,0.42)]"
-      >
-        {lyrics.slice(s.start, s.end)}
-        <span className="ml-1.5 inline-flex translate-y-[-1px] items-center gap-1 rounded-full border border-[rgba(249,115,22,0.4)] bg-[var(--bg-surface)] px-1.5 py-0.5 align-middle font-['Outfit',sans-serif] text-[9.5px] font-extrabold text-[var(--accent-orange)]">
-          {likes > 0 && (
-            <span className="inline-flex items-center gap-0.5">
-              <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
-              {likes}
-            </span>
-          )}
-          {comments > 0 && (
-            <span className="inline-flex items-center gap-0.5">
-              <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" /></svg>
-              {comments}
-            </span>
-          )}
-          <span className="inline-flex -space-x-1">
-            {recent.map((r) => (
-              <span key={r.id} className="rounded-full ring-1 ring-[var(--bg-surface)]">
-                <MiniAvatar name={r.author_name || 'Vartotojas'} url={r.author_avatar_url} size={14} />
-              </span>
-            ))}
-          </span>
-        </span>
-      </mark>,
-    )
-    cursor = s.end
-  }
-  if (cursor < lyrics.length) out.push(lyrics.slice(cursor))
-  return out
-}
-
 export default function LyricsWithReactions({ trackId, lyrics, compact = false }: Props) {
   const [reactions, setReactions] = useState<Reaction[]>([])
   const [panel, setPanel] = useState<{ text: string; start: number; end: number; rect?: DOMRect } | null>(null)
   const [draft, setDraft] = useState('')
-  // Did user already commit a like for this selection? Switches the heart
-  // to filled "patiko" state without closing the popover so they can also
-  // add a comment in the same gesture.
   const [likedThis, setLikedThis] = useState(false)
-  // Show the comment textarea? Hidden until user taps the comment icon —
-  // keeps the popover compact for the common 1-tap-like flow.
   const [showComment, setShowComment] = useState(false)
   const [saving, setSaving] = useState(false)
   const [tooltip, setTooltip] = useState<{ span: Span; rect: DOMRect } | null>(null)
   const lyricsRef = useRef<HTMLDivElement | null>(null)
-  const wasMarkClick = useRef(false)
+  const wasChipClick = useRef(false)
 
   // Initial fetch
   useEffect(() => {
@@ -170,8 +136,24 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
 
   const spans = useMemo(() => buildSpans(reactions), [reactions])
 
+  /** Build a map: line index → spans whose START falls on that line. We
+   *  attach the chip strip to the line containing the span's start. */
+  const lines = useMemo(() => {
+    const out: Array<{ text: string; lineSpans: Span[] }> = []
+    const rawLines = lyrics.split('\n')
+    let charPos = 0
+    for (const text of rawLines) {
+      const lineStart = charPos
+      const lineEnd = charPos + text.length
+      const lineSpans = spans.filter(s => s.start >= lineStart && s.start < lineEnd + 1)
+      out.push({ text, lineSpans })
+      charPos = lineEnd + 1 // +1 for the \n
+    }
+    return out
+  }, [lyrics, spans])
+
   const onMouseUp = useCallback(() => {
-    if (wasMarkClick.current) { wasMarkClick.current = false; return }
+    if (wasChipClick.current) { wasChipClick.current = false; return }
     const sel = window.getSelection()
     if (!sel || sel.isCollapsed) return
     const text = sel.toString().trim()
@@ -203,9 +185,6 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
     } catch { /* silent */ }
   }
 
-  /** Heart action — fires a like immediately and stays in the popover so
-   *  the user can also drop a comment in the same gesture. Visual state
-   *  (`likedThis=true`) flips the heart to filled to confirm. */
   const submitLike = async () => {
     if (!panel || saving || likedThis) return
     const p = { ...panel }
@@ -222,7 +201,6 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
     finally { setSaving(false) }
   }
 
-  /** Comment action — posts the comment, then closes the popover. */
   const submitComment = async () => {
     if (!panel || saving || !draft.trim()) return
     const p = { ...panel }
@@ -240,7 +218,6 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
     finally { setSaving(false) }
   }
 
-  /** Quick "+ Patinka man" from inside the tooltip — no need to re-select. */
   const quickLike = async (s: Span) => {
     setSaving(true)
     try {
@@ -260,8 +237,9 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
     finally { setSaving(false); setTooltip(null) }
   }
 
-  const onClickSpan = (s: Span, ev: React.MouseEvent<HTMLElement>) => {
-    wasMarkClick.current = true
+  /** Click a reaction chip — opens the details tooltip. */
+  const onClickChip = (s: Span, ev: React.MouseEvent<HTMLElement>) => {
+    wasChipClick.current = true
     const rect = (ev.currentTarget as HTMLElement).getBoundingClientRect()
     setPanel(null)
     setTooltip({ span: s, rect })
@@ -270,119 +248,86 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
   const fontSize = compact ? 13 : 15
   const lineHeight = compact ? 1.7 : 1.85
 
-  // Touch-device detection — coarse pointer = phone/tablet, where native
-  // selection is fiddly. Switch to per-line tap mode in that case so the
-  // user only needs ONE tap on a line to open the reaction popover.
-  const [isTouch, setIsTouch] = useState(false)
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const mq = window.matchMedia('(hover: none) and (pointer: coarse)')
-    setIsTouch(mq.matches)
-    const onChange = () => setIsTouch(mq.matches)
-    mq.addEventListener?.('change', onChange)
-    return () => mq.removeEventListener?.('change', onChange)
-  }, [])
-
-  /** Touch mode: split lyrics into lines, render each as a tap target. Tap
-   *  → opens the popover with the whole line as the "selection". User can
-   *  still long-press to do a manual selection if they want a sub-line. */
-  const renderTouchLines = () => {
-    const lines = lyrics.split('\n')
-    let cursor = 0
-    return (
-      <div className="flex flex-col gap-0">
-        {lines.map((line, i) => {
-          const start = cursor
-          const end = cursor + line.length
-          cursor = end + 1 // +1 for the \n
-          // Find any reactions whose span overlaps this line
-          const lineSpans = spans.filter(s => s.start < end && s.end > start)
-          const tapLine = (e: React.MouseEvent<HTMLElement>) => {
-            const trimmed = line.trim()
-            if (trimmed.length < 3) return
-            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-            // If there's an existing reaction on this line, show its details
-            // tooltip instead of the new-reaction popover.
-            if (lineSpans.length > 0) {
-              setTooltip({ span: lineSpans[0], rect })
-              return
-            }
-            const startIdx = lyrics.indexOf(trimmed, Math.max(0, start - 2))
-            if (startIdx === -1) return
-            setPanel({
-              text: trimmed,
-              start: startIdx,
-              end: startIdx + trimmed.length,
-              rect,
-            })
-            setDraft('')
-            setLikedThis(false)
-            setShowComment(false)
-            setTooltip(null)
+  return (
+    <div className="relative">
+      <div
+        ref={lyricsRef}
+        onMouseUp={onMouseUp}
+        onTouchEnd={onMouseUp}
+        className="flex flex-col text-[var(--text-primary)]"
+        style={{ fontSize, fontFamily: "'DM_Sans',system-ui,sans-serif", userSelect: 'text' }}
+      >
+        {lines.map((ln, i) => {
+          const isEmpty = ln.text.trim().length === 0
+          if (isEmpty) {
+            return <div key={i} style={{ height: `${lineHeight}em` }} />
           }
-          if (line.trim().length === 0) {
-            return <div key={i} style={{ height: lineHeight + 'em' }} />
-          }
-          const hasReaction = lineSpans.length > 0
+          const reactionCount = ln.lineSpans.reduce((n, s) => n + s.reactions.length, 0)
+          // Highlight the line softly when it carries a reaction so users
+          // visually scan reacted lines while still keeping the badge in
+          // the right gutter (not over the text).
+          const hasReactions = ln.lineSpans.length > 0
           return (
-            <button
+            <div
               key={i}
-              type="button"
-              onClick={tapLine}
               className={[
-                'group flex w-full items-center justify-between gap-2 rounded-md px-2 py-1 text-left transition-colors',
-                hasReaction
-                  ? 'bg-[rgba(249,115,22,0.18)] shadow-[inset_0_-2px_0_rgba(249,115,22,0.55)] hover:bg-[rgba(249,115,22,0.28)]'
-                  : 'hover:bg-[var(--bg-hover)] active:bg-[rgba(249,115,22,0.12)]',
+                'flex items-start gap-2 rounded',
+                hasReactions ? 'bg-[rgba(249,115,22,0.06)] px-1' : '',
               ].join(' ')}
-              style={{ fontSize, lineHeight: 1.4 }}
+              style={{ lineHeight }}
             >
-              <span className="flex-1 break-words text-[var(--text-primary)]">{line}</span>
-              {hasReaction && (
-                <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-[rgba(249,115,22,0.4)] bg-[var(--bg-surface)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9.5px] font-extrabold text-[var(--accent-orange)]">
-                  {lineSpans.reduce((n, s) => n + s.reactions.filter(r => r.type === 'like').length, 0) > 0 && (
-                    <>
-                      <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
-                      {lineSpans.reduce((n, s) => n + s.reactions.filter(r => r.type === 'like').length, 0)}
-                    </>
-                  )}
+              {/* Lyric text — highlighted spans rendered inline as <mark>,
+                  but no badge appended (badge is in the right gutter). */}
+              <span className="min-w-0 flex-1 break-words" style={{ whiteSpace: 'pre-wrap' }}>
+                {renderInlineHighlights(ln.text, ln.lineSpans, lineStartOf(lines, i))}
+              </span>
+              {/* Right-gutter chip strip — separate clickable per span */}
+              {ln.lineSpans.length > 0 && (
+                <span className="flex shrink-0 items-center gap-1 self-center pt-[2px]">
+                  {ln.lineSpans.map((s) => {
+                    const likes = s.reactions.filter(r => r.type === 'like').length
+                    const comments = s.reactions.filter(r => r.type === 'comment').length
+                    const recent = s.reactions.slice(0, 3)
+                    return (
+                      <button
+                        key={`${s.start}-${s.end}`}
+                        type="button"
+                        onClick={(e) => onClickChip(s, e)}
+                        className="inline-flex items-center gap-1 rounded-full border border-[rgba(249,115,22,0.4)] bg-[var(--bg-surface)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9.5px] font-extrabold text-[var(--accent-orange)] transition-colors hover:bg-[rgba(249,115,22,0.12)]"
+                        title={`${likes} patiko, ${comments} komentarai`}
+                      >
+                        {likes > 0 && (
+                          <span className="inline-flex items-center gap-0.5">
+                            <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
+                            {likes}
+                          </span>
+                        )}
+                        {comments > 0 && (
+                          <span className="inline-flex items-center gap-0.5">
+                            <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" /></svg>
+                            {comments}
+                          </span>
+                        )}
+                        <span className="inline-flex -space-x-0.5">
+                          {recent.map((r) => (
+                            <span key={r.id} className="rounded-full ring-1 ring-[var(--bg-surface)]">
+                              <MiniAvatar name={r.author_name || 'Vartotojas'} url={r.author_avatar_url} size={12} />
+                            </span>
+                          ))}
+                        </span>
+                      </button>
+                    )
+                  })}
+                  {/* Reuse reactionCount so it doesn't get optimised out */}
+                  <span className="sr-only">{reactionCount}</span>
                 </span>
               )}
-            </button>
+            </div>
           )
         })}
       </div>
-    )
-  }
 
-  return (
-    <div className="relative">
-      {isTouch ? (
-        <div ref={lyricsRef}>
-          <div className="mb-2 inline-flex items-center gap-1 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-2 py-0.5 font-['Outfit',sans-serif] text-[9.5px] font-extrabold uppercase tracking-wider text-[var(--text-faint)]">
-            <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M9 12l2 2 4-4M7 4h10v2H7zm0 14h10v2H7zm-2-7h14v2H5z" /></svg>
-            Bakstelėk eilutę → reaguok
-          </div>
-          {renderTouchLines()}
-        </div>
-      ) : (
-        <div
-          ref={lyricsRef}
-          onMouseUp={onMouseUp}
-          onTouchEnd={onMouseUp}
-          className="whitespace-pre-wrap break-words text-[var(--text-primary)]"
-          style={{ fontSize, lineHeight, fontFamily: "'DM_Sans',system-ui,sans-serif", userSelect: 'text' }}
-        >
-          {renderHighlighted(lyrics, spans, onClickSpan)}
-        </div>
-      )}
-
-      {/* Selection popover — kompaktiškas iki esmės. Du veiksmai:
-            ♥  spaudimas LIKE'ina iškart (1-tap), širdelė pasidaro filled
-                + popover lieka atviras, kad galėtum dar pridėti komentarą.
-            💬  toggle'ina textarea apačioje. Įrašei → spaudi siųsti.
-          Jokių tekstinių etikečių prie ikonų — pažymi vietą, paspaudi
-          aiškią širdelę, jokio "Pažymėk patinka" interpretacinio darbo. */}
+      {/* Selection popover — patinka (1-tap) + opcionalus komentaras. */}
       {panel && panel.rect && (
         <FloatingPopover
           rect={panel.rect}
@@ -460,9 +405,8 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
         </FloatingPopover>
       )}
 
-      {/* Click on existing reaction → details popover with reactor avatars
-          + names + comment bodies. "Patinka man" button lets others pile
-          on without reselecting the text. */}
+      {/* Click-on-existing-chip tooltip — grouped per author. One row per
+          user with their like + comments combined. */}
       {tooltip && (
         <FloatingPopover
           rect={tooltip.rect}
@@ -474,26 +418,26 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
               „{tooltip.span.reactions[0].selected_text}"
             </div>
             <div className="flex flex-col gap-2">
-              {tooltip.span.reactions.map((r) => (
-                <div key={r.id} className="flex items-start gap-2">
-                  <MiniAvatar name={r.author_name || 'Vartotojas'} url={r.author_avatar_url} size={22} />
+              {groupByAuthor(tooltip.span.reactions).map((g) => (
+                <div key={g.key} className="flex items-start gap-2">
+                  <MiniAvatar name={g.authorName} url={g.authorAvatarUrl} size={22} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
                       <span className="font-['Outfit',sans-serif] text-[11.5px] font-extrabold text-[var(--text-secondary)]">
-                        {r.author_name || 'Vartotojas'}
+                        {g.authorName}
                       </span>
-                      {r.type === 'like' ? (
+                      {g.hasLike && (
                         <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-[var(--accent-orange)]">
                           <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
                           Patinka
                         </span>
-                      ) : null}
+                      )}
                     </div>
-                    {r.type === 'comment' && r.text && (
-                      <div className="mt-0.5 break-words text-[12px] leading-snug text-[var(--text-primary)]">
-                        {r.text}
+                    {g.comments.map((c, idx) => (
+                      <div key={idx} className="mt-0.5 break-words text-[12px] leading-snug text-[var(--text-primary)]">
+                        {c}
                       </div>
-                    )}
+                    ))}
                   </div>
                 </div>
               ))}
@@ -535,6 +479,39 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
       )}
     </div>
   )
+}
+
+/** Compute the absolute char offset for the start of a given line index. */
+function lineStartOf(lines: Array<{ text: string }>, index: number): number {
+  let pos = 0
+  for (let i = 0; i < index; i++) pos += lines[i].text.length + 1
+  return pos
+}
+
+/** Render a single line with `<mark>` highlighted spans where reactions
+ *  start. The chip strip is rendered separately on the side, so we don't
+ *  add any badges inline here — just a light orange highlight. */
+function renderInlineHighlights(text: string, lineSpans: Span[], lineStart: number): React.ReactNode {
+  if (lineSpans.length === 0) return text
+  const out: React.ReactNode[] = []
+  let cursor = 0 // line-relative
+  for (const s of lineSpans) {
+    const localStart = Math.max(0, s.start - lineStart)
+    const localEnd = Math.min(text.length, s.end - lineStart)
+    if (localStart < cursor) continue
+    if (localStart > cursor) out.push(text.slice(cursor, localStart))
+    out.push(
+      <mark
+        key={`${s.start}-${s.end}`}
+        className="rounded bg-[rgba(249,115,22,0.22)] px-0.5 text-[var(--text-primary)] shadow-[inset_0_-2px_0_rgba(249,115,22,0.5)]"
+      >
+        {text.slice(localStart, localEnd)}
+      </mark>,
+    )
+    cursor = localEnd
+  }
+  if (cursor < text.length) out.push(text.slice(cursor))
+  return out
 }
 
 /** Position-anchored popover. Stays inside viewport — flips above selection
