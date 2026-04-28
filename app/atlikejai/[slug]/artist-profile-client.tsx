@@ -559,7 +559,15 @@ function PlayerCard({
 
       <div
         className="overflow-y-auto bg-[var(--bg-surface)]"
-        style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--border-default) transparent', maxHeight: '260px' }}
+        style={{
+          scrollbarWidth: 'thin',
+          scrollbarColor: 'var(--border-default) transparent',
+          // Fixed height (ne max-height) — kad PlayerCard nestumdytų likusio
+          // turinio keičiant tab'us. Dvi dainos vs dvidešimt — kortelė lieka
+          // tokio paties dydžio; mažas sąrašas tiesiog turi tuščią vietą
+          // apačioje, didelis — scroll'inasi.
+          height: '260px',
+        }}
       >
         {list.length === 0 ? (
           <div className="flex min-h-[160px] flex-col items-center justify-center gap-1 px-6 py-8 text-center">

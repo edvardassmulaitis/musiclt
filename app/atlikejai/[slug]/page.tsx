@@ -4,6 +4,12 @@ import { createAdminClient } from '@/lib/supabase'
 import ArtistProfileClient from './artist-profile-client'
 import type { Metadata } from 'next'
 
+// Force dynamic — likes lentelė pildomas tiek nuo vartotojų toggle'ų,
+// tiek nuo backfill scriptų; jei page'as cache'inamas, pakeitimai
+// (release_year, like counts) atrodo seni. Cache'as miss čia nebrangus —
+// užklausa kelias hops į Supabase, bet duomenys visada šviežūs.
+export const dynamic = 'force-dynamic'
+
 type Props = { params: Promise<{ slug: string }> }
 
 async function getArtist(slug: string) {
