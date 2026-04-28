@@ -147,6 +147,33 @@ async function getTracks(id: number) {
     t.like_count = byTrack.get(t.id) || 0
   }
 
+  // Release year fallback: jei track release_year/release_date null, paimam
+  // iš seniausio albumo, kuriam track priklauso. Music.lt'e dažnai track
+  // neturi atskirai metų, bet albumas turi.
+  const tracksMissingYear = tracks.filter((t: any) => !t.release_year && !t.release_date)
+  if (tracksMissingYear.length > 0) {
+    const missingIds = tracksMissingYear.map((t: any) => t.id)
+    const albumByTrack = new Map<number, number>()  // track_id → oldest album year
+    for (let i = 0; i < missingIds.length; i += 200) {
+      const chunk = missingIds.slice(i, i + 200)
+      const { data: at } = await sb
+        .from('album_tracks')
+        .select('track_id, albums:album_id(year)')
+        .in('track_id', chunk)
+      for (const r of (at || []) as any[]) {
+        const y = r.albums?.year
+        if (typeof y === 'number') {
+          const cur = albumByTrack.get(r.track_id)
+          if (!cur || y < cur) albumByTrack.set(r.track_id, y)
+        }
+      }
+    }
+    for (const t of tracksMissingYear) {
+      const y = albumByTrack.get((t as any).id)
+      if (y) (t as any).release_year = y
+    }
+  }
+
   // Sort by popularity (likes desc, tiebreak by created_at desc which is
   // already the initial sort). UI's "Top dainos" tab assumes the list is
   // popularity-sorted — anksčiau buvo created_at desc, todėl seniausi liko

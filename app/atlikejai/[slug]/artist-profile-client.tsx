@@ -478,7 +478,11 @@ function PlayerCard({
               const v = yt(t.video_url)
               const isActive = t.id === activeTrackId
               const isActivelyPlaying = isActive && playing && !isPaused
-              const pop = popLevel(i, list.length)
+              // Popularity bar: jei track turi like count — naudojam absolute
+              // tier'us (logaritminius), jeigu ne — fallback į positional.
+              const pop = (t as any).like_count != null
+                ? popLevelByCount((t as any).like_count)
+                : popLevel(i, list.length)
               return (
                 <li key={t.id}>
                   <div
@@ -567,14 +571,33 @@ function PlayerCard({
   )
 }
 
-/** Relative popularity tier for a track based on its position in the list.
- *  Top 10% → 4, top 30% → 3, top 60% → 2, rest → 1. */
+/** Relative popularity tier for a track based on position in sorted list.
+ *  Top 10% → 4, top 30% → 3, top 60% → 2, rest → 1.
+ *  NB: Šis variantas — tik fallback'as kai neturime absolute like count'o. */
 function popLevel(index: number, total: number): number {
   if (total <= 1) return 4
   const pct = index / (total - 1)
   if (pct <= 0.1) return 4
   if (pct <= 0.3) return 3
   if (pct <= 0.6) return 2
+  return 1
+}
+
+/** Absolute popularity tier pagal track'o like_count'ą. Tinkamesnis nei
+ *  positional, nes du tracks su 300 ir 60 likes vizualiai išsiskiria
+ *  (anksčiau galėjo sėdėti šalia indekse, bet su drastically skirtingu
+ *  popularity). Naudojam logaritminius break-point'us:
+ *    0       → 0  (ne pop bar — track be likes)
+ *    1–9     → 1
+ *    10–49   → 2
+ *    50–199  → 3
+ *    200+    → 4
+ */
+function popLevelByCount(count: number): number {
+  if (!count || count <= 0) return 0
+  if (count >= 200) return 4
+  if (count >= 50) return 3
+  if (count >= 10) return 2
   return 1
 }
 

@@ -96,6 +96,20 @@ export default async function TrackPage({ params }: { params: Promise<{ slug: st
       ...a,
       type: a.type_studio ? 'Studijinis albumas' : (a.type ?? 'Albumas'),
     }))
+    // Sort'inam pagal year asc — seniausias albumas pirmas. Naudojama
+    // release_year fallback'ui (jei track neturi savo year, paimam iš pirmojo).
+    .sort((a: any, b: any) => (a.year || 9999) - (b.year || 9999))
+
+  // ── Track release_year fallback ──────────────────────────────────────────
+  // Music.lt'as track-level release year ne visada pateikia. Bet jei daina
+  // priklauso albumui, naudojam SENIAUSIO albumo year. Geltona. Žalia.
+  // Raudona. (track) → albumas Geltona. Žalia. Raudona. (2008) → year=2008.
+  if (!(track as any).release_year && !(track as any).release_date && albums.length > 0) {
+    const oldestYear = albums.find((a: any) => a.year)?.year
+    if (oldestYear) {
+      ;(track as any).release_year = oldestYear
+    }
+  }
 
   // ── Fetch likes from unified likes table ──────────────────────────────────
   const { count: likes } = await supabase
