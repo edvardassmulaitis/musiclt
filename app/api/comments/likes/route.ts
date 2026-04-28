@@ -33,10 +33,23 @@ export async function POST(req: Request) {
     .eq('user_id', userIdVal)
     .maybeSingle()
 
+  // Recompute like_count from comment_likes after toggle. There's no DB
+  // trigger keeping comments.like_count in sync with comment_likes
+  // (verified live — like inserted, like_count stayed 0). Easiest fix:
+  // SELECT COUNT(*) FROM comment_likes after the mutation and UPDATE
+  // comments.like_count.
+  const recomputeLikeCount = async () => {
+    const { count } = await sb
+      .from('comment_likes')
+      .select('*', { count: 'exact', head: true })
+      .eq('comment_id', commentId)
+    await sb.from('comments').update({ like_count: count || 0 }).eq('id', commentId)
+  }
+
   if (existing) {
     const { error } = await sb.from('comment_likes').delete().eq('id', existing.id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    // like_count atnaujinamas trigger'iu DB lygyje (jei sukonfigūruotas).
+    await recomputeLikeCount()
     return NextResponse.json({ liked: false })
   }
 
@@ -46,6 +59,7 @@ export async function POST(req: Request) {
     weight: 1,
   })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  await recomputeLikeCount()
   return NextResponse.json({ liked: true })
 }
 
