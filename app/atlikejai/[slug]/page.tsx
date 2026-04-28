@@ -123,21 +123,25 @@ async function getTracks(id: number) {
   const tracks = (data || []) as any[]
   if (tracks.length === 0) return tracks
 
-  // Attach like counts iš unified `likes` lentelės. Vienas SELECT — visi
-  // tracks vienu šūviu (entity_type='track' AND entity_id IN (...)).
-  // SVARBU: range(0, 99999) — be jo Supabase default cap'ina 1000 rows,
-  // todėl mažiau populiarūs tracks pamesdavo savo likes (e.g. Mamontovas
-  // 4454 track likes total, top-1000 cut'ino visus žemesnius).
+  // Attach like counts iš unified `likes` lentelės. PostgREST max-rows
+  // default 1000 — net su .range(0, 99999) cap'ina. Mamontovas turi 4454
+  // track likes, todėl skaidom į CHUNK po 40 tracks per query (~800 likes
+  // per response, saugiai po 1000 limit). Po 6 chunks visi 220 tracks
+  // padengiami.
   const trackIds = tracks.map((t) => t.id)
-  const { data: likeRows } = await sb
-    .from('likes')
-    .select('entity_id')
-    .eq('entity_type', 'track')
-    .in('entity_id', trackIds)
-    .range(0, 99999)
   const byTrack = new Map<number, number>()
-  for (const r of (likeRows || []) as any[]) {
-    byTrack.set(r.entity_id, (byTrack.get(r.entity_id) || 0) + 1)
+  const CHUNK = 40
+  for (let i = 0; i < trackIds.length; i += CHUNK) {
+    const chunk = trackIds.slice(i, i + CHUNK)
+    const { data: likeRows } = await sb
+      .from('likes')
+      .select('entity_id')
+      .eq('entity_type', 'track')
+      .in('entity_id', chunk)
+      .range(0, 9999)
+    for (const r of (likeRows || []) as any[]) {
+      byTrack.set(r.entity_id, (byTrack.get(r.entity_id) || 0) + 1)
+    }
   }
   for (const t of tracks) {
     t.like_count = byTrack.get(t.id) || 0
@@ -167,6 +171,25 @@ async function getLegacyCommunity(
 
   // Artist-level likes — tai kas rodoma main ♥ button'e.
   // Albumų/tracks likes reikalingi tik aggregate distinctUsers stat'ui.
+  // PostgREST max-rows 1000 — chunk'inam IN queries po 40 entities, kad
+  // kiekvieno chunk'o response'as tilptų po cap'ą.
+  type LikeRow = { user_username: string; user_rank: string | null; user_avatar_url: string | null }
+  async function fetchAllByIn(table: 'likes', entityType: string, ids: number[]): Promise<LikeRow[]> {
+    if (ids.length === 0) return []
+    const out: LikeRow[] = []
+    const CHUNK = 40
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const chunk = ids.slice(i, i + CHUNK)
+      const { data } = await sb.from(table)
+        .select('user_username, user_rank, user_avatar_url')
+        .eq('entity_type', entityType)
+        .in('entity_id', chunk)
+        .range(0, 9999)
+      if (data) out.push(...(data as LikeRow[]))
+    }
+    return out
+  }
+
   const artistLikesP = sb
     .from('likes')
     .select('user_username, user_rank, user_avatar_url')
@@ -174,25 +197,13 @@ async function getLegacyCommunity(
     .eq('entity_id', artistId)
     .range(0, 9999)
 
-  const albumLikesP = albumIds.length > 0
-    ? sb.from('likes')
-        .select('user_username, user_rank, user_avatar_url')
-        .eq('entity_type', 'album')
-        .in('entity_id', albumIds)
-        .range(0, 9999)
-    : Promise.resolve({ data: [] as any[] })
-
-  const trackLikesP = trackIds.length > 0
-    ? sb.from('likes')
-        .select('user_username, user_rank, user_avatar_url')
-        .eq('entity_type', 'track')
-        .in('entity_id', trackIds)
-        .range(0, 9999)
-    : Promise.resolve({ data: [] as any[] })
-
-  const [a, al, tr] = await Promise.all([artistLikesP, albumLikesP, trackLikesP])
-  const artistRows = ((a as any).data || []) as { user_username: string; user_rank: string | null; user_avatar_url: string | null }[]
-  const all = [...artistRows, ...((al as any).data || []), ...((tr as any).data || [])] as typeof artistRows
+  const [a, al, tr] = await Promise.all([
+    artistLikesP,
+    fetchAllByIn('likes', 'album', albumIds),
+    fetchAllByIn('likes', 'track', trackIds),
+  ])
+  const artistRows = ((a as any).data || []) as LikeRow[]
+  const all = [...artistRows, ...al, ...tr]
 
   // Artist fans — unique, sort by rank priority + alpha
   const seenArtist = new Set<string>()
