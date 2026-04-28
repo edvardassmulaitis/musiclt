@@ -15,6 +15,7 @@
 // 💬 comment on the same span appears as ONE row.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useSession } from 'next-auth/react'
 import { proxyImg } from '@/lib/img-proxy'
 
 type Reaction = {
@@ -116,6 +117,8 @@ function MiniAvatar({ name, url, size = 18 }: { name: string; url?: string | nul
 }
 
 export default function LyricsWithReactions({ trackId, lyrics, compact = false }: Props) {
+  const { data: session } = useSession()
+  const isAdmin = (session?.user as any)?.role === 'admin' || (session?.user as any)?.role === 'super_admin'
   const [reactions, setReactions] = useState<Reaction[]>([])
   const [panel, setPanel] = useState<{ text: string; start: number; end: number; rect?: DOMRect } | null>(null)
   const [draft, setDraft] = useState('')
@@ -218,6 +221,16 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
     finally { setSaving(false) }
   }
 
+  /** Admin-only: delete a single reaction by id. Closes tooltip + reloads. */
+  const deleteReaction = async (reactionId: number) => {
+    if (!confirm('Tikrai pašalinti šią reakciją?')) return
+    try {
+      await fetch(`/api/tracks/${trackId}/lyric-comments?reaction_id=${reactionId}`, { method: 'DELETE' })
+      setTooltip(null)
+      await reload()
+    } catch { /* silent */ }
+  }
+
   const quickLike = async (s: Span) => {
     setSaving(true)
     try {
@@ -287,7 +300,10 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
                   {ln.lineSpans.map((s) => {
                     const likes = s.reactions.filter(r => r.type === 'like').length
                     const comments = s.reactions.filter(r => r.type === 'comment').length
-                    const recent = s.reactions.slice(0, 3)
+                    // Show avatar stack only when reactions are few; otherwise
+                    // counts alone (without crowded avatar pile-up).
+                    const totalReactions = s.reactions.length
+                    const recent = totalReactions <= 5 ? s.reactions.slice(0, 3) : []
                     return (
                       <button
                         key={`${s.start}-${s.end}`}
@@ -418,26 +434,39 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
               „{tooltip.span.reactions[0].selected_text}"
             </div>
             <div className="flex flex-col gap-2">
-              {groupByAuthor(tooltip.span.reactions).map((g) => (
-                <div key={g.key} className="flex items-start gap-2">
-                  <MiniAvatar name={g.authorName} url={g.authorAvatarUrl} size={22} />
+              {/* Iterate raw reactions for admin delete buttons; group
+                  display-only by user above. */}
+              {tooltip.span.reactions.map((r) => (
+                <div key={r.id} className="flex items-start gap-2">
+                  <MiniAvatar name={r.author_name || 'Vartotojas'} url={r.author_avatar_url} size={22} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
                       <span className="font-['Outfit',sans-serif] text-[11.5px] font-extrabold text-[var(--text-secondary)]">
-                        {g.authorName}
+                        {r.author_name || 'Vartotojas'}
                       </span>
-                      {g.hasLike && (
+                      {r.type === 'like' && (
                         <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-[var(--accent-orange)]">
                           <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
                           Patinka
                         </span>
                       )}
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => deleteReaction(r.id)}
+                          aria-label="Pašalinti reakciją"
+                          title="Pašalinti reakciją (admin)"
+                          className="ml-auto flex h-5 w-5 items-center justify-center rounded text-[var(--text-faint)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[#ef4444]"
+                        >
+                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m-9 0v14a2 2 0 002 2h6a2 2 0 002-2V6" /></svg>
+                        </button>
+                      )}
                     </div>
-                    {g.comments.map((c, idx) => (
-                      <div key={idx} className="mt-0.5 break-words text-[12px] leading-snug text-[var(--text-primary)]">
-                        {c}
+                    {r.type === 'comment' && r.text && (
+                      <div className="mt-0.5 break-words text-[12px] leading-snug text-[var(--text-primary)]">
+                        {r.text}
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
               ))}

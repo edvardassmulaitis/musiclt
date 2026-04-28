@@ -141,3 +141,41 @@ export async function POST(
   }
   return NextResponse.json(data, { status: 201 })
 }
+
+/** DELETE /api/tracks/[id]/lyric-comments?reaction_id=N
+ *  Allowed for the reaction's author OR admin/super_admin. Hard delete —
+ *  there's no soft-delete column on track_lyric_comments yet, and these
+ *  rows are short-lived signals anyway. */
+export async function DELETE(
+  req: NextRequest,
+  _ctx: { params: Promise<{ id: string }> }
+) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Reikia prisijungti' }, { status: 401 })
+  }
+  const { searchParams } = new URL(req.url)
+  const reactionId = parseInt(searchParams.get('reaction_id') || '')
+  if (!reactionId) {
+    return NextResponse.json({ error: 'Reikia reaction_id' }, { status: 400 })
+  }
+
+  const supabase = createAdminClient()
+  const userId = await resolveAuthorId(supabase, session)
+  const role = (session.user as any).role
+  const isAdmin = role === 'admin' || role === 'super_admin'
+
+  const { data: row } = await supabase
+    .from('track_lyric_comments')
+    .select('id, user_id')
+    .eq('id', reactionId)
+    .maybeSingle()
+  if (!row) return NextResponse.json({ error: 'Nerastas' }, { status: 404 })
+  if (!isAdmin && row.user_id !== userId) {
+    return NextResponse.json({ error: 'Neleistina' }, { status: 403 })
+  }
+
+  const { error } = await supabase.from('track_lyric_comments').delete().eq('id', reactionId)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true })
+}

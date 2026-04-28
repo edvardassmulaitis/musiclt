@@ -155,10 +155,10 @@ function InitialBubble({ name, size }: { name: string; size: number }) {
   )
 }
 
-/** Compact like control for comments — heart icon + count, no pill chrome.
- *  When count = 0, count number is hidden (just clickable heart). When count
- *  > 0, count is rendered next to heart and clicking it opens the likers
- *  modal via onOpenModal. */
+/** Compact like pill for comments — same shape as artist hero LikePill
+ *  (border + divider between heart and count) but ~30% smaller. Heart
+ *  toggles like; count opens likers modal when > 0. When count = 0, the
+ *  count zone is hidden but the heart still toggles. */
 function CommentLike({
   count, liked, onToggle, onOpenModal, disabled,
 }: {
@@ -168,36 +168,59 @@ function CommentLike({
   onOpenModal?: () => void
   disabled?: boolean
 }) {
+  const filled = liked
+  const showCount = count > 0
   return (
-    <span className="inline-flex items-center gap-1">
+    <span
+      className={[
+        'inline-flex overflow-hidden rounded-full border transition-colors',
+        filled
+          ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white shadow-[0_2px_8px_rgba(249,115,22,0.3)]'
+          : 'border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-primary)]',
+      ].join(' ')}
+    >
       <button
         type="button"
         onClick={onToggle}
         disabled={disabled}
-        aria-label={liked ? 'Atšaukti patinka' : 'Pažymėti patinka'}
-        title={liked ? 'Patinka' : 'Pažymėti patinka'}
+        aria-label={filled ? 'Atšaukti patinka' : 'Pažymėti patinka'}
+        title={filled ? 'Patinka' : 'Pažymėti patinka'}
         className={[
-          'flex items-center justify-center transition-colors',
-          liked ? 'text-[var(--accent-orange)]' : 'text-[var(--text-muted)] hover:text-[var(--accent-orange)]',
+          'flex items-center justify-center px-2 py-1 transition-colors',
           disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
+          !filled ? 'hover:bg-[var(--bg-hover)]' : 'hover:opacity-90',
         ].join(' ')}
       >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
+        <svg
+          viewBox="0 0 24 24"
+          width={11}
+          height={11}
+          fill={filled ? '#fff' : 'currentColor'}
+          className={filled ? 'text-white' : 'text-[var(--accent-orange)]'}
+        >
           <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
         </svg>
       </button>
-      {count > 0 && (
+      {showCount && (
         onOpenModal ? (
           <button
             type="button"
             onClick={onOpenModal}
             title="Pamatyk kam patinka"
-            className="font-['Outfit',sans-serif] text-[10.5px] font-extrabold tabular-nums text-[var(--text-muted)] transition-colors hover:text-[var(--accent-orange)]"
+            className={[
+              "flex items-center border-l px-2 py-1 font-['Outfit',sans-serif] text-[10.5px] font-extrabold tabular-nums tracking-wide transition-colors",
+              filled ? 'border-white/30 hover:opacity-90' : 'border-[var(--border-subtle)] hover:bg-[var(--bg-hover)]',
+            ].join(' ')}
           >
             {count}
           </button>
         ) : (
-          <span className="font-['Outfit',sans-serif] text-[10.5px] font-extrabold tabular-nums text-[var(--text-muted)]">
+          <span
+            className={[
+              "flex items-center border-l px-2 py-1 font-['Outfit',sans-serif] text-[10.5px] font-extrabold tabular-nums tracking-wide",
+              filled ? 'border-white/30' : 'border-[var(--border-subtle)]',
+            ].join(' ')}
+          >
             {count}
           </span>
         )
@@ -231,6 +254,7 @@ export default function EntityCommentsBlock({
   const [modern, setModern] = useState<ModernComment[] | null>(null)
   const [legacy, setLegacy] = useState<LegacyComment[] | null>(null)
   const [likedIds, setLikedIds] = useState<Set<number>>(new Set())
+  const [likedLegacyIds, setLikedLegacyIds] = useState<Set<number>>(new Set())
   const [sort, setSort] = useState<'newest' | 'oldest' | 'popular'>('newest')
   const [draft, setDraft] = useState('')
   const [posting, setPosting] = useState(false)
@@ -257,13 +281,15 @@ export default function EntityCommentsBlock({
       const legacyList: LegacyComment[] = (legacyData.comments || legacyData || []).map((c: any) => ({ ...c, source: 'legacy' as const }))
       setModern(modernList)
       setLegacy(legacyList)
-      // Likes set
-      if (modernList.length > 0) {
-        const ids = modernList.map(c => c.id).join(',')
+      // Likes set — both modern + legacy
+      const ids = modernList.map(c => c.id).join(',')
+      const lids = legacyList.map(c => c.legacy_id).join(',')
+      if (ids || lids) {
         try {
-          const lr = await fetch(`/api/comments/likes?ids=${ids}`)
+          const lr = await fetch(`/api/comments/likes?ids=${ids}&legacy_ids=${lids}`)
           const ld = await lr.json()
           setLikedIds(new Set(ld.liked_ids || []))
+          setLikedLegacyIds(new Set(ld.liked_legacy_ids || []))
         } catch { /* silent */ }
       }
     } catch {
@@ -363,6 +389,31 @@ export default function EntityCommentsBlock({
       }
     } catch {
       setError('Tinklo klaida.')
+    }
+  }
+
+  /** Toggle a like on a LEGACY comment via the unified `likes` table. The
+   *  count shown stays as imported_count + 1 (optimistic) — close enough
+   *  for the user-facing display. */
+  const toggleLikeLegacy = async (legacyId: number) => {
+    const prev = likedLegacyIds.has(legacyId)
+    const next = new Set(likedLegacyIds)
+    if (prev) next.delete(legacyId); else next.add(legacyId)
+    setLikedLegacyIds(next)
+    setLegacy(curr => curr ? curr.map(c => c.legacy_id === legacyId
+      ? { ...c, like_count: Math.max(0, c.like_count + (prev ? -1 : 1)) }
+      : c) : curr)
+    try {
+      const res = await fetch('/api/comments/likes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ legacy_id: legacyId }),
+      })
+      if (!res.ok) {
+        setLikedLegacyIds(likedLegacyIds)
+      }
+    } catch {
+      setLikedLegacyIds(likedLegacyIds)
     }
   }
 
@@ -680,18 +731,18 @@ export default function EntityCommentsBlock({
                           disabled={!!session?.user?.id && c.user_id === session.user.id}
                         />
                       ) : (
-                        // Legacy comment — likes were imported from music.lt.
-                        // Toggle disabled (no FK yet for modern user → legacy
-                        // id likes), but count is clickable to see who liked.
-                        c.like_count > 0 && (
-                          <CommentLike
-                            count={c.like_count}
-                            liked={false}
-                            onToggle={() => {/* TODO: extend likes table to support legacy_id */}}
-                            onOpenModal={() => setLikersFor({ entityType: 'comment', entityId: c.legacy_id, count: c.like_count || 0 })}
-                            disabled
-                          />
-                        )
+                        // Legacy komentaras — toggle eina per unified `likes`
+                        // lentelę (entity_type='comment', entity_id=legacy_id).
+                        // Count = imported_from_scrape + 1 (current user's
+                        // optimistic toggle). Visada rodom širdį, net kai 0.
+                        <CommentLike
+                          count={c.like_count || 0}
+                          liked={likedLegacyIds.has(c.legacy_id)}
+                          onToggle={() => toggleLikeLegacy(c.legacy_id)}
+                          onOpenModal={(c.like_count || 0) > 0
+                            ? () => setLikersFor({ entityType: 'comment', entityId: c.legacy_id, count: c.like_count || 0 })
+                            : undefined}
+                        />
                       )}
                       {/* Reply — works on BOTH modern and legacy. For
                           legacy we set parent_id=0 (no FK link), but the

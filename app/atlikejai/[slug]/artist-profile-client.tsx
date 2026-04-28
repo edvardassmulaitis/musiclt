@@ -892,12 +892,12 @@ function TrackInfoModal({
   const lyrics = (track.lyrics || '').trim()
   const lyricsText = lyrics ? lyrics.replace(/<[^>]+>/g, '').trim() : null
   const trackHref = `/dainos/${artistSlug}-${track.slug}-${track.id}`
-  // YouTube video id (for the floating side-video) — only when modal is
-  // open AND this track is the actively playing one in the hero player.
-  const sideVideoId = (() => {
-    if (!playing || activeTrackId !== track.id) return null
-    return yt(track.video_url) || null
-  })()
+  // Side-video iframe disabled for now — duplicating the YouTube embed
+  // (one in hero, one in modal area) caused two audio streams to play
+  // and the second iframe's teardown threw NotFoundError when the user
+  // hit pause. Hero player handles playback; modal stays on lyrics +
+  // comments. Future: portal hero player into a modal-aware container
+  // instead of duplicating.
 
   return (
     // Backdrop is intentionally subtle + click-through-friendly: we don't
@@ -944,6 +944,10 @@ function TrackInfoModal({
                   src={proxyImg(artistThumbUrl)}
                   alt={artistName}
                   referrerPolicy="no-referrer"
+                  // object-position: center top — portreto nuotraukose veidas
+                  // dažniausiai viršuje, todėl nukerpam apatinę dalį (kūną),
+                  // ne galvą. Anksčiau buvo default 50%/50% = veidą nukerpa.
+                  style={{ objectPosition: 'center top' }}
                   className="h-11 w-11 shrink-0 rounded-xl border border-[var(--border-subtle)] object-cover"
                 />
               )}
@@ -962,38 +966,9 @@ function TrackInfoModal({
                   )}
                 </div>
               </div>
-              {/* Action icons: play/pause (only if track has video), external
-                  link to full daina page, close. All ~32px square buttons. */}
-              {vid && (onPlay || onPause) && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (isThisActive && onPause) onPause()
-                    else if (onPlay) onPlay(track)
-                  }}
-                  aria-label={isThisActive ? 'Pauzė' : 'Klausyti'}
-                  title={isThisActive ? 'Pauzė' : 'Klausyti'}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-[var(--accent-orange)] text-white shadow-[0_4px_14px_rgba(249,115,22,0.35)] transition-transform hover:scale-105"
-                >
-                  {isThisActive ? (
-                    <svg viewBox="0 0 24 24" width={13} height={13} fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
-                  ) : (
-                    <svg viewBox="0 0 24 24" width={13} height={13} fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
-                  )}
-                </button>
-              )}
-              <Link
-                href={trackHref}
-                target="_blank"
-                rel="noopener"
-                title="Atidaryti dainos puslapį"
-                aria-label="Atidaryti dainos puslapį"
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
-              >
-                <svg viewBox="0 0 24 24" width={13} height={13} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M14 3h7v7M21 3l-9 9M5 5h6M5 5v14h14v-6" />
-                </svg>
-              </Link>
+              {/* Header dabar tik close ikona — play/pause + external
+                  link perkelti į chips row žemiau (kartu su data ir trukme),
+                  kad header'is liktų labai švarus. */}
               <button
                 onClick={handleClose}
                 aria-label="Uždaryti"
@@ -1007,28 +982,63 @@ function TrackInfoModal({
           )
         })()}
 
-        {/* Meta chips — LikePill + data + duration. Release date'as visada
-            muted (orange highlight'as singlams pašalintas — tikrai nereikalingas
-            akcentas). */}
-        <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border-subtle)] px-5 py-3">
-          <LikePill
-            likes={likes}
-            selfLiked={selfLiked}
-            onToggle={() => setSelfLiked(v => !v)}
-            onOpenModal={() => setLikersOpen(true)}
-            variant="surface"
-          />
-          {dateLabel && (
-            <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]">
-              {dateLabel}
-            </span>
-          )}
-          {dur && (
-            <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-extrabold tabular-nums text-[var(--text-primary)]">
-              {dur}
-            </span>
-          )}
-        </div>
+        {/* Meta chips — Play (orange, prominent), LikePill, data, duration,
+            external link. Visi viename eilutyje, vienoda chip aukšte. */}
+        {(() => {
+          const vid = yt(track.video_url)
+          const isThisActive = !!vid && activeTrackId === track.id && !!playing
+          return (
+            <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border-subtle)] px-5 py-3">
+              {vid && (onPlay || onPause) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isThisActive && onPause) onPause()
+                    else if (onPlay) onPlay(track)
+                  }}
+                  aria-label={isThisActive ? 'Pauzė' : 'Klausyti'}
+                  title={isThisActive ? 'Pauzė' : 'Klausyti'}
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white shadow-[0_4px_14px_rgba(249,115,22,0.35)] transition-transform hover:scale-105"
+                >
+                  {isThisActive ? (
+                    <svg viewBox="0 0 24 24" width={14} height={14} fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" width={14} height={14} fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                  )}
+                </button>
+              )}
+              <LikePill
+                likes={likes}
+                selfLiked={selfLiked}
+                onToggle={() => setSelfLiked(v => !v)}
+                onOpenModal={() => setLikersOpen(true)}
+                variant="surface"
+              />
+              {dateLabel && (
+                <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]">
+                  {dateLabel}
+                </span>
+              )}
+              {dur && (
+                <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-extrabold tabular-nums text-[var(--text-primary)]">
+                  {dur}
+                </span>
+              )}
+              <Link
+                href={trackHref}
+                target="_blank"
+                rel="noopener"
+                title="Atidaryti dainos puslapį naujame lange"
+                aria-label="Atidaryti dainos puslapį"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+              >
+                <svg viewBox="0 0 24 24" width={13} height={13} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 3h7v7M21 3l-9 9M5 5h6M5 5v14h14v-6" />
+                </svg>
+              </Link>
+            </div>
+          )
+        })()}
 
         {/* Body. Du atvejai:
             - Desktop (lg+) su lyrics → 2-col grid: tekstas | komentarai,
@@ -1084,7 +1094,7 @@ function TrackInfoModal({
                   <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                     Dainos tekstas
                   </div>
-                  <span className="font-['Outfit',sans-serif] text-[10px] font-medium text-[var(--text-faint)]">
+                  <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
                     pažymėk → reaguok
                   </span>
                 </div>
@@ -1119,29 +1129,6 @@ function TrackInfoModal({
         {/* Footer pašalintas — play/pause + external-link mygtukai
             perkelti į header'į (aukščiau). */}
       </aside>
-
-      {/* Side video — kai modal'as atviras IR ši daina aktyviai grajina hero
-          player'yje, rodom didelį YouTube iframe'ą tarp modal'o ir dešinio
-          krašto. Užima tik viduriną-dešinę dalį (modal'as ir taip uždengia
-          kairę pusę). Vartotojas mato video + skaito tekstą + komentarus
-          vienu metu, nereikia bėgti tarp modal'o ir hero. */}
-      {sideVideoId && (
-        <div
-          className="pointer-events-none absolute top-0 hidden h-full lg:block"
-          style={{ left: 'min(860px, 100%)', right: 0 }}
-        >
-          <div className="pointer-events-auto absolute left-1/2 top-1/2 w-[min(720px,90%)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border border-[var(--border-default)] bg-black shadow-[0_24px_60px_-10px_rgba(0,0,0,0.55)]">
-            <iframe
-              key={sideVideoId}
-              src={`https://www.youtube.com/embed/${sideVideoId}?autoplay=1&rel=0`}
-              title={track.title}
-              allow="autoplay; encrypted-media"
-              allowFullScreen
-              style={{ width: '100%', aspectRatio: '16 / 9', border: 'none', display: 'block' }}
-            />
-          </div>
-        </div>
-      )}
 
       {/* Likers modal — atsidaro paspaudus LikePill count'ą. Z-index aukštesnis
           už drawer'į, kad būtų matomas viršuje. */}

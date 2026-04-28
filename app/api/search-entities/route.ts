@@ -38,6 +38,10 @@ export async function GET(request: Request) {
   // Try splitting compound queries — "marijo try" → "marijo" + "try". We try
   // both ordering interpretations: artist-first (token[0] artist, rest title)
   // and reversed. For ≤2-token queries this is cheap (4 small searches max).
+  // Tokens — kiekvienas >=2 simboliai. Anksčiau buvo >=2, bet pataisom dar
+  // kartą su explicit komentaru: jei pirmas token'as ilgas (>=4) tai ir
+  // antras token'as gali būti vos 2 simboliai (tipo „vartai mi" → mato
+  // „Mikutavičius"). Vis tiek nereikia 1-char filter'iams nes per platūs.
   const tokens = q.split(/\s+/).filter(t => t.length >= 2)
   const compound = tokens.length >= 2
 
@@ -46,16 +50,21 @@ export async function GET(request: Request) {
   // but Mikutavičius does — handled by the compound branch below).
   const [artistsRes, albumsRes, tracksRes] = await Promise.all([
     sb.from('artists')
-      .select('id,slug,name,cover_image_url,legacy_id')
+      .select('id,slug,name,cover_image_url,legacy_id,score')
       .ilike('name', fullPattern)
+      .order('score', { ascending: false, nullsFirst: false })
       .limit(8),
     sb.from('albums')
-      .select('id,slug,title,cover_image_url,legacy_id,artist_id,artists:artist_id(name)')
+      .select('id,slug,title,cover_image_url,legacy_id,artist_id,artists:artist_id(name),score')
       .ilike('title', fullPattern)
+      .order('score', { ascending: false, nullsFirst: false })
       .limit(10),
+    // Track query — JOIN su artists pulling cover_image_url, kad search
+    // rezultatai galėtų rodyti mini foto.
     sb.from('tracks')
-      .select('id,slug,title,legacy_id,artist_id,artists:artist_id(name)')
+      .select('id,slug,title,legacy_id,artist_id,artists:artist_id(name,cover_image_url),score')
       .ilike('title', fullPattern)
+      .order('score', { ascending: false, nullsFirst: false })
       .limit(12),
   ])
 
@@ -81,24 +90,31 @@ export async function GET(request: Request) {
     const variantResults = await Promise.all(variants.map(async ({ artistTok, titleTok }) => {
       const aPat = `%${safe(artistTok)}%`
       const tPat = `%${safe(titleTok)}%`
+      // Limit padidintas 5→30 + sort by score desc, kad populiarūs atlikėjai
+      // kaip Mikutavičius būtų pasirenkami pirma — anksčiau "vartai mik"
+      // nebūtų rasdavęs Mikutavičius nes alphabet'iškai jis ne top-5 tarp
+      // visų "mik" turinčių vardų.
       const { data: matchArtists } = await sb
         .from('artists')
-        .select('id,name')
+        .select('id,name,score')
         .ilike('name', aPat)
-        .limit(5)
+        .order('score', { ascending: false, nullsFirst: false })
+        .limit(30)
       if (!matchArtists || matchArtists.length === 0) return { tracks: [], albums: [] }
       const artistIds = matchArtists.map((x: any) => x.id)
       const [tHit, alHit] = await Promise.all([
         sb.from('tracks')
-          .select('id,slug,title,legacy_id,artist_id,artists:artist_id(name)')
+          .select('id,slug,title,legacy_id,artist_id,artists:artist_id(name,cover_image_url),score')
           .in('artist_id', artistIds)
           .ilike('title', tPat)
-          .limit(8),
+          .order('score', { ascending: false, nullsFirst: false })
+          .limit(12),
         sb.from('albums')
           .select('id,slug,title,cover_image_url,legacy_id,artist_id,artists:artist_id(name)')
           .in('artist_id', artistIds)
           .ilike('title', tPat)
-          .limit(6),
+          .order('score', { ascending: false, nullsFirst: false })
+          .limit(8),
       ])
       return { tracks: tHit.data || [], albums: alHit.data || [] }
     }))
@@ -116,11 +132,9 @@ export async function GET(request: Request) {
   let fanoutAlbumHits: Array<any> = []
   if (!compound && artistsRes.data && artistsRes.data.length > 0) {
     const topArtist = (artistsRes.data as any[])[0]
-    // Pull top 12 tracks + top 6 albums for the matching artist (by score
-    // when available, fallback by id desc — newest-ish).
     const [t, al] = await Promise.all([
       sb.from('tracks')
-        .select('id,slug,title,legacy_id,artist_id,artists:artist_id(name),score')
+        .select('id,slug,title,legacy_id,artist_id,artists:artist_id(name,cover_image_url),score')
         .eq('artist_id', topArtist.id)
         .order('score', { ascending: false, nullsFirst: false })
         .limit(15),
@@ -149,7 +163,9 @@ export async function GET(request: Request) {
   for (const t of compoundTrackHits) {
     push({
       type: 'daina', id: t.id, legacy_id: t.legacy_id, slug: t.slug,
-      title: t.title, artist: t.artists?.name ?? null, image_url: null,
+      title: t.title, artist: t.artists?.name ?? null,
+      // Daina image_url = atlikėjo cover (kad picker'yje matytųsi mini foto).
+      image_url: t.artists?.cover_image_url ?? null,
     }, 0)
   }
   for (const al of compoundAlbumHits) {
@@ -163,7 +179,9 @@ export async function GET(request: Request) {
   for (const t of (tracksRes.data as any[] | null) ?? []) {
     push({
       type: 'daina', id: t.id, legacy_id: t.legacy_id, slug: t.slug,
-      title: t.title, artist: t.artists?.name ?? null, image_url: null,
+      title: t.title, artist: t.artists?.name ?? null,
+      // Daina image_url = atlikėjo cover (kad picker'yje matytųsi mini foto).
+      image_url: t.artists?.cover_image_url ?? null,
     }, 1)
   }
   for (const al of (albumsRes.data as any[] | null) ?? []) {
@@ -186,7 +204,9 @@ export async function GET(request: Request) {
   for (const t of fanoutTrackHits) {
     push({
       type: 'daina', id: t.id, legacy_id: t.legacy_id, slug: t.slug,
-      title: t.title, artist: t.artists?.name ?? null, image_url: null,
+      title: t.title, artist: t.artists?.name ?? null,
+      // Daina image_url = atlikėjo cover (kad picker'yje matytųsi mini foto).
+      image_url: t.artists?.cover_image_url ?? null,
     }, 3)
   }
   for (const al of fanoutAlbumHits) {
