@@ -40,7 +40,7 @@ export async function POST(req: Request) {
       .eq('entity_type', 'comment')
       .eq('entity_id', legacyId)
       .eq('user_id', userIdVal)
-      .eq('source', 'modern')
+      .eq('source', 'auth')
       .maybeSingle()
     if (existingLegacy) {
       const { error } = await sb.from('likes').delete().eq('id', existingLegacy.id)

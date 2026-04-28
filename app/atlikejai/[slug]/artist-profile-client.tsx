@@ -51,6 +51,8 @@ type Track = {
   /** Featuring artists — set server-side in getTracks() via track_artists JOIN.
    *  Used in TrackInfoModal header to render full artist list. */
   featuring?: Array<{ id: number; slug: string; name: string }>
+  /** Albums this track belongs to — small chips in the modal's meta row. */
+  albums?: Array<{ id: number; slug: string; title: string; cover_image_url: string | null }>
 }
 type Member = { id: number; slug: string; name: string; cover_image_url?: string; member_from?: number; member_until?: number }
 type Photo = {
@@ -392,16 +394,19 @@ function PlayerCard({
     return () => window.clearInterval(iv)
   }, [])
 
-  // Create the player when `playing` becomes true and we have a video.
-  // Re-creating on each videoId change is simpler than managing loadVideoById
-  // (and matches the iframe `key` pattern we used before).
+  // CREATE player only when user has explicitly chosen to play (playing=true)
+  // AND we have a video. Note: this effect's cleanup function ONLY runs when
+  // displayVid changes (via the prev-vid ref pattern below) — never when
+  // `playing` flips false. Pausing must NOT destroy the iframe; that was the
+  // source of "NotFoundError: The object can not be found here." crash when
+  // user clicked pause from the modal (cleanup tore down the iframe mid-
+  // postMessage with the YT IFrame API).
   useEffect(() => {
     if (!apiReady || !playing || !displayVid || !containerRef.current) return
-
-    // Clean up prior player instance (video switch).
+    // Already have a player? Just resume — don't recreate.
     if (playerRef.current) {
-      try { playerRef.current.destroy() } catch {}
-      playerRef.current = null
+      try { playerRef.current.playVideo?.() } catch {}
+      return
     }
 
     const W = window as any
@@ -420,23 +425,45 @@ function PlayerCard({
       },
       events: {
         onReady: (e: any) => {
-          // Ensure playback starts — on mobile the API call within the
-          // same gesture chain is what unlocks it.
           try { e.target.playVideo() } catch {}
         },
         onStateChange: (e: any) => {
-          // YT states: -1 unstarted, 0 ended, 1 playing, 2 paused,
-          // 3 buffering, 5 cued. Active only when playing or buffering.
           setIsPaused(!(e.data === 1 || e.data === 3))
         },
       },
     })
+    // No cleanup — separate effects below manage destroy/pause.
+  }, [apiReady, playing, displayVid])
 
+  // VIDEO CHANGE — destroy old player when displayVid changes, so the
+  // create-effect above can build a new one for the new video.
+  const prevVidRef = useRef<string | null>(null)
+  useEffect(() => {
+    const prev = prevVidRef.current
+    if (prev && prev !== displayVid && playerRef.current) {
+      try { playerRef.current.destroy() } catch {}
+      playerRef.current = null
+    }
+    prevVidRef.current = displayVid
+  }, [displayVid])
+
+  // PAUSE/PLAY toggle — pause without destroying the iframe.
+  useEffect(() => {
+    if (!playerRef.current) return
+    try {
+      if (playing) playerRef.current.playVideo?.()
+      else playerRef.current.pauseVideo?.()
+    } catch {}
+  }, [playing])
+
+  // UNMOUNT cleanup — destroy any remaining player when the artist page
+  // unmounts (navigates away).
+  useEffect(() => {
     return () => {
       try { playerRef.current?.destroy() } catch {}
       playerRef.current = null
     }
-  }, [apiReady, playing, displayVid])
+  }, [])
 
   /** Fire-and-forget play-count ping. We don't block the UI on it; failures
    *  are silent since playback is already handled by YT. */
@@ -1024,6 +1051,34 @@ function TrackInfoModal({
                   {dur}
                 </span>
               )}
+              {/* Album mini cover chips — for tracks that belong to albums.
+                  Click opens the album page in a new tab. Hover shows the
+                  album title. Limit to 4 to keep the row tidy. */}
+              {(track.albums || []).slice(0, 4).map((al) => (
+                <Link
+                  key={al.id}
+                  href={`/lt/albumas/${al.slug}/${al.id}`}
+                  target="_blank"
+                  rel="noopener"
+                  title={al.title}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] py-0.5 pl-1 pr-2.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+                >
+                  <span className="h-7 w-7 shrink-0 overflow-hidden rounded-full bg-[var(--cover-placeholder)]">
+                    {al.cover_image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={proxyImg(al.cover_image_url)}
+                        alt=""
+                        referrerPolicy="no-referrer"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : null}
+                  </span>
+                  <span className="max-w-[160px] truncate font-['Outfit',sans-serif] text-[11.5px] font-extrabold text-[var(--text-primary)]">
+                    {al.title}
+                  </span>
+                </Link>
+              ))}
               <Link
                 href={trackHref}
                 target="_blank"
@@ -1094,7 +1149,7 @@ function TrackInfoModal({
                   <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                     Dainos tekstas
                   </div>
-                  <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
+                  <span className="font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
                     pažymėk → reaguok
                   </span>
                 </div>

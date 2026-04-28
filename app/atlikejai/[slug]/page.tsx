@@ -221,6 +221,28 @@ async function getTracks(id: number) {
     for (const t of tracks) {
       ;(t as any).featuring = featByTrack.get(t.id) || []
     }
+
+    // Attach album list per track — for TrackInfoModal's chips row mini
+    // covers (each links to /lt/albumas/{slug}/{id}). Same chunked pattern.
+    const albumsByTrack = new Map<number, Array<{ id: number; slug: string; title: string; cover_image_url: string | null }>>()
+    for (let i = 0; i < trackIds.length; i += 200) {
+      const chunk = trackIds.slice(i, i + 200)
+      const { data: at } = await sb
+        .from('album_tracks')
+        .select('track_id, albums:album_id(id, slug, title, cover_image_url, year)')
+        .in('track_id', chunk)
+      for (const r of (at || []) as any[]) {
+        if (!r.albums) continue
+        const list = albumsByTrack.get(r.track_id) || []
+        list.push({
+          id: r.albums.id, slug: r.albums.slug, title: r.albums.title, cover_image_url: r.albums.cover_image_url,
+        })
+        albumsByTrack.set(r.track_id, list)
+      }
+    }
+    for (const t of tracks) {
+      ;(t as any).albums = albumsByTrack.get(t.id) || []
+    }
   }
 
   // Release year fallback: jei track release_year/release_date null, paimam

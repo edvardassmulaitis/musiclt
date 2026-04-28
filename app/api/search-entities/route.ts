@@ -33,17 +33,27 @@ export async function GET(request: Request) {
 
   const sb = createAdminClient()
   const safe = (s: string) => s.replace(/[%_]/g, '')
-  const fullPattern = `%${safe(q)}%`
 
-  // Try splitting compound queries — "marijo try" → "marijo" + "try". We try
-  // both ordering interpretations: artist-first (token[0] artist, rest title)
-  // and reversed. For ≤2-token queries this is cheap (4 small searches max).
-  // Tokens — kiekvienas >=2 simboliai. Anksčiau buvo >=2, bet pataisom dar
-  // kartą su explicit komentaru: jei pirmas token'as ilgas (>=4) tai ir
-  // antras token'as gali būti vos 2 simboliai (tipo „vartai mi" → mato
-  // „Mikutavičius"). Vis tiek nereikia 1-char filter'iams nes per platūs.
+  // Tokens for compound matching — keep >=2 chars to avoid noise from
+  // single-letter fragments. Compound branch only runs when ≥2 such tokens.
   const tokens = q.split(/\s+/).filter(t => t.length >= 2)
   const compound = tokens.length >= 2
+
+  // Broad single-term pattern. If user typed "vartai m" (one strong token,
+  // one stray letter), `q` itself ("vartai m") won't match any title since
+  // no song contains that literal substring. Fall back to the LONGEST
+  // meaningful token so we still surface tracks that contain "vartai".
+  // Otherwise use the full query (handles single-token searches like
+  // "vartai" cleanly).
+  const allWords = q.split(/\s+/).filter(Boolean)
+  const longWords = allWords.filter(t => t.length >= 2)
+  const broadTerm =
+    allWords.length === longWords.length
+      ? q  // every word is meaningful, search by full string
+      : longWords.length > 0
+        ? longWords.sort((a, b) => b.length - a.length)[0]  // longest word
+        : q
+  const fullPattern = `%${safe(broadTerm)}%`
 
   // Always run the broad single-term search — ranks compound queries fairly
   // when the title itself contains everything ("Trys milijonai" doesn't,
