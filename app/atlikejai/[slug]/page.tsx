@@ -325,35 +325,41 @@ async function getLegacyForumThreads(artistId: number, limit = 200) {
   return data || []
 }
 
-/** For a set of thread legacy_ids, fetch the most recent forum post body + author.
- *  Returns a Map keyed by thread_legacy_id → { body, author_username, created_at }.
- *  Used to enrich thread cards with a teaser of the last comment so the UI can
- *  show what people are saying instead of a bare row. */
-async function getLastPostsByThread(threadIds: number[]): Promise<Map<number, { body: string; author_username: string | null; created_at: string | null }>> {
-  const out = new Map<number, { body: string; author_username: string | null; created_at: string | null }>()
+type PostInfo = { body: string; author_username: string | null; created_at: string | null }
+
+/** For a set of thread legacy_ids, fetch the most recent forum posts (up to
+ *  PER_THREAD per thread). Returns a Map keyed by thread_legacy_id → PostInfo[].
+ *  UI rodo 1-2 paskutinius komentarus kortelėje; archyvas modal'e — viską
+ *  pagal click.
+ *
+ *  NOTE: forum_posts stores the body in `content_text` / `content_html` (not
+ *  `body`). The client-facing field is named `body`, so we map here. */
+async function getLastPostsByThread(threadIds: number[], perThread = 2): Promise<Map<number, PostInfo[]>> {
+  const out = new Map<number, PostInfo[]>()
   if (threadIds.length === 0) return out
   const sb = createAdminClient()
   try {
-    // Latest-first; first occurrence per thread wins as the "last post".
-    // NOTE: forum_posts stores the body in `content_text` / `content_html`
-    // (not `body`). The client-facing field is named `body` so we map here.
+    // Pagrindinė query'a, pull'iname latest-first. Limit'as didesnis nei
+    // perThread*N, kad turėtume buffer'į užklausų skaičių mažinant
+    // (PostgREST max 1000).
     const { data } = await sb
       .from('forum_posts')
       .select('thread_legacy_id, content_text, content_html, author_username, created_at')
       .in('thread_legacy_id', threadIds)
       .order('created_at', { ascending: false })
-      .limit(500)
+      .limit(Math.min(1000, threadIds.length * perThread * 4))
     for (const p of (data || []) as any[]) {
-      if (!out.has(p.thread_legacy_id)) {
-        const text = (p.content_text && String(p.content_text).trim())
-          || (p.content_html && String(p.content_html).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim())
-          || ''
-        out.set(p.thread_legacy_id, {
-          body: text,
-          author_username: p.author_username || null,
-          created_at: p.created_at || null,
-        })
-      }
+      const arr = out.get(p.thread_legacy_id) || []
+      if (arr.length >= perThread) continue
+      const text = (p.content_text && String(p.content_text).trim())
+        || (p.content_html && String(p.content_html).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim())
+        || ''
+      arr.push({
+        body: text,
+        author_username: p.author_username || null,
+        created_at: p.created_at || null,
+      })
+      out.set(p.thread_legacy_id, arr)
     }
   } catch {
     // If forum_posts schema varies, silently return empty map
@@ -647,15 +653,23 @@ export default async function ArtistPage({ params }: Props) {
     ...(legacyThreads as any[]).map((t) => t.legacy_id),
     ...(legacyNews as any[]).map((t) => t.legacy_id),
   ]
-  const lastPosts = await getLastPostsByThread(allThreadIds)
-  const legacyThreadsWithPosts = (legacyThreads as any[]).map((t) => ({
-    ...t,
-    last_post: lastPosts.get(t.legacy_id) || null,
-  }))
-  const legacyNewsWithPosts = (legacyNews as any[]).map((t) => ({
-    ...t,
-    last_post: lastPosts.get(t.legacy_id) || null,
-  }))
+  const lastPosts = await getLastPostsByThread(allThreadIds, 2)
+  const legacyThreadsWithPosts = (legacyThreads as any[]).map((t) => {
+    const recent = lastPosts.get(t.legacy_id) || []
+    return {
+      ...t,
+      last_post: recent[0] || null,
+      recent_posts: recent,
+    }
+  })
+  const legacyNewsWithPosts = (legacyNews as any[]).map((t) => {
+    const recent = lastPosts.get(t.legacy_id) || []
+    return {
+      ...t,
+      last_post: recent[0] || null,
+      recent_posts: recent,
+    }
+  })
 
   // Score breakdown — public artist puslapis NIEKADA jo nerodo, net jei
   // žiūri admin'as. Score'ą redaguoji per /admin/artists/[id] (atskiras puslapis,

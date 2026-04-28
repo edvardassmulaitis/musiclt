@@ -70,6 +70,7 @@ type LegacyThread = {
   title?: string | null; post_count?: number | null
   first_post_at?: string | null; last_post_at?: string | null
   last_post?: { body: string; author_username: string | null; created_at: string | null } | null
+  recent_posts?: { body: string; author_username: string | null; created_at: string | null }[]
 }
 type Rank = { category: string; rank: number; total: number; scope: 'country' | 'genre' | 'global' }
 type Props = {
@@ -2486,56 +2487,125 @@ function TrackRow({ t, popularity, artistSlug }: { t: Track; popularity?: number
 
 // ── DiscussionRow: title + last post preview on the right ──────────
 
-/** Compact, list-style discussion row — be ikonų ir storų card border'ių.
- *  Tikslas: greitai akimi perskenuoti daug temų. Vietoj 2-row card'o per
- *  visa pločio juosta — 2-col grid'e tirštas eilutinis layout'as su
- *  hairline border'iu. Title + count chip pirmoj eilutėj; po juo — viena
- *  meta-eilutė: arba "autorius · prieš X · preview", arba "Dar nekomentuota".
- *  Kadangi visada renderinam apatinę eilutę (placeholder, kai nėra
- *  komentarų), kortelės eilutės yra vienodo aukščio ir grid neatrodo
- *  "išdaužytas".
+/** Discussion preview card — 3 per row desktop. Po pavadinimu rodo iki 2
+ *  paskutinių komentarų teaser'ių (avatar + author·timeago + 2-eilutė
+ *  preview). Kortelė `flex flex-col` su `flex-1` ant comment'ų wrapper'io —
+ *  dėl to grid'e (auto-rows-fr) visos kortelės vienodo aukščio.
+ *  Daugiau diskusijų — atidaroma `DiscussionsModal` per "Žiūrėti visas"
+ *  mygtuką (panašiai kaip events archyvas).
  */
 function DiscussionRow({ t }: { t: LegacyThread; isLast?: boolean }) {
   const title = t.title || slugToForumTitle(t.slug)
   const pc = t.post_count ?? 0
-  const lastPost = t.last_post
-  const lastText = lastPost?.body ? stripHtml(lastPost.body).slice(0, 100) : ''
-  const author = lastPost?.author_username || ''
+  // recent_posts ateina iš serverio (iki 2 paskutinių); jei tuščia —
+  // fallback į last_post (single), arba placeholder.
+  const recent = (t.recent_posts && t.recent_posts.length > 0)
+    ? t.recent_posts
+    : (t.last_post ? [t.last_post] : [])
 
   return (
     <Link
       href={`/diskusijos/tema/${t.legacy_id}`}
-      className="group flex flex-col gap-1 rounded-lg border border-[var(--border-subtle)] bg-transparent px-3 py-2.5 no-underline transition-colors hover:border-[var(--border-default)] hover:bg-[var(--bg-hover)]"
+      className="group flex h-full flex-col gap-2.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3.5 py-3 no-underline transition-all hover:-translate-y-0.5 hover:border-[var(--border-default)] hover:bg-[var(--bg-hover)] hover:shadow-sm"
     >
-      {/* Title + count chip. Title in 2 lines max, comment count
-          right-aligned (tabular-nums). */}
+      {/* Title + count chip. */}
       <div className="flex items-start gap-2.5">
-        <div className="line-clamp-2 flex-1 font-['Outfit',sans-serif] text-[13px] font-bold leading-snug text-[var(--text-primary)]">
+        <div className="line-clamp-2 flex-1 font-['Outfit',sans-serif] text-[13.5px] font-bold leading-snug text-[var(--text-primary)]">
           {title}
         </div>
         {pc > 0 && (
-          <span className="shrink-0 font-['Outfit',sans-serif] text-[11px] font-extrabold tabular-nums text-[var(--text-muted)]">
+          <span className="shrink-0 rounded-full bg-[var(--bg-elevated)] px-2 py-0.5 font-['Outfit',sans-serif] text-[10.5px] font-extrabold tabular-nums text-[var(--text-muted)]">
             {pc}
           </span>
         )}
       </div>
 
-      {/* Meta: paskutinis komentaras viena eilute, arba placeholder kai
-          tema neturi komentarų. Vis tiek renderinam, kad eilutės būtų
-          vienodo aukščio. */}
-      {lastText ? (
-        <div className="line-clamp-1 text-[11.5px] leading-tight text-[var(--text-muted)]">
-          <span className="font-['Outfit',sans-serif] font-bold text-[var(--text-secondary)]">{author || 'Anonimas'}</span>
-          {lastPost?.created_at && (
-            <span className="text-[var(--text-faint)]"> · {timeAgo(lastPost.created_at)}</span>
-          )}
-          <span> · </span>
-          <span>{lastText}</span>
-        </div>
-      ) : (
-        <div className="text-[11.5px] leading-tight text-[var(--text-faint)]">Dar nekomentuota</div>
-      )}
+      {/* Comments preview — iki 2 paskutinių. Avatar + author·timeago
+          header + 2-eilutė preview. */}
+      <div className="flex flex-1 flex-col gap-1.5">
+        {recent.length === 0 ? (
+          <div className="text-[11.5px] leading-tight text-[var(--text-faint)]">Dar nekomentuota</div>
+        ) : (
+          recent.map((p, i) => {
+            const text = stripHtml(p.body || '').slice(0, 140)
+            const author = p.author_username || 'Anonimas'
+            return (
+              <div key={i} className="flex items-start gap-2 border-t border-[var(--border-subtle)] pt-1.5 first:border-t-0 first:pt-0">
+                <AvatarBubble name={author} size={18} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline gap-1.5 text-[10.5px]">
+                    <span className="truncate font-['Outfit',sans-serif] font-bold text-[var(--text-secondary)]">{author}</span>
+                    {p.created_at && (
+                      <span className="shrink-0 text-[var(--text-faint)]">· {timeAgo(p.created_at)}</span>
+                    )}
+                  </div>
+                  <div className="line-clamp-2 text-[11.5px] leading-snug text-[var(--text-muted)]">
+                    {text}
+                  </div>
+                </div>
+              </div>
+            )
+          })
+        )}
+      </div>
     </Link>
+  )
+}
+
+/** Modalas su pilnu diskusijų sąrašu — atidaromas iš public artist
+ *  puslapio, kai threadų yra daugiau nei rodoma preview grid'e. Layout'as
+ *  toks pat kaip preview'e (3-col grid kortelių su 2 komentarais), tik
+ *  scroll'inamas. */
+function DiscussionsModal({
+  open, threads, onClose,
+}: { open: boolean; threads: LegacyThread[]; onClose: () => void }) {
+  useEffect(() => {
+    if (!open) return
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', h)
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', h)
+      document.body.style.overflow = ''
+    }
+  }, [open, onClose])
+
+  if (!open || typeof document === 'undefined') return null
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-8"
+      style={{ background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(8px)' }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div className="flex max-h-[90vh] w-full max-w-[1100px] flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[0_40px_80px_-20px_rgba(0,0,0,0.6)]">
+        <div className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
+          <div>
+            <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.2em] text-[var(--text-muted)]">
+              Diskusijos
+            </div>
+            <div className="mt-0.5 font-['Outfit',sans-serif] text-[17px] font-extrabold text-[var(--text-primary)]">
+              {threads.length} {threads.length === 1 ? 'tema' : 'temos'}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Uždaryti"
+            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[10px] border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+          >
+            <svg viewBox="0 0 16 16" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+              <path d="M3 3l10 10M13 3L3 13" />
+            </svg>
+          </button>
+        </div>
+        <div className="overflow-y-auto px-5 py-5">
+          <div className="grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {threads.map((t) => <DiscussionRow key={t.legacy_id} t={t} />)}
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -2577,6 +2647,7 @@ export default function ArtistProfileClient({
   const [playing, setPlaying] = useState(false)
   const [trackInfoOpen, setTrackInfoOpen] = useState<Track | null>(null)
   const [eventsModalOpen, setEventsModalOpen] = useState(false)
+  const [discussionsModalOpen, setDiscussionsModalOpen] = useState(false)
   const [loaded, setLoaded] = useState(false)
   const [likesModalOpen, setLikesModalOpen] = useState(false)
   const [bioModalOpen, setBioModalOpen] = useState(false)
@@ -2827,6 +2898,12 @@ export default function ArtistProfileClient({
         open={eventsModalOpen}
         events={upcomingEvents}
         onClose={() => setEventsModalOpen(false)}
+      />
+
+      <DiscussionsModal
+        open={discussionsModalOpen}
+        threads={legacyThreads}
+        onClose={() => setDiscussionsModalOpen(false)}
       />
 
       <LikesModal
@@ -3136,28 +3213,47 @@ export default function ArtistProfileClient({
         {/* Apdovanojimai — Wikipedia awards article duomenys */}
         {awards.length > 0 && <ArtistAwards awards={awards} />}
 
-        {/* Diskusijos — kompaktiškas 2-col grid'as (1 col mobile). Buvo
-            pilno pločio rows, kurie sunku greitai perskenuoti — dabar
-            kortelės akiai duoda aiškius "blokus". */}
-        <section>
-          <SectionTitle label="Diskusijos" />
-          {legacyThreads.length > 0 ? (
-            <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
-              {legacyThreads.map((t) => (
-                <DiscussionRow key={t.legacy_id} t={t} />
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-dashed border-[var(--border-default)] p-8 text-center">
-              <div className="mb-2 text-[14px] font-bold text-[var(--text-muted)]">Dar nėra diskusijų apie {artist.name}</div>
-              <div className="mb-4 text-[12px] text-[var(--text-faint)]">Būk pirmas — pradėk diskusiją!</div>
-              <button className="inline-flex items-center gap-2 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-4 py-2 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14" /></svg>
-                Nauja diskusija
-              </button>
-            </div>
-          )}
-        </section>
+        {/* Diskusijos — preview grid'as (3-col desktop, 2-col tablet, 1-col
+            mobile) kortelių su iki 2 paskutinių komentarų. Ribojam 6 kortelėm,
+            likusios — modal'e (panašu kaip events archyvas). auto-rows-fr —
+            kad visos eilutės kortelėse būtų vienodo aukščio, neprikl. nuo
+            komentarų skaičiaus. */}
+        {(() => {
+          const PREVIEW_LIMIT = 6
+          const previewThreads = legacyThreads.slice(0, PREVIEW_LIMIT)
+          const overflow = Math.max(0, legacyThreads.length - PREVIEW_LIMIT)
+          return (
+            <section>
+              <div className="flex items-center justify-between">
+                <SectionTitle label="Diskusijos" />
+                {overflow > 0 && (
+                  <button
+                    onClick={() => setDiscussionsModalOpen(true)}
+                    className="ml-2 inline-flex items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-1.5 text-[11px] font-bold text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+                  >
+                    Žiūrėti visas (+{overflow})
+                  </button>
+                )}
+              </div>
+              {legacyThreads.length > 0 ? (
+                <div className="grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {previewThreads.map((t) => (
+                    <DiscussionRow key={t.legacy_id} t={t} />
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-[var(--border-default)] p-8 text-center">
+                  <div className="mb-2 text-[14px] font-bold text-[var(--text-muted)]">Dar nėra diskusijų apie {artist.name}</div>
+                  <div className="mb-4 text-[12px] text-[var(--text-faint)]">Būk pirmas — pradėk diskusiją!</div>
+                  <button className="inline-flex items-center gap-2 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-4 py-2 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14" /></svg>
+                    Nauja diskusija
+                  </button>
+                </div>
+              )}
+            </section>
+          )
+        })()}
 
         {/* Past events — fresh only; archyvas atidaromas pagal showArchive */}
         {(pastEvents.length > 0 || archivedPastEvents.length > 0) && (
