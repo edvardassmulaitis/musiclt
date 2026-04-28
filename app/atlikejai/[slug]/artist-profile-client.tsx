@@ -1326,8 +1326,14 @@ function SideInfo({
   //   - solo miręs:  gyveno = death_year - birth_year (-1 jei nebuvo dar gimtadienio)
   //   - grupė:        veiklos pradžia – pabaiga (arba "dabar")
   const isSolo = artist.type === 'solo'
+  const yearsBetween = (from: number, until?: number | null): number => {
+    const end = until ?? new Date().getFullYear()
+    const n = end - from
+    return n >= 0 ? n : 0
+  }
+  const activeYears = artist.active_from ? yearsBetween(artist.active_from, artist.active_until) : 0
   const yearsActive = artist.active_from
-    ? `${artist.active_from}–${artist.active_until || 'dabar'}`
+    ? `${artist.active_from}–${artist.active_until || 'dabar'}${activeYears > 0 ? ` (${activeYears} m.)` : ''}`
     : null
   const ageFromBirth = (birth: string, end?: string | null): number | null => {
     const b = new Date(birth)
@@ -1339,23 +1345,54 @@ function SideInfo({
     if (m < 0 || (m === 0 && e.getDate() < b.getDate())) age -= 1
     return age >= 0 && age <= 130 ? age : null
   }
+  // Lithuanian-style "1971 m. balandžio 19 d." formatas — daug labiau natural
+  // negu ISO. Mėnuo kilmininku.
+  const LT_MONTH_GENITIVE = [
+    'sausio', 'vasario', 'kovo', 'balandžio', 'gegužės', 'birželio',
+    'liepos', 'rugpjūčio', 'rugsėjo', 'spalio', 'lapkričio', 'gruodžio',
+  ]
   const fmtLtDate = (iso: string): string => {
     const d = new Date(iso); if (isNaN(d.getTime())) return iso
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    return `${d.getFullYear()} m. ${LT_MONTH_GENITIVE[d.getMonth()]} ${d.getDate()} d.`
   }
-  const birthLine: { label: string; value: string } | null = isSolo && artist.birth_date
+  // Zodiac sign from birth date (m-d). Cutoffs are inclusive of right side.
+  const zodiacOf = (iso: string): { name: string; emoji: string } | null => {
+    const d = new Date(iso); if (isNaN(d.getTime())) return null
+    const m = d.getMonth() + 1, day = d.getDate()
+    const z = (mm: number, dd: number) => (m === mm && day >= dd) || (m === mm + 1 && day <= 0) // unused helper
+    void z
+    const cmp = (mm: number, dd: number, mm2: number, dd2: number) =>
+      (m === mm && day >= dd) || (m === mm2 && day <= dd2)
+    if (cmp(3, 21, 4, 19)) return { name: 'Avinas', emoji: '♈' }
+    if (cmp(4, 20, 5, 20)) return { name: 'Jautis', emoji: '♉' }
+    if (cmp(5, 21, 6, 20)) return { name: 'Dvyniai', emoji: '♊' }
+    if (cmp(6, 21, 7, 22)) return { name: 'Vėžys', emoji: '♋' }
+    if (cmp(7, 23, 8, 22)) return { name: 'Liūtas', emoji: '♌' }
+    if (cmp(8, 23, 9, 22)) return { name: 'Mergelė', emoji: '♍' }
+    if (cmp(9, 23, 10, 22)) return { name: 'Svarstyklės', emoji: '♎' }
+    if (cmp(10, 23, 11, 21)) return { name: 'Skorpionas', emoji: '♏' }
+    if (cmp(11, 22, 12, 21)) return { name: 'Šaulys', emoji: '♐' }
+    if ((m === 12 && day >= 22) || (m === 1 && day <= 19)) return { name: 'Ožiaragis', emoji: '♑' }
+    if (cmp(1, 20, 2, 18)) return { name: 'Vandenis', emoji: '♒' }
+    if (cmp(2, 19, 3, 20)) return { name: 'Žuvys', emoji: '♓' }
+    return null
+  }
+  const birthLine: { label: string; value: string; zodiac: { name: string; emoji: string } | null } | null = isSolo && artist.birth_date
     ? (() => {
         const yr = ageFromBirth(artist.birth_date, artist.death_date)
+        const z = zodiacOf(artist.birth_date)
         if (artist.death_date) {
           const lived = ageFromBirth(artist.birth_date, artist.death_date)
           return {
             label: 'Gyveno',
             value: `${fmtLtDate(artist.birth_date)} – ${fmtLtDate(artist.death_date)}${lived != null ? ` (${lived} m.)` : ''}`,
+            zodiac: z,
           }
         }
         return {
           label: 'Gimimo data',
           value: yr != null ? `${fmtLtDate(artist.birth_date)} (${yr} m.)` : fmtLtDate(artist.birth_date),
+          zodiac: z,
         }
       })()
     : null
@@ -1408,7 +1445,7 @@ function SideInfo({
             </div>
           )}
           {hasSocials && (
-            <div className="ml-auto flex items-center gap-1">
+            <div className="ml-auto flex items-center gap-1.5">
               {links.filter(l => SOC[l.platform]).map(l => {
                 const p = SOC[l.platform]
                 return (
@@ -1424,17 +1461,22 @@ function SideInfo({
                   </a>
                 )
               })}
-              {website && (
-                <a
-                  href={website}
-                  target="_blank"
-                  rel="noopener"
-                  title="Oficiali svetainė"
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
-                </a>
-              )}
+              {website && (() => {
+                let domain = ''
+                try { domain = new URL(website).host.replace(/^www\./, '') } catch { domain = website }
+                return (
+                  <a
+                    href={website}
+                    target="_blank"
+                    rel="noopener"
+                    title="Oficiali svetainė"
+                    className="flex h-9 items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-3 text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
+                    <span className="font-['Outfit',sans-serif] text-[12.5px] font-bold tracking-tight">{domain}</span>
+                  </a>
+                )
+              })()}
             </div>
           )}
         </div>
@@ -1444,14 +1486,25 @@ function SideInfo({
             {substyles.map(s => s.name).join(' · ')}
           </div>
         )}
-        {/* Bio facts: veiklos periodas + gimimo/mirties data + amžius. */}
+        {/* Bio facts: veiklos periodas + gimimo/mirties data + amžius
+            (+ zodiakas). Serif italic vertėms — kad atrodytų kaip biografinis
+            tekstas šalia tracking'uotų label'ių. */}
         {hasBioFacts && (
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] leading-[1.5] text-[var(--text-muted)]">
             {showActive && (
-              <span><span className="font-semibold text-[var(--text-primary)]">Veikla:</span> {yearsActive}</span>
+              <span className="inline-flex items-baseline gap-1.5">
+                <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-faint)]">Veikla</span>
+                <span className="font-serif text-[13px] italic font-medium text-[var(--text-primary)] [font-feature-settings:'tnum']">{yearsActive}</span>
+              </span>
             )}
             {birthLine && (
-              <span><span className="font-semibold text-[var(--text-primary)]">{birthLine.label}:</span> {birthLine.value}</span>
+              <span className="inline-flex items-baseline gap-1.5">
+                <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-faint)]">{birthLine.label}</span>
+                <span className="font-serif text-[13px] italic font-medium text-[var(--text-primary)] [font-feature-settings:'tnum']">{birthLine.value}</span>
+                {birthLine.zodiac && (
+                  <span title={birthLine.zodiac.name} className="text-[14px] leading-none text-[var(--accent-orange)]">{birthLine.zodiac.emoji}</span>
+                )}
+              </span>
             )}
           </div>
         )}
@@ -1498,19 +1551,32 @@ function SideInfo({
         </div>
       )}
 
-      {/* Bio facts: veiklos periodas + gimimo/mirties data (+ amžius). */}
+      {/* Bio facts: veiklos periodas + gimimo/mirties data (+ amžius +
+          zodiakas). Vertėms naudojam serif italic — kad atrodytų labiau kaip
+          biografinis tekstas, mažiau "data table'ish" už tracking'uotų UPPERCASE
+          label'ių. tabular-nums laiko skaitmenis vienodame plotyje. */}
       {hasBioFacts && (
-        <div className="flex flex-col gap-1.5 text-[12.5px] leading-[1.4] text-[var(--text-muted)]">
+        <div className="flex flex-col gap-2.5 text-[var(--text-muted)]">
           {showActive && (
             <div>
               <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-faint)]">Veikla</span>
-              <div className="mt-0.5 text-[13.5px] font-bold text-[var(--text-primary)]">{yearsActive}</div>
+              <div className="mt-0.5 font-serif text-[14.5px] italic font-medium tracking-tight text-[var(--text-primary)] [font-feature-settings:'tnum']">{yearsActive}</div>
             </div>
           )}
           {birthLine && (
             <div>
               <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-faint)]">{birthLine.label}</span>
-              <div className="mt-0.5 text-[13.5px] font-bold text-[var(--text-primary)]">{birthLine.value}</div>
+              <div className="mt-0.5 flex items-center gap-2 font-serif text-[14.5px] italic font-medium tracking-tight text-[var(--text-primary)] [font-feature-settings:'tnum']">
+                <span>{birthLine.value}</span>
+                {birthLine.zodiac && (
+                  <span
+                    title={birthLine.zodiac.name}
+                    className="not-italic font-sans text-[15px] leading-none text-[var(--accent-orange)]"
+                  >
+                    {birthLine.zodiac.emoji}
+                  </span>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -1518,7 +1584,7 @@ function SideInfo({
 
       {hasSocials && (
         <div className="mt-auto pt-2">
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap items-center gap-1.5">
             {links.filter(l => SOC[l.platform]).map(l => {
               const p = SOC[l.platform]
               return (
@@ -1534,17 +1600,25 @@ function SideInfo({
                 </a>
               )
             })}
-            {website && (
-              <a
-                href={website}
-                target="_blank"
-                rel="noopener"
-                title="Oficiali svetainė"
-                className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
-              </a>
-            )}
+            {website && (() => {
+              // Domain'ą rodom šalia globe ikonos — vienas pliokštas pill'as,
+              // ne tuščias kvadratukas. host'as be www. ir be path'o, kad
+              // sidebar'e nesusispaustų ant ilgų URL'ų.
+              let domain = ''
+              try { domain = new URL(website).host.replace(/^www\./, '') } catch { domain = website }
+              return (
+                <a
+                  href={website}
+                  target="_blank"
+                  rel="noopener"
+                  title="Oficiali svetainė"
+                  className="flex h-8 items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-2.5 text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
+                  <span className="font-['Outfit',sans-serif] text-[12px] font-bold tracking-tight">{domain}</span>
+                </a>
+              )
+            })()}
           </div>
         </div>
       )}
@@ -2369,62 +2443,59 @@ function TrackRow({ t, popularity, artistSlug }: { t: Track; popularity?: number
 
 // ── DiscussionRow: title + last post preview on the right ──────────
 
-function DiscussionRow({ t, isLast }: { t: LegacyThread; isLast: boolean }) {
+/** Compact discussion card — naudojam grid'e (2 kolonos desktop, 1 mobile)
+ *  vietoj full-width row'ų. Idėja: leidžia greitai perskaityti N kortelių
+ *  vienu žvilgsniu, o ne tempti akį per visą puslapio plotą.
+ *
+ *  Layout: title + post count antraštė; jei yra last comment — apačioj
+ *  vienos eilutės preview su author·timeago. Kortelė turi border + hover
+ *  state + dešinį chevron rinklės jausmui.
+ */
+function DiscussionRow({ t }: { t: LegacyThread; isLast?: boolean }) {
   const title = t.title || slugToForumTitle(t.slug)
   const pc = t.post_count ?? 0
   const lastPost = t.last_post
-  const lastText = lastPost?.body ? stripHtml(lastPost.body).slice(0, 90) : ''
+  const lastText = lastPost?.body ? stripHtml(lastPost.body).slice(0, 80) : ''
   const author = lastPost?.author_username || ''
 
   return (
     <Link
       href={`/diskusijos/tema/${t.legacy_id}`}
-      className={[
-        'flex items-center gap-3 px-3 py-2.5 no-underline transition-colors hover:bg-[var(--bg-hover)] sm:px-4 sm:py-3',
-        !isLast ? 'border-b border-[var(--border-subtle)]' : '',
-      ].join(' ')}
+      className="group flex flex-col gap-2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-3.5 py-3 no-underline transition-all hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] hover:shadow-sm"
     >
-      {/* Thread icon — smaller to save vertical space */}
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[rgba(59,130,246,0.2)] bg-[rgba(59,130,246,0.1)] text-[#3b82f6]">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" /></svg>
-      </div>
-
-      {/* Title + plain comment count (no timeago here — that belongs on the
-          comment itself so the reader sees "when was this last replied to"
-          right next to the text). */}
-      <div className="flex min-w-0 flex-[1.2] flex-col justify-center">
-        <div className="line-clamp-1 font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)] sm:text-[14px]">{title}</div>
-        <div className="mt-0.5 text-[11px] text-[var(--text-muted)]">
-          {pc > 0 ? `${pc} komentarai` : 'Dar nekomentuota'}
+      {/* Header — icon + title + small post-count chip on the right. */}
+      <div className="flex items-start gap-2.5">
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-[rgba(59,130,246,0.25)] bg-[rgba(59,130,246,0.10)] text-[#3b82f6]">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" /></svg>
         </div>
+        <div className="line-clamp-2 flex-1 font-['Outfit',sans-serif] text-[13.5px] font-bold leading-tight text-[var(--text-primary)]">{title}</div>
+        {pc > 0 && (
+          <span className="shrink-0 rounded-full bg-[var(--bg-elevated)] px-2 py-0.5 font-['Outfit',sans-serif] text-[10.5px] font-extrabold tabular-nums text-[var(--text-muted)]">
+            {pc}
+          </span>
+        )}
       </div>
 
-      {/* Last comment — hidden on small screens. Compact single row:
-          avatar + (author · timeago) + preview line. */}
+      {/* Last comment preview — only render when present, kept to a single
+          truncated line so cards stay roughly equal height in the grid. */}
       {lastText && (
-        <div className="hidden min-w-0 flex-1 items-center gap-2 sm:flex">
-          <AvatarBubble name={author} />
+        <div className="flex items-center gap-2 border-t border-[var(--border-subtle)] pt-2">
+          <AvatarBubble name={author} size={20} />
           <div className="min-w-0 flex-1">
-            <div className="flex items-baseline gap-1.5">
-              <span className="truncate font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--text-secondary)]">
+            <div className="flex items-baseline gap-1.5 text-[10.5px]">
+              <span className="truncate font-['Outfit',sans-serif] font-bold text-[var(--text-secondary)]">
                 {author || 'Anonimas'}
               </span>
               {lastPost?.created_at && (
-                <span className="shrink-0 text-[10px] text-[var(--text-faint)]">
-                  · {timeAgo(lastPost.created_at)}
-                </span>
+                <span className="shrink-0 text-[var(--text-faint)]">· {timeAgo(lastPost.created_at)}</span>
               )}
             </div>
-            <div className="line-clamp-1 text-[12px] leading-tight text-[var(--text-muted)]">
+            <div className="line-clamp-1 text-[11.5px] leading-tight text-[var(--text-muted)]">
               {lastText}
             </div>
           </div>
         </div>
       )}
-
-      <svg className="shrink-0 text-[var(--text-faint)]" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M9 18l6-6-6-6" />
-      </svg>
     </Link>
   )
 }
@@ -3028,13 +3099,15 @@ export default function ArtistProfileClient({
         {/* Apdovanojimai — Wikipedia awards article duomenys */}
         {awards.length > 0 && <ArtistAwards awards={awards} />}
 
-        {/* Diskusijos — no #ID, last comment preview on right */}
+        {/* Diskusijos — kompaktiškas 2-col grid'as (1 col mobile). Buvo
+            pilno pločio rows, kurie sunku greitai perskenuoti — dabar
+            kortelės akiai duoda aiškius "blokus". */}
         <section>
           <SectionTitle label="Diskusijos" />
           {legacyThreads.length > 0 ? (
-            <div className="overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
-              {legacyThreads.map((t, i) => (
-                <DiscussionRow key={t.legacy_id} t={t} isLast={i === legacyThreads.length - 1} />
+            <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
+              {legacyThreads.map((t) => (
+                <DiscussionRow key={t.legacy_id} t={t} />
               ))}
             </div>
           ) : (
