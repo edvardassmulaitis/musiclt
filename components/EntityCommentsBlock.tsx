@@ -32,6 +32,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { proxyImg } from '@/lib/img-proxy'
+import MusicSearchPicker, { AttachmentChips, type AttachmentHit } from './MusicSearchPicker'
 
 type ModernComment = {
   id: number
@@ -42,6 +43,7 @@ type ModernComment = {
   author_avatar: string | null
   body: string
   like_count: number
+  music_attachments?: AttachmentHit[] | null
   created_at: string
   edited_at?: string | null
   is_deleted?: boolean
@@ -56,6 +58,7 @@ type LegacyComment = {
   content_text: string | null
   content_html: string | null
   like_count: number
+  music_attachments?: AttachmentHit[] | null
   source: 'legacy'
 }
 
@@ -131,6 +134,8 @@ export default function EntityCommentsBlock({
   const [posting, setPosting] = useState(false)
   const [replyTo, setReplyTo] = useState<{ id: number; name: string } | null>(null)
   const [error, setError] = useState('')
+  const [attached, setAttached] = useState<AttachmentHit[]>([])
+  const [showPicker, setShowPicker] = useState(false)
   const draftRef = useRef<HTMLTextAreaElement | null>(null)
 
   const legacyUrl = legacyEndpoint || `/api/${entityType}s/${entityId}/comments`
@@ -189,7 +194,7 @@ export default function EntityCommentsBlock({
       return
     }
     const text = draft.trim()
-    if (!text) return
+    if (!text && attached.length === 0) return
     setPosting(true)
     setError('')
     try {
@@ -201,6 +206,7 @@ export default function EntityCommentsBlock({
           entity_id: entityId,
           parent_id: replyTo?.id || null,
           text,
+          attachments: attached.length > 0 ? attached : undefined,
         }),
       })
       const data = await res.json()
@@ -210,6 +216,8 @@ export default function EntityCommentsBlock({
       }
       setDraft('')
       setReplyTo(null)
+      setAttached([])
+      setShowPicker(false)
       reload()
     } catch {
       setError('Tinklo klaida.')
@@ -340,6 +348,40 @@ export default function EntityCommentsBlock({
                     >
                       {text}
                     </div>
+                    {/* Music attachments (modern + legacy abu palaiko) —
+                        kortelinis chip strip'as su cover thumb + title +
+                        type label. Click navigates į entity puslapį. */}
+                    {Array.isArray(c.music_attachments) && c.music_attachments.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {c.music_attachments.slice(0, 8).map((a: any, i: number) => {
+                          const href = a.type === 'grupe'
+                            ? `/atlikejai/${a.slug}`
+                            : a.type === 'albumas'
+                              ? `/lt/albumas/${a.slug}/${a.id}/`
+                              : `/dainos/${a.slug}-${a.id}`
+                          return (
+                            <Link
+                              key={`${a.type}-${a.id}-${i}`}
+                              href={href}
+                              className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] py-1 pl-1 pr-2.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+                            >
+                              <span className="h-5 w-5 shrink-0 overflow-hidden rounded-sm bg-[var(--cover-placeholder)]">
+                                {a.image_url && (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={proxyImg(a.image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                                )}
+                              </span>
+                              <span className="font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--text-primary)]">
+                                {a.title}
+                              </span>
+                              {a.artist && a.type !== 'grupe' && (
+                                <span className="text-[10px] text-[var(--text-muted)]">· {a.artist}</span>
+                              )}
+                            </Link>
+                          )
+                        })}
+                      </div>
+                    )}
                     {/* Footer — likes + reply (modern only) */}
                     <div className="mt-2 flex items-center gap-3">
                       {isModern ? (
@@ -408,24 +450,67 @@ export default function EntityCommentsBlock({
           </div>
         )}
         {session?.user?.id ? (
-          <div className="flex items-end gap-2">
-            <textarea
-              ref={draftRef}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder={replyTo ? `Atsakyti @${replyTo.name}...` : 'Rašyk komentarą...'}
-              rows={compact ? 2 : 3}
-              className="flex-1 resize-none rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-2 text-[13px] leading-snug text-[var(--text-primary)] outline-none transition-colors placeholder:text-[var(--text-faint)] focus:border-[var(--accent-orange)]"
-            />
-            <button
-              type="button"
-              onClick={submit}
-              disabled={!draft.trim() || posting}
-              className="flex h-10 shrink-0 items-center gap-1.5 rounded-lg bg-[var(--accent-orange)] px-3.5 font-['Outfit',sans-serif] text-[12px] font-extrabold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {posting ? '⏳' : 'Siųsti'}
-            </button>
-          </div>
+          <>
+            {/* Pridėtų music attachment chips strip — virš textarea */}
+            {attached.length > 0 && (
+              <div className="mb-2">
+                <AttachmentChips
+                  items={attached}
+                  onRemove={(idx) => setAttached(a => a.filter((_, i) => i !== idx))}
+                  compact={compact}
+                />
+              </div>
+            )}
+            {/* Toggle'inamas picker'is */}
+            {showPicker && (
+              <div className="mb-2">
+                <MusicSearchPicker
+                  attached={attached}
+                  onAdd={(hit) => setAttached(a => [...a, hit])}
+                  placeholder="Surask atlikėją, albumą ar dainą..."
+                  compact={compact}
+                />
+              </div>
+            )}
+            <div className="flex items-end gap-2">
+              <textarea
+                ref={draftRef}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                placeholder={replyTo ? `Atsakyti @${replyTo.name}...` : 'Rašyk komentarą...'}
+                rows={compact ? 2 : 3}
+                className="flex-1 resize-none rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-2 text-[13px] leading-snug text-[var(--text-primary)] outline-none transition-colors placeholder:text-[var(--text-faint)] focus:border-[var(--accent-orange)]"
+              />
+              <div className="flex flex-col gap-1">
+                <button
+                  type="button"
+                  onClick={() => setShowPicker(v => !v)}
+                  aria-label={showPicker ? 'Slėpti muzikos paiešką' : 'Pridėti muzikos'}
+                  title={showPicker ? 'Slėpti' : 'Pridėti muzikos'}
+                  className={[
+                    'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors',
+                    showPicker
+                      ? 'border-[var(--accent-orange)] bg-[rgba(249,115,22,0.12)] text-[var(--accent-orange)]'
+                      : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-muted)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]',
+                  ].join(' ')}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z" /></svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={submit}
+                  disabled={(!draft.trim() && attached.length === 0) || posting}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-orange)] text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="Siųsti"
+                  title="Siųsti"
+                >
+                  {posting ? '⏳' : (
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M2 21l21-9L2 3v7l15 2-15 2z" /></svg>
+                  )}
+                </button>
+              </div>
+            </div>
+          </>
         ) : (
           <Link
             href="/auth/signin"

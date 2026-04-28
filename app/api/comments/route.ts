@@ -53,9 +53,11 @@ export async function GET(req: Request) {
 
   // SELECT comments + JOIN profiles tam, kad gautume author display info.
   // Profile'os fk yra `author_id` (uuid → profiles.id).
+  // music_attachments — optional column (per migration 20260428). Bandom su
+  // ja, fallback'as be jos jei migracija dar neaplikuota.
   let query = sb
     .from('comments')
-    .select('id, parent_id, author_id, body, like_count, reported_count, is_deleted, created_at, updated_at, profiles:author_id(username, full_name, avatar_url)')
+    .select('id, parent_id, author_id, body, like_count, reported_count, is_deleted, created_at, updated_at, music_attachments, profiles:author_id(username, full_name, avatar_url)')
     .eq(col, parseInt(entityId))
     .limit(limit)
 
@@ -63,7 +65,18 @@ export async function GET(req: Request) {
   else if (sort === 'popular') query = query.order('like_count', { ascending: false }).order('created_at', { ascending: false })
   else query = query.order('created_at', { ascending: false })
 
-  const { data, error } = await query
+  let { data, error } = await query as { data: any; error: any }
+  // Migration 20260428 dar neaplikuota? Pakartojam be music_attachments.
+  if (error && /music_attachments/.test(error.message)) {
+    const fallback = await sb
+      .from('comments')
+      .select('id, parent_id, author_id, body, like_count, reported_count, is_deleted, created_at, updated_at, profiles:author_id(username, full_name, avatar_url)')
+      .eq(col, parseInt(entityId))
+      .limit(limit)
+      .order('created_at', { ascending: sort === 'oldest' })
+    data = fallback.data
+    error = fallback.error
+  }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   // Sanitize + normalize for client. Soft-deleted comments hide their body.
@@ -77,6 +90,7 @@ export async function GET(req: Request) {
     like_count: c.like_count || 0,
     reported_count: c.reported_count || 0,
     is_deleted: c.is_deleted,
+    music_attachments: Array.isArray(c.music_attachments) ? c.music_attachments : null,
     created_at: c.created_at,
     edited_at: c.updated_at && c.updated_at !== c.created_at ? c.updated_at : null,
   }))
@@ -91,11 +105,16 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json()
-  const { entity_type, entity_id, parent_id, text } = body
+  const { entity_type, entity_id, parent_id, text, attachments } = body
+  const cleanAttachments = Array.isArray(attachments)
+    ? attachments.filter((a: any) => a && typeof a === 'object').slice(0, 8)
+    : null
 
-  if (!text?.trim() || text.trim().length < 2)
+  // Body gali būti tuščias jei vartotojas pridėjo bent vieną attachment'ą.
+  const hasAttachments = !!(cleanAttachments && cleanAttachments.length > 0)
+  if ((!text?.trim() || text.trim().length < 2) && !hasAttachments)
     return NextResponse.json({ error: 'Komentaras per trumpas' }, { status: 400 })
-  if (text.trim().length > 5000)
+  if (text && text.trim().length > 5000)
     return NextResponse.json({ error: 'Komentaras per ilgas (max 5000)' }, { status: 400 })
 
   const col = entityCol(entity_type)
@@ -122,13 +141,27 @@ export async function POST(req: Request) {
     [col]: parseInt(entity_id),
     parent_id: parent_id || null,
     author_id: authorId,
-    body: text.trim(),
+    body: (text || '').trim(),
   }
-  const { data, error } = await sb
+  if (hasAttachments) insertRow.music_attachments = cleanAttachments
+
+  let { data, error } = await sb
     .from('comments')
     .insert(insertRow)
-    .select('id, parent_id, author_id, body, like_count, created_at, updated_at, profiles:author_id(username, full_name, avatar_url)')
-    .single()
+    .select('id, parent_id, author_id, body, like_count, created_at, updated_at, music_attachments, profiles:author_id(username, full_name, avatar_url)')
+    .single() as { data: any; error: any }
+  // Migration 20260428 dar neaplikuota? Pakartojam be music_attachments —
+  // tekstinis komentaras vis tiek išsaugomas, attachment'ai tylia praleisti.
+  if (error && /music_attachments/.test(error.message)) {
+    delete insertRow.music_attachments
+    const fb = await sb
+      .from('comments')
+      .insert(insertRow)
+      .select('id, parent_id, author_id, body, like_count, created_at, updated_at, profiles:author_id(username, full_name, avatar_url)')
+      .single()
+    data = fb.data
+    error = fb.error
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
@@ -142,6 +175,7 @@ export async function POST(req: Request) {
       author_avatar: c.profiles?.avatar_url || null,
       body: c.body,
       like_count: c.like_count || 0,
+      music_attachments: Array.isArray(c.music_attachments) ? c.music_attachments : null,
       created_at: c.created_at,
       edited_at: null,
     },

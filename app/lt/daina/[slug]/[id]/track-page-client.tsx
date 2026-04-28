@@ -1,11 +1,13 @@
 'use client'
 // app/lt/daina/[slug]/[id]/track-page-client.tsx
-import { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react'
+import { useState, useEffect, useCallback, memo, useMemo } from 'react'
 import Link from 'next/link'
-import LegacyLikesPanel, { LegacyBadge, type LegacyLikeUser } from '@/components/LegacyLikesPanel'
+import LegacyLikesPanel, { type LegacyLikeUser } from '@/components/LegacyLikesPanel'
 import ScoreCard from '@/components/ScoreCard'
 import { LikePill } from '@/components/LikePill'
 import { proxyImg } from '@/lib/img-proxy'
+import EntityCommentsBlock from '@/components/EntityCommentsBlock'
+import LyricsWithReactions from '@/components/LyricsWithReactions'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -70,10 +72,6 @@ const MusicIcon = ({ s = 16, c = '#fff' }: { s?: number; c?: string }) => (
 const GuitarIcon = ({ s = 13, c = 'currentColor' }: { s?: number; c?: string }) => (
   <svg width={s} height={s} viewBox="0 0 24 24" fill={c}><path d="M19.59 3c-.96 0-1.86.37-2.54 1.05L14 7.1C12.45 6.39 10.6 6.6 9.26 7.93L3 14.19l.71.71-1.42 1.41 1.42 1.41 1.06-1.06.7.71-1.41 1.41 1.41 1.41 1.41-1.41.71.71-1.06 1.06 1.41 1.41L16.07 15c1.33-1.33 1.54-3.19.82-4.73l3.06-3.06C20.63 6.53 21 5.63 21 4.66 21 3.74 20.26 3 19.59 3zM15 15l-5-5 1.41-1.41 5 5L15 15z"/></svg>
 )
-const XIcon = ({ s = 14 }: { s?: number }) => (
-  <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-)
-
 // ── Stable sub-components (never re-mount) ─────────────────────────────────────
 
 const YoutubeEmbed = memo(({ videoId }: { videoId: string }) => (
@@ -117,63 +115,12 @@ export default function TrackPageClient({
       .catch(() => setLikersModalUsers([]))
   }, [likersModalEntity])
 
-  // Reactions — initialise from server props; refreshed on mount via API
-  const [reactions, setReactions] = useState<LyricReaction[]>(initialReactions)
-
-  // Side panel
-  const [panel, setPanel] = useState<{ text: string; start: number; end: number } | null>(null)
-  const [panelTab, setPanelTab] = useState<'react' | 'share'>('react')
-  const [saving, setSaving] = useState(false)
-  const commentInputRef = useRef<HTMLTextAreaElement>(null)
-
-  // Tooltip
-  const wasMarkClick = useRef(false)
-  const [tip, setTip] = useState<{ x: number; y: number; rxns: LyricReaction[] } | null>(null)
-
   // AI
   const [aiText, setAiText] = useState<string | null>(aiInterpretation ?? null)
-
   const [aiLoad, setAiLoad] = useState(false)
   const [aiErr, setAiErr] = useState(false)
 
-
-  const log = (msg: string) => console.log(`[DBG] ${new Date().toISOString().slice(11,23)} ${msg}`)
-
   useEffect(() => { setLoaded(true) }, [])
-
-  // Refresh reactions on mount with full logging
-  useEffect(() => {
-    log(`MOUNT track.id=${track.id} initialReactions.length=${initialReactions.length}`)
-    fetch(`/api/tracks/${track.id}/lyric-comments`)
-      .then(r => {
-        log(`GET status=${r.status}`)
-        return r.json()
-      })
-      .then((data: unknown) => {
-        log(`GET data=${JSON.stringify(data).slice(0,150)}`)
-        if (Array.isArray(data)) {
-          setReactions(data)
-          log(`setReactions count=${data.length}`)
-        } else {
-          log(`ERROR not array: ${typeof data}`)
-        }
-      })
-      .catch((e: unknown) => log(`FETCH ERR: ${String(e)}`))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [track.id])
-
-  // ── Close panel on outside click ──────────────────────────────────────────
-  useEffect(() => {
-    if (!panel) return
-    const handler = (e: MouseEvent) => {
-      const t = e.target as Element
-      if (!t.closest('[data-panel]') && !t.closest('[data-lyrics]')) {
-        setPanel(null)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [panel])
 
   // ── Derived ────────────────────────────────────────────────────────────────
   const vid = ytId(track.video_url)
@@ -181,17 +128,6 @@ export default function TrackPageClient({
   const hasChords = !!track.chords?.trim()
   const dateStr = fmtDate(track.release_date)
   const primaryAlbum = albums[0] ?? null
-
-  // Group reactions by "start-end" key
-  const byRange = useMemo(() => {
-    const m = new Map<string, LyricReaction[]>()
-    for (const r of reactions) {
-      const k = `${r.selection_start}-${r.selection_end}`
-      if (!m.has(k)) m.set(k, [])
-      m.get(k)!.push(r)
-    }
-    return m
-  }, [reactions]) as Map<string, LyricReaction[]>
 
   // ── CSS Variables are used instead of inline theme object ──────────────────
   // All theme colors are now defined in globals.css with [data-theme] attribute
@@ -204,88 +140,6 @@ export default function TrackPageClient({
     fontSize: 11, fontWeight: 700, color: 'var(--head-text)',
     fontFamily: 'Outfit,sans-serif', textTransform: 'uppercase', letterSpacing: '.08em',
   }
-
-  // ── Lyric selection → open panel ──────────────────────────────────────────
-  const onMouseUp = useCallback(() => {
-    if (wasMarkClick.current) { wasMarkClick.current = false; return }
-    const sel = window.getSelection()
-    if (!sel || sel.isCollapsed) return
-    const text = sel.toString().trim()
-    if (text.length < 3) return
-    const full = track.lyrics ?? ''
-    const startIdx = full.indexOf(text)
-    if (startIdx === -1) return
-    sel.removeAllRanges()
-    setPanel({ text, start: startIdx, end: startIdx + text.length })
-    setPanelTab('react')
-  }, [track.lyrics])
-
-  // ── Save like ──────────────────────────────────────────────────────────────
-  const doLike = useCallback(async () => {
-    if (!panel || saving) return
-    const p = { ...panel }
-    log(`doLike start="${p.text.slice(0,30)}" start=${p.start} end=${p.end}`)
-    setSaving(true)
-    setPanel(null)
-
-    const temp: LyricReaction = {
-      id: Date.now(), selection_start: p.start, selection_end: p.end,
-      selected_text: p.text, type: 'like', text: '', likes: 0,
-      created_at: new Date().toISOString(),
-    }
-    setReactions((prev: LyricReaction[]) => { log(`optimistic add, prev.length=${prev.length}`); return [...prev, temp] })
-
-    try {
-      const postRes = await fetch(`/api/tracks/${track.id}/lyric-comments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ selected_text: p.text, selection_start: p.start, selection_end: p.end, type: 'like', text: '' }),
-      })
-      const postData = await postRes.json()
-      log(`POST status=${postRes.status} body=${JSON.stringify(postData).slice(0,80)}`)
-      const fresh = await fetch(`/api/tracks/${track.id}/lyric-comments`)
-      const freshData: LyricReaction[] = await fresh.json()
-      log(`SYNC after like count=${freshData.length}`)
-      if (Array.isArray(freshData)) setReactions(freshData)
-    } catch (e) { log(`doLike ERR: ${String(e)}`) }
-
-    setSaving(false)
-  }, [panel, saving, track.id])
-
-  // ── Save comment ───────────────────────────────────────────────────────────
-  const doComment = useCallback(async () => {
-    if (!panel || saving) return
-    const text = commentInputRef.current?.value.trim() ?? ''
-    if (!text) return
-    const p = { ...panel }
-    log(`doComment text="${text.slice(0,30)}"`)
-    setSaving(true)
-    setPanel(null)
-    if (commentInputRef.current) commentInputRef.current.value = ''
-
-    const temp: LyricReaction = {
-      id: Date.now(), selection_start: p.start, selection_end: p.end,
-      selected_text: p.text, type: 'comment', text, likes: 0,
-      created_at: new Date().toISOString(),
-    }
-    setReactions((prev: LyricReaction[]) => { log(`optimistic comment, prev.length=${prev.length}`); return [...prev, temp] })
-
-    try {
-      const postRes = await fetch(`/api/tracks/${track.id}/lyric-comments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ selected_text: p.text, selection_start: p.start, selection_end: p.end, type: 'comment', text }),
-      })
-      const postData = await postRes.json()
-      log(`POST status=${postRes.status} body=${JSON.stringify(postData).slice(0,80)}`)
-      const fresh = await fetch(`/api/tracks/${track.id}/lyric-comments`)
-      const freshData: LyricReaction[] = await fresh.json()
-      log(`SYNC after comment count=${freshData.length}`)
-      if (Array.isArray(freshData)) setReactions(freshData)
-    } catch (e) { log(`doComment ERR: ${String(e)}`) }
-
-    setSaving(false)
-  }, [panel, saving, track.id])
 
   // ── AI generation ──────────────────────────────────────────────────────────
   const doAI = useCallback(async () => {
@@ -300,65 +154,6 @@ export default function TrackPageClient({
     } catch { setAiErr(true) }
     setAiLoad(false)
   }, [hasLyrics, aiLoad, track.id])
-
-  // ── Render lyrics with reaction highlights ────────────────────────────────
-  // Render lyrics: inline highlights + click to open panel
-  const renderLyrics = useCallback(() => {
-    const full = track.lyrics ?? ''
-    if (byRange.size === 0) {
-      return (
-        <pre style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, lineHeight: 2.1, color: 'var(--lyric-text)', margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-          {full}
-        </pre>
-      )
-    }
-
-    // Build sorted ranges
-    const ranges: { start: number; end: number; key: string }[] = []
-    byRange.forEach((_: LyricReaction[], key: string) => {
-      const [s, e] = key.split('-').map(Number)
-      if (!isNaN(s) && !isNaN(e) && e > s && e <= full.length) {
-        ranges.push({ start: s, end: e, key })
-      }
-    })
-    ranges.sort((a, b) => a.start - b.start)
-
-    const parts: React.ReactNode[] = []
-    let pos = 0
-    for (const r of ranges) {
-      if (r.start < pos) continue
-      if (r.start > pos) parts.push(<span key={`t${pos}`}>{full.slice(pos, r.start)}</span>)
-      const rxns = byRange.get(r.key)!
-      const nL = rxns.filter(x => x.type === 'like').length
-      const nC = rxns.filter(x => x.type === 'comment').length
-      parts.push(
-        <span key={r.key}
-          style={{ background: 'var(--lyric-mark)', borderRadius: 3, borderBottom: '2px solid rgba(249,115,22,.5)', paddingBottom: 1, cursor: 'pointer' }}
-          onMouseDown={() => { wasMarkClick.current = true }}
-          onClick={() => { setPanel({ text: rxns[0].selected_text, start: r.start, end: r.end }); setPanelTab('react') }}
-        >
-          {full.slice(r.start, r.end)}
-          {(nL > 0 || nC > 0) && (
-            <span style={{ fontSize: 9, color: '#f97316', fontWeight: 800, marginLeft: 2, pointerEvents: 'none' }}>
-              {nL > 0 ? `♥${nL}` : ''}{nC > 0 ? ` 💬${nC}` : ''}
-            </span>
-          )}
-        </span>
-      )
-      pos = r.end
-    }
-    if (pos < full.length) parts.push(<span key="tend">{full.slice(pos)}</span>)
-
-    return (
-      <pre style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, lineHeight: 2.1, color: 'var(--lyric-text)', margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-        {parts}
-      </pre>
-    )
-  }, [track.lyrics, byRange])
-
-
-  // ── Panel reactions for current selection ──────────────────────────────────
-  const panelRxns = panel ? (byRange.get(`${panel.start}-${panel.end}`) ?? []) : []
 
   // ══════════════════════════════════════════════════════════════════════════
   // RENDER
@@ -575,52 +370,17 @@ export default function TrackPageClient({
     )
   }
 
+  // Diskusijų sekcija — naudojam unifikuotą EntityCommentsBlock (track modal,
+  // album page taip pat). Komponentas pats fetch'ina modern + legacy
+  // komentarus, palaiko like'us, replies, music attachments.
   const DiscussionsCard = () => (
     <div style={cardStyle}>
-      <div style={headStyle}>Komentarai{entityComments.length > 0 ? ` (${entityComments.length})` : ''}</div>
-      <div style={{ padding: '12px 14px' }}>
-        <div style={{ display: 'flex', gap: 7, marginBottom: 10 }}>
-          <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: 'rgba(249,115,22,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#f97316', fontFamily: 'Outfit,sans-serif' }}>{artist.name[0]}</div>
-          <input placeholder="Rašyk komentarą…" style={{ flex: 1, height: 30, borderRadius: 999, padding: '0 12px', fontSize: 11, background: 'var(--comment-input-bg)', border: '1px solid var(--comment-border)', color: 'var(--text-primary)', outline: 'none' }} />
-          <button style={{ height: 30, padding: '0 12px', borderRadius: 999, background: '#f97316', border: 'none', color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit,sans-serif' }}>Siųsti</button>
-        </div>
-        {entityComments.length === 0 ? (
-          <div style={{ fontSize: 11, color: 'var(--text-faint)', textAlign: 'center' }}>Būk pirmas — palik komentarą!</div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 6 }}>
-            {entityComments.map(c => {
-              const initial = (c.author_username || '?').charAt(0).toUpperCase()
-              const dateLabel = c.created_at ? new Date(c.created_at).toLocaleDateString('lt-LT', { year: 'numeric', month: 'short', day: 'numeric' }) : ''
-              return (
-                <div key={c.legacy_id} style={{ display: 'flex', gap: 8, paddingTop: 8, borderTop: '1px solid var(--card-border-subtle)' }}>
-                  {c.author_avatar_url ? (
-                    <img src={proxyImg(c.author_avatar_url)} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                  ) : (
-                    <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: 'rgba(99,102,241,.18)', color: '#818cf8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, fontFamily: 'Outfit,sans-serif' }}>{initial}</div>
-                  )}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', gap: 6, alignItems: 'baseline', marginBottom: 2 }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>{c.author_username || 'anon'}</span>
-                      {dateLabel && <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>· {dateLabel}</span>}
-                      {c.like_count > 0 && (
-                        <button
-                          onClick={() => setLikersModalEntity({ type: 'comment', id: c.legacy_id, label: `Komentaras` })}
-                          style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--accent-orange)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                          title="Žiūrėti, kas patiko šį komentarą"
-                        >
-                          ♥ {c.like_count}
-                        </button>
-                      )}
-                    </div>
-                    <div style={{ fontSize: 12, lineHeight: 1.45, color: 'var(--text-primary)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                      {c.content_text || ''}
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
+      <div style={{ padding: '14px 14px 12px' }}>
+        <EntityCommentsBlock
+          entityType="track"
+          entityId={track.id}
+          title="Komentarai"
+        />
       </div>
     </div>
   )
@@ -672,14 +432,15 @@ export default function TrackPageClient({
         )}
       </div>
 
-      {/* Lyrics content */}
+      {/* Lyrics content — naudojam unifikuotą LyricsWithReactions (tas pats
+          komponentas veikia track modal'e, čia, ir bus visur kur reikia
+          reaguoti į konkrečias dainos eilutes). */}
       {tab === 'lyrics' && (
         !hasLyrics
           ? <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-faint)', fontSize: 13 }}>Dainos tekstas dar nepridėtas</div>
           : (
-            <div data-lyrics style={{ position: 'relative', padding: '16px 18px', userSelect: 'text', cursor: 'text' }}
-              onMouseUp={onMouseUp}>
-              {renderLyrics()}
+            <div style={{ position: 'relative', padding: '16px 18px' }}>
+              <LyricsWithReactions trackId={track.id} lyrics={track.lyrics ?? ''} />
             </div>
           )
       )}
@@ -718,111 +479,11 @@ export default function TrackPageClient({
   return (
     <div style={{ background: 'var(--bg-body)', color: 'var(--text-primary)', fontFamily: "'DM Sans',system-ui,sans-serif", WebkitFontSmoothing: 'antialiased', minHeight: '100vh' }}>
 
-      {/* ── Side panel ─────────────────────────────────────────────────────── */}
-      {panel && (
-        <div data-panel
-          style={{ position: 'fixed', top: 0, right: 0, width: 320, height: '100vh', background: 'var(--panel-bg)', borderLeft: '1px solid var(--card-border-default)', boxShadow: '-12px 0 40px rgba(0,0,0,.22)', zIndex: 150, display: 'flex', flexDirection: 'column', animation: 'slideIn .2s ease' }}>
+      {/* Side panel pašalintas — eilučių reakcijas dabar tvarko unifikuotas
+          LyricsWithReactions komponentas (popover virš pažymėjimo, kaip
+          modal'e). */}
 
-          {/* Header */}
-          <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--card-border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--text-muted)', fontFamily: 'Outfit,sans-serif' }}>Pažymėta vieta</span>
-            <button onClick={() => setPanel(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-faint)', padding: 4, borderRadius: 6, display: 'flex' }}>
-              <XIcon s={16} />
-            </button>
-          </div>
-
-          {/* Quote */}
-          <div style={{ margin: '14px 16px 0', padding: '12px 14px', background: 'rgba(249,115,22,.06)', border: '1px solid rgba(249,115,22,.2)', borderLeft: '3px solid rgba(249,115,22,.6)', borderRadius: '0 10px 10px 0' }}>
-            <p style={{ fontSize: 13, color: 'var(--text-primary)', fontStyle: 'italic', lineHeight: 1.65, margin: 0 }}>
-              „{panel.text.length > 140 ? panel.text.slice(0, 140) + '…' : panel.text}"
-            </p>
-          </div>
-
-          {/* Tabs */}
-          <div style={{ display: 'flex', borderBottom: '1px solid var(--card-border-subtle)', padding: '0 16px', marginTop: 12 }}>
-            {(['react', 'share'] as const).map(t => (
-              <button key={t} onClick={() => setPanelTab(t)}
-                style={{ padding: '9px 12px 8px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: panelTab === t ? 800 : 600, color: panelTab === t ? '#f97316' : 'var(--text-faint)', borderBottom: panelTab === t ? '2px solid #f97316' : '2px solid transparent', marginBottom: -1, fontFamily: 'Outfit,sans-serif', textTransform: 'uppercase', letterSpacing: '.06em' }}>
-                {t === 'react' ? 'Reagavimas' : 'Dalintis'}
-              </button>
-            ))}
-          </div>
-
-          {/* Content */}
-          <div style={{ flex: 1, padding: 16, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {panelTab === 'react' && (
-              <>
-                {/* Existing reactions */}
-                {panelRxns.length > 0 && (
-                  <div style={{ padding: '10px 12px', borderRadius: 10, background: 'var(--card-active-bg)', border: '1px solid rgba(249,115,22,.2)' }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '.07em', fontFamily: 'Outfit,sans-serif', marginBottom: 7 }}>Esamos reakcijos</div>
-                    {panelRxns.filter((r: LyricReaction) => r.type === 'like').length > 0 && (
-                      <div style={{ fontSize: 12, color: '#f97316', fontWeight: 700, marginBottom: 4 }}>♥ {panelRxns.filter((r: LyricReaction) => r.type === 'like').length} patinka</div>
-                    )}
-                    {panelRxns.filter((r: LyricReaction) => r.type === 'comment').map((c: LyricReaction) => (
-                      <div key={c.id} style={{ fontSize: 12, color: 'var(--text-secondary)', padding: '4px 0', borderTop: '1px solid var(--card-border-subtle)' }}>💬 {c.text}</div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Like button */}
-                <button onClick={doLike} disabled={saving}
-                  style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 12, background: 'rgba(249,115,22,.08)', border: '1px solid rgba(249,115,22,.22)', cursor: saving ? 'wait' : 'pointer', width: '100%', textAlign: 'left' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(249,115,22,.14)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'rgba(249,115,22,.08)')}>
-                  <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(249,115,22,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18 }}>♥</div>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#f97316', fontFamily: 'Outfit,sans-serif' }}>Patinka šita vieta</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>Pažymėk kaip mėgstamą</div>
-                  </div>
-                </button>
-
-                {/* Comment */}
-                <div style={{ borderRadius: 12, background: 'var(--card-hover-bg)', border: '1px solid var(--card-border-subtle)', overflow: 'hidden', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'Outfit,sans-serif' }}>💬 Komentuoti</div>
-                  <textarea ref={commentInputRef}
-                    placeholder="Tavo mintys apie šią vietą…"
-                    rows={3}
-                    style={{ width: '100%', borderRadius: 10, padding: '9px 12px', fontSize: 12, background: 'var(--comment-input-bg)', border: '1px solid var(--comment-border)', color: 'var(--text-primary)', outline: 'none', resize: 'none', fontFamily: "'DM Sans',sans-serif", boxSizing: 'border-box', lineHeight: 1.55 }}
-                    onFocus={e => (e.currentTarget.style.borderColor = 'rgba(249,115,22,.5)')}
-                    onBlur={e => (e.currentTarget.style.borderColor = 'var(--comment-border)')}
-                  />
-                  <button onClick={doComment} disabled={saving}
-                    style={{ padding: '8px 16px', borderRadius: 999, background: '#f97316', border: 'none', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit,sans-serif', alignSelf: 'flex-end' }}>
-                    Išsaugoti
-                  </button>
-                </div>
-              </>
-            )}
-
-            {panelTab === 'share' && (
-              <>
-                <div style={{ background: 'var(--bg-active)', border: '1px solid rgba(249,115,22,.2)', borderRadius: 12, padding: 16 }}>
-                  <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.65, margin: '0 0 12px', fontStyle: 'italic' }}>
-                    „{panel.text.length > 120 ? panel.text.slice(0, 120) + '…' : panel.text}"
-                  </p>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {primaryAlbum?.cover_image_url && <img src={proxyImg(primaryAlbum.cover_image_url)} style={{ width: 24, height: 24, borderRadius: 4, objectFit: 'cover' }} alt="" />}
-                    <div>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-primary)' }}>{track.title}</div>
-                      <div style={{ fontSize: 9, color: '#f97316' }}>{artist.name}</div>
-                    </div>
-                    <div style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 800, color: 'var(--text-faint)', fontFamily: 'Outfit,sans-serif' }}>music.lt</div>
-                  </div>
-                </div>
-                <button
-                  onClick={() => { navigator.clipboard.writeText(`„${panel.text}"\n\n— ${track.title}, ${artist.name}\nmusic.lt`); setPanel(null) }}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '11px 16px', borderRadius: 12, background: 'rgba(249,115,22,.1)', border: '1px solid rgba(249,115,22,.3)', color: '#f97316', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit,sans-serif' }}>
-                  📋 Kopijuoti citatą
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
-
-            {/* ── Desktop ────────────────────────────────────────────────────────── */}
+      {/* ── Desktop ────────────────────────────────────────────────────────── */}
       <div className="tr-desk" style={{ maxWidth: 1400, margin: '0 auto', padding: '14px 20px 60px', display: 'grid', gridTemplateColumns: '2fr 3fr', gap: 14, alignItems: 'start' }}>
         <div style={{ position: 'sticky', top: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <TrackInfoCard />
