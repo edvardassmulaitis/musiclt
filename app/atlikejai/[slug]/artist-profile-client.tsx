@@ -417,7 +417,14 @@ function PlayerCard({
             // YT IFrame API mounts an iframe inside this container. We don't
             // render an <iframe> ourselves — YT.Player does, inside the user
             // gesture, which is what unlocks mobile autoplay.
-            <div ref={containerRef} key={displayVid} className="absolute inset-0 h-full w-full" />
+            {/* NB: NIEKADA neperduokim key={displayVid} čia. Toks key force'na
+                React unmount + remount kai vartotojas perjungia track'ą,
+                tačiau YT.Player'io destroy() vykdomas prieš kažkurį microtask
+                bando manipuliuoti senuoju iframe DOM, kuris jau pašalintas →
+                "NotFoundError: The object can not be found here."
+                Vietoj to: same div'ą reuse'inam, useEffect destroy'na
+                ankstesnį player'į ir sukuria naują toje pačioje DOM vietoje. */}
+            <div ref={containerRef} className="absolute inset-0 h-full w-full" />
           ) : (
             // Initial / not-yet-played state: thumbnail + big central play
             // button. Clicking the button (or anywhere on the thumbnail)
