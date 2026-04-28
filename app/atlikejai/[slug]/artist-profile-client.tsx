@@ -10,6 +10,7 @@ import ArtistAwards, { type AwardRow } from '@/components/ArtistAwards'
 import type { LegacyLikeUser } from '@/components/LegacyLikesPanel'
 import EntityCommentsBlock from '@/components/EntityCommentsBlock'
 import MusicSearchPicker, { AttachmentChips, type AttachmentHit } from '@/components/MusicSearchPicker'
+import LyricsWithReactions from '@/components/LyricsWithReactions'
 import { proxyImg } from '@/lib/img-proxy'
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -987,12 +988,15 @@ function TrackInfoModal({
         <div className="flex-1 overflow-y-auto px-5 py-5">
           {lyricsText ? (
             <div>
-              <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.2em] text-[var(--text-muted)]">
-                Tekstas
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.2em] text-[var(--text-muted)]">
+                  Tekstas
+                </div>
+                <span className="font-['Outfit',sans-serif] text-[9.5px] font-medium text-[var(--text-faint)]">
+                  Pažymėk eilutę → reaguok
+                </span>
               </div>
-              <div className="whitespace-pre-wrap font-['DM_Sans',system-ui,sans-serif] text-[14px] leading-[1.6] text-[var(--text-primary)]">
-                {lyricsText}
-              </div>
+              <LyricsWithReactions trackId={track.id} lyrics={lyricsText} compact />
             </div>
           ) : (
             <div className="py-8 text-center text-[13px] text-[var(--text-muted)]">
