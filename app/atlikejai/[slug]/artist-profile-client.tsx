@@ -1072,26 +1072,25 @@ function Hero({
 
       <div
         className={[
-          'relative mx-auto grid max-w-[1400px] grid-cols-1 gap-6 px-4 pb-4 pt-5 sm:px-6 lg:gap-8 lg:min-h-[440px] lg:px-10 lg:py-8',
-          // Desktop layout: 3 col [photo space | events vertical | player].
-          // Photo'as yra lg:absolute, tad pirmas col tarnauja kaip
-          // visual spacer (kad tarpas tarp photo ir events būtų).
-          hasAnyVideo
-            ? 'lg:grid-cols-[var(--hero-w,480px)_1fr_460px]'
-            : 'lg:grid-cols-[var(--hero-w,480px)_1fr]',
+          'relative mx-auto grid max-w-[1400px] grid-cols-1 gap-6 px-4 pb-6 pt-5 sm:px-6 lg:gap-8 lg:min-h-[440px] lg:px-10 lg:py-8',
+          hasAnyVideo ? 'lg:grid-cols-[1fr_460px]' : '',
         ].join(' ')}
       >
-        {/* Mobile-only: title + likes at top (sticking with original UX) */}
+        {/* Title column — title + likes (events pavažiavę žemiau, į savo
+            sekciją po hero). Title columnas dabar ne 1fr per visą plotį,
+            o pradeda nuo photo's krašto, todėl natūraliai gali wrap'inti
+            ilgus pavadinimus. */}
         <div
           className={[
-            'flex min-w-0 flex-col justify-end gap-4 lg:hidden',
+            'flex min-w-0 flex-col justify-end gap-4',
+            'lg:pl-[calc(var(--hero-w,480px)-2.5rem)]',
             'transition-[opacity,transform] duration-700 ease-out',
             loaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
           ].join(' ')}
         >
           <h1
-            className="font-['Outfit',sans-serif] font-black leading-[0.9] tracking-[-0.04em] text-[var(--text-primary)]"
-            style={{ fontSize: 'clamp(2.25rem,6vw,4.5rem)' }}
+            className="font-['Outfit',sans-serif] font-black leading-[0.95] tracking-[-0.04em] text-[var(--text-primary)] lg:text-white lg:drop-shadow-[0_6px_32px_rgba(0,0,0,0.8)]"
+            style={{ fontSize: 'clamp(2rem,5vw,3.75rem)' }}
           >
             {artist.name}
             {artist.is_verified && (
@@ -1110,69 +1109,6 @@ function Hero({
               variant="light"
             />
           </div>
-        </div>
-
-        {/* Desktop: photo spacer column (foto'as render'inamas absolute) */}
-        <div className="hidden lg:block" />
-
-        {/* Events column.
-            - Mobile: horizontal snap scroll under title.
-            - Desktop: vertical stack šalia player'io.
-            UI'iui lengvesnis layout — vienas blokas, du režimai. */}
-        <div className="flex min-w-0 flex-col">
-          {upcomingEvents.length > 0 && (() => {
-            const MAX_VISIBLE_DESKTOP = 3
-            const hasOverflow = upcomingEvents.length > MAX_VISIBLE_DESKTOP
-            const desktopVisible = hasOverflow
-              ? upcomingEvents.slice(0, MAX_VISIBLE_DESKTOP)
-              : upcomingEvents
-            const overflow = upcomingEvents.length - desktopVisible.length
-            return (
-              <div>
-                <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.18em] text-[var(--accent-orange)] lg:text-white/85">
-                  Artimiausi renginiai
-                </div>
-
-                {/* Mobile — horizontal snap scroll (kaip anksčiau) */}
-                <div
-                  className="flex items-stretch gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:hidden"
-                  style={{
-                    scrollSnapType: 'x mandatory',
-                    scrollPaddingLeft: '1rem',
-                    overscrollBehaviorX: 'contain',
-                    WebkitOverflowScrolling: 'touch',
-                  }}
-                >
-                  {upcomingEvents.map((e: any) => (
-                    <div
-                      key={e.id}
-                      className="flex w-[86%] shrink-0"
-                      style={{ scrollSnapAlign: 'start' }}
-                    >
-                      <EventCard e={e} variant="upcoming" />
-                    </div>
-                  ))}
-                </div>
-
-                {/* Desktop — vertical stack (kortelės viena po kitos) +
-                    overflow tile mygtukas apačioje */}
-                <div className="hidden flex-col gap-3 lg:flex">
-                  {desktopVisible.map((e: any) => (
-                    <EventCard key={e.id} e={e} variant="vertical" />
-                  ))}
-                  {hasOverflow && (
-                    <button
-                      type="button"
-                      onClick={onOpenEventsModal}
-                      className="group flex items-center justify-center gap-2 rounded-xl border border-dashed border-[rgba(249,115,22,0.4)] bg-[rgba(249,115,22,0.06)] px-3 py-2.5 text-[12px] font-extrabold text-[var(--accent-orange)] transition-all hover:border-[rgba(249,115,22,0.7)] hover:bg-[rgba(249,115,22,0.10)]"
-                    >
-                      Žiūrėti visus +{overflow}
-                    </button>
-                  )}
-                </div>
-              </div>
-            )
-          })()}
         </div>
 
         {/* Player column — only rendered when the artist has at least one
@@ -1203,38 +1139,53 @@ function Hero({
         )}
       </div>
 
-      {/* Desktop title + likes — render'inami POD hero grid'u, kad
-          neuždangtų photo'os. Mobile turi savo title+likes block'ą hero
-          grid'o viršuje, todėl šis paslėptas <lg. */}
-      <div
-        className={[
-          'mx-auto hidden max-w-[1400px] px-10 pb-6 pt-2 lg:block',
-          'transition-[opacity,transform] duration-700 ease-out',
-          loaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
-        ].join(' ')}
-      >
-        <h1
-          className="mb-4 font-['Outfit',sans-serif] font-black leading-[0.9] tracking-[-0.04em] text-[var(--text-primary)]"
-          style={{ fontSize: 'clamp(2.5rem,5vw,4rem)' }}
-        >
-          {artist.name}
-          {artist.is_verified && (
-            <span className="ml-3 inline-flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#3b82f6] to-[#1d4ed8] align-middle shadow-[0_4px_16px_rgba(59,130,246,0.5)]">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>
-            </span>
-          )}
-        </h1>
-        <div className="flex flex-wrap items-center gap-2">
-          <LikePill
-            likes={likes}
-            selfLiked={selfLiked}
-            onToggle={onToggleLike}
-            onOpenModal={onOpenLikersModal}
-            pending={selfLikePending}
-            variant="surface"
-          />
-        </div>
-      </div>
+      {/* Events strip — atskira sekcija PO hero grid'u, full width. Anksčiau
+          buvo title columnoje (overlap'inami su photo). Dabar matomi visi 3
+          events horizontaliai, +N tile'as overflow'ui. Mobile lieka snap
+          scroll'inamas. */}
+      {upcomingEvents.length > 0 && (() => {
+        const MAX_VISIBLE = 3
+        const hasOverflow = upcomingEvents.length > MAX_VISIBLE
+        const desktopVisible = hasOverflow ? upcomingEvents.slice(0, MAX_VISIBLE) : upcomingEvents
+        const overflow = upcomingEvents.length - desktopVisible.length
+        return (
+          <div className="mx-auto max-w-[1400px] px-4 pb-6 pt-2 sm:px-6 lg:px-10">
+            <div className="mb-3 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.18em] text-[var(--accent-orange)]">
+              Artimiausi renginiai
+            </div>
+            {/* Mobile — horizontal snap scroll */}
+            <div
+              className="flex items-stretch gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:hidden"
+              style={{
+                scrollSnapType: 'x mandatory',
+                scrollPaddingLeft: '1rem',
+                overscrollBehaviorX: 'contain',
+                WebkitOverflowScrolling: 'touch',
+              }}
+            >
+              {upcomingEvents.map((e: any) => (
+                <div
+                  key={e.id}
+                  className="flex w-[86%] shrink-0"
+                  style={{ scrollSnapAlign: 'start' }}
+                >
+                  <EventCard e={e} variant="upcoming" />
+                </div>
+              ))}
+            </div>
+            {/* Desktop / tablet — grid 2-3 col + overflow tile */}
+            <div className={[
+              'hidden gap-3 sm:grid',
+              hasOverflow ? 'sm:grid-cols-[1fr_1fr_1fr_auto]' : 'sm:grid-cols-3',
+            ].join(' ')}>
+              {desktopVisible.map((e: any) => (
+                <EventCard key={e.id} e={e} variant="vertical" />
+              ))}
+              {hasOverflow && <MoreEventsTile count={overflow} onClick={onOpenEventsModal} />}
+            </div>
+          </div>
+        )
+      })()}
     </section>
   )
 }
@@ -1713,13 +1664,11 @@ function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' |
   const href = `/renginiai/${e.slug}`
   const monthShort = d.toLocaleDateString('lt-LT', { month: 'short' }).replace('.', '')
   const [coverFailed, setCoverFailed] = useState(false)
-  // Music.lt event cover URL'ai dažniausiai grąžina stub-PNG (calendar+? glyph)
-  // — request grįžta 200, bet vaizdas yra placeholder. Sunku skirti programiškai
-  // (PNG load'inasi sėkmingai, dimensijos > 80px). Saugiausia — visai ne'rodyti
-  // music.lt cover URL'ų. Kai admin'as įkels savo nuotrauką į mūsų storage,
-  // URL nebus music.lt → bus parodyta normaliai.
-  const isMusicLtUrl = typeof e.cover_image_url === 'string' && /(?:^|\/\/)(?:www\.)?music\.lt\//i.test(e.cover_image_url)
-  const hasCover = !!e.cover_image_url && !coverFailed && !isMusicLtUrl
+  // Music.lt event cover URL'ai TURI realius poster image'us
+  // (/renginiai/NN/images/renginiai/NN/<eid>.jpg). Anksčiau buvo blanket
+  // filter visiems music.lt URL'ams — klaidinga. Dabar tik onError fallback
+  // jei URL'as broken'ija; visi kiti rodomi.
+  const hasCover = !!e.cover_image_url && !coverFailed
 
   if (variant === 'past') {
     return (
@@ -1741,20 +1690,23 @@ function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' |
   }
 
   if (variant === 'vertical') {
-    // Vertical stack — image arba date block top, text below. Naudojama
-    // hero side column'e (desktop), kur card'as siauresnis nei horizontalus.
+    // Vertical: image (or icon fallback) viršuje, info block apačioje.
+    // Date rodoma kompakčiai šalia title kaip stilizuotas badge — ne
+    // atskirame dideliame block'e (taupom vietos, foto akcent'uoja
+    // vizualiai).
     return (
       <Link
         href={href}
         className="group flex w-full flex-col overflow-hidden rounded-xl border border-[rgba(249,115,22,0.3)] no-underline transition-all hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.55)] hover:shadow-[0_8px_22px_rgba(249,115,22,0.18)]"
-        style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.16), rgba(249,115,22,0.04) 70%), var(--bg-elevated)' }}
+        style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.12), rgba(249,115,22,0.02) 70%), var(--bg-elevated)' }}
       >
-        <div className="relative aspect-[16/10] w-full overflow-hidden bg-gradient-to-br from-[rgba(249,115,22,0.20)] to-[rgba(249,115,22,0.06)]">
-          {/* Always-on fallback — calendar icon + date */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
-            <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--accent-orange)]">{monthShort}</span>
-            <span className="font-['Outfit',sans-serif] text-[34px] font-black leading-none text-[var(--text-primary)] drop-shadow">{d.getDate()}</span>
-            <span className="font-['Outfit',sans-serif] text-[9px] font-bold text-[var(--text-muted)]">{d.getFullYear()}</span>
+        <div className="relative aspect-[16/10] w-full overflow-hidden bg-gradient-to-br from-[rgba(249,115,22,0.18)] to-[rgba(249,115,22,0.05)]">
+          {/* Fallback layer — calendar icon. Visada rendered'as kad nebūtų
+              flash'o tarp request fail ir onError. */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" className="text-[var(--accent-orange)]/40">
+              <path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </div>
           {hasCover && (
             <img
@@ -1765,13 +1717,14 @@ function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' |
               className="absolute inset-0 h-full w-full object-cover"
             />
           )}
-          {hasCover && (
-            <div className="absolute inset-0 bg-gradient-to-t from-black/65 to-transparent" />
-          )}
         </div>
-        <div className="flex flex-col gap-1 px-3 py-2.5">
-          <div className="line-clamp-2 font-['Outfit',sans-serif] text-[13px] font-bold leading-snug text-[var(--text-primary)]">{e.title}</div>
-          {venue && <div className="line-clamp-1 text-[11px] text-[var(--text-secondary)]">📍 {venue}</div>}
+        <div className="flex flex-col gap-1.5 px-3.5 py-3">
+          {/* Date pill: kompakčiai vietoj didelio block'o */}
+          <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.08em] text-[var(--accent-orange)]">
+            {formatLtDate(d)}
+          </div>
+          <div className="line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-bold leading-snug text-[var(--text-primary)]">{e.title}</div>
+          {venue && <div className="line-clamp-1 text-[12px] text-[var(--text-secondary)]">📍 {venue}</div>}
         </div>
       </Link>
     )
@@ -1960,13 +1913,11 @@ function EventBigCard({ e }: { e: any }) {
   const href = `/renginiai/${e.slug}`
   const longDate = formatLtDate(d, { long: true })
   const [coverFailed, setCoverFailed] = useState(false)
-  // Music.lt event cover URL'ai dažniausiai grąžina stub-PNG (calendar+? glyph)
-  // — request grįžta 200, bet vaizdas yra placeholder. Sunku skirti programiškai
-  // (PNG load'inasi sėkmingai, dimensijos > 80px). Saugiausia — visai ne'rodyti
-  // music.lt cover URL'ų. Kai admin'as įkels savo nuotrauką į mūsų storage,
-  // URL nebus music.lt → bus parodyta normaliai.
-  const isMusicLtUrl = typeof e.cover_image_url === 'string' && /(?:^|\/\/)(?:www\.)?music\.lt\//i.test(e.cover_image_url)
-  const hasCover = !!e.cover_image_url && !coverFailed && !isMusicLtUrl
+  // Music.lt event cover URL'ai TURI realius poster image'us
+  // (/renginiai/NN/images/renginiai/NN/<eid>.jpg). Anksčiau buvo blanket
+  // filter visiems music.lt URL'ams — klaidinga. Dabar tik onError fallback
+  // jei URL'as broken'ija; visi kiti rodomi.
+  const hasCover = !!e.cover_image_url && !coverFailed
   return (
     <Link
       href={href}
