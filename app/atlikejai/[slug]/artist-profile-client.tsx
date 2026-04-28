@@ -1159,14 +1159,23 @@ function Hero({
       <div
         className={[
           'relative mx-auto grid max-w-[1400px] grid-cols-1 gap-6 px-4 pb-6 pt-5 sm:px-6 lg:gap-6 lg:min-h-[440px] lg:items-end lg:px-10 lg:py-8',
-          // 3-col layout greta photo'os (kuri yra absolute):
-          // [title 1fr (overlay'inamas ant photo)] [events 280px self-end]
-          // [player 460px]
-          // items-end + per-column self-end → events ir title prikllijuojama
-          // prie apačios; player'is pats užima pilną aukštį.
-          hasAnyVideo
+          // Layout greta photo'os (kuri yra absolute). Grid kolonos
+          // priklauso nuo:
+          //   1) Ar yra player'is (hasAnyVideo)
+          //   2) Ar yra renginių (hasUpcomingEvents)
+          // Kombinacijos:
+          //   yra abu → [title 1fr | events 280px | player 460px]
+          //   yra player, ne renginiai → [title 1fr | player 460px] (be 280px slot'o)
+          //   yra renginiai, ne player → [title 1fr | events 280px]
+          //   nei vieno → [title 1fr]
+          // items-end + per-col self-end — content prie apačios.
+          (hasAnyVideo && upcomingEvents.length > 0)
             ? 'lg:grid-cols-[1fr_280px_460px]'
-            : 'lg:grid-cols-[1fr_280px]',
+            : hasAnyVideo
+            ? 'lg:grid-cols-[1fr_460px]'
+            : upcomingEvents.length > 0
+            ? 'lg:grid-cols-[1fr_280px]'
+            : '',
         ].join(' ')}
       >
         {/* Title column — title + likes. Be padding offset'o, todėl ant
