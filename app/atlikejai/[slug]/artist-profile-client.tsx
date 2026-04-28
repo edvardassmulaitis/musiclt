@@ -65,12 +65,18 @@ type LegacyCommunity = {
   topFans: (LegacyLikeUser & { like_count: number })[]
   allArtistFans: LegacyLikeUser[]
 }
+type LegacyPost = {
+  body: string
+  author_username: string | null
+  author_avatar_url?: string | null
+  created_at: string | null
+}
 type LegacyThread = {
   legacy_id: number; slug: string; source_url: string
   title?: string | null; post_count?: number | null
   first_post_at?: string | null; last_post_at?: string | null
-  last_post?: { body: string; author_username: string | null; created_at: string | null } | null
-  recent_posts?: { body: string; author_username: string | null; created_at: string | null }[]
+  last_post?: LegacyPost | null
+  recent_posts?: LegacyPost[]
 }
 type Rank = { category: string; rank: number; total: number; scope: 'country' | 'genre' | 'global' }
 type Props = {
@@ -2487,42 +2493,53 @@ function TrackRow({ t, popularity, artistSlug }: { t: Track; popularity?: number
 
 // ── DiscussionRow: title + last post preview on the right ──────────
 
+/** UserAvatar — real avatar URL when available, otherwise tinted initial.
+ *  Used in DiscussionRow / DiscussionThreadModal. Falls back to initial bubble
+ *  if image URL fails to load. */
+function UserAvatar({ name, avatarUrl, size = 22 }: { name: string; avatarUrl?: string | null; size?: number }) {
+  const [failed, setFailed] = useState(false)
+  if (avatarUrl && !failed) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={proxyImg(avatarUrl)}
+        alt={name}
+        referrerPolicy="no-referrer"
+        onError={() => setFailed(true)}
+        style={{ width: size, height: size }}
+        className="shrink-0 rounded-full object-cover"
+      />
+    )
+  }
+  return <AvatarBubble name={name} size={size} />
+}
+
 /** Discussion preview card — 3 per row desktop. Po pavadinimu rodo iki 2
- *  paskutinių komentarų teaser'ių (avatar + author·timeago + 2-eilutė
- *  preview). Kortelė `flex flex-col` su `flex-1` ant comment'ų wrapper'io —
- *  dėl to grid'e (auto-rows-fr) visos kortelės vienodo aukščio.
- *  Daugiau diskusijų — atidaroma `DiscussionsModal` per "Žiūrėti visas"
- *  mygtuką (panašiai kaip events archyvas).
+ *  paskutinių komentarų teaser'ių (avatar + author + 2-eilutė preview).
+ *  Apačioje — orange "N komentarų" link'as vietoj corner chip'o, kad iš
+ *  kortelės būtų aišku kiek diskusijoje yra komentarų.
+ *
+ *  Click — atidaro slide-in modal'ą su pilnu thread'u; navigacija į
+ *  /diskusijos/tema/... yra fallback'as kai prop'as `onOpen` neperduotas.
  */
-function DiscussionRow({ t }: { t: LegacyThread; isLast?: boolean }) {
+function DiscussionRow({ t, onOpen }: { t: LegacyThread; isLast?: boolean; onOpen?: (t: LegacyThread) => void }) {
   const title = t.title || slugToForumTitle(t.slug)
   const pc = t.post_count ?? 0
-  // recent_posts ateina iš serverio (iki 2 paskutinių); jei tuščia —
-  // fallback į last_post (single), arba placeholder.
   const recent = (t.recent_posts && t.recent_posts.length > 0)
     ? t.recent_posts
     : (t.last_post ? [t.last_post] : [])
 
-  return (
-    <Link
-      href={`/diskusijos/tema/${t.legacy_id}`}
-      className="group flex h-full flex-col gap-2.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3.5 py-3 no-underline transition-all hover:-translate-y-0.5 hover:border-[var(--border-default)] hover:bg-[var(--bg-hover)] hover:shadow-sm"
-    >
-      {/* Title + count chip. */}
-      <div className="flex items-start gap-2.5">
-        <div className="line-clamp-2 flex-1 font-['Outfit',sans-serif] text-[13.5px] font-bold leading-snug text-[var(--text-primary)]">
-          {title}
-        </div>
-        {pc > 0 && (
-          <span className="shrink-0 rounded-full bg-[var(--bg-elevated)] px-2 py-0.5 font-['Outfit',sans-serif] text-[10.5px] font-extrabold tabular-nums text-[var(--text-muted)]">
-            {pc}
-          </span>
-        )}
+  const sharedClassName = 'group flex h-full flex-col gap-2.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3.5 py-3 text-left no-underline transition-all hover:-translate-y-0.5 hover:border-[var(--border-default)] hover:bg-[var(--bg-hover)] hover:shadow-sm'
+
+  const inner = (
+    <>
+      {/* Title — kortelės viršuje, no count chip greta. */}
+      <div className="font-['Outfit',sans-serif] text-[13.5px] font-bold leading-snug text-[var(--text-primary)] line-clamp-2">
+        {title}
       </div>
 
-      {/* Comments preview — iki 2 paskutinių. Avatar + author·timeago
-          header + 2-eilutė preview. */}
-      <div className="flex flex-1 flex-col gap-1.5">
+      {/* Comments preview — iki 2 paskutinių, su realiais avatarais. */}
+      <div className="flex flex-1 flex-col gap-2">
         {recent.length === 0 ? (
           <div className="text-[11.5px] leading-tight text-[var(--text-faint)]">Dar nekomentuota</div>
         ) : (
@@ -2530,14 +2547,11 @@ function DiscussionRow({ t }: { t: LegacyThread; isLast?: boolean }) {
             const text = stripHtml(p.body || '').slice(0, 140)
             const author = p.author_username || 'Anonimas'
             return (
-              <div key={i} className="flex items-start gap-2 border-t border-[var(--border-subtle)] pt-1.5 first:border-t-0 first:pt-0">
-                <AvatarBubble name={author} size={18} />
+              <div key={i} className="flex items-start gap-2 border-t border-[var(--border-subtle)] pt-2 first:border-t-0 first:pt-0">
+                <UserAvatar name={author} avatarUrl={p.author_avatar_url} size={20} />
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline gap-1.5 text-[10.5px]">
-                    <span className="truncate font-['Outfit',sans-serif] font-bold text-[var(--text-secondary)]">{author}</span>
-                    {p.created_at && (
-                      <span className="shrink-0 text-[var(--text-faint)]">· {timeAgo(p.created_at)}</span>
-                    )}
+                  <div className="truncate font-['Outfit',sans-serif] text-[10.5px] font-bold text-[var(--text-secondary)]">
+                    {author}
                   </div>
                   <div className="line-clamp-2 text-[11.5px] leading-snug text-[var(--text-muted)]">
                     {text}
@@ -2548,7 +2562,180 @@ function DiscussionRow({ t }: { t: LegacyThread; isLast?: boolean }) {
           })
         )}
       </div>
+
+      {/* Orange "N komentarų" link apačioj — pakeičia corner chip'ą,
+          aiškus call to action į pilną diskusiją. */}
+      {pc > 0 && (
+        <div className="border-t border-[var(--border-subtle)] pt-2">
+          <span className="font-['Outfit',sans-serif] text-[11.5px] font-extrabold text-[var(--accent-orange)] group-hover:underline">
+            {pc} {pc === 1 ? 'komentaras' : (pc < 10 ? 'komentarai' : 'komentarų')} →
+          </span>
+        </div>
+      )}
+    </>
+  )
+
+  if (onOpen) {
+    return (
+      <button type="button" onClick={() => onOpen(t)} className={sharedClassName}>
+        {inner}
+      </button>
+    )
+  }
+  return (
+    <Link href={`/diskusijos/tema/${t.legacy_id}`} className={sharedClassName}>
+      {inner}
     </Link>
+  )
+}
+
+/** DiscussionThreadModal — slide-in left drawer su pilnu thread'u.
+ *  Idėja kaip ir TrackInfoModal: kontekstas (artist hero) lieka užkulisiuose,
+ *  vartotojas perskaito visus komentarus + uždaro be naujo page load'o.
+ *  Komentarai keliauja per /api/threads/[legacy_id]/posts — chronologiškai
+ *  (seniausias viršuje), su realiais avatarais. */
+function DiscussionThreadModal({
+  thread, onClose,
+}: { thread: LegacyThread | null; onClose: () => void }) {
+  const [mounted, setMounted] = useState(false)
+  const [posts, setPosts] = useState<Array<{
+    legacy_id: number
+    author_username: string | null
+    author_avatar_url: string | null
+    created_at: string | null
+    content_text: string
+    content_html: string | null
+  }> | null>(null)
+
+  useEffect(() => {
+    if (thread) {
+      const r = requestAnimationFrame(() => setMounted(true))
+      const h = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose() }
+      window.addEventListener('keydown', h)
+      setPosts(null)
+      fetch(`/api/threads/${thread.legacy_id}/posts`)
+        .then(r => r.json())
+        .then(d => setPosts(d.posts || []))
+        .catch(() => setPosts([]))
+      document.body.style.overflow = 'hidden'
+      return () => {
+        cancelAnimationFrame(r)
+        window.removeEventListener('keydown', h)
+        document.body.style.overflow = ''
+      }
+    }
+    setMounted(false)
+    return
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [thread?.legacy_id])
+
+  const handleClose = () => {
+    setMounted(false)
+    window.setTimeout(onClose, 200)
+  }
+
+  if (!thread) return null
+
+  const title = thread.title || slugToForumTitle(thread.slug)
+  const pc = thread.post_count ?? (posts?.length ?? 0)
+
+  return (
+    <div
+      className="fixed inset-0 z-[9999]"
+      onClick={(e) => { if (e.target === e.currentTarget) handleClose() }}
+    >
+      <div
+        className={[
+          'absolute inset-0 bg-black/30 transition-opacity duration-200',
+          mounted ? 'opacity-100' : 'opacity-0',
+        ].join(' ')}
+        onClick={handleClose}
+      />
+
+      <aside
+        role="dialog"
+        aria-label={title}
+        className={[
+          'absolute right-0 top-0 flex h-full w-full max-w-[520px] flex-col border-l border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[-24px_0_60px_-10px_rgba(0,0,0,0.5)]',
+          'transition-transform duration-200 ease-out',
+          mounted ? 'translate-x-0' : 'translate-x-full',
+        ].join(' ')}
+      >
+        {/* Header — title + close + post-count chip in orange */}
+        <div className="flex items-start gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
+          <div className="min-w-0 flex-1">
+            <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+              Diskusija
+            </div>
+            <h2 className="mt-1 font-['Outfit',sans-serif] text-[17px] font-extrabold leading-tight text-[var(--text-primary)]">
+              {title}
+            </h2>
+            {pc > 0 && (
+              <div className="mt-1 font-['Outfit',sans-serif] text-[11.5px] font-extrabold text-[var(--accent-orange)]">
+                {pc} {pc === 1 ? 'komentaras' : (pc < 10 ? 'komentarai' : 'komentarų')}
+              </div>
+            )}
+          </div>
+          <a
+            href={`/diskusijos/tema/${thread.legacy_id}`}
+            target="_blank"
+            rel="noopener"
+            title="Atidaryti pilname puslapyje"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+          >
+            <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 3h7v7M21 3l-9 9M5 5h6M5 5v14h14v-6" />
+            </svg>
+          </a>
+          <button
+            onClick={handleClose}
+            aria-label="Uždaryti"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+          >
+            <svg viewBox="0 0 16 16" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+              <path d="M3 3l10 10M13 3L3 13" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Posts list — chronologically (oldest first). */}
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          {posts === null && (
+            <div className="space-y-3">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="h-16 w-full animate-pulse rounded-lg bg-[var(--bg-elevated)]" />
+              ))}
+            </div>
+          )}
+          {posts !== null && posts.length === 0 && (
+            <div className="py-12 text-center text-[12px] text-[var(--text-faint)]">Komentarų nėra.</div>
+          )}
+          {posts && posts.length > 0 && (
+            <ul className="flex flex-col gap-3">
+              {posts.map((p) => {
+                const author = p.author_username || 'Anonimas'
+                const text = (p.content_text && String(p.content_text).trim())
+                  || (p.content_html && stripHtml(p.content_html))
+                  || ''
+                return (
+                  <li key={p.legacy_id} className="flex items-start gap-2.5 border-b border-[var(--border-subtle)] pb-3 last:border-b-0 last:pb-0">
+                    <UserAvatar name={author} avatarUrl={p.author_avatar_url} size={28} />
+                    <div className="min-w-0 flex-1">
+                      <div className="font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-secondary)]">
+                        {author}
+                      </div>
+                      <div className="mt-1 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-[var(--text-primary)]">
+                        {text}
+                      </div>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
+      </aside>
+    </div>
   )
 }
 
@@ -2557,8 +2744,8 @@ function DiscussionRow({ t }: { t: LegacyThread; isLast?: boolean }) {
  *  toks pat kaip preview'e (3-col grid kortelių su 2 komentarais), tik
  *  scroll'inamas. */
 function DiscussionsModal({
-  open, threads, onClose,
-}: { open: boolean; threads: LegacyThread[]; onClose: () => void }) {
+  open, threads, onClose, onOpenThread,
+}: { open: boolean; threads: LegacyThread[]; onClose: () => void; onOpenThread?: (t: LegacyThread) => void }) {
   useEffect(() => {
     if (!open) return
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -2600,7 +2787,7 @@ function DiscussionsModal({
         </div>
         <div className="overflow-y-auto px-5 py-5">
           <div className="grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {threads.map((t) => <DiscussionRow key={t.legacy_id} t={t} />)}
+            {threads.map((t) => <DiscussionRow key={t.legacy_id} t={t} onOpen={onOpenThread} />)}
           </div>
         </div>
       </div>
@@ -2648,6 +2835,7 @@ export default function ArtistProfileClient({
   const [trackInfoOpen, setTrackInfoOpen] = useState<Track | null>(null)
   const [eventsModalOpen, setEventsModalOpen] = useState(false)
   const [discussionsModalOpen, setDiscussionsModalOpen] = useState(false)
+  const [activeThread, setActiveThread] = useState<LegacyThread | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [likesModalOpen, setLikesModalOpen] = useState(false)
   const [bioModalOpen, setBioModalOpen] = useState(false)
@@ -2904,6 +3092,18 @@ export default function ArtistProfileClient({
         open={discussionsModalOpen}
         threads={legacyThreads}
         onClose={() => setDiscussionsModalOpen(false)}
+        onOpenThread={(t) => {
+          // Atidarom thread modal'ą tame pačiame fiziniame stack'e —
+          // archyvas modal'as lieka užkulisiuose, žiūri pro thread modal'ą.
+          // Uždarius thread'ą, archyvas vis dar matomas, kol vartotojas
+          // jį uždaro atskirai.
+          setActiveThread(t)
+        }}
+      />
+
+      <DiscussionThreadModal
+        thread={activeThread}
+        onClose={() => setActiveThread(null)}
       />
 
       <LikesModal
@@ -3238,7 +3438,7 @@ export default function ArtistProfileClient({
               {legacyThreads.length > 0 ? (
                 <div className="grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {previewThreads.map((t) => (
-                    <DiscussionRow key={t.legacy_id} t={t} />
+                    <DiscussionRow key={t.legacy_id} t={t} onOpen={setActiveThread} />
                   ))}
                 </div>
               ) : (

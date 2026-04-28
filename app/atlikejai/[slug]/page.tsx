@@ -325,41 +325,67 @@ async function getLegacyForumThreads(artistId: number, limit = 200) {
   return data || []
 }
 
-type PostInfo = { body: string; author_username: string | null; created_at: string | null }
+type PostInfo = { body: string; author_username: string | null; author_avatar_url: string | null; created_at: string | null }
 
 /** For a set of thread legacy_ids, fetch the most recent forum posts (up to
  *  PER_THREAD per thread). Returns a Map keyed by thread_legacy_id → PostInfo[].
  *  UI rodo 1-2 paskutinius komentarus kortelėje; archyvas modal'e — viską
  *  pagal click.
  *
- *  NOTE: forum_posts stores the body in `content_text` / `content_html` (not
- *  `body`). The client-facing field is named `body`, so we map here. */
+ *  Avatarus pasiimam iš `likes` lentelės — forum_posts skraperis avatar
+ *  URL'ų netraukė, bet likes scraping'e jie užfiksuoti. Username'a yra
+ *  bendras raktas. Single SELECT su IN(distinct usernames). */
 async function getLastPostsByThread(threadIds: number[], perThread = 2): Promise<Map<number, PostInfo[]>> {
   const out = new Map<number, PostInfo[]>()
   if (threadIds.length === 0) return out
   const sb = createAdminClient()
   try {
-    // Pagrindinė query'a, pull'iname latest-first. Limit'as didesnis nei
-    // perThread*N, kad turėtume buffer'į užklausų skaičių mažinant
-    // (PostgREST max 1000).
     const { data } = await sb
       .from('forum_posts')
       .select('thread_legacy_id, content_text, content_html, author_username, created_at')
       .in('thread_legacy_id', threadIds)
       .order('created_at', { ascending: false })
       .limit(Math.min(1000, threadIds.length * perThread * 4))
+    const collected: any[] = []
     for (const p of (data || []) as any[]) {
       const arr = out.get(p.thread_legacy_id) || []
       if (arr.length >= perThread) continue
       const text = (p.content_text && String(p.content_text).trim())
         || (p.content_html && String(p.content_html).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim())
         || ''
-      arr.push({
+      const post = {
         body: text,
         author_username: p.author_username || null,
+        author_avatar_url: null as string | null,
         created_at: p.created_at || null,
-      })
+      }
+      arr.push(post)
+      collected.push(post)
       out.set(p.thread_legacy_id, arr)
+    }
+    // Avatar batch'as — vienu IN visi unikalūs username'ai, kuriuos
+    // matysim preview'e.
+    const usernames = Array.from(new Set(
+      collected.map(p => p.author_username).filter((u: string | null): u is string => !!u)
+    ))
+    if (usernames.length > 0) {
+      const { data: avatarRows } = await sb
+        .from('likes')
+        .select('user_username, user_avatar_url')
+        .in('user_username', usernames)
+        .not('user_avatar_url', 'is', null)
+        .limit(2000)
+      const avatars = new Map<string, string>()
+      for (const r of (avatarRows || []) as any[]) {
+        if (r.user_username && r.user_avatar_url && !avatars.has(r.user_username)) {
+          avatars.set(r.user_username, r.user_avatar_url)
+        }
+      }
+      for (const p of collected) {
+        if (p.author_username && avatars.has(p.author_username)) {
+          p.author_avatar_url = avatars.get(p.author_username) || null
+        }
+      }
     }
   } catch {
     // If forum_posts schema varies, silently return empty map
