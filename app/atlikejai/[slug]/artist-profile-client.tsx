@@ -395,12 +395,19 @@ function PlayerCard({
   }, [])
 
   // CREATE player only when user has explicitly chosen to play (playing=true)
-  // AND we have a video. Note: this effect's cleanup function ONLY runs when
-  // displayVid changes (via the prev-vid ref pattern below) — never when
-  // `playing` flips false. Pausing must NOT destroy the iframe; that was the
-  // source of "NotFoundError: The object can not be found here." crash when
-  // user clicked pause from the modal (cleanup tore down the iframe mid-
-  // postMessage with the YT IFrame API).
+  // AND we have a video.
+  //
+  // CRITICAL — KAIP IŠVENGT "NotFoundError: removeChild" CRASH:
+  // YT.Player(target) PAKEIČIA target elementą su <iframe>. Dėl to React'o
+  // fiber'iai turi pointer į detached'ą div'ą. Jei JSX flip'inasi (pvz.,
+  // `playing ? <div> : <button>`), React bando unmount'inti tą div'ą, bet
+  // jo nebėra DOM'e — iframe jį pakeitė. removeChild fail'ina.
+  //
+  // Sprendimas: containerRef rodo į STABLE wrapper'į, kurį React 100%
+  // kontroliuoja (visada mounted). Į vidų rankomis (per JS, ne React)
+  // įdedam fresh div'ą, kurį YT gali eat'inti. Wrapper'is niekada nekeičia
+  // tipo, niekada neunmount'inasi dėl `playing` toggle. React fiber tree
+  // baigiasi prie wrapper'io — viskas viduje yra non-React DOM.
   useEffect(() => {
     if (!apiReady || !playing || !displayVid || !containerRef.current) return
     // Already have a player? Just resume — don't recreate.
@@ -410,7 +417,14 @@ function PlayerCard({
     }
 
     const W = window as any
-    playerRef.current = new W.YT.Player(containerRef.current, {
+    // Insert a fresh inner div for YT to consume. YT will replace it with
+    // an iframe; the wrapper (containerRef) stays untouched.
+    const inner = document.createElement('div')
+    inner.style.width = '100%'
+    inner.style.height = '100%'
+    containerRef.current.innerHTML = ''
+    containerRef.current.appendChild(inner)
+    playerRef.current = new W.YT.Player(inner, {
       videoId: displayVid,
       width: '100%',
       height: '100%',
@@ -443,6 +457,10 @@ function PlayerCard({
     if (prev && prev !== displayVid && playerRef.current) {
       try { playerRef.current.destroy() } catch {}
       playerRef.current = null
+      // Belt-and-suspenders: empty the wrapper so the next create-effect
+      // gets a clean slot. (destroy() should remove the iframe but YT API
+      // has been inconsistent across versions.)
+      try { if (containerRef.current) containerRef.current.innerHTML = '' } catch {}
     }
     prevVidRef.current = displayVid
   }, [displayVid])
@@ -497,73 +515,58 @@ function PlayerCard({
     <div className="overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-elevated)] shadow-[0_20px_60px_-20px_rgba(0,0,0,0.4)]">
       <div className="relative aspect-video overflow-hidden bg-black">
         {displayVid ? (
-          playing ? (
-            // YT IFrame API mounts an iframe inside this container. We don't
-            // render an <iframe> ourselves — YT.Player does, inside the user
-            // gesture, which is what unlocks mobile autoplay.
-            // NB: NIEKADA neperduokim key={displayVid} čia. Su key, React
-            // unmount'indavo divą prie kiekvieno track switch'o, bet
-            // YT.Player.destroy() async tarp render'iu bandydavo manipuliuoti
-            // jau pašalintu iframe DOM elementu — "NotFoundError: The object
-            // can not be found here." Same div'ą reuse'inam — useEffect
-            // destroy'na ankstesnį player'į ir sukuria naują toje pačioje
-            // DOM vietoje, saugesnis lifecycle'as.
+          // YT IFrame API replaces an inner div with <iframe>. The OUTER
+          // wrapper (containerRef) is React-owned and ALWAYS mounted —
+          // we never swap it for a button when paused, because that flip
+          // crashed React with "NotFoundError: removeChild" (YT had
+          // already replaced the inner DOM, so React couldn't find what
+          // it expected to remove). Pause now just calls pauseVideo();
+          // the iframe stays in the DOM. The "play" overlay button is
+          // rendered on top when !playing.
+          <>
             <div ref={containerRef} className="absolute inset-0 h-full w-full" />
-          ) : (
-            // Initial / not-yet-played state: thumbnail + big central play
-            // button. Clicking the button (or anywhere on the thumbnail)
-            // flips to the iframe. No title overlay — it already lives in
-            // the list row below. Once the user has hit play the button
-            // disappears; YT's native controls + the per-track button take
-            // over. This gives a clear "click me" affordance on the video.
-            <button
-              type="button"
-              onClick={() => {
-                // Start playback of the first available track if none picked.
-                const target = activeTrackId ?? firstWithVideo?.id
-                if (target != null && target !== activeTrackId) onSelectTrack(target)
-                onRequestPlay()
-                if (target != null) pingPlay(target)
-              }}
-              aria-label="Paleisti"
-              className="group absolute inset-0 block cursor-pointer overflow-hidden border-0 p-0"
-              style={{ background: 'var(--player-placeholder-bg, linear-gradient(135deg, #1a2436 0%, #0f1825 50%, #0a0f1a 100%))' }}
-            >
-              {/* YT thumbnail backdrop — TIK kai video gyvas (probe'inta su
-                  hqdefault.jpg dimensijomis). Dead/missing → naudojam
-                  gradient'ą kaip anksčiau. */}
-              {showThumb && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={`https://i.ytimg.com/vi/${displayVid}/hqdefault.jpg`}
-                  alt=""
-                  referrerPolicy="no-referrer"
-                  className="absolute inset-0 h-full w-full object-cover"
-                  style={{ filter: 'saturate(1.1) contrast(1.05)' }}
-                />
-              )}
-              {/* Dark overlay ant thumbnail'o, kad orange play button'as
-                  išsiskirtų ir matytusi switching'as tarp tracks. */}
-              {showThumb && (
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-black/30" />
-              )}
-              {/* Subtle vinyl-like centerless ring for visual texture — tik
-                  kai nėra thumbnail'o (gradient state). */}
-              {!showThumb && (
-                <div className="absolute inset-0 opacity-[0.03]" style={{
-                  backgroundImage: 'radial-gradient(circle at center, transparent 30%, rgba(249,115,22,0.4) 30.5%, transparent 31.5%, transparent 60%, rgba(249,115,22,0.2) 60.5%, transparent 61.5%)',
-                  backgroundSize: '400px 400px',
-                  backgroundPosition: 'center',
-                  backgroundRepeat: 'no-repeat',
-                }} />
-              )}
-              <span className="absolute left-1/2 top-1/2 flex h-[72px] w-[72px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_10px_40px_rgba(249,115,22,0.5)] ring-[6px] ring-white/10 transition-transform duration-200 group-hover:scale-110">
-                <svg viewBox="0 0 24 24" width="26" height="26" fill="#fff" aria-hidden>
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-              </span>
-            </button>
-          )
+            {!playing && (
+              <button
+                type="button"
+                onClick={() => {
+                  const target = activeTrackId ?? firstWithVideo?.id
+                  if (target != null && target !== activeTrackId) onSelectTrack(target)
+                  onRequestPlay()
+                  if (target != null) pingPlay(target)
+                }}
+                aria-label="Paleisti"
+                className="group absolute inset-0 z-10 block cursor-pointer overflow-hidden border-0 p-0"
+                style={{ background: 'var(--player-placeholder-bg, linear-gradient(135deg, #1a2436 0%, #0f1825 50%, #0a0f1a 100%))' }}
+              >
+                {showThumb && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={`https://i.ytimg.com/vi/${displayVid}/hqdefault.jpg`}
+                    alt=""
+                    referrerPolicy="no-referrer"
+                    className="absolute inset-0 h-full w-full object-cover"
+                    style={{ filter: 'saturate(1.1) contrast(1.05)' }}
+                  />
+                )}
+                {showThumb && (
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-black/30" />
+                )}
+                {!showThumb && (
+                  <div className="absolute inset-0 opacity-[0.03]" style={{
+                    backgroundImage: 'radial-gradient(circle at center, transparent 30%, rgba(249,115,22,0.4) 30.5%, transparent 31.5%, transparent 60%, rgba(249,115,22,0.2) 60.5%, transparent 61.5%)',
+                    backgroundSize: '400px 400px',
+                    backgroundPosition: 'center',
+                    backgroundRepeat: 'no-repeat',
+                  }} />
+                )}
+                <span className="absolute left-1/2 top-1/2 flex h-[72px] w-[72px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_10px_40px_rgba(249,115,22,0.5)] ring-[6px] ring-white/10 transition-transform duration-200 group-hover:scale-110">
+                  <svg viewBox="0 0 24 24" width="26" height="26" fill="#fff" aria-hidden>
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </span>
+              </button>
+            )}
+          </>
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 px-6 text-center">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/5 ring-1 ring-white/10">
