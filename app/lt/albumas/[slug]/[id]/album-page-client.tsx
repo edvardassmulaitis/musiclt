@@ -241,71 +241,168 @@ export default function AlbumPageClient({
     setPlaying(true)
   }
 
+  // ── Album info card (sidebar) — cover + title + artist + date + LikePill ──
+  const AlbumInfoCard = (
+    <div className="overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
+      <div className="aspect-square w-full overflow-hidden bg-[var(--cover-placeholder)]">
+        {album.cover_image_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={proxyImg(album.cover_image_url)}
+            alt={album.title}
+            referrerPolicy="no-referrer"
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-[48px]">💿</div>
+        )}
+      </div>
+      <div className="flex flex-col gap-2.5 p-4">
+        <div className="flex flex-wrap items-center gap-2 font-['Outfit',sans-serif] text-[9.5px] font-extrabold uppercase tracking-[0.18em] text-[var(--accent-orange)]">
+          <span>{albumTypeLabel}</span>
+          {album.is_upcoming && (
+            <span className="rounded-full border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.18)] px-2 py-0.5">Greitai</span>
+          )}
+        </div>
+        <h1 className="font-['Outfit',sans-serif] text-[20px] font-black leading-[1.1] tracking-[-0.015em] text-[var(--text-primary)]">
+          {album.title}
+        </h1>
+        <Link
+          href={`/atlikejai/${artist.slug}`}
+          className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-80"
+        >
+          {artist.name}
+        </Link>
+        {dateStr && (
+          <div className="font-['Outfit',sans-serif] text-[12px] font-medium text-[var(--text-muted)]">
+            {dateStr}
+          </div>
+        )}
+        <div className="mt-1">
+          <LikePill
+            likes={likeCount}
+            selfLiked={selfLiked}
+            onToggle={onToggleLike}
+            onOpenModal={onOpenLikersModal}
+            pending={selfLikePending}
+            variant="surface"
+          />
+        </div>
+      </div>
+    </div>
+  )
+
   return (
     <div className="min-h-screen bg-[var(--bg-body)] text-[var(--text-primary)] [font-family:'DM_Sans',system-ui,sans-serif] antialiased">
-      <main className="mx-auto max-w-[1400px] space-y-10 px-4 pb-24 pt-6 sm:space-y-14 sm:px-6 lg:px-10">
+      <main className="mx-auto max-w-[1400px] px-4 pb-24 pt-6 sm:px-6 lg:px-10">
 
-        {/* HERO — compact cover (180px max). Title + artist + date + LikePill
-            on the right. Cover sized to roughly match music.lt's native 200px
-            so we don't upscale low-res covers into a blurry mess. */}
-        <section className="grid grid-cols-1 gap-5 lg:grid-cols-[180px_1fr] lg:gap-7">
-          <div className="flex justify-center lg:block">
-            <div className="aspect-square w-full max-w-[180px] overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_18px_44px_-14px_rgba(0,0,0,0.45)]">
-              {album.cover_image_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={proxyImg(album.cover_image_url)}
-                  alt={album.title}
-                  referrerPolicy="no-referrer"
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center text-[48px]">💿</div>
-              )}
-            </div>
-          </div>
+        {/* 2-COL split — kairėje sidebar (info + comments + similar),
+            dešinėje main (player + tracks). Mobile stack'inasi natūraliai:
+            info viršuje, paskui player + tracks, paskui likusios sekcijos. */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[340px_minmax(0,1fr)] lg:gap-8">
 
-          <div className="flex min-w-0 flex-col justify-center gap-3">
-            <div className="flex flex-wrap items-center gap-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.18em] text-[var(--accent-orange)]">
-              <span>{albumTypeLabel}</span>
-              {album.is_upcoming && (
-                <span className="rounded-full border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.18)] px-2 py-0.5">Greitai</span>
-              )}
-            </div>
-            <h1
-              className="font-['Outfit',sans-serif] font-black leading-[1.05] tracking-[-0.025em] text-[var(--text-primary)]"
-              style={{ fontSize: 'clamp(1.6rem,3vw,2.5rem)' }}
-            >
-              {album.title}
-            </h1>
-            <Link
-              href={`/atlikejai/${artist.slug}`}
-              className="font-['Outfit',sans-serif] text-[15px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-80"
-            >
-              {artist.name}
-            </Link>
-            {dateStr && (
-              <div className="font-['Outfit',sans-serif] text-[13px] font-medium text-[var(--text-muted)]">
-                {dateStr}
+          {/* ─── LEFT SIDEBAR ─── */}
+          <aside className="flex flex-col gap-5">
+            {AlbumInfoCard}
+
+            {/* Comments */}
+            <section>
+              <div className="mb-2.5 flex items-center justify-between">
+                <h2 className="font-['Outfit',sans-serif] text-[15px] font-black tracking-[-0.01em] text-[var(--text-primary)]">
+                  Diskusija {comments && comments.length > 0 && (
+                    <span className="ml-1 font-bold text-[var(--text-faint)]">{comments.length}</span>
+                  )}
+                </h2>
               </div>
-            )}
-            <div className="mt-1 flex flex-wrap items-center gap-3">
-              <LikePill
-                likes={likeCount}
-                selfLiked={selfLiked}
-                onToggle={onToggleLike}
-                onOpenModal={onOpenLikersModal}
-                pending={selfLikePending}
-                variant="surface"
-              />
-            </div>
-          </div>
-        </section>
+              {comments === null ? (
+                <div className="space-y-2">
+                  {[0, 1, 2].map((i) => (
+                    <div key={i} className="h-16 w-full animate-pulse rounded-lg bg-[var(--bg-surface)]" />
+                  ))}
+                </div>
+              ) : comments.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-[var(--border-default)] px-4 py-5 text-center">
+                  <div className="mb-1 text-[12px] font-bold text-[var(--text-muted)]">Dar nėra komentarų</div>
+                  <div className="text-[11px] text-[var(--text-faint)]">Būk pirmas.</div>
+                </div>
+              ) : (
+                <ul className="flex flex-col gap-2.5">
+                  {comments.map((c) => {
+                    const author = c.author_username || 'Anonimas'
+                    const text = (c.content_text && String(c.content_text).trim())
+                      || (c.content_html && c.content_html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim())
+                      || ''
+                    return (
+                      <li key={c.legacy_id} className="flex items-start gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2.5">
+                        <UserAvatar name={author} avatarUrl={c.author_avatar_url} size={22} />
+                        <div className="min-w-0 flex-1">
+                          <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--text-secondary)]">
+                            {author}
+                          </div>
+                          <div className="mt-0.5 whitespace-pre-wrap break-words text-[12px] leading-relaxed text-[var(--text-primary)]">
+                            {text}
+                          </div>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </section>
 
-        {/* PLAYER + TRACK LIST — vertical stack. Player hero-sized at top,
-            tracks underneath. Mirror'as artist page'o pattern, kur PlayerCard
-            sėdi virš track list'o. */}
-        <section className="space-y-4">
+            {/* Other albums by artist */}
+            {otherAlbums.length > 0 && (
+              <section>
+                <div className="mb-2.5 flex items-center justify-between">
+                  <h2 className="font-['Outfit',sans-serif] text-[15px] font-black tracking-[-0.01em] text-[var(--text-primary)]">
+                    Kiti {artist.name} albumai
+                  </h2>
+                  <Link
+                    href={`/atlikejai/${artist.slug}`}
+                    className="font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--accent-orange)] no-underline hover:underline"
+                  >
+                    Visi →
+                  </Link>
+                </div>
+                <div className="grid grid-cols-3 gap-2.5">
+                  {otherAlbums.slice(0, 6).map(a => (
+                    <AlbumThumbCard
+                      key={a.id}
+                      href={`/lt/albumas/${a.slug}/${a.id}/`}
+                      cover={a.cover_image_url || null}
+                      title={a.title}
+                      subtitle={a.year ? String(a.year) : ''}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Similar music */}
+            {similarAlbums.length > 0 && (
+              <section>
+                <div className="mb-2.5 flex items-center justify-between">
+                  <h2 className="font-['Outfit',sans-serif] text-[15px] font-black tracking-[-0.01em] text-[var(--text-primary)]">
+                    Panaši muzika
+                  </h2>
+                </div>
+                <div className="grid grid-cols-3 gap-2.5">
+                  {similarAlbums.slice(0, 6).map((a: any) => (
+                    <AlbumThumbCard
+                      key={a.id}
+                      href={`/lt/albumas/${a.slug}/${a.id}/`}
+                      cover={a.cover_image_url || null}
+                      title={a.title}
+                      subtitle={a.artists?.name ? a.artists.name : (a.year ? String(a.year) : '')}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+          </aside>
+
+          {/* ─── RIGHT MAIN — player + track list ─── */}
+          <section className="flex min-w-0 flex-col gap-4">
           {/* Player */}
           <div className="overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
             <div className="flex items-center gap-2 border-b border-[var(--border-subtle)] px-3 py-2.5">
@@ -441,106 +538,8 @@ export default function AlbumPageClient({
               </ul>
             )}
           </div>
-        </section>
-
-        {/* OTHER ALBUMS — compact 8-col grid on desktop so individual covers
-            don't have to upscale to fill 1/6 of viewport width. */}
-        {otherAlbums.length > 0 && (
-          <section>
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-['Outfit',sans-serif] text-[18px] font-black tracking-[-0.01em] text-[var(--text-primary)] sm:text-[20px]">
-                Kiti {artist.name} albumai
-              </h2>
-              <Link
-                href={`/atlikejai/${artist.slug}`}
-                className="font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] no-underline hover:underline"
-              >
-                Visi →
-              </Link>
-            </div>
-            <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
-              {otherAlbums.map(a => (
-                <AlbumThumbCard
-                  key={a.id}
-                  href={`/lt/albumas/${a.slug}/${a.id}/`}
-                  cover={a.cover_image_url || null}
-                  title={a.title}
-                  subtitle={a.year ? String(a.year) : ''}
-                />
-              ))}
-            </div>
           </section>
-        )}
-
-        {/* SIMILAR */}
-        {similarAlbums.length > 0 && (
-          <section>
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-['Outfit',sans-serif] text-[18px] font-black tracking-[-0.01em] text-[var(--text-primary)] sm:text-[20px]">
-                Panaši muzika
-              </h2>
-            </div>
-            <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
-              {similarAlbums.map((a: any) => (
-                <AlbumThumbCard
-                  key={a.id}
-                  href={`/lt/albumas/${a.slug}/${a.id}/`}
-                  cover={a.cover_image_url || null}
-                  title={a.title}
-                  subtitle={a.artists?.name ? `${a.artists.name}${a.year ? ' · ' + a.year : ''}` : (a.year ? String(a.year) : '')}
-                />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* COMMENTS — entity_comments (legacy scraped). Header + list of
-            comments with author avatar, name, body. Empty state shows
-            placeholder. We don't need write UI here yet — this is the
-            archive view of what music.lt users said. */}
-        <section>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="font-['Outfit',sans-serif] text-[18px] font-black tracking-[-0.01em] text-[var(--text-primary)] sm:text-[20px]">
-              Diskusija {comments && comments.length > 0 && (
-                <span className="ml-1 font-bold text-[var(--text-faint)]">{comments.length}</span>
-              )}
-            </h2>
-          </div>
-          {comments === null ? (
-            <div className="space-y-3">
-              {[0, 1, 2].map((i) => (
-                <div key={i} className="h-16 w-full animate-pulse rounded-lg bg-[var(--bg-surface)]" />
-              ))}
-            </div>
-          ) : comments.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-[var(--border-default)] p-8 text-center">
-              <div className="mb-1 text-[14px] font-bold text-[var(--text-muted)]">Dar nėra komentarų apie šį albumą</div>
-              <div className="text-[12px] text-[var(--text-faint)]">Būk pirmas — prisidėk diskusijoje.</div>
-            </div>
-          ) : (
-            <ul className="flex flex-col gap-3">
-              {comments.map((c) => {
-                const author = c.author_username || 'Anonimas'
-                const text = (c.content_text && String(c.content_text).trim())
-                  || (c.content_html && c.content_html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim())
-                  || ''
-                return (
-                  <li key={c.legacy_id} className="flex items-start gap-2.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3.5 py-3">
-                    <UserAvatar name={author} avatarUrl={c.author_avatar_url} size={28} />
-                    <div className="min-w-0 flex-1">
-                      <div className="font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-secondary)]">
-                        {author}
-                      </div>
-                      <div className="mt-1 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-[var(--text-primary)]">
-                        {text}
-                      </div>
-                    </div>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-        </section>
+        </div>
 
       </main>
 
