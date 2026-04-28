@@ -1697,6 +1697,74 @@ function MasonryGallery({ photos, onOpen }: { photos: Photo[]; onOpen: (i: numbe
 
 // ── EventCard ──────────────────────────────────────────────────────
 
+/** Vertical event card su adaptyviu image aukščiu pagal natural ratio.
+ *  Vertikalus poster'is (Atlanta, Mamontovas) gauna aukštesnį konteinerį,
+ *  kad matytusi visas vaizdas, ne nukirptas. Landscape gauna trumpesnį.
+ *  Bound'ai: 0.5 (ekstremalus portrait) - 1.6 (16:10 landscape). */
+function EventVerticalCard({ e, href, hasCover, setCoverFailed, d, venue }: {
+  e: any
+  href: string
+  hasCover: boolean
+  setCoverFailed: (v: boolean) => void
+  d: Date
+  venue: string
+}) {
+  // Default 16:10 (landscape-ish) iki kol nuotrauka užkraunama
+  const [aspectRatio, setAspectRatio] = useState<number>(1.6)
+  return (
+    <Link
+      href={href}
+      className="group flex w-full flex-col overflow-hidden rounded-xl border border-[rgba(249,115,22,0.3)] no-underline transition-all hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.55)] hover:shadow-[0_8px_22px_rgba(249,115,22,0.18)]"
+      style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.12), rgba(249,115,22,0.02) 70%), var(--bg-elevated)' }}
+    >
+      <div
+        className="relative w-full overflow-hidden bg-gradient-to-br from-[rgba(249,115,22,0.18)] to-[rgba(249,115,22,0.05)]"
+        style={{ aspectRatio: `${aspectRatio}` }}
+      >
+        {/* Fallback: calendar icon */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" className="text-[var(--accent-orange)]/40">
+            <path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+        {hasCover && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={proxyImg(e.cover_image_url)}
+            alt={e.title}
+            referrerPolicy="no-referrer"
+            onError={() => setCoverFailed(true)}
+            onLoad={(ev) => {
+              const el = ev.currentTarget as HTMLImageElement
+              const w = el.naturalWidth
+              const h = el.naturalHeight
+              if (!w || !h) return
+              // Music.lt placeholder PNG ~100x100 — slepiam.
+              if (w < 200) {
+                setCoverFailed(true)
+                return
+              }
+              // Adapt aspect ratio. Bound'ai:
+              //   min 0.55 (ekstremalus portrait) — kad netaptų per ilga
+              //   max 1.78 (16:9 landscape)
+              const r = Math.max(0.55, Math.min(1.78, w / h))
+              setAspectRatio(r)
+            }}
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        )}
+      </div>
+      <div className="flex flex-col gap-1.5 px-3.5 py-3">
+        <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.08em] text-[var(--accent-orange)]">
+          {formatLtDate(d)}
+        </div>
+        <div className="line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-bold leading-snug text-[var(--text-primary)]">{e.title}</div>
+        {venue && <div className="line-clamp-1 text-[12px] text-[var(--text-secondary)]">📍 {venue}</div>}
+      </div>
+    </Link>
+  )
+}
+
 function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' | 'past' | 'compact' | 'vertical' }) {
   const d = new Date(e.start_date)
   const venue = [e.venue_name, e.city].filter(Boolean).join(', ')
@@ -1729,54 +1797,7 @@ function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' |
   }
 
   if (variant === 'vertical') {
-    // Vertical: image (or icon fallback) viršuje, info block apačioje.
-    // Date rodoma kompakčiai šalia title kaip stilizuotas badge — ne
-    // atskirame dideliame block'e (taupom vietos, foto akcent'uoja
-    // vizualiai).
-    return (
-      <Link
-        href={href}
-        className="group flex w-full flex-col overflow-hidden rounded-xl border border-[rgba(249,115,22,0.3)] no-underline transition-all hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.55)] hover:shadow-[0_8px_22px_rgba(249,115,22,0.18)]"
-        style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.12), rgba(249,115,22,0.02) 70%), var(--bg-elevated)' }}
-      >
-        <div className="relative aspect-[16/10] w-full overflow-hidden bg-gradient-to-br from-[rgba(249,115,22,0.18)] to-[rgba(249,115,22,0.05)]">
-          {/* Fallback layer — calendar icon. Visada rendered'as kad nebūtų
-              flash'o tarp request fail ir onError. */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" className="text-[var(--accent-orange)]/40">
-              <path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </div>
-          {hasCover && (
-            <img
-              src={proxyImg(e.cover_image_url)}
-              alt={e.title}
-              referrerPolicy="no-referrer"
-              onError={() => setCoverFailed(true)}
-              onLoad={(ev) => {
-                // Music.lt'as event'ams be realios cover'ios grąžina mažą
-                // (~100x100) placeholder PNG'ą su „?" glyph'u. Realios
-                // cover'iai dažniausiai 500-800px platūs. Jei <200px —
-                // greičiausiai placeholder, slepiam.
-                const el = ev.currentTarget as HTMLImageElement
-                if (el.naturalWidth > 0 && el.naturalWidth < 200) {
-                  setCoverFailed(true)
-                }
-              }}
-              className="absolute inset-0 h-full w-full object-cover"
-            />
-          )}
-        </div>
-        <div className="flex flex-col gap-1.5 px-3.5 py-3">
-          {/* Date pill: kompakčiai vietoj didelio block'o */}
-          <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.08em] text-[var(--accent-orange)]">
-            {formatLtDate(d)}
-          </div>
-          <div className="line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-bold leading-snug text-[var(--text-primary)]">{e.title}</div>
-          {venue && <div className="line-clamp-1 text-[12px] text-[var(--text-secondary)]">📍 {venue}</div>}
-        </div>
-      </Link>
-    )
+    return <EventVerticalCard e={e} href={href} hasCover={hasCover} setCoverFailed={setCoverFailed} d={d} venue={venue} />
   }
 
   if (variant === 'compact') {
