@@ -375,8 +375,8 @@ export default function EntityCommentsBlock({
     }
   }
 
-  /** Soft-delete a comment via DELETE /api/comments. Available to admins
-   *  AND to the comment's own author. Backend enforces auth. */
+  /** Soft-delete a modern comment via DELETE /api/comments. Available to
+   *  admins AND to the comment's own author. Backend enforces auth. */
   const deleteComment = async (commentId: number) => {
     if (!confirm('Tikrai pašalinti šį komentarą?')) return
     try {
@@ -386,6 +386,23 @@ export default function EntityCommentsBlock({
       } else {
         const data = await res.json().catch(() => ({}))
         setError(data.error || 'Nepavyko pašalinti.')
+      }
+    } catch {
+      setError('Tinklo klaida.')
+    }
+  }
+
+  /** Admin-only: hide a LEGACY scraped comment. Sets is_hidden=true on
+   *  entity_comments via DELETE /api/{type}s/{id}/comments?legacy_id=N. */
+  const deleteLegacyComment = async (legacyId: number) => {
+    if (!confirm('Tikrai paslėpti šį archyvinį komentarą? Veiksmas atstatomas tik per DB.')) return
+    try {
+      const res = await fetch(legacyUrl + `?legacy_id=${legacyId}`, { method: 'DELETE' })
+      if (res.ok) {
+        await reload()
+      } else {
+        const data = await res.json().catch(() => ({}))
+        setError(data.error || 'Nepavyko paslėpti.')
       }
     } catch {
       setError('Tinklo klaida.')
@@ -791,21 +808,23 @@ export default function EntityCommentsBlock({
                         const isOwn = isModern && session?.user?.id && c.user_id === session.user.id
                         const canDelete = isAdminUser || isOwn
                         if (!canDelete) return null
-                        // Legacy delete dar nepalaikomas backend'e — admin
-                        // bandantis ištrinti legacy gauna error. Tik
-                        // modern delete'ai turi pilną implementaciją.
-                        const targetId = isModern ? c.id : null
-                        if (!targetId) return null
+                        // Modern: DELETE /api/comments?id=...
+                        // Legacy: only admin can hide; soft-flag is_hidden=true
+                        const onClick = () => {
+                          if (isModern) deleteComment(c.id)
+                          else deleteLegacyComment(c.legacy_id)
+                        }
+                        const label = isModern ? 'Pašalinti' : 'Paslėpti (admin)'
                         return (
                           <button
                             type="button"
-                            onClick={() => deleteComment(targetId)}
-                            aria-label="Pašalinti komentarą"
-                            title={isAdminUser ? 'Pašalinti (admin)' : 'Pašalinti'}
+                            onClick={onClick}
+                            aria-label={label}
+                            title={isAdminUser ? `${label} (admin)` : label}
                             className="ml-auto inline-flex items-center gap-1 rounded-full border border-[rgba(239,68,68,0.3)] bg-[rgba(239,68,68,0.08)] px-2 py-0.5 font-['Outfit',sans-serif] text-[10.5px] font-extrabold text-[#ef4444] transition-colors hover:border-[#ef4444] hover:bg-[rgba(239,68,68,0.16)]"
                           >
                             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m-9 0v14a2 2 0 002 2h6a2 2 0 002-2V6" /></svg>
-                            Pašalinti
+                            {isModern ? 'Pašalinti' : 'Slėpti'}
                           </button>
                         )
                       })()}

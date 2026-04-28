@@ -142,15 +142,23 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
   /** Build a map: line index → spans whose START falls on that line. We
    *  attach the chip strip to the line containing the span's start. */
   const lines = useMemo(() => {
-    const out: Array<{ text: string; lineSpans: Span[] }> = []
+    // Two filter functions per line:
+    //   - highlightSpans: any span that OVERLAPS this line (start<=lineEnd
+    //     AND end>=lineStart). Used to render the orange <mark> highlight.
+    //     For multi-line selections this means the highlight spans every
+    //     line of the selection, not just the first.
+    //   - chipSpans: only spans that START on this line. Chip strip on
+    //     right gutter renders once, on the line where the reaction begins.
+    const out: Array<{ text: string; highlightSpans: Span[]; chipSpans: Span[] }> = []
     const rawLines = lyrics.split('\n')
     let charPos = 0
     for (const text of rawLines) {
       const lineStart = charPos
       const lineEnd = charPos + text.length
-      const lineSpans = spans.filter(s => s.start >= lineStart && s.start < lineEnd + 1)
-      out.push({ text, lineSpans })
-      charPos = lineEnd + 1 // +1 for the \n
+      const highlightSpans = spans.filter(s => s.start <= lineEnd && s.end >= lineStart)
+      const chipSpans = spans.filter(s => s.start >= lineStart && s.start < lineEnd + 1)
+      out.push({ text, highlightSpans, chipSpans })
+      charPos = lineEnd + 1
     }
     return out
   }, [lyrics, spans])
@@ -304,11 +312,9 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
           if (isEmpty) {
             return <div key={i} style={{ height: `${lineHeight}em` }} />
           }
-          const reactionCount = ln.lineSpans.reduce((n, s) => n + s.reactions.length, 0)
-          // Highlight the line softly when it carries a reaction so users
-          // visually scan reacted lines while still keeping the badge in
-          // the right gutter (not over the text).
-          const hasReactions = ln.lineSpans.length > 0
+          const reactionCount = ln.chipSpans.reduce((n, s) => n + s.reactions.length, 0)
+          // Highlight the line softly when ANY reaction overlaps it.
+          const hasReactions = ln.highlightSpans.length > 0
           return (
             <div
               key={i}
@@ -318,15 +324,17 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
               ].join(' ')}
               style={{ lineHeight }}
             >
-              {/* Lyric text — highlighted spans rendered inline as <mark>,
-                  but no badge appended (badge is in the right gutter). */}
+              {/* Lyric text — highlighted spans rendered inline as <mark>.
+                  We use highlightSpans (any overlap) so multi-line selection
+                  paints every line of the selection, not only the first. */}
               <span className="min-w-0 flex-1 break-words" style={{ whiteSpace: 'pre-wrap' }}>
-                {renderInlineHighlights(ln.text, ln.lineSpans, lineStartOf(lines, i))}
+                {renderInlineHighlights(ln.text, ln.highlightSpans, lineStartOf(lines, i))}
               </span>
-              {/* Right-gutter chip strip — separate clickable per span */}
-              {ln.lineSpans.length > 0 && (
+              {/* Right-gutter chip strip — only on the line where the
+                  reaction span STARTS, so chips don't duplicate per line. */}
+              {ln.chipSpans.length > 0 && (
                 <span className="flex shrink-0 items-center gap-1 self-center pt-[2px]">
-                  {ln.lineSpans.map((s) => {
+                  {ln.chipSpans.map((s) => {
                     const likes = s.reactions.filter(r => r.type === 'like').length
                     const comments = s.reactions.filter(r => r.type === 'comment').length
                     // Show avatar stack only when reactions are few; otherwise
