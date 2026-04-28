@@ -110,15 +110,29 @@ async function getAlbums(id: number) {
   const { data } = await sb.from('albums').select('id, slug, title, year, month, cover_image_url, type_studio, type_compilation, type_ep, type_single, type_live, type_remix, type_soundtrack, type_demo, spotify_id, video_url, legacy_id, score').eq('artist_id', id).order('year', { ascending: false })
   const albums = (data || []) as any[]
   if (albums.length === 0) return albums
-  // Attach album like counts (chunked, kaip ir tracks).
+  // Attach album like counts — paginate'inam per chunk'ą, kad neprarastume
+  // eilučių prie PostgREST 1000-row cap'o (žiūr getTracks() komentarą žemiau).
   const albumIds = albums.map(a => a.id)
   const byAlbum = new Map<number, number>()
   const CHUNK = 40
+  const PAGE = 1000
   for (let i = 0; i < albumIds.length; i += CHUNK) {
     const chunk = albumIds.slice(i, i + CHUNK)
-    const { data: lk } = await sb.from('likes').select('entity_id').eq('entity_type', 'album').in('entity_id', chunk).range(0, 9999)
-    for (const r of (lk || []) as any[]) {
-      byAlbum.set(r.entity_id, (byAlbum.get(r.entity_id) || 0) + 1)
+    let offset = 0
+    while (true) {
+      const { data: lk } = await sb
+        .from('likes')
+        .select('entity_id')
+        .eq('entity_type', 'album')
+        .in('entity_id', chunk)
+        .order('id', { ascending: true })
+        .range(offset, offset + PAGE - 1)
+      const rows = (lk || []) as any[]
+      for (const r of rows) {
+        byAlbum.set(r.entity_id, (byAlbum.get(r.entity_id) || 0) + 1)
+      }
+      if (rows.length < PAGE) break
+      offset += PAGE
     }
   }
   for (const a of albums) (a as any).like_count = byAlbum.get(a.id) || 0
@@ -147,24 +161,38 @@ async function getTracks(id: number) {
   const tracks = (data || []) as any[]
   if (tracks.length === 0) return tracks
 
-  // Attach like counts iš unified `likes` lentelės. PostgREST max-rows
-  // default 1000 — net su .range(0, 99999) cap'ina. Mamontovas turi 4454
-  // track likes, todėl skaidom į CHUNK po 40 tracks per query (~800 likes
-  // per response, saugiai po 1000 limit). Po 6 chunks visi 220 tracks
-  // padengiami.
+  // Attach like counts iš unified `likes` lentelės.
+  //
+  // ⚠ PostgREST max-rows = 1000 per response. Net su .range(0, 9999) cap'ina
+  //   serverio pusėje. Anksčiau turėjome `CHUNK=40` be pagination — kai
+  //   chunk'o suma būdavo >1000 likes, dalis pačių rečiausių dainų likes
+  //   silently dingdavo (Mikutavičius turi 3006 track likes / 68 dainos,
+  //   chunk'ai pasiekdavo limit'ą — Saulės Vartai 2 likes prarandami nors
+  //   track puslapyje rodydavo 2 per atskirą `count: exact` query).
+  //
+  // FIX: per kiekvieną chunk'ą paginate'inam — ciklas eina .range(0..999),
+  // (1000..1999), kol returnedLength<1000. Taip jokios eilutės neprarandam.
   const trackIds = tracks.map((t) => t.id)
   const byTrack = new Map<number, number>()
   const CHUNK = 40
+  const PAGE = 1000
   for (let i = 0; i < trackIds.length; i += CHUNK) {
     const chunk = trackIds.slice(i, i + CHUNK)
-    const { data: likeRows } = await sb
-      .from('likes')
-      .select('entity_id')
-      .eq('entity_type', 'track')
-      .in('entity_id', chunk)
-      .range(0, 9999)
-    for (const r of (likeRows || []) as any[]) {
-      byTrack.set(r.entity_id, (byTrack.get(r.entity_id) || 0) + 1)
+    let offset = 0
+    while (true) {
+      const { data: likeRows } = await sb
+        .from('likes')
+        .select('entity_id')
+        .eq('entity_type', 'track')
+        .in('entity_id', chunk)
+        .order('id', { ascending: true })
+        .range(offset, offset + PAGE - 1)
+      const rows = (likeRows || []) as any[]
+      for (const r of rows) {
+        byTrack.set(r.entity_id, (byTrack.get(r.entity_id) || 0) + 1)
+      }
+      if (rows.length < PAGE) break
+      offset += PAGE
     }
   }
   for (const t of tracks) {

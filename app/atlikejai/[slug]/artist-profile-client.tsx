@@ -820,18 +820,30 @@ function TrackInfoModal({
   // Likers modal valdymas — atidarymas iš LikePill onOpenModal callback'o.
   const [likersOpen, setLikersOpen] = useState(false)
   const [likersUsers, setLikersUsers] = useState<Array<{ user_username: string; user_rank: string | null; user_avatar_url: string | null }> | null>(null)
+  // Mobile tab — split-column layout netelpa siaurame ekrane (lyrics +
+  // komentarai vienu metu uždusina abu, scroll'ai painiojasi). Mobile'e
+  // rodom tik VIENĄ skiltį per kartą su tab toggle viršuje.
+  const [mobileTab, setMobileTab] = useState<'lyrics' | 'comments'>('lyrics')
+
   useEffect(() => {
     if (track) {
       // Defer to next frame so the element can transition in.
       const r = requestAnimationFrame(() => setMounted(true))
       const h = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose() }
       window.addEventListener('keydown', h)
-      // Reset like state per naują track'ą — komentarus dabar fetch'ina pats
-      // EntityCommentsBlock'as, drawer'is jais nesidomi.
+      // Body scroll lock — atidarius drawer'į, fonas neturi scroll'intis. Be
+      // šito atrodydavo kaip bug: prabraukus pelę over the modal, pagrindinis
+      // puslapis sukasi po juo. Atstatom prie unmount.
+      const prevOverflow = document.body.style.overflow
+      document.body.style.overflow = 'hidden'
+      // Reset like state + mobile tab per naują track'ą — komentarus dabar
+      // fetch'ina pats EntityCommentsBlock'as, drawer'is jais nesidomi.
       setSelfLiked(false)
+      setMobileTab('lyrics')
       return () => {
         cancelAnimationFrame(r)
         window.removeEventListener('keydown', h)
+        document.body.style.overflow = prevOverflow
       }
     }
     setMounted(false)
@@ -962,20 +974,56 @@ function TrackInfoModal({
           )}
         </div>
 
-        {/* Body — desktop'e (lg+) split-column: lyrics kairėje, komentarai
-            dešinėje (kiekvienas su savo scroll'u). Mobile/tablet — stacked,
-            kaip anksčiau. Be lyrics — komentarai užima visą plotą.
-            Naudojam grid'ą su minmax kraštais, kad textas neperbristų pernelyg
-            siaurai sklieto kolonose. */}
+        {/* Body. Du atvejai:
+            - Desktop (lg+) su lyrics → 2-col grid: tekstas | komentarai,
+              kiekviena skiltis turi savo scroll'ą, jokios painiavos.
+            - Mobile/tablet su lyrics → vienu metu rodom TIK vieną skiltį
+              per tab toggle. Anksčiau buvo stacked (text + komentarai
+              vienas po kito) — bet text matėsi tik trumpas pradžios
+              fragmentas, o nested scroll'ai trukdydavo.
+            - Be lyrics → komentarai užima visą plotą (mobile + desktop). */}
+        {lyricsText && (
+          <div className="flex shrink-0 items-center gap-1 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-5 py-2 lg:hidden">
+            <button
+              type="button"
+              onClick={() => setMobileTab('lyrics')}
+              className={[
+                "flex-1 rounded-md px-3 py-1.5 font-['Outfit',sans-serif] text-[11.5px] font-extrabold uppercase tracking-wider transition-colors",
+                mobileTab === 'lyrics'
+                  ? 'bg-[var(--accent-orange)] text-white'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]',
+              ].join(' ')}
+            >
+              Tekstas
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileTab('comments')}
+              className={[
+                "flex-1 rounded-md px-3 py-1.5 font-['Outfit',sans-serif] text-[11.5px] font-extrabold uppercase tracking-wider transition-colors",
+                mobileTab === 'comments'
+                  ? 'bg-[var(--accent-orange)] text-white'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]',
+              ].join(' ')}
+            >
+              Komentarai
+            </button>
+          </div>
+        )}
         <div className={[
           'flex-1 min-h-0',
           lyricsText
-            ? 'grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:divide-x lg:divide-[var(--border-subtle)]'
+            ? 'lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:divide-x lg:divide-[var(--border-subtle)]'
             : 'overflow-y-auto',
         ].join(' ')}>
           {lyricsText ? (
             <>
-              <div className="overflow-y-auto px-5 py-5">
+              {/* Lyrics skiltis — desktop'e visada matoma; mobile'e tik kai
+                  mobileTab='lyrics'. */}
+              <div className={[
+                'overflow-y-auto px-5 py-5',
+                mobileTab === 'lyrics' ? 'block h-full' : 'hidden lg:block',
+              ].join(' ')}>
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.2em] text-[var(--text-muted)]">
                     Tekstas
@@ -986,7 +1034,12 @@ function TrackInfoModal({
                 </div>
                 <LyricsWithReactions trackId={track.id} lyrics={lyricsText} compact />
               </div>
-              <div className="overflow-y-auto px-5 py-5">
+              {/* Komentarai — desktop'e visada matoma šalia; mobile'e tik
+                  kai mobileTab='comments'. */}
+              <div className={[
+                'overflow-y-auto px-5 py-5',
+                mobileTab === 'comments' ? 'block h-full' : 'hidden lg:block',
+              ].join(' ')}>
                 <EntityCommentsBlock
                   entityType="track"
                   entityId={track.id}
