@@ -1,16 +1,32 @@
 'use client'
 // app/lt/albumas/[slug]/[id]/album-page-client.tsx
-import { useState, useEffect } from 'react'
+//
+// Album page — designed to match artist-page patterns:
+//  - Hero with cover + title + LikePill (no inline ad-hoc like button).
+//  - PlayerCard ABOVE the tracks list (was sidebar before — buried it).
+//  - TrackRow uses per-album relative PopBar (likes-based when present).
+//  - Likes use unified `likes` table via /api/albums/[id]/like; modal lists
+//    likers via /api/likes/album/[id]. NO separate LegacyLikesPanel.
+//  - Comments section at the bottom via shared CommentsSection
+//    (entity_type='album').
+//  - "Ar žinojai?" decorative placeholder dropped — was static stub on
+//    every album. If/when we surface admin trivia, it'll come back gated
+//    on real content.
+//  - ScoreCard NOT rendered on the public album page; available only via
+//    /admin/albums.
+
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import LegacyLikesPanel, { LegacyBadge, type LegacyLikeUser } from '@/components/LegacyLikesPanel'
-import ScoreCard from '@/components/ScoreCard'
 import { proxyImg } from '@/lib/img-proxy'
+import { LikePill } from '@/components/LikePill'
+import LikesModal from '@/components/LikesModal'
+import CommentsSection from '@/components/CommentsSection'
 
 type Track = {
   id: number; slug: string; title: string; type: string
   video_url: string | null; is_new: boolean; is_single: boolean
   position: number; featuring: string[]
-  // top comment on this track (pre-fetched server-side, optional)
+  like_count?: number | null
   topComment?: { author: string; text: string; likes: number } | null
 }
 type Album = {
@@ -19,19 +35,15 @@ type Album = {
   cover_image_url: string | null; video_url: string | null
   show_player: boolean; is_upcoming: boolean
   type_studio?: boolean
-  score?: number | null; score_breakdown?: any
-  peak_chart_position?: number | null; certifications?: any
+  legacy_id?: number | null
 }
 type Artist = { id: number; slug: string; name: string; cover_image_url: string | null }
 type SimpleAlbum = { id: number; slug: string; title: string; year?: number; cover_image_url?: string; type: string }
-type NewsItem = { id: number; slug: string; title: string; image_small_url: string | null; published_at: string }
 
 type Props = {
   album: Album; artist: Artist; tracks: Track[]
   otherAlbums: SimpleAlbum[]; similarAlbums: any[]
-  likes: number; relatedNews?: NewsItem[]
-  isLegacy?: boolean
-  legacyLikes?: { count: number; users: LegacyLikeUser[] }
+  likes: number
 }
 
 function ytId(url?: string | null) {
@@ -40,500 +52,527 @@ function ytId(url?: string | null) {
   return m ? m[1] : null
 }
 
-function formatDate(dateFormatted: string | null, year?: number, month?: number, day?: number): string | null {
-  if (!year) return dateFormatted
-  const months = ['sausio','vasario','kovo','balandžio','gegužės','birželio','liepos','rugpjūčio','rugsėjo','spalio','lapkričio','gruodžio']
-  if (month && day) return `${year} m. ${months[month - 1]} ${day} d.`
-  if (month) return `${year} m. ${months[month - 1]}`
+const LT_MONTHS = [
+  'sausio', 'vasario', 'kovo', 'balandžio', 'gegužės', 'birželio',
+  'liepos', 'rugpjūčio', 'rugsėjo', 'spalio', 'lapkričio', 'gruodžio',
+]
+
+function formatLtDate(year?: number, month?: number, day?: number, fallback?: string | null): string | null {
+  if (!year) return fallback || null
+  if (month && day) return `${year} m. ${LT_MONTHS[month - 1]} ${day} d.`
+  if (month) return `${year} m. ${LT_MONTHS[month - 1]}`
   return `${year} m.`
 }
 
-function MusicIcon({ size = 16, color = '#fff' }: { size?: number; color?: string }) {
+/** 5-level relative pop bar — same idea as artist page. Albumams skaičius
+ *  ateina iš like_count (jei surinktas). Jei visi tracks turi 0 likes,
+ *  fallback į pozicinį ranking'ą (1 = top, last = bottom). */
+function popLevelRelative(value: number, max: number): number {
+  if (max <= 0 || value <= 0) return 1
+  const ratio = value / max
+  if (ratio >= 0.8) return 5
+  if (ratio >= 0.55) return 4
+  if (ratio >= 0.3) return 3
+  if (ratio >= 0.1) return 2
+  return 1
+}
+
+function PopBar({ level }: { level: number }) {
+  const dashes = 5
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
-      <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
-    </svg>
+    <div className="flex items-center gap-[3px]">
+      {Array.from({ length: dashes }).map((_, i) => (
+        <span
+          key={i}
+          className={[
+            'h-[3px] w-[10px] rounded-full transition-colors',
+            i < level ? 'bg-[var(--accent-orange)]' : 'bg-[var(--popup-bg)]',
+          ].join(' ')}
+        />
+      ))}
+    </div>
   )
 }
 
-export default function AlbumPageClient({ album, artist, tracks, otherAlbums, similarAlbums, likes, relatedNews = [], isLegacy = false, legacyLikes }: Props) {
-  const [playingIdx, setPlayingIdx] = useState(-1)
-  const [liked, setLiked] = useState(false)
-  const [loaded, setLoaded] = useState(false)
-  const [expanded, setExpanded] = useState(false)
+export default function AlbumPageClient({
+  album, artist, tracks, otherAlbums, similarAlbums, likes,
+}: Props) {
+  const [activeIdx, setActiveIdx] = useState<number>(-1)
+  const [playing, setPlaying] = useState(false)
 
-  useEffect(() => { setLoaded(true) }, [])
+  // Like state — mirror artist page wiring exactly.
+  const [selfLiked, setSelfLiked] = useState(false)
+  const [selfLikePending, setSelfLikePending] = useState(false)
+  const [likeCount, setLikeCount] = useState(likes)
+  const [likesModalOpen, setLikesModalOpen] = useState(false)
+  const [likeUsers, setLikeUsers] = useState<any[]>([])
+  const [likeUsersLoaded, setLikeUsersLoaded] = useState(false)
 
-  const firstTrackWithVideo = tracks.findIndex(t => ytId(t.video_url) !== null)
-  const effectiveIdx = playingIdx >= 0 ? playingIdx : (firstTrackWithVideo >= 0 ? firstTrackWithVideo : -1)
-  const currentTrack = effectiveIdx >= 0 ? tracks[effectiveIdx] : null
-  const currentVid = ytId(currentTrack?.video_url)
-  const albumVid = ytId(album.video_url)
-  const activeVid = currentVid || albumVid
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/albums/${album.id}/like`, { cache: 'no-store' })
+      .then(r => r.json())
+      .then(d => {
+        if (cancelled) return
+        if (typeof d.liked === 'boolean') setSelfLiked(d.liked)
+        if (typeof d.count === 'number') setLikeCount(d.count)
+      })
+      .catch(() => { /* silent */ })
+    return () => { cancelled = true }
+  }, [album.id])
 
-  const VISIBLE = 5
-  // Jei visų tracks position vienoda (import'e praradom originalią tvarką),
-  // UI neturi rodyti klaidinančių numerių — vietoj to sortinam pagal įrašymo
-  // eilę (tracks.id) ir rodom disc icon'ą. Importo side pataisa bus kitam thread'e.
+  const onToggleLike = async () => {
+    if (selfLikePending) return
+    setSelfLikePending(true)
+    const prev = selfLiked
+    // Optimistic flip + count adjustment.
+    setSelfLiked(!prev)
+    setLikeCount(c => c + (prev ? -1 : 1))
+    try {
+      const res = await fetch(`/api/albums/${album.id}/like`, { method: 'POST' })
+      const data = await res.json()
+      if (typeof data.liked === 'boolean') setSelfLiked(data.liked)
+      if (typeof data.count === 'number') setLikeCount(data.count)
+    } catch {
+      // revert on network error
+      setSelfLiked(prev)
+      setLikeCount(c => c - (prev ? -1 : 1))
+    } finally {
+      setSelfLikePending(false)
+    }
+  }
+
+  const onOpenLikersModal = async () => {
+    setLikesModalOpen(true)
+    if (likeUsersLoaded) return
+    try {
+      const res = await fetch(`/api/likes/album/${album.id}`)
+      const data = await res.json()
+      setLikeUsers(data.users || [])
+      setLikeUsersLoaded(true)
+    } catch {
+      setLikeUsersLoaded(true)
+    }
+  }
+
+  // Track ordering. If album_tracks neturi pozicijų (t.y. importas pametė
+  // originalią eilę), sortinam pagal track id, kad UI rodytų stabilią,
+  // deterministinę tvarką (chronological).
   const positionsUnknown = tracks.length > 1 && tracks.every(t => t.position === tracks[0].position)
-  const sortedTracks = positionsUnknown
-    ? [...tracks].sort((a, b) => a.id - b.id)
-    : [...tracks].sort((a, b) => a.position - b.position)
-  const mobileVisible = expanded ? sortedTracks : sortedTracks.slice(0, VISIBLE)
-  const hasMore = tracks.length > VISIBLE
+  const sortedTracks = useMemo(() => (
+    positionsUnknown
+      ? [...tracks].sort((a, b) => a.id - b.id)
+      : [...tracks].sort((a, b) => a.position - b.position)
+  ), [tracks, positionsUnknown])
 
-  const hasLegacyLikes = !!legacyLikes && legacyLikes.count > 0
+  // Max likes — relative pop bar normalization. Jei nei vienas track
+  // neturi likes (== 0 max), fallback į pozicinį ranking.
+  const maxTrackLikes = useMemo(() => {
+    let max = 0
+    for (const t of tracks) {
+      const v = (t as any).like_count
+      if (typeof v === 'number' && v > max) max = v
+    }
+    return max
+  }, [tracks])
 
-  const maxPop = tracks.length
-  const popScore = (t: Track) => Math.min(1, (maxPop - t.position + 1) / maxPop + (t.is_single ? 0.3 : 0))
+  const albumYtId = ytId(album.video_url)
+  const firstWithVideo = sortedTracks.findIndex(t => ytId(t.video_url))
+  const effectiveIdx = activeIdx >= 0 ? activeIdx : firstWithVideo
+  const activeTrack = effectiveIdx >= 0 ? sortedTracks[effectiveIdx] : null
+  const activeTrackVid = activeTrack ? ytId(activeTrack.video_url) : null
+  const playerVid = activeTrackVid || albumYtId
+  const hasAnyVideo = !!playerVid
 
-  const dateStr = formatDate(album.dateFormatted, album.year, album.month, album.day)
-  const albumTypeLabel = album.type_studio ? 'Studijinis albumas' : album.type
-
-  const card: React.CSSProperties = {
-    background: 'var(--bg-surface)',
-    border: '1px solid var(--border-default)',
-    borderRadius: 16,
-    overflow: 'hidden',
-  }
-
-  const cardHead: React.CSSProperties = {
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    padding: '10px 14px', borderBottom: '1px solid var(--sub-border)',
-    fontSize: 11, fontWeight: 700, color: 'var(--text-primary)',
-    fontFamily: 'Outfit, sans-serif', textTransform: 'uppercase', letterSpacing: '.08em',
-  }
-
-  const LikeBtn = () => (
-    <button
-      onClick={() => setLiked(v => !v)}
-      style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700, cursor: 'pointer', flexShrink: 0, border: `1px solid ${liked ? 'rgba(249,115,22,.4)' : 'var(--link-btn-border)'}`, background: liked ? 'rgba(249,115,22,.12)' : 'var(--link-btn-bg)', color: liked ? '#f97316' : 'var(--text-muted)', transition: 'all .15s', fontFamily: 'Outfit, sans-serif' }}
-    >
-      {liked ? '♥' : '♡'} {likes + (liked ? 1 : 0)}
-    </button>
-  )
-
-  const AlbumInfoCard = ({ coverSize = 110 }: { coverSize?: number }) => (
-    <div style={card}>
-      <div style={{ background: 'var(--cover-area-bg)', padding: '14px', display: 'flex', gap: 14, alignItems: 'center', opacity: loaded ? 1 : 0, transition: 'opacity .4s', position: 'relative' }}>
-        <div style={{ position: 'absolute', top: 10, right: 12 }}><LikeBtn /></div>
-        <div style={{ flexShrink: 0, width: coverSize, height: coverSize, borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--shadow-card)', background: 'var(--cover-placeholder)' }}>
-          {album.cover_image_url
-            ? <img src={proxyImg(album.cover_image_url)} alt={album.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-            : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30 }}>💿</div>}
-        </div>
-        <div style={{ flex: 1, minWidth: 0, paddingRight: 48 }}>
-          <div style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.12em', color: '#f97316', fontFamily: 'Outfit, sans-serif', marginBottom: 3, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-            <span>{albumTypeLabel}</span>
-            {album.is_upcoming && <span style={{ fontSize: 8, padding: '1px 6px', borderRadius: 999, background: 'rgba(249,115,22,.18)', border: '1px solid rgba(249,115,22,.3)', color: '#f97316' }}>Greitai</span>}
-            {/* archive label removed */}
-          </div>
-          <h1 style={{ fontFamily: 'Outfit, sans-serif', fontSize: 'clamp(16px,2vw,20px)', fontWeight: 900, lineHeight: 1.1, letterSpacing: '-.025em', color: 'var(--text-primary)', margin: '0 0 5px', wordBreak: 'break-word' }}>{album.title}</h1>
-          <Link href={`/atlikejai/${artist.slug}`} style={{ fontSize: 13, fontWeight: 700, color: '#f97316', textDecoration: 'none', display: 'block', marginBottom: 4 }}
-            onMouseEnter={e => (e.currentTarget.style.opacity = '.75')}
-            onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>{artist.name}
-          </Link>
-          {dateStr && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{dateStr}</div>}
-        </div>
-      </div>
-    </div>
-  )
-
-  const PlayerCard = () => (
-    <div style={card}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '9px 13px 8px', borderBottom: '1px solid var(--sub-border)' }}>
-        <div style={{ width: 28, height: 28, borderRadius: 8, background: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <MusicIcon size={15} color="#fff" />
-        </div>
-        <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--text-primary)', fontFamily: 'Outfit, sans-serif' }}>Albumo muzika</span>
-      </div>
-      {activeVid ? (
-        <iframe key={activeVid} src={`https://www.youtube.com/embed/${activeVid}?rel=0`} allow="autoplay; encrypted-media" allowFullScreen style={{ width: '100%', aspectRatio: '16/9', border: 'none', display: 'block' }} />
-      ) : (
-        <div style={{ width: '100%', aspectRatio: '16/9', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'var(--cover-area-bg)' }}>
-          <div style={{ opacity: .2 }}><MusicIcon size={28} color="var(--text-primary)" /></div>
-          <div style={{ fontSize: 11, color: 'var(--text-faint)' }}>Vaizdo įrašas nepriskirtas</div>
-        </div>
-      )}
-    </div>
-  )
-
-  // ── TrackRow ─────────────────────────────────────────
-  // desktop=true  →  A-variant pop bar (border-bottom coloured by popularity)
-  //                   title is a Link to track page, thumb click plays video
-  // desktop=false →  mobile: floating pop bar under row (existing style)
-  const TrackRow = ({ t, isPlaying, desktop = false }: { t: Track; isPlaying: boolean; desktop?: boolean }) => {
-    const hasOwnVideo = !!ytId(t.video_url)
-    const canPlay = hasOwnVideo || !!albumVid
-
-    // rankRatio: 1.0 = most popular (position 1), 0.0 = least popular (last)
-    const rankRatio = tracks.length > 1
-      ? (tracks.length - t.position) / (tracks.length - 1)
-      : 1
-    // Pop bar: fixed 80px track, fill width = rankRatio * 80px
-    const popBarFill = Math.round(rankRatio * 100)
-
-    const titleCol = isPlaying ? '#f97316' : 'var(--text-primary)'
-    const numCol   = isPlaying ? '#f97316' : 'var(--text-secondary)'
-
-    return (
-      <div
-        style={{
-          padding: desktop ? '0 16px 0 18px' : '9px 16px 7px',
-          borderBottom: '1px solid var(--border-subtle)',
-          background: isPlaying ? 'var(--bg-active)' : 'transparent',
-          transition: 'background .1s',
-          minHeight: desktop ? 52 : undefined,
-          display: desktop ? 'flex' : 'block',
-          alignItems: desktop ? 'center' : undefined,
-          gap: desktop ? 10 : undefined,
-          cursor: desktop && canPlay ? 'pointer' : 'default',
-        }}
-        onClick={desktop && canPlay ? () => setPlayingIdx(tracks.indexOf(t)) : undefined}
-        onMouseEnter={e => { if (!isPlaying) (e.currentTarget as HTMLDivElement).style.background = 'var(--bg-hover)' }}
-        onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = isPlaying ? 'var(--bg-active)' : 'transparent' }}
-      >
-        {/* ── desktop layout ── */}
-        {desktop ? (
-          <>
-            {/* Position number — arba disc icon jei originali tvarka prarasta */}
-            {positionsUnknown ? (
-              <span style={{ width: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: numCol, opacity: isPlaying ? 1 : 0.55 }} title="Originalios tvarkos nėra">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <circle cx="12" cy="12" r="9" />
-                  <circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" />
-                </svg>
-              </span>
-            ) : (
-              <span style={{ width: 22, textAlign: 'center', fontSize: 11, flexShrink: 0, fontFamily: 'Outfit, sans-serif', color: numCol, fontWeight: isPlaying ? 800 : 400 }}>
-                {t.position}
-              </span>
-            )}
-
-            {/* Thumbnail — purely decorative on desktop */}
-            <div style={{ width: 34, height: 34, borderRadius: 6, flexShrink: 0, overflow: 'hidden', background: 'var(--cover-placeholder)', position: 'relative' }}>
-              {album.cover_image_url
-                ? <img src={proxyImg(album.cover_image_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11 }}>🎵</div>}
-              {isPlaying && (
-                <div style={{ position: 'absolute', inset: 0, background: 'rgba(249,115,22,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff' }} />
-                </div>
-              )}
-              {/* Own-video badge */}
-              {!isPlaying && hasOwnVideo && (
-                <div style={{ position: 'absolute', bottom: 2, right: 2, width: 12, height: 12, borderRadius: 3, background: 'rgba(249,115,22,.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-                  <svg width="5" height="5" viewBox="0 0 10 10" fill="#fff"><polygon points="2,1 9,5 2,9"/></svg>
-                </div>
-              )}
-            </div>
-
-            {/* Title + comment */}
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <Link
-                href={`/dainos/${artist.slug}-${t.slug}-${t.id}`}
-                style={{ fontSize: 13, fontWeight: isPlaying ? 700 : 600, color: titleCol, textDecoration: 'none', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
-                onMouseEnter={e => { if (!isPlaying) e.currentTarget.style.color = '#f97316' }}
-                onMouseLeave={e => { if (!isPlaying) e.currentTarget.style.color = titleCol }}
-              >
-                {t.title}
-                {t.featuring.length > 0 && <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}> su {t.featuring.join(', ')}</span>}
-              </Link>
-              {t.topComment ? (
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginTop: 1 }}>
-                  <span style={{ fontSize: 10, color: 'var(--comment-quote)', fontStyle: 'italic', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', flex: 1 }}>„{t.topComment.text}"</span>
-                  <span style={{ fontSize: 9, color: 'var(--comment-author)', flexShrink: 0 }}>— {t.topComment.author}</span>
-                  <span style={{ fontSize: 9, color: 'var(--text-muted)', flexShrink: 0 }}>♥ {t.topComment.likes}</span>
-                </div>
-              ) : (
-                <div style={{ marginTop: 1, fontSize: 10, color: 'var(--text-faint)', fontStyle: 'italic', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  Būk pirmas — palik komentarą…
-                </div>
-              )}
-            </div>
-
-            {/* Badges */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-              {t.is_new && <span style={{ fontSize: 7, fontWeight: 800, padding: '1px 4px', borderRadius: 3, background: 'rgba(249,115,22,.12)', color: '#f97316', border: '1px solid rgba(249,115,22,.2)' }}>NEW</span>}
-              {t.is_single && <span style={{ fontSize: 7, fontWeight: 800, padding: '1px 4px', borderRadius: 3, background: 'var(--bg-hover)', color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}>S</span>}
-            </div>
-
-            {/* Pop bar */}
-            <div style={{ width: 80, flexShrink: 0, height: 3, borderRadius: 2, background: 'var(--popup-bg)', overflow: 'hidden' }}>
-              <div style={{ height: '100%', borderRadius: 2, background: 'var(--popup-fill)', width: `${popBarFill}%`, transition: 'width .4s ease' }} />
-            </div>
-
-            {/* Play button — only when canPlay, always ▶ (no pause state) */}
-            {canPlay ? (
-              <button
-                onClick={e => { e.stopPropagation(); setPlayingIdx(tracks.indexOf(t)) }}
-                style={{
-                  width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
-                  background: isPlaying ? 'rgba(249,115,22,.15)' : 'transparent',
-                  border: `1.5px solid ${isPlaying ? '#f97316' : 'var(--border-subtle)'}`,
-                  color: isPlaying ? '#f97316' : 'var(--text-muted)',
-                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  transition: 'all .15s', padding: 0,
-                }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = '#f97316'; e.currentTarget.style.color = '#f97316'; e.currentTarget.style.background = 'rgba(249,115,22,.08)' }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = isPlaying ? '#f97316' : 'var(--border-subtle)'; e.currentTarget.style.color = isPlaying ? '#f97316' : 'var(--text-muted)'; e.currentTarget.style.background = isPlaying ? 'rgba(249,115,22,.15)' : 'transparent' }}
-              >
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><polygon points="2,1 9,5 2,9"/></svg>
-              </button>
-            ) : (
-              <div style={{ width: 30, flexShrink: 0 }} />
-            )}
-          </>
-        ) : (
-          /* ── mobile layout (unchanged) ── */
-          <>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              {positionsUnknown ? (
-                <span style={{ width: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: numCol, opacity: isPlaying ? 1 : 0.55 }} title="Originalios tvarkos nėra">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <circle cx="12" cy="12" r="9" />
-                    <circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" />
-                  </svg>
-                </span>
-              ) : (
-                <span style={{ width: 20, textAlign: 'center', fontSize: 11, flexShrink: 0, fontFamily: 'Outfit, sans-serif', color: numCol, fontWeight: isPlaying ? 800 : 400 }}>
-                  {t.position}
-                </span>
-              )}
-              <div
-                onClick={canPlay ? () => setPlayingIdx(tracks.indexOf(t)) : undefined}
-                style={{ width: 36, height: 36, borderRadius: 7, flexShrink: 0, overflow: 'hidden', background: 'var(--cover-placeholder)', position: 'relative', cursor: canPlay ? 'pointer' : 'default' }}
-              >
-                {album.cover_image_url
-                  ? <img src={proxyImg(album.cover_image_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                  : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11 }}>🎵</div>}
-                {isPlaying && (
-                  <div style={{ position: 'absolute', inset: 0, background: 'rgba(249,115,22,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#fff' }} />
-                  </div>
-                )}
-                {!isPlaying && hasOwnVideo && (
-                  <div style={{ position: 'absolute', bottom: 2, right: 2, width: 12, height: 12, borderRadius: 3, background: 'rgba(249,115,22,.92)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <svg width="6" height="6" viewBox="0 0 10 10" fill="#fff"><polygon points="2,1 9,5 2,9"/></svg>
-                  </div>
-                )}
-              </div>
-              <span
-                onClick={canPlay ? () => setPlayingIdx(tracks.indexOf(t)) : undefined}
-                style={{ fontSize: 13, fontWeight: isPlaying ? 700 : 600, color: titleCol, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, cursor: canPlay ? 'pointer' : 'default' }}
-              >
-                {t.title}
-                {t.featuring.length > 0 && <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}> su {t.featuring.join(', ')}</span>}
-              </span>
-              {t.is_new && <span style={{ fontSize: 7, fontWeight: 800, padding: '1px 4px', borderRadius: 3, background: 'rgba(249,115,22,.12)', color: '#f97316', border: '1px solid rgba(249,115,22,.2)', flexShrink: 0 }}>NEW</span>}
-              <Link href={`/lt/daina/${t.slug}/${t.id}/`}
-                onClick={e => e.stopPropagation()}
-                style={{ fontSize: 11, color: 'var(--track-link-color)', textDecoration: 'none', padding: '2px 5px', borderRadius: 4, flexShrink: 0 }}
-                onMouseEnter={e => { e.currentTarget.style.color = '#f97316'; e.currentTarget.style.background = 'rgba(249,115,22,.08)' }}
-                onMouseLeave={e => { e.currentTarget.style.color = 'var(--track-link-color)'; e.currentTarget.style.background = 'transparent' }}
-              >→</Link>
-            </div>
-            <div style={{ marginLeft: 66, marginTop: 5, height: 2, background: 'var(--popup-bg)', borderRadius: 2, overflow: 'hidden' }}>
-              <div style={{ height: '100%', borderRadius: 2, background: 'var(--popup-fill)', width: `${popBarFill}%`, transition: 'width .4s ease' }} />
-            </div>
-          </>
-        )}
-      </div>
-    )
-  }
-
-  const DesktopTrackList = () => (
-    <>
-      {sortedTracks.map(t => {
-        const idx = tracks.indexOf(t)
-        return <TrackRow key={t.id} t={t} isPlaying={effectiveIdx === idx} desktop={true} />
-      })}
-    </>
-  )
-
-  const MobileTrackList = () => (
-    <>
-      {mobileVisible.map(t => {
-        const idx = tracks.indexOf(t)
-        return <TrackRow key={t.id} t={t} isPlaying={effectiveIdx === idx} desktop={false} />
-      })}
-      {hasMore && (
-        <button
-          onClick={() => setExpanded(v => !v)}
-          style={{ width: '100%', padding: '11px 16px', background: 'transparent', border: 'none', borderTop: '1px solid var(--border-subtle)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'Outfit, sans-serif', transition: 'color .15s' }}
-          onMouseEnter={e => (e.currentTarget.style.color = '#f97316')}
-          onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
-        >
-          {expanded ? <>↑ Rodyti mažiau</> : <>Visos {tracks.length} dainų ↓</>}
-        </button>
-      )}
-    </>
-  )
-
-  const SidebarExtras = () => (
-    <>
-      <div style={{ ...card, background: 'var(--dyk-bg)', border: '1px solid var(--dyk-border)' }}>
-        <div style={{ padding: '12px 14px' }}>
-          <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.1em', color: '#f97316', fontFamily: 'Outfit, sans-serif', marginBottom: 7, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="#f97316" style={{ flexShrink: 0 }}><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-            Ar žinojai?
-          </div>
-          <p style={{ fontSize: 12, color: 'var(--dyk-text)', lineHeight: 1.75, margin: 0 }}>Informacija apie šį albumą bus rodoma automatiškai iš Wikipedia. Administratorius gali keisti šį tekstą admin panelėje.</p>
-          <div style={{ fontSize: 9, color: 'var(--dyk-source)', marginTop: 6 }}>Šaltinis: Wikipedia · Adminas gali keisti</div>
-        </div>
-      </div>
-      <div style={card}>
-        <div style={cardHead}>Diskusijos <span style={{ fontSize: 9, fontWeight: 400, color: 'var(--text-faint)', textTransform: 'none', letterSpacing: 0 }}>0</span></div>
-        <div style={{ padding: '12px 14px' }}>
-          <div style={{ display: 'flex', gap: 7, marginBottom: 10 }}>
-            <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: 'rgba(249,115,22,.15)', border: '1px solid rgba(249,115,22,.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#f97316', fontFamily: 'Outfit, sans-serif' }}>{artist.name[0]}</div>
-            <input placeholder="Rašyk komentarą…" style={{ flex: 1, height: 30, borderRadius: 999, padding: '0 12px', fontSize: 11, background: 'var(--comment-input-bg)', border: '1px solid var(--comment-border)', color: 'var(--text-primary)', outline: 'none', fontFamily: "'DM Sans', sans-serif" }} />
-            <button style={{ height: 30, padding: '0 12px', borderRadius: 999, background: '#f97316', border: 'none', color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', flexShrink: 0, fontFamily: 'Outfit, sans-serif' }}>Siųsti</button>
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--text-faint)', textAlign: 'center', padding: '4px 0' }}>Būk pirmas — palik komentarą!</div>
-        </div>
-      </div>
-      {relatedNews.length > 0 && (
-        <div style={card}>
-          <div style={cardHead}>Naujienos <Link href={`/atlikejai/${artist.slug}`} style={{ fontSize: 9, fontWeight: 700, color: '#f97316', textDecoration: 'none', textTransform: 'none', letterSpacing: 0 }}>Visos →</Link></div>
-          <div>
-            {relatedNews.map((n, i) => (
-              <Link key={n.id} href={`/news/${n.slug}`} style={{ display: 'flex', gap: 9, padding: '9px 12px', borderBottom: i < relatedNews.length - 1 ? '1px solid var(--border-subtle)' : 'none', textDecoration: 'none' }}
-                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.opacity = '.8')}
-                onMouseLeave={e => ((e.currentTarget as HTMLElement).style.opacity = '1')}>
-                {n.image_small_url ? <img src={n.image_small_url} style={{ width: 38, height: 38, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} alt="" /> : <div style={{ width: 38, height: 38, borderRadius: 6, flexShrink: 0, background: 'var(--cover-placeholder)' }} />}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' } as any}>{n.title}</div>
-                  <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 2 }}>{new Date(n.published_at).toLocaleDateString('lt-LT')}</div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-      {otherAlbums.length > 0 && (
-        <div style={card}>
-          <div style={cardHead}>Kiti {artist.name} albumai <Link href={`/atlikejai/${artist.slug}`} style={{ fontSize: 9, fontWeight: 700, color: '#f97316', textDecoration: 'none', textTransform: 'none', letterSpacing: 0 }}>Visi →</Link></div>
-          <div style={{ display: 'flex', gap: 8, padding: '10px 12px', overflowX: 'auto', scrollbarWidth: 'none' }}>
-            {otherAlbums.map(a => (
-              <Link key={a.id} href={`/lt/albumas/${a.slug}/${a.id}/`} style={{ flexShrink: 0, width: 80, textDecoration: 'none' }}>
-                {a.cover_image_url ? <img src={proxyImg(a.cover_image_url)} alt={a.title} style={{ width: 80, height: 80, borderRadius: 9, objectFit: 'cover', display: 'block', border: '1px solid var(--similar-cover-border)', marginBottom: 5 }} /> : <div style={{ width: 80, height: 80, borderRadius: 9, background: 'var(--cover-placeholder)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, marginBottom: 5 }}>💿</div>}
-                <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--similar-title)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.title}</div>
-                <div style={{ fontSize: 9, color: 'var(--similar-meta)', marginTop: 1 }}>{a.year}</div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-      {similarAlbums.length > 0 && (
-        <div style={card}>
-          <div style={cardHead}>Panaši muzika</div>
-          <div style={{ display: 'flex', gap: 8, padding: '10px 12px', overflowX: 'auto', scrollbarWidth: 'none' }}>
-            {similarAlbums.map((a: any) => (
-              <Link key={a.id} href={`/lt/albumas/${a.slug}/${a.id}/`} style={{ flexShrink: 0, width: 80, textDecoration: 'none' }}>
-                {a.cover_image_url ? <img src={proxyImg(a.cover_image_url)} alt={a.title} style={{ width: 80, height: 80, borderRadius: 9, objectFit: 'cover', display: 'block', border: '1px solid var(--similar-cover-border)', marginBottom: 5 }} /> : <div style={{ width: 80, height: 80, borderRadius: 9, background: 'var(--cover-placeholder)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, marginBottom: 5 }}>🎵</div>}
-                <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--similar-title)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.title}</div>
-                <div style={{ fontSize: 9, color: 'var(--similar-meta)', marginTop: 1 }}>{a.artists?.name} · {a.year}</div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-    </>
-  )
+  const dateStr = formatLtDate(album.year, album.month, album.day, album.dateFormatted)
+  const albumTypeLabel = album.type_studio === true ? 'Studijinis albumas' : album.type
 
   return (
-    <div style={{ background: 'var(--bg-body)', color: 'var(--text-primary)', fontFamily: "'DM Sans',system-ui,sans-serif", WebkitFontSmoothing: 'antialiased', minHeight: '100vh' }}>
+    <div className="min-h-screen bg-[var(--bg-body)] text-[var(--text-primary)] [font-family:'DM_Sans',system-ui,sans-serif] antialiased">
+      <main className="mx-auto max-w-[1400px] space-y-10 px-4 pb-24 pt-6 sm:space-y-14 sm:px-6 lg:px-10">
 
-      {/* ══ DESKTOP ══ 40/60 split */}
-      <div className="ab-desktop" style={{ maxWidth: 1400, margin: '0 auto', padding: '14px 20px 60px', display: 'grid', gridTemplateColumns: '2fr 3fr', gap: 14, alignItems: 'start' }}>
-        <div style={{ position: 'sticky', top: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <AlbumInfoCard coverSize={100} />
-          {album.score !== null && album.score !== undefined && (
-            <ScoreCard entityType="album" score={album.score} breakdown={album.score_breakdown} />
-          )}
-          <PlayerCard />
-          <SidebarExtras />
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
-          <div style={card}>
-            <div style={cardHead}>
-              <span>Dainos {tracks.length > 0 && <span style={{ fontSize: 9, fontWeight: 400, color: 'var(--text-faint)', textTransform: 'none', letterSpacing: 0, marginLeft: 6 }}>{tracks.length}</span>}</span>
-              {positionsUnknown && tracks.length > 0 && (
-                <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'none', letterSpacing: 0, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9" /><path d="M12 8v4M12 16h.01" /></svg>
-                  Tvarka nenurodyta
-                </span>
+        {/* HERO — cover + title/meta on left, sticky LikePill on right.
+            Replaces the old "card with absolute-positioned heart" layout. */}
+        <section className="grid grid-cols-1 gap-6 lg:grid-cols-[260px_1fr]">
+          <div className="flex justify-center lg:block">
+            <div className="aspect-square w-full max-w-[260px] overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_18px_44px_-14px_rgba(0,0,0,0.45)]">
+              {album.cover_image_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={proxyImg(album.cover_image_url)}
+                  alt={album.title}
+                  referrerPolicy="no-referrer"
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-[64px]">💿</div>
               )}
             </div>
-            {tracks.length === 0
-              ? <div style={{ padding: 28, textAlign: 'center', fontSize: 12, color: 'var(--text-faint)' }}>Dainų nėra</div>
-              : <DesktopTrackList />
-            }
           </div>
-          {hasLegacyLikes && legacyLikes && (
-            <LegacyLikesPanel
-              count={legacyLikes.count}
-              users={legacyLikes.users}
-              entityLabel={`vartotojų patiko „${album.title}"`}
-              maxUsers={30}
-            />
-          )}
-        </div>
-      </div>
 
-      {/* ══ MOBILE ══ */}
-      <div className="ab-mobile" style={{ display: 'none', padding: '12px 14px 56px', flexDirection: 'column', gap: 12 }}>
-        <AlbumInfoCard coverSize={100} />
-        {album.score !== null && album.score !== undefined && (
-          <ScoreCard entityType="album" score={album.score} breakdown={album.score_breakdown} />
-        )}
-        <div style={card}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '9px 13px 8px', borderBottom: '1px solid var(--sub-border)' }}>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <MusicIcon size={15} color="#fff" />
+          <div className="flex min-w-0 flex-col justify-center gap-3">
+            <div className="flex flex-wrap items-center gap-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.18em] text-[var(--accent-orange)]">
+              <span>{albumTypeLabel}</span>
+              {album.is_upcoming && (
+                <span className="rounded-full border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.18)] px-2 py-0.5">Greitai</span>
+              )}
             </div>
-            <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--text-primary)', fontFamily: 'Outfit, sans-serif' }}>Albumo muzika</span>
+            <h1
+              className="font-['Outfit',sans-serif] font-black leading-[1.05] tracking-[-0.025em] text-[var(--text-primary)]"
+              style={{ fontSize: 'clamp(1.75rem,3.2vw,2.75rem)' }}
+            >
+              {album.title}
+            </h1>
+            <Link
+              href={`/atlikejai/${artist.slug}`}
+              className="font-['Outfit',sans-serif] text-[16px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-80"
+            >
+              {artist.name}
+            </Link>
+            {dateStr && (
+              <div className="font-['Outfit',sans-serif] text-[13px] font-medium text-[var(--text-muted)]">
+                {dateStr}
+              </div>
+            )}
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <LikePill
+                likes={likeCount}
+                selfLiked={selfLiked}
+                onToggle={onToggleLike}
+                onOpenModal={onOpenLikersModal}
+                pending={selfLikePending}
+                variant="surface"
+              />
+            </div>
           </div>
-          {activeVid ? (
-            <iframe key={activeVid} src={`https://www.youtube.com/embed/${activeVid}?rel=0`} allow="autoplay; encrypted-media" allowFullScreen style={{ width: '100%', aspectRatio: '16/9', border: 'none', display: 'block' }} />
-          ) : (
-            <div style={{ width: '100%', aspectRatio: '16/9', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--cover-area-bg)' }}>
-              <div style={{ fontSize: 11, color: 'var(--text-faint)' }}>Vaizdo įrašas nepriskirtas</div>
-            </div>
-          )}
-          <div style={{ ...cardHead, borderTop: '1px solid var(--sub-border)' }}>
-            <span>{expanded ? 'Dainos' : 'Top dainos'}</span>
-            {positionsUnknown && tracks.length > 0 && (
-              <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'none', letterSpacing: 0 }}>
-                · tvarka nenurodyta
+        </section>
+
+        {/* PLAYER + TRACK LIST — same hierarchy as artist hero. Player
+            sits ABOVE tracks (anksčiau buvo sidebar'e). Mobile stacks
+            naturally. */}
+        <section className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_minmax(0,460px)] lg:items-start">
+          {/* Track list — desktop left, mobile first */}
+          <div className="overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
+            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
+              <span className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--text-primary)]">
+                Dainos {tracks.length > 0 && (
+                  <span className="ml-1 text-[var(--text-faint)]">{tracks.length}</span>
+                )}
               </span>
+              {positionsUnknown && tracks.length > 0 && (
+                <span className="text-[10px] font-medium text-[var(--text-muted)]">tvarka nenurodyta</span>
+              )}
+            </div>
+            {tracks.length === 0 ? (
+              <div className="px-4 py-10 text-center text-[12px] text-[var(--text-faint)]">Dainų nėra</div>
+            ) : (
+              <ul className="divide-y divide-[var(--border-subtle)]">
+                {sortedTracks.map((t, i) => (
+                  <TrackRow
+                    key={t.id}
+                    t={t}
+                    index={i}
+                    total={sortedTracks.length}
+                    artistSlug={artist.slug}
+                    isPlaying={effectiveIdx === i && playing}
+                    isActive={effectiveIdx === i}
+                    positionsUnknown={positionsUnknown}
+                    maxLikes={maxTrackLikes}
+                    onPlay={() => { setActiveIdx(i); setPlaying(true) }}
+                    coverImage={album.cover_image_url}
+                  />
+                ))}
+              </ul>
             )}
           </div>
-          {tracks.length === 0
-            ? <div style={{ padding: 20, textAlign: 'center', fontSize: 12, color: 'var(--text-faint)' }}>Dainų nėra</div>
-            : <MobileTrackList />
-          }
-        </div>
-        {hasLegacyLikes && legacyLikes && (
-          <LegacyLikesPanel
-            count={legacyLikes.count}
-            users={legacyLikes.users}
-            entityLabel={`vartotojų patiko „${album.title}"`}
-            maxUsers={30}
-          />
+
+          {/* Player — sticky on desktop. */}
+          <div className="lg:sticky lg:top-4">
+            <div className="overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
+              <div className="flex items-center gap-2 border-b border-[var(--border-subtle)] px-3 py-2.5">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--accent-orange)] text-white">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z" /></svg>
+                </div>
+                <span className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--text-primary)]">
+                  {activeTrack ? activeTrack.title : 'Albumo muzika'}
+                </span>
+              </div>
+              {hasAnyVideo ? (
+                <iframe
+                  key={playerVid}
+                  src={`https://www.youtube.com/embed/${playerVid}?rel=0&autoplay=${playing ? 1 : 0}`}
+                  allow="autoplay; encrypted-media"
+                  allowFullScreen
+                  className="block aspect-video w-full border-0"
+                />
+              ) : (
+                <div className="flex aspect-video w-full flex-col items-center justify-center gap-2 bg-[var(--cover-area-bg)]">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--text-faint)]">
+                    <path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z" />
+                  </svg>
+                  <div className="text-[11px] text-[var(--text-faint)]">Vaizdo įrašas nepriskirtas</div>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* OTHER ALBUMS BY THIS ARTIST */}
+        {otherAlbums.length > 0 && (
+          <section>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-['Outfit',sans-serif] text-[18px] font-black tracking-[-0.01em] text-[var(--text-primary)] sm:text-[20px]">
+                Kiti {artist.name} albumai
+              </h2>
+              <Link
+                href={`/atlikejai/${artist.slug}`}
+                className="font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] no-underline hover:underline"
+              >
+                Visi →
+              </Link>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              {otherAlbums.map(a => (
+                <AlbumThumbCard
+                  key={a.id}
+                  href={`/lt/albumas/${a.slug}/${a.id}/`}
+                  cover={a.cover_image_url || null}
+                  title={a.title}
+                  subtitle={a.year ? String(a.year) : ''}
+                />
+              ))}
+            </div>
+          </section>
         )}
-        <SidebarExtras />
+
+        {/* SIMILAR */}
+        {similarAlbums.length > 0 && (
+          <section>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-['Outfit',sans-serif] text-[18px] font-black tracking-[-0.01em] text-[var(--text-primary)] sm:text-[20px]">
+                Panaši muzika
+              </h2>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              {similarAlbums.map((a: any) => (
+                <AlbumThumbCard
+                  key={a.id}
+                  href={`/lt/albumas/${a.slug}/${a.id}/`}
+                  cover={a.cover_image_url || null}
+                  title={a.title}
+                  subtitle={a.artists?.name ? `${a.artists.name}${a.year ? ' · ' + a.year : ''}` : (a.year ? String(a.year) : '')}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* COMMENTS — naudojam shared CommentsSection, kuris visur veikia
+            su entity_type/entity_id pora. Užsiregistruoti vartotojai gali
+            rašyti, anonimai mato. */}
+        <CommentsSection entityType="album" entityId={album.id} title="Diskusija" />
+
+      </main>
+
+      <LikesModal
+        open={likesModalOpen}
+        onClose={() => setLikesModalOpen(false)}
+        title={`„${album.title}" patinka`}
+        count={likeCount}
+        users={likeUsers}
+        subjectName={album.title}
+      />
+    </div>
+  )
+}
+
+/** Compact album track row — hero-aligned w/ artist page TrackRow style.
+ *  Click row OR play button to play. Pop bar uses per-album relative
+ *  scaling with 5-dash levels. YT cover thumbnail is probed naturalWidth
+ *  to detect dead videos (placeholder = 120px wide). */
+function TrackRow({
+  t, index, total, artistSlug, isPlaying, isActive, positionsUnknown,
+  maxLikes, onPlay, coverImage,
+}: {
+  t: Track
+  index: number
+  total: number
+  artistSlug: string
+  isPlaying: boolean
+  isActive: boolean
+  positionsUnknown: boolean
+  maxLikes: number
+  onPlay: () => void
+  coverImage: string | null
+}) {
+  const vidId = ytId(t.video_url)
+  const [vidDead, setVidDead] = useState(false)
+  const canPlay = !!vidId && !vidDead
+
+  // Pop bar level. If we have likes data, normalize across album.
+  // Otherwise position-based: top tracks = level 5, bottom = level 1.
+  const level = useMemo(() => {
+    const v = (t as any).like_count
+    if (typeof v === 'number' && maxLikes > 0) {
+      return popLevelRelative(v, maxLikes)
+    }
+    if (total <= 1) return 5
+    const ratio = (total - index) / total
+    return Math.max(1, Math.min(5, Math.ceil(ratio * 5)))
+  }, [t, index, total, maxLikes])
+
+  // YT thumbnail probe — naturalWidth < 200 = music.lt dead/placeholder.
+  // Mirrors the artist page TrackRow approach.
+  const yth = vidId ? `https://i.ytimg.com/vi/${vidId}/mqdefault.jpg` : null
+
+  return (
+    <li
+      onClick={canPlay ? onPlay : undefined}
+      className={[
+        'flex items-center gap-3 px-3 py-2.5 transition-colors sm:px-4',
+        canPlay ? 'cursor-pointer' : 'cursor-default',
+        isActive ? 'bg-[var(--bg-active)]' : 'hover:bg-[var(--bg-hover)]',
+      ].join(' ')}
+    >
+      {/* Position / disc icon */}
+      {positionsUnknown ? (
+        <span className="flex w-6 shrink-0 items-center justify-center text-[var(--text-faint)]" title="Originalios tvarkos nėra">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <circle cx="12" cy="12" r="9" />
+            <circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" />
+          </svg>
+        </span>
+      ) : (
+        <span className={[
+          'w-6 shrink-0 text-center font-["Outfit",sans-serif] tabular-nums',
+          isActive ? 'text-[12px] font-extrabold text-[var(--accent-orange)]' : 'text-[11px] font-medium text-[var(--text-muted)]',
+        ].join(' ')}>
+          {t.position}
+        </span>
+      )}
+
+      {/* Cover thumbnail — track-level YT thumb if available, else album cover */}
+      <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-md bg-[var(--cover-placeholder)]">
+        {yth && !vidDead ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={yth}
+            alt=""
+            className="h-full w-full object-cover"
+            referrerPolicy="no-referrer"
+            onLoad={(ev) => {
+              const el = ev.currentTarget as HTMLImageElement
+              if (el.naturalWidth > 0 && el.naturalWidth < 200) setVidDead(true)
+            }}
+            onError={() => setVidDead(true)}
+          />
+        ) : coverImage ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={proxyImg(coverImage)}
+            alt=""
+            className="h-full w-full object-cover"
+            referrerPolicy="no-referrer"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-[var(--text-faint)]">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z" /></svg>
+          </div>
+        )}
+        {isPlaying && (
+          <div className="absolute inset-0 flex items-center justify-center bg-[rgba(249,115,22,0.55)]">
+            <span className="h-1.5 w-1.5 rounded-full bg-white" />
+          </div>
+        )}
       </div>
 
-      <style>{`
-        @media(max-width: 860px) {
-          .ab-desktop { display: none !important; }
-          .ab-mobile  { display: flex !important; }
-        }
-        /* Thumb hover — show play overlay */
-        .ab-thumb:hover .ab-play-overlay { opacity: 1 !important; }
-      `}</style>
-    </div>
+      {/* Title + featuring */}
+      <div className="min-w-0 flex-1">
+        <Link
+          href={`/dainos/${artistSlug}-${t.slug}-${t.id}`}
+          onClick={(e) => e.stopPropagation()}
+          className={[
+            'block truncate font-["Outfit",sans-serif] text-[13px] no-underline transition-colors',
+            isActive ? 'font-bold text-[var(--accent-orange)]' : 'font-bold text-[var(--text-primary)] hover:text-[var(--accent-orange)] sm:text-[13.5px]',
+          ].join(' ')}
+        >
+          {t.title}
+          {t.featuring.length > 0 && (
+            <span className="ml-1 font-medium text-[var(--text-muted)]">su {t.featuring.join(', ')}</span>
+          )}
+        </Link>
+      </div>
+
+      {/* Badges */}
+      <div className="flex shrink-0 items-center gap-1.5">
+        {t.is_new && (
+          <span className="rounded-md border border-[rgba(249,115,22,0.25)] bg-[rgba(249,115,22,0.12)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[8.5px] font-extrabold uppercase tracking-wide text-[var(--accent-orange)]">
+            NEW
+          </span>
+        )}
+        {t.is_single && (
+          <span className="rounded-md border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[8.5px] font-extrabold uppercase tracking-wide text-[var(--text-muted)]">
+            S
+          </span>
+        )}
+      </div>
+
+      {/* Pop bar */}
+      <div className="hidden shrink-0 sm:block">
+        <PopBar level={level} />
+      </div>
+
+      {/* Play button — only when canPlay; hidden when YT dead. */}
+      {canPlay ? (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onPlay() }}
+          aria-label={isActive ? 'Grojama' : 'Groti'}
+          className={[
+            'flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-colors',
+            isActive
+              ? 'border-[var(--accent-orange)] bg-[rgba(249,115,22,0.15)] text-[var(--accent-orange)]'
+              : 'border-[var(--border-subtle)] text-[var(--text-muted)] hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.08)] hover:text-[var(--accent-orange)]',
+          ].join(' ')}
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><polygon points="2,1 9,5 2,9" /></svg>
+        </button>
+      ) : (
+        <span className="w-8 shrink-0" aria-hidden />
+      )}
+    </li>
+  )
+}
+
+/** Album thumbnail card — used in "Kiti albumai" + "Panaši muzika" grids.
+ *  Same proportions everywhere so the page reads as a coherent grid set. */
+function AlbumThumbCard({ href, cover, title, subtitle }: { href: string; cover: string | null; title: string; subtitle: string }) {
+  return (
+    <Link
+      href={href}
+      className="group flex flex-col gap-2 no-underline"
+    >
+      <div className="aspect-square w-full overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] transition-all group-hover:-translate-y-0.5 group-hover:border-[var(--border-strong)] group-hover:shadow-sm">
+        {cover ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={proxyImg(cover)}
+            alt={title}
+            referrerPolicy="no-referrer"
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-[28px]">💿</div>
+        )}
+      </div>
+      <div className="min-w-0">
+        <div className="line-clamp-2 font-['Outfit',sans-serif] text-[12px] font-bold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">
+          {title}
+        </div>
+        {subtitle && (
+          <div className="mt-0.5 truncate text-[10.5px] text-[var(--text-muted)]">{subtitle}</div>
+        )}
+      </div>
+    </Link>
   )
 }

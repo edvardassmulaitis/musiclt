@@ -228,10 +228,8 @@ export default async function AlbumPage({ params }: Props) {
         video_url: album.video_url || null,
         show_player: album.show_player || false,
         is_upcoming: album.is_upcoming || false,
-        score: (album as any).score ?? null,
-        score_breakdown: (album as any).score_breakdown ?? null,
-        peak_chart_position: (album as any).peak_chart_position ?? null,
-        certifications: (album as any).certifications ?? null,
+        type_studio: album.type_studio || false,
+        legacy_id: album.legacy_id ?? null,
       }}
       artist={{
         id: artist.id,
@@ -243,8 +241,6 @@ export default async function AlbumPage({ params }: Props) {
       otherAlbums={otherAlbums.map((a: any) => ({ ...a, type: albumType(a) }))}
       similarAlbums={similarAlbums}
       likes={likes}
-      isLegacy={typeof album.source === 'string' && album.source.startsWith('legacy')}
-      legacyLikes={legacyLikes}
     />
   )
 }

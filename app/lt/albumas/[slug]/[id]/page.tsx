@@ -24,7 +24,7 @@ async function getAlbumTracks(albumId: number) {
     .select('position, is_primary, tracks(id, slug, title, type, video_url, spotify_id, lyrics, is_new, track_artists(is_primary, artists(id, name, slug)))')
     .eq('album_id', albumId)
     .order('position')
-  return (data || []).map((r: any) => {
+  const rows = (data || []).map((r: any) => {
     const featuring = (r.tracks?.track_artists || [])
       .filter((ta: any) => !ta.is_primary)
       .map((ta: any) => ta.artists?.name)
@@ -39,8 +39,33 @@ async function getAlbumTracks(albumId: number) {
       is_single: r.is_primary || false,
       position: r.position || 1,
       featuring,
+      like_count: 0 as number,
     }
   }).filter((t: any) => t.id)
+
+  // Like counts per track — chunked unified-likes lookup. PostgREST'as
+  // ribuoja vieną response'ą iki 1000 row'ų, tad chunk'inam per ID po 80,
+  // ir agreguojam count'ą per JS, nes count() nedirba grupėmis.
+  const ids = rows.map((t: any) => t.id) as number[]
+  if (ids.length > 0) {
+    const CHUNK = 80
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const chunk = ids.slice(i, i + CHUNK)
+      const { data: likeRows } = await sb
+        .from('likes')
+        .select('entity_id')
+        .eq('entity_type', 'track')
+        .in('entity_id', chunk)
+      const counts = new Map<number, number>()
+      for (const l of (likeRows || []) as any[]) {
+        counts.set(l.entity_id, (counts.get(l.entity_id) || 0) + 1)
+      }
+      for (const t of rows) {
+        if (chunk.includes(t.id)) (t as any).like_count = counts.get(t.id) || 0
+      }
+    }
+  }
+  return rows
 }
 
 async function getOtherAlbums(artistId: number, currentId: number) {
@@ -97,39 +122,6 @@ async function getAlbumLikes(albumId: number) {
   return count || 0
 }
 
-async function getLegacyAlbumLikes(albumLegacyId: number | null) {
-  if (!albumLegacyId) return { count: 0, users: [] as { user_username: string; user_rank: string | null }[] }
-  const sb = createAdminClient()
-  // Query unified likes table for legacy_scrape + auth users who liked via music.lt legacy
-  const [cntRes, usersRes] = await Promise.all([
-    sb.from('likes')
-      .select('*', { count: 'exact', head: true })
-      .eq('entity_type', 'album')
-      .eq('entity_legacy_id', albumLegacyId),
-    sb.from('likes')
-      .select('user_username, user_rank, user_avatar_url')
-      .eq('entity_type', 'album')
-      .eq('entity_legacy_id', albumLegacyId)
-      .order('id', { ascending: true })
-      .limit(30),
-  ])
-  return {
-    count: cntRes.count || 0,
-    users: (usersRes.data as any[]) || [],
-  }
-}
-
-async function getRelatedNews(artistId: number) {
-  const sb = createAdminClient()
-  const { data } = await sb
-    .from('news')
-    .select('id, slug, title, image_small_url, published_at')
-    .eq('artist_id', artistId)
-    .order('published_at', { ascending: false })
-    .limit(3)
-  return data || []
-}
-
 function albumType(a: any) {
   if (a.type_ep) return 'EP'
   if (a.type_single) return 'Singlas'
@@ -175,12 +167,11 @@ export default async function AlbumPage({ params }: Props) {
   if (!album) notFound()
 
   const artist = album.artists
-  const [tracks, otherAlbums, similarAlbums, likes, legacyLikes] = await Promise.all([
+  const [tracks, otherAlbums, similarAlbums, likes] = await Promise.all([
     getAlbumTracks(albumId),
     getOtherAlbums(artist.id, albumId),
     getSimilarAlbums(artist.id, albumId),
     getAlbumLikes(albumId),
-    getLegacyAlbumLikes(album.legacy_id ?? null),
   ])
 
   return (
@@ -198,10 +189,8 @@ export default async function AlbumPage({ params }: Props) {
         video_url: album.video_url || null,
         show_player: album.show_player || false,
         is_upcoming: album.is_upcoming || false,
-        score: (album as any).score ?? null,
-        score_breakdown: (album as any).score_breakdown ?? null,
-        peak_chart_position: (album as any).peak_chart_position ?? null,
-        certifications: (album as any).certifications ?? null,
+        type_studio: album.type_studio || false,
+        legacy_id: album.legacy_id ?? null,
       }}
       artist={{
         id: artist.id,
@@ -213,8 +202,6 @@ export default async function AlbumPage({ params }: Props) {
       otherAlbums={otherAlbums.map((a: any) => ({ ...a, type: albumType(a) }))}
       similarAlbums={similarAlbums}
       likes={likes}
-      isLegacy={typeof album.source === 'string' && album.source.startsWith('legacy')}
-      legacyLikes={legacyLikes}
     />
   )
 }
