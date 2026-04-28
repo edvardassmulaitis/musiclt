@@ -9,12 +9,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-
-/** Profile UUID is set on `session.user.id` at sign-in (lib/auth.ts). Use
- *  it directly — email roundtrip was brittle. */
-function userId(session: any): string | null {
-  return session?.user?.id || null
-}
+import { resolveAuthorId } from '@/lib/resolve-author'
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions)
@@ -27,7 +22,7 @@ export async function POST(req: Request) {
   if (!commentId) return NextResponse.json({ error: 'Blogas comment_id' }, { status: 400 })
 
   const sb = createAdminClient()
-  const userIdVal = userId(session)
+  const userIdVal = await resolveAuthorId(sb, session)
   if (!userIdVal) return NextResponse.json({ error: 'Profilis nerastas' }, { status: 500 })
 
   // Toggle: jei jau patiko — pašalinam; jei ne — įdedam.
@@ -63,7 +58,7 @@ export async function GET(req: Request) {
   }
 
   const sb = createAdminClient()
-  const uid = userId(session)
+  const uid = await resolveAuthorId(sb, session)
   if (!uid) return NextResponse.json({ liked_ids: [] })
 
   const { data } = await sb

@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { resolveAuthorId } from '@/lib/resolve-author'
 
 export async function GET(
   _req: NextRequest,
@@ -83,15 +84,14 @@ export async function POST(
 
   const supabase = createAdminClient()
 
-  // Resolve current user — prefer session.user.id (set in lib/auth.ts on
-  // signIn). If no session, fall back to anonymous (legacy author).
+  // Resolve current user via shared resolver — handles JWT staleness +
+  // wiped profiles by recreating the row. If unauthenticated, fall back
+  // to anonymous (legacy author, no user_id).
   const session = await getServerSession(authOptions)
-  let userId: string | null = session?.user?.id || null
+  let userId: string | null = await resolveAuthorId(supabase, session)
   let displayAuthor = 'Anonimas'
   let avatarLetter = 'A'
   if (userId) {
-    // Pull display info — name first from session, full_name/avatar from
-    // profiles for the popover/tooltip rendering.
     displayAuthor = session?.user?.name || 'Vartotojas'
     const { data: profile } = await supabase
       .from('profiles')

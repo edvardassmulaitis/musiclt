@@ -13,6 +13,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { resolveAuthorId } from '@/lib/resolve-author'
 
 const EDIT_WINDOW_MINUTES = 20
 
@@ -30,16 +31,6 @@ function entityCol(t: string | null): 'track_id' | 'album_id' | 'news_id' | 'eve
   return ENTITY_COL[t as EntityType] ?? null
 }
 
-/** Resolve the current viewer to their profile UUID.
- *
- *  We trust `session.user.id` from NextAuth (lib/auth.ts sets it to the
- *  profile UUID on signIn). Email-based lookups were brittle — case
- *  sensitivity, profile rows scraped from legacy without an email column
- *  populated, etc. — and produced "Tavo profilis dar nesukurtas" errors
- *  even for fully-set-up users. */
-function resolveAuthorIdFromSession(session: any): string | null {
-  return session?.user?.id || null
-}
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
@@ -123,7 +114,7 @@ export async function POST(req: Request) {
   if (!col || !entity_id) return NextResponse.json({ error: 'Bloga entity reikšmė' }, { status: 400 })
 
   const sb = createAdminClient()
-  const authorId = resolveAuthorIdFromSession(session)
+  const authorId = await resolveAuthorId(sb, session)
   if (!authorId) {
     return NextResponse.json({ error: 'Tavo profilis dar nesukurtas — atsijunk ir prisijunk iš naujo' }, { status: 500 })
   }
@@ -195,7 +186,7 @@ export async function PATCH(req: Request) {
   if (!text?.trim()) return NextResponse.json({ error: 'Turinys tuščias' }, { status: 400 })
 
   const sb = createAdminClient()
-  const authorId = resolveAuthorIdFromSession(session)
+  const authorId = await resolveAuthorId(sb, session)
   if (!authorId) return NextResponse.json({ error: 'Profilis nerastas' }, { status: 500 })
 
   const { data: existing } = await sb
@@ -236,7 +227,7 @@ export async function DELETE(req: Request) {
   const isAdmin = role === 'admin' || role === 'super_admin'
 
   const sb = createAdminClient()
-  const authorId = resolveAuthorIdFromSession(session)
+  const authorId = await resolveAuthorId(sb, session)
   if (!authorId && !isAdmin) return NextResponse.json({ error: 'Profilis nerastas' }, { status: 500 })
 
   const { data: existing } = await sb
