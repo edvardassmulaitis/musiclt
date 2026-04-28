@@ -3,6 +3,26 @@
 @tailwind utilities;
 
 /* ═══════════════════════════════════════════════════════════════════
+   GLOBAL FOCUS STYLE — disable browser's default blue focus ring on
+   form fields. We replace it with a subtle orange border highlight
+   per-component (focus:border-[var(--accent-orange)]). The native
+   ring ended up double-rendering on top of our orange border in the
+   composer + search picker, looking sloppy.
+   ═══════════════════════════════════════════════════════════════════ */
+input:focus,
+textarea:focus,
+select:focus,
+button:focus {
+  outline: none;
+}
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
    THEME SYSTEM — CSS Custom Properties
    
    Uses [data-theme] attribute on <html> set by SiteContext.

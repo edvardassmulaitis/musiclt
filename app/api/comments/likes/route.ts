@@ -10,18 +10,15 @@ import { createAdminClient } from '@/lib/supabase'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 
-async function resolveAuthorId(
-  sb: ReturnType<typeof createAdminClient>,
-  email: string | null | undefined,
-): Promise<string | null> {
-  if (!email) return null
-  const { data } = await sb.from('profiles').select('id').eq('email', email).maybeSingle()
-  return data?.id ?? null
+/** Profile UUID is set on `session.user.id` at sign-in (lib/auth.ts). Use
+ *  it directly — email roundtrip was brittle. */
+function userId(session: any): string | null {
+  return session?.user?.id || null
 }
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions)
-  if (!session?.user?.email) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: 'Reikia prisijungti' }, { status: 401 })
   }
 
@@ -30,15 +27,15 @@ export async function POST(req: Request) {
   if (!commentId) return NextResponse.json({ error: 'Blogas comment_id' }, { status: 400 })
 
   const sb = createAdminClient()
-  const userId = await resolveAuthorId(sb, session.user.email)
-  if (!userId) return NextResponse.json({ error: 'Profilis nerastas' }, { status: 500 })
+  const userIdVal = userId(session)
+  if (!userIdVal) return NextResponse.json({ error: 'Profilis nerastas' }, { status: 500 })
 
   // Toggle: jei jau patiko — pašalinam; jei ne — įdedam.
   const { data: existing } = await sb
     .from('comment_likes')
     .select('id')
     .eq('comment_id', commentId)
-    .eq('user_id', userId)
+    .eq('user_id', userIdVal)
     .maybeSingle()
 
   if (existing) {
@@ -50,7 +47,7 @@ export async function POST(req: Request) {
 
   const { error } = await sb.from('comment_likes').insert({
     comment_id: commentId,
-    user_id: userId,
+    user_id: userIdVal,
     weight: 1,
   })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -61,18 +58,18 @@ export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
   const { searchParams } = new URL(req.url)
   const commentIds = (searchParams.get('ids') || '').split(',').map(Number).filter(n => !isNaN(n))
-  if (!commentIds.length || !session?.user?.email) {
+  if (!commentIds.length || !session?.user?.id) {
     return NextResponse.json({ liked_ids: [] })
   }
 
   const sb = createAdminClient()
-  const userId = await resolveAuthorId(sb, session.user.email)
-  if (!userId) return NextResponse.json({ liked_ids: [] })
+  const uid = userId(session)
+  if (!uid) return NextResponse.json({ liked_ids: [] })
 
   const { data } = await sb
     .from('comment_likes')
     .select('comment_id')
-    .eq('user_id', userId)
+    .eq('user_id', uid)
     .in('comment_id', commentIds)
 
   return NextResponse.json({ liked_ids: (data || []).map((l: any) => l.comment_id) })

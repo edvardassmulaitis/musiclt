@@ -77,17 +77,49 @@ function stripHtml(html?: string | null): string {
   return (html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
+/** Parse legacy HTML body for music.lt-style `<div class="quote1">` reply
+ *  quotes. Returns the quote author + quote text + remainder text. Falls
+ *  back to plain stripHtml if no quote block found. */
+function parseLegacyHtmlQuote(html: string): { quoteAuthor: string | null; quoteText: string | null; rest: string } {
+  // Music.lt thread quote format:
+  //   <div class="quote1"><b>Author rašė:</b>quote text...</div>actual reply
+  // Heuristic regex — extracts author from <b>...rašė:</b> and the rest of
+  // the quote block, then everything after the closing </div> as `rest`.
+  const m = html.match(/<div[^>]*class=["']?quote1["']?[^>]*>([\s\S]*?)<\/div>([\s\S]*)$/i)
+  if (!m) return { quoteAuthor: null, quoteText: null, rest: stripHtml(html) }
+  const inside = m[1]
+  const after = m[2]
+  const auth = inside.match(/<b[^>]*>([^<]*?)\s*ra[sš]ė:?\s*<\/b>/i)
+  const quoteAuthor = auth ? auth[1].trim() : null
+  // Strip the <b>author rašė:</b> from inside, then the rest is the quoted
+  // text body.
+  const innerNoAuthor = inside.replace(/<b[^>]*>[^<]*?ra[sš]ė:?\s*<\/b>/i, '')
+  const quoteText = stripHtml(innerNoAuthor)
+  const rest = stripHtml(after)
+  if (!quoteText && !rest) return { quoteAuthor: null, quoteText: null, rest: stripHtml(html) }
+  return { quoteAuthor, quoteText, rest }
+}
+
 /** Parses a body that begins with the diskusijos-style reply prefix
  *  ("Author rašė:\nquoted text\n\nactual reply") and splits into the orange
  *  quote block + remainder. If no prefix is present, returns null quote and
  *  the full body. Keeps everything string-based — same wire format as the
- *  thread modal so we don't need a separate column. */
+ *  thread modal so we don't need a separate column.
+ *
+ *  Tolerant to whitespace variants — single \n separators, leading/trailing
+ *  whitespace, stray HTML entities, etc. */
 function parseReplyBody(body: string): { quoteAuthor: string | null; quoteText: string | null; rest: string } {
-  // Match "<author> rašė:\n<...>\n\n<rest>" — author can contain spaces but
-  // not a colon. Use [\s\S] to allow newlines inside the quoted part.
-  const m = body.match(/^(.+?) rašė:\n([\s\S]*?)\n\n([\s\S]*)$/)
-  if (!m) return { quoteAuthor: null, quoteText: null, rest: body }
-  return { quoteAuthor: m[1].trim(), quoteText: m[2].trim(), rest: m[3] }
+  // Match "<author> rašė:\n<...>\n\n<rest>" — non-greedy on the quote so
+  // it stops at first blank-line separator. Tolerant of \r\n endings, lone
+  // \n separators (single newline), or extra leading whitespace.
+  // Variants tried in order:
+  //   1. Author rašė:\n...\n\n... (canonical)
+  //   2. Author rašė:\n...\n... (single \n separator — when user edited)
+  const canonical = body.match(/^\s*(.+?)\s+ra[sš]ė:\s*\n([\s\S]*?)\n\s*\n([\s\S]+)$/)
+  if (canonical) return { quoteAuthor: canonical[1].trim(), quoteText: canonical[2].trim(), rest: canonical[3].trim() }
+  const single = body.match(/^\s*(.+?)\s+ra[sš]ė:\s*\n([\s\S]*?)\n([\s\S]+)$/)
+  if (single) return { quoteAuthor: single[1].trim(), quoteText: single[2].trim(), rest: single[3].trim() }
+  return { quoteAuthor: null, quoteText: null, rest: body }
 }
 
 /** Tinted-initial fallback avatar. */
@@ -224,7 +256,11 @@ export default function EntityCommentsBlock({
         body: JSON.stringify({
           entity_type: entityType,
           entity_id: entityId,
-          parent_id: replyTo?.id || null,
+          // parent_id: only set when replying to a modern comment with a
+          // real FK id. Replies to legacy archived comments use parent_id=null
+          // (we keep the quote prefix in body for visual continuity, but
+          // can't FK-link to a legacy_id from the modern table).
+          parent_id: replyTo?.id && replyTo.id > 0 ? replyTo.id : null,
           text: finalText,
           attachments: attached.length > 0 ? attached : undefined,
         }),
@@ -443,13 +479,33 @@ export default function EntityCommentsBlock({
             const rel = relativeTime(c.created_at)
             const id = isModern ? c.id : c.legacy_id
             const liked = isModern ? likedIds.has(c.id) : false
-            // Reply parsing — both modern (text-based prefix) and legacy
-            // (already HTML quote, but we run heuristic too just in case some
-            // got scraped without HTML).
-            const rawText = isModern
-              ? c.body
-              : (c.content_text || stripHtml(c.content_html))
-            const { quoteAuthor, quoteText, rest } = parseReplyBody(rawText)
+            // Reply parsing — modern uses text-based "Author rašė:" prefix,
+            // legacy uses scraped HTML <div class="quote1"> blocks. We try
+            // BOTH paths so the orange quote box renders consistently
+            // regardless of source.
+            let quoteAuthor: string | null = null
+            let quoteText: string | null = null
+            let rest: string = ''
+            if (isModern) {
+              const parsed = parseReplyBody(c.body)
+              quoteAuthor = parsed.quoteAuthor
+              quoteText = parsed.quoteText
+              rest = parsed.rest
+            } else {
+              // Try HTML parse first (most legacy comments have content_html)
+              if (c.content_html) {
+                const parsed = parseLegacyHtmlQuote(c.content_html)
+                quoteAuthor = parsed.quoteAuthor
+                quoteText = parsed.quoteText
+                rest = parsed.rest
+              } else {
+                // Fallback: text-only with possible "Author rašė:" prefix
+                const parsed = parseReplyBody(c.content_text || '')
+                quoteAuthor = parsed.quoteAuthor
+                quoteText = parsed.quoteText
+                rest = parsed.rest
+              }
+            }
             return (
               <li
                 key={`${c.source}-${id}`}
@@ -536,29 +592,42 @@ export default function EntityCommentsBlock({
                           variant="surface"
                         />
                       ) : (
+                        // Legacy comment — likes were imported from music.lt.
+                        // We can't toggle (no FK from modern users to legacy
+                        // ids yet), but at least let the user CLICK the
+                        // count to see who liked it. Same LikesModal as
+                        // modern, just with read-only LikePill heart.
                         c.like_count > 0 && (
-                          <span className="inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[10.5px] font-extrabold text-[var(--accent-orange)]">
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
-                            {c.like_count}
-                          </span>
+                          <LikePill
+                            likes={c.like_count}
+                            selfLiked={false}
+                            onToggle={() => {/* TODO: extend likes table to support legacy_id */}}
+                            onOpenModal={() => setLikersFor({ entityType: 'comment', entityId: c.legacy_id, count: c.like_count || 0 })}
+                            variant="surface"
+                          />
                         )
                       )}
-                      {isModern && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setReplyTo({ id: c.id, name: author, text: rest.slice(0, 240) })
-                            requestAnimationFrame(() => draftRef.current?.focus())
-                            // Scroll composer into view since it's at the
-                            // top — UX cue for "we moved your cursor".
-                            requestAnimationFrame(() => draftRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
-                          }}
-                          className="inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--text-muted)] transition-colors hover:text-[var(--accent-orange)]"
-                        >
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="9 14 4 9 9 4" /><path d="M20 20v-7a4 4 0 0 0-4-4H4" /></svg>
-                          Atsakyti
-                        </button>
-                      )}
+                      {/* Reply — works on BOTH modern and legacy. For
+                          legacy we set parent_id=0 (no FK link), but the
+                          quote prefix still renders properly via parseReplyBody.
+                          That way users can engage with archived comments
+                          the same way as with live ones. */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReplyTo({
+                            id: isModern ? c.id : 0,
+                            name: author,
+                            text: rest.slice(0, 240),
+                          })
+                          requestAnimationFrame(() => draftRef.current?.focus())
+                          requestAnimationFrame(() => draftRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
+                        }}
+                        className="inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--text-muted)] transition-colors hover:text-[var(--accent-orange)]"
+                      >
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="9 14 4 9 9 4" /><path d="M20 20v-7a4 4 0 0 0-4-4H4" /></svg>
+                        Atsakyti
+                      </button>
                     </div>
                   </div>
                 </div>

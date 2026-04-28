@@ -1012,18 +1012,7 @@ function TrackInfoModal({
           {onPlay && yt(track.video_url) ? (
             <button
               type="button"
-              onClick={() => {
-                // Mobile'e drawer'is uždengia visą hero'jų — jei nepalik-
-                // sim atviro modal'o, vartotojas nieko nemato, nors player'is
-                // jau startavo. Uždarant modal'ą iškart po play tampa
-                // matoma hero player kortelė. Desktop'e tas pats elgesys
-                // pridedamai naudingas — prisistato player'is, modal'as
-                // uždarėjo. Kad išliktų scroll'inta vieta, naudojam mažą
-                // delay (0ms) — leidžia onPlay state setteriams suveikti
-                // pirma.
-                onPlay(track)
-                setTimeout(handleClose, 0)
-              }}
+              onClick={() => onPlay(track)}
               className="inline-flex items-center gap-2 rounded-full bg-[var(--accent-orange)] px-4 py-2 font-['Outfit',sans-serif] text-[12px] font-extrabold text-white shadow-[0_4px_14px_rgba(249,115,22,0.35)] transition-transform hover:scale-[1.02]"
             >
               <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden>

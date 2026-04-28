@@ -148,7 +148,13 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
   const [reactions, setReactions] = useState<Reaction[]>([])
   const [panel, setPanel] = useState<{ text: string; start: number; end: number; rect?: DOMRect } | null>(null)
   const [draft, setDraft] = useState('')
-  const [wantsLike, setWantsLike] = useState(true)
+  // Did user already commit a like for this selection? Switches the heart
+  // to filled "patiko" state without closing the popover so they can also
+  // add a comment in the same gesture.
+  const [likedThis, setLikedThis] = useState(false)
+  // Show the comment textarea? Hidden until user taps the comment icon —
+  // keeps the popover compact for the common 1-tap-like flow.
+  const [showComment, setShowComment] = useState(false)
   const [saving, setSaving] = useState(false)
   const [tooltip, setTooltip] = useState<{ span: Span; rect: DOMRect } | null>(null)
   const lyricsRef = useRef<HTMLDivElement | null>(null)
@@ -177,13 +183,16 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
     sel.removeAllRanges()
     setPanel({ text, start: startIdx, end: startIdx + text.length, rect })
     setDraft('')
-    setWantsLike(true)
+    setLikedThis(false)
+    setShowComment(false)
     setTooltip(null)
   }, [lyrics])
 
   const closePanel = () => {
     setPanel(null)
     setDraft('')
+    setLikedThis(false)
+    setShowComment(false)
   }
 
   const reload = async () => {
@@ -194,36 +203,38 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
     } catch { /* silent */ }
   }
 
-  /** Submit — handles like + comment in ONE action.
-   *  - heart toggle on (default) AND text → posts BOTH a like row and a
-   *    comment row (back-end has type='like'|'comment' as separate rows)
-   *  - heart only → posts a like
-   *  - text only (heart off) → posts a comment
-   *  We fire them as parallel POSTs so the user only waits one round-trip. */
-  const submit = async () => {
-    if (!panel || saving) return
-    const wantsComment = !!draft.trim()
-    if (!wantsLike && !wantsComment) return
-    setSaving(true)
+  /** Heart action — fires a like immediately and stays in the popover so
+   *  the user can also drop a comment in the same gesture. Visual state
+   *  (`likedThis=true`) flips the heart to filled to confirm. */
+  const submitLike = async () => {
+    if (!panel || saving || likedThis) return
     const p = { ...panel }
-    closePanel()
-    const posts: Promise<unknown>[] = []
-    if (wantsLike) {
-      posts.push(fetch(`/api/tracks/${trackId}/lyric-comments`, {
+    setSaving(true)
+    setLikedThis(true)
+    try {
+      await fetch(`/api/tracks/${trackId}/lyric-comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ selected_text: p.text, selection_start: p.start, selection_end: p.end, type: 'like', text: '' }),
-      }))
-    }
-    if (wantsComment) {
-      posts.push(fetch(`/api/tracks/${trackId}/lyric-comments`, {
+      })
+      await reload()
+    } catch { /* silent */ }
+    finally { setSaving(false) }
+  }
+
+  /** Comment action — posts the comment, then closes the popover. */
+  const submitComment = async () => {
+    if (!panel || saving || !draft.trim()) return
+    const p = { ...panel }
+    const text = draft.trim()
+    setSaving(true)
+    closePanel()
+    try {
+      await fetch(`/api/tracks/${trackId}/lyric-comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ selected_text: p.text, selection_start: p.start, selection_end: p.end, type: 'comment', text: draft.trim() }),
-      }))
-    }
-    try {
-      await Promise.all(posts)
+        body: JSON.stringify({ selected_text: p.text, selection_start: p.start, selection_end: p.end, type: 'comment', text }),
+      })
       await reload()
     } catch { /* silent */ }
     finally { setSaving(false) }
@@ -305,7 +316,8 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
               rect,
             })
             setDraft('')
-            setWantsLike(true)
+            setLikedThis(false)
+            setShowComment(false)
             setTooltip(null)
           }
           if (line.trim().length === 0) {
@@ -365,62 +377,85 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
         </div>
       )}
 
-      {/* Selection popover — patinka + comment kartu (vienoje formoje, ne
-          atskiri tabai, kad žmogus galėtų ir ir pažymėti, ir parašyti
-          komentarą vienu veiksmu). */}
+      {/* Selection popover — kompaktiškas iki esmės. Du veiksmai:
+            ♥  spaudimas LIKE'ina iškart (1-tap), širdelė pasidaro filled
+                + popover lieka atviras, kad galėtum dar pridėti komentarą.
+            💬  toggle'ina textarea apačioje. Įrašei → spaudi siųsti.
+          Jokių tekstinių etikečių prie ikonų — pažymi vietą, paspaudi
+          aiškią širdelę, jokio "Pažymėk patinka" interpretacinio darbo. */}
       {panel && panel.rect && (
         <FloatingPopover
           rect={panel.rect}
           onClose={closePanel}
-          width={300}
+          width={290}
         >
-          <div className="flex flex-col gap-2.5">
-            <div className="flex items-start justify-between gap-2 border-b border-[var(--border-subtle)] pb-2">
-              <div className="font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-faint)]">
-                Pažymėta vieta
-              </div>
+          <div className="flex flex-col gap-2">
+            <div className="line-clamp-2 text-[11.5px] italic leading-snug text-[var(--text-muted)]">
+              „{panel.text}"
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={submitLike}
+                disabled={saving || likedThis}
+                aria-label={likedThis ? 'Patiko' : 'Pažymėti patinka'}
+                title={likedThis ? 'Patiko' : 'Pažymėti patinka'}
+                className={[
+                  'flex h-9 w-9 items-center justify-center rounded-full border transition-colors disabled:opacity-90',
+                  likedThis
+                    ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white'
+                    : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--accent-orange)] hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.12)]',
+                ].join(' ')}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill={likedThis ? '#fff' : 'currentColor'}><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowComment(v => !v)}
+                aria-label="Pridėti komentarą"
+                title="Pridėti komentarą"
+                className={[
+                  'flex h-9 w-9 items-center justify-center rounded-full border transition-colors',
+                  showComment
+                    ? 'border-[var(--accent-orange)] bg-[rgba(249,115,22,0.12)] text-[var(--accent-orange)]'
+                    : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-muted)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]',
+                ].join(' ')}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" /></svg>
+              </button>
               <button
                 type="button"
                 onClick={closePanel}
                 aria-label="Uždaryti"
-                className="flex h-5 w-5 items-center justify-center rounded text-[var(--text-faint)] hover:text-[var(--text-primary)]"
+                title="Uždaryti"
+                className="ml-auto flex h-7 w-7 items-center justify-center rounded text-[var(--text-faint)] hover:text-[var(--text-primary)]"
               >
-                <svg viewBox="0 0 16 16" width={10} height={10} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                <svg viewBox="0 0 16 16" width={11} height={11} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
                   <path d="M3 3l10 10M13 3L3 13" />
                 </svg>
               </button>
             </div>
-            <div className="line-clamp-2 text-[12px] italic leading-snug text-[var(--text-muted)]">
-              „{panel.text}"
-            </div>
-            <button
-              type="button"
-              onClick={() => setWantsLike(v => !v)}
-              className={[
-                "inline-flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 font-['Outfit',sans-serif] text-[12px] font-extrabold transition-colors",
-                wantsLike
-                  ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white'
-                  : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-muted)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]',
-              ].join(' ')}
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill={wantsLike ? '#fff' : 'none'} stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
-              {wantsLike ? 'Patinka' : 'Pažymėk patinka'}
-            </button>
-            <textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder="Komentaras (neprivaloma)"
-              rows={2}
-              className="w-full resize-none rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-2.5 py-2 text-[12.5px] leading-snug text-[var(--text-primary)] outline-none placeholder:text-[var(--text-faint)] focus:border-[var(--accent-orange)]"
-            />
-            <button
-              type="button"
-              onClick={submit}
-              disabled={saving || (!wantsLike && !draft.trim())}
-              className="self-end rounded-lg bg-[var(--accent-orange)] px-4 py-1.5 font-['Outfit',sans-serif] text-[11.5px] font-extrabold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
-            >
-              {saving ? 'Siunčiama…' : 'Išsaugoti'}
-            </button>
+            {showComment && (
+              <div className="flex flex-col gap-1.5">
+                <textarea
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  placeholder="Komentaras šiai eilutei…"
+                  rows={2}
+                  autoFocus
+                  className="w-full resize-none rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-2.5 py-2 text-[12.5px] leading-snug text-[var(--text-primary)] outline-none placeholder:text-[var(--text-faint)] focus:border-[var(--accent-orange)] focus-visible:outline-none focus-visible:ring-0"
+                />
+                <button
+                  type="button"
+                  onClick={submitComment}
+                  disabled={saving || !draft.trim()}
+                  className="self-end inline-flex items-center gap-1 rounded-full bg-[var(--accent-orange)] px-3 py-1.5 font-['Outfit',sans-serif] text-[11px] font-extrabold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+                >
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M2 21l21-9L2 3v7l15 2-15 2z" /></svg>
+                  Siųsti
+                </button>
+              </div>
+            )}
           </div>
         </FloatingPopover>
       )}
@@ -463,20 +498,20 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
                 </div>
               ))}
             </div>
-            <div className="mt-1 flex items-center justify-between gap-2 border-t border-[var(--border-subtle)] pt-2">
+            <div className="mt-1 flex items-center gap-2 border-t border-[var(--border-subtle)] pt-2">
               <button
                 type="button"
                 onClick={() => quickLike(tooltip.span)}
                 disabled={saving}
-                className="inline-flex items-center gap-1.5 rounded-full bg-[var(--accent-orange)] px-3 py-1.5 font-['Outfit',sans-serif] text-[11px] font-extrabold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+                aria-label="Pažymėti patinka"
+                title="Pažymėti patinka"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white transition-opacity hover:opacity-90 disabled:opacity-40"
               >
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
-                + Patinka man
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
               </button>
               <button
                 type="button"
                 onClick={() => {
-                  // Reuse same selection to add a comment quickly.
                   const r = tooltip.span.reactions[0]
                   setTooltip(null)
                   setPanel({
@@ -485,11 +520,14 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
                     end: tooltip.span.end,
                     rect: tooltip.rect,
                   })
-                  setWantsLike(false)
+                  setLikedThis(false)
+                  setShowComment(true)
                 }}
-                className="font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--text-muted)] transition-colors hover:text-[var(--accent-orange)]"
+                aria-label="Pridėti komentarą"
+                title="Pridėti komentarą"
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
               >
-                + Komentuoti
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" /></svg>
               </button>
             </div>
           </div>

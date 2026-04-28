@@ -83,24 +83,25 @@ export async function POST(
 
   const supabase = createAdminClient()
 
-  // Resolve current user via NextAuth session; if no session, fall back to
-  // anonymous (legacy author='Anonimas'). We don't reject anonymous reactions
-  // because the public track page allows them historically.
+  // Resolve current user — prefer session.user.id (set in lib/auth.ts on
+  // signIn). If no session, fall back to anonymous (legacy author).
   const session = await getServerSession(authOptions)
-  let userId: string | null = null
+  let userId: string | null = session?.user?.id || null
   let displayAuthor = 'Anonimas'
   let avatarLetter = 'A'
-  if (session?.user?.email) {
+  if (userId) {
+    // Pull display info — name first from session, full_name/avatar from
+    // profiles for the popover/tooltip rendering.
+    displayAuthor = session?.user?.name || 'Vartotojas'
     const { data: profile } = await supabase
       .from('profiles')
-      .select('id, username, full_name')
-      .eq('email', session.user.email)
+      .select('username, full_name')
+      .eq('id', userId)
       .maybeSingle()
     if (profile) {
-      userId = profile.id
-      displayAuthor = profile.full_name || profile.username || 'Vartotojas'
-      avatarLetter = displayAuthor.trim().charAt(0).toUpperCase() || '?'
+      displayAuthor = profile.full_name || profile.username || displayAuthor
     }
+    avatarLetter = displayAuthor.trim().charAt(0).toUpperCase() || '?'
   }
 
   const insertRow: any = {
