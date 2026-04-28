@@ -285,6 +285,20 @@ function PlayerCard({
   const displayVid = activeVid || yt(firstWithVideo?.video_url)
   const displayTrack = activeTrack || firstWithVideo
 
+  // YT thumbnail probe — jei displayVid turi gyvą video, naudojam hqdefault.jpg
+  // kaip player'io backdrop'ą (didelis 480x360 thumbnail, atrodo cinematic).
+  // Dead video grąžina 120x90 → slepiam.
+  const [thumbAlive, setThumbAlive] = useState<boolean | null>(null)
+  useEffect(() => {
+    if (!displayVid) { setThumbAlive(null); return }
+    setThumbAlive(null)
+    const img = new window.Image()
+    img.onload = () => setThumbAlive(img.naturalWidth >= 200)
+    img.onerror = () => setThumbAlive(false)
+    img.src = `https://i.ytimg.com/vi/${displayVid}/hqdefault.jpg`
+  }, [displayVid])
+  const showThumb = !!displayVid && thumbAlive === true
+
   // YouTube IFrame Player API integration.
   //
   // Why not a plain iframe + autoplay=1? On mobile, `autoplay=1` only fires
@@ -424,19 +438,34 @@ function PlayerCard({
               className="group absolute inset-0 block cursor-pointer overflow-hidden border-0 p-0"
               style={{ background: 'var(--player-placeholder-bg, linear-gradient(135deg, #1a2436 0%, #0f1825 50%, #0a0f1a 100%))' }}
             >
-              {/* Tylus gradient backdrop — switch'ina tarp dark/light per CSS
-                  variable --player-placeholder-bg (definuota globals.css).
-                  Anksčiau buvo hardcode'inti dark hex'ai → light mode'e
-                  atrodė kaip svetimkūnis tamsus stačiakampis. Anksčiau bandėm
-                  užkrauti YT thumbnail'ą, bet stub'ai nepatenkinami →
-                  paliekam švarų gradient'ą su Play mygtuku. */}
-              {/* Subtle vinyl-like centerless ring for visual texture. */}
-              <div className="absolute inset-0 opacity-[0.03]" style={{
-                backgroundImage: 'radial-gradient(circle at center, transparent 30%, rgba(249,115,22,0.4) 30.5%, transparent 31.5%, transparent 60%, rgba(249,115,22,0.2) 60.5%, transparent 61.5%)',
-                backgroundSize: '400px 400px',
-                backgroundPosition: 'center',
-                backgroundRepeat: 'no-repeat',
-              }} />
+              {/* YT thumbnail backdrop — TIK kai video gyvas (probe'inta su
+                  hqdefault.jpg dimensijomis). Dead/missing → naudojam
+                  gradient'ą kaip anksčiau. */}
+              {showThumb && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={`https://i.ytimg.com/vi/${displayVid}/hqdefault.jpg`}
+                  alt=""
+                  referrerPolicy="no-referrer"
+                  className="absolute inset-0 h-full w-full object-cover"
+                  style={{ filter: 'saturate(1.1) contrast(1.05)' }}
+                />
+              )}
+              {/* Dark overlay ant thumbnail'o, kad orange play button'as
+                  išsiskirtų ir matytusi switching'as tarp tracks. */}
+              {showThumb && (
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-black/30" />
+              )}
+              {/* Subtle vinyl-like centerless ring for visual texture — tik
+                  kai nėra thumbnail'o (gradient state). */}
+              {!showThumb && (
+                <div className="absolute inset-0 opacity-[0.03]" style={{
+                  backgroundImage: 'radial-gradient(circle at center, transparent 30%, rgba(249,115,22,0.4) 30.5%, transparent 31.5%, transparent 60%, rgba(249,115,22,0.2) 60.5%, transparent 61.5%)',
+                  backgroundSize: '400px 400px',
+                  backgroundPosition: 'center',
+                  backgroundRepeat: 'no-repeat',
+                }} />
+              )}
               <span className="absolute left-1/2 top-1/2 flex h-[72px] w-[72px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_10px_40px_rgba(249,115,22,0.5)] ring-[6px] ring-white/10 transition-transform duration-200 group-hover:scale-110">
                 <svg viewBox="0 0 24 24" width="26" height="26" fill="#fff" aria-hidden>
                   <path d="M8 5v14l11-7z" />
