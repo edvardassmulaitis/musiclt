@@ -269,6 +269,16 @@ function PlayerCard({
   useEffect(() => { if (!hasTrending && tab === 'trending') setTab('all') }, [hasTrending, tab])
 
   const list = tab === 'trending' ? tracksTrending : tracksAllTime
+  // Max likes tarp visų atlikėjo trekų — naudojama PopBar relatyviam
+  // skaičiavimui (kiekvienas atlikėjas turi savo HIT'us, ne fixed thresholds).
+  const maxTrackLikes = useMemo(() => {
+    let max = 0
+    for (const t of [...tracksAllTime, ...tracksTrending]) {
+      const lk = (t as any).like_count
+      if (typeof lk === 'number' && lk > max) max = lk
+    }
+    return max
+  }, [tracksAllTime, tracksTrending])
   const activeTrack = [...tracksAllTime, ...tracksTrending].find(t => t.id === activeTrackId)
   const activeVid = yt(activeTrack?.video_url)
   const firstWithVideo = list.find(t => yt(t.video_url)) || tracksAllTime.find(t => yt(t.video_url))
@@ -478,10 +488,12 @@ function PlayerCard({
               const v = yt(t.video_url)
               const isActive = t.id === activeTrackId
               const isActivelyPlaying = isActive && playing && !isPaused
-              // Popularity bar: jei track turi like count — naudojam absolute
-              // tier'us (logaritminius), jeigu ne — fallback į positional.
+              // Popularity bar: relative tier pagal MAX artist'o tracks.
+              // Anksčiau buvo absolute (200+ → 4) — atlikėjai su mažesniu
+              // following'u visi tracks gaudavo tik 1-2 dashes (lygūs). Dabar
+              // proporcingai: kiekvienas turi savo TOP'ą.
               const pop = (t as any).like_count != null
-                ? popLevelByCount((t as any).like_count)
+                ? popLevelRelative((t as any).like_count, maxTrackLikes)
                 : popLevel(i, list.length)
               return (
                 <li key={t.id}>
@@ -583,11 +595,9 @@ function popLevel(index: number, total: number): number {
   return 1
 }
 
-/** Absolute popularity tier pagal track'o like_count'ą. Tinkamesnis nei
- *  positional, nes du tracks su 300 ir 60 likes vizualiai išsiskiria
- *  (anksčiau galėjo sėdėti šalia indekse, bet su drastically skirtingu
- *  popularity). Naudojam logaritminius break-point'us:
- *    0       → 0  (ne pop bar — track be likes)
+/** Absolute popularity tier pagal track'o like_count'ą (DEPRECATED — naudoti
+ *  popLevelRelative tarp atlikėjo trekų). Paliktas tik fallback'ui.
+ *    0       → 0
  *    1–9     → 1
  *    10–49   → 2
  *    50–199  → 3
@@ -598,6 +608,23 @@ function popLevelByCount(count: number): number {
   if (count >= 200) return 4
   if (count >= 50) return 3
   if (count >= 10) return 2
+  return 1
+}
+
+/** Relatyvus popularity tier — value PROPORCINGAI didžiausiajam artist'o
+ *  scope'e. Anksčiau buvo absolute thresholds (200+ → 4), kas reiškė kad
+ *  mažiau populiarių atlikėjų visi tracks turi tik 1-2 dashes (vienodi).
+ *  Dabar: kiekvienas atlikėjas turi savo HIT'us — 100% nuo max → 4 dashes,
+ *  proporcingai mažiau → mažiau dashes. Atlanta'os topas (53 likes) gauna
+ *  4 dashes lygiai kaip Mamontovo topas (322 likes) — abu yra tų atlikėjų
+ *  hit'ai. */
+function popLevelRelative(value: number, max: number): number {
+  if (!value || value <= 0) return 0
+  if (!max || max <= 0) return 0
+  const pct = value / max
+  if (pct >= 0.75) return 4
+  if (pct >= 0.40) return 3
+  if (pct >= 0.15) return 2
   return 1
 }
 
@@ -2102,26 +2129,23 @@ function MobileFilterRow({
 
 // ── AlbumCard ──────────────────────────────────────────────────────
 
-function AlbumCard({ a, popularity, artistSlug }: { a: Album; popularity?: number; artistSlug?: string }) {
+function AlbumCard({ a, popularity, artistSlug, maxPop }: { a: Album; popularity?: number; artistSlug?: string; maxPop?: number }) {
   const type = aType(a)
   const href = artistSlug ? `/albumai/${artistSlug}-${a.slug}-${a.id}` : `/albumai/${a.slug}-${a.id}`
   const [coverFailed, setCoverFailed] = useState(false)
   const coverUrl = (a as any).cover_image_url
   const showCover = !!coverUrl && !coverFailed
-  // Album popularity: priority — score (canonical), fallback į like_count,
-  // fallback į positional. Score atspindi pilną album'o kontekstą (likes,
-  // tracks, year). Logaritminiai break-pointai:
-  //   score 60+ → 4, 30+ → 3, 10+ → 2, 1+ → 1, 0 → 0
+  // Album popularity: relative tier per ATLIKĖJO max. Naudojam score (jei
+  // yra), fallback į like_count, fallback į positional. Atlikėjo HIT'as
+  // (didžiausias score/likes) → 4 dashes, kiti proporcingai mažiau.
   const albumScore = (a as any).score
   const albumLikes = (a as any).like_count
-  let albumPop: number = 0
-  if (typeof albumScore === 'number' && albumScore > 0) {
-    albumPop = albumScore >= 60 ? 4 : albumScore >= 30 ? 3 : albumScore >= 10 ? 2 : 1
-  } else if (typeof albumLikes === 'number' && albumLikes > 0) {
-    albumPop = popLevelByCount(albumLikes)
-  } else if (typeof popularity === 'number') {
-    albumPop = popularity
-  }
+  const value = typeof albumScore === 'number' && albumScore > 0
+    ? albumScore
+    : (typeof albumLikes === 'number' ? albumLikes : 0)
+  const albumPop = (maxPop && maxPop > 0)
+    ? popLevelRelative(value, maxPop)
+    : (typeof popularity === 'number' ? popularity : 0)
   return (
     <Link href={href} className="group block no-underline">
       <div className="relative overflow-hidden rounded-lg border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)] group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]">
@@ -2459,6 +2483,19 @@ export default function ArtistProfileClient({
     ? albums
     : albums.filter(a => activeFilters.has(aType(a)))
   const showOrphans = hasOrphanTracks && (showAll || activeFilters.has('orphan'))
+
+  // Max album popularity tarp visų atlikėjo albumų — naudojama AlbumCard
+  // PopBar relatyviam skaičiavimui (kiekvienas atlikėjas turi savo HIT'us).
+  const maxAlbumPop = useMemo(() => {
+    let max = 0
+    for (const a of albums) {
+      const score = (a as any).score
+      const likes = (a as any).like_count
+      const v = typeof score === 'number' && score > 0 ? score : (typeof likes === 'number' ? likes : 0)
+      if (v > max) max = v
+    }
+    return max
+  }, [albums])
 
   // Player'is rodo tracks be cap'o — vartotojas gali scroll'inti per visą
   // diskografiją. Anksčiau buvo .slice(0, 100), bet kai kurie atlikėjai
@@ -2827,7 +2864,7 @@ export default function ArtistProfileClient({
                         className="w-[46vw] max-w-[180px] shrink-0"
                         style={{ scrollSnapAlign: 'start' }}
                       >
-                        <AlbumCard a={a} artistSlug={artist.slug} popularity={popLevel(i, visibleAlbums.length)} />
+                        <AlbumCard a={a} artistSlug={artist.slug} maxPop={maxAlbumPop} popularity={popLevel(i, visibleAlbums.length)} />
                       </div>
                     ))}
                   </div>
@@ -2836,7 +2873,7 @@ export default function ArtistProfileClient({
                       ir low-res quality nesimatytų. */}
                   <div className="hidden gap-3 sm:grid sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
                     {visibleAlbums.map((a, i) => (
-                      <AlbumCard key={a.id} a={a} artistSlug={artist.slug} popularity={popLevel(i, visibleAlbums.length)} />
+                      <AlbumCard key={a.id} a={a} artistSlug={artist.slug} maxPop={maxAlbumPop} popularity={popLevel(i, visibleAlbums.length)} />
                     ))}
                   </div>
                 </>
