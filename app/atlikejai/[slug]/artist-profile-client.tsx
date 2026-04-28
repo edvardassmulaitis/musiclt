@@ -2778,25 +2778,35 @@ export default function ArtistProfileClient({
                   next card peeking in; desktop gets bigger tiles. Snap +
                   touch momentum for a smooth swipe feel. */}
               {visibleAlbums.length > 0 && (
-                <div
-                  className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:-mx-0 sm:px-0 [-ms-overflow-style:none] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[var(--border-default)]"
-                  style={{
-                    scrollSnapType: 'x mandatory',
-                    scrollPaddingLeft: '1rem',
-                    overscrollBehaviorX: 'contain',
-                    WebkitOverflowScrolling: 'touch',
-                  }}
-                >
-                  {visibleAlbums.map((a, i) => (
-                    <div
-                      key={a.id}
-                      className="w-[46vw] max-w-[180px] shrink-0 sm:w-[170px] lg:w-[190px]"
-                      style={{ scrollSnapAlign: 'start' }}
-                    >
-                      <AlbumCard a={a} artistSlug={artist.slug} popularity={popLevel(i, visibleAlbums.length)} />
-                    </div>
-                  ))}
-                </div>
+                <>
+                  {/* Mobile (<sm): horizontal snap scroll. Užima mažiau
+                      vertikalaus ploto kai atlikėjas turi daug albumų. */}
+                  <div
+                    className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                    style={{
+                      scrollSnapType: 'x mandatory',
+                      scrollPaddingLeft: '1rem',
+                      overscrollBehaviorX: 'contain',
+                      WebkitOverflowScrolling: 'touch',
+                    }}
+                  >
+                    {visibleAlbums.map((a, i) => (
+                      <div
+                        key={a.id}
+                        className="w-[46vw] max-w-[180px] shrink-0"
+                        style={{ scrollSnapAlign: 'start' }}
+                      >
+                        <AlbumCard a={a} artistSlug={artist.slug} popularity={popLevel(i, visibleAlbums.length)} />
+                      </div>
+                    ))}
+                  </div>
+                  {/* Desktop (sm+): pilnas grid'as, visi albumai matomi. */}
+                  <div className="hidden gap-4 sm:grid sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                    {visibleAlbums.map((a, i) => (
+                      <AlbumCard key={a.id} a={a} artistSlug={artist.slug} popularity={popLevel(i, visibleAlbums.length)} />
+                    ))}
+                  </div>
+                </>
               )}
 
               {/* Orphan tracks — compact list below albums when included */}

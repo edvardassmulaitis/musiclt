@@ -36,7 +36,12 @@ function dbToForm(data: any): ArtistFormData {
     country:     data.country || 'Lietuva',
     genre:       data.genres?.[0] ? (GENRE_BY_ID[data.genres[0]] || '') : '',
     substyles:   data.substyleNames || [],
-    description: data.description || '',
+    // description fallback į description_legacy: jei Wiki canonical (description)
+    // tuščia arba placeholder ('Grupė' iš populate), naudojam music.lt scrape'ą.
+    // Public puslapis irgi daro tokį fallback'ą — admin turi rodyti tą patį.
+    description: ((data.description || '').trim().length >= 20)
+      ? data.description
+      : ((data as any).description_legacy || data.description || ''),
     yearStart:   data.active_from ? String(data.active_from) : '',
     yearEnd:     data.active_until ? String(data.active_until) : '',
     breaks:      data.breaks || [],

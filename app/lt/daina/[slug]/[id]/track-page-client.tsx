@@ -447,9 +447,26 @@ export default function TrackPageClient({
     </div>
   )
 
+  // YT video availability probe — bandom hqdefault.jpg dimensijas. YT
+  // unavailable video grąžina 120x90 generic placeholder, live video —
+  // 480x360 thumbnail. null = nepatikrinta, true = OK, false = unavailable.
+  const [vidAvailable, setVidAvailable] = useState<boolean | null>(null)
+  useEffect(() => {
+    if (!vid) { setVidAvailable(null); return }
+    setVidAvailable(null)
+    const img = new Image()
+    img.onload = () => {
+      // hqdefault size: live = 480x360, unavailable = 120x90
+      setVidAvailable(img.naturalWidth >= 200)
+    }
+    img.onerror = () => setVidAvailable(false)
+    img.src = `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`
+  }, [vid])
+
   // PlayerCard stable with useMemo
   const PlayerCard = useMemo(() => {
-    if (!vid && !track.show_player) return null
+    const showVideo = vid && vidAvailable !== false  // hide if known dead
+    if (!showVideo && !track.show_player) return null
     return (
       <div style={{ ...cardStyle }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '9px 13px 8px', borderBottom: 'var(--card-border-subtle)' }}>
@@ -458,7 +475,7 @@ export default function TrackPageClient({
           </div>
           <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--head-text)', fontFamily: 'Outfit,sans-serif' }}>Klausyk</span>
         </div>
-        {vid && <YoutubeEmbed videoId={vid} />}
+        {showVideo && <YoutubeEmbed videoId={vid!} />}
         {track.spotify_id && (
           <iframe src={`https://open.spotify.com/embed/track/${track.spotify_id}?utm_source=generator&theme=0`}
             style={{ width: '100%', height: 80, border: 'none', display: 'block', borderTop: '1px solid var(--card-border-subtle)' }}
@@ -467,7 +484,7 @@ export default function TrackPageClient({
       </div>
     )
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vid, track.spotify_id, track.show_player])
+  }, [vid, vidAvailable, track.spotify_id, track.show_player])
 
   const AICard = () => {
     if (!track.show_ai_interpretation) return null
