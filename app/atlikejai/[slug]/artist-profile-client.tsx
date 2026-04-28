@@ -1072,20 +1072,25 @@ function Hero({
 
       <div
         className={[
-          'relative mx-auto grid max-w-[1400px] grid-cols-1 gap-6 px-4 pb-10 pt-5 sm:px-6 lg:gap-10 lg:min-h-[580px] lg:px-10 lg:py-10',
-          hasAnyVideo ? 'lg:grid-cols-[1fr_460px]' : '',
+          'relative mx-auto grid max-w-[1400px] grid-cols-1 gap-6 px-4 pb-4 pt-5 sm:px-6 lg:gap-8 lg:min-h-[440px] lg:px-10 lg:py-8',
+          // Desktop layout: 3 col [photo space | events vertical | player].
+          // Photo'as yra lg:absolute, tad pirmas col tarnauja kaip
+          // visual spacer (kad tarpas tarp photo ir events būtų).
+          hasAnyVideo
+            ? 'lg:grid-cols-[var(--hero-w,480px)_1fr_460px]'
+            : 'lg:grid-cols-[var(--hero-w,480px)_1fr]',
         ].join(' ')}
       >
-        {/* Title column */}
+        {/* Mobile-only: title + likes at top (sticking with original UX) */}
         <div
           className={[
-            'flex min-w-0 flex-col justify-end',
+            'flex min-w-0 flex-col justify-end gap-4 lg:hidden',
             'transition-[opacity,transform] duration-700 ease-out',
             loaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
           ].join(' ')}
         >
           <h1
-            className="mb-5 font-['Outfit',sans-serif] font-black leading-[0.9] tracking-[-0.04em] text-[var(--text-primary)] sm:mb-6 lg:text-white lg:drop-shadow-[0_6px_32px_rgba(0,0,0,0.8)]"
+            className="font-['Outfit',sans-serif] font-black leading-[0.9] tracking-[-0.04em] text-[var(--text-primary)]"
             style={{ fontSize: 'clamp(2.25rem,6vw,4.5rem)' }}
           >
             {artist.name}
@@ -1095,8 +1100,6 @@ function Hero({
               </span>
             )}
           </h1>
-
-          {/* Like pill — single element with two zones (heart toggle + count → modal) */}
           <div className="flex flex-wrap items-center gap-2">
             <LikePill
               likes={likes}
@@ -1107,31 +1110,32 @@ function Hero({
               variant="light"
             />
           </div>
+        </div>
 
-          {/* Upcoming events strip.
-              Mobile: horizontal snap scroll with all events inline — no
-                overflow modal, swipe to browse.
-              Desktop: show up to 2 cards inline, "+N" tile for the rest
-                which opens EventsModal. */}
+        {/* Desktop: photo spacer column (foto'as render'inamas absolute) */}
+        <div className="hidden lg:block" />
+
+        {/* Events column.
+            - Mobile: horizontal snap scroll under title.
+            - Desktop: vertical stack šalia player'io.
+            UI'iui lengvesnis layout — vienas blokas, du režimai. */}
+        <div className="flex min-w-0 flex-col">
           {upcomingEvents.length > 0 && (() => {
-            const MAX_VISIBLE = 2
-            const hasOverflow = upcomingEvents.length > MAX_VISIBLE
+            const MAX_VISIBLE_DESKTOP = 3
+            const hasOverflow = upcomingEvents.length > MAX_VISIBLE_DESKTOP
             const desktopVisible = hasOverflow
-              ? upcomingEvents.slice(0, MAX_VISIBLE)
+              ? upcomingEvents.slice(0, MAX_VISIBLE_DESKTOP)
               : upcomingEvents
             const overflow = upcomingEvents.length - desktopVisible.length
             return (
-              <div className="mt-6">
+              <div>
                 <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.18em] text-[var(--accent-orange)] lg:text-white/85">
                   Artimiausi renginiai
                 </div>
 
-                {/* Mobile — horizontal scroll. Each card locks 85% of the
-                    viewport so the next card peeks in to hint at scrollability.
-                    `items-stretch` + h-full keeps all cards the same height
-                    regardless of title / venue length differences. */}
+                {/* Mobile — horizontal snap scroll (kaip anksčiau) */}
                 <div
-                  className="flex items-stretch gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:hidden"
+                  className="flex items-stretch gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:hidden"
                   style={{
                     scrollSnapType: 'x mandatory',
                     scrollPaddingLeft: '1rem',
@@ -1150,15 +1154,21 @@ function Hero({
                   ))}
                 </div>
 
-                {/* Desktop — grid + "+N" tile */}
-                <div className={[
-                  'hidden gap-2 sm:grid sm:gap-3',
-                  hasOverflow ? 'sm:grid-cols-[1fr_1fr_auto]' : 'sm:grid-cols-2',
-                ].join(' ')}>
+                {/* Desktop — vertical stack (kortelės viena po kitos) +
+                    overflow tile mygtukas apačioje */}
+                <div className="hidden flex-col gap-3 lg:flex">
                   {desktopVisible.map((e: any) => (
-                    <EventCard key={e.id} e={e} variant="upcoming" />
+                    <EventCard key={e.id} e={e} variant="vertical" />
                   ))}
-                  {hasOverflow && <MoreEventsTile count={overflow} onClick={onOpenEventsModal} />}
+                  {hasOverflow && (
+                    <button
+                      type="button"
+                      onClick={onOpenEventsModal}
+                      className="group flex items-center justify-center gap-2 rounded-xl border border-dashed border-[rgba(249,115,22,0.4)] bg-[rgba(249,115,22,0.06)] px-3 py-2.5 text-[12px] font-extrabold text-[var(--accent-orange)] transition-all hover:border-[rgba(249,115,22,0.7)] hover:bg-[rgba(249,115,22,0.10)]"
+                    >
+                      Žiūrėti visus +{overflow}
+                    </button>
+                  )}
                 </div>
               </div>
             )
@@ -1191,6 +1201,39 @@ function Hero({
           </div>
         </div>
         )}
+      </div>
+
+      {/* Desktop title + likes — render'inami POD hero grid'u, kad
+          neuždangtų photo'os. Mobile turi savo title+likes block'ą hero
+          grid'o viršuje, todėl šis paslėptas <lg. */}
+      <div
+        className={[
+          'mx-auto hidden max-w-[1400px] px-10 pb-6 pt-2 lg:block',
+          'transition-[opacity,transform] duration-700 ease-out',
+          loaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
+        ].join(' ')}
+      >
+        <h1
+          className="mb-4 font-['Outfit',sans-serif] font-black leading-[0.9] tracking-[-0.04em] text-[var(--text-primary)]"
+          style={{ fontSize: 'clamp(2.5rem,5vw,4rem)' }}
+        >
+          {artist.name}
+          {artist.is_verified && (
+            <span className="ml-3 inline-flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#3b82f6] to-[#1d4ed8] align-middle shadow-[0_4px_16px_rgba(59,130,246,0.5)]">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>
+            </span>
+          )}
+        </h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <LikePill
+            likes={likes}
+            selfLiked={selfLiked}
+            onToggle={onToggleLike}
+            onOpenModal={onOpenLikersModal}
+            pending={selfLikePending}
+            variant="surface"
+          />
+        </div>
       </div>
     </section>
   )
@@ -1664,7 +1707,7 @@ function MasonryGallery({ photos, onOpen }: { photos: Photo[]; onOpen: (i: numbe
 
 // ── EventCard ──────────────────────────────────────────────────────
 
-function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' | 'past' | 'compact' }) {
+function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' | 'past' | 'compact' | 'vertical' }) {
   const d = new Date(e.start_date)
   const venue = [e.venue_name, e.city].filter(Boolean).join(', ')
   const href = `/renginiai/${e.slug}`
@@ -1692,6 +1735,43 @@ function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' |
         <div className="min-w-0 flex-1">
           <div className="truncate text-[14px] font-bold leading-tight text-[var(--text-primary)]">{e.title}</div>
           {venue && <div className="mt-0.5 truncate text-[12px] text-[var(--text-muted)]">{venue}</div>}
+        </div>
+      </Link>
+    )
+  }
+
+  if (variant === 'vertical') {
+    // Vertical stack — image arba date block top, text below. Naudojama
+    // hero side column'e (desktop), kur card'as siauresnis nei horizontalus.
+    return (
+      <Link
+        href={href}
+        className="group flex w-full flex-col overflow-hidden rounded-xl border border-[rgba(249,115,22,0.3)] no-underline transition-all hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.55)] hover:shadow-[0_8px_22px_rgba(249,115,22,0.18)]"
+        style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.16), rgba(249,115,22,0.04) 70%), var(--bg-elevated)' }}
+      >
+        <div className="relative aspect-[16/10] w-full overflow-hidden bg-gradient-to-br from-[rgba(249,115,22,0.20)] to-[rgba(249,115,22,0.06)]">
+          {/* Always-on fallback — calendar icon + date */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
+            <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--accent-orange)]">{monthShort}</span>
+            <span className="font-['Outfit',sans-serif] text-[34px] font-black leading-none text-[var(--text-primary)] drop-shadow">{d.getDate()}</span>
+            <span className="font-['Outfit',sans-serif] text-[9px] font-bold text-[var(--text-muted)]">{d.getFullYear()}</span>
+          </div>
+          {hasCover && (
+            <img
+              src={proxyImg(e.cover_image_url)}
+              alt={e.title}
+              referrerPolicy="no-referrer"
+              onError={() => setCoverFailed(true)}
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+          )}
+          {hasCover && (
+            <div className="absolute inset-0 bg-gradient-to-t from-black/65 to-transparent" />
+          )}
+        </div>
+        <div className="flex flex-col gap-1 px-3 py-2.5">
+          <div className="line-clamp-2 font-['Outfit',sans-serif] text-[13px] font-bold leading-snug text-[var(--text-primary)]">{e.title}</div>
+          {venue && <div className="line-clamp-1 text-[11px] text-[var(--text-secondary)]">📍 {venue}</div>}
         </div>
       </Link>
     )
