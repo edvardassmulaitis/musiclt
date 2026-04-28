@@ -196,6 +196,49 @@ function stripHtml(html: string): string {
   return (html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
+/** "2014-12-15 21:20" — naudojam absoliučią datą diskusijos modal'e, kad
+ *  istoriniai komentarai (5+ metų seni) nesuvienodėtų į beverčią
+ *  "prieš 11 m.". Outfit tabular nums tinka šiam stiliui. */
+function formatPostDate(iso: string): string {
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ''
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mi = String(d.getMinutes()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd} ${hh}:${mi}`
+}
+
+/** Sanitize forum_posts.content_html — strip dangerous tags + on* handlers,
+ *  keep formatting + emoji <img>. Music.lt nesta'ina cituotas žinutes
+ *  per <div class="quote1">…</div> (su inline border-left styling), todėl
+ *  `style` atributai paliekami — bet mūsų .forum-html .quote1 CSS rule'ai
+ *  turi !important ir override'ina inline style'us prie naujos design temos.
+ *  Emoji <img> URL'ai eina per proxy, kad veiktų mobile'e (music.lt
+ *  blokuoja kai kuriuos klientus). */
+function sanitizeForumHtml(raw: string): string {
+  if (!raw) return ''
+  let s = raw
+  // Strip dangerous block tags wholesale.
+  s = s.replace(/<(script|style|iframe|object|embed|form|input|button|meta|link)\b[\s\S]*?<\/\1>/gi, '')
+  s = s.replace(/<(script|style|iframe|object|embed|form|input|button|meta|link)\b[^>]*\/?>/gi, '')
+  // Strip on* event handlers.
+  s = s.replace(/\son\w+\s*=\s*"[^"]*"/gi, '')
+  s = s.replace(/\son\w+\s*=\s*'[^']*'/gi, '')
+  s = s.replace(/\son\w+\s*=\s*[^\s>]+/gi, '')
+  // Strip javascript: in href / src.
+  s = s.replace(/(href|src)\s*=\s*"javascript:[^"]*"/gi, '$1="#"')
+  s = s.replace(/(href|src)\s*=\s*'javascript:[^']*'/gi, "$1='#'")
+  // Proxy <img src> through our weserv image proxy when music.lt-hosted
+  // (mobile + Vercel block direct music.lt CDN).
+  s = s.replace(/<img\b([^>]*)\bsrc\s*=\s*"(https?:\/\/(?:www\.)?music\.lt\/[^"]+)"/gi, (_, pre, url) => {
+    const proxied = `https://images.weserv.nl/?url=${encodeURIComponent(url.replace(/^https?:\/\//, ''))}`
+    return `<img${pre}src="${proxied}"`
+  })
+  return s
+}
+
 function timeAgo(iso: string | null | undefined): string {
   if (!iso) return ''
   const t = Date.parse(iso)
@@ -2612,8 +2655,10 @@ function DiscussionThreadModal({
     content_html: string | null
     like_count?: number | null
   }> | null>(null)
-  const [sort, setSort] = useState<'oldest' | 'newest' | 'popular'>('oldest')
+  const [sort, setSort] = useState<'oldest' | 'newest' | 'popular'>('newest')
   const [draft, setDraft] = useState('')
+  const [replyTo, setReplyTo] = useState<{ author: string; text: string } | null>(null)
+  const draftRef = useRef<HTMLTextAreaElement | null>(null)
 
   useEffect(() => {
     if (thread) {
@@ -2622,7 +2667,8 @@ function DiscussionThreadModal({
       window.addEventListener('keydown', h)
       setPosts(null)
       setDraft('')
-      setSort('oldest')
+      setReplyTo(null)
+      setSort('newest')
       fetch(`/api/threads/${thread.legacy_id}/posts`)
         .then(r => r.json())
         .then(d => setPosts(d.posts || []))
@@ -2764,18 +2810,61 @@ function DiscussionThreadModal({
             <ul className="flex flex-col gap-3">
               {sortedPosts.map((p) => {
                 const author = p.author_username || 'Anonimas'
-                const text = (p.content_text && String(p.content_text).trim())
-                  || (p.content_html && stripHtml(p.content_html))
-                  || ''
+                const html = (p.content_html && p.content_html.trim()) || ''
+                const plainText = (p.content_text && String(p.content_text).trim()) || (html ? stripHtml(html) : '')
+                const dateStr = p.created_at ? formatPostDate(p.created_at) : null
+                const likeCount = p.like_count || 0
                 return (
                   <li key={p.legacy_id} className="flex items-start gap-2.5 border-b border-[var(--border-subtle)] pb-3 last:border-b-0 last:pb-0">
                     <UserAvatar name={author} avatarUrl={p.author_avatar_url} size={28} />
                     <div className="min-w-0 flex-1">
-                      <div className="font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-secondary)]">
-                        {author}
+                      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                        <span className="font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-secondary)]">
+                          {author}
+                        </span>
+                        {dateStr && (
+                          <span className="font-['Outfit',sans-serif] text-[10.5px] font-medium tabular-nums text-[var(--text-faint)]">
+                            {dateStr}
+                          </span>
+                        )}
                       </div>
-                      <div className="mt-1 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-[var(--text-primary)]">
-                        {text}
+                      {/* Body — render HTML if present (quotes, emojis from
+                          music.lt). Stripped of dangerous tags via sanitize.
+                          Plain text fallback when no HTML. */}
+                      {html ? (
+                        <div
+                          className="forum-html mt-1 break-words text-[13px] leading-relaxed text-[var(--text-primary)]"
+                          dangerouslySetInnerHTML={{ __html: sanitizeForumHtml(html) }}
+                        />
+                      ) : (
+                        <div className="mt-1 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-[var(--text-primary)]">
+                          {plainText}
+                        </div>
+                      )}
+                      {/* Footer — like count + reply button */}
+                      <div className="mt-2 flex items-center gap-3">
+                        <span
+                          className={[
+                            'inline-flex items-center gap-1 font-["Outfit",sans-serif] text-[11px] font-extrabold',
+                            likeCount > 0 ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]',
+                          ].join(' ')}
+                          aria-label={`${likeCount} patiko`}
+                        >
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
+                          {likeCount}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReplyTo({ author, text: plainText.slice(0, 200) })
+                            // Focus textarea after state update.
+                            requestAnimationFrame(() => draftRef.current?.focus())
+                          }}
+                          className="inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--text-muted)] transition-colors hover:text-[var(--accent-orange)]"
+                        >
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="9 14 4 9 9 4" /><path d="M20 20v-7a4 4 0 0 0-4-4H4" /></svg>
+                          Atsakyti
+                        </button>
                       </div>
                     </div>
                   </li>
@@ -2785,16 +2874,61 @@ function DiscussionThreadModal({
           )}
         </div>
 
-        {/* Sticky comment input — visada matomas modal'o apačioje. POST'as
-            keliauja per /api/forum-posts (auth required). Anonimam'siems
-            rodom prisijungimo CTA vietoje submit mygtuko, bet textarea
-            paliekam, kad iškart būtų matoma kur rašyti. */}
+        {/* Forum HTML styles — quote nesting, emoji image sizing, paragraph
+            spacing. Scoped to .forum-html via :global() pattern below. */}
+        <style jsx global>{`
+          .forum-html p { margin: 0 0 0.6em 0; }
+          .forum-html p:last-child { margin-bottom: 0; }
+          .forum-html br + br { display: none; }
+          .forum-html img { display: inline-block; vertical-align: middle; max-height: 18px; width: auto; }
+          .forum-html .quote1 {
+            padding-left: 10px;
+            border-left: 3px solid var(--accent-orange) !important;
+            margin: 6px 0 8px 0 !important;
+            background: var(--bg-elevated);
+            border-radius: 4px;
+            padding: 6px 10px;
+            color: var(--text-muted);
+            font-size: 12px;
+          }
+          .forum-html .quote1 b { color: var(--text-secondary); }
+          .forum-html em { font-style: italic; }
+          .forum-html a { color: var(--accent-orange); text-decoration: none; }
+          .forum-html a:hover { text-decoration: underline; }
+        `}</style>
+
+        {/* Sticky comment composer. Reply pill rodom virš textarea kai
+            replyTo set'as — paspaudus X grįžtam į paprastą composer'į. */}
         <div className="border-t border-[var(--border-subtle)] bg-[var(--bg-surface)] px-5 py-3">
+          {replyTo && (
+            <div className="mb-2 flex items-start gap-2 rounded-lg border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.06)] px-3 py-2">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="mt-0.5 shrink-0 text-[var(--accent-orange)]"><polyline points="9 14 4 9 9 4" /><path d="M20 20v-7a4 4 0 0 0-4-4H4" /></svg>
+              <div className="min-w-0 flex-1">
+                <div className="font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-[var(--accent-orange)]">
+                  Atsakant: {replyTo.author}
+                </div>
+                <div className="mt-0.5 line-clamp-2 text-[11.5px] text-[var(--text-muted)]">
+                  {replyTo.text}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReplyTo(null)}
+                aria-label="Atšaukti atsakymą"
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-[var(--text-faint)] transition-colors hover:text-[var(--text-primary)]"
+              >
+                <svg viewBox="0 0 16 16" width={11} height={11} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                  <path d="M3 3l10 10M13 3L3 13" />
+                </svg>
+              </button>
+            </div>
+          )}
           <div className="flex items-end gap-2">
             <textarea
+              ref={draftRef}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              placeholder="Rašyk komentarą..."
+              placeholder={replyTo ? `Atsakyti @${replyTo.author}...` : 'Rašyk komentarą...'}
               rows={2}
               className="flex-1 resize-none rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-2 text-[13px] leading-snug text-[var(--text-primary)] outline-none transition-colors placeholder:text-[var(--text-faint)] focus:border-[var(--accent-orange)]"
             />
@@ -2803,15 +2937,22 @@ function DiscussionThreadModal({
               onClick={async () => {
                 const text = draft.trim()
                 if (!text) return
+                // Reply'inant — prefix'inam tekstą cituota žinute, kad serveryje
+                // išliktų konteksto info (server'is laiko forum_posts.content_text
+                // kaip pilną žinutę su quote'u; quote rendering'as naudos pirmą
+                // eilutę kaip "Author rašė:" prefix'ą).
+                const finalText = replyTo
+                  ? `${replyTo.author} rašė:\n${replyTo.text}\n\n${text}`
+                  : text
                 try {
                   const res = await fetch('/api/forum-posts', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ thread_legacy_id: thread.legacy_id, text }),
+                    body: JSON.stringify({ thread_legacy_id: thread.legacy_id, text: finalText }),
                   })
                   if (res.ok) {
                     setDraft('')
-                    // Re-fetch posts so the new comment shows up.
+                    setReplyTo(null)
                     fetch(`/api/threads/${thread.legacy_id}/posts`)
                       .then(r => r.json())
                       .then(d => setPosts(d.posts || []))

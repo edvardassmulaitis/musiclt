@@ -20,6 +20,7 @@ type Post = {
   content_text: string
   content_html: string | null
   parent_post_legacy_id: number | null
+  like_count: number
 }
 
 export async function GET(
@@ -50,7 +51,7 @@ export async function GET(
   // diskusijų UI'aje). Cap 500 — labai senose temose būna 600-800 postų.
   const { data: postRows } = await sb
     .from('forum_posts')
-    .select('legacy_id, author_username, content_text, content_html, created_at, parent_post_legacy_id')
+    .select('legacy_id, author_username, author_avatar_url, content_text, content_html, created_at, parent_post_legacy_id, like_count')
     .eq('thread_legacy_id', tid)
     .order('created_at', { ascending: true })
     .limit(500)
@@ -64,17 +65,26 @@ export async function GET(
 
   const avatars = new Map<string, string>()
   if (usernames.length > 0) {
-    // Likes lentelėje denormalized user_avatar_url — užtenka po vieną
-    // ne-null eilutę per username'ą.
-    const { data: avatarRows } = await sb
-      .from('likes')
-      .select('user_username, user_avatar_url')
-      .in('user_username', usernames)
-      .not('user_avatar_url', 'is', null)
-      .limit(2000)
-    for (const r of (avatarRows || []) as any[]) {
-      if (r.user_username && r.user_avatar_url && !avatars.has(r.user_username)) {
-        avatars.set(r.user_username, r.user_avatar_url)
+    // Pirmiau bandom forum_posts.author_avatar_url (jei scrape'as jį užfiksavo);
+    // fallback'as — likes lentelės denormalized user_avatar_url. Single SELECT
+    // per turimą set'ą.
+    for (const p of posts) {
+      if (p.author_username && p.author_avatar_url && !avatars.has(p.author_username)) {
+        avatars.set(p.author_username, p.author_avatar_url)
+      }
+    }
+    const missing = usernames.filter(u => !avatars.has(u))
+    if (missing.length > 0) {
+      const { data: avatarRows } = await sb
+        .from('likes')
+        .select('user_username, user_avatar_url')
+        .in('user_username', missing)
+        .not('user_avatar_url', 'is', null)
+        .limit(2000)
+      for (const r of (avatarRows || []) as any[]) {
+        if (r.user_username && r.user_avatar_url && !avatars.has(r.user_username)) {
+          avatars.set(r.user_username, r.user_avatar_url)
+        }
       }
     }
   }
@@ -87,6 +97,7 @@ export async function GET(
     content_text: p.content_text || '',
     content_html: p.content_html || null,
     parent_post_legacy_id: p.parent_post_legacy_id || null,
+    like_count: typeof p.like_count === 'number' ? p.like_count : 0,
   }))
 
   return NextResponse.json({
