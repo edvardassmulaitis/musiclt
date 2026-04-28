@@ -1524,8 +1524,8 @@ function SideInfo({
                   <span className="font-['Outfit',sans-serif] text-[12px] font-medium text-[var(--text-muted)]">({birthLine.tail})</span>
                 )}
                 {birthLine.zodiac && (
-                  <span title={birthLine.zodiac.name} aria-label={birthLine.zodiac.name} className="font-['Outfit',sans-serif] text-[12px] font-medium text-[var(--text-faint)]">
-                    · {birthLine.zodiac.glyph} {birthLine.zodiac.name}
+                  <span title={birthLine.zodiac.name} aria-label={birthLine.zodiac.name} className="ml-0.5 text-[14px] leading-none text-[var(--accent-orange)]">
+                    {birthLine.zodiac.glyph}
                   </span>
                 )}
               </span>
@@ -1609,9 +1609,9 @@ function SideInfo({
                   <span
                     title={birthLine.zodiac.name}
                     aria-label={birthLine.zodiac.name}
-                    className="ml-0.5 font-medium text-[12.5px] text-[var(--text-faint)]"
+                    className="ml-1 text-[15px] leading-none text-[var(--accent-orange)]"
                   >
-                    · {birthLine.zodiac.glyph} {birthLine.zodiac.name}
+                    {birthLine.zodiac.glyph}
                   </span>
                 )}
               </div>
@@ -2481,58 +2481,54 @@ function TrackRow({ t, popularity, artistSlug }: { t: Track; popularity?: number
 
 // ── DiscussionRow: title + last post preview on the right ──────────
 
-/** Compact discussion card — naudojam grid'e (2 kolonos desktop, 1 mobile)
- *  vietoj full-width row'ų. Idėja: leidžia greitai perskaityti N kortelių
- *  vienu žvilgsniu, o ne tempti akį per visą puslapio plotą.
- *
- *  Layout: title + post count antraštė; jei yra last comment — apačioj
- *  vienos eilutės preview su author·timeago. Kortelė turi border + hover
- *  state + dešinį chevron rinklės jausmui.
+/** Compact, list-style discussion row — be ikonų ir storų card border'ių.
+ *  Tikslas: greitai akimi perskenuoti daug temų. Vietoj 2-row card'o per
+ *  visa pločio juosta — 2-col grid'e tirštas eilutinis layout'as su
+ *  hairline border'iu. Title + count chip pirmoj eilutėj; po juo — viena
+ *  meta-eilutė: arba "autorius · prieš X · preview", arba "Dar nekomentuota".
+ *  Kadangi visada renderinam apatinę eilutę (placeholder, kai nėra
+ *  komentarų), kortelės eilutės yra vienodo aukščio ir grid neatrodo
+ *  "išdaužytas".
  */
 function DiscussionRow({ t }: { t: LegacyThread; isLast?: boolean }) {
   const title = t.title || slugToForumTitle(t.slug)
   const pc = t.post_count ?? 0
   const lastPost = t.last_post
-  const lastText = lastPost?.body ? stripHtml(lastPost.body).slice(0, 80) : ''
+  const lastText = lastPost?.body ? stripHtml(lastPost.body).slice(0, 100) : ''
   const author = lastPost?.author_username || ''
 
   return (
     <Link
       href={`/diskusijos/tema/${t.legacy_id}`}
-      className="group flex flex-col gap-2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-3.5 py-3 no-underline transition-all hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] hover:shadow-sm"
+      className="group flex flex-col gap-1 rounded-lg border border-[var(--border-subtle)] bg-transparent px-3 py-2.5 no-underline transition-colors hover:border-[var(--border-default)] hover:bg-[var(--bg-hover)]"
     >
-      {/* Header — icon + title + small post-count chip on the right. */}
+      {/* Title + count chip. Title in 2 lines max, comment count
+          right-aligned (tabular-nums). */}
       <div className="flex items-start gap-2.5">
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-[rgba(59,130,246,0.25)] bg-[rgba(59,130,246,0.10)] text-[#3b82f6]">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" /></svg>
+        <div className="line-clamp-2 flex-1 font-['Outfit',sans-serif] text-[13px] font-bold leading-snug text-[var(--text-primary)]">
+          {title}
         </div>
-        <div className="line-clamp-2 flex-1 font-['Outfit',sans-serif] text-[13.5px] font-bold leading-tight text-[var(--text-primary)]">{title}</div>
         {pc > 0 && (
-          <span className="shrink-0 rounded-full bg-[var(--bg-elevated)] px-2 py-0.5 font-['Outfit',sans-serif] text-[10.5px] font-extrabold tabular-nums text-[var(--text-muted)]">
+          <span className="shrink-0 font-['Outfit',sans-serif] text-[11px] font-extrabold tabular-nums text-[var(--text-muted)]">
             {pc}
           </span>
         )}
       </div>
 
-      {/* Last comment preview — only render when present, kept to a single
-          truncated line so cards stay roughly equal height in the grid. */}
-      {lastText && (
-        <div className="flex items-center gap-2 border-t border-[var(--border-subtle)] pt-2">
-          <AvatarBubble name={author} size={20} />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-baseline gap-1.5 text-[10.5px]">
-              <span className="truncate font-['Outfit',sans-serif] font-bold text-[var(--text-secondary)]">
-                {author || 'Anonimas'}
-              </span>
-              {lastPost?.created_at && (
-                <span className="shrink-0 text-[var(--text-faint)]">· {timeAgo(lastPost.created_at)}</span>
-              )}
-            </div>
-            <div className="line-clamp-1 text-[11.5px] leading-tight text-[var(--text-muted)]">
-              {lastText}
-            </div>
-          </div>
+      {/* Meta: paskutinis komentaras viena eilute, arba placeholder kai
+          tema neturi komentarų. Vis tiek renderinam, kad eilutės būtų
+          vienodo aukščio. */}
+      {lastText ? (
+        <div className="line-clamp-1 text-[11.5px] leading-tight text-[var(--text-muted)]">
+          <span className="font-['Outfit',sans-serif] font-bold text-[var(--text-secondary)]">{author || 'Anonimas'}</span>
+          {lastPost?.created_at && (
+            <span className="text-[var(--text-faint)]"> · {timeAgo(lastPost.created_at)}</span>
+          )}
+          <span> · </span>
+          <span>{lastText}</span>
         </div>
+      ) : (
+        <div className="text-[11.5px] leading-tight text-[var(--text-faint)]">Dar nekomentuota</div>
       )}
     </Link>
   )
@@ -2973,9 +2969,37 @@ export default function ArtistProfileClient({
                   />
                 </div>
               )}
-              {/* 2-col on desktop, single column on mobile (mobile already
-                  saw the horizontal strip above). */}
-              <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-10">
+              {/* Desktop: float right'as info card'ams — bio teksto srautas
+                  apgaubia kortelę. Anksčiau buvo 2-col grid'as su fiksuotu
+                  320px sidebar'iu, dėl ko atsirasdavo tuščia erdvė po trumpu
+                  bio. Su float'u: kai bio trumpas, sidebar'as natūraliai
+                  baigia sekciją; kai ilgas — tekstas tęsiasi po info card'o
+                  pilnu pločiu (klasikinis žurnalo layout'as).
+                  Mobile: sidebar matomas viršuje (horizontal strip), bio
+                  apačioj — tas pats kaip ir prieš tai. */}
+              <div className="lg:[display:flow-root]">
+                {(sideInfoAvailable || (artist.score !== null && artist.score !== undefined)) && (
+                  <div className="hidden lg:float-right lg:ml-8 lg:mb-4 lg:flex lg:w-[320px] lg:flex-col lg:gap-4">
+                    {sideInfoAvailable && (
+                      <SideInfo
+                        artist={artist}
+                        flag={flag}
+                        genres={genres}
+                        substyles={substyles}
+                        ranks={ranks}
+                        links={links}
+                        website={artist.website}
+                      />
+                    )}
+                    {artist.score !== null && artist.score !== undefined && (
+                      <ScoreCard
+                        entityType="artist"
+                        score={artist.score}
+                        breakdown={artist.score_breakdown}
+                      />
+                    )}
+                  </div>
+                )}
                 <div className="min-w-0">
                   {hasBio && (
                     <>
@@ -2987,36 +3011,6 @@ export default function ArtistProfileClient({
                   )}
                   {!solo && members.length > 0 && <MembersInline members={members} />}
                 </div>
-                {/* Vertical sidebar — desktop only (mobile has the strip above). */}
-                {sideInfoAvailable && (
-                  <div className="hidden lg:flex lg:flex-col lg:gap-4">
-                    <SideInfo
-                      artist={artist}
-                      flag={flag}
-                      genres={genres}
-                      substyles={substyles}
-                      ranks={ranks}
-                      links={links}
-                      website={artist.website}
-                    />
-                    {artist.score !== null && artist.score !== undefined && (
-                      <ScoreCard
-                        entityType="artist"
-                        score={artist.score}
-                        breakdown={artist.score_breakdown}
-                      />
-                    )}
-                  </div>
-                )}
-                {!sideInfoAvailable && artist.score !== null && artist.score !== undefined && (
-                  <div className="hidden lg:block">
-                    <ScoreCard
-                      entityType="artist"
-                      score={artist.score}
-                      breakdown={artist.score_breakdown}
-                    />
-                  </div>
-                )}
               </div>
             </section>
           )
