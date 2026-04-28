@@ -110,15 +110,16 @@ async function getTracks(id: number) {
   // lib/supabase-albums.ts TrackFull type + admin album form). Once the
   // migration lands, add it back here and the player will pick it up
   // automatically because the column is already optional on the Track type.
-  // Limit padidintas iki 500 — populiarūs LT atlikėjai (Mamontovas 220+,
-  // Foje 150+) turi daug tracks, ir player'is anksčiau matydavo tik
-  // top 120, dėl to kai kurie video skambantys tracks dingsta.
+  // Limit'as panaikintas — populiarūs LT atlikėjai gali turėti daugiau nei
+  // 500 tracks (Marijonas, DJ'ai, kompiliacijų autoriai). Naudojam range()
+  // iki 9999 — Supabase grąžina tiek, kiek yra. Jokios prasmės cap'inti
+  // public puslapyje, geriau matyti viską.
   const { data } = await sb
     .from('tracks')
     .select('id, slug, title, type, video_url, spotify_id, cover_url, release_date, lyrics, is_new, is_new_date, release_year, release_month, legacy_id')
     .eq('artist_id', id)
     .order('created_at', { ascending: false })
-    .limit(500)
+    .range(0, 9999)
   const tracks = (data || []) as any[]
   if (tracks.length === 0) return tracks
 

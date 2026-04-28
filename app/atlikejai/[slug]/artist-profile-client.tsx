@@ -2308,17 +2308,21 @@ export default function ArtistProfileClient({
     : albums.filter(a => activeFilters.has(aType(a)))
   const showOrphans = hasOrphanTracks && (showAll || activeFilters.has('orphan'))
 
+  // Player'is rodo tracks be cap'o — vartotojas gali scroll'inti per visą
+  // diskografiją. Anksčiau buvo .slice(0, 100), bet kai kurie atlikėjai
+  // (Mamontovas 220+, didžiosios DJ'jaus kompiliacijos 1000+) turi gerokai
+  // daugiau dainų. Filtruojam, kad video-turintys keliautų į priekį, bet
+  // visus rodom.
   const tracksAllTime = useMemo(() => {
     const withVideo = tracks.filter(t => yt(t.video_url))
-    if (withVideo.length >= 10) return withVideo.slice(0, 100)
     const rest = tracks.filter(t => !yt(t.video_url))
-    return [...withVideo, ...rest].slice(0, 100)
+    return [...withVideo, ...rest]
   }, [tracks])
 
   const tracksTrending = useMemo(() => {
     const withVideo = newTracks.filter(t => yt(t.video_url))
     const rest = newTracks.filter(t => !yt(t.video_url))
-    return [...withVideo, ...rest].slice(0, 100)
+    return [...withVideo, ...rest]
   }, [newTracks])
 
   const hasAnyVideo = tracksAllTime.some(t => yt(t.video_url)) || tracksTrending.some(t => yt(t.video_url))
