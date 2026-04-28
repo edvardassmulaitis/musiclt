@@ -9,6 +9,7 @@ import ScoreCard from '@/components/ScoreCard'
 import ArtistAwards, { type AwardRow } from '@/components/ArtistAwards'
 import type { LegacyLikeUser } from '@/components/LegacyLikesPanel'
 import EntityCommentsBlock from '@/components/EntityCommentsBlock'
+import MusicSearchPicker, { AttachmentChips, type AttachmentHit } from '@/components/MusicSearchPicker'
 import { proxyImg } from '@/lib/img-proxy'
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -2692,6 +2693,8 @@ function DiscussionThreadModal({
   const [sort, setSort] = useState<'oldest' | 'newest' | 'popular'>('newest')
   const [draft, setDraft] = useState('')
   const [replyTo, setReplyTo] = useState<{ author: string; text: string } | null>(null)
+  const [attached, setAttached] = useState<AttachmentHit[]>([])
+  const [showPicker, setShowPicker] = useState(false)
   const draftRef = useRef<HTMLTextAreaElement | null>(null)
 
   useEffect(() => {
@@ -2703,6 +2706,8 @@ function DiscussionThreadModal({
       setDraft('')
       setReplyTo(null)
       setSort('newest')
+      setAttached([])
+      setShowPicker(false)
       fetch(`/api/threads/${thread.legacy_id}/posts`)
         .then(r => r.json())
         .then(d => setPosts(d.posts || []))
@@ -2957,6 +2962,27 @@ function DiscussionThreadModal({
               </button>
             </div>
           )}
+          {/* Music attachment chips, jei kažką jau pridėjom */}
+          {attached.length > 0 && (
+            <div className="mb-2">
+              <AttachmentChips
+                items={attached}
+                onRemove={(idx) => setAttached(a => a.filter((_, i) => i !== idx))}
+                compact
+              />
+            </div>
+          )}
+          {/* Toggle'inamas search picker'is — atskira eilutė virš textarea */}
+          {showPicker && (
+            <div className="mb-2">
+              <MusicSearchPicker
+                attached={attached}
+                onAdd={(hit) => setAttached(a => [...a, hit])}
+                placeholder="Surask atlikėją, albumą ar dainą..."
+                compact
+              />
+            </div>
+          )}
           <div className="flex items-end gap-2">
             <textarea
               ref={draftRef}
@@ -2966,39 +2992,61 @@ function DiscussionThreadModal({
               rows={2}
               className="flex-1 resize-none rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-2 text-[13px] leading-snug text-[var(--text-primary)] outline-none transition-colors placeholder:text-[var(--text-faint)] focus:border-[var(--accent-orange)]"
             />
-            <button
-              type="button"
-              onClick={async () => {
-                const text = draft.trim()
-                if (!text) return
-                // Reply'inant — prefix'inam tekstą cituota žinute, kad serveryje
-                // išliktų konteksto info (server'is laiko forum_posts.content_text
-                // kaip pilną žinutę su quote'u; quote rendering'as naudos pirmą
-                // eilutę kaip "Author rašė:" prefix'ą).
-                const finalText = replyTo
-                  ? `${replyTo.author} rašė:\n${replyTo.text}\n\n${text}`
-                  : text
-                try {
-                  const res = await fetch('/api/forum-posts', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ thread_legacy_id: thread.legacy_id, text: finalText }),
-                  })
-                  if (res.ok) {
-                    setDraft('')
-                    setReplyTo(null)
-                    fetch(`/api/threads/${thread.legacy_id}/posts`)
-                      .then(r => r.json())
-                      .then(d => setPosts(d.posts || []))
-                      .catch(() => {})
-                  }
-                } catch { /* silent */ }
-              }}
-              disabled={!draft.trim()}
-              className="flex h-10 shrink-0 items-center gap-1.5 rounded-lg bg-[var(--accent-orange)] px-3.5 font-['Outfit',sans-serif] text-[12px] font-extrabold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Siųsti
-            </button>
+            <div className="flex flex-col gap-1">
+              {/* Music attach toggle — natural place šalia textarea, kad
+                  vartotojas iš karto matytų galimybę pridėti dainą. */}
+              <button
+                type="button"
+                onClick={() => setShowPicker(v => !v)}
+                aria-label={showPicker ? 'Slėpti muzikos paiešką' : 'Pridėti muzikos'}
+                title={showPicker ? 'Slėpti' : 'Pridėti muzikos'}
+                className={[
+                  'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors',
+                  showPicker
+                    ? 'border-[var(--accent-orange)] bg-[rgba(249,115,22,0.12)] text-[var(--accent-orange)]'
+                    : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-muted)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]',
+                ].join(' ')}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z" /></svg>
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const text = draft.trim()
+                  if (!text && attached.length === 0) return
+                  const finalText = replyTo
+                    ? `${replyTo.author} rašė:\n${replyTo.text}\n\n${text}`
+                    : text
+                  try {
+                    const res = await fetch('/api/forum-posts', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        thread_legacy_id: thread.legacy_id,
+                        text: finalText || ' ',
+                        attachments: attached,
+                      }),
+                    })
+                    if (res.ok) {
+                      setDraft('')
+                      setReplyTo(null)
+                      setAttached([])
+                      setShowPicker(false)
+                      fetch(`/api/threads/${thread.legacy_id}/posts`)
+                        .then(r => r.json())
+                        .then(d => setPosts(d.posts || []))
+                        .catch(() => {})
+                    }
+                  } catch { /* silent */ }
+                }}
+                disabled={!draft.trim() && attached.length === 0}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-orange)] text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="Siųsti"
+                title="Siųsti"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M2 21l21-9L2 3v7l15 2-15 2z" /></svg>
+              </button>
+            </div>
           </div>
         </div>
       </aside>
