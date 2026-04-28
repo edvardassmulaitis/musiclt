@@ -1332,9 +1332,12 @@ function SideInfo({
     return n >= 0 ? n : 0
   }
   const activeYears = artist.active_from ? yearsBetween(artist.active_from, artist.active_until) : 0
-  const yearsActive = artist.active_from
-    ? `${artist.active_from}–${artist.active_until || 'dabar'}${activeYears > 0 ? ` (${activeYears} m.)` : ''}`
+  const yearsActiveRange = artist.active_from
+    ? `${artist.active_from}–${artist.active_until || 'dabar'}`
     : null
+  // "(43 m.)" rodom atskirai — kaip muted tail po pagrindinio reikšmės teksto,
+  // kad pagrindinis stilius išliktų vieningas su likusiu sidebar'iu.
+  const yearsActiveTail = activeYears > 0 ? `${activeYears} m.` : null
   const ageFromBirth = (birth: string, end?: string | null): number | null => {
     const b = new Date(birth)
     if (isNaN(b.getTime())) return null
@@ -1355,29 +1358,40 @@ function SideInfo({
     const d = new Date(iso); if (isNaN(d.getTime())) return iso
     return `${d.getFullYear()} m. ${LT_MONTH_GENITIVE[d.getMonth()]} ${d.getDate()} d.`
   }
-  // Zodiac sign from birth date (m-d). Cutoffs are inclusive of right side.
-  const zodiacOf = (iso: string): { name: string; emoji: string } | null => {
+  // Zodiac iš gimimo datos. Naudojam Unicode astrologines glifas su U+FE0E
+  // text-presentation selektoriumi — kad naršyklės renderintų jas kaip
+  // monochrome simbolį (currentColor), o ne spalvotą emoji. Tai integruojasi
+  // su likusiu UI (visi label'iai uppercase muted, jokios brand'intos
+  // emoji spalvos).
+  const TEXT_VARIATION = '︎'
+  const zodiacOf = (iso: string): { name: string; glyph: string } | null => {
     const d = new Date(iso); if (isNaN(d.getTime())) return null
     const m = d.getMonth() + 1, day = d.getDate()
-    const z = (mm: number, dd: number) => (m === mm && day >= dd) || (m === mm + 1 && day <= 0) // unused helper
-    void z
     const cmp = (mm: number, dd: number, mm2: number, dd2: number) =>
       (m === mm && day >= dd) || (m === mm2 && day <= dd2)
-    if (cmp(3, 21, 4, 19)) return { name: 'Avinas', emoji: '♈' }
-    if (cmp(4, 20, 5, 20)) return { name: 'Jautis', emoji: '♉' }
-    if (cmp(5, 21, 6, 20)) return { name: 'Dvyniai', emoji: '♊' }
-    if (cmp(6, 21, 7, 22)) return { name: 'Vėžys', emoji: '♋' }
-    if (cmp(7, 23, 8, 22)) return { name: 'Liūtas', emoji: '♌' }
-    if (cmp(8, 23, 9, 22)) return { name: 'Mergelė', emoji: '♍' }
-    if (cmp(9, 23, 10, 22)) return { name: 'Svarstyklės', emoji: '♎' }
-    if (cmp(10, 23, 11, 21)) return { name: 'Skorpionas', emoji: '♏' }
-    if (cmp(11, 22, 12, 21)) return { name: 'Šaulys', emoji: '♐' }
-    if ((m === 12 && day >= 22) || (m === 1 && day <= 19)) return { name: 'Ožiaragis', emoji: '♑' }
-    if (cmp(1, 20, 2, 18)) return { name: 'Vandenis', emoji: '♒' }
-    if (cmp(2, 19, 3, 20)) return { name: 'Žuvys', emoji: '♓' }
+    if (cmp(3, 21, 4, 19)) return { name: 'Avinas', glyph: '♈' + TEXT_VARIATION }
+    if (cmp(4, 20, 5, 20)) return { name: 'Jautis', glyph: '♉' + TEXT_VARIATION }
+    if (cmp(5, 21, 6, 20)) return { name: 'Dvyniai', glyph: '♊' + TEXT_VARIATION }
+    if (cmp(6, 21, 7, 22)) return { name: 'Vėžys', glyph: '♋' + TEXT_VARIATION }
+    if (cmp(7, 23, 8, 22)) return { name: 'Liūtas', glyph: '♌' + TEXT_VARIATION }
+    if (cmp(8, 23, 9, 22)) return { name: 'Mergelė', glyph: '♍' + TEXT_VARIATION }
+    if (cmp(9, 23, 10, 22)) return { name: 'Svarstyklės', glyph: '♎' + TEXT_VARIATION }
+    if (cmp(10, 23, 11, 21)) return { name: 'Skorpionas', glyph: '♏' + TEXT_VARIATION }
+    if (cmp(11, 22, 12, 21)) return { name: 'Šaulys', glyph: '♐' + TEXT_VARIATION }
+    if ((m === 12 && day >= 22) || (m === 1 && day <= 19)) return { name: 'Ožiaragis', glyph: '♑' + TEXT_VARIATION }
+    if (cmp(1, 20, 2, 18)) return { name: 'Vandenis', glyph: '♒' + TEXT_VARIATION }
+    if (cmp(2, 19, 3, 20)) return { name: 'Žuvys', glyph: '♓' + TEXT_VARIATION }
     return null
   }
-  const birthLine: { label: string; value: string; zodiac: { name: string; emoji: string } | null } | null = isSolo && artist.birth_date
+  // birthLine'as turi 3 dalis: label ('Gimimo data'), pagrindinis date string,
+  // ir tail su amžium "(58 m.)" — pastarasis renderinamas muted, kad būtų
+  // matomas, bet nebūtų vienodos svarbos kaip pati data.
+  const birthLine: {
+    label: string
+    main: string
+    tail: string | null
+    zodiac: { name: string; glyph: string } | null
+  } | null = isSolo && artist.birth_date
     ? (() => {
         const yr = ageFromBirth(artist.birth_date, artist.death_date)
         const z = zodiacOf(artist.birth_date)
@@ -1385,13 +1399,15 @@ function SideInfo({
           const lived = ageFromBirth(artist.birth_date, artist.death_date)
           return {
             label: 'Gyveno',
-            value: `${fmtLtDate(artist.birth_date)} – ${fmtLtDate(artist.death_date)}${lived != null ? ` (${lived} m.)` : ''}`,
+            main: `${fmtLtDate(artist.birth_date)} – ${fmtLtDate(artist.death_date)}`,
+            tail: lived != null ? `${lived} m.` : null,
             zodiac: z,
           }
         }
         return {
           label: 'Gimimo data',
-          value: yr != null ? `${fmtLtDate(artist.birth_date)} (${yr} m.)` : fmtLtDate(artist.birth_date),
+          main: fmtLtDate(artist.birth_date),
+          tail: yr != null ? `${yr} m.` : null,
           zodiac: z,
         }
       })()
@@ -1399,7 +1415,7 @@ function SideInfo({
   // Solo artist'ams paslėpiam "Veiklos pradžia" row'ą jei jis sutampa su
   // birth_date metais (kartais music.lt užrašo veiklos = gimimo data,
   // kas neinformatyvu).
-  const showActive = !!yearsActive && !(isSolo && artist.birth_date && artist.active_from === new Date(artist.birth_date).getFullYear())
+  const showActive = !!yearsActiveRange && !(isSolo && artist.birth_date && artist.active_from === new Date(artist.birth_date).getFullYear())
   const hasBioFacts = !!birthLine || showActive
 
   const Label = ({ children }: { children: React.ReactNode }) => (
@@ -1487,22 +1503,30 @@ function SideInfo({
           </div>
         )}
         {/* Bio facts: veiklos periodas + gimimo/mirties data + amžius
-            (+ zodiakas). Serif italic vertėms — kad atrodytų kaip biografinis
-            tekstas šalia tracking'uotų label'ių. */}
+            (+ zodiakas). Visi teksto stiliai vieningi su likusiu strip'u —
+            Outfit, no italic, no spalvotos emoji. */}
         {hasBioFacts && (
-          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] leading-[1.5] text-[var(--text-muted)]">
+          <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[12px] leading-[1.5] text-[var(--text-muted)]">
             {showActive && (
               <span className="inline-flex items-baseline gap-1.5">
                 <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-faint)]">Veikla</span>
-                <span className="font-serif text-[13px] italic font-medium text-[var(--text-primary)] [font-feature-settings:'tnum']">{yearsActive}</span>
+                <span className="font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)]">{yearsActiveRange}</span>
+                {yearsActiveTail && (
+                  <span className="font-['Outfit',sans-serif] text-[12px] font-medium text-[var(--text-muted)]">({yearsActiveTail})</span>
+                )}
               </span>
             )}
             {birthLine && (
               <span className="inline-flex items-baseline gap-1.5">
                 <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-faint)]">{birthLine.label}</span>
-                <span className="font-serif text-[13px] italic font-medium text-[var(--text-primary)] [font-feature-settings:'tnum']">{birthLine.value}</span>
+                <span className="font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)]">{birthLine.main}</span>
+                {birthLine.tail && (
+                  <span className="font-['Outfit',sans-serif] text-[12px] font-medium text-[var(--text-muted)]">({birthLine.tail})</span>
+                )}
                 {birthLine.zodiac && (
-                  <span title={birthLine.zodiac.name} className="text-[14px] leading-none text-[var(--accent-orange)]">{birthLine.zodiac.emoji}</span>
+                  <span title={birthLine.zodiac.name} aria-label={birthLine.zodiac.name} className="font-['Outfit',sans-serif] text-[12px] font-medium text-[var(--text-faint)]">
+                    · {birthLine.zodiac.glyph} {birthLine.zodiac.name}
+                  </span>
                 )}
               </span>
             )}
@@ -1513,8 +1537,12 @@ function SideInfo({
   }
 
   // ── Vertical variant — sidebar card ──────────────────────────────
+  // h-fit + self-start — kortelė nesistump'ina, kad atitiktų bio aukštį.
+  // Anksčiau buvo `h-full min-h-[200px]` ir kortelė tempėsi į grid row'o
+  // aukštį, paliekant tarpą jei bio trumpas. Dabar — kompaktiška, content-
+  // sized: jei bio ilgas, kortelė lieka apačioj; jei trumpas — abu kartu.
   return (
-    <aside className="flex h-full min-h-[200px] flex-col gap-4 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5">
+    <aside className="flex h-fit flex-col gap-4 self-start rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5">
       {/* Country — rank chip first, then name, then flag after. Keeps the
           text baselines flush-left between country + genre rows. */}
       {artist.country && (
@@ -1552,28 +1580,38 @@ function SideInfo({
       )}
 
       {/* Bio facts: veiklos periodas + gimimo/mirties data (+ amžius +
-          zodiakas). Vertėms naudojam serif italic — kad atrodytų labiau kaip
-          biografinis tekstas, mažiau "data table'ish" už tracking'uotų UPPERCASE
-          label'ių. tabular-nums laiko skaitmenis vienodame plotyje. */}
+          zodiakas). Stilius vieningas su likusiu sidebar'iu — Outfit
+          everywhere; "(43 m.)" / "(58 m.)" kaip muted tail po pagrindinės
+          reikšmės; zodiakas — monochrome simbolis (U+FE0E text-presentation),
+          spalvos tos pačios kaip text-faint, ne emoji. */}
       {hasBioFacts && (
-        <div className="flex flex-col gap-2.5 text-[var(--text-muted)]">
+        <div className="flex flex-col gap-2.5">
           {showActive && (
             <div>
-              <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-faint)]">Veikla</span>
-              <div className="mt-0.5 font-serif text-[14.5px] italic font-medium tracking-tight text-[var(--text-primary)] [font-feature-settings:'tnum']">{yearsActive}</div>
+              <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-faint)]">Veikla</div>
+              <div className="mt-0.5 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">
+                {yearsActiveRange}
+                {yearsActiveTail && (
+                  <span className="ml-1.5 font-medium text-[12.5px] text-[var(--text-muted)]">({yearsActiveTail})</span>
+                )}
+              </div>
             </div>
           )}
           {birthLine && (
             <div>
-              <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-faint)]">{birthLine.label}</span>
-              <div className="mt-0.5 flex items-center gap-2 font-serif text-[14.5px] italic font-medium tracking-tight text-[var(--text-primary)] [font-feature-settings:'tnum']">
-                <span>{birthLine.value}</span>
+              <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-faint)]">{birthLine.label}</div>
+              <div className="mt-0.5 flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">
+                <span>{birthLine.main}</span>
+                {birthLine.tail && (
+                  <span className="font-medium text-[12.5px] text-[var(--text-muted)]">({birthLine.tail})</span>
+                )}
                 {birthLine.zodiac && (
                   <span
                     title={birthLine.zodiac.name}
-                    className="not-italic font-sans text-[15px] leading-none text-[var(--accent-orange)]"
+                    aria-label={birthLine.zodiac.name}
+                    className="ml-0.5 font-medium text-[12.5px] text-[var(--text-faint)]"
                   >
-                    {birthLine.zodiac.emoji}
+                    · {birthLine.zodiac.glyph} {birthLine.zodiac.name}
                   </span>
                 )}
               </div>
