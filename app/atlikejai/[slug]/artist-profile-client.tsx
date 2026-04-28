@@ -12,6 +12,7 @@ import EntityCommentsBlock from '@/components/EntityCommentsBlock'
 import MusicSearchPicker, { AttachmentChips, type AttachmentHit } from '@/components/MusicSearchPicker'
 import LyricsWithReactions from '@/components/LyricsWithReactions'
 import { proxyImg } from '@/lib/img-proxy'
+import { formatArtistList } from '@/lib/format-artists'
 
 /* ═══════════════════════════════════════════════════════════════════
    Artist profile — v10.
@@ -47,6 +48,9 @@ type Track = {
   /** Aggregated like count iš `likes` lentelės (entity_type='track').
    *  Set server-side in getTracks(). */
   like_count?: number | null
+  /** Featuring artists — set server-side in getTracks() via track_artists JOIN.
+   *  Used in TrackInfoModal header to render full artist list. */
+  featuring?: Array<{ id: number; slug: string; name: string }>
 }
 type Member = { id: number; slug: string; name: string; cover_image_url?: string; member_from?: number; member_until?: number }
 type Photo = {
@@ -888,6 +892,12 @@ function TrackInfoModal({
   const lyrics = (track.lyrics || '').trim()
   const lyricsText = lyrics ? lyrics.replace(/<[^>]+>/g, '').trim() : null
   const trackHref = `/dainos/${artistSlug}-${track.slug}-${track.id}`
+  // YouTube video id (for the floating side-video) — only when modal is
+  // open AND this track is the actively playing one in the hero player.
+  const sideVideoId = (() => {
+    if (!playing || activeTrackId !== track.id) return null
+    return yt(track.video_url) || null
+  })()
 
   return (
     // Backdrop is intentionally subtle + click-through-friendly: we don't
@@ -941,8 +951,15 @@ function TrackInfoModal({
                 <div className="truncate font-['Outfit',sans-serif] text-[17px] font-extrabold leading-tight text-[var(--text-primary)]">
                   {track.title}
                 </div>
-                <div className="mt-0.5 truncate text-[12px] text-[var(--text-muted)]">
-                  {artistName}
+                {/* Atlikėjų sąrašas — primary + featuring, su LT formatu
+                    (kableliai + paskutinis su „ir"), kiekvienas vardas
+                    orange Link'as į /atlikejai/{slug}. Vienodai su track
+                    puslapiu. */}
+                <div className="mt-0.5 truncate text-[12.5px]">
+                  {formatArtistList(
+                    { id: -1, slug: artistSlug, name: artistName },
+                    track.featuring || [],
+                  )}
                 </div>
               </div>
               {/* Action icons: play/pause (only if track has video), external
@@ -1102,6 +1119,29 @@ function TrackInfoModal({
         {/* Footer pašalintas — play/pause + external-link mygtukai
             perkelti į header'į (aukščiau). */}
       </aside>
+
+      {/* Side video — kai modal'as atviras IR ši daina aktyviai grajina hero
+          player'yje, rodom didelį YouTube iframe'ą tarp modal'o ir dešinio
+          krašto. Užima tik viduriną-dešinę dalį (modal'as ir taip uždengia
+          kairę pusę). Vartotojas mato video + skaito tekstą + komentarus
+          vienu metu, nereikia bėgti tarp modal'o ir hero. */}
+      {sideVideoId && (
+        <div
+          className="pointer-events-none absolute top-0 hidden h-full lg:block"
+          style={{ left: 'min(860px, 100%)', right: 0 }}
+        >
+          <div className="pointer-events-auto absolute left-1/2 top-1/2 w-[min(720px,90%)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border border-[var(--border-default)] bg-black shadow-[0_24px_60px_-10px_rgba(0,0,0,0.55)]">
+            <iframe
+              key={sideVideoId}
+              src={`https://www.youtube.com/embed/${sideVideoId}?autoplay=1&rel=0`}
+              title={track.title}
+              allow="autoplay; encrypted-media"
+              allowFullScreen
+              style={{ width: '100%', aspectRatio: '16 / 9', border: 'none', display: 'block' }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Likers modal — atsidaro paspaudus LikePill count'ą. Z-index aukštesnis
           už drawer'į, kad būtų matomas viršuje. */}

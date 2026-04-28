@@ -25,6 +25,16 @@ export async function POST(req: Request) {
   const userIdVal = await resolveAuthorId(sb, session)
   if (!userIdVal) return NextResponse.json({ error: 'Profilis nerastas' }, { status: 500 })
 
+  // Block self-likes — backend enforcement (UI disables but never trust client).
+  const { data: targetComment } = await sb
+    .from('comments')
+    .select('author_id')
+    .eq('id', commentId)
+    .maybeSingle()
+  if (targetComment && targetComment.author_id === userIdVal) {
+    return NextResponse.json({ error: 'Negalima palaikinti savo paties komentaro' }, { status: 403 })
+  }
+
   // Toggle: jei jau patiko — pašalinam; jei ne — įdedam.
   const { data: existing } = await sb
     .from('comment_likes')

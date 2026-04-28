@@ -335,7 +335,7 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
           width={290}
         >
           <div className="flex flex-col gap-2">
-            <div className="line-clamp-2 text-[11.5px] italic leading-snug text-[var(--text-muted)]">
+            <div className="max-h-[120px] overflow-y-auto whitespace-pre-wrap text-[11.5px] italic leading-snug text-[var(--text-muted)]">
               „{panel.text}"
             </div>
             <div className="flex items-center gap-2">
@@ -414,7 +414,7 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
           width={320}
         >
           <div className="flex flex-col gap-2">
-            <div className="border-b border-[var(--border-subtle)] pb-1.5 text-[11px] italic text-[var(--text-muted)] line-clamp-2">
+            <div className="max-h-[100px] overflow-y-auto whitespace-pre-wrap border-b border-[var(--border-subtle)] pb-1.5 text-[11px] italic text-[var(--text-muted)]">
               „{tooltip.span.reactions[0].selected_text}"
             </div>
             <div className="flex flex-col gap-2">
@@ -503,6 +503,11 @@ function renderInlineHighlights(text: string, lineSpans: Span[], lineStart: numb
     out.push(
       <mark
         key={`${s.start}-${s.end}`}
+        // Neleidžiam pažymėti teksto, kuris jau pamarkiruotas — kitaip
+        // user'is bandytų pridėti reakciją ant tos pačios vietos ir
+        // matytų dubliuojančius badge'us. Native selection skips
+        // user-select:none regions (drag selection praleidžia).
+        style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
         className="rounded bg-[rgba(249,115,22,0.22)] px-0.5 text-[var(--text-primary)] shadow-[inset_0_-2px_0_rgba(249,115,22,0.5)]"
       >
         {text.slice(localStart, localEnd)}

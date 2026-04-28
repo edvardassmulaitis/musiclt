@@ -73,7 +73,25 @@ type Props = {
 }
 
 function stripHtml(html?: string | null): string {
-  return (html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  return decodeEntities((html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim())
+}
+
+/** Decode the most common HTML entities that legacy music.lt comments
+ *  contain — `&nbsp;`, `&amp;`, `&lt;`, `&gt;`, `&quot;`, `&#39;`. The DOM
+ *  parser approach (`new DOMParser().parseFromString`) is more correct but
+ *  doesn't run server-side, so we use a small whitelist here. */
+function decodeEntities(s: string): string {
+  if (!s) return s
+  return s
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&hellip;/g, '…')
+    .replace(/&ndash;/g, '–')
+    .replace(/&mdash;/g, '—')
 }
 
 /** Parse legacy HTML body for music.lt-style `<div class="quote1">` reply
@@ -328,6 +346,23 @@ export default function EntityCommentsBlock({
       setError('Tinklo klaida.')
     } finally {
       setPosting(false)
+    }
+  }
+
+  /** Soft-delete a comment via DELETE /api/comments. Available to admins
+   *  AND to the comment's own author. Backend enforces auth. */
+  const deleteComment = async (commentId: number) => {
+    if (!confirm('Tikrai pašalinti šį komentarą?')) return
+    try {
+      const res = await fetch(`/api/comments?id=${commentId}`, { method: 'DELETE' })
+      if (res.ok) {
+        await reload()
+      } else {
+        const data = await res.json().catch(() => ({}))
+        setError(data.error || 'Nepavyko pašalinti.')
+      }
+    } catch {
+      setError('Tinklo klaida.')
     }
   }
 
@@ -639,6 +674,10 @@ export default function EntityCommentsBlock({
                           onOpenModal={(c.like_count || 0) > 0
                             ? () => setLikersFor({ entityType: 'comment', entityId: c.id, count: c.like_count || 0 })
                             : undefined}
+                          // Negali laikinti savo paties komentaro — vidinis
+                          // konflikto interesų avoidance + tipiškas social
+                          // platform pattern.
+                          disabled={!!session?.user?.id && c.user_id === session.user.id}
                         />
                       ) : (
                         // Legacy comment — likes were imported from music.lt.
@@ -675,6 +714,26 @@ export default function EntityCommentsBlock({
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="9 14 4 9 9 4" /><path d="M20 20v-7a4 4 0 0 0-4-4H4" /></svg>
                         Atsakyti
                       </button>
+                      {/* Trinti — rodom tik moderniam komentarui IR tik kai
+                          vartotojas yra autorius arba admin. API DELETE
+                          handler'is dar pats validuoja teises. Soft-delete
+                          (is_deleted=true), istorija išlieka. */}
+                      {isModern && session?.user?.id && (
+                        c.user_id === session.user.id ||
+                        (session.user as any).role === 'admin' ||
+                        (session.user as any).role === 'super_admin'
+                      ) && (
+                        <button
+                          type="button"
+                          onClick={() => deleteComment(c.id)}
+                          aria-label="Pašalinti komentarą"
+                          title="Pašalinti komentarą"
+                          className="ml-auto inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[10.5px] font-extrabold text-[var(--text-faint)] transition-colors hover:text-[#ef4444]"
+                        >
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m-9 0v14a2 2 0 002 2h6a2 2 0 002-2V6" /></svg>
+                          Pašalinti
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

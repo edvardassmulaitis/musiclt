@@ -8,6 +8,7 @@ import { LikePill } from '@/components/LikePill'
 import { proxyImg } from '@/lib/img-proxy'
 import EntityCommentsBlock from '@/components/EntityCommentsBlock'
 import LyricsWithReactions from '@/components/LyricsWithReactions'
+import { formatArtistList } from '@/lib/format-artists'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -208,17 +209,14 @@ export default function TrackPageClient({
               {/* archive label removed */}
             </div>
             <h1 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 'clamp(15px,2vw,20px)', fontWeight: 900, lineHeight: 1.1, letterSpacing: '-.025em', color: 'var(--text-primary)', margin: '0 0 5px', wordBreak: 'break-word' }}>{track.title}</h1>
-            {/* Visi atlikėjai vienoje eilutėje: "Atlanta ir Andrius Mamontovas".
-                Anksčiau primary atskirai + "su X" antroje eilutėje, dabar
-                sujungtas su jungtuku "ir". */}
-            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 2, lineHeight: 1.3 }}>
-              <Link href={`/atlikejai/${artist.slug}`} style={{ color: '#f97316', textDecoration: 'none' }}>{artist.name}</Link>
-              {track.featuring.map((f, i) => (
-                <span key={f.id}>
-                  <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}> {i === 0 ? 'ir' : ','} </span>
-                  <Link href={`/atlikejai/${f.slug}`} style={{ color: '#f97316', textDecoration: 'none' }}>{f.name}</Link>
-                </span>
-              ))}
+            {/* Atlikėjų sąrašas — bendra LT formatavimo logika su modal'u
+                (komos tarp ne-paskutinių, „ir" prieš paskutinį). Vienas
+                šaltinis: lib/format-artists. */}
+            <div style={{ fontSize: 13, marginBottom: 2, lineHeight: 1.3 }}>
+              {formatArtistList(
+                { id: artist.id, slug: artist.slug, name: artist.name },
+                track.featuring,
+              )}
             </div>
             {dateStr && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{dateStr}</div>}
           </div>

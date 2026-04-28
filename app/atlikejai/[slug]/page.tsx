@@ -199,6 +199,30 @@ async function getTracks(id: number) {
     t.like_count = byTrack.get(t.id) || 0
   }
 
+  // Attach featuring artists — track_artists JOIN where track_id IN [...]
+  // and artist_id != primary. We need this for TrackInfoModal to render the
+  // full "Atlikejas, Atlikejas2 ir Atlikejas3" header.
+  if (trackIds.length > 0) {
+    const featByTrack = new Map<number, Array<{ id: number; slug: string; name: string }>>()
+    for (let i = 0; i < trackIds.length; i += 200) {
+      const chunk = trackIds.slice(i, i + 200)
+      const { data: feat } = await sb
+        .from('track_artists')
+        .select('track_id, artists:artist_id(id, slug, name)')
+        .in('track_id', chunk)
+        .neq('artist_id', id)
+      for (const r of (feat || []) as any[]) {
+        if (!r.artists) continue
+        const list = featByTrack.get(r.track_id) || []
+        list.push({ id: r.artists.id, slug: r.artists.slug, name: r.artists.name })
+        featByTrack.set(r.track_id, list)
+      }
+    }
+    for (const t of tracks) {
+      ;(t as any).featuring = featByTrack.get(t.id) || []
+    }
+  }
+
   // Release year fallback: jei track release_year/release_date null, paimam
   // iš seniausio albumo, kuriam track priklauso. Music.lt'e dažnai track
   // neturi atskirai metų, bet albumas turi.
