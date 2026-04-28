@@ -28,6 +28,7 @@ import Link from 'next/link'
 import { proxyImg } from '@/lib/img-proxy'
 import { LikePill } from '@/components/LikePill'
 import LikesModal from '@/components/LikesModal'
+import EntityCommentsBlock from '@/components/EntityCommentsBlock'
 
 type Track = {
   id: number; slug: string; title: string; type: string
@@ -314,50 +315,15 @@ export default function AlbumPageClient({
           <aside className="flex flex-col gap-5">
             {AlbumInfoCard}
 
-            {/* Comments */}
-            <section>
-              <div className="mb-2.5 flex items-center justify-between">
-                <h2 className="font-['Outfit',sans-serif] text-[15px] font-black tracking-[-0.01em] text-[var(--text-primary)]">
-                  Diskusija {comments && comments.length > 0 && (
-                    <span className="ml-1 font-bold text-[var(--text-faint)]">{comments.length}</span>
-                  )}
-                </h2>
-              </div>
-              {comments === null ? (
-                <div className="space-y-2">
-                  {[0, 1, 2].map((i) => (
-                    <div key={i} className="h-16 w-full animate-pulse rounded-lg bg-[var(--bg-surface)]" />
-                  ))}
-                </div>
-              ) : comments.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-[var(--border-default)] px-4 py-5 text-center">
-                  <div className="mb-1 text-[12px] font-bold text-[var(--text-muted)]">Dar nėra komentarų</div>
-                  <div className="text-[11px] text-[var(--text-faint)]">Būk pirmas.</div>
-                </div>
-              ) : (
-                <ul className="flex flex-col gap-2.5">
-                  {comments.map((c) => {
-                    const author = c.author_username || 'Anonimas'
-                    const text = (c.content_text && String(c.content_text).trim())
-                      || (c.content_html && c.content_html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim())
-                      || ''
-                    return (
-                      <li key={c.legacy_id} className="flex items-start gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2.5">
-                        <UserAvatar name={author} avatarUrl={c.author_avatar_url} size={22} />
-                        <div className="min-w-0 flex-1">
-                          <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--text-secondary)]">
-                            {author}
-                          </div>
-                          <div className="mt-0.5 whitespace-pre-wrap break-words text-[12px] leading-relaxed text-[var(--text-primary)]">
-                            {text}
-                          </div>
-                        </div>
-                      </li>
-                    )
-                  })}
-                </ul>
-              )}
-            </section>
+            {/* Comments — shared EntityCommentsBlock (legacy archive +
+                modern composer + replies + likes). Tas pats komponentas
+                naudojamas track modal'e, kad UX visur identiškas. */}
+            <EntityCommentsBlock
+              entityType="album"
+              entityId={album.id}
+              compact
+              title="Diskusija"
+            />
 
             {/* Other albums by artist */}
             {otherAlbums.length > 0 && (

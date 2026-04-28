@@ -8,6 +8,7 @@ import BioModal from '@/components/BioModal'
 import ScoreCard from '@/components/ScoreCard'
 import ArtistAwards, { type AwardRow } from '@/components/ArtistAwards'
 import type { LegacyLikeUser } from '@/components/LegacyLikesPanel'
+import EntityCommentsBlock from '@/components/EntityCommentsBlock'
 import { proxyImg } from '@/lib/img-proxy'
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -998,59 +999,17 @@ function TrackInfoModal({
             </div>
           )}
 
-          {/* Komentarai — music.lt entity_comments archyvas + future-proof
-              vieta naujiems user komentarams. Drawer'is rodo read-only;
-              pilnas comment posting'as veikia track puslapyje.
-              TODO: išvedam į shared `EntityCommentsBlock` (modern composer +
-              legacy archyvas + replies + likes), kuris veiktų vienodai
-              ir track puslapyje, ir album puslapyje, ir čia. */}
+          {/* Komentarai — shared EntityCommentsBlock. Renderina BOTH legacy
+              entity_comments archyvą IR modern user komentarus, su composer'iu
+              + replies + likes apačioj. Tas pats komponentas naudojamas album
+              puslapyje + track puslapyje, kad UX visur identiškas. */}
           <div ref={commentsRef} className="mt-6 border-t border-[var(--border-subtle)] pt-5">
-            <div className="mb-3 flex items-center gap-2">
-              <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.2em] text-[var(--text-muted)]">
-                Komentarai
-              </div>
-              {comments && comments.length > 0 && (
-                <span className="font-['Outfit',sans-serif] text-[11px] font-extrabold tabular-nums text-[var(--text-faint)]">
-                  ({comments.length})
-                </span>
-              )}
-            </div>
-            {comments === null ? (
-              <div className="py-4 text-center text-[12px] text-[var(--text-faint)]">Kraunama…</div>
-            ) : comments.length === 0 ? (
-              <div className="py-4 text-center text-[12px] text-[var(--text-faint)]">Komentarų dar nėra.</div>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {comments.map(c => {
-                  const initial = (c.author_username || '?').charAt(0).toUpperCase()
-                  const dateLabel = c.created_at ? new Date(c.created_at).toLocaleDateString('lt-LT', { year: 'numeric', month: 'short', day: 'numeric' }) : ''
-                  return (
-                    <div key={c.legacy_id} className="flex gap-2">
-                      {c.author_avatar_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={proxyImg(c.author_avatar_url)} alt="" className="h-7 w-7 flex-shrink-0 rounded-full object-cover" />
-                      ) : (
-                        <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-[rgba(99,102,241,0.18)] font-['Outfit',sans-serif] text-[10px] font-bold text-[#818cf8]">
-                          {initial}
-                        </div>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="text-[11px] font-bold text-[var(--text-secondary)]">{c.author_username || 'anon'}</span>
-                          {dateLabel && <span className="text-[10px] text-[var(--text-faint)]">· {dateLabel}</span>}
-                          {c.like_count > 0 && (
-                            <span className="ml-auto text-[10px] font-bold text-[var(--accent-orange)]">♥ {c.like_count}</span>
-                          )}
-                        </div>
-                        <div className="mt-0.5 whitespace-pre-wrap break-words text-[12px] leading-[1.45] text-[var(--text-primary)]">
-                          {c.content_text || ''}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+            <EntityCommentsBlock
+              entityType="track"
+              entityId={track.id}
+              compact
+              title="Komentarai"
+            />
           </div>
         </div>
 
