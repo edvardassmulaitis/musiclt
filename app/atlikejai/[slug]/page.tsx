@@ -435,6 +435,28 @@ async function getSimilar(artistId: number, genreIds: number[]) {
   const { data } = await sb.from('artist_genres').select('artist_id, artists:artist_id(id, slug, name, cover_image_url)').in('genre_id', genreIds).limit(80)
   const seen = new Set([artistId]); const out: any[] = []
   for (const r of (data || []) as any[]) { if (r.artists && !seen.has(r.artists.id)) { seen.add(r.artists.id); out.push(r.artists) } if (out.length >= 14) break }
+  // Pakeičiam mažus profile thumbnail'us (cover_image_url = music.lt 70px
+  // jpg) į naujausią aktyvuotą galerijos foto — ji didelė ir aiški, todėl
+  // "Panaši muzika" kortelės nebebūna išdidintų low-res avatarų. Užklausa
+  // batchinama vienu IN, kad nebūtų N+1.
+  if (out.length > 0) {
+    const ids = out.map(a => a.id)
+    const { data: photoRows } = await sb
+      .from('artist_photos')
+      .select('artist_id, url, taken_at, id')
+      .in('artist_id', ids)
+      .eq('is_active', true)
+      .order('taken_at', { ascending: false, nullsFirst: false })
+      .order('id', { ascending: false })
+    const newest = new Map<number, string>()
+    for (const p of (photoRows || []) as any[]) {
+      if (!newest.has(p.artist_id) && p.url) newest.set(p.artist_id, p.url)
+    }
+    for (const a of out) {
+      const big = newest.get(a.id)
+      if (big) (a as any).cover_image_url = big
+    }
+  }
   return out
 }
 

@@ -1319,6 +1319,52 @@ function SideInfo({
   const globalRank = ranks.find(r => r.scope === 'global')
   const hasSocials = links.some(l => SOC[l.platform]) || !!website
 
+  // ── Bio facts: veiklos periodas + gimimo/mirties datos + amžius ──
+  // Music.lt teikia visus tris laukus (active_from, birth_date, death_date)
+  // ir mes juos importuojam, bet seniau jų niekur nerodėm. Skaičiavimai:
+  //   - solo gyvas:  amžius = today.year - birth_year (su tikslia mėnesio/dienos correction)
+  //   - solo miręs:  gyveno = death_year - birth_year (-1 jei nebuvo dar gimtadienio)
+  //   - grupė:        veiklos pradžia – pabaiga (arba "dabar")
+  const isSolo = artist.type === 'solo'
+  const yearsActive = artist.active_from
+    ? `${artist.active_from}–${artist.active_until || 'dabar'}`
+    : null
+  const ageFromBirth = (birth: string, end?: string | null): number | null => {
+    const b = new Date(birth)
+    if (isNaN(b.getTime())) return null
+    const e = end ? new Date(end) : new Date()
+    if (isNaN(e.getTime())) return null
+    let age = e.getFullYear() - b.getFullYear()
+    const m = e.getMonth() - b.getMonth()
+    if (m < 0 || (m === 0 && e.getDate() < b.getDate())) age -= 1
+    return age >= 0 && age <= 130 ? age : null
+  }
+  const fmtLtDate = (iso: string): string => {
+    const d = new Date(iso); if (isNaN(d.getTime())) return iso
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+  const birthLine: { label: string; value: string } | null = isSolo && artist.birth_date
+    ? (() => {
+        const yr = ageFromBirth(artist.birth_date, artist.death_date)
+        if (artist.death_date) {
+          const lived = ageFromBirth(artist.birth_date, artist.death_date)
+          return {
+            label: 'Gyveno',
+            value: `${fmtLtDate(artist.birth_date)} – ${fmtLtDate(artist.death_date)}${lived != null ? ` (${lived} m.)` : ''}`,
+          }
+        }
+        return {
+          label: 'Gimimo data',
+          value: yr != null ? `${fmtLtDate(artist.birth_date)} (${yr} m.)` : fmtLtDate(artist.birth_date),
+        }
+      })()
+    : null
+  // Solo artist'ams paslėpiam "Veiklos pradžia" row'ą jei jis sutampa su
+  // birth_date metais (kartais music.lt užrašo veiklos = gimimo data,
+  // kas neinformatyvu).
+  const showActive = !!yearsActive && !(isSolo && artist.birth_date && artist.active_from === new Date(artist.birth_date).getFullYear())
+  const hasBioFacts = !!birthLine || showActive
+
   const Label = ({ children }: { children: React.ReactNode }) => (
     <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
       {children}
@@ -1398,6 +1444,17 @@ function SideInfo({
             {substyles.map(s => s.name).join(' · ')}
           </div>
         )}
+        {/* Bio facts: veiklos periodas + gimimo/mirties data + amžius. */}
+        {hasBioFacts && (
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] leading-[1.5] text-[var(--text-muted)]">
+            {showActive && (
+              <span><span className="font-semibold text-[var(--text-primary)]">Veikla:</span> {yearsActive}</span>
+            )}
+            {birthLine && (
+              <span><span className="font-semibold text-[var(--text-primary)]">{birthLine.label}:</span> {birthLine.value}</span>
+            )}
+          </div>
+        )}
       </div>
     )
   }
@@ -1438,6 +1495,24 @@ function SideInfo({
         <div className="flex items-center gap-2">
           <RankChip n={globalRank.rank} />
           <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">Pasaulyje</span>
+        </div>
+      )}
+
+      {/* Bio facts: veiklos periodas + gimimo/mirties data (+ amžius). */}
+      {hasBioFacts && (
+        <div className="flex flex-col gap-1.5 text-[12.5px] leading-[1.4] text-[var(--text-muted)]">
+          {showActive && (
+            <div>
+              <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-faint)]">Veikla</span>
+              <div className="mt-0.5 text-[13.5px] font-bold text-[var(--text-primary)]">{yearsActive}</div>
+            </div>
+          )}
+          {birthLine && (
+            <div>
+              <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-faint)]">{birthLine.label}</span>
+              <div className="mt-0.5 text-[13.5px] font-bold text-[var(--text-primary)]">{birthLine.value}</div>
+            </div>
+          )}
         </div>
       )}
 
@@ -2757,7 +2832,7 @@ export default function ArtistProfileClient({
             The mobile stack surfaces details (country / genre / socials)
             above the bio so they're the first thing seen without scrolling. */}
         {(() => {
-          const sideInfoAvailable = !!artist.country || genres.length > 0 || links.length > 0 || artist.website
+          const sideInfoAvailable = !!artist.country || genres.length > 0 || links.length > 0 || artist.website || !!artist.active_from || !!artist.birth_date || !!artist.death_date
           const bioHeader = solo ? 'Apie atlikėją' : 'Apie grupę'
 
           if (!hasBio && members.length === 0 && !sideInfoAvailable) return null
