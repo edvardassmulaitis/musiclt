@@ -1072,20 +1072,23 @@ function Hero({
 
       <div
         className={[
-          'relative mx-auto grid max-w-[1400px] grid-cols-1 gap-6 px-4 pb-6 pt-5 sm:px-6 lg:gap-6 lg:min-h-[440px] lg:px-10 lg:py-8',
+          'relative mx-auto grid max-w-[1400px] grid-cols-1 gap-6 px-4 pb-6 pt-5 sm:px-6 lg:gap-6 lg:min-h-[440px] lg:items-end lg:px-10 lg:py-8',
           // 3-col layout greta photo'os (kuri yra absolute):
-          // [title 1fr] [events 280px] [player 460px]
-          // Title columnas pradeda nuo photo's dešinės krašto via padding.
+          // [title 1fr (overlay'inamas ant photo)] [events 280px self-end]
+          // [player 460px]
+          // items-end + per-column self-end → events ir title prikllijuojama
+          // prie apačios; player'is pats užima pilną aukštį.
           hasAnyVideo
             ? 'lg:grid-cols-[1fr_280px_460px]'
             : 'lg:grid-cols-[1fr_280px]',
         ].join(' ')}
       >
-        {/* Title column — title + likes. Padding offset'as nuo photo's. */}
+        {/* Title column — title + likes. Be padding offset'o, todėl ant
+            desktop'o overlap'ina su photo'os area kairėje (kaip senuose
+            cinematic hero layout'uose). */}
         <div
           className={[
-            'flex min-w-0 flex-col justify-end gap-4',
-            'lg:pl-[calc(var(--hero-w,480px)-2.5rem)]',
+            'flex min-w-0 flex-col justify-end gap-4 lg:self-end',
             'transition-[opacity,transform] duration-700 ease-out',
             loaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
           ].join(' ')}
@@ -1114,15 +1117,16 @@ function Hero({
         </div>
 
         {/* Events column (desktop) — kompaktiškas vertikalus stack'as
-            tarp title ir player'io. Mobile lieka horizontal scroll žemiau
-            (atskira sekcija). */}
+            tarp title ir player'io. self-end + mb-0 → kortelė priklijuojama
+            prie apačios, lygiuotis su player'io apačia. Mobile lieka
+            horizontal scroll žemiau (atskira sekcija). */}
         {upcomingEvents.length > 0 && (() => {
-          const MAX_VISIBLE = 2
+          const MAX_VISIBLE = 1
           const hasOverflow = upcomingEvents.length > MAX_VISIBLE
           const desktopVisible = hasOverflow ? upcomingEvents.slice(0, MAX_VISIBLE) : upcomingEvents
           const overflow = upcomingEvents.length - desktopVisible.length
           return (
-            <div className="hidden flex-col gap-2 lg:flex">
+            <div className="hidden flex-col gap-2 lg:flex lg:self-end">
               <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.18em] text-white/85">
                 Artimiausi renginiai
               </div>
