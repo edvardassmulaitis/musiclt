@@ -611,20 +611,19 @@ function popLevelByCount(count: number): number {
   return 1
 }
 
-/** Relatyvus popularity tier — value PROPORCINGAI didžiausiajam artist'o
- *  scope'e. Anksčiau buvo absolute thresholds (200+ → 4), kas reiškė kad
- *  mažiau populiarių atlikėjų visi tracks turi tik 1-2 dashes (vienodi).
- *  Dabar: kiekvienas atlikėjas turi savo HIT'us — 100% nuo max → 4 dashes,
- *  proporcingai mažiau → mažiau dashes. Atlanta'os topas (53 likes) gauna
- *  4 dashes lygiai kaip Mamontovo topas (322 likes) — abu yra tų atlikėjų
- *  hit'ai. */
+/** Relatyvus popularity tier (5-level) — value PROPORCINGAI didžiausiajam
+ *  artist'o scope'e. Kiekvienas atlikėjas turi savo HIT'us; top → 5 dashes,
+ *  vidutiniai/silpnesni — proporcingai mažiau. Atlanta'os topas (53 likes)
+ *  gauna 5 dashes lygiai kaip Mamontovo topas (322 likes) — abu HIT'ai
+ *  savo scope'e. */
 function popLevelRelative(value: number, max: number): number {
   if (!value || value <= 0) return 0
   if (!max || max <= 0) return 0
   const pct = value / max
-  if (pct >= 0.75) return 4
-  if (pct >= 0.40) return 3
-  if (pct >= 0.15) return 2
+  if (pct >= 0.80) return 5
+  if (pct >= 0.55) return 4
+  if (pct >= 0.30) return 3
+  if (pct >= 0.10) return 2
   return 1
 }
 
@@ -652,9 +651,10 @@ function Equalizer() {
   )
 }
 
-/** 4-dot popularity bar — mirrors the rank bar pattern used on liker cards. */
+/** 5-dot popularity bar. Anksčiau buvo 4 — su 5 lygiais geriau matosi
+ *  skirtumai tarp top hit'o, vidutinio ir silpnesnio įrašo. */
 function PopBar({ level }: { level: number }) {
-  const total = 4
+  const total = 5
   return (
     <div className="mt-1 flex gap-[3px]" aria-hidden>
       {Array.from({ length: total }).map((_, i) => {
@@ -2135,14 +2135,14 @@ function AlbumCard({ a, popularity, artistSlug, maxPop }: { a: Album; popularity
   const [coverFailed, setCoverFailed] = useState(false)
   const coverUrl = (a as any).cover_image_url
   const showCover = !!coverUrl && !coverFailed
-  // Album popularity: relative tier per ATLIKĖJO max. Naudojam score (jei
-  // yra), fallback į like_count, fallback į positional. Atlikėjo HIT'as
-  // (didžiausias score/likes) → 4 dashes, kiti proporcingai mažiau.
+  // Album popularity: relative tier per ATLIKĖJO max. PRIORITY like_count —
+  // tikras hit indicator'ius (Mamontovo Geltona = 107 likes, Paleisk = 0).
+  // Score'as cluster'inasi (~17-18 kone visiems), todėl tik fallback.
   const albumScore = (a as any).score
   const albumLikes = (a as any).like_count
-  const value = typeof albumScore === 'number' && albumScore > 0
-    ? albumScore
-    : (typeof albumLikes === 'number' ? albumLikes : 0)
+  const value = typeof albumLikes === 'number' && albumLikes > 0
+    ? albumLikes
+    : (typeof albumScore === 'number' ? albumScore : 0)
   const albumPop = (maxPop && maxPop > 0)
     ? popLevelRelative(value, maxPop)
     : (typeof popularity === 'number' ? popularity : 0)
@@ -2484,14 +2484,17 @@ export default function ArtistProfileClient({
     : albums.filter(a => activeFilters.has(aType(a)))
   const showOrphans = hasOrphanTracks && (showAll || activeFilters.has('orphan'))
 
-  // Max album popularity tarp visų atlikėjo albumų — naudojama AlbumCard
-  // PopBar relatyviam skaičiavimui (kiekvienas atlikėjas turi savo HIT'us).
+  // Max album popularity tarp visų atlikėjo albumų — relatyviam PopBar.
+  // PRIORITY: like_count (atspindi tikrus hit'us — Mamontovo Geltona = 107,
+  // Paleisk = 0). Score'as stipriai cluster'inasi (~17-18 kone visiems) ir
+  // neduoda skirtumo. Score naudojamas tik kaip fallback'as kai likes data
+  // dar nesurinkta.
   const maxAlbumPop = useMemo(() => {
     let max = 0
     for (const a of albums) {
-      const score = (a as any).score
       const likes = (a as any).like_count
-      const v = typeof score === 'number' && score > 0 ? score : (typeof likes === 'number' ? likes : 0)
+      const score = (a as any).score
+      const v = typeof likes === 'number' && likes > 0 ? likes : (typeof score === 'number' ? score : 0)
       if (v > max) max = v
     }
     return max
