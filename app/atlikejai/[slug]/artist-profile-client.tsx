@@ -2191,12 +2191,16 @@ function AlbumCard({ a, popularity, artistSlug, maxPop }: { a: Album; popularity
 
 function TrackRow({ t, popularity, artistSlug }: { t: Track; popularity?: number; artistSlug?: string }) {
   const v = yt(t.video_url)
-  const cover = t.cover_url || (v ? `https://img.youtube.com/vi/${v}/mqdefault.jpg` : null)
-  // YT thumbnail naturalWidth check — dead video grąžina 120x90 placeholder,
-  // live video — 320x180 mqdefault. Naudojam tos pačios img'os onLoad,
-  // kad nereikėtų papildomų request'ų.
+  // YT video availability — dead video grąžina 120x90 placeholder PNG.
+  // Naudojam tos pačios cover img'os onLoad — be papildomų request'ų.
   const [vidDead, setVidDead] = useState(false)
   const showPlay = !!v && !vidDead
+  // Cover priority: explicit track.cover_url > YT thumbnail (jei video gyvas).
+  // Jei cover_url nera ir YT dead — coverNet'as null, rodom music ikoną
+  // (same kaip dainai be video). Anksčiau dead YT placeholder PNG'as
+  // (mažytis 120x90 stub'as) buvo rodomas — atrodė kaip broken icon.
+  const ytCover = v ? `https://img.youtube.com/vi/${v}/mqdefault.jpg` : null
+  const cover = t.cover_url || (vidDead ? null : ytCover)
   // Canonical URL su artist prefix'u jei perduotas; antraip page redirect'ins.
   const href = artistSlug
     ? `/dainos/${artistSlug}-${t.slug}-${t.id}`
@@ -2214,7 +2218,7 @@ function TrackRow({ t, popularity, artistSlug }: { t: Track; popularity?: number
             alt={t.title}
             className="h-full w-full object-cover"
             onLoad={(ev) => {
-              if (!v) return
+              if (!v || t.cover_url) return  // turime savo cover — nereikia probe
               const el = ev.currentTarget as HTMLImageElement
               // YT dead video thumbnail: 120x90, live: 320x180 (mqdefault).
               if (el.naturalWidth > 0 && el.naturalWidth < 200) setVidDead(true)
