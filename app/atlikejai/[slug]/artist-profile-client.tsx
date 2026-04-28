@@ -1221,12 +1221,20 @@ function Hero({
           const desktopVisible = hasOverflow ? upcomingEvents.slice(0, MAX_VISIBLE) : upcomingEvents
           const overflow = upcomingEvents.length - desktopVisible.length
           return (
-            <div className="hidden flex-col gap-2 lg:flex lg:self-end">
+            // self-stretch (override grid items-end) — kad event card galėtų
+            // užimti pilną grid row'o aukštį ir lygiuotis su player'iu.
+            // Vidinis `flex-col` su `flex-1` ant kortelės wrapper'io
+            // perduoda aukštį žemyn į pačią kortelę.
+            <div className="hidden flex-col gap-2 lg:flex lg:self-stretch">
               <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.18em] text-white/85">
                 Artimiausi renginiai
               </div>
+              {/* flex-1 wrapper'is — kad kortelė augintų aukštį iki
+                  parent'o stretch dydžio (lygiavimas su player'iu). */}
               {desktopVisible.map((e: any) => (
-                <EventCard key={e.id} e={e} variant="vertical" />
+                <div key={e.id} className="flex min-h-[260px] flex-1 flex-col">
+                  <EventCard e={e} variant="vertical" />
+                </div>
               ))}
               {hasOverflow && (
                 <button
@@ -1968,18 +1976,24 @@ function EventVerticalCard({ e, href, hasCover, setCoverFailed, d, venue }: {
   d: Date
   venue: string
 }) {
-  // Default 16:10 (landscape-ish) iki kol nuotrauka užkraunama
-  const [aspectRatio, setAspectRatio] = useState<number>(1.6)
+  // BUVO: aspectRatio state'as buvo update'inamas img.onLoad callback'e
+  // pagal naturalWidth/Height — dėl to atsirasdavo race: pirmu render'iu
+  // kortelė matuodavosi 1.6 (default landscape), o po to, kai
+  // browser'is iškodavo paveiksliuką, ratio'as keisdavo'si į 0.66
+  // (portrait), ir kortelė pakildavo aukštyn. Cache'inta nuotrauka
+  // suload'indavo sync ir race nepasimatydavo, ne-cache'inta — pasimatydavo.
+  //
+  // DABAR: kortelė užima pilną parent'o aukštį (`h-full`), image area
+  // — `flex-1 min-h-0` su `object-cover`. Niekas nepriklauso nuo image
+  // dimensijų; kortelė yra deterministinė ir lygiuojama su player'iu
+  // (kuris yra pagrindinis aukštį-nustatantis grid'o item'as).
   return (
     <Link
       href={href}
-      className="group flex w-full flex-col overflow-hidden rounded-xl border border-[rgba(249,115,22,0.3)] no-underline transition-all hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.55)] hover:shadow-[0_8px_22px_rgba(249,115,22,0.18)]"
+      className="group flex h-full w-full flex-col overflow-hidden rounded-xl border border-[rgba(249,115,22,0.3)] no-underline transition-all hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.55)] hover:shadow-[0_8px_22px_rgba(249,115,22,0.18)]"
       style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.12), rgba(249,115,22,0.02) 70%), var(--bg-elevated)' }}
     >
-      <div
-        className="relative w-full overflow-hidden bg-gradient-to-br from-[rgba(249,115,22,0.18)] to-[rgba(249,115,22,0.05)]"
-        style={{ aspectRatio: `${aspectRatio}` }}
-      >
+      <div className="relative min-h-[160px] w-full flex-1 overflow-hidden bg-gradient-to-br from-[rgba(249,115,22,0.18)] to-[rgba(249,115,22,0.05)]">
         {/* Fallback: calendar icon */}
         <div className="absolute inset-0 flex items-center justify-center">
           <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" className="text-[var(--accent-orange)]/40">
@@ -1994,26 +2008,17 @@ function EventVerticalCard({ e, href, hasCover, setCoverFailed, d, venue }: {
             referrerPolicy="no-referrer"
             onError={() => setCoverFailed(true)}
             onLoad={(ev) => {
+              // Music.lt placeholder PNG (~100x100) detection — jei
+              // nuotrauka per maža, traktuojam kaip broken ir rodom
+              // calendar fallback'ą.
               const el = ev.currentTarget as HTMLImageElement
-              const w = el.naturalWidth
-              const h = el.naturalHeight
-              if (!w || !h) return
-              // Music.lt placeholder PNG ~100x100 — slepiam.
-              if (w < 200) {
-                setCoverFailed(true)
-                return
-              }
-              // Adapt aspect ratio. Bound'ai:
-              //   min 0.55 (ekstremalus portrait) — kad netaptų per ilga
-              //   max 1.78 (16:9 landscape)
-              const r = Math.max(0.55, Math.min(1.78, w / h))
-              setAspectRatio(r)
+              if (el.naturalWidth && el.naturalWidth < 200) setCoverFailed(true)
             }}
             className="absolute inset-0 h-full w-full object-cover"
           />
         )}
       </div>
-      <div className="flex flex-col gap-1.5 px-3.5 py-3">
+      <div className="flex shrink-0 flex-col gap-1.5 px-3.5 py-3">
         <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.08em] text-[var(--accent-orange)]">
           {formatLtDate(d)}
         </div>
