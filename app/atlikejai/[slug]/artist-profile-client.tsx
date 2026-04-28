@@ -980,11 +980,11 @@ function Hero({
       {/* Photo backdrop:
           - Mobile: aspect-[3/2] (max ~67% body height) — siauresnis nei
             aspect-video, mažiau upscale artifact'ų low-res nuotraukoms.
-          - Desktop: foto užima TIK kairę pusę šalia player'io. plotis ~33%
-            (right-[67%]) — tai reiškia ~470px ant 1400px viewport'e, t.y.
-            artima player'io 460px. Mažas plotas → minimalus upscale →
-            ryškesnė kokybė. */}
-      <div className="relative aspect-[3/2] w-full overflow-hidden bg-black lg:absolute lg:inset-y-0 lg:left-0 lg:right-[67%] lg:aspect-auto">
+          - Desktop: foto fix-width container ŠALIA player'io. Player yra
+            460px dešinėje; foto irgi ~460px kairėje. Tarp jų — title text.
+            Naudojam fixed pixel width vietoj % — taip Tailwind JIT garantuotai
+            sugeneruos klasę ir width'as nepriklauso nuo viewport'o. */}
+      <div className="relative aspect-[3/2] w-full overflow-hidden bg-black lg:absolute lg:inset-y-0 lg:left-0 lg:right-auto lg:w-[420px] lg:aspect-auto">
         {heroImage ? (
           <>
             {/* Layer 1 — strong blur backdrop (visada matomas kraštuose).
@@ -1041,11 +1041,10 @@ function Hero({
             photo doesn't end in a hard horizontal line. Hidden on desktop
             where the right-side fade takes care of blending. */}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[30%] bg-gradient-to-t from-[var(--bg-surface)] via-[var(--bg-surface)]/70 to-transparent lg:hidden" />
-        {/* Desktop overlays — foto kraštai blend'inami į solid bg, kad
-            netaptų kietos linijos. Foto dabar užima tik ~33% kairę pusę,
-            tad dešinės ~25% gradient juostos užtenka glotniam transition'ui
-            į solid surface (player'io background'ą). */}
-        <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[35%] bg-gradient-to-r from-transparent to-[var(--bg-surface)] lg:block" />
+        {/* Desktop overlay — foto dešinė pusė blend'inama į solid bg per
+            ~120px gradient juostą. Foto kontaineris yra fix 420px, juosta
+            sėdi paskutiniuose 120px ir glotniai pereina į background. */}
+        <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[120px] bg-gradient-to-r from-transparent to-[var(--bg-surface)] lg:block" />
       </div>
 
       <style>{`@keyframes apHeroZoom{0%{transform:scale(1.02)}100%{transform:scale(1.08)}}`}</style>
