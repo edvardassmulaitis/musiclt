@@ -170,6 +170,10 @@ function CommentLike({
 }) {
   const filled = liked
   const showCount = count > 0
+  // Robust disabled handling: pointer-events-none on the wrapper guarantees
+  // no click can reach the heart, even if React's disabled prop has
+  // hydration drift. Plus we wrap onToggle to short-circuit defensively.
+  const safeToggle = () => { if (!disabled) onToggle() }
   return (
     <span
       className={[
@@ -177,18 +181,21 @@ function CommentLike({
         filled
           ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white shadow-[0_2px_8px_rgba(249,115,22,0.3)]'
           : 'border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-primary)]',
+        disabled ? 'opacity-50' : '',
       ].join(' ')}
+      title={disabled ? 'Negalima palaikinti savo komentaro' : undefined}
     >
       <button
         type="button"
-        onClick={onToggle}
+        onClick={safeToggle}
         disabled={disabled}
         aria-label={filled ? 'Atšaukti patinka' : 'Pažymėti patinka'}
-        title={filled ? 'Patinka' : 'Pažymėti patinka'}
+        title={disabled ? 'Negalima palaikinti savo komentaro' : (filled ? 'Patinka' : 'Pažymėti patinka')}
         className={[
           'flex items-center justify-center px-2 py-1 transition-colors',
-          disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
-          !filled ? 'hover:bg-[var(--bg-hover)]' : 'hover:opacity-90',
+          disabled ? 'cursor-not-allowed pointer-events-none' : 'cursor-pointer',
+          !filled && !disabled ? 'hover:bg-[var(--bg-hover)]' : '',
+          filled && !disabled ? 'hover:opacity-90' : '',
         ].join(' ')}
       >
         <svg
@@ -727,7 +734,9 @@ export default function EntityCommentsBlock({
                             <Link
                               key={`${a.type}-${a.id}-${i}`}
                               href={href}
-                              className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] py-1 pl-1 pr-2.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+                              target="_blank"
+                              rel="noopener"
+                              className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] py-1 pl-1 pr-2 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
                             >
                               <span className="h-5 w-5 shrink-0 overflow-hidden rounded-sm bg-[var(--cover-placeholder)]">
                                 {a.image_url && (
@@ -741,6 +750,11 @@ export default function EntityCommentsBlock({
                               {a.artist && a.type !== 'grupe' && (
                                 <span className="text-[10px] text-[var(--text-muted)]">· {a.artist}</span>
                               )}
+                              {/* External-link icon — signal to user that
+                                  click opens in new window. */}
+                              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" className="ml-0.5 shrink-0 text-[var(--text-faint)]">
+                                <path d="M14 3h7v7M21 3l-9 9M5 5h6M5 5v14h14v-6" />
+                              </svg>
                             </Link>
                           )
                         })}

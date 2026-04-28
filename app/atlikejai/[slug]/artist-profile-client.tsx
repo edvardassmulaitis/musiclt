@@ -1051,10 +1051,10 @@ function TrackInfoModal({
                   {dur}
                 </span>
               )}
-              {/* Album mini cover chips — for tracks that belong to albums.
-                  Click opens the album page in a new tab. Hover shows the
-                  album title. Limit to 4 to keep the row tidy. */}
-              {(track.albums || []).slice(0, 4).map((al) => (
+              {/* Album mini cover chips — pirmieji 2 atskirai, likusieji
+                  sutelpa į „+N" overflow chip'ą. Tai išvengia chip'ų
+                  perkrovimo plotyje. Click → /lt/albumas/{slug}/{id} new tab. */}
+              {(track.albums || []).slice(0, 2).map((al) => (
                 <Link
                   key={al.id}
                   href={`/lt/albumas/${al.slug}/${al.id}`}
@@ -1074,11 +1074,19 @@ function TrackInfoModal({
                       />
                     ) : null}
                   </span>
-                  <span className="max-w-[160px] truncate font-['Outfit',sans-serif] text-[11.5px] font-extrabold text-[var(--text-primary)]">
+                  <span className="max-w-[140px] truncate font-['Outfit',sans-serif] text-[11.5px] font-extrabold text-[var(--text-primary)]">
                     {al.title}
                   </span>
                 </Link>
               ))}
+              {(track.albums || []).length > 2 && (
+                <span
+                  title={(track.albums || []).slice(2).map(a => a.title).join(', ')}
+                  className="inline-flex h-9 shrink-0 items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 font-['Outfit',sans-serif] text-[11.5px] font-extrabold text-[var(--text-muted)]"
+                >
+                  +{(track.albums || []).length - 2}
+                </span>
+              )}
               <Link
                 href={trackHref}
                 target="_blank"
