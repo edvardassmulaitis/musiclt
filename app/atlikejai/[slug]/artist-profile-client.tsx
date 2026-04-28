@@ -974,17 +974,37 @@ function Hero({
   onOpenEventsModal: () => void
 }) {
   const coverPos = parseCoverPos(artist.cover_image_position || 'center 30%')
+  // Adaptyvus hero foto plotis pagal nuotraukos aspect ratio. Anksčiau buvo
+  // fixed 420px — gerai portrait'ui, blogai landscape'ui (kraštai nukerpa
+  // svarbias dalis). Dabar aptinkam natural dimensions per onLoad ir
+  // pritaikom konteinerio plotį:
+  //   portrait  (ratio < 0.85)  → 380px (tall narrow)
+  //   square    (~0.85–1.30)    → 480px (balansuota)
+  //   landscape (ratio > 1.30)  → 720px (wide short)
+  const [heroWidth, setHeroWidth] = useState<number>(480)  // default for SSR
+  const handleHeroLoad = (ev: React.SyntheticEvent<HTMLImageElement>) => {
+    const el = ev.currentTarget
+    const w = el.naturalWidth
+    const h = el.naturalHeight
+    if (!w || !h) return
+    const r = w / h
+    if (r < 0.85) setHeroWidth(380)
+    else if (r > 1.30) setHeroWidth(720)
+    else setHeroWidth(480)
+  }
 
   return (
     <section className="relative isolate w-full bg-[var(--bg-surface)]">
       {/* Photo backdrop:
-          - Mobile: aspect-[3/2] (max ~67% body height) — siauresnis nei
-            aspect-video, mažiau upscale artifact'ų low-res nuotraukoms.
-          - Desktop: foto fix-width container ŠALIA player'io. Player yra
-            460px dešinėje; foto irgi ~460px kairėje. Tarp jų — title text.
-            Naudojam fixed pixel width vietoj % — taip Tailwind JIT garantuotai
-            sugeneruos klasę ir width'as nepriklauso nuo viewport'o. */}
-      <div className="relative aspect-[3/2] w-full overflow-hidden bg-black lg:absolute lg:inset-y-0 lg:left-0 lg:right-auto lg:w-[420px] lg:aspect-auto">
+          - Mobile: aspect-[3/2] — siauresnis nei aspect-video, mažiau
+            upscale artifact'ų low-res nuotraukoms.
+          - Desktop: foto plotis adaptyvus pagal natural aspect ratio
+            (portrait 380, square 480, landscape 720) — kraštai nukerpa
+            mažiau svarbių dalių, kompozicija išlieka. */}
+      <div
+        className="relative aspect-[3/2] w-full overflow-hidden bg-black lg:absolute lg:inset-y-0 lg:left-0 lg:right-auto lg:aspect-auto lg:w-[var(--hero-w,480px)]"
+        style={{ ['--hero-w' as any]: `${heroWidth}px` } as React.CSSProperties}
+      >
         {heroImage ? (
           <>
             {/* Layer 1 — strong blur backdrop (visada matomas kraštuose).
@@ -1013,6 +1033,7 @@ function Hero({
               src={proxyImg(heroImage)}
               alt={artist.name}
               referrerPolicy="no-referrer"
+              onLoad={handleHeroLoad}
               onClick={() => {
                 if (typeof window === 'undefined') return
                 if (window.innerWidth < 1024) return
