@@ -574,12 +574,17 @@ function PlayerCard({
               const v = yt(t.video_url)
               const isActive = t.id === activeTrackId
               const isActivelyPlaying = isActive && playing && !isPaused
-              // Popularity bar: relative tier pagal MAX artist'o tracks.
-              // Anksčiau buvo absolute (200+ → 4) — atlikėjai su mažesniu
-              // following'u visi tracks gaudavo tik 1-2 dashes (lygūs). Dabar
-              // proporcingai: kiekvienas turi savo TOP'ą.
-              const pop = (t as any).like_count != null
-                ? popLevelRelative((t as any).like_count, maxTrackLikes)
+              // Popularity bar:
+              //  - Jei track turi >0 likes — relatyviai prieš artist'o
+              //    didžiausią (top → 5 dashes).
+              //  - Jei 0 likes (typical "Naujos dainos" — niekas dar
+              //    nepatiko) — krintam į position-based fallback'ą,
+              //    kad bar'as nebūtų tuščias. "Kitos dainos" sąrašas
+              //    naudoja tą patį `popLevel` — tai logika visur ta
+              //    pati ir atrodo nuosekliai.
+              const lc = (t as any).like_count
+              const pop = (typeof lc === 'number' && lc > 0)
+                ? popLevelRelative(lc, maxTrackLikes)
                 : popLevel(i, list.length)
               return (
                 <li key={t.id}>
