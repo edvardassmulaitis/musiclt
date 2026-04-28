@@ -2105,44 +2105,59 @@ function MobileFilterRow({
 function AlbumCard({ a, popularity, artistSlug }: { a: Album; popularity?: number; artistSlug?: string }) {
   const type = aType(a)
   const href = artistSlug ? `/albumai/${artistSlug}-${a.slug}-${a.id}` : `/albumai/${a.slug}-${a.id}`
-  // Music.lt naudoja tą patį filename pattern'ą (`jpg_10.jpg`) skirtinguose
-  // album folder'iuose — TAI YRA REALŪS cover'iai, ne placeholder'iai. Todėl
-  // filename-pattern filtras BUVO klaidingas; rely tik ant onError fallback'o.
   const [coverFailed, setCoverFailed] = useState(false)
-  const coverUrl = a.cover_image_url
+  const coverUrl = (a as any).cover_image_url
   const showCover = !!coverUrl && !coverFailed
+  // Album popularity: priority — score (canonical), fallback į like_count,
+  // fallback į positional. Score atspindi pilną album'o kontekstą (likes,
+  // tracks, year). Logaritminiai break-pointai:
+  //   score 60+ → 4, 30+ → 3, 10+ → 2, 1+ → 1, 0 → 0
+  const albumScore = (a as any).score
+  const albumLikes = (a as any).like_count
+  let albumPop: number = 0
+  if (typeof albumScore === 'number' && albumScore > 0) {
+    albumPop = albumScore >= 60 ? 4 : albumScore >= 30 ? 3 : albumScore >= 10 ? 2 : 1
+  } else if (typeof albumLikes === 'number' && albumLikes > 0) {
+    albumPop = popLevelByCount(albumLikes)
+  } else if (typeof popularity === 'number') {
+    albumPop = popularity
+  }
   return (
     <Link href={href} className="group block no-underline">
-      <div className="relative overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] transition-all group-hover:border-[var(--border-strong)] group-hover:shadow-[0_10px_28px_rgba(0,0,0,0.3)]">
+      <div className="relative overflow-hidden rounded-lg border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)] group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]">
         <div className="aspect-square">
           {showCover ? (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={proxyImg(coverUrl)}
               alt={a.title}
               referrerPolicy="no-referrer"
               loading="lazy"
               onError={() => setCoverFailed(true)}
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-              style={{ filter: 'blur(0.5px) saturate(1.15) contrast(1.05)' }}
+              className="h-full w-full object-cover transition-all duration-500 group-hover:scale-[1.06]"
+              style={{ filter: 'saturate(1.05) contrast(1.02)' }}
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-3xl text-[var(--text-faint)]">💿</div>
+            <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">💿</div>
           )}
+          {/* Subtle hover gradient overlay — orange tint nuo apačios kai
+              hover'inama. Pridėta vaizdo gylio. */}
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[rgba(249,115,22,0.12)] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
         </div>
         {type !== 'Studijinis' && (
-          <span className="absolute left-1.5 top-1.5 rounded bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-wider text-white backdrop-blur-sm">
+          <span className="absolute left-1.5 top-1.5 rounded bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[8px] font-extrabold uppercase tracking-wider text-white backdrop-blur-sm">
             {type}
           </span>
         )}
         {a.year && (
-          <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[10px] font-bold text-white backdrop-blur-sm">
+          <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold text-white backdrop-blur-sm">
             {a.year}
           </span>
         )}
       </div>
-      <div className="mt-2 px-0.5">
-        <div className="truncate font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-primary)] sm:text-[13px]">{a.title}</div>
-        {typeof popularity === 'number' && <PopBar level={popularity} />}
+      <div className="mt-1.5 px-0.5">
+        <div className="truncate font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--text-primary)] sm:text-[12px]">{a.title}</div>
+        {albumPop > 0 && <PopBar level={albumPop} />}
       </div>
     </Link>
   )
@@ -2153,6 +2168,11 @@ function AlbumCard({ a, popularity, artistSlug }: { a: Album; popularity?: numbe
 function TrackRow({ t, popularity, artistSlug }: { t: Track; popularity?: number; artistSlug?: string }) {
   const v = yt(t.video_url)
   const cover = t.cover_url || (v ? `https://img.youtube.com/vi/${v}/mqdefault.jpg` : null)
+  // YT thumbnail naturalWidth check — dead video grąžina 120x90 placeholder,
+  // live video — 320x180 mqdefault. Naudojam tos pačios img'os onLoad,
+  // kad nereikėtų papildomų request'ų.
+  const [vidDead, setVidDead] = useState(false)
+  const showPlay = !!v && !vidDead
   // Canonical URL su artist prefix'u jei perduotas; antraip page redirect'ins.
   const href = artistSlug
     ? `/dainos/${artistSlug}-${t.slug}-${t.id}`
@@ -2164,13 +2184,24 @@ function TrackRow({ t, popularity, artistSlug }: { t: Track; popularity?: number
     >
       <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md bg-[var(--cover-placeholder)]">
         {cover ? (
-          <img src={proxyImg(cover)} alt={t.title} className="h-full w-full object-cover" />
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={proxyImg(cover)}
+            alt={t.title}
+            className="h-full w-full object-cover"
+            onLoad={(ev) => {
+              if (!v) return
+              const el = ev.currentTarget as HTMLImageElement
+              // YT dead video thumbnail: 120x90, live: 320x180 (mqdefault).
+              if (el.naturalWidth > 0 && el.naturalWidth < 200) setVidDead(true)
+            }}
+          />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-[var(--text-faint)]">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z" /></svg>
           </div>
         )}
-        {v && (
+        {showPlay && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover:bg-black/45 group-hover:opacity-100">
             <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_4px_12px_rgba(249,115,22,0.5)]">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg>
@@ -2800,8 +2831,10 @@ export default function ArtistProfileClient({
                       </div>
                     ))}
                   </div>
-                  {/* Desktop (sm+): pilnas grid'as, visi albumai matomi. */}
-                  <div className="hidden gap-4 sm:grid sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                  {/* Desktop (sm+): pilnas grid'as, visi albumai matomi.
+                      Tankesnis grid (4-8 col), kad cover'iai būtų mažesni
+                      ir low-res quality nesimatytų. */}
+                  <div className="hidden gap-3 sm:grid sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
                     {visibleAlbums.map((a, i) => (
                       <AlbumCard key={a.id} a={a} artistSlug={artist.slug} popularity={popLevel(i, visibleAlbums.length)} />
                     ))}

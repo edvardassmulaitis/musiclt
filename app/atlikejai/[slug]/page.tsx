@@ -99,7 +99,25 @@ async function getPhotos(id: number) {
   const { data } = await sb.from('artist_photos').select('id, url, caption, sort_order, is_active').eq('artist_id', id).order('sort_order')
   return data || []
 }
-async function getAlbums(id: number) { const sb = createAdminClient(); const { data } = await sb.from('albums').select('id, slug, title, year, month, cover_image_url, type_studio, type_compilation, type_ep, type_single, type_live, type_remix, type_soundtrack, type_demo, spotify_id, video_url, legacy_id').eq('artist_id', id).order('year', { ascending: false }); return data || [] }
+async function getAlbums(id: number) {
+  const sb = createAdminClient()
+  const { data } = await sb.from('albums').select('id, slug, title, year, month, cover_image_url, type_studio, type_compilation, type_ep, type_single, type_live, type_remix, type_soundtrack, type_demo, spotify_id, video_url, legacy_id, score').eq('artist_id', id).order('year', { ascending: false })
+  const albums = (data || []) as any[]
+  if (albums.length === 0) return albums
+  // Attach album like counts (chunked, kaip ir tracks).
+  const albumIds = albums.map(a => a.id)
+  const byAlbum = new Map<number, number>()
+  const CHUNK = 40
+  for (let i = 0; i < albumIds.length; i += CHUNK) {
+    const chunk = albumIds.slice(i, i + CHUNK)
+    const { data: lk } = await sb.from('likes').select('entity_id').eq('entity_type', 'album').in('entity_id', chunk).range(0, 9999)
+    for (const r of (lk || []) as any[]) {
+      byAlbum.set(r.entity_id, (byAlbum.get(r.entity_id) || 0) + 1)
+    }
+  }
+  for (const a of albums) (a as any).like_count = byAlbum.get(a.id) || 0
+  return albums
+}
 async function getTracks(id: number) {
   const sb = createAdminClient()
   // NOTE: album_id column doesn't exist on tracks (relationship is via
