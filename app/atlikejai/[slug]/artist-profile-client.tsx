@@ -793,9 +793,16 @@ type EntityComment = {
 }
 
 function TrackInfoModal({
-  track, artistName, artistSlug, onClose, onPlay,
+  track, artistName, artistSlug, artistThumbUrl, isSingle, onClose, onPlay,
 }: {
-  track: Track | null; artistName: string; artistSlug: string; onClose: () => void
+  track: Track | null; artistName: string; artistSlug: string
+  /** Artist'o profilio nuotrauka headeryje šalia title + name. Padeda
+   *  vartotojui akimirksniu suprasti kontekstą (kieno ši daina). */
+  artistThumbUrl?: string | null
+  /** Track yra single (nepriklauso jokiam albumui)? Jei taip — release
+   *  date'ą rodom orange spalva (pabrėžta), kitaip — muted. */
+  isSingle?: boolean
+  onClose: () => void
   /** Start playback of this track in the main player. Drawer stays open. */
   onPlay?: (t: Track) => void
 }) {
@@ -812,6 +819,8 @@ function TrackInfoModal({
   const [likersUsers, setLikersUsers] = useState<Array<{ user_username: string; user_rank: string | null; user_avatar_url: string | null }> | null>(null)
   // Music.lt entity_comments šitai dainai
   const [comments, setComments] = useState<EntityComment[] | null>(null)
+  // Ref'as komentarų sekcijai — header'io comment chip'as scroll'ina į ją.
+  const commentsRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     if (track) {
@@ -856,11 +865,22 @@ function TrackInfoModal({
 
   const dur = fmtDur(track.duration)
   const year = track.release_year || (track.release_date ? new Date(track.release_date).getFullYear() : null)
+  // Tikslesnė LT data, kai turim mėnesį/dieną — singlams ji rodoma
+  // orange spalva (pabrėžimas), kitiems — tik metai muted.
+  const ltMonths = ['sausio','vasario','kovo','balandžio','gegužės','birželio','liepos','rugpjūčio','rugsėjo','spalio','lapkričio','gruodžio']
+  const fullDate = track.release_date
+    ? (() => { const d = new Date(track.release_date!); return isNaN(d.getTime()) ? null : `${d.getFullYear()} m. ${ltMonths[d.getMonth()]} ${d.getDate()} d.` })()
+    : (track.release_year && track.release_month ? `${track.release_year} m. ${ltMonths[track.release_month - 1]}` : null)
+  const dateLabel = fullDate || (year ? `${year} m.` : null)
   const baseLikes = typeof track.like_count === 'number' ? track.like_count : 0
   const likes = baseLikes + (selfLiked ? 1 : 0)
   const lyrics = (track.lyrics || '').trim()
   const lyricsText = lyrics ? lyrics.replace(/<[^>]+>/g, '').trim() : null
   const trackHref = `/dainos/${artistSlug}-${track.slug}-${track.id}`
+  const commentsCount = comments?.length ?? 0
+  const scrollToComments = () => {
+    commentsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   return (
     // Backdrop is intentionally subtle + click-through-friendly: we don't
@@ -887,8 +907,17 @@ function TrackInfoModal({
           mounted ? 'translate-x-0' : '-translate-x-full',
         ].join(' ')}
       >
-        {/* Header — be "Daina" prefix'o, tik track title + artist name */}
-        <div className="flex items-start justify-between gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
+        {/* Header — artist'o thumb + title + name + close */}
+        <div className="flex items-start gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
+          {artistThumbUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={proxyImg(artistThumbUrl)}
+              alt={artistName}
+              referrerPolicy="no-referrer"
+              className="h-11 w-11 shrink-0 rounded-full border border-[var(--border-subtle)] object-cover"
+            />
+          )}
           <div className="min-w-0 flex-1">
             <div className="truncate font-['Outfit',sans-serif] text-[18px] font-extrabold leading-tight text-[var(--text-primary)]">
               {track.title}
@@ -908,9 +937,9 @@ function TrackInfoModal({
           </button>
         </div>
 
-        {/* Meta chips — clickable LikePill / year / duration. Track type
-            ("NORMAL" ir pan.) pašalintas — angliškas tag'as nesako nieko
-            naudingo galutiniam naudotojui. */}
+        {/* Meta chips — LikePill + Comments (su scroll'inimu) + data + duration.
+            Singlams data orange ir prominent (release moment akcentuotas);
+            albume esantiems track'ams — muted year tik. */}
         <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border-subtle)] px-5 py-3">
           <LikePill
             likes={likes}
@@ -919,9 +948,30 @@ function TrackInfoModal({
             onOpenModal={() => setLikersOpen(true)}
             variant="surface"
           />
-          {year && (
-            <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]">
-              {year}
+          {/* Comments chip — visi komentarų skaičius + scrolls žemyn į
+              komentarų sekciją. Pellet'as visada matosi (net kai 0), kad
+              vartotojas iš karto suprastų, kur palikti komentarą. */}
+          <button
+            type="button"
+            onClick={scrollToComments}
+            className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+            aria-label={`${commentsCount} komentarai — slinkti žemyn`}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" />
+            </svg>
+            {commentsCount}
+          </button>
+          {dateLabel && (
+            <span
+              className={[
+                "inline-flex items-center rounded-full border px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-extrabold",
+                isSingle
+                  ? 'border-[rgba(249,115,22,0.4)] bg-[rgba(249,115,22,0.10)] text-[var(--accent-orange)]'
+                  : 'border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-primary)]',
+              ].join(' ')}
+            >
+              {dateLabel}
             </span>
           )}
           {dur && (
@@ -950,8 +1000,11 @@ function TrackInfoModal({
 
           {/* Komentarai — music.lt entity_comments archyvas + future-proof
               vieta naujiems user komentarams. Drawer'is rodo read-only;
-              pilnas comment posting'as veikia track puslapyje. */}
-          <div className="mt-6 border-t border-[var(--border-subtle)] pt-5">
+              pilnas comment posting'as veikia track puslapyje.
+              TODO: išvedam į shared `EntityCommentsBlock` (modern composer +
+              legacy archyvas + replies + likes), kuris veiktų vienodai
+              ir track puslapyje, ir album puslapyje, ir čia. */}
+          <div ref={commentsRef} className="mt-6 border-t border-[var(--border-subtle)] pt-5">
             <div className="mb-3 flex items-center gap-2">
               <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.2em] text-[var(--text-muted)]">
                 Komentarai
@@ -1015,13 +1068,19 @@ function TrackInfoModal({
               Klausyti
             </button>
           ) : <span />}
+          {/* External-link icon — atidaro pilną dainos puslapį naujame tab'e
+              (taip pat kaip diskusijos modal'as daro). Mažas footprint, leng-
+              vai randamas, neužima erdvės bekraščiu CTA tekstu. */}
           <Link
             href={trackHref}
-            className="inline-flex items-center gap-2 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-4 py-2 font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+            target="_blank"
+            rel="noopener"
+            title="Atidaryti dainos puslapį"
+            aria-label="Atidaryti dainos puslapį"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
           >
-            Dainos puslapis
-            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-              <path d="M5 12h14M13 6l6 6-6 6" />
+            <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 3h7v7M21 3l-9 9M5 5h6M5 5v14h14v-6" />
             </svg>
           </Link>
         </div>
@@ -3393,6 +3452,8 @@ export default function ArtistProfileClient({
         track={trackInfoOpen}
         artistName={artist.name}
         artistSlug={artist.slug}
+        artistThumbUrl={artist.cover_image_url}
+        isSingle={!!trackInfoOpen && !linkedSet.has(trackInfoOpen.id)}
         onClose={() => setTrackInfoOpen(null)}
         onPlay={(t) => { setPid(t.id); setPlaying(true) }}
       />
