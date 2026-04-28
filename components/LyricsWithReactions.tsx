@@ -161,12 +161,41 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
     if (!sel || sel.isCollapsed) return
     const text = sel.toString().trim()
     if (text.length < 3) return
-    const startIdx = lyrics.indexOf(text)
-    if (startIdx === -1) return
+
+    // Find selection start/end positions in source `lyrics`. Direct
+    // indexOf works for single-line selections, but BREAKS for cross-line
+    // selections because selection.toString() inserts extra `\n` separators
+    // between block elements (each line is a separate <div>) that don't
+    // match the source's single `\n`s. Fallback: locate by first + last
+    // line fragments.
+    let start = lyrics.indexOf(text)
+    let end = start !== -1 ? start + text.length : -1
+
+    if (start === -1) {
+      const lines = text.split('\n').map(s => s.trim()).filter(Boolean)
+      if (lines.length >= 1) {
+        const firstLine = lines[0]
+        const lastLine = lines[lines.length - 1]
+        const s = lyrics.indexOf(firstLine)
+        if (s !== -1) {
+          const e = lyrics.indexOf(lastLine, s + firstLine.length - 1)
+          if (e !== -1) {
+            start = s
+            end = e + lastLine.length
+          } else if (lines.length === 1) {
+            start = s
+            end = s + firstLine.length
+          }
+        }
+      }
+    }
+
+    if (start === -1 || end === -1 || end <= start) return
+
     const range = sel.getRangeAt(0)
     const rect = range.getBoundingClientRect()
     sel.removeAllRanges()
-    setPanel({ text, start: startIdx, end: startIdx + text.length, rect })
+    setPanel({ text: lyrics.slice(start, end), start, end, rect })
     setDraft('')
     setLikedThis(false)
     setShowComment(false)

@@ -418,12 +418,20 @@ export default function EntityCommentsBlock({
   }
 
   const toggleLike = async (commentId: number) => {
+    // Defence-in-depth — even though the UI disables the button on own
+    // comments, a stale DOM or prop drift could let a click slip through.
+    // Block here too so optimistic UI never increments a self-like.
+    const target = modern?.find(c => c.id === commentId)
+    if (target && session?.user?.id && target.user_id === session.user.id) {
+      return
+    }
     const prev = likedIds.has(commentId)
+    const delta = prev ? -1 : 1
     const next = new Set(likedIds)
     if (prev) next.delete(commentId); else next.add(commentId)
     setLikedIds(next)
     setModern(curr => curr ? curr.map(c => c.id === commentId
-      ? { ...c, like_count: Math.max(0, c.like_count + (prev ? -1 : 1)) }
+      ? { ...c, like_count: Math.max(0, c.like_count + delta) }
       : c) : curr)
     try {
       const res = await fetch('/api/comments/likes', {
@@ -432,11 +440,19 @@ export default function EntityCommentsBlock({
         body: JSON.stringify({ comment_id: commentId }),
       })
       if (!res.ok) {
-        // revert
+        // FULL rollback — both liked-set AND count. Earlier code only
+        // restored the set, leaving the optimistic count change in place,
+        // which made repeat clicks compound the count incorrectly.
         setLikedIds(likedIds)
+        setModern(curr => curr ? curr.map(c => c.id === commentId
+          ? { ...c, like_count: Math.max(0, c.like_count - delta) }
+          : c) : curr)
       }
     } catch {
       setLikedIds(likedIds)
+      setModern(curr => curr ? curr.map(c => c.id === commentId
+        ? { ...c, like_count: Math.max(0, c.like_count - delta) }
+        : c) : curr)
     }
   }
 
@@ -765,26 +781,34 @@ export default function EntityCommentsBlock({
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="9 14 4 9 9 4" /><path d="M20 20v-7a4 4 0 0 0-4-4H4" /></svg>
                         Atsakyti
                       </button>
-                      {/* Trinti — rodom tik moderniam komentarui IR tik kai
-                          vartotojas yra autorius arba admin. API DELETE
-                          handler'is dar pats validuoja teises. Soft-delete
-                          (is_deleted=true), istorija išlieka. */}
-                      {isModern && session?.user?.id && (
-                        c.user_id === session.user.id ||
-                        (session.user as any).role === 'admin' ||
-                        (session.user as any).role === 'super_admin'
-                      ) && (
-                        <button
-                          type="button"
-                          onClick={() => deleteComment(c.id)}
-                          aria-label="Pašalinti komentarą"
-                          title="Pašalinti komentarą"
-                          className="ml-auto inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[10.5px] font-extrabold text-[var(--text-faint)] transition-colors hover:text-[#ef4444]"
-                        >
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m-9 0v14a2 2 0 002 2h6a2 2 0 002-2V6" /></svg>
-                          Pašalinti
-                        </button>
-                      )}
+                      {/* Trinti — rodom kai (a) modern komentaras + savininkas
+                          (b) bet kuris admin/super_admin (modern arba legacy
+                          — admin gali "paslėpti" abu via API). Mygtukas
+                          stilius: aiški raudona ikona dešinėje pusėje. */}
+                      {(() => {
+                        const role = (session?.user as any)?.role
+                        const isAdminUser = role === 'admin' || role === 'super_admin'
+                        const isOwn = isModern && session?.user?.id && c.user_id === session.user.id
+                        const canDelete = isAdminUser || isOwn
+                        if (!canDelete) return null
+                        // Legacy delete dar nepalaikomas backend'e — admin
+                        // bandantis ištrinti legacy gauna error. Tik
+                        // modern delete'ai turi pilną implementaciją.
+                        const targetId = isModern ? c.id : null
+                        if (!targetId) return null
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => deleteComment(targetId)}
+                            aria-label="Pašalinti komentarą"
+                            title={isAdminUser ? 'Pašalinti (admin)' : 'Pašalinti'}
+                            className="ml-auto inline-flex items-center gap-1 rounded-full border border-[rgba(239,68,68,0.3)] bg-[rgba(239,68,68,0.08)] px-2 py-0.5 font-['Outfit',sans-serif] text-[10.5px] font-extrabold text-[#ef4444] transition-colors hover:border-[#ef4444] hover:bg-[rgba(239,68,68,0.16)]"
+                          >
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m-9 0v14a2 2 0 002 2h6a2 2 0 002-2V6" /></svg>
+                            Pašalinti
+                          </button>
+                        )
+                      })()}
                     </div>
                   </div>
                 </div>
