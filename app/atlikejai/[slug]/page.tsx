@@ -125,12 +125,16 @@ async function getTracks(id: number) {
 
   // Attach like counts iš unified `likes` lentelės. Vienas SELECT — visi
   // tracks vienu šūviu (entity_type='track' AND entity_id IN (...)).
+  // SVARBU: range(0, 99999) — be jo Supabase default cap'ina 1000 rows,
+  // todėl mažiau populiarūs tracks pamesdavo savo likes (e.g. Mamontovas
+  // 4454 track likes total, top-1000 cut'ino visus žemesnius).
   const trackIds = tracks.map((t) => t.id)
   const { data: likeRows } = await sb
     .from('likes')
     .select('entity_id')
     .eq('entity_type', 'track')
     .in('entity_id', trackIds)
+    .range(0, 99999)
   const byTrack = new Map<number, number>()
   for (const r of (likeRows || []) as any[]) {
     byTrack.set(r.entity_id, (byTrack.get(r.entity_id) || 0) + 1)
@@ -421,6 +425,8 @@ async function getArtistRanks(
   // Anksčiau placeholder atlikėjai (6 chars description) konkuravo dėl rank'o ir
   // Atlanta kuri vienintelė turi pilną info gaudavo žemesnį rank'ą už tuščias
   // korteles vien dėl legacy_likes count'o.
+  // Tikrinam ABU stulpelius: `description` (Wiki) ir `description_legacy`
+  // (music.lt scrape) — kuris nors turi >=100 ch reiškia atlikėjas turi bio.
   async function filterRealArtists(ids: number[]): Promise<number[]> {
     if (ids.length === 0) return []
     const real = new Set<number>()
@@ -428,10 +434,12 @@ async function getArtistRanks(
       const chunk = ids.slice(i, i + 200)
       const { data } = await sb
         .from('artists')
-        .select('id, description')
+        .select('id, description, description_legacy')
         .in('id', chunk)
       for (const r of (data || []) as any[]) {
-        if (r.description && r.description.trim().length >= 100) real.add(r.id)
+        const wikiOk = !!(r.description && r.description.trim().length >= 100)
+        const legacyOk = !!(r.description_legacy && r.description_legacy.trim().length >= 100)
+        if (wikiOk || legacyOk) real.add(r.id)
       }
     }
     return ids.filter(id => real.has(id))
@@ -620,7 +628,13 @@ export default async function ArtistPage({ params }: Props) {
   // ten yra full Reitingas modalas). Public — tik catalog metadata.
   return (
     <ArtistProfileClient
-      artist={{ id: artist.id, slug: artist.slug, name: artist.name, type: artist.type || 'group', country: artist.country, active_from: artist.active_from, active_until: artist.active_until, description: stripStyles(artist.description || ''), cover_image_url: artist.cover_image_url, cover_image_position: artist.cover_image_position, website: artist.website, spotify_id: artist.spotify_id, is_verified: artist.is_verified, gender: artist.gender, birth_date: artist.birth_date, death_date: artist.death_date, legacy_id: (artist as any).legacy_id ?? null, source: (artist as any).source ?? null, score: null, score_breakdown: null, score_updated_at: null }}
+      artist={{ id: artist.id, slug: artist.slug, name: artist.name, type: artist.type || 'group', country: artist.country, active_from: artist.active_from, active_until: artist.active_until,
+        // description fallback: jei `description` (Wiki canonical) tuščia
+        // arba placeholder (<20 ch), naudojam `description_legacy` (music.lt
+        // scrape). Mamontovas ir kt. artistai dar neturi Wiki bio — bet
+        // music.lt scrape parsina jų aprašymus.
+        description: stripStyles(((artist.description || '').trim().length >= 20 ? artist.description : (artist as any).description_legacy) || ''),
+        cover_image_url: artist.cover_image_url, cover_image_position: artist.cover_image_position, website: artist.website, spotify_id: artist.spotify_id, is_verified: artist.is_verified, gender: artist.gender, birth_date: artist.birth_date, death_date: artist.death_date, legacy_id: (artist as any).legacy_id ?? null, source: (artist as any).source ?? null, score: null, score_breakdown: null, score_updated_at: null }}
       heroImage={heroImage} genres={genres} links={links} photos={photos} albums={albums as any} tracks={tracks as any}
       members={members} followers={followers} likeCount={likeCount} news={news as any} events={events}
       similar={similar} newTracks={newTracks as any} topVideos={topVideos as any}

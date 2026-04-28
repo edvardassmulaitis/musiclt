@@ -1730,6 +1730,16 @@ function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' |
               alt={e.title}
               referrerPolicy="no-referrer"
               onError={() => setCoverFailed(true)}
+              onLoad={(ev) => {
+                // Music.lt'as event'ams be realios cover'ios grąžina mažą
+                // (~100x100) placeholder PNG'ą su „?" glyph'u. Realios
+                // cover'iai dažniausiai 500-800px platūs. Jei <200px —
+                // greičiausiai placeholder, slepiam.
+                const el = ev.currentTarget as HTMLImageElement
+                if (el.naturalWidth > 0 && el.naturalWidth < 200) {
+                  setCoverFailed(true)
+                }
+              }}
               className="absolute inset-0 h-full w-full object-cover"
             />
           )}
