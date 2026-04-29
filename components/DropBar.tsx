@@ -18,11 +18,16 @@ import { useEffect, useRef, useState } from 'react'
 
 type DropEmoji = 'fire' | 'goat' | 'cry' | 'yikes'
 
-const EMOJI_LIST: { key: DropEmoji; label: string; emoji: string; tone: { bg: string; ring: string } }[] = [
-  { key: 'fire',  label: 'Fire',   emoji: '🔥', tone: { bg: 'rgba(249,115,22,0.16)',  ring: 'rgba(249,115,22,0.7)' } },
-  { key: 'goat',  label: 'GOAT',   emoji: '🐐', tone: { bg: 'rgba(234,179,8,0.16)',   ring: 'rgba(234,179,8,0.7)' } },
-  { key: 'cry',   label: 'Cry',    emoji: '😭', tone: { bg: 'rgba(99,102,241,0.16)',  ring: 'rgba(99,102,241,0.7)' } },
-  { key: 'yikes', label: 'Yikes',  emoji: '😬', tone: { bg: 'rgba(148,163,184,0.16)', ring: 'rgba(148,163,184,0.7)' } },
+// Visi emoji'ai dalinasi tą pačią orange selection toną — tai vizualinis
+// signalas vienodumas, lengviau nuskaityti „kur tavo balsas". Anksčiau
+// kiekvienas emoji turėjo skirtingą hue (orange/gold/indigo/slate), bet
+// useris pažymėjo, kad sukurdavo painiavą + edge'inių chip'ų ring'ai
+// neapsivanstavo aplink parent rounded-full.
+const EMOJI_LIST: { key: DropEmoji; label: string; emoji: string }[] = [
+  { key: 'fire',  label: 'Fire',  emoji: '🔥' },
+  { key: 'goat',  label: 'GOAT',  emoji: '🐐' },
+  { key: 'cry',   label: 'Cry',   emoji: '😭' },
+  { key: 'yikes', label: 'Yikes', emoji: '😬' },
 ]
 
 type Props = {
@@ -124,6 +129,8 @@ export default function DropBar({ trackId, initial, compact = false }: Props) {
       {segments.map((s, i) => {
         const selected = viewerEmoji === s.key
         const pulsing = pulse === s.key
+        const isFirst = i === 0
+        const isLast = i === segments.length - 1
         return (
           <button
             key={s.key}
@@ -134,17 +141,23 @@ export default function DropBar({ trackId, initial, compact = false }: Props) {
             aria-label={`${s.label} — ${s.count}`}
             title={`${s.label} (${s.count})`}
             className={[
-              'group relative flex shrink-0 items-center justify-center gap-1 px-2 transition-[width,background-color,flex-grow] duration-300 ease-out',
-              i > 0 ? 'border-l border-[var(--border-subtle)]' : '',
-              selected ? 'z-[1]' : '',
+              'group relative flex shrink-0 items-center justify-center gap-1 px-2 transition-[flex-grow,background-color,box-shadow] duration-300 ease-out',
+              // Border tarp segments — slepiam šalia selected, kad orange
+              // bg neturėtų dvigubo border efekto.
+              i > 0 && !selected && !(viewerEmoji === segments[i - 1]?.key) ? 'border-l border-[var(--border-subtle)]' : '',
+              // Edge'iniai chip'ai gauna parent'o rounded-full kraštus, kitaip
+              // selected ring'as susikiša į kvadratinius kampus.
+              isFirst ? 'rounded-l-full' : '',
+              isLast ? 'rounded-r-full' : '',
+              selected
+                ? 'z-[1] bg-[var(--accent-orange)] text-white shadow-[inset_0_0_0_1px_rgba(249,115,22,0.9)]'
+                : 'text-[var(--text-muted)] hover:bg-[var(--bg-hover)]',
               pending ? 'cursor-wait' : 'cursor-pointer',
             ].join(' ')}
             style={{
               flexGrow: total === 0 ? 1 : Math.max(0.6, s.pct / 25),
               flexBasis: 0,
               minWidth: 56,
-              background: selected ? s.tone.bg : 'transparent',
-              boxShadow: selected ? `inset 0 0 0 2px ${s.tone.ring}` : undefined,
             }}
           >
             <span
@@ -160,7 +173,7 @@ export default function DropBar({ trackId, initial, compact = false }: Props) {
             <span
               className={[
                 "font-['Outfit',sans-serif] text-[11px] font-extrabold tabular-nums tracking-tight",
-                selected ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]',
+                selected ? 'text-white' : 'text-[var(--text-muted)]',
               ].join(' ')}
             >
               {s.count}

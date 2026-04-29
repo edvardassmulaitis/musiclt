@@ -496,32 +496,43 @@ export default function TrackPageClient({
     <div className="min-h-screen bg-[var(--bg-surface)] text-[var(--text-primary)]" style={{ fontFamily: "'DM Sans',system-ui,sans-serif", WebkitFontSmoothing: 'antialiased' }}>
 
       {/* ── TOP BAR — pilnu viewport pločio, modal-style ─────────────────── */}
-      <div className="flex items-center gap-3 border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3 sm:px-5">
-        {/* Back arrow — vieta, kur modal'e būtų X. Iš track page useris
-            grįžta į ankstesnį puslapį (artist'ą, paiešką, atradimus). */}
-        <Link
-          href={`/atlikejai/${artist.slug}`}
-          aria-label="Grįžti pas atlikėją"
-          title={`Grįžti pas ${artist.name}`}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
-        >
-          <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-            <path d="M15 18l-6-6 6-6" />
-          </svg>
-        </Link>
-        {/* Artist thumb */}
+      <div className="flex items-center gap-4 border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3 sm:px-5">
+        {/* Artist thumb — paveikslėlio click'as = grįžti į atlikėjo page'ą.
+            Anksčiau buvo atskira ← rodyklė + thumb, bet rodyklė atrodė kaip
+            confusing nav element'as. Dabar: vienas natūralus signal'as —
+            click'ini ant atlikėjo nuotraukos, gauni jo puslapį.
+            Padidinta iki 64x64 kad atitiktų stilių artist page hero strip'o. */}
         {(() => {
           const thumbSrc = (artist as any).profile_thumb_url || primaryAlbum?.cover_image_url || artist.cover_image_url || null
-          return thumbSrc ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={proxyImg(thumbSrc)}
-              alt={artist.name}
-              referrerPolicy="no-referrer"
-              style={{ objectPosition: 'center top' }}
-              className="hidden h-11 w-11 shrink-0 rounded-xl border border-[var(--border-subtle)] object-cover sm:block"
-            />
-          ) : null
+          return (
+            <Link
+              href={`/atlikejai/${artist.slug}`}
+              aria-label={`Grįžti pas ${artist.name}`}
+              title={`Grįžti pas ${artist.name}`}
+              className="group relative shrink-0 overflow-hidden rounded-xl border border-[var(--border-subtle)] transition-all hover:border-[var(--accent-orange)] hover:shadow-[0_0_0_3px_rgba(249,115,22,0.18)]"
+              style={{ width: 64, height: 64 }}
+            >
+              {thumbSrc ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={proxyImg(thumbSrc)}
+                  alt={artist.name}
+                  referrerPolicy="no-referrer"
+                  style={{ objectPosition: 'center top' }}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-[var(--cover-placeholder)] text-[20px]">🎵</div>
+              )}
+              {/* Subtle hover overlay su back arrow ikona — nuoroda, kad
+                  click'as veikia kaip „atgal pas atlikėją" */}
+              <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/55 opacity-0 transition-opacity group-hover:opacity-100">
+                <svg viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="white" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M15 18l-6-6 6-6" />
+                </svg>
+              </span>
+            </Link>
+          )
         })()}
         {/* Identity cluster — title viršuj, atlikėjas, paskui chip eilutė
             su LikePill + DropBar. Stack'inta vertikaliai, kad reakcijos
@@ -750,13 +761,16 @@ export default function TrackPageClient({
             </div>
           )}
 
-          {/* Daugiau iš artist'o — kortelės kaip modal'e */}
+          {/* Daugiau iš artist'o — vertikalus sąrašas track page'e (ne
+              horizontal carousel kaip modal'e). Track page turi vietos
+              dešiniame stulpelyje rodyti daugiau dainų vienu metu, ir
+              vertikalus list'as labiau nuoseklus visam page flow'ui. */}
           {relatedTracks.length > 0 && (
             <div>
               <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                 Daugiau
               </div>
-              <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]">
+              <div className="flex flex-col gap-1.5">
                 {relatedTracks.filter(t => ytId(t.video_url)).map(t => {
                   const tvid = ytId(t.video_url)
                   const thumb = tvid ? `https://i.ytimg.com/vi/${tvid}/mqdefault.jpg` : null
@@ -765,17 +779,20 @@ export default function TrackPageClient({
                       key={t.id}
                       href={`/dainos/${artist.slug}-${t.slug}-${t.id}`}
                       title={t.title}
-                      className="group flex w-[180px] shrink-0 flex-col gap-1.5 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+                      className="group flex items-center gap-2.5 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
                     >
-                      <div className="aspect-video w-full overflow-hidden rounded bg-black">
+                      <div className="aspect-video h-12 shrink-0 overflow-hidden rounded bg-black">
                         {thumb && (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={thumb} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
                         )}
                       </div>
-                      <div className="px-1">
-                        <div className="truncate font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]">{t.title}</div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate font-['Outfit',sans-serif] text-[12.5px] font-extrabold text-[var(--text-primary)]">{t.title}</div>
                       </div>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-[var(--text-faint)] transition-transform group-hover:translate-x-0.5">
+                        <path d="M9 18l6-6-6-6" />
+                      </svg>
                     </Link>
                   )
                 })}

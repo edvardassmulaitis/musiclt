@@ -112,12 +112,44 @@ function formToDb(form: ArtistFormData) {
   }
 }
 
-function TrackRow({ track, onDelete }: { track: any; onDelete?: () => void }) {
+/** Compact view-count format: 1234 → "1.2K", 1234567 → "1.2M". */
+function formatViews(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n)) return ''
+  if (n < 1000) return String(n)
+  if (n < 1_000_000) return (n / 1000).toFixed(n < 10_000 ? 1 : 0).replace(/\.0$/, '') + 'K'
+  if (n < 1_000_000_000) return (n / 1_000_000).toFixed(n < 10_000_000 ? 1 : 0).replace(/\.0$/, '') + 'M'
+  return (n / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'B'
+}
+
+function TrackRow({ track, onDelete, onEnriched }: { track: any; onDelete?: () => void; onEnriched?: (updated: { video_url?: string; video_views?: number }) => void }) {
   const trackId = track.track_id || track.id
   const hasVideo = !!track.video_url
   const hasLyrics = typeof track.lyrics === 'string' && track.lyrics.trim().length > 0
   const featuring: string[] = (track.featuring || []).map((f: any) => typeof f === 'string' ? f : f.name || '')
   const [confirmDel, setConfirmDel] = useState(false)
+  const [ytStatus, setYtStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
+  const views = formatViews(track.video_views)
+
+  const runYtEnrich = async () => {
+    if (!trackId) return
+    setYtStatus('running')
+    try {
+      const r = await fetch(`/api/admin/yt/track/${trackId}/enrich`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force: true }),
+      })
+      const j = await r.json()
+      if (!r.ok || !j.ok) throw new Error(j?.error || 'fail')
+      setYtStatus('done')
+      onEnriched?.({ video_url: j.videoUrl, video_views: j.viewsAfter ?? undefined })
+      setTimeout(() => setYtStatus('idle'), 3000)
+    } catch {
+      setYtStatus('error')
+      setTimeout(() => setYtStatus('idle'), 3000)
+    }
+  }
+
   return (
     <div className="flex items-center gap-1.5 px-3 py-1 border-b border-[var(--bg-elevated)] last:border-0 hover:bg-[var(--bg-hover)]/80 group transition-colors">
       <div className="flex items-center justify-end gap-0.5 w-5 shrink-0">
@@ -133,8 +165,21 @@ function TrackRow({ track, onDelete }: { track: any; onDelete?: () => void }) {
         )}
         {featuring.length > 0 && <span className="text-xs text-[var(--text-muted)] whitespace-nowrap">su {featuring.join(', ')}</span>}
       </div>
-      {hasVideo && <span className="text-blue-400 text-xs shrink-0">▶</span>}
+      {hasVideo && <span className="text-blue-400 text-xs shrink-0" title={track.video_url}>▶</span>}
+      {views && <span className="text-[10px] text-[var(--text-muted)] tabular-nums shrink-0" title={`${track.video_views} peržiūrų${track.video_views_checked_at ? ` (${new Date(track.video_views_checked_at).toLocaleDateString()})` : ''}`}>{views}</span>}
       {hasLyrics && <span className="text-green-500 text-xs font-bold shrink-0">T</span>}
+      {trackId && (
+        <button onClick={e => { e.stopPropagation(); runYtEnrich() }}
+          disabled={ytStatus === 'running'}
+          className={`opacity-0 group-hover:opacity-100 shrink-0 px-1 py-0.5 text-[10px] rounded transition-all ${
+            ytStatus === 'done' ? 'bg-green-100 text-green-700 opacity-100'
+            : ytStatus === 'error' ? 'bg-red-100 text-red-700 opacity-100'
+            : 'text-[var(--text-faint)] hover:text-blue-600 hover:bg-blue-50'
+          }`}
+          title="Iš naujo paimti YouTube video + peržiūras">
+          {ytStatus === 'running' ? '…' : ytStatus === 'done' ? '✓' : ytStatus === 'error' ? '✗' : 'YT'}
+        </button>
+      )}
       {onDelete && trackId && (
         confirmDel ? (
           <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
