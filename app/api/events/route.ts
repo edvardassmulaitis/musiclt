@@ -21,7 +21,10 @@ export async function GET(req: NextRequest) {
       limit: parseInt(sp.get('limit') || '20'),
       offset: parseInt(sp.get('offset') || '0'),
     })
-    return NextResponse.json(result)
+    // CDN edge cache — homepage renginių sekcija.
+    return NextResponse.json(result, {
+      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' },
+    })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

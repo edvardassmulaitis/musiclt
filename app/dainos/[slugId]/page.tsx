@@ -51,6 +51,10 @@ export default async function DainaPage({ params }: { params: Promise<{ slugId: 
   const supabase = createAdminClient()
 
   // ── Fetch track ────────────────────────────────────────────────────────────
+  // Track'ą reikia paimti pirmiausia, nes iš jo gauname artist_id, legacy_id
+  // ir title — visi kiti queries jais remiasi. Po to viską likusią paleidžiam
+  // vienu Promise.all batch'u (waterfall'as iš 10 sekvencinių queries → 2
+  // batch'ai). TTFB drop'as nuo ~2s iki ~0.5s ant prod.
   const { data: track } = await supabase
     .from('tracks')
     .select(`
@@ -70,13 +74,90 @@ export default async function DainaPage({ params }: { params: Promise<{ slugId: 
   ;(track as any).score = null
   ;(track as any).score_breakdown = null
 
-  // ── Fetch primary artist ───────────────────────────────────────────────────
-  const { data: artistRow } = await supabase
-    .from('artists')
-    .select('id, slug, name, cover_image_url')
-    .eq('id', track.artist_id)
-    .single()
+  const trackLegacyId = (track as any).legacy_id ?? null
+  const titleFragment = track.title.split('(')[0].split('-')[0].trim().slice(0, 20)
 
+  // ── ALL remaining queries in PARALLEL ────────────────────────────────────
+  // Anksčiau buvo 10 sekvencinių await'ų (artist → featuring → albums →
+  // likes → legacy likes → lyric → entity → versions → related). Dabar
+  // viskas vienu Promise.all → max query time, ne sum.
+  const [
+    artistRes,
+    featuringRes,
+    albumTrackRes,
+    likesRes,
+    legacyCntRes,
+    legacyUsersRes,
+    lyricCommentsRes,
+    entityCommentsRes,
+    versionsRes,
+    relatedRes,
+  ] = await Promise.all([
+    supabase
+      .from('artists')
+      .select('id, slug, name, cover_image_url')
+      .eq('id', track.artist_id)
+      .single(),
+    supabase
+      .from('track_artists')
+      .select('artists(id, slug, name, cover_image_url)')
+      .eq('track_id', id)
+      .neq('artist_id', track.artist_id),
+    supabase
+      .from('album_tracks')
+      .select('albums!album_tracks_album_id_fkey(id, slug, title, year, cover_image_url, type_studio, type)')
+      .eq('track_id', id),
+    supabase
+      .from('likes')
+      .select('*', { count: 'exact', head: true })
+      .eq('entity_type', 'track')
+      .eq('entity_id', id),
+    trackLegacyId
+      ? supabase
+          .from('likes')
+          .select('*', { count: 'exact', head: true })
+          .eq('entity_type', 'track')
+          .eq('entity_legacy_id', trackLegacyId)
+      : Promise.resolve({ count: 0 } as any),
+    trackLegacyId
+      ? supabase
+          .from('likes')
+          .select('user_username, user_rank, user_avatar_url')
+          .eq('entity_type', 'track')
+          .eq('entity_legacy_id', trackLegacyId)
+          .order('id', { ascending: true })
+          .limit(30)
+      : Promise.resolve({ data: [] } as any),
+    supabase
+      .from('track_lyric_comments')
+      .select('id, selection_start, selection_end, selected_text, type, text, likes, created_at')
+      .eq('track_id', id)
+      .order('created_at', { ascending: true }),
+    trackLegacyId
+      ? supabase
+          .from('entity_comments')
+          .select('legacy_id, author_username, author_avatar_url, created_at, content_html, content_text, like_count')
+          .eq('entity_type', 'track')
+          .eq('entity_legacy_id', trackLegacyId)
+          .order('created_at', { ascending: true })
+      : Promise.resolve({ data: [] as any[] } as any),
+    supabase
+      .from('tracks')
+      .select('id, slug, title, type, video_url')
+      .eq('artist_id', track.artist_id)
+      .ilike('title', `%${titleFragment}%`)
+      .neq('id', id)
+      .limit(10),
+    supabase
+      .from('tracks')
+      .select('id, slug, title, type, video_url, is_new, release_date')
+      .eq('artist_id', track.artist_id)
+      .neq('id', id)
+      .order('release_date', { ascending: false })
+      .limit(8),
+  ])
+
+  const artistRow = (artistRes as any).data
   if (!artistRow) notFound()
 
   // ── Canonical slug check ─────────────────────────────────────────────────
@@ -88,24 +169,11 @@ export default async function DainaPage({ params }: { params: Promise<{ slugId: 
     redirect(`/dainos/${canonicalSlug}-${id}`)
   }
 
-  // ── Fetch featuring artists ────────────────────────────────────────────────
-  const { data: featuringRows } = await supabase
-    .from('track_artists')
-    .select('artists(id, slug, name, cover_image_url)')
-    .eq('track_id', id)
-    .neq('artist_id', track.artist_id)
-
-  const featuring = (featuringRows ?? [])
+  const featuring = ((featuringRes as any).data ?? [])
     .map((r: any) => r.artists)
     .filter(Boolean)
 
-  // ── Fetch albums this track appears in ────────────────────────────────────
-  const { data: albumTrackRows } = await supabase
-    .from('album_tracks')
-    .select('albums!album_tracks_album_id_fkey(id, slug, title, year, cover_image_url, type_studio, type)')
-    .eq('track_id', id)
-
-  const albums = (albumTrackRows ?? [])
+  const albums = ((albumTrackRes as any).data ?? [])
     .map((r: any) => r.albums)
     .filter(Boolean)
     .map((a: any) => ({
@@ -113,82 +181,23 @@ export default async function DainaPage({ params }: { params: Promise<{ slugId: 
       type: a.type_studio ? 'Studijinis albumas' : (a.type ?? 'Albumas'),
     }))
 
-  // ── Fetch likes from unified likes table ──────────────────────────────────
-  const { count: likes } = await supabase
-    .from('likes')
-    .select('*', { count: 'exact', head: true })
-    .eq('entity_type', 'track')
-    .eq('entity_id', id)
+  const likes = (likesRes as any).count ?? 0
 
-  // ── Fetch legacy likes from unified table (entity_legacy_id tracking) ──────
-  const trackLegacyId = (track as any).legacy_id ?? null
-  const [legacyCntRes, legacyUsersRes] = trackLegacyId
-    ? await Promise.all([
-        supabase
-          .from('likes')
-          .select('*', { count: 'exact', head: true })
-          .eq('entity_type', 'track')
-          .eq('entity_legacy_id', trackLegacyId),
-        supabase
-          .from('likes')
-          .select('user_username, user_rank, user_avatar_url')
-          .eq('entity_type', 'track')
-          .eq('entity_legacy_id', trackLegacyId)
-          .order('id', { ascending: true })
-          .limit(30),
-      ])
-    : [{ count: 0 } as any, { data: [] } as any]
   const legacyLikes = {
-    count: legacyCntRes.count || 0,
-    users: (legacyUsersRes.data as any[]) || [],
+    count: (legacyCntRes as any).count || 0,
+    users: ((legacyUsersRes as any).data as any[]) || [],
   }
   const isLegacy = typeof (track as any).source === 'string' && (track as any).source.startsWith('legacy')
 
-  // ── Fetch lyric reactions ──────────────────────────────────────────────────
-  const { data: lyricComments } = await supabase
-    .from('track_lyric_comments')
-    .select('id, selection_start, selection_end, selected_text, type, text, likes, created_at')
-    .eq('track_id', id)
-    .order('created_at', { ascending: true })
-
-  // ── Fetch entity_comments (music.lt komentarai prie dainos) ───────────────
-  // Music.lt'e kiekvienos dainos puslapyje yra "Komentarai (N)" sekcija.
-  // Scraper'is parsina jas į entity_comments lentelę su entity_type='track'
-  // ir entity_legacy_id = music.lt track legacy_id.
-  const trackLegacyIdForComments = (track as any).legacy_id ?? null
-  const { data: entityComments } = trackLegacyIdForComments
-    ? await supabase
-        .from('entity_comments')
-        .select('legacy_id, author_username, author_avatar_url, created_at, content_html, content_text, like_count')
-        .eq('entity_type', 'track')
-        .eq('entity_legacy_id', trackLegacyIdForComments)
-        .order('created_at', { ascending: true })
-    : { data: [] as any[] }
-
-  // ── Fetch other versions / remixes ─────────────────────────────────────────
-  // Same title base or related by artist, different id
-  const { data: versionRows } = await supabase
-    .from('tracks')
-    .select('id, slug, title, type, video_url')
-    .eq('artist_id', track.artist_id)
-    .ilike('title', `%${track.title.split('(')[0].split('-')[0].trim().slice(0, 20)}%`)
-    .neq('id', id)
-    .limit(10)
+  const lyricComments = (lyricCommentsRes as any).data ?? []
+  const entityComments = (entityCommentsRes as any).data ?? []
+  const versionRows = (versionsRes as any).data ?? []
 
   // ── Wikipedia trivia ───────────────────────────────────────────────────────
   // Placeholder — will be fetched from /api/tracks/[id]/wiki-fact in future
   const trivia: string | null = null
 
-  // ── Related tracks by same artist ─────────────────────────────────────────
-  const { data: relatedRows } = await supabase
-    .from('tracks')
-    .select('id, slug, title, type, video_url, is_new, release_date')
-    .eq('artist_id', track.artist_id)
-    .neq('id', id)
-    .order('release_date', { ascending: false })
-    .limit(8)
-
-  const relatedTracks = (relatedRows ?? []).map((t: any) => ({
+  const relatedTracks = (((relatedRes as any).data) ?? []).map((t: any) => ({
     ...t,
     spotify_id: null,
     lyrics: null,

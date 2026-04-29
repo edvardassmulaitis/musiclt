@@ -706,13 +706,31 @@ export default async function ArtistPage({ params }: Props) {
   ])
   const links = buildSocialLinks(artist, tableLinks as { platform: string; url: string }[])
   const linkedTrackIds = Array.from(linkedTrackIdSet)
-  const similar = await getSimilar(artist.id, genres.map((g: any) => g.id))
 
-  // Community — aggregated likes (artist + all his albums + tracks).
-  // Naudoja modern PK'us (entity_id), ne legacy_id.
+  // ── ANTRAS batch — viskas, kas priklauso nuo pirmo batch'o rezultatų ──
+  // Anksčiau buvo 4 sekvenciniai await'ai: getSimilar → getLegacyCommunity
+  // → getArtistRanks → getLastPostsByThread (kiekvienas ~150-300ms ant
+  // Supabase). Tai +600-1200ms TTFB. Dabar viskas vienu Promise.all batch'u
+  // — kiekvienas turi visas reikiamas dependencies iš pirmo batch'o,
+  // jokios cross-priklausomybės.
   const albumIds = (albums as any[]).map((a: any) => a.id).filter((x: any) => typeof x === 'number')
   const allTrackIds = (tracks as any[]).map((t: any) => t.id).filter((x: any) => typeof x === 'number')
-  const legacyCommunity = await getLegacyCommunity(artist.id, albumIds, allTrackIds)
+  const allThreadIds = [
+    ...(legacyThreads as any[]).map((t) => t.legacy_id),
+    ...(legacyNews as any[]).map((t) => t.legacy_id),
+  ]
+
+  const [similar, legacyCommunity, ranks, lastPosts] = await Promise.all([
+    getSimilar(artist.id, genres.map((g: any) => g.id)),
+    getLegacyCommunity(artist.id, albumIds, allTrackIds),
+    getArtistRanks(
+      artist.id,
+      artist.country || null,
+      genres as { id: number; name: string }[],
+      (artist as any).score || 0,
+    ),
+    getLastPostsByThread(allThreadIds, 2),
+  ])
 
   // Photos shown publicly — TIK is_active=true. artist_photos lentelė yra
   // kanoninis šaltinis; legacy `artists.photos` JSON kolumna jau nebenaudojama
@@ -751,22 +769,9 @@ export default async function ArtistPage({ params }: Props) {
 
   const events = rawEvents
 
-  // Compute ranks (country, genre) — naudoja unified `score` kaip popularity
-  // metric'ą. Score apskaičiuojamas iš likes + tracks + albums + awards +
-  // comments + threads — pilnas portretas, ne tik likes.
-  const ranks = await getArtistRanks(
-    artist.id,
-    artist.country || null,
-    genres as { id: number; name: string }[],
-    (artist as any).score || 0,
-  )
-
-  // Enrich forum threads with last post preview so the UI can show a teaser
-  const allThreadIds = [
-    ...(legacyThreads as any[]).map((t) => t.legacy_id),
-    ...(legacyNews as any[]).map((t) => t.legacy_id),
-  ]
-  const lastPosts = await getLastPostsByThread(allThreadIds, 2)
+  // Enrich forum threads with last post preview so the UI can show a teaser.
+  // similar/legacyCommunity/ranks/lastPosts jau apskaičiuoti aukštyn antrame
+  // batch'e (Promise.all) — čia tik post-process.
   const legacyThreadsWithPosts = (legacyThreads as any[]).map((t) => {
     const recent = lastPosts.get(t.legacy_id) || []
     return {

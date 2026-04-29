@@ -60,7 +60,11 @@ export async function GET(req: Request) {
     tracks: trackMap.get(e.track_id) ?? null,
   }))
 
-  return NextResponse.json({ entries: merged, week })
+  // CDN edge cache — homepage'o TOP30/TOP40 sekcijos. Topas atnaujinamas
+  // kartą per savaitę (cron'u), todėl drąsiai galim cache'inti net 5 min.
+  return NextResponse.json({ entries: merged, week }, {
+    headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
+  })
 }
 
 export async function POST(req: Request) {

@@ -21,14 +21,13 @@ function cleanArtistName(raw: string): string {
 }
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const supabase = createAdminClient()
   const check = req.nextUrl.searchParams.get('check')
 
-  // Duplikatų tikrinimas: ?check=Vardas → panašūs atlikėjai
+  // ?check= → admin-only duplicate check (used in admin form when creating)
   if (check) {
+    const session = await getServerSession(authOptions)
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const q = check.trim()
     const baseSlug = slugify(q)
     // Ieškome pagal slug panašumą arba vardą (ilike su wildcards)
@@ -40,7 +39,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(data || [])
   }
 
-
+  // Public listing — homepage'o "Atrask atlikėjus" + atlikėjų katalogas.
+  // Anksčiau visa GET buvo auth-gated, todėl anonimams homepage rodė tuščią
+  // sekciją (401 silently swallow'inamas client'e). Dabar listing'as public.
   const { searchParams } = new URL(req.url)
   const limit = parseInt(searchParams.get('limit') || '50')
   const offset = parseInt(searchParams.get('offset') || '0')
@@ -48,7 +49,9 @@ export async function GET(req: NextRequest) {
   const sort = searchParams.get('sort') || 'name'
   try {
     const result = await getArtists(limit, offset, search, sort)
-    return NextResponse.json(result)
+    return NextResponse.json(result, {
+      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' },
+    })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

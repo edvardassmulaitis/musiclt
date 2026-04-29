@@ -133,16 +133,7 @@ async function getLegacyAlbumLikes(albumLegacyId: number | null) {
   }
 }
 
-async function getRelatedNews(artistId: number) {
-  const sb = createAdminClient()
-  const { data } = await sb
-    .from('news')
-    .select('id, slug, title, image_small_url, published_at')
-    .eq('artist_id', artistId)
-    .order('published_at', { ascending: false })
-    .limit(3)
-  return data || []
-}
+// getRelatedNews removed — was unused (never called from the page render).
 
 function albumType(a: any) {
   if (a.type_ep) return 'EP'
@@ -191,7 +182,21 @@ export default async function AlbumPage({ params }: Props) {
   if (!parsed) notFound()
 
   const { slug, id: albumId } = parsed
-  const album = await getAlbum(albumId)
+
+  // ── Paralelizuojam VISKĄ ────────────────────────────────────────────────
+  // Anksčiau: getAlbum sequential prieš Promise.all (5 queries) — 6 batch'ai.
+  // Dabar: getAlbum + tracks + likes paleidžiam VIENU batch'u (jiems reikia
+  // tik albumId, kurį turim iš URL). Tik getOtherAlbums ir getSimilarAlbums
+  // priklauso nuo artistId — juos vykdom antrame batch'e tik jei artistId
+  // dar nežinom. Bet dažnu atveju mums apskritai jų nereikia, nes jei album
+  // negalioja → notFound. Sprendimas: einam album + tracks + likes parallel,
+  // o jei album'as rastas — tada paralel paleidžiam dar 2 (otherAlbums,
+  // similarAlbums).
+  const [album, tracks, likes] = await Promise.all([
+    getAlbum(albumId),
+    getAlbumTracks(albumId),
+    getAlbumLikes(albumId),
+  ])
   if (!album) notFound()
 
   const artist = album.artists
@@ -205,11 +210,10 @@ export default async function AlbumPage({ params }: Props) {
   } else if (album.slug !== slug) {
     notFound()
   }
-  const [tracks, otherAlbums, similarAlbums, likes, legacyLikes] = await Promise.all([
-    getAlbumTracks(albumId),
+
+  const [otherAlbums, similarAlbums, legacyLikes] = await Promise.all([
     getOtherAlbums(artist.id, albumId),
     getSimilarAlbums(artist.id, albumId),
-    getAlbumLikes(albumId),
     getLegacyAlbumLikes(album.legacy_id ?? null),
   ])
 

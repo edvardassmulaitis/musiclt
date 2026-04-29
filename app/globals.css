@@ -3,6 +3,19 @@
 @tailwind utilities;
 
 /* ═══════════════════════════════════════════════════════════════════
+   GLOBAL SKELETON — naudojamas /app/loading.tsx + visiuose route
+   loading'iuose (artist/album/song). Anksčiau klasė buvo apibrėžta
+   tik homepage page.tsx scoped styled-jsx bloke, todėl loading.tsx
+   skeleton'ai matydavo nestyled div'us (jokio pulse'o). Pridedam
+   čia, kad veiktų visur, kur Next streaming'ina UI prieš data fetch.
+   ═══════════════════════════════════════════════════════════════════ */
+@keyframes hp-pulse { 0%, 100% { opacity: .05 } 50% { opacity: .08 } }
+.hp-skel {
+  background: var(--homepage-skeleton-bg, rgba(255,255,255,0.05));
+  animation: hp-pulse 1.8s ease-in-out infinite;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
    GLOBAL FOCUS STYLE — disable browser's default blue focus ring on
    form fields. We replace it with a subtle orange border highlight
    per-component (focus:border-[var(--accent-orange)]). The native

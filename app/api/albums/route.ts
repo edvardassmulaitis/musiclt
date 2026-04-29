@@ -32,7 +32,14 @@ export async function GET(req: NextRequest) {
 
   try {
     const result = await getAlbums(artistId ? parseInt(artistId) : undefined, limit, offset, search)
-    return NextResponse.json(result)
+    // Vercel CDN edge cache — homepage'as kviečia šitą kiekvienam load'ui;
+    // be cache'o kiekvienas hits Supabase. s-maxage=60 + SWR=300:
+    //   • 60s response'ą serve'ina iš edge per <50ms
+    //   • toliau 300s rodo seną response'ą + tyliai re-fetch'ina background'e
+    // Public, no auth — saugu cache'inti.
+    return NextResponse.json(result, {
+      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' },
+    })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
