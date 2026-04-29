@@ -374,7 +374,7 @@ export default function AlbumPageClient({
               </span>
             )}
           </div>
-          <div className="mt-0.5 flex items-center gap-1.5 text-[12px] sm:text-[12.5px]">
+          <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[12px] sm:text-[12.5px]">
             <Link
               href={`/atlikejai/${artist.slug}`}
               className="font-['Outfit',sans-serif] font-bold text-[var(--accent-orange)] no-underline hover:underline"
@@ -383,6 +383,12 @@ export default function AlbumPageClient({
             </Link>
             <span className="text-[var(--text-faint)]">·</span>
             <span className="text-[var(--text-muted)]">{albumTypeLabel}</span>
+            {dateStr && (
+              <>
+                <span className="text-[var(--text-faint)]">·</span>
+                <span className="text-[var(--text-muted)]">{dateStr}</span>
+              </>
+            )}
           </div>
           {/* Reactions row */}
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
@@ -405,14 +411,6 @@ export default function AlbumPageClient({
           </div>
         </div>
 
-        {/* Meta cluster — data. Slepiasi siauresniam ekrane. */}
-        <div className="hidden shrink-0 items-center gap-2 lg:flex">
-          {dateStr && (
-            <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]">
-              {dateStr}
-            </span>
-          )}
-        </div>
       </div>
 
       {/* ── Mobile tab strip ─────────────────────────────────────────────── */}
@@ -459,10 +457,16 @@ export default function AlbumPageClient({
       )}
 
       {/* ── Body — desktop 3-col / tablet 2-col / mobile single ─────────── */}
+      {/* Proporcijos atitinka modal'ą:
+            - lyrics+comments stulpeliai apie po 430px (kaip modal'o 860px body
+              padalintas pusiau)
+            - player+daugiau stulpelis = likusi vieta (1fr) — taip 1600px
+              ekrane player gauna ~740px (~417px aukšto video), o ne ~530px
+              kaip senajame 1fr_1fr_1fr split'e. */}
       <div className={[
         'mx-auto w-full max-w-[1600px]',
         'grid grid-cols-1',
-        'lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]',
+        'lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-[minmax(0,430px)_minmax(0,430px)_minmax(0,1fr)]',
         'lg:divide-x lg:divide-[var(--border-subtle)]',
       ].join(' ')}>
 

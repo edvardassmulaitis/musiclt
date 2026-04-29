@@ -7,7 +7,6 @@ import { HeaderAuth } from '@/components/HeaderAuth'
 import { useSite } from '@/components/SiteContext'
 
 const NAV = [
-  { label: 'Boombox',           href: '/boombox' },
   { label: 'Muzikos atradimai', href: '/muzika' },
   { label: 'Topai',             href: '/topas' },
   { label: 'Naujienos',         href: '/naujienos' },

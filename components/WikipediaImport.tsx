@@ -3,20 +3,10 @@
 import { useState, useEffect } from 'react'
 import { COUNTRIES, SUBSTYLES } from '@/lib/constants'
 import { type ArtistFormData, type Break } from './ArtistForm'
-import {
-  cleanArtistName, isValidArtistName, extractFieldNested, parseBandMembers,
-  parseInfoboxGenres, mapGenres, findCountry, parseYearsActive,
-  QID_COUNTRY, TXT_COUNTRY, SOCIAL_MAP, SKIP_WEB, GROUP_QIDS,
-  type BandMember,
-  initializeConstants,
-} from '@/lib/wiki-parser'
 
 type Props = { onImport: (data: Partial<ArtistFormData>) => void; initialSearch?: string }
 
 const ALL_SUBSTYLES = Object.values(SUBSTYLES).flat()
-
-// Initialize wiki-parser constants once
-initializeConstants(COUNTRIES, SUBSTYLES)
 
 const MONTHS_LT = ['sausio','vasario','kovo','balandžio','gegužės','birželio',
                    'liepos','rugpjūčio','rugsėjo','spalio','lapkričio','gruodžio']
@@ -29,6 +19,115 @@ function fmtDate(year?: string, month?: string, day?: string): string {
   return parts.join(' ')
 }
 
+function cleanArtistName(raw: string): string {
+  let name = raw
+    .replace(/\s*\(\s*(?:band|group|music(?:al)?\s*(?:group|act)?|singer|rapper|duo|trio|quartet|artist|musician|rock\s*band|pop\s*group)\s*\)/gi, '')
+    .replace(/\s*\(\s*the\s+band\s*\)/gi, '')
+    .replace(/_/g, ' ')
+    // Remove wikitext/HTML artifacts
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/\{\{[^}]*\}\}/g, '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/'{2,}/g, '')
+    .replace(/\[\[|\]\]/g, '')
+    .trim()
+  return name
+}
+
+/** Validate that a parsed name looks like a real artist name, not a wikitext fragment */
+function isValidArtistName(name: string): boolean {
+  if (!name || name.length < 2 || name.length > 80) return false
+  // Reject names with HTML/wikitext artifacts
+  if (/-->|<!--|<\/|<[a-z]|^\s*\||\{\{|\}\}|\[\[|\]\]/.test(name)) return false
+  // Reject names that look like sentences/descriptions (too many words, has punctuation)
+  if (name.split(/\s+/).length > 8) return false
+  if (/[.;]/.test(name) && name.length > 30) return false
+  // Reject names starting with common wikitext prefixes or that are Wikipedia navigation
+  if (/^(as |the following|see also|including|part of|featured|with |and |list$)/i.test(name)) return false
+  // Reject generic Wikipedia link words
+  if (/^(list|lists|see|more|others|various|none|unknown|many|several|show|hide|edit|note|notes)$/i.test(name)) return false
+  // Reject names with too many special characters
+  if ((name.match(/[^a-zA-ZÀ-ÿ0-9\s\-'.&,!()]/g) || []).length > 2) return false
+  return true
+}
+
+type BandMember = {
+  name: string
+  wikiTitle: string
+  isCurrent: boolean
+  yearFrom?: string
+  yearTo?: string
+  existingId?: number
+  existingSlug?: string
+  // Pilni duomenys iš Wikidata
+  avatar?: string
+  country?: string
+  birthYear?: string; birthMonth?: string; birthDay?: string
+  deathYear?: string; deathMonth?: string; deathDay?: string
+  gender?: 'male'|'female'|''
+  description?: string
+  genre?: string
+  substyles?: string[]
+  website?: string
+  facebook?: string; instagram?: string; twitter?: string
+  spotify?: string; youtube?: string; soundcloud?: string
+  tiktok?: string; bandcamp?: string
+}
+
+function extractFieldNested(wikitext: string, field: string): string {
+  const startRe = new RegExp(`\\|\\s*(?<![a-z_])${field}(?![a-z_])\\s*=\\s*`, 'i')
+  const startM = wikitext.match(startRe)
+  if (!startM || startM.index === undefined) return ''
+  const startIdx = startM.index + startM[0].length
+  let depth = 0, i = startIdx
+  while (i < wikitext.length) {
+    if (wikitext[i] === '{' && wikitext[i+1] === '{') { depth++; i += 2; continue }
+    if (wikitext[i] === '}' && wikitext[i+1] === '}') {
+      depth--; if (depth <= 0) { i += 2; break }
+      i += 2; continue
+    }
+    if (depth === 0 && wikitext[i] === '\n' && /^\s*\|/.test(wikitext.slice(i+1))) break
+    i++
+  }
+  return wikitext.slice(startIdx, i)
+}
+
+function parseBandMembers(wikitext: string): BandMember[] {
+  const members: BandMember[] = []
+  const seen = new Set<string>()
+  const extractField = (field: string, isCurrent: boolean) => {
+    const block = extractFieldNested(wikitext, field)
+    if (!block) return
+    const linkRe = /\[\[\s*([^\]|#]+?)(?:\s*\|\s*([^\]]+))?\s*\]\]/g
+    let lm: RegExpExecArray | null
+    while ((lm = linkRe.exec(block)) !== null) {
+      const wikiTitle = lm[1].replace(/\s+/g, '_').trim()
+      const display = (lm[2] || lm[1])
+        .replace(/'{2,}/g, '').replace(/\[\[|\]\]/g, '').replace(/\{\{[^}]+\}\}/g, '').trim()
+      if (!display || display.length < 2) continue
+      if (/^(plain ?list|flatlist|hlist|br|small|nowrap|ubl|refn|ref|cite)/i.test(display)) continue
+      if (wikiTitle.includes(':')) continue
+      if (seen.has(wikiTitle)) continue
+      const cleanedName = cleanArtistName(display)
+      if (!isValidArtistName(cleanedName)) continue
+      seen.add(wikiTitle)
+      const afterLink = block.slice(lm.index + lm[0].length, lm.index + lm[0].length + 100)
+      const yearMatch = afterLink.match(/[({](?:\{\{[^}]*\}\}\s*)?\(?(\d{4})\s*[–\-—]+\s*(\d{4}|present|dabar|now)?\)?/)
+      const yearFrom = yearMatch ? yearMatch[1] : ''
+      const yearTo = yearMatch && yearMatch[2] && !/present|dabar|now/i.test(yearMatch[2]) ? yearMatch[2] : ''
+      members.push({ name: cleanedName, wikiTitle, isCurrent, yearFrom, yearTo })
+    }
+  }
+  extractField('current_members', true)
+  extractField('members', true)
+  extractField('past_members', false)
+  extractField('former_members', false)
+  extractField('dabartiniai_nariai', true)
+  extractField('nariai', true)
+  extractField('buvę_nariai', false)
+  extractField('buve_nariai', false)
+  return members
+}
 
 type MemberFullData = {
   avatar: string
@@ -251,20 +350,130 @@ const GENRE_RULES: [string, string[]][] = [
   ['Kitų stilių muzika',        ['reggae','country','latin','world music','ethnic']],
 ]
 
-// mapGenres + parseInfoboxGenres importuoti iš @/lib/wiki-parser
-
-function parseWDDate(t: string): { year: string; month: string; day: string } {
-  // Wikidata time: "+2003-05-12T00:00:00Z" → year/month/day strings
-  const m = (t || '').match(/^[+-]?(\d{4})-(\d{2})-(\d{2})/)
-  if (!m) return { year: '', month: '', day: '' }
-  const y = m[1], mo = m[2], d = m[3]
-  return {
-    year: y || '',
-    month: mo === '00' ? '' : String(parseInt(mo, 10)),
-    day: d === '00' ? '' : String(parseInt(d, 10)),
+function mapGenres(genreLabels: string[]): { genre: string; substyles: string[] } {
+  const lower = genreLabels.map(g => g.toLowerCase().trim())
+  let best = '', bestScore = 0
+  for (const [g, kws] of GENRE_RULES) {
+    const score = lower.reduce((a, gl) => a + kws.reduce((s, kw) => s + (gl === kw || gl.includes(kw) ? 1 : 0), 0), 0)
+    if (score > bestScore) { bestScore = score; best = g }
   }
+  const substyles: string[] = []
+  for (const g of genreLabels) {
+    const found = ALL_SUBSTYLES.find(s => s.toLowerCase() === g.toLowerCase().trim())
+    if (found && !substyles.includes(found)) substyles.push(found)
+  }
+  return { genre: best, substyles }
 }
 
+function parseInfoboxGenres(wikitext: string): string[] | null {
+  const genreMatch = wikitext.match(/\|\s*genre\s*=\s*([\s\S]*?)(?=\n\s*\||\n\s*\}\})/i)
+  if (!genreMatch) return null
+  const raw = genreMatch[1]
+  const fromLinks = [...raw.matchAll(/\[\[(?:[^\]|]+\|)?([^\]|]+)\]\]/g)].map(m => m[1].trim())
+  const stripped = raw
+    .replace(/\{\{[^}]+\}\}/g, ' ').replace(/\[\[(?:[^\]|]+\|)?([^\]|]+)\]\]/g, '$1')
+    .replace(/[*#\[\]{}|]/g, ' ').split(/[,·•\n]/).map(s => s.trim())
+    .filter(s => s.length > 1 && s.length < 40 && !/^(hlist|flatlist|ubl|br|small|nowrap|\d+)$/i.test(s))
+  const all = [...new Set([...fromLinks, ...stripped])].filter(s => s && s.length > 1)
+  return all.length > 0 ? all : null
+}
+
+const QID_COUNTRY: Record<string, string> = {
+  Q142:'Prancūzija',Q183:'Vokietija',Q30:'JAV',Q145:'Didžioji Britanija',
+  Q34:'Švedija',Q20:'Norvegija',Q33:'Suomija',Q35:'Danija',
+  Q16:'Kanada',Q408:'Australija',Q159:'Rusija',Q38:'Italija',
+  Q29:'Ispanija',Q55:'Olandija',Q31:'Belgija',Q39:'Šveicarija',
+  Q40:'Austrija',Q36:'Lenkija',Q27:'Airija',Q17:'Japonija',
+  Q884:'Pietų Korėja',Q155:'Brazilija',Q414:'Argentina',Q96:'Meksika',
+  Q37:'Lietuva',Q211:'Latvija',Q191:'Estija',Q212:'Ukraina',
+  Q213:'Čekija',Q218:'Rumunija',Q41:'Graikija',Q45:'Portugalija',
+  Q48:'Turkija',Q801:'Izraelis',Q668:'Indija',Q148:'Kinija',
+  Q664:'Naujoji Zelandija',Q189:'Islandija',Q219:'Bulgarija',
+}
+const TXT_COUNTRY: [string, string][] = [
+  ['united states','JAV'],['american','JAV'],['u.s.','JAV'],
+  ['united kingdom','Didžioji Britanija'],['british','Didžioji Britanija'],
+  ['england','Didžioji Britanija'],['english','Didžioji Britanija'],
+  ['france','Prancūzija'],['french','Prancūzija'],
+  ['germany','Vokietija'],['german','Vokietija'],
+  ['sweden','Švedija'],['swedish','Švedija'],
+  ['norway','Norvegija'],['norwegian','Norvegija'],
+  ['finland','Suomija'],['finnish','Suomija'],
+  ['denmark','Danija'],['danish','Danija'],
+  ['canada','Kanada'],['canadian','Kanada'],
+  ['australia','Australija'],['australian','Australija'],
+  ['russia','Rusija'],['russian','Rusija'],
+  ['italy','Italija'],['italian','Italija'],
+  ['spain','Ispanija'],['spanish','Ispanija'],
+  ['netherlands','Olandija'],['dutch','Olandija'],
+  ['belgium','Belgija'],['belgian','Belgija'],
+  ['switzerland','Šveicarija'],['swiss','Šveicarija'],
+  ['austria','Austrija'],['austrian','Austrija'],
+  ['poland','Lenkija'],['polish','Lenkija'],
+  ['ireland','Airija'],['irish','Airija'],
+  ['japan','Japonija'],['japanese','Japonija'],
+  ['south korea','Pietų Korėja'],['korean','Pietų Korėja'],
+  ['brazil','Brazilija'],['mexico','Meksika'],['mexican','Meksika'],
+  ['iceland','Islandija'],['icelandic','Islandija'],
+  ['lithuanian','Lietuva'],['latvian','Latvija'],['estonian','Estija'],
+]
+function findCountry(text: string): string {
+  const lower = text.toLowerCase()
+  for (const [k, v] of TXT_COUNTRY)
+    if (k.includes(' ') && lower.includes(k) && COUNTRIES.includes(v)) return v
+  for (const [k, v] of TXT_COUNTRY)
+    if (!k.includes(' ') && lower.includes(k) && COUNTRIES.includes(v)) return v
+  return ''
+}
+
+function parseWDDate(t: string) {
+  const [dp] = t.replace(/^\+/, '').split('T')
+  const [y, m, d] = dp.split('-')
+  return { year: parseInt(y) ? String(parseInt(y)) : '', month: parseInt(m) ? String(parseInt(m)) : '', day: parseInt(d) ? String(parseInt(d)) : '' }
+}
+
+function parseYearsActive(raw: string): { yearStart: string; yearEnd: string; breaks: Break[] } {
+  const clean = raw
+    .replace(/\{\{[^}]+\}\}/g, '').replace(/\[\[([^\]|]+\|)?([^\]]+)\]\]/g, '$2')
+    .replace(/<[^>]+>/g, '').replace(/&ndash;|&mdash;/g, '–').replace(/\s+/g, ' ').trim()
+  const parts = clean.split(/,\s*/)
+  const ranges: { from: string; to: string; oneoff?: boolean }[] = []
+  for (const part of parts) {
+    const t = part.trim()
+    const rng     = t.match(/(\d{4})\s*[–—\-]\s*(\d{4})/)
+    const rngOpen = t.match(/(\d{4})\s*[–—\-]\s*(present|dabar)/i)
+    const single  = t.match(/^(\d{4})$/)
+    if (rng)          ranges.push({ from: rng[1], to: rng[2] })
+    else if (rngOpen) ranges.push({ from: rngOpen[1], to: '' })
+    else if (single)  ranges.push({ from: single[1], to: single[1], oneoff: true })
+  }
+  if (!ranges.length) {
+    const y = clean.match(/(\d{4})/)
+    return { yearStart: y?.[1] || '', yearEnd: '', breaks: [] }
+  }
+  const yearStart = ranges[0].from
+  const realRanges = ranges.filter(r => !r.oneoff)
+  const lastReal = realRanges[realRanges.length - 1]
+  const yearEnd = lastReal ? lastReal.to : ranges[ranges.length - 1].to
+  const breaks: Break[] = []
+  for (let i = 0; i < realRanges.length - 1; i++) {
+    const gf = realRanges[i].to, gt = realRanges[i + 1].from
+    if (gf && gt && gf !== gt) breaks.push({ from: gf, to: gt })
+  }
+  return { yearStart, yearEnd, breaks }
+}
+
+const SOCIAL_MAP: Record<string, { key: keyof ArtistFormData; url: (v: string) => string }> = {
+  P2013: { key:'facebook',   url: v=>`https://www.facebook.com/${v}` },
+  P2002: { key:'twitter',    url: v=>`https://x.com/${v}` },
+  P1902: { key:'spotify',    url: v=>`https://open.spotify.com/artist/${v}` },
+  P2397: { key:'youtube',    url: v=>`https://www.youtube.com/channel/${v}` },
+  P3040: { key:'soundcloud', url: v=>`https://soundcloud.com/${v}` },
+  P7085: { key:'tiktok',     url: v=>`https://www.tiktok.com/@${v}` },
+  P7589: { key:'bandcamp',   url: v=>`https://bandcamp.com/${v}` },
+}
+const GROUP_QIDS = new Set(['Q215380','Q5741069','Q2088357','Q9212979','Q56816265','Q190445','Q16010345','Q183319'])
+const SKIP_WEB = ['store','shop','merch','bandsintown','songkick','last.fm','allmusic','discogs','facebook','instagram','twitter','x.com','youtube','spotify','soundcloud','tiktok','bandcamp']
 
 function WikipediaImportCore({ onImport, initialSearch }: Props) {
   const [url, setUrl] = useState(initialSearch && !initialSearch.includes('wikipedia.org') ? initialSearch : '')

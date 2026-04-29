@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
-import { proxyImg } from '@/lib/img-proxy'
 
 type Comment = {
   id: number
@@ -55,7 +54,7 @@ function buildTree(comments: Comment[]): CommentWithReplies[] {
 function Avatar({ name, src, size = 8 }: { name: string | null; src: string | null; size?: number }) {
   const initials = name?.slice(0, 2).toUpperCase() || '??'
   const sizeClass = `w-${size} h-${size}`
-  if (src) return <img src={proxyImg(src)} alt={name || ''} className={`${sizeClass} rounded-full object-cover flex-shrink-0`} />
+  if (src) return <img src={src} alt={name || ''} className={`${sizeClass} rounded-full object-cover flex-shrink-0`} />
   return (
     <div className={`${sizeClass} rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0`}
       style={{ background: 'var(--avatar-bg)', color: 'var(--avatar-text)' }}>

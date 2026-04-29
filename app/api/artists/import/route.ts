@@ -36,18 +36,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 
-// IDs match `seed_genres` rows in Supabase (1000556..1000563). Anksčiau čia
-// buvo 1000001..1000008 kurie netaikomi — Wiki importas tylėjo, bet
-// artist_genres junction nepatekdavo nieko.
 const GENRE_IDS: Record<string, number> = {
-  'Alternatyvioji muzika': 1000556,
-  'Elektroninė, šokių muzika': 1000557,
-  "Hip-hop'o muzika": 1000558,
-  'Kitų stilių muzika': 1000559,
-  'Pop, R&B muzika': 1000560,
-  'Rimtoji muzika': 1000561,
-  'Roko muzika': 1000562,
-  'Sunkioji muzika': 1000563,
+  'Alternatyvioji muzika': 1000001,
+  'Elektroninė, šokių muzika': 1000002,
+  "Hip-hop'o muzika": 1000003,
+  'Kitų stilių muzika': 1000004,
+  'Pop, R&B muzika': 1000005,
+  'Rimtoji muzika': 1000006,
+  'Roko muzika': 1000007,
+  'Sunkioji muzika': 1000008,
 }
 
 /** Strip Wikipedia disambiguation suffixes like (singer), (rapper), etc. */

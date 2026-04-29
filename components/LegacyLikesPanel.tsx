@@ -9,12 +9,10 @@
 // nuo produkto pagrindinio orange (#f97316) be konfliktų.
 
 import Link from 'next/link'
-import { proxyImg } from '@/lib/img-proxy'
 
 export type LegacyLikeUser = {
   user_username: string
   user_rank?: string | null
-  user_avatar_url?: string | null
 }
 
 type Props = {
@@ -178,29 +176,6 @@ function LegacyUserTile({ user }: { user: LegacyLikeUser }) {
         e.currentTarget.style.background = 'var(--card-bg)'
       }}
     >
-      {user.user_avatar_url ? (
-        <img
-          src={proxyImg(user.user_avatar_url)}
-          alt={user.user_username}
-          referrerPolicy="no-referrer"
-          style={{
-            width: 26,
-            height: 26,
-            borderRadius: '50%',
-            border: `1px solid ${AMBER_BORDER}`,
-            objectFit: 'cover',
-            flexShrink: 0,
-            background: AMBER_BG_SOFT,
-          }}
-          onError={(e) => {
-            // If avatar fails to load, replace with initial fallback
-            const el = e.currentTarget
-            el.style.display = 'none'
-            const next = el.nextElementSibling as HTMLElement | null
-            if (next) next.style.display = 'flex'
-          }}
-        />
-      ) : null}
       <div
         style={{
           width: 26,
@@ -208,7 +183,7 @@ function LegacyUserTile({ user }: { user: LegacyLikeUser }) {
           borderRadius: '50%',
           background: `linear-gradient(135deg, ${AMBER_BG}, rgba(249,115,22,.08))`,
           border: `1px solid ${AMBER_BORDER}`,
-          display: user.user_avatar_url ? 'none' : 'flex',
+          display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           flexShrink: 0,

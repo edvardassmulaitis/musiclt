@@ -50,9 +50,8 @@ async function getGhostUser(username: string): Promise<GhostUser | null> {
 
 async function getGhostActivity(username: string) {
   const sb = createAdminClient()
-  // Query unified likes table for all likes by this ghost user (identified by username)
   const { data } = await sb
-    .from('likes')
+    .from('legacy_likes')
     .select('entity_type, entity_legacy_id, user_rank')
     .eq('user_username', username)
     .range(0, 9999)
@@ -360,7 +359,7 @@ export default async function GhostUserPage({ params }: Props) {
             {activity.albums.map((a) => (
               <Link
                 key={a.id}
-                href={a.artist?.slug ? `/albumai/${a.artist.slug}-${a.slug}-${a.id}` : `/albumai/${a.slug}-${a.id}`}
+                href={`/lt/albumas/${a.slug}/${a.id}/`}
                 style={{
                   display: 'block',
                   borderRadius: 10,
@@ -408,7 +407,7 @@ export default async function GhostUserPage({ params }: Props) {
             {activity.tracks.map((t, i) => (
               <Link
                 key={t.id}
-                href={t.artist?.slug ? `/dainos/${t.artist.slug}-${t.slug}-${t.id}` : `/dainos/${t.slug}-${t.id}`}
+                href={`/lt/daina/${t.slug}/${t.id}/`}
                 style={{
                   display: 'flex',
                   alignItems: 'center',

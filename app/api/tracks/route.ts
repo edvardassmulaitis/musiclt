@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
   if (album_id) {
     const { data, error } = await supabase
       .from('album_tracks')
-      .select(`position, tracks(id, title, type, video_url, video_views, video_views_checked_at, spotify_id, lyrics, cover_url, is_single, release_year, release_month, release_day)`)
+      .select(`position, tracks(id, title, type, video_url, spotify_id, lyrics, cover_url, is_single, release_year, release_month, release_day)`)
       .eq('album_id', parseInt(album_id))
       .order('position', { ascending: true })
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -58,8 +58,6 @@ export async function GET(req: NextRequest) {
       title: at.tracks?.title,
       type: at.tracks?.type,
       video_url: at.tracks?.video_url,
-      video_views: at.tracks?.video_views ?? null,
-      video_views_checked_at: at.tracks?.video_views_checked_at || null,
       spotify_id: at.tracks?.spotify_id,
       lyrics: at.tracks?.lyrics,
       cover_url: at.tracks?.cover_url,
@@ -73,7 +71,7 @@ export async function GET(req: NextRequest) {
   }
 
   // ── Pilnas select su release_month, release_day ──
-  const SELECT_FIELDS = `id, title, type, release_date, release_year, release_month, release_day, video_url, video_views, video_views_checked_at, spotify_id, is_single, is_new, is_new_date, cover_url, lyrics, artists!tracks_artist_id_fkey(id, name, slug), track_artists(artist_id), album_tracks(position, albums(id, title, year))`
+  const SELECT_FIELDS = `id, title, type, release_date, release_year, release_month, release_day, video_url, spotify_id, is_single, is_new, is_new_date, cover_url, lyrics, artists!tracks_artist_id_fkey(id, name, slug), track_artists(artist_id), album_tracks(position, albums(id, title, year))`
 
   if (search) {
     const { data: artistMatches } = await supabase
@@ -121,8 +119,6 @@ function mapTrack(t: any) {
     release_day: t.release_day || null,
     is_single: t.is_single || false,
     video_url: t.video_url,
-    video_views: t.video_views ?? null,
-    video_views_checked_at: t.video_views_checked_at || null,
     spotify_id: t.spotify_id,
     is_new: t.is_new,
     is_new_date: t.is_new_date,

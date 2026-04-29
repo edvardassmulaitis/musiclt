@@ -6,26 +6,20 @@ import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import WikipediaImportDiscography from '@/components/WikipediaImportDiscography'
 import WikipediaImport from '@/components/WikipediaImport'
-import WikipediaImportAwards from '@/components/WikipediaImportAwards'
-import ArtistAwardsAdminPanel from '@/components/ArtistAwardsAdminPanel'
 import ArtistForm, { ArtistFormData, emptyArtistForm } from '@/components/ArtistForm'
 import { extractYouTubeId } from '@/components/ui/helpers'
 import { ScoreBadge } from '@/components/ScoreModal'
 import FullscreenModal from '@/components/ui/FullscreenModal'
 
-// IDs match seed migration `seed_genres` rows in Supabase. Verified 2026-04-27
-// — anksčiau čia buvo prisirašyti 1000001..1000008 IDs kurie netaikomi (DB
-// turi 1000556..1000563). Dėl to admin'as neparodydavo main genre net jei
-// jis būdavo įdėtas į `artist_genres` junction lentelę.
 const GENRE_BY_ID: Record<number, string> = {
-  1000556: 'Alternatyvioji muzika',
-  1000557: 'Elektroninė, šokių muzika',
-  1000558: "Hip-hop'o muzika",
-  1000559: 'Kitų stilių muzika',
-  1000560: 'Pop, R&B muzika',
-  1000561: 'Rimtoji muzika',
-  1000562: 'Roko muzika',
-  1000563: 'Sunkioji muzika',
+  1000001: 'Alternatyvioji muzika',
+  1000002: 'Elektroninė, šokių muzika',
+  1000003: "Hip-hop'o muzika",
+  1000004: 'Kitų stilių muzika',
+  1000005: 'Pop, R&B muzika',
+  1000006: 'Rimtoji muzika',
+  1000007: 'Roko muzika',
+  1000008: 'Sunkioji muzika',
 }
 
 function dbToForm(data: any): ArtistFormData {
@@ -36,12 +30,7 @@ function dbToForm(data: any): ArtistFormData {
     country:     data.country || 'Lietuva',
     genre:       data.genres?.[0] ? (GENRE_BY_ID[data.genres[0]] || '') : '',
     substyles:   data.substyleNames || [],
-    // description fallback į description_legacy: jei Wiki canonical (description)
-    // tuščia arba placeholder ('Grupė' iš populate), naudojam music.lt scrape'ą.
-    // Public puslapis irgi daro tokį fallback'ą — admin turi rodyti tą patį.
-    description: ((data.description || '').trim().length >= 20)
-      ? data.description
-      : ((data as any).description_legacy || data.description || ''),
+    description: data.description || '',
     yearStart:   data.active_from ? String(data.active_from) : '',
     yearEnd:     data.active_until ? String(data.active_until) : '',
     breaks:      data.breaks || [],
@@ -71,14 +60,14 @@ function dbToForm(data: any): ArtistFormData {
 }
 
 const GENRE_IDS: Record<string, number> = {
-  'Alternatyvioji muzika': 1000556,
-  'Elektroninė, šokių muzika': 1000557,
-  "Hip-hop'o muzika": 1000558,
-  'Kitų stilių muzika': 1000559,
-  'Pop, R&B muzika': 1000560,
-  'Rimtoji muzika': 1000561,
-  'Roko muzika': 1000562,
-  'Sunkioji muzika': 1000563,
+  'Alternatyvioji muzika': 1000001,
+  'Elektroninė, šokių muzika': 1000002,
+  "Hip-hop'o muzika": 1000003,
+  'Kitų stilių muzika': 1000004,
+  'Pop, R&B muzika': 1000005,
+  'Rimtoji muzika': 1000006,
+  'Roko muzika': 1000007,
+  'Sunkioji muzika': 1000008,
 }
 
 function formToDb(form: ArtistFormData) {
@@ -112,57 +101,12 @@ function formToDb(form: ArtistFormData) {
   }
 }
 
-/** Compact view-count format: 1234 → "1.2K", 1234567 → "1.2M". */
-function formatViews(n: number | null | undefined): string {
-  if (n == null || !Number.isFinite(n)) return ''
-  if (n < 1000) return String(n)
-  if (n < 1_000_000) return (n / 1000).toFixed(n < 10_000 ? 1 : 0).replace(/\.0$/, '') + 'K'
-  if (n < 1_000_000_000) return (n / 1_000_000).toFixed(n < 10_000_000 ? 1 : 0).replace(/\.0$/, '') + 'M'
-  return (n / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'B'
-}
-
-function TrackRow({ track, onDelete, onEnriched }: { track: any; onDelete?: () => void; onEnriched?: (updated: { video_url?: string; video_views?: number }) => void }) {
+function TrackRow({ track, onDelete }: { track: any; onDelete?: () => void }) {
   const trackId = track.track_id || track.id
   const hasVideo = !!track.video_url
   const hasLyrics = typeof track.lyrics === 'string' && track.lyrics.trim().length > 0
   const featuring: string[] = (track.featuring || []).map((f: any) => typeof f === 'string' ? f : f.name || '')
   const [confirmDel, setConfirmDel] = useState(false)
-  const [ytStatus, setYtStatus] = useState<'idle' | 'running' | 'found' | 'skipped' | 'error'>('idle')
-  const [ytTooltip, setYtTooltip] = useState<string | null>(null)
-  const views = formatViews(track.video_views)
-
-  const runYtEnrich = async () => {
-    if (!trackId) return
-    setYtStatus('running'); setYtTooltip(null)
-    try {
-      const r = await fetch(`/api/admin/yt/track/${trackId}/enrich`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ force: true }),
-      })
-      const j = await r.json()
-      if (!r.ok || !j.ok) throw new Error(j?.error || 'fail')
-      onEnriched?.({ video_url: j.videoUrl, video_views: j.viewsAfter ?? undefined })
-      if (j.wasFound) {
-        setYtStatus('found')
-        setYtTooltip(`✓ ${j.videoTitle || ''} · ${j.videoChannel || ''} (score ${j.matchScore ?? '?'})`)
-      } else if (j.skipReason) {
-        setYtStatus('skipped')
-        setYtTooltip(`↷ ${j.skipReason}${j.videoTitle ? ` — top: ${j.videoTitle} · ${j.videoChannel}` : ''}`)
-      } else if (j.viewsAfter !== null) {
-        setYtStatus('found')
-        setYtTooltip(`👁 atnaujintos peržiūros: ${j.viewsAfter?.toLocaleString?.() || j.viewsAfter}`)
-      } else {
-        setYtStatus('skipped')
-        setYtTooltip('Nieko naujo (jau turėjo video, peržiūros šviežios)')
-      }
-      // No auto-reset — admin sees the reason until next interaction
-    } catch (e: any) {
-      setYtStatus('error')
-      setYtTooltip(e?.message || 'fail')
-    }
-  }
-
   return (
     <div className="flex items-center gap-1.5 px-3 py-1 border-b border-[var(--bg-elevated)] last:border-0 hover:bg-[var(--bg-hover)]/80 group transition-colors">
       <div className="flex items-center justify-end gap-0.5 w-5 shrink-0">
@@ -178,22 +122,8 @@ function TrackRow({ track, onDelete, onEnriched }: { track: any; onDelete?: () =
         )}
         {featuring.length > 0 && <span className="text-xs text-[var(--text-muted)] whitespace-nowrap">su {featuring.join(', ')}</span>}
       </div>
-      {hasVideo && <span className="text-blue-400 text-xs shrink-0" title={track.video_url}>▶</span>}
-      {views && <span className="text-[10px] text-[var(--text-muted)] tabular-nums shrink-0" title={`${track.video_views} peržiūrų${track.video_views_checked_at ? ` (${new Date(track.video_views_checked_at).toLocaleDateString()})` : ''}`}>{views}</span>}
+      {hasVideo && <span className="text-blue-400 text-xs shrink-0">▶</span>}
       {hasLyrics && <span className="text-green-500 text-xs font-bold shrink-0">T</span>}
-      {trackId && (
-        <button onClick={e => { e.stopPropagation(); runYtEnrich() }}
-          disabled={ytStatus === 'running'}
-          className={`shrink-0 px-1 py-0.5 text-[10px] rounded transition-all ${
-            ytStatus === 'found' ? 'bg-green-100 text-green-700 opacity-100'
-            : ytStatus === 'skipped' ? 'bg-amber-100 text-amber-700 opacity-100'
-            : ytStatus === 'error' ? 'bg-red-100 text-red-700 opacity-100'
-            : 'opacity-0 group-hover:opacity-100 text-[var(--text-faint)] hover:text-blue-600 hover:bg-blue-50'
-          }`}
-          title={ytTooltip || 'Iš naujo paimti YouTube video + peržiūras'}>
-          {ytStatus === 'running' ? '…' : ytStatus === 'found' ? '✓' : ytStatus === 'skipped' ? '↷' : ytStatus === 'error' ? '✗' : 'YT'}
-        </button>
-      )}
       {onDelete && trackId && (
         confirmDel ? (
           <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
@@ -420,15 +350,6 @@ function DiscographyPanel({ artistId, artistName, artistType, refreshKey, onImpo
               />
             </div>
           )}
-          {/* 🏆 Apdovanojimai — disabled kol nėra diskografijos */}
-          {artistName && (
-            <WikipediaImportAwards
-              artistId={parseInt(artistId)}
-              artistName={artistName}
-              disabled={albums.length === 0}
-              onClose={onImportClose}
-            />
-          )}
           {/* + Albumas / + Daina — tik ikona ant mobile, tekstas ant desktop */}
           <Link href={`/admin/albums/new?artist_id=${artistId}`} title="Naujas albumas"
             className="shrink-0 flex items-center gap-1 px-1.5 lg:px-2 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-colors">
@@ -500,9 +421,6 @@ function DiscographyPanel({ artistId, artistName, artistType, refreshKey, onImpo
             )}
           </>
         )}
-
-        {/* Apdovanojimai — atskiras blokas po diskografijos */}
-        <ArtistAwardsAdminPanel artistId={artistId} refreshKey={refreshKey} />
       </div>
     </div>
   )
@@ -582,346 +500,6 @@ function MobileBreadcrumb({ artistName, artistId, albumCount, trackCount, onWiki
 
 function WikipediaImportWithHint({ artistName, onImport }: { artistName?: string; onImport: (data: any) => void }) {
   return <WikipediaImport onImport={onImport} initialSearch={artistName} />
-}
-
-/** Manual cascade recalc — recomputes artist + all its albums + tracks scores.
- *  Useful for entities that were imported before the TS scoring layer existed.
- *  One click, fire-and-forget; UI shows last result inline. */
-function RecalcCascadeButton({ artistId }: { artistId: string }) {
-  const [status, setStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
-  const [result, setResult] = useState<{ artist: number; albums: number; tracks: number } | null>(null)
-
-  const run = async () => {
-    setStatus('running')
-    setResult(null)
-    try {
-      const r = await fetch(`/api/admin/recalc-artist-cascade?artist_id=${artistId}`, { method: 'POST' })
-      const j = await r.json()
-      if (!r.ok) throw new Error(j?.error || 'fail')
-      setResult({
-        artist: j.artist_score ?? 0,
-        albums: j.albums_scored ?? 0,
-        tracks: j.tracks_scored ?? 0,
-      })
-      setStatus('done')
-      setTimeout(() => setStatus('idle'), 4000)
-    } catch {
-      setStatus('error')
-      setTimeout(() => setStatus('idle'), 4000)
-    }
-  }
-
-  const label = status === 'running' ? 'Skaičiuoja…'
-              : status === 'done' && result
-                ? `✓ ${result.artist} / ${result.albums} alb. / ${result.tracks} d.`
-              : status === 'error' ? 'Klaida'
-              : '↻ Perskaičiuoti balus'
-
-  return (
-    <button
-      type="button"
-      onClick={run}
-      disabled={status === 'running'}
-      className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
-        status === 'done'  ? 'bg-green-50 text-green-700 border border-green-200'
-        : status === 'error' ? 'bg-red-50 text-red-700 border border-red-200'
-        : 'bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200'
-      } disabled:opacity-50`}
-      title="Perskaičiuoja artist + visų albumų + visų dainų balus"
-    >
-      {label}
-    </button>
-  )
-}
-
-type YtEnrichDetail = {
-  trackId: number
-  trackTitle?: string | null
-  videoId: string | null
-  videoUrl: string | null
-  videoTitle?: string | null
-  videoChannel?: string | null
-  matchScore?: number | null
-  wasSearched: boolean
-  wasFound: boolean
-  skipReason?: string | null
-  viewsBefore: number | null
-  viewsAfter: number | null
-  viewsDelta: number | null
-  warnings?: string[]
-}
-
-type YtEnrichSummary = {
-  totalTracks: number
-  processed: number
-  searched: number
-  foundNew: number
-  skipped: number
-  viewsUpdated: number
-  errors: number
-  details: YtEnrichDetail[]
-}
-
-/** Bulk YouTube enrichment for one artist — calls /api/admin/yt/artist/[id]/enrich.
- *  Per click: search'inam track'us be video_url + atnaujinam visų views snapshot'us
- *  (jei senesni nei 30 d. arba dar netikrinti). Po baigimo summary lieka kaip
- *  „peržiūrėti rezultatus" mygtukas — atidaro FullscreenModal su detaliu sąrašu
- *  (kurie rasta, kurie praleista ir kodėl, klaidos). */
-function YoutubeEnrichButton({ artistId, onDone }: { artistId: string; onDone?: () => void }) {
-  const [status, setStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
-  const [summary, setSummary] = useState<YtEnrichSummary | null>(null)
-  const [errMsg, setErrMsg] = useState('')
-  const [showResults, setShowResults] = useState(false)
-
-  const run = async () => {
-    setStatus('running'); setSummary(null); setErrMsg(''); setShowResults(false)
-    try {
-      const r = await fetch(`/api/admin/yt/artist/${artistId}/enrich`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshViews: true, refreshAfterDays: 30 }),
-      })
-      const j = await r.json()
-      if (!r.ok || !j.ok) throw new Error(j?.error || 'fail')
-      setSummary({
-        totalTracks: j.totalTracks ?? 0,
-        processed: j.processed ?? 0,
-        searched: j.searched ?? 0,
-        foundNew: j.foundNew ?? 0,
-        skipped: j.skipped ?? 0,
-        viewsUpdated: j.viewsUpdated ?? 0,
-        errors: j.errors ?? 0,
-        details: j.details || [],
-      })
-      setStatus('done')
-      onDone?.()
-      // NIEKO neauto-clear'inam — lieka tol kol pakraunam puslapį arba paspaudžiam vėl
-    } catch (e: any) {
-      setErrMsg(e?.message || 'fail')
-      setStatus('error')
-      setTimeout(() => setStatus('idle'), 8000)
-    }
-  }
-
-  const summaryLabel = summary
-    ? `✓ ${summary.foundNew}+${summary.skipped}↷ ${summary.viewsUpdated}👁${summary.errors ? ` ${summary.errors}✗` : ''}`
-    : ''
-
-  return (
-    <>
-      <div className="flex items-center gap-1">
-        <button
-          type="button"
-          onClick={run}
-          disabled={status === 'running'}
-          className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
-            status === 'error' ? 'bg-red-50 text-red-700 border border-red-200'
-            : status === 'done' ? 'bg-green-50 text-green-700 border border-green-200'
-            : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
-          } disabled:opacity-50`}
-          title="Surasti YouTube video + atnaujinti peržiūras visiems track'ams. Praleidžia low-confidence match'us — geriau tuščia negu klaidinga."
-        >
-          {status === 'running' ? <><span className="w-3 h-3 border-2 border-rose-300 border-t-rose-700 rounded-full animate-spin" /> YT ieško…</>
-            : status === 'error' ? `✗ ${errMsg.slice(0, 30)}`
-            : '▶ YT enrich'}
-        </button>
-        {summary && status === 'done' && (
-          <button
-            type="button"
-            onClick={() => setShowResults(true)}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200"
-            title="Peržiūrėti detalius rezultatus"
-          >
-            {summaryLabel}
-          </button>
-        )}
-      </div>
-      {showResults && summary && (
-        <FullscreenModal onClose={() => setShowResults(false)} title={`YouTube enrich rezultatai`} maxWidth="max-w-4xl">
-          <YtEnrichResults summary={summary} />
-        </FullscreenModal>
-      )}
-    </>
-  )
-}
-
-/** Detali results lentelė — sukategorizuoja track'us pagal outcome. */
-function YtEnrichResults({ summary }: { summary: YtEnrichSummary }) {
-  const found = summary.details.filter(d => d.wasFound)
-  const skipped = summary.details.filter(d => d.skipReason)
-  const updatedViewsOnly = summary.details.filter(d => !d.wasSearched && d.viewsAfter !== null)
-  const errors = summary.details.filter(d => d.warnings && d.warnings.length > 0 && !d.wasFound && !d.skipReason)
-
-  return (
-    <div className="p-4 space-y-5 text-sm">
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-        <Stat label="Iš viso track'ų" value={summary.totalTracks} />
-        <Stat label="Apdorota" value={summary.processed} />
-        <Stat label="Naujai rasta" value={summary.foundNew} tone="green" />
-        <Stat label="Praleista" value={summary.skipped} tone="amber" />
-        <Stat label="Views update'inta" value={summary.viewsUpdated} tone="blue" />
-      </div>
-
-      {found.length > 0 && (
-        <Section title={`✓ Rasta naujų video (${found.length})`} tone="green">
-          {found.map(d => (
-            <Row key={d.trackId}>
-              <div className="min-w-0 flex-1">
-                <div className="font-medium text-[var(--text-primary)] truncate">{d.trackTitle || `#${d.trackId}`}</div>
-                <div className="text-xs text-[var(--text-muted)] truncate">→ {d.videoTitle} <span className="text-[var(--text-faint)]">· {d.videoChannel}</span></div>
-                {(d.warnings || []).map((w, i) => (
-                  <div key={i} className="text-[11px] text-amber-700 truncate">⚠ {w}</div>
-                ))}
-              </div>
-              {d.matchScore !== undefined && d.matchScore !== null && <span className="text-xs tabular-nums text-green-700 shrink-0">score {d.matchScore}</span>}
-              {d.viewsAfter !== null && <span className="text-xs tabular-nums text-blue-700 shrink-0">{d.viewsAfter.toLocaleString()} 👁</span>}
-              {d.videoUrl && <a href={d.videoUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline shrink-0">↗</a>}
-            </Row>
-          ))}
-        </Section>
-      )}
-
-      {skipped.length > 0 && (
-        <Section title={`↷ Praleista — žemo confidence (${skipped.length})`} tone="amber">
-          <p className="px-3 py-1 text-[11px] text-amber-800/70">
-            Pirmas YouTube paieškos kandidatas neatitiko match threshold'o (artist/track tokenai title/channel'yje, duration sanity). Track liko be video_url — galima rankiniu būdu suvesti per /admin/tracks/[id].
-          </p>
-          {skipped.map(d => (
-            <Row key={d.trackId}>
-              <div className="min-w-0 flex-1">
-                <div className="font-medium text-[var(--text-primary)] truncate">{d.trackTitle || `#${d.trackId}`}</div>
-                <div className="text-xs text-[var(--text-muted)] truncate">{d.skipReason}</div>
-                {d.videoTitle && <div className="text-[11px] text-[var(--text-faint)] truncate">top kandidatas: {d.videoTitle} · {d.videoChannel}</div>}
-              </div>
-              {d.matchScore !== undefined && d.matchScore !== null && <span className="text-xs tabular-nums text-amber-700 shrink-0">score {d.matchScore}</span>}
-            </Row>
-          ))}
-        </Section>
-      )}
-
-      {updatedViewsOnly.length > 0 && (
-        <Section title={`👁 Atnaujintos peržiūros (${updatedViewsOnly.length})`} tone="blue">
-          {updatedViewsOnly.map(d => (
-            <Row key={d.trackId}>
-              <div className="min-w-0 flex-1">
-                <div className="font-medium text-[var(--text-primary)] truncate">{d.trackTitle || `#${d.trackId}`}</div>
-              </div>
-              <span className="text-xs tabular-nums text-blue-700 shrink-0">{d.viewsAfter?.toLocaleString()}</span>
-              {d.viewsDelta !== null && d.viewsDelta !== 0 && (
-                <span className={`text-xs tabular-nums shrink-0 ${d.viewsDelta > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {d.viewsDelta > 0 ? '+' : ''}{d.viewsDelta.toLocaleString()}
-                </span>
-              )}
-            </Row>
-          ))}
-        </Section>
-      )}
-
-      {errors.length > 0 && (
-        <Section title={`✗ Klaidos (${errors.length})`} tone="red">
-          {errors.map(d => (
-            <Row key={d.trackId}>
-              <div className="min-w-0 flex-1">
-                <div className="font-medium text-[var(--text-primary)] truncate">{d.trackTitle || `#${d.trackId}`}</div>
-                {(d.warnings || []).map((w, i) => (
-                  <div key={i} className="text-[11px] text-red-700 truncate">⚠ {w}</div>
-                ))}
-              </div>
-            </Row>
-          ))}
-        </Section>
-      )}
-
-      {found.length === 0 && skipped.length === 0 && updatedViewsOnly.length === 0 && errors.length === 0 && (
-        <div className="text-center text-[var(--text-muted)] py-8">Nieko nepasikeitė — visi track'ai jau turėjo video_url ir pakankamai šviežias peržiūras.</div>
-      )}
-    </div>
-  )
-}
-
-function Stat({ label, value, tone }: { label: string; value: number; tone?: 'green' | 'amber' | 'blue' }) {
-  const toneCls = tone === 'green' ? 'text-green-700' : tone === 'amber' ? 'text-amber-700' : tone === 'blue' ? 'text-blue-700' : 'text-[var(--text-primary)]'
-  return (
-    <div className="bg-white border border-[var(--input-border)] rounded-lg p-2">
-      <div className="text-[10px] uppercase tracking-wide text-[var(--text-faint)]">{label}</div>
-      <div className={`text-lg font-bold tabular-nums ${toneCls}`}>{value}</div>
-    </div>
-  )
-}
-
-function Section({ title, tone, children }: { title: string; tone: 'green' | 'amber' | 'blue' | 'red'; children: React.ReactNode }) {
-  const toneCls = tone === 'green' ? 'border-green-200 bg-green-50/30' : tone === 'amber' ? 'border-amber-200 bg-amber-50/30' : tone === 'blue' ? 'border-blue-200 bg-blue-50/30' : 'border-red-200 bg-red-50/30'
-  return (
-    <div className={`border rounded-lg overflow-hidden ${toneCls}`}>
-      <div className="px-3 py-1.5 text-xs font-semibold border-b border-current/10">{title}</div>
-      <div className="divide-y divide-current/5">{children}</div>
-    </div>
-  )
-}
-
-function Row({ children }: { children: React.ReactNode }) {
-  return <div className="flex items-center gap-2 px-3 py-1.5">{children}</div>
-}
-
-/** Wipe YT enrichment data for one artist's tracks. Naudinga kai pirmas
- *  pass'as buvo daromas su silpnu match scoring (pvz Atlanta) ir prikalinėjo
- *  random video. Po wipe'o YT enrich su threshold'u priskirs tik confident match'us. */
-function YoutubeClearButton({ artistId, onDone }: { artistId: string; onDone?: () => void }) {
-  const [status, setStatus] = useState<'idle' | 'confirm' | 'running' | 'done' | 'error'>('idle')
-  const [result, setResult] = useState<{ affected: number } | null>(null)
-  const [errMsg, setErrMsg] = useState('')
-
-  const run = async () => {
-    setStatus('running'); setResult(null); setErrMsg('')
-    try {
-      const r = await fetch(`/api/admin/yt/artist/${artistId}/clear`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ wipeViews: true, wipeHistory: false }),
-      })
-      const j = await r.json()
-      if (!r.ok || !j.ok) throw new Error(j?.error || 'fail')
-      setResult({ affected: j.affected ?? 0 })
-      setStatus('done')
-      onDone?.()
-      setTimeout(() => setStatus('idle'), 6000)
-    } catch (e: any) {
-      setErrMsg(e?.message || 'fail')
-      setStatus('error')
-      setTimeout(() => setStatus('idle'), 6000)
-    }
-  }
-
-  if (status === 'confirm') {
-    return (
-      <div className="flex items-center gap-1">
-        <span className="text-[11px] text-red-700 font-medium">Tikrai išvalyti?</span>
-        <button onClick={run} className="px-2 py-1 rounded-lg text-xs font-medium bg-red-600 hover:bg-red-700 text-white">Taip</button>
-        <button onClick={() => setStatus('idle')} className="px-2 py-1 rounded-lg text-xs font-medium text-[var(--text-muted)] hover:bg-[var(--bg-hover)]">Ne</button>
-      </div>
-    )
-  }
-
-  const label = status === 'running' ? 'Valoma…'
-              : status === 'done' && result ? `✓ ${result.affected} track'ų`
-              : status === 'error' ? `✗ ${errMsg.slice(0, 30)}`
-              : '✕ Clear YT'
-
-  return (
-    <button
-      type="button"
-      onClick={() => status === 'idle' ? setStatus('confirm') : null}
-      disabled={status === 'running'}
-      className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
-        status === 'done'  ? 'bg-green-50 text-green-700 border border-green-200'
-        : status === 'error' ? 'bg-red-50 text-red-700 border border-red-200'
-        : 'bg-stone-50 hover:bg-stone-100 text-stone-700 border border-stone-200'
-      } disabled:opacity-50`}
-      title="Išvalo video_url, video_views, youtube_searched_at visiems šio atlikėjo track'ams. History snapshot'ai liks. Naudinga kai nori pakartoti enrich'ą su griežtesniu match'u."
-    >
-      {label}
-    </button>
-  )
 }
 
 function WikipediaImportCompact({ onImport, artistName }: { onImport: (data: any) => void; artistName?: string }) {
@@ -1096,9 +674,6 @@ export default function EditArtist() {
 
           <div className="flex items-center gap-1.5 shrink-0">
             <ScoreBadge artistId={artistId} score={artistScore} />
-            <YoutubeClearButton artistId={artistId} onDone={() => setDiscographyKey(k => k + 1)} />
-            <YoutubeEnrichButton artistId={artistId} onDone={() => setDiscographyKey(k => k + 1)} />
-            <RecalcCascadeButton artistId={artistId} />
             <Link href="/admin/artists"
               className="px-3 py-1.5 border border-[var(--input-border)] text-[var(--text-secondary)] rounded-lg text-sm font-medium hover:bg-[var(--bg-hover)] transition-colors">
               Atšaukti
@@ -1154,9 +729,6 @@ export default function EditArtist() {
               setDiscographyKey(k => k + 1)
               fetch(`/api/albums?artist_id=${artistId}&limit=1`).then(r => r.json()).then(d => setAlbumCount(d.total ?? 0)).catch(() => {})
               fetch(`/api/tracks?artist_id=${artistId}&limit=1`).then(r => r.json()).then(d => setTrackCount(d.total ?? null)).catch(() => {})
-              // Cascade-recalc scores for artist + all albums + all tracks.
-              // Fire-and-forget: success state shown next time admin refreshes.
-              fetch(`/api/admin/recalc-artist-cascade?artist_id=${artistId}`, { method: 'POST' }).catch(() => {})
             }}
           />
         )}
@@ -1172,9 +744,6 @@ export default function EditArtist() {
               setDiscographyKey(k => k + 1)
               fetch(`/api/albums?artist_id=${artistId}&limit=1`).then(r => r.json()).then(d => setAlbumCount(d.total ?? 0)).catch(() => {})
               fetch(`/api/tracks?artist_id=${artistId}&limit=1`).then(r => r.json()).then(d => setTrackCount(d.total ?? null)).catch(() => {})
-              // Cascade-recalc scores for artist + all albums + all tracks.
-              // Fire-and-forget: success state shown next time admin refreshes.
-              fetch(`/api/admin/recalc-artist-cascade?artist_id=${artistId}`, { method: 'POST' }).catch(() => {})
             }}
           />
         </div>

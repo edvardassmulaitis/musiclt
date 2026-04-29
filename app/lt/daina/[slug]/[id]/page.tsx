@@ -33,18 +33,12 @@ export default async function TrackPage({ params }: { params: Promise<{ slug: st
       id, slug, title, type, video_url, spotify_id, release_date,
       lyrics, chords, description, show_player, is_new, show_ai_interpretation,
       ai_interpretation, ai_image_url,
-      artist_id, legacy_id, source,
-      score, score_breakdown, peak_chart_position, certifications
+      artist_id, legacy_id, source
     `)
     .eq('id', id)
     .single()
 
   if (!track || track.slug !== slug) notFound()
-
-  // Score'ą rodom tik admin'ams (atskira admin form'a redagavimui).
-  // Public puslapis NIEKADA nerodo score breakdown'o.
-  ;(track as any).score = null
-  ;(track as any).score_breakdown = null
 
   // ── Fetch primary artist ───────────────────────────────────────────────────
   const { data: artistRow } = await supabase
@@ -54,23 +48,6 @@ export default async function TrackPage({ params }: { params: Promise<{ slug: st
     .single()
 
   if (!artistRow) notFound()
-
-  // ── Fetch newest active gallery photo iš artist'o galerijos ──────────────
-  // Naudosim track header'io thumb'ui — galerijos foto dažniausiai yra
-  // didesnės rezoliucijos nei `artists.cover_image_url` (legacy thumb).
-  // Jei galerija tuščia — fallback į cover_image_url.
-  const { data: newestPhoto } = await supabase
-    .from('artist_photos')
-    .select('url')
-    .eq('artist_id', artistRow.id)
-    .eq('is_active', true)
-    .order('taken_at', { ascending: false, nullsFirst: false })
-    .order('id', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  if (newestPhoto?.url) {
-    ;(artistRow as any).profile_thumb_url = newestPhoto.url
-  }
 
   // ── Fetch featuring artists ────────────────────────────────────────────────
   const { data: featuringRows } = await supabase
@@ -96,40 +73,25 @@ export default async function TrackPage({ params }: { params: Promise<{ slug: st
       ...a,
       type: a.type_studio ? 'Studijinis albumas' : (a.type ?? 'Albumas'),
     }))
-    // Sort'inam pagal year asc — seniausias albumas pirmas. Naudojama
-    // release_year fallback'ui (jei track neturi savo year, paimam iš pirmojo).
-    .sort((a: any, b: any) => (a.year || 9999) - (b.year || 9999))
 
-  // ── Track release_year fallback ──────────────────────────────────────────
-  // Music.lt'as track-level release year ne visada pateikia. Bet jei daina
-  // priklauso albumui, naudojam SENIAUSIO albumo year. Geltona. Žalia.
-  // Raudona. (track) → albumas Geltona. Žalia. Raudona. (2008) → year=2008.
-  if (!(track as any).release_year && !(track as any).release_date && albums.length > 0) {
-    const oldestYear = albums.find((a: any) => a.year)?.year
-    if (oldestYear) {
-      ;(track as any).release_year = oldestYear
-    }
-  }
-
-  // ── Fetch likes from unified likes table ──────────────────────────────────
+  // ── Fetch likes ────────────────────────────────────────────────────────────
   const { count: likes } = await supabase
-    .from('likes')
+    .from('track_likes')
     .select('*', { count: 'exact', head: true })
-    .eq('entity_type', 'track')
-    .eq('entity_id', id)
+    .eq('track_id', id)
 
-  // ── Fetch legacy likes from unified table (entity_legacy_id tracking) ──────
+  // ── Fetch legacy likes from music.lt archive ───────────────────────────────
   const trackLegacyId = (track as any).legacy_id ?? null
   const [legacyCntRes, legacyUsersRes] = trackLegacyId
     ? await Promise.all([
         supabase
-          .from('likes')
+          .from('legacy_likes')
           .select('*', { count: 'exact', head: true })
           .eq('entity_type', 'track')
           .eq('entity_legacy_id', trackLegacyId),
         supabase
-          .from('likes')
-          .select('user_username, user_rank, user_avatar_url')
+          .from('legacy_likes')
+          .select('user_username, user_rank')
           .eq('entity_type', 'track')
           .eq('entity_legacy_id', trackLegacyId)
           .order('id', { ascending: true })
@@ -148,20 +110,6 @@ export default async function TrackPage({ params }: { params: Promise<{ slug: st
     .select('id, selection_start, selection_end, selected_text, type, text, likes, created_at')
     .eq('track_id', id)
     .order('created_at', { ascending: true })
-
-  // ── Fetch entity_comments (music.lt komentarai prie dainos) ───────────────
-  // Music.lt'e kiekvienos dainos puslapyje yra "Komentarai (N)" sekcija.
-  // Scraper'is parsina jas į entity_comments lentelę su entity_type='track'
-  // ir entity_legacy_id = music.lt track legacy_id.
-  const trackLegacyIdForComments = (track as any).legacy_id ?? null
-  const { data: entityComments } = trackLegacyIdForComments
-    ? await supabase
-        .from('entity_comments')
-        .select('legacy_id, author_username, author_avatar_url, created_at, content_html, content_text, like_count')
-        .eq('entity_type', 'track')
-        .eq('entity_legacy_id', trackLegacyIdForComments)
-        .order('created_at', { ascending: true })
-    : { data: [] as any[] }
 
   // ── Fetch other versions / remixes ─────────────────────────────────────────
   // Same title base or related by artist, different id
@@ -205,7 +153,6 @@ export default async function TrackPage({ params }: { params: Promise<{ slug: st
       versions={(versionRows ?? []) as any}
       likes={likes ?? 0}
       lyricComments={(lyricComments ?? []) as any}
-      entityComments={(entityComments ?? []) as any}
       trivia={trivia}
       relatedTracks={relatedTracks as any}
       aiInterpretation={(track as any).ai_interpretation ?? null}

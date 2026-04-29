@@ -81,53 +81,7 @@ export async function GET(
     breaks = (breakRows || []).map((b: any) => ({ from: b.year_from ? String(b.year_from) : '', to: b.year_to ? String(b.year_to) : '' }))
   } catch {}
 
-  // Photos: artist_photos lentelė yra vienintelis šaltinis. Legacy JSON
-  // kolumna `artists.photos` jau drop'inta (db-cleanup-atlanta.sql).
-  let photosForUi: any[] = []
-  try {
-    const { data: photoRows } = await supabase
-      .from('artist_photos')
-      .select('id, url, caption, sort_order, is_active, photographer_id, license, source_url, taken_at')
-      .eq('artist_id', id)
-      .order('sort_order', { ascending: true })
-    photosForUi = (photoRows || []).map((p: any) => {
-      // Decode legacy JSON caption ({a, s}) → author + sourceUrl
-      let author = ''
-      let sourceUrl = p.source_url || ''
-      let caption = p.caption || ''
-      if (caption && caption.startsWith('{') && caption.endsWith('}')) {
-        try {
-          const j = JSON.parse(caption)
-          author = j.a || ''
-          if (!sourceUrl) sourceUrl = j.s || ''
-          caption = ''
-        } catch {}
-      }
-      return {
-        id: p.id,
-        url: p.url,
-        author,
-        sourceUrl,
-        license: p.license || '',
-        takenAt: p.taken_at || '',
-        caption,
-        is_active: p.is_active !== false, // null/undef treat as active
-        sort_order: p.sort_order,
-      }
-    })
-  } catch (e: any) {
-    console.error('[GET /artists/:id] photos query failed:', e?.message)
-  }
-
-  return NextResponse.json({
-    ...artist,
-    photos: photosForUi,
-    genres,
-    substyleNames,
-    related,
-    links,
-    breaks,
-  })
+  return NextResponse.json({ ...artist, genres, substyleNames, related, links, breaks })
 }
 
 // ── PATCH /api/artists/[id] ───────────────────────────────────────────────────
@@ -149,9 +103,7 @@ export async function PATCH(
     'name','type','country','description','cover_image_url','cover_image_wide_url','cover_image_position',
     'gender','birth_date','death_date','website','subdomain',
     'is_active','is_verified','type_music','type_film','type_dance','type_books',
-    'show_updated','active_from','active_until','slug',
-    // NB: 'photos' column DROPPED (db-cleanup-atlanta.sql). Photo data
-    // dabar gyvena tik artist_photos lentelėje per /api/artists/[id]/photos PUT.
+    'photos','show_updated','active_from','active_until','slug',
     'facebook','youtube','tiktok','spotify','soundcloud','bandcamp','twitter',
   ]
 
@@ -206,7 +158,7 @@ export async function PATCH(
                 youtube: m.youtube || null, soundcloud: m.soundcloud || null,
                 tiktok: m.tiktok || null, bandcamp: m.bandcamp || null,
                 is_active: true, is_verified: false, show_updated: false,
-                type_music: true, type_film: false, type_dance: false, type_books: false,
+                type_music: true, type_film: false, type_dance: false, type_books: false, photos: [],
               }).select('id').single()
               if (newMember?.id) memberId = newMember.id
             }

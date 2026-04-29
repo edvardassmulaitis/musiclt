@@ -648,15 +648,18 @@ export default function TrackPageClient({
       )}
 
       {/* ── Body — desktop 3-col / tablet 2-col / mobile single ─────────── */}
+      {/* Proporcijos atitinka modal'ą (TrackInfoModal): modal'as turi 860px
+          body lyrics+comments + likusi viewport vieta player'ui. Čia tą patį
+          atkartojam: lyrics ir comments stulpeliai apie po 430px, player
+          stulpelis = likusi 1fr vieta. Anksčiau buvo lygūs 3×1fr — tas darė
+          video stulpelį per siaurą (≈530px @ 1600px), dabar player gauna
+          ≈740px (≈417px aukšto video) ir atitinka modal'o vizualinį svorį. */}
       <div className={[
         'mx-auto w-full max-w-[1600px]',
-        // 1024-1279 (lg only): 2 col grid (lyrics + comments)
-        // 1280+ (xl): 3 col grid (lyrics + comments + player/related)
-        // <1024 (mobile): single col with tab toggle
         'grid grid-cols-1',
         hasLyrics
-          ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]'
-          : 'lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)] xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]',
+          ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-[minmax(0,430px)_minmax(0,430px)_minmax(0,1fr)]'
+          : 'lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)] xl:grid-cols-[minmax(0,430px)_minmax(0,1fr)]',
         'lg:divide-x lg:divide-[var(--border-subtle)]',
       ].join(' ')}>
 

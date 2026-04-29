@@ -2,7 +2,6 @@ import { AuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 import FacebookProvider from 'next-auth/providers/facebook'
 import { createAdminClient } from '@/lib/supabase'
-import { readAnonIdFromCookie, migrateAnonToProfile } from '@/lib/anon-migration'
 
 export const authOptions: AuthOptions = {
   providers: [
@@ -50,31 +49,6 @@ export const authOptions: AuthOptions = {
         } else {
           user.role = existing.role
           user.id = existing.id
-        }
-
-        // Migrate any anonymous signals this device has accumulated into the
-        // now-authenticated profile. Safe/idempotent — re-runs on every sign-in
-        // and skips anything already migrated. Fire-and-forget style: errors
-        // are logged but don't block the sign-in.
-        if (user.id) {
-          try {
-            const anonId = await readAnonIdFromCookie()
-            if (anonId) {
-              // Get the username to pass to migrateAnonToProfile (unified likes requires user_username)
-              const { data: profileData } = await supabase
-                .from('profiles')
-                .select('username')
-                .eq('id', user.id)
-                .single()
-              const userUsername = profileData?.username || `user_${(user.id as string).substring(0, 8)}`
-              const summary = await migrateAnonToProfile(anonId, user.id as string, userUsername)
-              if (summary.artistLikes > 0) {
-                console.log(`[anon-migration] ${user.email}: migrated ${summary.artistLikes} artist like(s)`)
-              }
-            }
-          } catch (e: any) {
-            console.error('[anon-migration] non-fatal error:', e?.message || e)
-          }
         }
       } catch (error) {
         console.error('Supabase error:', error)

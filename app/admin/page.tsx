@@ -8,7 +8,7 @@ export default function AdminDashboardPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [counts, setCounts] = useState<{
-    artists: number; albums: number; tracks: number; news: number; events: number; venues: number
+    artists: number; albums: number; tracks: number; news: number; events: number
     top_pending: number
   } | null>(null)
 
@@ -23,10 +23,9 @@ export default function AdminDashboardPage() {
       fetch('/api/albums?limit=1').then(r => r.json()),
       fetch('/api/tracks?limit=1').then(r => r.json()),
       fetch('/api/news?limit=1').then(r => r.json()),
-      fetch('/api/events?limit=1&showPast=true').then(r => r.json()),
+      fetch('/api/events?limit=1').then(r => r.json()),
       fetch('/api/top/suggestions?status=pending').then(r => r.json()),
-      fetch('/api/venues').then(r => r.json()),
-    ]).then(([ar, al, tr, nw, ev, sg, vn]) => {
+    ]).then(([ar, al, tr, nw, ev, sg]) => {
       setCounts({
         artists: ar.total || 0,
         albums: al.total || 0,
@@ -34,7 +33,6 @@ export default function AdminDashboardPage() {
         news: nw.total || 0,
         events: ev.total || 0,
         top_pending: sg.suggestions?.length || 0,
-        venues: vn.venues?.length || 0,
       })
     })
   }, [isAdmin])
@@ -47,9 +45,7 @@ export default function AdminDashboardPage() {
     { href: '/admin/tracks', newHref: '/admin/tracks/new', icon: '🎵', label: 'Dainos', count: counts?.tracks },
     { href: '/admin/news', newHref: '/admin/news/new', icon: '📰', label: 'Naujienos', count: counts?.news },
     { href: '/admin/events', newHref: '/admin/events/new', icon: '📅', label: 'Renginiai', count: counts?.events },
-    { href: '/admin/venues', newHref: '/admin/venues/new', icon: '📍', label: 'Vietos', count: counts?.venues },
     { href: '/admin/voting', newHref: '/admin/voting', icon: '🗳️', label: 'Balsavimai' },
-    { href: '/admin/boombox', newHref: '/admin/boombox', icon: '🎛️', label: 'Boombox' },
   ]
 
   return (

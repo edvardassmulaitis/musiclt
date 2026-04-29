@@ -214,7 +214,7 @@ function NominationCard({
               : <div className="w-full h-full bg-white/10 flex items-center justify-center text-lg">♪</div>}
           </div>
           <div className="flex-1 min-w-0">
-            <Link href={`/dainos/${track?.artists?.slug}-${track?.slug}-${track?.id}`}
+            <Link href={`/dainos/${track?.slug}`}
               className="text-sm font-bold text-white hover:text-orange-300 transition-colors truncate block">
               {track?.title}
             </Link>
@@ -381,7 +381,7 @@ export default function DienesDainaClient({
                     : <div className="w-full h-full bg-orange-900/30 flex items-center justify-center text-3xl">♪</div>}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <Link href={`/dainos/${yesterdayWinner.tracks?.artists?.slug}-${yesterdayWinner.tracks?.slug}-${yesterdayWinner.tracks?.id}`}
+                  <Link href={`/dainos/${yesterdayWinner.tracks?.slug}`}
                     className="text-2xl font-black text-white hover:text-orange-300 transition-colors block leading-tight mb-1">
                     {yesterdayWinner.tracks?.title}
                   </Link>
@@ -507,7 +507,7 @@ export default function DienesDainaClient({
                       : <div className="w-full h-full bg-white/10 flex items-center justify-center text-xs">♪</div>}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <Link href={`/dainos/${w.tracks?.artists?.slug}-${w.tracks?.slug}-${w.tracks?.id}`}
+                    <Link href={`/dainos/${w.tracks?.slug}`}
                       className="text-sm font-semibold text-white hover:text-orange-300 transition-colors truncate block">
                       {w.tracks?.title}
                     </Link>
