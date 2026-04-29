@@ -96,11 +96,11 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  let trackMap: Record<number, { id: number; title: string; artist: string }> = {}
+  let trackMap: Record<number, { id: number; title: string; artist: string; release_year: number | null; release_date: string | null }> = {}
   if (trackIds.size > 0) {
     const { data: tracks } = await sb
       .from('tracks')
-      .select('id, title, artists:artist_id ( id, name )')
+      .select('id, title, release_year, release_date, artists:artist_id ( id, name )')
       .in('id', Array.from(trackIds))
     for (const t of tracks || []) {
       const artist = Array.isArray((t as any).artists) ? (t as any).artists[0] : (t as any).artists
@@ -108,6 +108,8 @@ export async function GET(req: NextRequest) {
         id: (t as any).id,
         title: (t as any).title,
         artist: artist?.name || '—',
+        release_year: (t as any).release_year,
+        release_date: (t as any).release_date,
       }
     }
   }

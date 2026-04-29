@@ -44,6 +44,7 @@ type CandidateTrack = {
   title: string
   artist_id: number
   release_year: number | null
+  release_date: string | null
   video_url: string | null
   score: number | null
   artist_country: string | null
@@ -55,10 +56,9 @@ async function loadCandidateTracks(
   requireVideo = false,
   limit = 1500,
 ): Promise<CandidateTrack[]> {
-  // We need release_year + artist.country. Hop join.
   let q = sb
     .from('tracks')
-    .select('id, title, artist_id, release_year, video_url, score, artists:artist_id ( id, country )')
+    .select('id, title, artist_id, release_year, release_date, video_url, score, artists:artist_id ( id, country )')
     .order('score', { ascending: false, nullsFirst: false })
     .limit(limit)
 
@@ -67,24 +67,47 @@ async function loadCandidateTracks(
   const { data, error } = await q
   if (error || !data) return []
 
-  const out: CandidateTrack[] = []
+  const tracks: CandidateTrack[] = []
   for (const row of data as any[]) {
     const a = Array.isArray(row.artists) ? row.artists[0] : row.artists
     const country = (a?.country || '').trim().toUpperCase()
     const isLt = country === 'LT' || country === 'LITHUANIA' || country === 'LIETUVA' || country === ''
     if (scope === 'lt' && !isLt) continue
     if (scope === 'foreign' && isLt) continue
-    out.push({
+    tracks.push({
       id: row.id,
       title: row.title,
       artist_id: row.artist_id,
       release_year: row.release_year,
+      release_date: row.release_date,
       video_url: row.video_url,
       score: row.score,
       artist_country: country || null,
     })
   }
-  return out
+
+  // Backfill release_year from album.year for tracks where it's missing
+  const missingYear = tracks.filter(t => t.release_year == null).map(t => t.id)
+  if (missingYear.length > 0) {
+    const { data: links } = await sb
+      .from('album_tracks')
+      .select('track_id, albums:album_id ( year )')
+      .in('track_id', missingYear)
+    const yearByTrack = new Map<number, number>()
+    for (const link of (links as any[]) || []) {
+      const album = Array.isArray(link.albums) ? link.albums[0] : link.albums
+      if (album?.year && !yearByTrack.has(link.track_id)) {
+        yearByTrack.set(link.track_id, album.year)
+      }
+    }
+    for (const t of tracks) {
+      if (t.release_year == null && yearByTrack.has(t.id)) {
+        t.release_year = yearByTrack.get(t.id)!
+      }
+    }
+  }
+
+  return tracks
 }
 
 function shuffle<T>(arr: T[]): T[] {
@@ -116,10 +139,14 @@ function pickPair(
 async function generateDuels(count: number, scope: 'lt' | 'foreign' | 'mixed', adminId: string) {
   const sb = createAdminClient()
   const candidates = await loadCandidateTracks(sb, scope, false)
-  if (candidates.length < 4) return { error: 'Per mažai track\'ų katalog\'e (mažiau nei 4)' }
+  if (candidates.length < 4) {
+    return { error: `Per mažai tinkamų track'ų scope='${scope}' (rasta ${candidates.length}, reikia ≥4)` }
+  }
 
-  const newOnes = shuffle(candidates.filter(t => t.release_year != null && t.release_year >= NEW_THRESHOLD))
-  const oldOnes = shuffle(candidates.filter(t => t.release_year != null && t.release_year <= OLD_THRESHOLD))
+  const withYear = candidates.filter(t => t.release_year != null)
+  const newOnes = shuffle(withYear.filter(t => t.release_year! >= NEW_THRESHOLD))
+  const oldOnes = shuffle(withYear.filter(t => t.release_year! <= OLD_THRESHOLD))
+  const middleOnes = shuffle(withYear.filter(t => t.release_year! > OLD_THRESHOLD && t.release_year! < NEW_THRESHOLD))
 
   const used = new Set<number>()
   // Last sort_order'is — naują rikiuojame į uodegą
@@ -138,11 +165,19 @@ async function generateDuels(count: number, scope: 'lt' | 'foreign' | 'mixed', a
     sequence.push(['new_vs_new', 'old_vs_old', 'old_vs_new'][i % 3] as any)
   }
 
+  // Pool'ai pagal matchup tipą; jei trūksta — fall back į middle (≥OLD ir ≤NEW)
+  // arba paimam visus su year.
+  const allWithYear = shuffle(withYear)
+
   for (const matchup of sequence) {
     let pair: [CandidateTrack, CandidateTrack] | null = null
-    if (matchup === 'new_vs_new') pair = pickPair(newOnes, newOnes, used)
-    else if (matchup === 'old_vs_old') pair = pickPair(oldOnes, oldOnes, used)
-    else pair = pickPair(oldOnes, newOnes, used)
+    if (matchup === 'new_vs_new') {
+      pair = pickPair(newOnes, newOnes, used) || pickPair(allWithYear, allWithYear, used)
+    } else if (matchup === 'old_vs_old') {
+      pair = pickPair(oldOnes, oldOnes, used) || pickPair(middleOnes, middleOnes, used) || pickPair(allWithYear, allWithYear, used)
+    } else {
+      pair = pickPair(oldOnes, newOnes, used) || pickPair(middleOnes, newOnes, used) || pickPair(oldOnes, middleOnes, used) || pickPair(allWithYear, allWithYear, used)
+    }
 
     if (!pair) continue
     used.add(pair[0].id); used.add(pair[1].id)
@@ -156,7 +191,11 @@ async function generateDuels(count: number, scope: 'lt' | 'foreign' | 'mixed', a
     })
   }
 
-  if (inserts.length === 0) return { error: 'Nepavyko parinkti porų — gal trūksta release_year duomenų?' }
+  if (inserts.length === 0) {
+    return {
+      error: `Nepavyko parinkti porų. Diagnostika: rasta ${candidates.length} tracks, su release_year — ${withYear.length} (new=${newOnes.length}, old=${oldOnes.length}, middle=${middleOnes.length}). Galbūt visi tracks tos pačios eros arba tas pats atlikėjas.`
+    }
+  }
 
   const { data, error } = await sb.from('boombox_duel_drops').insert(inserts).select('id')
   if (error) return { error: error.message }
@@ -170,14 +209,21 @@ async function generateVerdicts(count: number, scope: 'lt' | 'foreign' | 'mixed'
   const candidates = await loadCandidateTracks(sb, scope, true) // require video_url
   if (candidates.length === 0) return { error: 'Nėra track\'ų su video_url' }
 
-  // Prefer recent + score
+  // Prefer fresh: release_date paskutiniai 6 mėn → +200, šiandienos metai → +100,
+  // ≤2 metai → +50, kitkas — score'as ramped žemyn.
+  const sixMonthsAgoMs = Date.now() - 1000 * 60 * 60 * 24 * 180
+  const sixMonthsAgo = new Date(sixMonthsAgoMs).toISOString().slice(0, 10)
+
   const scored = candidates
     .filter(t => t.video_url)
-    .map(t => ({
-      t,
-      // Boost: recent (≤2y) +50, score scaled
-      rank: (t.release_year && t.release_year >= NEW_THRESHOLD ? 50 : 0) + (t.score || 0),
-    }))
+    .map(t => {
+      let rank = 0
+      if (t.release_date && t.release_date >= sixMonthsAgo) rank += 200
+      if (t.release_year && t.release_year >= CURRENT_YEAR) rank += 100
+      if (t.release_year && t.release_year >= NEW_THRESHOLD) rank += 50
+      rank += (t.score || 0) * 0.1
+      return { t, rank }
+    })
     .sort((a, b) => b.rank - a.rank)
     .map(x => x.t)
 
