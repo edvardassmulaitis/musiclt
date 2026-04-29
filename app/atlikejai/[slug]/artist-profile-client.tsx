@@ -941,6 +941,12 @@ function TrackInfoModal({
   const trackVid = yt(track?.video_url || null)
   const dockedActive = !!isWideDesktop && !!trackVid
   useEffect(() => { onDockedPlayerChange?.(dockedActive) }, [dockedActive, onDockedPlayerChange])
+  // userNavigated — true po pirmo prev/next click'o. Naudojam tam, kad
+  // pradinio modal'o atidarymo metu iframe nepradėtų groti automatiškai
+  // (autoplay=0), o tik kai useris aktyviai pereina į kitą dainą — gestūra
+  // → autoplay=1, naršyklė leidžia. Reset'inam kai modal'as užda (track=null).
+  const [userNavigated, setUserNavigated] = useState(false)
+  useEffect(() => { if (!track) setUserNavigated(false) }, [track])
 
   useEffect(() => {
     if (track) {
@@ -1012,36 +1018,88 @@ function TrackInfoModal({
     // want to block the hero/player behind the drawer. Clicking anywhere
     // outside the panel dismisses.
     <div
-      className="fixed inset-0 z-[9999]"
-      onClick={(e) => { if (e.target === e.currentTarget) handleClose() }}
+      className={[
+        'fixed inset-0 z-[9999]',
+        // Kai dock aktyvus — modal'as eina fullscreen, grid layout:
+        // top bar (visa eilutė) / [modal panel 860px | video flex-1].
+        // Fone solid bg, kad video tilptų į visą likusį plotą be hero
+        // matomumo už nugaros.
+        dockedActive ? 'grid grid-cols-[860px_minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)] bg-[var(--bg-base)]' : '',
+      ].join(' ')}
+      onClick={(e) => { if (!dockedActive && e.target === e.currentTarget) handleClose() }}
     >
-      {/* Click-outside scrim — be background dimming. Useris norėjo, kad
-          atidarius modal'ą fonas neuztemtų; click'as ant fono vis tiek
-          užda Modal'ą per onClick handler'į. */}
-      <div
-        className="absolute inset-0"
-        onClick={handleClose}
-      />
+      {/* Click-outside scrim — tik kai NE dock režime. Dock'e fullscreen,
+          click outside neturi reikšmės (X mygtukas top bar'e). */}
+      {!dockedActive && (
+        <div
+          className="absolute inset-0"
+          onClick={handleClose}
+        />
+      )}
+
+      {/* Top bar — pilnu ilgiu kai dock aktyvus. Artist thumb + title +
+          dainos pavadinimas + X mygtukas dešinėj. Nereikia rodyti antro
+          header'io modal'o aside'e (žemiau jis paslepiamas). */}
+      {dockedActive && (
+        <div className="col-span-2 flex shrink-0 items-center gap-3 border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-5 py-3">
+          {artistThumbUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={proxyImg(artistThumbUrl)}
+              alt={artistName}
+              referrerPolicy="no-referrer"
+              style={{ objectPosition: 'center top' }}
+              className="h-11 w-11 shrink-0 rounded-xl border border-[var(--border-subtle)] object-cover"
+            />
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="truncate font-['Outfit',sans-serif] text-[17px] font-extrabold leading-tight text-[var(--text-primary)]">
+              {track.title}
+            </div>
+            <div className="mt-0.5 truncate text-[12.5px]">
+              {formatArtistList(
+                { id: -1, slug: artistSlug, name: artistName },
+                track.featuring || [],
+              )}
+            </div>
+          </div>
+          <button
+            onClick={handleClose}
+            aria-label="Uždaryti"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+          >
+            <svg viewBox="0 0 16 16" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+              <path d="M3 3l10 10M13 3L3 13" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       <aside
         role="dialog"
         aria-label={`Apie dainą ${track.title}`}
         className={[
-          // Wider drawer kai turim lyrics → desktop'e telpa split-column
-          // layout (lyrics kairėje, komentarai dešinėje). Be lyrics —
-          // siauresnis (komentarai užima visą plotą be padalijimo).
-          'absolute left-0 top-0 flex h-full w-full flex-col border-r border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[24px_0_60px_-10px_rgba(0,0,0,0.5)]',
-          lyricsText ? 'max-w-[860px]' : 'max-w-[440px]',
-          'transition-transform duration-200 ease-out',
-          mounted ? 'translate-x-0' : '-translate-x-full',
-        ].join(' ')}
+          dockedActive
+            // Fullscreen layout: aside fix'uotas plotis kairėje (860px),
+            // dock'as užims likusią vietą dešinėje (žemiau).
+            ? 'relative flex w-[860px] shrink-0 flex-col border-r border-[var(--border-default)] bg-[var(--bg-surface)]'
+            // Drawer layout: kaip anksčiau, slankioja iš kairės.
+            : [
+                'absolute left-0 top-0 flex h-full w-full flex-col border-r border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[24px_0_60px_-10px_rgba(0,0,0,0.5)]',
+                lyricsText ? 'max-w-[860px]' : 'max-w-[440px]',
+                'transition-transform duration-200 ease-out',
+                mounted ? 'translate-x-0' : '-translate-x-full',
+              ].join(' '),
+        ].filter(Boolean).join(' ')}
       >
         {/* Header — artist'o thumb + title + name + action icons (play/pause,
             external link to full track page, close).
             Profile thumb yra rounded-xl (ne circle) kad nebūtų nukerpamų
             atlikėjo veidų ant kraštų — kvadratuko forma su apvaliais
-            kraštais grąžina maždaug 90% nuotraukos, nepraranda detalių. */}
-        {(() => {
+            kraštais grąžina maždaug 90% nuotraukos, nepraranda detalių.
+            Dock aktyvus → header'io neberodom, nes informacija jau matoma
+            top bar'e viršuj per visą viewport'ą. */}
+        {!dockedActive && (() => {
           const vid = yt(track.video_url)
           const isThisActive = !!vid && activeTrackId === track.id && !!playing
           return (
@@ -1097,30 +1155,10 @@ function TrackInfoModal({
           const isThisActive = !!vid && activeTrackId === track.id && !!playing
           return (
             <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border-subtle)] px-5 py-3">
-              {/* Play/Pauzė chips-row mygtukas — TIK desktop'e. Mobile'e
-                  iframe'as renderinasi automatiškai virš chips eilutės kai
-                  track turi video, useris valdo per YouTube controls.
-                  Anksciau bandėm postMessage pause/play, bet Safari iOS
-                  įvairiose situacijose blokavo komandas. Dabar: simpler =
-                  bulletproof. */}
-              {vid && !isMobile && (onPlay || onPause) && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (isThisActive && onPause) onPause()
-                    else if (onPlay) onPlay(track)
-                  }}
-                  aria-label={isThisActive ? 'Pauzė' : 'Klausyti'}
-                  title={isThisActive ? 'Pauzė' : 'Klausyti'}
-                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white shadow-[0_4px_14px_rgba(249,115,22,0.35)] transition-transform hover:scale-105"
-                >
-                  {isThisActive ? (
-                    <svg viewBox="0 0 24 24" width={14} height={14} fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
-                  ) : (
-                    <svg viewBox="0 0 24 24" width={14} height={14} fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
-                  )}
-                </button>
-              )}
+              {/* Play/Pauzė mygtukas pašalintas — useris valdo per YouTube
+                  iframe'o native UI tiek mobile'e, tiek desktop'e (dock'uotame
+                  player'yje arba hero player'yje). Tas pats elgesys per
+                  visas plotformas, mažiau state machine'os. */}
               <LikePill
                 likes={likes}
                 selfLiked={selfLiked}
@@ -1317,58 +1355,51 @@ function TrackInfoModal({
             perkelti į header'į (aukščiau). */}
       </aside>
 
-      {/* DOCKED PLAYER — desktop'e (≥1280px) šalia modal'o, dešinėje pusėje.
-          Idėja: useris naviguoja per dainos turinį (lyrics, komentarai)
-          modal'e, o player'is lieka stable matomas + grojantis. Switching
-          per prev/next mygtukus → modal'as gauna naujo track'o duomenis,
-          player'is atsinaujina su nauju iframe (key=trackVid). */}
+      {/* DOCKED PLAYER — fullscreen layout dešinėj kolonoj (grid col 2).
+          Video iframe centered vertikaliai, fills available width. Prev /
+          Next mygtukai virš video.
+          Initial atidarymas: autoplay=0 — useris pats spaudžia YT play.
+          Po prev/next click'o: autoplay=1 (userio gestūra → naršyklės
+          leidžia). */}
       {dockedActive && trackVid && mounted && (
-        <aside
-          className="absolute left-[860px] top-0 hidden h-full w-[420px] flex-col border-r border-[var(--border-default)] bg-[var(--bg-elevated)] shadow-[24px_0_60px_-10px_rgba(0,0,0,0.5)] xl:flex"
-          style={{ transition: 'transform 200ms ease-out', transform: 'translateX(0)' }}
-        >
-          {/* Track navigation toolbar — prev / current title / next.
-              Title clickable nieko nedaro (track jau matomas modal'e), bet
-              parodo aktyvią dainą tarp navigation mygtukų. */}
-          <div className="flex shrink-0 items-center gap-2 border-b border-[var(--border-subtle)] px-3 py-2">
+        <div className="row-start-2 col-start-2 flex flex-col items-center justify-center gap-4 overflow-hidden p-6">
+          {/* Track navigation toolbar */}
+          <div className="flex w-full max-w-[1200px] items-center gap-3">
             <button
               type="button"
-              onClick={() => onPrevTrack?.()}
+              onClick={() => { setUserNavigated(true); onPrevTrack?.() }}
               disabled={!onPrevTrack}
               aria-label="Ankstesnė daina"
               title="Ankstesnė daina"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-30"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-30"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" /></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" /></svg>
             </button>
             <div className="min-w-0 flex-1 text-center">
-              <div className="truncate font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]" title={track.title}>
+              <div className="truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]" title={track.title}>
                 {track.title}
               </div>
-              <div className="truncate text-[10.5px] font-bold text-[var(--text-muted)]">
+              <div className="truncate text-[11.5px] font-bold text-[var(--text-muted)]">
                 {artistName}
               </div>
             </div>
             <button
               type="button"
-              onClick={() => onNextTrack?.()}
+              onClick={() => { setUserNavigated(true); onNextTrack?.() }}
               disabled={!onNextTrack}
               aria-label="Kita daina"
               title="Kita daina"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-30"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-30"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z" /></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z" /></svg>
             </button>
           </div>
-          {/* Iframe — autoplay=1 + key=trackVid kad pakeistume video kai
-              switching tarp dainų. Gestūra (mygtuko paspaudimas modal'e
-              prieš naują track'ą) išliko per parent state — autoplay'us
-              gali būti blokuotas tik first-load'e Safari, bet desktop
-              naršyklėse (Chrome/Firefox/Edge) leidžia. */}
-          <div className="aspect-video w-full bg-black">
+          {/* Iframe — užima visa likusi pločio plotis išlaikydamas 16:9 ratio.
+              max-w 1200 atrodo natūraliai prie 1920px viewport'o. */}
+          <div className="aspect-video w-full max-w-[1200px] overflow-hidden rounded-xl bg-black shadow-[0_24px_60px_-12px_rgba(0,0,0,0.5)]">
             <iframe
               key={`docked-${trackVid}`}
-              src={`https://www.youtube.com/embed/${trackVid}?autoplay=1&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3`}
+              src={`https://www.youtube.com/embed/${trackVid}?autoplay=${userNavigated ? 1 : 0}&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3`}
               title={`${track.title} — ${artistName}`}
               className="h-full w-full"
               referrerPolicy="strict-origin-when-cross-origin"
@@ -1376,17 +1407,7 @@ function TrackInfoModal({
               allowFullScreen
             />
           </div>
-          {/* Hint — skatina explorinti turinį modal'e. */}
-          <div className="flex-1 overflow-y-auto px-4 py-4">
-            <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
-              Player'is
-            </div>
-            <div className="mt-2 text-[12px] leading-relaxed text-[var(--text-muted)]">
-              Naviguok tarp dainų ↤ ↦ mygtukais. Modal'e dešinėj galim skaityti tekstą, palikti
-              komentarus ir reaguoti į eilutes — player'is groja toliau.
-            </div>
-          </div>
-        </aside>
+        </div>
       )}
 
       {/* Likers modal — atsidaro paspaudus LikePill count'ą. Z-index aukštesnis
