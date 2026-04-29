@@ -14,6 +14,7 @@ import LyricsWithReactions from '@/components/LyricsWithReactions'
 import { proxyImg } from '@/lib/img-proxy'
 import { formatArtistList } from '@/lib/format-artists'
 import DropBar from '@/components/DropBar'
+import AlbumInfoModal from '@/components/AlbumInfoModal'
 
 /* ═══════════════════════════════════════════════════════════════════
    Artist profile — v10.
@@ -2985,7 +2986,7 @@ function MobileFilterRow({
 
 // ── AlbumCard ──────────────────────────────────────────────────────
 
-function AlbumCard({ a, popularity, artistSlug, maxPop }: { a: Album; popularity?: number; artistSlug?: string; maxPop?: number }) {
+function AlbumCard({ a, popularity, artistSlug, maxPop, onOpen }: { a: Album; popularity?: number; artistSlug?: string; maxPop?: number; onOpen?: (a: Album) => void }) {
   const type = aType(a)
   const href = artistSlug ? `/albumai/${artistSlug}-${a.slug}-${a.id}` : `/albumai/${a.slug}-${a.id}`
   const [coverFailed, setCoverFailed] = useState(false)
@@ -3002,8 +3003,12 @@ function AlbumCard({ a, popularity, artistSlug, maxPop }: { a: Album; popularity
   const albumPop = (maxPop && maxPop > 0)
     ? popLevelRelative(value, maxPop)
     : (typeof popularity === 'number' ? popularity : 0)
-  return (
-    <Link href={href} className="group block no-underline">
+  // Modal-mode: jei parent perdavė `onOpen` callback, atidarom slide-in
+  // modal'ą nepalikus artist page'o. Antraip — fallback į Link (legacy /
+  // direct-link case'as kai komponentas naudojamas iš kitur).
+  const cardClassName = 'group block w-full cursor-pointer border-0 bg-transparent p-0 text-left no-underline'
+  const inner = (
+    <>
       <div className="relative overflow-hidden rounded-lg border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)] group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]">
         <div className="aspect-square">
           {showCover ? (
@@ -3039,6 +3044,23 @@ function AlbumCard({ a, popularity, artistSlug, maxPop }: { a: Album; popularity
         <div className="truncate font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--text-primary)] sm:text-[12px]">{a.title}</div>
         {albumPop > 0 && <PopBar level={albumPop} />}
       </div>
+    </>
+  )
+  if (onOpen) {
+    return (
+      <button
+        type="button"
+        onClick={() => onOpen(a)}
+        aria-label={`Atidaryti albumą ${a.title}`}
+        className={cardClassName}
+      >
+        {inner}
+      </button>
+    )
+  }
+  return (
+    <Link href={href} className={cardClassName}>
+      {inner}
     </Link>
   )
 }
@@ -3682,6 +3704,9 @@ export default function ArtistProfileClient({
   const [pid, setPid] = useState<number | null>(null)
   const [playing, setPlaying] = useState(false)
   const [trackInfoOpen, setTrackInfoOpen] = useState<Track | null>(null)
+  // AlbumInfoModal — slide-in drawer'is su album turiniu. Saugom tik
+  // hint'ą (id + title + cover) — modal'as pats fetch'ina pilnus duomenis.
+  const [albumModalOpen, setAlbumModalOpen] = useState<Album | null>(null)
   const [eventsModalOpen, setEventsModalOpen] = useState(false)
   const [discussionsModalOpen, setDiscussionsModalOpen] = useState(false)
   const [activeThread, setActiveThread] = useState<LegacyThread | null>(null)
@@ -4036,6 +4061,34 @@ export default function ArtistProfileClient({
         })()}
       />
 
+      <AlbumInfoModal
+        albumId={albumModalOpen?.id ?? null}
+        preview={albumModalOpen ? {
+          title: albumModalOpen.title,
+          cover_image_url: (albumModalOpen as any).cover_image_url || null,
+          year: albumModalOpen.year ?? null,
+        } : null}
+        onClose={() => setAlbumModalOpen(null)}
+        onMobileInlineChange={setModalUsesInline}
+        onDockedPlayerChange={setModalUsesDocked}
+        onPrev={(() => {
+          if (!albumModalOpen) return null
+          // Cikliškai pereinam per visibleAlbums (tas pats sąrašas, kurį
+          // useris matė discography section'e). Wrap'inasi į galą.
+          if (albums.length < 2) return null
+          const idx = albums.findIndex(a => a.id === albumModalOpen.id)
+          const prev = idx <= 0 ? albums[albums.length - 1] : albums[idx - 1]
+          return () => setAlbumModalOpen(prev)
+        })()}
+        onNext={(() => {
+          if (!albumModalOpen) return null
+          if (albums.length < 2) return null
+          const idx = albums.findIndex(a => a.id === albumModalOpen.id)
+          const next = idx < 0 || idx >= albums.length - 1 ? albums[0] : albums[idx + 1]
+          return () => setAlbumModalOpen(next)
+        })()}
+      />
+
       {lightboxIndex !== null && galleryPhotos.length > 0 && (
         <Lightbox
           photos={galleryPhotos}
@@ -4276,7 +4329,7 @@ export default function ArtistProfileClient({
                         className="w-[46vw] max-w-[180px] shrink-0"
                         style={{ scrollSnapAlign: 'start' }}
                       >
-                        <AlbumCard a={a} artistSlug={artist.slug} maxPop={maxAlbumPop} popularity={popLevel(i, visibleAlbums.length)} />
+                        <AlbumCard a={a} artistSlug={artist.slug} maxPop={maxAlbumPop} popularity={popLevel(i, visibleAlbums.length)} onOpen={setAlbumModalOpen} />
                       </div>
                     ))}
                   </div>
@@ -4285,7 +4338,7 @@ export default function ArtistProfileClient({
                       ir low-res quality nesimatytų. */}
                   <div className="hidden gap-3 sm:grid sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
                     {visibleAlbums.map((a, i) => (
-                      <AlbumCard key={a.id} a={a} artistSlug={artist.slug} maxPop={maxAlbumPop} popularity={popLevel(i, visibleAlbums.length)} />
+                      <AlbumCard key={a.id} a={a} artistSlug={artist.slug} maxPop={maxAlbumPop} popularity={popLevel(i, visibleAlbums.length)} onOpen={setAlbumModalOpen} />
                     ))}
                   </div>
                 </>
