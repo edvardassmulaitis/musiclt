@@ -865,6 +865,7 @@ function TrackInfoModal({
   track, artistName, artistSlug, artistThumbUrl, onClose, onPlay, onPause,
   activeTrackId, playing, onMobileInlineChange,
   onPrevTrack, onNextTrack, onDockedPlayerChange,
+  artistTracks, onSelectTrack,
 }: {
   track: Track | null; artistName: string; artistSlug: string
   /** Artist'o profilio nuotrauka headeryje šalia title + name. */
@@ -890,6 +891,12 @@ function TrackInfoModal({
   /** Fires when the modal renders a docked player on desktop (≥1280px) —
    *  parent suppresses the hero player to avoid duplicate audio. */
   onDockedPlayerChange?: (active: boolean) => void
+  /** All artist tracks — naudojam dock'e kaip "Daugiau iš {atlikėjo}"
+   *  rekomendacijų sąrašą. Modal'as pats filtruoja ir surūšiuoja. */
+  artistTracks?: Track[]
+  /** Direct switch to any track — naudojam kai useris paspaudžia
+   *  dock'o "panašios dainos" sąrašo įrašą. */
+  onSelectTrack?: (t: Track) => void
 }) {
   // We use an internal `mounted` flag so the slide-out animation gets a chance
   // to run before the component unmounts. When a new track replaces the
@@ -939,7 +946,10 @@ function TrackInfoModal({
     return () => m.removeEventListener('change', h)
   }, [])
   const trackVid = yt(track?.video_url || null)
-  const dockedActive = !!isWideDesktop && !!trackVid
+  // Dock matomas wide desktop'e visada — nesvarbu ar dabartinis track'as
+  // turi video. Be video atvejis rodo placeholder'į + "Daugiau iš atlikėjo"
+  // sąrašą, su kuriuo useris gali peršokti į kitą dainą.
+  const dockedActive = !!isWideDesktop
   useEffect(() => { onDockedPlayerChange?.(dockedActive) }, [dockedActive, onDockedPlayerChange])
   // userNavigated — true po pirmo prev/next click'o. Naudojam tam, kad
   // pradinio modal'o atidarymo metu iframe nepradėtų groti automatiškai
@@ -1427,57 +1437,132 @@ function TrackInfoModal({
       </aside>
 
       {/* DOCKED PLAYER — fullscreen layout dešinėj kolonoj (grid col 2).
-          Struktūra: KLAUSYTI label + prev/next inline'ai vienoje header'io
-          eilutėj BODY'jo viršuj. Body padding'ai identiški modal'o
-          lyrics/comments cols (px-5 py-5), tai KLAUSYTI label atsiduria
-          tiksliai tame pačiame y lygyje kaip DAINOS TEKSTAS ir KOMENTARAI.
-          Trys vienodos zonos pagal vizualinį ritmą.
-          Initial atidarymas: autoplay=0. Po prev/next: autoplay=1. */}
-      {dockedActive && trackVid && mounted && (
-        <div className="row-start-2 col-start-2 flex flex-col overflow-hidden bg-[var(--bg-surface)] px-5 py-5">
-          {/* Header'io eilutė — KLAUSYTI label kairėj, prev/next mygtukai
-              šalia, kompaktiškai sugrupuoti. */}
-          <div className="flex items-center gap-2.5">
-            <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
-              Klausyti
+          Trys sluoksniai: header (KLAUSYTI + prev/next), video iframe arba
+          placeholder, "Daugiau iš {atlikėjas}" rekomendacijų sąrašas.
+          Body padding'ai identiški modal'o lyrics/comments cols, tai
+          KLAUSYTI atsiduria tame pačiame y kaip DAINOS TEKSTAS / KOMENTARAI.
+          Initial atidarymas: autoplay=0. Po prev/next ar list click: autoplay=1. */}
+      {dockedActive && mounted && (() => {
+        // Compute related tracks — same artist tracks WITH video, sorted by
+        // score desc, excluding current track. Cap at 8 so it scrolls nicely.
+        const candidates = (artistTracks || [])
+          .filter(t => t.id !== track.id && yt(t.video_url))
+          .slice(0, 8)
+        return (
+          <div className="row-start-2 col-start-2 flex flex-col overflow-hidden bg-[var(--bg-surface)] px-5 py-5">
+            {/* Header — KLAUSYTI + prev/next */}
+            <div className="flex shrink-0 items-center gap-2.5">
+              <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                Klausyti
+              </div>
+              <button
+                type="button"
+                onClick={() => { setUserNavigated(true); onPrevTrack?.() }}
+                disabled={!onPrevTrack}
+                aria-label="Ankstesnė daina"
+                title="Ankstesnė daina"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-30"
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" /></svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setUserNavigated(true); onNextTrack?.() }}
+                disabled={!onNextTrack}
+                aria-label="Kita daina"
+                title="Kita daina"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-30"
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z" /></svg>
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => { setUserNavigated(true); onPrevTrack?.() }}
-              disabled={!onPrevTrack}
-              aria-label="Ankstesnė daina"
-              title="Ankstesnė daina"
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-30"
-            >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" /></svg>
-            </button>
-            <button
-              type="button"
-              onClick={() => { setUserNavigated(true); onNextTrack?.() }}
-              disabled={!onNextTrack}
-              aria-label="Kita daina"
-              title="Kita daina"
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-30"
-            >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z" /></svg>
-            </button>
-          </div>
-          {/* Iframe — užima visą likusią aukštį, max-w 1200, vertikaliai centered. */}
-          <div className="mt-3 flex flex-1 items-center justify-center">
-            <div className="aspect-video w-full max-w-[1200px] overflow-hidden rounded-xl bg-black shadow-[0_24px_60px_-12px_rgba(0,0,0,0.5)]">
-              <iframe
-                key={`docked-${trackVid}`}
-                src={`https://www.youtube.com/embed/${trackVid}?autoplay=${userNavigated ? 1 : 0}&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3`}
-                title={`${track.title} — ${artistName}`}
-                className="h-full w-full"
-                referrerPolicy="strict-origin-when-cross-origin"
-                allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-                allowFullScreen
-              />
+
+            {/* Video area — iframe kai trackVid yra, kitaip placeholder.
+                flex-1 → užima visą likusią vietą virš sąrašo. */}
+            <div className="mt-3 flex flex-1 items-center justify-center overflow-hidden">
+              {trackVid ? (
+                <div className="aspect-video w-full max-w-[1200px] overflow-hidden rounded-xl bg-black shadow-[0_24px_60px_-12px_rgba(0,0,0,0.5)]">
+                  <iframe
+                    key={`docked-${trackVid}`}
+                    src={`https://www.youtube.com/embed/${trackVid}?autoplay=${userNavigated ? 1 : 0}&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3`}
+                    title={`${track.title} — ${artistName}`}
+                    className="h-full w-full"
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                    allowFullScreen
+                  />
+                </div>
+              ) : (
+                <div className="flex w-full max-w-[1200px] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-elevated)] py-16 text-center">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--card-bg)] ring-1 ring-[var(--border-subtle)]">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--text-muted)]">
+                      <path d="M23 7l-7 5 7 5V7z" />
+                      <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                    </svg>
+                  </div>
+                  <div className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                    Vaizdo įrašo nėra
+                  </div>
+                  <div className="text-[12px] text-[var(--text-muted)]">
+                    Pasirink kitą dainą iš sąrašo žemiau.
+                  </div>
+                </div>
+              )}
             </div>
+
+            {/* Related tracks — "Daugiau iš {atlikėjas}".
+                Be video — list'as natūraliai gauna daugiau aukšcio. */}
+            {candidates.length > 0 && (
+              <div className="mt-4 shrink-0">
+                <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                  Daugiau iš {artistName}
+                </div>
+                <div className={[
+                  'flex gap-2 overflow-x-auto pb-1',
+                  '[scrollbar-width:thin]',
+                ].join(' ')}>
+                  {candidates.map(t => {
+                    const tvid = yt(t.video_url)
+                    const thumb = tvid ? `https://i.ytimg.com/vi/${tvid}/mqdefault.jpg` : null
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => { setUserNavigated(true); onSelectTrack?.(t) }}
+                        title={t.title}
+                        className="group flex w-[180px] shrink-0 flex-col gap-1.5 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1.5 text-left transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+                      >
+                        <div className="aspect-video w-full overflow-hidden rounded bg-black">
+                          {thumb && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={thumb}
+                              alt=""
+                              referrerPolicy="no-referrer"
+                              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
+                            />
+                          )}
+                        </div>
+                        <div className="px-1">
+                          <div className="truncate font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]">
+                            {t.title}
+                          </div>
+                          {(t.like_count || 0) > 0 && (
+                            <div className="mt-0.5 inline-flex items-center gap-1 text-[10.5px] font-bold text-[var(--text-muted)]">
+                              <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
+                              {t.like_count}
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Likers modal — atsidaro paspaudus LikePill count'ą. Z-index aukštesnis
           už drawer'į, kad būtų matomas viršuje. */}
@@ -3908,9 +3993,11 @@ export default function ArtistProfileClient({
         artistName={artist.name}
         artistSlug={artist.slug}
         artistThumbUrl={artist.cover_image_url}
+        artistTracks={tracks}
         onClose={() => setTrackInfoOpen(null)}
         onPlay={(t) => { setPid(t.id); setPlaying(true) }}
         onPause={() => setPlaying(false)}
+        onSelectTrack={(t) => { setPid(t.id); setPlaying(true); setTrackInfoOpen(t) }}
         onMobileInlineChange={setModalUsesInline}
         onDockedPlayerChange={setModalUsesDocked}
         activeTrackId={pid}
