@@ -98,7 +98,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   })
 
   const details: EnrichResult[] = []
-  let searched = 0, foundNew = 0, viewsUpdated = 0, errors = 0
+  let searched = 0, foundNew = 0, skipped = 0, viewsUpdated = 0, errors = 0
 
   for (const row of toProcess) {
     const r = await enrichTrack((row as any).id, force)
@@ -108,8 +108,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const placeholder: EnrichResult = {
         ok: true,
         trackId: (row as any).id,
+        trackTitle: null,
         videoId: null, videoUrl: null,
-        wasSearched: false, wasFound: false,
+        videoTitle: null, videoChannel: null, matchScore: null,
+        wasSearched: false, wasFound: false, skipReason: null,
         viewsBefore: null, viewsAfter: null, viewsDelta: null,
         historyId: null,
         warnings: [`enrichTrack failed: ${r.error}`],
@@ -119,6 +121,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
     if (r.wasSearched) searched++
     if (r.wasFound) foundNew++
+    if (r.skipReason) skipped++
     if (r.viewsAfter !== null) viewsUpdated++
     details.push(r)
 
@@ -133,6 +136,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     processed: toProcess.length,
     searched,
     foundNew,
+    skipped,        // search'inom, bet nė vienas kandidatas nesiekė threshold'o
     viewsUpdated,
     errors,
     details,

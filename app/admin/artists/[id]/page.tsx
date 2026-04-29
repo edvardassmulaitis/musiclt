@@ -127,12 +127,13 @@ function TrackRow({ track, onDelete, onEnriched }: { track: any; onDelete?: () =
   const hasLyrics = typeof track.lyrics === 'string' && track.lyrics.trim().length > 0
   const featuring: string[] = (track.featuring || []).map((f: any) => typeof f === 'string' ? f : f.name || '')
   const [confirmDel, setConfirmDel] = useState(false)
-  const [ytStatus, setYtStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
+  const [ytStatus, setYtStatus] = useState<'idle' | 'running' | 'found' | 'skipped' | 'error'>('idle')
+  const [ytTooltip, setYtTooltip] = useState<string | null>(null)
   const views = formatViews(track.video_views)
 
   const runYtEnrich = async () => {
     if (!trackId) return
-    setYtStatus('running')
+    setYtStatus('running'); setYtTooltip(null)
     try {
       const r = await fetch(`/api/admin/yt/track/${trackId}/enrich`, {
         method: 'POST',
@@ -141,12 +142,24 @@ function TrackRow({ track, onDelete, onEnriched }: { track: any; onDelete?: () =
       })
       const j = await r.json()
       if (!r.ok || !j.ok) throw new Error(j?.error || 'fail')
-      setYtStatus('done')
       onEnriched?.({ video_url: j.videoUrl, video_views: j.viewsAfter ?? undefined })
-      setTimeout(() => setYtStatus('idle'), 3000)
-    } catch {
+      if (j.wasFound) {
+        setYtStatus('found')
+        setYtTooltip(`✓ ${j.videoTitle || ''} · ${j.videoChannel || ''} (score ${j.matchScore ?? '?'})`)
+      } else if (j.skipReason) {
+        setYtStatus('skipped')
+        setYtTooltip(`↷ ${j.skipReason}${j.videoTitle ? ` — top: ${j.videoTitle} · ${j.videoChannel}` : ''}`)
+      } else if (j.viewsAfter !== null) {
+        setYtStatus('found')
+        setYtTooltip(`👁 atnaujintos peržiūros: ${j.viewsAfter?.toLocaleString?.() || j.viewsAfter}`)
+      } else {
+        setYtStatus('skipped')
+        setYtTooltip('Nieko naujo (jau turėjo video, peržiūros šviežios)')
+      }
+      // No auto-reset — admin sees the reason until next interaction
+    } catch (e: any) {
       setYtStatus('error')
-      setTimeout(() => setYtStatus('idle'), 3000)
+      setYtTooltip(e?.message || 'fail')
     }
   }
 
@@ -171,13 +184,14 @@ function TrackRow({ track, onDelete, onEnriched }: { track: any; onDelete?: () =
       {trackId && (
         <button onClick={e => { e.stopPropagation(); runYtEnrich() }}
           disabled={ytStatus === 'running'}
-          className={`opacity-0 group-hover:opacity-100 shrink-0 px-1 py-0.5 text-[10px] rounded transition-all ${
-            ytStatus === 'done' ? 'bg-green-100 text-green-700 opacity-100'
+          className={`shrink-0 px-1 py-0.5 text-[10px] rounded transition-all ${
+            ytStatus === 'found' ? 'bg-green-100 text-green-700 opacity-100'
+            : ytStatus === 'skipped' ? 'bg-amber-100 text-amber-700 opacity-100'
             : ytStatus === 'error' ? 'bg-red-100 text-red-700 opacity-100'
-            : 'text-[var(--text-faint)] hover:text-blue-600 hover:bg-blue-50'
+            : 'opacity-0 group-hover:opacity-100 text-[var(--text-faint)] hover:text-blue-600 hover:bg-blue-50'
           }`}
-          title="Iš naujo paimti YouTube video + peržiūras">
-          {ytStatus === 'running' ? '…' : ytStatus === 'done' ? '✓' : ytStatus === 'error' ? '✗' : 'YT'}
+          title={ytTooltip || 'Iš naujo paimti YouTube video + peržiūras'}>
+          {ytStatus === 'running' ? '…' : ytStatus === 'found' ? '✓' : ytStatus === 'skipped' ? '↷' : ytStatus === 'error' ? '✗' : 'YT'}
         </button>
       )}
       {onDelete && trackId && (
@@ -620,17 +634,47 @@ function RecalcCascadeButton({ artistId }: { artistId: string }) {
   )
 }
 
+type YtEnrichDetail = {
+  trackId: number
+  trackTitle?: string | null
+  videoId: string | null
+  videoUrl: string | null
+  videoTitle?: string | null
+  videoChannel?: string | null
+  matchScore?: number | null
+  wasSearched: boolean
+  wasFound: boolean
+  skipReason?: string | null
+  viewsBefore: number | null
+  viewsAfter: number | null
+  viewsDelta: number | null
+  warnings?: string[]
+}
+
+type YtEnrichSummary = {
+  totalTracks: number
+  processed: number
+  searched: number
+  foundNew: number
+  skipped: number
+  viewsUpdated: number
+  errors: number
+  details: YtEnrichDetail[]
+}
+
 /** Bulk YouTube enrichment for one artist — calls /api/admin/yt/artist/[id]/enrich.
  *  Per click: search'inam track'us be video_url + atnaujinam visų views snapshot'us
- *  (jei senesni nei 30 d. arba dar netikrinti). Server-side, sync — UX'as: spinner +
- *  inline summary po baigimo. Pilot artist'ams (50 track'ų) trunka ~60-90s. */
+ *  (jei senesni nei 30 d. arba dar netikrinti). Po baigimo summary lieka kaip
+ *  „peržiūrėti rezultatus" mygtukas — atidaro FullscreenModal su detaliu sąrašu
+ *  (kurie rasta, kurie praleista ir kodėl, klaidos). */
 function YoutubeEnrichButton({ artistId, onDone }: { artistId: string; onDone?: () => void }) {
   const [status, setStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
-  const [result, setResult] = useState<{ found: number; views: number; errors: number; total: number } | null>(null)
+  const [summary, setSummary] = useState<YtEnrichSummary | null>(null)
   const [errMsg, setErrMsg] = useState('')
+  const [showResults, setShowResults] = useState(false)
 
   const run = async () => {
-    setStatus('running'); setResult(null); setErrMsg('')
+    setStatus('running'); setSummary(null); setErrMsg(''); setShowResults(false)
     try {
       const r = await fetch(`/api/admin/yt/artist/${artistId}/enrich`, {
         method: 'POST',
@@ -639,43 +683,181 @@ function YoutubeEnrichButton({ artistId, onDone }: { artistId: string; onDone?: 
       })
       const j = await r.json()
       if (!r.ok || !j.ok) throw new Error(j?.error || 'fail')
-      setResult({
-        found: j.foundNew ?? 0,
-        views: j.viewsUpdated ?? 0,
+      setSummary({
+        totalTracks: j.totalTracks ?? 0,
+        processed: j.processed ?? 0,
+        searched: j.searched ?? 0,
+        foundNew: j.foundNew ?? 0,
+        skipped: j.skipped ?? 0,
+        viewsUpdated: j.viewsUpdated ?? 0,
         errors: j.errors ?? 0,
-        total: j.processed ?? 0,
+        details: j.details || [],
       })
       setStatus('done')
       onDone?.()
-      setTimeout(() => setStatus('idle'), 8000)
+      // NIEKO neauto-clear'inam — lieka tol kol pakraunam puslapį arba paspaudžiam vėl
     } catch (e: any) {
       setErrMsg(e?.message || 'fail')
       setStatus('error')
-      setTimeout(() => setStatus('idle'), 6000)
+      setTimeout(() => setStatus('idle'), 8000)
     }
   }
 
-  const label = status === 'running' ? 'YT ieško…'
-              : status === 'done' && result
-                ? `✓ +${result.found} video / ${result.views} views${result.errors ? ` (${result.errors} klaidos)` : ''}`
-              : status === 'error' ? `✗ ${errMsg.slice(0, 30)}`
-              : '▶ YT enrich'
+  const summaryLabel = summary
+    ? `✓ ${summary.foundNew}+${summary.skipped}↷ ${summary.viewsUpdated}👁${summary.errors ? ` ${summary.errors}✗` : ''}`
+    : ''
 
   return (
-    <button
-      type="button"
-      onClick={run}
-      disabled={status === 'running'}
-      className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
-        status === 'done'  ? 'bg-green-50 text-green-700 border border-green-200'
-        : status === 'error' ? 'bg-red-50 text-red-700 border border-red-200'
-        : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
-      } disabled:opacity-50`}
-      title="Surasti YouTube video + atnaujinti peržiūrų skaičius visiems track'ams"
-    >
-      {label}
-    </button>
+    <>
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          onClick={run}
+          disabled={status === 'running'}
+          className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
+            status === 'error' ? 'bg-red-50 text-red-700 border border-red-200'
+            : status === 'done' ? 'bg-green-50 text-green-700 border border-green-200'
+            : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
+          } disabled:opacity-50`}
+          title="Surasti YouTube video + atnaujinti peržiūras visiems track'ams. Praleidžia low-confidence match'us — geriau tuščia negu klaidinga."
+        >
+          {status === 'running' ? <><span className="w-3 h-3 border-2 border-rose-300 border-t-rose-700 rounded-full animate-spin" /> YT ieško…</>
+            : status === 'error' ? `✗ ${errMsg.slice(0, 30)}`
+            : '▶ YT enrich'}
+        </button>
+        {summary && status === 'done' && (
+          <button
+            type="button"
+            onClick={() => setShowResults(true)}
+            className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200"
+            title="Peržiūrėti detalius rezultatus"
+          >
+            {summaryLabel}
+          </button>
+        )}
+      </div>
+      {showResults && summary && (
+        <FullscreenModal onClose={() => setShowResults(false)} title={`YouTube enrich rezultatai`} maxWidth="max-w-4xl">
+          <YtEnrichResults summary={summary} />
+        </FullscreenModal>
+      )}
+    </>
   )
+}
+
+/** Detali results lentelė — sukategorizuoja track'us pagal outcome. */
+function YtEnrichResults({ summary }: { summary: YtEnrichSummary }) {
+  const found = summary.details.filter(d => d.wasFound)
+  const skipped = summary.details.filter(d => d.skipReason)
+  const updatedViewsOnly = summary.details.filter(d => !d.wasSearched && d.viewsAfter !== null)
+  const errors = summary.details.filter(d => d.warnings && d.warnings.length > 0 && !d.wasFound && !d.skipReason)
+
+  return (
+    <div className="p-4 space-y-5 text-sm">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+        <Stat label="Iš viso track'ų" value={summary.totalTracks} />
+        <Stat label="Apdorota" value={summary.processed} />
+        <Stat label="Naujai rasta" value={summary.foundNew} tone="green" />
+        <Stat label="Praleista" value={summary.skipped} tone="amber" />
+        <Stat label="Views update'inta" value={summary.viewsUpdated} tone="blue" />
+      </div>
+
+      {found.length > 0 && (
+        <Section title={`✓ Rasta naujų video (${found.length})`} tone="green">
+          {found.map(d => (
+            <Row key={d.trackId}>
+              <div className="min-w-0 flex-1">
+                <div className="font-medium text-[var(--text-primary)] truncate">{d.trackTitle || `#${d.trackId}`}</div>
+                <div className="text-xs text-[var(--text-muted)] truncate">→ {d.videoTitle} <span className="text-[var(--text-faint)]">· {d.videoChannel}</span></div>
+              </div>
+              {d.matchScore !== undefined && d.matchScore !== null && <span className="text-xs tabular-nums text-green-700 shrink-0">score {d.matchScore}</span>}
+              {d.viewsAfter !== null && <span className="text-xs tabular-nums text-blue-700 shrink-0">{d.viewsAfter.toLocaleString()} 👁</span>}
+              {d.videoUrl && <a href={d.videoUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline shrink-0">↗</a>}
+            </Row>
+          ))}
+        </Section>
+      )}
+
+      {skipped.length > 0 && (
+        <Section title={`↷ Praleista — žemo confidence (${skipped.length})`} tone="amber">
+          <p className="px-3 py-1 text-[11px] text-amber-800/70">
+            Pirmas YouTube paieškos kandidatas neatitiko match threshold'o (artist/track tokenai title/channel'yje, duration sanity). Track liko be video_url — galima rankiniu būdu suvesti per /admin/tracks/[id].
+          </p>
+          {skipped.map(d => (
+            <Row key={d.trackId}>
+              <div className="min-w-0 flex-1">
+                <div className="font-medium text-[var(--text-primary)] truncate">{d.trackTitle || `#${d.trackId}`}</div>
+                <div className="text-xs text-[var(--text-muted)] truncate">{d.skipReason}</div>
+                {d.videoTitle && <div className="text-[11px] text-[var(--text-faint)] truncate">top kandidatas: {d.videoTitle} · {d.videoChannel}</div>}
+              </div>
+              {d.matchScore !== undefined && d.matchScore !== null && <span className="text-xs tabular-nums text-amber-700 shrink-0">score {d.matchScore}</span>}
+            </Row>
+          ))}
+        </Section>
+      )}
+
+      {updatedViewsOnly.length > 0 && (
+        <Section title={`👁 Atnaujintos peržiūros (${updatedViewsOnly.length})`} tone="blue">
+          {updatedViewsOnly.map(d => (
+            <Row key={d.trackId}>
+              <div className="min-w-0 flex-1">
+                <div className="font-medium text-[var(--text-primary)] truncate">{d.trackTitle || `#${d.trackId}`}</div>
+              </div>
+              <span className="text-xs tabular-nums text-blue-700 shrink-0">{d.viewsAfter?.toLocaleString()}</span>
+              {d.viewsDelta !== null && d.viewsDelta !== 0 && (
+                <span className={`text-xs tabular-nums shrink-0 ${d.viewsDelta > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {d.viewsDelta > 0 ? '+' : ''}{d.viewsDelta.toLocaleString()}
+                </span>
+              )}
+            </Row>
+          ))}
+        </Section>
+      )}
+
+      {errors.length > 0 && (
+        <Section title={`✗ Klaidos (${errors.length})`} tone="red">
+          {errors.map(d => (
+            <Row key={d.trackId}>
+              <div className="min-w-0 flex-1">
+                <div className="font-medium text-[var(--text-primary)] truncate">{d.trackTitle || `#${d.trackId}`}</div>
+                {(d.warnings || []).map((w, i) => (
+                  <div key={i} className="text-[11px] text-red-700 truncate">⚠ {w}</div>
+                ))}
+              </div>
+            </Row>
+          ))}
+        </Section>
+      )}
+
+      {found.length === 0 && skipped.length === 0 && updatedViewsOnly.length === 0 && errors.length === 0 && (
+        <div className="text-center text-[var(--text-muted)] py-8">Nieko nepasikeitė — visi track'ai jau turėjo video_url ir pakankamai šviežias peržiūras.</div>
+      )}
+    </div>
+  )
+}
+
+function Stat({ label, value, tone }: { label: string; value: number; tone?: 'green' | 'amber' | 'blue' }) {
+  const toneCls = tone === 'green' ? 'text-green-700' : tone === 'amber' ? 'text-amber-700' : tone === 'blue' ? 'text-blue-700' : 'text-[var(--text-primary)]'
+  return (
+    <div className="bg-white border border-[var(--input-border)] rounded-lg p-2">
+      <div className="text-[10px] uppercase tracking-wide text-[var(--text-faint)]">{label}</div>
+      <div className={`text-lg font-bold tabular-nums ${toneCls}`}>{value}</div>
+    </div>
+  )
+}
+
+function Section({ title, tone, children }: { title: string; tone: 'green' | 'amber' | 'blue' | 'red'; children: React.ReactNode }) {
+  const toneCls = tone === 'green' ? 'border-green-200 bg-green-50/30' : tone === 'amber' ? 'border-amber-200 bg-amber-50/30' : tone === 'blue' ? 'border-blue-200 bg-blue-50/30' : 'border-red-200 bg-red-50/30'
+  return (
+    <div className={`border rounded-lg overflow-hidden ${toneCls}`}>
+      <div className="px-3 py-1.5 text-xs font-semibold border-b border-current/10">{title}</div>
+      <div className="divide-y divide-current/5">{children}</div>
+    </div>
+  )
+}
+
+function Row({ children }: { children: React.ReactNode }) {
+  return <div className="flex items-center gap-2 px-3 py-1.5">{children}</div>
 }
 
 function WikipediaImportCompact({ onImport, artistName }: { onImport: (data: any) => void; artistName?: string }) {

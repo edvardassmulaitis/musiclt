@@ -8,14 +8,21 @@
  */
 import { createAdminClient } from './supabase'
 import { searchYouTube, getVideoDetails, extractVideoIdFromUrl } from './yt-innertube'
+import { pickBestMatch, YT_MATCH_THRESHOLD } from './yt-match'
 
 export type EnrichResult = {
   ok: true
   trackId: number
+  trackTitle?: string | null
   videoId: string | null
   videoUrl: string | null
+  videoTitle?: string | null
+  videoChannel?: string | null
+  matchScore?: number | null
   wasSearched: boolean
   wasFound: boolean
+  /** Buvo darytas search ir gauta kandidatų, bet nė vienas nesiekė threshold'o. */
+  skipReason?: string | null
   viewsBefore: number | null
   viewsAfter: number | null
   viewsDelta: number | null
@@ -64,8 +71,12 @@ export async function enrichTrack(trackId: number, force = false): Promise<Enric
 
   let videoUrl: string | null = (t.video_url as string | null) || null
   let videoId: string | null = extractVideoIdFromUrl(videoUrl)
+  let videoTitle: string | null = null
+  let videoChannel: string | null = null
+  let matchScore: number | null = null
   let wasSearched = false
   let wasFound = false
+  let skipReason: string | null = null
   const updates: Record<string, any> = {}
 
   const shouldSearch = !videoUrl && (force || !t.youtube_searched_at)
@@ -76,17 +87,32 @@ export async function enrichTrack(trackId: number, force = false): Promise<Enric
     } else {
       try {
         const results = await searchYouTube(`${artistName} ${t.title}`)
-        const first = results[0]
-        if (first?.videoId) {
-          videoId = first.videoId
-          videoUrl = `https://www.youtube.com/watch?v=${first.videoId}`
+        const outcome = pickBestMatch(artistName, t.title, results)
+        if (outcome.ok) {
+          const pick = outcome.pick
+          videoId = pick.videoId
+          videoUrl = `https://www.youtube.com/watch?v=${pick.videoId}`
+          videoTitle = pick.title
+          videoChannel = pick.channel
+          matchScore = pick.score
           updates.video_url = videoUrl
           wasFound = true
+        } else {
+          // Buvo kandidatų, bet nė vienas nesiekė confidence threshold'o.
+          skipReason = outcome.reason
+          // Patogus debugui — top kandidatas, kurio neassigninom.
+          const topRanked = outcome.ranked[0]
+          if (topRanked) {
+            videoTitle = topRanked.title
+            videoChannel = topRanked.channel
+            matchScore = topRanked.score
+          }
         }
       } catch (e: any) {
         warnings.push(`Search klaida: ${String(e?.message || e).slice(0, 120)}`)
       }
-      // Pažymim, kad ieškojom — net jei nerado.
+      // Pažymim, kad ieškojom — net jei nerado / atmetėm. Force pass'as
+      // gali iš naujo tikrinti, jei vėliau patikslinam threshold'ą.
       updates.youtube_searched_at = new Date().toISOString()
     }
   }
@@ -140,10 +166,15 @@ export async function enrichTrack(trackId: number, force = false): Promise<Enric
   return {
     ok: true,
     trackId,
+    trackTitle: t.title || null,
     videoId,
     videoUrl,
+    videoTitle,
+    videoChannel,
+    matchScore,
     wasSearched,
     wasFound,
+    skipReason,
     viewsBefore,
     viewsAfter,
     viewsDelta,
@@ -151,3 +182,6 @@ export async function enrichTrack(trackId: number, force = false): Promise<Enric
     warnings: warnings.length ? warnings : undefined,
   }
 }
+
+export { YT_MATCH_THRESHOLD }
+
