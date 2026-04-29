@@ -6,7 +6,7 @@
  * Atskirta į lib'ą, kad route'ai nereikėtų importuoti vienas kito
  * (Next.js App Router'e route.ts importas iš route.ts nestabilus).
  */
-import { createClient } from '@supabase/supabase-js'
+import { createAdminClient } from './supabase'
 import { searchYouTube, getVideoDetails, extractVideoIdFromUrl } from './yt-innertube'
 
 export type EnrichResult = {
@@ -25,14 +25,9 @@ export type EnrichResult = {
 
 export type EnrichError = { ok: false; error: string; trackId: number }
 
-let _client: ReturnType<typeof createClient> | null = null
+let _client: ReturnType<typeof createAdminClient> | null = null
 function svc() {
-  if (!_client) {
-    _client = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
-  }
+  if (!_client) _client = createAdminClient()
   return _client
 }
 
@@ -108,8 +103,8 @@ export async function enrichTrack(trackId: number, force = false): Promise<Enric
         updates.video_views = details.viewCount
         updates.video_views_checked_at = new Date().toISOString()
 
-        const { data: hist, error: hErr } = await supabase
-          .from('track_video_views_history')
+        const { data: hist, error: hErr } = await (supabase
+          .from('track_video_views_history') as any)
           .insert({ track_id: trackId, video_id: videoId, views: details.viewCount })
           .select('id')
           .single()
@@ -129,8 +124,8 @@ export async function enrichTrack(trackId: number, force = false): Promise<Enric
   }
 
   if (Object.keys(updates).length > 0) {
-    const { error: uErr } = await supabase
-      .from('tracks')
+    const { error: uErr } = await (supabase
+      .from('tracks') as any)
       .update(updates)
       .eq('id', trackId)
     if (uErr) {

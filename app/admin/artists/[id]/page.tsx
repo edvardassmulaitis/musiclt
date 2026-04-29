@@ -620,6 +620,64 @@ function RecalcCascadeButton({ artistId }: { artistId: string }) {
   )
 }
 
+/** Bulk YouTube enrichment for one artist — calls /api/admin/yt/artist/[id]/enrich.
+ *  Per click: search'inam track'us be video_url + atnaujinam visų views snapshot'us
+ *  (jei senesni nei 30 d. arba dar netikrinti). Server-side, sync — UX'as: spinner +
+ *  inline summary po baigimo. Pilot artist'ams (50 track'ų) trunka ~60-90s. */
+function YoutubeEnrichButton({ artistId, onDone }: { artistId: string; onDone?: () => void }) {
+  const [status, setStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
+  const [result, setResult] = useState<{ found: number; views: number; errors: number; total: number } | null>(null)
+  const [errMsg, setErrMsg] = useState('')
+
+  const run = async () => {
+    setStatus('running'); setResult(null); setErrMsg('')
+    try {
+      const r = await fetch(`/api/admin/yt/artist/${artistId}/enrich`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshViews: true, refreshAfterDays: 30 }),
+      })
+      const j = await r.json()
+      if (!r.ok || !j.ok) throw new Error(j?.error || 'fail')
+      setResult({
+        found: j.foundNew ?? 0,
+        views: j.viewsUpdated ?? 0,
+        errors: j.errors ?? 0,
+        total: j.processed ?? 0,
+      })
+      setStatus('done')
+      onDone?.()
+      setTimeout(() => setStatus('idle'), 8000)
+    } catch (e: any) {
+      setErrMsg(e?.message || 'fail')
+      setStatus('error')
+      setTimeout(() => setStatus('idle'), 6000)
+    }
+  }
+
+  const label = status === 'running' ? 'YT ieško…'
+              : status === 'done' && result
+                ? `✓ +${result.found} video / ${result.views} views${result.errors ? ` (${result.errors} klaidos)` : ''}`
+              : status === 'error' ? `✗ ${errMsg.slice(0, 30)}`
+              : '▶ YT enrich'
+
+  return (
+    <button
+      type="button"
+      onClick={run}
+      disabled={status === 'running'}
+      className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
+        status === 'done'  ? 'bg-green-50 text-green-700 border border-green-200'
+        : status === 'error' ? 'bg-red-50 text-red-700 border border-red-200'
+        : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
+      } disabled:opacity-50`}
+      title="Surasti YouTube video + atnaujinti peržiūrų skaičius visiems track'ams"
+    >
+      {label}
+    </button>
+  )
+}
+
 function WikipediaImportCompact({ onImport, artistName }: { onImport: (data: any) => void; artistName?: string }) {
   const [open, setOpen] = useState(false)
   return (
@@ -792,6 +850,7 @@ export default function EditArtist() {
 
           <div className="flex items-center gap-1.5 shrink-0">
             <ScoreBadge artistId={artistId} score={artistScore} />
+            <YoutubeEnrichButton artistId={artistId} onDone={() => setDiscographyKey(k => k + 1)} />
             <RecalcCascadeButton artistId={artistId} />
             <Link href="/admin/artists"
               className="px-3 py-1.5 border border-[var(--input-border)] text-[var(--text-secondary)] rounded-lg text-sm font-medium hover:bg-[var(--bg-hover)] transition-colors">
