@@ -657,7 +657,7 @@ export default function AlbumInfoModal({
                         </button>
                         {artist && (
                           <Link
-                            href={`/lt/daina/${t.slug}/${t.id}`}
+                            href={`/dainos/${artist?.slug || ''}-${t.slug || t.id}-${t.id}`}
                             aria-label={`Atidaryti ${t.title}`}
                             title="Atidaryti dainą"
                             className="hidden h-7 w-7 shrink-0 items-center justify-center rounded-full text-[var(--text-faint)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--accent-orange)] sm:flex"

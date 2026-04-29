@@ -29,6 +29,18 @@ function sanitizeTitle(raw: string): string {
   return raw.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
+/** Quick LT-aware slugify — naudoja tas pačias char mappings kaip server-side
+ *  slugify (lib/supabase-artists.ts). Track DB row'ai ne visada turi slug,
+ *  todėl URL'ą generuojam iš title — trailing -{id} segmento route handler
+ *  vis tiek išskaidys tikslų track'ą + redirect'ins į canonical su DB slug'u. */
+function quickSlugify(s: string): string {
+  return s.toLowerCase()
+    .replace(/[ąä]/g, 'a').replace(/[čç]/g, 'c').replace(/[ęè]/g, 'e')
+    .replace(/[ėé]/g, 'e').replace(/[į]/g, 'i').replace(/[š]/g, 's')
+    .replace(/[ų]/g, 'u').replace(/[ū]/g, 'u').replace(/[ž]/g, 'z')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'track'
+}
+
 function smartTruncate(text: string, maxLen: number): string {
   if (!text || text.length <= maxLen) return text
   const cut = text.slice(0, maxLen)
@@ -1282,9 +1294,11 @@ export default function Home() {
                         </div>
                       )) : tracks.filter(t => sanitizeTitle(t.title)).slice(startIdx, startIdx + 10).map(t => {
                         // API'as grąžina ir `artists.slug` (nested) ir `artist_slug` (flat alias).
-                        // Naudojam bet kurį, kuris bus apibrėžtas, kad URL'as visada teisingas.
+                        // Track slug DB'e gali būti null — fallback'inam į client-side
+                        // slugify(title), nes route handler trailing-{id} ir taip
+                        // redirect'ins į canonical URL su DB slug'u.
                         const artistSlug = t.artists?.slug || (t as any).artist_slug
-                        const tSlug = (t as any).slug || 'track'
+                        const tSlug = (t as any).slug || quickSlugify(sanitizeTitle(t.title))
                         const href = artistSlug ? `/dainos/${artistSlug}-${tSlug}-${t.id}` : `/dainos/${tSlug}-${t.id}`
                         return (
                           <Link
@@ -1327,7 +1341,7 @@ export default function Home() {
                         </div>
                       )) : albums.slice(startIdx, startIdx + 7).map(a => {
                         const artistSlug = a.artists?.slug || (a as any).artist_slug
-                        const aSlug = (a as any).slug || 'album'
+                        const aSlug = (a as any).slug || quickSlugify(sanitizeTitle(a.title))
                         const href = artistSlug ? `/albumai/${artistSlug}-${aSlug}-${a.id}` : `/albumai/${aSlug}-${a.id}`
                         return (
                           <Link
