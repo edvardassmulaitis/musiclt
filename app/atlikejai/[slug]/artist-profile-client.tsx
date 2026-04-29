@@ -905,7 +905,17 @@ function TrackInfoModal({
   // pranešam per `onMobileInlineChange`, kad jis suppress'intų hero — kitaip
   // audio dvigubintų.
   const [isMobile, setIsMobile] = useState(false)
-  const [mobileInline, setMobileInline] = useState(false)
+  // Mobile inline player'io state machine:
+  //   'inactive' — iframe nemount'intas, button rodo Klausyti
+  //   'playing' — iframe mounted (autoplay=1), button rodo Pauzė
+  //   'paused' — iframe vis dar mounted, postMessage pauseVideo siųstas,
+  //              button rodo Klausyti (bet iframe lieka — užtenka playVideo
+  //              postMessage'ą, kad atsinaujintų be reload).
+  // Anksciau buvo bool, tai kai useris paspausdavo Pauzę, mes unmount'indavom
+  // iframe — userio reportas: „spaudziant pause, jis paslepia video modale".
+  type MobilePlayState = 'inactive' | 'playing' | 'paused'
+  const [mobileState, setMobileState] = useState<MobilePlayState>('inactive')
+  const mobileIframeRef = useRef<HTMLIFrameElement | null>(null)
   useEffect(() => {
     const m = window.matchMedia('(max-width: 1023px)')
     setIsMobile(m.matches)
@@ -913,9 +923,24 @@ function TrackInfoModal({
     m.addEventListener('change', h)
     return () => m.removeEventListener('change', h)
   }, [])
-  useEffect(() => { onMobileInlineChange?.(mobileInline) }, [mobileInline, onMobileInlineChange])
-  // Reset inline player kai track keičiasi arba modal'as užda.
-  useEffect(() => { setMobileInline(false) }, [track?.id])
+  // Mounted = playing arba paused (abu — iframe DOM'e). Tai pranešam parent'ui,
+  // kad jis suppress'intų hero player'į (kitaip audio dvigubėtų — nes hero
+  // taip pat sukuria savo iframe'ą jei `playing` flag aktyvus).
+  const mobileInlineMounted = mobileState !== 'inactive'
+  useEffect(() => { onMobileInlineChange?.(mobileInlineMounted) }, [mobileInlineMounted, onMobileInlineChange])
+  // Reset inline player kai track keičiasi.
+  useEffect(() => { setMobileState('inactive') }, [track?.id])
+  /** YT IFrame postMessage helper — leidžia valdyti play/pause be iframe
+   *  unmount'inimo (kuris reload'intų video). enablejsapi=1 src'e + origin
+   *  match'as reikalingas, kad YouTube priimtų komandą. */
+  const sendYTCommand = (cmd: 'playVideo' | 'pauseVideo') => {
+    try {
+      mobileIframeRef.current?.contentWindow?.postMessage(
+        JSON.stringify({ event: 'command', func: cmd, args: [] }),
+        'https://www.youtube.com'
+      )
+    } catch { /* silent */ }
+  }
 
   useEffect(() => {
     if (track) {
@@ -1073,19 +1098,31 @@ function TrackInfoModal({
           return (
             <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border-subtle)] px-5 py-3">
               {vid && (onPlay || onPause) && (() => {
-                // Mobile'e "active" iconai eina pagal mobileInline state'ą,
-                // ne pagal hero playing — tai jei useris paspaudžia Klausyti
-                // mobile'e, ikona iš karto perjungia į pauzę (nelaukia hero).
-                const isActiveForIcon = isMobile ? mobileInline : isThisActive
+                // Mobile play/pause logika trim būsenom (žr. mobileState):
+                //   - inactive → tap → 'playing' (mount iframe + autoplay=1)
+                //   - playing  → tap → 'paused' (postMessage pauseVideo,
+                //                                iframe LIEKA matomas)
+                //   - paused   → tap → 'playing' (postMessage playVideo)
+                // Iframe niekada neunmount'inamas tarp playing/paused —
+                // anksciau pause unmount'indavo, video dingdavo, useris
+                // skundėsi „spaudziant pause, jis paslepia video".
+                const isActiveForIcon = isMobile
+                  ? mobileState === 'playing'
+                  : isThisActive
                 return (
                   <button
                     type="button"
                     onClick={() => {
                       if (isMobile) {
-                        // Mobile: toggle inline iframe; nesivelti į hero
-                        // playing state'a (parent suppress'ina hero kai
-                        // mobileInline aktyvus, kad audio nedvigubintų).
-                        setMobileInline(v => !v)
+                        if (mobileState === 'inactive') {
+                          setMobileState('playing')
+                        } else if (mobileState === 'playing') {
+                          sendYTCommand('pauseVideo')
+                          setMobileState('paused')
+                        } else {
+                          sendYTCommand('playVideo')
+                          setMobileState('playing')
+                        }
                         return
                       }
                       // Desktop: original flow — hero player handle.
@@ -1179,15 +1216,24 @@ function TrackInfoModal({
         {/* Mobile inline player — fullscreen modal'as mobile'e dengia hero
             player'į, todėl renderinam paprastą iframe'ą čia (lg:hidden, kad
             desktop'e neužimtų vietos). Hero parent suppressed via
-            onMobileInlineChange flag → audio neturi dvigubėt. */}
+            onMobileInlineChange flag → audio nedvigubės.
+            Iframe LIEKA mounted tarp playing/paused state'ų — pause'ui
+            naudojam postMessage('pauseVideo'), ne unmount'inimą. Tai išvengia
+            video reload'o ir vizualiai natūraliau (video lieka matomas,
+            tiesiog stabdomas). */}
         {(() => {
           const vid = yt(track.video_url)
-          if (!isMobile || !mobileInline || !vid) return null
+          if (!isMobile || !mobileInlineMounted || !vid) return null
+          // origin reikalingas, kad YouTube postMessage saugumo ribose priimtų
+          // mūsų komandas (be jo komandos drop'inamos).
+          const origin = typeof window !== 'undefined' ? window.location.origin : ''
+          const src = `https://www.youtube.com/embed/${vid}?autoplay=1&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1${origin ? `&origin=${encodeURIComponent(origin)}` : ''}`
           return (
             <div className="aspect-video w-full shrink-0 overflow-hidden bg-black lg:hidden">
               <iframe
+                ref={mobileIframeRef}
                 key={`mobile-inline-${vid}`}
-                src={`https://www.youtube.com/embed/${vid}?autoplay=1&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3`}
+                src={src}
                 title={`${track.title} — ${artistName}`}
                 className="h-full w-full"
                 referrerPolicy="strict-origin-when-cross-origin"

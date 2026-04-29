@@ -666,12 +666,19 @@ function FloatingPopover({
     if (!r) return
     const h = r.offsetHeight
     const w = r.offsetWidth
-    const room = window.innerHeight - rect.bottom
+    const roomBelow = window.innerHeight - rect.bottom
+    const roomAbove = rect.top
+    const fitsBelow = roomBelow >= h + 16
+    const fitsAbove = roomAbove >= h + 16
+    // Selection apatinėj viewport'o pusėj — popover'as eis virš teksto, kad
+    // composer'is + reagavimo mygtukai būtų patogiai pasiekiami (anksčiau
+    // jie atsidarydavo žemiau, nuriedidavo už ekrano krašto).
+    const isInBottomHalf = rect.top > window.innerHeight * 0.55
     let placement: 'below' | 'above' = 'below'
     let top = rect.bottom + 8
-    if (room < h + 16 && rect.top > h + 16) {
+    if ((!fitsBelow && fitsAbove) || (isInBottomHalf && fitsAbove)) {
       placement = 'above'
-      top = rect.top - h - 8
+      top = Math.max(8, rect.top - h - 8)
     }
     let left = Math.max(8, Math.min(window.innerWidth - w - 8, rect.left))
     setPos({ top, left, placement })

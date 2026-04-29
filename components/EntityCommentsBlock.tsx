@@ -923,7 +923,7 @@ export default function EntityCommentsBlock({
                             className="ml-auto inline-flex items-center gap-1 rounded-full border border-[rgba(239,68,68,0.3)] bg-[rgba(239,68,68,0.08)] px-2 py-0.5 font-['Outfit',sans-serif] text-[10.5px] font-extrabold text-[#ef4444] transition-colors hover:border-[#ef4444] hover:bg-[rgba(239,68,68,0.16)]"
                           >
                             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m-9 0v14a2 2 0 002 2h6a2 2 0 002-2V6" /></svg>
-                            {isModern ? 'Pašalinti' : 'Slėpti'}
+                            {label}
                           </button>
                         )
                       })()}
