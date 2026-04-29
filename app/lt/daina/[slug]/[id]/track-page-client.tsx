@@ -510,7 +510,7 @@ export default function TrackPageClient({
               aria-label={`Grįžti pas ${artist.name}`}
               title={`Grįžti pas ${artist.name}`}
               className="group relative shrink-0 overflow-hidden rounded-xl border border-[var(--border-subtle)] transition-all hover:border-[var(--accent-orange)] hover:shadow-[0_0_0_3px_rgba(249,115,22,0.18)]"
-              style={{ width: 64, height: 64 }}
+              style={{ width: 88, height: 88 }}
             >
               {thumbSrc ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -549,7 +549,6 @@ export default function TrackPageClient({
             )}
           </div>
           <div className="mt-0.5 truncate text-[12px] sm:text-[12.5px]">
-            <span className="text-[var(--text-faint)]">{trackTypeLabel} · </span>
             {artistLine}
           </div>
           {/* Reactions row — atskira nuo title/artistas tipografijos */}
