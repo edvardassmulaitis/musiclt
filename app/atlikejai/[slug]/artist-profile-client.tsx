@@ -13,6 +13,7 @@ import MusicSearchPicker, { AttachmentChips, type AttachmentHit } from '@/compon
 import LyricsWithReactions from '@/components/LyricsWithReactions'
 import { proxyImg } from '@/lib/img-proxy'
 import { formatArtistList } from '@/lib/format-artists'
+import DropBar from '@/components/DropBar'
 
 /* ═══════════════════════════════════════════════════════════════════
    Artist profile — v10.
@@ -1079,6 +1080,10 @@ function TrackInfoModal({
                 onOpenModal={() => setLikersOpen(true)}
                 variant="surface"
               />
+              {/* DropBar — emoji reakcijos: 🔥 🐐 😭 😬. Proporcinis bar'as
+                  rodo distribuciją, click'as pažymi (toggle off paspaudus
+                  tą pačią). Anonim'ams veikia per session_fp cookie. */}
+              <DropBar trackId={track.id} compact />
             </div>
             <div className="mt-0.5 truncate text-[12.5px]">
               {formatArtistList(

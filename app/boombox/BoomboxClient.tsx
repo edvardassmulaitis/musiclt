@@ -26,14 +26,15 @@ type Props = {
 
 type Stage = 'landing' | 'image' | 'duel' | 'verdict' | 'drops' | 'summary'
 
-// Unified 4-emoji reaction set — covers full spectrum.
-// 🔥 (banger / energiška) skiriasi nuo ❤️ (like, palieka kitur svetainėj),
-// 😂 čia atspindi "smagu" / "linksma" — tinka ir memams, ir dainoms.
+// Unified 4-emoji reaction set — naudojam verdiktui, drops'ams ir vėliau
+// site-wide track reakcijoms. Pakeičia ❤️ (kuris turi būti like'ui), padengia
+// platų spektrą: degantis hit'as / aukščiausia pagarba / emocingas /
+// asmeniškai ne.
 const REACTION_SET: Array<{ emoji: string; label: string }> = [
-  { emoji: '🔥', label: 'banger' },
-  { emoji: '😂', label: 'smagu' },
-  { emoji: '🥱', label: 'nuobodu' },
-  { emoji: '👎', label: 'ne' },
+  { emoji: '🔥', label: 'fire' },
+  { emoji: '🐐', label: 'GOAT' },
+  { emoji: '😭', label: 'emocija' },
+  { emoji: '😬', label: 'ne man' },
 ]
 
 const MATCHUP_LABEL: Record<DuelDrop['matchup_type'], string> = {
@@ -382,17 +383,55 @@ function Cassette({ playing = false, size = 160 }: { playing?: boolean; size?: n
   )
 }
 
-// ─── Stage progress (full-width fill bar + step counter) ───
+// ─── Stage progress — cassette tape with rotating reels ───
 
-function StageHeader({ idx, total, label }: { idx: number; total: number; label?: string }) {
-  const pct = total > 0 ? (idx / (total + 1)) * 100 : 0
+function StageHeader({ idx, total }: { idx: number; total: number }) {
+  // Tape fills proportionally to (idx-0.5) of total — užima >0% nuo pradžios,
+  // 100% kai paskutinė misija atlikta.
+  const pct = total > 0 ? Math.max(((idx - 0.5) / total) * 100, 8) : 0
   return (
     <header className="bb-topbar bb-topbar-stage">
-      <div className="bb-progress-track-thin">
-        <div className="bb-progress-fill-thin" style={{ width: `${Math.max(pct, 8)}%` }} />
-      </div>
+      <CassetteProgressBar pct={pct} />
       <span className="bb-step-counter">{idx} / {total}</span>
     </header>
+  )
+}
+
+function CassetteProgressBar({ pct }: { pct: number }) {
+  return (
+    <svg viewBox="0 0 240 24" className="bb-cassette-bar" aria-hidden preserveAspectRatio="none">
+      {/* Tape line — base */}
+      <line x1="14" y1="12" x2="226" y2="12" stroke="var(--border-default)" strokeWidth="2.5" strokeLinecap="round" />
+      {/* Tape line — fill (orange gradient) */}
+      <defs>
+        <linearGradient id="bbBarGrad" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="var(--accent-orange)" />
+          <stop offset="1" stopColor="#fbbf24" />
+        </linearGradient>
+      </defs>
+      <line
+        x1="14" y1="12"
+        x2={14 + (212 * Math.min(Math.max(pct, 0), 100)) / 100}
+        y2="12"
+        stroke="url(#bbBarGrad)"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+      />
+      {/* Left reel */}
+      <g className="bb-bar-reel" style={{ transformOrigin: '14px 12px' }}>
+        <circle cx="14" cy="12" r="9" fill="var(--bg-elevated)" stroke="var(--accent-orange)" strokeWidth="1.5" />
+        <circle cx="14" cy="12" r="2.5" fill="var(--accent-orange)" />
+        <line x1="14" y1="5" x2="14" y2="3.5" stroke="var(--accent-orange)" strokeWidth="1.4" strokeLinecap="round" />
+        <line x1="14" y1="20.5" x2="14" y2="19" stroke="var(--accent-orange)" strokeWidth="1.4" strokeLinecap="round" />
+      </g>
+      {/* Right reel */}
+      <g className="bb-bar-reel" style={{ transformOrigin: '226px 12px' }}>
+        <circle cx="226" cy="12" r="9" fill="var(--bg-elevated)" stroke="var(--accent-orange)" strokeWidth="1.5" />
+        <circle cx="226" cy="12" r="2.5" fill="var(--accent-orange)" />
+        <line x1="226" y1="5" x2="226" y2="3.5" stroke="var(--accent-orange)" strokeWidth="1.4" strokeLinecap="round" />
+        <line x1="226" y1="20.5" x2="226" y2="19" stroke="var(--accent-orange)" strokeWidth="1.4" strokeLinecap="round" />
+      </g>
+    </svg>
   )
 }
 
@@ -786,9 +825,12 @@ function SummaryStage({ sessionXp, streak, isAuthenticated, results }: {
       </header>
 
       <main className="bb-stage-main">
-        <div className="bb-summary-card">
-          <div className="bb-xp-big">+{sessionXp}</div>
-          <div className="bb-xp-label">taškai šiandien</div>
+        <div className="bb-summary-cassette">
+          <Cassette playing size={220} />
+          <div className="bb-summary-overlay">
+            <div className="bb-xp-big">+{sessionXp}</div>
+            <div className="bb-xp-label">taškai šiandien</div>
+          </div>
         </div>
 
         <div className="bb-recap-list">
@@ -972,13 +1014,9 @@ const boomboxCss = `
   .bb-stage-tag { font-size: 10px; color: var(--text-muted); letter-spacing: 2px; text-transform: uppercase; font-weight: 700; }
   .bb-step-counter { font-size: 11px; color: var(--text-muted); font-weight: 600; white-space: nowrap; }
 
-  .bb-topbar-stage .bb-progress-track-thin {
-    flex: 1; height: 3px; background: var(--border-default); border-radius: 2px; overflow: hidden;
-  }
-  .bb-progress-fill-thin {
-    height: 100%; background: linear-gradient(90deg, var(--accent-orange), #fbbf24);
-    border-radius: 2px; transition: width 0.4s cubic-bezier(.2,.8,.2,1);
-  }
+  /* Cassette tape progress bar */
+  .bb-cassette-bar { flex: 1; height: 24px; display: block; }
+  .bb-bar-reel { animation: bbReelSpin 2.4s linear infinite; }
 
   /* Landing */
   .bb-landing-main {
@@ -1169,10 +1207,14 @@ const boomboxCss = `
 
   /* Summary */
   .bb-summary-screen .bb-stage-main { gap: 10px; overflow-y: auto; }
-  .bb-summary-card {
-    background: linear-gradient(135deg, rgba(249,115,22,0.10), rgba(29,78,216,0.04));
-    border: 1px solid rgba(249,115,22,0.22);
-    border-radius: 16px; padding: 18px; text-align: center;
+  .bb-summary-cassette {
+    position: relative; display: flex; align-items: center; justify-content: center;
+    padding: 6px 0;
+  }
+  .bb-summary-overlay {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; pointer-events: none;
   }
   .bb-xp-big {
     font-family: 'Outfit', system-ui, sans-serif;
