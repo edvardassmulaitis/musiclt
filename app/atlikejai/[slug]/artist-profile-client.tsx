@@ -1385,7 +1385,7 @@ function TrackInfoModal({
                 'overflow-y-auto px-5 py-5',
                 mobileTab === 'lyrics' ? 'block h-full' : 'hidden lg:block',
               ].join(' ')}>
-                <div className="mb-2 flex items-baseline gap-2">
+                <div className="mb-4 flex items-baseline gap-2">
                   <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                     Dainos tekstas
                   </div>
