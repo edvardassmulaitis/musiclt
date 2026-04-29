@@ -9,7 +9,7 @@
 //   - Lithuanian noun forms switch by count (1 minute, 2-9 minutes, 11+).
 //     We avoid the trickier plural forms by using the abbreviated "min." /
 //     "val." / "d." / "sav." / "mėn." which work uniformly across counts.
-//   - "Vos ką tik" (just now) under 1 minute — friendlier than "Prieš 0 min.".
+//   - "Ką tik" (just now) under 1 minute — friendlier than "Prieš 0 min.".
 
 const YEAR_MS = 365 * 24 * 60 * 60 * 1000
 
@@ -19,11 +19,11 @@ export function relativeTime(iso?: string | null): string | null {
   if (isNaN(d.getTime())) return null
   const now = Date.now()
   const diffMs = now - d.getTime()
-  if (diffMs < 0) return 'Vos ką tik'
+  if (diffMs < 0) return 'Ką tik'
   if (diffMs >= YEAR_MS) return null
 
   const sec = Math.floor(diffMs / 1000)
-  if (sec < 60) return 'Vos ką tik'
+  if (sec < 60) return 'Ką tik'
   const min = Math.floor(sec / 60)
   if (min < 60) return `Prieš ${min} min.`
   const hr = Math.floor(min / 60)

@@ -70,6 +70,10 @@ type Props = {
   compact?: boolean
   /** Title above the list. Defaults to "Diskusija". */
   title?: string
+  /** Callback fires whenever the total (modern + legacy) count changes —
+   *  parent uses this to render a count chip outside the block (e.g.,
+   *  inside a tab label) without duplicating the fetch. */
+  onCountChange?: (count: number) => void
 }
 
 function stripHtml(html?: string | null): string {
@@ -255,9 +259,9 @@ function Avatar({ name, url, size = 28 }: { name: string; url?: string | null; s
 }
 
 export default function EntityCommentsBlock({
-  entityType, entityId, legacyEndpoint, compact = false, title = 'Diskusija',
+  entityType, entityId, legacyEndpoint, compact = false, title = 'Diskusija', onCountChange,
 }: Props) {
-  const { data: session } = useSession()
+  const { data: session, status: sessionStatus } = useSession()
   const [modern, setModern] = useState<ModernComment[] | null>(null)
   const [legacy, setLegacy] = useState<LegacyComment[] | null>(null)
   const [likedIds, setLikedIds] = useState<Set<number>>(new Set())
@@ -334,6 +338,9 @@ export default function EntityCommentsBlock({
   }, [modern, legacy, sort])
 
   const totalCount = (modern?.length || 0) + (legacy?.length || 0)
+
+  // Emit count changes — parent (mobile tab label) renders the chip.
+  useEffect(() => { onCountChange?.(totalCount) }, [totalCount, onCountChange])
 
   const submit = async () => {
     if (!session?.user?.id) {
@@ -442,11 +449,16 @@ export default function EntityCommentsBlock({
   }
 
   const toggleLike = async (commentId: number) => {
-    // Defence-in-depth — even though the UI disables the button on own
-    // comments, a stale DOM or prop drift could let a click slip through.
-    // Block here too so optimistic UI never increments a self-like.
+    // Hard guard #1 — session must be fully resolved before optimistic UI
+    // updates. Earlier we saw a flash where useSession was still 'loading',
+    // disabled prop fell to false (since session.user.id was undefined),
+    // pointer-events-none didn't apply, click reached toggleLike, optimistic
+    // +1 fired, server returned 403 (self-like), rollback subtracted 1 —
+    // visible "appear and disappear" bug per #6.
+    if (sessionStatus !== 'authenticated' || !session?.user?.id) return
+    // Hard guard #2 — block self-likes by user_id match against the comment.
     const target = modern?.find(c => c.id === commentId)
-    if (target && session?.user?.id && target.user_id === session.user.id) {
+    if (target && target.user_id === session.user.id) {
       return
     }
     const prev = likedIds.has(commentId)
@@ -610,14 +622,18 @@ export default function EntityCommentsBlock({
 
   return (
     <section className="flex flex-col gap-3">
-      {/* Header — title + count + sort */}
+      {/* Header — title + count + sort. Compact (modal) → mažutė uppercase
+          versija, kad atitiktų gretimą "Dainos tekstas" subhead'ą. */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3
-          className="font-['Outfit',sans-serif] font-black tracking-[-0.01em] text-[var(--text-primary)]"
-          style={{ fontSize: headerSize }}
+          className={compact
+            ? "font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]"
+            : "font-['Outfit',sans-serif] font-black tracking-[-0.01em] text-[var(--text-primary)]"
+          }
+          style={compact ? undefined : { fontSize: headerSize }}
         >
           {title} {totalCount > 0 && (
-            <span className="ml-1 font-bold text-[var(--text-faint)]">{totalCount}</span>
+            <span className={compact ? 'ml-1 text-[var(--accent-orange)]' : 'ml-1 font-bold text-[var(--text-faint)]'}>{totalCount}</span>
           )}
         </h3>
         <div className="flex items-center gap-1.5">
@@ -774,7 +790,9 @@ export default function EntityCommentsBlock({
                             : undefined}
                           // Negali laikinti savo paties komentaro — vidinis
                           // konflikto interesų avoidance + tipiškas social
-                          // platform pattern.
+                          // platform pattern. Race conditions (session
+                          // dar 'loading') sutvarko `toggleLike` hard guard'as,
+                          // kad nereiktų temporary disabled visiems hearts.
                           disabled={!!session?.user?.id && c.user_id === session.user.id}
                         />
                       ) : (

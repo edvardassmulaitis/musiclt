@@ -863,6 +863,8 @@ function TrackInfoModal({
   // komentarai vienu metu uždusina abu, scroll'ai painiojasi). Mobile'e
   // rodom tik VIENĄ skiltį per kartą su tab toggle viršuje.
   const [mobileTab, setMobileTab] = useState<'lyrics' | 'comments'>('lyrics')
+  // Comment count emitted from EntityCommentsBlock — pajamas mobile tab chip.
+  const [commentTotal, setCommentTotal] = useState(0)
 
   useEffect(() => {
     if (track) {
@@ -1056,7 +1058,10 @@ function TrackInfoModal({
               )}
               {/* Album mini cover chips — pirmieji 2 atskirai, likusieji
                   sutelpa į „+N" overflow chip'ą. Tai išvengia chip'ų
-                  perkrovimo plotyje. Click → /lt/albumas/{slug}/{id} new tab. */}
+                  perkrovimo plotyje. Click → /lt/albumas/{slug}/{id} new tab.
+                  Mobile'e (sm:hidden) slepiam — header'is gaunasi per didelis
+                  kai chip'ai wrap'inasi į kelias eilutes; albumus ir taip
+                  galima pasiekti per atskirą dainos puslapį. */}
               {(track.albums || []).slice(0, 2).map((al) => (
                 <Link
                   key={al.id}
@@ -1064,7 +1069,7 @@ function TrackInfoModal({
                   target="_blank"
                   rel="noopener"
                   title={al.title}
-                  className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] py-0.5 pl-1 pr-2.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+                  className="hidden h-9 items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] py-0.5 pl-1 pr-2.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] sm:inline-flex"
                 >
                   <span className="h-7 w-7 shrink-0 overflow-hidden rounded-full bg-[var(--cover-placeholder)]">
                     {al.cover_image_url ? (
@@ -1085,7 +1090,7 @@ function TrackInfoModal({
               {(track.albums || []).length > 2 && (
                 <span
                   title={(track.albums || []).slice(2).map(a => a.title).join(', ')}
-                  className="inline-flex h-9 shrink-0 items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 font-['Outfit',sans-serif] text-[11.5px] font-extrabold text-[var(--text-muted)]"
+                  className="hidden h-9 shrink-0 items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 font-['Outfit',sans-serif] text-[11.5px] font-extrabold text-[var(--text-muted)] sm:inline-flex"
                 >
                   +{(track.albums || []).length - 2}
                 </span>
@@ -1115,15 +1120,18 @@ function TrackInfoModal({
               fragmentas, o nested scroll'ai trukdydavo.
             - Be lyrics → komentarai užima visą plotą (mobile + desktop). */}
         {lyricsText && (
-          <div className="flex shrink-0 items-center gap-1 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-5 py-2 lg:hidden">
+          // Mobile tabs — compact, sentence-case (ne ALL CAPS), Komentarai
+          // turi count chip'ą. Active state'as = orange underline + tekstas,
+          // ne pilnas orange fill (tas anksčiau labai krito į akis).
+          <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-1.5 lg:hidden">
             <button
               type="button"
               onClick={() => setMobileTab('lyrics')}
               className={[
-                "flex-1 rounded-md px-3 py-1.5 font-['Outfit',sans-serif] text-[11.5px] font-extrabold uppercase tracking-wider transition-colors",
+                "relative flex items-center gap-1.5 px-1 py-1.5 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors",
                 mobileTab === 'lyrics'
-                  ? 'bg-[var(--accent-orange)] text-white'
-                  : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]',
+                  ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[6px] after:h-[2px] after:bg-[var(--accent-orange)]'
+                  : 'text-[var(--text-muted)]',
               ].join(' ')}
             >
               Tekstas
@@ -1132,13 +1140,18 @@ function TrackInfoModal({
               type="button"
               onClick={() => setMobileTab('comments')}
               className={[
-                "flex-1 rounded-md px-3 py-1.5 font-['Outfit',sans-serif] text-[11.5px] font-extrabold uppercase tracking-wider transition-colors",
+                "relative flex items-center gap-1.5 px-1 py-1.5 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors",
                 mobileTab === 'comments'
-                  ? 'bg-[var(--accent-orange)] text-white'
-                  : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]',
+                  ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[6px] after:h-[2px] after:bg-[var(--accent-orange)]'
+                  : 'text-[var(--text-muted)]',
               ].join(' ')}
             >
-              Komentarai
+              <span>Komentarai</span>
+              {commentTotal > 0 && (
+                <span className="rounded-full bg-[var(--accent-orange)] px-1.5 py-px text-[10px] font-extrabold leading-none text-white">
+                  {commentTotal}
+                </span>
+              )}
             </button>
           </div>
         )}
@@ -1177,6 +1190,7 @@ function TrackInfoModal({
                   entityId={track.id}
                   compact
                   title="Komentarai"
+                  onCountChange={setCommentTotal}
                 />
               </div>
             </>
