@@ -523,9 +523,11 @@ export default function TrackPageClient({
             />
           ) : null
         })()}
-        {/* Identity cluster — title + featured + LikePill + DropBar */}
+        {/* Identity cluster — title viršuj, atlikėjas, paskui chip eilutė
+            su LikePill + DropBar. Stack'inta vertikaliai, kad reakcijos
+            netruktų prie title'o ir nesimaištytų su tipografijos lygiu. */}
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-baseline gap-2">
             <span className="truncate font-['Outfit',sans-serif] text-[16px] font-extrabold leading-tight text-[var(--text-primary)] sm:text-[17px]">
               {track.title}
             </span>
@@ -534,6 +536,13 @@ export default function TrackPageClient({
                 NEW
               </span>
             )}
+          </div>
+          <div className="mt-0.5 truncate text-[12px] sm:text-[12.5px]">
+            <span className="text-[var(--text-faint)]">{trackTypeLabel} · </span>
+            {artistLine}
+          </div>
+          {/* Reactions row — atskira nuo title/artistas tipografijos */}
+          <div className="mt-1.5 flex flex-wrap items-center gap-2">
             <LikePill
               likes={initialLikes + (liked ? 1 : 0)}
               selfLiked={liked}
@@ -542,10 +551,6 @@ export default function TrackPageClient({
               variant="surface"
             />
             <DropBar trackId={track.id} compact />
-          </div>
-          <div className="mt-0.5 truncate text-[12px] sm:text-[12.5px]">
-            <span className="text-[var(--text-faint)]">{trackTypeLabel} · </span>
-            {artistLine}
           </div>
         </div>
         {/* Meta cluster — data + albumai. Slepiasi siauresniam ekrane. */}

@@ -1066,13 +1066,22 @@ function TrackInfoModal({
             />
           )}
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 truncate">
-              <span className="truncate font-['Outfit',sans-serif] text-[17px] font-extrabold leading-tight text-[var(--text-primary)]">
-                {track.title}
-              </span>
-              {/* LikePill čia šalia pavadinimo — vizualiai priklauso prie
-                  dainos identiteto (kiek useriams ji patinka), atskirtas nuo
-                  papildomos meta info (data, trukmė, albumai) dešinėje. */}
+            {/* Title + atlikėjų info — clean text-only row, jokių chip'ų
+                kurie konfliktuotų su tipografija. */}
+            <div className="truncate font-['Outfit',sans-serif] text-[17px] font-extrabold leading-tight text-[var(--text-primary)]">
+              {track.title}
+            </div>
+            <div className="mt-0.5 truncate text-[12.5px]">
+              {formatArtistList(
+                { id: -1, slug: artistSlug, name: artistName },
+                track.featuring || [],
+              )}
+            </div>
+            {/* Reactions row — LikePill + DropBar atskira eilutė po title/
+                artistas, kad neaukstumi virš tipografijos baseline'o ir
+                nesibumpina į artist'o vardą. Vizualiai aiškus kontrastas:
+                identitetas viršuj, reakcijos žemiau. */}
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
               <LikePill
                 likes={likes}
                 selfLiked={selfLiked}
@@ -1084,12 +1093,6 @@ function TrackInfoModal({
                   rodo distribuciją, click'as pažymi (toggle off paspaudus
                   tą pačią). Anonim'ams veikia per session_fp cookie. */}
               <DropBar trackId={track.id} compact />
-            </div>
-            <div className="mt-0.5 truncate text-[12.5px]">
-              {formatArtistList(
-                { id: -1, slug: artistSlug, name: artistName },
-                track.featuring || [],
-              )}
             </div>
           </div>
           {/* Meta cluster — data + duration + album chips. Anksčiau šitie
