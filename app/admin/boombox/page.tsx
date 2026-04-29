@@ -2,62 +2,24 @@
 
 // app/admin/boombox/page.tsx
 //
-// Boombox admin moderavimo panelis. 4 tab'ai: Image / Duel / Verdict / Video drops.
-// Kiekvienas — sąrašas + kūrimo formą + status toggle (draft → ready) + archive.
+// Boombox admin moderavimo panelis. 4 tab'ai (Image / Duel / Verdict / Video).
+//
+// Kiekvienas tab'as:
+//   - Top'e — auto-generate (duel/verdict) arba paprastą formą (image/video)
+//   - List'e — visi drop'ai su queue position, status, stats (jei jau matę user'iai)
+//   - Vienu klikimu galima archyvuoti / status pakeisti / sort_order pabumpti
 
 import { useEffect, useState, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import MusicSearchPicker, { type AttachmentHit } from '@/components/MusicSearchPicker'
 
 type DropType = 'image' | 'duel' | 'verdict' | 'video'
 
-type ImageDrop = {
-  id: number
-  image_url: string
-  ai_prompt: string | null
-  correct_track_id: number
-  decoy_track_ids: number[]
-  difficulty: number
-  scheduled_for: string | null
-  status: string
-  created_at: string
-}
-
-type DuelDrop = {
-  id: number
-  matchup_type: 'old_vs_old' | 'new_vs_new' | 'old_vs_new'
-  track_a_id: number
-  track_b_id: number
-  scheduled_for: string | null
-  status: string
-  created_at: string
-}
-
-type VerdictDrop = {
-  id: number
-  track_id: number
-  scheduled_for: string | null
-  status: string
-  created_at: string
-}
-
-type VideoDrop = {
-  id: number
-  source: 'tiktok' | 'reels' | 'shorts' | 'youtube'
-  source_url: string
-  embed_id: string | null
-  caption: string
-  related_artist_id: number | null
-  related_track_id: number | null
-  scheduled_for: string | null
-  sort_order: number
-  status: string
-  created_at: string
-}
-
 type TrackInfo = { id: number; title: string; artist: string }
 type ArtistInfo = { id: number; name: string }
+type DropStats = { total: number; correctPct: number | null; topChoice: string | null; topPct: number | null }
 
 export default function AdminBoombox() {
   const { data: session, status } = useSession()
@@ -68,6 +30,7 @@ export default function AdminBoombox() {
   const [drops, setDrops] = useState<any[]>([])
   const [trackMap, setTrackMap] = useState<Record<number, TrackInfo>>({})
   const [artistMap, setArtistMap] = useState<Record<number, ArtistInfo>>({})
+  const [statsMap, setStatsMap] = useState<Record<number, DropStats>>({})
   const [loading, setLoading] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
   const [msg, setMsg] = useState('')
@@ -86,6 +49,7 @@ export default function AdminBoombox() {
       setDrops(data.drops || [])
       setTrackMap(data.trackMap || {})
       setArtistMap(data.artistMap || {})
+      setStatsMap(data.statsMap || {})
     } finally {
       setLoading(false)
     }
@@ -99,13 +63,8 @@ export default function AdminBoombox() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, type: tab, ...patch }),
     })
-    if (res.ok) {
-      setMsg('Atnaujinta')
-      load()
-    } else {
-      const j = await res.json().catch(() => ({}))
-      setMsg('Klaida: ' + (j.error || 'unknown'))
-    }
+    if (res.ok) { setMsg('Atnaujinta'); load() }
+    else { const j = await res.json().catch(() => ({})); setMsg('Klaida: ' + (j.error || 'unknown')) }
     setTimeout(() => setMsg(''), 2500)
   }
 
@@ -115,9 +74,25 @@ export default function AdminBoombox() {
     if (res.ok) load()
   }
 
-  if (status === 'loading' || !isAdmin) {
-    return <div style={{ padding: 40 }}>Laukiama...</div>
+  async function generateBatch(type: 'duel' | 'verdict', scope: 'lt' | 'foreign' | 'mixed', count: number) {
+    setLoading(true); setMsg('Generuojama...')
+    try {
+      const res = await fetch('/api/admin/boombox/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, count, scope }),
+      })
+      const j = await res.json()
+      if (j.error) setMsg('Klaida: ' + j.error)
+      else setMsg(`Sukurta ${j.count} iš prašomų ${j.requested}`)
+      load()
+    } finally {
+      setLoading(false)
+      setTimeout(() => setMsg(''), 4000)
+    }
   }
+
+  if (status === 'loading' || !isAdmin) return <div style={{ padding: 40 }}>Laukiama...</div>
 
   const tabs: Array<{ key: DropType; label: string }> = [
     { key: 'image', label: 'Atspėk vaizdą' },
@@ -132,7 +107,10 @@ export default function AdminBoombox() {
         <h1 style={{ fontFamily: 'Outfit, system-ui, sans-serif', fontSize: 28, fontWeight: 800 }}>
           Boombox moderavimas
         </h1>
-        <Link href="/boombox" style={{ fontSize: 13, color: 'var(--accent-orange)' }}>↗ Žiūrėti zoną</Link>
+        <div style={{ display: 'flex', gap: 14, fontSize: 13 }}>
+          <Link href="/admin" style={{ color: 'var(--text-muted)' }}>← admin</Link>
+          <Link href="/boombox" target="_blank" style={{ color: 'var(--accent-orange)' }}>↗ žiūrėti zoną</Link>
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: 8, borderBottom: '1px solid var(--border-default)', marginBottom: 20, overflowX: 'auto' }}>
@@ -144,12 +122,9 @@ export default function AdminBoombox() {
               background: tab === t.key ? 'var(--bg-active)' : 'transparent',
               border: 'none',
               borderBottom: tab === t.key ? '2px solid var(--accent-orange)' : '2px solid transparent',
-              padding: '10px 16px',
-              fontSize: 13,
-              fontWeight: 600,
+              padding: '10px 16px', fontSize: 13, fontWeight: 600,
               color: tab === t.key ? 'var(--text-primary)' : 'var(--text-muted)',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
+              cursor: 'pointer', whiteSpace: 'nowrap',
             }}
           >
             {t.label}
@@ -163,27 +138,25 @@ export default function AdminBoombox() {
         </div>
       )}
 
-      <div style={{ marginBottom: 16 }}>
-        <button
-          onClick={() => setShowCreate(s => !s)}
-          style={{
-            background: 'var(--accent-orange)', color: 'white', border: 'none',
-            padding: '10px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-          }}
-        >
-          {showCreate ? 'Atšaukti' : '+ Naujas'}
-        </button>
-      </div>
-
-      {showCreate && (
-        <CreateForm type={tab} onCreated={() => { setShowCreate(false); load() }} />
+      {/* Top action bar — type-specific */}
+      {(tab === 'duel' || tab === 'verdict') && (
+        <AutoGenerateBar
+          type={tab}
+          onGenerate={(scope, count) => generateBatch(tab, scope, count)}
+          disabled={loading}
+        />
       )}
+      {tab === 'image' && <ImageCreator onCreated={load} />}
+      {tab === 'video' && <VideoCreator onCreated={load} />}
 
       {loading && <div style={{ padding: 20, color: 'var(--text-muted)' }}>Kraunasi...</div>}
 
       {!loading && drops.length === 0 && (
-        <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
-          Tuščia. Sukurk pirmą drop'ą.
+        <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', background: 'var(--card-bg)', borderRadius: 12, border: '1px dashed var(--border-default)' }}>
+          {tab === 'duel' ? 'Tuščia. Spauskim "Generuoti", kad sukurtume kelias dvikovas iš katalogo.' :
+           tab === 'verdict' ? 'Tuščia. Spauskim "Generuoti", kad sudėtume verdikto kandidatus.' :
+           tab === 'video' ? 'Tuščia. Įmesk pirmą video link\'ą.' :
+           'Tuščia. Sukurk pirmą atspėk vaizdo drop\'ą.'}
         </div>
       )}
 
@@ -193,6 +166,7 @@ export default function AdminBoombox() {
           drops={drops}
           trackMap={trackMap}
           artistMap={artistMap}
+          statsMap={statsMap}
           onPatch={patchDrop}
           onArchive={archiveDrop}
         />
@@ -201,13 +175,274 @@ export default function AdminBoombox() {
   )
 }
 
-// ─── Drop tables ───
+// ─── Auto-generate bar (duel + verdict) ───
 
-function DropTable({ type, drops, trackMap, artistMap, onPatch, onArchive }: {
+function AutoGenerateBar({ type, onGenerate, disabled }: {
+  type: 'duel' | 'verdict'
+  onGenerate: (scope: 'lt' | 'foreign' | 'mixed', count: number) => void
+  disabled: boolean
+}) {
+  const [scope, setScope] = useState<'lt' | 'foreign' | 'mixed'>('lt')
+  const [count, setCount] = useState(10)
+
+  return (
+    <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 12, padding: 16, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+      <div style={{ flex: 1, minWidth: 200 }}>
+        <div style={{ fontFamily: 'Outfit, system-ui, sans-serif', fontSize: 15, fontWeight: 700, marginBottom: 2 }}>
+          Auto-generuoti {type === 'duel' ? 'dvikovas' : 'verdiktus'}
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+          {type === 'duel'
+            ? 'Pora dainų iš katalogo — rotuoja old vs old / new vs new / old vs new. Šalys nemaišomos.'
+            : 'Track\'ai su video iš top atlikėjų. Pirmiausia naujausi (≥2024).'}
+        </div>
+      </div>
+
+      <select value={scope} onChange={e => setScope(e.target.value as any)} className="admin-input" style={{ minWidth: 120 }}>
+        <option value="lt">Tik LT</option>
+        <option value="foreign">Tik užsienio</option>
+        <option value="mixed">Mišrus</option>
+      </select>
+
+      <select value={count} onChange={e => setCount(parseInt(e.target.value))} className="admin-input" style={{ minWidth: 80 }}>
+        {[5, 10, 20, 30].map(n => <option key={n} value={n}>{n} vnt.</option>)}
+      </select>
+
+      <button
+        onClick={() => onGenerate(scope, count)}
+        disabled={disabled}
+        style={{ background: 'var(--accent-orange)', color: 'white', border: 'none', padding: '10px 20px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+      >
+        ⚡ Generuoti
+      </button>
+    </div>
+  )
+}
+
+// ─── Image creator (image URL + correct track via picker, decoys auto) ───
+
+function ImageCreator({ onCreated }: { onCreated: () => void }) {
+  const [imageUrl, setImageUrl] = useState('')
+  const [aiPrompt, setAiPrompt] = useState('')
+  const [correctTrack, setCorrectTrack] = useState<AttachmentHit | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [err, setErr] = useState('')
+
+  async function submit() {
+    setErr('')
+    if (!imageUrl.trim()) return setErr('Nurodyk vaizdo URL')
+    if (!correctTrack) return setErr('Pasirink teisingą dainą')
+
+    setSubmitting(true)
+    try {
+      const res = await fetch('/api/admin/boombox/drops', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'image',
+          image_url: imageUrl.trim(),
+          ai_prompt: aiPrompt.trim() || null,
+          correct_track_id: correctTrack.id,
+          status: 'ready',
+        }),
+      })
+      const j = await res.json()
+      if (!res.ok) { setErr(j.error || 'Klaida'); return }
+      setImageUrl(''); setAiPrompt(''); setCorrectTrack(null)
+      onCreated()
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
+      <div style={{ fontFamily: 'Outfit, system-ui, sans-serif', fontSize: 15, fontWeight: 700, marginBottom: 4 }}>
+        Naujas atspėk vaizdo drop'as
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>
+        Įmesk AI vaizdo URL + pasirink teisingą dainą. Decoy track'ai parinkti automatiškai (panašus laikmetis, ta pati šalis, kitas atlikėjas).
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, alignItems: 'flex-start' }}>
+        <div>
+          <label style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', marginBottom: 4, fontWeight: 600 }}>Vaizdo URL *</label>
+          <input
+            type="url"
+            value={imageUrl}
+            onChange={e => setImageUrl(e.target.value)}
+            placeholder="https://..."
+            className="admin-input"
+            style={{ width: '100%' }}
+          />
+        </div>
+
+        <div>
+          <label style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', marginBottom: 4, fontWeight: 600 }}>Teisinga daina *</label>
+          {correctTrack ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--card-bg)', border: '1px solid var(--accent-orange)', borderRadius: 8, padding: '8px 12px' }}>
+              <div style={{ flex: 1, fontSize: 13 }}>
+                <strong>{correctTrack.title}</strong>
+                <span style={{ color: 'var(--text-muted)', marginLeft: 6 }}>{correctTrack.artist}</span>
+              </div>
+              <button onClick={() => setCorrectTrack(null)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 16 }}>×</button>
+            </div>
+          ) : (
+            <MusicSearchPicker
+              attached={[]}
+              onAdd={(hit) => { if (hit.type === 'daina') setCorrectTrack(hit) }}
+              placeholder="Ieškok dainos pavadinimu..."
+              compact
+            />
+          )}
+        </div>
+      </div>
+
+      <div style={{ marginTop: 10 }}>
+        <label style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', marginBottom: 4, fontWeight: 600 }}>AI prompt'as <span style={{ color: 'var(--text-faint)' }}>(optional, referencei)</span></label>
+        <textarea
+          value={aiPrompt}
+          onChange={e => setAiPrompt(e.target.value)}
+          rows={2}
+          placeholder="synthwave 80s city, red car..."
+          className="admin-input"
+          style={{ width: '100%' }}
+        />
+      </div>
+
+      {err && <div style={{ color: 'var(--status-error-text)', fontSize: 12, marginTop: 8 }}>{err}</div>}
+
+      <div style={{ marginTop: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
+        <button
+          onClick={submit}
+          disabled={submitting}
+          style={{ background: 'var(--accent-orange)', color: 'white', border: 'none', padding: '10px 20px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+        >
+          {submitting ? 'Kuriama...' : '+ Pridėti'}
+        </button>
+        <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>Drop'as iškart eis į queue (status: ready). Bus parodytas eilėje pagal sort_order.</span>
+      </div>
+    </div>
+  )
+}
+
+// ─── Video creator (URL only + optional artist OR track) ───
+
+function VideoCreator({ onCreated }: { onCreated: () => void }) {
+  const [url, setUrl] = useState('')
+  const [caption, setCaption] = useState('')
+  const [tag, setTag] = useState<AttachmentHit | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [err, setErr] = useState('')
+
+  async function submit() {
+    setErr('')
+    if (!url.trim()) return setErr('Įmesk video link\'ą')
+    setSubmitting(true)
+    try {
+      const body: any = {
+        type: 'video',
+        source_url: url.trim(),
+        caption: caption.trim(),
+        status: 'ready',
+      }
+      if (tag) {
+        if (tag.type === 'grupe') body.related_artist_id = tag.id
+        else if (tag.type === 'daina') body.related_track_id = tag.id
+      }
+      const res = await fetch('/api/admin/boombox/drops', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const j = await res.json()
+      if (!res.ok) { setErr(j.error || 'Klaida'); return }
+      setUrl(''); setCaption(''); setTag(null)
+      onCreated()
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
+      <div style={{ fontFamily: 'Outfit, system-ui, sans-serif', fontSize: 15, fontWeight: 700, marginBottom: 4 }}>
+        Naujas video drop'as
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>
+        Įmesk TikTok / YT Shorts / IG Reels link'ą. Šaltinį ir embed_id išgaus automatiškai.
+      </div>
+
+      <div style={{ marginBottom: 10 }}>
+        <label style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', marginBottom: 4, fontWeight: 600 }}>Video URL *</label>
+        <input
+          type="url"
+          value={url}
+          onChange={e => setUrl(e.target.value)}
+          placeholder="https://www.youtube.com/shorts/... arba tiktok.com/..."
+          className="admin-input"
+          style={{ width: '100%' }}
+        />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 8 }}>
+        <div>
+          <label style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', marginBottom: 4, fontWeight: 600 }}>Caption <span style={{ color: 'var(--text-faint)' }}>(optional)</span></label>
+          <input
+            type="text"
+            value={caption}
+            onChange={e => setCaption(e.target.value)}
+            placeholder="kai..."
+            className="admin-input"
+            style={{ width: '100%' }}
+          />
+        </div>
+
+        <div>
+          <label style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', marginBottom: 4, fontWeight: 600 }}>Susijęs atlikėjas / daina <span style={{ color: 'var(--text-faint)' }}>(optional)</span></label>
+          {tag ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--card-bg)', border: '1px solid var(--accent-orange)', borderRadius: 8, padding: '8px 12px' }}>
+              <div style={{ flex: 1, fontSize: 13 }}>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', marginRight: 6 }}>{tag.type === 'grupe' ? 'atlikėjas' : 'daina'}</span>
+                <strong>{tag.title}</strong>
+                {tag.artist && <span style={{ color: 'var(--text-muted)', marginLeft: 6 }}>{tag.artist}</span>}
+              </div>
+              <button onClick={() => setTag(null)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 16 }}>×</button>
+            </div>
+          ) : (
+            <MusicSearchPicker
+              attached={[]}
+              onAdd={(hit) => { if (hit.type !== 'albumas') setTag(hit) }}
+              placeholder="Ieškok atlikėjo arba dainos..."
+              compact
+            />
+          )}
+        </div>
+      </div>
+
+      {err && <div style={{ color: 'var(--status-error-text)', fontSize: 12, marginTop: 8 }}>{err}</div>}
+
+      <div style={{ marginTop: 12 }}>
+        <button
+          onClick={submit}
+          disabled={submitting}
+          style={{ background: 'var(--accent-orange)', color: 'white', border: 'none', padding: '10px 20px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+        >
+          {submitting ? 'Kuriama...' : '+ Pridėti'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Drop list table ───
+
+function DropTable({ type, drops, trackMap, artistMap, statsMap, onPatch, onArchive }: {
   type: DropType
   drops: any[]
   trackMap: Record<number, TrackInfo>
   artistMap: Record<number, ArtistInfo>
+  statsMap: Record<number, DropStats>
   onPatch: (id: number, patch: any) => void
   onArchive: (id: number) => void
 }) {
@@ -216,50 +451,75 @@ function DropTable({ type, drops, trackMap, artistMap, onPatch, onArchive }: {
       <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
         <thead style={{ background: 'var(--bg-elevated)' }}>
           <tr>
-            <th style={th}>ID</th>
+            <th style={th}>Eilė</th>
             <th style={th}>Turinys</th>
-            <th style={th}>Data</th>
             <th style={th}>Status</th>
-            <th style={th}>Veiksmai</th>
+            <th style={th}>Užfiksuota</th>
+            <th style={th}></th>
           </tr>
         </thead>
         <tbody>
-          {drops.map((d: any) => (
-            <tr key={d.id} style={{ borderTop: '1px solid var(--border-default)' }}>
-              <td style={td}>{d.id}</td>
-              <td style={td}>{describeDrop(type, d, trackMap, artistMap)}</td>
-              <td style={td}>
-                <input
-                  type="date"
-                  defaultValue={d.scheduled_for || ''}
-                  onBlur={(e) => {
-                    const v = e.target.value || null
-                    if (v !== d.scheduled_for) onPatch(d.id, { scheduled_for: v })
-                  }}
-                  style={dateInput}
-                />
-              </td>
-              <td style={td}>
-                <select
-                  value={d.status}
-                  onChange={(e) => onPatch(d.id, { status: e.target.value })}
-                  style={statusSelect(d.status)}
-                >
-                  <option value="draft">draft</option>
-                  <option value="ready">ready</option>
-                  <option value="archived">archived</option>
-                </select>
-              </td>
-              <td style={td}>
-                <button
-                  onClick={() => onArchive(d.id)}
-                  style={{ background: 'transparent', border: '1px solid var(--border-default)', color: 'var(--text-muted)', padding: '4px 10px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}
-                >
-                  Archyvuoti
-                </button>
-              </td>
-            </tr>
-          ))}
+          {drops.map((d: any) => {
+            const stats = statsMap[d.id]
+            const isPublished = !!d.published_at
+            const queueLabel = isPublished ? '—' : `#${d.sort_order || 0}`
+            return (
+              <tr key={d.id} style={{ borderTop: '1px solid var(--border-default)' }}>
+                <td style={{ ...td, color: isPublished ? 'var(--text-faint)' : 'var(--text-secondary)', fontWeight: 600, fontFamily: 'monospace', fontSize: 12 }}>
+                  {queueLabel}
+                </td>
+                <td style={td}>{describeDrop(type, d, trackMap, artistMap)}</td>
+                <td style={td}>
+                  <select
+                    value={d.status}
+                    onChange={(e) => onPatch(d.id, { status: e.target.value })}
+                    style={statusSelectStyle(d.status)}
+                  >
+                    <option value="draft">draft</option>
+                    <option value="ready">ready</option>
+                    <option value="archived">archived</option>
+                  </select>
+                  {isPublished && (
+                    <div style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 4 }}>
+                      pirmąkart {new Date(d.published_at).toLocaleDateString('lt-LT')}
+                    </div>
+                  )}
+                </td>
+                <td style={{ ...td, fontSize: 12 }}>
+                  {stats && stats.total > 0 ? (
+                    <div>
+                      <div><strong>{stats.total}</strong> {stats.total === 1 ? 'atsakymas' : 'atsakymai'}</div>
+                      {stats.correctPct !== null && (
+                        <div style={{ color: 'var(--text-muted)' }}>{stats.correctPct}% atspėjo</div>
+                      )}
+                      {stats.topChoice && stats.topPct !== null && (
+                        <div style={{ color: 'var(--text-muted)' }}>top: {stats.topChoice} ({stats.topPct}%)</div>
+                      )}
+                    </div>
+                  ) : (
+                    <span style={{ color: 'var(--text-faint)' }}>—</span>
+                  )}
+                </td>
+                <td style={{ ...td, textAlign: 'right' }}>
+                  {!isPublished && (
+                    <button
+                      onClick={() => onPatch(d.id, { sort_order: 0 })}
+                      title="Pakelti į priekį"
+                      style={{ background: 'transparent', border: '1px solid var(--border-default)', color: 'var(--text-muted)', padding: '4px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer', marginRight: 6 }}
+                    >
+                      ↑ next
+                    </button>
+                  )}
+                  <button
+                    onClick={() => onArchive(d.id)}
+                    style={{ background: 'transparent', border: '1px solid var(--border-default)', color: 'var(--text-muted)', padding: '4px 10px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}
+                  >
+                    Archyvuoti
+                  </button>
+                </td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>
@@ -274,7 +534,7 @@ function describeDrop(type: DropType, d: any, trackMap: Record<number, TrackInfo
       <div>
         <div style={{ fontWeight: 600 }}>✓ {correct ? `${correct.artist} — ${correct.title}` : `track #${d.correct_track_id}`}</div>
         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-          decoys: {decoys || '—'} · sunkumas {d.difficulty}
+          decoys: {decoys || '—'}
         </div>
         {d.image_url && <a href={d.image_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: 'var(--accent-orange)' }}>↗ vaizdas</a>}
       </div>
@@ -296,12 +556,13 @@ function describeDrop(type: DropType, d: any, trackMap: Record<number, TrackInfo
   }
   if (type === 'video') {
     const a = d.related_artist_id ? artistMap[d.related_artist_id] : null
+    const t = d.related_track_id ? trackMap[d.related_track_id] : null
     return (
       <div>
         <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>{d.source}</div>
-        <div style={{ fontWeight: 600 }}>{d.caption}</div>
+        {d.caption && <div style={{ fontWeight: 600 }}>{d.caption}</div>}
         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-          {a ? `→ ${a.name}` : '(be atlikėjo tag\'o)'} · sort {d.sort_order}
+          {t ? `→ ${t.artist} — ${t.title}` : a ? `→ ${a.name}` : <span style={{ color: 'var(--text-faint)' }}>be tag\'o</span>}
         </div>
         <a href={d.source_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: 'var(--accent-orange)' }}>↗ source</a>
       </div>
@@ -310,175 +571,10 @@ function describeDrop(type: DropType, d: any, trackMap: Record<number, TrackInfo
   return null
 }
 
-// ─── Create forms (minimal — just inputs, will be polished later) ───
-
-function CreateForm({ type, onCreated }: { type: DropType; onCreated: () => void }) {
-  const [submitting, setSubmitting] = useState(false)
-  const [err, setErr] = useState('')
-  const [form, setForm] = useState<any>(getEmptyForm(type))
-
-  async function submit() {
-    setSubmitting(true); setErr('')
-    try {
-      const body: any = { type, ...form }
-      // Parse decoy IDs for image
-      if (type === 'image' && typeof form.decoy_track_ids === 'string') {
-        body.decoy_track_ids = form.decoy_track_ids.split(',').map((x: string) => parseInt(x.trim())).filter(Boolean)
-      }
-      // Number coercions
-      if (type === 'image') body.correct_track_id = parseInt(form.correct_track_id)
-      if (type === 'duel') {
-        body.track_a_id = parseInt(form.track_a_id)
-        body.track_b_id = parseInt(form.track_b_id)
-      }
-      if (type === 'verdict') body.track_id = parseInt(form.track_id)
-      if (type === 'video') {
-        if (form.related_artist_id) body.related_artist_id = parseInt(form.related_artist_id)
-        if (form.related_track_id) body.related_track_id = parseInt(form.related_track_id)
-      }
-
-      const res = await fetch('/api/admin/boombox/drops', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-      const j = await res.json()
-      if (res.ok) {
-        setForm(getEmptyForm(type))
-        onCreated()
-      } else {
-        setErr(j.error || 'Klaida')
-      }
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  function input(label: string, key: string, opts: { type?: string; placeholder?: string; rows?: number } = {}) {
-    return (
-      <label style={{ display: 'block', marginBottom: 10 }}>
-        <span style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', marginBottom: 4, fontWeight: 600 }}>{label}</span>
-        {opts.rows ? (
-          <textarea
-            value={form[key] || ''}
-            onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-            rows={opts.rows}
-            placeholder={opts.placeholder}
-            className="admin-input"
-            style={{ width: '100%' }}
-          />
-        ) : (
-          <input
-            type={opts.type || 'text'}
-            value={form[key] || ''}
-            onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-            placeholder={opts.placeholder}
-            className="admin-input"
-            style={{ width: '100%' }}
-          />
-        )}
-      </label>
-    )
-  }
-
-  function select(label: string, key: string, options: Array<[string, string]>) {
-    return (
-      <label style={{ display: 'block', marginBottom: 10 }}>
-        <span style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', marginBottom: 4, fontWeight: 600 }}>{label}</span>
-        <select
-          value={form[key] || options[0][0]}
-          onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-          className="admin-input"
-          style={{ width: '100%' }}
-        >
-          {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-        </select>
-      </label>
-    )
-  }
-
-  return (
-    <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 12, padding: 20, marginBottom: 16 }}>
-      <h3 style={{ fontFamily: 'Outfit, system-ui, sans-serif', fontSize: 16, fontWeight: 700, marginBottom: 14 }}>
-        Naujas {type === 'image' ? 'atspėk vaizdo' : type === 'duel' ? 'dvikovos' : type === 'verdict' ? 'verdikto' : 'video'} drop'as
-      </h3>
-
-      {type === 'image' && (
-        <>
-          {input('Vaizdo URL (proxinto AI vaizdo)', 'image_url', { placeholder: 'https://...' })}
-          {input('AI promptas (referencei)', 'ai_prompt', { rows: 2, placeholder: 'synthwave 80s city, red car...' })}
-          {input('Teisingo track ID', 'correct_track_id', { type: 'number' })}
-          {input('Decoy track ID\'ai (kableliais, 3 vnt.)', 'decoy_track_ids', { placeholder: '123,456,789' })}
-          {input('Sunkumas (1–5)', 'difficulty', { type: 'number' })}
-        </>
-      )}
-      {type === 'duel' && (
-        <>
-          {select('Matchup tipas', 'matchup_type', [
-            ['old_vs_old', 'Old vs Old'],
-            ['new_vs_new', 'New vs New'],
-            ['old_vs_new', 'Old vs New'],
-          ])}
-          {input('Track A ID', 'track_a_id', { type: 'number' })}
-          {input('Track B ID', 'track_b_id', { type: 'number' })}
-        </>
-      )}
-      {type === 'verdict' && (
-        <>
-          {input('Track ID', 'track_id', { type: 'number' })}
-        </>
-      )}
-      {type === 'video' && (
-        <>
-          {select('Šaltinis', 'source', [
-            ['shorts', 'YouTube Shorts'],
-            ['tiktok', 'TikTok'],
-            ['reels', 'Instagram Reels'],
-            ['youtube', 'YouTube'],
-          ])}
-          {input('Source URL', 'source_url', { placeholder: 'https://www.youtube.com/shorts/...' })}
-          {input('Embed ID (jei gali ištraukti rankomis)', 'embed_id', { placeholder: 'dQw4w9WgXcQ' })}
-          {input('Caption', 'caption', { rows: 2, placeholder: 'kai bočas pradeda Single Ladies šokį...' })}
-          {input('Susijęs atlikėjo ID (jei norisi tag\'o)', 'related_artist_id', { type: 'number' })}
-          {input('Susijęs track ID (optional)', 'related_track_id', { type: 'number' })}
-          {input('Sort order (mažesnis = aukščiau)', 'sort_order', { type: 'number' })}
-        </>
-      )}
-
-      {input('Schedule data (YYYY-MM-DD, optional)', 'scheduled_for', { type: 'date' })}
-      {select('Status', 'status', [
-        ['draft', 'Draft'],
-        ['ready', 'Ready (publikuoti)'],
-      ])}
-
-      {err && <div style={{ color: 'var(--status-error-text)', fontSize: 12, marginBottom: 10 }}>{err}</div>}
-
-      <button
-        onClick={submit}
-        disabled={submitting}
-        style={{ background: 'var(--accent-orange)', color: 'white', border: 'none', padding: '10px 20px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
-      >
-        {submitting ? 'Kuriama...' : 'Sukurti'}
-      </button>
-    </div>
-  )
-}
-
-function getEmptyForm(type: DropType): any {
-  if (type === 'image') return { difficulty: '2', status: 'draft' }
-  if (type === 'duel') return { matchup_type: 'old_vs_old', status: 'draft' }
-  if (type === 'verdict') return { status: 'draft' }
-  if (type === 'video') return { source: 'shorts', sort_order: '0', status: 'draft' }
-  return {}
-}
-
 const th: React.CSSProperties = { padding: '10px 12px', fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600, textAlign: 'left' }
 const td: React.CSSProperties = { padding: '12px', fontSize: 13, verticalAlign: 'top' }
-const dateInput: React.CSSProperties = {
-  background: 'var(--input-bg)', border: '1px solid var(--input-border)',
-  color: 'var(--input-text)', padding: '4px 8px', borderRadius: 6, fontSize: 12,
-}
-function statusSelect(status: string): React.CSSProperties {
+
+function statusSelectStyle(s: string): React.CSSProperties {
   const colors: Record<string, string> = {
     draft: 'var(--text-muted)',
     ready: 'var(--accent-green)',
@@ -486,7 +582,6 @@ function statusSelect(status: string): React.CSSProperties {
   }
   return {
     background: 'var(--input-bg)', border: '1px solid var(--input-border)',
-    color: colors[status] || 'var(--text-primary)', padding: '4px 8px', borderRadius: 6,
-    fontSize: 12, fontWeight: 600,
+    color: colors[s] || 'var(--text-primary)', padding: '4px 8px', borderRadius: 6, fontSize: 12, fontWeight: 600,
   }
 }

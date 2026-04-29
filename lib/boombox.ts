@@ -96,17 +96,55 @@ export type VideoDrop = {
   related_track?: { id: number; slug: string; title: string } | null
 }
 
-export async function fetchTodayImageDrop(): Promise<ImageDrop | null> {
-  const sb = createAdminClient()
+/**
+ * Pick today's drop from queue:
+ *   1. If something already published today → return that (sticky 24h)
+ *   2. Else: pick next ready+unpublished by sort_order ASC, mark published_at=NOW
+ *
+ * Generic helper used by all 4 drop types.
+ */
+async function pickTodayQueued(
+  sb: ReturnType<typeof createAdminClient>,
+  table: string,
+  selectCols: string,
+): Promise<any | null> {
   const today = todayLT()
-  const { data: drop } = await sb
-    .from('boombox_image_drops')
-    .select(`id, image_url, difficulty, correct_track_id, decoy_track_ids`)
+
+  // 1. Already published today?
+  const { data: published } = await sb
+    .from(table)
+    .select(selectCols)
     .eq('status', 'ready')
-    .lte('scheduled_for', today)
-    .order('scheduled_for', { ascending: false })
+    .gte('published_at', `${today}T00:00:00`)
+    .lte('published_at', `${today}T23:59:59`)
+    .order('published_at', { ascending: false })
     .limit(1)
     .maybeSingle()
+  if (published) return published
+
+  // 2. Else: take next from queue + mark published
+  const { data: next } = await sb
+    .from(table)
+    .select(selectCols)
+    .eq('status', 'ready')
+    .is('published_at', null)
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+  if (!next) return null
+
+  await sb.from(table).update({ published_at: new Date().toISOString() }).eq('id', (next as any).id)
+  return next
+}
+
+export async function fetchTodayImageDrop(): Promise<ImageDrop | null> {
+  const sb = createAdminClient()
+  const drop: any = await pickTodayQueued(
+    sb,
+    'boombox_image_drops',
+    'id, image_url, difficulty, correct_track_id, decoy_track_ids'
+  )
   if (!drop) return null
 
   const allTrackIds = [drop.correct_track_id, ...(drop.decoy_track_ids || [])]
@@ -158,15 +196,11 @@ export async function fetchTodayImageDrop(): Promise<ImageDrop | null> {
 
 export async function fetchTodayDuelDrop(): Promise<DuelDrop | null> {
   const sb = createAdminClient()
-  const today = todayLT()
-  const { data: drop } = await sb
-    .from('boombox_duel_drops')
-    .select(`id, matchup_type, track_a_id, track_b_id`)
-    .eq('status', 'ready')
-    .lte('scheduled_for', today)
-    .order('scheduled_for', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+  const drop: any = await pickTodayQueued(
+    sb,
+    'boombox_duel_drops',
+    'id, matchup_type, track_a_id, track_b_id'
+  )
   if (!drop) return null
 
   const { data: tracks } = await sb
@@ -208,15 +242,11 @@ export async function fetchTodayDuelDrop(): Promise<DuelDrop | null> {
 
 export async function fetchTodayVerdictDrop(): Promise<VerdictDrop | null> {
   const sb = createAdminClient()
-  const today = todayLT()
-  const { data: drop } = await sb
-    .from('boombox_verdict_drops')
-    .select(`id, track_id`)
-    .eq('status', 'ready')
-    .lte('scheduled_for', today)
-    .order('scheduled_for', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+  const drop: any = await pickTodayQueued(
+    sb,
+    'boombox_verdict_drops',
+    'id, track_id'
+  )
   if (!drop) return null
 
   const { data: track } = await sb
@@ -243,19 +273,52 @@ export async function fetchTodayVerdictDrop(): Promise<VerdictDrop | null> {
 export async function fetchTodayVideoDrops(limit = 5): Promise<VideoDrop[]> {
   const sb = createAdminClient()
   const today = todayLT()
-  const { data: drops } = await sb
+  const sel = `
+    id, source, source_url, embed_id, caption,
+    artist:related_artist_id ( id, slug, name ),
+    track:related_track_id ( id, slug, title )
+  `
+
+  // 1. Already published today?
+  const { data: todays } = await sb
     .from('boombox_video_drops')
-    .select(`
-      id, source, source_url, embed_id, caption,
-      artist:related_artist_id ( id, slug, name ),
-      track:related_track_id ( id, slug, title )
-    `)
+    .select(sel)
     .eq('status', 'ready')
-    .lte('scheduled_for', today)
+    .gte('published_at', `${today}T00:00:00`)
+    .lte('published_at', `${today}T23:59:59`)
     .order('sort_order', { ascending: true })
     .limit(limit)
-  if (!drops) return []
-  return drops.map((d: any) => ({
+
+  if (todays && todays.length > 0) {
+    return todays.map((d: any) => ({
+      id: d.id,
+      source: d.source,
+      source_url: d.source_url,
+      embed_id: d.embed_id,
+      caption: d.caption,
+      related_artist: normalizeJoined<any>(d.artist),
+      related_track: normalizeJoined<any>(d.track),
+    }))
+  }
+
+  // 2. Else: take next batch from queue + mark published
+  const { data: next } = await sb
+    .from('boombox_video_drops')
+    .select(sel)
+    .eq('status', 'ready')
+    .is('published_at', null)
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true })
+    .limit(limit)
+
+  if (!next || next.length === 0) return []
+
+  const ids = next.map((d: any) => d.id)
+  await sb.from('boombox_video_drops')
+    .update({ published_at: new Date().toISOString() })
+    .in('id', ids)
+
+  return next.map((d: any) => ({
     id: d.id,
     source: d.source,
     source_url: d.source_url,

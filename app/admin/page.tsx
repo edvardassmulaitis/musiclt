@@ -49,6 +49,7 @@ export default function AdminDashboardPage() {
     { href: '/admin/events', newHref: '/admin/events/new', icon: '📅', label: 'Renginiai', count: counts?.events },
     { href: '/admin/venues', newHref: '/admin/venues/new', icon: '📍', label: 'Vietos', count: counts?.venues },
     { href: '/admin/voting', newHref: '/admin/voting', icon: '🗳️', label: 'Balsavimai' },
+    { href: '/admin/boombox', newHref: '/admin/boombox', icon: '🎛️', label: 'Boombox' },
   ]
 
   return (
