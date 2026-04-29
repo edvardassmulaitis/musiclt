@@ -43,18 +43,22 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-async function requireAdmin() {
+async function requireAdminOrInternal(req: NextRequest) {
+  const secret = req.headers.get('x-internal-secret')
+  if (secret && process.env.INTERNAL_API_SECRET && secret === process.env.INTERNAL_API_SECRET) {
+    return true
+  }
   const session = await getServerSession(authOptions)
   if (!session?.user || !['admin', 'super_admin'].includes(session.user.role || '')) {
-    return null
+    return false
   }
-  return session
+  return true
 }
 
 const SLEEP_MS = 250 // tarp track'ų — kad nepiktinti InnerTube'o
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!(await requireAdmin())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!(await requireAdminOrInternal(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id: idStr } = await params
   const artistId = Number(idStr)
