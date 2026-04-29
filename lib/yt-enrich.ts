@@ -142,7 +142,7 @@ export async function enrichTrack(trackId: number, force = false): Promise<Enric
       } else if (details?.isPrivate) {
         warnings.push(`Video privatus / pašalintas (videoId=${videoId})`)
       } else {
-        warnings.push(`Player API negrąžino videoDetails (videoId=${videoId})`)
+        warnings.push(`Watch page nerado viewCount (videoId=${videoId})`)
       }
     } catch (e: any) {
       warnings.push(`Views fetch klaida: ${String(e?.message || e).slice(0, 120)}`)

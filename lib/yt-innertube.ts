@@ -10,7 +10,10 @@
  * laikomės defensyvių parser'ių (try/optional chaining).
  */
 const YT_SEARCH_ENDPOINT = 'https://www.youtube.com/youtubei/v1/search?prettyPrint=false'
-const YT_PLAYER_ENDPOINT = 'https://www.youtube.com/youtubei/v1/player?prettyPrint=false'
+// /player endpoint'as anksčiau buvo naudojamas viewCount'ui, bet iš Vercel IP'o
+// jis grąžina "Precondition check failed" — vietoj jo dabar scrape'inam watch
+// puslapį (žr. getVideoDetails). Konstanta paliekama dokumentacijai.
+// const YT_PLAYER_ENDPOINT = 'https://www.youtube.com/youtubei/v1/player?prettyPrint=false'
 
 const INNERTUBE_CONTEXT = {
   client: {
@@ -93,37 +96,63 @@ export type YtVideoDetails = {
 }
 
 /**
- * Gauna tikslų view count'ą + meta iš InnerTube /player endpoint'o.
- * Skirtingai nuo search'o, čia grąžinamas tikslus skaičius (`viewCount: "1247832"`),
- * ne aproksimacija ("1.2M views"). Tinkamas trend analizei.
+ * Gauna tikslų view count'ą + meta scrape'inant watch puslapį.
+ *
+ * Originaliai naudojom /youtubei/v1/player POST, bet iš Vercel'io tas endpoint'as
+ * dažnai grąžina "Precondition check failed" arba blokuojamas pagal IP — search
+ * veikia, /player ne. Watch puslapis turi tą patį `viewCount` reikšmę
+ * `ytInitialPlayerResponse.videoDetails.viewCount` initial JSON'e ir nereikalauja
+ * jokios autentikacijos.
  */
 export async function getVideoDetails(videoId: string): Promise<YtVideoDetails | null> {
-  const res = await fetch(YT_PLAYER_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'User-Agent': UA },
-    body: JSON.stringify({ context: INNERTUBE_CONTEXT, videoId }),
+  const res = await fetch(`https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}&hl=en&gl=US`, {
+    method: 'GET',
+    headers: {
+      'User-Agent': UA,
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.5',
+      // Sutinka su Google'o consent challenge'u — kitaip iš EU IP gausim consent puslapį be ytInitialPlayerResponse.
+      'Cookie': 'CONSENT=YES+1',
+    },
   })
   if (!res.ok) {
     const text = await res.text().catch(() => '')
-    throw new Error(`YouTube player ${res.status}: ${text.slice(0, 200)}`)
+    throw new Error(`YouTube watch ${res.status}: ${text.slice(0, 200)}`)
   }
-  const data = await res.json()
-  const details = data?.videoDetails
-  if (!details?.videoId) return null
+  const html = await res.text()
 
-  const viewCountStr = details.viewCount || '0'
-  const viewCount = parseInt(viewCountStr, 10)
+  // viewCount: greičiausiai pasitaiko po `"viewCount":"NNNNNN"` initial JSON'e.
+  // Imam pirmą hit'ą — tas yra videoDetails.viewCount (kitas variantas yra microformat,
+  // bet to mums neprireiks).
+  const viewMatch = html.match(/"viewCount":"(\d+)"/)
+  if (!viewMatch) {
+    // Galimai privatu/pašalinta — nėra viewCount initial state'e.
+    return null
+  }
+  const viewCount = parseInt(viewMatch[1], 10)
   if (!Number.isFinite(viewCount)) return null
 
-  // Privatūs / pašalinti video — InnerTube grąžina playabilityStatus.status = "ERROR" / "LOGIN_REQUIRED"
-  const playability = data?.playabilityStatus?.status
-  const isPrivate = playability === 'LOGIN_REQUIRED' || playability === 'ERROR'
+  // Title (geriausia paskaityt iš `"title":{"runs":[{"text":"X"}]}` arba `<title>` tag'o)
+  let title = ''
+  const titleMatch = html.match(/<title>([^<]+)<\/title>/)
+  if (titleMatch) {
+    // YT page title format'as: "Track Name - YouTube"
+    title = titleMatch[1].replace(/\s*-\s*YouTube\s*$/, '').trim()
+  }
+
+  // channelId — priimam iš initial JSON'o, jei matomas
+  let channelId: string | null = null
+  const cidMatch = html.match(/"channelId":"(UC[A-Za-z0-9_-]{20,})"/)
+  if (cidMatch) channelId = cidMatch[1]
+
+  // isPrivate — jei watch puslapyje randame login-required hint'ą
+  const isPrivate = /"status":"LOGIN_REQUIRED"|"status":"UNPLAYABLE".*?"reason":"Sign in"/i.test(html.slice(0, 50000))
 
   return {
-    videoId: details.videoId,
-    title: details.title || '',
+    videoId,
+    title,
     viewCount,
-    channelId: details.channelId || null,
+    channelId,
     isPrivate,
   }
 }

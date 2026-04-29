@@ -769,6 +769,9 @@ function YtEnrichResults({ summary }: { summary: YtEnrichSummary }) {
               <div className="min-w-0 flex-1">
                 <div className="font-medium text-[var(--text-primary)] truncate">{d.trackTitle || `#${d.trackId}`}</div>
                 <div className="text-xs text-[var(--text-muted)] truncate">→ {d.videoTitle} <span className="text-[var(--text-faint)]">· {d.videoChannel}</span></div>
+                {(d.warnings || []).map((w, i) => (
+                  <div key={i} className="text-[11px] text-amber-700 truncate">⚠ {w}</div>
+                ))}
               </div>
               {d.matchScore !== undefined && d.matchScore !== null && <span className="text-xs tabular-nums text-green-700 shrink-0">score {d.matchScore}</span>}
               {d.viewsAfter !== null && <span className="text-xs tabular-nums text-blue-700 shrink-0">{d.viewsAfter.toLocaleString()} 👁</span>}
@@ -858,6 +861,67 @@ function Section({ title, tone, children }: { title: string; tone: 'green' | 'am
 
 function Row({ children }: { children: React.ReactNode }) {
   return <div className="flex items-center gap-2 px-3 py-1.5">{children}</div>
+}
+
+/** Wipe YT enrichment data for one artist's tracks. Naudinga kai pirmas
+ *  pass'as buvo daromas su silpnu match scoring (pvz Atlanta) ir prikalinėjo
+ *  random video. Po wipe'o YT enrich su threshold'u priskirs tik confident match'us. */
+function YoutubeClearButton({ artistId, onDone }: { artistId: string; onDone?: () => void }) {
+  const [status, setStatus] = useState<'idle' | 'confirm' | 'running' | 'done' | 'error'>('idle')
+  const [result, setResult] = useState<{ affected: number } | null>(null)
+  const [errMsg, setErrMsg] = useState('')
+
+  const run = async () => {
+    setStatus('running'); setResult(null); setErrMsg('')
+    try {
+      const r = await fetch(`/api/admin/yt/artist/${artistId}/clear`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wipeViews: true, wipeHistory: false }),
+      })
+      const j = await r.json()
+      if (!r.ok || !j.ok) throw new Error(j?.error || 'fail')
+      setResult({ affected: j.affected ?? 0 })
+      setStatus('done')
+      onDone?.()
+      setTimeout(() => setStatus('idle'), 6000)
+    } catch (e: any) {
+      setErrMsg(e?.message || 'fail')
+      setStatus('error')
+      setTimeout(() => setStatus('idle'), 6000)
+    }
+  }
+
+  if (status === 'confirm') {
+    return (
+      <div className="flex items-center gap-1">
+        <span className="text-[11px] text-red-700 font-medium">Tikrai išvalyti?</span>
+        <button onClick={run} className="px-2 py-1 rounded-lg text-xs font-medium bg-red-600 hover:bg-red-700 text-white">Taip</button>
+        <button onClick={() => setStatus('idle')} className="px-2 py-1 rounded-lg text-xs font-medium text-[var(--text-muted)] hover:bg-[var(--bg-hover)]">Ne</button>
+      </div>
+    )
+  }
+
+  const label = status === 'running' ? 'Valoma…'
+              : status === 'done' && result ? `✓ ${result.affected} track'ų`
+              : status === 'error' ? `✗ ${errMsg.slice(0, 30)}`
+              : '✕ Clear YT'
+
+  return (
+    <button
+      type="button"
+      onClick={() => status === 'idle' ? setStatus('confirm') : null}
+      disabled={status === 'running'}
+      className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
+        status === 'done'  ? 'bg-green-50 text-green-700 border border-green-200'
+        : status === 'error' ? 'bg-red-50 text-red-700 border border-red-200'
+        : 'bg-stone-50 hover:bg-stone-100 text-stone-700 border border-stone-200'
+      } disabled:opacity-50`}
+      title="Išvalo video_url, video_views, youtube_searched_at visiems šio atlikėjo track'ams. History snapshot'ai liks. Naudinga kai nori pakartoti enrich'ą su griežtesniu match'u."
+    >
+      {label}
+    </button>
+  )
 }
 
 function WikipediaImportCompact({ onImport, artistName }: { onImport: (data: any) => void; artistName?: string }) {
@@ -1032,6 +1096,7 @@ export default function EditArtist() {
 
           <div className="flex items-center gap-1.5 shrink-0">
             <ScoreBadge artistId={artistId} score={artistScore} />
+            <YoutubeClearButton artistId={artistId} onDone={() => setDiscographyKey(k => k + 1)} />
             <YoutubeEnrichButton artistId={artistId} onDone={() => setDiscographyKey(k => k + 1)} />
             <RecalcCascadeButton artistId={artistId} />
             <Link href="/admin/artists"
