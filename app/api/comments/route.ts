@@ -254,19 +254,48 @@ export async function DELETE(req: Request) {
 
   const { data: existing } = await sb
     .from('comments')
-    .select('author_id')
+    .select('author_id, body')
     .eq('id', id!)
-    .single()
+    .single() as { data: any }
 
   if (!existing) return NextResponse.json({ error: 'Nerastas' }, { status: 404 })
   if (existing.author_id !== authorId && !isAdmin)
     return NextResponse.json({ error: 'Neleistina' }, { status: 403 })
 
+  // Soft-delete — body iš lentelės NEKLOJAM (anksčiau body: '' nuteptindavom
+  // tekstą, todėl admin'as nematydavo originalo). Dabar tiesiog flag'uojam
+  // is_deleted=true, original'us body lieka. Public users iš API filtruojami
+  // pagal is_deleted, admin'ai mato dim'intą originalą.
   const { error } = await sb
     .from('comments')
-    .update({ is_deleted: true, body: '' })
+    .update({ is_deleted: true })
     .eq('id', id!)
 
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true })
+}
+
+/** PATCH /api/comments?action=restore&id=N — admin-only un-soft-delete.
+ *  Reactyvuoja anksčiau pašalintą komentarą atgal į public matomumą.
+ *  Body taip pat lieka nepakitęs (DELETE jau nebenupila body). */
+export async function PUT(req: Request) {
+  const session = await getServerSession(authOptions)
+  const role = (session?.user as any)?.role
+  const isAdmin = role === 'admin' || role === 'super_admin'
+  if (!isAdmin) {
+    return NextResponse.json({ error: 'Reikia admin teisių' }, { status: 403 })
+  }
+  const { searchParams } = new URL(req.url)
+  const id = searchParams.get('id')
+  const action = searchParams.get('action')
+  if (!id || action !== 'restore') {
+    return NextResponse.json({ error: 'Reikia ?action=restore&id=N' }, { status: 400 })
+  }
+  const sb = createAdminClient()
+  const { error } = await sb
+    .from('comments')
+    .update({ is_deleted: false })
+    .eq('id', parseInt(id))
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })
 }

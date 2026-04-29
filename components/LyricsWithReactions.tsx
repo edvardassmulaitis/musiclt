@@ -30,6 +30,9 @@ type Reaction = {
   author_name?: string | null
   author_avatar_url?: string | null
   author_initial?: string | null
+  /** Server-computed flag — true if viewer authored this reaction. Used
+   *  by client to toggle vs add when user clicks the heart in tooltip. */
+  is_own?: boolean
 }
 
 type Props = {
@@ -54,23 +57,28 @@ function buildSpans(reactions: Reaction[]): Span[] {
 }
 
 /** Group a span's reactions by the user who made them. Same user with both
- *  a ♥ and a 💬 collapses to one entry. Anonymous reactions can't merge
- *  reliably, so each anonymous row stays separate. */
+ *  a ♥ and a 💬 collapses to one entry — keep ALL underlying reaction ids
+ *  so admin/owner can delete each one separately. Anonymous reactions
+ *  can't merge reliably (no stable identifier), so each anon row stays
+ *  separate keyed by id. */
 type GroupedReaction = {
   key: string
   authorName: string
   authorAvatarUrl: string | null
   hasLike: boolean
-  comments: string[]
+  /** Each comment kept paired with its reaction id so we can render a
+   *  delete button per individual reaction within the merged row. */
+  comments: { id: number; text: string }[]
+  /** id of the user's like reaction (if any) — needed for admin delete. */
+  likeReactionId: number | null
+  /** True if viewer authored ANY reaction in this group. */
+  isOwn: boolean
 }
 function groupByAuthor(reactions: Reaction[]): GroupedReaction[] {
   const map = new Map<string, GroupedReaction>()
   for (const r of reactions) {
     const name = r.author_name || 'Anonimas'
     const isAnon = !r.author_avatar_url && (name === 'Anonimas' || name === 'Vartotojas')
-    // For named users we group on `name` (one row per user); for anon
-    // reactions we keep them per-row using the reaction id as key so they
-    // don't all collapse into a single anonymous bucket.
     const key = isAnon ? `anon-${r.id}` : `named-${name}`
     const cur = map.get(key) || {
       key,
@@ -78,9 +86,15 @@ function groupByAuthor(reactions: Reaction[]): GroupedReaction[] {
       authorAvatarUrl: r.author_avatar_url || null,
       hasLike: false,
       comments: [],
+      likeReactionId: null,
+      isOwn: false,
     }
-    if (r.type === 'like') cur.hasLike = true
-    if (r.type === 'comment' && r.text) cur.comments.push(r.text)
+    if (r.type === 'like') {
+      cur.hasLike = true
+      cur.likeReactionId = r.id
+    }
+    if (r.type === 'comment' && r.text) cur.comments.push({ id: r.id, text: r.text })
+    if (r.is_own) cur.isOwn = true
     map.set(key, cur)
   }
   return [...map.values()]
@@ -268,20 +282,31 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
     } catch { /* silent */ }
   }
 
+  /** Toggle viewer's own like on this span:
+   *   - If they already have a like → DELETE it (unlike)
+   *   - If not → POST a new like
+   *  This is what makes the heart in the tooltip behave like a real toggle
+   *  instead of stacking duplicate likes on every click (was the user-
+   *  reported "unlike still adds another like" bug). */
   const quickLike = async (s: Span) => {
     setSaving(true)
     try {
-      await fetch(`/api/tracks/${trackId}/lyric-comments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          selected_text: s.reactions[0].selected_text,
-          selection_start: s.start,
-          selection_end: s.end,
-          type: 'like',
-          text: '',
-        }),
-      })
+      const myLike = s.reactions.find(r => r.is_own && r.type === 'like')
+      if (myLike) {
+        await fetch(`/api/tracks/${trackId}/lyric-comments?reaction_id=${myLike.id}`, { method: 'DELETE' })
+      } else {
+        await fetch(`/api/tracks/${trackId}/lyric-comments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            selected_text: s.reactions[0].selected_text,
+            selection_start: s.start,
+            selection_end: s.end,
+            type: 'like',
+            text: '',
+          }),
+        })
+      }
       await reload()
     } catch { /* silent */ }
     finally { setSaving(false); setTooltip(null) }
@@ -471,54 +496,82 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
               „{tooltip.span.reactions[0].selected_text}"
             </div>
             <div className="flex flex-col gap-2">
-              {/* Iterate raw reactions for admin delete buttons; group
-                  display-only by user above. */}
-              {tooltip.span.reactions.map((r) => (
-                <div key={r.id} className="flex items-start gap-2">
-                  <MiniAvatar name={r.author_name || 'Vartotojas'} url={r.author_avatar_url} size={22} />
+              {/* Render BY USER GROUP — same author's like + comment(s) merge
+                  into one row showing avatar + name + ♥ Patinka chip + each
+                  comment line below. Admin/owner deletes per individual
+                  reaction (like or comment) via row's trash icons. */}
+              {groupByAuthor(tooltip.span.reactions).map((g) => (
+                <div key={g.key} className="flex items-start gap-2">
+                  <MiniAvatar name={g.authorName} url={g.authorAvatarUrl} size={22} />
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       <span className="font-['Outfit',sans-serif] text-[11.5px] font-extrabold text-[var(--text-secondary)]">
-                        {r.author_name || 'Vartotojas'}
+                        {g.authorName}
                       </span>
-                      {r.type === 'like' && (
+                      {g.hasLike && (
                         <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-[var(--accent-orange)]">
                           <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
                           Patinka
                         </span>
                       )}
-                      {isAdmin && (
+                      {/* Admin: delete the like specifically. Owner deletes
+                          via the heart toggle below — UX-clearer there. */}
+                      {isAdmin && g.hasLike && g.likeReactionId != null && (
                         <button
                           type="button"
-                          onClick={() => deleteReaction(r.id)}
-                          aria-label="Pašalinti reakciją"
-                          title="Pašalinti reakciją (admin)"
-                          className="ml-auto flex h-5 w-5 items-center justify-center rounded text-[var(--text-faint)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[#ef4444]"
+                          onClick={() => deleteReaction(g.likeReactionId!)}
+                          aria-label="Pašalinti like reakciją"
+                          title="Pašalinti like (admin)"
+                          className="flex h-5 w-5 items-center justify-center rounded text-[var(--text-faint)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[#ef4444]"
                         >
                           <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m-9 0v14a2 2 0 002 2h6a2 2 0 002-2V6" /></svg>
                         </button>
                       )}
                     </div>
-                    {r.type === 'comment' && r.text && (
-                      <div className="mt-0.5 break-words text-[12px] leading-snug text-[var(--text-primary)]">
-                        {r.text}
+                    {g.comments.map((c) => (
+                      <div key={c.id} className="mt-0.5 flex items-start gap-1.5">
+                        <div className="min-w-0 flex-1 break-words text-[12px] leading-snug text-[var(--text-primary)]">
+                          {c.text}
+                        </div>
+                        {(isAdmin || g.isOwn) && (
+                          <button
+                            type="button"
+                            onClick={() => deleteReaction(c.id)}
+                            aria-label="Pašalinti komentarą"
+                            title="Pašalinti komentarą"
+                            className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-[var(--text-faint)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[#ef4444]"
+                          >
+                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m-9 0v14a2 2 0 002 2h6a2 2 0 002-2V6" /></svg>
+                          </button>
+                        )}
                       </div>
-                    )}
+                    ))}
                   </div>
                 </div>
               ))}
             </div>
             <div className="mt-1 flex items-center gap-2 border-t border-[var(--border-subtle)] pt-2">
-              <button
-                type="button"
-                onClick={() => quickLike(tooltip.span)}
-                disabled={saving}
-                aria-label="Pažymėti patinka"
-                title="Pažymėti patinka"
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white transition-opacity hover:opacity-90 disabled:opacity-40"
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
-              </button>
+              {(() => {
+                const myLike = tooltip.span.reactions.find(r => r.is_own && r.type === 'like')
+                const liked = !!myLike
+                return (
+                  <button
+                    type="button"
+                    onClick={() => quickLike(tooltip.span)}
+                    disabled={saving}
+                    aria-label={liked ? 'Atšaukti patinka' : 'Pažymėti patinka'}
+                    title={liked ? 'Atšaukti patinka' : 'Pažymėti patinka'}
+                    className={[
+                      'flex h-8 w-8 items-center justify-center rounded-full transition-opacity hover:opacity-90 disabled:opacity-40',
+                      liked
+                        ? 'bg-[var(--accent-orange)] text-white ring-2 ring-[var(--accent-orange)]/30'
+                        : 'border border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--accent-orange)]',
+                    ].join(' ')}
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill={liked ? '#fff' : 'currentColor'}><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
+                  </button>
+                )
+              })()}
               <button
                 type="button"
                 onClick={() => {

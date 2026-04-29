@@ -22,11 +22,16 @@ export async function GET(
   const { id } = await params
   const supabase = createAdminClient()
 
-  // Try with user_id JOIN — falls back gracefully if migration 20260428 not
-  // yet applied (column missing → "could not find column" error).
+  // Pre-resolve viewer for is_own flag (matches by user_id OR email — user_id
+  // alone unreliable po DB wipe migracijų, kai senasi profile UUID nebegalioja).
+  const session = await getServerSession(authOptions)
+  const viewerEmail = (session?.user as any)?.email?.toLowerCase() || null
+  const viewerId = await resolveAuthorId(supabase, session)
+
+  // Try with user_id JOIN + email (for is_own match).
   let { data, error } = await supabase
     .from('track_lyric_comments')
-    .select('id, selection_start, selection_end, selected_text, type, text, likes, created_at, user_id, author, avatar_letter, profiles:user_id(username, full_name, avatar_url)')
+    .select('id, selection_start, selection_end, selected_text, type, text, likes, created_at, user_id, author, avatar_letter, profiles:user_id(username, full_name, avatar_url, email)')
     .eq('track_id', id)
     .order('created_at', { ascending: true }) as { data: any; error: any }
 
@@ -45,20 +50,28 @@ export async function GET(
     return NextResponse.json([])
   }
 
-  const out = (data ?? []).map((r: any) => ({
-    id: r.id,
-    selection_start: r.selection_start,
-    selection_end: r.selection_end,
-    selected_text: r.selected_text,
-    type: r.type,
-    text: r.text,
-    likes: r.likes,
-    created_at: r.created_at,
-    // Display fields — prefer profile JOIN, fall back to legacy strings.
-    author_name: r.profiles?.full_name || r.profiles?.username || r.author || 'Vartotojas',
-    author_avatar_url: r.profiles?.avatar_url || null,
-    author_initial: (r.profiles?.full_name || r.profiles?.username || r.author || '?').trim().charAt(0).toUpperCase() || '?',
-  }))
+  const out = (data ?? []).map((r: any) => {
+    const authorEmail = (r.profiles?.email || '').toLowerCase() || null
+    const isOwn = !!(viewerId && r.user_id && r.user_id === viewerId) ||
+                  !!(viewerEmail && authorEmail && viewerEmail === authorEmail)
+    return {
+      id: r.id,
+      selection_start: r.selection_start,
+      selection_end: r.selection_end,
+      selected_text: r.selected_text,
+      type: r.type,
+      text: r.text,
+      likes: r.likes,
+      created_at: r.created_at,
+      // Display fields — prefer profile JOIN, fall back to legacy strings.
+      author_name: r.profiles?.full_name || r.profiles?.username || r.author || 'Vartotojas',
+      author_avatar_url: r.profiles?.avatar_url || null,
+      author_initial: (r.profiles?.full_name || r.profiles?.username || r.author || '?').trim().charAt(0).toUpperCase() || '?',
+      // Server-computed: ar viewer'is yra reakcijos autorius. Naudoja client'as,
+      // kad žinotų kada „like" mygtuką elgti kaip toggle (delete) vs naujas POST.
+      is_own: isOwn,
+    }
+  })
 
   return NextResponse.json(out)
 }
