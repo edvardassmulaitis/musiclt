@@ -7,22 +7,49 @@ import { HeaderAuth } from '@/components/HeaderAuth'
 import { NotificationsBell } from '@/components/NotificationsBell'
 import { useSite } from '@/components/SiteContext'
 
-const NAV = [
-  { label: 'Boombox',           href: '/boombox' },
-  { label: 'Muzikos atradimai', href: '/muzika' },
-  { label: 'Topai',             href: '/topas' },
-  { label: 'Naujienos',         href: '/naujienos' },
-  { label: 'Renginiai',         href: '/renginiai' },
-  { label: 'Balsavimai',        href: '/balsavimai' },
-  { label: 'Diskusijos',        href: '/diskusijos' },
-]
+/* ──────────────────────────────────────────────────────────────────
+ * Top meniu struktūra — keli "grupiniai" itemai, kiekvienas atveria
+ * dropdown'ą on hover (desktop) arba accordion'ą (mobile drawer).
+ * Top-level link'as eina į pirmą sub-itemą (arba savo href, jei nustatytas).
+ * ────────────────────────────────────────────────────────────────── */
 
-const DRAWER_EXTRA = [
-  { label: 'Atlikėjai', href: '/atlikejai' },
-  { label: 'Albumai', href: '/albumai' },
-  { label: 'Dainos', href: '/muzika' },
-  { label: 'Galerija', href: '/galerija' },
-  { label: 'Apie mus', href: '/apie' },
+type SubItem = { label: string; href: string; desc?: string }
+type NavGroup = { label: string; href?: string; items: SubItem[] }
+
+const NAV: NavGroup[] = [
+  {
+    label: 'Muzika',
+    items: [
+      { label: 'Nauja muzika',         href: '/boombox',      desc: 'Šviežiausios dainos ir albumai' },
+      { label: 'Atlikėjai ir grupės',  href: '/atlikejai',    desc: 'Lietuvos scenos žemėlapis' },
+      { label: 'Albumai',              href: '/albumai',      desc: 'Visi albumai vienoje vietoje' },
+      { label: 'Dienos daina',         href: '/dienos-daina', desc: 'Redakcijos pasirinkimas šiandien' },
+    ],
+  },
+  {
+    label: 'Topai ir balsavimai',
+    items: [
+      { label: 'Topai',         href: '/topas',      desc: 'Savaitės, mėnesio ir visų laikų' },
+      { label: 'Balsavimai',    href: '/balsavimai', desc: 'Apdovanojimai ir reitingai' },
+    ],
+  },
+  {
+    label: 'Renginiai ir naujienos',
+    items: [
+      { label: 'Renginiai',  href: '/renginiai', desc: 'Artimiausi koncertai' },
+      { label: 'Naujienos',  href: '/naujienos', desc: 'Scenos pulsas' },
+      { label: 'Galerija',   href: '/galerija',  desc: 'Foto iš renginių' },
+    ],
+  },
+  {
+    label: 'Bendruomenė',
+    items: [
+      { label: 'Diskusijos',     href: '/diskusijos',     desc: 'Forumo temos ir pokalbiai' },
+      { label: 'Blogai',         href: '/blogas',         desc: 'Vartotojų straipsniai' },
+      { label: 'Gyvi pokalbiai', href: '/bendruomene',    desc: 'Real-time chat'  },
+      { label: 'Rašyti įrašą',   href: '/blogas/rasyti',  desc: 'Pradėk savo blogą' },
+    ],
+  },
 ]
 
 /* ── Icons ── */
@@ -45,45 +72,104 @@ const SearchIcon = () => (
     <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
   </svg>
 )
+const ChevronIcon = ({ open = false }: { open?: boolean }) => (
+  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
+       style={{ transition: 'transform .18s', transform: open ? 'rotate(180deg)' : 'none', marginLeft: 3 }}>
+    <polyline points="6 9 12 15 18 9"/>
+  </svg>
+)
 
 export function SiteHeader() {
   const { theme, setTheme, dk } = useSite()
   const pathname = usePathname()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [mobileExpanded, setMobileExpanded] = useState<string | null>(null)
 
-  /* ── Theme-aware tokens using CSS variables ── */
-  const bg = 'rgba(var(--bg-body-rgb), 0.97)'
-  const bdr = '1px solid var(--border-default)'
-  const navColor = 'var(--text-secondary)'
-  const navHover = 'var(--text-primary)'
-  const navHoverBg = 'var(--bg-hover)'
+  /* ── Theme-aware tokens ── */
+  const bg          = 'rgba(var(--bg-body-rgb), 0.97)'
+  const bdr         = '1px solid var(--border-default)'
+  const navColor    = 'var(--text-secondary)'
+  const navHover    = 'var(--text-primary)'
+  const navHoverBg  = 'var(--bg-hover)'
   const activeColor = 'var(--accent-link)'
-  const activeBg = 'rgba(96, 165, 250, 0.1)'
-  const logoColor = 'var(--text-primary)'
-  const inputBg = 'var(--input-bg)'
-  const inputBdr = '1px solid var(--input-border)'
-  const inputColor = 'var(--input-text)'
-  const mutedIcon = 'var(--text-muted)'
-  const drawerBg = 'var(--bg-surface)'
-  const hamColor = 'var(--text-muted)'
-  const sectionLabel = 'var(--text-muted)'
+  const activeBg    = 'rgba(96, 165, 250, 0.1)'
+  const logoColor   = 'var(--text-primary)'
+  const inputBg     = 'var(--input-bg)'
+  const inputBdr    = '1px solid var(--input-border)'
+  const inputColor  = 'var(--input-text)'
+  const mutedIcon   = 'var(--text-muted)'
+  const drawerBg    = 'var(--bg-surface)'
+  const hamColor    = 'var(--text-muted)'
+  const sectionLabel= 'var(--text-muted)'
+  const ddBg        = 'var(--bg-surface)'
+  const ddShadow    = '0 12px 36px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.08)'
 
-  const isActive = (href: string) => href === '/' ? pathname === '/' : pathname.startsWith(href)
+  const isActive       = (href: string) => href === '/' ? pathname === '/' : pathname.startsWith(href)
+  const isGroupActive  = (g: NavGroup) => (g.href && isActive(g.href)) || g.items.some(it => isActive(it.href))
 
   return (
     <>
       <style>{`
+        /* ── Top-level nav button ── */
         .sh-navlink {
-          font-size: 12.5px; font-weight: 600; padding: 5px 10px;
-          border-radius: 7px; text-decoration: none;
-          transition: color .13s, background .13s; white-space: nowrap;
+          display: inline-flex; align-items: center;
+          font-size: 12.5px; font-weight: 600;
+          padding: 5px 10px; border-radius: 7px;
+          text-decoration: none;
+          transition: color .13s, background .13s;
+          white-space: nowrap; cursor: pointer;
+          color: ${navColor}; background: transparent;
+          border: none; font-family: inherit;
         }
+        .sh-navlink:hover { color: ${navHover}; background: ${navHoverBg}; }
+        .sh-navlink.active { color: ${activeColor}; background: ${activeBg}; }
+        .sh-navlink.active:hover { color: ${activeColor}; background: ${activeBg}; }
+
+        /* ── Group wrapper + dropdown ── */
+        .sh-group { position: relative; }
+        .sh-dropdown {
+          position: absolute; top: 100%; left: 0;
+          min-width: 260px;
+          padding: 8px;
+          background: ${ddBg};
+          border: ${bdr};
+          border-radius: 12px;
+          box-shadow: ${ddShadow};
+          opacity: 0; pointer-events: none;
+          transform: translateY(-4px);
+          transition: opacity .15s ease, transform .15s ease;
+          z-index: 100;
+          /* tiny invisible bridge to prevent gap-flicker */
+          margin-top: 6px;
+        }
+        .sh-dropdown::before {
+          content: ''; position: absolute;
+          top: -8px; left: 0; right: 0; height: 8px;
+        }
+        .sh-group:hover > .sh-dropdown,
+        .sh-group:focus-within > .sh-dropdown {
+          opacity: 1; pointer-events: auto;
+          transform: translateY(0);
+        }
+        .sh-dditem {
+          display: block; padding: 9px 12px; border-radius: 8px;
+          text-decoration: none; transition: background .12s, color .12s;
+          color: ${navColor};
+        }
+        .sh-dditem:hover { background: ${navHoverBg}; color: ${navHover}; }
+        .sh-dditem.active { color: ${activeColor}; background: ${activeBg}; }
+        .sh-dditem .lbl { font-size: 13.5px; font-weight: 700; line-height: 1.25; display: block; }
+        .sh-dditem .desc { font-size: 11px; font-weight: 500; line-height: 1.3; opacity: 0.7; margin-top: 2px; display: block; }
+
+        /* ── Responsive ── */
         .sh-desktop-search { display: flex; }
         .sh-desktop-nav    { display: flex; }
-        @media (max-width: 900px) {
+        @media (max-width: 1000px) {
           .sh-desktop-search { display: none !important; }
           .sh-desktop-nav    { display: none !important; }
         }
+
+        /* ── Drawer ── */
         .sh-overlay {
           position: fixed; inset: 0; z-index: 200;
           background: rgba(0,0,0,0.5); backdrop-filter: blur(3px);
@@ -92,12 +178,42 @@ export function SiteHeader() {
         .sh-overlay.open { opacity: 1; pointer-events: all; }
         .sh-drawer {
           position: fixed; top: 0; left: 0; bottom: 0; z-index: 201;
-          width: 280px;
+          width: 300px;
           transform: translateX(-100%);
           transition: transform .22s cubic-bezier(.4,0,.2,1);
           display: flex; flex-direction: column;
         }
         .sh-drawer.open { transform: translateX(0); }
+
+        /* ── Mobile group toggle ── */
+        .sh-mgroup {
+          display: flex; align-items: center; justify-content: space-between;
+          width: 100%; padding: 11px 14px;
+          border: none; background: transparent;
+          border-radius: 10px;
+          font-size: 14px; font-weight: 700;
+          color: ${navColor}; text-align: left; cursor: pointer;
+          font-family: inherit;
+        }
+        .sh-mgroup:hover { background: ${navHoverBg}; color: ${navHover}; }
+        .sh-mgroup.active { color: ${activeColor}; }
+        .sh-msublist {
+          overflow: hidden;
+          max-height: 0;
+          transition: max-height .25s ease;
+        }
+        .sh-msublist.open { max-height: 600px; }
+        .sh-msubitem {
+          display: block;
+          padding: 9px 14px 9px 28px;
+          border-radius: 8px;
+          font-size: 13px; font-weight: 600;
+          text-decoration: none;
+          color: ${navColor};
+          transition: background .12s, color .12s;
+        }
+        .sh-msubitem:hover { background: ${navHoverBg}; color: ${navHover}; }
+        .sh-msubitem.active { color: ${activeColor}; background: ${activeBg}; }
       `}</style>
 
       {/* ─── HEADER BAR ─────────────────────────────────────────── */}
@@ -121,7 +237,7 @@ export function SiteHeader() {
           </Link>
 
           {/* Search bar — desktop */}
-          <div className="sh-desktop-search" style={{ flex: '0 1 420px', margin: '0 4px', alignItems: 'center', borderRadius: 22, overflow: 'hidden', background: inputBg, border: inputBdr, transition: 'border-color .15s' }}>
+          <div className="sh-desktop-search" style={{ flex: '0 1 360px', margin: '0 4px', alignItems: 'center', borderRadius: 22, overflow: 'hidden', background: inputBg, border: inputBdr, transition: 'border-color .15s' }}>
             <input type="text" placeholder="Ieškok atlikėjų, albumų, dainų, renginių…"
               style={{ flex: 1, height: 36, padding: '0 16px', fontSize: 13, background: 'transparent', border: 'none', outline: 'none', color: inputColor, fontFamily: 'DM Sans, sans-serif' }} />
             <button style={{ flexShrink: 0, width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', background: 'transparent', cursor: 'pointer', color: mutedIcon }}>
@@ -129,22 +245,34 @@ export function SiteHeader() {
             </button>
           </div>
 
-          {/* Desktop nav — pushed right after search */}
+          {/* Desktop nav — hover dropdowns */}
           <nav className="sh-desktop-nav" style={{ alignItems: 'center', gap: 1, flexShrink: 0, marginLeft: 'auto' }}>
-            {NAV.map(n => {
-              const active = isActive(n.href)
+            {NAV.map(g => {
+              const active = isGroupActive(g)
+              const target = g.href || g.items[0]?.href || '/'
               return (
-                <Link key={n.label} href={n.href} className="sh-navlink"
-                  style={{ color: active ? activeColor : navColor, background: active ? activeBg : 'transparent' }}
-                  onMouseEnter={e => { if (!active) { e.currentTarget.style.color = navHover; e.currentTarget.style.background = navHoverBg } }}
-                  onMouseLeave={e => { if (!active) { e.currentTarget.style.color = navColor; e.currentTarget.style.background = 'transparent' } }}>
-                  {n.label}
-                </Link>
+                <div key={g.label} className="sh-group">
+                  <Link href={target} className={`sh-navlink${active ? ' active' : ''}`}>
+                    {g.label}
+                    <ChevronIcon />
+                  </Link>
+                  <div className="sh-dropdown" role="menu">
+                    {g.items.map(it => {
+                      const a = isActive(it.href)
+                      return (
+                        <Link key={it.href} href={it.href} className={`sh-dditem${a ? ' active' : ''}`}>
+                          <span className="lbl">{it.label}</span>
+                          {it.desc && <span className="desc">{it.desc}</span>}
+                        </Link>
+                      )
+                    })}
+                  </div>
+                </div>
               )
             })}
           </nav>
 
-          {/* Notifications + Auth (avatar / login) — always far right */}
+          {/* Notifications + Auth */}
           <div style={{ flexShrink: 0, marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
             <NotificationsBell />
             <HeaderAuth />
@@ -181,33 +309,34 @@ export function SiteHeader() {
           </div>
         </div>
 
-        {/* Drawer nav */}
+        {/* Drawer nav — accordion */}
         <nav style={{ flex: 1, padding: '8px 10px', overflowY: 'auto' }}>
-          {/* Main section */}
           <div style={{ padding: '4px 14px 8px', fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: sectionLabel }}>Meniu</div>
-          {NAV.map(n => {
-            const active = isActive(n.href)
-            return (
-              <Link key={n.label} href={n.href} onClick={() => setMenuOpen(false)}
-                style={{ display: 'block', padding: '10px 14px', borderRadius: 10, fontSize: 14, fontWeight: 700, textDecoration: 'none', marginBottom: 1, color: active ? activeColor : navColor, background: active ? activeBg : 'transparent', transition: 'background .12s, color .12s' }}
-                onMouseEnter={e => { if (!active) { e.currentTarget.style.background = navHoverBg; e.currentTarget.style.color = navHover } }}
-                onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = navColor } }}>
-                {n.label}
-              </Link>
-            )
-          })}
 
-          {/* Extra section */}
-          <div style={{ padding: '16px 14px 8px', fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: sectionLabel }}>Naršyti</div>
-          {DRAWER_EXTRA.map(n => {
-            const active = isActive(n.href)
+          {NAV.map(g => {
+            const active = isGroupActive(g)
+            const open = mobileExpanded === g.label || active
             return (
-              <Link key={n.label + n.href} href={n.href} onClick={() => setMenuOpen(false)}
-                style={{ display: 'block', padding: '10px 14px', borderRadius: 10, fontSize: 14, fontWeight: 600, textDecoration: 'none', marginBottom: 1, color: active ? activeColor : navColor, background: active ? activeBg : 'transparent', transition: 'background .12s, color .12s' }}
-                onMouseEnter={e => { if (!active) { e.currentTarget.style.background = navHoverBg; e.currentTarget.style.color = navHover } }}
-                onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = navColor } }}>
-                {n.label}
-              </Link>
+              <div key={g.label} style={{ marginBottom: 2 }}>
+                <button
+                  onClick={() => setMobileExpanded(mobileExpanded === g.label ? null : g.label)}
+                  className={`sh-mgroup${active ? ' active' : ''}`}
+                  aria-expanded={open}>
+                  <span>{g.label}</span>
+                  <ChevronIcon open={open} />
+                </button>
+                <div className={`sh-msublist${open ? ' open' : ''}`}>
+                  {g.items.map(it => {
+                    const a = isActive(it.href)
+                    return (
+                      <Link key={it.href} href={it.href} onClick={() => setMenuOpen(false)}
+                        className={`sh-msubitem${a ? ' active' : ''}`}>
+                        {it.label}
+                      </Link>
+                    )
+                  })}
+                </div>
+              </div>
             )
           })}
         </nav>
