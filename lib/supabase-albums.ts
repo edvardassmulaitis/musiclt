@@ -88,7 +88,7 @@ export async function getAlbums(artistId?: number, limit = 50, offset = 0, searc
   let q = supabase
     .from('albums')
     .select(
-      'id, title, year, cover_image_url, artist_id, type_studio, type_ep, type_compilation, type_live, type_single, type_remix, type_covers, type_holiday, type_soundtrack, type_demo, artists!albums_artist_id_fkey(id, name)',
+      'id, slug, title, year, cover_image_url, artist_id, type_studio, type_ep, type_compilation, type_live, type_single, type_remix, type_covers, type_holiday, type_soundtrack, type_demo, artists!albums_artist_id_fkey(id, name, slug)',
       { count: 'exact' }
     )
   if (artistId) q = q.eq('artist_id', artistId)
@@ -98,7 +98,10 @@ export async function getAlbums(artistId?: number, limit = 50, offset = 0, searc
   if (error) throw error
   const albums = (data || []).map((a: any) => ({
     ...a,
+    // `artists.slug` reikalingas client'ui SEO URL'ui (/albumai/{artistSlug}-{albumSlug}-{id}).
+    // `slug` ant pačio album'o — tas pats: be jo URL'as turi `undefined` segmentą.
     artist_name: a.artists?.name || '',
+    artist_slug: a.artists?.slug || '',
     cover_url: a.cover_image_url || null,
   }))
   return { albums, total: count || 0 }
@@ -345,7 +348,7 @@ export async function getTracks(artistId?: number, limit = 50, offset = 0, searc
   let q = supabase
     .from('tracks')
     .select(
-      'id, title, type, is_single, release_date, video_url, spotify_id, is_new, is_new_date, cover_url, lyrics, artists!tracks_artist_id_fkey(id, name, slug), track_artists(artist_id), album_tracks(position, is_primary, albums(id, title, year))',
+      'id, slug, title, type, is_single, release_date, video_url, spotify_id, is_new, is_new_date, cover_url, lyrics, artists!tracks_artist_id_fkey(id, name, slug), track_artists(artist_id), album_tracks(position, is_primary, albums(id, title, year))',
       { count: 'exact' }
     )
   if (artistId) q = q.eq('artist_id', artistId)
@@ -355,6 +358,7 @@ export async function getTracks(artistId?: number, limit = 50, offset = 0, searc
   if (error) throw error
   const tracks = (data || []).map((t: any) => ({
     id: t.id,
+    slug: t.slug,
     title: t.title,
     type: t.type,
     release_date: t.release_date,

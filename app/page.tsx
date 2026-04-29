@@ -1281,8 +1281,11 @@ export default function Home() {
                           </div>
                         </div>
                       )) : tracks.filter(t => sanitizeTitle(t.title)).slice(startIdx, startIdx + 10).map(t => {
-                        const artistSlug = t.artists?.slug
-                        const href = artistSlug ? `/dainos/${artistSlug}-${t.slug}-${t.id}` : `/dainos/${t.slug}-${t.id}`
+                        // API'as grąžina ir `artists.slug` (nested) ir `artist_slug` (flat alias).
+                        // Naudojam bet kurį, kuris bus apibrėžtas, kad URL'as visada teisingas.
+                        const artistSlug = t.artists?.slug || (t as any).artist_slug
+                        const tSlug = (t as any).slug || 'track'
+                        const href = artistSlug ? `/dainos/${artistSlug}-${tSlug}-${t.id}` : `/dainos/${tSlug}-${t.id}`
                         return (
                           <Link
                             key={t.id}
@@ -1323,8 +1326,9 @@ export default function Home() {
                           <div className="mt-1"><Skel w="60%" h={9} /></div>
                         </div>
                       )) : albums.slice(startIdx, startIdx + 7).map(a => {
-                        const artistSlug = a.artists?.slug
-                        const href = artistSlug ? `/albumai/${artistSlug}-${a.slug}-${a.id}` : `/albumai/${a.slug}-${a.id}`
+                        const artistSlug = a.artists?.slug || (a as any).artist_slug
+                        const aSlug = (a as any).slug || 'album'
+                        const href = artistSlug ? `/albumai/${artistSlug}-${aSlug}-${a.id}` : `/albumai/${aSlug}-${a.id}`
                         return (
                           <Link
                             key={a.id}
