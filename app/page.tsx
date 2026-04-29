@@ -97,6 +97,25 @@ function SH({ label, href, cta = 'Visi →' }: { label: React.ReactNode; href?: 
   )
 }
 
+/** Tailwind versija SH'o — naudojam naujose sekcijose, kad font/letter-spacing
+ *  atitiktų artist page'o tipografiją (`font-['Outfit',sans-serif]` +
+ *  `tracking-[-0.01em]` + truputį didesnis font-size 18px). */
+function SectionHead({ label, href, cta = 'Visi →' }: { label: React.ReactNode; href?: string; cta?: string }) {
+  return (
+    <div className="mb-3.5 flex items-center justify-between">
+      <h2 className="m-0 font-['Outfit',sans-serif] text-[17px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)] sm:text-[18px]">{label}</h2>
+      {href && (
+        <Link
+          href={href}
+          className="font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70"
+        >
+          {cta}
+        </Link>
+      )}
+    </div>
+  )
+}
+
 /* ────────────────────────────── Dienos Daina ────────────────────────────── */
 
 function DienosDainaWidget() {
@@ -704,7 +723,11 @@ export default function Home() {
     fetch('/api/top/entries?type=top40').then(r => r.json()).then(d => setWorldTop(parseTop(d.entries || []))).catch(() => {})
     fetch('/api/tracks?limit=24').then(r => r.json()).then(d => { setTracks(d.tracks || []); readyBits.current.tracks = true; tryReady.current() }).catch(() => { readyBits.current.tracks = true; tryReady.current() })
     fetch('/api/albums?limit=16').then(r => r.json()).then(d => setAlbums(d.albums || [])).catch(() => {})
-    fetch('/api/artists?limit=12').then(r => r.json()).then(d => setArtists(d.artists || [])).catch(() => {})
+    // Sort artists by score (descending) — kai duomenų bazėje 200+ atlikėjų,
+    // Atrask sekcija turėtų rodyti aukščiausiai score'inamus, ne tik
+    // alfabetiškai pirmus. Limit'as 24 — pakanka 8 grid'ui + buffer'is jei
+    // kas filtruosis.
+    fetch('/api/artists?limit=24&sort=score').then(r => r.json()).then(d => setArtists(d.artists || [])).catch(() => {})
     fetch('/api/events?limit=10').then(r => r.json()).then(d => setEvents(d.events || [])).catch(() => {})
     fetch('/api/news?limit=30').then(r => r.json()).then(d => setNews(d.news || [])).catch(() => {})
   }, [])
@@ -1236,98 +1259,114 @@ export default function Home() {
             {/* LEFT: Naujos dainos + Nauji albumai */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 32, minWidth: 0 }}>
 
-              {/* Naujos dainos */}
+              {/* Naujos dainos — kompaktiškas horizontal row,
+                  thumb + title + artist. Tylesnė vizualinė akcentuotė nei
+                  albumai (jie turi didesnius cover'ius). */}
               <section>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                  <h2 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em', margin: 0 }}>Naujos dainos</h2>
-                  <Link href="/muzika" style={{ fontSize: 12, color: 'var(--accent-link)', fontWeight: 700, textDecoration: 'none' }} onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')} onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>Visi →</Link>
-                </div>
-                <div style={{ marginBottom: 10 }}>
-                  <div className="hp-scroll" style={{ display: 'flex', gap: 8, paddingBottom: 2, alignItems: 'center' }}>
-                    <RowDivider icon="lt" />
-                    {tracks.length === 0 ? Array(5).fill(null).map((_, i) => (
-                      <div key={i} style={{ width: 178, flexShrink: 0, padding: '9px 11px', borderRadius: 11, background: 'var(--bg-surface)', border: `1px solid var(--border-default)`, display: 'flex', alignItems: 'center', gap: 9 }}>
-                        <Skel w={38} h={38} r={8} /><div style={{ flex: 1 }}><Skel w="76%" h={10} /><div style={{ marginTop: 5 }}><Skel w="54%" h={8} /></div></div>
-                      </div>
-                    )) : tracks.filter(t => sanitizeTitle(t.title)).slice(0, 10).map(t => (
-                      <Link key={t.id} href={`/muzika/${t.slug}`} className="hp-card"
-                        style={{ width: 178, flexShrink: 0, padding: '9px 11px', display: 'flex', alignItems: 'center', gap: 9 }}>
-                        <Cover src={t.cover_url} artistSrc={t.artists?.cover_image_url} alt={sanitizeTitle(t.title)} size={38} radius={8} />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(t.title)}</p>
-                          <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.artists?.name}</p>
+                <SectionHead label="Naujos dainos" href="/muzika" />
+                {[0, 10].map((startIdx) => (
+                  <div key={startIdx} className={startIdx === 0 ? 'mb-2.5' : ''}>
+                    <div className="hp-scroll flex items-center gap-2 pb-0.5">
+                      <RowDivider icon={startIdx === 0 ? 'lt' : 'world'} />
+                      {tracks.length === 0 ? Array(5).fill(null).map((_, i) => (
+                        <div
+                          key={i}
+                          className="flex shrink-0 items-center gap-2.5 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2.5"
+                          style={{ width: 178 }}
+                        >
+                          <Skel w={38} h={38} r={8} />
+                          <div className="flex-1">
+                            <Skel w="76%" h={10} />
+                            <div className="mt-1.5"><Skel w="54%" h={8} /></div>
+                          </div>
                         </div>
-                      </Link>
-                    ))}
+                      )) : tracks.filter(t => sanitizeTitle(t.title)).slice(startIdx, startIdx + 10).map(t => {
+                        const artistSlug = t.artists?.slug
+                        const href = artistSlug ? `/dainos/${artistSlug}-${t.slug}-${t.id}` : `/dainos/${t.slug}-${t.id}`
+                        return (
+                          <Link
+                            key={t.id}
+                            href={href}
+                            className="hp-card flex shrink-0 items-center gap-2.5 px-3 py-2.5"
+                            style={{ width: 178 }}
+                          >
+                            <Cover src={t.cover_url} artistSrc={t.artists?.cover_image_url} alt={sanitizeTitle(t.title)} size={38} radius={8} />
+                            <div className="min-w-0 flex-1">
+                              <p className="m-0 truncate font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]">
+                                {sanitizeTitle(t.title)}
+                              </p>
+                              <p className="m-0 mt-0.5 truncate text-[11px] text-[var(--text-muted)]">
+                                {t.artists?.name}
+                              </p>
+                            </div>
+                          </Link>
+                        )
+                      })}
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <div className="hp-scroll" style={{ display: 'flex', gap: 8, paddingBottom: 2, alignItems: 'center' }}>
-                    <RowDivider icon="world" />
-                    {tracks.length === 0 ? Array(5).fill(null).map((_, i) => (
-                      <div key={i} style={{ width: 178, flexShrink: 0, padding: '9px 11px', borderRadius: 11, background: 'var(--bg-surface)', border: `1px solid var(--border-default)`, display: 'flex', alignItems: 'center', gap: 9 }}>
-                        <Skel w={38} h={38} r={8} /><div style={{ flex: 1 }}><Skel w="76%" h={10} /><div style={{ marginTop: 5 }}><Skel w="54%" h={8} /></div></div>
-                      </div>
-                    )) : tracks.filter(t => sanitizeTitle(t.title)).slice(10, 20).map(t => (
-                      <Link key={t.id} href={`/muzika/${t.slug}`} className="hp-card"
-                        style={{ width: 178, flexShrink: 0, padding: '9px 11px', display: 'flex', alignItems: 'center', gap: 9 }}>
-                        <Cover src={t.cover_url} artistSrc={t.artists?.cover_image_url} alt={sanitizeTitle(t.title)} size={38} radius={8} />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(t.title)}</p>
-                          <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.artists?.name}</p>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
+                ))}
               </section>
 
-              {/* Nauji albumai */}
+              {/* Nauji albumai — vertikali kortelė su kvadratiniu cover'iu
+                  (atitinka artist page'o AlbumCard pattern'ą). Cover'is
+                  ~140px aiškiai didesnis nei track row'o 38px thumb'as. */}
               <section>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                  <h2 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em', margin: 0 }}>Nauji albumai</h2>
-                  <Link href="/muzika?tab=albums" style={{ fontSize: 12, color: 'var(--accent-link)', fontWeight: 700, textDecoration: 'none' }} onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')} onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>Visi →</Link>
-                </div>
-                <div style={{ marginBottom: 10 }}>
-                  <div className="hp-scroll" style={{ display: 'flex', gap: 9, paddingBottom: 2, alignItems: 'center' }}>
-                    <RowDivider icon="lt" />
-                    {albums.length === 0 ? Array(4).fill(null).map((_, i) => (
-                      <div key={i} style={{ width: 195, flexShrink: 0, padding: '10px 12px', borderRadius: 11, background: 'var(--bg-surface)', border: '1px solid var(--border-default)', display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <Skel w={46} h={46} r={9} /><div style={{ flex: 1 }}><Skel w="70%" h={10} /><div style={{ marginTop: 5 }}><Skel w="50%" h={9} /></div></div>
-                      </div>
-                    )) : albums.slice(0, 7).map(a => (
-                      <Link key={a.id} href={`/muzika/${a.slug}`} className="hp-card"
-                        style={{ width: 195, flexShrink: 0, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <Cover src={a.cover_image_url} artistSrc={a.artists?.cover_image_url} alt={sanitizeTitle(a.title)} size={46} radius={9} />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(a.title)}</p>
-                          <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.artists?.name}</p>
-                          {a.year && <p style={{ fontSize: 10, color: 'var(--text-faint)', margin: 0 }}>{a.year}</p>}
+                <SectionHead label="Nauji albumai" href="/muzika?tab=albums" />
+                {[0, 7].map((startIdx) => (
+                  <div key={startIdx} className={startIdx === 0 ? 'mb-3' : ''}>
+                    <div className="hp-scroll flex items-stretch gap-3 pb-0.5">
+                      <RowDivider icon={startIdx === 0 ? 'lt' : 'world'} />
+                      {albums.length === 0 ? Array(5).fill(null).map((_, i) => (
+                        <div key={i} className="shrink-0" style={{ width: 144 }}>
+                          <Skel w={144} h={144} r={12} />
+                          <div className="mt-2"><Skel w="80%" h={11} /></div>
+                          <div className="mt-1"><Skel w="60%" h={9} /></div>
                         </div>
-                      </Link>
-                    ))}
+                      )) : albums.slice(startIdx, startIdx + 7).map(a => {
+                        const artistSlug = a.artists?.slug
+                        const href = artistSlug ? `/albumai/${artistSlug}-${a.slug}-${a.id}` : `/albumai/${a.slug}-${a.id}`
+                        return (
+                          <Link
+                            key={a.id}
+                            href={href}
+                            className="group block shrink-0 no-underline"
+                            style={{ width: 144 }}
+                          >
+                            <div className="relative aspect-square overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)] group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]">
+                              {a.cover_image_url || a.artists?.cover_image_url ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={a.cover_image_url || a.artists?.cover_image_url || ''}
+                                  alt={sanitizeTitle(a.title)}
+                                  loading="lazy"
+                                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
+                                  style={{ filter: 'saturate(1.05) contrast(1.02)' }}
+                                />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">💿</div>
+                              )}
+                              {/* Hover orange tint nuo apačios */}
+                              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[rgba(249,115,22,0.12)] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                              {a.year && (
+                                <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold text-white backdrop-blur-sm">
+                                  {a.year}
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-2 px-0.5">
+                              <p className="m-0 truncate font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
+                                {sanitizeTitle(a.title)}
+                              </p>
+                              <p className="m-0 mt-0.5 truncate text-[11px] text-[var(--text-muted)]">
+                                {a.artists?.name}
+                              </p>
+                            </div>
+                          </Link>
+                        )
+                      })}
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <div className="hp-scroll" style={{ display: 'flex', gap: 9, paddingBottom: 2, alignItems: 'center' }}>
-                    <RowDivider icon="world" />
-                    {albums.length === 0 ? Array(4).fill(null).map((_, i) => (
-                      <div key={i} style={{ width: 195, flexShrink: 0, padding: '10px 12px', borderRadius: 11, background: 'var(--bg-surface)', border: '1px solid var(--border-default)', display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <Skel w={46} h={46} r={9} /><div style={{ flex: 1 }}><Skel w="70%" h={10} /><div style={{ marginTop: 5 }}><Skel w="50%" h={9} /></div></div>
-                      </div>
-                    )) : albums.slice(7, 14).map(a => (
-                      <Link key={a.id} href={`/muzika/${a.slug}`} className="hp-card"
-                        style={{ width: 195, flexShrink: 0, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <Cover src={a.cover_image_url} artistSrc={a.artists?.cover_image_url} alt={sanitizeTitle(a.title)} size={46} radius={9} />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(a.title)}</p>
-                          <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.artists?.name}</p>
-                          {a.year && <p style={{ fontSize: 10, color: 'var(--text-faint)', margin: 0 }}>{a.year}</p>}
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
+                ))}
               </section>
             </div>
 
@@ -1402,20 +1441,34 @@ export default function Home() {
               <DiscussionsWidget />
             </section>
             <section>
-              <SH label="Atrask atlikėjus" href="/atlikejai" />
-              <div className="hp-ag" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14 }}>
+              <SectionHead label="Atrask atlikėjus" href="/atlikejai" />
+              <div className="hp-ag grid grid-cols-4 gap-3.5">
                 {artists.length === 0 ? Array(8).fill(null).map((_, i) => (
-                  <div key={i} style={{ textAlign: 'center' }}>
-                    <div style={{ width: 56, height: 56, borderRadius: 28, margin: '0 auto' }}><Skel w={56} h={56} r={28} /></div>
-                    <div style={{ margin: '8px auto 0', maxWidth: 56 }}><Skel w="100%" h={9} /></div>
+                  <div key={i} className="text-center">
+                    <div className="mx-auto" style={{ width: 72, height: 72, borderRadius: 36 }}>
+                      <Skel w={72} h={72} r={36} />
+                    </div>
+                    <div className="mx-auto mt-2 max-w-[72px]"><Skel w="100%" h={9} /></div>
                   </div>
                 )) : artists.slice(0, 8).map(a => (
-                  <Link key={a.id} href={`/atlikejai/${a.slug}`} className="hp-art"
-                    style={{ textAlign: 'center', textDecoration: 'none', display: 'block' }}>
-                    <div className="hp-art-img" style={{ width: 56, height: 56, borderRadius: '50%', margin: '0 auto 8px', overflow: 'hidden', transition: 'transform .3s', boxShadow: `0 5px 18px ${dk ? `hsla(${strHue(a.name)},35%,5%,.9)` : `hsla(${strHue(a.name)},25%,40%,.15)`}` }}>
-                      <Cover src={a.cover_image_url} alt={a.name} size={56} radius={28} />
+                  <Link
+                    key={a.id}
+                    href={`/atlikejai/${a.slug}`}
+                    className="hp-art group block text-center no-underline"
+                  >
+                    <div
+                      className="hp-art-img mx-auto mb-2 overflow-hidden rounded-full transition-transform duration-300 group-hover:scale-[1.06]"
+                      style={{
+                        width: 72,
+                        height: 72,
+                        boxShadow: `0 6px 20px ${dk ? `hsla(${strHue(a.name)},35%,5%,.9)` : `hsla(${strHue(a.name)},25%,40%,.18)`}`,
+                      }}
+                    >
+                      <Cover src={a.cover_image_url} alt={a.name} size={72} radius={36} />
                     </div>
-                    <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</p>
+                    <p className="m-0 truncate font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--text-secondary)] transition-colors group-hover:text-[var(--accent-orange)]">
+                      {a.name}
+                    </p>
                   </Link>
                 ))}
               </div>
