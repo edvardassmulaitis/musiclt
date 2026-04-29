@@ -2,12 +2,19 @@
 
 import { useState, useRef } from 'react'
 import WikimediaSearch from './WikimediaSearch'
+import { proxyImg } from '@/lib/img-proxy'
 
 export type Photo = {
+  id?: number
   url: string
   caption?: string
   author?: string
   authorUrl?: string
+  sourceUrl?: string
+  license?: string
+  takenAt?: string
+  is_active?: boolean
+  sort_order?: number
 }
 
 type LogEntry = { time: string; msg: string; ok: boolean }
@@ -145,7 +152,7 @@ export default function PhotoGallery({ photos, onChange, artistName, artistId }:
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
           {photos.map((photo, i) => (
             <div key={`${photo.url}-${i}`} className="relative group aspect-square rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
-              <img src={photo.url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              <img src={proxyImg(photo.url)} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
               <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-1.5">
                 <div className="flex justify-between">
                   <button type="button" onClick={() => moveLeft(i)} disabled={i === 0}

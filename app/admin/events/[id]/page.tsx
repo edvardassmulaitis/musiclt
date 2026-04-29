@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
+import WikimediaSearch from '@/components/WikimediaSearch'
 
 type ArtistRow = { artist_id: number; name: string; is_headliner: boolean }
 
@@ -33,6 +34,26 @@ export default function AdminEventEditPage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
+  const [wikiOpen, setWikiOpen] = useState(false)
+  const [venueOptions, setVenueOptions] = useState<Array<{ id: number; legacy_id: number | null; name: string; city: string | null; address: string | null }>>([])
+  const [showVenueDrop, setShowVenueDrop] = useState(false)
+  const [venueId, setVenueId] = useState<number | null>(null)
+
+  // Load venues on mount for suggestion dropdown
+  useEffect(() => {
+    fetch('/api/venues')
+      .then(r => r.ok ? r.json() : { venues: [] })
+      .then(d => setVenueOptions(d.venues || []))
+      .catch(() => setVenueOptions([]))
+  }, [])
+
+  const filteredVenues = (venueName.trim().length === 0
+    ? venueOptions
+    : venueOptions.filter(v =>
+        v.name.toLowerCase().includes(venueName.toLowerCase()) ||
+        (v.city || '').toLowerCase().includes(venueName.toLowerCase())
+      )
+  ).slice(0, 12)
 
   useEffect(() => { if (status === 'unauthenticated') router.push('/') }, [status])
 
@@ -47,6 +68,7 @@ export default function AdminEventEditPage() {
         setVenueName(ev.venue_name || '')
         setCity(ev.city || '')
         setAddress(ev.address || '')
+        setVenueId(ev.venue_id ?? null)
         setCoverUrl(ev.cover_image_url || '')
         setTicketUrl(ev.ticket_url || '')
         setPriceFrom(ev.price_from?.toString() || '')
@@ -91,6 +113,7 @@ export default function AdminEventEditPage() {
       start_date: new Date(startDate).toISOString(),
       end_date: endDate ? new Date(endDate).toISOString() : null,
       venue_name: venueName || null,
+      venue_id: venueId,
       city: city || null,
       address: address || null,
       cover_image_url: coverUrl || null,
@@ -181,8 +204,90 @@ export default function AdminEventEditPage() {
         {/* Venue */}
         <div className="grid grid-cols-3 gap-4">
           <div>
-            <label className={labelCls}>Vieta</label>
-            <input value={venueName} onChange={e => setVenueName(e.target.value)} className={inputCls} placeholder="Žalgirio Arena" />
+            <label className={labelCls}>
+              Vieta
+              {venueId && (
+                <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-black uppercase rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  🔗 Susieta
+                </span>
+              )}
+            </label>
+            <div className="relative">
+              <div className="flex gap-2">
+                <input
+                  value={venueName}
+                  onChange={e => {
+                    setVenueName(e.target.value)
+                    setVenueId(null) // unlink when user types free text
+                    setShowVenueDrop(true)
+                  }}
+                  onFocus={() => setShowVenueDrop(true)}
+                  onBlur={() => setTimeout(() => setShowVenueDrop(false), 200)}
+                  className={`${inputCls} flex-1`}
+                  placeholder="Žalgirio Arena"
+                />
+                <button
+                  type="button"
+                  onMouseDown={(e) => { e.preventDefault(); setShowVenueDrop(d => !d) }}
+                  className="px-2 py-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700"
+                  title="Rodyti sąrašą"
+                >
+                  ▾
+                </button>
+                {venueId && (
+                  <button
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      setVenueId(null)
+                    }}
+                    className="px-2 py-1.5 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg text-xs font-semibold text-red-600"
+                    title="Atsieti nuo venues lentelės"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+              {showVenueDrop && (
+                <div className="absolute top-full left-0 right-0 z-20 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-72 overflow-y-auto">
+                  {venueOptions.length === 0 ? (
+                    <div className="px-3 py-2 text-xs text-gray-500">Kraunu vietas…</div>
+                  ) : filteredVenues.length === 0 ? (
+                    <>
+                      <div className="px-3 py-2 text-[10px] text-gray-500 uppercase font-bold tracking-wide bg-gray-50 border-b border-gray-100">
+                        Nerasta pagal „{venueName}" — galima naudoti laisvu tekstu arba išrinkti iš sąrašo:
+                      </div>
+                      {venueOptions.slice(0, 20).map(v => (
+                        <VenueRow key={v.id} v={v} onPick={() => {
+                          setVenueName(v.name); setVenueId(v.id)
+                          if (v.city) setCity(v.city); if (v.address) setAddress(v.address)
+                          setShowVenueDrop(false)
+                        }} />
+                      ))}
+                    </>
+                  ) : (
+                    filteredVenues.map(v => (
+                      <VenueRow key={v.id} v={v} highlighted={v.id === venueId} onPick={() => {
+                        setVenueName(v.name); setVenueId(v.id)
+                        if (v.city) setCity(v.city); if (v.address) setAddress(v.address)
+                        setShowVenueDrop(false)
+                      }} />
+                    ))
+                  )}
+                  <Link
+                    href="/admin/venues/new"
+                    className="block px-3 py-2 text-xs text-blue-600 hover:bg-blue-50 border-t border-gray-100 font-semibold"
+                  >
+                    + Sukurti naują vietą…
+                  </Link>
+                </div>
+              )}
+            </div>
+            {venueId && (
+              <div className="mt-1 text-[10px] text-emerald-700 font-semibold">
+                FK → venues.id = {venueId}
+              </div>
+            )}
           </div>
           <div>
             <label className={labelCls}>Miestas</label>
@@ -204,10 +309,43 @@ export default function AdminEventEditPage() {
 
         {/* Cover */}
         <div>
-          <label className={labelCls}>Cover nuotraukos URL</label>
-          <input value={coverUrl} onChange={e => setCoverUrl(e.target.value)} className={inputCls} placeholder="https://..." />
+          <label className={labelCls}>Cover nuotrauka</label>
+          <div className="flex gap-2">
+            <input
+              value={coverUrl}
+              onChange={e => setCoverUrl(e.target.value)}
+              className={`${inputCls} flex-1`}
+              placeholder="https://..."
+            />
+            <button
+              type="button"
+              onClick={() => setWikiOpen(true)}
+              className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-semibold whitespace-nowrap"
+              title="Ieškoti nuotraukos Wikipedijoje"
+            >
+              🔍 Wiki
+            </button>
+          </div>
           {coverUrl && (
-            <img src={coverUrl} alt="" className="mt-2 h-24 rounded-lg object-cover" onError={e => (e.currentTarget.style.display = 'none')} />
+            <img
+              src={coverUrl}
+              alt=""
+              referrerPolicy="no-referrer"
+              className="mt-2 h-32 rounded-lg object-cover border border-gray-200"
+              onError={e => (e.currentTarget.style.display = 'none')}
+            />
+          )}
+          {wikiOpen && (
+            <WikimediaSearch
+              artistName={title || ''}
+              onAddMultiple={(photos) => {
+                if (photos.length > 0) {
+                  setCoverUrl(photos[0].url)
+                }
+                setWikiOpen(false)
+              }}
+              onClose={() => setWikiOpen(false)}
+            />
           )}
         </div>
 
@@ -270,5 +408,31 @@ export default function AdminEventEditPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+function VenueRow({ v, highlighted, onPick }: {
+  v: { id: number; name: string; city: string | null; address: string | null }
+  highlighted?: boolean
+  onPick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onMouseDown={(e) => { e.preventDefault(); onPick() }}
+      className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${
+        highlighted ? 'bg-emerald-50 hover:bg-emerald-100' : 'hover:bg-gray-50'
+      }`}
+    >
+      <div className="font-semibold text-gray-900 flex items-center gap-1">
+        {v.name}
+        {highlighted && <span className="text-[9px] text-emerald-600 font-bold">✓ pasirinkta</span>}
+      </div>
+      {(v.city || v.address) && (
+        <div className="text-gray-500 text-[10px]">
+          {v.city}{v.city && v.address ? ' · ' : ''}{v.address}
+        </div>
+      )}
+    </button>
   )
 }

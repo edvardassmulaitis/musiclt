@@ -30,15 +30,16 @@ const CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
   media:      { label: 'Turinys', color: '#8b5cf6' },
   community:  { label: 'Bendruomenė', color: '#f59e0b' },
   career:     { label: 'Karjera', color: '#10b981' },
-  chart:      { label: 'Hitparadai', color: '#ef4444' },
+  chart:      { label: 'Pasirodymai topuose', color: '#ef4444' },
   commercial: { label: 'Sertifikatai', color: '#f59e0b' },
   reach:      { label: 'Aprėptis', color: '#10b981' },
+  awards:     { label: 'Apdovanojimai', color: '#eab308' },
 }
 
 // Fixed display order — JSONB doesn't preserve key insertion order
 const CATEGORY_ORDER: Record<string, string[]> = {
-  lt:  ['catalog', 'media', 'community', 'career'],
-  int: ['catalog', 'chart', 'commercial', 'reach'],
+  lt:  ['catalog', 'media', 'community', 'career', 'awards'],
+  int: ['catalog', 'chart', 'commercial', 'reach', 'awards'],
 }
 
 function ScoreBar({ label, value, max, color, details }: {
@@ -197,7 +198,7 @@ export default function ScoreModal({ artistId, onClose }: { artistId: string; on
             {b && b.type === 'int' && b.categories.chart?.points === 0 && b.categories.commercial?.points === 0 && (
               <div className="mb-4 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
                 <p className="text-xs text-amber-700">
-                  Nėra hitparadų/sertifikatų duomenų. Pabandyk importuoti diskografiją iš Wikipedia — pozicijos hitparaduose ir sertifikatai bus ištraukti automatiškai.
+                  Nėra duomenų apie pasirodymus topuose ar sertifikatus. Pabandyk importuoti diskografiją iš Wikipedia — pozicijos topuose ir sertifikatai bus ištraukti automatiškai.
                 </p>
               </div>
             )}

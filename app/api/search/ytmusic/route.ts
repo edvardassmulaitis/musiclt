@@ -104,6 +104,10 @@ export async function GET(req: NextRequest) {
       url: first ? `https://www.youtube.com/watch?v=${first.videoId}` : null,
       title: first?.title || null,
       channel: first?.channel || null,
+      // `views` čia — žmoniškas tekstas iš search'o (pvz "1.2M views" arba
+      // "1 234 567 views"). Tai aproksimacija — tikslų skaičių per BIGINT
+      // grąžina /api/admin/yt/views (POST į InnerTube /player endpoint'ą).
+      views: first?.views || null,
     }, {
       headers: { 'Cache-Control': 'public, max-age=86400' }
     })

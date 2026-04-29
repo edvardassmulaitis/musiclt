@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getEventBySlug } from '@/lib/supabase-events'
+import EventCoverImage from './event-cover-image'
 
 type Artist = { id: number; name: string; slug: string; cover_image_url: string | null }
 
@@ -49,7 +50,7 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
     location: { '@type': 'Place', name: ev.venue_name || '', address: { '@type': 'PostalAddress', addressLocality: ev.city || '', streetAddress: ev.address || '', addressCountry: 'LT' } },
     ...(ev.cover_image_url ? { image: ev.cover_image_url } : {}),
     ...(ev.ticket_url ? { offers: { '@type': 'Offer', url: ev.ticket_url, ...(ev.price_from ? { lowPrice: ev.price_from } : {}), ...(ev.price_to ? { highPrice: ev.price_to } : {}), priceCurrency: 'EUR', availability: isPast ? 'https://schema.org/SoldOut' : 'https://schema.org/InStock' } } : {}),
-    performer: allArtists.map(ea => { const a = getArtist(ea); return a ? { '@type': 'MusicGroup', name: a.name, url: `${siteUrl}/atlikejas/${a.slug || a.id}` } : null }).filter(Boolean),
+    performer: allArtists.map(ea => { const a = getArtist(ea); return a ? { '@type': 'MusicGroup', name: a.name, url: `${siteUrl}/atlikejai/${a.slug || a.id}` } : null }).filter(Boolean),
     organizer: { '@type': 'Organization', name: 'Music.lt', url: siteUrl },
   }
 
@@ -72,32 +73,14 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
 
       <div className="max-w-[1360px] mx-auto px-5 lg:px-8">
 
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-xs py-4" style={{ color: '#3d5878' }}>
-          <Link href="/renginiai" className="hover:text-blue-400 transition">Renginiai</Link>
-          <span style={{ color: '#1e2e42' }}>/</span>
-          <span className="truncate" style={{ color: '#5e7290' }}>{ev.title}</span>
-        </div>
+        {/* HERO: image left (only if present), info right */}
+        <div className={`flex flex-col lg:flex-row gap-8 ${ev.cover_image_url ? 'mb-10' : 'mb-6 pt-8'}`}>
 
-        {/* HERO: image left, info right */}
-        <div className="flex flex-col lg:flex-row gap-8 mb-10">
-
-          {/* Left: Cover */}
-          <div className="lg:w-[55%] flex-shrink-0">
-            {ev.cover_image_url ? (
-              <div className="rounded-2xl overflow-hidden aspect-[4/3] lg:aspect-auto lg:h-full relative">
-                <img src={ev.cover_image_url} alt={ev.title} className="w-full h-full object-cover" />
-                <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(transparent 60%, rgba(8,12,18,0.4))' }} />
-              </div>
-            ) : (
-              <div className="rounded-2xl aspect-[4/3] flex items-center justify-center" style={{ background: 'linear-gradient(135deg, rgba(29,78,216,0.1), rgba(249,115,22,0.06))' }}>
-                <span className="text-7xl opacity-20">&#127908;</span>
-              </div>
-            )}
-          </div>
+          {/* Left: Cover (client component so onError can gracefully hide it without SSR crash) */}
+          {ev.cover_image_url && <EventCoverImage src={ev.cover_image_url} alt={ev.title} />}
 
           {/* Right: Info */}
-          <div className="lg:w-[45%] flex flex-col justify-center">
+          <div className={`${ev.cover_image_url ? 'lg:w-[45%]' : 'w-full max-w-3xl'} flex flex-col justify-center`}>
 
             {/* Badges */}
             <div className="flex items-center gap-2 mb-3">
@@ -155,7 +138,7 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
                     const a = getArtist(ea)
                     if (!a) return null
                     return (
-                      <Link key={a.id} href={`/atlikejas/${a.slug || a.id}`}
+                      <Link key={a.id} href={`/atlikejai/${a.slug || a.id}`}
                         className="flex items-center gap-2 pl-1 pr-3 py-1 rounded-full transition-all hover:bg-white/[.06] group"
                         style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
                         <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"

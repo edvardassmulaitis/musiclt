@@ -153,6 +153,77 @@ function DienosDainaWidget() {
   )
 }
 
+/* ────────────────────────────── Boombox home widget ────────────────────────────── */
+
+function BoomboxHomeWidget() {
+  const [state, setState] = useState<{ streak: number; hasContent: boolean; completedToday: number; loading: boolean }>({
+    streak: 0, hasContent: false, completedToday: 0, loading: true,
+  })
+
+  useEffect(() => {
+    let alive = true
+    fetch('/api/boombox/today').then(r => r.json()).then(d => {
+      if (!alive) return
+      const completed = [d.completions?.image, d.completions?.duel, d.completions?.verdict].filter(Boolean).length
+      setState({
+        streak: d.streak?.current || 0,
+        hasContent: !!(d.image || d.duel || d.verdict || (d.videos?.length || 0) > 0),
+        completedToday: completed,
+        loading: false,
+      })
+    }).catch(() => setState(s => ({ ...s, loading: false })))
+    return () => { alive = false }
+  }, [])
+
+  return (
+    <Link href="/boombox" style={{
+      display: 'block',
+      background: 'linear-gradient(135deg, rgba(249,115,22,0.12), rgba(29,78,216,0.06))',
+      border: '1px solid rgba(249,115,22,0.25)',
+      borderRadius: 16,
+      padding: 16,
+      textDecoration: 'none',
+      color: 'var(--text-primary)',
+      transition: 'transform .15s, box-shadow .15s',
+    }}
+      onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-1px)')}
+      onMouseLeave={e => (e.currentTarget.style.transform = 'none')}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 32, marginBottom: 10 }}>
+        {[40, 75, 55, 95, 68, 50, 80].map((h, i) => (
+          <div key={i} style={{
+            width: 5, height: `${h}%`, borderRadius: 2,
+            background: 'linear-gradient(0deg, var(--accent-orange), #fbbf24)',
+            animation: `bbHomeEq 1.1s infinite ease-in-out ${i * 0.12}s`,
+          }} />
+        ))}
+      </div>
+      <style>{`@keyframes bbHomeEq { 0%, 100% { transform: scaleY(0.4); } 50% { transform: scaleY(1); } }`}</style>
+
+      <div style={{ fontFamily: 'Outfit, system-ui, sans-serif', fontSize: 22, fontWeight: 900, letterSpacing: '-0.5px', marginBottom: 4 }}>
+        BOOMBOX
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12 }}>
+        3 misijos · ~2 min · drop'ai
+      </div>
+
+      {state.loading ? null : state.hasContent ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-muted)' }}>
+          {state.completedToday > 0 && (
+            <span style={{ color: 'var(--accent-green)' }}>✓ {state.completedToday}/3</span>
+          )}
+          {state.streak > 0 && (
+            <span style={{ color: 'var(--accent-orange)' }}>🔥 {state.streak} d.</span>
+          )}
+          <span style={{ marginLeft: 'auto', fontWeight: 600, color: 'var(--accent-orange)' }}>Pradėti →</span>
+        </div>
+      ) : (
+        <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>Šiandien dar nepublikuota</div>
+      )}
+    </Link>
+  )
+}
+
 /* ────────────────────────────── Shoutbox ────────────────────────────── */
 
 function ShoutboxWidget() {
@@ -1318,16 +1389,8 @@ export default function Home() {
               <div><SH label="Dienos daina" href="/dienos-daina" /><DienosDainaWidget /></div>
               <div><SH label="Gyvi pokalbiai" href="/bendruomene" cta="Bendruomenė →" /><ShoutboxWidget /></div>
               <div>
-                <SH label="Veikla" />
-                <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 16, padding: '14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {Array(5).fill(null).map((_, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <Skel w={28} h={28} r={14} />
-                      <div style={{ flex: 1 }}><Skel w="85%" h={9} /><div style={{ marginTop: 4 }}><Skel w="55%" h={8} /></div></div>
-                    </div>
-                  ))}
-                  <p style={{ fontSize: 11, color: 'var(--text-faint)', textAlign: 'center', margin: '4px 0 0' }}>Greitai...</p>
-                </div>
+                <SH label="Boombox" href="/boombox" cta="3 misijos kasdien →" />
+                <BoomboxHomeWidget />
               </div>
             </div>
           </section>
