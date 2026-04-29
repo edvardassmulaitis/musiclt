@@ -540,14 +540,15 @@ function PlayerCard({
           // the iframe stays in the DOM. The "play" overlay button is
           // rendered on top when !playing.
           <>
-            {/* Mobile'e renderinam plain `<iframe>` su autoplay=1 — Safari iOS
-                leidžia, nes iframe mount'inasi tame pačiame React render'yje
-                kaip click event'as (gesture context išlaikomas). Desktop'as
-                naudoja YT.Player JS API per containerRef wrapper'į. */}
-            {isMobileVP && playing && (
+            {/* Mobile: visada rodom iframe'ą be overlay mygtuko. Useris valdo
+                grojimą per pačios YouTube'o native controls — nereikia
+                kovoti su Safari iOS autoplay'aus blokavimu, gesture
+                context'u, ar postMessage komandom. Simpler = bulletproof.
+                Desktop'as toliau naudoja YT.Player JS API per containerRef. */}
+            {isMobileVP && (
               <iframe
                 key={`mobile-hero-${displayVid}`}
-                src={`https://www.youtube.com/embed/${displayVid}?autoplay=1&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3`}
+                src={`https://www.youtube.com/embed/${displayVid}?playsinline=1&rel=0&modestbranding=1&iv_load_policy=3`}
                 title="YouTube player"
                 className="absolute inset-0 h-full w-full"
                 referrerPolicy="strict-origin-when-cross-origin"
@@ -556,7 +557,7 @@ function PlayerCard({
               />
             )}
             <div ref={containerRef} className={isMobileVP ? 'hidden' : 'absolute inset-0 h-full w-full'} />
-            {!playing && (
+            {!isMobileVP && !playing && (
               <button
                 type="button"
                 onClick={() => {
@@ -863,6 +864,7 @@ type EntityComment = {
 function TrackInfoModal({
   track, artistName, artistSlug, artistThumbUrl, onClose, onPlay, onPause,
   activeTrackId, playing, onMobileInlineChange,
+  onPrevTrack, onNextTrack, onDockedPlayerChange,
 }: {
   track: Track | null; artistName: string; artistSlug: string
   /** Artist'o profilio nuotrauka headeryje šalia title + name. */
@@ -881,6 +883,13 @@ function TrackInfoModal({
   /** Fires when the modal owns an inline mobile player (mobile only). Parent
    *  uses this to suppress the hero player iframe so audio doesn't double up. */
   onMobileInlineChange?: (active: boolean) => void
+  /** Navigate to previous/next track with video. Parent computes order from
+   *  its full tracks list. Passed null when no neighbor available. */
+  onPrevTrack?: (() => void) | null
+  onNextTrack?: (() => void) | null
+  /** Fires when the modal renders a docked player on desktop (≥1280px) —
+   *  parent suppresses the hero player to avoid duplicate audio. */
+  onDockedPlayerChange?: (active: boolean) => void
 }) {
   // We use an internal `mounted` flag so the slide-out animation gets a chance
   // to run before the component unmounts. When a new track replaces the
@@ -905,17 +914,6 @@ function TrackInfoModal({
   // pranešam per `onMobileInlineChange`, kad jis suppress'intų hero — kitaip
   // audio dvigubintų.
   const [isMobile, setIsMobile] = useState(false)
-  // Mobile inline player'io state machine:
-  //   'inactive' — iframe nemount'intas, button rodo Klausyti
-  //   'playing' — iframe mounted (autoplay=1), button rodo Pauzė
-  //   'paused' — iframe vis dar mounted, postMessage pauseVideo siųstas,
-  //              button rodo Klausyti (bet iframe lieka — užtenka playVideo
-  //              postMessage'ą, kad atsinaujintų be reload).
-  // Anksciau buvo bool, tai kai useris paspausdavo Pauzę, mes unmount'indavom
-  // iframe — userio reportas: „spaudziant pause, jis paslepia video modale".
-  type MobilePlayState = 'inactive' | 'playing' | 'paused'
-  const [mobileState, setMobileState] = useState<MobilePlayState>('inactive')
-  const mobileIframeRef = useRef<HTMLIFrameElement | null>(null)
   useEffect(() => {
     const m = window.matchMedia('(max-width: 1023px)')
     setIsMobile(m.matches)
@@ -923,24 +921,26 @@ function TrackInfoModal({
     m.addEventListener('change', h)
     return () => m.removeEventListener('change', h)
   }, [])
-  // Mounted = playing arba paused (abu — iframe DOM'e). Tai pranešam parent'ui,
-  // kad jis suppress'intų hero player'į (kitaip audio dvigubėtų — nes hero
-  // taip pat sukuria savo iframe'ą jei `playing` flag aktyvus).
-  const mobileInlineMounted = mobileState !== 'inactive'
-  useEffect(() => { onMobileInlineChange?.(mobileInlineMounted) }, [mobileInlineMounted, onMobileInlineChange])
-  // Reset inline player kai track keičiasi.
-  useEffect(() => { setMobileState('inactive') }, [track?.id])
-  /** YT IFrame postMessage helper — leidžia valdyti play/pause be iframe
-   *  unmount'inimo (kuris reload'intų video). enablejsapi=1 src'e + origin
-   *  match'as reikalingas, kad YouTube priimtų komandą. */
-  const sendYTCommand = (cmd: 'playVideo' | 'pauseVideo') => {
-    try {
-      mobileIframeRef.current?.contentWindow?.postMessage(
-        JSON.stringify({ event: 'command', func: cmd, args: [] }),
-        'https://www.youtube.com'
-      )
-    } catch { /* silent */ }
-  }
+  // Mobile'e modal'o iframe'as visada matomas (kai track turi video) — tai
+  // suppress'inam hero player'į kad audio nedvigubėtų. Desktop'e flag false
+  // (hero player'is veikia normaliai šalia modal'o).
+  useEffect(() => {
+    onMobileInlineChange?.(isMobile && !!yt(track?.video_url || null))
+  }, [isMobile, track, onMobileInlineChange])
+  // Desktop dock'uotas player'is — dešinėj nuo modal'o. Veikia tik kai
+  // viewport pakankamai platus (modal 860 + dock 420 = 1280px). Jei
+  // siauresnis — naudojam tradicinį hero player'į.
+  const [isWideDesktop, setIsWideDesktop] = useState(false)
+  useEffect(() => {
+    const m = window.matchMedia('(min-width: 1280px)')
+    setIsWideDesktop(m.matches)
+    const h = (e: MediaQueryListEvent) => setIsWideDesktop(e.matches)
+    m.addEventListener('change', h)
+    return () => m.removeEventListener('change', h)
+  }, [])
+  const trackVid = yt(track?.video_url || null)
+  const dockedActive = !!isWideDesktop && !!trackVid
+  useEffect(() => { onDockedPlayerChange?.(dockedActive) }, [dockedActive, onDockedPlayerChange])
 
   useEffect(() => {
     if (track) {
@@ -1097,50 +1097,30 @@ function TrackInfoModal({
           const isThisActive = !!vid && activeTrackId === track.id && !!playing
           return (
             <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border-subtle)] px-5 py-3">
-              {vid && (onPlay || onPause) && (() => {
-                // Mobile play/pause logika trim būsenom (žr. mobileState):
-                //   - inactive → tap → 'playing' (mount iframe + autoplay=1)
-                //   - playing  → tap → 'paused' (postMessage pauseVideo,
-                //                                iframe LIEKA matomas)
-                //   - paused   → tap → 'playing' (postMessage playVideo)
-                // Iframe niekada neunmount'inamas tarp playing/paused —
-                // anksciau pause unmount'indavo, video dingdavo, useris
-                // skundėsi „spaudziant pause, jis paslepia video".
-                const isActiveForIcon = isMobile
-                  ? mobileState === 'playing'
-                  : isThisActive
-                return (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (isMobile) {
-                        if (mobileState === 'inactive') {
-                          setMobileState('playing')
-                        } else if (mobileState === 'playing') {
-                          sendYTCommand('pauseVideo')
-                          setMobileState('paused')
-                        } else {
-                          sendYTCommand('playVideo')
-                          setMobileState('playing')
-                        }
-                        return
-                      }
-                      // Desktop: original flow — hero player handle.
-                      if (isThisActive && onPause) onPause()
-                      else if (onPlay) onPlay(track)
-                    }}
-                    aria-label={isActiveForIcon ? 'Pauzė' : 'Klausyti'}
-                    title={isActiveForIcon ? 'Pauzė' : 'Klausyti'}
-                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white shadow-[0_4px_14px_rgba(249,115,22,0.35)] transition-transform hover:scale-105"
-                  >
-                    {isActiveForIcon ? (
-                      <svg viewBox="0 0 24 24" width={14} height={14} fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
-                    ) : (
-                      <svg viewBox="0 0 24 24" width={14} height={14} fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
-                    )}
-                  </button>
-                )
-              })()}
+              {/* Play/Pauzė chips-row mygtukas — TIK desktop'e. Mobile'e
+                  iframe'as renderinasi automatiškai virš chips eilutės kai
+                  track turi video, useris valdo per YouTube controls.
+                  Anksciau bandėm postMessage pause/play, bet Safari iOS
+                  įvairiose situacijose blokavo komandas. Dabar: simpler =
+                  bulletproof. */}
+              {vid && !isMobile && (onPlay || onPause) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isThisActive && onPause) onPause()
+                    else if (onPlay) onPlay(track)
+                  }}
+                  aria-label={isThisActive ? 'Pauzė' : 'Klausyti'}
+                  title={isThisActive ? 'Pauzė' : 'Klausyti'}
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white shadow-[0_4px_14px_rgba(249,115,22,0.35)] transition-transform hover:scale-105"
+                >
+                  {isThisActive ? (
+                    <svg viewBox="0 0 24 24" width={14} height={14} fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" width={14} height={14} fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                  )}
+                </button>
+              )}
               <LikePill
                 likes={likes}
                 selfLiked={selfLiked}
@@ -1214,26 +1194,20 @@ function TrackInfoModal({
         })()}
 
         {/* Mobile inline player — fullscreen modal'as mobile'e dengia hero
-            player'į, todėl renderinam paprastą iframe'ą čia (lg:hidden, kad
-            desktop'e neužimtų vietos). Hero parent suppressed via
-            onMobileInlineChange flag → audio nedvigubės.
-            Iframe LIEKA mounted tarp playing/paused state'ų — pause'ui
-            naudojam postMessage('pauseVideo'), ne unmount'inimą. Tai išvengia
-            video reload'o ir vizualiai natūraliau (video lieka matomas,
-            tiesiog stabdomas). */}
+            player'į, todėl renderinam iframe'ą tiesiog čia (lg:hidden,
+            desktop'e neužima vietos). Iframe rodomas VISADA kai track turi
+            video — useris valdo grojimą per YouTube'o native controls,
+            mums nereikia state machine'os, postMessage komandų ar autoplay
+            workaround'ų. Simpler = veikia visur (Safari iOS irgi). Hero
+            suppressed via onMobileInlineChange — audio nedvigubės. */}
         {(() => {
           const vid = yt(track.video_url)
-          if (!isMobile || !mobileInlineMounted || !vid) return null
-          // origin reikalingas, kad YouTube postMessage saugumo ribose priimtų
-          // mūsų komandas (be jo komandos drop'inamos).
-          const origin = typeof window !== 'undefined' ? window.location.origin : ''
-          const src = `https://www.youtube.com/embed/${vid}?autoplay=1&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1${origin ? `&origin=${encodeURIComponent(origin)}` : ''}`
+          if (!isMobile || !vid) return null
           return (
             <div className="aspect-video w-full shrink-0 overflow-hidden bg-black lg:hidden">
               <iframe
-                ref={mobileIframeRef}
                 key={`mobile-inline-${vid}`}
-                src={src}
+                src={`https://www.youtube.com/embed/${vid}?playsinline=1&rel=0&modestbranding=1&iv_load_policy=3`}
                 title={`${track.title} — ${artistName}`}
                 className="h-full w-full"
                 referrerPolicy="strict-origin-when-cross-origin"
@@ -1342,6 +1316,78 @@ function TrackInfoModal({
         {/* Footer pašalintas — play/pause + external-link mygtukai
             perkelti į header'į (aukščiau). */}
       </aside>
+
+      {/* DOCKED PLAYER — desktop'e (≥1280px) šalia modal'o, dešinėje pusėje.
+          Idėja: useris naviguoja per dainos turinį (lyrics, komentarai)
+          modal'e, o player'is lieka stable matomas + grojantis. Switching
+          per prev/next mygtukus → modal'as gauna naujo track'o duomenis,
+          player'is atsinaujina su nauju iframe (key=trackVid). */}
+      {dockedActive && trackVid && mounted && (
+        <aside
+          className="absolute left-[860px] top-0 hidden h-full w-[420px] flex-col border-r border-[var(--border-default)] bg-[var(--bg-elevated)] shadow-[24px_0_60px_-10px_rgba(0,0,0,0.5)] xl:flex"
+          style={{ transition: 'transform 200ms ease-out', transform: 'translateX(0)' }}
+        >
+          {/* Track navigation toolbar — prev / current title / next.
+              Title clickable nieko nedaro (track jau matomas modal'e), bet
+              parodo aktyvią dainą tarp navigation mygtukų. */}
+          <div className="flex shrink-0 items-center gap-2 border-b border-[var(--border-subtle)] px-3 py-2">
+            <button
+              type="button"
+              onClick={() => onPrevTrack?.()}
+              disabled={!onPrevTrack}
+              aria-label="Ankstesnė daina"
+              title="Ankstesnė daina"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-30"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" /></svg>
+            </button>
+            <div className="min-w-0 flex-1 text-center">
+              <div className="truncate font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]" title={track.title}>
+                {track.title}
+              </div>
+              <div className="truncate text-[10.5px] font-bold text-[var(--text-muted)]">
+                {artistName}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => onNextTrack?.()}
+              disabled={!onNextTrack}
+              aria-label="Kita daina"
+              title="Kita daina"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-30"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z" /></svg>
+            </button>
+          </div>
+          {/* Iframe — autoplay=1 + key=trackVid kad pakeistume video kai
+              switching tarp dainų. Gestūra (mygtuko paspaudimas modal'e
+              prieš naują track'ą) išliko per parent state — autoplay'us
+              gali būti blokuotas tik first-load'e Safari, bet desktop
+              naršyklėse (Chrome/Firefox/Edge) leidžia. */}
+          <div className="aspect-video w-full bg-black">
+            <iframe
+              key={`docked-${trackVid}`}
+              src={`https://www.youtube.com/embed/${trackVid}?autoplay=1&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3`}
+              title={`${track.title} — ${artistName}`}
+              className="h-full w-full"
+              referrerPolicy="strict-origin-when-cross-origin"
+              allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+              allowFullScreen
+            />
+          </div>
+          {/* Hint — skatina explorinti turinį modal'e. */}
+          <div className="flex-1 overflow-y-auto px-4 py-4">
+            <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+              Player'is
+            </div>
+            <div className="mt-2 text-[12px] leading-relaxed text-[var(--text-muted)]">
+              Naviguok tarp dainų ↤ ↦ mygtukais. Modal'e dešinėj galim skaityti tekstą, palikti
+              komentarus ir reaguoti į eilutes — player'is groja toliau.
+            </div>
+          </div>
+        </aside>
+      )}
 
       {/* Likers modal — atsidaro paspaudus LikePill count'ą. Z-index aukštesnis
           už drawer'į, kad būtų matomas viršuje. */}
@@ -3462,6 +3508,9 @@ export default function ArtistProfileClient({
   // Mobile'e modal'as turi savo inline iframe'ą — kai jis aktyvus, hero
   // player'is turi būti suppress'intas (audio dvigubėjimas).
   const [modalUsesInline, setModalUsesInline] = useState(false)
+  // Desktop'e modal'as gali turėti dock'uotą player'į (≥1280px viewport) —
+  // tuomet hero player'is taip pat suppress'inamas.
+  const [modalUsesDocked, setModalUsesDocked] = useState(false)
 
   const galerijaRef = useRef<HTMLDivElement>(null)
 
@@ -3708,10 +3757,9 @@ export default function ArtistProfileClient({
         tracksTrending={tracksTrending}
         activeTrackId={pid}
         onSelectTrack={setPid}
-        // Hero player'is suppress'inamas, kai mobile modal'as turi savo
-        // inline iframe'ą — kitaip audio dvigubėtų (hero už nugaros + modal
-        // viduje). Desktop'e modalUsesInline visada false.
-        playing={playing && !modalUsesInline}
+        // Hero player'is suppress'inamas, kai modal'as turi savo player'į
+        // (mobile inline arba desktop docked). Kitaip audio dvigubėtų.
+        playing={playing && !modalUsesInline && !modalUsesDocked}
         onRequestPlay={() => setPlaying(true)}
         onOpenTrackInfo={(t) => setTrackInfoOpen(t)}
         hasAnyVideo={hasAnyVideo}
@@ -3774,8 +3822,28 @@ export default function ArtistProfileClient({
         onPlay={(t) => { setPid(t.id); setPlaying(true) }}
         onPause={() => setPlaying(false)}
         onMobileInlineChange={setModalUsesInline}
+        onDockedPlayerChange={setModalUsesDocked}
         activeTrackId={pid}
         playing={playing}
+        onPrevTrack={(() => {
+          if (!trackInfoOpen) return null
+          // Navigate per visus track'us su video — surūšiuoti pagal score
+          // (tracksAllTime jau atrūšiuotas). Jei dabartinis track'as nerastas,
+          // arba pirmas — disable.
+          const navList = tracks.filter(t => yt(t.video_url))
+          const idx = navList.findIndex(t => t.id === trackInfoOpen.id)
+          if (idx <= 0) return null
+          const prev = navList[idx - 1]
+          return () => { setPid(prev.id); setPlaying(true); setTrackInfoOpen(prev) }
+        })()}
+        onNextTrack={(() => {
+          if (!trackInfoOpen) return null
+          const navList = tracks.filter(t => yt(t.video_url))
+          const idx = navList.findIndex(t => t.id === trackInfoOpen.id)
+          if (idx < 0 || idx >= navList.length - 1) return null
+          const next = navList[idx + 1]
+          return () => { setPid(next.id); setPlaying(true); setTrackInfoOpen(next) }
+        })()}
       />
 
       {lightboxIndex !== null && galleryPhotos.length > 0 && (
