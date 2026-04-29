@@ -143,7 +143,13 @@ async function generateDuels(count: number, scope: 'lt' | 'foreign' | 'mixed', a
     return { error: `Per mažai tinkamų track'ų scope='${scope}' (rasta ${candidates.length}, reikia ≥4)` }
   }
 
+  // STRICT: tik track'ai turintys release_year (po album.year backfill)
   const withYear = candidates.filter(t => t.release_year != null)
+  const skippedNoDate = candidates.length - withYear.length
+  if (withYear.length < 4) {
+    return { error: `Tik ${withYear.length} track'ų turi release datą (iš ${candidates.length}). ${skippedNoDate} track'ų atmesta — neturi nei release_year, nei album.year. Reikia papildyti datas.` }
+  }
+
   const newOnes = shuffle(withYear.filter(t => t.release_year! >= NEW_THRESHOLD))
   const oldOnes = shuffle(withYear.filter(t => t.release_year! <= OLD_THRESHOLD))
   const middleOnes = shuffle(withYear.filter(t => t.release_year! > OLD_THRESHOLD && t.release_year! < NEW_THRESHOLD))
@@ -209,18 +215,36 @@ async function generateVerdicts(count: number, scope: 'lt' | 'foreign' | 'mixed'
   const candidates = await loadCandidateTracks(sb, scope, true) // require video_url
   if (candidates.length === 0) return { error: 'Nėra track\'ų su video_url' }
 
-  // Prefer fresh: release_date paskutiniai 6 mėn → +200, šiandienos metai → +100,
-  // ≤2 metai → +50, kitkas — score'as ramped žemyn.
+  // STRICT: tik šviežios — release_date per paskutinius 12 mėn,
+  // ARBA release_year >= einamieji metai. Be datos — atmestos.
+  const twelveMonthsAgoMs = Date.now() - 1000 * 60 * 60 * 24 * 365
+  const twelveMonthsAgo = new Date(twelveMonthsAgoMs).toISOString().slice(0, 10)
   const sixMonthsAgoMs = Date.now() - 1000 * 60 * 60 * 24 * 180
   const sixMonthsAgo = new Date(sixMonthsAgoMs).toISOString().slice(0, 10)
 
-  const scored = candidates
-    .filter(t => t.video_url)
+  const fresh = candidates.filter(t => {
+    if (!t.video_url) return false
+    if (t.release_date && t.release_date >= twelveMonthsAgo) return true
+    if (t.release_year && t.release_year >= CURRENT_YEAR) return true
+    return false
+  })
+
+  const skippedNoDate = candidates.filter(t => t.video_url && !t.release_year && !t.release_date).length
+  const skippedTooOld = candidates.length - fresh.length - skippedNoDate
+
+  if (fresh.length === 0) {
+    return {
+      error: `Nėra šviežių track'ų. Reikia: release_date per paskutinius 12 mėn arba release_year ≥ ${CURRENT_YEAR}. Diagnostika: rasta ${candidates.length} su video, atmesta ${skippedNoDate} be datos, ${skippedTooOld} per senų.`
+    }
+  }
+
+  // Rank fresh tracks: paskutiniai 6 mėn (+200), 12 mėn (+100), score scaled
+  const scored = fresh
     .map(t => {
       let rank = 0
       if (t.release_date && t.release_date >= sixMonthsAgo) rank += 200
-      if (t.release_year && t.release_year >= CURRENT_YEAR) rank += 100
-      if (t.release_year && t.release_year >= NEW_THRESHOLD) rank += 50
+      else if (t.release_date && t.release_date >= twelveMonthsAgo) rank += 100
+      else if (t.release_year && t.release_year >= CURRENT_YEAR) rank += 50
       rank += (t.score || 0) * 0.1
       return { t, rank }
     })

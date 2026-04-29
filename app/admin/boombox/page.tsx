@@ -612,11 +612,25 @@ function DropTable({ type, drops, trackMap, artistMap, statsMap, onPatch, onArch
   )
 }
 
-function trackDateLabel(t: TrackInfo | undefined): string {
-  if (!t) return ''
-  if (t.release_date) return new Date(t.release_date).toLocaleDateString('lt-LT', { year: 'numeric', month: 'short', day: 'numeric' })
-  if (t.release_year) return String(t.release_year)
-  return ''
+function trackDateLabel(t: TrackInfo | undefined): { label: string; missing: boolean } {
+  if (!t) return { label: '', missing: false }
+  if (t.release_date) return { label: new Date(t.release_date).toLocaleDateString('lt-LT', { year: 'numeric', month: 'short', day: 'numeric' }), missing: false }
+  if (t.release_year) return { label: String(t.release_year), missing: false }
+  return { label: 'be datos', missing: true }
+}
+
+function DateLabel({ t }: { t: TrackInfo | undefined }) {
+  const d = trackDateLabel(t)
+  if (!d.label) return null
+  return (
+    <span style={{
+      marginLeft: 8, fontSize: 11,
+      color: d.missing ? 'var(--status-error-text)' : 'var(--text-faint)',
+      fontStyle: d.missing ? 'italic' : 'normal',
+    }}>
+      {d.label}
+    </span>
+  )
 }
 
 function describeDrop(type: DropType, d: any, trackMap: Record<number, TrackInfo>, artistMap: Record<number, ArtistInfo>) {
@@ -627,7 +641,10 @@ function describeDrop(type: DropType, d: any, trackMap: Record<number, TrackInfo
       <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
         {d.image_url && <img src={d.image_url} alt="" style={{ width: 50, height: 50, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }} />}
         <div>
-          <div style={{ fontWeight: 600 }}>✓ {correct ? `${correct.artist} — ${correct.title}` : `track #${d.correct_track_id}`}</div>
+          <div style={{ fontWeight: 600 }}>
+            ✓ {correct ? `${correct.artist} — ${correct.title}` : `track #${d.correct_track_id}`}
+            <DateLabel t={correct} />
+          </div>
           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
             decoys: {decoys || '—'}
           </div>
@@ -643,11 +660,11 @@ function describeDrop(type: DropType, d: any, trackMap: Record<number, TrackInfo
         <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>{matchup}</div>
         <div>
           A: {a ? `${a.artist} — ${a.title}` : `#${d.track_a_id}`}
-          {a && <span style={{ color: 'var(--text-faint)', marginLeft: 6, fontSize: 11 }}>{trackDateLabel(a)}</span>}
+          <DateLabel t={a} />
         </div>
         <div>
           B: {b ? `${b.artist} — ${b.title}` : `#${d.track_b_id}`}
-          {b && <span style={{ color: 'var(--text-faint)', marginLeft: 6, fontSize: 11 }}>{trackDateLabel(b)}</span>}
+          <DateLabel t={b} />
         </div>
       </div>
     )
@@ -657,7 +674,7 @@ function describeDrop(type: DropType, d: any, trackMap: Record<number, TrackInfo
     return (
       <div>
         {t ? `${t.artist} — ${t.title}` : `#${d.track_id}`}
-        {t && <span style={{ color: 'var(--text-faint)', marginLeft: 8, fontSize: 11 }}>{trackDateLabel(t)}</span>}
+        <DateLabel t={t} />
       </div>
     )
   }
