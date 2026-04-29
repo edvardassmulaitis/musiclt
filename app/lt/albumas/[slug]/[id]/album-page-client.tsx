@@ -1,27 +1,27 @@
 'use client'
 // app/lt/albumas/[slug]/[id]/album-page-client.tsx
 //
-// Album page — restructured to closely mirror the artist-page TrackRow
-// pattern. Full layout flow:
+// Album page — modal-style layout, mirrors track-page-client.tsx:
 //
-//   ┌──────────────────────────────┐
-//   │  cover (~180px)  + title +   │   compact hero — small cover
-//   │  artist + date + LikePill    │   (music.lt covers are 200px native,
-//   ├──────────────────────────────┤   anything bigger upscales blurry)
-//   │  PLAYER (full-width iframe)  │   player above tracks (was sidebar)
-//   ├──────────────────────────────┤
-//   │  tracks list                 │   each row: # + title/PopBar stack +
-//   │   #1  title       ▶          │   play btn — same shape as the artist
-//   │       ----- ----              │   page TrackRow. No YT thumb, no badges.
-//   ├──────────────────────────────┤
-//   │  Kiti albumai (compact grid) │   smaller thumbs so low-res music.lt
-//   │  Panaši muzika (compact)      │   covers don't get blown up.
-//   ├──────────────────────────────┤
-//   │  Diskusija (entity_comments) │   real scraped legacy comments.
-//   └──────────────────────────────┘
+//   ┌─────────────────────────────────────────────────────────┐
+//   │  TOP BAR: cover thumb │ title + artist + LikePill │ meta │
+//   ├─────────────────────────────────────────────────────────┤
+//   │  Tracklist  │  Komentarai (EntityComments) │  Klausyk + │
+//   │  (#, title, │                              │  Daugiau   │
+//   │   PopBar,▶) │                              │  (otherAlb)│
+//   └─────────────────────────────────────────────────────────┘
+//
+//   Mobile: iframe top → tabs (Dainos / Komentarai) → content
+//
+// Cover thumb (88×88) on top bar links to artist page with hover overlay
+// back-arrow (same pattern as track page artist-thumb). Tracklist behaves
+// as on the legacy layout — click row → activates the track in the right-
+// column player iframe. Removed the old left sidebar wrapping comments +
+// other albums + similar; that content now lives in the Komentarai col
+// (comments) and right sidebar (Daugiau).
 //
 // Likes wired via /api/albums/[id]/like + LikesModal.
-// Comments fetched from /api/albums/[id]/comments (entity_comments table).
+// Comments via shared EntityCommentsBlock (entityType="album").
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
@@ -51,16 +51,6 @@ type Props = {
   album: Album; artist: Artist; tracks: Track[]
   otherAlbums: SimpleAlbum[]; similarAlbums: any[]
   likes: number
-}
-
-type EntityComment = {
-  legacy_id: number
-  author_username: string | null
-  author_avatar_url: string | null
-  created_at: string | null
-  content_text: string | null
-  content_html: string | null
-  like_count: number
 }
 
 function ytId(url?: string | null) {
@@ -113,36 +103,6 @@ function PopBar({ level }: { level: number }) {
   )
 }
 
-/** Avatar — real URL if available, else initial bubble. */
-function UserAvatar({ name, avatarUrl, size = 28 }: { name: string; avatarUrl?: string | null; size?: number }) {
-  const [failed, setFailed] = useState(false)
-  if (avatarUrl && !failed) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={proxyImg(avatarUrl)}
-        alt={name}
-        referrerPolicy="no-referrer"
-        onError={() => setFailed(true)}
-        style={{ width: size, height: size }}
-        className="shrink-0 rounded-full object-cover"
-      />
-    )
-  }
-  const initial = (name || '?').trim().charAt(0).toUpperCase() || '?'
-  let h = 0
-  for (let i = 0; i < name.length; i++) { h = ((h << 5) - h) + name.charCodeAt(i); h |= 0 }
-  const hue = Math.abs(h) % 360
-  return (
-    <div
-      style={{ width: size, height: size, background: `hsl(${hue}, 40%, 22%)` }}
-      className="flex shrink-0 items-center justify-center rounded-full font-['Outfit',sans-serif] text-[11px] font-extrabold text-white"
-    >
-      {initial}
-    </div>
-  )
-}
-
 export default function AlbumPageClient({
   album, artist, tracks, otherAlbums, similarAlbums, likes,
 }: Props) {
@@ -157,9 +117,8 @@ export default function AlbumPageClient({
   const [likeUsers, setLikeUsers] = useState<any[]>([])
   const [likeUsersLoaded, setLikeUsersLoaded] = useState(false)
 
-  // Album comments
-  const [comments, setComments] = useState<EntityComment[] | null>(null)
-
+  // Like sync. Komentarai nebeloadina'mi čia — EntityCommentsBlock pats
+  // fetch'ina /api/albums/[id]/comments savo viduje.
   useEffect(() => {
     let cancelled = false
     fetch(`/api/albums/${album.id}/like`, { cache: 'no-store' })
@@ -170,10 +129,6 @@ export default function AlbumPageClient({
         if (typeof d.count === 'number') setLikeCount(d.count)
       })
       .catch(() => {})
-    fetch(`/api/albums/${album.id}/comments`)
-      .then(r => r.json())
-      .then(d => { if (!cancelled) setComments(d.comments || []) })
-      .catch(() => { if (!cancelled) setComments([]) })
     return () => { cancelled = true }
   }, [album.id])
 
@@ -242,269 +197,451 @@ export default function AlbumPageClient({
     setPlaying(true)
   }
 
-  // ── Album info card (sidebar) ──
-  // Cover'is ~220px (ne pilnas sidebar plotis), title + meta dešinėje arba
-  // apačioje pagal vietos. Cover'is ne 100% width — kad music.lt'o low-res
-  // 200px paveikslo neišdidintų į matomą blur'ą + kad sidebar'as neatrodytų
-  // kaip vienas didelis viršelis.
-  const AlbumInfoCard = (
-    <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
-      <div className="flex flex-col gap-3">
-        <div className="flex gap-3.5">
-          <div className="aspect-square w-[120px] shrink-0 overflow-hidden rounded-xl bg-[var(--cover-placeholder)]">
-            {album.cover_image_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={proxyImg(album.cover_image_url)}
-                alt={album.title}
-                referrerPolicy="no-referrer"
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-[36px]">💿</div>
-            )}
-          </div>
-          <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5">
-            <div className="flex flex-wrap items-center gap-2 font-['Outfit',sans-serif] text-[9.5px] font-extrabold uppercase tracking-[0.18em] text-[var(--accent-orange)]">
-              <span>{albumTypeLabel}</span>
-              {album.is_upcoming && (
-                <span className="rounded-full border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.18)] px-2 py-0.5">Greitai</span>
-              )}
-            </div>
-            <h1 className="font-['Outfit',sans-serif] text-[18px] font-black leading-[1.1] tracking-[-0.015em] text-[var(--text-primary)]">
-              {album.title}
-            </h1>
-            <Link
-              href={`/atlikejai/${artist.slug}`}
-              className="font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-80"
-            >
-              {artist.name}
-            </Link>
-            {dateStr && (
-              <div className="font-['Outfit',sans-serif] text-[11.5px] font-medium text-[var(--text-muted)]">
-                {dateStr}
-              </div>
-            )}
-          </div>
+  // Mobile tab toggle — analogiškai track page'ui (lyrics ↔ comments),
+  // čia tarp Dainos ↔ Komentarai. Desktop'e abu stulpeliai matomi visada.
+  const [mobileTab, setMobileTab] = useState<'tracks' | 'comments'>('tracks')
+
+  // ── Render helpers ─────────────────────────────────────────────────────────
+
+  const Tracklist = (
+    <div>
+      <div className="mb-3 flex items-baseline gap-2">
+        <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+          Dainos
         </div>
-        <div>
-          <LikePill
-            likes={likeCount}
-            selfLiked={selfLiked}
-            onToggle={onToggleLike}
-            onOpenModal={onOpenLikersModal}
-            pending={selfLikePending}
-            variant="surface"
-          />
-        </div>
+        {tracks.length > 0 && (
+          <span className="font-['Outfit',sans-serif] text-[10px] font-bold text-[var(--text-faint)]">
+            {tracks.length}
+          </span>
+        )}
+        {positionsUnknown && tracks.length > 0 && (
+          <span className="ml-auto text-[10px] font-medium text-[var(--text-muted)]">tvarka nenurodyta</span>
+        )}
       </div>
+      {tracks.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-10 text-center text-[12px] text-[var(--text-faint)]">
+          Dainų nėra
+        </div>
+      ) : (
+        <ul className="divide-y divide-[var(--border-subtle)] overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)]">
+          {sortedTracks.map((t, i) => {
+            const isActive = effectiveIdx === i
+            const isPlaying = isActive && playing
+            const v = ytId(t.video_url)
+            const canPlay = !!v
+            const lc = (t as any).like_count
+            const level = (typeof lc === 'number' && maxTrackLikes > 0)
+              ? popLevelRelative(lc, maxTrackLikes)
+              : popLevelByPosition(i, sortedTracks.length)
+            return (
+              <li key={t.id}>
+                <div
+                  className={[
+                    'flex w-full items-center gap-2 px-3 py-2 transition-colors sm:px-3.5',
+                    isActive ? 'bg-[rgba(249,115,22,0.08)]' : 'hover:bg-[var(--bg-hover)]',
+                  ].join(' ')}
+                >
+                  {/* Position number */}
+                  <span
+                    className={[
+                      'w-5 shrink-0 text-center font-["Outfit",sans-serif] text-[12px] font-bold tabular-nums',
+                      isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]',
+                    ].join(' ')}
+                    aria-hidden
+                  >
+                    {positionsUnknown ? '·' : (t.position || i + 1)}
+                  </span>
+
+                  {/* Title + PopBar — click = play */}
+                  <button
+                    type="button"
+                    onClick={() => canPlay && handlePlay(i)}
+                    disabled={!canPlay}
+                    className={[
+                      'flex min-w-0 flex-1 flex-col items-start border-0 bg-transparent p-0 text-left',
+                      canPlay ? 'cursor-pointer' : 'cursor-default',
+                    ].join(' ')}
+                  >
+                    <div className={[
+                      'w-full truncate font-["Outfit",sans-serif] text-[13px] font-bold leading-tight',
+                      isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-primary)]',
+                    ].join(' ')}>
+                      {t.title}
+                      {t.featuring.length > 0 && (
+                        <span className="ml-1 font-medium text-[var(--text-muted)]">su {t.featuring.join(', ')}</span>
+                      )}
+                    </div>
+                    <PopBar level={level} />
+                  </button>
+
+                  {/* Track open icon — atskira nuoroda į pilną dainos
+                      puslapį. Naudinga, kai useris nori pamatyti tekstą,
+                      komentarus konkrečiai dainai, o ne tik klausyti. */}
+                  <Link
+                    href={`/lt/daina/${t.slug}/${t.id}`}
+                    aria-label={`Atidaryti ${t.title}`}
+                    title="Atidaryti dainą"
+                    className="hidden h-7 w-7 shrink-0 items-center justify-center rounded-full text-[var(--text-faint)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--accent-orange)] sm:flex"
+                  >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M7 17L17 7" />
+                      <path d="M8 7h9v9" />
+                    </svg>
+                  </Link>
+
+                  {/* Play button */}
+                  <button
+                    onClick={() => canPlay && handlePlay(i)}
+                    disabled={!canPlay}
+                    aria-label={!canPlay ? 'Video nėra' : (isPlaying ? `Pauzė ${t.title}` : `Leisti ${t.title}`)}
+                    title={!canPlay ? '' : (isPlaying ? 'Pauzė' : 'Leisti')}
+                    className={[
+                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors',
+                      canPlay
+                        ? isActive
+                          ? 'bg-[var(--accent-orange)] text-white shadow-[0_4px_14px_rgba(249,115,22,0.35)]'
+                          : 'bg-[var(--bg-hover)] text-[var(--text-primary)] hover:bg-[var(--accent-orange)] hover:text-white'
+                        : 'cursor-default bg-transparent text-[var(--text-faint)] opacity-50',
+                    ].join(' ')}
+                  >
+                    {isPlaying ? (
+                      <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" aria-hidden>
+                        <rect x="6" y="5" width="4" height="14" rx="1" />
+                        <rect x="14" y="5" width="4" height="14" rx="1" />
+                      </svg>
+                    ) : (
+                      <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-hidden>
+                        <polygon points="6,4 20,12 6,20" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      )}
     </div>
   )
 
+  // Active track YouTube id — naudosim sidebar player'iui ir mobile inline.
+  const showVideo = !!playerVid
+
   return (
-    <div className="min-h-screen bg-[var(--bg-body)] text-[var(--text-primary)] [font-family:'DM_Sans',system-ui,sans-serif] antialiased">
-      <main className="mx-auto max-w-[1400px] px-4 pb-24 pt-6 sm:px-6 lg:px-10">
+    <div className="min-h-screen bg-[var(--bg-surface)] text-[var(--text-primary)]" style={{ fontFamily: "'DM Sans',system-ui,sans-serif", WebkitFontSmoothing: 'antialiased' }}>
 
-        {/* 2-COL split — kairėje sidebar (info + comments + similar),
-            dešinėje main (player + tracks). Sidebar pakankamai platus, kad
-            erdvė nebūtų suspaustas — ten dar pridėsim daugiau vidiniu turinio
-            (atributai, šaltiniai, susiję). Mobile stack'inasi natūraliai. */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[440px_minmax(0,1fr)] lg:gap-7">
-
-          {/* ─── LEFT SIDEBAR ─── */}
-          <aside className="flex flex-col gap-5">
-            {AlbumInfoCard}
-
-            {/* Comments — shared EntityCommentsBlock (legacy archive +
-                modern composer + replies + likes). Tas pats komponentas
-                naudojamas track modal'e, kad UX visur identiškas. */}
-            <EntityCommentsBlock
-              entityType="album"
-              entityId={album.id}
-              compact
-              title="Diskusija"
+      {/* ── TOP BAR — full viewport, modal-style ─────────────────────────── */}
+      <div className="flex items-center gap-4 border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3 sm:px-5">
+        {/* Album cover thumb — click'as veda į atlikėjo puslapį (back nav).
+            Hover overlay rodo back arrow + atlikėjo vardą — tas pats pattern
+            kaip track page'e (kur thumb yra atlikėjo nuotrauka). */}
+        <Link
+          href={`/atlikejai/${artist.slug}`}
+          aria-label={`Grįžti pas ${artist.name}`}
+          title={`Grįžti pas ${artist.name}`}
+          className="group relative shrink-0 overflow-hidden rounded-xl border border-[var(--border-subtle)] transition-all hover:border-[var(--accent-orange)] hover:shadow-[0_0_0_3px_rgba(249,115,22,0.18)]"
+          style={{ width: 88, height: 88 }}
+        >
+          {album.cover_image_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={proxyImg(album.cover_image_url)}
+              alt={album.title}
+              referrerPolicy="no-referrer"
+              className="h-full w-full object-cover"
             />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-[var(--cover-placeholder)] text-[28px]">💿</div>
+          )}
+          <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/55 opacity-0 transition-opacity group-hover:opacity-100">
+            <svg viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="white" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </span>
+        </Link>
 
-            {/* Other albums by artist */}
-            {otherAlbums.length > 0 && (
-              <section>
-                <div className="mb-2.5 flex items-center justify-between">
-                  <h2 className="font-['Outfit',sans-serif] text-[15px] font-black tracking-[-0.01em] text-[var(--text-primary)]">
-                    Kiti {artist.name} albumai
-                  </h2>
-                  <Link
-                    href={`/atlikejai/${artist.slug}`}
-                    className="font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--accent-orange)] no-underline hover:underline"
-                  >
-                    Visi →
-                  </Link>
-                </div>
-                <div className="grid grid-cols-3 gap-2.5">
-                  {otherAlbums.slice(0, 6).map(a => (
-                    <AlbumThumbCard
-                      key={a.id}
-                      href={`/lt/albumas/${a.slug}/${a.id}/`}
-                      cover={a.cover_image_url || null}
-                      title={a.title}
-                      subtitle={a.year ? String(a.year) : ''}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* Similar music */}
-            {similarAlbums.length > 0 && (
-              <section>
-                <div className="mb-2.5 flex items-center justify-between">
-                  <h2 className="font-['Outfit',sans-serif] text-[15px] font-black tracking-[-0.01em] text-[var(--text-primary)]">
-                    Panaši muzika
-                  </h2>
-                </div>
-                <div className="grid grid-cols-3 gap-2.5">
-                  {similarAlbums.slice(0, 6).map((a: any) => (
-                    <AlbumThumbCard
-                      key={a.id}
-                      href={`/lt/albumas/${a.slug}/${a.id}/`}
-                      cover={a.cover_image_url || null}
-                      title={a.title}
-                      subtitle={a.artists?.name ? a.artists.name : (a.year ? String(a.year) : '')}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
-          </aside>
-
-          {/* ─── RIGHT MAIN — player + track list ─── */}
-          <section className="flex min-w-0 flex-col gap-4">
-          {/* Player — be header'io, tik iframe'as borderiniame container'yje.
-              Active track'o pavadinimas matomas track'ų sąraše (highlight'as
-              + orange play btn), todėl atskira "BALINTOS SIENOS" eilutė virš
-              player'io tampa nereikalinga. */}
-          <div className="overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
-            {hasAnyVideo ? (
-              <iframe
-                key={playerVid}
-                src={`https://www.youtube.com/embed/${playerVid}?rel=0&autoplay=${playing ? 1 : 0}`}
-                allow="autoplay; encrypted-media"
-                allowFullScreen
-                className="block aspect-video w-full border-0"
-              />
-            ) : (
-              <div className="flex aspect-video w-full flex-col items-center justify-center gap-2 bg-[var(--cover-area-bg)]">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--text-faint)]">
-                  <path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z" />
-                </svg>
-                <div className="text-[11px] text-[var(--text-faint)]">Vaizdo įrašas nepriskirtas</div>
-              </div>
-            )}
-          </div>
-
-          {/* Track list */}
-          <div className="overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
-            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
-              <span className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--text-primary)]">
-                Dainos {tracks.length > 0 && (
-                  <span className="ml-1 text-[var(--text-faint)]">{tracks.length}</span>
-                )}
+        {/* Identity cluster — title, atlikėjas, paskui chip eilutė su LikePill.
+            Stack'inta vertikaliai (kaip track page'e), kad reakcijos
+            netruktų prie title'o. */}
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-baseline gap-2">
+            <span className="truncate font-['Outfit',sans-serif] text-[16px] font-extrabold leading-tight text-[var(--text-primary)] sm:text-[17px]">
+              {album.title}
+            </span>
+            {album.is_upcoming && (
+              <span className="inline-flex items-center rounded-full border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.18)] px-2 py-0.5 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
+                Greitai
               </span>
-              {positionsUnknown && tracks.length > 0 && (
-                <span className="text-[10px] font-medium text-[var(--text-muted)]">tvarka nenurodyta</span>
-              )}
-            </div>
-            {tracks.length === 0 ? (
-              <div className="px-4 py-10 text-center text-[12px] text-[var(--text-faint)]">Dainų nėra</div>
-            ) : (
-              <ul className="divide-y divide-[var(--border-subtle)]">
-                {sortedTracks.map((t, i) => {
-                  const isActive = effectiveIdx === i
-                  const isPlaying = isActive && playing
-                  const v = ytId(t.video_url)
-                  const canPlay = !!v
-                  const lc = (t as any).like_count
-                  const level = (typeof lc === 'number' && maxTrackLikes > 0)
-                    ? popLevelRelative(lc, maxTrackLikes)
-                    : popLevelByPosition(i, sortedTracks.length)
-                  return (
-                    <li key={t.id}>
-                      <div
-                        className={[
-                          'flex w-full items-center gap-2 px-3 py-2 transition-colors sm:px-4',
-                          isActive ? 'bg-[rgba(249,115,22,0.08)]' : 'hover:bg-[var(--bg-hover)]',
-                        ].join(' ')}
-                      >
-                        {/* Position number */}
-                        <span
-                          className={[
-                            'w-5 shrink-0 text-center font-["Outfit",sans-serif] text-[12px] font-bold tabular-nums',
-                            isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]',
-                          ].join(' ')}
-                          aria-hidden
-                        >
-                          {positionsUnknown ? '·' : (t.position || i + 1)}
-                        </span>
-
-                        {/* Title (above) + PopBar (below) — same stacked
-                            layout as artist page TrackRow. Click = play. */}
-                        <button
-                          type="button"
-                          onClick={() => canPlay && handlePlay(i)}
-                          disabled={!canPlay}
-                          className={[
-                            'flex min-w-0 flex-1 flex-col items-start border-0 bg-transparent p-0 text-left',
-                            canPlay ? 'cursor-pointer' : 'cursor-default',
-                          ].join(' ')}
-                        >
-                          <div className={[
-                            'w-full truncate font-["Outfit",sans-serif] text-[13px] font-bold leading-tight',
-                            isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-primary)]',
-                          ].join(' ')}>
-                            {t.title}
-                            {t.featuring.length > 0 && (
-                              <span className="ml-1 font-medium text-[var(--text-muted)]">su {t.featuring.join(', ')}</span>
-                            )}
-                          </div>
-                          <PopBar level={level} />
-                        </button>
-
-                        {/* Play button */}
-                        <button
-                          onClick={() => canPlay && handlePlay(i)}
-                          disabled={!canPlay}
-                          aria-label={!canPlay ? 'Video nėra' : (isPlaying ? `Pauzė ${t.title}` : `Leisti ${t.title}`)}
-                          title={!canPlay ? '' : (isPlaying ? 'Pauzė' : 'Leisti')}
-                          className={[
-                            'flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors',
-                            canPlay
-                              ? isActive
-                                ? 'bg-[var(--accent-orange)] text-white shadow-[0_4px_14px_rgba(249,115,22,0.35)]'
-                                : 'bg-[var(--card-bg)] text-[var(--text-primary)] hover:bg-[var(--accent-orange)] hover:text-white'
-                              : 'cursor-default bg-transparent text-[var(--text-faint)] opacity-50',
-                          ].join(' ')}
-                        >
-                          {isPlaying ? (
-                            <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" aria-hidden>
-                              <rect x="6" y="5" width="4" height="14" rx="1" />
-                              <rect x="14" y="5" width="4" height="14" rx="1" />
-                            </svg>
-                          ) : (
-                            <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-hidden>
-                              <polygon points="6,4 20,12 6,20" />
-                            </svg>
-                          )}
-                        </button>
-                      </div>
-                    </li>
-                  )
-                })}
-              </ul>
             )}
           </div>
-          </section>
+          <div className="mt-0.5 flex items-center gap-1.5 text-[12px] sm:text-[12.5px]">
+            <Link
+              href={`/atlikejai/${artist.slug}`}
+              className="font-['Outfit',sans-serif] font-bold text-[var(--accent-orange)] no-underline hover:underline"
+            >
+              {artist.name}
+            </Link>
+            <span className="text-[var(--text-faint)]">·</span>
+            <span className="text-[var(--text-muted)]">{albumTypeLabel}</span>
+          </div>
+          {/* Reactions row */}
+          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+            <LikePill
+              likes={likeCount}
+              selfLiked={selfLiked}
+              onToggle={onToggleLike}
+              onOpenModal={onOpenLikersModal}
+              pending={selfLikePending}
+              variant="surface"
+            />
+            {tracks.length > 0 && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[10.5px] font-bold text-[var(--text-muted)]">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                  <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+                </svg>
+                {tracks.length} {tracks.length === 1 ? 'daina' : 'dainos'}
+              </span>
+            )}
+          </div>
         </div>
 
-      </main>
+        {/* Meta cluster — data. Slepiasi siauresniam ekrane. */}
+        <div className="hidden shrink-0 items-center gap-2 lg:flex">
+          {dateStr && (
+            <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]">
+              {dateStr}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* ── Mobile tab strip ─────────────────────────────────────────────── */}
+      <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-1.5 lg:hidden">
+        <button
+          type="button"
+          onClick={() => setMobileTab('tracks')}
+          className={[
+            "relative flex items-center gap-1.5 px-1 py-1.5 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors",
+            mobileTab === 'tracks'
+              ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[6px] after:h-[2px] after:bg-[var(--accent-orange)]'
+              : 'text-[var(--text-muted)]',
+          ].join(' ')}
+        >
+          Dainos
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileTab('comments')}
+          className={[
+            "relative flex items-center gap-1.5 px-1 py-1.5 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors",
+            mobileTab === 'comments'
+              ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[6px] after:h-[2px] after:bg-[var(--accent-orange)]'
+              : 'text-[var(--text-muted)]',
+          ].join(' ')}
+        >
+          Komentarai
+        </button>
+      </div>
+
+      {/* ── Mobile inline player — virš tabs/turinio (kaip track page'e) ── */}
+      {showVideo && (
+        <div className="aspect-video w-full bg-black lg:hidden">
+          <iframe
+            key={`mobile-album-${playerVid}`}
+            src={`https://www.youtube.com/embed/${playerVid}?playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&autoplay=${playing ? 1 : 0}`}
+            title={`${album.title} — ${artist.name}`}
+            className="h-full w-full"
+            referrerPolicy="strict-origin-when-cross-origin"
+            allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+            allowFullScreen
+          />
+        </div>
+      )}
+
+      {/* ── Body — desktop 3-col / tablet 2-col / mobile single ─────────── */}
+      <div className={[
+        'mx-auto w-full max-w-[1600px]',
+        'grid grid-cols-1',
+        'lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]',
+        'lg:divide-x lg:divide-[var(--border-subtle)]',
+      ].join(' ')}>
+
+        {/* Tracklist col */}
+        <div className={[
+          'min-h-0 px-5 py-5',
+          mobileTab === 'tracks' ? 'block' : 'hidden lg:block',
+        ].join(' ')}>
+          {Tracklist}
+        </div>
+
+        {/* Comments col */}
+        <div className={[
+          'min-h-0 px-5 py-5',
+          mobileTab === 'comments' ? 'block' : 'hidden lg:block',
+        ].join(' ')}>
+          <EntityCommentsBlock
+            entityType="album"
+            entityId={album.id}
+            compact
+            title="Komentarai"
+          />
+        </div>
+
+        {/* Player + Daugiau col — tik xl (≥1280px). Mobile'e player'is
+            jau virš body'jo (lg:hidden). */}
+        <div className="hidden min-h-0 flex-col gap-4 px-5 py-5 xl:flex">
+          {showVideo ? (
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                  Klausyti
+                </div>
+                {activeTrack && (
+                  <span className="truncate font-['Outfit',sans-serif] text-[10.5px] font-bold text-[var(--accent-orange)]">
+                    {activeTrack.title}
+                  </span>
+                )}
+              </div>
+              <div className="aspect-video w-full overflow-hidden rounded-xl bg-black shadow-[0_18px_40px_-12px_rgba(0,0,0,0.5)]">
+                <iframe
+                  key={`desktop-album-${playerVid}`}
+                  src={`https://www.youtube.com/embed/${playerVid}?playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&autoplay=${playing ? 1 : 0}`}
+                  title={`${album.title} — ${artist.name}`}
+                  className="h-full w-full"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                  allowFullScreen
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-elevated)] py-10 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--card-bg)] ring-1 ring-[var(--border-subtle)]">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--text-muted)]">
+                  <path d="M23 7l-7 5 7 5V7z" />
+                  <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                </svg>
+              </div>
+              <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                Vaizdo įrašo nėra
+              </div>
+            </div>
+          )}
+
+          {/* Daugiau iš atlikėjo — vertical list (analogiškai track page'ui). */}
+          {otherAlbums.length > 0 && (
+            <div>
+              <div className="mb-2 flex items-baseline justify-between">
+                <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                  Daugiau {artist.name}
+                </div>
+                <Link
+                  href={`/atlikejai/${artist.slug}`}
+                  className="font-['Outfit',sans-serif] text-[10px] font-bold text-[var(--accent-orange)] no-underline hover:underline"
+                >
+                  Visi →
+                </Link>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                {otherAlbums.slice(0, 6).map(a => (
+                  <Link
+                    key={a.id}
+                    href={`/lt/albumas/${a.slug}/${a.id}/`}
+                    title={a.title}
+                    className="group flex items-center gap-2.5 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+                  >
+                    <div className="aspect-square h-12 shrink-0 overflow-hidden rounded bg-[var(--cover-placeholder)]">
+                      {a.cover_image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={proxyImg(a.cover_image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-[18px]">💿</div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-['Outfit',sans-serif] text-[12.5px] font-extrabold text-[var(--text-primary)]">{a.title}</div>
+                      {a.year && (
+                        <div className="truncate text-[10.5px] text-[var(--text-muted)]">{a.year}</div>
+                      )}
+                    </div>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-[var(--text-faint)] transition-transform group-hover:translate-x-0.5">
+                      <path d="M9 18l6-6-6-6" />
+                    </svg>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {similarAlbums.length > 0 && (
+            <div>
+              <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                Panaši muzika
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {similarAlbums.slice(0, 6).map((a: any) => (
+                  <AlbumThumbCard
+                    key={a.id}
+                    href={`/lt/albumas/${a.slug}/${a.id}/`}
+                    cover={a.cover_image_url || null}
+                    title={a.title}
+                    subtitle={a.artists?.name ? a.artists.name : (a.year ? String(a.year) : '')}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+      </div>
+
+      {/* ── Mobile-only ekstra (po main flow) — Daugiau / Panaši muzika ── */}
+      <div className="flex flex-col gap-4 px-4 pb-12 pt-4 lg:hidden">
+        {otherAlbums.length > 0 && (
+          <div>
+            <div className="mb-2 flex items-baseline justify-between">
+              <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                Daugiau {artist.name}
+              </div>
+              <Link
+                href={`/atlikejai/${artist.slug}`}
+                className="font-['Outfit',sans-serif] text-[10px] font-bold text-[var(--accent-orange)] no-underline hover:underline"
+              >
+                Visi →
+              </Link>
+            </div>
+            <div className="grid grid-cols-3 gap-2.5">
+              {otherAlbums.slice(0, 6).map(a => (
+                <AlbumThumbCard
+                  key={a.id}
+                  href={`/lt/albumas/${a.slug}/${a.id}/`}
+                  cover={a.cover_image_url || null}
+                  title={a.title}
+                  subtitle={a.year ? String(a.year) : ''}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+        {similarAlbums.length > 0 && (
+          <div>
+            <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+              Panaši muzika
+            </div>
+            <div className="grid grid-cols-3 gap-2.5">
+              {similarAlbums.slice(0, 6).map((a: any) => (
+                <AlbumThumbCard
+                  key={a.id}
+                  href={`/lt/albumas/${a.slug}/${a.id}/`}
+                  cover={a.cover_image_url || null}
+                  title={a.title}
+                  subtitle={a.artists?.name ? a.artists.name : (a.year ? String(a.year) : '')}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
 
       <LikesModal
         open={likesModalOpen}
