@@ -831,7 +831,7 @@ type EntityComment = {
 
 function TrackInfoModal({
   track, artistName, artistSlug, artistThumbUrl, onClose, onPlay, onPause,
-  activeTrackId, playing,
+  activeTrackId, playing, onMobileInlineChange,
 }: {
   track: Track | null; artistName: string; artistSlug: string
   /** Artist'o profilio nuotrauka headeryje šalia title + name. */
@@ -847,6 +847,9 @@ function TrackInfoModal({
   /** Hero player's `playing` state — paired with `activeTrackId` to decide
    *  the play/pause icon. */
   playing?: boolean
+  /** Fires when the modal owns an inline mobile player (mobile only). Parent
+   *  uses this to suppress the hero player iframe so audio doesn't double up. */
+  onMobileInlineChange?: (active: boolean) => void
 }) {
   // We use an internal `mounted` flag so the slide-out animation gets a chance
   // to run before the component unmounts. When a new track replaces the
@@ -865,6 +868,23 @@ function TrackInfoModal({
   const [mobileTab, setMobileTab] = useState<'lyrics' | 'comments'>('lyrics')
   // Comment count emitted from EntityCommentsBlock — pajamas mobile tab chip.
   const [commentTotal, setCommentTotal] = useState(0)
+  // Mobile inline player. Mobile'e modal'as fullscreen → hero player'is
+  // (desktop dešiniajame stulpelyje) lieka uz nugaros, useris nemato. Vietoj
+  // hero, mobile'e renderinam inline iframe modal'o body top'e. Parent
+  // pranešam per `onMobileInlineChange`, kad jis suppress'intų hero — kitaip
+  // audio dvigubintų.
+  const [isMobile, setIsMobile] = useState(false)
+  const [mobileInline, setMobileInline] = useState(false)
+  useEffect(() => {
+    const m = window.matchMedia('(max-width: 1023px)')
+    setIsMobile(m.matches)
+    const h = (e: MediaQueryListEvent) => setIsMobile(e.matches)
+    m.addEventListener('change', h)
+    return () => m.removeEventListener('change', h)
+  }, [])
+  useEffect(() => { onMobileInlineChange?.(mobileInline) }, [mobileInline, onMobileInlineChange])
+  // Reset inline player kai track keičiasi arba modal'as užda.
+  useEffect(() => { setMobileInline(false) }, [track?.id])
 
   useEffect(() => {
     if (track) {
@@ -1021,24 +1041,38 @@ function TrackInfoModal({
           const isThisActive = !!vid && activeTrackId === track.id && !!playing
           return (
             <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border-subtle)] px-5 py-3">
-              {vid && (onPlay || onPause) && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (isThisActive && onPause) onPause()
-                    else if (onPlay) onPlay(track)
-                  }}
-                  aria-label={isThisActive ? 'Pauzė' : 'Klausyti'}
-                  title={isThisActive ? 'Pauzė' : 'Klausyti'}
-                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white shadow-[0_4px_14px_rgba(249,115,22,0.35)] transition-transform hover:scale-105"
-                >
-                  {isThisActive ? (
-                    <svg viewBox="0 0 24 24" width={14} height={14} fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
-                  ) : (
-                    <svg viewBox="0 0 24 24" width={14} height={14} fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
-                  )}
-                </button>
-              )}
+              {vid && (onPlay || onPause) && (() => {
+                // Mobile'e "active" iconai eina pagal mobileInline state'ą,
+                // ne pagal hero playing — tai jei useris paspaudžia Klausyti
+                // mobile'e, ikona iš karto perjungia į pauzę (nelaukia hero).
+                const isActiveForIcon = isMobile ? mobileInline : isThisActive
+                return (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isMobile) {
+                        // Mobile: toggle inline iframe; nesivelti į hero
+                        // playing state'a (parent suppress'ina hero kai
+                        // mobileInline aktyvus, kad audio nedvigubintų).
+                        setMobileInline(v => !v)
+                        return
+                      }
+                      // Desktop: original flow — hero player handle.
+                      if (isThisActive && onPause) onPause()
+                      else if (onPlay) onPlay(track)
+                    }}
+                    aria-label={isActiveForIcon ? 'Pauzė' : 'Klausyti'}
+                    title={isActiveForIcon ? 'Pauzė' : 'Klausyti'}
+                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white shadow-[0_4px_14px_rgba(249,115,22,0.35)] transition-transform hover:scale-105"
+                  >
+                    {isActiveForIcon ? (
+                      <svg viewBox="0 0 24 24" width={14} height={14} fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+                    ) : (
+                      <svg viewBox="0 0 24 24" width={14} height={14} fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                    )}
+                  </button>
+                )
+              })()}
               <LikePill
                 likes={likes}
                 selfLiked={selfLiked}
@@ -1107,6 +1141,28 @@ function TrackInfoModal({
                   <path d="M14 3h7v7M21 3l-9 9M5 5h6M5 5v14h14v-6" />
                 </svg>
               </Link>
+            </div>
+          )
+        })()}
+
+        {/* Mobile inline player — fullscreen modal'as mobile'e dengia hero
+            player'į, todėl renderinam paprastą iframe'ą čia (lg:hidden, kad
+            desktop'e neužimtų vietos). Hero parent suppressed via
+            onMobileInlineChange flag → audio neturi dvigubėt. */}
+        {(() => {
+          const vid = yt(track.video_url)
+          if (!isMobile || !mobileInline || !vid) return null
+          return (
+            <div className="aspect-video w-full shrink-0 overflow-hidden bg-black lg:hidden">
+              <iframe
+                key={`mobile-inline-${vid}`}
+                src={`https://www.youtube.com/embed/${vid}?autoplay=1&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3`}
+                title={`${track.title} — ${artistName}`}
+                className="h-full w-full"
+                referrerPolicy="strict-origin-when-cross-origin"
+                allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                allowFullScreen
+              />
             </div>
           )
         })()}
@@ -3326,6 +3382,9 @@ export default function ArtistProfileClient({
   const [likesModalOpen, setLikesModalOpen] = useState(false)
   const [bioModalOpen, setBioModalOpen] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
+  // Mobile'e modal'as turi savo inline iframe'ą — kai jis aktyvus, hero
+  // player'is turi būti suppress'intas (audio dvigubėjimas).
+  const [modalUsesInline, setModalUsesInline] = useState(false)
 
   const galerijaRef = useRef<HTMLDivElement>(null)
 
@@ -3572,7 +3631,10 @@ export default function ArtistProfileClient({
         tracksTrending={tracksTrending}
         activeTrackId={pid}
         onSelectTrack={setPid}
-        playing={playing}
+        // Hero player'is suppress'inamas, kai mobile modal'as turi savo
+        // inline iframe'ą — kitaip audio dvigubėtų (hero už nugaros + modal
+        // viduje). Desktop'e modalUsesInline visada false.
+        playing={playing && !modalUsesInline}
         onRequestPlay={() => setPlaying(true)}
         onOpenTrackInfo={(t) => setTrackInfoOpen(t)}
         hasAnyVideo={hasAnyVideo}
@@ -3634,6 +3696,7 @@ export default function ArtistProfileClient({
         onClose={() => setTrackInfoOpen(null)}
         onPlay={(t) => { setPid(t.id); setPlaying(true) }}
         onPause={() => setPlaying(false)}
+        onMobileInlineChange={setModalUsesInline}
         activeTrackId={pid}
         playing={playing}
       />
