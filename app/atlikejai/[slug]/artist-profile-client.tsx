@@ -1022,9 +1022,11 @@ function TrackInfoModal({
         'fixed inset-0 z-[9999]',
         // Kai dock aktyvus — modal'as eina fullscreen, grid layout:
         // top bar (visa eilutė) / [modal panel 860px | video flex-1].
-        // Fone solid bg, kad video tilptų į visą likusį plotą be hero
-        // matomumo už nugaros.
-        dockedActive ? 'grid grid-cols-[860px_minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)] bg-[var(--bg-base)]' : '',
+        // bg-surface PILNAI uždengia hero/page'ą už nugaros — naudojam
+        // tą patį background'ą kaip modal aside, kad atrodytų kaip
+        // vienas tęstinis paviršius (nesimato page'o turinio jokiose
+        // vietose).
+        dockedActive ? 'grid grid-cols-[860px_minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)] bg-[var(--bg-surface)]' : '',
       ].join(' ')}
       onClick={(e) => { if (!dockedActive && e.target === e.currentTarget) handleClose() }}
     >
@@ -1356,56 +1358,61 @@ function TrackInfoModal({
       </aside>
 
       {/* DOCKED PLAYER — fullscreen layout dešinėj kolonoj (grid col 2).
-          Video iframe centered vertikaliai, fills available width. Prev /
-          Next mygtukai virš video.
+          Header'is „KLAUSYTI" tokio paties stiliaus kaip modal'e „DAINOS
+          TEKSTAS" / „KOMENTARAI" — vienodas vizualinis ritmas. Šalia
+          header'io prev/next chip'ai kaip kompaktiški mygtukai.
           Initial atidarymas: autoplay=0 — useris pats spaudžia YT play.
           Po prev/next click'o: autoplay=1 (userio gestūra → naršyklės
           leidžia). */}
       {dockedActive && trackVid && mounted && (
-        <div className="row-start-2 col-start-2 flex flex-col items-center justify-center gap-4 overflow-hidden p-6">
-          {/* Track navigation toolbar */}
-          <div className="flex w-full max-w-[1200px] items-center gap-3">
-            <button
-              type="button"
-              onClick={() => { setUserNavigated(true); onPrevTrack?.() }}
-              disabled={!onPrevTrack}
-              aria-label="Ankstesnė daina"
-              title="Ankstesnė daina"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-30"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" /></svg>
-            </button>
-            <div className="min-w-0 flex-1 text-center">
-              <div className="truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]" title={track.title}>
-                {track.title}
-              </div>
-              <div className="truncate text-[11.5px] font-bold text-[var(--text-muted)]">
-                {artistName}
-              </div>
+        <div className="row-start-2 col-start-2 flex flex-col overflow-hidden bg-[var(--bg-surface)] px-6 py-5">
+          {/* Header — KLAUSYTI label + dainos title + prev/next mažais chip'ais.
+              Stilius matches modal'ą — text-[11px] font-extrabold uppercase
+              tracking-[0.18em] text-muted. */}
+          <div className="mb-4 flex items-center gap-3">
+            <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+              Klausyti
             </div>
-            <button
-              type="button"
-              onClick={() => { setUserNavigated(true); onNextTrack?.() }}
-              disabled={!onNextTrack}
-              aria-label="Kita daina"
-              title="Kita daina"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-30"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z" /></svg>
-            </button>
+            <div className="min-w-0 flex-1 truncate text-[12px] font-bold text-[var(--text-faint)]" title={`${track.title} — ${artistName}`}>
+              · {track.title} <span className="text-[var(--text-muted)]">· {artistName}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => { setUserNavigated(true); onPrevTrack?.() }}
+                disabled={!onPrevTrack}
+                aria-label="Ankstesnė daina"
+                title="Ankstesnė daina"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-30"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" /></svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setUserNavigated(true); onNextTrack?.() }}
+                disabled={!onNextTrack}
+                aria-label="Kita daina"
+                title="Kita daina"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-30"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z" /></svg>
+              </button>
+            </div>
           </div>
-          {/* Iframe — užima visa likusi pločio plotis išlaikydamas 16:9 ratio.
+          {/* Iframe — vertikaliai centered, užima visą likusią aukštį.
               max-w 1200 atrodo natūraliai prie 1920px viewport'o. */}
-          <div className="aspect-video w-full max-w-[1200px] overflow-hidden rounded-xl bg-black shadow-[0_24px_60px_-12px_rgba(0,0,0,0.5)]">
-            <iframe
-              key={`docked-${trackVid}`}
-              src={`https://www.youtube.com/embed/${trackVid}?autoplay=${userNavigated ? 1 : 0}&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3`}
-              title={`${track.title} — ${artistName}`}
-              className="h-full w-full"
-              referrerPolicy="strict-origin-when-cross-origin"
-              allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-              allowFullScreen
-            />
+          <div className="flex flex-1 items-center justify-center">
+            <div className="aspect-video w-full max-w-[1200px] overflow-hidden rounded-xl bg-black shadow-[0_24px_60px_-12px_rgba(0,0,0,0.5)]">
+              <iframe
+                key={`docked-${trackVid}`}
+                src={`https://www.youtube.com/embed/${trackVid}?autoplay=${userNavigated ? 1 : 0}&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3`}
+                title={`${track.title} — ${artistName}`}
+                className="h-full w-full"
+                referrerPolicy="strict-origin-when-cross-origin"
+                allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                allowFullScreen
+              />
+            </div>
           </div>
         </div>
       )}
