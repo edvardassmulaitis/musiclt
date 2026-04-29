@@ -83,7 +83,18 @@ export type DuelDrop = {
 
 export type VerdictDrop = {
   id: number
-  track: { id: number; slug: string; title: string; artist: string; cover_url?: string; video_url?: string }
+  track: {
+    id: number
+    slug: string
+    title: string
+    artist: string
+    artist_slug?: string
+    artist_image?: string | null
+    cover_url?: string
+    video_url?: string
+    release_date?: string | null
+    release_year?: number | null
+  }
 }
 
 export type VideoDrop = {
@@ -254,7 +265,7 @@ export async function fetchTodayVerdictDrop(): Promise<VerdictDrop | null> {
 
   const { data: track } = await sb
     .from('tracks')
-    .select(TRACK_SELECT)
+    .select('id, slug, title, cover_url, video_url, release_date, release_year, artists:artist_id ( id, slug, name, cover_image_url )')
     .eq('id', drop.track_id)
     .maybeSingle()
   const norm = normalizeTrack(track)
@@ -267,8 +278,12 @@ export async function fetchTodayVerdictDrop(): Promise<VerdictDrop | null> {
       slug: norm.slug,
       title: norm.title,
       artist: norm.artists?.name || '—',
+      artist_slug: norm.artists?.slug,
+      artist_image: norm.artists?.cover_image_url || null,
       cover_url: norm.cover_url,
       video_url: norm.video_url,
+      release_date: norm.release_date,
+      release_year: norm.release_year,
     },
   }
 }

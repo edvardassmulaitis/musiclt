@@ -267,6 +267,7 @@ export default function BoomboxClient(props: Props) {
           sessionXp={sessionXp}
           streak={streak}
           isAuthenticated={props.isAuthenticated}
+          videos={videos.filter(v => videoReactions[v.id])}
           results={{
             image: image && imageGuess.pickedTrackId !== null
               ? {
@@ -314,7 +315,7 @@ function Landing({ streak, hasContent, missionCount, videoCount, onStart }: {
   return (
     <div className="bb-screen">
       <header className="bb-topbar">
-        <Link href="/" className="bb-logo">music.lt</Link>
+        <span />
         {streak.current > 0 && (
           <span className="bb-streak-pill">
             <span style={{ marginRight: 4 }}>🔥</span>
@@ -383,55 +384,17 @@ function Cassette({ playing = false, size = 160 }: { playing?: boolean; size?: n
   )
 }
 
-// ─── Stage progress — cassette tape with rotating reels ───
+// ─── Stage progress — thin gradient bar with smooth fill ───
 
 function StageHeader({ idx, total }: { idx: number; total: number }) {
-  // Tape fills proportionally to (idx-0.5) of total — užima >0% nuo pradžios,
-  // 100% kai paskutinė misija atlikta.
-  const pct = total > 0 ? Math.max(((idx - 0.5) / total) * 100, 8) : 0
+  const pct = total > 0 ? (idx / total) * 100 : 0
   return (
     <header className="bb-topbar bb-topbar-stage">
-      <CassetteProgressBar pct={pct} />
+      <div className="bb-progress-track-thin">
+        <div className="bb-progress-fill-thin" style={{ width: `${Math.max(pct, 6)}%` }} />
+      </div>
       <span className="bb-step-counter">{idx} / {total}</span>
     </header>
-  )
-}
-
-function CassetteProgressBar({ pct }: { pct: number }) {
-  return (
-    <svg viewBox="0 0 240 24" className="bb-cassette-bar" aria-hidden preserveAspectRatio="none">
-      {/* Tape line — base */}
-      <line x1="14" y1="12" x2="226" y2="12" stroke="var(--border-default)" strokeWidth="2.5" strokeLinecap="round" />
-      {/* Tape line — fill (orange gradient) */}
-      <defs>
-        <linearGradient id="bbBarGrad" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stopColor="var(--accent-orange)" />
-          <stop offset="1" stopColor="#fbbf24" />
-        </linearGradient>
-      </defs>
-      <line
-        x1="14" y1="12"
-        x2={14 + (212 * Math.min(Math.max(pct, 0), 100)) / 100}
-        y2="12"
-        stroke="url(#bbBarGrad)"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-      />
-      {/* Left reel */}
-      <g className="bb-bar-reel" style={{ transformOrigin: '14px 12px' }}>
-        <circle cx="14" cy="12" r="9" fill="var(--bg-elevated)" stroke="var(--accent-orange)" strokeWidth="1.5" />
-        <circle cx="14" cy="12" r="2.5" fill="var(--accent-orange)" />
-        <line x1="14" y1="5" x2="14" y2="3.5" stroke="var(--accent-orange)" strokeWidth="1.4" strokeLinecap="round" />
-        <line x1="14" y1="20.5" x2="14" y2="19" stroke="var(--accent-orange)" strokeWidth="1.4" strokeLinecap="round" />
-      </g>
-      {/* Right reel */}
-      <g className="bb-bar-reel" style={{ transformOrigin: '226px 12px' }}>
-        <circle cx="226" cy="12" r="9" fill="var(--bg-elevated)" stroke="var(--accent-orange)" strokeWidth="1.5" />
-        <circle cx="226" cy="12" r="2.5" fill="var(--accent-orange)" />
-        <line x1="226" y1="5" x2="226" y2="3.5" stroke="var(--accent-orange)" strokeWidth="1.4" strokeLinecap="round" />
-        <line x1="226" y1="20.5" x2="226" y2="19" stroke="var(--accent-orange)" strokeWidth="1.4" strokeLinecap="round" />
-      </g>
-    </svg>
   )
 }
 
@@ -486,7 +449,7 @@ function ImageGuessStage({ drop, stepIdx, stepTotal, picked, isCorrect, stats, o
         <FullStageOverlay
           status={isCorrect ? 'correct' : 'wrong'}
           title={`${drop.correct.artist} — ${drop.correct.title}`}
-          body={stats?.correctPct != null ? `atspėjo ${stats.correctPct}% žmonių` : ''}
+          body={(stats?.total || 0) >= STATS_MIN && stats?.correctPct != null ? `atspėjo ${stats.correctPct}% žmonių` : ''}
         />
       )}
     </div>
@@ -537,7 +500,7 @@ function DuelStage({ drop, stepIdx, stepTotal, picked, stats, onPick }: {
                     </div>
                   )}
                 </div>
-                <div className="bb-duel-row">
+                <div className="bb-duel-side">
                   <div className="bb-duel-info">
                     <div className="bb-duel-title">{t.title}</div>
                     <div className="bb-duel-artist">{t.artist}</div>
@@ -546,10 +509,10 @@ function DuelStage({ drop, stepIdx, stepTotal, picked, stats, onPick }: {
                     className={`bb-duel-fire ${isPicked ? 'picked' : ''}`}
                     onClick={() => onPick(which)}
                     disabled={picked !== null}
-                    title="Rinktis"
                     aria-label={`Rinktis ${which}`}
                   >
-                    🔥
+                    <span className="bb-fire-emoji">🔥</span>
+                    <span className="bb-fire-label">Rinktis</span>
                   </button>
                 </div>
               </div>
@@ -574,24 +537,26 @@ function DuelStage({ drop, stepIdx, stepTotal, picked, stats, onPick }: {
   )
 }
 
+const STATS_MIN = 3   // Min completions before showing distribution
+
 function DuelRevealOverlay({ picked, stats, drop }: { picked: 'A' | 'B' | 'skip'; stats: any; drop: DuelDrop }) {
   let title = 'Balsas užfiksuotas'
   let body = ''
-  if (stats) {
-    const total = stats.total || 0
+  const total = stats?.total || 0
+  if (total >= STATS_MIN) {
     const a = stats.choiceDistribution?.A || 0
     const b = stats.choiceDistribution?.B || 0
-    if (total > 0) {
-      const pa = Math.round((a / total) * 100)
-      const pb = Math.round((b / total) * 100)
-      const winner = pa > pb ? 'A' : pb > pa ? 'B' : null
-      if (winner) {
-        title = `${winner === 'A' ? pa : pb}% rinkosi ${winner === 'A' ? drop.track_a.title : drop.track_b.title}`
-        body = picked === winner ? 'Esi su dauguma' : picked === 'skip' ? '' : 'Esi mažumoj'
-      } else {
-        title = `Lygiomis · ${pa}% A · ${pb}% B`
-      }
+    const pa = Math.round((a / total) * 100)
+    const pb = Math.round((b / total) * 100)
+    const winner = pa > pb ? 'A' : pb > pa ? 'B' : null
+    if (winner) {
+      title = `${winner === 'A' ? pa : pb}% rinkosi ${winner === 'A' ? drop.track_a.title : drop.track_b.title}`
+      body = picked === winner ? 'Esi su dauguma' : picked === 'skip' ? '' : 'Esi mažumoj'
+    } else {
+      title = `Lygiomis · ${pa}% A · ${pb}% B`
     }
+  } else if (total === 1) {
+    title = 'Tu pirmas balsuoji šiandien'
   }
   return <FullStageOverlay title={title} body={body} />
 }
@@ -649,11 +614,25 @@ function VerdictStage({ drop, stepIdx, stepTotal, picked, stats, onPick }: {
 
         <div className="bb-verdict-track-row">
           <div className="bb-thumb bb-thumb-c">
-            {drop.track.cover_url ? <img src={proxyImg(drop.track.cover_url)} alt="" /> : '🎵'}
+            {drop.track.artist_image
+              ? <img src={proxyImg(drop.track.artist_image)} alt="" />
+              : drop.track.cover_url
+                ? <img src={proxyImg(drop.track.cover_url)} alt="" />
+                : '🎵'}
           </div>
           <div className="bb-verdict-track-info">
             <div className="bb-verdict-track-title">{drop.track.title}</div>
-            <div className="bb-verdict-track-artist">{drop.track.artist}</div>
+            <div className="bb-verdict-track-artist">
+              {drop.track.artist}
+              {(drop.track.release_date || drop.track.release_year) && (
+                <span className="bb-verdict-date">
+                  {' · '}
+                  {drop.track.release_date
+                    ? new Date(drop.track.release_date).toLocaleDateString('lt-LT', { year: 'numeric', month: 'short', day: 'numeric' })
+                    : drop.track.release_year}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -677,7 +656,6 @@ function VerdictStage({ drop, stepIdx, stepTotal, picked, stats, onPick }: {
               title={label}
             >
               <span className="bb-reaction-emoji">{emoji}</span>
-              <span className="bb-reaction-label">{label}</span>
             </button>
           ))}
         </div>
@@ -686,8 +664,10 @@ function VerdictStage({ drop, stepIdx, stepTotal, picked, stats, onPick }: {
 
       {picked !== null && (
         <FullStageOverlay
-          title={topEmoji ? `Bendruomenės top — ${topEmoji.emoji} ${topEmoji.pct}%` : 'Verdiktas užfiksuotas'}
-          body={topEmoji && picked === topEmoji.emoji ? 'Esi su dauguma' : ''}
+          title={(stats?.total || 0) >= STATS_MIN && topEmoji
+            ? `Bendruomenės top — ${topEmoji.emoji} ${topEmoji.pct}%`
+            : 'Reakcija užfiksuota'}
+          body={(stats?.total || 0) >= STATS_MIN && topEmoji && picked === topEmoji.emoji ? 'Esi su dauguma' : ''}
         />
       )}
     </div>
@@ -714,10 +694,10 @@ function DropsStage({ videos, currentIdx, reaction, stepIdx, stepTotal, onReact 
       <StageHeader idx={stepIdx} total={stepTotal} />
 
       <main className="bb-stage-main">
-        <div className="bb-drops-subhead">
-          <h1 className="bb-question">Drop&apos;ai</h1>
-          <span className="bb-drops-counter">{currentIdx + 1} / {totalVideos}</span>
-        </div>
+        <h1 className="bb-question">
+          Klipai
+          <span className="bb-drops-counter-inline"> · {currentIdx + 1}/{totalVideos}</span>
+        </h1>
 
         <div className="bb-drop-frame">
           {embedUrl ? (
@@ -732,12 +712,6 @@ function DropsStage({ videos, currentIdx, reaction, stepIdx, stepTotal, onReact 
               Atidaryti {v.source} ↗
             </a>
           )}
-        </div>
-
-        <div className="bb-drop-meta">
-          <span className="bb-drop-source">{v.source}</span>
-          {v.related_artist && <span className="bb-drop-artist-tag">→ {v.related_artist.name}</span>}
-          {v.caption && <span className="bb-drop-caption-inline">{v.caption}</span>}
         </div>
 
         <div className="bb-reaction-row">
@@ -795,11 +769,12 @@ type ModalTrack = {
   video_url?: string | null
 }
 
-function SummaryStage({ sessionXp, streak, isAuthenticated, results }: {
+function SummaryStage({ sessionXp, streak, isAuthenticated, results, videos }: {
   sessionXp: number
   streak: { current: number; total_xp: number; longest: number }
   isAuthenticated: boolean
   results: any
+  videos: VideoDrop[]
 }) {
   const [modalTrack, setModalTrack] = useState<ModalTrack | null>(null)
 
@@ -815,22 +790,22 @@ function SummaryStage({ sessionXp, streak, isAuthenticated, results }: {
     })
   }
 
+  async function shareVideo(v: VideoDrop) {
+    const url = v.source_url
+    const title = `Boombox · ${v.related_artist?.name || 'klipas'}`
+    if (navigator.share) {
+      try { await navigator.share({ title, url }) } catch {}
+    } else {
+      try { await navigator.clipboard.writeText(url) } catch {}
+    }
+  }
+
   return (
     <div className="bb-screen bb-summary-screen">
-      <header className="bb-topbar">
-        <span className="bb-logo-mini">boombox · šiandien</span>
-        {streak.current > 0 && (
-          <span className="bb-streak-pill">🔥 {streak.current} d.</span>
-        )}
-      </header>
-
       <main className="bb-stage-main">
-        <div className="bb-summary-cassette">
-          <Cassette playing size={220} />
-          <div className="bb-summary-overlay">
-            <div className="bb-xp-big">+{sessionXp}</div>
-            <div className="bb-xp-label">taškai šiandien</div>
-          </div>
+        <div className="bb-summary-score">
+          <div className="bb-xp-big">+{sessionXp}</div>
+          <div className="bb-xp-label">{isAuthenticated ? 'taškai (su profilio bonusu)' : 'taškai šiandien'}</div>
         </div>
 
         <div className="bb-recap-list">
@@ -865,23 +840,38 @@ function SummaryStage({ sessionXp, streak, isAuthenticated, results }: {
             <RecapRow
               thumb={ytThumbFromUrl(results.verdict.track.video_url) || (results.verdict.track.cover_url ? proxyImg(results.verdict.track.cover_url) : null)}
               icon={results.verdict.emoji}
-              title={`Verdiktas: ${results.verdict.emoji}`}
+              title={`Reakcija: ${results.verdict.emoji}`}
               sub={`${results.verdict.track.artist} — ${results.verdict.track.title}`}
               onClick={() => openModal(results.verdict.track)}
             />
           )}
-          {results.videosWatched > 0 && (
-            <RecapRow icon="📺" title={`${results.videosWatched} drop'ai`} sub="peržiūrėta" />
-          )}
         </div>
 
-        {!isAuthenticated && streak.current > 0 && (
+        {videos.length > 0 && (
+          <div>
+            <div className="bb-section-label">Klipai</div>
+            <div className="bb-clips-row">
+              {videos.map(v => {
+                const yt = v.embed_id || youtubeIdFromUrl(v.source_url)
+                const thumb = yt ? `https://i.ytimg.com/vi/${yt}/hqdefault.jpg` : null
+                return (
+                  <button key={v.id} className="bb-clip-thumb" onClick={() => shareVideo(v)} title="Bendrinti">
+                    {thumb ? <img src={thumb} alt="" /> : <div className="bb-clip-fallback">▶</div>}
+                    <span className="bb-clip-share">↗</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {!isAuthenticated && (
           <div className="bb-save-trap">
             <div className="bb-save-streak-row">
-              <div className="bb-save-streak-num">🔥 {streak.current}</div>
+              <div className="bb-save-streak-num">🔥 {streak.current || 1}</div>
               <div>
-                <div className="bb-save-streak-label">Tavo dienų streak&apos;as</div>
-                <div className="bb-save-streak-sub">išliks tik su profiliu</div>
+                <div className="bb-save-streak-label">{streak.current > 1 ? `${streak.current} dienų streak'as` : 'Tu jau pradėjai'}</div>
+                <div className="bb-save-streak-sub">+50% taškų jei prisijungsi</div>
               </div>
             </div>
             <Link href="/auth/signin" className="bb-btn-primary">Susikurti profilį</Link>
@@ -1014,9 +1004,13 @@ const boomboxCss = `
   .bb-stage-tag { font-size: 10px; color: var(--text-muted); letter-spacing: 2px; text-transform: uppercase; font-weight: 700; }
   .bb-step-counter { font-size: 11px; color: var(--text-muted); font-weight: 600; white-space: nowrap; }
 
-  /* Cassette tape progress bar */
-  .bb-cassette-bar { flex: 1; height: 24px; display: block; }
-  .bb-bar-reel { animation: bbReelSpin 2.4s linear infinite; }
+  .bb-topbar-stage .bb-progress-track-thin {
+    flex: 1; height: 4px; background: var(--border-default); border-radius: 2px; overflow: hidden;
+  }
+  .bb-progress-fill-thin {
+    height: 100%; background: linear-gradient(90deg, var(--accent-orange), #fbbf24);
+    border-radius: 2px; transition: width 0.5s cubic-bezier(.2,.8,.2,1);
+  }
 
   /* Landing */
   .bb-landing-main {
@@ -1109,40 +1103,44 @@ const boomboxCss = `
     padding: 4px 10px; border-radius: 6px; font-size: 10px; font-weight: 700; letter-spacing: 1.4px;
     flex-shrink: 0;
   }
-  .bb-duel-grid { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; }
+  .bb-duel-grid { display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 0; }
   .bb-duel-card {
     background: var(--card-bg); border: 1px solid var(--border-default);
-    border-radius: 12px; padding: 8px; display: grid;
-    grid-template-columns: 1fr; grid-template-rows: auto auto;
-    grid-template-areas: 'embed' 'info';
-    gap: 6px;
-    transition: all .2s;
-    flex: 1; min-height: 0;
+    border-radius: 12px; padding: 8px;
+    display: grid; grid-template-columns: 1fr 96px; gap: 8px;
+    transition: all .2s; flex: 1; min-height: 0; align-items: stretch;
   }
   .bb-duel-card.voted { border-color: var(--accent-orange); box-shadow: 0 0 0 2px rgba(249,115,22,0.25); }
   .bb-duel-card.dimmed { opacity: 0.45; }
-  .bb-duel-embed { grid-area: embed; border-radius: 8px; overflow: hidden; background: black; min-height: 0; flex: 1; }
+  .bb-duel-embed { border-radius: 8px; overflow: hidden; background: black; min-height: 0; }
   .bb-duel-embed iframe { width: 100%; height: 100%; border: 0; display: block; }
   .bb-duel-thumb { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: var(--bg-elevated); color: var(--text-muted); font-size: 24px; }
   .bb-duel-thumb img { width: 100%; height: 100%; object-fit: cover; }
-  .bb-duel-info { grid-area: info; min-width: 0; padding: 0 4px; display: flex; flex-direction: column; gap: 1px; }
-  .bb-duel-title { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .bb-duel-artist { font-size: 11.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-  /* Vote button beside each track + bottom 'neither' box */
-  .bb-duel-row { display: flex; align-items: center; gap: 8px; padding: 0 4px; }
+  .bb-duel-side {
+    display: flex; flex-direction: column; gap: 8px; min-width: 0;
+    justify-content: space-between;
+  }
+  .bb-duel-info { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  .bb-duel-title { font-size: 13px; font-weight: 700; line-height: 1.2; word-break: break-word; }
+  .bb-duel-artist { font-size: 11.5px; color: var(--text-muted); line-height: 1.2; }
+
   .bb-duel-fire {
-    flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%;
-    background: var(--card-bg); border: 1.5px solid var(--border-default);
-    font-size: 22px; cursor: pointer; transition: all .15s; padding: 0;
-    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; width: 100%;
+    background: rgba(249,115,22,0.10); border: 1.5px solid var(--accent-orange);
+    color: var(--accent-orange);
+    cursor: pointer; transition: all .15s; padding: 8px 6px;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    border-radius: 10px; font-family: inherit;
   }
-  .bb-duel-fire:hover:not(:disabled) { background: var(--card-hover); transform: scale(1.05); }
-  .bb-duel-fire:disabled { cursor: default; opacity: 0.4; }
+  .bb-duel-fire:hover:not(:disabled) { background: rgba(249,115,22,0.18); }
+  .bb-duel-fire:disabled { cursor: default; opacity: 0.45; border-color: var(--border-default); background: var(--card-bg); color: var(--text-muted); }
   .bb-duel-fire.picked {
-    background: rgba(249,115,22,0.22); border-color: var(--accent-orange); transform: scale(1.1);
-    box-shadow: 0 0 0 4px rgba(249,115,22,0.15); opacity: 1;
+    background: rgba(249,115,22,0.28) !important; border-color: var(--accent-orange) !important;
+    color: white; opacity: 1; box-shadow: 0 0 0 3px rgba(249,115,22,0.2);
   }
+  .bb-fire-emoji { font-size: 22px; }
+  .bb-fire-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
 
   .bb-duel-neither {
     flex-shrink: 0; width: 100%;
@@ -1165,7 +1163,8 @@ const boomboxCss = `
     background: var(--card-bg); border: 1px solid var(--border-default);
     border-radius: 12px; padding: 10px;
   }
-  .bb-thumb { width: 48px; height: 48px; border-radius: 10px; flex-shrink: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; color: white; font-size: 18px; }
+  .bb-thumb { width: 56px; height: 56px; border-radius: 12px; flex-shrink: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; color: white; font-size: 18px; }
+  .bb-verdict-date { font-size: 11px; color: var(--text-faint); }
   .bb-thumb img { width: 100%; height: 100%; object-fit: cover; }
   .bb-thumb-c { background: linear-gradient(135deg, #4c1d95, var(--accent-orange)); }
   .bb-verdict-track-info { flex: 1; min-width: 0; }
@@ -1189,8 +1188,7 @@ const boomboxCss = `
   .bb-reaction-label { font-size: 10px; color: var(--text-muted); }
 
   /* Drops */
-  .bb-drops-subhead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-  .bb-drops-counter { font-size: 11px; color: var(--text-muted); font-weight: 600; }
+  .bb-drops-counter-inline { font-size: 13px; color: var(--text-muted); font-weight: 500; }
   .bb-drop-frame {
     flex: 1; min-height: 0; border-radius: 14px; overflow: hidden; background: black;
     position: relative;
@@ -1206,15 +1204,31 @@ const boomboxCss = `
   .bb-drop-caption-inline { font-size: 12px; color: var(--text-secondary); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   /* Summary */
-  .bb-summary-screen .bb-stage-main { gap: 10px; overflow-y: auto; }
-  .bb-summary-cassette {
-    position: relative; display: flex; align-items: center; justify-content: center;
-    padding: 6px 0;
+  .bb-summary-screen .bb-stage-main { gap: 14px; overflow-y: auto; padding-top: 24px; }
+  .bb-summary-score { text-align: center; padding: 10px 0; }
+  .bb-section-label {
+    font-size: 10.5px; color: var(--text-faint); text-transform: uppercase;
+    letter-spacing: 1.5px; font-weight: 600; margin-bottom: 8px;
   }
-  .bb-summary-overlay {
-    position: absolute; inset: 0;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    text-align: center; pointer-events: none;
+  .bb-clips-row {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 6px;
+  }
+  .bb-clip-thumb {
+    aspect-ratio: 9/12; border-radius: 8px; overflow: hidden; background: var(--bg-elevated);
+    border: 1px solid var(--border-default); cursor: pointer; padding: 0;
+    position: relative; transition: all .15s;
+  }
+  .bb-clip-thumb:hover { border-color: var(--accent-orange); transform: translateY(-1px); }
+  .bb-clip-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .bb-clip-fallback {
+    width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+    color: var(--text-muted); font-size: 24px;
+  }
+  .bb-clip-share {
+    position: absolute; bottom: 6px; right: 6px; width: 22px; height: 22px;
+    background: rgba(0,0,0,0.65); color: white; border-radius: 50%;
+    font-size: 11px; display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(4px);
   }
   .bb-xp-big {
     font-family: 'Outfit', system-ui, sans-serif;

@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
     payload.correctTrackId = correctId
   }
 
-  // Calculate XP
+  // Calculate XP — base + correctness bonus + member bonus (auth user gets 1.5×)
   let xp = MISSION_BASE_XP[missionType] || 0
   if (missionType === 'image_guess' && isCorrect) xp += 50
 
@@ -97,6 +97,10 @@ export async function POST(req: NextRequest) {
   }
   const anonId = userId ? null : await ensureAnonCookie()
   if (!userId && !anonId) return jsonErr('Negalima identifikuoti', 500)
+
+  // Member bonus: registruoti vartotojai gauna +50% taškų — visa nauda likti
+  // svetainėj su profiliu, ne tik streak'as
+  if (userId) xp = Math.round(xp * 1.5)
 
   // Insert (UNIQUE will reject double-submission)
   const insertRow: any = {
