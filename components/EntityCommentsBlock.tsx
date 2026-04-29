@@ -395,14 +395,14 @@ export default function EntityCommentsBlock({
   /** Soft-delete a modern comment via DELETE /api/comments. Available to
    *  admins AND to the comment's own author. Backend enforces auth. */
   const deleteComment = async (commentId: number) => {
-    if (!confirm('Tikrai pašalinti šį komentarą?')) return
+    if (!confirm('Tikrai paslėpti šį komentarą? Galima atstatyti vėliau.')) return
     try {
       const res = await fetch(`/api/comments?id=${commentId}`, { method: 'DELETE' })
       if (res.ok) {
         await reload()
       } else {
         const data = await res.json().catch(() => ({}))
-        setError(data.error || 'Nepavyko pašalinti.')
+        setError(data.error || 'Nepavyko paslėpti.')
       }
     } catch {
       setError('Tinklo klaida.')
@@ -864,7 +864,7 @@ export default function EntityCommentsBlock({
                       )}
                       {isDeleted && (
                         <span className="inline-flex items-center gap-1 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-2 py-0.5 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-muted)]">
-                          Pašalintas
+                          Paslėpta
                         </span>
                       )}
                       {/* Admin reactivate — flip is_deleted=false, komentaras
@@ -909,7 +909,11 @@ export default function EntityCommentsBlock({
                           if (isModern) deleteComment(c.id)
                           else deleteLegacyComment(c.legacy_id)
                         }
-                        const label = isModern ? 'Pašalinti' : 'Paslėpti (admin)'
+                        // Vienodas label'as visur — "Slėpti". Tiek modern
+                        // (soft-delete is_deleted=true), tiek legacy (is_hidden=
+                        // true) iš esmės yra hide operacija; veiksmas atstatomas
+                        // (admin'as turi Atstatyti mygtuką ant ištrintų).
+                        const label = 'Slėpti'
                         return (
                           <button
                             type="button"

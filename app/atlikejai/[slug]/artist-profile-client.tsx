@@ -372,6 +372,19 @@ function PlayerCard({
   const playerRef = useRef<any>(null)
   const [apiReady, setApiReady] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
+  // Mobile detection — Safari iOS / Android Chrome turi griežtas autoplay
+  // taisykles: YT.Player(target) sukuriamas useEffect'e (po setState/render),
+  // ne tap handler'yje, todėl gesture context prarastas → autoplay blokuojamas.
+  // Mobile'e renderinam plain `<iframe>` su autoplay=1 — iframe mount'inamas
+  // tame pačiame React render'yje kaip ir click event, Safari leidžia.
+  const [isMobileVP, setIsMobileVP] = useState(false)
+  useEffect(() => {
+    const m = window.matchMedia('(max-width: 1023px)')
+    setIsMobileVP(m.matches)
+    const h = (e: MediaQueryListEvent) => setIsMobileVP(e.matches)
+    m.addEventListener('change', h)
+    return () => m.removeEventListener('change', h)
+  }, [])
 
   // Load the IFrame API script once per session.
   useEffect(() => {
@@ -410,6 +423,9 @@ function PlayerCard({
   // baigiasi prie wrapper'io — viskas viduje yra non-React DOM.
   useEffect(() => {
     if (!apiReady || !playing || !displayVid || !containerRef.current) return
+    // Mobile'e nevartojam YT.Player JS API — vietoj jo renderinam plain
+    // `<iframe>` JSX'e (žemiau). Šitas effect'as praleidžiamas mobile'e.
+    if (isMobileVP) return
     // Already have a player? Just resume — don't recreate.
     if (playerRef.current) {
       try { playerRef.current.playVideo?.() } catch {}
@@ -524,7 +540,22 @@ function PlayerCard({
           // the iframe stays in the DOM. The "play" overlay button is
           // rendered on top when !playing.
           <>
-            <div ref={containerRef} className="absolute inset-0 h-full w-full" />
+            {/* Mobile'e renderinam plain `<iframe>` su autoplay=1 — Safari iOS
+                leidžia, nes iframe mount'inasi tame pačiame React render'yje
+                kaip click event'as (gesture context išlaikomas). Desktop'as
+                naudoja YT.Player JS API per containerRef wrapper'į. */}
+            {isMobileVP && playing && (
+              <iframe
+                key={`mobile-hero-${displayVid}`}
+                src={`https://www.youtube.com/embed/${displayVid}?autoplay=1&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3`}
+                title="YouTube player"
+                className="absolute inset-0 h-full w-full"
+                referrerPolicy="strict-origin-when-cross-origin"
+                allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                allowFullScreen
+              />
+            )}
+            <div ref={containerRef} className={isMobileVP ? 'hidden' : 'absolute inset-0 h-full w-full'} />
             {!playing && (
               <button
                 type="button"

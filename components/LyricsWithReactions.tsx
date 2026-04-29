@@ -362,10 +362,21 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
                   {ln.chipSpans.map((s) => {
                     const likes = s.reactions.filter(r => r.type === 'like').length
                     const comments = s.reactions.filter(r => r.type === 'comment').length
-                    // Show avatar stack only when reactions are few; otherwise
-                    // counts alone (without crowded avatar pile-up).
-                    const totalReactions = s.reactions.length
-                    const recent = totalReactions <= 5 ? s.reactions.slice(0, 3) : []
+                    // Show avatar stack — DEDUP'inta pagal autorių, kad
+                    // tas pats useris su like+comment nesirodydavo dviem
+                    // avatariais (anksčiau buvo bug). Anonim'ai grupuojami
+                    // pagal reaction id (jų atskirti negalim be stable id).
+                    const seen = new Set<string>()
+                    const uniqueReactors: typeof s.reactions = []
+                    for (const r of s.reactions) {
+                      const name = (r.author_name || '').trim()
+                      const isAnon = !r.author_avatar_url && (name === 'Anonimas' || name === 'Vartotojas' || name === '')
+                      const key = isAnon ? `anon-${r.id}` : `named-${name}`
+                      if (seen.has(key)) continue
+                      seen.add(key)
+                      uniqueReactors.push(r)
+                    }
+                    const recent = uniqueReactors.length <= 5 ? uniqueReactors.slice(0, 3) : []
                     return (
                       <button
                         key={`${s.start}-${s.end}`}
