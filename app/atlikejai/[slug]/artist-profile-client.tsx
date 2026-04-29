@@ -939,11 +939,11 @@ function TrackInfoModal({
       className="fixed inset-0 z-[9999]"
       onClick={(e) => { if (e.target === e.currentTarget) handleClose() }}
     >
+      {/* Click-outside scrim — be background dimming. Useris norėjo, kad
+          atidarius modal'ą fonas neuztemtų; click'as ant fono vis tiek
+          užda Modal'ą per onClick handler'į. */}
       <div
-        className={[
-          'absolute inset-0 bg-black/30 transition-opacity duration-200',
-          mounted ? 'opacity-100' : 'opacity-0',
-        ].join(' ')}
+        className="absolute inset-0"
         onClick={handleClose}
       />
 
@@ -1510,7 +1510,14 @@ function Hero({
             loaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
           ].join(' ')}
         >
-          <div className="w-full">
+          {/* Player wrapper — kai useris paleidžia video (`playing=true`),
+              wrapper'is ekspanduojasi platesnis (max-w nuo ~440 → ~640px),
+              kad iframe gautų daugiau ploto cinematic peržiūrai. Smooth
+              transition per 300ms, kad neatrodytų sukrečiantis. */}
+          <div className={[
+            'w-full transition-[max-width] duration-300 ease-out',
+            playing ? 'lg:max-w-[640px]' : 'lg:max-w-[440px]',
+          ].join(' ')}>
             <PlayerCard
               tracksAllTime={tracksAllTime}
               tracksTrending={tracksTrending}
@@ -2935,11 +2942,11 @@ function DiscussionThreadModal({
       className="fixed inset-0 z-[9999]"
       onClick={(e) => { if (e.target === e.currentTarget) handleClose() }}
     >
+      {/* Click-outside scrim — be background dimming. Useris norėjo, kad
+          atidarius modal'ą fonas neuztemtų; click'as ant fono vis tiek
+          užda Modal'ą per onClick handler'į. */}
       <div
-        className={[
-          'absolute inset-0 bg-black/30 transition-opacity duration-200',
-          mounted ? 'opacity-100' : 'opacity-0',
-        ].join(' ')}
+        className="absolute inset-0"
         onClick={handleClose}
       />
 

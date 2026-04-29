@@ -63,12 +63,21 @@ export async function POST(req: Request) {
   if (!commentId) return NextResponse.json({ error: 'Blogas comment_id' }, { status: 400 })
 
   // Block self-likes — backend enforcement (UI disables but never trust client).
+  // Lyginam IR pagal author_id (modern profile UUID), IR pagal author email
+  // (nes po profile-wipe'o migracijų komentaro author_id gali rodyti į senąjį
+  // UUID, o resolveAuthorId grąžina naują — UUID neatitinka, bet email tas pats).
+  const viewerEmail = (session.user as any)?.email?.toLowerCase() || null
   const { data: targetComment } = await sb
     .from('comments')
-    .select('author_id')
+    .select('author_id, profiles:author_id(email)')
     .eq('id', commentId)
-    .maybeSingle()
-  if (targetComment && targetComment.author_id === userIdVal) {
+    .maybeSingle() as { data: any }
+  const targetEmail = (targetComment?.profiles?.email || '').toLowerCase() || null
+  const isSelf = !!targetComment && (
+    targetComment.author_id === userIdVal ||
+    (!!viewerEmail && !!targetEmail && viewerEmail === targetEmail)
+  )
+  if (isSelf) {
     return NextResponse.json({ error: 'Negalima palaikinti savo paties komentaro' }, { status: 403 })
   }
 

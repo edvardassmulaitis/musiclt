@@ -36,6 +36,9 @@ type ModernComment = {
   parent_id: number | null
   depth?: number
   user_id: string | null
+  /** Server-computed flag — true if the viewer authored this comment.
+   *  Robust against profile UUID drift (matches by author_id OR email). */
+  is_own?: boolean
   author_name: string | null
   author_avatar: string | null
   body: string
@@ -449,16 +452,17 @@ export default function EntityCommentsBlock({
   }
 
   const toggleLike = async (commentId: number) => {
-    // Hard guard #1 — session must be fully resolved before optimistic UI
-    // updates. Earlier we saw a flash where useSession was still 'loading',
-    // disabled prop fell to false (since session.user.id was undefined),
-    // pointer-events-none didn't apply, click reached toggleLike, optimistic
-    // +1 fired, server returned 403 (self-like), rollback subtracted 1 —
-    // visible "appear and disappear" bug per #6.
+    // Hard guard #1 — session must be fully resolved before optimistic UI.
     if (sessionStatus !== 'authenticated' || !session?.user?.id) return
-    // Hard guard #2 — block self-likes by user_id match against the comment.
+    // Hard guard #2 — block self-likes using the SERVER-COMPUTED `is_own`
+    // flag. UUID-only check was insufficient: after profile-wipe migrations
+    // a comment's author_id rodė į seną UUID, o session.user.id buvo naujas,
+    // todėl optimistic update prasislysdavo, server'is grąžindavo 200 (nes
+    // jo userIdVal taip pat naujas — author_id ne tas pats kas resolved
+    // viewer profile id), ir count'as nesirollback'indavo. Server'is dabar
+    // serverio side'e atsako į: jei is_own === true, klientas net ne-issiunčia.
     const target = modern?.find(c => c.id === commentId)
-    if (target && target.user_id === session.user.id) {
+    if (target?.is_own) {
       return
     }
     const prev = likedIds.has(commentId)
@@ -698,10 +702,20 @@ export default function EntityCommentsBlock({
                 rest = parsed.rest
               }
             }
+            // Deleted komentarai matomi tik admin'ams (server filter'ina
+            // ne-admin'us visiškai). Vizualiai — dim'inti, pridedam diagonal
+            // ribbon-stiliaus žymą, kad nesimaišytų su normalia diskusija.
+            const isDeleted = isModern && (c as any).is_deleted
             return (
               <li
                 key={`${c.source}-${id}`}
-                className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3"
+                className={[
+                  'rounded-xl border p-3 transition-opacity',
+                  isDeleted
+                    ? 'border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)] opacity-55'
+                    : 'border-[var(--border-subtle)] bg-[var(--bg-surface)]',
+                ].join(' ')}
+                title={isDeleted ? 'Komentaras pašalintas — matomas tik administratoriams' : undefined}
               >
                 <div className="flex items-start gap-2.5">
                   <Avatar name={author} url={avatarUrl} size={avatarSize} />
@@ -788,12 +802,11 @@ export default function EntityCommentsBlock({
                           onOpenModal={(c.like_count || 0) > 0
                             ? () => setLikersFor({ entityType: 'comment', entityId: c.id, count: c.like_count || 0 })
                             : undefined}
-                          // Negali laikinti savo paties komentaro — vidinis
-                          // konflikto interesų avoidance + tipiškas social
-                          // platform pattern. Race conditions (session
-                          // dar 'loading') sutvarko `toggleLike` hard guard'as,
-                          // kad nereiktų temporary disabled visiems hearts.
-                          disabled={!!session?.user?.id && c.user_id === session.user.id}
+                          // Self-like — server'is paskaičiuoja `is_own` flag'ą
+                          // (matches by author_id OR email), tai naudojam jį
+                          // robust'iškai. Plus, ant ištrintų komentarų
+                          // (admin'ų matomi) — disabled (nėra ką laikinti).
+                          disabled={!!c.is_own || !!(c as any).is_deleted}
                         />
                       ) : (
                         // Legacy komentaras — toggle eina per unified `likes`
@@ -814,22 +827,29 @@ export default function EntityCommentsBlock({
                           quote prefix still renders properly via parseReplyBody.
                           That way users can engage with archived comments
                           the same way as with live ones. */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setReplyTo({
-                            id: isModern ? c.id : 0,
-                            name: author,
-                            text: rest.slice(0, 240),
-                          })
-                          requestAnimationFrame(() => draftRef.current?.focus())
-                          requestAnimationFrame(() => draftRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
-                        }}
-                        className="inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--text-muted)] transition-colors hover:text-[var(--accent-orange)]"
-                      >
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="9 14 4 9 9 4" /><path d="M20 20v-7a4 4 0 0 0-4-4H4" /></svg>
-                        Atsakyti
-                      </button>
+                      {!isDeleted && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReplyTo({
+                              id: isModern ? c.id : 0,
+                              name: author,
+                              text: rest.slice(0, 240),
+                            })
+                            requestAnimationFrame(() => draftRef.current?.focus())
+                            requestAnimationFrame(() => draftRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
+                          }}
+                          className="inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--text-muted)] transition-colors hover:text-[var(--accent-orange)]"
+                        >
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="9 14 4 9 9 4" /><path d="M20 20v-7a4 4 0 0 0-4-4H4" /></svg>
+                          Atsakyti
+                        </button>
+                      )}
+                      {isDeleted && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-2 py-0.5 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-muted)]">
+                          Pašalintas
+                        </span>
+                      )}
                       {/* Trinti — rodom kai (a) modern komentaras + savininkas
                           (b) bet kuris admin/super_admin (modern arba legacy
                           — admin gali "paslėpti" abu via API). Mygtukas
@@ -837,8 +857,11 @@ export default function EntityCommentsBlock({
                       {(() => {
                         const role = (session?.user as any)?.role
                         const isAdminUser = role === 'admin' || role === 'super_admin'
-                        const isOwn = isModern && session?.user?.id && c.user_id === session.user.id
-                        const canDelete = isAdminUser || isOwn
+                        const isOwn = isModern && (c as any).is_own
+                        // Pašalinti — kai useris ir taip jau matą "ištrintą" komentarą
+                        // (tik admin'ai), be reikalo dar kartą trint nereikia.
+                        const cIsDeleted = isModern && (c as any).is_deleted
+                        const canDelete = (isAdminUser || isOwn) && !cIsDeleted
                         if (!canDelete) return null
                         // Modern: DELETE /api/comments?id=...
                         // Legacy: only admin can hide; soft-flag is_hidden=true

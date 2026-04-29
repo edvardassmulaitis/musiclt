@@ -44,13 +44,22 @@ export async function GET(req: Request) {
 
   const sb = createAdminClient()
 
-  // SELECT comments + JOIN profiles tam, kad gautume author display info.
-  // Profile'os fk yra `author_id` (uuid → profiles.id).
-  // music_attachments — optional column (per migration 20260428). Bandom su
-  // ja, fallback'as be jos jei migracija dar neaplikuota.
+  // Pre-resolve viewer's identity for is_own + admin checks. Email is the
+  // stable backbone (profile UUIDs can drift across DB wipes — see
+  // resolveAuthorId notes), tai email'ą lyginsim su comment author email
+  // kaip primary self-detection check.
+  const session = await getServerSession(authOptions)
+  const viewerEmail = (session?.user as any)?.email?.toLowerCase() || null
+  const viewerId = await resolveAuthorId(sb, session)
+  const viewerRole = (session?.user as any)?.role
+  const viewerIsAdmin = viewerRole === 'admin' || viewerRole === 'super_admin'
+
+  // SELECT comments + JOIN profiles. `email` reikalingas is_own match'ui kai
+  // author_id po wipe'o nesutampa su current'iu profile UUID.
+  // music_attachments — optional column (per migration 20260428).
   let query = sb
     .from('comments')
-    .select('id, parent_id, author_id, body, like_count, reported_count, is_deleted, created_at, updated_at, music_attachments, profiles:author_id(username, full_name, avatar_url)')
+    .select('id, parent_id, author_id, body, like_count, reported_count, is_deleted, created_at, updated_at, music_attachments, profiles:author_id(username, full_name, avatar_url, email)')
     .eq(col, parseInt(entityId))
     .limit(limit)
 
@@ -63,7 +72,7 @@ export async function GET(req: Request) {
   if (error && /music_attachments/.test(error.message)) {
     const fallback = await sb
       .from('comments')
-      .select('id, parent_id, author_id, body, like_count, reported_count, is_deleted, created_at, updated_at, profiles:author_id(username, full_name, avatar_url)')
+      .select('id, parent_id, author_id, body, like_count, reported_count, is_deleted, created_at, updated_at, profiles:author_id(username, full_name, avatar_url, email)')
       .eq(col, parseInt(entityId))
       .limit(limit)
       .order('created_at', { ascending: sort === 'oldest' })
@@ -72,21 +81,34 @@ export async function GET(req: Request) {
   }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Sanitize + normalize for client. Soft-deleted comments hide their body.
-  const sanitized = (data || []).map((c: any) => ({
-    id: c.id,
-    parent_id: c.parent_id,
-    user_id: c.author_id,
-    author_name: c.is_deleted ? null : (c.profiles?.full_name || c.profiles?.username || 'Vartotojas'),
-    author_avatar: c.is_deleted ? null : (c.profiles?.avatar_url || null),
-    body: c.is_deleted ? '[Komentaras pašalintas]' : c.body,
-    like_count: c.like_count || 0,
-    reported_count: c.reported_count || 0,
-    is_deleted: c.is_deleted,
-    music_attachments: Array.isArray(c.music_attachments) ? c.music_attachments : null,
-    created_at: c.created_at,
-    edited_at: c.updated_at && c.updated_at !== c.created_at ? c.updated_at : null,
-  }))
+  // Sanitize + normalize for client.
+  //   • Public users — paš salinti komentarai pilnai filtruojami (jų net
+  //     nematys list'e).
+  //   • Admin'ams — paliekam matomus su pilnu autorium + body, plius
+  //     `is_deleted=true`, kad UI galėtų pavaizduoti dim'intus + uždrausti
+  //     reactions/replies.
+  const sanitized = (data || []).map((c: any) => {
+    const authorEmail = (c.profiles?.email || '').toLowerCase() || null
+    const isOwn = !!(viewerId && c.author_id && c.author_id === viewerId) ||
+                  !!(viewerEmail && authorEmail && viewerEmail === authorEmail)
+    return {
+      id: c.id,
+      parent_id: c.parent_id,
+      user_id: c.author_id,
+      // is_own — server-computed per request. Frontend should TRUST šitą,
+      // ne lygint UUID/email pati. Robust against profile UUID drift.
+      is_own: isOwn,
+      author_name: c.profiles?.full_name || c.profiles?.username || 'Vartotojas',
+      author_avatar: c.profiles?.avatar_url || null,
+      body: c.body || '',
+      like_count: c.like_count || 0,
+      reported_count: c.reported_count || 0,
+      is_deleted: c.is_deleted,
+      music_attachments: Array.isArray(c.music_attachments) ? c.music_attachments : null,
+      created_at: c.created_at,
+      edited_at: c.updated_at && c.updated_at !== c.created_at ? c.updated_at : null,
+    }
+  }).filter((c: any) => !c.is_deleted || viewerIsAdmin)
 
   return NextResponse.json({ comments: sanitized })
 }
