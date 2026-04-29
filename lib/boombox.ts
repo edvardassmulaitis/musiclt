@@ -70,7 +70,7 @@ export type ImageDrop = {
   id: number
   image_url: string
   difficulty: number
-  correct: { id: number; title: string; artist: string }
+  correct: { id: number; slug?: string; title: string; artist: string; cover_url?: string; video_url?: string }
   options: Array<{ id: number; title: string; artist: string; isCorrect: boolean }>
 }
 
@@ -187,8 +187,11 @@ export async function fetchTodayImageDrop(): Promise<ImageDrop | null> {
     difficulty: drop.difficulty,
     correct: {
       id: correct.id,
+      slug: correct.slug,
       title: correct.title,
       artist: correct.artists?.name || '—',
+      cover_url: correct.cover_url,
+      video_url: correct.video_url,
     },
     options,
   }

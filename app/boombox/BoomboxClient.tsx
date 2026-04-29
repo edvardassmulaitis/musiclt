@@ -26,11 +26,12 @@ type Props = {
 
 type Stage = 'landing' | 'image' | 'duel' | 'verdict' | 'drops' | 'summary'
 
-// Unified 4-emoji reaction set — covers full spectrum (banger / love / boring / no).
-// Naudojam ir verdiktui, ir drop'ams, ir vėliau svetainės wide track reakcijoms.
+// Unified 4-emoji reaction set — covers full spectrum.
+// 🔥 (banger / energiška) skiriasi nuo ❤️ (like, palieka kitur svetainėj),
+// 😂 čia atspindi "smagu" / "linksma" — tinka ir memams, ir dainoms.
 const REACTION_SET: Array<{ emoji: string; label: string }> = [
   { emoji: '🔥', label: 'banger' },
-  { emoji: '❤️', label: 'patiko' },
+  { emoji: '😂', label: 'smagu' },
   { emoji: '🥱', label: 'nuobodu' },
   { emoji: '👎', label: 'ne' },
 ]
@@ -269,8 +270,11 @@ export default function BoomboxClient(props: Props) {
             image: image && imageGuess.pickedTrackId !== null
               ? {
                   trackId: image.correct.id,
+                  trackSlug: image.correct.slug,
                   title: image.correct.title,
                   artist: image.correct.artist,
+                  coverUrl: image.correct.cover_url,
+                  videoUrl: image.correct.video_url,
                   imageUrl: image.image_url,
                   isCorrect: imageGuess.isCorrect,
                   stats: imageGuess.stats,
@@ -413,14 +417,6 @@ function ImageGuessStage({ drop, stepIdx, stepTotal, picked, isCorrect, stats, o
         <div className="bb-image-wrapper">
           <img src={drop.image_url} alt="" className="bb-ai-image" loading="eager" />
 
-          {picked !== null && (
-            <ImageRevealOverlay
-              isCorrect={isCorrect}
-              correctTitle={drop.correct.title}
-              correctArtist={drop.correct.artist}
-              stats={stats}
-            />
-          )}
         </div>
 
         <div className="bb-answers">
@@ -446,28 +442,14 @@ function ImageGuessStage({ drop, stepIdx, stepTotal, picked, isCorrect, stats, o
           })}
         </div>
       </main>
-    </div>
-  )
-}
 
-function ImageRevealOverlay({ isCorrect, correctTitle, correctArtist, stats }: {
-  isCorrect: boolean | null
-  correctTitle: string
-  correctArtist: string
-  stats: any
-}) {
-  return (
-    <div className="bb-reveal-overlay">
-      <div className={`bb-reveal-status ${isCorrect ? 'bb-correct-text' : 'bb-wrong-text'}`}>
-        {isCorrect ? '✓ Teisingai' : '✗ Beveik'}
-      </div>
-      <div className="bb-reveal-track">
-        {correctArtist} — {correctTitle}
-      </div>
-      {stats?.correctPct !== null && stats?.correctPct !== undefined && (
-        <div className="bb-reveal-stat">atspėjo {stats.correctPct}% žmonių</div>
+      {picked !== null && (
+        <FullStageOverlay
+          status={isCorrect ? 'correct' : 'wrong'}
+          title={`${drop.correct.artist} — ${drop.correct.title}`}
+          body={stats?.correctPct != null ? `atspėjo ${stats.correctPct}% žmonių` : ''}
+        />
       )}
-      <div className="bb-progress-track"><div className="bb-progress-fill" /></div>
     </div>
   )
 }
@@ -500,7 +482,7 @@ function DuelStage({ drop, stepIdx, stepTotal, picked, stats, onPick }: {
             const t = which === 'A' ? drop.track_a : drop.track_b
             const yt = which === 'A' ? ytA : ytB
             const isPicked = picked === which
-            const isOther = picked && picked !== which && picked !== 'skip'
+            const isOther = picked && picked !== which
             return (
               <div key={which} className={`bb-duel-card ${isPicked ? 'voted' : ''} ${isOther ? 'dimmed' : ''}`}>
                 <div className="bb-duel-embed">
@@ -516,53 +498,46 @@ function DuelStage({ drop, stepIdx, stepTotal, picked, stats, onPick }: {
                     </div>
                   )}
                 </div>
-                <div className="bb-duel-info">
-                  <div className="bb-duel-title">{t.title}</div>
-                  <div className="bb-duel-artist">{t.artist}</div>
+                <div className="bb-duel-row">
+                  <div className="bb-duel-info">
+                    <div className="bb-duel-title">{t.title}</div>
+                    <div className="bb-duel-artist">{t.artist}</div>
+                  </div>
+                  <button
+                    className={`bb-duel-fire ${isPicked ? 'picked' : ''}`}
+                    onClick={() => onPick(which)}
+                    disabled={picked !== null}
+                    title="Rinktis"
+                    aria-label={`Rinktis ${which}`}
+                  >
+                    🔥
+                  </button>
                 </div>
               </div>
             )
           })}
         </div>
 
-        <div className="bb-duel-buttons">
-          <button
-            className={`bb-duel-vote ${picked === 'A' ? 'voted' : ''}`}
-            onClick={() => onPick('A')}
-            disabled={picked !== null}
-          >
-            <span className="bb-vote-letter">A</span>
-            <span>{drop.track_a.title}</span>
-          </button>
-          <button
-            className={`bb-duel-skip ${picked === 'skip' ? 'voted' : ''}`}
-            onClick={() => onPick('skip')}
-            disabled={picked !== null}
-            title="Nei viena netinka"
-          >
-            <span className="bb-vote-emoji">🥱</span>
-            <span>nei viena</span>
-          </button>
-          <button
-            className={`bb-duel-vote ${picked === 'B' ? 'voted' : ''}`}
-            onClick={() => onPick('B')}
-            disabled={picked !== null}
-          >
-            <span className="bb-vote-letter">B</span>
-            <span>{drop.track_b.title}</span>
-          </button>
-        </div>
-
-        {picked !== null && (
-          <DuelRevealOverlay picked={picked} stats={stats} drop={drop} />
-        )}
+        <button
+          className={`bb-duel-neither ${picked === 'skip' ? 'picked' : ''}`}
+          onClick={() => onPick('skip')}
+          disabled={picked !== null}
+        >
+          <span className="bb-neither-emoji">🥱</span>
+          <span>nei viena netinka</span>
+        </button>
       </main>
+
+      {picked !== null && (
+        <DuelRevealOverlay picked={picked} stats={stats} drop={drop} />
+      )}
     </div>
   )
 }
 
 function DuelRevealOverlay({ picked, stats, drop }: { picked: 'A' | 'B' | 'skip'; stats: any; drop: DuelDrop }) {
-  let body = 'Balsas užfiksuotas'
+  let title = 'Balsas užfiksuotas'
+  let body = ''
   if (stats) {
     const total = stats.total || 0
     const a = stats.choiceDistribution?.A || 0
@@ -571,14 +546,33 @@ function DuelRevealOverlay({ picked, stats, drop }: { picked: 'A' | 'B' | 'skip'
       const pa = Math.round((a / total) * 100)
       const pb = Math.round((b / total) * 100)
       const winner = pa > pb ? 'A' : pb > pa ? 'B' : null
-      body = winner
-        ? `${winner === 'A' ? pa : pb}% rinkosi ${winner === 'A' ? drop.track_a.title : drop.track_b.title}`
-        : `Lygiomis: ${pa}% A · ${pb}% B`
+      if (winner) {
+        title = `${winner === 'A' ? pa : pb}% rinkosi ${winner === 'A' ? drop.track_a.title : drop.track_b.title}`
+        body = picked === winner ? 'Esi su dauguma' : picked === 'skip' ? '' : 'Esi mažumoj'
+      } else {
+        title = `Lygiomis · ${pa}% A · ${pb}% B`
+      }
     }
   }
+  return <FullStageOverlay title={title} body={body} />
+}
+
+// ─── Unified full-stage transition overlay ───
+
+function FullStageOverlay({ title, body, status }: {
+  title: string
+  body?: string
+  status?: 'correct' | 'wrong' | null
+}) {
   return (
-    <div className="bb-reveal-overlay bb-reveal-bottom">
-      <div className="bb-reveal-stat">{body}</div>
+    <div className="bb-stage-overlay">
+      {status && (
+        <div className={status === 'correct' ? 'bb-overlay-status bb-correct-text' : 'bb-overlay-status bb-wrong-text'}>
+          {status === 'correct' ? '✓ Teisingai' : '✗ Beveik'}
+        </div>
+      )}
+      <div className="bb-overlay-title">{title}</div>
+      {body && <div className="bb-overlay-body">{body}</div>}
       <div className="bb-progress-track"><div className="bb-progress-fill" /></div>
     </div>
   )
@@ -649,17 +643,14 @@ function VerdictStage({ drop, stepIdx, stepTotal, picked, stats, onPick }: {
           ))}
         </div>
 
-        {picked !== null && (
-          <div className="bb-reveal-overlay bb-reveal-bottom">
-            <div className="bb-reveal-stat">
-              {topEmoji
-                ? <>Bendruomenės top — <strong style={{ color: 'var(--accent-orange)' }}>{topEmoji.emoji} ({topEmoji.pct}%)</strong></>
-                : <>Užfiksuota</>}
-            </div>
-            <div className="bb-progress-track"><div className="bb-progress-fill" /></div>
-          </div>
-        )}
       </main>
+
+      {picked !== null && (
+        <FullStageOverlay
+          title={topEmoji ? `Bendruomenės top — ${topEmoji.emoji} ${topEmoji.pct}%` : 'Verdiktas užfiksuotas'}
+          body={topEmoji && picked === topEmoji.emoji ? 'Esi su dauguma' : ''}
+        />
+      )}
     </div>
   )
 }
@@ -753,8 +744,16 @@ function ytThumbFromUrl(videoUrl: string | undefined): string | null {
 }
 
 function trackPagePath(track: { id: number; slug?: string }): string {
-  // Open daina page; new tab so user grįš į boombox per back
   return track.slug ? `/lt/daina/${track.slug}/${track.id}` : `/lt/daina/-/${track.id}`
+}
+
+type ModalTrack = {
+  id: number
+  slug?: string
+  title: string
+  artist: string
+  cover_url?: string | null
+  video_url?: string | null
 }
 
 function SummaryStage({ sessionXp, streak, isAuthenticated, results }: {
@@ -763,6 +762,20 @@ function SummaryStage({ sessionXp, streak, isAuthenticated, results }: {
   isAuthenticated: boolean
   results: any
 }) {
+  const [modalTrack, setModalTrack] = useState<ModalTrack | null>(null)
+
+  function openModal(t: any) {
+    if (!t || !t.id) return
+    setModalTrack({
+      id: t.id,
+      slug: t.slug,
+      title: t.title,
+      artist: t.artist,
+      cover_url: t.cover_url,
+      video_url: t.video_url,
+    })
+  }
+
   return (
     <div className="bb-screen bb-summary-screen">
       <header className="bb-topbar">
@@ -785,7 +798,14 @@ function SummaryStage({ sessionXp, streak, isAuthenticated, results }: {
               accent={results.image.isCorrect ? 'green' : 'orange'}
               title={results.image.isCorrect ? 'Atspėjai vaizdą' : 'Beveik atspėjai'}
               sub={`${results.image.artist} — ${results.image.title}`}
-              href={results.image.trackId ? trackPagePath({ id: results.image.trackId }) : undefined}
+              onClick={() => openModal({
+                id: results.image.trackId,
+                slug: results.image.trackSlug,
+                title: results.image.title,
+                artist: results.image.artist,
+                cover_url: results.image.coverUrl,
+                video_url: results.image.videoUrl,
+              })}
             />
           )}
           {results.duel && results.duel.pick !== 'skip' && (
@@ -793,7 +813,7 @@ function SummaryStage({ sessionXp, streak, isAuthenticated, results }: {
               thumb={ytThumbFromUrl(results.duel.pick === 'A' ? results.duel.trackA?.video_url : results.duel.trackB?.video_url)}
               title={`Pasirinkai ${results.duel.pick}`}
               sub={dueRecapSub(results.duel)}
-              href={results.duel.pick === 'A' ? trackPagePath(results.duel.trackA) : trackPagePath(results.duel.trackB)}
+              onClick={() => openModal(results.duel.pick === 'A' ? results.duel.trackA : results.duel.trackB)}
             />
           )}
           {results.duel && results.duel.pick === 'skip' && (
@@ -805,7 +825,7 @@ function SummaryStage({ sessionXp, streak, isAuthenticated, results }: {
               icon={results.verdict.emoji}
               title={`Verdiktas: ${results.verdict.emoji}`}
               sub={`${results.verdict.track.artist} — ${results.verdict.track.title}`}
-              href={trackPagePath(results.verdict.track)}
+              onClick={() => openModal(results.verdict.track)}
             />
           )}
           {results.videosWatched > 0 && (
@@ -830,6 +850,49 @@ function SummaryStage({ sessionXp, streak, isAuthenticated, results }: {
           Rytoj <span style={{ color: 'var(--accent-orange)', fontWeight: 700 }}>8:00</span> — naujas drop&apos;as
         </div>
       </main>
+
+      {modalTrack && <TrackQuickModal track={modalTrack} onClose={() => setModalTrack(null)} />}
+    </div>
+  )
+}
+
+// ─── Lightweight track modal — backdrop click + X close ───
+
+function TrackQuickModal({ track, onClose }: { track: ModalTrack; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const yt = youtubeIdFromUrl(track.video_url || undefined)
+
+  return (
+    <div className="bb-track-modal-backdrop" onClick={onClose}>
+      <div className="bb-track-modal" onClick={e => e.stopPropagation()}>
+        <button className="bb-track-modal-close" onClick={onClose} aria-label="Uždaryti">×</button>
+
+        {yt ? (
+          <div className="bb-track-modal-embed">
+            <iframe
+              src={`https://www.youtube.com/embed/${yt}?rel=0&modestbranding=1&autoplay=1&playsinline=1`}
+              allow="encrypted-media; autoplay"
+              allowFullScreen
+            />
+          </div>
+        ) : track.cover_url ? (
+          <img src={proxyImg(track.cover_url)} alt="" className="bb-track-modal-cover" />
+        ) : null}
+
+        <div className="bb-track-modal-info">
+          <div className="bb-track-modal-artist">{track.artist}</div>
+          <div className="bb-track-modal-title">{track.title}</div>
+        </div>
+
+        <Link href={trackPagePath(track)} className="bb-track-modal-cta">
+          Atidaryti pilną dainos puslapį →
+        </Link>
+      </div>
     </div>
   )
 }
@@ -846,13 +909,13 @@ function dueRecapSub(d: any): string {
   return `${pa}% už A · ${pb}% už B`
 }
 
-function RecapRow({ thumb, icon, accent, title, sub, href }: {
+function RecapRow({ thumb, icon, accent, title, sub, onClick }: {
   thumb?: string | null
   icon?: string
   accent?: 'green' | 'orange'
   title: string
   sub: string
-  href?: string
+  onClick?: () => void
 }) {
   const inner = (
     <>
@@ -863,15 +926,15 @@ function RecapRow({ thumb, icon, accent, title, sub, href }: {
         <div className="bb-recap-main">{title}</div>
         <div className="bb-recap-sub">{sub}</div>
       </div>
-      {href && <span className="bb-recap-arrow">›</span>}
+      {onClick && <span className="bb-recap-arrow">›</span>}
     </>
   )
 
-  if (href) {
+  if (onClick) {
     return (
-      <Link href={href} className="bb-recap-row bb-recap-link">
+      <button onClick={onClick} className="bb-recap-row bb-recap-link" type="button">
         {inner}
-      </Link>
+      </button>
     )
   }
   return <div className="bb-recap-row">{inner}</div>
@@ -894,6 +957,7 @@ const boomboxCss = `
     display: flex; flex-direction: column;
     padding: 10px 14px 14px;
     overflow: hidden;
+    position: relative;
   }
 
   .bb-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100dvh; gap: 12px; }
@@ -975,31 +1039,27 @@ const boomboxCss = `
   .bb-answer-artist { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 1px; }
   .bb-answer-song { font-size: 15px; font-weight: 600; }
 
-  /* Reveal overlay — covers image area or sits on bottom */
-  .bb-reveal-overlay {
-    position: absolute; inset: 0; background: rgba(0,0,0,0.78); backdrop-filter: blur(14px);
+  /* Unified full-stage transition overlay */
+  .bb-stage-overlay {
+    position: absolute; inset: 0;
+    background: rgba(8, 13, 20, 0.92);
+    backdrop-filter: blur(20px);
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    padding: 20px; gap: 8px; border-radius: 14px;
-    animation: bbRevealIn 0.3s ease-out;
+    padding: 24px; gap: 10px; z-index: 10;
+    animation: bbOverlayIn 0.3s ease-out;
   }
-  .bb-reveal-overlay.bb-reveal-bottom {
-    inset: auto 0 0 0; height: auto;
-    background: linear-gradient(transparent, rgba(0,0,0,0.85) 30%);
-    border-radius: 0;
-    padding: 24px 16px 16px;
-  }
-  @keyframes bbRevealIn { from { opacity: 0; } to { opacity: 1; } }
-  .bb-reveal-status { font-family: 'Outfit', system-ui, sans-serif; font-size: 28px; font-weight: 800; }
+  @keyframes bbOverlayIn { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+  .bb-overlay-status { font-family: 'Outfit', system-ui, sans-serif; font-size: 32px; font-weight: 900; letter-spacing: -0.5px; }
+  .bb-overlay-title { font-family: 'Outfit', system-ui, sans-serif; font-size: 19px; font-weight: 700; color: var(--text-primary); text-align: center; max-width: 90%; line-height: 1.25; }
+  .bb-overlay-body { font-size: 13px; color: var(--text-secondary); text-align: center; }
   .bb-correct-text { color: var(--accent-green); }
   .bb-wrong-text { color: var(--accent-orange); }
-  .bb-reveal-track { font-size: 16px; font-weight: 600; color: white; text-align: center; }
-  .bb-reveal-stat { font-size: 13px; color: rgba(255,255,255,0.85); text-align: center; }
   .bb-progress-track {
-    height: 2px; background: rgba(255,255,255,0.2); border-radius: 1px;
-    margin: 12px auto 0; max-width: 200px; width: 100%; overflow: hidden;
+    height: 2px; background: rgba(255,255,255,0.18); border-radius: 1px;
+    margin: 14px auto 0; max-width: 200px; width: 100%; overflow: hidden;
   }
   .bb-progress-fill {
-    height: 100%; background: var(--accent-orange); width: 0%;
+    height: 100%; background: linear-gradient(90deg, var(--accent-orange), #fbbf24); width: 0%;
     animation: bbProgressFill 2.5s linear forwards;
   }
   @keyframes bbProgressFill { from { width: 0%; } to { width: 100%; } }
@@ -1031,29 +1091,35 @@ const boomboxCss = `
   .bb-duel-title { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .bb-duel-artist { font-size: 11.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-  /* 3-col equal vote bar */
-  .bb-duel-buttons {
-    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; flex-shrink: 0;
+  /* Vote button beside each track + bottom 'neither' box */
+  .bb-duel-row { display: flex; align-items: center; gap: 8px; padding: 0 4px; }
+  .bb-duel-fire {
+    flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%;
+    background: var(--card-bg); border: 1.5px solid var(--border-default);
+    font-size: 22px; cursor: pointer; transition: all .15s; padding: 0;
+    display: flex; align-items: center; justify-content: center;
   }
-  .bb-duel-vote, .bb-duel-skip {
-    background: var(--card-bg); color: var(--text-primary); border: 1px solid var(--border-default);
-    padding: 10px 6px; border-radius: 10px; font-size: 11px; font-weight: 700; cursor: pointer;
-    display: flex; flex-direction: column; align-items: center; gap: 2px;
-    overflow: hidden; transition: all .15s;
-    font-family: inherit;
+  .bb-duel-fire:hover:not(:disabled) { background: var(--card-hover); transform: scale(1.05); }
+  .bb-duel-fire:disabled { cursor: default; opacity: 0.4; }
+  .bb-duel-fire.picked {
+    background: rgba(249,115,22,0.22); border-color: var(--accent-orange); transform: scale(1.1);
+    box-shadow: 0 0 0 4px rgba(249,115,22,0.15); opacity: 1;
   }
-  .bb-duel-vote:hover:not(:disabled), .bb-duel-skip:hover:not(:disabled) { background: var(--card-hover); }
-  .bb-duel-vote:disabled, .bb-duel-skip:disabled { cursor: default; opacity: 0.5; }
-  .bb-duel-vote.voted, .bb-duel-skip.voted {
+
+  .bb-duel-neither {
+    flex-shrink: 0; width: 100%;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    background: var(--card-bg); border: 1px solid var(--border-default);
+    padding: 12px 16px; border-radius: 12px;
+    font-size: 13px; font-weight: 600; color: var(--text-secondary);
+    cursor: pointer; transition: all .15s; font-family: inherit;
+  }
+  .bb-duel-neither:hover:not(:disabled) { background: var(--card-hover); }
+  .bb-duel-neither:disabled { cursor: default; opacity: 0.45; }
+  .bb-duel-neither.picked {
     background: rgba(249,115,22,0.18); border-color: var(--accent-orange); opacity: 1;
   }
-  .bb-vote-letter {
-    font-family: 'Outfit', system-ui, sans-serif; font-size: 18px; font-weight: 900; color: var(--accent-orange);
-  }
-  .bb-vote-emoji { font-size: 18px; }
-  .bb-duel-vote span:last-child, .bb-duel-skip span:last-child {
-    font-size: 10.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
-  }
+  .bb-neither-emoji { font-size: 22px; }
 
   /* Verdict */
   .bb-verdict-track-row {
@@ -1139,9 +1205,42 @@ const boomboxCss = `
 
   .bb-return-cta { text-align: center; padding: 8px; color: var(--text-muted); font-size: 12px; }
 
+  /* Track quick modal (summary thumbnails) */
+  .bb-track-modal-backdrop {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,0.7); backdrop-filter: blur(8px);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px; animation: bbOverlayIn 0.2s ease-out;
+  }
+  .bb-track-modal {
+    background: var(--bg-surface); border: 1px solid var(--border-default);
+    border-radius: 16px; max-width: 440px; width: 100%; overflow: hidden;
+    position: relative; max-height: 90dvh; display: flex; flex-direction: column;
+  }
+  .bb-track-modal-close {
+    position: absolute; top: 10px; right: 10px; z-index: 2;
+    width: 32px; height: 32px; border-radius: 50%;
+    background: rgba(0,0,0,0.5); backdrop-filter: blur(8px);
+    border: none; color: white; font-size: 22px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; line-height: 1;
+  }
+  .bb-track-modal-embed { aspect-ratio: 16/9; background: black; }
+  .bb-track-modal-embed iframe { width: 100%; height: 100%; border: 0; display: block; }
+  .bb-track-modal-cover { width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block; }
+  .bb-track-modal-info { padding: 14px 16px 8px; }
+  .bb-track-modal-artist { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 2px; }
+  .bb-track-modal-title { font-family: 'Outfit', system-ui, sans-serif; font-size: 18px; font-weight: 800; }
+  .bb-track-modal-cta {
+    display: block; padding: 14px 16px; margin-top: auto;
+    color: var(--accent-orange); font-size: 13px; font-weight: 600;
+    text-decoration: none; border-top: 1px solid var(--border-default);
+    text-align: center;
+  }
+  .bb-track-modal-cta:hover { background: var(--card-hover); }
+
   /* Mobile narrowing */
   @media (max-width: 380px) {
-    .bb-question { font-size: 18px; }
-    .bb-emoji-btn { font-size: 22px; }
+    .bb-question { font-size: 17px; }
+    .bb-reaction-emoji { font-size: 26px; }
   }
 `
