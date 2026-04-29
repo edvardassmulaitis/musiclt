@@ -39,7 +39,14 @@ export async function GET(req: NextRequest) {
   // s-maxage=60 + SWR=300 — pirmas request'as DB hit, sekantys 60s iš edge,
   // dar 300s rodo seną response'ą + background revalidate.
   return NextResponse.json({ news, total: count || 0 }, {
-    headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' },
+    headers: {
+      'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+      // Vercel-specific — regular Cache-Control sometimes strip'inamas dynamic
+      // route handler'iams (palieka tik "public"). CDN-Cache-Control eina
+      // tiesiai į Vercel Edge cache layer.
+      'CDN-Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+      'Vercel-CDN-Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+    },
   })
 }
 

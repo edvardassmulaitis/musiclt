@@ -63,7 +63,11 @@ export async function GET(req: Request) {
   // CDN edge cache — homepage'o TOP30/TOP40 sekcijos. Topas atnaujinamas
   // kartą per savaitę (cron'u), todėl drąsiai galim cache'inti net 5 min.
   return NextResponse.json({ entries: merged, week }, {
-    headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
+    headers: {
+      'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+      'CDN-Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+      'Vercel-CDN-Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+    },
   })
 }
 

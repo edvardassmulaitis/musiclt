@@ -38,7 +38,11 @@ export async function GET(req: NextRequest) {
     //   • toliau 300s rodo seną response'ą + tyliai re-fetch'ina background'e
     // Public, no auth — saugu cache'inti.
     return NextResponse.json(result, {
-      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' },
+      headers: {
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+        'CDN-Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+        'Vercel-CDN-Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+      },
     })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
