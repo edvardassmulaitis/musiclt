@@ -1444,10 +1444,10 @@ function TrackInfoModal({
           Initial atidarymas: autoplay=0. Po prev/next ar list click: autoplay=1. */}
       {dockedActive && mounted && (() => {
         // Compute related tracks — same artist tracks WITH video, sorted by
-        // score desc, excluding current track. Cap at 8 so it scrolls nicely.
+        // score desc, excluding current track. Be cap'o — useris gali
+        // scroll'inti per visus, score order'iu populiariausi pirmiausia.
         const candidates = (artistTracks || [])
           .filter(t => t.id !== track.id && yt(t.video_url))
-          .slice(0, 8)
         return (
           <div className="row-start-2 col-start-2 flex flex-col overflow-hidden bg-[var(--bg-surface)] px-5 py-5">
             {/* Header — KLAUSYTI + prev/next */}
@@ -1510,12 +1510,13 @@ function TrackInfoModal({
               )}
             </div>
 
-            {/* Related tracks — "Daugiau iš {atlikėjas}".
-                Be video — list'as natūraliai gauna daugiau aukšcio. */}
+            {/* Related tracks — "Daugiau" sąrašas (be atlikėjo vardo, nes
+                jis ir taip matomas top bar'e). Be video — list'as natūraliai
+                gauna daugiau aukšcio. */}
             {candidates.length > 0 && (
               <div className="mt-4 shrink-0">
                 <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
-                  Daugiau iš {artistName}
+                  Daugiau
                 </div>
                 <div className={[
                   'flex gap-2 overflow-x-auto pb-1',
@@ -4005,20 +4006,24 @@ export default function ArtistProfileClient({
         onPrevTrack={(() => {
           if (!trackInfoOpen) return null
           // Navigate per visus track'us su video — surūšiuoti pagal score
-          // (tracksAllTime jau atrūšiuotas). Jei dabartinis track'as nerastas,
-          // arba pirmas — disable.
+          // (tracksAllTime jau atrūšiuotas). Wrap'inasi: jei dabartinis
+          // pirmas, prev nukelia į paskutinį (atvirkštinis ciklas). Tai
+          // mygtukas niekada nebūna disabled, kol yra ≥2 video track'ai.
           const navList = tracks.filter(t => yt(t.video_url))
+          if (navList.length < 2) return null
           const idx = navList.findIndex(t => t.id === trackInfoOpen.id)
-          if (idx <= 0) return null
-          const prev = navList[idx - 1]
+          const prev = idx <= 0 ? navList[navList.length - 1] : navList[idx - 1]
           return () => { setPid(prev.id); setPlaying(true); setTrackInfoOpen(prev) }
         })()}
         onNextTrack={(() => {
           if (!trackInfoOpen) return null
+          // Wrap'inasi: jei dabartinis paskutinis (arba neskonis sąraše),
+          // next nukelia atgal į PIRMĄ (populiariausia score'u). Tai
+          // useris peržengia į „pirmas dainas" pasiekęs apatinį galą.
           const navList = tracks.filter(t => yt(t.video_url))
+          if (navList.length < 2) return null
           const idx = navList.findIndex(t => t.id === trackInfoOpen.id)
-          if (idx < 0 || idx >= navList.length - 1) return null
-          const next = navList[idx + 1]
+          const next = idx < 0 || idx >= navList.length - 1 ? navList[0] : navList[idx + 1]
           return () => { setPid(next.id); setPlaying(true); setTrackInfoOpen(next) }
         })()}
       />

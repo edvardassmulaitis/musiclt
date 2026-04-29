@@ -26,20 +26,11 @@ type Props = {
 
 type Stage = 'landing' | 'image' | 'duel' | 'verdict' | 'drops' | 'summary'
 
-const VERDICT_EMOJIS: Array<{ emoji: string; label: string }> = [
+// Unified 4-emoji reaction set — covers full spectrum (banger / love / boring / no).
+// Naudojam ir verdiktui, ir drop'ams, ir vėliau svetainės wide track reakcijoms.
+const REACTION_SET: Array<{ emoji: string; label: string }> = [
   { emoji: '🔥', label: 'banger' },
-  { emoji: '😭', label: 'gerai' },
-  { emoji: '🥶', label: 'cold' },
-  { emoji: '✨', label: 'vibe' },
-  { emoji: '👀', label: 'įdomu' },
-  { emoji: '🌶️', label: 'aštru' },
-  { emoji: '🥱', label: 'nuobodu' },
-  { emoji: '🤡', label: 'cringe' },
-]
-
-const DROP_REACTIONS: Array<{ emoji: string; label: string }> = [
-  { emoji: '🔥', label: 'veža' },
-  { emoji: '😂', label: 'juokas' },
+  { emoji: '❤️', label: 'patiko' },
   { emoji: '🥱', label: 'nuobodu' },
   { emoji: '👎', label: 'ne' },
 ]
@@ -119,9 +110,17 @@ export default function BoomboxClient(props: Props) {
 
   const noContent = !image && !duel && !verdict && videos.length === 0
 
-  // Wizard progress: how many missions done out of expected total
-  const missionTotal = [image, duel, verdict].filter(Boolean).length
-  const currentMissionIdx = stage === 'image' ? 1 : stage === 'duel' ? 2 : stage === 'verdict' ? 3 : 0
+  // Wizard progress: image (1), duel (2), verdict (3), drops (4) jei yra video.
+  // Skip'inami stages, kurių nėra (jei nėra duel'o, verdict tampa #2 ir t.t.).
+  const missionStages: Stage[] = []
+  if (image) missionStages.push('image')
+  if (duel) missionStages.push('duel')
+  if (verdict) missionStages.push('verdict')
+  if (videos.length > 0) missionStages.push('drops')
+  const missionTotal = missionStages.length
+  const currentMissionIdx = (stage === 'image' || stage === 'duel' || stage === 'verdict' || stage === 'drops')
+    ? missionStages.indexOf(stage) + 1
+    : 0
 
   // ─── Submit helpers ───
   async function submit(missionType: string, dropId: number, payload: any, extra: any = {}) {
@@ -255,11 +254,9 @@ export default function BoomboxClient(props: Props) {
           videos={videos}
           currentIdx={dropIdx}
           reaction={videoReactions[videos[dropIdx]?.id] || null}
+          stepIdx={currentMissionIdx}
+          stepTotal={missionTotal}
           onReact={handleVideoReaction}
-          onSkip={() => {
-            if (dropIdx + 1 < videos.length) setDropIdx(dropIdx + 1)
-            else setStage('summary')
-          }}
         />
       )}
 
@@ -270,7 +267,14 @@ export default function BoomboxClient(props: Props) {
           isAuthenticated={props.isAuthenticated}
           results={{
             image: image && imageGuess.pickedTrackId !== null
-              ? { title: image.correct.title, artist: image.correct.artist, isCorrect: imageGuess.isCorrect, stats: imageGuess.stats }
+              ? {
+                  trackId: image.correct.id,
+                  title: image.correct.title,
+                  artist: image.correct.artist,
+                  imageUrl: image.image_url,
+                  isCorrect: imageGuess.isCorrect,
+                  stats: imageGuess.stats,
+                }
               : null,
             duel: duel && duelChoice.pick
               ? { trackA: duel.track_a, trackB: duel.track_b, pick: duelChoice.pick, stats: duelChoice.stats }
@@ -321,7 +325,7 @@ function Landing({ streak, hasContent, missionCount, videoCount, onStart }: {
         <div className="bb-tagline">kasdienis muzikos žaidimas</div>
 
         <button className="bb-btn-primary bb-landing-cta" onClick={onStart} disabled={!hasContent}>
-          {hasContent ? `Pradėti · ${missionCount} ${missionCount === 1 ? 'misija' : 'misijos'}${videoCount > 0 ? ` + ${videoCount} drop'ai` : ''}` : 'Šiandien tylu'}
+          {hasContent ? `Pradėti · ${missionCount} ${missionCount === 1 ? 'misija' : 'misijos'}` : 'Šiandien tylu'}
         </button>
       </main>
     </div>
@@ -486,8 +490,10 @@ function DuelStage({ drop, stepIdx, stepTotal, picked, stats, onPick }: {
       <StageHeader idx={stepIdx} total={stepTotal} />
 
       <main className="bb-stage-main">
-        <div className="bb-duel-tag">{MATCHUP_LABEL[drop.matchup_type]}</div>
-        <h1 className="bb-question">Kurią rinktum?</h1>
+        <div className="bb-duel-header">
+          <h1 className="bb-question">Dienos dvikova</h1>
+          <span className="bb-duel-tag">{MATCHUP_LABEL[drop.matchup_type]}</span>
+        </div>
 
         <div className="bb-duel-grid">
           {(['A', 'B'] as const).map(which => {
@@ -497,7 +503,6 @@ function DuelStage({ drop, stepIdx, stepTotal, picked, stats, onPick }: {
             const isOther = picked && picked !== which && picked !== 'skip'
             return (
               <div key={which} className={`bb-duel-card ${isPicked ? 'voted' : ''} ${isOther ? 'dimmed' : ''}`}>
-                <div className="bb-duel-letter">{which}</div>
                 <div className="bb-duel-embed">
                   {yt ? (
                     <iframe
@@ -515,21 +520,38 @@ function DuelStage({ drop, stepIdx, stepTotal, picked, stats, onPick }: {
                   <div className="bb-duel-title">{t.title}</div>
                   <div className="bb-duel-artist">{t.artist}</div>
                 </div>
-                <button
-                  className="bb-duel-vote"
-                  onClick={() => onPick(which)}
-                  disabled={picked !== null}
-                >
-                  {isPicked ? '✓ Pasirinkta' : 'Rinktis'}
-                </button>
               </div>
             )
           })}
         </div>
 
-        {picked === null && (
-          <button className="bb-skip-link" onClick={() => onPick('skip')}>nei viena netinka</button>
-        )}
+        <div className="bb-duel-buttons">
+          <button
+            className={`bb-duel-vote ${picked === 'A' ? 'voted' : ''}`}
+            onClick={() => onPick('A')}
+            disabled={picked !== null}
+          >
+            <span className="bb-vote-letter">A</span>
+            <span>{drop.track_a.title}</span>
+          </button>
+          <button
+            className={`bb-duel-skip ${picked === 'skip' ? 'voted' : ''}`}
+            onClick={() => onPick('skip')}
+            disabled={picked !== null}
+            title="Nei viena netinka"
+          >
+            <span className="bb-vote-emoji">🥱</span>
+            <span>nei viena</span>
+          </button>
+          <button
+            className={`bb-duel-vote ${picked === 'B' ? 'voted' : ''}`}
+            onClick={() => onPick('B')}
+            disabled={picked !== null}
+          >
+            <span className="bb-vote-letter">B</span>
+            <span>{drop.track_b.title}</span>
+          </button>
+        </div>
 
         {picked !== null && (
           <DuelRevealOverlay picked={picked} stats={stats} drop={drop} />
@@ -590,7 +612,7 @@ function VerdictStage({ drop, stepIdx, stepTotal, picked, stats, onPick }: {
       <StageHeader idx={stepIdx} total={stepTotal} />
 
       <main className="bb-stage-main">
-        <h1 className="bb-question">Šiandienos verdiktas</h1>
+        <h1 className="bb-question">Hitas? <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Įvertink naują dainą</span></h1>
 
         <div className="bb-verdict-track-row">
           <div className="bb-thumb bb-thumb-c">
@@ -612,16 +634,17 @@ function VerdictStage({ drop, stepIdx, stepTotal, picked, stats, onPick }: {
           </div>
         )}
 
-        <div className="bb-emoji-grid">
-          {VERDICT_EMOJIS.map(({ emoji, label }) => (
+        <div className="bb-reaction-row">
+          {REACTION_SET.map(({ emoji, label }) => (
             <button
               key={emoji}
-              className={['bb-emoji-btn', picked === emoji ? 'bb-emoji-selected' : ''].filter(Boolean).join(' ')}
+              className={['bb-reaction-btn', picked === emoji ? 'bb-reaction-selected' : ''].filter(Boolean).join(' ')}
               onClick={() => onPick(emoji)}
               disabled={picked !== null}
               title={label}
             >
-              {emoji}
+              <span className="bb-reaction-emoji">{emoji}</span>
+              <span className="bb-reaction-label">{label}</span>
             </button>
           ))}
         </div>
@@ -643,26 +666,29 @@ function VerdictStage({ drop, stepIdx, stepTotal, picked, stats, onPick }: {
 
 // ─── Drops (one video at a time, TikTok-style) ───
 
-function DropsStage({ videos, currentIdx, reaction, onReact, onSkip }: {
+function DropsStage({ videos, currentIdx, reaction, stepIdx, stepTotal, onReact }: {
   videos: VideoDrop[]
   currentIdx: number
   reaction: string | null
+  stepIdx: number
+  stepTotal: number
   onReact: (id: number, emoji: string) => void
-  onSkip: () => void
 }) {
   const v = videos[currentIdx]
   if (!v) return null
   const embedUrl = embedUrlFor(v)
-  const total = videos.length
+  const totalVideos = videos.length
 
   return (
     <div className="bb-screen">
-      <header className="bb-topbar bb-topbar-stage">
-        <span className="bb-stage-tag">DROP&apos;AI</span>
-        <span className="bb-step-counter">{currentIdx + 1} / {total}</span>
-      </header>
+      <StageHeader idx={stepIdx} total={stepTotal} />
 
       <main className="bb-stage-main">
+        <div className="bb-drops-subhead">
+          <h1 className="bb-question">Drop&apos;ai</h1>
+          <span className="bb-drops-counter">{currentIdx + 1} / {totalVideos}</span>
+        </div>
+
         <div className="bb-drop-frame">
           {embedUrl ? (
             <iframe
@@ -681,26 +707,22 @@ function DropsStage({ videos, currentIdx, reaction, onReact, onSkip }: {
         <div className="bb-drop-meta">
           <span className="bb-drop-source">{v.source}</span>
           {v.related_artist && <span className="bb-drop-artist-tag">→ {v.related_artist.name}</span>}
+          {v.caption && <span className="bb-drop-caption-inline">{v.caption}</span>}
         </div>
-        {v.caption && <div className="bb-drop-caption">{v.caption}</div>}
 
-        <div className="bb-drop-reactions">
-          {DROP_REACTIONS.map(({ emoji, label }) => (
+        <div className="bb-reaction-row">
+          {REACTION_SET.map(({ emoji, label }) => (
             <button
               key={emoji}
-              className={`bb-drop-reaction ${reaction === emoji ? 'selected' : ''}`}
+              className={['bb-reaction-btn', reaction === emoji ? 'bb-reaction-selected' : ''].filter(Boolean).join(' ')}
               onClick={() => onReact(v.id, emoji)}
               disabled={!!reaction}
+              title={label}
             >
-              <span className="bb-drop-react-emoji">{emoji}</span>
-              <span className="bb-drop-react-label">{label}</span>
+              <span className="bb-reaction-emoji">{emoji}</span>
             </button>
           ))}
         </div>
-
-        {!reaction && (
-          <button className="bb-skip-link" onClick={onSkip}>praleisti →</button>
-        )}
       </main>
     </div>
   )
@@ -725,6 +747,16 @@ function embedUrlFor(v: VideoDrop): string | null {
 
 // ─── Summary ───
 
+function ytThumbFromUrl(videoUrl: string | undefined): string | null {
+  const id = youtubeIdFromUrl(videoUrl)
+  return id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : null
+}
+
+function trackPagePath(track: { id: number; slug?: string }): string {
+  // Open daina page; new tab so user grįš į boombox per back
+  return track.slug ? `/lt/daina/${track.slug}/${track.id}` : `/lt/daina/-/${track.id}`
+}
+
 function SummaryStage({ sessionXp, streak, isAuthenticated, results }: {
   sessionXp: number
   streak: { current: number; total_xp: number; longest: number }
@@ -735,25 +767,46 @@ function SummaryStage({ sessionXp, streak, isAuthenticated, results }: {
     <div className="bb-screen bb-summary-screen">
       <header className="bb-topbar">
         <span className="bb-logo-mini">boombox · šiandien</span>
-        <span style={{ fontSize: 13, color: 'var(--accent-orange)', fontWeight: 700 }}>+{sessionXp} XP</span>
+        {streak.current > 0 && (
+          <span className="bb-streak-pill">🔥 {streak.current} d.</span>
+        )}
       </header>
 
       <main className="bb-stage-main">
         <div className="bb-summary-card">
           <div className="bb-xp-big">+{sessionXp}</div>
-          <div className="bb-xp-label">XP uždirbta</div>
-          {streak.current > 0 && <div className="bb-streak-result">🔥 {streak.current} dienų streak&apos;as</div>}
+          <div className="bb-xp-label">taškai šiandien</div>
         </div>
 
         <div className="bb-recap-list">
           {results.image && (
-            <RecapRow icon={results.image.isCorrect ? '✓' : '✗'} title={results.image.isCorrect ? 'Atspėjai vaizdą' : 'Vaizdas — beveik'} sub={`${results.image.artist} — ${results.image.title}`} />
+            <RecapRow
+              thumb={results.image.imageUrl}
+              accent={results.image.isCorrect ? 'green' : 'orange'}
+              title={results.image.isCorrect ? 'Atspėjai vaizdą' : 'Beveik atspėjai'}
+              sub={`${results.image.artist} — ${results.image.title}`}
+              href={results.image.trackId ? trackPagePath({ id: results.image.trackId }) : undefined}
+            />
           )}
-          {results.duel && (
-            <RecapRow icon="⚔" title={results.duel.pick === 'skip' ? 'Praleidai dvikovą' : `Balsavai už ${results.duel.pick}`} sub={dueRecapSub(results.duel)} />
+          {results.duel && results.duel.pick !== 'skip' && (
+            <RecapRow
+              thumb={ytThumbFromUrl(results.duel.pick === 'A' ? results.duel.trackA?.video_url : results.duel.trackB?.video_url)}
+              title={`Pasirinkai ${results.duel.pick}`}
+              sub={dueRecapSub(results.duel)}
+              href={results.duel.pick === 'A' ? trackPagePath(results.duel.trackA) : trackPagePath(results.duel.trackB)}
+            />
+          )}
+          {results.duel && results.duel.pick === 'skip' && (
+            <RecapRow icon="🥱" title="Praleidai dvikovą" sub="nei viena netiko" />
           )}
           {results.verdict && (
-            <RecapRow icon={results.verdict.emoji} title="Verdiktas paliktas" sub={`${results.verdict.track.artist} — ${results.verdict.track.title}`} />
+            <RecapRow
+              thumb={ytThumbFromUrl(results.verdict.track.video_url) || (results.verdict.track.cover_url ? proxyImg(results.verdict.track.cover_url) : null)}
+              icon={results.verdict.emoji}
+              title={`Verdiktas: ${results.verdict.emoji}`}
+              sub={`${results.verdict.track.artist} — ${results.verdict.track.title}`}
+              href={trackPagePath(results.verdict.track)}
+            />
           )}
           {results.videosWatched > 0 && (
             <RecapRow icon="📺" title={`${results.videosWatched} drop'ai`} sub="peržiūrėta" />
@@ -766,13 +819,10 @@ function SummaryStage({ sessionXp, streak, isAuthenticated, results }: {
               <div className="bb-save-streak-num">🔥 {streak.current}</div>
               <div>
                 <div className="bb-save-streak-label">Tavo dienų streak&apos;as</div>
-                <div className="bb-save-streak-sub">prašaliečių režimu</div>
+                <div className="bb-save-streak-sub">išliks tik su profiliu</div>
               </div>
             </div>
-            <div className="bb-save-trap-warning">
-              Streak&apos;as <strong>dings</strong>, jei nesukursi profilio.
-            </div>
-            <Link href="/auth/signin" className="bb-btn-primary">Susikurti profilį (~15s)</Link>
+            <Link href="/auth/signin" className="bb-btn-primary">Susikurti profilį</Link>
           </div>
         )}
 
@@ -791,35 +841,58 @@ function dueRecapSub(d: any): string {
   const b = t.choiceDistribution?.B || 0
   const pa = Math.round((a / t.total) * 100)
   const pb = Math.round((b / t.total) * 100)
-  return `A — ${pa}% · B — ${pb}%`
+  const winner = pa > pb ? 'A' : pb > pa ? 'B' : null
+  if (winner === d.pick) return `Su dauguma (${winner === 'A' ? pa : pb}%)`
+  return `${pa}% už A · ${pb}% už B`
 }
 
-function RecapRow({ icon, title, sub }: { icon: string; title: string; sub: string }) {
-  return (
-    <div className="bb-recap-row">
-      <div className="bb-recap-icon">{icon}</div>
+function RecapRow({ thumb, icon, accent, title, sub, href }: {
+  thumb?: string | null
+  icon?: string
+  accent?: 'green' | 'orange'
+  title: string
+  sub: string
+  href?: string
+}) {
+  const inner = (
+    <>
+      <div className={`bb-recap-icon ${accent ? `bb-recap-accent-${accent}` : ''}`}>
+        {thumb ? <img src={thumb} alt="" /> : icon || '•'}
+      </div>
       <div className="bb-recap-text">
         <div className="bb-recap-main">{title}</div>
         <div className="bb-recap-sub">{sub}</div>
       </div>
-    </div>
+      {href && <span className="bb-recap-arrow">›</span>}
+    </>
   )
+
+  if (href) {
+    return (
+      <Link href={href} className="bb-recap-row bb-recap-link">
+        {inner}
+      </Link>
+    )
+  }
+  return <div className="bb-recap-row">{inner}</div>
 }
 
 // ─── Styles ───
 
 const boomboxCss = `
+  /* Account for SiteHeader which sits above (sticky). Approximate height 56px;
+     adjust if site header changes. */
   .bb-root {
-    position: fixed; inset: 0;
+    height: calc(100dvh - 56px);
     overflow: hidden;
     display: flex; justify-content: center;
   }
 
   .bb-screen {
     width: 100%; max-width: 480px;
-    height: 100dvh;
+    height: 100%;
     display: flex; flex-direction: column;
-    padding: 14px 16px 20px;
+    padding: 10px 14px 14px;
     overflow: hidden;
   }
 

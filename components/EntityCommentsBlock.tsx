@@ -594,7 +594,7 @@ export default function EntityCommentsBlock({
         ref={draftRef}
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
-        placeholder={replyTo ? `Atsakyti @${replyTo.name}...` : 'Pasidalink mintimi...'}
+        placeholder={replyTo ? `Atsakyti @${replyTo.name}...` : 'Tavo komentaras'}
         rows={compact ? 3 : 3}
         className="w-full resize-none rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-2.5 text-[13.5px] leading-snug text-[var(--text-primary)] outline-none transition-colors placeholder:text-[var(--text-faint)] focus:border-[var(--accent-orange)]"
       />
