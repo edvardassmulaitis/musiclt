@@ -1055,8 +1055,20 @@ function TrackInfoModal({
             />
           )}
           <div className="min-w-0 flex-1">
-            <div className="truncate font-['Outfit',sans-serif] text-[17px] font-extrabold leading-tight text-[var(--text-primary)]">
-              {track.title}
+            <div className="flex items-center gap-2 truncate">
+              <span className="truncate font-['Outfit',sans-serif] text-[17px] font-extrabold leading-tight text-[var(--text-primary)]">
+                {track.title}
+              </span>
+              {/* LikePill čia šalia pavadinimo — vizualiai priklauso prie
+                  dainos identiteto (kiek useriams ji patinka), atskirtas nuo
+                  papildomos meta info (data, trukmė, albumai) dešinėje. */}
+              <LikePill
+                likes={likes}
+                selfLiked={selfLiked}
+                onToggle={() => setSelfLiked(v => !v)}
+                onOpenModal={() => setLikersOpen(true)}
+                variant="surface"
+              />
             </div>
             <div className="mt-0.5 truncate text-[12.5px]">
               {formatArtistList(
@@ -1065,18 +1077,12 @@ function TrackInfoModal({
               )}
             </div>
           </div>
-          {/* Meta cluster — LikePill + data + duration + album chips. Anksčiau
-              šitie buvo chips eilutėj žemiau modal'o header'io, bet kai modal'as
-              fullscreen su dock, švariau visą meta turėti viename top bar'e
-              (chips eilutė tada visiškai dingsta). */}
+          {/* Meta cluster — data + duration + album chips. Anksčiau šitie
+              buvo chips eilutėj žemiau modal'o header'io, bet kai modal'as
+              fullscreen su dock, švariau visą meta turėti viename top bar'e.
+              LikePill perkeltas šalia title (žiūr aukščiau) — vizualiai
+              priklauso prie identiteto, ne meta. */}
           <div className="flex shrink-0 items-center gap-2">
-            <LikePill
-              likes={likes}
-              selfLiked={selfLiked}
-              onToggle={() => setSelfLiked(v => !v)}
-              onOpenModal={() => setLikersOpen(true)}
-              variant="surface"
-            />
             {dateLabel && (
               <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]">
                 {dateLabel}
@@ -1421,29 +1427,29 @@ function TrackInfoModal({
       </aside>
 
       {/* DOCKED PLAYER — fullscreen layout dešinėj kolonoj (grid col 2).
-          Struktūra atitinka modal'o panel layout'ą:
-            - „chips eilutė" su prev/next mygtukais (border-b, kaip modal'e)
-            - body: KLAUSYTI label viršuj (lygyje su DAINOS TEKSTAS /
-              KOMENTARAI iš modal'o) + iframe centered.
-          Initial atidarymas: autoplay=0 — useris pats spaudžia YT play.
-          Po prev/next click'o: autoplay=1 (userio gestūra → naršyklės
-          leidžia). */}
+          Struktūra: KLAUSYTI label + prev/next inline'ai vienoje header'io
+          eilutėj BODY'jo viršuj. Body padding'ai identiški modal'o
+          lyrics/comments cols (px-5 py-5), tai KLAUSYTI label atsiduria
+          tiksliai tame pačiame y lygyje kaip DAINOS TEKSTAS ir KOMENTARAI.
+          Trys vienodos zonos pagal vizualinį ritmą.
+          Initial atidarymas: autoplay=0. Po prev/next: autoplay=1. */}
       {dockedActive && trackVid && mounted && (
-        <div className="row-start-2 col-start-2 flex flex-col overflow-hidden bg-[var(--bg-surface)]">
-          {/* Chips eilutės equivalent — leidžia KLAUSYTI label'ui (žemiau)
-              būti tame pačiame vertikaliame lygyje kaip DAINOS TEKSTAS /
-              KOMENTARAI modal'e. Padding ir border identiški chips eilutės
-              modal'o panel'yje. */}
-          <div className="flex shrink-0 items-center justify-end gap-1.5 border-b border-[var(--border-subtle)] px-5 py-3">
+        <div className="row-start-2 col-start-2 flex flex-col overflow-hidden bg-[var(--bg-surface)] px-5 py-5">
+          {/* Header'io eilutė — KLAUSYTI label kairėj, prev/next mygtukai
+              šalia, kompaktiškai sugrupuoti. */}
+          <div className="flex items-center gap-2.5">
+            <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+              Klausyti
+            </div>
             <button
               type="button"
               onClick={() => { setUserNavigated(true); onPrevTrack?.() }}
               disabled={!onPrevTrack}
               aria-label="Ankstesnė daina"
               title="Ankstesnė daina"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-30"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-30"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" /></svg>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" /></svg>
             </button>
             <button
               type="button"
@@ -1451,31 +1457,23 @@ function TrackInfoModal({
               disabled={!onNextTrack}
               aria-label="Kita daina"
               title="Kita daina"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-30"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-30"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z" /></svg>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z" /></svg>
             </button>
           </div>
-          {/* Body — paddings identiški modal'o lyrics/comments cols (px-5 py-5),
-              tai KLAUSYTI label atsiduria tiksliai tame pačiame y kaip
-              DAINOS TEKSTAS ir KOMENTARAI. */}
-          <div className="flex flex-1 flex-col overflow-hidden px-5 py-5">
-            <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
-              Klausyti
-            </div>
-            {/* Iframe — fills remaining height, max-w 1200, vertikaliai centered. */}
-            <div className="mt-3 flex flex-1 items-center justify-center">
-              <div className="aspect-video w-full max-w-[1200px] overflow-hidden rounded-xl bg-black shadow-[0_24px_60px_-12px_rgba(0,0,0,0.5)]">
-                <iframe
-                  key={`docked-${trackVid}`}
-                  src={`https://www.youtube.com/embed/${trackVid}?autoplay=${userNavigated ? 1 : 0}&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3`}
-                  title={`${track.title} — ${artistName}`}
-                  className="h-full w-full"
-                  referrerPolicy="strict-origin-when-cross-origin"
-                  allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-                  allowFullScreen
-                />
-              </div>
+          {/* Iframe — užima visą likusią aukštį, max-w 1200, vertikaliai centered. */}
+          <div className="mt-3 flex flex-1 items-center justify-center">
+            <div className="aspect-video w-full max-w-[1200px] overflow-hidden rounded-xl bg-black shadow-[0_24px_60px_-12px_rgba(0,0,0,0.5)]">
+              <iframe
+                key={`docked-${trackVid}`}
+                src={`https://www.youtube.com/embed/${trackVid}?autoplay=${userNavigated ? 1 : 0}&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3`}
+                title={`${track.title} — ${artistName}`}
+                className="h-full w-full"
+                referrerPolicy="strict-origin-when-cross-origin"
+                allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                allowFullScreen
+              />
             </div>
           </div>
         </div>
