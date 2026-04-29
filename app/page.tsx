@@ -1454,7 +1454,7 @@ export default function Home() {
                     </div>
                     <div className="mx-auto mt-2 max-w-[72px]"><Skel w="100%" h={9} /></div>
                   </div>
-                )) : artists.slice(0, 8).map(a => (
+                )) : artists.filter(a => ((a as any).score || 0) > 0 || a.cover_image_url).slice(0, 8).map(a => (
                   <Link
                     key={a.id}
                     href={`/atlikejai/${a.slug}`}

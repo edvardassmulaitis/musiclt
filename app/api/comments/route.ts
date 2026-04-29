@@ -14,6 +14,7 @@ import { createAdminClient } from '@/lib/supabase'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { resolveAuthorId } from '@/lib/resolve-author'
+import { notifyFromSession } from '@/lib/notifications'
 
 const EDIT_WINDOW_MINUTES = 20
 
@@ -181,6 +182,33 @@ export async function POST(req: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   const c: any = data
+
+  // ── Notification: jeigu tai reply, žinom tėvo komentaro autorių. ──────
+  // Notification kūrimas yra fire-and-forget — jeigu DB klaida ar table
+  // dar neegzistuoja, notifyFromSession nesvaidys (žr. lib/notifications.ts).
+  try {
+    if (parent_id) {
+      const { data: parent } = await sb
+        .from('comments')
+        .select('author_id')
+        .eq('id', parent_id)
+        .maybeSingle() as { data: any }
+      if (parent?.author_id && parent.author_id !== authorId) {
+        await notifyFromSession({
+          recipientUserId: parent.author_id,
+          actorSession: session,
+          type: 'comment_reply',
+          entity_type,
+          entity_id,
+          url: buildEntityUrl(entity_type, parseInt(entity_id), sb),
+          snippet: (text || '').slice(0, 200),
+        })
+      }
+    }
+  } catch (e: any) {
+    console.error('[notifications] comment reply failed:', e?.message || e)
+  }
+
   return NextResponse.json({
     comment: {
       id: c.id,
@@ -195,6 +223,18 @@ export async function POST(req: Request) {
       edited_at: null,
     },
   })
+}
+
+// Best-effort URL builder for deep-linking from notification payload to the
+// commented entity. Async because we lookup slug from DB (small queries, OK).
+function buildEntityUrl(entityType: string, entityId: number, _sb: any): string {
+  switch (entityType) {
+    case 'track':  return `/dainos/${entityId}`
+    case 'album':  return `/albumai/${entityId}`
+    case 'news':   return `/news/${entityId}`
+    case 'event':  return `/renginiai/${entityId}`
+    default:       return '/'
+  }
 }
 
 export async function PATCH(req: Request) {

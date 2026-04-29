@@ -10,6 +10,7 @@ import { createAdminClient } from '@/lib/supabase'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { resolveAuthorId } from '@/lib/resolve-author'
+import { notifyFromSession } from '@/lib/notifications'
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions)
@@ -116,6 +117,41 @@ export async function POST(req: Request) {
   })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   await recomputeLikeCount()
+
+  // ── Notification: pranešam komentaro autoriui (jei ne pats sau). ─────
+  try {
+    if (targetComment?.author_id && !isSelf) {
+      // Trumpą snippet'ą sudarom iš komentaro body — geras context'as
+      // recipient'ui. body lauką patrauk papildomu select'u (saugiau nei
+      // perpasti į prior pull, kuris jau gavo email JOIN'ą).
+      const { data: full } = await sb
+        .from('comments')
+        .select('body, track_id, album_id, news_id, event_id')
+        .eq('id', commentId)
+        .maybeSingle() as { data: any }
+      const snippet = (full?.body || '').slice(0, 200)
+      let entType: string | null = null
+      let entId: number | null = null
+      let url = '/'
+      if (full?.track_id)      { entType = 'track';  entId = full.track_id;  url = `/dainos/${entId}` }
+      else if (full?.album_id) { entType = 'album';  entId = full.album_id;  url = `/albumai/${entId}` }
+      else if (full?.news_id)  { entType = 'news';   entId = full.news_id;   url = `/news/${entId}` }
+      else if (full?.event_id) { entType = 'event';  entId = full.event_id;  url = `/renginiai/${entId}` }
+
+      await notifyFromSession({
+        recipientUserId: targetComment.author_id,
+        actorSession: session,
+        type: 'comment_like',
+        entity_type: entType,
+        entity_id: entId,
+        url,
+        snippet,
+      })
+    }
+  } catch (e: any) {
+    console.error('[notifications] comment_like failed:', e?.message || e)
+  }
+
   return NextResponse.json({ liked: true })
 }
 

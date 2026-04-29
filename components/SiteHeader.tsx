@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { HeaderAuth } from '@/components/HeaderAuth'
+import { NotificationsBell } from '@/components/NotificationsBell'
 import { useSite } from '@/components/SiteContext'
 
 const NAV = [
@@ -143,8 +144,9 @@ export function SiteHeader() {
             })}
           </nav>
 
-          {/* Auth (avatar / login) — always far right */}
-          <div style={{ flexShrink: 0, marginLeft: 'auto' }}>
+          {/* Notifications + Auth (avatar / login) — always far right */}
+          <div style={{ flexShrink: 0, marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <NotificationsBell />
             <HeaderAuth />
           </div>
         </div>
