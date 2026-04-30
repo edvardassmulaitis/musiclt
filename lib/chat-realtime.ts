@@ -130,27 +130,46 @@ export function useGlobalChatRealtime(opts: {
 }) {
   const { viewerId, onAnyNewMessage, onParticipantChange, onConversationChange } = opts
 
+  // Stabilizuojam callback'us per ref, kad effect nere'run'intų kiekvieną kartą
+  // kai parent re-render'ina (anonimiškos arrow funkcijos kiekvienas render'as
+  // — kitas reference). Be šito effect'as cleanup'ina kanalą + sukuria naują
+  // ant kiekvieno render'o, ir tas yra brangu + sukėlė race'us su subscribe().
+  const onMsgRef = useRef(onAnyNewMessage)
+  const onPartRef = useRef(onParticipantChange)
+  const onConvRef = useRef(onConversationChange)
+  useEffect(() => { onMsgRef.current = onAnyNewMessage }, [onAnyNewMessage])
+  useEffect(() => { onPartRef.current = onParticipantChange }, [onParticipantChange])
+  useEffect(() => { onConvRef.current = onConversationChange }, [onConversationChange])
+
+  // Unikalus channel name'as per hook instance — Supabase'o
+  // `client.channel(name)` grąžina tą patį kanalą, jei vardas sutampa, o
+  // tada pridėti naujus listener'ius PO `subscribe()` neleidžiama. Du
+  // komponentai (pvz. MessagesBell + HomeChatsWidget) su tuo pačiu
+  // viewerId fail'ino dėl šio. Random suffix'as garantuoja, kad
+  // kiekvienas hook caller turi savo channel'į.
+  const channelIdRef = useRef<string>(Math.random().toString(36).slice(2, 10))
+
   useEffect(() => {
     if (!viewerId) return
     const client = realtimeClient()
     if (!client) return
 
-    const ch = client.channel(`chat:user:${viewerId}`)
+    const ch = client.channel(`chat:user:${viewerId}:${channelIdRef.current}`)
 
     ch.on('postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'chat_messages' },
-      (payload) => onAnyNewMessage?.(payload.new),
+      (payload) => onMsgRef.current?.(payload.new),
     )
     ch.on('postgres_changes',
       { event: '*', schema: 'public', table: 'chat_participants', filter: `user_id=eq.${viewerId}` },
-      (payload) => onParticipantChange?.(payload.new || payload.old),
+      (payload) => onPartRef.current?.(payload.new || payload.old),
     )
     ch.on('postgres_changes',
       { event: 'UPDATE', schema: 'public', table: 'chat_conversations' },
-      (payload) => onConversationChange?.(payload.new),
+      (payload) => onConvRef.current?.(payload.new),
     )
 
     ch.subscribe()
     return () => { ch.unsubscribe() }
-  }, [viewerId, onAnyNewMessage, onParticipantChange, onConversationChange])
+  }, [viewerId])
 }

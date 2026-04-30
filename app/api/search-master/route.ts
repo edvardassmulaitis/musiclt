@@ -193,60 +193,6 @@ export async function GET(request: Request) {
 
   const settled = await Promise.allSettled(queries)
 
-  // ── Artist fan-out ──
-  // Kai user'is renkasi "Mamontovas" iš autosuggestionų, jis tikisi matyti
-  // ir Mamontovo dainas/albumus, ne tik patį atlikėją. Compound paieška
-  // dažniausiai randa, bet kai užklausa atitinka tik atlikėją (net ir su
-  // dviem tokenais kaip "Andrius Mamontovas"), title match'as fail'ina.
-  // Strategija: jei ANY artists match'as randasi, pridedam top atlikėjo
-  // tracks + albums. Limit'ai mažesni kad per daug nedominuotų SERP'o.
-  const artistsIdx = order.indexOf('artists')
-  const topArtists =
-    artistsIdx >= 0 && settled[artistsIdx]?.status === 'fulfilled'
-      ? ((settled[artistsIdx] as PromiseFulfilledResult<any>).value.data || []) as any[]
-      : []
-  let fanoutTracks: Hit[] = []
-  let fanoutAlbums: Hit[] = []
-  if (topArtists.length > 0) {
-    // Top 1-2 atlikėjai — pakanka, kad nesusiturėtų per daug duomenų
-    const fanoutArtists = topArtists.slice(0, 2)
-    const aIds = fanoutArtists.map(a => a.id)
-    const aMap = new Map(fanoutArtists.map((a: any) => [a.id, a]))
-    const fanoutLimit = Math.min(limitPerCat, 6)
-    const [tFan, alFan] = await Promise.all([
-      useCat('tracks')
-        ? sb.from('tracks')
-            .select('id,slug,title,score,artist_id,artists:artist_id(id,name,slug,cover_image_url)')
-            .in('artist_id', aIds)
-            .order('score', { ascending: false, nullsFirst: false })
-            .limit(fanoutLimit)
-        : Promise.resolve({ data: [] } as any),
-      useCat('albums')
-        ? sb.from('albums')
-            .select('id,slug,title,cover_image_url,score,artist_id,artists:artist_id(id,name,slug)')
-            .in('artist_id', aIds)
-            .order('score', { ascending: false, nullsFirst: false })
-            .limit(fanoutLimit)
-        : Promise.resolve({ data: [] } as any),
-    ])
-    fanoutTracks = ((tFan as any).data || []).map((t: any): Hit => ({
-      id: t.id, type: 'tracks', title: t.title,
-      subtitle: t.artists?.name ?? null,
-      image_url: t.artists?.cover_image_url ?? null,
-      href: slugTrack(t.artists?.slug, t.slug, t.id),
-      meta: { score: t.score, artist_id: t.artist_id, artist_slug: t.artists?.slug, fanout: true },
-      score: (t.score ?? 0) - 1, // šiek tiek žemesnis nei direct match'ai
-    }))
-    fanoutAlbums = ((alFan as any).data || []).map((al: any): Hit => ({
-      id: al.id, type: 'albums', title: al.title,
-      subtitle: al.artists?.name ?? null,
-      image_url: al.cover_image_url,
-      href: slugAlbum(al.slug, al.id),
-      meta: { score: al.score, artist_id: al.artist_id, artist_slug: al.artists?.slug, fanout: true },
-      score: (al.score ?? 0) - 1,
-    }))
-  }
-
   // ── Compound: artist + title ──
   // Jei ≥2 meaningful tokens: bando "marijonas vartai" → tracks where artist
   // matches "marijonas" AND title matches "vartai". Pridedam į track results.
@@ -334,16 +280,6 @@ export async function GET(request: Request) {
   }
   if (compoundAlbums.length > 0) {
     out.albums = dedupe([...compoundAlbums, ...out.albums], 'id')
-  }
-  // Fan-out track'us/albumus pridedam į galą — jei direct ar compound jau
-  // surado, dedupe juos pašalins. Jei nesurado (pvz. "Mamontovas" — joks
-  // track title nematch'ina), fan-out užtikrins kad track'ai vis tiek
-  // pasirodys.
-  if (fanoutTracks.length > 0) {
-    out.tracks = dedupe([...out.tracks, ...fanoutTracks], 'id')
-  }
-  if (fanoutAlbums.length > 0) {
-    out.albums = dedupe([...out.albums, ...fanoutAlbums], 'id')
   }
 
   // Per-kategorija rerank: exact-match / starts-with title viršuje

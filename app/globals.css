@@ -3,106 +3,17 @@
 @tailwind utilities;
 
 /* ═══════════════════════════════════════════════════════════════════
-   GLOBAL SKELETON + LOADER + ROUTE TRANSITION
-   Naudojami /app/loading.tsx + visiuose route loading'iuose
-   (artist/album/song). Tikslas — sklandus app-stilius:
-     1. Skeleton'as švelnus (žemesnis kontrastas, lėtesnis pulse) — kad
-        nesikrautų akys.
-     2. Centruotas equalizer'is (.eq-loader) — muzikinė identite,
-        focal point vietoj blokuoto skeleton'o gausybės.
-     3. Route-enter fade-in (.route-enter) — kai loading.tsx pakeičia
-        page.tsx, naujas content'as įsitraukia su 250ms opacity+slide
-        animacija. Anksčiau buvo abrupt swap kuris atrodydavo "lyg viskas
-        persikrautų".
+   GLOBAL SKELETON — naudojamas /app/loading.tsx + visiuose route
+   loading'iuose (artist/album/song). Anksčiau klasė buvo apibrėžta
+   tik homepage page.tsx scoped styled-jsx bloke, todėl loading.tsx
+   skeleton'ai matydavo nestyled div'us (jokio pulse'o). Pridedam
+   čia, kad veiktų visur, kur Next streaming'ina UI prieš data fetch.
    ═══════════════════════════════════════════════════════════════════ */
-
-/* Original skeleton — paliekame backwards-compat'ui (homepage page.tsx
-   inline'iniam Skel komponentui). Naujas dizainas pereina prie soft. */
 @keyframes hp-pulse { 0%, 100% { opacity: .05 } 50% { opacity: .08 } }
 .hp-skel {
   background: var(--homepage-skeleton-bg, rgba(255,255,255,0.05));
   animation: hp-pulse 1.8s ease-in-out infinite;
 }
-
-/* Soft skeleton — naudojamas loading.tsx faile'ams. Lengviau akiai,
-   lėtesnis ritmas (2.4s vietoj 1.8s), žemesnis kontrastas. */
-@keyframes hp-pulse-soft { 0%, 100% { opacity: .035 } 50% { opacity: .065 } }
-.hp-skel-soft {
-  background: var(--homepage-skeleton-bg, rgba(255,255,255,0.05));
-  animation: hp-pulse-soft 2.4s ease-in-out infinite;
-  border-radius: 6px;
-}
-
-/* Equalizer loader — muzikiniam app'ui pritaikyta animacija.
-   5 vertikalūs bars'ai pulsuoja wave pattern'u (delay'ai 0/.1/.2/.1/0
-   sukuria "siūbuojantį" jausmą, ne tiesiog random). Naudoja
-   --accent-blue iš tema'os, kad veiktų ir light/dark mode'uose. */
-@keyframes eq-bar {
-  0%, 100% { transform: scaleY(0.25); }
-  50%      { transform: scaleY(1.0); }
-}
-.eq-loader {
-  display: inline-flex;
-  gap: 4px;
-  align-items: flex-end;
-  height: 32px;
-}
-.eq-loader > span {
-  display: block;
-  width: 4px;
-  height: 100%;
-  /* Naudojam orange — tai music.lt brand color, kuris jau buvo homepage'o
-     pageReady overlay'e. Vieningas spalvas per visus loader'ius (loading.tsx
-     + homepage in-page overlay) eliminuoja "swap" jausmą — naudotojas mato tą
-     patį equalizer'į visur, tik backround'ai keičiasi. */
-  background: #f97316;
-  border-radius: 2px;
-  transform-origin: bottom;
-  animation: eq-bar 0.9s ease-in-out infinite;
-  opacity: 0.9;
-}
-.eq-loader > span:nth-child(1) { animation-delay: 0.00s; }
-.eq-loader > span:nth-child(2) { animation-delay: 0.12s; }
-.eq-loader > span:nth-child(3) { animation-delay: 0.24s; }
-.eq-loader > span:nth-child(4) { animation-delay: 0.12s; }
-.eq-loader > span:nth-child(5) { animation-delay: 0.00s; }
-
-/* Route enter — kai page.tsx pakeičia loading.tsx, content'as fade'ina
-   per 280ms (opacity + 6px translateY). Tai eliminuoja "blink" jausmą.
-   Klasė pridedama route'o page.tsx top-level div'e (žr. ArtistPage,
-   AlbumPage, TrackPage, Home wrapper'iai). */
-@keyframes route-fade-in {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.route-enter { animation: route-fade-in 0.28s ease-out both; }
-
-/* Loading screen layout helper — centruoja equalizer'į ekrane
-   ir leidžia švelnų fade-out (kai loading.tsx pasišalina, jį uždengia
-   page'as su .route-enter — ir taip transition'as atrodo "from dim to bright"). */
-.loading-screen-eq {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  min-height: 280px;
-  color: var(--text-muted, rgba(255,255,255,0.5));
-  font-family: 'Outfit', sans-serif;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-}
-
-/* Page overlay fade-out — naudojamas homepage'o pageReady overlay'e
-   (anksčiau būdavo abrupt disappear kai pageReady=true; dabar fade'inasi
-   per 320ms). Klasė pridedama kai pageReady tampa true. */
-@keyframes overlay-fade-out {
-  from { opacity: 1; }
-  to   { opacity: 0; visibility: hidden; }
-}
-.overlay-fade-out { animation: overlay-fade-out 0.32s ease-out forwards; }
 
 /* ═══════════════════════════════════════════════════════════════════
    GLOBAL FOCUS STYLE — disable browser's default blue focus ring on
