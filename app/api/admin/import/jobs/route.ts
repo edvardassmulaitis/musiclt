@@ -64,12 +64,36 @@ export async function POST(req: NextRequest) {
     })
   }
 
+  // Resolve requested_by į esamą profile'ę. Session.user.id gali būti stale po
+  // full-wipe migracijos (profiles ištrinti, JWT'as senas) — tokiais atvejais
+  // FK constraint'as fail'intų. Imam canonical profile pagal email; jei nerandam,
+  // dėdam NULL (FK leidžia ON DELETE SET NULL).
+  let requestedBy: string | null = null
+  const sessId = (session.user as any).id as string | undefined
+  const sessEmail = session.user?.email as string | undefined
+  if (sessId) {
+    const { data: byId } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', sessId)
+      .maybeSingle()
+    if (byId) requestedBy = (byId as any).id
+  }
+  if (!requestedBy && sessEmail) {
+    const { data: byEmail } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', sessEmail)
+      .maybeSingle()
+    if (byEmail) requestedBy = (byEmail as any).id
+  }
+
   const rows = toInsert.map(id => ({
     artist_legacy_id: id,
     job_type: jobType,
     status: 'pending',
     priority,
-    requested_by: (session.user as any).id || null,
+    requested_by: requestedBy,
   }))
 
   const { error } = await supabase.from('import_jobs').insert(rows)
