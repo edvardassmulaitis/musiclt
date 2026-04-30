@@ -3,16 +3,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { ChatMessage, ConversationDetail, ConversationListItem } from '@/lib/chat-types'
-import { ConversationSidebar, type DiscussionItem } from './ConversationSidebar'
+import { ConversationSidebar } from './ConversationSidebar'
 import { MessagePane } from './MessagePane'
 import { ThreadPanel } from './ThreadPanel'
 import { NewConversationModal } from './NewConversationModal'
 import { ConversationSettingsModal } from './ConversationSettingsModal'
 import { useGlobalChatRealtime } from '@/lib/chat-realtime'
-
-// Mobile breakpoint — žemiau šito mato vienu metu vieną panel'į (sidebar
-// arba pane). Slack mobile naudoja ~768px slenkstį.
-const MOBILE_BREAKPOINT = 768
 
 type Props = {
   viewerId: string
@@ -24,7 +20,6 @@ type Props = {
 export function ChatLayout({ viewerId, initialConversations, activeConversation, initialMessages }: Props) {
   const router = useRouter()
   const [conversations, setConversations] = useState(initialConversations)
-  const [discussions, setDiscussions] = useState<DiscussionItem[]>([])
   const [showNewModal, setShowNewModal] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [openThreadId, setOpenThreadId] = useState<number | null>(null)
@@ -33,16 +28,6 @@ export function ChatLayout({ viewerId, initialConversations, activeConversation,
   // Sync prop -> state kai keičiasi route'as.
   useEffect(() => { setConv(activeConversation || null); setOpenThreadId(null) }, [activeConversation])
   useEffect(() => { setConversations(initialConversations) }, [initialConversations])
-
-  // Diskusijos load — fetch'inam paraleliai su layout'u (ne SSR'inta).
-  useEffect(() => {
-    let cancelled = false
-    fetch('/api/chat/my-discussions').then(r => r.json()).then(json => {
-      if (cancelled) return
-      setDiscussions(json.discussions || [])
-    }).catch(() => {})
-    return () => { cancelled = true }
-  }, [])
 
   async function refreshConversations() {
     try {
@@ -63,6 +48,7 @@ export function ChatLayout({ viewerId, initialConversations, activeConversation,
   }
 
   const handleAnyNewMessage = useCallback(async (_row: any) => {
+    // Bumpinam sidebar feed'ą.
     refreshConversations()
   }, [])
 
@@ -81,98 +67,51 @@ export function ChatLayout({ viewerId, initialConversations, activeConversation,
     onConversationChange: handleConversationChange,
   })
 
-  // Mobile state — kontroliuoja kuris panel'as matomas (sidebar | pane).
-  // Desktop'e abu visada matomi.
-  const [showSidebarMobile, setShowSidebarMobile] = useState(true)
-  useEffect(() => {
-    // Kai user'is pasirinko pokalbį → mobile slepiam sidebar'ą.
-    if (conv) setShowSidebarMobile(false)
-    else setShowSidebarMobile(true)
-  }, [conv?.id])
-
   return (
-    <>
-      <style>{`
-        .chat-shell {
-          display: flex;
-          height: calc(100vh - 56px);
-          background: var(--bg-body);
-          overflow: hidden;
-        }
-        .chat-sidebar-wrap { display: flex; flex-shrink: 0; height: 100%; }
-        .chat-pane-wrap    { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; }
-        .chat-thread-wrap  { display: flex; flex-shrink: 0; height: 100%; }
+    <div style={{
+      display: 'flex',
+      height: 'calc(100vh - 56px)',  // 56 = SiteHeader height
+      background: 'var(--bg-body)',
+    }}>
+      <ConversationSidebar
+        viewerId={viewerId}
+        conversations={conversations}
+        activeId={conv?.id || null}
+        onNewConversation={() => setShowNewModal(true)}
+      />
 
-        @media (max-width: ${MOBILE_BREAKPOINT - 1}px) {
-          .chat-shell { position: relative; }
-          .chat-sidebar-wrap.is-mobile-hidden { display: none; }
-          .chat-sidebar-wrap.is-mobile-visible {
-            width: 100% !important;
-            max-width: none !important;
-            position: absolute; inset: 0; z-index: 5;
-          }
-          .chat-pane-wrap.is-mobile-hidden { display: none; }
-          .chat-pane-wrap.is-mobile-visible {
-            position: absolute; inset: 0; z-index: 6;
-          }
-          .chat-thread-wrap {
-            position: fixed !important;
-            top: 56px; left: 0; right: 0; bottom: 0;
-            width: 100% !important;
-            z-index: 100;
-          }
-          .chat-mobile-back-btn { display: inline-flex !important; }
-        }
-      `}</style>
-
-      <div className="chat-shell">
-        <div className={`chat-sidebar-wrap ${showSidebarMobile ? 'is-mobile-visible' : 'is-mobile-hidden'}`}>
-          <ConversationSidebar
+      {conv ? (
+        <>
+          <MessagePane
+            conversation={conv}
             viewerId={viewerId}
-            conversations={conversations}
-            discussions={discussions}
-            activeId={conv?.id || null}
-            onNewConversation={() => setShowNewModal(true)}
+            initialMessages={initialMessages || []}
+            onOpenThread={(id) => setOpenThreadId(id)}
+            onOpenSettings={() => setShowSettings(true)}
           />
-        </div>
-
-        <div className={`chat-pane-wrap ${conv ? 'is-mobile-visible' : 'is-mobile-hidden'}`}>
-          {conv ? (
-            <MessagePane
-              conversation={conv}
-              viewerId={viewerId}
-              initialMessages={initialMessages || []}
-              onOpenThread={(id) => setOpenThreadId(id)}
-              onOpenSettings={() => setShowSettings(true)}
-              onMobileBack={() => { router.push('/pokalbiai'); setShowSidebarMobile(true) }}
-            />
-          ) : (
-            <EmptyState onNew={() => setShowNewModal(true)} />
-          )}
-        </div>
-
-        {conv && openThreadId && (
-          <div className="chat-thread-wrap">
+          {openThreadId && (
             <ThreadPanel
               messageId={openThreadId}
               conversationId={conv.id}
               viewerId={viewerId}
               onClose={() => setOpenThreadId(null)}
             />
-          </div>
-        )}
+          )}
+        </>
+      ) : (
+        <EmptyState onNew={() => setShowNewModal(true)} />
+      )}
 
-        {showNewModal && <NewConversationModal onClose={() => setShowNewModal(false)} />}
-        {showSettings && conv && (
-          <ConversationSettingsModal
-            conversation={conv}
-            viewerId={viewerId}
-            onClose={() => setShowSettings(false)}
-            onUpdated={() => { refreshConversationDetail(); refreshConversations() }}
-          />
-        )}
-      </div>
-    </>
+      {showNewModal && <NewConversationModal onClose={() => setShowNewModal(false)} />}
+      {showSettings && conv && (
+        <ConversationSettingsModal
+          conversation={conv}
+          viewerId={viewerId}
+          onClose={() => setShowSettings(false)}
+          onUpdated={() => { refreshConversationDetail(); refreshConversations() }}
+        />
+      )}
+    </div>
   )
 }
 

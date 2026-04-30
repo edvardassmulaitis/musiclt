@@ -14,10 +14,9 @@ type Props = {
   initialMessages: ChatMessage[]
   onOpenThread: (messageId: number) => void
   onOpenSettings: () => void
-  onMobileBack?: () => void
 }
 
-export function MessagePane({ conversation, viewerId, initialMessages, onOpenThread, onOpenSettings, onMobileBack }: Props) {
+export function MessagePane({ conversation, viewerId, initialMessages, onOpenThread, onOpenSettings }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages)
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(initialMessages.length >= 50)
@@ -312,7 +311,7 @@ export function MessagePane({ conversation, viewerId, initialMessages, onOpenThr
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, height: '100%' }}>
-      <ConversationHeader conversation={conversation} viewerId={viewerId} onOpenSettings={onOpenSettings} onMobileBack={onMobileBack} />
+      <ConversationHeader conversation={conversation} viewerId={viewerId} onOpenSettings={onOpenSettings} />
 
       {/* Messages scroller */}
       <div
@@ -393,7 +392,7 @@ function DateSeparator({ label }: { label: string }) {
   )
 }
 
-function ConversationHeader({ conversation, viewerId, onOpenSettings, onMobileBack }: { conversation: ConversationDetail; viewerId: string; onOpenSettings: () => void; onMobileBack?: () => void }) {
+function ConversationHeader({ conversation, viewerId, onOpenSettings }: { conversation: ConversationDetail; viewerId: string; onOpenSettings: () => void }) {
   const isGroup = conversation.type === 'group'
   const others = conversation.participants.filter(p => p.user_id !== viewerId && !p.left_at)
   const dmOther = others[0]?.profile
@@ -414,24 +413,6 @@ function ConversationHeader({ conversation, viewerId, onOpenSettings, onMobileBa
       display: 'flex', alignItems: 'center', gap: 12,
       background: 'var(--bg-surface)',
     }}>
-      {/* Mobile back button — matomas tik mobile (per CSS klasę chat-mobile-back-btn) */}
-      {onMobileBack && (
-        <button
-          onClick={onMobileBack}
-          aria-label="Atgal į pokalbių sąrašą"
-          className="chat-mobile-back-btn"
-          style={{
-            display: 'none', width: 32, height: 32, borderRadius: 8,
-            border: 'none', background: 'transparent', color: 'var(--text-secondary)',
-            cursor: 'pointer', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0,
-          }}
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6"/>
-          </svg>
-        </button>
-      )}
       {isGroup
         ? (conversation.photo_url
             ? <ChatAvatar url={conversation.photo_url} fallbackName={title} size={36} square />
