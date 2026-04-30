@@ -650,6 +650,20 @@ export default function Home() {
   const [events, setEvents] = useState<Event[]>([])
   const [news, setNews] = useState<NewsItem[]>([])
   const [pageReady, setPageReady] = useState(false)
+  // overlayVisible — kontroliuoja kada pageReady overlay pašalinamas iš DOM.
+  // Anksčiau buvo `{!pageReady && ...}` — abrupt disappear (sukėlė
+  // "viskas persikrauna" jausmą). Dabar overlay'us stays in DOM 350ms po
+  // pageReady=true (CSS .overlay-fade-out per 320ms fade'ina opacity:0),
+  // tik tuomet unmount'inamas. Content layer (linija ~1109) tuo pačiu metu
+  // fade'inasi opacity 0→1 — sutaria smooth crossfade.
+  const [overlayVisible, setOverlayVisible] = useState(true)
+  // Po 350ms nuo pageReady=true unmount'inam overlay'ų — CSS animation per
+  // 320ms baigė fade'ą.
+  useEffect(() => {
+    if (!pageReady) return
+    const t = setTimeout(() => setOverlayVisible(false), 350)
+    return () => clearTimeout(t)
+  }, [pageReady])
   const mountTime = useRef(Date.now())
   const readyBits = useRef({ hero: false, tops: false, tracks: false })
   const tryReady = useRef(() => {
@@ -883,37 +897,34 @@ export default function Home() {
           .hp-ag{grid-template-columns:repeat(3,1fr)!important}
         }
       `}</style>
-      <div className="hp">
+      <div className="hp route-enter">
 
-        {/* ═══════════════════════ CINEMATIC HERO ═══════════════════════ */}
-        {!pageReady && (
-          <div style={{
-            position: 'fixed', inset: 0, zIndex: 9999,
-            background: dk ? '#080e1a' : '#f0f4fa',
-            display: 'flex', flexDirection: 'column',
-            alignItems: 'center', justifyContent: 'center',
-          }}>
-            <style>{`
-              @keyframes bar-bounce {
-                0%, 100% { transform: scaleY(0.2); }
-                50% { transform: scaleY(1); }
-              }
-            `}</style>
-            {/* Music visualizer bars */}
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 5, height: 48 }}>
-              {[0.3, 0.6, 1.0, 0.7, 0.45, 0.85, 0.55, 0.75, 0.4, 0.9, 0.65].map((delay, i) => (
-                <div key={i} style={{
-                  width: 5, borderRadius: 3,
-                  background: '#f97316',
-                  height: `${20 + i % 3 * 14 + (i % 5) * 6}px`,
-                  transformOrigin: 'bottom',
-                  animation: `bar-bounce ${0.7 + delay * 0.6}s ease-in-out infinite`,
-                  animationDelay: `${delay * 0.4}s`,
-                }} />
-              ))}
+        {/* ═══════════════════════ CINEMATIC HERO ═══════════════════════
+            Overlay'us palaikomas DOM'e tol, kol overlayVisible=true.
+            pageReady flipa true → .overlay-fade-out CSS animacija per 320ms
+            sumažina opacity iki 0; po 350ms `setOverlayVisible(false)` jį
+            unmount'ina.
+            Anksčiau buvo `{!pageReady && ...}` — abrupt disappear, kuris
+            naudotojui atrodė kaip "viskas persikrauna". */}
+        {overlayVisible && (
+          <div
+            className={pageReady ? 'overlay-fade-out' : ''}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 9999,
+              background: dk ? '#080e1a' : '#f0f4fa',
+              display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center',
+              gap: 20,
+              pointerEvents: pageReady ? 'none' : 'auto',
+            }}
+          >
+            {/* Tas pats .eq-loader kaip loading.tsx — vieningas equalizer'is
+                visiems loader'iams. Anksčiau buvo 11-bar custom equalizer'is,
+                kuris vizualiai nesiderindavo su loading.tsx 5-bar versija. */}
+            <div className="eq-loader" style={{ height: 44 }} aria-label="Loading">
+              <span /><span /><span /><span /><span />
             </div>
-            {/* music.lt logo */}
-            <div style={{ marginTop: 20, display: 'flex', alignItems: 'center', opacity: 0.55 }}>
+            <div style={{ display: 'flex', alignItems: 'center', opacity: 0.55 }}>
               <span style={{ fontFamily: 'Outfit,sans-serif', fontWeight: 900, fontSize: 17, color: dk ? '#fff' : '#0f1a2e' }}>music.</span>
               <span style={{ fontFamily: 'Outfit,sans-serif', fontWeight: 900, fontSize: 17, color: '#f97316' }}>lt</span>
             </div>

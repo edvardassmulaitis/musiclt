@@ -3952,7 +3952,10 @@ export default function ArtistProfileClient({
   }
 
   return (
-    <div className="min-h-screen bg-[var(--bg-body)] font-['DM_Sans',system-ui,sans-serif] text-[var(--text-primary)] antialiased">
+    // route-enter: 280ms fade+slide-in kai loading.tsx (equalizer skeleton'as)
+    // pakeičiamas faktiniu content'u. Be šitos klasės swap'as matosi kaip
+    // abrupt blink — naudotojas pastebėjo, kad atrodo "lyg viskas persikrauna".
+    <div className="route-enter min-h-screen bg-[var(--bg-body)] font-['DM_Sans',system-ui,sans-serif] text-[var(--text-primary)] antialiased">
       <Hero
         artist={artist}
         heroImage={heroImage}

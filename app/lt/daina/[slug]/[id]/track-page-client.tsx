@@ -493,7 +493,8 @@ export default function TrackPageClient({
   const trackTypeLabel = track.type === 'normal' ? 'Daina' : (track.type || 'Daina')
 
   return (
-    <div className="min-h-screen bg-[var(--bg-surface)] text-[var(--text-primary)]" style={{ fontFamily: "'DM Sans',system-ui,sans-serif", WebkitFontSmoothing: 'antialiased' }}>
+    // route-enter: 280ms fade-in iš loading.tsx skeleton'o (žr. globals.css).
+    <div className="route-enter min-h-screen bg-[var(--bg-surface)] text-[var(--text-primary)]" style={{ fontFamily: "'DM Sans',system-ui,sans-serif", WebkitFontSmoothing: 'antialiased' }}>
 
       {/* ── TOP BAR — pilnu viewport pločio, modal-style ─────────────────── */}
       <div className="flex items-center gap-4 border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3 sm:px-5">
