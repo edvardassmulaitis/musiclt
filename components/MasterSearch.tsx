@@ -202,8 +202,10 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
   useEffect(() => { setSelectedIdx(0) }, [activeCat])
 
   // ── Fetch expanded kai user'is pasirenka kategoriją ──
-  // Visi → nieko nedarom (rodom limit=6 default rezultatus iš `results`).
-  // Specifinė kategorija → fetch'inam limit=30 tos kategorijos rezultatų.
+  // Visi → nieko nedarom (rodom default limit=12 rezultatus iš `results`).
+  // Specifinė kategorija → fetch'inam limit=200 tos kategorijos rezultatų,
+  // kad user'is galėtų scroll'inti per visą katalogą (pvz. visas 220
+  // Mamontovo dainų be tolimesnių pagination round'ų).
   useEffect(() => {
     if (!open || activeCat === 'all') return
     const trimmed = q.trim()
@@ -216,7 +218,7 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
     }
     let cancelled = false
     setExpandLoading(true)
-    fetch(`/api/search-master?q=${encodeURIComponent(trimmed)}&categories=${activeCat}&limit=30`)
+    fetch(`/api/search-master?q=${encodeURIComponent(trimmed)}&categories=${activeCat}&limit=200`)
       .then(r => r.ok ? r.json() : null)
       .then(d => {
         if (cancelled || !d) return

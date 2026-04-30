@@ -54,10 +54,11 @@ export async function GET(request: Request) {
   const started = Date.now()
   const { searchParams } = new URL(request.url)
   const q = (searchParams.get('q') || '').trim()
-  // Default limit padidintas 6 → 10 — naudotojui parodom daugiau preview
-  // rezultatų "Visi" view'e, ypač kad fan-out atveju matytume populiariausių
-  // dainų sąrašą (ne pirmas 6).
-  const limitPerCat = Math.min(Math.max(parseInt(searchParams.get('limit') || '10'), 1), 30)
+  // Default limit "Visi" preview'ui — 10. Max 200 — kai user'is pasirenka
+  // konkrečią kategoriją iš UI, fetch'inam pilną katalogą (pvz. visas
+  // 220 Mamontovo dainų), kad būtų galima scroll'inti per visą sąrašą.
+  // 200 row su artist join'u ≈ 35KB JSON — priimtina.
+  const limitPerCat = Math.min(Math.max(parseInt(searchParams.get('limit') || '10'), 1), 200)
   const categoriesFilter = (searchParams.get('categories') || '').split(',').filter(Boolean)
 
   if (q.length < 1) {
