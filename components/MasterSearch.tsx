@@ -48,16 +48,79 @@ type Hit = {
 
 type Results = Record<Category, Hit[]>
 
-const CAT_LABELS: Record<Category, { sg: string; pl: string; emoji: string; color: string }> = {
-  artists:     { sg: 'Atlikėjas',  pl: 'Atlikėjai',   emoji: '🎤', color: '#a78bfa' },
-  albums:      { sg: 'Albumas',    pl: 'Albumai',     emoji: '💿', color: '#60a5fa' },
-  tracks:      { sg: 'Daina',      pl: 'Dainos',      emoji: '🎵', color: '#34d399' },
-  profiles:    { sg: 'Vartotojas', pl: 'Vartotojai',  emoji: '👤', color: '#fb923c' },
-  events:      { sg: 'Renginys',   pl: 'Renginiai',   emoji: '📅', color: '#f472b6' },
-  venues:      { sg: 'Vieta',      pl: 'Vietos',      emoji: '📍', color: '#facc15' },
-  news:        { sg: 'Naujiena',   pl: 'Naujienos',   emoji: '📰', color: '#22d3ee' },
-  blog_posts:  { sg: 'Blogas',     pl: 'Blogai',      emoji: '✍️', color: '#a3e635' },
-  discussions: { sg: 'Diskusija',  pl: 'Diskusijos',  emoji: '💬', color: '#f87171' },
+/* ─── Modern line-art SVG icons (vietoj emoji) ────────────────────────
+ * Visi 16x16 viewBox, currentColor stroke / fill — paveldi tekstinę
+ * spalvą iš parent'o. Match'ina likusio site'o ikonų stilių (lib/ui/Icons.tsx).
+ */
+const IconArtist = (p: { size?: number }) => (
+  <svg width={p.size ?? 14} height={p.size ?? 14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+    <line x1="12" y1="19" x2="12" y2="23"/>
+    <line x1="8" y1="23" x2="16" y2="23"/>
+  </svg>
+)
+const IconAlbum = (p: { size?: number }) => (
+  <svg width={p.size ?? 14} height={p.size ?? 14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <circle cx="12" cy="12" r="10"/>
+    <circle cx="12" cy="12" r="3"/>
+  </svg>
+)
+const IconTrack = (p: { size?: number }) => (
+  <svg width={p.size ?? 14} height={p.size ?? 14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M9 18V5l12-2v13"/>
+    <circle cx="6" cy="18" r="3"/>
+    <circle cx="18" cy="16" r="3"/>
+  </svg>
+)
+const IconProfile = (p: { size?: number }) => (
+  <svg width={p.size ?? 14} height={p.size ?? 14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+    <circle cx="12" cy="7" r="4"/>
+  </svg>
+)
+const IconEvent = (p: { size?: number }) => (
+  <svg width={p.size ?? 14} height={p.size ?? 14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <rect x="3" y="4" width="18" height="18" rx="2"/>
+    <line x1="16" y1="2" x2="16" y2="6"/>
+    <line x1="8" y1="2" x2="8" y2="6"/>
+    <line x1="3" y1="10" x2="21" y2="10"/>
+  </svg>
+)
+const IconVenue = (p: { size?: number }) => (
+  <svg width={p.size ?? 14} height={p.size ?? 14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+    <circle cx="12" cy="10" r="3"/>
+  </svg>
+)
+const IconNews = (p: { size?: number }) => (
+  <svg width={p.size ?? 14} height={p.size ?? 14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/>
+    <path d="M18 14h-8M15 18h-5M10 6h8v4h-8z"/>
+  </svg>
+)
+const IconBlog = (p: { size?: number }) => (
+  <svg width={p.size ?? 14} height={p.size ?? 14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M12 20h9"/>
+    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+  </svg>
+)
+const IconDiscussion = (p: { size?: number }) => (
+  <svg width={p.size ?? 14} height={p.size ?? 14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+  </svg>
+)
+
+const CAT_LABELS: Record<Category, { sg: string; pl: string; Icon: (p: { size?: number }) => React.ReactElement; color: string }> = {
+  artists:     { sg: 'Atlikėjas',  pl: 'Atlikėjai',   Icon: IconArtist,     color: '#a78bfa' },
+  albums:      { sg: 'Albumas',    pl: 'Albumai',     Icon: IconAlbum,      color: '#60a5fa' },
+  tracks:      { sg: 'Daina',      pl: 'Dainos',      Icon: IconTrack,      color: '#34d399' },
+  profiles:    { sg: 'Vartotojas', pl: 'Vartotojai',  Icon: IconProfile,    color: '#fb923c' },
+  events:      { sg: 'Renginys',   pl: 'Renginiai',   Icon: IconEvent,      color: '#f472b6' },
+  venues:      { sg: 'Vieta',      pl: 'Vietos',      Icon: IconVenue,      color: '#facc15' },
+  news:        { sg: 'Naujiena',   pl: 'Naujienos',   Icon: IconNews,       color: '#22d3ee' },
+  blog_posts:  { sg: 'Blogas',     pl: 'Blogai',      Icon: IconBlog,       color: '#a3e635' },
+  discussions: { sg: 'Diskusija',  pl: 'Diskusijos',  Icon: IconDiscussion, color: '#f87171' },
 }
 
 const CAT_ORDER: Category[] = [
@@ -140,6 +203,12 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
   }, [open, topArtists.length])
 
   // ── Debounced fetch ──
+  // Loading flag turi būti TRUE kai tik užklausa keičiasi, ne tik kai
+  // fetch'as eina — taip "Nieko nerasta" neflash'ina tarp typing ir
+  // serverio response'o (140ms debounce + serverio latency).
+  // `lastQuery` saugo paskutinę užbaigtą fetch'ui užklausą, kad galėtume
+  // identifikuoti "stale" state'us.
+  const [lastQuery, setLastQuery] = useState('')
   useEffect(() => {
     if (!open) return
     const trimmed = q.trim()
@@ -147,8 +216,20 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
       setResults(emptyResults())
       setTookMs(0)
       setLoading(false)
+      setLastQuery('')
       return
     }
+    // Cache hit'as — galim atvaizduoti iškart be loading flash'o
+    if (cacheRef.current.has(trimmed)) {
+      const cached = cacheRef.current.get(trimmed)!
+      setResults(cached.results)
+      setTookMs(cached.took_ms)
+      setLastQuery(trimmed)
+      setLoading(false)
+      return
+    }
+    // Visi kiti atvejai — show loading immediately
+    setLoading(true)
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
       runQuery(trimmed)
@@ -165,6 +246,8 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
       setResults(cached.results)
       setTookMs(cached.took_ms)
       setSelectedIdx(0)
+      setLastQuery(query)
+      setLoading(false)
       return
     }
     if (abortRef.current) abortRef.current.abort()
@@ -182,6 +265,7 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
       setResults(safeResults)
       setTookMs(d.took_ms || 0)
       setSelectedIdx(0)
+      setLastQuery(query)
     } catch (e: any) {
       if (e?.name === 'AbortError') return
       console.error('Search error:', e)
@@ -246,8 +330,13 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
   if (!open) return null
 
   const total = flatHits.length
-  const showEmpty = q.trim().length === 0
-  const showNoResults = !showEmpty && !loading && total === 0
+  const trimmedQ = q.trim()
+  const showEmpty = trimmedQ.length === 0
+  // Stale: user'is keičia užklausą, bet fetch dar nesusinchronizavo —
+  // šiuo metu rodom loader, ne "nieko nerasta".
+  const isStale = !showEmpty && lastQuery !== trimmedQ
+  const showLoader = !showEmpty && (loading || isStale)
+  const showNoResults = !showEmpty && !showLoader && total === 0
 
   // Counts per category for chip badges
   const counts: Record<Category, number> = {} as any
@@ -262,7 +351,7 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
         {/* ── Top: input ── */}
         <div className="ms-input-wrap">
           <span className="ms-input-icon" aria-hidden>
-            {loading ? <Spinner /> : <SearchIcon />}
+            {showLoader ? <Equalizer /> : <SearchIcon />}
           </span>
           <input
             ref={inputRef}
@@ -292,22 +381,28 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
             >
               Visi <span className="ms-chip-num">{totalAcrossCats}</span>
             </button>
-            {CAT_ORDER.filter(c => counts[c] > 0).map(cat => (
-              <button
-                key={cat}
-                className={`ms-chip ${activeCat === cat ? 'on' : ''}`}
-                onClick={() => setActiveCat(cat)}
-                style={activeCat === cat ? { borderColor: CAT_LABELS[cat].color, color: CAT_LABELS[cat].color } : undefined}
-              >
-                <span className="ms-chip-emoji">{CAT_LABELS[cat].emoji}</span>
-                {CAT_LABELS[cat].pl}
-                <span className="ms-chip-num">{counts[cat]}</span>
-              </button>
-            ))}
+            {CAT_ORDER.filter(c => counts[c] > 0).map(cat => {
+              const Ico = CAT_LABELS[cat].Icon
+              return (
+                <button
+                  key={cat}
+                  className={`ms-chip ${activeCat === cat ? 'on' : ''}`}
+                  onClick={() => setActiveCat(cat)}
+                  style={activeCat === cat ? { borderColor: CAT_LABELS[cat].color, color: CAT_LABELS[cat].color } : undefined}
+                >
+                  <span className="ms-chip-ico" style={{ color: CAT_LABELS[cat].color }}><Ico size={13} /></span>
+                  {CAT_LABELS[cat].pl}
+                  <span className="ms-chip-num">{counts[cat]}</span>
+                </button>
+              )
+            })}
           </div>
         )}
 
-        {/* ── Body ── */}
+        {/* ── Body ──
+            Render priority: empty state > loading (be results) > no-results > rezultatai.
+            Loader rodom kai užklausa keičiasi BET dar neturim rezultatų toj užklausai.
+            Jei jau turim cached results — rodom juos su small loading hint įvedimo lauke. */}
         <div className="ms-body">
           {showEmpty && <EmptyState
             recent={recentQueries}
@@ -317,10 +412,19 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
             onGo={(h) => go(h)}
           />}
 
+          {showLoader && total === 0 && (
+            <div className="ms-loader">
+              <BigEqualizer />
+              <div className="ms-loader-text">Ieškau „{trimmedQ}"…</div>
+            </div>
+          )}
+
           {showNoResults && (
             <div className="ms-noresults">
-              <div className="ms-noresults-emoji">🔍</div>
-              <div className="ms-noresults-title">Nieko nerasta užklausai „{q}"</div>
+              <div className="ms-noresults-icon">
+                <SearchIcon />
+              </div>
+              <div className="ms-noresults-title">Nieko nerasta užklausai „{trimmedQ}"</div>
               <div className="ms-noresults-hint">Pabandyk kitą paiešką arba tikrink rašybą.</div>
             </div>
           )}
@@ -373,10 +477,11 @@ function ResultsList({
         if (items.length === 0) return null
         if (activeCat !== 'all' && activeCat !== cat) return null
         const meta = CAT_LABELS[cat]
+        const Ico = meta.Icon
         return (
           <div key={cat} className="ms-group">
             <div className="ms-group-head">
-              <span className="ms-group-emoji" aria-hidden>{meta.emoji}</span>
+              <span className="ms-group-ico" style={{ color: meta.color }} aria-hidden><Ico size={13} /></span>
               <span className="ms-group-label">{meta.pl}</span>
               <span className="ms-group-count">{items.length}</span>
             </div>
@@ -415,6 +520,7 @@ function ResultRow({
   layoutGrid?: boolean
 }) {
   const meta = CAT_LABELS[hit.type]
+  const Ico = meta.Icon
   const img = proxyImg(hit.image_url || '')
   const isCircle = hit.type === 'artists' || hit.type === 'profiles'
 
@@ -431,8 +537,8 @@ function ResultRow({
             // eslint-disable-next-line @next/next/no-img-element
             <img src={img} alt="" className="ms-grid-img" loading="lazy" />
           ) : (
-            <div className="ms-grid-fallback" style={{ background: meta.color + '22' }}>
-              <span style={{ fontSize: 28 }}>{meta.emoji}</span>
+            <div className="ms-grid-fallback" style={{ background: meta.color + '22', color: meta.color }}>
+              <Ico size={26} />
             </div>
           )}
         </div>
@@ -457,7 +563,7 @@ function ResultRow({
           <img src={img} alt="" loading="lazy" />
         ) : (
           <div className="ms-row-fallback" style={{ background: meta.color + '22', color: meta.color }}>
-            <span>{meta.emoji}</span>
+            <Ico size={18} />
           </div>
         )}
       </div>
@@ -466,9 +572,12 @@ function ResultRow({
         {hit.subtitle && <div className="ms-row-sub">{hit.subtitle}</div>}
       </div>
       <div className="ms-row-badge" style={{ color: meta.color, borderColor: meta.color + '40' }}>
-        {meta.sg}
+        <Ico size={11} />
+        <span>{meta.sg}</span>
       </div>
-      <div className="ms-row-arrow">↵</div>
+      <div className="ms-row-arrow" aria-hidden>
+        <ArrowReturn />
+      </div>
     </button>
   )
 }
@@ -523,8 +632,8 @@ function EmptyState({
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={proxyImg(a.image_url)} alt="" className="ms-grid-img" loading="lazy" />
                   ) : (
-                    <div className="ms-grid-fallback" style={{ background: '#a78bfa22' }}>
-                      <span style={{ fontSize: 28 }}>🎤</span>
+                    <div className="ms-grid-fallback" style={{ background: '#a78bfa22', color: '#a78bfa' }}>
+                      <IconArtist size={26} />
                     </div>
                   )}
                 </div>
@@ -569,10 +678,35 @@ function FlameIcon() {
     </svg>
   )
 }
-function Spinner() {
+/** Equalizer-style loader — 4 vertical bars bouncing su staggered delay'ais.
+ *  Match'ina kitur svetainėje naudojamą EqualizerLoader (MusicSearchPicker.tsx). */
+function Equalizer() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="ms-spin">
-      <path d="M21 12a9 9 0 1 1-6.22-8.55" />
+    <span className="ms-eq" aria-hidden>
+      {[0, 0.12, 0.24, 0.36].map((d, i) => (
+        <span key={i} style={{ animationDelay: `${d}s` }} />
+      ))}
+    </span>
+  )
+}
+
+/** Didesnė versija centriniam loading state'ui body viduje. */
+function BigEqualizer() {
+  return (
+    <span className="ms-eq-big" aria-hidden>
+      {[0, 0.10, 0.20, 0.30, 0.15].map((d, i) => (
+        <span key={i} style={{ animationDelay: `${d}s` }} />
+      ))}
+    </span>
+  )
+}
+
+/** Return arrow icon (Enter), naudojamas hover'inant row'ą. */
+function ArrowReturn() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="9 10 4 15 9 20"/>
+      <path d="M20 4v7a4 4 0 0 1-4 4H4"/>
     </svg>
   )
 }
@@ -620,8 +754,35 @@ const searchCss = `
   0% { opacity: 0; transform: translate(-50%, 8px) scale(.97) }
   100% { opacity: 1; transform: translate(-50%, 0) scale(1) }
 }
-.ms-spin { animation: ms-rot 0.9s linear infinite; }
-@keyframes ms-rot { to { transform: rotate(360deg) } }
+
+/* ── Equalizer loader — 4 bars su animation delay'ais ── */
+.ms-eq {
+  display: inline-flex; align-items: flex-end;
+  gap: 2px; height: 16px; width: 18px;
+}
+.ms-eq > span {
+  display: block;
+  width: 3px; height: 30%;
+  background: var(--accent-orange, #fb923c);
+  border-radius: 1px;
+  animation: ms-eqBar .85s ease-in-out infinite alternate;
+}
+@keyframes ms-eqBar {
+  0% { height: 30%; }
+  50% { height: 100%; }
+  100% { height: 50%; }
+}
+.ms-eq-big {
+  display: inline-flex; align-items: flex-end;
+  gap: 4px; height: 44px; width: 50px;
+}
+.ms-eq-big > span {
+  display: block;
+  width: 6px; height: 30%;
+  background: var(--accent-orange, #fb923c);
+  border-radius: 2px;
+  animation: ms-eqBar 1.0s ease-in-out infinite alternate;
+}
 
 /* ── Input ── */
 .ms-input-wrap {
@@ -710,7 +871,7 @@ const searchCss = `
   border-radius: 8px;
   margin-left: 1px;
 }
-.ms-chip-emoji { font-size: 13px; line-height: 1; }
+.ms-chip-ico { display: inline-flex; align-items: center; line-height: 1; }
 
 /* ── Body ── */
 .ms-body {
@@ -733,7 +894,7 @@ const searchCss = `
   letter-spacing: 0.08em;
   color: var(--text-muted, #888);
 }
-.ms-group-emoji { font-size: 13px; line-height: 1; }
+.ms-group-ico { display: inline-flex; align-items: center; line-height: 1; }
 .ms-group-label { font-weight: 800; }
 .ms-group-count {
   margin-left: auto;
@@ -794,6 +955,7 @@ const searchCss = `
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .ms-row-badge {
+  display: inline-flex; align-items: center; gap: 4px;
   font-size: 9.5px; font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -804,7 +966,7 @@ const searchCss = `
   opacity: 0.85;
 }
 .ms-row-arrow {
-  font-size: 13px;
+  display: inline-flex; align-items: center;
   color: var(--text-muted, #666);
   opacity: 0;
   transition: opacity .1s;
@@ -890,12 +1052,34 @@ const searchCss = `
   gap: 8px;
 }
 
+/* ── Loader (centrinis, body viduje) ── */
+.ms-loader {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 70px 20px;
+  gap: 14px;
+}
+.ms-loader-text {
+  font-size: 13px; font-weight: 500;
+  color: var(--text-muted, #888);
+  letter-spacing: -0.005em;
+}
+
 /* ── No results ── */
 .ms-noresults {
   text-align: center;
   padding: 60px 20px;
 }
-.ms-noresults-emoji { font-size: 36px; margin-bottom: 10px; opacity: 0.7; }
+.ms-noresults-icon {
+  display: inline-flex;
+  width: 48px; height: 48px;
+  align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: var(--bg-hover, rgba(255,255,255,0.05));
+  color: var(--text-muted, #888);
+  margin-bottom: 14px;
+}
+.ms-noresults-icon svg { width: 22px; height: 22px; }
 .ms-noresults-title {
   font-size: 16px; font-weight: 700;
   color: var(--text-primary, #fff);

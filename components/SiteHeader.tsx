@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { HeaderAuth } from '@/components/HeaderAuth'
 import { NotificationsBell } from '@/components/NotificationsBell'
+import { MessagesBell } from '@/components/MessagesBell'
 import { MasterSearch } from '@/components/MasterSearch'
 import { useSite } from '@/components/SiteContext'
 
@@ -46,8 +47,8 @@ const NAV: NavGroup[] = [
     label: 'Bendruomenė',
     items: [
       { label: 'Diskusijos',     href: '/diskusijos',     desc: 'Forumo temos ir pokalbiai' },
+      { label: 'Pokalbiai',      href: '/pokalbiai',      desc: 'Privačios žinutės ir grupės' },
       { label: 'Blogai',         href: '/blogas',         desc: 'Vartotojų straipsniai' },
-      { label: 'Gyvi pokalbiai', href: '/bendruomene',    desc: 'Real-time chat'  },
       { label: 'Rašyti įrašą',   href: '/blogas/rasyti',  desc: 'Pradėk savo blogą' },
     ],
   },
@@ -324,8 +325,9 @@ export function SiteHeader() {
             })}
           </nav>
 
-          {/* Notifications + Auth */}
+          {/* Messages + Notifications + Auth */}
           <div style={{ flexShrink: 0, marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <MessagesBell />
             <NotificationsBell />
             <HeaderAuth />
           </div>
