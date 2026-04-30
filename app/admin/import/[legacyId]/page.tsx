@@ -374,25 +374,150 @@ function JobRow({ job }: { job: ImportJob }) {
   )
 }
 
+/** Report'o struktūra (scrape worker'io output'as):
+ *   { albums, tracks, likes_artist, forum_threads, duration_sec, last_lines,
+ *     yt_enrich: { ok, foundNew, skipped, viewsUpdated, errors, ... } | { ok:false, status, body }
+ *     score_recalc: { ok, artist_score, albums_scored, tracks_scored } | { ok:false, ... }
+ *   }
+ *
+ * Wiki worker — kitokia struktūra (artist updated, albums/tracks inserted, photos count).
+ * Universalus render'is: žinomus keys atvaizduoja struktūruotai, likusius
+ * generic'ai (su json snippet'ų expandable).
+ */
 function ReportBlock({ report, completedAt }: { report: any; completedAt: string | null }) {
   if (!report) return <div className="text-sm text-[var(--text-muted)]">Reporto nėra</div>
 
-  const entries = Object.entries(report).filter(([, v]) => v !== null && v !== undefined)
+  // Numeric scrape counts — pagrindinė info iš subprocess'o po scrape'o.
+  const numericKeys = ['albums', 'tracks', 'likes_artist', 'likes_album', 'likes_track',
+                       'forum_threads', 'news_threads', 'duration_sec', 'photos_added',
+                       'tracks_inserted', 'albums_inserted']
+  const numericStats = numericKeys
+    .filter(k => typeof report[k] === 'number')
+    .map(k => ({ k, v: report[k] as number }))
+
   return (
-    <div className="bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-xl p-4">
-      <div className="text-xs text-[var(--text-muted)] mb-2">
+    <div className="space-y-3">
+      <div className="text-xs text-[var(--text-muted)]">
         Baigta: {completedAt ? new Date(completedAt).toLocaleString('lt') : '—'}
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        {entries.map(([k, v]) => (
-          <div key={k} className="p-2 bg-[var(--bg-elevated)] rounded">
-            <div className="text-[10px] text-[var(--text-muted)] uppercase">{k}</div>
-            <div className="text-sm font-semibold text-[var(--text-primary)] truncate" title={String(v)}>
-              {typeof v === 'object' ? JSON.stringify(v) : String(v)}
+
+      {/* Numeric stats grid */}
+      {numericStats.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+          {numericStats.map(({ k, v }) => (
+            <div key={k} className="p-2 bg-[var(--bg-elevated)] rounded border border-[var(--input-border)]">
+              <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wide">{k.replace(/_/g, ' ')}</div>
+              <div className="text-base font-bold tabular-nums text-[var(--text-primary)]">
+                {k === 'duration_sec' ? `${v.toFixed(0)}s` : v.toLocaleString()}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
+      )}
+
+      {/* YT enrich card */}
+      {report.yt_enrich && <YtEnrichCard data={report.yt_enrich} />}
+
+      {/* Score recalc card */}
+      {report.score_recalc && <ScoreRecalcCard data={report.score_recalc} />}
+
+      {/* last_lines — raw subprocess output */}
+      {typeof report.last_lines === 'string' && report.last_lines.trim() && (
+        <details className="bg-[var(--bg-elevated)] rounded-xl border border-[var(--input-border)]">
+          <summary className="px-3 py-2 text-xs font-semibold text-[var(--text-muted)] cursor-pointer">
+            Raw scraper output (last lines)
+          </summary>
+          <pre className="px-3 pb-3 text-[11px] font-mono whitespace-pre-wrap break-words text-[var(--text-secondary)]">
+            {report.last_lines}
+          </pre>
+        </details>
+      )}
+    </div>
+  )
+}
+
+function YtEnrichCard({ data }: { data: any }) {
+  if (data?.skipped) {
+    return (
+      <div className="p-3 bg-stone-50 border border-stone-200 rounded-xl text-sm">
+        <div className="font-semibold text-stone-700 mb-1">▶ YouTube enrich praleista</div>
+        <div className="text-xs text-stone-600">{data.reason || 'unknown'}</div>
       </div>
+    )
+  }
+  if (data?.ok === false) {
+    return (
+      <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm">
+        <div className="font-semibold text-red-700 mb-1">▶ YouTube enrich KLAIDA</div>
+        <div className="text-xs text-red-600">
+          {data.status ? `HTTP ${data.status}: ` : ''}{data.body || data.exception || 'unknown'}
+        </div>
+        {data.status === 401 && (
+          <div className="mt-2 text-[11px] text-red-700 bg-red-100 px-2 py-1 rounded">
+            Tikriausiai INTERNAL_API_SECRET nesutampa tarp Vercel ir Mac worker'io. Patikrink Vercel env vars.
+          </div>
+        )}
+      </div>
+    )
+  }
+  return (
+    <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl">
+      <div className="text-sm font-semibold text-rose-800 mb-2">▶ YouTube enrich</div>
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+        <YtMini label="Iš viso" value={data.totalTracks} />
+        <YtMini label="Apdorota" value={data.processed} />
+        <YtMini label="Rasta naujų" value={data.foundNew} tone="green" />
+        <YtMini label="Praleista" value={data.skipped} tone="amber" />
+        <YtMini label="Views update" value={data.viewsUpdated} tone="blue" />
+      </div>
+      {data.errors > 0 && (
+        <div className="mt-2 text-xs text-red-700">⚠ {data.errors} klaidos track'uose</div>
+      )}
+    </div>
+  )
+}
+
+function ScoreRecalcCard({ data }: { data: any }) {
+  if (data?.skipped) {
+    return (
+      <div className="p-3 bg-stone-50 border border-stone-200 rounded-xl text-sm">
+        <div className="font-semibold text-stone-700 mb-1">↻ Score recalc praleistas</div>
+        <div className="text-xs text-stone-600">{data.reason || 'unknown'}</div>
+      </div>
+    )
+  }
+  if (data?.ok === false) {
+    return (
+      <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm">
+        <div className="font-semibold text-red-700 mb-1">↻ Score recalc KLAIDA</div>
+        <div className="text-xs text-red-600">
+          {data.status ? `HTTP ${data.status}: ` : ''}{data.body || data.exception || 'unknown'}
+        </div>
+      </div>
+    )
+  }
+  return (
+    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl">
+      <div className="text-sm font-semibold text-amber-800 mb-2">↻ Score recalc</div>
+      <div className="grid grid-cols-3 gap-2">
+        <YtMini label="Artist score" value={data.artist_score} tone="amber" />
+        <YtMini label="Albumai" value={data.albums_scored} tone="amber" />
+        <YtMini label="Track'ai" value={data.tracks_scored} tone="amber" />
+      </div>
+    </div>
+  )
+}
+
+function YtMini({ label, value, tone }: { label: string; value: number | undefined; tone?: 'green' | 'amber' | 'blue' }) {
+  const v = value ?? 0
+  const cls = tone === 'green' ? 'text-green-700'
+            : tone === 'amber' ? 'text-amber-700'
+            : tone === 'blue'  ? 'text-blue-700'
+            : 'text-[var(--text-primary)]'
+  return (
+    <div className="bg-white border border-[var(--input-border)] rounded p-2">
+      <div className="text-[10px] uppercase tracking-wide text-[var(--text-faint)]">{label}</div>
+      <div className={`text-base font-bold tabular-nums ${cls}`}>{v.toLocaleString()}</div>
     </div>
   )
 }
