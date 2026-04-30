@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
+import { notifyFromSession } from '@/lib/notifications'
 
 type AttachmentIn = {
   type: 'daina' | 'albumas' | 'grupe'
@@ -148,6 +149,64 @@ export async function POST(request: Request) {
     .from('forum_threads')
     .update({ post_count: count ?? 0, last_post_at: new Date().toISOString() })
     .eq('legacy_id', body.thread_legacy_id)
+
+  // ── Notification: jeigu reply į konkretų post'ą — notify parent post author.
+  // Antraip (root reply į thread) — notify thread starter (jei tai ne pats sau).
+  // Defensive: viskas try/catch, niekada neblokuoja primary flow.
+  try {
+    const { data: thr } = await sb
+      .from('forum_threads')
+      .select('legacy_id, slug, title, author_username, author_user_id')
+      .eq('legacy_id', body.thread_legacy_id)
+      .maybeSingle() as { data: any }
+    const url = thr?.slug ? `/diskusijos/${thr.slug}` : '/diskusijos'
+
+    let recipientUserId: string | null = null
+    if (body.parent_post_legacy_id) {
+      const { data: parent } = await sb
+        .from('forum_posts')
+        .select('author_username')
+        .eq('legacy_id', body.parent_post_legacy_id)
+        .maybeSingle() as { data: any }
+      if (parent?.author_username) {
+        const { data: profile } = await sb
+          .from('profiles')
+          .select('id, email')
+          .eq('username', parent.author_username)
+          .maybeSingle() as { data: any }
+        if (profile?.id && profile.email !== session.user.email) {
+          recipientUserId = profile.id
+        }
+      }
+    } else if (thr?.author_user_id) {
+      // Root reply — notify thread starter (jei kitas user'is)
+      const { data: thrAuthor } = await sb
+        .from('profiles')
+        .select('email')
+        .eq('id', thr.author_user_id)
+        .maybeSingle() as { data: any }
+      if (thrAuthor && thrAuthor.email !== session.user.email) {
+        recipientUserId = thr.author_user_id
+      }
+    }
+
+    if (recipientUserId) {
+      await notifyFromSession({
+        recipientUserId,
+        actorSession: session,
+        type: body.parent_post_legacy_id ? 'comment_reply' : 'entity_comment',
+        entity_type: 'thread',
+        entity_id: body.thread_legacy_id,
+        url,
+        title: body.parent_post_legacy_id
+          ? `${authorUsername} atsakė į tavo žinutę`
+          : `${authorUsername} pakomentavo „${thr?.title || 'tavo temą'}"`,
+        snippet: text.slice(0, 200),
+      })
+    }
+  } catch (e: any) {
+    console.error('[notifications] forum reply failed:', e?.message || e)
+  }
 
   return NextResponse.json({ ok: true })
 }

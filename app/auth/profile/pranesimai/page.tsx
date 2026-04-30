@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { getPushStatus, enablePush, disablePush, type PushStatus } from '@/lib/push-client'
 
 type PrefRow = { type: string; enabled: boolean; updated_at?: string }
 
@@ -45,6 +46,9 @@ export default function NotificationPreferencesPage() {
   const [loaded, setLoaded] = useState(false)
   const [saving, setSaving] = useState<string | null>(null)
   const [savedAt, setSavedAt] = useState<number | null>(null)
+  const [pushStatus, setPushStatus] = useState<PushStatus | null>(null)
+  const [pushBusy, setPushBusy] = useState(false)
+  const [pushError, setPushError] = useState<string | null>(null)
 
   useEffect(() => {
     if (status === 'unauthenticated') router.push('/auth/signin')
@@ -69,6 +73,44 @@ export default function NotificationPreferencesPage() {
     })()
     return () => { aborted = true }
   }, [status])
+
+  // Pasitikrinam Web Push state'ą — palaiko'jamas, įjungtas, atmestas?
+  useEffect(() => {
+    if (status !== 'authenticated') return
+    let aborted = false
+    ;(async () => {
+      try {
+        const s = await getPushStatus()
+        if (!aborted) setPushStatus(s)
+      } catch {
+        if (!aborted) setPushStatus('unsupported')
+      }
+    })()
+    return () => { aborted = true }
+  }, [status])
+
+  const togglePush = async () => {
+    setPushBusy(true)
+    setPushError(null)
+    try {
+      if (pushStatus === 'subscribed') {
+        await disablePush()
+        setPushStatus('unsubscribed')
+      } else {
+        const res = await enablePush()
+        if (res.ok) {
+          setPushStatus('subscribed')
+        } else {
+          setPushStatus(res.status)
+          if (res.error) setPushError(res.error)
+        }
+      }
+    } catch (e: any) {
+      setPushError(e?.message || 'Klaida')
+    } finally {
+      setPushBusy(false)
+    }
+  }
 
   const toggle = async (type: string) => {
     const next = !prefs[type]
@@ -149,6 +191,51 @@ export default function NotificationPreferencesPage() {
           Pasirink, kokius pranešimus nori gauti. Visi nauji pranešimai pasirodys
           varpelio ikonoje viršuje.
         </p>
+
+        {/* Web Push card */}
+        {pushStatus && pushStatus !== 'unsupported' && (
+          <div style={{
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border-default)',
+            borderRadius: 14, padding: 16, marginBottom: 16,
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
+          }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 8 }}>
+                Push pranešimai naršyklėje
+                {pushStatus === 'subscribed' && (
+                  <span style={{
+                    padding: '2px 8px', borderRadius: 999,
+                    background: 'rgba(16,185,129,0.15)', color: '#10b981',
+                    fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em',
+                  }}>Aktyvūs</span>
+                )}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                {pushStatus === 'subscribed'
+                  ? 'Naują pranešimą gausi tiesiai į naršyklę net kai music.lt nėra atviras.'
+                  : pushStatus === 'denied'
+                    ? 'Naršyklė atmetė leidimą. Atblokuok rankiniu būdu naršyklės nustatymuose, tada pakartok.'
+                    : pushStatus === 'not-configured'
+                      ? 'Push paslauga dar neaktyvuota svetainėje (laukia VAPID konfigūracijos).'
+                      : 'Įjunk, kad gautum pranešimus net kai music.lt skirtukas uždarytas.'}
+              </div>
+              {pushError && (
+                <div style={{ fontSize: 11, color: '#ef4444', marginTop: 4 }}>
+                  {pushError}
+                </div>
+              )}
+            </div>
+            {(pushStatus === 'subscribed' || pushStatus === 'unsubscribed') && (
+              <Toggle
+                checked={pushStatus === 'subscribed'}
+                onChange={togglePush}
+                disabled={pushBusy}
+                size="lg"
+              />
+            )}
+          </div>
+        )}
 
         {/* Master toggle card */}
         <div style={{
