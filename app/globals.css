@@ -65,6 +65,8 @@ select:focus-visible {
   --accent-blue:     #1d4ed8;
   --accent-link:     #5a8ec8;
   --accent-green:    #22c55e;
+  --accent-yellow:   #fbbf24;
+  --accent-red:      #f87171;
 
   /* Modals & overlays */
   --modal-bg:        #0d1320;
@@ -205,6 +207,8 @@ select:focus-visible {
   --accent-blue:     #1d4ed8;
   --accent-link:     #2563eb;
   --accent-green:    #16a34a;
+  --accent-yellow:   #d97706;
+  --accent-red:      #dc2626;
 
   /* Modals & overlays */
   --modal-bg:        #ffffff;
