@@ -79,7 +79,7 @@ export async function POST(req: Request) {
     (!!viewerEmail && !!targetEmail && viewerEmail === targetEmail)
   )
   if (isSelf) {
-    return NextResponse.json({ error: 'Negalima palaikinti savo paties komentaro' }, { status: 403 })
+    return NextResponse.json({ error: 'Negalima pamėgti savo paties komentaro' }, { status: 403 })
   }
 
   // Toggle: jei jau patiko — pašalinam; jei ne — įdedam.

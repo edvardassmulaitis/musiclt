@@ -37,6 +37,7 @@ export interface CreateNotificationParams {
 /**
  * Create a notification row. No-op (returns silently) if:
  *   - user_id == actor_id (savaitis-self notification — niekam nereikia)
+ *   - user disabled this notification type per `notification_preferences`
  *   - notifications table doesn't exist yet
  *   - any DB error occurs (notifications must NEVER block the primary flow)
  */
@@ -46,6 +47,21 @@ export async function createNotification(p: CreateNotificationParams): Promise<v
 
   try {
     const sb = createAdminClient()
+
+    // Respect user preferences. Row absence = enabled (default).
+    // Šis check'as silently nulemia rezultatą — jeigu lentelės nėra dar
+    // (migracija neaplikuota), maybeSingle grąžins null, ir mes
+    // tęsiame kaip enabled.
+    try {
+      const { data: pref } = await sb
+        .from('notification_preferences')
+        .select('enabled')
+        .eq('user_id', p.user_id)
+        .eq('type', p.type)
+        .maybeSingle() as { data: any }
+      if (pref && pref.enabled === false) return
+    } catch { /* table may not exist yet — proceed as enabled */ }
+
     const row: any = {
       user_id: p.user_id,
       type: p.type,

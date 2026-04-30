@@ -38,28 +38,134 @@ type ActivityEvent = {
 const POLL_INTERVAL_MS = 60_000
 const ACTIVITY_POLL_INTERVAL_MS = 30_000
 
-const TYPE_ICON: Record<string, string> = {
-  comment_reply: '💬',
-  entity_comment: '💬',
-  comment_like: '♥',
-  blog_like: '♥',
-  blog_comment: '✍️',
-  favorite_artist_track: '🎵',
-  daily_song_winner: '🏆',
-  system: '🔔',
-  guest_signin: '👋',
+/* ── Modernios SVG ikonos (vietoje emoji) ─────────────────────────── */
+const SVG = {
+  bell: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+      <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+    </svg>
+  ),
+  comment: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    </svg>
+  ),
+  reply: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/>
+    </svg>
+  ),
+  heart: (
+    <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+    </svg>
+  ),
+  pencil: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+    </svg>
+  ),
+  music: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+    </svg>
+  ),
+  trophy: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M17 4h3v3a3 3 0 0 1-3 3M7 4H4v3a3 3 0 0 0 3 3"/>
+    </svg>
+  ),
+  star: (
+    <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+    </svg>
+  ),
+  album: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/>
+    </svg>
+  ),
+  news: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 22h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/>
+      <path d="M18 14h-8M15 18h-5M10 6h8v4h-8V6Z"/>
+    </svg>
+  ),
+  calendar: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/>
+    </svg>
+  ),
+  sparkle: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/>
+    </svg>
+  ),
+  guest: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+    </svg>
+  ),
+  close: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+    </svg>
+  ),
+  empty: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+      <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+    </svg>
+  ),
 }
 
-const ACTIVITY_ICONS: Record<string, string> = {
-  track_like: '❤️',
-  album_like: '❤️',
-  artist_like: '⭐',
-  comment: '💬',
-  daily_nomination: '🎵',
-  top_vote: '🏆',
-  news: '📰',
-  event_created: '📅',
-  blog_post: '✍️',
+const TYPE_ICON: Record<string, React.ReactNode> = {
+  comment_reply: SVG.reply,
+  entity_comment: SVG.comment,
+  comment_like: SVG.heart,
+  blog_like: SVG.heart,
+  blog_comment: SVG.pencil,
+  favorite_artist_track: SVG.music,
+  daily_song_winner: SVG.trophy,
+  system: SVG.sparkle,
+  guest_signin: SVG.guest,
+}
+
+const TYPE_TINT: Record<string, string> = {
+  comment_reply: '#3b82f6',
+  entity_comment: '#3b82f6',
+  comment_like: '#ec4899',
+  blog_like: '#ec4899',
+  blog_comment: '#8b5cf6',
+  favorite_artist_track: '#10b981',
+  daily_song_winner: '#eab308',
+  system: '#f97316',
+  guest_signin: '#f97316',
+}
+
+const ACTIVITY_ICON: Record<string, React.ReactNode> = {
+  track_like: SVG.heart,
+  album_like: SVG.heart,
+  artist_like: SVG.star,
+  comment: SVG.comment,
+  daily_nomination: SVG.music,
+  top_vote: SVG.trophy,
+  news: SVG.news,
+  event_created: SVG.calendar,
+  blog_post: SVG.pencil,
+}
+
+const ACTIVITY_TINT: Record<string, string> = {
+  track_like: '#ec4899',
+  album_like: '#ec4899',
+  artist_like: '#eab308',
+  comment: '#3b82f6',
+  daily_nomination: '#10b981',
+  top_vote: '#eab308',
+  news: '#06b6d4',
+  event_created: '#3b82f6',
+  blog_post: '#8b5cf6',
 }
 
 function relTime(iso: string): string {
@@ -81,10 +187,10 @@ function defaultTitle(n: Notification): string {
   switch (n.type) {
     case 'comment_reply':         return `${who} atsakė į tavo komentarą`
     case 'entity_comment':        return `${who} pakomentavo`
-    case 'comment_like':          return `${who} palaikino tavo komentarą`
-    case 'blog_like':             return `${who} palaikino tavo įrašą`
+    case 'comment_like':          return `${who} pamėgo tavo komentarą`
+    case 'blog_like':             return `${who} pamėgo tavo įrašą`
     case 'blog_comment':          return `${who} pakomentavo tavo įrašą`
-    case 'favorite_artist_track': return `Naujas track'as nuo mėgstamos grupės`
+    case 'favorite_artist_track': return `Nauja daina nuo mėgstamo atlikėjo`
     case 'daily_song_winner':     return `Tavo nominacija laimėjo dienos dainą`
     case 'system':                return 'Pranešimas'
     default:                      return 'Naujas pranešimas'
@@ -355,13 +461,21 @@ export function NotificationsBell() {
     if (items.length === 0) {
       return (
         <div style={{ padding: '40px 24px', textAlign: 'center' }}>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>🔔</div>
+          <div style={{
+            width: 48, height: 48, margin: '0 auto 12px',
+            borderRadius: '50%',
+            background: 'var(--bg-hover)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'var(--text-muted)',
+          }}>
+            <div style={{ width: 24, height: 24 }}>{SVG.bell}</div>
+          </div>
           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
             Pranešimų dar nėra
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4 }}>
-            Čia matysi naujienas apie savo mėgstamas grupes,
-            komentarus, palaikinimus ir dienos dainos rezultatus.
+            Čia matysi naujienas apie savo mėgstamus atlikėjus,
+            komentarus, patiktukus ir dienos dainos rezultatus.
           </div>
         </div>
       )
@@ -407,19 +521,21 @@ export function NotificationsBell() {
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 color: '#fff', fontWeight: 800, fontSize: 16,
               }}>
-                {isGuest ? '👋' : (n.actor_full_name || n.actor_username || '?').charAt(0).toUpperCase()}
+                {isGuest
+                  ? <div style={{ width: 20, height: 20 }}>{SVG.guest}</div>
+                  : (n.actor_full_name || n.actor_username || '?').charAt(0).toUpperCase()}
               </div>
             )}
             {!isGuest && (
               <div style={{
                 position: 'absolute', bottom: -2, right: -2,
-                width: 18, height: 18, borderRadius: '50%',
+                width: 20, height: 20, borderRadius: '50%',
                 background: 'var(--bg-surface)',
                 border: '1px solid var(--border-subtle)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 10, lineHeight: 1,
+                color: TYPE_TINT[n.type] || 'var(--text-muted)',
               }}>
-                {TYPE_ICON[n.type] || '🔔'}
+                <div style={{ width: 12, height: 12 }}>{TYPE_ICON[n.type] || SVG.bell}</div>
               </div>
             )}
           </div>
@@ -509,19 +625,28 @@ export function NotificationsBell() {
     if (activity.length === 0) {
       return (
         <div style={{ padding: '40px 24px', textAlign: 'center' }}>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>⚡</div>
+          <div style={{
+            width: 48, height: 48, margin: '0 auto 12px',
+            borderRadius: '50%',
+            background: 'var(--bg-hover)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'var(--text-muted)',
+          }}>
+            <div style={{ width: 22, height: 22 }}>{SVG.sparkle}</div>
+          </div>
           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
             Veiklos kol kas nėra
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4 }}>
-            Kai kažkas pakomentuos, palaikins ar paskelbs naujieną — pamatysi čia.
+            Kai kažkas pakomentuos, pamėgs ar paskelbs naujieną — pamatysi čia.
           </div>
         </div>
       )
     }
     return activity.map(ev => {
       const { text, url } = formatActivityEvent(ev)
-      const icon = ACTIVITY_ICONS[ev.event_type] || '🔔'
+      const icon = ACTIVITY_ICON[ev.event_type] || SVG.bell
+      const tint = ACTIVITY_TINT[ev.event_type] || 'var(--text-muted)'
       const inner = (
         <div style={{
           display: 'flex', gap: 12,
@@ -535,21 +660,36 @@ export function NotificationsBell() {
           onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
         >
           {ev.actor_avatar ? (
-            <Image
-              src={ev.actor_avatar}
-              alt=""
-              width={32}
-              height={32}
-              style={{ borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
-              unoptimized
-            />
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              <Image
+                src={ev.actor_avatar}
+                alt=""
+                width={32}
+                height={32}
+                style={{ borderRadius: '50%', objectFit: 'cover' }}
+                unoptimized
+              />
+              <div style={{
+                position: 'absolute', bottom: -2, right: -2,
+                width: 16, height: 16, borderRadius: '50%',
+                background: 'var(--bg-surface)',
+                border: '1px solid var(--border-subtle)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: tint,
+              }}>
+                <div style={{ width: 10, height: 10 }}>{icon}</div>
+              </div>
+            </div>
           ) : (
             <div style={{
               width: 32, height: 32, borderRadius: '50%',
               background: 'var(--bg-hover)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 14, flexShrink: 0,
-            }}>{icon}</div>
+              flexShrink: 0,
+              color: tint,
+            }}>
+              <div style={{ width: 14, height: 14 }}>{icon}</div>
+            </div>
           )}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{
@@ -581,14 +721,14 @@ export function NotificationsBell() {
       flexShrink: 0,
     }}>
       <Link
-        href={isAuth ? '/auth/profile' : '/auth/signin'}
+        href={isAuth ? '/auth/profile/pranesimai' : '/auth/signin'}
         onClick={() => setOpen(false)}
         style={{
           fontSize: 12, fontWeight: 600,
           color: 'var(--text-muted)', textDecoration: 'none',
         }}
       >
-        {isAuth ? 'Tvarkyti notification nustatymus' : 'Prisijungti svetainėje'}
+        {isAuth ? 'Tvarkyti pranešimų nustatymus' : 'Prisijungti svetainėje'}
       </Link>
     </div>
   )
