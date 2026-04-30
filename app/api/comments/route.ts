@@ -15,6 +15,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { resolveAuthorId } from '@/lib/resolve-author'
 import { notifyFromSession } from '@/lib/notifications'
+import { logActivity } from '@/lib/activity-logger'
 
 const EDIT_WINDOW_MINUTES = 20
 
@@ -182,6 +183,24 @@ export async function POST(req: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   const c: any = data
+
+  // ── Activity feed: visi komentarai populate'ina globalų "Kas vyksta". ──
+  try {
+    const actorName = c.profiles?.full_name || c.profiles?.username || (session.user as any)?.name || null
+    const actorAvatar = c.profiles?.avatar_url || (session.user as any)?.image || null
+    await logActivity({
+      event_type: 'comment',
+      user_id: authorId,
+      actor_name: actorName,
+      actor_avatar: actorAvatar,
+      entity_type,
+      entity_id: parseInt(entity_id),
+      entity_title: (text || '').slice(0, 80),
+      entity_url: buildEntityUrl(entity_type, parseInt(entity_id), sb),
+    })
+  } catch (e: any) {
+    console.error('[activity-log] comment failed:', e?.message || e)
+  }
 
   // ── Notification: jeigu tai reply, žinom tėvo komentaro autorių. ──────
   // Notification kūrimas yra fire-and-forget — jeigu DB klaida ar table

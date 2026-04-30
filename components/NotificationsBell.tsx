@@ -513,20 +513,50 @@ export function NotificationsBell() {
                 unoptimized
               />
             ) : (
-              <div style={{
-                width: 38, height: 38, borderRadius: '50%',
-                background: isGuest
-                  ? 'linear-gradient(135deg, #f97316, #2563eb)'
-                  : 'linear-gradient(135deg, #2563eb, #f97316)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: '#fff', fontWeight: 800, fontSize: 16,
-              }}>
-                {isGuest
-                  ? <div style={{ width: 20, height: 20 }}>{SVG.guest}</div>
-                  : (n.actor_full_name || n.actor_username || '?').charAt(0).toUpperCase()}
-              </div>
+              (() => {
+                // Sistemos pranešimai (daily_song_winner, system, favorite_artist_track
+                // be konkretaus aktoriaus) — actor name'o nėra. Vietoj "?" rodom
+                // type-specific spalvotą ikoną.
+                const hasActorName = !!(n.actor_full_name || n.actor_username)
+                const tint = TYPE_TINT[n.type] || '#2563eb'
+                if (isGuest) {
+                  return (
+                    <div style={{
+                      width: 38, height: 38, borderRadius: '50%',
+                      background: 'linear-gradient(135deg, #f97316, #2563eb)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: '#fff',
+                    }}>
+                      <div style={{ width: 20, height: 20 }}>{SVG.guest}</div>
+                    </div>
+                  )
+                }
+                if (!hasActorName) {
+                  return (
+                    <div style={{
+                      width: 38, height: 38, borderRadius: '50%',
+                      background: tint + '20',
+                      border: `1.5px solid ${tint}55`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: tint,
+                    }}>
+                      <div style={{ width: 20, height: 20 }}>{TYPE_ICON[n.type] || SVG.bell}</div>
+                    </div>
+                  )
+                }
+                return (
+                  <div style={{
+                    width: 38, height: 38, borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #2563eb, #f97316)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: '#fff', fontWeight: 800, fontSize: 16,
+                  }}>
+                    {(n.actor_full_name || n.actor_username || '?').charAt(0).toUpperCase()}
+                  </div>
+                )
+              })()
             )}
-            {!isGuest && (
+            {!isGuest && !!(n.actor_full_name || n.actor_username || n.actor_avatar_url) && (
               <div style={{
                 position: 'absolute', bottom: -2, right: -2,
                 width: 20, height: 20, borderRadius: '50%',
