@@ -100,15 +100,6 @@ function Skel({ w, h, r = 6 }: { w: number | string; h: number; r?: number }) {
   return <div className="hp-skel" style={{ width: w, height: h, borderRadius: r, flexShrink: 0 }} />
 }
 
-function SH({ label, href, cta = 'Visi →' }: { label: React.ReactNode; href?: string; cta?: string }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-      <h2 style={{ fontFamily: 'Outfit, sans-serif', fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em', margin: 0 }}>{label}</h2>
-      {href && <Link href={href} style={{ fontSize: 12, color: 'var(--accent-link)', fontWeight: 700, textDecoration: 'none', transition: 'color .15s' }} onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')} onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>{cta}</Link>}
-    </div>
-  )
-}
-
 /** Tailwind versija SH'o — naudojam naujose sekcijose, kad font/letter-spacing
  *  atitiktų artist page'o tipografiją (`font-['Outfit',sans-serif]` +
  *  `tracking-[-0.01em]` + truputį didesnis font-size 18px). */
@@ -139,42 +130,70 @@ function DienosDainaWidget() {
   }, [])
   const w = noms[0]
   if (loading) return (
-    <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 16, padding: 16 }}>
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 14 }}><Skel w={54} h={54} r={10} /><div style={{ flex: 1 }}><Skel w="40%" h={9} /><div style={{ marginTop: 5 }}><Skel w="70%" h={12} /></div><div style={{ marginTop: 4 }}><Skel w="45%" h={9} /></div></div></div>
-      {Array(3).fill(null).map((_, i) => <div key={i} style={{ display: 'flex', gap: 8, padding: '7px 0', alignItems: 'center' }}><Skel w={14} h={10} /><Skel w={26} h={26} r={6} /><div style={{ flex: 1 }}><Skel w="65%" h={10} /></div></div>)}
+    <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
+      <div className="mb-3.5 flex items-center gap-3">
+        <Skel w={54} h={54} r={10} />
+        <div className="flex-1">
+          <Skel w="40%" h={9} />
+          <div className="mt-1.5"><Skel w="70%" h={12} /></div>
+          <div className="mt-1"><Skel w="45%" h={9} /></div>
+        </div>
+      </div>
+      {Array(3).fill(null).map((_, i) => (
+        <div key={i} className="flex items-center gap-2 py-[7px]">
+          <Skel w={14} h={10} /><Skel w={26} h={26} r={6} />
+          <div className="flex-1"><Skel w="65%" h={10} /></div>
+        </div>
+      ))}
     </div>
   )
   return (
-    <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 16, overflow: 'hidden' }}>
-      <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 12 }}>
+    <div className="overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
+      <div className="flex items-center gap-3 border-b border-[var(--border-subtle)] px-4 py-3.5">
         <Cover src={w?.tracks?.cover_url} alt={w?.tracks?.title || 'daina'} size={54} radius={10} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 700, margin: '0 0 2px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Šiandien pirmauja</p>
-          <h3 style={{ fontFamily: 'Outfit, sans-serif', fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 1px', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div className="min-w-0 flex-1">
+          <p className="m-0 mb-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--text-muted)]">Šiandien pirmauja</p>
+          <h3 className="m-0 truncate font-['Outfit',sans-serif] text-[15px] font-extrabold leading-tight text-[var(--text-primary)]">
             {sanitizeTitle(w?.tracks?.title || 'Dar nėra')}
           </h3>
-          <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0 }}>{w?.tracks?.artists?.name || ''}</p>
+          <p className="m-0 text-[11px] text-[var(--text-muted)]">{w?.tracks?.artists?.name || ''}</p>
         </div>
-        <Link href="/dienos-daina" style={{ flexShrink: 0, background: '#f97316', color: '#fff', fontWeight: 800, fontSize: 11, padding: '7px 14px', borderRadius: 20, textDecoration: 'none', boxShadow: '0 3px 14px rgba(249,115,22,0.35)', transition: 'transform .15s' }} onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-1px)')} onMouseLeave={e => (e.currentTarget.style.transform = 'none')}>
+        <Link
+          href="/dienos-daina"
+          className="shrink-0 rounded-[20px] bg-[var(--accent-orange)] px-3.5 py-[7px] text-[11px] font-extrabold text-white no-underline shadow-[0_3px_14px_rgba(249,115,22,0.35)] transition-transform hover:-translate-y-px"
+        >
           Balsuoti
         </Link>
       </div>
       <div>
-        <div style={{ padding: '8px 16px 6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: 9, fontWeight: 800, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Rytdienos kandidatai</span>
-          <Link href="/dienos-daina" style={{ fontSize: 9, color: 'var(--accent-link)', fontWeight: 700, textDecoration: 'none' }}>+ Siūlyti</Link>
+        <div className="flex items-center justify-between px-4 pb-1.5 pt-2">
+          <span className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">Rytdienos kandidatai</span>
+          <Link href="/dienos-daina" className="text-[9px] font-bold text-[var(--accent-link)] no-underline">+ Siūlyti</Link>
         </div>
-        {noms.length === 0 ? <div style={{ padding: '14px 16px', color: 'var(--text-muted)', fontSize: 12, textAlign: 'center' }}>Kol kas nėra nominacijų</div>
-        : noms.slice(0, 5).map((n, i) => (
-          <div key={n.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 16px', borderTop: '1px solid var(--border-subtle)', transition: 'background .12s' }} onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-            <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-faint)', width: 14, textAlign: 'center', flexShrink: 0 }}>{i + 1}</span>
+        {noms.length === 0 ? (
+          <div className="px-4 py-3.5 text-center text-[12px] text-[var(--text-muted)]">Kol kas nėra nominacijų</div>
+        ) : noms.slice(0, 5).map((n, i) => (
+          <div
+            key={n.id}
+            className="flex items-center gap-2 border-t border-[var(--border-subtle)] px-4 py-1.5 transition-colors hover:bg-[var(--bg-hover)]"
+          >
+            <span className="w-3.5 shrink-0 text-center text-[10px] font-extrabold text-[var(--text-faint)]">{i + 1}</span>
             <Cover src={n.tracks?.cover_url} alt={n.tracks?.title || '?'} size={26} radius={6} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(n.tracks?.title || '')}</p>
-              <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: 0 }}>{n.tracks?.artists?.name}</p>
+            <div className="min-w-0 flex-1">
+              <p className="m-0 truncate text-[11px] font-bold text-[var(--text-primary)]">{sanitizeTitle(n.tracks?.title || '')}</p>
+              <p className="m-0 text-[10px] text-[var(--text-muted)]">{n.tracks?.artists?.name}</p>
             </div>
-            <button onClick={() => voted === null && setVoted(i)} disabled={voted !== null}
-              style={{ fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 10, flexShrink: 0, cursor: voted !== null ? 'default' : 'pointer', border: voted === i ? '1px solid rgba(52,211,153,0.3)' : '1px solid var(--border-default)', background: voted === i ? 'rgba(52,211,153,0.1)' : 'transparent', color: voted === i ? '#34d399' : voted !== null ? 'var(--text-faint)' : 'var(--accent-link)', transition: 'all 0.15s' }}>
+            <button
+              onClick={() => voted === null && setVoted(i)}
+              disabled={voted !== null}
+              className={`shrink-0 rounded-[10px] border px-2 py-[3px] text-[10px] font-bold transition-all ${
+                voted === i
+                  ? 'border-[var(--accent-green)]/30 bg-[var(--accent-green)]/10 text-[var(--accent-green)] cursor-default'
+                  : voted !== null
+                    ? 'border-[var(--border-default)] bg-transparent text-[var(--text-faint)] cursor-default'
+                    : 'border-[var(--border-default)] bg-transparent text-[var(--accent-link)] cursor-pointer'
+              }`}
+            >
               {voted === i ? '✓' : 'Balsuoti'}
             </button>
           </div>
@@ -207,49 +226,40 @@ function BoomboxHomeWidget() {
   }, [])
 
   return (
-    <Link href="/boombox" style={{
-      display: 'block',
-      background: 'linear-gradient(135deg, rgba(249,115,22,0.12), rgba(29,78,216,0.06))',
-      border: '1px solid rgba(249,115,22,0.25)',
-      borderRadius: 16,
-      padding: 16,
-      textDecoration: 'none',
-      color: 'var(--text-primary)',
-      transition: 'transform .15s, box-shadow .15s',
-    }}
-      onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-1px)')}
-      onMouseLeave={e => (e.currentTarget.style.transform = 'none')}
+    <Link
+      href="/boombox"
+      className="block rounded-2xl border border-[var(--accent-orange)]/25 bg-gradient-to-br from-[var(--accent-orange)]/10 to-[var(--accent-blue)]/[0.06] p-4 text-[var(--text-primary)] no-underline transition-all hover:-translate-y-px"
     >
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 32, marginBottom: 10 }}>
+      <div className="mb-2.5 flex h-8 items-end gap-1">
         {[40, 75, 55, 95, 68, 50, 80].map((h, i) => (
-          <div key={i} style={{
-            width: 5, height: `${h}%`, borderRadius: 2,
-            background: 'linear-gradient(0deg, var(--accent-orange), #fbbf24)',
-            animation: `bbHomeEq 1.1s infinite ease-in-out ${i * 0.12}s`,
-          }} />
+          <div
+            key={i}
+            className="w-[5px] rounded-[2px] bg-gradient-to-t from-[var(--accent-orange)] to-[var(--accent-yellow)]"
+            style={{ height: `${h}%`, animation: `bbHomeEq 1.1s infinite ease-in-out ${i * 0.12}s` }}
+          />
         ))}
       </div>
       <style>{`@keyframes bbHomeEq { 0%, 100% { transform: scaleY(0.4); } 50% { transform: scaleY(1); } }`}</style>
 
-      <div style={{ fontFamily: 'Outfit, system-ui, sans-serif', fontSize: 22, fontWeight: 900, letterSpacing: '-0.5px', marginBottom: 4 }}>
+      <div className="mb-1 font-['Outfit','system-ui',sans-serif] text-[22px] font-black tracking-[-0.5px]">
         BOOMBOX
       </div>
-      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12 }}>
+      <div className="mb-3 text-[12px] text-[var(--text-secondary)]">
         3 misijos · ~2 min · drop'ai
       </div>
 
       {state.loading ? null : state.hasContent ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-muted)' }}>
+        <div className="flex items-center gap-2 text-[12px] text-[var(--text-muted)]">
           {state.completedToday > 0 && (
-            <span style={{ color: 'var(--accent-green)' }}>✓ {state.completedToday}/3</span>
+            <span className="text-[var(--accent-green)]">✓ {state.completedToday}/3</span>
           )}
           {state.streak > 0 && (
-            <span style={{ color: 'var(--accent-orange)' }}>🔥 {state.streak} d.</span>
+            <span className="text-[var(--accent-orange)]">🔥 {state.streak} d.</span>
           )}
-          <span style={{ marginLeft: 'auto', fontWeight: 600, color: 'var(--accent-orange)' }}>Pradėti →</span>
+          <span className="ml-auto font-semibold text-[var(--accent-orange)]">Pradėti →</span>
         </div>
       ) : (
-        <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>Šiandien dar nepublikuota</div>
+        <div className="text-[12px] text-[var(--text-faint)]">Šiandien dar nepublikuota</div>
       )}
     </Link>
   )
@@ -267,10 +277,11 @@ function DiscussionsWidget() {
   if (loading || !discs.length) return (
     <div className="hp-disc-grid">
       {Array(4).fill(null).map((_, i) => (
-        <div key={i} style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
-          <div style={{ marginBottom: 8 }}><Skel w="30%" h={8} /></div>
-          <Skel w="90%" h={11} /><div style={{ marginTop: 4 }}><Skel w="60%" h={11} /></div>
-          <div style={{ marginTop: 8 }}><Skel w="45%" h={8} /></div>
+        <div key={i} className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-3.5 py-3">
+          <div className="mb-2"><Skel w="30%" h={8} /></div>
+          <Skel w="90%" h={11} />
+          <div className="mt-1"><Skel w="60%" h={11} /></div>
+          <div className="mt-2"><Skel w="45%" h={8} /></div>
         </div>
       ))}
     </div>
@@ -278,16 +289,19 @@ function DiscussionsWidget() {
   return (
     <div className="hp-disc-grid">
       {discs.map(d => (
-        <Link key={d.id} href={`/diskusijos/${d.slug}`}
-          style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--bg-surface)', border: '1px solid var(--border-default)', textDecoration: 'none', display: 'block', transition: 'border-color 0.15s, background .15s' }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.background = 'var(--bg-hover)' }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-default)'; e.currentTarget.style.background = 'var(--bg-surface)' }}>
-          <div style={{ display: 'flex', gap: 5, marginBottom: 5, alignItems: 'center' }}>
-            {(d.tags || []).slice(0, 1).map(t => <span key={t} style={{ fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 4, background: 'var(--bg-active)', color: 'var(--accent-link)' }}>{t}</span>)}
-            <span style={{ fontSize: 9, color: 'var(--text-faint)', marginLeft: 'auto' }}>{timeAgo(d.created_at)}</span>
+        <Link
+          key={d.id}
+          href={`/diskusijos/${d.slug}`}
+          className="block rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-3.5 py-3 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+        >
+          <div className="mb-1.5 flex items-center gap-1.5">
+            {(d.tags || []).slice(0, 1).map(t => (
+              <span key={t} className="rounded bg-[var(--bg-active)] px-1.5 py-0.5 text-[9px] font-extrabold text-[var(--accent-link)]">{t}</span>
+            ))}
+            <span className="ml-auto text-[9px] text-[var(--text-faint)]">{timeAgo(d.created_at)}</span>
           </div>
-          <p style={{ fontFamily: 'Outfit, sans-serif', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 5px', lineHeight: 1.35, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' } as any}>{d.title}</p>
-          <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: 0 }}>{d.author_name} · {d.comment_count} atsak.</p>
+          <p className="m-0 mb-1.5 line-clamp-2 font-['Outfit',sans-serif] text-[13px] font-bold leading-snug text-[var(--text-primary)]">{d.title}</p>
+          <p className="m-0 text-[10px] text-[var(--text-muted)]">{d.author_name} · {d.comment_count} atsak.</p>
         </Link>
       ))}
     </div>
@@ -1430,10 +1444,10 @@ export default function Home() {
           {/* ── ROW 4: Three-column ── */}
           <section>
             <div className="hp-triple" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, alignItems: 'start' }}>
-              <div><SH label="Dienos daina" href="/dienos-daina" /><DienosDainaWidget /></div>
-              <div><SH label="Pokalbiai" href="/pokalbiai" cta="Atidaryti →" /><HomeChatsWidget /></div>
+              <div><SectionHead label="Dienos daina" href="/dienos-daina" /><DienosDainaWidget /></div>
+              <div><SectionHead label="Pokalbiai" href="/pokalbiai" cta="Atidaryti →" /><HomeChatsWidget /></div>
               <div>
-                <SH label="Boombox" href="/boombox" cta="3 misijos kasdien →" />
+                <SectionHead label="Boombox" href="/boombox" cta="3 misijos kasdien →" />
                 <BoomboxHomeWidget />
               </div>
             </div>
@@ -1442,7 +1456,7 @@ export default function Home() {
           {/* ── ROW 5: Diskusijos + Atlikėjai ── */}
           <div className="hp-ne" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
             <section>
-              <SH label="Bendruomenė" href="/diskusijos" cta="Visos diskusijos →" />
+              <SectionHead label="Bendruomenė" href="/diskusijos" cta="Visos diskusijos →" />
               <DiscussionsWidget />
             </section>
             <section>
