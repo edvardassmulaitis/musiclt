@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { useSite } from '@/components/SiteContext'
-import { HomeChatsWidget } from '@/components/HomeChatsWidget'
 
 /* ────────────────────────────── Types ────────────────────────────── */
 type Track = { id: number; slug: string; title: string; cover_url: string | null; created_at: string; artists: { id: number; slug: string; name: string; cover_image_url?: string | null } | null }
@@ -14,6 +13,7 @@ type NewsItem = { id: number; slug: string; title: string; image_small_url: stri
 type TopEntry = { pos: number; track_id: number; title: string; artist: string; cover_url: string | null; artist_image: string | null; trend: string; wks?: number; slug?: string; artist_slug?: string }
 type Nomination = { id: number; votes: number; weighted_votes: number; tracks: { id: number; title: string; cover_url: string | null; artists: { name: string } | null } | null }
 type Discussion = { id: number; slug: string; title: string; author_name: string | null; comment_count: number; created_at: string; tags: string[] }
+type ShoutMsg = { id: number; author_name: string; author_avatar: string | null; body: string; created_at: string; user_id: string }
 type HeroSlide = {
   type: string; chip: string; chipBg: string; title: string; subtitle: string
   href: string; bgImg?: string | null; videoId?: string | null
@@ -90,10 +90,10 @@ function Cover({ src, alt, size = 44, radius = 10, ytId, artistSrc }: { src?: st
 }
 
 function TrendIcon({ t }: { t: string }) {
-  if (t === 'up') return <span style={{ color: '#34d399', fontSize: 10, fontWeight: 900 }}>▲</span>
-  if (t === 'down') return <span style={{ color: '#f87171', fontSize: 10, fontWeight: 900 }}>▼</span>
-  if (t === 'new') return <span style={{ fontSize: 8, fontWeight: 800, color: '#fbbf24', background: 'rgba(251,191,36,0.12)', padding: '1px 5px', borderRadius: 3, letterSpacing: '0.04em' }}>N</span>
-  return <span style={{ color: '#243040', fontSize: 10 }}>–</span>
+  if (t === 'up') return <span className="text-[10px] font-black text-[var(--accent-green)]">▲</span>
+  if (t === 'down') return <span className="text-[10px] font-black text-[var(--accent-red)]">▼</span>
+  if (t === 'new') return <span className="rounded-[3px] bg-[var(--accent-yellow)]/15 px-[5px] py-px text-[8px] font-extrabold tracking-[0.04em] text-[var(--accent-yellow)]">N</span>
+  return <span className="text-[10px] text-[var(--text-faint)]">–</span>
 }
 
 function Skel({ w, h, r = 6 }: { w: number | string; h: number; r?: number }) {
@@ -255,8 +255,64 @@ function BoomboxHomeWidget() {
   )
 }
 
-/* Shoutbox widget'as išperkeltas į components/HomeChatsWidget.tsx ir
-   dabar yra dalis pokalbių sistemos (rodoma user'io pastarosios DM/grupės). */
+/* ────────────────────────────── Shoutbox ────────────────────────────── */
+
+function ShoutboxWidget() {
+  const [msgs, setMsgs] = useState<ShoutMsg[]>([])
+  const [loading, setLoading] = useState(true)
+  const load = useCallback(async (since?: string) => {
+    try {
+      const r = await fetch(since ? `/api/live/shoutbox?since=${encodeURIComponent(since)}&limit=12` : '/api/live/shoutbox?limit=12')
+      const d = await r.json()
+      if (d.messages?.length) {
+        if (!since) { setMsgs([...d.messages].reverse()) }
+        else { setMsgs(prev => { const ids = new Set(prev.map((m: ShoutMsg) => m.id)); const fresh = d.messages.filter((m: ShoutMsg) => !ids.has(m.id)); return fresh.length ? [...prev, ...fresh].slice(-12) : prev }) }
+      }
+      setLoading(false)
+    } catch { setLoading(false) }
+  }, [])
+  useEffect(() => {
+    load()
+    const iv = setInterval(() => { setMsgs(prev => { const last = prev[prev.length - 1]; if (last) load(last.created_at); return prev }) }, 8000)
+    return () => clearInterval(iv)
+  }, [load])
+  return (
+    <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ padding: '11px 14px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          <span style={{ fontFamily: 'Outfit, sans-serif', fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>Gyvi pokalbiai</span>
+          <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 6px #22c55e' }} />
+        </div>
+        <Link href="/bendruomene" style={{ fontSize: 10, color: 'var(--accent-link)', fontWeight: 700, textDecoration: 'none' }}>Visi →</Link>
+      </div>
+      <div style={{ flex: 1 }}>
+        {loading ? Array(4).fill(null).map((_, i) => (
+          <div key={i} style={{ display: 'flex', gap: 9, padding: '9px 14px', borderBottom: i < 3 ? '1px solid var(--border-subtle)' : 'none' }}>
+            <Skel w={24} h={24} r={12} /><div style={{ flex: 1 }}><Skel w="40%" h={9} /><div style={{ marginTop: 4 }}><Skel w="75%" h={10} /></div></div>
+          </div>
+        ))
+        : msgs.length === 0 ? <div style={{ padding: '18px', color: 'var(--text-muted)', fontSize: 12, textAlign: 'center' }}>Dar nėra žinučių</div>
+        : msgs.slice(-6).map((m, i, arr) => (
+          <div key={m.id} style={{ display: 'flex', gap: 9, padding: '8px 14px', borderBottom: i < arr.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
+            <div style={{ width: 24, height: 24, borderRadius: '50%', flexShrink: 0, background: `hsl(${strHue(m.author_name)},28%,14%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: `hsl(${strHue(m.author_name)},45%,52%)`, fontFamily: 'Outfit, sans-serif' }}>{m.author_name[0]?.toUpperCase()}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', gap: 5, alignItems: 'center', marginBottom: 1 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-link)' }}>{m.author_name}</span>
+                <span style={{ fontSize: 9, color: 'var(--text-faint)' }}>{timeAgo(m.created_at)}</span>
+              </div>
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>{m.body}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{ padding: '9px 12px', borderTop: '1px solid var(--border-subtle)' }}>
+        <Link href="/bendruomene" style={{ display: 'block', textAlign: 'center', padding: '7px', borderRadius: 10, background: 'var(--bg-hover)', border: '1px solid var(--border-default)', color: 'var(--accent-link)', fontSize: 11, fontWeight: 700, textDecoration: 'none', transition: 'background .15s' }} onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-active)')} onMouseLeave={e => (e.currentTarget.style.background = 'var(--bg-hover)')}>
+          Prisijungti prie pokalbio →
+        </Link>
+      </div>
+    </div>
+  )
+}
 
 /* ────────────────────────────── Discussions ────────────────────────────── */
 
@@ -630,6 +686,82 @@ function RowDivider({ icon }: { icon: 'lt' | 'world' }) {
   )
 }
 
+
+
+/* ────────────────────────────── Chart widget bits ──────────────────────────────
+   Bendri komponentai naudojami DESKTOP hero sidebar ir MOBILE chart blokuose,
+   kad neturėtume daryti lygiai to paties dk-branching'o dviejose vietose.
+   `compact` flag — desktop versija mažesnis font + padding'as. */
+
+function ChartTabs({ active, onSelect, compact = false }: {
+  active: 'lt' | 'world'
+  onSelect: (k: 'lt' | 'world') => void
+  compact?: boolean
+}) {
+  const tabPad = compact ? 'py-[7px] text-[11px]' : 'py-[9px] text-[12px]'
+  return (
+    <div className="mb-3 flex">
+      <div className="flex flex-1 gap-[3px] rounded-[10px] bg-[var(--bg-hover)] p-[3px]">
+        {([['lt', 'LT TOP 30'], ['world', 'TOP 40']] as const).map(([k, l]) => (
+          <button
+            key={k}
+            onClick={() => onSelect(k)}
+            className={`flex-1 rounded-lg border-none font-['Outfit',sans-serif] font-bold transition-all ${tabPad} ${
+              active === k
+                ? 'bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-sm'
+                : 'bg-transparent text-[var(--text-muted)]'
+            }`}
+          >
+            {l}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function ChartRow({ t, compact = false }: { t: TopEntry; compact?: boolean }) {
+  const titleSize = compact ? 'text-[12.5px]' : 'text-[13px]'
+  const metaSize = compact ? 'text-[10.5px]' : 'text-[11px]'
+  return (
+    <Link
+      href={t.slug ? `/muzika/${t.slug}` : '/topas'}
+      className="hp-card flex items-center gap-2.5 px-2.5 py-2 no-underline"
+    >
+      <div className="w-7 shrink-0 text-center">
+        <span
+          className={`block font-['Outfit',sans-serif] text-[16px] font-black leading-none ${
+            t.pos <= 3 ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]'
+          }`}
+        >
+          {t.pos}
+        </span>
+        <div className="mt-[2px]"><TrendIcon t={t.trend} /></div>
+      </div>
+      <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg">
+        <Cover src={t.cover_url || t.artist_image} alt={t.title} size={40} radius={8} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className={`m-0 truncate font-bold text-[var(--text-primary)] ${titleSize}`}>{t.title}</p>
+        <p className={`m-0 mt-[2px] truncate text-[var(--text-muted)] ${metaSize}`}>{t.artist}</p>
+      </div>
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--bg-active)] transition-colors">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="ml-px text-[var(--text-primary)]"><path d="M8 5v14l11-7z"/></svg>
+      </div>
+    </Link>
+  )
+}
+
+function ChartVoteCTA({ className = '' }: { className?: string }) {
+  return (
+    <Link
+      href="/topas/balsuoti"
+      className={`mt-2.5 flex items-center justify-center rounded-[10px] bg-[var(--accent-orange)] p-2.5 font-['Outfit',sans-serif] text-[12px] font-extrabold text-white no-underline shadow-[0_2px_12px_rgba(249,115,22,0.3)] transition-all hover:-translate-y-px hover:shadow-[0_4px_18px_rgba(249,115,22,0.45)] ${className}`}
+    >
+      Balsuok
+    </Link>
+  )
+}
 
 
 export default function Home() {
@@ -1068,59 +1200,20 @@ export default function Home() {
 
               {/* Chart sidebar */}
               <div className="hp-hero-right">
-                <div style={{ display: 'flex', marginBottom: 12 }}>
-                  <div style={{ display: 'flex', flex: 1, borderRadius: 10, padding: 3, background: dk ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.03)', gap: 3 }}>
-                    {([['lt', 'LT TOP 30'], ['world', 'TOP 40']] as const).map(([k, l]) => (
-                      <button key={k} onClick={() => setChartTab(k)}
-                        style={{
-                          flex: 1, padding: '7px 0', borderRadius: 8, fontSize: 11, fontWeight: 700,
-                          border: 'none', cursor: 'pointer', transition: 'all .15s', fontFamily: 'Outfit,sans-serif',
-                          background: chartTab === k ? (dk ? 'rgba(255,255,255,.1)' : '#fff') : 'transparent',
-                          color: chartTab === k ? (dk ? '#fff' : '#0f1a2e') : (dk ? '#6a88aa' : '#8899aa'),
-                          boxShadow: chartTab === k ? (dk ? 'none' : '0 1px 3px rgba(0,0,0,.08)') : 'none',
-                        }}>{l}</button>
-                    ))}
-                  </div>
-                </div>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <ChartTabs active={chartTab} onSelect={setChartTab} compact />
+                <div className="flex flex-1 flex-col gap-1.5">
                   {chartData.length === 0
                     ? Array.from({ length: 5 }).map((_, i) => (
-                      <div key={i} className="hp-card" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px' }}>
+                      <div key={i} className="hp-card flex items-center gap-2.5 px-2.5 py-2">
                         <Skel w={20} h={16} /><Skel w={40} h={40} r={8} />
-                        <div style={{ flex: 1 }}><Skel w="72%" h={11} /><div style={{ marginTop: 4 }}><Skel w="50%" h={9} /></div></div>
+                        <div className="flex-1"><Skel w="72%" h={11} /><div className="mt-1"><Skel w="50%" h={9} /></div></div>
                       </div>
                     ))
                     : chartData.slice(0, 5).map((t, i) => (
-                      <Link key={t.track_id || i} href={t.slug ? `/muzika/${t.slug}` : '/topas'}
-                        className="hp-card"
-                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', textDecoration: 'none' }}>
-                        <div style={{ width: 28, flexShrink: 0, textAlign: 'center' }}>
-                          <span style={{ fontSize: 16, fontWeight: 900, fontFamily: 'Outfit,sans-serif', display: 'block', lineHeight: 1, color: t.pos <= 3 ? 'var(--homepage-pos-accent)' : (dk ? '#4a6888' : '#c0ccd8') }}>{t.pos}</span>
-                          <div style={{ marginTop: 2 }}><TrendIcon t={t.trend} /></div>
-                        </div>
-                        <div style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 8, overflow: 'hidden' }}>
-                          <Cover src={t.cover_url || t.artist_image} alt={t.title} size={40} radius={8} />
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</p>
-                          <p style={{ fontSize: 10.5, color: 'var(--text-muted)', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.artist}</p>
-                        </div>
-                        <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: dk ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background .15s' }}>
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill={dk ? '#fff' : '#0f1a2e'} style={{ marginLeft: 1 }}><path d="M8 5v14l11-7z"/></svg>
-                        </div>
-                      </Link>
+                      <ChartRow key={t.track_id || i} t={t} compact />
                     ))}
                 </div>
-                <Link href="/topas/balsuoti" style={{
-                  marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  padding: '10px', borderRadius: 10, background: '#f97316', color: '#fff',
-                  fontSize: 12, fontWeight: 800, textDecoration: 'none', fontFamily: 'Outfit,sans-serif',
-                  transition: 'all .15s', boxShadow: '0 2px 12px rgba(249,115,22,.3)',
-                }}
-                  onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 4px 18px rgba(249,115,22,.45)'; e.currentTarget.style.transform = 'translateY(-1px)' }}
-                  onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 2px 12px rgba(249,115,22,.3)'; e.currentTarget.style.transform = 'none' }}>
-                  Balsuok
-                </Link>
+                <ChartVoteCTA />
 
               </div>
             </div>
@@ -1185,49 +1278,14 @@ export default function Home() {
         )}
 
         {/* ═══════════════════════ MOBILE CHART ═══════════════════════ */}
-        <div className="hp-mobile-chart" style={{ maxWidth: 1360, margin: '0 auto', padding: '20px 20px 0' }}>
-          <div style={{ display: 'flex', marginBottom: 12 }}>
-            <div style={{ display: 'flex', flex: 1, borderRadius: 10, padding: 3, background: dk ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.03)', gap: 3 }}>
-              {([['lt', 'LT TOP 30'], ['world', 'TOP 40']] as const).map(([k, l]) => (
-                <button key={k} onClick={() => setChartTab(k)}
-                  style={{
-                    flex: 1, padding: '9px 0', borderRadius: 8, fontSize: 12, fontWeight: 700,
-                    border: 'none', cursor: 'pointer', transition: 'all .15s', fontFamily: 'Outfit,sans-serif',
-                    background: chartTab === k ? (dk ? 'rgba(255,255,255,.1)' : '#fff') : 'transparent',
-                    color: chartTab === k ? (dk ? '#fff' : '#0f1a2e') : (dk ? '#6a88aa' : '#8899aa'),
-                    boxShadow: chartTab === k ? (dk ? 'none' : '0 1px 3px rgba(0,0,0,.08)') : 'none',
-                  }}>{l}</button>
-              ))}
-            </div>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div className="hp-mobile-chart mx-auto max-w-[1360px] px-5 pt-5">
+          <ChartTabs active={chartTab} onSelect={setChartTab} />
+          <div className="flex flex-col gap-1.5">
             {chartData.slice(0, 5).map((t, i) => (
-              <Link key={t.track_id || i} href={t.slug ? `/muzika/${t.slug}` : '/topas'}
-                className="hp-card"
-                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', textDecoration: 'none' }}>
-                <div style={{ width: 28, flexShrink: 0, textAlign: 'center' }}>
-                  <span style={{ fontSize: 16, fontWeight: 900, fontFamily: 'Outfit,sans-serif', display: 'block', lineHeight: 1, color: t.pos <= 3 ? 'var(--homepage-pos-accent)' : (dk ? '#4a6888' : '#c0ccd8') }}>{t.pos}</span>
-                  <div style={{ marginTop: 2 }}><TrendIcon t={t.trend} /></div>
-                </div>
-                <div style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 8, overflow: 'hidden' }}>
-                  <Cover src={t.cover_url || t.artist_image} alt={t.title} size={40} radius={8} />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</p>
-                  <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.artist}</p>
-                </div>
-                <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: dk ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill={dk ? '#fff' : '#0f1a2e'} style={{ marginLeft: 1 }}><path d="M8 5v14l11-7z"/></svg>
-                </div>
-              </Link>
+              <ChartRow key={t.track_id || i} t={t} />
             ))}
           </div>
-          <Link href="/topas/balsuoti" style={{
-            marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: '10px', borderRadius: 10, background: '#f97316', color: '#fff',
-            fontSize: 12, fontWeight: 800, textDecoration: 'none', fontFamily: 'Outfit,sans-serif',
-            boxShadow: '0 2px 12px rgba(249,115,22,.3)',
-          }}>Balsuok</Link>
+          <ChartVoteCTA />
         </div>
         {/* hp-mobile-chart CSS moved to main style block above */}
 
@@ -1429,7 +1487,7 @@ export default function Home() {
           <section>
             <div className="hp-triple" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, alignItems: 'start' }}>
               <div><SH label="Dienos daina" href="/dienos-daina" /><DienosDainaWidget /></div>
-              <div><SH label="Pokalbiai" href="/pokalbiai" cta="Atidaryti →" /><HomeChatsWidget /></div>
+              <div><SH label="Gyvi pokalbiai" href="/bendruomene" cta="Bendruomenė →" /><ShoutboxWidget /></div>
               <div>
                 <SH label="Boombox" href="/boombox" cta="3 misijos kasdien →" />
                 <BoomboxHomeWidget />
