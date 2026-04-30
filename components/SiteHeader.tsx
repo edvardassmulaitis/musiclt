@@ -10,11 +10,9 @@ import { MasterSearch } from '@/components/MasterSearch'
 import { useSite } from '@/components/SiteContext'
 
 /* ──────────────────────────────────────────────────────────────────
- * Top meniu — 5 grupės. Visi page'ai egzistuoja (placeholder'iai
- * ten, kur turinys dar kuriamas), todėl 404'ų neturi būti.
- *
- * Desktop: hover atveria mega-dropdown'ą su ikonomis ir aprašymais.
- * Mobile drawer: VISI sub-itemai visada matomi (be accordion'o).
+ * Top meniu — 5 grupės.
+ *   Desktop: glass mega-dropdown su gradient kortelėmis ir stagger anim.
+ *   Mobile drawer: kompaktinis 2-col grid — visi itemai matomi be scroll'o.
  * ────────────────────────────────────────────────────────────────── */
 
 type SubItem = {
@@ -23,12 +21,13 @@ type SubItem = {
   desc?: string
   icon: React.ReactNode
   accent: string
-  soon?: boolean   // jei true — rodom "Greitai" badge ant item'o
+  soon?: boolean
 }
 type NavGroup = {
   label: string
-  href?: string         // top-level click target
-  cols?: 1 | 2          // 2 = mega-menu grid, default 1
+  href?: string
+  accent: string                // grupės pirminė spalva (dropdown'o decoration'ui)
+  cols?: 1 | 2
   items: SubItem[]
 }
 
@@ -94,6 +93,11 @@ const I = {
       <rect x="3" y="8" width="18" height="12" rx="2"/><circle cx="8" cy="14" r="2"/><circle cx="16" cy="14" r="2"/><path d="M7 8V5a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v3"/>
     </svg>
   ),
+  chat: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12a9 9 0 1 1-3.5-7.1L21 4l-1 4A9 9 0 0 1 21 12Z"/>
+    </svg>
+  ),
   game: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M6 12h4M8 10v4"/><circle cx="15" cy="11" r="1" fill="currentColor"/><circle cx="17.5" cy="13.5" r="1" fill="currentColor"/>
@@ -103,11 +107,6 @@ const I = {
   quiz: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-    </svg>
-  ),
-  chat: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 12a9 9 0 1 1-3.5-7.1L21 4l-1 4A9 9 0 0 1 21 12Z"/>
     </svg>
   ),
   forum: (
@@ -136,6 +135,7 @@ const NAV: NavGroup[] = [
   {
     label: 'Muzika',
     href: '/atlikejai',
+    accent: '#f59e0b',
     cols: 2,
     items: [
       { label: 'Atlikėjai ir grupės', href: '/atlikejai',    desc: 'Lietuvos scenos žemėlapis',          icon: I.artist, accent: '#f59e0b' },
@@ -147,6 +147,7 @@ const NAV: NavGroup[] = [
   {
     label: 'Topai ir balsavimai',
     href: '/topas',
+    accent: '#ef4444',
     cols: 1,
     items: [
       { label: 'Topai',         href: '/topas',         desc: 'Savaitės, mėnesio ir visų laikų reitingai', icon: I.trophy, accent: '#ef4444' },
@@ -157,6 +158,7 @@ const NAV: NavGroup[] = [
   {
     label: 'Renginiai',
     href: '/renginiai',
+    accent: '#3b82f6',
     cols: 2,
     items: [
       { label: 'Visi renginiai', href: '/renginiai',   desc: 'Artimiausi koncertai ir vakarėliai',  icon: I.calendar, accent: '#3b82f6' },
@@ -168,6 +170,7 @@ const NAV: NavGroup[] = [
   {
     label: 'Pramogos',
     href: '/boombox',
+    accent: '#f97316',
     cols: 1,
     items: [
       { label: 'Boombox',  href: '/boombox',  desc: 'Atrask atlikėjus swipe stiliumi',     icon: I.boombox, accent: '#f97316' },
@@ -177,11 +180,12 @@ const NAV: NavGroup[] = [
   },
   {
     label: 'Žmonės',
-    href: '/diskusijos',
+    href: '/pokalbiai',
+    accent: '#8b5cf6',
     cols: 2,
     items: [
+      { label: 'Pokalbiai',     href: '/pokalbiai',     desc: 'Privačios žinutės ir grupės',     icon: I.chat,   accent: '#06b6d4' },
       { label: 'Diskusijos',    href: '/diskusijos',    desc: 'Forumo temos ir debatai',         icon: I.forum,  accent: '#8b5cf6' },
-      { label: 'Pokalbiai',     href: '/pokalbiai',     desc: 'Privačios žinutės ir grupės',     icon: I.forum,  accent: '#22c55e' },
       { label: 'Tinklaraščiai', href: '/blogas',        desc: 'Vartotojų straipsniai',           icon: I.blog,   accent: '#a855f7', soon: true },
       { label: 'Vartotojai',    href: '/vartotojai',    desc: 'Aktyviausi bendruomenės nariai',  icon: I.users,  accent: '#f97316', soon: true },
       { label: 'Rašyti įrašą',  href: '/blogas/rasyti', desc: 'Pradėk savo blogą',               icon: I.pencil, accent: '#14b8a6' },
@@ -210,11 +214,19 @@ const SearchIcon = () => (
   </svg>
 )
 const ChevronIcon = () => (
-  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
-       style={{ marginLeft: 4 }}>
+  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 4 }}>
     <polyline points="6 9 12 15 18 9"/>
   </svg>
 )
+
+/* hex (#rrggbb) → "r, g, b" */
+function hexToRgb(hex: string): string {
+  const h = hex.replace('#', '')
+  const r = parseInt(h.slice(0, 2), 16)
+  const g = parseInt(h.slice(2, 4), 16)
+  const b = parseInt(h.slice(4, 6), 16)
+  return `${r}, ${g}, ${b}`
+}
 
 export function SiteHeader() {
   const { theme, setTheme, dk } = useSite()
@@ -227,13 +239,8 @@ export function SiteHeader() {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null
       const inField = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault()
-        setSearchOpen(true)
-      } else if (e.key === '/' && !inField && !searchOpen) {
-        e.preventDefault()
-        setSearchOpen(true)
-      }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setSearchOpen(true) }
+      else if (e.key === '/' && !inField && !searchOpen) { e.preventDefault(); setSearchOpen(true) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -241,7 +248,6 @@ export function SiteHeader() {
 
   const openSearch = () => { setSearchOpen(true); setMenuOpen(false) }
 
-  /* ── Theme tokens ── */
   const bg          = 'rgba(var(--bg-body-rgb), 0.97)'
   const bdr         = '1px solid var(--border-default)'
   const navColor    = 'var(--text-secondary)'
@@ -255,9 +261,6 @@ export function SiteHeader() {
   const mutedIcon   = 'var(--text-muted)'
   const drawerBg    = 'var(--bg-surface)'
   const hamColor    = 'var(--text-muted)'
-  const sectionLabel= 'var(--text-muted)'
-  const ddBg        = 'var(--bg-surface)'
-  const ddShadow    = '0 24px 60px rgba(0,0,0,0.25), 0 6px 16px rgba(0,0,0,0.10)'
 
   const isActive      = (href: string) => href === '/' ? pathname === '/' : pathname.startsWith(href)
   const isGroupActive = (g: NavGroup) => (g.href && isActive(g.href)) || g.items.some(it => isActive(it.href))
@@ -279,84 +282,146 @@ export function SiteHeader() {
         .sh-navlink:hover { color: ${navHover}; background: ${navHoverBg}; }
         .sh-navlink.active { color: ${activeColor}; background: ${activeBg}; }
         .sh-navlink.active:hover { color: ${activeColor}; background: ${activeBg}; }
-        .sh-navlink svg { transition: transform .18s ease; }
+        .sh-navlink svg { transition: transform .2s ease; }
         .sh-group:hover .sh-navlink svg { transform: rotate(180deg); }
 
-        /* ── Mega-dropdown ── */
+        /* ── Glass mega-dropdown ── */
         .sh-group { position: relative; }
         .sh-dropdown {
           position: absolute; top: 100%; left: 0;
-          padding: 14px;
-          background: ${ddBg};
-          border: ${bdr};
-          border-radius: 18px;
-          box-shadow: ${ddShadow};
+          padding: 16px;
+          background: rgba(var(--bg-surface-rgb), 0.85);
+          backdrop-filter: blur(40px) saturate(180%);
+          -webkit-backdrop-filter: blur(40px) saturate(180%);
+          border: 1px solid rgba(var(--bg-surface-rgb), 0.5);
+          border-radius: 22px;
+          box-shadow:
+            0 30px 80px rgba(0,0,0,0.35),
+            0 8px 20px rgba(0,0,0,0.15),
+            inset 0 1px 0 rgba(255,255,255,0.06);
           opacity: 0; pointer-events: none;
-          transform: translateY(-8px);
-          transition: opacity .18s ease, transform .18s ease;
+          transform: translateY(-10px) scale(0.98);
+          transition: opacity .22s ease, transform .22s ease;
           z-index: 100;
-          margin-top: 8px;
+          margin-top: 10px;
+          overflow: hidden;
         }
-        .sh-dropdown.cols-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; min-width: 540px; }
-        .sh-dropdown.cols-1 { display: flex; flex-direction: column; gap: 2px; min-width: 320px; }
+        /* Spalvotas glow viršutiniame kampe — group accent */
+        .sh-dropdown::after {
+          content: '';
+          position: absolute; top: -120px; right: -120px;
+          width: 280px; height: 280px;
+          background: radial-gradient(circle, rgba(var(--gp-rgb), 1) 0%, transparent 70%);
+          opacity: 0.18;
+          pointer-events: none;
+          z-index: 0;
+        }
+        .sh-dropdown.cols-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; min-width: 580px; }
+        .sh-dropdown.cols-1 { display: flex; flex-direction: column; gap: 6px; min-width: 360px; }
         .sh-dropdown::before {
           content: ''; position: absolute;
-          top: -10px; left: 0; right: 0; height: 10px;
+          top: -12px; left: 0; right: 0; height: 12px;
+          z-index: 1;
         }
         .sh-group:hover > .sh-dropdown,
         .sh-group:focus-within > .sh-dropdown {
           opacity: 1; pointer-events: auto;
-          transform: translateY(0);
+          transform: translateY(0) scale(1);
         }
         /* shift dropdown right for groups near right edge */
         .sh-group:nth-last-of-type(-n+2) > .sh-dropdown { left: auto; right: 0; }
 
-        /* ── Mega-item card ── */
+        /* ── Mega-item: gradient + lift + glow ── */
         .sh-megaitem {
-          display: flex; align-items: flex-start; gap: 13px;
-          padding: 13px;
-          border-radius: 12px;
-          text-decoration: none;
-          transition: background .14s;
-          color: ${navColor};
           position: relative;
+          display: flex; align-items: flex-start; gap: 14px;
+          padding: 14px;
+          border-radius: 14px;
+          text-decoration: none;
+          color: ${navColor};
+          background: linear-gradient(135deg, rgba(var(--it-rgb), 0.10) 0%, rgba(var(--it-rgb), 0.03) 100%);
+          border: 1px solid rgba(var(--it-rgb), 0.18);
+          transition: transform .22s ease, border-color .22s ease, box-shadow .22s ease, background .22s ease, opacity .25s ease;
+          opacity: 0;
+          transform: translateY(8px);
+          z-index: 1;
+          overflow: hidden;
         }
-        .sh-megaitem:hover { background: ${navHoverBg}; }
-        .sh-megaitem:hover .sh-megaicon { transform: scale(1.08); }
-        .sh-megaitem.active { background: ${activeBg}; }
-        .sh-megaitem.active .sh-mega-lbl { color: ${activeColor}; }
+        .sh-group:hover .sh-megaitem,
+        .sh-group:focus-within .sh-megaitem {
+          opacity: 1; transform: translateY(0);
+        }
+        /* stagger animation — kortelės įplaukia po vieną */
+        .sh-group:hover .sh-megaitem:nth-child(1),
+        .sh-group:focus-within .sh-megaitem:nth-child(1) { transition-delay: 30ms; }
+        .sh-group:hover .sh-megaitem:nth-child(2),
+        .sh-group:focus-within .sh-megaitem:nth-child(2) { transition-delay: 70ms; }
+        .sh-group:hover .sh-megaitem:nth-child(3),
+        .sh-group:focus-within .sh-megaitem:nth-child(3) { transition-delay: 110ms; }
+        .sh-group:hover .sh-megaitem:nth-child(4),
+        .sh-group:focus-within .sh-megaitem:nth-child(4) { transition-delay: 150ms; }
+        .sh-group:hover .sh-megaitem:nth-child(5),
+        .sh-group:focus-within .sh-megaitem:nth-child(5) { transition-delay: 190ms; }
+
+        .sh-megaitem:hover {
+          transform: translateY(-3px);
+          border-color: rgba(var(--it-rgb), 0.55);
+          background: linear-gradient(135deg, rgba(var(--it-rgb), 0.20) 0%, rgba(var(--it-rgb), 0.06) 100%);
+          box-shadow:
+            0 14px 32px rgba(var(--it-rgb), 0.25),
+            0 4px 10px rgba(var(--it-rgb), 0.10);
+        }
+        .sh-megaitem.active {
+          background: linear-gradient(135deg, rgba(var(--it-rgb), 0.28) 0%, rgba(var(--it-rgb), 0.10) 100%);
+          border-color: rgba(var(--it-rgb), 0.6);
+        }
+        .sh-megaitem.active .sh-mega-lbl { color: ${navHover}; }
+
         .sh-megaicon {
           flex-shrink: 0;
-          width: 40px; height: 40px;
-          border-radius: 11px;
+          width: 44px; height: 44px;
+          border-radius: 12px;
           display: flex; align-items: center; justify-content: center;
           color: #fff;
-          transition: transform .18s ease;
-          box-shadow: 0 3px 10px rgba(0,0,0,0.20);
+          background: linear-gradient(135deg, rgba(var(--it-rgb), 1) 0%, rgba(var(--it-rgb), 0.75) 100%);
+          box-shadow:
+            0 8px 16px rgba(var(--it-rgb), 0.35),
+            inset 0 1px 0 rgba(255, 255, 255, 0.25);
+          transition: transform .25s ease;
         }
-        .sh-megaicon svg { width: 20px; height: 20px; }
-        .sh-mega-text { flex: 1; min-width: 0; }
-        .sh-mega-lbl-row {
-          display: flex; align-items: center; gap: 6px; margin-bottom: 3px;
-        }
+        .sh-megaitem:hover .sh-megaicon { transform: scale(1.08) rotate(-3deg); }
+        .sh-megaicon svg { width: 22px; height: 22px; }
+
+        .sh-mega-text { flex: 1; min-width: 0; padding-top: 2px; }
+        .sh-mega-lbl-row { display: flex; align-items: center; gap: 7px; margin-bottom: 4px; flex-wrap: wrap; }
         .sh-mega-lbl {
-          font-size: 14px; font-weight: 700;
+          font-size: 14.5px; font-weight: 700;
           color: ${navHover};
-          line-height: 1.25;
+          line-height: 1.2;
+          letter-spacing: -0.01em;
         }
         .sh-mega-soon {
-          display: inline-block;
+          display: inline-flex; align-items: center; gap: 4px;
           font-size: 9px; font-weight: 800;
           text-transform: uppercase; letter-spacing: 0.08em;
-          padding: 2px 6px;
-          border-radius: 4px;
-          background: var(--bg-hover);
-          color: var(--text-muted);
-          border: 1px solid var(--border-default);
+          padding: 2px 7px;
+          border-radius: 999px;
+          background: rgba(var(--it-rgb), 0.15);
+          color: rgba(var(--it-rgb), 1);
+          border: 1px solid rgba(var(--it-rgb), 0.35);
+        }
+        .sh-mega-soon::before {
+          content: ''; width: 5px; height: 5px;
+          border-radius: 50%; background: currentColor;
+          animation: sh-pulse 1.8s infinite;
+        }
+        @keyframes sh-pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50%      { opacity: 0.5; transform: scale(1.4); }
         }
         .sh-mega-desc {
           display: block;
-          font-size: 12px; font-weight: 500;
+          font-size: 12.5px; font-weight: 500;
           color: ${navColor};
           line-height: 1.4;
           opacity: 0.85;
@@ -370,57 +435,82 @@ export function SiteHeader() {
           .sh-desktop-nav    { display: none !important; }
         }
 
-        /* ── Drawer ── */
+        /* ── Mobile drawer ── */
         .sh-overlay {
           position: fixed; inset: 0; z-index: 200;
-          background: rgba(0,0,0,0.5); backdrop-filter: blur(3px);
-          opacity: 0; pointer-events: none; transition: opacity .2s;
+          background: rgba(0,0,0,0.55); backdrop-filter: blur(6px);
+          opacity: 0; pointer-events: none; transition: opacity .22s;
         }
         .sh-overlay.open { opacity: 1; pointer-events: all; }
         .sh-drawer {
           position: fixed; top: 0; left: 0; bottom: 0; z-index: 201;
           width: 320px;
           transform: translateX(-100%);
-          transition: transform .22s cubic-bezier(.4,0,.2,1);
+          transition: transform .25s cubic-bezier(.4,0,.2,1);
           display: flex; flex-direction: column;
         }
         .sh-drawer.open { transform: translateX(0); }
 
-        /* ── Mobile sub-item su ikona — visi visada matomi ── */
-        .sh-msection {
-          padding: 14px 14px 6px;
-          font-size: 10px; font-weight: 800;
-          text-transform: uppercase; letter-spacing: 0.1em;
-          color: ${sectionLabel};
+        /* Mobile: kompaktinis 2-col grid — visi itemai matomi be scroll'o */
+        .sh-mgroup { padding: 8px 10px 0; }
+        .sh-mgroup-title {
+          display: flex; align-items: center; gap: 8px;
+          padding: 0 4px 6px;
+          font-size: 11px; font-weight: 800;
+          letter-spacing: 0.08em;
+          color: var(--text-primary);
         }
-        .sh-msubitem {
-          display: flex; align-items: center; gap: 10px;
-          padding: 9px 14px;
+        .sh-mgroup-title-dot {
+          width: 7px; height: 7px;
+          border-radius: 50%;
+          box-shadow: 0 0 0 3px rgba(var(--gp-rgb), 0.18);
+        }
+        .sh-mgrid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 6px;
+        }
+        .sh-mcard {
+          position: relative;
+          display: flex; align-items: center; gap: 8px;
+          padding: 8px 10px;
           border-radius: 10px;
           text-decoration: none;
-          font-size: 13.5px; font-weight: 600;
-          color: ${navColor};
-          transition: background .12s, color .12s;
+          background: linear-gradient(135deg, rgba(var(--it-rgb), 0.10) 0%, rgba(var(--it-rgb), 0.03) 100%);
+          border: 1px solid rgba(var(--it-rgb), 0.16);
+          transition: background .15s, border-color .15s, transform .15s;
+          min-width: 0;
         }
-        .sh-msubitem:hover { background: ${navHoverBg}; color: ${navHover}; }
-        .sh-msubitem.active { color: ${activeColor}; background: ${activeBg}; }
-        .sh-msubitem .sh-msoon {
-          margin-left: auto;
-          font-size: 9px; font-weight: 800;
-          text-transform: uppercase; letter-spacing: 0.08em;
-          padding: 2px 6px; border-radius: 4px;
-          color: var(--text-muted);
-          background: var(--bg-hover);
-          border: 1px solid var(--border-default);
-        }
-        .sh-micon {
+        .sh-mcard:active { transform: scale(0.97); }
+        .sh-mcard:hover { background: linear-gradient(135deg, rgba(var(--it-rgb), 0.18) 0%, rgba(var(--it-rgb), 0.06) 100%); }
+        .sh-mcard.active { background: linear-gradient(135deg, rgba(var(--it-rgb), 0.25) 0%, rgba(var(--it-rgb), 0.10) 100%); border-color: rgba(var(--it-rgb), 0.55); }
+        .sh-mcard-icon {
           flex-shrink: 0;
-          width: 28px; height: 28px;
-          border-radius: 8px;
+          width: 22px; height: 22px;
+          border-radius: 7px;
           display: flex; align-items: center; justify-content: center;
           color: #fff;
+          background: linear-gradient(135deg, rgba(var(--it-rgb), 1) 0%, rgba(var(--it-rgb), 0.75) 100%);
+          box-shadow: 0 2px 6px rgba(var(--it-rgb), 0.3);
         }
-        .sh-micon svg { width: 14px; height: 14px; }
+        .sh-mcard-icon svg { width: 12px; height: 12px; }
+        .sh-mcard-lbl {
+          font-size: 11.5px; font-weight: 700;
+          color: var(--text-primary);
+          line-height: 1.15;
+          flex: 1; min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .sh-mcard-soon {
+          position: absolute;
+          top: 4px; right: 4px;
+          width: 5px; height: 5px;
+          border-radius: 50%;
+          background: rgba(var(--it-rgb), 1);
+          box-shadow: 0 0 0 2px rgba(var(--it-rgb), 0.25);
+        }
       `}</style>
 
       {/* ─── HEADER BAR ─────────────────────────────────────────── */}
@@ -477,14 +567,19 @@ export function SiteHeader() {
             }}>⌘K</span>
           </button>
 
-          {/* Desktop nav — mega-dropdowns */}
+          {/* Desktop nav */}
           <nav className="sh-desktop-nav" style={{ alignItems: 'center', gap: 1, flexShrink: 0, marginLeft: 'auto' }}>
             {NAV.map(g => {
               const active = isGroupActive(g)
               const target = g.href || g.items[0]?.href || '/'
               const cols = g.cols || 1
+              const grpRgb = hexToRgb(g.accent)
               return (
-                <div key={g.label} className="sh-group">
+                <div
+                  key={g.label}
+                  className="sh-group"
+                  style={{ ['--gp-rgb' as any]: grpRgb }}
+                >
                   <Link href={target} className={`sh-navlink${active ? ' active' : ''}`}>
                     {g.label}
                     <ChevronIcon />
@@ -492,9 +587,15 @@ export function SiteHeader() {
                   <div className={`sh-dropdown cols-${cols}`} role="menu">
                     {g.items.map(it => {
                       const a = isActive(it.href)
+                      const rgb = hexToRgb(it.accent)
                       return (
-                        <Link key={it.label} href={it.href} className={`sh-megaitem${a ? ' active' : ''}`}>
-                          <span className="sh-megaicon" style={{ background: it.accent }}>{it.icon}</span>
+                        <Link
+                          key={it.label}
+                          href={it.href}
+                          className={`sh-megaitem${a ? ' active' : ''}`}
+                          style={{ ['--it-rgb' as any]: rgb }}
+                        >
+                          <span className="sh-megaicon">{it.icon}</span>
                           <span className="sh-mega-text">
                             <span className="sh-mega-lbl-row">
                               <span className="sh-mega-lbl">{it.label}</span>
@@ -511,7 +612,7 @@ export function SiteHeader() {
             })}
           </nav>
 
-          {/* Right cluster — Messages + Notifications + Auth */}
+          {/* Right cluster */}
           <div style={{ flexShrink: 0, marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
             <MessagesBell />
             <NotificationsBell />
@@ -520,14 +621,15 @@ export function SiteHeader() {
         </div>
       </header>
 
-      {/* ─── DRAWER ───────────────────────────────────────────────── */}
+      {/* ─── MOBILE DRAWER ───────────────────────────────────────── */}
       <div className={`sh-overlay${menuOpen ? ' open' : ''}`} onClick={() => setMenuOpen(false)} />
 
       <div className={`sh-drawer${menuOpen ? ' open' : ''}`} style={{ background: drawerBg, borderRight: bdr }}>
-        <div style={{ height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 18px', borderBottom: bdr, flexShrink: 0 }}>
+
+        <div style={{ height: 50, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 14px', borderBottom: bdr, flexShrink: 0 }}>
           <Link href="/" onClick={() => setMenuOpen(false)} style={{ textDecoration: 'none' }}>
-            <span style={{ fontWeight: 900, fontSize: 20, color: logoColor }}>music</span>
-            <span style={{ fontWeight: 900, fontSize: 20, color: 'var(--accent-orange)' }}>.lt</span>
+            <span style={{ fontWeight: 900, fontSize: 19, color: logoColor }}>music</span>
+            <span style={{ fontWeight: 900, fontSize: 19, color: 'var(--accent-orange)' }}>.lt</span>
           </Link>
           <button onClick={() => setMenuOpen(false)}
             style={{ width: 28, height: 28, borderRadius: 7, border: 'none', background: 'transparent', color: mutedIcon, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -537,46 +639,62 @@ export function SiteHeader() {
           </button>
         </div>
 
-        {/* Drawer search trigger */}
-        <div style={{ padding: '12px 14px', borderBottom: bdr }}>
+        <div style={{ padding: '8px 12px', borderBottom: bdr, flexShrink: 0 }}>
           <button
             onClick={openSearch}
             style={{
-              display: 'flex', alignItems: 'center', gap: 10,
-              borderRadius: 10, background: inputBg, border: inputBdr,
-              width: '100%', height: 40, padding: '0 14px',
+              display: 'flex', alignItems: 'center', gap: 8,
+              borderRadius: 9, background: inputBg, border: inputBdr,
+              width: '100%', height: 34, padding: '0 12px',
               cursor: 'pointer', fontFamily: 'inherit',
               color: 'var(--text-muted)',
             }}>
             <SearchIcon />
-            <span style={{ fontSize: 13, fontWeight: 500 }}>Ieškoti visko…</span>
+            <span style={{ fontSize: 12.5, fontWeight: 500 }}>Ieškoti visko…</span>
           </button>
         </div>
 
-        {/* Drawer nav — VISI sub-itemai visada matomi (be accordion'o) */}
-        <nav style={{ flex: 1, padding: '4px 8px 12px', overflowY: 'auto' }}>
-          {NAV.map(g => (
-            <div key={g.label} style={{ marginBottom: 4 }}>
-              <div className="sh-msection">{g.label}</div>
-              {g.items.map(it => {
-                const a = isActive(it.href)
-                return (
-                  <Link key={it.label} href={it.href} onClick={() => setMenuOpen(false)}
-                    className={`sh-msubitem${a ? ' active' : ''}`}>
-                    <span className="sh-micon" style={{ background: it.accent }}>{it.icon}</span>
-                    <span>{it.label}</span>
-                    {it.soon && <span className="sh-msoon">Greitai</span>}
-                  </Link>
-                )
-              })}
-            </div>
-          ))}
+        {/* Drawer nav — kompaktinis 2-col grid be scroll'o */}
+        <nav style={{ flex: 1, padding: '4px 0 4px', overflowY: 'auto' }}>
+          {NAV.map(g => {
+            const grpRgb = hexToRgb(g.accent)
+            return (
+              <div
+                key={g.label}
+                className="sh-mgroup"
+                style={{ ['--gp-rgb' as any]: grpRgb }}
+              >
+                <div className="sh-mgroup-title">
+                  <span className="sh-mgroup-title-dot" style={{ background: g.accent }} />
+                  {g.label}
+                </div>
+                <div className="sh-mgrid">
+                  {g.items.map(it => {
+                    const a = isActive(it.href)
+                    const rgb = hexToRgb(it.accent)
+                    return (
+                      <Link
+                        key={it.label}
+                        href={it.href}
+                        onClick={() => setMenuOpen(false)}
+                        className={`sh-mcard${a ? ' active' : ''}`}
+                        style={{ ['--it-rgb' as any]: rgb }}
+                      >
+                        <span className="sh-mcard-icon">{it.icon}</span>
+                        <span className="sh-mcard-lbl">{it.label}</span>
+                        {it.soon && <span className="sh-mcard-soon" />}
+                      </Link>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
         </nav>
 
-        {/* Drawer bottom: theme toggle */}
-        <div style={{ padding: '12px 14px', borderTop: bdr }}>
+        <div style={{ padding: '8px 12px', borderTop: bdr, flexShrink: 0 }}>
           <button onClick={() => { setTheme(theme === 'dark' ? 'light' : 'dark'); setMenuOpen(false) }}
-            style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 14px', borderRadius: 10, border: 'none', background: 'var(--bg-hover)', color: navColor, fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'background .12s' }}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', padding: '8px 12px', borderRadius: 9, border: 'none', background: 'var(--bg-hover)', color: navColor, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', transition: 'background .12s' }}
             onMouseEnter={e => (e.currentTarget.style.background = navHoverBg)}
             onMouseLeave={e => (e.currentTarget.style.background = 'var(--bg-hover)')}>
             {dk ? <><SunIcon /> Šviesi tema</> : <><MoonIcon /> Tamsi tema</>}
