@@ -19,15 +19,29 @@ type Props = {
 
 export function MessageItem({ message, viewerId, grouped, onOpenThread, onToggleReaction, onEdit, onDelete, threadView }: Props) {
   const [hover, setHover] = useState(false)
+  // tap'as ant žinutės mobile'e atveria toolbar'ą — be hover event'o.
+  const [tapToolbar, setTapToolbar] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editText, setEditText] = useState(message.body)
   const [showReactionPicker, setShowReactionPicker] = useState(false)
   const reactionPickerRef = useRef<HTMLDivElement>(null)
+  const itemRef = useRef<HTMLDivElement>(null)
 
   const isMine = message.user_id === viewerId
   const author = message.author
   const name = author?.full_name || author?.username || 'Vartotojas'
   const isDeleted = !!message.deleted_at
+  const showToolbar = (hover || tapToolbar) && !editing && !isDeleted
+
+  // Outside click → close tap'inį toolbar'ą
+  useEffect(() => {
+    if (!tapToolbar) return
+    const h = (e: MouseEvent) => {
+      if (itemRef.current && !itemRef.current.contains(e.target as Node)) setTapToolbar(false)
+    }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [tapToolbar])
 
   useEffect(() => { setEditText(message.body) }, [message.body])
 
@@ -51,20 +65,28 @@ export function MessageItem({ message, viewerId, grouped, onOpenThread, onToggle
 
   return (
     <div
+      ref={itemRef}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
+      onClick={() => {
+        // Tap'as ant žinutės mobile'e (kur hover neegzistuoja) atveria
+        // toolbar'ą. Desktop'e tap'as nieko nedaro — hover jau veikia.
+        if (!editing && !isDeleted && typeof window !== 'undefined' && window.matchMedia('(hover: none)').matches) {
+          setTapToolbar(t => !t)
+        }
+      }}
       style={{
         position: 'relative',
         padding: grouped ? '2px 16px 2px 16px' : '8px 16px 4px',
         display: 'flex', gap: 12,
-        background: hover ? 'var(--bg-hover)' : 'transparent',
+        background: showToolbar ? 'var(--bg-hover)' : 'transparent',
         transition: 'background .1s',
       }}
     >
       {/* Avatar (jei pirma žinutė grupėje arba ne grupėje) */}
       <div style={{ width: 36, flexShrink: 0, paddingTop: grouped ? 0 : 2 }}>
         {!grouped && <ChatAvatar url={author?.avatar_url || null} fallbackName={name} size={36} />}
-        {grouped && hover && (
+        {grouped && showToolbar && (
           <div style={{
             fontSize: 10, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1, paddingTop: 4,
           }}>
@@ -173,7 +195,7 @@ export function MessageItem({ message, viewerId, grouped, onOpenThread, onToggle
       </div>
 
       {/* Hover toolbar */}
-      {hover && !editing && !isDeleted && (
+      {showToolbar && (
         <div
           ref={reactionPickerRef}
           style={{

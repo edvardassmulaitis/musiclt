@@ -19,16 +19,18 @@ import { logActivity } from '@/lib/activity-logger'
 
 const EDIT_WINDOW_MINUTES = 20
 
-type EntityType = 'track' | 'album' | 'news' | 'event'
+type EntityType = 'track' | 'album' | 'news' | 'event' | 'discussion'
+type EntityCol = 'track_id' | 'album_id' | 'news_id' | 'event_id' | 'discussion_id'
 
-const ENTITY_COL: Record<EntityType, 'track_id' | 'album_id' | 'news_id' | 'event_id'> = {
+const ENTITY_COL: Record<EntityType, EntityCol> = {
   track: 'track_id',
   album: 'album_id',
   news: 'news_id',
   event: 'event_id',
+  discussion: 'discussion_id',
 }
 
-function entityCol(t: string | null): 'track_id' | 'album_id' | 'news_id' | 'event_id' | null {
+function entityCol(t: string | null): EntityCol | null {
   if (!t) return null
   return ENTITY_COL[t as EntityType] ?? null
 }
@@ -248,11 +250,12 @@ export async function POST(req: Request) {
 // commented entity. Async because we lookup slug from DB (small queries, OK).
 function buildEntityUrl(entityType: string, entityId: number, _sb: any): string {
   switch (entityType) {
-    case 'track':  return `/dainos/${entityId}`
-    case 'album':  return `/albumai/${entityId}`
-    case 'news':   return `/news/${entityId}`
-    case 'event':  return `/renginiai/${entityId}`
-    default:       return '/'
+    case 'track':       return `/dainos/${entityId}`
+    case 'album':       return `/albumai/${entityId}`
+    case 'news':        return `/news/${entityId}`
+    case 'event':       return `/renginiai/${entityId}`
+    case 'discussion':  return `/diskusijos/${entityId}` // ID, ne slug — deep link redirect'inasi
+    default:            return '/'
   }
 }
 

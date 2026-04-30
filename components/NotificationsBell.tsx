@@ -6,7 +6,6 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { createPortal } from 'react-dom'
 import { formatActivityEvent } from '@/lib/activity-logger'
-import { createPublicClient } from '@/lib/supabase'
 
 type Notification = {
   id: number
@@ -271,48 +270,13 @@ export function NotificationsBell() {
     }
   }, [])
 
-  // Initial load + fallback polling personal notifications
+  // Polling personal notifications
   useEffect(() => {
     if (status === 'loading') return
     fetchPersonal()
-    // 60s fallback polling (jeigu realtime kanalas neveikia, vis dar
-    // gausim updates — tik su delay).
     const id = setInterval(fetchPersonal, POLL_INTERVAL_MS)
     return () => clearInterval(id)
   }, [status, fetchPersonal])
-
-  // ── Realtime: prenumeruojam INSERT/UPDATE į notifications, kai user'is auth'inas.
-  // Naujas pranešimas atsiranda akimirksniu be 60s polling lag'o.
-  // unique channel id per instance, kad išvengtume "cannot add callbacks
-  // after subscribe()" kollisi'jos jeigu ant page'o yra du <NotificationsBell />.
-  const userIdForRT = (session?.user as any)?.id
-  useEffect(() => {
-    if (!userIdForRT) return
-    let channel: any = null
-    try {
-      const sb = createPublicClient()
-      const channelId = `notif-bell-${userIdForRT}-${Math.random().toString(36).slice(2, 8)}`
-      channel = sb.channel(channelId)
-        .on('postgres_changes' as any, {
-          event: '*',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${userIdForRT}`,
-        }, () => {
-          // Bet koks change → re-fetch (cheaper than incremental row merging)
-          fetchPersonal()
-        })
-        .subscribe()
-    } catch (e: any) {
-      // Realtime nesiveikia (anon key, RLS) — fallback polling tvarkys.
-      console.warn('[notifications] realtime subscribe failed:', e?.message || e)
-    }
-    return () => {
-      if (channel) {
-        try { channel.unsubscribe() } catch { /* ignore */ }
-      }
-    }
-  }, [userIdForRT, fetchPersonal])
 
   // Activity feed — pull when modal opens, then poll while open
   useEffect(() => {
@@ -390,19 +354,6 @@ export function NotificationsBell() {
   // Status loading (auth dar nesibaigė) — nekrukinam UI'aus, bet rodom bell
   // be badge'o, kad header layout neperšoktinėtų.
   const showBadge = unread > 0
-
-  // Pulse animacija kai unread skaičius padidėja (nauja žinutė atėjo).
-  // useEffect ant unread, lyginam su prev'ais — jei daugiau, trigger pulse.
-  const [pulse, setPulse] = useState(0)
-  const prevUnreadRef = useRef(unread)
-  useEffect(() => {
-    if (unread > prevUnreadRef.current) {
-      setPulse(p => p + 1)
-      const t = setTimeout(() => {/* let CSS animation run */}, 600)
-      return () => clearTimeout(t)
-    }
-    prevUnreadRef.current = unread
-  }, [unread])
 
   const bellColor = 'var(--text-muted)'
   const bellHover = 'var(--text-primary)'
@@ -522,22 +473,10 @@ export function NotificationsBell() {
           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
             Pranešimų dar nėra
           </div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4, marginBottom: 14 }}>
-            Pradėk komentuoti, mėgti dainas ar sekti atlikėjus —
-            kai kažkas atsakys ar reaguos, viskas atsiras čia.
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+            Čia matysi naujienas apie savo mėgstamus atlikėjus,
+            komentarus, patiktukus ir dienos dainos rezultatus.
           </div>
-          <Link
-            href="/atlikejai"
-            onClick={() => setOpen(false)}
-            style={{
-              display: 'inline-block',
-              padding: '8px 16px', borderRadius: 999,
-              background: 'var(--accent-orange)', color: '#fff',
-              fontSize: 12, fontWeight: 700, textDecoration: 'none',
-            }}
-          >
-            Atrasti atlikėjus
-          </Link>
         </div>
       )
     }
@@ -866,21 +805,6 @@ export function NotificationsBell() {
 
   return (
     <div ref={wrapRef} style={{ position: 'relative', flexShrink: 0 }}>
-      <style>{`
-        @keyframes nb-pulse {
-          0%   { transform: scale(1);   }
-          30%  { transform: scale(1.35); }
-          60%  { transform: scale(0.95); }
-          100% { transform: scale(1);   }
-        }
-        @keyframes nb-bell-shake {
-          0%, 100% { transform: rotate(0); }
-          20%      { transform: rotate(-12deg); }
-          40%      { transform: rotate(10deg); }
-          60%      { transform: rotate(-6deg); }
-          80%      { transform: rotate(4deg); }
-        }
-      `}</style>
       <button
         onClick={onToggle}
         aria-label="Pranešimai"
@@ -894,28 +818,19 @@ export function NotificationsBell() {
         onMouseEnter={e => { e.currentTarget.style.color = bellHover; e.currentTarget.style.background = 'var(--bg-hover)' }}
         onMouseLeave={e => { e.currentTarget.style.color = bellColor; e.currentTarget.style.background = 'transparent' }}
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-          style={{
-            transformOrigin: '50% 0%',
-            animation: pulse ? `nb-bell-shake 0.55s ease ${pulse}` : undefined,
-          }}
-          key={`bell-${pulse}`}
-        >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
           <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
         </svg>
         {showBadge && (
-          <span
-            key={`badge-${pulse}`}
-            style={{
-              position: 'absolute', top: 2, right: 2,
-              minWidth: 16, height: 16, padding: '0 4px',
-              borderRadius: 8, background: 'var(--accent-orange)', color: '#fff',
-              fontSize: 10, fontWeight: 800,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              lineHeight: 1, border: '2px solid var(--bg-body)',
-              animation: pulse ? 'nb-pulse 0.5s ease' : undefined,
-            }}>
+          <span style={{
+            position: 'absolute', top: 2, right: 2,
+            minWidth: 16, height: 16, padding: '0 4px',
+            borderRadius: 8, background: 'var(--accent-orange)', color: '#fff',
+            fontSize: 10, fontWeight: 800,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            lineHeight: 1, border: '2px solid var(--bg-body)',
+          }}>
             {unread > 99 ? '99+' : unread}
           </span>
         )}

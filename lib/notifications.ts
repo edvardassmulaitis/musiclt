@@ -8,7 +8,6 @@
 // neaplikuota prod'e), funkcija tiesiog returns'a — nieko neblokuoja.
 
 import { createAdminClient } from '@/lib/supabase'
-import { sendPushToUser } from '@/lib/web-push'
 
 export type NotificationType =
   | 'comment_reply'         // kažkas atsakė į tavo komentarą
@@ -81,26 +80,6 @@ export async function createNotification(p: CreateNotificationParams): Promise<v
     if (error && !/relation .* does not exist/i.test(error.message)) {
       // Ne lentelės nebuvimo klaida — log'inam (bet vis tiek nesvaidom).
       console.error('[notifications] insert failed:', error.message)
-    }
-
-    // ── Web Push: jeigu user'is įjungęs browser notifications ────────
-    // Fire-and-forget. sendPushToUser silently grąžina 0 jei VAPID keys
-    // nesukonfigūruoti arba user'is neturi push subs.
-    try {
-      const pushTitle = p.title || `${p.actor_full_name || p.actor_username || 'music.lt'}`
-      const pushBody = p.snippet || ''
-      await sendPushToUser(p.user_id, {
-        title: pushTitle,
-        body: pushBody,
-        url: p.url || '/',
-        // tag = type+entity → jeigu greitai pasikartoja (5 likes per minute),
-        // browser collapse'ina į vieną notification (renotify=true sukels
-        // skambutį, bet vienas item).
-        tag: `${p.type}:${p.entity_type || 'global'}:${p.entity_id ?? ''}`,
-        data: { type: p.type },
-      })
-    } catch (e: any) {
-      console.warn('[notifications] push send failed:', e?.message || e)
     }
   } catch (e: any) {
     console.error('[notifications] unexpected error:', e?.message || e)

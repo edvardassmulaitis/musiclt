@@ -1,21 +1,36 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import type { ConversationListItem } from '@/lib/chat-types'
 import { conversationDisplayName, conversationDisplayAvatar } from '@/lib/chat-types'
 import { ChatAvatar, ChatGroupAvatar } from './ChatAvatar'
 import { formatSidebarTime } from './ChatTime'
 
+// Diskusijos rodomos sidebar'e atskira sekcija. Pirmas etapas — temos,
+// kurias user'is sukūrė. Vėliau pridėsim "kuriose komentavo" kai bus
+// fix'inta `comments.discussion_id` schema.
+export type DiscussionItem = {
+  id: number
+  slug: string
+  title: string
+  comment_count: number
+  last_comment_at: string | null
+  created_at: string
+  is_author: boolean
+  involvement: 'created' | 'commented'
+}
+
 type Props = {
   viewerId: string
   conversations: ConversationListItem[]
+  discussions?: DiscussionItem[]
   activeId: number | null
   onNewConversation: () => void
   loading?: boolean
 }
 
-export function ConversationSidebar({ viewerId, conversations, activeId, onNewConversation, loading }: Props) {
+export function ConversationSidebar({ viewerId, conversations, discussions = [], activeId, onNewConversation, loading }: Props) {
   const [filter, setFilter] = useState('')
 
   const filtered = useMemo(() => {
@@ -31,12 +46,18 @@ export function ConversationSidebar({ viewerId, conversations, activeId, onNewCo
     })
   }, [conversations, filter, viewerId])
 
+  const filteredDiscussions = useMemo(() => {
+    const q = filter.trim().toLowerCase()
+    if (!q) return discussions
+    return discussions.filter(d => d.title.toLowerCase().includes(q))
+  }, [discussions, filter])
+
   const dms = filtered.filter(c => c.type === 'dm')
   const groups = filtered.filter(c => c.type === 'group')
 
   return (
     <aside style={{
-      width: 300, flexShrink: 0,
+      width: 300, flexShrink: 0, maxWidth: '100%',
       borderRight: '1px solid var(--border-default)',
       background: 'var(--bg-surface)',
       display: 'flex', flexDirection: 'column',
@@ -87,11 +108,11 @@ export function ConversationSidebar({ viewerId, conversations, activeId, onNewCo
 
       {/* List */}
       <div style={{ flex: 1, overflowY: 'auto' }}>
-        {loading && conversations.length === 0 ? (
+        {loading && conversations.length === 0 && filteredDiscussions.length === 0 ? (
           <div style={{ padding: 24, fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>
             Kraunasi…
           </div>
-        ) : filtered.length === 0 ? (
+        ) : (filtered.length === 0 && filteredDiscussions.length === 0) ? (
           <EmptyState onNew={onNewConversation} />
         ) : (
           <>
@@ -99,6 +120,8 @@ export function ConversationSidebar({ viewerId, conversations, activeId, onNewCo
             {dms.map(c => <ConversationRow key={c.id} c={c} viewerId={viewerId} active={c.id === activeId} />)}
             {groups.length > 0 && <SectionHeader label="Grupės" />}
             {groups.map(c => <ConversationRow key={c.id} c={c} viewerId={viewerId} active={c.id === activeId} />)}
+            {filteredDiscussions.length > 0 && <SectionHeader label="Diskusijos" />}
+            {filteredDiscussions.map(d => <DiscussionRow key={d.id} d={d} />)}
           </>
         )}
       </div>
@@ -208,6 +231,70 @@ function ConversationRow({ c, viewerId, active }: { c: ConversationListItem; vie
               {c.unread_count > 99 ? '99+' : c.unread_count}
             </span>
           )}
+        </div>
+      </div>
+    </Link>
+  )
+}
+
+function DiscussionRow({ d }: { d: DiscussionItem }) {
+  const time = d.last_comment_at
+    ? formatSidebarTime(d.last_comment_at)
+    : formatSidebarTime(d.created_at)
+  const subtitle = d.comment_count > 0
+    ? `${d.comment_count} ${d.comment_count === 1 ? 'atsakymas' : 'atsakymai'}`
+    : 'Dar nėra atsakymų'
+  const involvementBadge = d.involvement === 'created' ? 'autorius' : 'komentavai'
+  return (
+    <Link
+      href={`/diskusijos/${d.slug}`}
+      style={{
+        display: 'flex', gap: 10, alignItems: 'center',
+        padding: '10px 14px',
+        textDecoration: 'none', color: 'inherit',
+        transition: 'background .12s',
+      }}
+      onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
+      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+    >
+      <div style={{
+        width: 40, height: 40, flexShrink: 0,
+        borderRadius: 8,
+        background: 'rgba(139, 92, 246, 0.18)',
+        border: '1px solid rgba(139, 92, 246, 0.35)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: '#c4b5fd',
+      }}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M17 8h2a2 2 0 0 1 2 2v9l-3-3h-7a2 2 0 0 1-2-2v-1"/>
+          <path d="M3 13V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6l-3 3Z"/>
+        </svg>
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 2 }}>
+          <div style={{
+            flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 700,
+            color: 'var(--text-primary)',
+            overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+          }}>
+            {d.title}
+          </div>
+          <div style={{ fontSize: 10.5, color: 'var(--text-muted)', flexShrink: 0 }}>
+            {time}
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{
+            flex: 1, minWidth: 0, fontSize: 12, color: 'var(--text-muted)',
+            overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+          }}>
+            {subtitle}
+          </div>
+          <span style={{
+            fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 4,
+            background: 'rgba(139, 92, 246, 0.18)',
+            color: '#c4b5fd', textTransform: 'uppercase', letterSpacing: '0.05em',
+          }}>{involvementBadge}</span>
         </div>
       </div>
     </Link>
