@@ -47,6 +47,7 @@ type Hit = {
 }
 
 type Results = Record<Category, Hit[]>
+type Totals = Record<Category, number>
 
 /* ─── Modern line-art SVG icons (vietoj emoji) ────────────────────────
  * Visi 16x16 viewBox, currentColor stroke / fill — paveldi tekstinę
@@ -148,10 +149,11 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
   const [q, setQ] = useState('')
   const [activeCat, setActiveCat] = useState<Category | 'all'>('all')
   const [results, setResults] = useState<Results>(emptyResults())
+  const [totals, setTotals] = useState<Totals>(emptyTotals())
   const [loading, setLoading] = useState(false)
   const [tookMs, setTookMs] = useState(0)
   const [selectedIdx, setSelectedIdx] = useState(0)
-  const cacheRef = useRef<Map<string, { results: Results; took_ms: number }>>(new Map())
+  const cacheRef = useRef<Map<string, { results: Results; totals: Totals; took_ms: number }>>(new Map())
   const abortRef = useRef<AbortController | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [recentQueries, setRecentQueries] = useState<string[]>([])
@@ -258,6 +260,7 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
     const trimmed = q.trim()
     if (trimmed.length < 1) {
       setResults(emptyResults())
+      setTotals(emptyTotals())
       setTookMs(0)
       setLoading(false)
       setLastQuery('')
@@ -267,6 +270,7 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
     if (cacheRef.current.has(trimmed)) {
       const cached = cacheRef.current.get(trimmed)!
       setResults(cached.results)
+      setTotals(cached.totals)
       setTookMs(cached.took_ms)
       setLastQuery(trimmed)
       setLoading(false)
@@ -288,6 +292,7 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
     const cached = cacheRef.current.get(query)
     if (cached) {
       setResults(cached.results)
+      setTotals(cached.totals)
       setTookMs(cached.took_ms)
       setSelectedIdx(0)
       setLastQuery(query)
@@ -299,14 +304,18 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
     abortRef.current = ctrl
     setLoading(true)
     try {
-      const r = await fetch(`/api/search-master?q=${encodeURIComponent(query)}&limit=6`, {
+      // Default limit=12 — šiek tiek daugiau negu API default (10), kad
+      // "Visi" view'e tilptų po nurodytą kiekį per kategoriją.
+      const r = await fetch(`/api/search-master?q=${encodeURIComponent(query)}&limit=12`, {
         signal: ctrl.signal,
       })
       if (!r.ok) throw new Error('search failed')
       const d = await r.json()
       const safeResults: Results = { ...emptyResults(), ...(d.results || {}) }
-      cacheRef.current.set(query, { results: safeResults, took_ms: d.took_ms || 0 })
+      const safeTotals: Totals = { ...emptyTotals(), ...(d.totals || {}) }
+      cacheRef.current.set(query, { results: safeResults, totals: safeTotals, took_ms: d.took_ms || 0 })
       setResults(safeResults)
+      setTotals(safeTotals)
       setTookMs(d.took_ms || 0)
       setSelectedIdx(0)
       setLastQuery(query)
@@ -394,10 +403,18 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
   const showLoader = !showEmpty && (loading || isStale)
   const showNoResults = !showEmpty && !showLoader && total === 0
 
-  // Counts per category for chip badges
+  // Counts per category — naudojam totals iš serverio (pilna count DB), o
+  // jei totals nepriėjo (legacy fallback), gradient'iškai imam returned items.
   const counts: Record<Category, number> = {} as any
-  for (const cat of CAT_ORDER) counts[cat] = (results[cat] || []).length
+  for (const cat of CAT_ORDER) {
+    counts[cat] = totals[cat] || (results[cat] || []).length
+  }
   const totalAcrossCats = CAT_ORDER.reduce((s, c) => s + counts[c], 0)
+  // Visible — kiek REALIAI matom UI'jus (limit'as gali skirtis nuo totals).
+  const visibleCounts: Record<Category, number> = {} as any
+  for (const cat of CAT_ORDER) {
+    visibleCounts[cat] = (effectiveResults[cat] || []).length
+  }
 
   return (
     <>
@@ -440,10 +457,6 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
             {CAT_ORDER.filter(c => counts[c] > 0).map(cat => {
               const Ico = CAT_LABELS[cat].Icon
               const isActive = activeCat === cat
-              const expandedCount = expanded[cat]?.length
-              // Kai aktyvi ir užkrauti expanded'ai — rodom expanded count'ą,
-              // kad user'is matytų, kad atsirado daugiau rezultatų.
-              const displayCount = isActive && expandedCount ? expandedCount : counts[cat]
               return (
                 <button
                   key={cat}
@@ -453,7 +466,7 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
                 >
                   <span className="ms-chip-ico" style={{ color: CAT_LABELS[cat].color }}><Ico size={13} /></span>
                   {CAT_LABELS[cat].pl}
-                  <span className="ms-chip-num">{displayCount}{isActive && expandLoading && !expandedCount ? '…' : ''}</span>
+                  <span className="ms-chip-num">{counts[cat]}{isActive && expandLoading ? '…' : ''}</span>
                 </button>
               )
             })}
@@ -493,10 +506,12 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
           {!showEmpty && total > 0 && (
             <ResultsList
               results={effectiveResults}
+              totals={totals}
               activeCat={activeCat}
               selectedIdx={selectedIdx}
               onSelect={(i) => setSelectedIdx(i)}
               onGo={go}
+              onExpandCategory={(cat) => setActiveCat(cat)}
             />
           )}
         </div>
@@ -522,13 +537,15 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
 /* ─── Sub-components ─────────────────────────────────────────────── */
 
 function ResultsList({
-  results, activeCat, selectedIdx, onSelect, onGo,
+  results, totals, activeCat, selectedIdx, onSelect, onGo, onExpandCategory,
 }: {
   results: Results
+  totals: Totals
   activeCat: Category | 'all'
   selectedIdx: number
   onSelect: (i: number) => void
   onGo: (h: Hit) => void
+  onExpandCategory: (cat: Category) => void
 }) {
   let idx = -1
   return (
@@ -539,12 +556,16 @@ function ResultsList({
         if (activeCat !== 'all' && activeCat !== cat) return null
         const meta = CAT_LABELS[cat]
         const Ico = meta.Icon
+        const totalForCat = totals[cat] || items.length
+        const moreAvailable = activeCat === 'all' && totalForCat > items.length
         return (
           <div key={cat} className="ms-group">
             <div className="ms-group-head">
               <span className="ms-group-ico" style={{ color: meta.color }} aria-hidden><Ico size={13} /></span>
               <span className="ms-group-label">{meta.pl}</span>
-              <span className="ms-group-count">{items.length}</span>
+              <span className="ms-group-count">
+                {totalForCat > items.length ? `${items.length} / ${totalForCat}` : items.length}
+              </span>
             </div>
             <div className={`ms-items ${cat === 'artists' || cat === 'profiles' ? 'as-grid' : ''}`}>
               {items.map(h => {
@@ -563,6 +584,16 @@ function ResultsList({
                 )
               })}
             </div>
+            {moreAvailable && (
+              <button
+                className="ms-more-link"
+                onClick={() => onExpandCategory(cat)}
+                style={{ color: meta.color }}
+              >
+                Rodyti visus {meta.pl.toLowerCase()} ({totalForCat})
+                <span aria-hidden style={{ marginLeft: 4 }}>→</span>
+              </button>
+            )}
           </div>
         )
       })}
@@ -781,6 +812,14 @@ function emptyResults(): Results {
   }
 }
 
+function emptyTotals(): Totals {
+  return {
+    artists: 0, albums: 0, tracks: 0,
+    profiles: 0, events: 0, venues: 0,
+    news: 0, blog_posts: 0, discussions: 0,
+  }
+}
+
 /* ─── CSS — visi styles per <style> tag, kad nereikėtų global stylesheet ── */
 const searchCss = `
 .ms-overlay {
@@ -964,6 +1003,28 @@ const searchCss = `
   border-radius: 10px;
   font-size: 10px; font-weight: 700;
   color: var(--text-muted, #888);
+  font-variant-numeric: tabular-nums;
+}
+
+/* "Rodyti visus N" link'as kategorijos apačioje */
+.ms-more-link {
+  display: inline-flex; align-items: center;
+  gap: 4px;
+  margin: 4px 12px 6px;
+  padding: 6px 10px;
+  border: none; background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px; font-weight: 700;
+  letter-spacing: -0.005em;
+  border-radius: 6px;
+  transition: background .12s, transform .12s;
+  opacity: 0.9;
+}
+.ms-more-link:hover {
+  background: var(--bg-hover, rgba(255,255,255,0.05));
+  opacity: 1;
+  transform: translateX(2px);
 }
 .ms-items { display: flex; flex-direction: column; gap: 1px; }
 .ms-items.as-grid {

@@ -54,7 +54,10 @@ export async function GET(request: Request) {
   const started = Date.now()
   const { searchParams } = new URL(request.url)
   const q = (searchParams.get('q') || '').trim()
-  const limitPerCat = Math.min(Math.max(parseInt(searchParams.get('limit') || '6'), 1), 20)
+  // Default limit padidintas 6 → 10 — naudotojui parodom daugiau preview
+  // rezultatų "Visi" view'e, ypač kad fan-out atveju matytume populiariausių
+  // dainų sąrašą (ne pirmas 6).
+  const limitPerCat = Math.min(Math.max(parseInt(searchParams.get('limit') || '10'), 1), 30)
   const categoriesFilter = (searchParams.get('categories') || '').split(',').filter(Boolean)
 
   if (q.length < 1) {
@@ -93,17 +96,24 @@ export async function GET(request: Request) {
   // Fan-out atlikėjai — viršutiniai 2 (kad nesusiturėtų per daug duomenų).
   const fanoutArtistIds = matchedArtists.slice(0, 2).map(a => a.id)
   const fanoutEnabled = fanoutArtistIds.length > 0
-  const fanoutLimit = Math.min(limitPerCat, 8)
+  // Fan-out limit follow'ina pagrindinį limit'ą, kad pasirinkus dainas
+  // chip'ą, matytume realų katalogą (220 Mamontovo dainų atveju → user'is
+  // gauna iki 30 prieš tai išleisdamas naują užklausą su didesniu limit'u).
+  const fanoutLimit = limitPerCat
 
   // ── ROUND 2: visi kiti query'ai paraleliai ──
   // Tarp jų: bazinės title-match'inančios albumai/tracks + fan-out (atlikėjo
-  // top tracks/albums net jei title nematch'ina).
-  type R = { data: any[] | null }
+  // top tracks/albums net jei title nematch'ina) + count-only užklausos
+  // pilnam totals'ui rodyti (kad user'is matytų "10 / 220 dainų").
+  type R = { data: any[] | null; count?: number | null }
   const empty = { data: [] as any[] }
+  const emptyCount = { count: 0 }
   const [
     albumsRes, tracksRes, profilesRes, eventsRes, venuesRes,
     newsRes, blogRes, discRes,
     fanoutTracksRes, fanoutAlbumsRes,
+    fanoutTracksCount, fanoutAlbumsCount,
+    titleAlbumsCount, titleTracksCount,
     compoundResults,
   ] = await Promise.all([
     useCat('albums')
@@ -192,6 +202,21 @@ export async function GET(request: Request) {
           .limit(fanoutLimit)
       : Promise.resolve(empty as R),
 
+    // ── Count-only užklausos totals'ui (head: true neneša data) ──
+    // Naudotojui parodysim "rasta N daugiau" link'ą jei totals > rodomi.
+    fanoutEnabled && useCat('tracks')
+      ? sb.from('tracks').select('id', { count: 'exact', head: true }).in('artist_id', fanoutArtistIds)
+      : Promise.resolve(emptyCount as any),
+    fanoutEnabled && useCat('albums')
+      ? sb.from('albums').select('id', { count: 'exact', head: true }).in('artist_id', fanoutArtistIds)
+      : Promise.resolve(emptyCount as any),
+    useCat('albums')
+      ? sb.from('albums').select('id', { count: 'exact', head: true }).ilike('title', pat)
+      : Promise.resolve(emptyCount as any),
+    useCat('tracks')
+      ? sb.from('tracks').select('id', { count: 'exact', head: true }).ilike('title', pat)
+      : Promise.resolve(emptyCount as any),
+
     // Compound queries (artist + title) — tik kai ≥2 meaningful tokenai.
     compound ? runCompound(sb, tokens, limitPerCat, useCat) : Promise.resolve({ tracks: [] as Hit[], albums: [] as Hit[] }),
   ])
@@ -248,8 +273,34 @@ export async function GET(request: Request) {
 
   const total = (Object.values(out) as Hit[][]).reduce((s, arr) => s + arr.length, 0)
 
+  // Totals — visi rasti rezultatai DB, ne tik rodomi. Naudoja UI'jus
+  // chip'uose ("Dainos 220") ir "Rodyti visus N" link'uose.
+  // Tracks/albums totals = MAX(title-match count, fan-out artist count) —
+  // kuris yra didesnis, tas ir realus "kiek randa". Mamontovo atveju
+  // title='mamont' randa 0, fan-out artist count = 220 → totals.tracks = 220.
+  const tracksTotal = Math.max(
+    (titleTracksCount as any)?.count ?? 0,
+    (fanoutTracksCount as any)?.count ?? 0,
+  )
+  const albumsTotal = Math.max(
+    (titleAlbumsCount as any)?.count ?? 0,
+    (fanoutAlbumsCount as any)?.count ?? 0,
+  )
+  const totals: Record<Category, number> = {
+    artists:     out.artists.length,        // artists query nelimit'uotas head'u — naudojam returned count
+    albums:      Math.max(albumsTotal, out.albums.length),
+    tracks:      Math.max(tracksTotal, out.tracks.length),
+    profiles:    out.profiles.length,
+    events:      out.events.length,
+    venues:      out.venues.length,
+    news:        out.news.length,
+    blog_posts:  out.blog_posts.length,
+    discussions: out.discussions.length,
+  }
+
   return NextResponse.json({
     results: out,
+    totals,
     total,
     took_ms: Date.now() - started,
     query: q,
