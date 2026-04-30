@@ -843,7 +843,7 @@ export default function Home() {
         type: 'event', chip: 'RENGINYS', chipBg: '#047857',
         title: sanitizeTitle(ev.title),
         subtitle: `${dateStr}${venue}${city ? ` · ${city}` : ''}`.replace(/· $/, ''),
-        bgImg: ev.image_small_url,
+        bgImg: ev.image_small_url || (ev as any).cover_image_url || null,
         href: `/renginiai/${ev.slug}`,
       })
     })
@@ -1266,11 +1266,7 @@ export default function Home() {
         {/* ═══════════════════════ MAIN CONTENT ═══════════════════════ */}
         <div className="hp-cnt" style={{ maxWidth: 1360, margin: '0 auto', padding: '42px 20px', display: 'flex', flexDirection: 'column', gap: 44 }}>
 
-          {/* ── Muzika + Renginiai (dviejų stulpelių layout) ── */}
-          <div className="hp-music-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 24, alignItems: 'start' }}>
-
-            {/* LEFT: Naujos dainos + Nauji albumai */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 32, minWidth: 0 }}>
+          {/* ── Muzika full-width: Naujos dainos + Nauji albumai ── */}
 
               {/* Naujos dainos — kompaktiškas horizontal row,
                   thumb + title + artist. Tylesnė vizualinė akcentuotė nei
@@ -1394,57 +1390,76 @@ export default function Home() {
                   </div>
                 ))}
               </section>
-            </div>
-
-            {/* RIGHT: Renginiai widget */}
-            <div style={{ position: 'sticky', top: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                <h2 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em', margin: 0 }}>Renginiai</h2>
-                <Link href="/renginiai" style={{ fontSize: 12, color: 'var(--accent-link)', fontWeight: 700, textDecoration: 'none' }} onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')} onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>Visi →</Link>
-              </div>
-              <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 14, overflow: 'hidden' }}>
-                {filtEvt.length === 0 ? Array(5).fill(null).map((_, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderBottom: i < 4 ? '1px solid var(--border-subtle)' : 'none' }}>
-                    <Skel w={44} h={44} r={9} /><div style={{ flex: 1 }}><Skel w="80%" h={10} /><div style={{ marginTop: 4 }}><Skel w="55%" h={8} /></div></div>
-                  </div>
-                )) : filtEvt.slice(0, 8).map((ev, i, arr) => {
-                  const d = ev.event_date ? new Date(ev.event_date) : null
-                  const validDate = d && !isNaN(d.getTime())
-                  const diffDays = validDate ? Math.ceil((d!.getTime() - Date.now()) / 86400000) : null
-                  const isClose = diffDays !== null && diffDays >= 0 && diffDays <= 3
-                  const countdown = diffDays === null || diffDays < 0 ? null : diffDays === 0 ? 'Šiandien' : diffDays === 1 ? 'Rytoj' : `Po ${diffDays}d.`
-                  return (
-                    <Link key={ev.id} href={`/renginiai/${ev.slug}`}
-                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', textDecoration: 'none', borderBottom: i < arr.length - 1 ? '1px solid var(--border-subtle)' : 'none', transition: 'background .12s' }}
-                      onMouseEnter={e => (e.currentTarget.style.background = dk ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)')}
-                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                    >
-                      <div style={{ width: 44, height: 44, borderRadius: 9, overflow: 'hidden', flexShrink: 0, background: 'var(--bg-body)' }}>
-                        {(ev.image_small_url || (ev as any).cover_image_url)
-                          ? <img src={ev.image_small_url || (ev as any).cover_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: dk ? '#0e1626' : '#e8eef8', fontSize: 18 }}>🎵</div>
-                        }
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(ev.title)}</p>
-                        <p style={{ fontSize: 10.5, color: 'var(--text-muted)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {validDate ? `${d!.getDate()} ${MONTHS_LT[d!.getMonth()]}.` : ''}{ev.venues?.city ? ` · ${ev.venues.city}` : ev.venues?.name ? ` · ${ev.venues.name}` : ''}
-                        </p>
-                      </div>
-                      {countdown && (
-                        <span style={{
-                          flexShrink: 0, fontSize: 9, fontWeight: 800, fontFamily: 'Outfit,sans-serif',
-                          color: isClose ? '#f97316' : (dk ? '#3d5a78' : '#99aabb'),
-                          background: isClose ? (dk ? 'rgba(249,115,22,0.12)' : 'rgba(249,115,22,0.09)') : 'transparent',
-                          padding: isClose ? '2px 6px' : '0', borderRadius: 5, whiteSpace: 'nowrap',
-                        }}>{countdown}</span>
+          {/* ── Renginiai horizontal full-width row ── */}
+          <section>
+            <SectionHead label="Renginiai" href="/renginiai" />
+            <div className="hp-scroll flex items-stretch gap-3 pb-1">
+              {filtEvt.length === 0 ? Array(5).fill(null).map((_, i) => (
+                <div key={i} className="shrink-0" style={{ width: 220 }}>
+                  <Skel w={220} h={124} r={12} />
+                  <div className="mt-2"><Skel w="80%" h={11} /></div>
+                  <div className="mt-1"><Skel w="55%" h={9} /></div>
+                </div>
+              )) : filtEvt.slice(0, 12).map(ev => {
+                const d = ev.event_date ? new Date(ev.event_date) : null
+                const validDate = d && !isNaN(d.getTime())
+                const diffDays = validDate ? Math.ceil((d!.getTime() - Date.now()) / 86400000) : null
+                const isClose = diffDays !== null && diffDays >= 0 && diffDays <= 3
+                const countdown = diffDays === null || diffDays < 0 ? null : diffDays === 0 ? 'Šiandien' : diffDays === 1 ? 'Rytoj' : `Po ${diffDays}d.`
+                const imgSrc = ev.image_small_url || (ev as any).cover_image_url || null
+                const venueLabel = ev.venues?.city || ev.venues?.name || ev.venue_custom || ''
+                return (
+                  <Link
+                    key={ev.id}
+                    href={`/renginiai/${ev.slug}`}
+                    className="group block shrink-0 no-underline"
+                    style={{ width: 220 }}
+                  >
+                    <div className="relative overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.18)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[var(--accent-orange)]/50 group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]" style={{ aspectRatio: '16 / 10' }}>
+                      {imgSrc ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={imgSrc}
+                          alt={sanitizeTitle(ev.title)}
+                          loading="lazy"
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">🎵</div>
                       )}
-                    </Link>
-                  )
-                })}
-              </div>
+                      {/* Date badge top-left */}
+                      {validDate && (
+                        <div className="absolute left-2 top-2 rounded-md bg-black/72 px-2 py-1 backdrop-blur-sm">
+                          <div className="font-['Outfit',sans-serif] text-[14px] font-extrabold leading-none text-white">{d!.getDate()}</div>
+                          <div className="mt-0.5 text-[8.5px] font-bold uppercase leading-none tracking-[0.06em] text-white/85">{MONTHS_LT[d!.getMonth()]}</div>
+                        </div>
+                      )}
+                      {/* Countdown bottom-right */}
+                      {countdown && (
+                        <span className={`absolute bottom-1.5 right-1.5 rounded-md px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-extrabold backdrop-blur-sm ${
+                          isClose
+                            ? 'bg-[var(--accent-orange)]/90 text-white'
+                            : 'bg-black/60 text-white/85'
+                        }`}>
+                          {countdown}
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-2 px-0.5">
+                      <p className="m-0 truncate font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
+                        {sanitizeTitle(ev.title)}
+                      </p>
+                      {venueLabel && (
+                        <p className="m-0 mt-0.5 truncate text-[11px] text-[var(--text-muted)]">
+                          {venueLabel}
+                        </p>
+                      )}
+                    </div>
+                  </Link>
+                )
+              })}
             </div>
-          </div>
+          </section>
 
 
 

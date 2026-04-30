@@ -13,14 +13,42 @@ import {
 import { formatSidebarTime } from '@/components/chat/ChatTime'
 
 const POLL_MS = 60_000
+const SHOUT_POLL_MS = 12_000
+
+type ShoutMsg = {
+  id: number
+  author_name: string
+  author_avatar: string | null
+  body: string
+  created_at: string
+  user_id: string
+}
+
+function strHue(s: string) {
+  let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360; return h
+}
+
+function shortAgo(d: string) {
+  const m = Math.floor((Date.now() - new Date(d).getTime()) / 60000)
+  if (m < 1) return 'ką tik'
+  if (m < 60) return `${m} min.`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h} val.`
+  const days = Math.floor(h / 24)
+  return `${days} d.`
+}
 
 export function MessagesBell() {
   const { data: session, status } = useSession()
   const userId = (session?.user as any)?.id || null
   const [open, setOpen] = useState(false)
+  const [tab, setTab] = useState<'personal' | 'general'>('personal')
   const [unread, setUnread] = useState(0)
   const [conversations, setConversations] = useState<ConversationListItem[]>([])
   const [loading, setLoading] = useState(false)
+  const [shoutMsgs, setShoutMsgs] = useState<ShoutMsg[]>([])
+  const [shoutLoading, setShoutLoading] = useState(false)
+  const shoutLoaded = useRef(false)
   const wrapRef = useRef<HTMLDivElement>(null)
 
   const isAuth = !!userId
@@ -73,10 +101,33 @@ export function MessagesBell() {
     return () => document.removeEventListener('mousedown', h)
   }, [open])
 
+  const fetchShout = useCallback(async () => {
+    setShoutLoading(true)
+    try {
+      const res = await fetch('/api/live/shoutbox?limit=20', { cache: 'no-store' })
+      const json = await res.json()
+      setShoutMsgs((json.messages || []).reverse())
+      shoutLoaded.current = true
+    } finally {
+      setShoutLoading(false)
+    }
+  }, [])
+
+  // Bendrai feed polling — tik kai dropdown atidarytas + general tab'as aktyvus.
+  useEffect(() => {
+    if (!open || tab !== 'general') return
+    fetchShout()
+    const id = setInterval(fetchShout, SHOUT_POLL_MS)
+    return () => clearInterval(id)
+  }, [open, tab, fetchShout])
+
   const onToggle = () => {
     const next = !open
     setOpen(next)
-    if (next) fetchConversations()
+    if (next) {
+      if (tab === 'personal') fetchConversations()
+      else if (!shoutLoaded.current) fetchShout()
+    }
   }
 
   if (status !== 'authenticated' || !isAuth) return null
@@ -120,7 +171,7 @@ export function MessagesBell() {
         <div
           style={{
             position: 'absolute', top: 'calc(100% + 8px)', right: 0,
-            width: 360, maxHeight: 480, overflow: 'hidden',
+            width: 360, maxHeight: 520, overflow: 'hidden',
             background: 'var(--modal-bg)', border: '1px solid var(--modal-border)',
             borderRadius: 14, boxShadow: 'var(--modal-shadow, 0 10px 40px rgba(0,0,0,0.25))',
             zIndex: 250, display: 'flex', flexDirection: 'column',
@@ -131,49 +182,162 @@ export function MessagesBell() {
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           }}>
             <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)' }}>
-              Žinutės
-              {unread > 0 && (
-                <span style={{
-                  marginLeft: 8, padding: '2px 7px', borderRadius: 10,
-                  background: 'rgba(249,115,22,0.15)', color: 'var(--accent-orange)',
-                  fontSize: 10, fontWeight: 800,
-                }}>{unread} naujos</span>
-              )}
+              Pokalbiai
             </div>
-            <Link href="/pokalbiai" onClick={() => setOpen(false)}
-              style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent-link)', textDecoration: 'none' }}>
+            <Link
+              href={tab === 'personal' ? '/pokalbiai' : '/bendruomene'}
+              onClick={() => setOpen(false)}
+              style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent-link)', textDecoration: 'none' }}
+            >
               Atidaryti
             </Link>
           </div>
 
+          {/* Tabs — Asmeniniai (DM/grupės/forumai) vs Bendrai (live diskusija) */}
+          <div style={{ display: 'flex', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0 }}>
+            {([
+              ['personal', 'Asmeniniai', isAuth ? unread : 0],
+              ['general', 'Bendrai', 0],
+            ] as const).map(([k, label, badge]) => {
+              const active = tab === k
+              return (
+                <button
+                  key={k}
+                  onClick={() => {
+                    setTab(k)
+                    if (k === 'personal' && conversations.length === 0) fetchConversations()
+                    if (k === 'general' && !shoutLoaded.current) fetchShout()
+                  }}
+                  style={{
+                    flex: 1, padding: '12px 14px',
+                    border: 'none', background: 'transparent', cursor: 'pointer',
+                    fontSize: 12.5, fontWeight: 700,
+                    color: active ? 'var(--text-primary)' : 'var(--text-muted)',
+                    borderBottom: active ? '2px solid var(--accent-orange)' : '2px solid transparent',
+                    transition: 'color .12s, border-color .12s',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  }}
+                >
+                  {label}
+                  {badge > 0 && (
+                    <span style={{
+                      minWidth: 16, height: 16, padding: '0 4px', borderRadius: 8,
+                      background: 'var(--accent-orange)', color: '#fff',
+                      fontSize: 9, fontWeight: 800,
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      lineHeight: 1,
+                    }}>
+                      {badge > 9 ? '9+' : badge}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+
           <div style={{ flex: 1, overflowY: 'auto' }}>
-            {loading && conversations.length === 0 ? (
-              <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Kraunasi…</div>
-            ) : conversations.length === 0 ? (
-              <div style={{ padding: '36px 24px', textAlign: 'center' }}>
-                <div style={{ fontSize: 32, marginBottom: 8 }}>💬</div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
-                  Pokalbių dar nėra
+            {tab === 'personal' ? (
+              loading && conversations.length === 0 ? (
+                <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Kraunasi…</div>
+              ) : conversations.length === 0 ? (
+                <div style={{ padding: '36px 24px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 32, marginBottom: 8 }}>💬</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                    Pokalbių dar nėra
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                    Pradėk privačią žinutę arba grupę.
+                  </div>
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                  Pradėk privačią žinutę.
-                </div>
-              </div>
+              ) : (
+                conversations.slice(0, 12).map(c => (
+                  <ConversationRow key={c.id} c={c} viewerId={userId!} onClick={() => setOpen(false)} />
+                ))
+              )
             ) : (
-              conversations.slice(0, 12).map(c => (
-                <ConversationRow key={c.id} c={c} viewerId={userId!} onClick={() => setOpen(false)} />
-              ))
+              shoutLoading && shoutMsgs.length === 0 ? (
+                <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Kraunasi…</div>
+              ) : shoutMsgs.length === 0 ? (
+                <div style={{ padding: '36px 24px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 32, marginBottom: 8 }}>📣</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                    Bendra diskusija tyli
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                    Užsuk į bendruomenę ir įmesk pirmą žinutę.
+                  </div>
+                </div>
+              ) : (
+                shoutMsgs.slice(-20).map(m => <ShoutRow key={m.id} m={m} />)
+              )
             )}
           </div>
 
           <div style={{ padding: '10px 16px', borderTop: '1px solid var(--border-subtle)', textAlign: 'center' }}>
-            <Link href="/pokalbiai" onClick={() => setOpen(false)}
-              style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textDecoration: 'none' }}>
-              Visi pokalbiai →
+            <Link
+              href={tab === 'personal' ? '/pokalbiai' : '/bendruomene'}
+              onClick={() => setOpen(false)}
+              style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textDecoration: 'none' }}
+            >
+              {tab === 'personal' ? 'Visi pokalbiai →' : 'Pilna bendruomenė →'}
             </Link>
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function ShoutRow({ m }: { m: ShoutMsg }) {
+  const hue = strHue(m.author_name || '?')
+  return (
+    <div
+      style={{
+        display: 'flex', gap: 10, padding: '10px 16px',
+        borderBottom: '1px solid var(--border-subtle)',
+        transition: 'background .12s',
+      }}
+      onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
+      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+    >
+      {m.author_avatar ? (
+        <Image
+          src={m.author_avatar}
+          alt=""
+          width={28}
+          height={28}
+          unoptimized
+          style={{ borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+        />
+      ) : (
+        <div
+          style={{
+            width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+            background: `hsl(${hue},32%,18%)`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: `hsl(${hue},48%,55%)`, fontSize: 12, fontWeight: 800,
+            fontFamily: 'Outfit, sans-serif',
+          }}
+        >
+          {(m.author_name || '?').charAt(0).toUpperCase()}
+        </div>
+      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'baseline', marginBottom: 2 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-link)' }}>{m.author_name}</span>
+          <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>{shortAgo(m.created_at)}</span>
+        </div>
+        <p
+          style={{
+            fontSize: 12.5, color: 'var(--text-secondary)',
+            margin: 0, lineHeight: 1.4,
+            overflow: 'hidden',
+            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+          } as any}
+        >
+          {m.body}
+        </p>
+      </div>
     </div>
   )
 }
