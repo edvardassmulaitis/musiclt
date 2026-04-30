@@ -1308,7 +1308,14 @@ export default function Home() {
                             className="hp-card flex shrink-0 items-center gap-2.5 px-3 py-2.5"
                             style={{ width: 178 }}
                           >
-                            <Cover src={t.cover_url} artistSrc={t.artists?.cover_image_url} alt={sanitizeTitle(t.title)} size={38} radius={8} />
+                            <Cover
+                              src={t.cover_url || (t as any).albums_list?.[0]?.cover_image_url}
+                              artistSrc={t.artists?.cover_image_url}
+                              ytId={extractYouTubeId((t as any).video_url)}
+                              alt={sanitizeTitle(t.title)}
+                              size={38}
+                              radius={8}
+                            />
                             <div className="min-w-0 flex-1">
                               <p className="m-0 truncate font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]">
                                 {sanitizeTitle(t.title)}
@@ -1413,8 +1420,8 @@ export default function Home() {
                       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                     >
                       <div style={{ width: 44, height: 44, borderRadius: 9, overflow: 'hidden', flexShrink: 0, background: 'var(--bg-body)' }}>
-                        {ev.image_small_url
-                          ? <img src={ev.image_small_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        {(ev.image_small_url || (ev as any).cover_image_url)
+                          ? <img src={ev.image_small_url || (ev as any).cover_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                           : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: dk ? '#0e1626' : '#e8eef8', fontSize: 18 }}>🎵</div>
                         }
                       </div>
