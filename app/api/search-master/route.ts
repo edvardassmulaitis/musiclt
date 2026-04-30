@@ -84,14 +84,19 @@ export async function GET(request: Request) {
   // Buffer'is -3h: renginiui šiandien vakare nepalikt iš sąrašo.
   const upcomingThreshold = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString()
 
-  // ── ROUND 1: artists query (sinchroniškai — reikia fan-out'ui) ──
-  const artistsRes = useCat('artists')
-    ? await sb.from('artists')
-        .select('id,slug,name,cover_image_url,score,legacy_id')
-        .ilike('name', pat)
-        .order('score', { ascending: false, nullsFirst: false })
-        .limit(limitPerCat)
-    : { data: [] as any[] }
+  // ── ROUND 1: artists query (VISADA — net jei artists kategorija
+  // išfiltruota — reikia fan-out'ui per tracks/albums) ──
+  // Anksčiau, kai user'is iš UI pasirinkdavo "Dainos" chip'ą, fetch'as
+  // ėjo su categories=tracks; tada useCat('artists') = false, artists
+  // query nebuvo paleidžiamas, fanoutArtistIds buvo tuščias, ir
+  // fan-out neveikdavo → matydavom tik direct title match'us.
+  // Dabar artists query VISADA paleidžiamas, bet rezultatai įtraukiami
+  // į response tik jei kategorija leista.
+  const artistsRes = await sb.from('artists')
+    .select('id,slug,name,cover_image_url,score,legacy_id')
+    .ilike('name', pat)
+    .order('score', { ascending: false, nullsFirst: false })
+    .limit(Math.max(limitPerCat, 8))   // bent 8 fan-out paskaičiavimui
   const matchedArtists = (artistsRes.data || []) as any[]
 
   // Fan-out atlikėjai — viršutiniai 2 (kad nesusiturėtų per daug duomenų).
@@ -99,7 +104,7 @@ export async function GET(request: Request) {
   const fanoutEnabled = fanoutArtistIds.length > 0
   // Fan-out limit follow'ina pagrindinį limit'ą, kad pasirinkus dainas
   // chip'ą, matytume realų katalogą (220 Mamontovo dainų atveju → user'is
-  // gauna iki 30 prieš tai išleisdamas naują užklausą su didesniu limit'u).
+  // gauna iki 200 jei yra).
   const fanoutLimit = limitPerCat
 
   // ── ROUND 2: visi kiti query'ai paraleliai ──
@@ -225,7 +230,10 @@ export async function GET(request: Request) {
   // ── Surinkti pilnus rezultatus į kategorijas ──
   const out: Record<Category, Hit[]> = emptyResults()
 
-  for (const a of matchedArtists) out.artists.push(toArtist(a))
+  // Atlikėjai į output tik jei kategorija leista (filter'is "Dainos" — nerodom).
+  if (useCat('artists')) {
+    for (const a of matchedArtists.slice(0, limitPerCat)) out.artists.push(toArtist(a))
+  }
   for (const al of (albumsRes.data || [])) out.albums.push(toAlbum(al))
   for (const t of (tracksRes.data || [])) out.tracks.push(toTrack(t))
   for (const p of (profilesRes.data || [])) out.profiles.push(toProfile(p))
