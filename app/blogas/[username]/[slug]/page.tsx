@@ -93,9 +93,9 @@ export default async function PostPage({ params }: { params: Promise<{ username:
           <PostTypeBadge type={postType} />
           {postType === 'review' && post.rating !== null && post.rating !== undefined && (
             <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black tracking-wider"
-              style={{ background: 'rgba(234,179,8,0.18)', color: '#eab308' }}
+              style={{ background: 'rgba(249,115,22,0.15)', color: '#f97316' }}
             >
-              ⭐ {post.rating}/10
+              {post.rating}/10
             </span>
           )}
         </div>
@@ -116,13 +116,13 @@ export default async function PostPage({ params }: { params: Promise<{ username:
 
         {/* Translation original info */}
         {postType === 'translation' && (post.original_url || post.original_author || post.original_lang) && (
-          <div className="mb-6 p-3 rounded-lg text-xs" style={{ background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.15)' }}>
-            <p style={{ color: '#86efac' }}>
+          <div className="mb-6 p-3 rounded-lg text-xs" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <p style={{ color: '#b0bdd4' }}>
               <span className="font-bold">Verstas iš {post.original_lang ? LANG_LABELS[post.original_lang] || post.original_lang : 'kitos kalbos'}</span>
-              {post.original_author && <span> · autorius <span className="text-white">{post.original_author}</span></span>}
+              {post.original_author && <span style={{ color: '#5e7290' }}> · autorius <span style={{ color: '#dde8f8' }}>{post.original_author}</span></span>}
             </p>
             {post.original_url && (
-              <a href={post.original_url} target="_blank" rel="noreferrer" className="text-[#22c55e] hover:underline break-all">
+              <a href={post.original_url} target="_blank" rel="noreferrer" className="hover:underline break-all" style={{ color: '#f97316' }}>
                 {post.original_url} ↗
               </a>
             )}
@@ -175,13 +175,13 @@ export default async function PostPage({ params }: { params: Promise<{ username:
 
         {/* Tags */}
         {post.tags && post.tags.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-8 mt-2">
+          <div className="flex flex-wrap gap-1 mb-8 mt-4">
             {post.tags.map((tag: string) => (
               <Link
                 key={tag}
                 href={`/blogas?tag=${encodeURIComponent(tag)}`}
-                className="px-2.5 py-1 rounded-full text-xs font-semibold transition"
-                style={{ background: 'rgba(59,130,246,0.12)', color: '#93c5fd' }}
+                className="px-2 py-0.5 rounded text-xs font-semibold transition hover:bg-white/[.06]"
+                style={{ background: 'rgba(255,255,255,0.04)', color: '#8aa8cc', border: '1px solid rgba(255,255,255,0.06)' }}
               >
                 #{tag}
               </Link>
@@ -250,22 +250,22 @@ function ReviewTargetCard({ target }: { target: { artist: any; album: any; track
   return (
     <Link
       href={entity.href}
-      className="flex items-center gap-3 mb-6 p-3 rounded-xl transition hover:scale-[1.005]"
-      style={{ background: 'rgba(234,179,8,0.06)', border: '1px solid rgba(234,179,8,0.15)' }}
+      className="flex items-center gap-3 mb-6 p-3 rounded-lg transition hover:bg-white/[.04]"
+      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
     >
       {entity.image && (
         /* eslint-disable-next-line @next/next/no-img-element */
-        <img src={entity.image} alt="" className="w-14 h-14 rounded-lg object-cover" />
+        <img src={entity.image} alt="" className="w-12 h-12 rounded-md object-cover" />
       )}
       <div className="flex-1 min-w-0">
-        <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#eab308' }}>
-          Recenzijos objektas · {entity.kind}
+        <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: '#5e7290' }}>
+          {entity.kind}
         </p>
-        <p className="text-base font-bold truncate" style={{ color: '#f2f4f8' }}>
+        <p className="text-sm font-semibold truncate" style={{ color: '#dde8f8' }}>
           {entity.name}
         </p>
         {entity.subname && (
-          <p className="text-xs truncate" style={{ color: '#8aa8cc' }}>{entity.subname}</p>
+          <p className="text-xs truncate" style={{ color: '#5e7290' }}>{entity.subname}</p>
         )}
       </div>
       <span className="text-xs" style={{ color: '#5e7290' }}>→</span>

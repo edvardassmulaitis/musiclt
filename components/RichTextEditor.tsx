@@ -3,10 +3,12 @@ import { useEffect } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
+import Image from '@tiptap/extension-image'
 import Link from '@tiptap/extension-link'
 import TextAlign from '@tiptap/extension-text-align'
 import Placeholder from '@tiptap/extension-placeholder'
 import CharacterCount from '@tiptap/extension-character-count'
+import { Iframe } from '@/lib/tiptap-iframe'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface RichTextEditorProps {
@@ -14,6 +16,9 @@ interface RichTextEditorProps {
   onChange: (v: string) => void
   placeholder?: string
   maxLength?: number
+  /** Įjungia auto-embed paste (YouTube/Spotify/SoundCloud → iframe HTML)
+   *  ir image paste/drop (auto-upload į /api/upload). Naudojam blog editor'iuje. */
+  enableMediaPaste?: boolean
 }
 
 // ── Toolbar button ────────────────────────────────────────────────────────────
@@ -43,8 +48,32 @@ function Divider() {
   return <div className="w-px h-5 bg-gray-200 mx-0.5" />
 }
 
+// ── Image upload helper used by handlePaste/handleDrop ──────────────────────
+// Upload'ina async ir įterpia <img> kai grįžta URL. Loading state'as
+// per CSS pseudo-element — paprastas spinning emoji prie kursoriaus
+// veiks 99% atvejų (failas <5MB, į weserv proxy).
+async function uploadAndInsertImage(view: any, file: File) {
+  if (file.size > 5 * 1024 * 1024) {
+    alert('Failas per didelis (max 5MB)')
+    return
+  }
+  const editorInstance = view.editor
+  try {
+    const fd = new FormData()
+    fd.append('file', file)
+    const res = await fetch('/api/upload', { method: 'POST', body: fd })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data?.error || 'Upload nepavyko')
+    if (editorInstance) {
+      editorInstance.commands.insertContent(`<img src="${data.url}" alt="" />`)
+    }
+  } catch (e: any) {
+    alert(e.message || 'Klaida įkeliant')
+  }
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
-export default function RichTextEditor({ value, onChange, placeholder, maxLength, showToolbar = true }: RichTextEditorProps & { showToolbar?: boolean }) {
+export default function RichTextEditor({ value, onChange, placeholder, maxLength, showToolbar = true, enableMediaPaste = false }: RichTextEditorProps & { showToolbar?: boolean }) {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -60,12 +89,41 @@ export default function RichTextEditor({ value, onChange, placeholder, maxLength
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       Placeholder.configure({ placeholder: placeholder || 'Rašykite aprašymą...' }),
       ...(maxLength ? [CharacterCount.configure({ limit: maxLength })] : []),
+      // ── Media extensions (tik blog editor'iui) ──
+      // Iframe palaiko schema'oje + auto-paste rules YouTube/Spotify/SoundCloud
+      // konvertacijai. Image leidžia <img> nodes (kad image paste survive'intų
+      // roundtrip per setContent).
+      ...(enableMediaPaste ? [Iframe, Image.configure({ HTMLAttributes: { class: 'rounded-lg' } })] : []),
     ],
     content: value || '',
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
     editorProps: {
       attributes: {
         class: 'prose prose-sm max-w-none min-h-[200px] px-4 py-3 focus:outline-none text-gray-800',
+      },
+      // Image paste/drop — Iframe extension'as handles URL paste rules savo
+      // viduje, tad mes čia užsiimam tik failais (screenshot iš clipboard'o,
+      // drag/drop iš Finder'io).
+      handlePaste: !enableMediaPaste ? undefined : (view, event) => {
+        const cd = event.clipboardData
+        if (!cd) return false
+        const imgFile = Array.from(cd.files).find(f => f.type.startsWith('image/'))
+        if (imgFile) {
+          uploadAndInsertImage(view, imgFile)
+          return true
+        }
+        return false
+      },
+      handleDrop: !enableMediaPaste ? undefined : (view, event) => {
+        const dt = (event as DragEvent).dataTransfer
+        if (!dt) return false
+        const imgFile = Array.from(dt.files).find(f => f.type.startsWith('image/'))
+        if (imgFile) {
+          event.preventDefault()
+          uploadAndInsertImage(view, imgFile)
+          return true
+        }
+        return false
       },
     },
   })

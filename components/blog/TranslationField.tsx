@@ -1,8 +1,7 @@
 'use client'
 // components/blog/TranslationField.tsx
 //
-// Vertimo metadata: nuoroda į originalą, originalo autorius, kalba.
-// Pats verstas tekstas eina į content (Tiptap).
+// Vertimo metadata. Paprastas grid be spalvotų boxų.
 
 const LANGS = [
   { code: 'en', label: 'Anglų' },
@@ -32,39 +31,41 @@ export function TranslationField({
   onChange: (v: TranslationMeta) => void
 }) {
   return (
-    <div className="space-y-3 mb-6 p-4 rounded-xl" style={{ background: 'rgba(34,197,94,0.05)', border: '1px solid rgba(34,197,94,0.15)' }}>
-      <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#22c55e', fontFamily: "'Outfit', sans-serif" }}>
-        Originalo info
-      </p>
-
+    <div className="space-y-3 mb-6">
       <div>
-        <label className="text-[10px] font-semibold mb-1 block" style={{ color: '#5e7290' }}>Nuoroda į originalą</label>
+        <label className="text-[10px] font-bold uppercase tracking-wider mb-2 block" style={{ color: '#5e7290', fontFamily: "'Outfit', sans-serif" }}>
+          Nuoroda į originalą
+        </label>
         <input
           value={value.original_url}
           onChange={e => onChange({ ...value, original_url: e.target.value })}
           placeholder="https://..."
-          className="w-full px-3 py-1.5 rounded-lg text-sm outline-none focus:border-[#22c55e]/30"
+          className="w-full px-3 py-2 rounded-lg text-sm outline-none focus:border-[#f97316]/30 transition"
           style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: '#dde8f8' }}
         />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-[10px] font-semibold mb-1 block" style={{ color: '#5e7290' }}>Autorius</label>
+          <label className="text-[10px] font-bold uppercase tracking-wider mb-2 block" style={{ color: '#5e7290', fontFamily: "'Outfit', sans-serif" }}>
+            Autorius
+          </label>
           <input
             value={value.original_author}
             onChange={e => onChange({ ...value, original_author: e.target.value })}
-            placeholder="Originalo autoriaus vardas"
-            className="w-full px-3 py-1.5 rounded-lg text-sm outline-none focus:border-[#22c55e]/30"
+            placeholder="Originalo autorius"
+            className="w-full px-3 py-2 rounded-lg text-sm outline-none focus:border-[#f97316]/30 transition"
             style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: '#dde8f8' }}
           />
         </div>
         <div>
-          <label className="text-[10px] font-semibold mb-1 block" style={{ color: '#5e7290' }}>Kalba</label>
+          <label className="text-[10px] font-bold uppercase tracking-wider mb-2 block" style={{ color: '#5e7290', fontFamily: "'Outfit', sans-serif" }}>
+            Kalba
+          </label>
           <select
             value={value.original_lang || ''}
             onChange={e => onChange({ ...value, original_lang: e.target.value })}
-            className="w-full px-3 py-1.5 rounded-lg text-sm outline-none focus:border-[#22c55e]/30"
+            className="w-full px-3 py-2 rounded-lg text-sm outline-none focus:border-[#f97316]/30 transition"
             style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: '#dde8f8' }}
           >
             <option value="">— pasirink —</option>

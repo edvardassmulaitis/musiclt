@@ -1,4 +1,8 @@
 // components/blog/PostTypeBadge.tsx — server-safe (jokio 'use client')
+//
+// Subtle subscription badge. Single muted style su pavadinimu, jokios
+// emoji ir per-tipas spalvos.
+
 import { POST_TYPE_OPTIONS, type BlogPostType } from './post-types'
 
 export function PostTypeBadge({ type }: { type: BlogPostType }) {
@@ -6,10 +10,10 @@ export function PostTypeBadge({ type }: { type: BlogPostType }) {
   if (!meta) return null
   return (
     <span
-      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider"
-      style={{ background: `${meta.accent}22`, color: meta.accent }}
+      className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider"
+      style={{ background: 'rgba(255,255,255,0.04)', color: '#8aa8cc', border: '1px solid rgba(255,255,255,0.06)' }}
     >
-      {meta.icon} {meta.label}
+      {meta.label}
     </span>
   )
 }

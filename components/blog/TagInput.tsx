@@ -1,10 +1,8 @@
 'use client'
 // components/blog/TagInput.tsx
 //
-// Free-form tag input. User'is rašo ir spaudžia Enter / kablelį, kad pridėtų
-// tag'ą. Existing tagai rodomi kaip chips su X mygtuku. Limitas — 20 tagų,
-// kad nebūtų galima spam'inti. Lower-case'inam ant input'o, kad case
-// nebūtų svarbus duplicate detection'ui.
+// Free-form tagai. Enter / kablelis prideda. Subtle, jokio per-tag spalvos —
+// vienodi small chip'ai.
 
 import { useState, type KeyboardEvent } from 'react'
 
@@ -43,14 +41,14 @@ export function TagInput({
         Tagai
       </label>
       <div
-        className="flex flex-wrap gap-1.5 px-3 py-2 rounded-lg min-h-[40px] focus-within:border-[#f97316]/30 transition"
+        className="flex flex-wrap gap-1 px-3 py-2 rounded-lg min-h-[38px] focus-within:border-[#f97316]/30 transition"
         style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
       >
         {value.map(tag => (
           <span
             key={tag}
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold"
-            style={{ background: 'rgba(59,130,246,0.15)', color: '#93c5fd', border: '1px solid rgba(59,130,246,0.2)' }}
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold"
+            style={{ background: 'rgba(255,255,255,0.04)', color: '#b0bdd4', border: '1px solid rgba(255,255,255,0.06)' }}
           >
             {tag}
             <button
@@ -68,14 +66,11 @@ export function TagInput({
           onChange={e => setDraft(e.target.value)}
           onKeyDown={handleKey}
           onBlur={() => addTag(draft)}
-          placeholder={value.length === 0 ? 'jazz, koncertas, lt-pop...' : 'pridėti tag\'ą'}
-          className="flex-1 min-w-[120px] bg-transparent text-sm outline-none"
+          placeholder={value.length === 0 ? 'jazz, koncertas, lt-pop...' : ''}
+          className="flex-1 min-w-[100px] bg-transparent text-sm outline-none"
           style={{ color: '#dde8f8' }}
         />
       </div>
-      <p className="text-[10px] mt-1.5" style={{ color: '#334058' }}>
-        Enter arba kablelis pridėti. Tagai padeda kitiems atrasti tavo įrašą {value.length > 0 && `· ${value.length}/${MAX_TAGS}`}
-      </p>
     </div>
   )
 }

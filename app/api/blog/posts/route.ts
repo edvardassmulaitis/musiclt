@@ -21,10 +21,19 @@ export async function GET(_req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session?.user?.id) return NextResponse.json({ error: 'Prisijunk' }, { status: 401 })
 
-  const blog = await ensureUserBlog(session.user.id)
-  if (!blog) return NextResponse.json({ error: 'Nepavyko sukurti blogo' }, { status: 500 })
+  // ensureUserBlog gali mest'i: profile not found, blog insert failed (RLS,
+  // schema mismatch, slug collision twice). Wrap'inam, kad klientas matytų
+  // tikslią klaidą, ne generinį 500.
+  let blog
+  try {
+    blog = await ensureUserBlog(session.user.id)
+  } catch (e: any) {
+    console.error('[blog/posts] ensureUserBlog failed:', e?.message || e)
+    return NextResponse.json({ error: `Nepavyko paruošti blogo: ${e?.message || 'unknown'}` }, { status: 500 })
+  }
+  if (!blog) return NextResponse.json({ error: 'Profilis nerastas — bandyk dar kartą' }, { status: 500 })
 
   const body = await req.json()
   const postType: PostType = POST_TYPES.includes(body.post_type) ? body.post_type : 'article'

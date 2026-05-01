@@ -119,10 +119,11 @@ export async function POST(req: Request) {
   await recomputeLikeCount()
 
   // ── Notification: pranešam komentaro autoriui (jei ne pats sau). ─────
-  // Pass'inam recipient_email kaip fallback — jei stored author_id stale
-  // po DB wipe'o, createNotification resolve'ins per email lookup'ą.
   try {
     if (targetComment?.author_id && !isSelf) {
+      // Trumpą snippet'ą sudarom iš komentaro body — geras context'as
+      // recipient'ui. body lauką patrauk papildomu select'u (saugiau nei
+      // perpasti į prior pull, kuris jau gavo email JOIN'ą).
       const { data: full } = await sb
         .from('comments')
         .select('body, track_id, album_id, news_id, event_id')
@@ -139,7 +140,6 @@ export async function POST(req: Request) {
 
       await notifyFromSession({
         recipientUserId: targetComment.author_id,
-        recipientEmail: targetEmail,    // ← email iš profiles JOIN
         actorSession: session,
         type: 'comment_like',
         entity_type: entType,

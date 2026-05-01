@@ -408,60 +408,56 @@ export function NotificationsBell() {
   const bellHover = 'var(--text-primary)'
 
   // ── Modal panel content (shared between desktop dropdown & mobile full-screen) ──
-  // Header'is rodomas tik mobile'e (X mygtuko reikia) ARBA kai turim
-  // unread > 0 / mark-all-read mygtuką. Desktop'e su 0 unread — header'io
-  // visai nereikia, dropdown'as iškart pradeda nuo tabs.
-  const needsHeader = (showCloseX: boolean) => showCloseX || (isAuth && unread > 0)
-  const renderHeader = (showCloseX: boolean) => {
-    if (!needsHeader(showCloseX)) return null
-    return (
-      <div style={{
-        padding: '10px 16px',
-        borderBottom: '1px solid var(--border-subtle)',
-        display: 'flex', alignItems: 'center', justifyContent: showCloseX ? 'space-between' : 'flex-end',
-        gap: 8,
-        flexShrink: 0,
-      }}>
-        {showCloseX && showBadge && (
+  const renderHeader = (showCloseX: boolean) => (
+    <div style={{
+      padding: '14px 16px',
+      borderBottom: '1px solid var(--border-subtle)',
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      gap: 8,
+      flexShrink: 0,
+    }}>
+      <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
+        Pranešimai
+        {showBadge && (
           <span style={{
-            padding: '3px 9px', borderRadius: 10,
+            padding: '2px 7px', borderRadius: 10,
             background: 'rgba(249,115,22,0.15)', color: 'var(--accent-orange)',
-            fontSize: 11, fontWeight: 800,
-          }}>{unread} {unread === 1 ? 'naujas' : 'naujų'}</span>
+            fontSize: 10, fontWeight: 800,
+          }}>{unread} naujų</span>
         )}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {isAuth && unread > 0 && (
-            <button
-              onClick={markAllRead}
-              style={{
-                border: 'none', background: 'transparent',
-                color: 'var(--accent-link)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                padding: 0,
-              }}
-            >
-              Pažymėti visus
-            </button>
-          )}
-          {showCloseX && (
-            <button
-              onClick={() => setOpen(false)}
-              aria-label="Uždaryti"
-              style={{
-                width: 32, height: 32, borderRadius: 8,
-                border: 'none', background: 'var(--bg-hover)',
-                color: 'var(--text-secondary)', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-              </svg>
-            </button>
-          )}
-        </div>
       </div>
-    )
-  }
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {isAuth && unread > 0 && (
+          <button
+            onClick={markAllRead}
+            style={{
+              border: 'none', background: 'transparent',
+              color: 'var(--accent-link)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              padding: 0,
+            }}
+          >
+            Pažymėti visus
+          </button>
+        )}
+        {showCloseX && (
+          <button
+            onClick={() => setOpen(false)}
+            aria-label="Uždaryti"
+            style={{
+              width: 32, height: 32, borderRadius: 8,
+              border: 'none', background: 'var(--bg-hover)',
+              color: 'var(--text-secondary)', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        )}
+      </div>
+    </div>
+  )
 
   const renderTabs = () => (
     <div style={{

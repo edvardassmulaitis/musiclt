@@ -3,7 +3,6 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
 import { notifyFromSession } from '@/lib/notifications'
-import { logActivity } from '@/lib/activity-logger'
 
 type AttachmentIn = {
   type: 'daina' | 'albumas' | 'grupe'
@@ -154,12 +153,6 @@ export async function POST(request: Request) {
   // ── Notification: jeigu reply į konkretų post'ą — notify parent post author.
   // Antraip (root reply į thread) — notify thread starter (jei tai ne pats sau).
   // Defensive: viskas try/catch, niekada neblokuoja primary flow.
-  //
-  // Recipient resolution: forum_posts.author_username gali būti:
-  //   - profile.username (jei user'is turi explicit username)
-  //   - profile.full_name (jei username NULL, registracija krito į name fallback)
-  //   - legacy ghost username (originalus music.lt user'is)
-  // Bandom visus tris būdus + email fallback createNotification'e.
   try {
     const { data: thr } = await sb
       .from('forum_threads')
@@ -168,41 +161,38 @@ export async function POST(request: Request) {
       .maybeSingle() as { data: any }
     const url = thr?.slug ? `/diskusijos/${thr.slug}` : '/diskusijos'
 
-    // Resolve a recipient profile by trying multiple lookup strategies.
-    async function resolveRecipient(authorUsername: string | null, fallbackUserId?: string | null) {
-      if (!authorUsername && !fallbackUserId) return null
-      // 1. Try by stored user_id (might be stale)
-      if (fallbackUserId) {
-        const { data: byId } = await sb.from('profiles').select('id, email').eq('id', fallbackUserId).maybeSingle() as { data: any }
-        if (byId?.email && byId.email !== session!.user!.email) return { id: byId.id as string, email: byId.email as string }
-      }
-      if (!authorUsername) return null
-      // 2. By username (explicit profile username)
-      const { data: byUsername } = await sb.from('profiles').select('id, email').eq('username', authorUsername).maybeSingle() as { data: any }
-      if (byUsername?.email && byUsername.email !== session!.user!.email) return { id: byUsername.id as string, email: byUsername.email as string }
-      // 3. By full_name (Google OAuth display name)
-      const { data: byName } = await sb.from('profiles').select('id, email').eq('full_name', authorUsername).maybeSingle() as { data: any }
-      if (byName?.email && byName.email !== session!.user!.email) return { id: byName.id as string, email: byName.email as string }
-      return null
-    }
-
-    let recipient: { id: string; email: string } | null = null
+    let recipientUserId: string | null = null
     if (body.parent_post_legacy_id) {
       const { data: parent } = await sb
         .from('forum_posts')
         .select('author_username')
         .eq('legacy_id', body.parent_post_legacy_id)
         .maybeSingle() as { data: any }
-      recipient = await resolveRecipient(parent?.author_username || null)
-    } else {
-      // Root reply — notify thread starter
-      recipient = await resolveRecipient(thr?.author_username || null, thr?.author_user_id || null)
+      if (parent?.author_username) {
+        const { data: profile } = await sb
+          .from('profiles')
+          .select('id, email')
+          .eq('username', parent.author_username)
+          .maybeSingle() as { data: any }
+        if (profile?.id && profile.email !== session.user.email) {
+          recipientUserId = profile.id
+        }
+      }
+    } else if (thr?.author_user_id) {
+      // Root reply — notify thread starter (jei kitas user'is)
+      const { data: thrAuthor } = await sb
+        .from('profiles')
+        .select('email')
+        .eq('id', thr.author_user_id)
+        .maybeSingle() as { data: any }
+      if (thrAuthor && thrAuthor.email !== session.user.email) {
+        recipientUserId = thr.author_user_id
+      }
     }
 
-    if (recipient) {
+    if (recipientUserId) {
       await notifyFromSession({
-        recipientUserId: recipient.id,
-        recipientEmail: recipient.email,
+        recipientUserId,
         actorSession: session,
         type: body.parent_post_legacy_id ? 'comment_reply' : 'entity_comment',
         entity_type: 'thread',
@@ -213,34 +203,9 @@ export async function POST(request: Request) {
           : `${authorUsername} pakomentavo „${thr?.title || 'tavo temą'}"`,
         snippet: text.slice(0, 200),
       })
-    } else {
-      console.log('[notifications] forum reply — no recipient resolved', {
-        parent_legacy_id: body.parent_post_legacy_id,
-        thread_legacy_id: body.thread_legacy_id,
-      })
     }
   } catch (e: any) {
     console.error('[notifications] forum reply failed:', e?.message || e)
-  }
-
-  // ── Activity log → 'Kas vyksta' feed ────────────────────────────────
-  try {
-    const { data: thr } = await sb
-      .from('forum_threads')
-      .select('slug, title')
-      .eq('legacy_id', body.thread_legacy_id)
-      .maybeSingle() as { data: any }
-    await logActivity({
-      event_type: 'comment',
-      actor_name: authorUsername,
-      actor_avatar: profile?.avatar_url ?? session.user.image ?? null,
-      entity_type: 'thread',
-      entity_id: body.thread_legacy_id,
-      entity_title: thr?.title || 'forum thread',
-      entity_url: thr?.slug ? `/diskusijos/${thr.slug}` : '/diskusijos',
-    })
-  } catch (e: any) {
-    console.error('[activity-log] forum reply failed:', e?.message || e)
   }
 
   return NextResponse.json({ ok: true })

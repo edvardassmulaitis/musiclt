@@ -2,6 +2,10 @@
 //
 // Server-safe constants ir tipai. Atskiriam nuo PostTypeSelector.tsx, kad
 // galėtume importuoti iš server component'ų be 'use client' grandinės.
+//
+// Visi tipai dalinasi pagrindiniu site accent (#f97316 orange) — atskira
+// spalva paliekama tik subtle accent badge'uose feed card'uose, kad
+// vizualiai ne triukšmautų.
 
 export type BlogPostType =
   | 'article'
@@ -14,14 +18,12 @@ export type BlogPostType =
 export const POST_TYPE_OPTIONS: Array<{
   type: BlogPostType
   label: string
-  icon: string
   hint: string
-  accent: string
 }> = [
-  { type: 'article',     label: 'Straipsnis',  icon: '📝', hint: 'Ilgesnis tekstas su formatavimu', accent: '#3b82f6' },
-  { type: 'quick',       label: 'Quick',       icon: '⚡', hint: 'Įklijuok video/audio nuorodą + 1-2 sakiniai', accent: '#f97316' },
-  { type: 'review',      label: 'Recenzija',   icon: '⭐', hint: 'Recenzuok albumą ar dainą su balu', accent: '#eab308' },
-  { type: 'translation', label: 'Vertimas',    icon: '🌐', hint: 'Versta iš kitos kalbos su kreditu', accent: '#22c55e' },
-  { type: 'creation',    label: 'Kūryba',      icon: '✍️', hint: 'Eilėraštis, esė, beletristika', accent: '#a855f7' },
-  { type: 'journal',     label: 'Dienoraštis', icon: '📔', hint: 'Asmeninis įrašas, koncerto patirtis', accent: '#ec4899' },
+  { type: 'article',     label: 'Straipsnis',  hint: 'Ilgesnis tekstas' },
+  { type: 'quick',       label: 'Quick',       hint: 'Tik nuoroda + 1-2 sakiniai' },
+  { type: 'review',      label: 'Recenzija',   hint: 'Su balu ir music.lt įrašu' },
+  { type: 'translation', label: 'Vertimas',    hint: 'Su nuoroda į originalą' },
+  { type: 'creation',    label: 'Kūryba',      hint: 'Eilėraštis, esė, fiction' },
+  { type: 'journal',     label: 'Dienoraštis', hint: 'Asmeninis įrašas' },
 ]
