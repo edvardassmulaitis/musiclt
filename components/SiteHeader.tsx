@@ -21,7 +21,7 @@ import { GENRE_COLORS } from '@/lib/genre-colors'
  * ────────────────────────────────────────────────────────────────── */
 
 type NavItem = {
-  key: 'muzika' | 'topai' | 'renginiai' | 'pramogos' | 'bendruomene' | 'skelbimai'
+  key: 'muzika' | 'topai' | 'renginiai' | 'naujienos' | 'pramogos' | 'bendruomene' | 'skelbimai'
   label: string
   href: string
   match: string[]
@@ -56,6 +56,7 @@ const I = {
   forum: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 8h2a2 2 0 0 1 2 2v9l-3-3h-7a2 2 0 0 1-2-2v-1"/><path d="M3 13V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6l-3 3Z"/></svg>,
   blog: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 3v6h6"/><path d="M19 9v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7Z"/><path d="M9 13h6M9 17h4"/></svg>,
   vinyl: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>,
+  news: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8M15 18h-5M10 6h8v4h-8V6Z"/></svg>,
   guitar: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18 6.5 20.5a2.12 2.12 0 0 1-3-3L6 15"/><path d="m9 9 5 5L15 9 9 9z"/><path d="m22 2-9 9"/><path d="M9 9c-.5-1.5-2-2.5-3.5-2-1.5.5-2.5 2-2 3.5L4 12"/></svg>,
   festival: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21V12h6v9"/><circle cx="12" cy="9" r="1.5"/></svg>,
   gallery: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>,
@@ -91,6 +92,15 @@ const NAV: NavItem[] = [
     icon: I.calendar,
   },
   {
+    key: 'naujienos',
+    label: 'Naujienos',
+    href: '/naujienos',
+    match: ['/naujienos', '/news'],
+    desc: 'Releases, interviu, recenzijos',
+    accent: '#0ea5e9',
+    icon: I.news,
+  },
+  {
     key: 'pramogos',
     label: 'Pramogos',
     href: '/pramogos',
@@ -103,7 +113,7 @@ const NAV: NavItem[] = [
     key: 'bendruomene',
     label: 'Bendruomenė',
     href: '/bendruomene',
-    match: ['/bendruomene', '/diskusijos', '/blogas', '/pokalbiai', '/vartotojai', '/naujienos'],
+    match: ['/bendruomene', '/diskusijos', '/blogas', '/pokalbiai', '/vartotojai'],
     desc: 'Pokalbiai, diskusijos, blogai',
     accent: '#8b5cf6',
     icon: I.community,
@@ -468,66 +478,86 @@ function PramogosPanel({ accent }: { accent: string }) {
   )
 }
 
-function BendruomenePanel({ data, accent }: { data: NavPreview | null; accent: string }) {
-  const news = data?.news.slice(0, 3) || []
+function NaujienosPanel({ data, accent }: { data: NavPreview | null; accent: string }) {
+  const news = data?.news.slice(0, 4) || []
   const placeholderTitles = [
     'Naujasis lietuviškos scenos pulsas',
     'Interviu su Lietuvos atlikėjais',
     'Šios savaitės releases ir naujienos',
+    'Recenzija: paskutinis albumas',
   ]
   return (
-    <div className="sh-panel" style={{ minWidth: 680 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-        <div>
-          <div className="sh-panel-section">
-            <span className="sh-panel-section-title">Naujienos</span>
-            <Link href="/naujienos" className="sh-panel-section-more">Visos <ArrowRight size={11}/></Link>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {(news.length > 0 ? news : Array(3).fill(null)).map((n, i) => (
-              <Link
-                key={n?.id || i}
-                href={n ? `/news/${n.slug}` : '/naujienos'}
-                className="sh-album-row"
-              >
-                <ImageBox
-                  src={n?.image}
-                  accent={accent}
-                  glyph={I.blog}
-                  className="sh-album-cover"
-                />
-                <span className="sh-album-info">
-                  <span className="sh-album-title" style={{ WebkitLineClamp: 2 }}>
-                    {n?.title || <span style={{ opacity: 0.55 }}>{placeholderTitles[i] || 'Naujiena'}</span>}
-                  </span>
-                </span>
-              </Link>
-            ))}
-          </div>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <Link href="/pokalbiai" className="sh-bigshortcut" style={{ ['--it-rgb' as any]: hexToRgb('#06b6d4') }}>
-            <span className="sh-bigshortcut-icon">{I.chat}</span>
-            <span>
-              <span className="sh-bigshortcut-title">Pokalbiai</span>
-              <span className="sh-bigshortcut-desc">Privačios žinutės</span>
+    <div className="sh-panel" style={{ minWidth: 720 }}>
+      <div className="sh-panel-section">
+        <span className="sh-panel-section-title">Naujausios naujienos</span>
+        <Link href="/naujienos" className="sh-panel-section-more">Visos <ArrowRight size={11}/></Link>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        {(news.length > 0 ? news : Array(4).fill(null)).map((n, i) => (
+          <Link
+            key={n?.id || i}
+            href={n ? `/news/${n.slug}` : '/naujienos'}
+            className="sh-album-row"
+          >
+            <ImageBox
+              src={n?.image}
+              accent={accent}
+              glyph={I.blog}
+              className="sh-album-cover"
+            />
+            <span className="sh-album-info">
+              <span className="sh-album-title" style={{ WebkitLineClamp: 2 }}>
+                {n?.title || <span style={{ opacity: 0.55 }}>{placeholderTitles[i] || 'Naujiena'}</span>}
+              </span>
             </span>
           </Link>
-          <Link href="/diskusijos" className="sh-bigshortcut" style={{ ['--it-rgb' as any]: hexToRgb('#8b5cf6') }}>
-            <span className="sh-bigshortcut-icon">{I.forum}</span>
-            <span>
-              <span className="sh-bigshortcut-title">Diskusijos</span>
-              <span className="sh-bigshortcut-desc">Forumo temos</span>
-            </span>
-          </Link>
-          <Link href="/blogas" className="sh-bigshortcut" style={{ ['--it-rgb' as any]: hexToRgb('#a855f7') }}>
-            <span className="sh-bigshortcut-icon">{I.blog}</span>
-            <span>
-              <span className="sh-bigshortcut-title">Tinklaraščiai</span>
-              <span className="sh-bigshortcut-desc">Vartotojų straipsniai</span>
-            </span>
-          </Link>
-        </div>
+        ))}
+      </div>
+      <div className="sh-panel-shortcuts">
+        <Link href="/naujienos" className="sh-shortcut">Visos →</Link>
+        <Link href="/naujienos?type=interview" className="sh-shortcut">Interviu →</Link>
+        <Link href="/naujienos?type=review" className="sh-shortcut">Recenzijos →</Link>
+        <Link href="/naujienos?type=release" className="sh-shortcut">Releases →</Link>
+      </div>
+    </div>
+  )
+}
+
+function BendruomenePanel({ accent }: { data?: NavPreview | null; accent: string }) {
+  return (
+    <div className="sh-panel" style={{ minWidth: 480 }}>
+      <div className="sh-panel-section">
+        <span className="sh-panel-section-title">Bendruomenė</span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <Link href="/pokalbiai" className="sh-bigshortcut" style={{ ['--it-rgb' as any]: hexToRgb('#06b6d4') }}>
+          <span className="sh-bigshortcut-icon">{I.chat}</span>
+          <span>
+            <span className="sh-bigshortcut-title">Pokalbiai</span>
+            <span className="sh-bigshortcut-desc">Privačios žinutės ir grupės</span>
+          </span>
+        </Link>
+        <Link href="/diskusijos" className="sh-bigshortcut" style={{ ['--it-rgb' as any]: hexToRgb('#8b5cf6') }}>
+          <span className="sh-bigshortcut-icon">{I.forum}</span>
+          <span>
+            <span className="sh-bigshortcut-title">Diskusijos</span>
+            <span className="sh-bigshortcut-desc">Forumo temos ir debatai</span>
+          </span>
+        </Link>
+        <Link href="/blogas" className="sh-bigshortcut" style={{ ['--it-rgb' as any]: hexToRgb('#a855f7') }}>
+          <span className="sh-bigshortcut-icon">{I.blog}</span>
+          <span>
+            <span className="sh-bigshortcut-title">Tinklaraščiai</span>
+            <span className="sh-bigshortcut-desc">Vartotojų straipsniai</span>
+          </span>
+        </Link>
+        <Link href="/vartotojai" className="sh-bigshortcut" style={{ ['--it-rgb' as any]: hexToRgb('#f97316') }}>
+          <span className="sh-bigshortcut-icon">{I.users}</span>
+          <span>
+            <span className="sh-bigshortcut-title">Vartotojai</span>
+            <span className="sh-bigshortcut-desc">Aktyviausi nariai</span>
+          </span>
+        </Link>
       </div>
     </div>
   )
@@ -603,10 +633,6 @@ function MobileExpansion({
     const tracks = data?.tracks || []
     return (
       <div className="sh-mexp">
-        <Link href="/muzika" onClick={onLink} className="sh-mexp-cta" style={{ ['--it-rgb' as any]: hexToRgb(accent) }}>
-          Atidaryti Muziką <ArrowRight size={12}/>
-        </Link>
-
         <div className="sh-mexp-section">
           <span className="sh-mexp-title">Atlikėjai</span>
           <Link href="/atlikejai" onClick={onLink} className="sh-mexp-more">Visi <ArrowRight size={10}/></Link>
@@ -677,9 +703,6 @@ function MobileExpansion({
   if (navKey === 'topai') {
     return (
       <div className="sh-mexp">
-        <Link href="/topas" onClick={onLink} className="sh-mexp-cta" style={{ ['--it-rgb' as any]: hexToRgb(accent) }}>
-          Atidaryti Topus <ArrowRight size={12}/>
-        </Link>
         <div className="sh-mexp-grid">
           <Link href="/topas" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#ef4444') }}>
             <span className="sh-mexp-tile-icon">{I.trophy}</span>
@@ -706,9 +729,6 @@ function MobileExpansion({
     const events = data?.events || []
     return (
       <div className="sh-mexp">
-        <Link href="/renginiai" onClick={onLink} className="sh-mexp-cta" style={{ ['--it-rgb' as any]: hexToRgb(accent) }}>
-          Atidaryti Renginius <ArrowRight size={12}/>
-        </Link>
         <div className="sh-mexp-section">
           <span className="sh-mexp-title">Artimiausi</span>
           <Link href="/renginiai" onClick={onLink} className="sh-mexp-more">Visi <ArrowRight size={10}/></Link>
@@ -738,9 +758,6 @@ function MobileExpansion({
   if (navKey === 'pramogos') {
     return (
       <div className="sh-mexp">
-        <Link href="/pramogos" onClick={onLink} className="sh-mexp-cta" style={{ ['--it-rgb' as any]: hexToRgb(accent) }}>
-          Atidaryti Pramogas <ArrowRight size={12}/>
-        </Link>
         <div className="sh-mexp-grid">
           <Link href="/boombox" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#f97316') }}>
             <span className="sh-mexp-tile-icon">{I.boombox}</span>
@@ -759,26 +776,48 @@ function MobileExpansion({
     )
   }
 
-  if (navKey === 'bendruomene') {
+  if (navKey === 'naujienos') {
     const news = data?.news || []
     return (
       <div className="sh-mexp">
-        <Link href="/bendruomene" onClick={onLink} className="sh-mexp-cta" style={{ ['--it-rgb' as any]: hexToRgb(accent) }}>
-          Atidaryti Bendruomenę <ArrowRight size={12}/>
-        </Link>
         <div className="sh-mexp-section">
-          <span className="sh-mexp-title">Naujienos</span>
+          <span className="sh-mexp-title">Naujausios</span>
           <Link href="/naujienos" onClick={onLink} className="sh-mexp-more">Visos <ArrowRight size={10}/></Link>
         </div>
         <div className="sh-strip">
-          {(news.length > 0 ? news.slice(0, 5) : Array(3).fill(null)).map((n, i) => (
+          {(news.length > 0 ? news.slice(0, 8) : Array(5).fill(null)).map((n, i) => (
             <Link key={n?.id || i} href={n ? `/news/${n.slug}` : '/naujienos'} onClick={onLink} className="sh-mini sh-mini-xs">
               <ImageBox src={n?.image} accent={accent} glyph={I.blog} className="sh-mini-img" />
               <span className="sh-mini-title sh-mini-title-2">{n?.title || 'Naujiena'}</span>
             </Link>
           ))}
         </div>
-        <div className="sh-mexp-grid" style={{ marginTop: 10 }}>
+        <div className="sh-mexp-grid" style={{ marginTop: 12 }}>
+          <Link href="/naujienos?type=interview" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#0ea5e9') }}>
+            <span className="sh-mexp-tile-icon">{I.chat}</span>
+            <span className="sh-mexp-tile-label">Interviu</span>
+          </Link>
+          <Link href="/naujienos?type=review" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#a855f7') }}>
+            <span className="sh-mexp-tile-icon">{I.blog}</span>
+            <span className="sh-mexp-tile-label">Recenzijos</span>
+          </Link>
+          <Link href="/naujienos?type=release" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#10b981') }}>
+            <span className="sh-mexp-tile-icon">{I.song}</span>
+            <span className="sh-mexp-tile-label">Releases</span>
+          </Link>
+          <Link href="/naujienos" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#f59e0b') }}>
+            <span className="sh-mexp-tile-icon">{I.news}</span>
+            <span className="sh-mexp-tile-label">Visos</span>
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  if (navKey === 'bendruomene') {
+    return (
+      <div className="sh-mexp">
+        <div className="sh-mexp-grid">
           <Link href="/pokalbiai" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#06b6d4') }}>
             <span className="sh-mexp-tile-icon">{I.chat}</span>
             <span className="sh-mexp-tile-label">Pokalbiai</span>
@@ -803,9 +842,6 @@ function MobileExpansion({
   if (navKey === 'skelbimai') {
     return (
       <div className="sh-mexp">
-        <Link href="/skelbimai" onClick={onLink} className="sh-mexp-cta" style={{ ['--it-rgb' as any]: hexToRgb(accent) }}>
-          Atidaryti Skelbimus <ArrowRight size={12}/>
-        </Link>
         <div className="sh-mexp-grid">
           {[
             { label: 'Vinilas',         icon: I.vinyl,   rgb: '14, 165, 233' },
@@ -898,8 +934,9 @@ export function SiteHeader() {
       case 'muzika':       return <MuzikaPanel data={preview} accent={accent} />
       case 'topai':        return <TopaiPanel accent={accent} />
       case 'renginiai':    return <RenginiaiPanel data={preview} accent={accent} />
+      case 'naujienos':    return <NaujienosPanel data={preview} accent={accent} />
       case 'pramogos':     return <PramogosPanel accent={accent} />
-      case 'bendruomene':  return <BendruomenePanel data={preview} accent={accent} />
+      case 'bendruomene':  return <BendruomenePanel accent={accent} />
       case 'skelbimai':    return <SkelbimaiPanel accent={accent} />
     }
   }
@@ -1657,14 +1694,16 @@ export function SiteHeader() {
 
         .sh-mrow-icon {
           flex-shrink: 0;
-          width: 36px; height: 36px;
-          border-radius: 10px;
+          width: 40px; height: 40px;
+          border-radius: 11px;
           display: flex; align-items: center; justify-content: center;
-          color: rgba(var(--it-rgb), 1);
-          background: rgba(var(--it-rgb), 0.13);
-          border: 1px solid rgba(var(--it-rgb), 0.22);
+          color: #fff;
+          background: linear-gradient(135deg, rgba(var(--it-rgb), 1) 0%, rgba(var(--it-rgb), 0.78) 100%);
+          box-shadow:
+            0 4px 12px rgba(var(--it-rgb), 0.30),
+            inset 0 1px 0 rgba(255, 255, 255, 0.25);
         }
-        .sh-mrow-icon svg { width: 18px; height: 18px; }
+        .sh-mrow-icon svg { width: 20px; height: 20px; stroke-width: 2.2; }
         .sh-mrow-text {
           flex: 1; min-width: 0;
           display: flex; flex-direction: column;
