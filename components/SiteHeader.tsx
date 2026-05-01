@@ -1276,9 +1276,14 @@ export function SiteHeader() {
         /* ── Responsive ── */
         .sh-desktop-search { display: flex; }
         .sh-desktop-nav    { display: flex; }
+        /* Search icon header'yje — atvirkštinė taisyklė: rodom tik kai
+           inline search bar'as paslėptas. Above 1080px → bar matomas, ikona
+           paslėpta. Below 1080px → bar paslėptas, ikona matoma. */
+        .sh-search-icon { display: none; }
         @media (max-width: 1080px) {
           .sh-desktop-search { display: none !important; }
           .sh-desktop-nav    { display: none !important; }
+          .sh-search-icon    { display: flex !important; }
         }
         /* Suppress Safari/Mac fokuso "white ring" ir Firefox dotted outline'ą,
            paliekam tik :hover/active border'į. Be focus-visible custom style'o
@@ -1450,6 +1455,30 @@ export function SiteHeader() {
           </button>
 
           <div style={{ flexShrink: 0, marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+            {/* Search icon — rodom tik kai inline search bar'as paslėptas
+                (≤1080px), kad neprasidėtų redundancy su sh-desktop-search. */}
+            <button
+              type="button"
+              onClick={openSearch}
+              aria-label="Atidaryti paiešką"
+              className="sh-search-icon"
+              style={{
+                width: 34, height: 34,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                border: 'none', background: 'transparent', cursor: 'pointer',
+                color: 'var(--text-muted)', borderRadius: 8,
+                transition: 'color .15s, background .15s',
+                outline: 'none',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.background = 'var(--bg-hover)' }}
+              onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'transparent' }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.35-4.35"/>
+              </svg>
+            </button>
             <MessagesBell />
             <NotificationsBell />
             <HeaderAuth />
