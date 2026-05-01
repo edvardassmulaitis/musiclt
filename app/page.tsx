@@ -744,12 +744,26 @@ export default function Home() {
   // overlayVisible — kontroliuoja kada pageReady overlay pašalinamas iš DOM.
   // pageReady true → CSS .overlay-fade-out 320ms fade → po 350ms unmount.
   const [overlayVisible, setOverlayVisible] = useState(true)
-  // Progress counter (0..LOAD_TOTAL) — naudojamas dash progress bar'ui.
-  // Naudotojas mato realų progresą (5/7 dashes), nebūna "ilgokai kraunasi"
-  // jausmas net kai realiai užima 1.5s.
-  const [loadProgress, setLoadProgress] = useState(0)
-  const LOAD_TOTAL = 7  // tops_lt + tops_world + tracks + albums + artists + events + news+songs
-  const incLoad = () => setLoadProgress(p => Math.min(LOAD_TOTAL, p + 1))
+  // Per-step status — kiekvienai homepage'o sekcijai (TOP30, TOP40, dainos,
+  // albumai, atlikėjai, renginiai, naujienos) atskira state'as. Loader'is
+  // rodo VARDĄ kiekvienos sekcijos (ne tik counter'į), kad naudotojui būtų
+  // realistiškiau — mato KĄ konkrečiai kraunamą, ne "kraunama 4/7".
+  type StepKey = 'top30' | 'top40' | 'tracks' | 'albums' | 'artists' | 'events' | 'news'
+  const LOAD_STEPS: { key: StepKey; label: string }[] = [
+    { key: 'top30',   label: 'LT TOP 30' },
+    { key: 'top40',   label: 'TOP 40 (pasaulio)' },
+    { key: 'tracks',  label: 'Naujausios dainos' },
+    { key: 'albums',  label: 'Nauji albumai' },
+    { key: 'artists', label: 'Atrask atlikėjus' },
+    { key: 'events',  label: 'Renginiai' },
+    { key: 'news',    label: 'Naujienos' },
+  ]
+  const [stepDone, setStepDone] = useState<Record<StepKey, boolean>>({
+    top30: false, top40: false, tracks: false, albums: false, artists: false, events: false, news: false,
+  })
+  const completeStep = (k: StepKey) => setStepDone(prev => prev[k] ? prev : ({ ...prev, [k]: true }))
+  const loadProgress = LOAD_STEPS.filter(s => stepDone[s.key]).length
+  const LOAD_TOTAL = LOAD_STEPS.length
   useEffect(() => {
     if (!pageReady) return
     const t = setTimeout(() => setOverlayVisible(false), 350)
@@ -785,16 +799,16 @@ export default function Home() {
     // 7 fetch'ai paraleliai. Kiekvienas baigęsis bumpina loadProgress (0..7)
     // → naudotojas mato realų progresą dash bar'e (mažiau "ilgokai kraunasi"
     // jausmas).
-    fetch('/api/top/entries?type=lt_top30').then(r => r.json()).then(d => { setLtTop(parseTop(d.entries || [])); readyBits.current.tops = true; tryReady.current(); incLoad() }).catch(() => { readyBits.current.tops = true; tryReady.current(); incLoad() })
-    fetch('/api/top/entries?type=top40').then(r => r.json()).then(d => { setWorldTop(parseTop(d.entries || [])); incLoad() }).catch(() => incLoad())
-    fetch('/api/tracks?limit=24').then(r => r.json()).then(d => { setTracks(d.tracks || []); readyBits.current.tracks = true; tryReady.current(); incLoad() }).catch(() => { readyBits.current.tracks = true; tryReady.current(); incLoad() })
-    fetch('/api/albums?limit=24').then(r => r.json()).then(d => { setAlbums(d.albums || []); incLoad() }).catch(() => incLoad())
+    fetch('/api/top/entries?type=lt_top30').then(r => r.json()).then(d => { setLtTop(parseTop(d.entries || [])); readyBits.current.tops = true; tryReady.current(); completeStep('top30') }).catch(() => { readyBits.current.tops = true; tryReady.current(); completeStep('top30') })
+    fetch('/api/top/entries?type=top40').then(r => r.json()).then(d => { setWorldTop(parseTop(d.entries || [])); completeStep('top40') }).catch(() => completeStep('top40'))
+    fetch('/api/tracks?limit=24').then(r => r.json()).then(d => { setTracks(d.tracks || []); readyBits.current.tracks = true; tryReady.current(); completeStep('tracks') }).catch(() => { readyBits.current.tracks = true; tryReady.current(); completeStep('tracks') })
+    fetch('/api/albums?limit=24').then(r => r.json()).then(d => { setAlbums(d.albums || []); completeStep('albums') }).catch(() => completeStep('albums'))
     // Sort artists by score (descending) — kai duomenų bazėje 200+ atlikėjų,
     // Atrask sekcija turėtų rodyti aukščiausiai score'inamus, ne tik
     // alfabetiškai pirmus. Limit'as 24 — pakanka 8 grid'ui + buffer'is jei
     // kas filtruosis.
-    fetch('/api/artists?limit=24&sort=score').then(r => r.json()).then(d => { setArtists(d.artists || []); incLoad() }).catch(() => incLoad())
-    fetch('/api/events?limit=24').then(r => r.json()).then(d => { setEvents(d.events || []); incLoad() }).catch(() => incLoad())
+    fetch('/api/artists?limit=24&sort=score').then(r => r.json()).then(d => { setArtists(d.artists || []); completeStep('artists') }).catch(() => completeStep('artists'))
+    fetch('/api/events?limit=24').then(r => r.json()).then(d => { setEvents(d.events || []); completeStep('events') }).catch(() => completeStep('events'))
     // News + songs vienu request'u (anksčiau buvo /api/news + 30× /api/news/{id}/songs).
     // ?include=songs grąžina { ..., songs: [...] } per news. Hero parsina
     // pirmąją YT-bearing dainą iš to array'aus.
@@ -810,9 +824,9 @@ export default function Home() {
           }
         }
         setNewsSongs(songsMap)
-        incLoad()
+        completeStep('news')
       })
-      .catch(() => incLoad())
+      .catch(() => completeStep('news'))
   }, [])
 
   /* ── Hero slides ── */
@@ -996,13 +1010,14 @@ export default function Home() {
       <div className="hp route-enter">
 
         {/* ═══════════════════════ HOMEPAGE LOAD OVERLAY ═══════════════════════
-            Progress dashes loader'is — tas pats vizualinis pattern'as, kuris
-            naudojamas albumų ir track'ų puslapiuose (PopBar 5 dashes). Naudotojui
-            aiškiau, kiek liko: 4/7 dashes user'as mato, kad pusė užbaigta.
-            Anksčiau buvo equalizer'is be progress feedback'o → atrodė "ilgokai
-            kraunasi" net kai realiai buna 1.5s.
+            Per-section progress list — kiekviena homepage'o sekcija (TOP30,
+            TOP40, dainos, albumai, atlikėjai, renginiai, naujienos) turi savo
+            eilutę su dash'u + vardu + status'u. Naudotojas mato KĄ konkrečiai
+            kraunamą, ne abstraktų counter'į.
+            • baigta: oranžinis dash'as + vardo įprastas tekstas + ✓
+            • dar laukia: pilkas dash'as + dimmed vardas + animuotas dot
             Overlay stays in DOM 350ms po pageReady=true (CSS .overlay-fade-out
-            per 320ms fade'ina opacity iki 0), tada unmount'inamas. */}
+            per 320ms fade'ina opacity iki 0). */}
         {overlayVisible && (
           <div
             className={pageReady ? 'overlay-fade-out' : ''}
@@ -1011,37 +1026,65 @@ export default function Home() {
               background: dk ? '#080e1a' : '#f0f4fa',
               display: 'flex', flexDirection: 'column',
               alignItems: 'center', justifyContent: 'center',
-              gap: 22,
+              gap: 26,
               pointerEvents: pageReady ? 'none' : 'auto',
             }}
           >
+            <style>{`
+              @keyframes hp-load-dot { 0%, 100% { opacity: 0.3 } 50% { opacity: 1 } }
+            `}</style>
+
             {/* music.lt brand mark */}
-            <div style={{ display: 'flex', alignItems: 'center', opacity: 0.7 }}>
-              <span style={{ fontFamily: 'Outfit,sans-serif', fontWeight: 900, fontSize: 22, color: dk ? '#fff' : '#0f1a2e', letterSpacing: '-0.01em' }}>music.</span>
-              <span style={{ fontFamily: 'Outfit,sans-serif', fontWeight: 900, fontSize: 22, color: '#f97316', letterSpacing: '-0.01em' }}>lt</span>
+            <div style={{ display: 'flex', alignItems: 'center', opacity: 0.85 }}>
+              <span style={{ fontFamily: 'Outfit,sans-serif', fontWeight: 900, fontSize: 24, color: dk ? '#fff' : '#0f1a2e', letterSpacing: '-0.01em' }}>music.</span>
+              <span style={{ fontFamily: 'Outfit,sans-serif', fontWeight: 900, fontSize: 24, color: '#f97316', letterSpacing: '-0.01em' }}>lt</span>
             </div>
 
-            {/* Progress dashes — same look kaip PopBar (album/track puslapiai)
-                bet daugiau dash'ų. 3px tall, 28px wide, gap 5px. Kiekvienas
-                užpildytas dash'as = vienas baigtas API fetch'as. */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              {Array.from({ length: LOAD_TOTAL }).map((_, i) => (
-                <span
-                  key={i}
-                  style={{
-                    height: 3,
-                    width: 28,
-                    borderRadius: 2,
-                    background: i < loadProgress
-                      ? '#f97316'
-                      : (dk ? 'rgba(255,255,255,0.10)' : 'rgba(15,26,46,0.10)'),
-                    transition: 'background 0.3s ease',
-                  }}
-                />
-              ))}
+            {/* Per-step list — vertical, monospace alignment.
+                Kiekviena eilutė: dash + vardas + status indikatorius dešinėje. */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 240 }}>
+              {LOAD_STEPS.map(s => {
+                const done = stepDone[s.key]
+                return (
+                  <div key={s.key} style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 700,
+                    transition: 'opacity 0.25s ease',
+                    opacity: done ? 1 : 0.55,
+                  }}>
+                    <span style={{
+                      height: 3,
+                      width: 28,
+                      borderRadius: 2,
+                      background: done
+                        ? '#f97316'
+                        : (dk ? 'rgba(255,255,255,0.12)' : 'rgba(15,26,46,0.12)'),
+                      transition: 'background 0.3s ease',
+                      flexShrink: 0,
+                    }} />
+                    <span style={{
+                      flex: 1,
+                      color: done
+                        ? (dk ? '#fff' : '#0f1a2e')
+                        : (dk ? 'rgba(255,255,255,0.55)' : 'rgba(15,26,46,0.55)'),
+                    }}>
+                      {s.label}
+                    </span>
+                    {done ? (
+                      <span style={{ color: '#f97316', fontSize: 13, fontWeight: 900, lineHeight: 1 }}>✓</span>
+                    ) : (
+                      <span style={{
+                        width: 6, height: 6, borderRadius: '50%',
+                        background: dk ? 'rgba(255,255,255,0.5)' : 'rgba(15,26,46,0.5)',
+                        animation: 'hp-load-dot 1.2s ease-in-out infinite',
+                      }} />
+                    )}
+                  </div>
+                )
+              })}
             </div>
 
-            {/* Subtle hint text — current step counter */}
+            {/* Counter footer — "kraunama 3 iš 7" arba "pasiruošta" */}
             <div style={{
               fontFamily: 'Outfit,sans-serif', fontSize: 10, fontWeight: 700,
               letterSpacing: '0.18em', textTransform: 'uppercase',
