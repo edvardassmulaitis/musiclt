@@ -112,33 +112,68 @@ async function getAlbums(id: number) {
   const { data } = await sb.from('albums').select('id, slug, title, year, month, cover_image_url, type_studio, type_compilation, type_ep, type_single, type_live, type_remix, type_soundtrack, type_demo, spotify_id, video_url, legacy_id, score').eq('artist_id', id).order('year', { ascending: false })
   const albums = (data || []) as any[]
   if (albums.length === 0) return albums
-  // Attach album like counts — paginate'inam per chunk'ą, kad neprarastume
-  // eilučių prie PostgREST 1000-row cap'o (žiūr getTracks() komentarą žemiau).
+  // Attach album like counts.
+  //
+  // FAST PATH (po 20260501a_like_counts_rpc.sql migracijos): vienas RPC
+  // call grąžina visus count'us — DB pusėje GROUP BY agregacija.
+  // FALLBACK (jei migracija dar nepritaikyta): senas chunked pagination
+  // loop'as. Tai apsaugo deploy'ą — kodas veikia ir prieš migraciją.
   const albumIds = albums.map(a => a.id)
-  const byAlbum = new Map<number, number>()
+  const byAlbum = await fetchLikeCounts(sb, 'album', albumIds)
+  for (const a of albums) (a as any).like_count = byAlbum.get(a.id) || 0
+  return albums
+}
+
+/**
+ * Single batched fetch'as: like_count per entity_id naudojant Postgres RPC.
+ * Pagrindinis pagreitinimo mechanizmas — viena round-trip vietoj N chunked.
+ *
+ * Mikutavičiui (~3000 track likes / 70 tracks): senas chunked loop ~3-5
+ * round-trips × ~150ms = 450-750ms. RPC: 1 round-trip ~150ms. Speedup ~5x.
+ */
+async function fetchLikeCounts(
+  sb: ReturnType<typeof createAdminClient>,
+  entityType: 'track' | 'album' | 'artist',
+  entityIds: number[],
+): Promise<Map<number, number>> {
+  const out = new Map<number, number>()
+  if (entityIds.length === 0) return out
+
+  // FAST PATH — RPC
+  const { data: rpcRows, error: rpcErr } = await sb.rpc('like_counts_by_entity', {
+    p_entity_type: entityType,
+    p_entity_ids: entityIds,
+  })
+  if (!rpcErr && Array.isArray(rpcRows)) {
+    for (const r of rpcRows as any[]) {
+      out.set(Number(r.entity_id), Number(r.like_count))
+    }
+    return out
+  }
+
+  // FALLBACK — chunked pagination (kai RPC dar nesukurta DB).
+  // PostgREST max-rows = 1000 per response. Chunk'inam ID'us po 40 +
+  // page'inam per chunk'ą, kad neprarastume eilučių prie cap'o.
   const CHUNK = 40
   const PAGE = 1000
-  for (let i = 0; i < albumIds.length; i += CHUNK) {
-    const chunk = albumIds.slice(i, i + CHUNK)
+  for (let i = 0; i < entityIds.length; i += CHUNK) {
+    const chunk = entityIds.slice(i, i + CHUNK)
     let offset = 0
     while (true) {
-      const { data: lk } = await sb
+      const { data: rows } = await sb
         .from('likes')
         .select('entity_id')
-        .eq('entity_type', 'album')
+        .eq('entity_type', entityType)
         .in('entity_id', chunk)
         .order('id', { ascending: true })
         .range(offset, offset + PAGE - 1)
-      const rows = (lk || []) as any[]
-      for (const r of rows) {
-        byAlbum.set(r.entity_id, (byAlbum.get(r.entity_id) || 0) + 1)
-      }
-      if (rows.length < PAGE) break
+      const arr = (rows || []) as any[]
+      for (const r of arr) out.set(r.entity_id, (out.get(r.entity_id) || 0) + 1)
+      if (arr.length < PAGE) break
       offset += PAGE
     }
   }
-  for (const a of albums) (a as any).like_count = byAlbum.get(a.id) || 0
-  return albums
+  return out
 }
 async function getTracks(id: number) {
   const sb = createAdminClient()
@@ -163,40 +198,11 @@ async function getTracks(id: number) {
   const tracks = (data || []) as any[]
   if (tracks.length === 0) return tracks
 
-  // Attach like counts iš unified `likes` lentelės.
-  //
-  // ⚠ PostgREST max-rows = 1000 per response. Net su .range(0, 9999) cap'ina
-  //   serverio pusėje. Anksčiau turėjome `CHUNK=40` be pagination — kai
-  //   chunk'o suma būdavo >1000 likes, dalis pačių rečiausių dainų likes
-  //   silently dingdavo (Mikutavičius turi 3006 track likes / 68 dainos,
-  //   chunk'ai pasiekdavo limit'ą — Saulės Vartai 2 likes prarandami nors
-  //   track puslapyje rodydavo 2 per atskirą `count: exact` query).
-  //
-  // FIX: per kiekvieną chunk'ą paginate'inam — ciklas eina .range(0..999),
-  // (1000..1999), kol returnedLength<1000. Taip jokios eilutės neprarandam.
+  // Attach like counts. Fast path — RPC; fallback — chunked pagination.
+  // Žr. fetchLikeCounts() helper'į. Mikutavičiui (3000 track likes) —
+  // ~5x speedup po RPC migracijos.
   const trackIds = tracks.map((t) => t.id)
-  const byTrack = new Map<number, number>()
-  const CHUNK = 40
-  const PAGE = 1000
-  for (let i = 0; i < trackIds.length; i += CHUNK) {
-    const chunk = trackIds.slice(i, i + CHUNK)
-    let offset = 0
-    while (true) {
-      const { data: likeRows } = await sb
-        .from('likes')
-        .select('entity_id')
-        .eq('entity_type', 'track')
-        .in('entity_id', chunk)
-        .order('id', { ascending: true })
-        .range(offset, offset + PAGE - 1)
-      const rows = (likeRows || []) as any[]
-      for (const r of rows) {
-        byTrack.set(r.entity_id, (byTrack.get(r.entity_id) || 0) + 1)
-      }
-      if (rows.length < PAGE) break
-      offset += PAGE
-    }
-  }
+  const byTrack = await fetchLikeCounts(sb, 'track', trackIds)
   for (const t of tracks) {
     t.like_count = byTrack.get(t.id) || 0
   }
@@ -287,8 +293,11 @@ async function getAllArtistTrackLegacyIds(id: number) { const sb = createAdminCl
 /** Sumedžioja community info: visus likes artist + visiems jo albumams + tracks.
  * Grąžina suma, unikalūs vartotojai, top fans (su like_count).
  *
- * Naudoja unified `likes` lentelę su entity_id (modern PK, ne legacy_id).
- * Anksčiau buvo legacy_likes su entity_legacy_id — dabar viskas vienoje vietoje. */
+ * FAST PATH (po 20260501a_like_counts_rpc.sql): vienas RPC kvietimas
+ * `artist_community_likes` — DB pusėje GROUP BY agregacija + JSONB return.
+ * Mikutavičiui (~3000 likes) speedup'as ~5-10x.
+ *
+ * FALLBACK: senas chunked pagination kelis Promise.all batch'us. */
 async function getLegacyCommunity(
   artistId: number,
   albumIds: number[],
@@ -296,11 +305,36 @@ async function getLegacyCommunity(
 ) {
   const sb = createAdminClient()
 
+  type LikeRow = { user_username: string; user_rank: string | null; user_avatar_url: string | null }
+  type FanRow = LikeRow & { like_count: number }
+
+  // ── FAST PATH — vienas RPC ──
+  const { data: rpcRows, error: rpcErr } = await sb.rpc('artist_community_likes', {
+    p_artist_id: artistId,
+    p_album_ids: albumIds,
+    p_track_ids: trackIds,
+  })
+  if (!rpcErr && Array.isArray(rpcRows) && rpcRows.length > 0) {
+    const row = rpcRows[0] as any
+    return {
+      totalEvents: Number(row.total_events) || 0,
+      distinctUsers: Number(row.distinct_users) || 0,
+      artistLikes: (row.artist_fans || []).length,
+      topFans: ((row.top_fans || []) as FanRow[]).map(f => ({
+        user_username: f.user_username,
+        user_rank: f.user_rank,
+        user_avatar_url: f.user_avatar_url,
+        like_count: Number(f.like_count),
+      })),
+      allArtistFans: (row.artist_fans || []) as LikeRow[],
+    }
+  }
+
+  // ── FALLBACK — kai RPC dar neaplikuota DB ──
   // Artist-level likes — tai kas rodoma main ♥ button'e.
   // Albumų/tracks likes reikalingi tik aggregate distinctUsers stat'ui.
   // PostgREST max-rows 1000 — chunk'inam IN queries po 40 entities, kad
   // kiekvieno chunk'o response'as tilptų po cap'ą.
-  type LikeRow = { user_username: string; user_rank: string | null; user_avatar_url: string | null }
   async function fetchAllByIn(table: 'likes', entityType: string, ids: number[]): Promise<LikeRow[]> {
     if (ids.length === 0) return []
     const out: LikeRow[] = []
@@ -357,7 +391,7 @@ async function getLegacyCommunity(
   return {
     totalEvents: all.length,
     distinctUsers: tally.size,
-    artistLikes: allArtistFans.length,  // <- match'ina music.lt UI skaičių
+    artistLikes: allArtistFans.length,
     topFans,
     allArtistFans,
   }
