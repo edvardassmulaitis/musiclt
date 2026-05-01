@@ -1244,7 +1244,6 @@ export default function Home() {
   const filtEvt = events
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>([])
   const [heroIdx, setHeroIdx] = useState(0)
-  const [heroPairIdx, setHeroPairIdx] = useState(0)
 
   /* Horizontal scroll arrows — ant ne-touch įrenginių prie kiekvieno .hp-scroll
      parent'o pridedam ◄ ► mygtukus. Mygtukai scrollina 85% conteinerio pločio
@@ -1428,7 +1427,6 @@ export default function Home() {
       setHeroImgLoaded(false)
       setHeroVideoPlaying(false)
       setHeroIdx(p => (p + 1) % heroSlides.length)
-      setHeroPairIdx(p => (p + 1) % Math.max(1, Math.ceil(heroSlides.length / 2)))
     }, 8000)
     return () => clearTimeout(timerRef.current)
   }, [heroIdx, heroSlides.length, heroVideoPlaying])
@@ -1474,12 +1472,14 @@ export default function Home() {
         @keyframes hp-img-in{from{opacity:0;transform:scale(1.04)}to{opacity:1;transform:scale(1)}}
         @keyframes hp-pulse{0%,100%{opacity:.05}50%{opacity:.08}}
         .hp-skel{background:var(--homepage-skeleton-bg);animation:hp-pulse 1.8s ease-in-out infinite}
-        .hp-scroll{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+        .hp-scroll{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-behavior:smooth}
+        .hp-hero-slot{width:calc(50% - 8px);min-width:0}
+        @media(max-width:768px){.hp-hero-slot{width:calc(100% - 12px)}}
         .hp-scroll::-webkit-scrollbar{display:none}
-        .hp-scroll-arrow{position:absolute;top:50%;transform:translateY(-50%);width:36px;height:36px;border-radius:50%;background:rgba(13,19,32,0.92);border:1px solid var(--border-default);color:var(--text-primary);font-family:'Outfit',sans-serif;font-size:18px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:5;transition:opacity .18s,background .15s,transform .15s;backdrop-filter:blur(8px);box-shadow:0 4px 16px rgba(0,0,0,0.35);padding:0;line-height:1}
-        .hp-scroll-arrow:hover{background:var(--accent-orange);color:#fff;transform:translateY(-50%) scale(1.05)}
-        .hp-scroll-arrow-l{left:-12px}
-        .hp-scroll-arrow-r{right:-12px}
+        .hp-scroll-arrow{position:absolute;top:50%;transform:translateY(-50%);width:28px;height:28px;border-radius:50%;background:rgba(13,19,32,0.85);border:1px solid var(--border-default);color:var(--text-secondary);font-family:'Outfit',sans-serif;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:5;transition:opacity .18s,background .15s,color .15s,transform .15s;backdrop-filter:blur(8px);box-shadow:0 2px 10px rgba(0,0,0,0.25);padding:0;line-height:1}
+        .hp-scroll-arrow:hover{background:var(--accent-orange);color:#fff;border-color:var(--accent-orange);transform:translateY(-50%) scale(1.08)}
+        .hp-scroll-arrow-l{left:-8px}
+        .hp-scroll-arrow-r{right:-8px}
         @media (pointer: coarse){.hp-scroll-arrow{display:none}}
         .hp-pill{cursor:pointer;padding:5px 13px;border-radius:18px;font-size:11px;font-weight:700;border:1px solid var(--border-default);color:var(--text-muted);background:transparent;transition:all .15s;white-space:nowrap;font-family:'DM Sans',sans-serif}
         .hp-pill.hp-act{background:var(--homepage-pill-active);border-color:${dk ? 'rgba(29,78,216,.32)' : 'rgba(29,78,216,.2)'};color:var(--accent-blue)}
@@ -1600,43 +1600,13 @@ export default function Home() {
         {pageReady && heroSlides.length > 0 && (
           <section className="hp-hero-v2" ref={heroRef}>
             <div className="mx-auto max-w-[1360px] px-5 pt-5">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                {[0, 1].map(off => {
-                  const totalPairs = Math.max(1, Math.ceil(heroSlides.length / 2))
-                  const idx = (heroPairIdx * 2 + off) % heroSlides.length
-                  const slide = heroSlides[idx]
-                  if (!slide) return <div key={off} className="hidden md:block" />
-                  return <HeroV2Card key={`p${heroPairIdx}-${off}-${idx}`} slide={slide} dk={dk} />
-                })}
-              </div>
-              {heroSlides.length > 2 && (
-                <div className="mt-4 flex items-center justify-center gap-2">
-                  <button
-                    onClick={() => setHeroPairIdx(p => (p - 1 + Math.max(1, Math.ceil(heroSlides.length / 2))) % Math.max(1, Math.ceil(heroSlides.length / 2)))}
-                    aria-label="Ankstesnis"
-                    className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
-                  >‹</button>
-                  <div className="flex items-center gap-1.5">
-                    {Array.from({ length: Math.max(1, Math.ceil(heroSlides.length / 2)) }).map((_, i) => (
-                      <button
-                        key={i}
-                        onClick={() => setHeroPairIdx(i)}
-                        className="rounded-full transition-all"
-                        style={{
-                          width: i === heroPairIdx ? 22 : 6,
-                          height: 6,
-                          background: i === heroPairIdx ? 'var(--accent-orange)' : 'var(--border-strong)',
-                        }}
-                      />
-                    ))}
+              <div className="hp-scroll hp-hero-track flex items-stretch gap-4 pb-1 snap-x snap-mandatory">
+                {heroSlides.map((slide, i) => (
+                  <div key={i} className="hp-hero-slot shrink-0 snap-start">
+                    <HeroV2Card slide={slide} dk={dk} />
                   </div>
-                  <button
-                    onClick={() => setHeroPairIdx(p => (p + 1) % Math.max(1, Math.ceil(heroSlides.length / 2)))}
-                    aria-label="Kitas"
-                    className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
-                  >›</button>
-                </div>
-              )}
+                ))}
+              </div>
             </div>
           </section>
         )}
