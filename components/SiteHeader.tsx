@@ -836,8 +836,24 @@ export function SiteHeader() {
   const pathname = usePathname()
   const [menuOpen, setMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
-  const [preview, setPreview] = useState<NavPreview | null>(null)
   const [mobileExpanded, setMobileExpanded] = useState<NavItem['key'] | null>(null)
+  const [preview, setPreview] = useState<NavPreview | null>(null)
+  // Mobile drill-in state — 'main' = pradinė kortelių sąrašo view,
+  // arba konkretus key (muzika/topai/...) = sekcijos turinio full-screen view.
+  const [drawerView, setDrawerView] = useState<'main' | NavItem['key']>('main')
+
+  // Body scroll lock kai drawer'is atidarytas (kad puslapio turinys
+  // nesleslintų po modalu)
+  useEffect(() => {
+    if (menuOpen) {
+      const orig = document.body.style.overflow
+      document.body.style.overflow = 'hidden'
+      return () => { document.body.style.overflow = orig }
+    }
+  }, [menuOpen])
+
+  // Kai drawer'is užsidaro — atstatom į main view'ą kitam atidarymui
+  useEffect(() => { if (!menuOpen) setDrawerView('main') }, [menuOpen])
 
   // Fetch nav preview data once on mount (cached aggressively)
   useEffect(() => {
@@ -1550,6 +1566,12 @@ export function SiteHeader() {
           box-shadow: none !important;
         }
         .sh-desktop-search::-moz-focus-inner { border: 0; }
+        /* Hover'is per CSS — JS toggle'as su borderColor palikdavo stuck'ą
+           border'į kai kuriose naršyklėse. Inline border shorthand'as +
+           hover override'as longhand'u — clean'iau. */
+        .sh-desktop-search:hover {
+          border-color: var(--border-strong) !important;
+        }
 
         /* ── Mobile drawer ── */
         .sh-overlay {
@@ -1771,13 +1793,13 @@ export function SiteHeader() {
               cursor: 'pointer',
               transition: 'border-color .15s, background .15s',
               fontFamily: 'inherit',
-              // Numušam default browser focus outline'ą (Mac Safari piešia
-              // baltą "focus ring" po click'o → atrodo kaip stuck'ęs border'is).
               outline: 'none',
               WebkitTapHighlightColor: 'transparent',
             }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-strong)' }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = '' }}
+            // Hover'is perkeltas į CSS klasę (.sh-desktop-search:hover apačioje)
+            // — JS-mode mouseLeave su borderColor='' kai kuriose naršyklėse
+            // palikdavo border-color longhand'ą "stuck'ę", todėl border'is
+            // nedingdavo nuvedus pelę.
           >
             <span style={{ display: 'flex', color: mutedIcon, marginRight: 10 }}><SearchIcon /></span>
             <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: 'var(--text-muted)', textAlign: 'left' }}>
