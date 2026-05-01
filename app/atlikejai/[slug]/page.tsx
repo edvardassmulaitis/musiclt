@@ -6,11 +6,20 @@ import ArtistProfileClient from './artist-profile-client'
 import { PageLoader } from '@/components/PageLoader'
 import type { Metadata } from 'next'
 
-// Force dynamic — likes lentelė pildomas tiek nuo vartotojų toggle'ų,
-// tiek nuo backfill scriptų; jei page'as cache'inamas, pakeitimai
-// (release_year, like counts) atrodo seni. Cache'as miss čia nebrangus —
-// užklausa kelias hops į Supabase, bet duomenys visada šviežūs.
-export const dynamic = 'force-dynamic'
+// 60s ISR cache — anksčiau buvo `dynamic = 'force-dynamic'` (no cache)
+// nes likes pasikeičia tiek user toggle'ais, tiek backfill scriptais.
+// Bet 60s seni like counts'ai nėra problema — naudotojas savo paties
+// like'ą gauna client-side per /api/artists/{id}/like (ne iš SSR).
+//
+// Po šio pakeitimo:
+//   • pirmas user'is per 60s window: pilnas SSR (<1.5s tikimasi po RPC
+//     migracijos)
+//   • visi sekantys per 60s: HTML iš Vercel CDN cache <50ms
+//   • po 60s: stale-while-revalidate — old serve'ina, background re-fetch
+//
+// HUGE win popularius artist'ams (Mikutavičius, Mamontovas) — pirmas hit
+// "warm'inta" cache'į visiems likusiems.
+export const revalidate = 60
 
 type Props = { params: Promise<{ slug: string }> }
 
@@ -153,25 +162,36 @@ async function fetchLikeCounts(
 
   // FALLBACK — chunked pagination (kai RPC dar nesukurta DB).
   // PostgREST max-rows = 1000 per response. Chunk'inam ID'us po 40 +
-  // page'inam per chunk'ą, kad neprarastume eilučių prie cap'o.
+  // PARALLEL Promise.all per chunks (anksčiau buvo sequential await loop).
+  // Mikutavičius (70 tracks → 2 chunks): 2 parallel ~150ms vs 2 sequential
+  // ~300ms. Speedup'as net be migracijos.
   const CHUNK = 40
   const PAGE = 1000
+  const chunkPromises: Promise<{ entity_id: number }[]>[] = []
   for (let i = 0; i < entityIds.length; i += CHUNK) {
     const chunk = entityIds.slice(i, i + CHUNK)
-    let offset = 0
-    while (true) {
-      const { data: rows } = await sb
-        .from('likes')
-        .select('entity_id')
-        .eq('entity_type', entityType)
-        .in('entity_id', chunk)
-        .order('id', { ascending: true })
-        .range(offset, offset + PAGE - 1)
-      const arr = (rows || []) as any[]
-      for (const r of arr) out.set(r.entity_id, (out.get(r.entity_id) || 0) + 1)
-      if (arr.length < PAGE) break
-      offset += PAGE
-    }
+    chunkPromises.push((async () => {
+      const collected: { entity_id: number }[] = []
+      let offset = 0
+      while (true) {
+        const { data: rows } = await sb
+          .from('likes')
+          .select('entity_id')
+          .eq('entity_type', entityType)
+          .in('entity_id', chunk)
+          .order('id', { ascending: true })
+          .range(offset, offset + PAGE - 1)
+        const arr = (rows || []) as any[]
+        collected.push(...arr)
+        if (arr.length < PAGE) break
+        offset += PAGE
+      }
+      return collected
+    })())
+  }
+  const results = await Promise.all(chunkPromises)
+  for (const arr of results) {
+    for (const r of arr) out.set(r.entity_id, (out.get(r.entity_id) || 0) + 1)
   }
   return out
 }

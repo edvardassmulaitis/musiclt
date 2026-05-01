@@ -14,7 +14,10 @@ import { createAdminClient } from '@/lib/supabase'
 import TrackPageClient from '@/app/lt/daina/[slug]/[id]/track-page-client'
 import { PageLoader } from '@/components/PageLoader'
 
-export const revalidate = 0
+// 60s ISR cache — anksčiau buvo `revalidate = 0` (no cache). Dainos
+// duomenys keičiasi retai. 60s seni like counts ar legacy users
+// nereikšmingi naudotojui. Daugumai page hits — Vercel CDN <50ms.
+export const revalidate = 60
 
 function parseSlugId(slugId: string): { slug: string; id: number } | null {
   const m = slugId.match(/^(.+)-(\d+)$/)

@@ -12,6 +12,11 @@ import AlbumPageClient from '@/app/lt/albumas/[slug]/[id]/album-page-client'
 import { PageLoader } from '@/components/PageLoader'
 import type { Metadata } from 'next'
 
+// 60s ISR cache — album'as keičiasi retai (tracks, likes), 60s seni
+// duomenys nematomi naudotojui. Pirma user'is per 60s window: pilnas SSR;
+// likę naudotojai serve'inami iš Vercel CDN <50ms.
+export const revalidate = 60
+
 type Props = { params: Promise<{ slugId: string }> }
 
 function parseSlugId(slugId: string): { slug: string; id: number } | null {
