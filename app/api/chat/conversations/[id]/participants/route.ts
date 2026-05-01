@@ -4,13 +4,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { addParticipants, removeParticipant } from '@/lib/chat'
+import { addParticipants, removeParticipant, resolveViewerId } from '@/lib/chat'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const convId = Number(id)
   const session = await getServerSession(authOptions)
-  const userId = (session?.user as any)?.id
+  const userId = await resolveViewerId(session)
   if (!userId) return NextResponse.json({ error: 'Reikia prisijungti' }, { status: 401 })
 
   const body = await req.json().catch(() => ({}))
@@ -30,7 +30,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const { id } = await params
   const convId = Number(id)
   const session = await getServerSession(authOptions)
-  const userId = (session?.user as any)?.id
+  const userId = await resolveViewerId(session)
   if (!userId) return NextResponse.json({ error: 'Reikia prisijungti' }, { status: 401 })
 
   const { searchParams } = new URL(req.url)

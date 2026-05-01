@@ -97,6 +97,14 @@ export function ConversationSettingsModal({ conversation, viewerId, onClose, onU
             <Label>Pavadinimas</Label>
             <input
               type="text"
+              name="chat-group-rename"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              data-1p-ignore="true"
+              data-lpignore="true"
+              data-form-type="other"
               value={name}
               onChange={e => setName(e.target.value)}
               disabled={!isAdmin || saving}
@@ -106,6 +114,14 @@ export function ConversationSettingsModal({ conversation, viewerId, onClose, onU
             <Label>Tema</Label>
             <input
               type="text"
+              name="chat-group-topic"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              data-1p-ignore="true"
+              data-lpignore="true"
+              data-form-type="other"
               value={topic}
               onChange={e => setTopic(e.target.value)}
               disabled={!isAdmin || saving}
@@ -138,7 +154,16 @@ export function ConversationSettingsModal({ conversation, viewerId, onClose, onU
           {addingMembers && (
             <div style={{ marginBottom: 12 }}>
               <input
-                type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                type="search"
+                name="chat-member-search"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                data-1p-ignore="true"
+                data-lpignore="true"
+                data-form-type="other"
+                value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Ieškoti narių..."
                 style={fieldStyle(true)}
               />

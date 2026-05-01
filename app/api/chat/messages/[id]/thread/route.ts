@@ -5,13 +5,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { fetchThread, sendMessage } from '@/lib/chat'
+import { fetchThread, sendMessage, resolveViewerId } from '@/lib/chat'
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const messageId = Number(id)
   const session = await getServerSession(authOptions)
-  const userId = (session?.user as any)?.id
+  const userId = await resolveViewerId(session)
   if (!userId) return NextResponse.json({ error: 'Reikia prisijungti' }, { status: 401 })
 
   try {
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params
   const parentId = Number(id)
   const session = await getServerSession(authOptions)
-  const userId = (session?.user as any)?.id
+  const userId = await resolveViewerId(session)
   if (!userId) return NextResponse.json({ error: 'Reikia prisijungti' }, { status: 401 })
 
   const body = await req.json().catch(() => ({}))

@@ -3,11 +3,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { searchUsers } from '@/lib/chat'
+import { searchUsers, resolveViewerId } from '@/lib/chat'
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const userId = (session?.user as any)?.id
+  const userId = await resolveViewerId(session)
   if (!userId) return NextResponse.json({ users: [] })
 
   const { searchParams } = new URL(req.url)

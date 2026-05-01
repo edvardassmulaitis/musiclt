@@ -117,6 +117,14 @@ export function NewConversationModal({ onClose }: Props) {
         {mode === 'group' && (
           <input
             type="text"
+            name="chat-group-name"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            data-1p-ignore="true"
+            data-lpignore="true"
+            data-form-type="other"
             value={groupName}
             onChange={e => setGroupName(e.target.value)}
             placeholder="Grupės pavadinimas (neprivalomas)"
@@ -151,7 +159,16 @@ export function NewConversationModal({ onClose }: Props) {
 
         <input
           ref={inputRef}
-          type="text"
+          type="search"
+          name="chat-user-search"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
+          data-1p-ignore="true"
+          data-lpignore="true"
+          data-form-type="other"
+          enterKeyHint="search"
           value={query}
           onChange={e => setQuery(e.target.value)}
           placeholder="Ieškoti vartotojų pagal vardą arba @username…"

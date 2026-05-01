@@ -5,13 +5,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { getConversation, renameGroup, leaveConversation } from '@/lib/chat'
+import { getConversation, renameGroup, leaveConversation, resolveViewerId } from '@/lib/chat'
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const convId = Number(id)
   const session = await getServerSession(authOptions)
-  const userId = (session?.user as any)?.id
+  const userId = await resolveViewerId(session)
   if (!userId) return NextResponse.json({ error: 'Reikia prisijungti' }, { status: 401 })
 
   try {
@@ -27,7 +27,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params
   const convId = Number(id)
   const session = await getServerSession(authOptions)
-  const userId = (session?.user as any)?.id
+  const userId = await resolveViewerId(session)
   if (!userId) return NextResponse.json({ error: 'Reikia prisijungti' }, { status: 401 })
 
   const body = await req.json().catch(() => ({}))
@@ -48,7 +48,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const { id } = await params
   const convId = Number(id)
   const session = await getServerSession(authOptions)
-  const userId = (session?.user as any)?.id
+  const userId = await resolveViewerId(session)
   if (!userId) return NextResponse.json({ error: 'Reikia prisijungti' }, { status: 401 })
 
   try {

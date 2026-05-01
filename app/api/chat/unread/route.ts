@@ -4,7 +4,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { totalUnread } from '@/lib/chat'
+import { totalUnread, resolveViewerId } from '@/lib/chat'
 
 function isMissingTable(msg: string | null | undefined) {
   return !!msg && /relation .* does not exist|chat_total_unread|chat_user_conversations/i.test(msg)
@@ -12,7 +12,7 @@ function isMissingTable(msg: string | null | undefined) {
 
 export async function GET() {
   const session = await getServerSession(authOptions)
-  const userId = (session?.user as any)?.id
+  const userId = await resolveViewerId(session)
   if (!userId) return NextResponse.json({ unread: 0, authenticated: false })
 
   try {

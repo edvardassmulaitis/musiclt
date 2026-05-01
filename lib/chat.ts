@@ -27,7 +27,21 @@
 //
 // Naudojama API route'ais. Frontend'as kalbasi su API, ne čia.
 
+import type { Session } from 'next-auth'
 import { createAdminClient } from '@/lib/supabase'
+import { resolveAuthorId } from '@/lib/resolve-author'
+
+// Resolve'ina dabartinį prisijungusį vartotoją į profile.id. Naudojam
+// resolveAuthorId, kuris dorai apdoroja:
+//   - JWT id rodo į wiped profile (re-create per email lookup)
+//   - DB ID drift po migracijos (email kaip stable backbone)
+// Visi chat API endpoint'ai turi naudoti šitą — tiesioginis session.user.id
+// neveikia po DB wipe'ų ir meta FK violation.
+export async function resolveViewerId(session: Session | null): Promise<string | null> {
+  if (!session?.user) return null
+  const sb = createAdminClient()
+  return resolveAuthorId(sb, session)
+}
 
 export type ConversationType = 'dm' | 'group'
 

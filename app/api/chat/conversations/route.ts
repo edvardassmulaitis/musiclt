@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { listMyConversations, getOrCreateDM, createGroup } from '@/lib/chat'
+import { listMyConversations, getOrCreateDM, createGroup, resolveViewerId } from '@/lib/chat'
 
 function isMissingTable(msg: string | null | undefined) {
   return !!msg && /relation .* does not exist|chat_user_conversations/i.test(msg)
@@ -16,7 +16,7 @@ function isMissingTable(msg: string | null | undefined) {
 
 export async function GET() {
   const session = await getServerSession(authOptions)
-  const userId = (session?.user as any)?.id
+  const userId = await resolveViewerId(session)
   if (!userId) return NextResponse.json({ conversations: [], authenticated: false })
 
   try {
@@ -32,7 +32,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const userId = (session?.user as any)?.id
+  const userId = await resolveViewerId(session)
   if (!userId) return NextResponse.json({ error: 'Reikia prisijungti' }, { status: 401 })
 
   const body = await req.json().catch(() => ({}))
