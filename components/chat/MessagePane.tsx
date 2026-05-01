@@ -14,9 +14,10 @@ type Props = {
   initialMessages: ChatMessage[]
   onOpenThread: (messageId: number) => void
   onOpenSettings: () => void
+  onMobileBack?: () => void
 }
 
-export function MessagePane({ conversation, viewerId, initialMessages, onOpenThread, onOpenSettings }: Props) {
+export function MessagePane({ conversation, viewerId, initialMessages, onOpenThread, onOpenSettings, onMobileBack }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages)
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(initialMessages.length >= 50)
@@ -217,12 +218,17 @@ export function MessagePane({ conversation, viewerId, initialMessages, onOpenThr
       edited_at: null,
       deleted_at: null,
       created_at: new Date().toISOString(),
-      author: {
-        id: viewerId,
-        username: conversation.me?.user_id ? null : null,
-        full_name: 'Tu',
-        avatar_url: null,
-      },
+      // Pasiimam viewer'io profile iš conversation.participants — taip
+      // optimistinė žinutė iš karto rodo realų vardą + avatarą, ne 'Tu'/null.
+      author: (() => {
+        const viewerProfile = conversation.participants.find(p => p.user_id === viewerId)?.profile
+        return {
+          id: viewerId,
+          username: viewerProfile?.username || null,
+          full_name: viewerProfile?.full_name || viewerProfile?.username || 'Tu',
+          avatar_url: viewerProfile?.avatar_url || null,
+        }
+      })(),
       reactions: [],
       pending: true,
     }
@@ -311,7 +317,7 @@ export function MessagePane({ conversation, viewerId, initialMessages, onOpenThr
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, height: '100%' }}>
-      <ConversationHeader conversation={conversation} viewerId={viewerId} onOpenSettings={onOpenSettings} />
+      <ConversationHeader conversation={conversation} viewerId={viewerId} onOpenSettings={onOpenSettings} onMobileBack={onMobileBack} />
 
       {/* Messages scroller */}
       <div
@@ -392,7 +398,7 @@ function DateSeparator({ label }: { label: string }) {
   )
 }
 
-function ConversationHeader({ conversation, viewerId, onOpenSettings }: { conversation: ConversationDetail; viewerId: string; onOpenSettings: () => void }) {
+function ConversationHeader({ conversation, viewerId, onOpenSettings, onMobileBack }: { conversation: ConversationDetail; viewerId: string; onOpenSettings: () => void; onMobileBack?: () => void }) {
   const isGroup = conversation.type === 'group'
   const others = conversation.participants.filter(p => p.user_id !== viewerId && !p.left_at)
   const dmOther = others[0]?.profile
@@ -413,6 +419,24 @@ function ConversationHeader({ conversation, viewerId, onOpenSettings }: { conver
       display: 'flex', alignItems: 'center', gap: 12,
       background: 'var(--bg-surface)',
     }}>
+      {/* Mobile back button — matomas tik mobile (per CSS klasę chat-mobile-back-btn) */}
+      {onMobileBack && (
+        <button
+          onClick={onMobileBack}
+          aria-label="Atgal į pokalbių sąrašą"
+          className="chat-mobile-back-btn"
+          style={{
+            display: 'none', width: 32, height: 32, borderRadius: 8,
+            border: 'none', background: 'transparent', color: 'var(--text-secondary)',
+            cursor: 'pointer', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+        </button>
+      )}
       {isGroup
         ? (conversation.photo_url
             ? <ChatAvatar url={conversation.photo_url} fallbackName={title} size={36} square />

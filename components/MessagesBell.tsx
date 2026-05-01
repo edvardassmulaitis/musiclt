@@ -153,8 +153,8 @@ export function MessagesBell() {
 
   return (
     <div ref={wrapRef} style={{ position: 'relative', flexShrink: 0 }}>
-      <button
-        onClick={onToggle}
+      <Link
+        href="/pokalbiai"
         aria-label="Žinutės"
         style={{
           width: 34, height: 34,
@@ -162,6 +162,7 @@ export function MessagesBell() {
           border: 'none', background: 'transparent', cursor: 'pointer',
           color: iconColor, borderRadius: 8, position: 'relative',
           transition: 'color .15s, background .15s',
+          textDecoration: 'none',
         }}
         onMouseEnter={e => { e.currentTarget.style.color = iconHover; e.currentTarget.style.background = 'var(--bg-hover)' }}
         onMouseLeave={e => { e.currentTarget.style.color = iconColor; e.currentTarget.style.background = 'transparent' }}
@@ -181,10 +182,10 @@ export function MessagesBell() {
             {unread > 99 ? '99+' : unread}
           </span>
         )}
-      </button>
+      </Link>
 
-      {/* DESKTOP dropdown — relatives header'iui (absolute) */}
-      {open && !isMobile && (
+      {/* DESKTOP dropdown — DISABLED (ikonos paspaudimas dabar veda į /pokalbiai) */}
+      {false && open && !isMobile && (
         <div style={{
           position: 'absolute', top: 'calc(100% + 8px)', right: 0,
           width: 360, maxHeight: 520, overflow: 'hidden',
@@ -206,7 +207,7 @@ export function MessagesBell() {
       {/* MOBILE — fullscreen modal per portal į document.body, kad backdrop-filter
           ant header'io (kuris sukuria containing block) neapribotų position: fixed
           dropdown'o į header'io stacking context'ą Safari'iuje. */}
-      {open && isMobile && typeof document !== 'undefined' && createPortal(
+      {false && open && isMobile && typeof document !== 'undefined' && createPortal(
         <div
           style={{
             position: 'fixed', top: 56, left: 0, right: 0, bottom: 0,

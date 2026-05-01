@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useMemo, useState, useRef, useEffect } from 'react'
 import type { ChatMessage } from '@/lib/chat-types'
 import { ChatAvatar } from './ChatAvatar'
 import { formatHM } from './ChatTime'
 import { ReactionPicker } from './ReactionPicker'
+import { MessageEmbeds, extractEmbeds } from './MessageEmbeds'
 
 type Props = {
   message: ChatMessage
@@ -19,15 +20,30 @@ type Props = {
 
 export function MessageItem({ message, viewerId, grouped, onOpenThread, onToggleReaction, onEdit, onDelete, threadView }: Props) {
   const [hover, setHover] = useState(false)
+  // tap'as ant žinutės mobile'e atveria toolbar'ą — be hover event'o.
+  const [tapToolbar, setTapToolbar] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editText, setEditText] = useState(message.body)
   const [showReactionPicker, setShowReactionPicker] = useState(false)
   const reactionPickerRef = useRef<HTMLDivElement>(null)
+  const itemRef = useRef<HTMLDivElement>(null)
 
   const isMine = message.user_id === viewerId
   const author = message.author
   const name = author?.full_name || author?.username || 'Vartotojas'
   const isDeleted = !!message.deleted_at
+  const showToolbar = (hover || tapToolbar) && !editing && !isDeleted
+  const embeds = useMemo(() => isDeleted ? [] : extractEmbeds(message.body), [message.body, isDeleted])
+
+  // Outside click → close tap'inį toolbar'ą
+  useEffect(() => {
+    if (!tapToolbar) return
+    const h = (e: MouseEvent) => {
+      if (itemRef.current && !itemRef.current.contains(e.target as Node)) setTapToolbar(false)
+    }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [tapToolbar])
 
   useEffect(() => { setEditText(message.body) }, [message.body])
 
@@ -51,20 +67,28 @@ export function MessageItem({ message, viewerId, grouped, onOpenThread, onToggle
 
   return (
     <div
+      ref={itemRef}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
+      onClick={() => {
+        // Tap'as ant žinutės mobile'e (kur hover neegzistuoja) atveria
+        // toolbar'ą. Desktop'e tap'as nieko nedaro — hover jau veikia.
+        if (!editing && !isDeleted && typeof window !== 'undefined' && window.matchMedia('(hover: none)').matches) {
+          setTapToolbar(t => !t)
+        }
+      }}
       style={{
         position: 'relative',
         padding: grouped ? '2px 16px 2px 16px' : '8px 16px 4px',
         display: 'flex', gap: 12,
-        background: hover ? 'var(--bg-hover)' : 'transparent',
+        background: showToolbar ? 'var(--bg-hover)' : 'transparent',
         transition: 'background .1s',
       }}
     >
       {/* Avatar (jei pirma žinutė grupėje arba ne grupėje) */}
       <div style={{ width: 36, flexShrink: 0, paddingTop: grouped ? 0 : 2 }}>
         {!grouped && <ChatAvatar url={author?.avatar_url || null} fallbackName={name} size={36} />}
-        {grouped && hover && (
+        {grouped && showToolbar && (
           <div style={{
             fontSize: 10, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1, paddingTop: 4,
           }}>
@@ -118,13 +142,16 @@ export function MessageItem({ message, viewerId, grouped, onOpenThread, onToggle
         ) : isDeleted ? (
           <div style={{ fontSize: 13, fontStyle: 'italic', color: 'var(--text-muted)' }}>— žinutė ištrinta —</div>
         ) : (
-          <div style={{
-            fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.45,
-            wordBreak: 'break-word', whiteSpace: 'pre-wrap',
-          }}>
-            {linkify(message.body)}
-            {message.pending && <span style={{ fontSize: 10, marginLeft: 6, color: 'var(--text-muted)' }}>⌛</span>}
-          </div>
+          <>
+            <div style={{
+              fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.45,
+              wordBreak: 'break-word', whiteSpace: 'pre-wrap',
+            }}>
+              {linkify(message.body)}
+              {message.pending && <span style={{ fontSize: 10, marginLeft: 6, color: 'var(--text-muted)' }}>⌛</span>}
+            </div>
+            <MessageEmbeds embeds={embeds} />
+          </>
         )}
 
         {/* Reactions */}
@@ -173,15 +200,19 @@ export function MessageItem({ message, viewerId, grouped, onOpenThread, onToggle
       </div>
 
       {/* Hover toolbar */}
-      {hover && !editing && !isDeleted && (
+      {showToolbar && (
         <div
           ref={reactionPickerRef}
           style={{
-            position: 'absolute', top: -14, right: 12, zIndex: 5,
-            display: 'flex', gap: 2, padding: '2px 4px',
-            background: 'var(--modal-bg)', borderRadius: 8,
+            // Inline toolbar — pozicionuojamas absolute prie messages bubble'o,
+            // tiesiai aukščiau body teksto (top: -10 iš row top'o, kad subtle
+            // perkrenta), kompaktiškas paddingas. Anksčiau buvo per toli į šoną
+            // (right: 12) ir aukštai (top: -14), atrodė atsijungus nuo žinutės.
+            position: 'absolute', top: -10, right: 14, zIndex: 5,
+            display: 'flex', gap: 1, padding: '1px 3px',
+            background: 'var(--modal-bg)', borderRadius: 6,
             border: '1px solid var(--modal-border)',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
           }}
         >
           <ToolbarButton title="Reaguoti" onClick={() => setShowReactionPicker(s => !s)}>😀</ToolbarButton>

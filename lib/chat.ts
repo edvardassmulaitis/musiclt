@@ -354,6 +354,76 @@ export async function sendMessage(opts: {
 
   const hydrated = hydrateMessage(data)
   await attachReactions([hydrated])
+
+  // Notifikacijos kitiems dalyviams (best-effort, neblokuoja žinutės). Sender'ė
+  // nepasiekia savęs (createNotification praleidžia self-target). Thread'o atveju
+  // tiesiogiai notify'inam parent autorių; top-level — notify'inam visus
+  // pokalbio dalyvius (išskyrus sender'į).
+  ;(async () => {
+    try {
+      const { createNotification } = await import('@/lib/notifications')
+      const sender = hydrated.author
+      const senderName = sender?.full_name || sender?.username || 'Vartotojas'
+      const snippet = body.slice(0, 140)
+
+      if (opts.parentMessageId) {
+        // Thread reply — pranešam parent message autoriui.
+        const { data: parentRow } = await sb
+          .from('chat_messages')
+          .select('user_id')
+          .eq('id', opts.parentMessageId)
+          .single()
+        if (parentRow?.user_id && parentRow.user_id !== opts.userId) {
+          await createNotification({
+            user_id: parentRow.user_id,
+            type: 'chat_thread_reply',
+            actor_id: opts.userId,
+            actor_username: sender?.username || null,
+            actor_full_name: senderName,
+            actor_avatar_url: sender?.avatar_url || null,
+            entity_type: 'chat_message',
+            entity_id: hydrated.id,
+            url: `/pokalbiai/${opts.convId}`,
+            title: `${senderName} atsakė į tavo žinutę`,
+            snippet,
+          })
+        }
+      } else {
+        // Top-level — pranešam visiems pokalbio dalyviams (išskyrus sender'į ir
+        // tuos kurie left/muted). Žinutės title priklauso nuo pokalbio tipo.
+        const { data: parts } = await sb
+          .from('chat_participants')
+          .select('user_id, notifications_muted, left_at')
+          .eq('conversation_id', opts.convId)
+
+        const { data: conv } = await sb
+          .from('chat_conversations')
+          .select('type, name')
+          .eq('id', opts.convId)
+          .single()
+        const where = conv?.type === 'group' ? ` (${conv.name || 'grupė'})` : ''
+
+        for (const p of parts || []) {
+          if (!p.user_id || p.user_id === opts.userId) continue
+          if (p.left_at || p.notifications_muted) continue
+          await createNotification({
+            user_id: p.user_id,
+            type: 'chat_message',
+            actor_id: opts.userId,
+            actor_username: sender?.username || null,
+            actor_full_name: senderName,
+            actor_avatar_url: sender?.avatar_url || null,
+            entity_type: 'chat_conversation',
+            entity_id: opts.convId,
+            url: `/pokalbiai/${opts.convId}`,
+            title: `Nauja žinutė nuo ${senderName}${where}`,
+            snippet,
+          })
+        }
+      }
+    } catch { /* notifications must never block primary flow */ }
+  })()
+
   return hydrated
 }
 
@@ -415,9 +485,10 @@ export async function toggleReaction(messageId: number, userId: string, emoji: s
   const sb = createAdminClient()
 
   // Validacija — ar žinutė priklauso pokalbiui, kur user'is dalyvauja.
+  // Užklausiam ir žinutės autorių, kad galėtume notify'inti po insert'o.
   const { data: msg } = await sb
     .from('chat_messages')
-    .select('id, conversation_id, deleted_at')
+    .select('id, conversation_id, user_id, body, deleted_at')
     .eq('id', messageId)
     .single()
   if (!msg) throw new Error('Žinutė nerasta')
@@ -444,6 +515,38 @@ export async function toggleReaction(messageId: number, userId: string, emoji: s
 
   const { error } = await sb.from('chat_reactions').insert({ message_id: messageId, user_id: userId, emoji: e })
   if (error) throw error
+
+  // Notification — message author (jei tai ne self-react). Kaip ir su naujomis
+  // žinutėmis, change reaction (delete+insert) generuoja naują notification —
+  // tas yra norimas elgesys (user'is sako "jeigu pakeicia emocija, taip pat").
+  ;(async () => {
+    try {
+      if (msg.user_id && msg.user_id !== userId) {
+        const { data: actor } = await sb
+          .from('profiles')
+          .select('id, username, full_name, avatar_url')
+          .eq('id', userId)
+          .maybeSingle()
+        const actorName = actor?.full_name || actor?.username || 'Vartotojas'
+        const { createNotification } = await import('@/lib/notifications')
+        await createNotification({
+          user_id: msg.user_id,
+          type: 'chat_reaction',
+          actor_id: userId,
+          actor_username: actor?.username || null,
+          actor_full_name: actorName,
+          actor_avatar_url: actor?.avatar_url || null,
+          entity_type: 'chat_message',
+          entity_id: messageId,
+          url: `/pokalbiai/${msg.conversation_id}`,
+          title: `${actorName} sureagavo ${e} į tavo žinutę`,
+          snippet: (msg.body || '').slice(0, 140),
+          data: { emoji: e },
+        })
+      }
+    } catch { /* notifications must never block primary flow */ }
+  })()
+
   return { active: true }
 }
 
