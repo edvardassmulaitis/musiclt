@@ -473,13 +473,18 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
             inputMode="search"
             enterKeyHint="search"
           />
-          {q.length > 0 && (
-            <button className="ms-clear" onClick={() => { setQ(''); inputRef.current?.focus() }} aria-label="Išvalyti">
-              <CloseIcon />
-            </button>
-          )}
-          <button className="ms-close" onClick={onClose} aria-label="Uždaryti">
-            <span className="ms-kbd">Esc</span>
+          {/* Vienas X button'as: jei užklausa neturštia — clear'ina text'ą,
+              jei tuščia — uždaro modal'ą. Anksčiau buvo du atskirti
+              control'ai (clear X + Esc kbd label) — perdaug noisy. */}
+          <button
+            className="ms-close-x"
+            onClick={() => {
+              if (q.length > 0) { setQ(''); inputRef.current?.focus() }
+              else onClose()
+            }}
+            aria-label={q.length > 0 ? 'Išvalyti' : 'Uždaryti'}
+          >
+            <CloseIcon />
           </button>
         </div>
 
@@ -939,22 +944,22 @@ const searchCss = `
 }
 .ms-input:focus, .ms-input:focus-visible { outline: none; box-shadow: none; }
 .ms-input::placeholder { color: var(--text-muted, #888); font-weight: 400; }
-.ms-clear {
-  width: 26px; height: 26px;
-  border: none; background: var(--bg-hover, rgba(255,255,255,0.05));
-  border-radius: 6px; cursor: pointer;
+/* Vienas close/clear X button'as — fully square, tinkamai didelis tap target. */
+.ms-close-x {
+  width: 32px; height: 32px;
+  border: none; background: transparent;
+  border-radius: 8px; cursor: pointer;
   color: var(--text-muted, #aaa);
   display: flex; align-items: center; justify-content: center;
   transition: background .12s, color .12s;
+  outline: none;
+  flex-shrink: 0;
 }
-.ms-clear:hover { background: var(--bg-hover, rgba(255,255,255,0.1)); color: var(--text-primary, #fff); }
-.ms-close {
-  border: none; background: transparent; cursor: pointer;
-  color: var(--text-muted, #888);
-  padding: 4px 8px; border-radius: 6px;
-  transition: color .12s;
+.ms-close-x:hover {
+  background: var(--bg-hover, rgba(255,255,255,0.08));
+  color: var(--text-primary, #fff);
 }
-.ms-close:hover { color: var(--text-primary, #fff); }
+.ms-close-x svg { width: 16px; height: 16px; }
 .ms-kbd {
   display: inline-block;
   font-family: 'SF Mono', monospace; font-size: 10px; font-weight: 600;

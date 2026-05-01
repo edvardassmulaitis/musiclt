@@ -145,8 +145,8 @@ const MoonIcon = () => (
     <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
   </svg>
 )
-const SearchIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+const SearchIcon = ({ size = 16 }: { size?: number } = {}) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
     <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
   </svg>
 )
@@ -1649,7 +1649,9 @@ export function SiteHeader() {
            border'į kai kuriose naršyklėse. Inline border shorthand'as +
            hover override'as longhand'u — clean'iau. */
         .sh-desktop-search:hover {
-          border-color: var(--border-strong) !important;
+          border-color: var(--accent-orange) !important;
+          background: var(--bg-hover) !important;
+          box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.12);
         }
 
         /* ── Mobile drawer (full-screen modal) ── */
@@ -1999,41 +2001,40 @@ export function SiteHeader() {
             })}
           </nav>
 
+          {/* Paieškos trigger'is — pagrindinis page elementas. Padidinom
+              dydį (380px max), brand orange ikoną, "Ieškoti" tekstą bold'esnį.
+              Hover'is per CSS (.sh-desktop-search:hover) — neturi sticky
+              border'io bug'o. ⌘K shortcut'as išmestas — tai techninis hint'as,
+              kuris apkrovė nav'ą. */}
           <button
             type="button"
             onClick={openSearch}
             className="sh-desktop-search"
             aria-label="Atidaryti paiešką"
             style={{
-              flex: '0 1 320px', marginLeft: 'auto',
+              flex: '1 1 380px', maxWidth: 460, marginLeft: 'auto',
               alignItems: 'center', borderRadius: 22,
               background: inputBg, border: inputBdr,
-              padding: '0 4px 0 14px',
-              height: 36,
+              padding: '0 16px',
+              height: 38,
               cursor: 'pointer',
-              transition: 'border-color .15s, background .15s',
+              transition: 'border-color .15s, background .15s, box-shadow .15s',
               fontFamily: 'inherit',
               outline: 'none',
               WebkitTapHighlightColor: 'transparent',
+              gap: 12,
             }}
-            // Hover'is perkeltas į CSS klasę (.sh-desktop-search:hover apačioje)
-            // — JS-mode mouseLeave su borderColor='' kai kuriose naršyklėse
-            // palikdavo border-color longhand'ą "stuck'ę", todėl border'is
-            // nedingdavo nuvedus pelę.
           >
-            <span style={{ display: 'flex', color: mutedIcon, marginRight: 10 }}><SearchIcon /></span>
-            <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: 'var(--text-muted)', textAlign: 'left' }}>
-              Ieškoti
+            <span style={{ display: 'flex', color: 'var(--accent-orange)', flexShrink: 0 }}>
+              <SearchIcon />
             </span>
             <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: 2,
-              fontFamily: 'SF Mono, monospace', fontSize: 10, fontWeight: 600,
-              color: 'var(--text-muted)',
-              padding: '3px 6px', borderRadius: 5,
-              background: 'var(--bg-hover)',
-              border: '1px solid var(--border-default)',
-              marginRight: 4,
-            }}>⌘K</span>
+              flex: 1, fontSize: 14, fontWeight: 600,
+              color: 'var(--text-secondary)', textAlign: 'left',
+              letterSpacing: '-0.005em',
+            }}>
+              Ieškoti
+            </span>
           </button>
 
           <div style={{ flexShrink: 0, marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
