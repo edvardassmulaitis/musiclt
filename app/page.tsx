@@ -21,6 +21,7 @@ type HeroSlide = {
   href: string; bgImg?: string | null; videoId?: string | null
   songTitle?: string | null; songArtist?: string | null; songCover?: string | null
   artist?: { name: string; slug: string; image?: string | null } | null
+  chartTops?: TopEntry[]
 }
 
 /* ────────────────────────────── Helpers ────────────────────────────── */
@@ -1049,6 +1050,155 @@ function IstorijaSection() {
   )
 }
 
+/* ────────────────────────────── Hero v2 Card ──────────────────────────────
+   Vienoda kortelė rendinama hero karuselėje. Trys tipai:
+   - 'chart_lt' / 'chart_world' — koliažas su top atlikėjais ir top 3 dainomis
+   - default (news/event/promo) — bg image + chip + title + subtitle */
+
+function HeroV2Card({ slide, dk }: { slide: HeroSlide; dk: boolean }) {
+  if (slide.type === 'chart_lt' || slide.type === 'chart_world') {
+    return <HeroChartCard slide={slide} />
+  }
+  // Regular slide (news/event/promo)
+  return (
+    <Link
+      href={slide.href}
+      className="group relative block aspect-[16/9] overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] no-underline shadow-[0_8px_32px_rgba(0,0,0,0.25)] transition-all hover:-translate-y-0.5 hover:shadow-[0_14px_42px_rgba(0,0,0,0.35)]"
+    >
+      {/* BG image — height-driven, hugs right side for portrait covers */}
+      <div className="absolute inset-0 flex items-stretch justify-end overflow-hidden">
+        {slide.bgImg ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={proxyImg(slide.bgImg)}
+            alt=""
+            loading="lazy"
+            className="h-full w-auto max-w-full object-cover"
+            style={{
+              objectPosition: 'center 25%',
+              WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 18%, black 100%)',
+              maskImage: 'linear-gradient(to right, transparent 0%, black 18%, black 100%)',
+            }}
+          />
+        ) : (
+          <div className="h-full w-full" style={{ background: 'var(--homepage-hero-gradient)' }} />
+        )}
+      </div>
+      {/* Bottom gradient for text readability */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
+      {/* Content */}
+      <div className="absolute inset-0 flex flex-col justify-end p-5">
+        <span
+          className="mb-2 inline-flex w-fit rounded-full px-3 py-1 font-['Outfit',sans-serif] text-[10px] font-black uppercase tracking-[0.08em] text-white"
+          style={{ background: slide.chipBg }}
+        >
+          {slide.chip}
+        </span>
+        <h3 className="m-0 line-clamp-2 max-w-[420px] font-['Outfit',sans-serif] text-[28px] font-black leading-[1.08] tracking-tight text-white transition-opacity group-hover:opacity-90">
+          {slide.title}
+        </h3>
+        {slide.subtitle && (
+          <p className="m-0 mt-2 line-clamp-2 max-w-[420px] text-[13px] leading-relaxed text-white/85">
+            {slide.subtitle}
+          </p>
+        )}
+      </div>
+    </Link>
+  )
+}
+
+function HeroChartCard({ slide }: { slide: HeroSlide }) {
+  const isLT = slide.type === 'chart_lt'
+  const tops = slide.chartTops || []
+  return (
+    <Link
+      href={slide.href}
+      className="group relative block aspect-[16/9] overflow-hidden rounded-2xl border border-[var(--border-default)] no-underline shadow-[0_8px_32px_rgba(0,0,0,0.25)] transition-all hover:-translate-y-0.5 hover:shadow-[0_14px_42px_rgba(0,0,0,0.4)]"
+      style={{
+        background: isLT
+          ? 'radial-gradient(ellipse at top right, rgba(249,115,22,0.35), rgba(15,20,32,0.95) 65%), linear-gradient(135deg, #1a1426 0%, #0a0e1a 100%)'
+          : 'radial-gradient(ellipse at top right, rgba(29,78,216,0.35), rgba(15,20,32,0.95) 65%), linear-gradient(135deg, #14182a 0%, #080d14 100%)',
+      }}
+    >
+      {/* BG artist image — collage style, faded */}
+      {tops.length > 0 && (
+        <div className="absolute right-0 top-0 flex h-full w-[55%] items-stretch justify-end overflow-hidden opacity-55">
+          {tops.slice(0, 3).map((t, i) => (
+            t.cover_url || t.artist_image ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={t.track_id || i}
+                src={proxyImg(t.cover_url || t.artist_image || '')}
+                alt=""
+                loading="lazy"
+                className="h-full flex-1 object-cover"
+                style={{
+                  WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 25%, black 100%)',
+                  maskImage: 'linear-gradient(to right, transparent 0%, black 25%, black 100%)',
+                  filter: `saturate(1.1) hue-rotate(${i * 8}deg)`,
+                }}
+              />
+            ) : (
+              <div key={i} className="h-full flex-1 bg-gradient-to-br from-[var(--accent-orange)]/30 to-transparent" />
+            )
+          ))}
+        </div>
+      )}
+      {/* Equalizer decoration */}
+      <div className="absolute right-6 top-6 z-[1] flex items-end gap-1 opacity-40">
+        {[40, 70, 55, 85, 60].map((h, i) => (
+          <div
+            key={i}
+            className={`w-1 rounded-sm ${isLT ? 'bg-[var(--accent-orange)]' : 'bg-[var(--accent-blue)]'}`}
+            style={{ height: h, animation: `hp-bar ${0.8 + (i % 3) * 0.15}s ease-in-out infinite alternate`, animationDelay: `${i * 0.08}s` }}
+          />
+        ))}
+      </div>
+      {/* Content overlay */}
+      <div className="relative flex h-full flex-col p-5">
+        <div className="mb-auto flex items-center gap-2">
+          <span className={`inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1 font-['Outfit',sans-serif] text-[10px] font-black uppercase tracking-[0.08em] text-white ${isLT ? 'bg-[var(--accent-orange)]' : 'bg-[var(--accent-blue)]'}`}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17h2v-7H3v7zm4 0h2V7H7v10zm4 0h2v-4h-2v4zm4 0h2v-9h-2v9zm4-13v13h2V4h-2z"/></svg>
+            TOPAS
+          </span>
+        </div>
+        <div>
+          <h3 className="m-0 mb-2 font-['Outfit',sans-serif] text-[34px] font-black tracking-tight text-white">
+            {slide.title}
+          </h3>
+          <div className="flex flex-col gap-1.5">
+            {tops.slice(0, 3).map(t => (
+              <div key={t.track_id || t.pos} className="flex items-center gap-2.5">
+                <span className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded font-['Outfit',sans-serif] text-[12px] font-black ${
+                  t.pos <= 3 ? 'bg-[var(--accent-orange)] text-white' : 'bg-white/15 text-white'
+                }`}>{t.pos}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="m-0 truncate font-['Outfit',sans-serif] text-[13px] font-bold text-white">{t.title}</p>
+                  <p className="m-0 truncate text-[11px] text-white/70">{t.artist}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <span className="mt-3 inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[12px] font-bold text-white/85 transition-colors group-hover:text-[var(--accent-orange)]">
+            Pilnas top'as
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </span>
+        </div>
+      </div>
+    </Link>
+  )
+}
+
+/* ────────────────────────────── HScroll wrapper ──────────────────────────────
+   Wrap horizontal scroll containers su mini ◄ ► buttons dešinėj pusėj —
+   desktop only. Click → scrollLeft/scrollRight by container width × 0.85. */
+
+function HScrollHints() {
+  // Component scoped — Naudojama hp-scroll containers per ref forwarding.
+  // Šiuo momentu generic — prisirišame per parent .hp-scroll-wrap class'ę.
+  return null
+}
+
 export default function Home() {
   const { dk } = useSite()
 
@@ -1094,6 +1244,64 @@ export default function Home() {
   const filtEvt = events
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>([])
   const [heroIdx, setHeroIdx] = useState(0)
+  const [heroPairIdx, setHeroPairIdx] = useState(0)
+
+  /* Horizontal scroll arrows — ant ne-touch įrenginių prie kiekvieno .hp-scroll
+     parent'o pridedam ◄ ► mygtukus. Mygtukai scrollina 85% conteinerio pločio
+     ir slepia/rodo save pagal scrollLeft poziciją. */
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) return
+    const cleanups: Array<() => void> = []
+    const attach = () => {
+      document.querySelectorAll<HTMLElement>('.hp-scroll').forEach(el => {
+        if (el.dataset.scrollAttached === '1') return
+        const parent = el.parentElement
+        if (!parent) return
+        el.dataset.scrollAttached = '1'
+        if (getComputedStyle(parent).position === 'static') parent.style.position = 'relative'
+        const btnL = document.createElement('button')
+        btnL.className = 'hp-scroll-arrow hp-scroll-arrow-l'
+        btnL.type = 'button'
+        btnL.setAttribute('aria-label', 'Slinkti į kairę')
+        btnL.textContent = '‹'
+        const btnR = document.createElement('button')
+        btnR.className = 'hp-scroll-arrow hp-scroll-arrow-r'
+        btnR.type = 'button'
+        btnR.setAttribute('aria-label', 'Slinkti į dešinę')
+        btnR.textContent = '›'
+        const update = () => {
+          const maxScroll = el.scrollWidth - el.clientWidth - 4
+          btnL.style.opacity = el.scrollLeft > 4 ? '1' : '0'
+          btnL.style.pointerEvents = el.scrollLeft > 4 ? 'auto' : 'none'
+          btnR.style.opacity = el.scrollLeft < maxScroll ? '1' : '0'
+          btnR.style.pointerEvents = el.scrollLeft < maxScroll ? 'auto' : 'none'
+        }
+        btnL.onclick = () => el.scrollBy({ left: -el.clientWidth * 0.85, behavior: 'smooth' })
+        btnR.onclick = () => el.scrollBy({ left: el.clientWidth * 0.85, behavior: 'smooth' })
+        el.addEventListener('scroll', update, { passive: true })
+        parent.appendChild(btnL)
+        parent.appendChild(btnR)
+        update()
+        cleanups.push(() => {
+          el.removeEventListener('scroll', update)
+          btnL.remove()
+          btnR.remove()
+          delete el.dataset.scrollAttached
+        })
+      })
+    }
+    // Initial attach + retry kelis kartus, nes content async render'inasi.
+    attach()
+    const t1 = setTimeout(attach, 400)
+    const t2 = setTimeout(attach, 1200)
+    const t3 = setTimeout(attach, 3000)
+    return () => {
+      clearTimeout(t1); clearTimeout(t2); clearTimeout(t3)
+      cleanups.forEach(fn => fn())
+    }
+  }, [])
+
   const [heroImgLoaded, setHeroImgLoaded] = useState(false)
   const [heroVideoPlaying, setHeroVideoPlaying] = useState(false)
   const [newsSongs, setNewsSongs] = useState<Record<number, { youtube_url: string; title: string | null; artist_name: string | null }[]>>({})
@@ -1142,6 +1350,26 @@ export default function Home() {
   /* ── Hero slides ── */
   useEffect(() => {
     const slides: HeroSlide[] = []
+    if (ltTop.length > 0) {
+      slides.push({
+        type: 'chart_lt', chip: 'LT TOP 30', chipBg: '#ea580c',
+        title: 'LT TOP 30',
+        subtitle: ltTop.slice(0, 3).map(t => `${t.pos}. ${t.title}`).join(' · '),
+        href: '/topas/lt-top-30',
+        bgImg: ltTop[0]?.artist_image || ltTop[0]?.cover_url || null,
+        chartTops: ltTop.slice(0, 5),
+      } as any)
+    }
+    if (worldTop.length > 0) {
+      slides.push({
+        type: 'chart_world', chip: 'TOP 40', chipBg: '#1d4ed8',
+        title: 'TOP 40',
+        subtitle: worldTop.slice(0, 3).map(t => `${t.pos}. ${t.title}`).join(' · '),
+        href: '/topas/top-40',
+        bgImg: worldTop[0]?.artist_image || worldTop[0]?.cover_url || null,
+        chartTops: worldTop.slice(0, 5),
+      } as any)
+    }
     news.slice(0, 30).forEach(n => {
       const typeLT = n.type === 'review' ? 'Recenzija' : n.type === 'interview' ? 'Interviu' : n.type === 'report' ? 'Reportažas' : 'Naujiena'
       const songs = newsSongs[n.id] || []
@@ -1200,6 +1428,7 @@ export default function Home() {
       setHeroImgLoaded(false)
       setHeroVideoPlaying(false)
       setHeroIdx(p => (p + 1) % heroSlides.length)
+      setHeroPairIdx(p => (p + 1) % Math.max(1, Math.ceil(heroSlides.length / 2)))
     }, 8000)
     return () => clearTimeout(timerRef.current)
   }, [heroIdx, heroSlides.length, heroVideoPlaying])
@@ -1247,6 +1476,11 @@ export default function Home() {
         .hp-skel{background:var(--homepage-skeleton-bg);animation:hp-pulse 1.8s ease-in-out infinite}
         .hp-scroll{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
         .hp-scroll::-webkit-scrollbar{display:none}
+        .hp-scroll-arrow{position:absolute;top:50%;transform:translateY(-50%);width:36px;height:36px;border-radius:50%;background:rgba(13,19,32,0.92);border:1px solid var(--border-default);color:var(--text-primary);font-family:'Outfit',sans-serif;font-size:18px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:5;transition:opacity .18s,background .15s,transform .15s;backdrop-filter:blur(8px);box-shadow:0 4px 16px rgba(0,0,0,0.35);padding:0;line-height:1}
+        .hp-scroll-arrow:hover{background:var(--accent-orange);color:#fff;transform:translateY(-50%) scale(1.05)}
+        .hp-scroll-arrow-l{left:-12px}
+        .hp-scroll-arrow-r{right:-12px}
+        @media (pointer: coarse){.hp-scroll-arrow{display:none}}
         .hp-pill{cursor:pointer;padding:5px 13px;border-radius:18px;font-size:11px;font-weight:700;border:1px solid var(--border-default);color:var(--text-muted);background:transparent;transition:all .15s;white-space:nowrap;font-family:'DM Sans',sans-serif}
         .hp-pill.hp-act{background:var(--homepage-pill-active);border-color:${dk ? 'rgba(29,78,216,.32)' : 'rgba(29,78,216,.2)'};color:var(--accent-blue)}
         .hp-pill:hover{color:${dk ? '#b8d0e8' : '#1a2a40'};border-color:var(--border-strong)}
@@ -1363,148 +1597,47 @@ export default function Home() {
             </span>
           </div>
         )}
-        {pageReady && hero && (
-          <section className="hp-hero" ref={heroRef}>
-            <div className="hp-hero-grad" style={{ background: 'var(--homepage-hero-overlay)' }} />
-            <div className="hp-hero-content">
-              <div className="hp-hero-bg">
-                {hero.bgImg ? (
-                  <img key={heroIdx} src={proxyImg(hero.bgImg)} alt="" onLoad={() => setHeroImgLoaded(true)} style={{ opacity: heroImgLoaded ? 1 : 0 }} />
-                ) : (
-                  <div style={{ width: '100%', height: '100%', background: 'var(--homepage-hero-gradient)', position: 'relative', overflow: 'hidden' }}>
-                    <div style={{ position: 'absolute', right: '8%', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'flex-end', gap: 5, opacity: 0.08 }}>
-                      {[35, 70, 50, 90, 60, 85, 40, 70, 100, 45, 75].map((h, i) => (
-                        <div key={i} style={{ width: 7, borderRadius: 3, background: '#f97316', height: h, animation: `hp-bar ${0.8 + (i % 4) * 0.15}s ease-in-out infinite alternate`, animationDelay: `${i * 0.08}s` }} />
-                      ))}
-                    </div>
-                  </div>
-                )}
+        {pageReady && heroSlides.length > 0 && (
+          <section className="hp-hero-v2" ref={heroRef}>
+            <div className="mx-auto max-w-[1360px] px-5 pt-5">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                {[0, 1].map(off => {
+                  const totalPairs = Math.max(1, Math.ceil(heroSlides.length / 2))
+                  const idx = (heroPairIdx * 2 + off) % heroSlides.length
+                  const slide = heroSlides[idx]
+                  if (!slide) return <div key={off} className="hidden md:block" />
+                  return <HeroV2Card key={`p${heroPairIdx}-${off}-${idx}`} slide={slide} dk={dk} />
+                })}
               </div>
-              <div className="hp-hero-left">
-                <div key={heroIdx} style={{ animation: 'hp-in .5s ease both', display: 'flex', flexDirection: 'column', flex: 1 }}>
-                  <div className="hp-hero-spacer" />
-                  <div style={{ marginBottom: 12 }}>
-                    <span style={{ padding: '4px 14px', borderRadius: 20, fontSize: 10, fontWeight: 900, color: '#fff', background: hero.chipBg, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                      {hero.chip}
-                    </span>
+              {heroSlides.length > 2 && (
+                <div className="mt-4 flex items-center justify-center gap-2">
+                  <button
+                    onClick={() => setHeroPairIdx(p => (p - 1 + Math.max(1, Math.ceil(heroSlides.length / 2))) % Math.max(1, Math.ceil(heroSlides.length / 2)))}
+                    aria-label="Ankstesnis"
+                    className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+                  >‹</button>
+                  <div className="flex items-center gap-1.5">
+                    {Array.from({ length: Math.max(1, Math.ceil(heroSlides.length / 2)) }).map((_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setHeroPairIdx(i)}
+                        className="rounded-full transition-all"
+                        style={{
+                          width: i === heroPairIdx ? 22 : 6,
+                          height: 6,
+                          background: i === heroPairIdx ? 'var(--accent-orange)' : 'var(--border-strong)',
+                        }}
+                      />
+                    ))}
                   </div>
-                  <Link href={hero.href} className="hp-hero-title" style={{
-                    fontFamily: 'Outfit,sans-serif', fontSize: 42, fontWeight: 900,
-                    color: dk ? '#fff' : 'var(--text-primary)', lineHeight: 1.06, margin: '0 0 10px',
-                    letterSpacing: '-0.025em', maxWidth: 500, display: 'block',
-                    textShadow: dk ? '0 2px 20px rgba(0,0,0,0.4)' : 'none',
-                    textDecoration: 'none', transition: 'opacity .15s',
-                  }}
-                    onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
-                    onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
-                    {hero.title}
-                  </Link>
-                  {hero.subtitle && (
-                    <p className="hp-hero-excerpt" style={{
-                      fontSize: 14, color: dk ? 'rgba(210,225,245,0.65)' : 'var(--text-muted)',
-                      margin: '0 0 14px', lineHeight: 1.55, maxWidth: 480,
-                      display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                    }}>
-                      {hero.subtitle}
-                    </p>
-                  )}
-                  {/* FIX #3 (desktop): video card stays as is — looks good on desktop */}
-                  {hero.videoId && !heroVideoPlaying && (
-                    <button className="hp-hero-vidcard" onClick={() => setHeroVideoPlaying(true)} style={{
-                      display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px 8px 8px',
-                      background: dk ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
-                      backdropFilter: dk ? 'blur(12px)' : 'none',
-                      border: `1px solid ${dk ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}`,
-                      borderRadius: 12, cursor: 'pointer', overflow: 'hidden', transition: 'all .2s', width: 220,
-                    }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = dk ? 'rgba(255,255,255,.2)' : 'rgba(0,0,0,.15)'; e.currentTarget.style.background = dk ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor = dk ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.08)'; e.currentTarget.style.background = dk ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' }}>
-                      {/* Thumbnail — no play overlay */}
-                      <div style={{ width: 42, height: 42, flexShrink: 0, borderRadius: 8, overflow: 'hidden' }}>
-                        <img src={`https://img.youtube.com/vi/${hero.videoId}/mqdefault.jpg`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      </div>
-                      {/* Song info */}
-                      <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
-                        <p style={{ fontSize: 11, fontWeight: 700, color: dk ? '#fff' : 'var(--text-primary)', margin: '0 0 1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hero.songTitle || 'Klausyti'}</p>
-                        {hero.songArtist && <p style={{ fontSize: 10, color: dk ? 'rgba(255,255,255,0.45)' : 'var(--text-muted)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hero.songArtist}</p>}
-                      </div>
-                      {/* YouTube icon pill */}
-                      <div style={{
-                        flexShrink: 0, width: 28, height: 28, borderRadius: '50%',
-                        background: 'rgba(255,255,255,0.12)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      }}>
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg>
-                      </div>
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* YouTube lightbox — desktop hero */}
-              {hero.videoId && heroVideoPlaying && (
-                <div style={{
-                  position: 'absolute', inset: 0, zIndex: 10,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  padding: '50px 20px',
-                  background: dk ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.85)',
-                  backdropFilter: 'blur(8px)',
-                  animation: 'hp-in .2s ease both',
-                }} onClick={() => setHeroVideoPlaying(false)}>
-                  <div style={{
-                    width: '100%', maxWidth: 560, aspectRatio: '16/9',
-                    borderRadius: 14, overflow: 'hidden', background: '#000',
-                    boxShadow: dk ? '0 16px 64px rgba(0,0,0,0.9)' : '0 16px 64px rgba(0,0,0,0.2)',
-                    border: `1px solid ${dk ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
-                    position: 'relative',
-                  }} onClick={e => e.stopPropagation()}>
-                    <iframe src={`https://www.youtube.com/embed/${hero.videoId}?autoplay=1&rel=0`} style={{ width: '100%', height: '100%', border: 'none' }} allow="autoplay; encrypted-media" allowFullScreen />
-                    <button onClick={() => setHeroVideoPlaying(false)} style={{
-                      position: 'absolute', top: 8, right: 8, width: 30, height: 30, borderRadius: '50%',
-                      background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.2)',
-                      color: '#fff', fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>✕</button>
-                  </div>
+                  <button
+                    onClick={() => setHeroPairIdx(p => (p + 1) % Math.max(1, Math.ceil(heroSlides.length / 2)))}
+                    aria-label="Kitas"
+                    className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+                  >›</button>
                 </div>
               )}
-
-              {/* Chart sidebar */}
-              <div className="hp-hero-right">
-                <ChartTabs active={chartTab} onSelect={setChartTab} compact />
-                <div className="flex flex-1 flex-col gap-1.5">
-                  {chartData.length === 0
-                    ? Array.from({ length: 5 }).map((_, i) => (
-                      <div key={i} className="hp-card flex items-center gap-2.5 px-2.5 py-2">
-                        <Skel w={20} h={16} /><Skel w={40} h={40} r={8} />
-                        <div className="flex-1"><Skel w="72%" h={11} /><div className="mt-1"><Skel w="50%" h={9} /></div></div>
-                      </div>
-                    ))
-                    : chartData.slice(0, 5).map((t, i) => (
-                      <ChartRow key={t.track_id || i} t={t} compact />
-                    ))}
-                </div>
-                <ChartVoteCTA />
-
-              </div>
             </div>
-
-            {/* Hero dots */}
-            {heroSlides.length > 1 && (
-              <div className="hp-hero-dots" style={{ position: 'absolute', bottom: 18, left: 0, right: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, zIndex: 3 }}>
-                <button onClick={() => { setHeroImgLoaded(false); setHeroVideoPlaying(false); setHeroIdx(p => (p - 1 + heroSlides.length) % heroSlides.length) }}
-                  aria-label="Ankstesnis"
-                  style={{ width: 30, height: 30, borderRadius: '50%', border: `1px solid ${dk ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.12)'}`, background: dk ? 'rgba(0,0,0,.3)' : 'rgba(255,255,255,.5)', color: dk ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.4)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .15s', backdropFilter: 'blur(4px)' }}>‹</button>
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                  {heroSlides.map((_, i) => (
-                    <button key={i} onClick={() => { setHeroImgLoaded(false); setHeroVideoPlaying(false); setHeroIdx(i) }}
-                      style={{ borderRadius: 4, border: 'none', cursor: 'pointer', padding: 0, background: i === heroIdx ? '#f97316' : dk ? 'rgba(255,255,255,.18)' : 'rgba(0,0,0,.18)', width: i === heroIdx ? 28 : 10, height: 6, transition: 'all .3s', boxShadow: i === heroIdx ? '0 0 10px rgba(249,115,22,0.5)' : 'none' }} />
-                  ))}
-                </div>
-                <button onClick={() => { setHeroImgLoaded(false); setHeroVideoPlaying(false); setHeroIdx(p => (p + 1) % heroSlides.length) }}
-                  aria-label="Kitas"
-                  style={{ width: 30, height: 30, borderRadius: '50%', border: `1px solid ${dk ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.12)'}`, background: dk ? 'rgba(0,0,0,.3)' : 'rgba(255,255,255,.5)', color: dk ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.4)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .15s', backdropFilter: 'blur(4px)' }}>›</button>
-              </div>
-            )}
           </section>
         )}
 
@@ -1547,17 +1680,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* ═══════════════════════ MOBILE CHART ═══════════════════════ */}
-        <div className="hp-mobile-chart mx-auto max-w-[1360px] px-5 pt-5">
-          <ChartTabs active={chartTab} onSelect={setChartTab} />
-          <div className="flex flex-col gap-1.5">
-            {chartData.slice(0, 5).map((t, i) => (
-              <ChartRow key={t.track_id || i} t={t} />
-            ))}
-          </div>
-          <ChartVoteCTA />
-        </div>
-        {/* hp-mobile-chart CSS moved to main style block above */}
+        {/* Mobile chart pašalintas — chart'ai integruoti į hero v2. */}
 
         {/* ═══════════════════════ REELS OVERLAY — horizontal Stories ═══════════════════════ */}
         {reelsOpen && (
