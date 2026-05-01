@@ -787,13 +787,13 @@ export default function Home() {
     fetch('/api/top/entries?type=lt_top30').then(r => r.json()).then(d => { setLtTop(parseTop(d.entries || [])); readyBits.current.tops = true; tryReady.current(); incLoad() }).catch(() => { readyBits.current.tops = true; tryReady.current(); incLoad() })
     fetch('/api/top/entries?type=top40').then(r => r.json()).then(d => { setWorldTop(parseTop(d.entries || [])); incLoad() }).catch(() => incLoad())
     fetch('/api/tracks?limit=24').then(r => r.json()).then(d => { setTracks(d.tracks || []); readyBits.current.tracks = true; tryReady.current(); incLoad() }).catch(() => { readyBits.current.tracks = true; tryReady.current(); incLoad() })
-    fetch('/api/albums?limit=16').then(r => r.json()).then(d => { setAlbums(d.albums || []); incLoad() }).catch(() => incLoad())
+    fetch('/api/albums?limit=24').then(r => r.json()).then(d => { setAlbums(d.albums || []); incLoad() }).catch(() => incLoad())
     // Sort artists by score (descending) — kai duomenų bazėje 200+ atlikėjų,
     // Atrask sekcija turėtų rodyti aukščiausiai score'inamus, ne tik
     // alfabetiškai pirmus. Limit'as 24 — pakanka 8 grid'ui + buffer'is jei
     // kas filtruosis.
     fetch('/api/artists?limit=24&sort=score').then(r => r.json()).then(d => { setArtists(d.artists || []); incLoad() }).catch(() => incLoad())
-    fetch('/api/events?limit=10').then(r => r.json()).then(d => { setEvents(d.events || []); incLoad() }).catch(() => incLoad())
+    fetch('/api/events?limit=24').then(r => r.json()).then(d => { setEvents(d.events || []); incLoad() }).catch(() => incLoad())
     // News + songs vienu request'u (anksčiau buvo /api/news + 30× /api/news/{id}/songs).
     // ?include=songs grąžina { ..., songs: [...] } per news. Hero parsina
     // pirmąją YT-bearing dainą iš to array'aus.
@@ -941,8 +941,8 @@ export default function Home() {
 
         /* ── Hero cinematic ── */
         .hp-hero{position:relative;overflow:hidden;min-height:420px;display:flex;background:var(--bg-body)}
-        .hp-hero-bg{position:absolute;top:0;bottom:0;left:35%;right:340px;z-index:0;overflow:hidden;-webkit-mask-image:linear-gradient(to bottom, black 65%, transparent 100%);mask-image:linear-gradient(to bottom, black 65%, transparent 100%)}
-        .hp-hero-bg img{width:100%;height:100%;object-fit:cover;object-position:center 25%;animation:hp-img-in .8s ease both;-webkit-mask-image:linear-gradient(to right, transparent 0%, black 10%, black 88%, transparent 100%);mask-image:linear-gradient(to right, transparent 0%, black 10%, black 88%, transparent 100%)}
+        .hp-hero-bg{position:absolute;top:0;bottom:0;left:35%;right:340px;z-index:0;overflow:hidden;display:flex;align-items:stretch;justify-content:flex-end;-webkit-mask-image:linear-gradient(to bottom, black 65%, transparent 100%);mask-image:linear-gradient(to bottom, black 65%, transparent 100%)}
+        .hp-hero-bg img{width:auto;height:100%;max-width:100%;object-fit:cover;object-position:center 25%;display:block;animation:hp-img-in .8s ease both;-webkit-mask-image:linear-gradient(to right, transparent 0%, black 12%, black 100%);mask-image:linear-gradient(to right, transparent 0%, black 12%, black 100%)}
         .hp-hero-grad{display:none}
         .hp-hero-content{position:relative;z-index:2;display:flex;align-items:stretch;max-width:1360px;margin:0 auto;padding:0 20px;width:100%;flex:1}
         .hp-hero-left{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:36px 0 40px;min-width:0}
@@ -1280,13 +1280,13 @@ export default function Home() {
                       {tracks.length === 0 ? Array(5).fill(null).map((_, i) => (
                         <div
                           key={i}
-                          className="flex shrink-0 items-center gap-2.5 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2.5"
-                          style={{ width: 178 }}
+                          className="flex shrink-0 items-center gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-3.5 py-3"
+                          style={{ width: 220 }}
                         >
-                          <Skel w={38} h={38} r={8} />
+                          <Skel w={48} h={48} r={9} />
                           <div className="flex-1">
-                            <Skel w="76%" h={10} />
-                            <div className="mt-1.5"><Skel w="54%" h={8} /></div>
+                            <Skel w="76%" h={11} />
+                            <div className="mt-1.5"><Skel w="54%" h={9} /></div>
                           </div>
                         </div>
                       )) : tracks.filter(t => sanitizeTitle(t.title)).slice(startIdx, startIdx + 10).map(t => {
@@ -1301,22 +1301,22 @@ export default function Home() {
                           <Link
                             key={t.id}
                             href={href}
-                            className="hp-card flex shrink-0 items-center gap-2.5 px-3 py-2.5"
-                            style={{ width: 178 }}
+                            className="hp-card flex shrink-0 items-center gap-3 px-3.5 py-3"
+                            style={{ width: 220 }}
                           >
                             <Cover
                               src={t.cover_url || (t as any).albums_list?.[0]?.cover_image_url}
                               artistSrc={t.artists?.cover_image_url}
                               ytId={extractYouTubeId((t as any).video_url)}
                               alt={sanitizeTitle(t.title)}
-                              size={38}
-                              radius={8}
+                              size={48}
+                              radius={9}
                             />
                             <div className="min-w-0 flex-1">
-                              <p className="m-0 truncate font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]">
+                              <p className="m-0 truncate font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--text-primary)]">
                                 {sanitizeTitle(t.title)}
                               </p>
-                              <p className="m-0 mt-0.5 truncate text-[11px] text-[var(--text-muted)]">
+                              <p className="m-0 mt-1 truncate text-[12px] text-[var(--text-muted)]">
                                 {t.artists?.name}
                               </p>
                             </div>
@@ -1333,17 +1333,17 @@ export default function Home() {
                   ~140px aiškiai didesnis nei track row'o 38px thumb'as. */}
               <section>
                 <SectionHead label="Nauji albumai" href="/muzika?tab=albums" />
-                {[0, 7].map((startIdx) => (
+                {[0, 12].map((startIdx) => (
                   <div key={startIdx} className={startIdx === 0 ? 'mb-3' : ''}>
                     <div className="hp-scroll flex items-stretch gap-3 pb-0.5">
                       <RowDivider icon={startIdx === 0 ? 'lt' : 'world'} />
-                      {albums.length === 0 ? Array(5).fill(null).map((_, i) => (
-                        <div key={i} className="shrink-0" style={{ width: 144 }}>
-                          <Skel w={144} h={144} r={12} />
-                          <div className="mt-2"><Skel w="80%" h={11} /></div>
-                          <div className="mt-1"><Skel w="60%" h={9} /></div>
+                      {albums.length === 0 ? Array(8).fill(null).map((_, i) => (
+                        <div key={i} className="shrink-0" style={{ width: 156 }}>
+                          <Skel w={156} h={156} r={12} />
+                          <div className="mt-2"><Skel w="80%" h={12} /></div>
+                          <div className="mt-1"><Skel w="60%" h={10} /></div>
                         </div>
-                      )) : albums.slice(startIdx, startIdx + 7).map(a => {
+                      )) : albums.slice(startIdx, startIdx + 12).map(a => {
                         const artistSlug = a.artists?.slug || (a as any).artist_slug
                         const aSlug = (a as any).slug || quickSlugify(sanitizeTitle(a.title))
                         const href = artistSlug ? `/albumai/${artistSlug}-${aSlug}-${a.id}` : `/albumai/${aSlug}-${a.id}`
@@ -1352,7 +1352,7 @@ export default function Home() {
                             key={a.id}
                             href={href}
                             className="group block shrink-0 no-underline"
-                            style={{ width: 144 }}
+                            style={{ width: 156 }}
                           >
                             <div className="relative aspect-square overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)] group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]">
                               {a.cover_image_url || a.artists?.cover_image_url ? (
@@ -1376,10 +1376,10 @@ export default function Home() {
                               )}
                             </div>
                             <div className="mt-2 px-0.5">
-                              <p className="m-0 truncate font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
+                              <p className="m-0 truncate font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
                                 {sanitizeTitle(a.title)}
                               </p>
-                              <p className="m-0 mt-0.5 truncate text-[11px] text-[var(--text-muted)]">
+                              <p className="m-0 mt-1 truncate text-[12px] text-[var(--text-muted)]">
                                 {a.artists?.name}
                               </p>
                             </div>
@@ -1390,75 +1390,123 @@ export default function Home() {
                   </div>
                 ))}
               </section>
-          {/* ── Renginiai horizontal full-width row ── */}
+          {/* ── Renginiai LT + Užsienio: 2 lanes su badge'ais 'NAUJIENA' / 'GREITAI' ── */}
           <section>
             <SectionHead label="Renginiai" href="/renginiai" />
-            <div className="hp-scroll flex items-stretch gap-3 pb-1">
-              {filtEvt.length === 0 ? Array(5).fill(null).map((_, i) => (
-                <div key={i} className="shrink-0" style={{ width: 220 }}>
-                  <Skel w={220} h={124} r={12} />
-                  <div className="mt-2"><Skel w="80%" h={11} /></div>
-                  <div className="mt-1"><Skel w="55%" h={9} /></div>
-                </div>
-              )) : filtEvt.slice(0, 12).map(ev => {
-                const d = ev.event_date ? new Date(ev.event_date) : null
-                const validDate = d && !isNaN(d.getTime())
-                const diffDays = validDate ? Math.ceil((d!.getTime() - Date.now()) / 86400000) : null
-                const isClose = diffDays !== null && diffDays >= 0 && diffDays <= 3
-                const countdown = diffDays === null || diffDays < 0 ? null : diffDays === 0 ? 'Šiandien' : diffDays === 1 ? 'Rytoj' : `Po ${diffDays}d.`
-                const imgSrc = ev.image_small_url || (ev as any).cover_image_url || null
-                const venueLabel = ev.venues?.city || ev.venues?.name || ev.venue_custom || ''
-                return (
-                  <Link
-                    key={ev.id}
-                    href={`/renginiai/${ev.slug}`}
-                    className="group block shrink-0 no-underline"
-                    style={{ width: 220 }}
-                  >
-                    <div className="relative overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.18)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[var(--accent-orange)]/50 group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]" style={{ aspectRatio: '16 / 10' }}>
-                      {imgSrc ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={imgSrc}
-                          alt={sanitizeTitle(ev.title)}
-                          loading="lazy"
-                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">🎵</div>
-                      )}
-                      {/* Date badge top-left */}
-                      {validDate && (
-                        <div className="absolute left-2 top-2 rounded-md bg-black/72 px-2 py-1 backdrop-blur-sm">
-                          <div className="font-['Outfit',sans-serif] text-[14px] font-extrabold leading-none text-white">{d!.getDate()}</div>
-                          <div className="mt-0.5 text-[8.5px] font-bold uppercase leading-none tracking-[0.06em] text-white/85">{MONTHS_LT[d!.getMonth()]}</div>
-                        </div>
-                      )}
-                      {/* Countdown bottom-right */}
-                      {countdown && (
-                        <span className={`absolute bottom-1.5 right-1.5 rounded-md px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-extrabold backdrop-blur-sm ${
-                          isClose
-                            ? 'bg-[var(--accent-orange)]/90 text-white'
-                            : 'bg-black/60 text-white/85'
-                        }`}>
-                          {countdown}
-                        </span>
-                      )}
+            {(() => {
+              // LT cities heuristic — visa kita laikoma "užsienis"
+              const LT_CITIES = new Set(['Vilnius','Kaunas','Klaipėda','Klaipeda','Šiauliai','Siauliai','Panevėžys','Panevezys','Alytus','Marijampolė','Marijampole','Mažeikiai','Mazeikiai','Jonava','Utena','Kėdainiai','Kedainiai','Tauragė','Taurage','Telšiai','Telsiai','Visaginas','Plungė','Plunge','Druskininkai','Palanga','Anykščiai','Anyksciai','Trakai','Birštonas','Birstonas','Ukmergė','Ukmerge','Kretinga','Šilutė','Silute','Radviliškis','Radviliskis','Rokiškis','Rokiskis','Elektrėnai','Elektrenai','Šalčininkai','Salcininkai','Pakruojis','Lentvaris'])
+              const isLT = (ev: any) => {
+                const c = ev.venues?.city || (ev as any).city || ''
+                return c ? LT_CITIES.has(c) : true // be city — laikom LT
+              }
+              const lt = filtEvt.filter(isLT)
+              const world = filtEvt.filter(ev => !isLT(ev))
+              return (
+                <>
+                  {[
+                    { lane: 'lt' as const, items: lt },
+                    { lane: 'world' as const, items: world },
+                  ].map(({ lane, items }, laneIdx) => (
+                    <div key={lane} className={laneIdx === 0 ? 'mb-3' : ''}>
+                      <div className="hp-scroll flex items-stretch gap-3 pb-1">
+                        <RowDivider icon={lane} />
+                        {filtEvt.length === 0 ? Array(4).fill(null).map((_, i) => (
+                          <div
+                            key={i}
+                            className="flex shrink-0 items-center gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-2"
+                            style={{ height: 110 }}
+                          >
+                            <Skel w={94} h={94} r={9} />
+                            <div className="flex-1" style={{ width: 200 }}>
+                              <Skel w="80%" h={11} />
+                              <div className="mt-1.5"><Skel w="55%" h={9} /></div>
+                              <div className="mt-2"><Skel w="35%" h={8} /></div>
+                            </div>
+                          </div>
+                        )) : items.length === 0 ? (
+                          <div className="flex h-[110px] shrink-0 items-center px-3 text-[12px] text-[var(--text-faint)]">
+                            {lane === 'lt' ? 'Lietuvoje renginių nėra' : 'Užsienio renginių nėra'}
+                          </div>
+                        ) : items.slice(0, 14).map(ev => {
+                          const d = ev.event_date ? new Date(ev.event_date) : null
+                          const validDate = d && !isNaN(d.getTime())
+                          const diffDays = validDate ? Math.ceil((d!.getTime() - Date.now()) / 86400000) : null
+                          const isClose = diffDays !== null && diffDays >= 0 && diffDays <= 3
+                          const isUpcoming = diffDays !== null && diffDays >= 0 && diffDays <= 7
+                          const created = (ev as any).created_at ? new Date((ev as any).created_at) : null
+                          const ageDays = created ? (Date.now() - created.getTime()) / 86400000 : 999
+                          const isNew = ageDays <= 7
+                          const countdown = diffDays === null || diffDays < 0 ? null : diffDays === 0 ? 'Šiandien' : diffDays === 1 ? 'Rytoj' : `Po ${diffDays}d.`
+                          const imgSrc = ev.image_small_url || (ev as any).cover_image_url || null
+                          const venueLabel = ev.venues?.city || ev.venues?.name || ev.venue_custom || (ev as any).city || ''
+                          return (
+                            <Link
+                              key={ev.id}
+                              href={`/renginiai/${ev.slug}`}
+                              className="hp-card group flex shrink-0 items-stretch gap-0 overflow-hidden p-0 no-underline"
+                              style={{ height: 110 }}
+                            >
+                              {/* Image — height-driven, natural aspect ratio */}
+                              <div className="relative h-full shrink-0 bg-[var(--cover-placeholder)]">
+                                {imgSrc ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={imgSrc}
+                                    alt={sanitizeTitle(ev.title)}
+                                    loading="lazy"
+                                    className="h-full w-auto max-w-[200px] object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                                    style={{ display: 'block' }}
+                                  />
+                                ) : (
+                                  <div className="flex h-full items-center justify-center px-6 text-2xl text-[var(--text-faint)]">🎵</div>
+                                )}
+                                {validDate && (
+                                  <div className="absolute left-1.5 top-1.5 rounded-md bg-black/72 px-1.5 py-1 backdrop-blur-sm">
+                                    <div className="font-['Outfit',sans-serif] text-[13px] font-extrabold leading-none text-white">{d!.getDate()}</div>
+                                    <div className="mt-0.5 text-[8px] font-bold uppercase leading-none tracking-[0.06em] text-white/85">{MONTHS_LT[d!.getMonth()]}</div>
+                                  </div>
+                                )}
+                              </div>
+                              {/* Info */}
+                              <div className="flex min-w-0 flex-col justify-between px-3 py-2.5" style={{ width: 220 }}>
+                                <div className="min-w-0">
+                                  <div className="mb-1 flex flex-wrap items-center gap-1">
+                                    {isNew && (
+                                      <span className="rounded bg-[var(--accent-green)]/15 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[8.5px] font-extrabold uppercase tracking-[0.06em] text-[var(--accent-green)]">NAUJIENA</span>
+                                    )}
+                                    {isUpcoming && (
+                                      <span className="rounded bg-[var(--accent-orange)]/15 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[8.5px] font-extrabold uppercase tracking-[0.06em] text-[var(--accent-orange)]">GREITAI</span>
+                                    )}
+                                  </div>
+                                  <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[13px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
+                                    {sanitizeTitle(ev.title)}
+                                  </p>
+                                  {venueLabel && (
+                                    <p className="m-0 mt-1 truncate text-[11.5px] text-[var(--text-muted)]">
+                                      {venueLabel}
+                                    </p>
+                                  )}
+                                </div>
+                                {countdown && (
+                                  <span className={`mt-1 inline-flex w-fit rounded-md px-1.5 py-0.5 font-['Outfit',sans-serif] text-[10px] font-extrabold ${
+                                    isClose
+                                      ? 'bg-[var(--accent-orange)] text-white'
+                                      : 'bg-[var(--bg-active)] text-[var(--text-muted)]'
+                                  }`}>
+                                    {countdown}
+                                  </span>
+                                )}
+                              </div>
+                            </Link>
+                          )
+                        })}
+                      </div>
                     </div>
-                    <div className="mt-2 px-0.5">
-                      <p className="m-0 truncate font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
-                        {sanitizeTitle(ev.title)}
-                      </p>
-                      {venueLabel && (
-                        <p className="m-0 mt-0.5 truncate text-[11px] text-[var(--text-muted)]">
-                          {venueLabel}
-                        </p>
-                      )}
-                    </div>
-                  </Link>
-                )
-              })}
-            </div>
+                  ))}
+                </>
+              )
+            })()}
           </section>
 
 
