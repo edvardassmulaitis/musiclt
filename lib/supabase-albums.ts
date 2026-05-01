@@ -88,7 +88,7 @@ export async function getAlbums(artistId?: number, limit = 50, offset = 0, searc
   let q = supabase
     .from('albums')
     .select(
-      'id, slug, title, year, cover_image_url, artist_id, type_studio, type_ep, type_compilation, type_live, type_single, type_remix, type_covers, type_holiday, type_soundtrack, type_demo, artists!albums_artist_id_fkey(id, name, slug, cover_image_url, country)',
+      'id, slug, title, year, month, day, cover_image_url, artist_id, type_studio, type_ep, type_compilation, type_live, type_single, type_remix, type_covers, type_holiday, type_soundtrack, type_demo, is_upcoming, artists!albums_artist_id_fkey(id, name, slug, cover_image_url, country)',
       { count: 'exact' }
     )
   if (artistId) q = q.eq('artist_id', artistId)
@@ -103,6 +103,11 @@ export async function getAlbums(artistId?: number, limit = 50, offset = 0, searc
     artist_name: a.artists?.name || '',
     artist_slug: a.artists?.slug || '',
     cover_url: a.cover_image_url || null,
+    // Pre-compose release_date string nuo year+month+day, jei yra.
+    // Frontend'ui reikalinga countdown logikai (Po X d. / Greitai / data).
+    release_date: a.year && a.month && a.day
+      ? `${a.year}-${String(a.month).padStart(2,'0')}-${String(a.day).padStart(2,'0')}`
+      : (a.year && a.month ? `${a.year}-${String(a.month).padStart(2,'0')}-01` : null),
   }))
   return { albums, total: count || 0 }
 }

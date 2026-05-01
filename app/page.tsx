@@ -10,7 +10,8 @@ import { proxyImg } from '@/lib/img-proxy'
 type Track = { id: number; slug: string; title: string; cover_url: string | null; created_at: string; artists: { id: number; slug: string; name: string; cover_image_url?: string | null } | null }
 type Album = { id: number; slug: string; title: string; year: number | null; cover_image_url: string | null; created_at: string; artists: { id: number; slug: string; name: string; cover_image_url?: string | null } | null }
 type Artist = { id: number; slug: string; name: string; cover_image_url: string | null }
-type Event = { id: number; slug: string; title: string; event_date: string; venue_custom: string | null; image_small_url: string | null; venues: { name: string; city: string } | null }
+type EventArtist = { artists?: { id: number; name: string; slug: string; cover_image_url?: string | null } | null; artist_id?: number; sort_order?: number; is_headliner?: boolean }
+type Event = { id: number; slug: string; title: string; event_date?: string; start_date?: string; end_date?: string; venue_custom?: string | null; venue_name?: string | null; venue_id?: number | null; image_small_url?: string | null; cover_image_url?: string | null; image_url?: string | null; city?: string | null; address?: string | null; created_at?: string; venues?: { name: string; city: string } | null; event_artists?: EventArtist[] | null }
 type NewsItem = { id: number; slug: string; title: string; image_small_url: string | null; image_title_url?: string | null; published_at: string; type: string | null; excerpt?: string | null; songs?: { youtube_url?: string | null; title?: string | null; artist_name?: string | null; cover_url?: string | null }[]; artist: { name: string; slug: string; cover_image_url?: string | null } | null }
 type TopEntry = { pos: number; track_id: number; title: string; artist: string; cover_url: string | null; artist_image: string | null; trend: string; wks?: number; slug?: string; artist_slug?: string }
 type Nomination = { id: number; votes: number; weighted_votes: number; tracks: { id: number; title: string; cover_url: string | null; artists: { name: string } | null } | null }
@@ -836,6 +837,218 @@ function ChartVoteCTA({ className = '' }: { className?: string }) {
 }
 
 
+/* ────────────────────────────── Bendruomenė cards ──────────────────────────────
+   Trys bokso pavyzdys: discussions, main chat preview, user posts. Stilistika
+   atitinka kitas widget kortelės — rounded-2xl + bg-surface + border-default. */
+
+function CommunityDiscussionsCard() {
+  const [discs, setDiscs] = useState<Discussion[]>([])
+  const [loading, setLoading] = useState(true)
+  useEffect(() => {
+    fetch('/api/diskusijos?sort=activity&limit=4').then(r => r.json()).then(d => { setDiscs(d.discussions || []); setLoading(false) }).catch(() => setLoading(false))
+  }, [])
+  return (
+    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
+      <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
+        <span className="font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)]">Naujausios diskusijos</span>
+        <Link href="/diskusijos" className="text-[11px] font-bold text-[var(--accent-link)] no-underline">Visos →</Link>
+      </div>
+      <div className="flex-1">
+        {loading ? Array(3).fill(null).map((_, i) => (
+          <div key={i} className="flex items-center gap-2.5 border-b border-[var(--border-subtle)] px-4 py-2.5">
+            <Skel w={28} h={28} r={14} />
+            <div className="flex-1"><Skel w="80%" h={11} /><div className="mt-1.5"><Skel w="55%" h={9} /></div></div>
+          </div>
+        )) : discs.length === 0 ? (
+          <div className="px-4 py-6 text-center text-[12px] text-[var(--text-muted)]">Diskusijų dar nėra</div>
+        ) : discs.slice(0, 4).map((d, i) => {
+          const hue = strHue(d.author_name || '?')
+          return (
+            <Link key={d.id} href={`/diskusijos/${d.slug}`} className="flex items-center gap-2.5 border-b border-[var(--border-subtle)] px-4 py-2.5 no-underline transition-colors hover:bg-[var(--bg-hover)]" style={{ borderBottomWidth: i === 3 ? 0 : 1 }}>
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-['Outfit',sans-serif] text-[11px] font-extrabold" style={{ background: `hsl(${hue},32%,18%)`, color: `hsl(${hue},45%,55%)` }}>
+                {(d.author_name || '?').charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="m-0 truncate font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--text-primary)]">{d.title}</p>
+                <p className="m-0 mt-0.5 text-[10.5px] text-[var(--text-muted)]">{d.author_name} · {d.comment_count} ats. · {timeAgo(d.created_at)}</p>
+              </div>
+            </Link>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function CommunityChatCard() {
+  return (
+    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
+      <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
+        <span className="font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)]">Pokalbiai</span>
+        <Link href="/pokalbiai" className="text-[11px] font-bold text-[var(--accent-link)] no-underline">Atidaryti →</Link>
+      </div>
+      <div className="flex-1 overflow-hidden">
+        <HomeChatsWidget />
+      </div>
+    </div>
+  )
+}
+
+function CommunityUserPostsCard() {
+  type Post = { id: string; type: 'blog'|'discussion'; title: string; href: string; meta: string; created_at: string; badge: string }
+  const [posts, setPosts] = useState<Post[]>([])
+  const [loading, setLoading] = useState(true)
+  useEffect(() => {
+    let alive = true
+    Promise.all([
+      fetch('/api/blog/latest?limit=6').then(r => r.json()).catch(() => []),
+      fetch('/api/diskusijos?sort=activity&limit=4').then(r => r.json()).catch(() => ({ discussions: [] })),
+    ]).then(([blogs, diskRes]: any[]) => {
+      if (!alive) return
+      const arr: Post[] = []
+      ;(Array.isArray(blogs) ? blogs : []).forEach((b: any) => arr.push({
+        id: `b-${b.id}`, type: 'blog', title: sanitizeTitle(b.title || ''),
+        href: `/blogai/${b.blog_slug || b.author_slug || ''}/${b.slug || b.id}`,
+        meta: b.author_name || 'Autorius',
+        created_at: b.created_at || new Date().toISOString(),
+        badge: 'BLOGAS',
+      }))
+      ;((diskRes?.discussions) || []).slice(0, 2).forEach((d: any) => arr.push({
+        id: `d-${d.id}`, type: 'discussion', title: sanitizeTitle(d.title || ''),
+        href: `/diskusijos/${d.slug || d.id}`,
+        meta: d.author_name || 'Anonimas',
+        created_at: d.created_at || new Date().toISOString(),
+        badge: 'DISKUSIJA',
+      }))
+      arr.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))
+      setPosts(arr.slice(0, 5))
+      setLoading(false)
+    }).catch(() => setLoading(false))
+    return () => { alive = false }
+  }, [])
+  return (
+    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
+      <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
+        <span className="font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)]">Vartotojų įrašai</span>
+        <Link href="/blogai" className="text-[11px] font-bold text-[var(--accent-link)] no-underline">Visi →</Link>
+      </div>
+      <div className="flex-1">
+        {loading ? Array(3).fill(null).map((_, i) => (
+          <div key={i} className="border-b border-[var(--border-subtle)] px-4 py-2.5">
+            <Skel w="35%" h={9} /><div className="mt-1.5"><Skel w="85%" h={11} /></div>
+          </div>
+        )) : posts.length === 0 ? (
+          <div className="px-4 py-6 text-center">
+            <p className="m-0 text-[12px] font-bold text-[var(--text-secondary)]">Pirmas autorius — tu?</p>
+            <p className="m-0 mt-1 text-[11px] text-[var(--text-muted)]">Blogai, vertimai, kūryba — dalinkis su bendruomene.</p>
+            <Link href="/blogai/naujas" className="mt-2 inline-flex rounded-md bg-[var(--accent-orange)] px-3 py-1.5 text-[11px] font-bold text-white no-underline">Pradėti</Link>
+          </div>
+        ) : posts.map((p, i) => (
+          <Link key={p.id} href={p.href} className="block border-b border-[var(--border-subtle)] px-4 py-2.5 no-underline transition-colors hover:bg-[var(--bg-hover)]" style={{ borderBottomWidth: i === posts.length - 1 ? 0 : 1 }}>
+            <div className="mb-0.5 flex items-center gap-1.5">
+              <span className={`rounded px-1.5 py-px font-['Outfit',sans-serif] text-[8.5px] font-extrabold uppercase tracking-[0.06em] ${
+                p.type === 'blog' ? 'bg-[var(--accent-orange)]/15 text-[var(--accent-orange)]' : 'bg-[var(--accent-link)]/15 text-[var(--accent-link)]'
+              }`}>{p.badge}</span>
+              <span className="text-[9px] text-[var(--text-faint)]">{timeAgo(p.created_at)}</span>
+            </div>
+            <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--text-primary)]">{p.title}</p>
+            <p className="m-0 mt-0.5 truncate text-[10.5px] text-[var(--text-muted)]">{p.meta}</p>
+          </Link>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/* ────────────────────────────── Pramogos cards ────────────────────────────── */
+
+function PramogosDienosDainaCard() {
+  return (
+    <div className="flex h-full flex-col">
+      <div className="mb-2 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.08em] text-[var(--text-faint)]">Dienos daina</div>
+      <div className="flex-1"><DienosDainaWidget /></div>
+    </div>
+  )
+}
+
+function PramogosBoomboxIntroCard() {
+  const [data, setData] = useState<{ image: any; loading: boolean }>({ image: null, loading: true })
+  useEffect(() => {
+    fetch('/api/boombox/today').then(r => r.json()).then(d => setData({ image: d.image || null, loading: false })).catch(() => setData({ image: null, loading: false }))
+  }, [])
+  return (
+    <div className="flex h-full flex-col">
+      <div className="mb-2 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.08em] text-[var(--text-faint)]">Boombox</div>
+      <Link href="/boombox" className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--accent-orange)]/25 bg-gradient-to-br from-[var(--accent-orange)]/10 to-[var(--accent-blue)]/[0.06] no-underline">
+        <div className="relative aspect-video overflow-hidden border-b border-[var(--border-subtle)] bg-[var(--cover-placeholder)]">
+          {data.loading ? (
+            <div className="absolute inset-0 hp-skel" />
+          ) : data.image?.image_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={proxyImg(data.image.image_url)} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-3xl">🎵</div>
+          )}
+          <div className="absolute left-3 top-3 rounded-md bg-black/72 px-2 py-1 backdrop-blur-sm">
+            <span className="font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.08em] text-white">Atspėk iš vaizdo</span>
+          </div>
+        </div>
+        <div className="flex flex-1 flex-col gap-2 p-4">
+          <p className="m-0 font-['Outfit',sans-serif] text-[15px] font-extrabold leading-tight text-[var(--text-primary)]">{data.image?.title || 'Kuri tai daina?'}</p>
+          <p className="m-0 text-[11.5px] text-[var(--text-muted)]">3 misijos · ~2 min · drop'ai. Pradėk nuo paveikslėlio užuominos.</p>
+          <span className="mt-auto inline-flex w-fit rounded-md bg-[var(--accent-orange)] px-3 py-1.5 font-['Outfit',sans-serif] text-[11px] font-extrabold text-white">Pradėti →</span>
+        </div>
+      </Link>
+    </div>
+  )
+}
+
+function PramogosManagerPlaceholderCard() {
+  return (
+    <div className="flex h-full flex-col">
+      <div className="mb-2 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.08em] text-[var(--text-faint)]">Music Manager</div>
+      <div className="flex h-full flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-[var(--border-default)] bg-[var(--bg-surface)] p-6 text-center">
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--accent-blue)]/15 text-2xl">🎚️</div>
+        <p className="m-0 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">Music Manager</p>
+        <p className="m-0 text-[11.5px] leading-relaxed text-[var(--text-muted)]">Žaidimas, kuriame valdai savo grupę, planuoji turus, pasirenki pasirodymus. Greitai.</p>
+        <span className="mt-1 rounded-md bg-[var(--accent-yellow)]/15 px-2 py-0.5 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.08em] text-[var(--accent-yellow)]">Greitai</span>
+      </div>
+    </div>
+  )
+}
+
+/* ────────────────────────────── Istorija sekcija ────────────────────────────── */
+
+function IstorijaSection() {
+  // Placeholder data — kol nėra DB join'o, rodom tipinius items.
+  // TODO: /api/istorija endpoint'as su real anniversaries iš album.year + artist.born/died.
+  type IstItem = { id: string; type: 'jubiliejus'|'gimtadienis'|'mirtis'; title: string; subtitle: string; date: string; href: string; emoji: string }
+  const items: IstItem[] = [
+    { id: 'placeholder-1', type: 'jubiliejus', title: 'Albumų jubiliejai', subtitle: 'Kasdien primename albumų sukaktis', date: 'Kas dieną', href: '/istorija/jubiliejai', emoji: '💿' },
+    { id: 'placeholder-2', type: 'gimtadienis', title: 'Atlikėjų gimtadieniai', subtitle: 'Kas šiandien gimęs?', date: 'Šiandien', href: '/istorija/gimtadieniai', emoji: '🎂' },
+    { id: 'placeholder-3', type: 'mirtis', title: 'Sukaktys', subtitle: 'Atminčiai — netekties datos', date: 'Atminimas', href: '/istorija/mirtys', emoji: '🕯️' },
+  ]
+  return (
+    <div className="hp-scroll flex items-stretch gap-3 pb-1">
+      {items.map(it => (
+        <Link
+          key={it.id}
+          href={it.href}
+          className="hp-card group flex shrink-0 flex-col overflow-hidden p-4 no-underline"
+          style={{ width: 280, minHeight: 130 }}
+        >
+          <div className="mb-2 flex items-center gap-2">
+            <span className="text-2xl">{it.emoji}</span>
+            <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.08em] text-[var(--accent-orange)]">{it.date}</span>
+          </div>
+          <p className="m-0 font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{it.title}</p>
+          <p className="m-0 mt-1.5 text-[11.5px] leading-relaxed text-[var(--text-muted)]">{it.subtitle}</p>
+        </Link>
+      ))}
+    </div>
+  )
+}
+
 export default function Home() {
   const { dk } = useSite()
 
@@ -947,16 +1160,26 @@ export default function Home() {
       })
     })
     events.slice(0, 3).forEach(ev => {
-      const d = ev.event_date ? new Date(ev.event_date) : null
-      const dateStr = d && !isNaN(d.getTime()) ? `${d.getDate()} ${MONTHS_LT[d.getMonth()]}. · ` : ''
-      const venue = ev.venues?.name || ev.venue_custom || ''
-      const city = ev.venues?.city || ''
+      const dateRaw = (ev as any).start_date || ev.event_date
+      const d = dateRaw ? new Date(dateRaw) : null
+      const dateStr = d && !isNaN(d.getTime()) ? `${d.getDate()} ${MONTHS_FULL_LT[d.getMonth()]} ${d.getFullYear()} m.` : ''
+      const venue = ev.venue_name || ev.venues?.name || ev.venue_custom || ''
+      const city = ev.city || ev.venues?.city || ''
+      const cityVenue = [city, venue].filter(Boolean).join(', ')
+      const artistList = (ev.event_artists || [])
+        .filter(ea => ea.artists?.name)
+        .map(ea => ea.artists!.name)
+      const artistText = artistList.length > 0
+        ? artistList.slice(0, 3).join(', ') + (artistList.length > 3 ? ` +${artistList.length - 3}` : '')
+        : sanitizeTitle(ev.title)  // fallback to title if no artists
+      const firstArtist = (ev.event_artists || []).find(ea => ea.artists?.cover_image_url)
       slides.push({
         type: 'event', chip: 'RENGINYS', chipBg: '#047857',
-        title: sanitizeTitle(ev.title),
-        subtitle: `${dateStr}${venue}${city ? ` · ${city}` : ''}`.replace(/· $/, ''),
-        bgImg: ev.image_small_url || (ev as any).cover_image_url || null,
+        title: artistText,  // ARTISTS as primary text
+        subtitle: [dateStr, cityVenue].filter(Boolean).join(' · '),
+        bgImg: ev.image_small_url || ev.cover_image_url || null,
         href: `/renginiai/${ev.slug}`,
+        artist: firstArtist?.artists ? { name: firstArtist.artists.name, slug: firstArtist.artists.slug, image: firstArtist.artists.cover_image_url || null } : null,
       })
     })
     if (!slides.length) slides.push({
@@ -1486,11 +1709,34 @@ export default function Home() {
                               )}
                               {/* Hover orange tint nuo apačios */}
                               <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[rgba(249,115,22,0.12)] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-                              {a.year && (
-                                <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold text-white backdrop-blur-sm">
-                                  {a.year}
-                                </span>
-                              )}
+                              {(() => {
+                                const rd = (a as any).release_date as string | null
+                                const releaseD = rd ? new Date(rd) : null
+                                const validRD = releaseD && !isNaN(releaseD.getTime())
+                                const diff = validRD ? Math.ceil((releaseD!.getTime() - Date.now()) / 86400000) : null
+                                const isUpcoming = (a as any).is_upcoming === true || (diff !== null && diff > 0)
+                                const hasContent = !!(a.cover_image_url)
+                                let label: string | null = null
+                                let highlight = false
+                                if (isUpcoming && diff !== null && diff > 0 && diff <= 60) {
+                                  label = diff === 1 ? 'Rytoj' : `Po ${diff} d.`
+                                  highlight = diff <= 14
+                                } else if (isUpcoming && (diff === null || diff > 60) && hasContent) {
+                                  label = 'Greitai'
+                                  highlight = true
+                                } else if (validRD && diff !== null && diff <= 0) {
+                                  label = `${MONTHS_LT[releaseD!.getMonth()]}. ${releaseD!.getDate()}, ${releaseD!.getFullYear()}`
+                                } else if (a.year) {
+                                  label = String(a.year)
+                                }
+                                return label ? (
+                                  <span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold backdrop-blur-sm ${
+                                    highlight ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'
+                                  }`}>
+                                    {label}
+                                  </span>
+                                ) : null
+                              })()}
                             </div>
                             <div className="mt-2 px-0.5">
                               <p className="m-0 truncate font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
@@ -1546,17 +1792,24 @@ export default function Home() {
                             {lane === 'lt' ? 'Lietuvoje renginių nėra' : 'Užsienio renginių nėra'}
                           </div>
                         ) : items.slice(0, 14).map(ev => {
-                          const d = ev.event_date ? new Date(ev.event_date) : null
+                          const dateRaw = (ev as any).start_date || ev.event_date
+                          const d = dateRaw ? new Date(dateRaw) : null
                           const validDate = d && !isNaN(d.getTime())
                           const diffDays = validDate ? Math.ceil((d!.getTime() - Date.now()) / 86400000) : null
                           const isClose = diffDays !== null && diffDays >= 0 && diffDays <= 3
                           const isUpcoming = diffDays !== null && diffDays >= 0 && diffDays <= 7
-                          const created = (ev as any).created_at ? new Date((ev as any).created_at) : null
+                          const created = ev.created_at ? new Date(ev.created_at) : null
                           const ageDays = created ? (Date.now() - created.getTime()) / 86400000 : 999
                           const isNew = ageDays <= 7
                           const countdown = diffDays === null || diffDays < 0 ? null : diffDays === 0 ? 'Šiandien' : diffDays === 1 ? 'Rytoj' : `Po ${diffDays}d.`
-                          const imgSrc = ev.image_small_url || (ev as any).cover_image_url || null
-                          const venueLabel = ev.venues?.city || ev.venues?.name || ev.venue_custom || (ev as any).city || ''
+                          const imgSrc = ev.image_small_url || ev.cover_image_url || null
+                          const city = ev.city || ev.venues?.city || ''
+                          const venue = ev.venue_name || ev.venues?.name || ev.venue_custom || ''
+                          const venueLabel = [city, venue].filter(Boolean).join(', ')
+                          const artistList = (ev.event_artists || []).filter(ea => ea.artists?.name).map(ea => ea.artists!.name)
+                          const artistText = artistList.length > 0
+                            ? artistList.slice(0, 2).join(', ') + (artistList.length > 2 ? ` +${artistList.length - 2}` : '')
+                            : sanitizeTitle(ev.title)
                           return (
                             <Link
                               key={ev.id}
@@ -1570,7 +1823,7 @@ export default function Home() {
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img
                                     src={proxyImg(imgSrc)}
-                                    alt={sanitizeTitle(ev.title)}
+                                    alt={artistText}
                                     loading="lazy"
                                     className="h-full w-auto max-w-[200px] object-cover transition-transform duration-500 group-hover:scale-[1.04]"
                                     style={{ display: 'block' }}
@@ -1596,16 +1849,16 @@ export default function Home() {
                                       <span className="rounded bg-[var(--accent-orange)]/15 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[8.5px] font-extrabold uppercase tracking-[0.06em] text-[var(--accent-orange)]">GREITAI</span>
                                     )}
                                   </div>
-                                  <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[13px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
-                                    {sanitizeTitle(ev.title)}
-                                  </p>
                                   {validDate && (
-                                    <p className="m-0 mt-1 truncate font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--accent-orange)]">
+                                    <p className="m-0 mb-1 truncate font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.04em] text-[var(--accent-orange)]">
                                       {d!.getDate()} {MONTHS_FULL_LT[d!.getMonth()]} {d!.getFullYear()} m.
                                     </p>
                                   )}
+                                  <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[13px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
+                                    {artistText}
+                                  </p>
                                   {venueLabel && (
-                                    <p className="m-0 mt-0.5 truncate text-[11px] text-[var(--text-muted)]">
+                                    <p className="m-0 mt-1 truncate text-[11px] text-[var(--text-muted)]">
                                       {venueLabel}
                                     </p>
                                   )}
@@ -1633,22 +1886,34 @@ export default function Home() {
 
 
 
-          {/* ── ROW 4: Three-column ── */}
+          {/* ── BENDRUOMENĖ — naujausios diskusijos + main chat + vartotojų įrašai ── */}
           <section>
-            <div className="hp-triple" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, alignItems: 'start' }}>
-              <div><SectionHead label="Dienos daina" href="/dienos-daina" /><DienosDainaWidget /></div>
-              <div><SectionHead label="Pokalbiai" href="/pokalbiai" cta="Atidaryti →" /><HomeChatsWidget /></div>
-              <div>
-                <SectionHead label="Boombox" href="/boombox" cta="3 misijos kasdien →" />
-                <BoomboxHomeWidget />
-              </div>
+            <SectionHead label="Bendruomenė" href="/bendruomene" cta="Visi →" />
+            <div className="hp-triple" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, alignItems: 'stretch' }}>
+              <CommunityDiscussionsCard />
+              <CommunityChatCard />
+              <CommunityUserPostsCard />
             </div>
           </section>
 
-          {/* ── Žmonės — naujas full-width row: blogai + diskusijos + kūryba ── */}
-          <ZmonesSection />
+          {/* ── PRAMOGOS — Dienos daina + Boombox intro + Music Manager placeholder ── */}
+          <section>
+            <SectionHead label="Pramogos" href="/pramogos" cta="Visi →" />
+            <div className="hp-triple" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, alignItems: 'stretch' }}>
+              <PramogosDienosDainaCard />
+              <PramogosBoomboxIntroCard />
+              <PramogosManagerPlaceholderCard />
+            </div>
+          </section>
 
-          {/* ── Atlikėjai — full-width grid ── */}
+          {/* ── ISTORIJA — sukaktys, jubiliejai, gimtadieniai ── */}
+          <section>
+            <SectionHead label="Istorija" href="/istorija" cta="Visi →" />
+            <IstorijaSection />
+          </section>
+
+          {/* ── Atlikėjai + CTA — paslėpta (kol kas) ── */}
+          {false && (<>
           <div>
             <section>
               <SectionHead label="Atrask atlikėjus" href="/atlikejai" />
@@ -1702,6 +1967,7 @@ export default function Home() {
               </Link>
             </div>
           </section>
+          </>)}
 
         </div>{/* end hp-cnt */}
         </div>{/* end below-hero content */}
