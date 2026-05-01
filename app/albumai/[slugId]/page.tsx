@@ -7,15 +7,15 @@
 // (su artist prefix'u). Apsaugo nuo legacy URL'ų be artist + spelling renames.
 import { notFound, redirect } from 'next/navigation'
 import { Suspense } from 'react'
+import { unstable_cache } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase'
 import AlbumPageClient from '@/app/lt/albumas/[slug]/[id]/album-page-client'
 import { PageLoader } from '@/components/PageLoader'
 import type { Metadata } from 'next'
 
-// 60s ISR cache — album'as keičiasi retai (tracks, likes), 60s seni
-// duomenys nematomi naudotojui. Pirma user'is per 60s window: pilnas SSR;
-// likę naudotojai serve'inami iš Vercel CDN <50ms.
-export const revalidate = 60
+// Function-level cache (60s TTL) — žr. /atlikejai/[slug]/page.tsx komentarą,
+// kodėl naudojam unstable_cache vietoj revalidate config'o.
+const ALBUM_CACHE_TTL = 60
 
 type Props = { params: Promise<{ slugId: string }> }
 
@@ -199,15 +199,33 @@ export default async function AlbumPage({ params }: Props) {
   )
 }
 
+// Cache'inam visą album page data (60s) — sekantys hit'ai per 60s
+// gauna iš function memory cache'o (~50-200ms) vietoj re-running queries.
+const fetchAlbumData = unstable_cache(
+  async (albumId: number) => {
+    const [album, tracks, likes] = await Promise.all([
+      getAlbum(albumId),
+      getAlbumTracks(albumId),
+      getAlbumLikes(albumId),
+    ])
+    if (!album) return null
+    const artist = album.artists
+    const [otherAlbums, similarAlbums, legacyLikes] = await Promise.all([
+      getOtherAlbums(artist.id, albumId),
+      getSimilarAlbums(artist.id, albumId),
+      getLegacyAlbumLikes(album.legacy_id ?? null),
+    ])
+    return { album, tracks, likes, otherAlbums, similarAlbums, legacyLikes }
+  },
+  ['album-full-data-v1'],
+  { revalidate: ALBUM_CACHE_TTL, tags: ['album'] },
+)
+
 async function AlbumContent({ slugFromUrl, albumId }: { slugFromUrl: string; albumId: number }) {
   const slug = slugFromUrl
-
-  const [album, tracks, likes] = await Promise.all([
-    getAlbum(albumId),
-    getAlbumTracks(albumId),
-    getAlbumLikes(albumId),
-  ])
-  if (!album) notFound()
+  const data = await fetchAlbumData(albumId)
+  if (!data) notFound()
+  const { album, tracks, likes, otherAlbums, similarAlbums, legacyLikes } = data
 
   const artist = album.artists
 
@@ -220,12 +238,6 @@ async function AlbumContent({ slugFromUrl, albumId }: { slugFromUrl: string; alb
   } else if (album.slug !== slug) {
     notFound()
   }
-
-  const [otherAlbums, similarAlbums, legacyLikes] = await Promise.all([
-    getOtherAlbums(artist.id, albumId),
-    getSimilarAlbums(artist.id, albumId),
-    getLegacyAlbumLikes(album.legacy_id ?? null),
-  ])
 
   return (
     <AlbumPageClient

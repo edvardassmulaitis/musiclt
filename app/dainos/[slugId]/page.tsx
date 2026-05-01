@@ -10,14 +10,15 @@
 //   - Spelling renames (po artist/track slug pakeitimo)
 import React, { Suspense } from 'react'
 import { notFound, redirect } from 'next/navigation'
+import { unstable_cache } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase'
 import TrackPageClient from '@/app/lt/daina/[slug]/[id]/track-page-client'
 import { PageLoader } from '@/components/PageLoader'
 
-// 60s ISR cache — anksčiau buvo `revalidate = 0` (no cache). Dainos
-// duomenys keičiasi retai. 60s seni like counts ar legacy users
-// nereikšmingi naudotojui. Daugumai page hits — Vercel CDN <50ms.
-export const revalidate = 60
+// Function-level cache (60s TTL) — žr. /atlikejai/[slug]/page.tsx
+// komentarą, kodėl naudojam unstable_cache vietoj revalidate config'o
+// (Supabase JS klientas vidiniai naudoja cache: no-store).
+const TRACK_CACHE_TTL = 60
 
 function parseSlugId(slugId: string): { slug: string; id: number } | null {
   const m = slugId.match(/^(.+)-(\d+)$/)
@@ -61,157 +62,88 @@ export default async function DainaPage({ params }: { params: Promise<{ slugId: 
   )
 }
 
+// Cache'inam visus track page queries (60s) — sekantys hit'ai per 60s
+// gauna iš function memory cache'o (~50-200ms) vietoj re-running 11 queries.
+const fetchTrackData = unstable_cache(
+  async (id: number) => {
+    const supabase = createAdminClient()
+    const { data: track } = await supabase
+      .from('tracks')
+      .select(`
+        id, slug, title, type, video_url, spotify_id, release_date,
+        lyrics, chords, description, show_player, is_new, show_ai_interpretation,
+        ai_interpretation, ai_image_url,
+        artist_id, legacy_id, source,
+        score, score_breakdown, peak_chart_position, certifications
+      `)
+      .eq('id', id)
+      .single()
+    if (!track) return null
+    ;(track as any).score = null
+    ;(track as any).score_breakdown = null
+
+    const trackLegacyId = (track as any).legacy_id ?? null
+    const titleFragment = track.title.split('(')[0].split('-')[0].trim().slice(0, 20)
+
+    const [artistRes, featuringRes, albumTrackRes, likesRes, legacyCntRes, legacyUsersRes, lyricCommentsRes, entityCommentsRes, versionsRes, relatedRes] = await Promise.all([
+      supabase.from('artists').select('id, slug, name, cover_image_url').eq('id', track.artist_id).single(),
+      supabase.from('track_artists').select('artists(id, slug, name, cover_image_url)').eq('track_id', id).neq('artist_id', track.artist_id),
+      supabase.from('album_tracks').select('albums!album_tracks_album_id_fkey(id, slug, title, year, cover_image_url, type_studio, type)').eq('track_id', id),
+      supabase.from('likes').select('*', { count: 'exact', head: true }).eq('entity_type', 'track').eq('entity_id', id),
+      trackLegacyId ? supabase.from('likes').select('*', { count: 'exact', head: true }).eq('entity_type', 'track').eq('entity_legacy_id', trackLegacyId) : Promise.resolve({ count: 0 } as any),
+      trackLegacyId ? supabase.from('likes').select('user_username, user_rank, user_avatar_url').eq('entity_type', 'track').eq('entity_legacy_id', trackLegacyId).order('id', { ascending: true }).limit(30) : Promise.resolve({ data: [] } as any),
+      supabase.from('track_lyric_comments').select('id, selection_start, selection_end, selected_text, type, text, likes, created_at').eq('track_id', id).order('created_at', { ascending: true }),
+      trackLegacyId ? supabase.from('entity_comments').select('legacy_id, author_username, author_avatar_url, created_at, content_html, content_text, like_count').eq('entity_type', 'track').eq('entity_legacy_id', trackLegacyId).order('created_at', { ascending: true }) : Promise.resolve({ data: [] as any[] } as any),
+      supabase.from('tracks').select('id, slug, title, type, video_url').eq('artist_id', track.artist_id).ilike('title', `%${titleFragment}%`).neq('id', id).limit(10),
+      supabase.from('tracks').select('id, slug, title, type, video_url, is_new, release_date').eq('artist_id', track.artist_id).neq('id', id).order('release_date', { ascending: false }).limit(8),
+    ])
+    return {
+      track,
+      artistRow: (artistRes as any).data,
+      featuringRows: (featuringRes as any).data ?? [],
+      albumTrackRows: (albumTrackRes as any).data ?? [],
+      likes: (likesRes as any).count ?? 0,
+      legacyCnt: (legacyCntRes as any).count || 0,
+      legacyUsers: ((legacyUsersRes as any).data as any[]) || [],
+      lyricComments: (lyricCommentsRes as any).data ?? [],
+      entityComments: (entityCommentsRes as any).data ?? [],
+      versionRows: (versionsRes as any).data ?? [],
+      relatedRows: (relatedRes as any).data ?? [],
+    }
+  },
+  ['track-full-data-v1'],
+  { revalidate: TRACK_CACHE_TTL, tags: ['track'] },
+)
+
 async function TrackContent({ slug, id }: { slug: string; id: number }): Promise<React.ReactElement> {
-  const supabase = createAdminClient()
-
-  // ── Fetch track ────────────────────────────────────────────────────────────
-  // Track'ą reikia paimti pirmiausia, nes iš jo gauname artist_id, legacy_id
-  // ir title — visi kiti queries jais remiasi. Po to viską likusią paleidžiam
-  // vienu Promise.all batch'u (waterfall'as iš 10 sekvencinių queries → 2
-  // batch'ai). TTFB drop'as nuo ~2s iki ~0.5s ant prod.
-  const { data: track } = await supabase
-    .from('tracks')
-    .select(`
-      id, slug, title, type, video_url, spotify_id, release_date,
-      lyrics, chords, description, show_player, is_new, show_ai_interpretation,
-      ai_interpretation, ai_image_url,
-      artist_id, legacy_id, source,
-      score, score_breakdown, peak_chart_position, certifications
-    `)
-    .eq('id', id)
-    .single()
-
-  if (!track) notFound()
-
-  // Score'ą rodom tik admin'ams (atskira admin form'a redagavimui).
-  // Public puslapis NIEKADA nerodo score breakdown'o.
-  ;(track as any).score = null
-  ;(track as any).score_breakdown = null
-
-  const trackLegacyId = (track as any).legacy_id ?? null
-  const titleFragment = track.title.split('(')[0].split('-')[0].trim().slice(0, 20)
-
-  // ── ALL remaining queries in PARALLEL ────────────────────────────────────
-  // Anksčiau buvo 10 sekvencinių await'ų (artist → featuring → albums →
-  // likes → legacy likes → lyric → entity → versions → related). Dabar
-  // viskas vienu Promise.all → max query time, ne sum.
-  const [
-    artistRes,
-    featuringRes,
-    albumTrackRes,
-    likesRes,
-    legacyCntRes,
-    legacyUsersRes,
-    lyricCommentsRes,
-    entityCommentsRes,
-    versionsRes,
-    relatedRes,
-  ] = await Promise.all([
-    supabase
-      .from('artists')
-      .select('id, slug, name, cover_image_url')
-      .eq('id', track.artist_id)
-      .single(),
-    supabase
-      .from('track_artists')
-      .select('artists(id, slug, name, cover_image_url)')
-      .eq('track_id', id)
-      .neq('artist_id', track.artist_id),
-    supabase
-      .from('album_tracks')
-      .select('albums!album_tracks_album_id_fkey(id, slug, title, year, cover_image_url, type_studio, type)')
-      .eq('track_id', id),
-    supabase
-      .from('likes')
-      .select('*', { count: 'exact', head: true })
-      .eq('entity_type', 'track')
-      .eq('entity_id', id),
-    trackLegacyId
-      ? supabase
-          .from('likes')
-          .select('*', { count: 'exact', head: true })
-          .eq('entity_type', 'track')
-          .eq('entity_legacy_id', trackLegacyId)
-      : Promise.resolve({ count: 0 } as any),
-    trackLegacyId
-      ? supabase
-          .from('likes')
-          .select('user_username, user_rank, user_avatar_url')
-          .eq('entity_type', 'track')
-          .eq('entity_legacy_id', trackLegacyId)
-          .order('id', { ascending: true })
-          .limit(30)
-      : Promise.resolve({ data: [] } as any),
-    supabase
-      .from('track_lyric_comments')
-      .select('id, selection_start, selection_end, selected_text, type, text, likes, created_at')
-      .eq('track_id', id)
-      .order('created_at', { ascending: true }),
-    trackLegacyId
-      ? supabase
-          .from('entity_comments')
-          .select('legacy_id, author_username, author_avatar_url, created_at, content_html, content_text, like_count')
-          .eq('entity_type', 'track')
-          .eq('entity_legacy_id', trackLegacyId)
-          .order('created_at', { ascending: true })
-      : Promise.resolve({ data: [] as any[] } as any),
-    supabase
-      .from('tracks')
-      .select('id, slug, title, type, video_url')
-      .eq('artist_id', track.artist_id)
-      .ilike('title', `%${titleFragment}%`)
-      .neq('id', id)
-      .limit(10),
-    supabase
-      .from('tracks')
-      .select('id, slug, title, type, video_url, is_new, release_date')
-      .eq('artist_id', track.artist_id)
-      .neq('id', id)
-      .order('release_date', { ascending: false })
-      .limit(8),
-  ])
-
-  const artistRow = (artistRes as any).data
+  const data = await fetchTrackData(id)
+  if (!data) notFound()
+  const { track, artistRow, featuringRows, albumTrackRows, likes, legacyCnt, legacyUsers, lyricComments, entityComments, versionRows, relatedRows } = data
   if (!artistRow) notFound()
 
   // ── Canonical slug check ─────────────────────────────────────────────────
   // Canonical URL: /dainos/{artist-slug}-{track-slug}-{id}
-  // Jei vartotojas atėjo URL'u be artist prefix'o (legacy) arba su pasenusiu
-  // slug'u, redirect'inam 301 į canonical.
   const canonicalSlug = `${artistRow.slug}-${track.slug}`
   if (slug !== canonicalSlug) {
     redirect(`/dainos/${canonicalSlug}-${id}`)
   }
 
-  const featuring = ((featuringRes as any).data ?? [])
+  const featuring = (featuringRows as any[])
     .map((r: any) => r.artists)
     .filter(Boolean)
 
-  const albums = ((albumTrackRes as any).data ?? [])
+  const albums = (albumTrackRows as any[])
     .map((r: any) => r.albums)
     .filter(Boolean)
-    .map((a: any) => ({
-      ...a,
-      type: a.type_studio ? 'Studijinis albumas' : (a.type ?? 'Albumas'),
-    }))
+    .map((a: any) => ({ ...a, type: a.type_studio ? 'Studijinis albumas' : (a.type ?? 'Albumas') }))
 
-  const likes = (likesRes as any).count ?? 0
-
-  const legacyLikes = {
-    count: (legacyCntRes as any).count || 0,
-    users: ((legacyUsersRes as any).data as any[]) || [],
-  }
+  const legacyLikes = { count: legacyCnt, users: legacyUsers }
   const isLegacy = typeof (track as any).source === 'string' && (track as any).source.startsWith('legacy')
 
-  const lyricComments = (lyricCommentsRes as any).data ?? []
-  const entityComments = (entityCommentsRes as any).data ?? []
-  const versionRows = (versionsRes as any).data ?? []
-
-  // ── Wikipedia trivia ───────────────────────────────────────────────────────
-  // Placeholder — will be fetched from /api/tracks/[id]/wiki-fact in future
+  // ── Wikipedia trivia placeholder ──
   const trivia: string | null = null
 
-  const relatedTracks = (((relatedRes as any).data) ?? []).map((t: any) => ({
+  const relatedTracks = (relatedRows as any[]).map((t: any) => ({
     ...t,
     spotify_id: null,
     lyrics: null,
@@ -222,6 +154,13 @@ async function TrackContent({ slug, id }: { slug: string; id: number }): Promise
     featuring: [],
   }))
 
+  // (Old function body inlined above — return stayed the same below)
+  // Skip the now-redundant fetch block by returning early-shaped data:
+  return _renderTrackPage({ track, artistRow, featuring, albums, likes, lyricComments, entityComments, versionRows, trivia, relatedTracks, isLegacy, legacyLikes })
+}
+
+function _renderTrackPage(opts: any): React.ReactElement {
+  const { track, artistRow, featuring, albums, likes, lyricComments, entityComments, versionRows, trivia, relatedTracks, isLegacy, legacyLikes } = opts
   return (
     <TrackPageClient
       track={{ ...track, featuring, show_ai_interpretation: track.show_ai_interpretation ?? false } as any}
@@ -239,3 +178,4 @@ async function TrackContent({ slug, id }: { slug: string; id: number }): Promise
     />
   )
 }
+
