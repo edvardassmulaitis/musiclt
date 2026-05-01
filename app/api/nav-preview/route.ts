@@ -43,10 +43,11 @@ export async function GET() {
         .order('start_date', { ascending: true })
         .limit(4),
 
-      // 4 naujausios naujienos
+      // 4 naujausios naujienos (image_title_url kaip fallback jei small null)
       supabase
         .from('news')
-        .select('id, slug, title, image_small_url, published_at')
+        .select('id, slug, title, image_small_url, image_title_url, published_at')
+        .not('published_at', 'is', null)
         .order('published_at', { ascending: false })
         .limit(4),
     ])
@@ -74,11 +75,11 @@ export async function GET() {
         venue: e.venue_name,
         image: e.cover_image_url,
       })),
-      news: (newsRes.data || []).map(n => ({
+      news: (newsRes.data || []).map((n: any) => ({
         id: n.id,
         slug: n.slug,
         title: n.title,
-        image: n.image_small_url,
+        image: n.image_small_url || n.image_title_url || null,
         date: n.published_at,
       })),
     }

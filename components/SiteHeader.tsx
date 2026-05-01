@@ -142,6 +142,35 @@ function formatEventDate(iso: string): string {
   } catch { return '' }
 }
 
+/* Image slot su gražiu fallback'u — gradient su accent + glyph ikona centre.
+   Naudojama, kai arba nėra duomenų, arba paveiksliukas dar nesisukrovė. */
+function ImageBox({
+  src, accent, glyph, className, children,
+}: {
+  src?: string | null
+  accent: string
+  glyph?: React.ReactNode
+  className?: string
+  children?: React.ReactNode
+}) {
+  const proxied = src ? proxyImg(src) : null
+  const rgb = hexToRgb(accent)
+  const fallbackBg = `
+    radial-gradient(circle at 30% 20%, rgba(${rgb}, 0.55) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(${rgb}, 0.30) 0%, transparent 60%),
+    linear-gradient(135deg, rgba(${rgb}, 0.40) 0%, rgba(${rgb}, 0.15) 100%)
+  `
+  return (
+    <span
+      className={className}
+      style={proxied ? { backgroundImage: `url(${proxied})` } : { background: fallbackBg }}
+    >
+      {!proxied && glyph && <span className="sh-fallback-glyph">{glyph}</span>}
+      {children}
+    </span>
+  )
+}
+
 /* ────────────────────────────────────────────────────────────────
  * Per-section dropdown content components
  * ──────────────────────────────────────────────────────────────── */
@@ -167,15 +196,14 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
                 href={a ? `/atlikejai/${a.slug}` : '/atlikejai'}
                 className="sh-artist-card"
               >
-                <span
+                <ImageBox
+                  src={a?.image}
+                  accent={accent}
+                  glyph={I.music}
                   className="sh-artist-img"
-                  style={a?.image
-                    ? { backgroundImage: `url(${proxyImg(a.image)})` }
-                    : { background: `linear-gradient(135deg, ${accent} 0%, ${accent}66 100%)` }
-                  }
                 />
                 <span className="sh-artist-name">
-                  {a?.name || <span style={{ opacity: 0.5 }}>—</span>}
+                  {a?.name || <span style={{ opacity: 0.45 }}>Atlikėjas</span>}
                 </span>
               </Link>
             ))}
@@ -195,15 +223,16 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
                 href={a ? `/lt/albumas/${a.slug}/${a.id}` : '/albumai'}
                 className="sh-album-row"
               >
-                <span
+                <ImageBox
+                  src={a?.image}
+                  accent={accent}
+                  glyph={I.vinyl}
                   className="sh-album-cover"
-                  style={a?.image
-                    ? { backgroundImage: `url(${proxyImg(a.image)})` }
-                    : { background: `linear-gradient(135deg, ${accent}88 0%, ${accent}33 100%)` }
-                  }
                 />
                 <span className="sh-album-info">
-                  <span className="sh-album-title">{a?.title || '—'}</span>
+                  <span className="sh-album-title">
+                    {a?.title || <span style={{ opacity: 0.5 }}>Albumas</span>}
+                  </span>
                   <span className="sh-album-meta">
                     {a?.artist || ''}{a?.year ? ` · ${a.year}` : ''}
                   </span>
@@ -227,6 +256,7 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
 
 function RenginiaiPanel({ data, accent }: { data: NavPreview | null; accent: string }) {
   const events = data?.events.slice(0, 4) || []
+  const placeholderTitles = ['Koncertas', 'Vakarėlis', 'Festivalis', 'Renginys']
   return (
     <div className="sh-panel" style={{ minWidth: 600 }}>
       <div className="sh-panel-section">
@@ -240,17 +270,18 @@ function RenginiaiPanel({ data, accent }: { data: NavPreview | null; accent: str
             href={e ? `/renginiai/${e.slug}` : '/renginiai'}
             className="sh-event-card"
           >
-            <span
+            <ImageBox
+              src={e?.image}
+              accent={accent}
+              glyph={I.calendar}
               className="sh-event-img"
-              style={e?.image
-                ? { backgroundImage: `url(${proxyImg(e.image)})` }
-                : { background: `linear-gradient(135deg, ${accent} 0%, ${accent}55 100%)` }
-              }
             >
               {e?.date && <span className="sh-event-date">{formatEventDate(e.date)}</span>}
-            </span>
+            </ImageBox>
             <span className="sh-event-info">
-              <span className="sh-event-title">{e?.title || '—'}</span>
+              <span className="sh-event-title">
+                {e?.title || <span style={{ opacity: 0.5 }}>{placeholderTitles[i] || 'Renginys'}</span>}
+              </span>
               {e?.venue && <span className="sh-event-venue">{e.venue}</span>}
             </span>
           </Link>
@@ -266,21 +297,34 @@ function RenginiaiPanel({ data, accent }: { data: NavPreview | null; accent: str
 
 function PramogosPanel({ accent }: { accent: string }) {
   return (
-    <div className="sh-panel" style={{ minWidth: 480 }}>
+    <div className="sh-panel" style={{ minWidth: 640 }}>
       <div className="sh-panel-section">
         <span className="sh-panel-section-title">Pramogos</span>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        <Link href="/boombox" className="sh-feature-card sh-feature-big" style={{ ['--it-rgb' as any]: hexToRgb('#f97316'), gridRow: 'span 2' }}>
-          <span className="sh-feature-icon">{I.boombox}</span>
-          <span className="sh-feature-title">Boombox</span>
-          <span className="sh-feature-desc">Atrask atlikėjus swipe stiliumi</span>
-          <span className="sh-feature-cta">Žaisk dabar →</span>
-        </Link>
+
+      {/* Boombox hero — abstract gradient su decorative shapes */}
+      <Link href="/boombox" className="sh-hero-card" style={{ ['--it-rgb' as any]: hexToRgb('#f97316') }}>
+        <span className="sh-hero-deco-circle sh-hero-deco-1" />
+        <span className="sh-hero-deco-circle sh-hero-deco-2" />
+        <span className="sh-hero-deco-circle sh-hero-deco-3" />
+        <span className="sh-hero-content">
+          <span className="sh-hero-eyebrow">Šiandien karšta</span>
+          <span className="sh-hero-icon">{I.boombox}</span>
+          <span className="sh-hero-title">Boombox</span>
+          <span className="sh-hero-desc">
+            Atrask atlikėjus swipe stiliumi — kaip muzikinis Tinder'is.
+            Įvertink, sutik, klausyk.
+          </span>
+          <span className="sh-hero-cta">Žaisk dabar <ArrowRight size={13}/></span>
+        </span>
+      </Link>
+
+      {/* Sub feature kortelės */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 10 }}>
         <Link href="/zaidimai" className="sh-feature-card" style={{ ['--it-rgb' as any]: hexToRgb('#6366f1') }}>
           <span className="sh-feature-icon-sm">{I.game}</span>
           <span className="sh-feature-title-sm">Žaidimai</span>
-          <span className="sh-feature-desc-sm">Atspėk dainą</span>
+          <span className="sh-feature-desc-sm">Atspėk dainą per 5s</span>
           <span className="sh-soon-pill">Greitai</span>
         </Link>
         <Link href="/kvizai" className="sh-feature-card" style={{ ['--it-rgb' as any]: hexToRgb('#14b8a6') }}>
@@ -290,12 +334,22 @@ function PramogosPanel({ accent }: { accent: string }) {
           <span className="sh-soon-pill">Greitai</span>
         </Link>
       </div>
+
+      <div className="sh-panel-shortcuts">
+        <Link href="/dienos-daina" className="sh-shortcut">Dienos daina →</Link>
+        <Link href="/topas" className="sh-shortcut">Topai →</Link>
+      </div>
     </div>
   )
 }
 
 function BendruomenePanel({ data, accent }: { data: NavPreview | null; accent: string }) {
   const news = data?.news.slice(0, 3) || []
+  const placeholderTitles = [
+    'Naujasis lietuviškos scenos pulsas',
+    'Interviu su Lietuvos atlikėjais',
+    'Šios savaitės releases ir naujienos',
+  ]
   return (
     <div className="sh-panel" style={{ minWidth: 680 }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
@@ -311,15 +365,16 @@ function BendruomenePanel({ data, accent }: { data: NavPreview | null; accent: s
                 href={n ? `/news/${n.slug}` : '/naujienos'}
                 className="sh-album-row"
               >
-                <span
+                <ImageBox
+                  src={n?.image}
+                  accent={accent}
+                  glyph={I.blog}
                   className="sh-album-cover"
-                  style={n?.image
-                    ? { backgroundImage: `url(${proxyImg(n.image)})` }
-                    : { background: `linear-gradient(135deg, ${accent}88 0%, ${accent}33 100%)` }
-                  }
                 />
                 <span className="sh-album-info">
-                  <span className="sh-album-title" style={{ WebkitLineClamp: 2 }}>{n?.title || '—'}</span>
+                  <span className="sh-album-title" style={{ WebkitLineClamp: 2 }}>
+                    {n?.title || <span style={{ opacity: 0.55 }}>{placeholderTitles[i] || 'Naujiena'}</span>}
+                  </span>
                 </span>
               </Link>
             ))}
@@ -355,25 +410,49 @@ function BendruomenePanel({ data, accent }: { data: NavPreview | null; accent: s
 
 function SkelbimaiPanel({ accent }: { accent: string }) {
   return (
-    <div className="sh-panel" style={{ minWidth: 560 }}>
+    <div className="sh-panel" style={{ minWidth: 640 }}>
       <div className="sh-panel-section">
         <span className="sh-panel-section-title">Marketplace</span>
         <span className="sh-soon-pill">Greitai</span>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-        {[
-          { label: 'Vinilas',         icon: I.vinyl,  rgb: '14, 165, 233' },
-          { label: 'CD',              icon: I.boombox, rgb: '6, 182, 212' },
-          { label: 'Instrumentai',    icon: I.guitar, rgb: '245, 158, 11' },
-          { label: 'Audio įranga',    icon: I.music,  rgb: '168, 85, 247' },
-          { label: 'Studijos įranga', icon: I.boombox,rgb: '236, 72, 153' },
-          { label: 'Paslaugos',       icon: I.market, rgb: '16, 185, 129' },
-        ].map(t => (
-          <Link key={t.label} href="/skelbimai" className="sh-cat-tile" style={{ ['--it-rgb' as any]: t.rgb }}>
-            <span className="sh-cat-icon">{t.icon}</span>
-            <span className="sh-cat-label">{t.label}</span>
-          </Link>
-        ))}
+
+      {/* Hero kortelė — abstract gradient su decorative shapes */}
+      <Link href="/skelbimai" className="sh-hero-card" style={{ ['--it-rgb' as any]: hexToRgb('#10b981') }}>
+        <span className="sh-hero-deco-circle sh-hero-deco-1" />
+        <span className="sh-hero-deco-circle sh-hero-deco-2" />
+        <span className="sh-hero-deco-circle sh-hero-deco-3" />
+        <span className="sh-hero-content">
+          <span className="sh-hero-eyebrow">Music marketplace</span>
+          <span className="sh-hero-icon">{I.market}</span>
+          <span className="sh-hero-title">Skelbimai</span>
+          <span className="sh-hero-desc">
+            Pirk, parduok, mainykis. Vinilas, instrumentai, audio įranga
+            ir muzikinės paslaugos vienoje vietoje.
+          </span>
+          <span className="sh-hero-cta">Greitai paleidžiame <ArrowRight size={13}/></span>
+        </span>
+      </Link>
+
+      {/* Kategorijų plytelės */}
+      <div style={{ marginTop: 12 }}>
+        <div className="sh-panel-section" style={{ marginBottom: 8 }}>
+          <span className="sh-panel-section-title">Kategorijos</span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+          {[
+            { label: 'Vinilas',         icon: I.vinyl,   rgb: '14, 165, 233' },
+            { label: 'CD ir kasetės',   icon: I.boombox, rgb: '6, 182, 212' },
+            { label: 'Instrumentai',    icon: I.guitar,  rgb: '245, 158, 11' },
+            { label: 'Audio įranga',    icon: I.music,   rgb: '168, 85, 247' },
+            { label: 'Studijos',        icon: I.quiz,    rgb: '236, 72, 153' },
+            { label: 'Paslaugos',       icon: I.market,  rgb: '16, 185, 129' },
+          ].map(t => (
+            <Link key={t.label} href="/skelbimai" className="sh-cat-tile" style={{ ['--it-rgb' as any]: t.rgb }}>
+              <span className="sh-cat-icon">{t.icon}</span>
+              <span className="sh-cat-label">{t.label}</span>
+            </Link>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -547,6 +626,7 @@ export function SiteHeader() {
         .sh-artist-card:hover { background: var(--bg-hover); }
         .sh-artist-card:hover .sh-artist-img { transform: scale(1.04); }
         .sh-artist-img {
+          position: relative;
           display: block;
           width: 100%; aspect-ratio: 1;
           border-radius: 10px;
@@ -554,6 +634,7 @@ export function SiteHeader() {
           background-position: center;
           background-color: var(--bg-hover);
           transition: transform .25s ease;
+          overflow: hidden;
         }
         .sh-artist-name {
           font-size: 12px; font-weight: 700;
@@ -576,6 +657,7 @@ export function SiteHeader() {
         .sh-album-row:hover { background: var(--bg-hover); }
         .sh-album-row:hover .sh-album-cover { transform: scale(1.05); }
         .sh-album-cover {
+          position: relative;
           flex-shrink: 0;
           width: 48px; height: 48px;
           border-radius: 8px;
@@ -583,6 +665,7 @@ export function SiteHeader() {
           background-position: center;
           background-color: var(--bg-hover);
           transition: transform .25s ease;
+          overflow: hidden;
         }
         .sh-album-info {
           flex: 1; min-width: 0;
@@ -606,6 +689,20 @@ export function SiteHeader() {
           white-space: nowrap;
         }
 
+        /* Fallback glyph — kai nėra paveiksliuko, rodom centrą ikona */
+        .sh-fallback-glyph {
+          position: absolute;
+          inset: 0;
+          display: flex; align-items: center; justify-content: center;
+          color: rgba(255, 255, 255, 0.7);
+          pointer-events: none;
+        }
+        .sh-fallback-glyph svg {
+          width: 38%; height: 38%;
+          stroke-width: 1.6;
+          filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+        }
+
         /* Renginio kortelė (poster + info) */
         .sh-event-card {
           display: flex; flex-direction: column;
@@ -624,7 +721,9 @@ export function SiteHeader() {
           border-radius: 10px;
           background-size: cover;
           background-position: center;
+          background-color: var(--bg-hover);
           transition: transform .25s ease;
+          overflow: hidden;
         }
         .sh-event-date {
           position: absolute;
@@ -740,6 +839,92 @@ export function SiteHeader() {
         @keyframes sh-pulse {
           0%, 100% { opacity: 1; transform: scale(1); }
           50%      { opacity: 0.5; transform: scale(1.4); }
+        }
+
+        /* Hero kortelė (Pramogos / Skelbimai) — abstract gradient bg + decorative shapes */
+        .sh-hero-card {
+          position: relative;
+          display: block;
+          padding: 22px;
+          border-radius: 16px;
+          text-decoration: none;
+          background:
+            radial-gradient(circle at 20% 0%, rgba(255,255,255,0.1) 0%, transparent 50%),
+            radial-gradient(circle at 80% 100%, rgba(var(--it-rgb), 0.6) 0%, transparent 60%),
+            linear-gradient(135deg, rgba(var(--it-rgb), 1) 0%, rgba(var(--it-rgb), 0.7) 100%);
+          overflow: hidden;
+          color: #fff;
+          transition: transform .25s ease, box-shadow .25s ease;
+          box-shadow: 0 12px 30px rgba(var(--it-rgb), 0.30), inset 0 1px 0 rgba(255,255,255,0.15);
+        }
+        .sh-hero-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 18px 40px rgba(var(--it-rgb), 0.40), inset 0 1px 0 rgba(255,255,255,0.20);
+        }
+        .sh-hero-card:hover .sh-hero-deco-circle { transform: scale(1.08); }
+        .sh-hero-deco-circle {
+          position: absolute;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(255,255,255,0.18) 0%, transparent 70%);
+          pointer-events: none;
+          transition: transform .4s cubic-bezier(.4,0,.2,1);
+        }
+        .sh-hero-deco-1 { width: 200px; height: 200px; top: -50px; right: -30px; }
+        .sh-hero-deco-2 { width: 130px; height: 130px; bottom: -40px; left: 30%; opacity: 0.6; }
+        .sh-hero-deco-3 { width: 80px; height: 80px; top: 30%; left: -20px; opacity: 0.5; }
+
+        .sh-hero-content {
+          position: relative; z-index: 1;
+          display: flex; flex-direction: column;
+          gap: 4px;
+        }
+        .sh-hero-eyebrow {
+          font-size: 10.5px; font-weight: 800;
+          text-transform: uppercase; letter-spacing: 0.12em;
+          color: rgba(255,255,255,0.85);
+          margin-bottom: 4px;
+        }
+        .sh-hero-icon {
+          display: inline-flex;
+          width: 40px; height: 40px;
+          border-radius: 11px;
+          align-items: center; justify-content: center;
+          background: rgba(255,255,255,0.15);
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(255,255,255,0.25);
+          color: #fff;
+          margin-bottom: 10px;
+        }
+        .sh-hero-icon svg { width: 22px; height: 22px; }
+        .sh-hero-title {
+          font-size: 24px; font-weight: 900;
+          letter-spacing: -0.02em;
+          color: #fff;
+          line-height: 1.05;
+          margin-bottom: 6px;
+        }
+        .sh-hero-desc {
+          font-size: 13px;
+          color: rgba(255,255,255,0.85);
+          line-height: 1.5;
+          max-width: 90%;
+          margin-bottom: 12px;
+        }
+        .sh-hero-cta {
+          display: inline-flex; align-items: center; gap: 6px;
+          align-self: flex-start;
+          padding: 7px 14px;
+          border-radius: 999px;
+          font-size: 12.5px; font-weight: 700;
+          background: rgba(255,255,255,0.18);
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(255,255,255,0.28);
+          color: #fff;
+          transition: background .15s, transform .15s;
+        }
+        .sh-hero-card:hover .sh-hero-cta {
+          background: rgba(255,255,255,0.28);
+          transform: translateX(2px);
         }
 
         /* Bendruomenė panel — big shortcut links */
