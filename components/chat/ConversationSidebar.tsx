@@ -7,9 +7,8 @@ import { conversationDisplayName, conversationDisplayAvatar } from '@/lib/chat-t
 import { ChatAvatar, ChatGroupAvatar } from './ChatAvatar'
 import { formatSidebarTime } from './ChatTime'
 
-// Diskusijos rodomos sidebar'e atskira sekcija. Pirmas etapas — temos,
-// kurias user'is sukūrė. Vėliau pridėsim "kuriose komentavo" kai bus
-// fix'inta `comments.discussion_id` schema.
+export type SidebarTab = 'private' | 'discussions'
+
 export type DiscussionItem = {
   id: number
   slug: string
@@ -28,9 +27,14 @@ type Props = {
   activeId: number | null
   onNewConversation: () => void
   loading?: boolean
+  tab: SidebarTab
+  onTabChange: (t: SidebarTab) => void
 }
 
-export function ConversationSidebar({ viewerId, conversations, discussions = [], activeId, onNewConversation, loading }: Props) {
+export function ConversationSidebar({
+  viewerId, conversations, discussions = [], activeId, onNewConversation, loading,
+  tab, onTabChange,
+}: Props) {
   const [filter, setFilter] = useState('')
 
   const filtered = useMemo(() => {
@@ -55,18 +59,25 @@ export function ConversationSidebar({ viewerId, conversations, discussions = [],
   const dms = filtered.filter(c => c.type === 'dm')
   const groups = filtered.filter(c => c.type === 'group')
 
+  // Total unread skaičius per tab — rodomas badge'e ant tab'o.
+  const privateUnread = useMemo(() => {
+    return conversations.reduce((acc, c) => acc + (c.notifications_muted ? 0 : c.unread_count || 0), 0)
+  }, [conversations])
+
   return (
     <aside style={{
-      width: 300, flexShrink: 0, maxWidth: '100%',
+      width: '100%', flexShrink: 0,
       borderRight: '1px solid var(--border-default)',
       background: 'var(--bg-surface)',
       display: 'flex', flexDirection: 'column',
       height: '100%',
+      overflow: 'hidden',
     }}>
       {/* Header */}
       <div style={{
         padding: '14px 16px', borderBottom: '1px solid var(--border-subtle)',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        flexShrink: 0,
       }}>
         <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)' }}>Pokalbiai</div>
         <button
@@ -89,8 +100,29 @@ export function ConversationSidebar({ viewerId, conversations, discussions = [],
         </button>
       </div>
 
+      {/* Tabs — Tavo pokalbiai vs Bendros diskusijos */}
+      <div style={{
+        display: 'flex', flexShrink: 0,
+        borderBottom: '1px solid var(--border-subtle)',
+      }}>
+        <TabButton
+          active={tab === 'private'}
+          onClick={() => onTabChange('private')}
+          badge={privateUnread}
+        >
+          Tavo pokalbiai
+        </TabButton>
+        <TabButton
+          active={tab === 'discussions'}
+          onClick={() => onTabChange('discussions')}
+          badge={0}
+        >
+          Diskusijos
+        </TabButton>
+      </div>
+
       {/* Search */}
-      <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border-subtle)' }}>
+      <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0 }}>
         <input
           type="search"
           name="chat-conv-filter"
@@ -103,7 +135,7 @@ export function ConversationSidebar({ viewerId, conversations, discussions = [],
           data-form-type="other"
           value={filter}
           onChange={e => setFilter(e.target.value)}
-          placeholder="Filtruoti pokalbius…"
+          placeholder={tab === 'private' ? 'Filtruoti pokalbius…' : 'Filtruoti diskusijas…'}
           style={{
             width: '100%', height: 34, padding: '0 12px',
             fontSize: 13, color: 'var(--text-primary)',
@@ -115,26 +147,106 @@ export function ConversationSidebar({ viewerId, conversations, discussions = [],
       </div>
 
       {/* List */}
-      <div style={{ flex: 1, overflowY: 'auto' }}>
-        {loading && conversations.length === 0 && filteredDiscussions.length === 0 ? (
-          <div style={{ padding: 24, fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>
-            Kraunasi…
-          </div>
-        ) : (filtered.length === 0 && filteredDiscussions.length === 0) ? (
-          <EmptyState onNew={onNewConversation} />
+      <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch' as any }}>
+        {tab === 'private' ? (
+          <PrivateList
+            loading={loading}
+            dms={dms} groups={groups}
+            viewerId={viewerId}
+            activeId={activeId}
+            onNew={onNewConversation}
+          />
         ) : (
-          <>
-            {dms.length > 0 && <SectionHeader label="Privačios žinutės" />}
-            {dms.map(c => <ConversationRow key={c.id} c={c} viewerId={viewerId} active={c.id === activeId} />)}
-            {groups.length > 0 && <SectionHeader label="Grupės" />}
-            {groups.map(c => <ConversationRow key={c.id} c={c} viewerId={viewerId} active={c.id === activeId} />)}
-            {filteredDiscussions.length > 0 && <SectionHeader label="Diskusijos" />}
-            {filteredDiscussions.map(d => <DiscussionRow key={d.id} d={d} />)}
-          </>
+          <DiscussionsList
+            loading={loading}
+            discussions={filteredDiscussions}
+          />
         )}
       </div>
     </aside>
   )
+}
+
+function TabButton({
+  active, children, onClick, badge,
+}: { active: boolean; children: React.ReactNode; onClick: () => void; badge: number }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        flex: 1, padding: '11px 10px',
+        border: 'none', background: 'transparent', cursor: 'pointer',
+        fontSize: 12.5, fontWeight: 700,
+        color: active ? 'var(--text-primary)' : 'var(--text-muted)',
+        borderBottom: active ? '2px solid var(--accent-orange)' : '2px solid transparent',
+        transition: 'color .12s, border-color .12s',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+      }}
+    >
+      {children}
+      {badge > 0 && (
+        <span style={{
+          minWidth: 16, height: 16, padding: '0 4px', borderRadius: 8,
+          background: 'var(--accent-orange)', color: '#fff',
+          fontSize: 9, fontWeight: 800,
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          lineHeight: 1,
+        }}>
+          {badge > 99 ? '99+' : badge}
+        </span>
+      )}
+    </button>
+  )
+}
+
+function PrivateList({ loading, dms, groups, viewerId, activeId, onNew }: {
+  loading?: boolean
+  dms: ConversationListItem[]
+  groups: ConversationListItem[]
+  viewerId: string
+  activeId: number | null
+  onNew: () => void
+}) {
+  if (loading && dms.length === 0 && groups.length === 0) {
+    return <div style={{ padding: 24, fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>Kraunasi…</div>
+  }
+  if (dms.length === 0 && groups.length === 0) return <EmptyState onNew={onNew} />
+  return (
+    <>
+      {dms.length > 0 && <SectionHeader label="Privačios žinutės" />}
+      {dms.map(c => <ConversationRow key={c.id} c={c} viewerId={viewerId} active={c.id === activeId} />)}
+      {groups.length > 0 && <SectionHeader label="Grupės" />}
+      {groups.map(c => <ConversationRow key={c.id} c={c} viewerId={viewerId} active={c.id === activeId} />)}
+    </>
+  )
+}
+
+function DiscussionsList({ loading, discussions }: { loading?: boolean; discussions: DiscussionItem[] }) {
+  if (loading && discussions.length === 0) {
+    return <div style={{ padding: 24, fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>Kraunasi…</div>
+  }
+  if (discussions.length === 0) {
+    return (
+      <div style={{ padding: '36px 24px', textAlign: 'center' }}>
+        <div style={{ fontSize: 32, marginBottom: 8 }}>💭</div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>
+          Diskusijų dar nėra
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14, lineHeight: 1.5 }}>
+          Sukurk arba pakomentuok diskusiją — atsiras čia.
+        </div>
+        <Link href="/diskusijos"
+          style={{
+            display: 'inline-block', padding: '8px 14px', borderRadius: 8,
+            background: 'var(--accent-link)', color: '#fff',
+            fontSize: 12, fontWeight: 700, textDecoration: 'none',
+          }}>
+          Visos diskusijos →
+        </Link>
+      </div>
+    )
+  }
+  return <>{discussions.map(d => <DiscussionRow key={d.id} d={d} />)}</>
 }
 
 function SectionHeader({ label }: { label: string }) {
@@ -255,7 +367,7 @@ function DiscussionRow({ d }: { d: DiscussionItem }) {
   const involvementBadge = d.involvement === 'created' ? 'autorius' : 'komentavai'
   return (
     <Link
-      href={`/diskusijos/${d.slug}`}
+      href={`/pokalbiai/d/${d.slug}`}
       style={{
         display: 'flex', gap: 10, alignItems: 'center',
         padding: '10px 14px',
