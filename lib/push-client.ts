@@ -94,7 +94,15 @@ export async function enablePush(): Promise<{ ok: boolean; status: PushStatus; e
     body: JSON.stringify({ subscription: sub.toJSON() }),
   })
   if (!res.ok) {
-    return { ok: false, status: 'unsubscribed', error: `Server'is grąžino ${res.status}` }
+    let detail = ''
+    try {
+      const j = await res.json()
+      detail = j?.error || ''
+    } catch { /* ignore */ }
+    const msg = detail
+      ? `Server'is grąžino ${res.status}: ${detail}`
+      : `Server'is grąžino ${res.status}`
+    return { ok: false, status: 'unsubscribed', error: msg }
   }
   return { ok: true, status: 'subscribed' }
 }

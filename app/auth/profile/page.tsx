@@ -91,6 +91,34 @@ export default function ProfilePage() {
             </dl>
           </div>
 
+          {/* Settings shortcuts */}
+          <div className="border-t border-white/10 pt-6 mt-6">
+            <h2 className="text-lg font-semibold mb-4">Nustatymai</h2>
+            <div className="space-y-2">
+              <Link
+                href="/auth/profile/pranesimai"
+                className="flex items-center gap-4 p-4 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors group"
+              >
+                <div
+                  className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
+                  style={{ background: 'rgba(249,115,22,0.15)', color: 'var(--accent-orange, #f97316)' }}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold text-white">Pranešimai</div>
+                  <div className="text-xs text-gray-400 mt-0.5">Push, komentarai, patiktukai, mėgstami atlikėjai</div>
+                </div>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500 group-hover:text-white transition-colors">
+                  <polyline points="9 18 15 12 9 6"/>
+                </svg>
+              </Link>
+            </div>
+          </div>
+
           <div className="mt-8 flex gap-3">
             <Link
               href="/"
