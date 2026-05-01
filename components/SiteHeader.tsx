@@ -840,6 +840,16 @@ export function SiteHeader() {
           .sh-desktop-search { display: none !important; }
           .sh-desktop-nav    { display: none !important; }
         }
+        /* Suppress Safari/Mac fokuso "white ring" ir Firefox dotted outline'ą,
+           paliekam tik :hover/active border'į. Be focus-visible custom style'o
+           — keyboard-only naviguotojai vis tiek matys, kad button focused per
+           jo backgrounds + chevron pointer'į. */
+        .sh-desktop-search:focus,
+        .sh-desktop-search:focus-visible {
+          outline: none !important;
+          box-shadow: none !important;
+        }
+        .sh-desktop-search::-moz-focus-inner { border: 0; }
 
         /* ── Mobile drawer ── */
         .sh-overlay {
@@ -976,13 +986,17 @@ export function SiteHeader() {
               cursor: 'pointer',
               transition: 'border-color .15s, background .15s',
               fontFamily: 'inherit',
+              // Numušam default browser focus outline'ą (Mac Safari piešia
+              // baltą "focus ring" po click'o → atrodo kaip stuck'ęs border'is).
+              outline: 'none',
+              WebkitTapHighlightColor: 'transparent',
             }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-strong)' }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = '' }}
           >
             <span style={{ display: 'flex', color: mutedIcon, marginRight: 10 }}><SearchIcon /></span>
             <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: 'var(--text-muted)', textAlign: 'left' }}>
-              Ieškok visko…
+              Ieškoti
             </span>
             <span style={{
               display: 'inline-flex', alignItems: 'center', gap: 2,
@@ -1030,9 +1044,11 @@ export function SiteHeader() {
               width: '100%', height: 40, padding: '0 14px',
               cursor: 'pointer', fontFamily: 'inherit',
               color: 'var(--text-muted)',
+              outline: 'none',
+              WebkitTapHighlightColor: 'transparent',
             }}>
             <SearchIcon />
-            <span style={{ fontSize: 13, fontWeight: 500 }}>Ieškoti visko…</span>
+            <span style={{ fontSize: 13, fontWeight: 500 }}>Ieškoti</span>
           </button>
         </div>
 

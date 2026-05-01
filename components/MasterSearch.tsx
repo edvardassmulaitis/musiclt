@@ -432,7 +432,7 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
             ref={inputRef}
             value={q}
             onChange={e => setQ(e.target.value)}
-            placeholder="Ieškok atlikėjų, dainų, albumų, vartotojų, renginių…"
+            placeholder="Ieškoti"
             className="ms-input"
             autoComplete="off"
             spellCheck={false}
@@ -905,7 +905,10 @@ const searchCss = `
   font-family: inherit;
   letter-spacing: -0.005em;
   padding: 4px 0;
+  -webkit-appearance: none;
+  -webkit-tap-highlight-color: transparent;
 }
+.ms-input:focus, .ms-input:focus-visible { outline: none; box-shadow: none; }
 .ms-input::placeholder { color: var(--text-muted, #888); font-weight: 400; }
 .ms-clear {
   width: 26px; height: 26px;
