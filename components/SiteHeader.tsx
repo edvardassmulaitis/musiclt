@@ -836,7 +836,6 @@ export function SiteHeader() {
   const pathname = usePathname()
   const [menuOpen, setMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
-  const [mobileExpanded, setMobileExpanded] = useState<NavItem['key'] | null>(null)
   const [preview, setPreview] = useState<NavPreview | null>(null)
   // Mobile drill-in state — 'main' = pradinė kortelių sąrašo view,
   // arba konkretus key (muzika/topai/...) = sekcijos turinio full-screen view.
@@ -1573,7 +1572,7 @@ export function SiteHeader() {
           border-color: var(--border-strong) !important;
         }
 
-        /* ── Mobile drawer ── */
+        /* ── Mobile drawer (full-screen modal) ── */
         .sh-overlay {
           position: fixed; inset: 0; z-index: 200;
           background: rgba(0,0,0,0.55); backdrop-filter: blur(6px);
@@ -1582,12 +1581,139 @@ export function SiteHeader() {
         .sh-overlay.open { opacity: 1; pointer-events: all; }
         .sh-drawer {
           position: fixed; top: 0; left: 0; bottom: 0; z-index: 201;
-          width: 320px;
+          width: 360px;
           transform: translateX(-100%);
           transition: transform .25s cubic-bezier(.4,0,.2,1);
           display: flex; flex-direction: column;
         }
         .sh-drawer.open { transform: translateX(0); }
+        /* Mobile: full-screen */
+        @media (max-width: 600px) {
+          .sh-drawer { width: 100vw; }
+        }
+
+        /* Top bar — kontekstinis */
+        .sh-mtop {
+          flex-shrink: 0;
+          height: 54px;
+          display: flex; align-items: center;
+          padding: 0 12px;
+          gap: 4px;
+          border-bottom: 1px solid var(--border-default);
+        }
+        .sh-mtop-title {
+          font-size: 16px; font-weight: 800;
+          color: var(--text-primary);
+          letter-spacing: -0.01em;
+          margin-left: 4px;
+        }
+        .sh-mtop-btn {
+          flex-shrink: 0;
+          width: 36px; height: 36px;
+          border-radius: 9px;
+          border: none; background: transparent;
+          color: var(--text-secondary);
+          display: flex; align-items: center; justify-content: center;
+          cursor: pointer;
+          transition: background .12s, color .12s;
+        }
+        .sh-mtop-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+        /* Body — flex 1, scroll inside */
+        .sh-mbody {
+          flex: 1;
+          min-height: 0;
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        /* MAIN VIEW — clean text-row list (no gradients) */
+        .sh-mlist {
+          display: flex; flex-direction: column;
+          padding: 4px 0;
+        }
+        .sh-mrow {
+          display: flex; align-items: center; gap: 14px;
+          padding: 14px 16px;
+          width: 100%;
+          border: none; background: transparent;
+          text-align: left;
+          font-family: inherit;
+          cursor: pointer;
+          transition: background .12s;
+          border-bottom: 1px solid var(--border-default);
+          position: relative;
+        }
+        .sh-mrow:last-child { border-bottom: none; }
+        .sh-mrow:hover, .sh-mrow:active { background: var(--bg-hover); }
+        .sh-mrow.active::before {
+          content: '';
+          position: absolute;
+          left: 0; top: 12px; bottom: 12px;
+          width: 3px;
+          border-radius: 0 3px 3px 0;
+          background: rgba(var(--it-rgb), 1);
+        }
+
+        .sh-mrow-icon {
+          flex-shrink: 0;
+          width: 36px; height: 36px;
+          border-radius: 10px;
+          display: flex; align-items: center; justify-content: center;
+          color: rgba(var(--it-rgb), 1);
+          background: rgba(var(--it-rgb), 0.13);
+          border: 1px solid rgba(var(--it-rgb), 0.22);
+        }
+        .sh-mrow-icon svg { width: 18px; height: 18px; }
+        .sh-mrow-text {
+          flex: 1; min-width: 0;
+          display: flex; flex-direction: column;
+          gap: 3px;
+        }
+        .sh-mrow-title {
+          font-size: 15.5px; font-weight: 700;
+          color: var(--text-primary);
+          line-height: 1.2;
+          letter-spacing: -0.01em;
+        }
+        .sh-mrow-desc {
+          font-size: 12.5px; font-weight: 500;
+          color: var(--text-muted);
+          line-height: 1.3;
+        }
+        .sh-mrow-arrow {
+          flex-shrink: 0;
+          color: var(--text-muted);
+          opacity: 0.4;
+          display: flex;
+        }
+
+        /* DRILLED-IN section view — scrollable */
+        .sh-msection {
+          padding: 12px 14px 16px;
+        }
+
+        /* Footer — theme toggle */
+        .sh-mfoot {
+          flex-shrink: 0;
+          padding: 10px 14px;
+          border-top: 1px solid var(--border-default);
+        }
+        .sh-mfoot-btn {
+          display: flex; align-items: center; justify-content: center;
+          gap: 8px;
+          width: 100%;
+          padding: 10px 14px;
+          border-radius: 10px;
+          border: none;
+          background: var(--bg-hover);
+          color: var(--text-secondary);
+          font-size: 13px; font-weight: 700;
+          font-family: inherit;
+          cursor: pointer;
+          transition: background .12s;
+        }
+        .sh-mfoot-btn:hover { background: var(--border-default); color: var(--text-primary); }
 
         .sh-mnav {
           flex: 1;
@@ -1851,87 +1977,92 @@ export function SiteHeader() {
         </div>
       </header>
 
-      {/* ─── MOBILE DRAWER ───────────────────────────────────────── */}
+      {/* ─── MOBILE DRAWER (full-screen modal su drill-in pattern) ─── */}
       <div className={`sh-overlay${menuOpen ? ' open' : ''}`} onClick={() => setMenuOpen(false)} />
 
-      <div className={`sh-drawer${menuOpen ? ' open' : ''}`} style={{ background: drawerBg, borderRight: bdr }}>
+      <div className={`sh-drawer${menuOpen ? ' open' : ''}`} style={{ background: drawerBg }}>
 
-        <div style={{ height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 14px', borderBottom: bdr, flexShrink: 0 }}>
-          <Link href="/" onClick={() => setMenuOpen(false)} style={{ textDecoration: 'none' }}>
-            <span style={{ fontWeight: 900, fontSize: 19, color: logoColor }}>music</span>
-            <span style={{ fontWeight: 900, fontSize: 19, color: 'var(--accent-orange)' }}>.lt</span>
-          </Link>
-          <button onClick={() => setMenuOpen(false)}
-            style={{ width: 30, height: 30, borderRadius: 8, border: 'none', background: 'transparent', color: mutedIcon, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
+        {/* TOP BAR — kontekstinis */}
+        <div className="sh-mtop">
+          {drawerView === 'main' ? (
+            <>
+              <Link href="/" onClick={() => setMenuOpen(false)} style={{ textDecoration: 'none' }}>
+                <span style={{ fontWeight: 900, fontSize: 20, color: logoColor }}>music</span>
+                <span style={{ fontWeight: 900, fontSize: 20, color: 'var(--accent-orange)' }}>.lt</span>
+              </Link>
+              <button onClick={() => setMenuOpen(false)} aria-label="Uždaryti" className="sh-mtop-btn" style={{ marginLeft: 'auto' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </>
+          ) : (
+            <>
+              <button onClick={() => setDrawerView('main')} aria-label="Atgal" className="sh-mtop-btn">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="15 18 9 12 15 6"/>
+                </svg>
+              </button>
+              <span className="sh-mtop-title">
+                {NAV.find(n => n.key === drawerView)?.label}
+              </span>
+              <button onClick={() => setMenuOpen(false)} aria-label="Uždaryti" className="sh-mtop-btn" style={{ marginLeft: 'auto' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </>
+          )}
         </div>
 
-        <div style={{ padding: '12px 14px', borderBottom: bdr, flexShrink: 0 }}>
-          <button
-            onClick={openSearch}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 10,
-              borderRadius: 11, background: inputBg, border: inputBdr,
-              width: '100%', height: 40, padding: '0 14px',
-              cursor: 'pointer', fontFamily: 'inherit',
-              color: 'var(--text-muted)',
-              outline: 'none',
-              WebkitTapHighlightColor: 'transparent',
-            }}>
-            <SearchIcon />
-            <span style={{ fontSize: 13, fontWeight: 500 }}>Ieškoti</span>
-          </button>
+        {/* CONTENT */}
+        <div className="sh-mbody">
+          {drawerView === 'main' ? (
+            <nav className="sh-mlist">
+              {NAV.map(n => {
+                const active = isActive(n)
+                return (
+                  <button
+                    key={n.label}
+                    type="button"
+                    onClick={() => setDrawerView(n.key)}
+                    className={`sh-mrow${active ? ' active' : ''}`}
+                    style={{ ['--it-rgb' as any]: hexToRgb(n.accent) }}
+                  >
+                    <span className="sh-mrow-icon">{n.icon}</span>
+                    <span className="sh-mrow-text">
+                      <span className="sh-mrow-title">{n.label}</span>
+                      <span className="sh-mrow-desc">{n.desc}</span>
+                    </span>
+                    <span className="sh-mrow-arrow">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="9 18 15 12 9 6"/>
+                      </svg>
+                    </span>
+                  </button>
+                )
+              })}
+            </nav>
+          ) : (
+            <div className="sh-msection">
+              <MobileExpansion
+                navKey={drawerView}
+                data={preview}
+                accent={NAV.find(n => n.key === drawerView)?.accent || '#f59e0b'}
+                onLink={() => setMenuOpen(false)}
+              />
+            </div>
+          )}
         </div>
 
-        <nav className="sh-mnav">
-          {NAV.map(n => {
-            const active = isActive(n)
-            const rgb = hexToRgb(n.accent)
-            const expanded = mobileExpanded === n.key
-            return (
-              <div key={n.label} className="sh-mwrap">
-                <button
-                  type="button"
-                  onClick={() => setMobileExpanded(expanded ? null : n.key)}
-                  className={`sh-mcard${active ? ' active' : ''}${expanded ? ' expanded' : ''}`}
-                  style={{ ['--it-rgb' as any]: rgb }}
-                  aria-expanded={expanded}
-                >
-                  <span className="sh-mcard-icon">{n.icon}</span>
-                  <span className="sh-mcard-text">
-                    <span className="sh-mcard-title">{n.label}</span>
-                    <span className="sh-mcard-desc">{n.desc}</span>
-                  </span>
-                  <span className="sh-mcard-arrow" style={{ transform: expanded ? 'rotate(90deg)' : 'none' }}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="9 18 15 12 9 6"/>
-                    </svg>
-                  </span>
-                </button>
-                {expanded && (
-                  <MobileExpansion
-                    navKey={n.key}
-                    data={preview}
-                    accent={n.accent}
-                    onLink={() => setMenuOpen(false)}
-                  />
-                )}
-              </div>
-            )
-          })}
-        </nav>
-
-        <div style={{ padding: '10px 14px', borderTop: bdr, flexShrink: 0 }}>
-          <button onClick={() => { setTheme(theme === 'dark' ? 'light' : 'dark'); setMenuOpen(false) }}
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', padding: '10px 14px', borderRadius: 10, border: 'none', background: 'var(--bg-hover)', color: navColor, fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'background .12s' }}
-            onMouseEnter={e => (e.currentTarget.style.background = navHoverBg)}
-            onMouseLeave={e => (e.currentTarget.style.background = 'var(--bg-hover)')}>
-            {dk ? <><SunIcon /> Šviesi tema</> : <><MoonIcon /> Tamsi tema</>}
-          </button>
-        </div>
+        {/* Theme toggle — fixed footer (rodom tik main view'e) */}
+        {drawerView === 'main' && (
+          <div className="sh-mfoot">
+            <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="sh-mfoot-btn">
+              {dk ? <><SunIcon /> Šviesi tema</> : <><MoonIcon /> Tamsi tema</>}
+            </button>
+          </div>
+        )}
       </div>
 
       <MasterSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
