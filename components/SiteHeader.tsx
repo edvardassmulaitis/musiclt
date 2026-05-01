@@ -895,6 +895,10 @@ export function SiteHeader() {
   // Mobile drill-in state — 'main' = pradinė kortelių sąrašo view,
   // arba konkretus key (muzika/topai/...) = sekcijos turinio full-screen view.
   const [drawerView, setDrawerView] = useState<'main' | NavItem['key']>('main')
+  // Desktop dropdown'o "closing" state — paspaudus link'ą uždaro
+  // panel'ą iškart, kad nesimatytų po hover'iu kol page'as krautųsi.
+  const [closingKey, setClosingKey] = useState<NavItem['key'] | null>(null)
+  useEffect(() => { setClosingKey(null) }, [pathname])
 
   // Body scroll lock kai drawer'is atidarytas (kad puslapio turinys
   // nesleslintų po modalu)
@@ -1006,6 +1010,16 @@ export function SiteHeader() {
         .sh-group:focus-within > .sh-dropdown-wrap {
           opacity: 1; pointer-events: auto;
           transform: translateY(0);
+        }
+        /* Closing state — paspaudus link'ą force'iuojam dropdown išnykti
+           net jei cursor'is vis dar virš grupės (kad neliktų po hover'iu) */
+        .sh-group.closing > .sh-dropdown-wrap,
+        .sh-group.closing:hover > .sh-dropdown-wrap,
+        .sh-group.closing:focus-within > .sh-dropdown-wrap {
+          opacity: 0 !important;
+          pointer-events: none !important;
+          transform: translateY(-12px) scale(0.96) !important;
+          transition: opacity .15s ease, transform .15s ease !important;
         }
         .sh-group:nth-last-of-type(-n+2) > .sh-dropdown-wrap { left: auto; right: 0; }
 
@@ -1953,18 +1967,30 @@ export function SiteHeader() {
           <nav className="sh-desktop-nav" style={{ alignItems: 'center', gap: 2, marginLeft: 10, flexShrink: 0 }}>
             {NAV.map(n => {
               const active = isActive(n)
+              const closing = closingKey === n.key
               return (
-                <div key={n.label} className="sh-group">
+                <div key={n.label} className={`sh-group${closing ? ' closing' : ''}`}>
                   <Link
                     href={n.href}
                     className={`sh-navlink${active ? ' active' : ''}`}
                     style={{ ['--nav-accent' as any]: n.accent }}
+                    onClick={() => {
+                      setClosingKey(n.key)
+                      setTimeout(() => setClosingKey(null), 600)
+                    }}
                   >
                     {n.label}
                   </Link>
                   <div
                     className="sh-dropdown-wrap"
                     style={{ ['--panel-accent' as any]: n.accent }}
+                    onClick={() => {
+                      // Bet koks click'as dropdown'o viduje (paprastai ant Link'o)
+                      // — uždaro panel'ą iškart, kad nesimatytų po hover'iu
+                      // kol page'as krautųsi.
+                      setClosingKey(n.key)
+                      setTimeout(() => setClosingKey(null), 600)
+                    }}
                   >
                     {renderPanel(n.key, n.accent)}
                   </div>
