@@ -1,63 +1,215 @@
 'use client'
-import { useState, useEffect, Suspense } from 'react'
+// app/blogas/rasyti/page.tsx
+//
+// Multi-modal blog editor'ius. Vartotojas pasirenka tipą (article/quick/
+// review/translation/creation/journal) ir gauna pritaikytą formą:
+//   - quick      → tik embed URL + caption, be Tiptap (greitas-greitas drop'as)
+//   - review     → MusicSearchPicker + rating + content
+//   - translation→ original_url/author/lang + content
+//   - article/creation/journal → klasikinis Tiptap editor'ius
+//
+// Username gate'ą turim INLINE (UsernameSetupGate) — be dead-end'o. Edit
+// režime krauname egzistuojantį įrašą per ?id=.
+
+import { useState, useEffect, Suspense, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { BlogEditor } from '@/components/BlogEditor'
+import { PostTypeSelector, type BlogPostType } from '@/components/blog/PostTypeSelector'
+import { TagInput } from '@/components/blog/TagInput'
+import { ImageUploadField } from '@/components/blog/ImageUploadField'
+import { QuickEmbedField, type QuickEmbed } from '@/components/blog/QuickEmbedField'
+import { ReviewTargetField, type ReviewTarget } from '@/components/blog/ReviewTargetField'
+import { TranslationField, type TranslationMeta } from '@/components/blog/TranslationField'
+import { UsernameSetupGate } from '@/components/blog/UsernameSetupGate'
+
+type LoadedPost = {
+  title?: string
+  content?: string
+  summary?: string
+  cover_image_url?: string
+  status?: 'draft' | 'published'
+  post_type?: BlogPostType
+  rating?: number | null
+  target_artist_id?: number | null
+  target_album_id?: number | null
+  target_track_id?: number | null
+  original_url?: string | null
+  original_author?: string | null
+  original_lang?: string | null
+  embed_url?: string | null
+  embed_type?: string | null
+  embed_thumbnail_url?: string | null
+  embed_title?: string | null
+  embed_html?: string | null
+  tags?: string[]
+}
 
 function EditorInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const editId = searchParams.get('id')
+  const initialType = searchParams.get('type') as BlogPostType | null
 
+  // ── Session/profile state ─────────────────────────────────────────────
+  const [profileLoading, setProfileLoading] = useState(true)
+  const [hasUsername, setHasUsername] = useState(false)
+  const [authError, setAuthError] = useState('')
+
+  // ── Form state ────────────────────────────────────────────────────────
+  const [postType, setPostType] = useState<BlogPostType>(initialType || 'article')
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [summary, setSummary] = useState('')
   const [coverUrl, setCoverUrl] = useState('')
-  const [status, setStatus] = useState<'draft' | 'published'>('draft')
+  const [tags, setTags] = useState<string[]>([])
+
+  // Quick mode
+  const [embed, setEmbed] = useState<QuickEmbed | null>(null)
+
+  // Review mode
+  const [reviewTarget, setReviewTarget] = useState<ReviewTarget>({
+    artist_id: null, album_id: null, track_id: null, display: null,
+  })
+  const [rating, setRating] = useState<number | null>(null)
+
+  // Translation mode
+  const [translation, setTranslation] = useState<TranslationMeta>({
+    original_url: '', original_author: '', original_lang: '',
+  })
+
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [ready, setReady] = useState(false)
 
+  // ── Load profile ──────────────────────────────────────────────────────
   useEffect(() => {
-    fetch('/api/profile').then(r => r.json()).then(p => {
-      if (!p?.username) {
-        setError('Pirma nustatyk username savo profilyje')
-        return
-      }
-      setReady(true)
-    }).catch(() => setError('Prisijunk'))
+    fetch('/api/profile').then(async r => {
+      if (r.status === 401) { setAuthError('Prisijunk, kad galėtum rašyti'); return }
+      const p = await r.json()
+      setHasUsername(!!p?.username)
+    }).catch(() => setAuthError('Klaida kraunant profilį'))
+      .finally(() => setProfileLoading(false))
   }, [])
 
+  // ── Load existing post (edit mode) ────────────────────────────────────
   useEffect(() => {
-    if (editId) {
-      fetch(`/api/blog/posts/${editId}`).then(r => r.json()).then(p => {
-        if (p?.title) {
-          setTitle(p.title)
-          setContent(p.content || '')
-          setSummary(p.summary || '')
-          setCoverUrl(p.cover_image_url || '')
-          setStatus(p.status || 'draft')
-        }
-      })
-    }
+    if (!editId) return
+    fetch(`/api/blog/posts/${editId}`).then(r => r.json()).then((p: LoadedPost) => {
+      if (!p?.title && !p?.embed_url) return
+      setTitle(p.title || '')
+      setContent(p.content || '')
+      setSummary(p.summary || '')
+      setCoverUrl(p.cover_image_url || '')
+      setPostType((p.post_type as BlogPostType) || 'article')
+      setTags(p.tags || [])
+      setRating(p.rating ?? null)
+
+      if (p.embed_url) {
+        setEmbed({
+          embed_url: p.embed_url,
+          embed_type: p.embed_type || 'other',
+          embed_title: p.embed_title || null,
+          embed_thumbnail_url: p.embed_thumbnail_url || null,
+          embed_html: p.embed_html || null,
+        })
+      }
+
+      // Review target — neturim cached display info, todėl rodom tik raw ID'us
+      // (UI elgiasi saugiai jei display = null).
+      if (p.target_artist_id || p.target_album_id || p.target_track_id) {
+        setReviewTarget({
+          artist_id: p.target_artist_id ?? null,
+          album_id: p.target_album_id ?? null,
+          track_id: p.target_track_id ?? null,
+          display: null,
+        })
+      }
+
+      if (p.original_url || p.original_author || p.original_lang) {
+        setTranslation({
+          original_url: p.original_url || '',
+          original_author: p.original_author || '',
+          original_lang: p.original_lang || '',
+        })
+      }
+    })
   }, [editId])
 
+  const validate = useCallback((status: 'draft' | 'published'): string | null => {
+    if (postType === 'quick') {
+      if (!embed?.embed_url) return 'Įklijuok video/audio nuorodą'
+    } else {
+      if (!title.trim()) return 'Įvesk pavadinimą'
+    }
+    if (status === 'published' && postType === 'review') {
+      const hasTarget = reviewTarget.artist_id || reviewTarget.album_id || reviewTarget.track_id
+      if (!hasTarget) return 'Recenzijai pasirink atlikėją, albumą arba dainą'
+      if (rating === null) return 'Recenzijai nustatyk balą'
+    }
+    if (status === 'published' && postType === 'translation') {
+      if (!translation.original_url.trim()) return 'Vertimui pridėk nuorodą į originalą'
+    }
+    return null
+  }, [postType, embed, title, reviewTarget, rating, translation])
+
   async function handleSave(publishStatus: 'draft' | 'published') {
-    if (!title.trim()) { setError('Įvesk pavadinimą'); return }
+    const err = validate(publishStatus)
+    if (err) { setError(err); return }
     setSaving(true); setError('')
+
+    const body: any = {
+      title: title.trim(),
+      content,
+      summary: summary.trim() || null,
+      cover_image_url: coverUrl || null,
+      status: publishStatus,
+      post_type: postType,
+      tags,
+    }
+
+    if (postType === 'quick' && embed) {
+      body.embed_url = embed.embed_url
+      body.embed_type = embed.embed_type
+      body.embed_title = embed.embed_title
+      body.embed_thumbnail_url = embed.embed_thumbnail_url
+      body.embed_html = embed.embed_html
+      // Quick mode'e title leidžiame tuščią — backend'as auto-generate'ins
+      if (!title.trim()) body.title = embed.embed_title || ''
+    }
+
+    if (postType === 'review') {
+      body.rating = rating
+      body.target_artist_id = reviewTarget.artist_id
+      body.target_album_id = reviewTarget.album_id
+      body.target_track_id = reviewTarget.track_id
+    }
+
+    if (postType === 'translation') {
+      body.original_url = translation.original_url.trim() || null
+      body.original_author = translation.original_author.trim() || null
+      body.original_lang = translation.original_lang || null
+    }
+
     try {
-      const body = { title, content, summary, cover_image_url: coverUrl || null, status: publishStatus }
-      let res
+      let res: Response
       if (editId) {
-        res = await fetch(`/api/blog/posts/${editId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+        res = await fetch(`/api/blog/posts/${editId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
       } else {
-        res = await fetch('/api/blog/posts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+        res = await fetch('/api/blog/posts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
       }
       if (res.ok) {
         router.push('/blogas/mano')
       } else {
-        const data = await res.json()
-        setError(data.error || 'Klaida')
+        const data = await res.json().catch(() => ({}))
+        setError(data?.error || 'Klaida saugant')
       }
     } catch (e: any) {
       setError(e.message)
@@ -66,75 +218,156 @@ function EditorInner() {
     }
   }
 
-  if (!ready && !error) {
+  // ── Render gates ──────────────────────────────────────────────────────
+  if (profileLoading) {
     return <div className="min-h-[50vh] flex items-center justify-center text-sm" style={{ color: '#334058' }}>Kraunasi...</div>
   }
 
-  if (error && !ready) {
+  if (authError) {
     return (
-      <div className="min-h-[50vh] flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-sm text-red-400 mb-4">{error}</p>
-          <Link href="/" className="text-xs text-[#4a6fa5] hover:text-white transition">← Grįžti</Link>
-        </div>
+      <div className="min-h-[50vh] flex flex-col items-center justify-center gap-4">
+        <p className="text-sm text-red-400">{authError}</p>
+        <Link href="/auth/signin" className="text-xs font-bold text-[#f97316] hover:underline">Prisijungti →</Link>
       </div>
     )
   }
 
+  if (!hasUsername) {
+    return <UsernameSetupGate onReady={() => setHasUsername(true)} />
+  }
+
+  // ── Main editor ───────────────────────────────────────────────────────
   return (
     <div className="max-w-3xl mx-auto px-6 py-8">
+      {/* Top bar */}
       <div className="flex items-center justify-between mb-8">
-        <Link href="/blogas/mano" className="text-xs hover:text-white transition" style={{ color: '#5e7290' }}>← Mano straipsniai</Link>
+        <Link href="/blogas/mano" className="text-xs hover:text-white transition" style={{ color: '#5e7290' }}>← Mano įrašai</Link>
         <div className="flex gap-2">
-          <button onClick={() => handleSave('draft')} disabled={saving}
+          <button
+            onClick={() => handleSave('draft')}
+            disabled={saving}
             className="px-4 py-1.5 rounded-full text-xs font-bold transition disabled:opacity-40"
-            style={{ color: '#b0bdd4', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
-            {saving ? '...' : 'Išsaugoti juodraštį'}
+            style={{ color: '#b0bdd4', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
+          >
+            {saving ? '...' : 'Juodraštis'}
           </button>
-          <button onClick={() => handleSave('published')} disabled={saving}
-            className="px-4 py-1.5 rounded-full text-xs font-bold text-white bg-[#f97316] hover:bg-[#ea580c] transition disabled:opacity-40">
+          <button
+            onClick={() => handleSave('published')}
+            disabled={saving}
+            className="px-4 py-1.5 rounded-full text-xs font-bold text-white bg-[#f97316] hover:bg-[#ea580c] transition disabled:opacity-40"
+          >
             {saving ? '...' : 'Publikuoti'}
           </button>
         </div>
       </div>
 
-      {error && ready && <div className="text-xs text-red-400 mb-4 p-2 bg-red-900/20 rounded">{error}</div>}
+      {error && (
+        <div className="text-xs text-red-400 mb-4 p-2.5 rounded-lg" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
+          {error}
+        </div>
+      )}
 
-      <input
-        value={title}
-        onChange={e => setTitle(e.target.value)}
-        placeholder="Straipsnio pavadinimas"
-        className="w-full text-3xl font-black bg-transparent border-none outline-none mb-4"
-        style={{ fontFamily: "'Outfit', sans-serif", letterSpacing: '-.03em', color: '#f2f4f8' }}
-      />
+      {/* Tipo pasirinkimas */}
+      <PostTypeSelector value={postType} onChange={setPostType} />
 
-      <input
-        value={summary}
-        onChange={e => setSummary(e.target.value)}
-        placeholder="Trumpa santrauka (rodoma sąraše)"
-        className="w-full text-sm bg-transparent border-none outline-none mb-4"
-        style={{ color: '#5e7290' }}
-      />
+      {/* ── Per-tipo formos ─────────────────────────────────────────── */}
 
-      <input
-        value={coverUrl}
-        onChange={e => setCoverUrl(e.target.value)}
-        placeholder="Cover nuotraukos URL (neprivaloma)"
-        className="w-full text-xs rounded-lg px-3 py-2 outline-none mb-6 focus:border-[#f97316]/30"
-        style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: '#5e7290' }}
-      />
+      {postType === 'quick' ? (
+        <>
+          <QuickEmbedField value={embed} onChange={setEmbed} />
 
-      <BlogEditor
-        value={content}
-        onChange={setContent}
-        placeholder="Pradėk rašyti savo straipsnį... Naudok toolbar'ą formatavimui ir 🎵 mygtuką muzikos įterpimui."
-      />
+          <input
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            placeholder={embed?.embed_title || 'Trumpas pavadinimas (neprivaloma)'}
+            className="w-full text-lg font-bold bg-transparent border-none outline-none mt-6 mb-4"
+            style={{ fontFamily: "'Outfit', sans-serif", color: '#f2f4f8' }}
+          />
 
-      <p className="text-[10px] mt-3" style={{ color: '#334058' }}>
-        💡 Naudok toolbar&apos;ą teksto formatavimui. Spausk &quot;🎵 Embed&quot; norėdamas įterpti YouTube ar Spotify grotuvo.
+          <textarea
+            value={content}
+            onChange={e => setContent(e.target.value)}
+            rows={4}
+            placeholder="1-2 sakiniai kontekstui (neprivaloma)..."
+            className="w-full text-sm bg-transparent border-none outline-none resize-none mb-6"
+            style={{ color: '#b0bdd4' }}
+          />
+        </>
+      ) : (
+        <>
+          {postType === 'review' && (
+            <ReviewTargetField
+              target={reviewTarget}
+              rating={rating}
+              onTargetChange={setReviewTarget}
+              onRatingChange={setRating}
+            />
+          )}
+
+          {postType === 'translation' && (
+            <TranslationField value={translation} onChange={setTranslation} />
+          )}
+
+          <input
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            placeholder={titlePlaceholder(postType)}
+            className="w-full text-3xl font-black bg-transparent border-none outline-none mb-4"
+            style={{ fontFamily: "'Outfit', sans-serif", letterSpacing: '-.03em', color: '#f2f4f8' }}
+          />
+
+          <input
+            value={summary}
+            onChange={e => setSummary(e.target.value)}
+            placeholder="Trumpa santrauka (rodoma sąraše)"
+            className="w-full text-sm bg-transparent border-none outline-none mb-4"
+            style={{ color: '#5e7290' }}
+          />
+
+          <div className="mb-6">
+            <ImageUploadField value={coverUrl} onChange={setCoverUrl} />
+          </div>
+
+          <BlogEditor
+            value={content}
+            onChange={setContent}
+            placeholder={contentPlaceholder(postType)}
+          />
+        </>
+      )}
+
+      {/* Tagai (visiems tipams) */}
+      <div className="mt-8">
+        <TagInput value={tags} onChange={setTags} />
+      </div>
+
+      <p className="text-[10px] mt-6 text-center" style={{ color: '#334058' }}>
+        💡 Įrašą gali keisti vėliau — bet kada. Juodraščius matysi tik tu.
       </p>
     </div>
   )
+}
+
+function titlePlaceholder(type: BlogPostType): string {
+  switch (type) {
+    case 'review':      return 'Recenzijos pavadinimas'
+    case 'translation': return 'Vertimo pavadinimas'
+    case 'creation':    return 'Tavo kūrinio pavadinimas'
+    case 'journal':     return 'Dienoraščio įrašas'
+    case 'article':
+    default:            return 'Straipsnio pavadinimas'
+  }
+}
+
+function contentPlaceholder(type: BlogPostType): string {
+  switch (type) {
+    case 'review':      return 'Tavo įspūdžiai apie albumą/dainą... Naudok toolbar\'ą formatavimui.'
+    case 'translation': return 'Lietuviškas vertimas eina čia. Originalą įdedam aukščiau.'
+    case 'creation':    return 'Pradėk kurti... eilėraštis, esė, fiction — kas patinka.'
+    case 'journal':     return 'Kas šiandien nutiko? Koncertas, naujas albumas, mintys...'
+    case 'article':
+    default:            return 'Pradėk rašyti savo straipsnį... Naudok toolbar\'ą formatavimui ir 🎵 mygtuką muzikos įterpimui.'
+  }
 }
 
 export default function BlogEditorPage() {

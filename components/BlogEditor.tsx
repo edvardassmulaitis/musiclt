@@ -1,8 +1,10 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import dynamic from 'next/dynamic'
+import MusicSearchPicker, { type AttachmentHit } from '@/components/MusicSearchPicker'
+import { proxyImg } from '@/lib/img-proxy'
 
 // Dynamically import to avoid SSR issues with Tiptap
 const RichTextEditor = dynamic(() => import('@/components/RichTextEditor'), { ssr: false })
@@ -15,8 +17,12 @@ interface BlogEditorProps {
 
 export function BlogEditor({ value, onChange, placeholder }: BlogEditorProps) {
   const [showEmbedModal, setShowEmbedModal] = useState(false)
+  const [showMusicModal, setShowMusicModal] = useState(false)
   const [embedUrl, setEmbedUrl] = useState('')
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // ── YouTube / Spotify embed ─────────────────────────────────────────────
   const insertEmbed = useCallback(() => {
     if (!embedUrl.trim()) return
     let embedHtml = ''
@@ -46,25 +52,97 @@ export function BlogEditor({ value, onChange, placeholder }: BlogEditorProps) {
     }
 
     if (embedHtml) {
-      // Append embed HTML to current content
       onChange(value + embedHtml + '<p></p>')
       setShowEmbedModal(false)
       setEmbedUrl('')
     }
   }, [embedUrl, value, onChange])
 
+  // ── music.lt entity card ────────────────────────────────────────────────
+  // Įterpia 'a' link'ą su data-attribute'ais į editor'iaus turinį. Single
+  // post page'as (post-content.tsx) gali šituos ateityje render'inti kaip
+  // gražias korteles per CSS — kol kas tiesiog stiliaus link card'as inline.
+  const insertMusicCard = useCallback((hit: AttachmentHit) => {
+    const typePath = hit.type === 'grupe' ? 'atlikejai' : hit.type === 'albumas' ? 'albumai' : 'dainos'
+    const url = `/${typePath}/${hit.slug || hit.id}`
+    const img = hit.image_url ? `<img src="${proxyImg(hit.image_url)}" alt="" style="width:56px;height:56px;border-radius:6px;object-fit:cover;flex-shrink:0" />` : ''
+    const typeLabel = hit.type === 'grupe' ? 'Atlikėjas' : hit.type === 'albumas' ? 'Albumas' : 'Daina'
+    const card =
+      `<a href="${url}" class="ml-card" style="display:flex;gap:12px;align-items:center;padding:12px;margin:16px 0;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);text-decoration:none;color:inherit" data-ml-type="${hit.type}" data-ml-id="${hit.id}">` +
+        img +
+        `<span style="display:flex;flex-direction:column;gap:2px;min-width:0">` +
+          `<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#5e7290">${typeLabel}</span>` +
+          `<span style="font-size:14px;font-weight:700;color:#dde8f8">${escapeHtml(hit.title)}</span>` +
+          (hit.artist ? `<span style="font-size:12px;color:#5e7290">${escapeHtml(hit.artist)}</span>` : '') +
+        `</span>` +
+      `</a>`
+    onChange(value + card + '<p></p>')
+    setShowMusicModal(false)
+  }, [value, onChange])
+
+  // ── Inline image upload ─────────────────────────────────────────────────
+  async function handleImageUpload(file: File) {
+    if (!file.type.startsWith('image/')) return
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Failas per didelis (max 5MB)')
+      return
+    }
+    setUploadingImage(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch('/api/upload', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error || 'Upload nepavyko')
+      const imgHtml = `<img src="${data.url}" alt="" style="border-radius:12px;margin:20px 0;max-width:100%" /><p></p>`
+      onChange(value + imgHtml)
+    } catch (e: any) {
+      alert(e.message)
+    } finally {
+      setUploadingImage(false)
+    }
+  }
+
   return (
     <div>
-      {/* Embed button above editor */}
-      <div className="flex items-center gap-2 mb-2">
+      {/* Toolbar above editor */}
+      <div className="flex items-center gap-2 mb-2 flex-wrap">
         <button
           type="button"
           onClick={() => setShowEmbedModal(true)}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
           style={{ background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.2)', color: 'var(--accent-orange)' }}>
-          🎵 Įterpti YouTube / Spotify
+          🎵 YouTube / Spotify
         </button>
-        <span className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>Įklijuok nuorodą ir embed atsiras straipsnyje</span>
+
+        <button
+          type="button"
+          onClick={() => setShowMusicModal(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+          style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: '#60a5fa' }}>
+          💿 music.lt
+        </button>
+
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploadingImage}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
+          style={{ background: 'rgba(168,85,247,0.1)', border: '1px solid rgba(168,85,247,0.2)', color: '#c084fc' }}>
+          {uploadingImage ? '⏳ įkeliama...' : '🖼 Nuotrauka'}
+        </button>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={e => {
+            const file = e.target.files?.[0]
+            if (file) handleImageUpload(file)
+            e.target.value = ''
+          }}
+        />
       </div>
 
       {/* Existing Tiptap editor with dark theme override */}
@@ -76,7 +154,7 @@ export function BlogEditor({ value, onChange, placeholder }: BlogEditorProps) {
         />
       </div>
 
-      {/* Embed modal */}
+      {/* YouTube/Spotify embed modal */}
       {showEmbedModal && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={() => setShowEmbedModal(false)}>
           <div className="w-full max-w-md mx-4 rounded-2xl p-6" style={{ background: 'var(--modal-bg)', border: '1px solid var(--modal-border)' }} onClick={e => e.stopPropagation()}>
@@ -94,6 +172,25 @@ export function BlogEditor({ value, onChange, placeholder }: BlogEditorProps) {
             <div className="flex gap-2 justify-end">
               <button onClick={() => setShowEmbedModal(false)} className="px-4 py-2 rounded-lg text-xs font-bold" style={{ color: 'var(--text-muted)' }}>Atšaukti</button>
               <button onClick={insertEmbed} className="px-4 py-2 rounded-lg text-xs font-bold transition" style={{ background: 'var(--accent-orange)', color: 'var(--text-primary)' }}>Įterpti</button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* music.lt picker modal */}
+      {showMusicModal && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={() => setShowMusicModal(false)}>
+          <div className="w-full max-w-lg mx-4 rounded-2xl p-6" style={{ background: 'var(--modal-bg)', border: '1px solid var(--modal-border)' }} onClick={e => e.stopPropagation()}>
+            <h3 className="text-base font-black mb-1" style={{ color: 'var(--text-primary)' }}>Įterpti iš music.lt</h3>
+            <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>Susirask atlikėją, albumą ar dainą — bus įterpta kaip kortelė tekste</p>
+            <MusicSearchPicker
+              attached={[]}
+              onAdd={insertMusicCard}
+              placeholder="Pasirink iš music.lt katalogo..."
+            />
+            <div className="flex justify-end mt-4">
+              <button onClick={() => setShowMusicModal(false)} className="px-4 py-2 rounded-lg text-xs font-bold" style={{ color: 'var(--text-muted)' }}>Uždaryti</button>
             </div>
           </div>
         </div>,
@@ -122,4 +219,13 @@ export function BlogEditor({ value, onChange, placeholder }: BlogEditorProps) {
       `}</style>
     </div>
   )
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 }

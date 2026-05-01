@@ -133,7 +133,35 @@ export async function getPostById(postId: string) {
   return data
 }
 
-export async function createPost(blogId: string, userId: string, data: { title: string; slug: string; content?: string; summary?: string; cover_image_url?: string; status?: string; published_at?: string }) {
+// Visi laukai, kuriuos editor'ius gali pateikti. Atskiriam nuo update versijos
+// nes status/published_at handling skirtingas (insert visada pradeda nuo
+// draft jeigu nepublikuoja iš karto).
+export type PostUpsertFields = {
+  title: string
+  slug?: string
+  content?: string | null
+  summary?: string | null
+  cover_image_url?: string | null
+  status?: 'draft' | 'published'
+  published_at?: string
+  // Type discriminator + per-type laukai (visi nullable schemoje)
+  post_type?: 'article' | 'quick' | 'review' | 'translation' | 'creation' | 'journal'
+  rating?: number | null
+  target_artist_id?: number | null
+  target_album_id?: number | null
+  target_track_id?: number | null
+  original_url?: string | null
+  original_author?: string | null
+  original_lang?: string | null
+  embed_url?: string | null
+  embed_type?: string | null
+  embed_thumbnail_url?: string | null
+  embed_title?: string | null
+  embed_html?: string | null
+  tags?: string[]
+}
+
+export async function createPost(blogId: string, userId: string, data: PostUpsertFields & { slug: string }) {
   const sb = createAdminClient()
   const { data: post, error } = await sb
     .from('blog_posts')
@@ -244,12 +272,93 @@ export async function getLatestBlogPosts(limit = 6) {
   const sb = createAdminClient()
   const { data } = await sb
     .from('blog_posts')
-    .select('id, slug, title, summary, cover_image_url, published_at, reading_time_min, like_count, blogs:blog_id(slug, title, profiles:user_id(full_name, username, avatar_url))')
+    .select('id, slug, title, summary, cover_image_url, post_type, embed_thumbnail_url, embed_type, embed_title, rating, tags, published_at, reading_time_min, like_count, blogs:blog_id(slug, title, profiles:user_id(full_name, username, avatar_url))')
     .eq('status', 'published')
     .lte('published_at', new Date().toISOString())
     .order('published_at', { ascending: false })
     .limit(limit)
   return data || []
+}
+
+// ── GLOBAL FEED (su filtravimu) ─────────────────────────────
+// Kviečiamas /blogas index'o (placeholder pakeitimas) ir kitur, kur reikia
+// matyti visų autorių įrašus. Priimame post_type ir tag filtrus.
+export async function getBlogFeed(opts: {
+  limit?: number
+  offset?: number
+  postType?: string | null         // konkretus tipas arba null = visi
+  tag?: string | null              // konkretus tag'as arba null = visi
+  authorId?: string | null         // jei norim filtruoti pagal autorių
+}) {
+  const sb = createAdminClient()
+  const limit = Math.min(opts.limit ?? 20, 50)
+  const offset = opts.offset ?? 0
+
+  let q = sb
+    .from('blog_posts')
+    .select(
+      'id, slug, title, summary, content, cover_image_url, post_type, ' +
+      'embed_url, embed_thumbnail_url, embed_type, embed_title, ' +
+      'rating, target_artist_id, target_album_id, target_track_id, tags, ' +
+      'published_at, reading_time_min, view_count, like_count, comment_count, ' +
+      'blogs:blog_id(slug, title, profiles:user_id(id, full_name, username, avatar_url))',
+      { count: 'exact' }
+    )
+    .eq('status', 'published')
+    .lte('published_at', new Date().toISOString())
+    .order('published_at', { ascending: false })
+
+  if (opts.postType) q = q.eq('post_type', opts.postType)
+  if (opts.tag)      q = q.contains('tags', [opts.tag])
+  if (opts.authorId) q = q.eq('user_id', opts.authorId)
+
+  const { data, count } = await q.range(offset, offset + limit - 1)
+  return { posts: data || [], total: count || 0 }
+}
+
+// ── POPULAR TAGS ────────────────────────────────────────────
+// Lengvasvoris: imam paskutinius N publikuotus įrašus, suvedam tag'us į count'ą.
+// Vėliau galima migruoti į matview jei darys reikia.
+export async function getPopularTags(limit = 20) {
+  const sb = createAdminClient()
+  const { data } = await sb
+    .from('blog_posts')
+    .select('tags')
+    .eq('status', 'published')
+    .lte('published_at', new Date().toISOString())
+    .not('tags', 'eq', '{}')
+    .limit(500)
+  const counts = new Map<string, number>()
+  for (const row of data || []) {
+    for (const tag of (row.tags as string[]) || []) {
+      counts.set(tag, (counts.get(tag) || 0) + 1)
+    }
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([tag, count]) => ({ tag, count }))
+}
+
+// ── REVIEW TARGET INFO ──────────────────────────────────────
+// Pakraunam artist/album/track display info recenzijos puslapiui. Visi trys
+// queries paraleliai — vienas tinka, kiti grąžina null.
+export async function getReviewTargetInfo(opts: {
+  artist_id?: number | null
+  album_id?: number | null
+  track_id?: number | null
+}) {
+  const sb = createAdminClient()
+  const [artistRes, albumRes, trackRes] = await Promise.all([
+    opts.artist_id ? sb.from('artists').select('id, name, slug, cover_image_url').eq('id', opts.artist_id).maybeSingle() : Promise.resolve({ data: null }),
+    opts.album_id  ? sb.from('albums').select('id, title, slug, cover_image_url, artist:artist_id(id, name, slug)').eq('id', opts.album_id).maybeSingle() : Promise.resolve({ data: null }),
+    opts.track_id  ? sb.from('tracks').select('id, title, slug, cover_image_url, artist:artist_id(id, name, slug)').eq('id', opts.track_id).maybeSingle() : Promise.resolve({ data: null }),
+  ])
+  return {
+    artist: artistRes.data,
+    album: albumRes.data,
+    track: trackRes.data,
+  }
 }
 
 // ── SEARCH ARTISTS (for editor) ─────────────────────────────

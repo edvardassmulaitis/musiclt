@@ -12,8 +12,11 @@ const BUCKET = 'covers'
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  if (!session?.user || !['admin', 'super_admin'].includes(session.user.role || '')) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Buvo `admin`-only — atveriam visiems prisijungusiems vartotojams, nes
+  // blog editor'iui reikia inline image upload'o. Validuojam content type
+  // ir size žemiau, tad anonim'ai negali piktnaudžiauti.
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Prisijunk' }, { status: 401 })
   }
 
   try {
