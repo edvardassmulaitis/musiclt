@@ -168,15 +168,39 @@ export function MessagesBell() {
       </button>
 
       {open && (
-        <div
-          style={{
-            position: 'absolute', top: 'calc(100% + 8px)', right: 0,
-            width: 360, maxHeight: 520, overflow: 'hidden',
-            background: 'var(--modal-bg)', border: '1px solid var(--modal-border)',
-            borderRadius: 14, boxShadow: 'var(--modal-shadow, 0 10px 40px rgba(0,0,0,0.25))',
-            zIndex: 250, display: 'flex', flexDirection: 'column',
-          }}
-        >
+        <>
+          <style>{`
+            .msg-bell-dropdown {
+              position: absolute; top: calc(100% + 8px); right: 0;
+              width: 360px; max-height: 520px; overflow: hidden;
+              background: var(--modal-bg);
+              border: 1px solid var(--modal-border);
+              border-radius: 14px;
+              box-shadow: var(--modal-shadow, 0 10px 40px rgba(0,0,0,0.25));
+              z-index: 250;
+              display: flex; flex-direction: column;
+            }
+            .msg-bell-mobile-overlay { display: none; }
+            @media (max-width: 600px) {
+              .msg-bell-dropdown {
+                position: fixed !important;
+                top: 56px !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
+                width: auto !important; max-height: none !important;
+                border-radius: 0 !important;
+                border: none !important;
+                border-top: 1px solid var(--border-default) !important;
+                box-shadow: none !important;
+                z-index: 9999 !important;
+              }
+              .msg-bell-mobile-overlay {
+                display: block;
+                position: fixed; inset: 0; z-index: 9998;
+                background: var(--bg-body);
+              }
+            }
+          `}</style>
+          <div className="msg-bell-mobile-overlay" onClick={() => setOpen(false)} />
+        <div className="msg-bell-dropdown">
           <div style={{
             padding: '12px 16px', borderBottom: '1px solid var(--border-subtle)',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -193,11 +217,11 @@ export function MessagesBell() {
             </Link>
           </div>
 
-          {/* Tabs — Asmeniniai (DM/grupės/forumai) vs Bendrai (live diskusija) */}
+          {/* Tabs — Tavo pokalbiai (DM/grupės) vs Bendros diskusijos (live shoutbox) */}
           <div style={{ display: 'flex', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0 }}>
             {([
-              ['personal', 'Asmeniniai', isAuth ? unread : 0],
-              ['general', 'Bendrai', 0],
+              ['personal', 'Tavo pokalbiai', isAuth ? unread : 0],
+              ['general', 'Bendros diskusijos', 0],
             ] as const).map(([k, label, badge]) => {
               const active = tab === k
               return (
@@ -283,6 +307,7 @@ export function MessagesBell() {
             </Link>
           </div>
         </div>
+        </>
       )}
     </div>
   )
