@@ -20,7 +20,7 @@ import { proxyImg } from '@/lib/img-proxy'
  * ────────────────────────────────────────────────────────────────── */
 
 type NavItem = {
-  key: 'muzika' | 'renginiai' | 'pramogos' | 'bendruomene' | 'skelbimai'
+  key: 'muzika' | 'topai' | 'renginiai' | 'pramogos' | 'bendruomene' | 'skelbimai'
   label: string
   href: string
   match: string[]
@@ -30,16 +30,22 @@ type NavItem = {
 }
 
 type NavPreview = {
-  artists: { id: number; slug: string; name: string; image: string | null }[]
-  albums:  { id: number; slug: string; title: string; image: string | null; year: number | null; artist: string }[]
-  events:  { id: number; slug: string; title: string; date: string; venue: string | null; image: string | null }[]
-  news:    { id: number; slug: string; title: string; image: string | null; date: string }[]
+  artistsLt:    { id: number; slug: string; name: string; image: string | null }[]
+  artistsWorld: { id: number; slug: string; name: string; image: string | null }[]
+  albums:       { id: number; slug: string; title: string; image: string | null; year: number | null; artist: string; artistSlug: string }[]
+  tracks:       { id: number; title: string; image: string | null; year: number | null; artist: string; artistSlug: string }[]
+  events:       { id: number; slug: string; title: string; date: string; venue: string | null; image: string | null }[]
+  news:         { id: number; slug: string; title: string; image: string | null; date: string }[]
 }
 
 const I = {
   music: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>,
   calendar: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg>,
   fun: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>,
+  trophy: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M17 4h3v3a3 3 0 0 1-3 3M7 4H4v3a3 3 0 0 0 3 3"/></svg>,
+  vote: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 12 2 2 4-4"/><rect x="3" y="4" width="18" height="16" rx="2"/></svg>,
+  award: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="9" r="6"/><path d="M8.21 13.89 7 22l5-3 5 3-1.21-8.11"/></svg>,
+  song: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>,
   community: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
   market: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3h18l-2 13H5L3 3z"/><circle cx="9" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/></svg>,
   boombox: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="8" width="18" height="12" rx="2"/><circle cx="8" cy="14" r="2"/><circle cx="16" cy="14" r="2"/><path d="M7 8V5a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v3"/></svg>,
@@ -57,10 +63,19 @@ const NAV: NavItem[] = [
     key: 'muzika',
     label: 'Muzika',
     href: '/muzika',
-    match: ['/muzika', '/atlikejai', '/albumai', '/topas', '/balsavimai', '/dienos-daina', '/zanrai', '/apdovanojimai', '/dainos', '/lt'],
-    desc: 'Atlikėjai, albumai, topai',
+    match: ['/muzika', '/atlikejai', '/albumai', '/zanrai', '/dainos', '/lt'],
+    desc: 'Atlikėjai, albumai, dainos',
     accent: '#f59e0b',
     icon: I.music,
+  },
+  {
+    key: 'topai',
+    label: 'Topai',
+    href: '/topas',
+    match: ['/topas', '/balsavimai', '/dienos-daina', '/apdovanojimai'],
+    desc: 'Reitingai, balsavimai, apdovanojimai',
+    accent: '#ef4444',
+    icon: I.trophy,
   },
   {
     key: 'renginiai',
@@ -175,80 +190,184 @@ function ImageBox({
  * Per-section dropdown content components
  * ──────────────────────────────────────────────────────────────── */
 
+/* LT vėliavos / pasaulio mėlynos juostelės indikatorius eilutės pradžiai. */
+function RowStripe({ kind }: { kind: 'lt' | 'world' }) {
+  if (kind === 'lt') {
+    return (
+      <span className="sh-stripe sh-stripe-lt" aria-hidden>
+        <span style={{ flex: 1, background: '#FDBA12' }} />
+        <span style={{ flex: 1, background: '#006A44' }} />
+        <span style={{ flex: 1, background: '#C1272D' }} />
+      </span>
+    )
+  }
+  return <span className="sh-stripe sh-stripe-world" aria-hidden />
+}
+
 function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string }) {
-  const artists = data?.artists.slice(0, 6) || []
-  const albums = data?.albums.slice(0, 4) || []
+  const artistsLt    = data?.artistsLt.slice(0, 5)    || []
+  const artistsWorld = data?.artistsWorld.slice(0, 5) || []
+  const albums       = data?.albums.slice(0, 6)       || []
+  const tracks       = data?.tracks.slice(0, 6)       || []
+
+  // 8 main stiliai (statiniai — link'as į /zanrai page'ą)
+  const styles = [
+    { label: 'Rokas',      slug: 'rokas',      rgb: '239, 68, 68'   },
+    { label: 'Popsas',     slug: 'popsas',     rgb: '236, 72, 153'  },
+    { label: 'Hip-hop',    slug: 'hip-hop',    rgb: '168, 85, 247'  },
+    { label: 'Electronic', slug: 'electronic', rgb: '6, 182, 212'   },
+    { label: 'Folk',       slug: 'folk',       rgb: '16, 185, 129'  },
+    { label: 'Jazz',       slug: 'jazz',       rgb: '245, 158, 11'  },
+    { label: 'Klasika',    slug: 'klasika',    rgb: '139, 92, 246'  },
+    { label: 'Reggae',     slug: 'reggae',     rgb: '34, 197, 94'   },
+  ]
+
+  const renderArtistRow = (list: typeof artistsLt, kind: 'lt' | 'world') => (
+    <div className="sh-strip">
+      <RowStripe kind={kind} />
+      {(list.length > 0 ? list : Array(5).fill(null)).map((a, i) => (
+        <Link
+          key={a?.id || `${kind}-${i}`}
+          href={a ? `/atlikejai/${a.slug}` : '/atlikejai'}
+          className="sh-mini-artist"
+        >
+          <ImageBox
+            src={a?.image}
+            accent={accent}
+            glyph={I.music}
+            className="sh-mini-artist-img"
+          />
+          <span className="sh-mini-artist-name">
+            {a?.name || <span style={{ opacity: 0.45 }}>Atlikėjas</span>}
+          </span>
+        </Link>
+      ))}
+    </div>
+  )
 
   return (
-    <div className="sh-panel" style={{ minWidth: 760 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+    <div className="sh-panel" style={{ minWidth: 820 }}>
 
-        {/* Atlikėjai */}
-        <div>
-          <div className="sh-panel-section">
-            <span className="sh-panel-section-title">Top atlikėjai</span>
-            <Link href="/atlikejai" className="sh-panel-section-more">Visi <ArrowRight size={11}/></Link>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-            {(artists.length > 0 ? artists : Array(6).fill(null)).map((a, i) => (
-              <Link
-                key={a?.id || i}
-                href={a ? `/atlikejai/${a.slug}` : '/atlikejai'}
-                className="sh-artist-card"
-              >
-                <ImageBox
-                  src={a?.image}
-                  accent={accent}
-                  glyph={I.music}
-                  className="sh-artist-img"
-                />
-                <span className="sh-artist-name">
-                  {a?.name || <span style={{ opacity: 0.45 }}>Atlikėjas</span>}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </div>
-
-        {/* Albumai */}
-        <div>
-          <div className="sh-panel-section">
-            <span className="sh-panel-section-title">Naujausi albumai</span>
-            <Link href="/albumai" className="sh-panel-section-more">Visi <ArrowRight size={11}/></Link>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {(albums.length > 0 ? albums : Array(4).fill(null)).map((a, i) => (
-              <Link
-                key={a?.id || i}
-                href={a ? `/lt/albumas/${a.slug}/${a.id}` : '/albumai'}
-                className="sh-album-row"
-              >
-                <ImageBox
-                  src={a?.image}
-                  accent={accent}
-                  glyph={I.vinyl}
-                  className="sh-album-cover"
-                />
-                <span className="sh-album-info">
-                  <span className="sh-album-title">
-                    {a?.title || <span style={{ opacity: 0.5 }}>Albumas</span>}
-                  </span>
-                  <span className="sh-album-meta">
-                    {a?.artist || ''}{a?.year ? ` · ${a.year}` : ''}
-                  </span>
-                </span>
-              </Link>
-            ))}
-          </div>
-        </div>
+      {/* ── ATLIKĖJAI — 2 eilutės (LT + world) ── */}
+      <div className="sh-panel-section">
+        <span className="sh-panel-section-title">Atlikėjai</span>
+        <Link href="/atlikejai" className="sh-panel-section-more">Visi <ArrowRight size={11}/></Link>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+        {renderArtistRow(artistsLt, 'lt')}
+        {renderArtistRow(artistsWorld, 'world')}
       </div>
 
-      {/* CTA shortcuts */}
-      <div className="sh-panel-shortcuts">
-        <Link href="/topas" className="sh-shortcut">Topai →</Link>
-        <Link href="/balsavimai" className="sh-shortcut">Balsavimai →</Link>
-        <Link href="/dienos-daina" className="sh-shortcut">Dienos daina →</Link>
-        <Link href="/zanrai" className="sh-shortcut">Žanrai →</Link>
+      {/* ── ALBUMAI — siaura horizontali juosta ── */}
+      <div className="sh-panel-section">
+        <span className="sh-panel-section-title">Albumai</span>
+        <Link href="/albumai" className="sh-panel-section-more">Visi <ArrowRight size={11}/></Link>
+      </div>
+      <div className="sh-strip" style={{ marginBottom: 14 }}>
+        {(albums.length > 0 ? albums : Array(6).fill(null)).map((a, i) => (
+          <Link
+            key={a?.id || i}
+            href={a ? `/lt/albumas/${a.slug}/${a.id}` : '/albumai'}
+            className="sh-mini-tile"
+          >
+            <ImageBox
+              src={a?.image}
+              accent={accent}
+              glyph={I.vinyl}
+              className="sh-mini-tile-img"
+            />
+            <span className="sh-mini-tile-title">
+              {a?.title || <span style={{ opacity: 0.5 }}>Albumas</span>}
+            </span>
+            <span className="sh-mini-tile-meta">
+              {a?.artist || ''}
+            </span>
+          </Link>
+        ))}
+      </div>
+
+      {/* ── DAINOS — siaura horizontali juosta ── */}
+      <div className="sh-panel-section">
+        <span className="sh-panel-section-title">Dainos</span>
+        <Link href="/muzika" className="sh-panel-section-more">Visos <ArrowRight size={11}/></Link>
+      </div>
+      <div className="sh-strip" style={{ marginBottom: 14 }}>
+        {(tracks.length > 0 ? tracks : Array(6).fill(null)).map((t, i) => (
+          <Link
+            key={t?.id || i}
+            href={t ? `/dainos/${t.artistSlug}-${quickSlug(t.title)}-${t.id}` : '/muzika'}
+            className="sh-mini-tile"
+          >
+            <ImageBox
+              src={t?.image}
+              accent={accent}
+              glyph={I.song}
+              className="sh-mini-tile-img"
+            />
+            <span className="sh-mini-tile-title">
+              {t?.title || <span style={{ opacity: 0.5 }}>Daina</span>}
+            </span>
+            <span className="sh-mini-tile-meta">
+              {t?.artist || ''}
+            </span>
+          </Link>
+        ))}
+      </div>
+
+      {/* ── STILIAI — 8 main genre pills ── */}
+      <div className="sh-panel-section">
+        <span className="sh-panel-section-title">Stiliai</span>
+        <Link href="/zanrai" className="sh-panel-section-more">Visi <ArrowRight size={11}/></Link>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 6 }}>
+        {styles.map(s => (
+          <Link key={s.slug} href={`/zanrai`} className="sh-style-pill" style={{ ['--it-rgb' as any]: s.rgb }}>
+            {s.label}
+          </Link>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/* Mini slugify dainos URL kompozavimui */
+function quickSlug(s: string): string {
+  if (!s) return 'daina'
+  return s.toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim().replace(/\s+/g, '-').replace(/-+/g, '-').slice(0, 100)
+}
+
+function TopaiPanel({ accent }: { accent: string }) {
+  return (
+    <div className="sh-panel" style={{ minWidth: 480 }}>
+      <div className="sh-panel-section">
+        <span className="sh-panel-section-title">Reitingai</span>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        <Link href="/topas" className="sh-feature-card" style={{ ['--it-rgb' as any]: hexToRgb('#ef4444') }}>
+          <span className="sh-feature-icon-sm">{I.trophy}</span>
+          <span className="sh-feature-title-sm">Topai</span>
+          <span className="sh-feature-desc-sm">Savaitės, mėnesio, all-time</span>
+        </Link>
+        <Link href="/balsavimai" className="sh-feature-card" style={{ ['--it-rgb' as any]: hexToRgb('#ec4899') }}>
+          <span className="sh-feature-icon-sm">{I.vote}</span>
+          <span className="sh-feature-title-sm">Balsavimai</span>
+          <span className="sh-feature-desc-sm">Aktualūs reitingai</span>
+        </Link>
+        <Link href="/dienos-daina" className="sh-feature-card" style={{ ['--it-rgb' as any]: hexToRgb('#10b981') }}>
+          <span className="sh-feature-icon-sm">{I.song}</span>
+          <span className="sh-feature-title-sm">Dienos daina</span>
+          <span className="sh-feature-desc-sm">Redakcijos pasirinkimas</span>
+        </Link>
+        <Link href="/apdovanojimai" className="sh-feature-card" style={{ ['--it-rgb' as any]: hexToRgb('#eab308') }}>
+          <span className="sh-feature-icon-sm">{I.award}</span>
+          <span className="sh-feature-title-sm">Apdovanojimai</span>
+          <span className="sh-feature-desc-sm">M.A.M.A., Bravo, kt.</span>
+          <span className="sh-soon-pill">Greitai</span>
+        </Link>
       </div>
     </div>
   )
@@ -510,6 +629,7 @@ export function SiteHeader() {
   const renderPanel = (key: NavItem['key'], accent: string) => {
     switch (key) {
       case 'muzika':       return <MuzikaPanel data={preview} accent={accent} />
+      case 'topai':        return <TopaiPanel accent={accent} />
       case 'renginiai':    return <RenginiaiPanel data={preview} accent={accent} />
       case 'pramogos':     return <PramogosPanel accent={accent} />
       case 'bendruomene':  return <BendruomenePanel data={preview} accent={accent} />
@@ -612,6 +732,126 @@ export function SiteHeader() {
         .sh-panel-section-more:hover {
           background: var(--bg-hover);
           color: var(--text-primary);
+        }
+
+        /* ── Naujos Muzika dropdown'o juostos ── */
+
+        /* LT vėliavos / world mėlynos juostelės indikatorius */
+        .sh-stripe {
+          flex-shrink: 0;
+          width: 4px;
+          align-self: stretch;
+          border-radius: 3px;
+          overflow: hidden;
+        }
+        .sh-stripe-lt {
+          display: flex; flex-direction: column;
+        }
+        .sh-stripe-world {
+          background: #3b82f6;
+          opacity: 0.7;
+        }
+
+        /* Horizontal strip wrapper — viena juosta su LT/world stripe + kortelėmis */
+        .sh-strip {
+          display: flex;
+          align-items: stretch;
+          gap: 8px;
+          padding: 4px 2px;
+        }
+
+        /* Mini atlikėjo kortelė (avatar + vardas vienoje eilėje) */
+        .sh-mini-artist {
+          flex: 1; min-width: 0;
+          display: flex; flex-direction: column; gap: 5px;
+          padding: 6px;
+          border-radius: 9px;
+          text-decoration: none;
+          transition: background .15s, transform .15s;
+        }
+        .sh-mini-artist:hover { background: var(--bg-hover); }
+        .sh-mini-artist:hover .sh-mini-artist-img { transform: scale(1.05); }
+        .sh-mini-artist-img {
+          position: relative;
+          display: block;
+          width: 100%; aspect-ratio: 1;
+          border-radius: 9px;
+          background-size: cover;
+          background-position: center;
+          background-color: var(--bg-hover);
+          transition: transform .25s ease;
+          overflow: hidden;
+        }
+        .sh-mini-artist-name {
+          font-size: 11px; font-weight: 700;
+          color: var(--text-primary);
+          line-height: 1.2;
+          text-align: center;
+          padding: 0 2px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        /* Mini tile (albumas / daina narrow strip) */
+        .sh-mini-tile {
+          flex: 1; min-width: 0;
+          display: flex; flex-direction: column; gap: 4px;
+          padding: 6px;
+          border-radius: 9px;
+          text-decoration: none;
+          transition: background .15s, transform .15s;
+        }
+        .sh-mini-tile:hover { background: var(--bg-hover); }
+        .sh-mini-tile:hover .sh-mini-tile-img { transform: scale(1.04); }
+        .sh-mini-tile-img {
+          position: relative;
+          display: block;
+          width: 100%; aspect-ratio: 1;
+          border-radius: 8px;
+          background-size: cover;
+          background-position: center;
+          background-color: var(--bg-hover);
+          transition: transform .25s ease;
+          overflow: hidden;
+        }
+        .sh-mini-tile-title {
+          font-size: 11.5px; font-weight: 700;
+          color: var(--text-primary);
+          line-height: 1.2;
+          padding: 0 2px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .sh-mini-tile-meta {
+          font-size: 10.5px; font-weight: 500;
+          color: var(--text-muted);
+          line-height: 1.2;
+          padding: 0 2px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        /* Žanro pill (Stiliai eilė) */
+        .sh-style-pill {
+          display: flex; align-items: center; justify-content: center;
+          padding: 9px 8px;
+          border-radius: 10px;
+          text-decoration: none;
+          font-size: 11.5px; font-weight: 700;
+          color: var(--text-primary);
+          background: linear-gradient(135deg, rgba(var(--it-rgb), 0.15) 0%, rgba(var(--it-rgb), 0.04) 100%);
+          border: 1px solid rgba(var(--it-rgb), 0.25);
+          transition: transform .15s, border-color .15s, background .15s;
+          text-align: center;
+          line-height: 1.15;
+        }
+        .sh-style-pill:hover {
+          transform: translateY(-1px);
+          border-color: rgba(var(--it-rgb), 0.6);
+          background: linear-gradient(135deg, rgba(var(--it-rgb), 0.25) 0%, rgba(var(--it-rgb), 0.07) 100%);
         }
 
         /* Atlikėjo kortelė (kvadratinė foto + vardas) */

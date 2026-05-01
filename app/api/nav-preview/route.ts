@@ -1,10 +1,11 @@
 // app/api/nav-preview/route.ts
 //
 // Vienas endpoint'as nav dropdown'ams — atveža:
-//   - top atlikėjus (Muzika dropdown)
-//   - latest albumus (Muzika dropdown)
-//   - upcoming renginius (Renginiai dropdown)
-//   - latest naujienas (Bendruomenė dropdown)
+//   - top atlikėjus (LT + world) Muzikos dropdown'ui
+//   - latest albumus
+//   - latest dainas (trending strip Muzikos dropdown'e)
+//   - upcoming renginius
+//   - latest naujienas
 //
 // Cache'inta agresyviai (s-maxage=300) — nav preview keičiasi retai.
 
@@ -17,22 +18,40 @@ export async function GET() {
   const supabase = createAdminClient()
 
   try {
-    const [artistsRes, albumsRes, eventsRes, newsRes] = await Promise.all([
-      // Top 6 atlikėjų pagal score
+    const [artistsLtRes, artistsWorldRes, albumsRes, tracksRes, eventsRes, newsRes] = await Promise.all([
+      // 5 LT atlikėjų pagal score
       supabase
         .from('artists')
-        .select('id, slug, name, cover_image_url')
+        .select('id, slug, name, country, cover_image_url')
+        .eq('country', 'Lietuva')
         .not('score', 'is', null)
         .order('score', { ascending: false, nullsFirst: false })
-        .limit(6),
+        .limit(5),
+
+      // 5 užsienio atlikėjų pagal score
+      supabase
+        .from('artists')
+        .select('id, slug, name, country, cover_image_url')
+        .neq('country', 'Lietuva')
+        .not('score', 'is', null)
+        .order('score', { ascending: false, nullsFirst: false })
+        .limit(5),
 
       // 6 naujausių albumų
       supabase
         .from('albums')
-        .select('id, slug, title, cover_image_url, year, artists!albums_artist_id_fkey(name)')
+        .select('id, slug, title, cover_image_url, year, artists!albums_artist_id_fkey(name, slug)')
         .not('cover_image_url', 'is', null)
         .order('year', { ascending: false, nullsFirst: false })
         .order('month', { ascending: false, nullsFirst: false })
+        .limit(6),
+
+      // 6 trending dainų (su cover ir artist info)
+      supabase
+        .from('tracks')
+        .select('id, title, cover_url, release_year, artists!tracks_artist_id_fkey(id, name, slug, cover_image_url)')
+        .not('cover_url', 'is', null)
+        .order('id', { ascending: false })
         .limit(6),
 
       // 4 artimiausi renginiai
@@ -43,7 +62,7 @@ export async function GET() {
         .order('start_date', { ascending: true })
         .limit(4),
 
-      // 4 naujausios naujienos (image_title_url kaip fallback jei small null)
+      // 4 naujausios naujienos
       supabase
         .from('news')
         .select('id, slug, title, image_small_url, image_title_url, published_at')
@@ -53,7 +72,13 @@ export async function GET() {
     ])
 
     const payload = {
-      artists: (artistsRes.data || []).map(a => ({
+      artistsLt: (artistsLtRes.data || []).map((a: any) => ({
+        id: a.id,
+        slug: a.slug,
+        name: a.name,
+        image: a.cover_image_url,
+      })),
+      artistsWorld: (artistsWorldRes.data || []).map((a: any) => ({
         id: a.id,
         slug: a.slug,
         name: a.name,
@@ -66,8 +91,17 @@ export async function GET() {
         image: a.cover_image_url,
         year: a.year,
         artist: a.artists?.name || '',
+        artistSlug: a.artists?.slug || '',
       })),
-      events: (eventsRes.data || []).map(e => ({
+      tracks: (tracksRes.data || []).map((t: any) => ({
+        id: t.id,
+        title: t.title,
+        image: t.cover_url || t.artists?.cover_image_url || null,
+        year: t.release_year,
+        artist: t.artists?.name || '',
+        artistSlug: t.artists?.slug || '',
+      })),
+      events: (eventsRes.data || []).map((e: any) => ({
         id: e.id,
         slug: e.slug,
         title: e.title,
