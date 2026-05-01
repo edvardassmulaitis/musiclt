@@ -1,25 +1,17 @@
 // app/atlikejai/[slug]/page.tsx
 import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
+import { unstable_cache } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase'
 import ArtistProfileClient from './artist-profile-client'
 import { PageLoader } from '@/components/PageLoader'
 import type { Metadata } from 'next'
 
-// 60s ISR cache — anksčiau buvo `dynamic = 'force-dynamic'` (no cache)
-// nes likes pasikeičia tiek user toggle'ais, tiek backfill scriptais.
-// Bet 60s seni like counts'ai nėra problema — naudotojas savo paties
-// like'ą gauna client-side per /api/artists/{id}/like (ne iš SSR).
-//
-// Po šio pakeitimo:
-//   • pirmas user'is per 60s window: pilnas SSR (<1.5s tikimasi po RPC
-//     migracijos)
-//   • visi sekantys per 60s: HTML iš Vercel CDN cache <50ms
-//   • po 60s: stale-while-revalidate — old serve'ina, background re-fetch
-//
-// HUGE win popularius artist'ams (Mikutavičius, Mamontovas) — pirmas hit
-// "warm'inta" cache'į visiems likusiems.
-export const revalidate = 60
+// `revalidate` segmento config'as nepakanka — Supabase JS klientas vidiniai
+// naudoja `cache: 'no-store'` ir Next forsuoja dynamic režimą. Bet opt-in
+// caching per `unstable_cache` veikia nepriklausomai nuo fetch flag'ų.
+// Sukam wrapper'į per pagrindinę 'get all artist data' funkciją (žemyn).
+const ARTIST_CACHE_TTL = 60
 
 type Props = { params: Promise<{ slug: string }> }
 
@@ -769,43 +761,65 @@ export default async function ArtistPage({ params }: Props) {
   )
 }
 
+/**
+ * Visi artist'o duomenys vienu cache'inamu wrapper'iu. unstable_cache
+ * cache'ina rezultatą Vercel function memory + edge per ARTIST_CACHE_TTL
+ * sekundžių, neatsižvelgiant į vidinį Supabase no-store fetch'us.
+ *
+ * Vercel CDN gali serve'inti SSR'intą HTML iš cache'o (kai page'as
+ * naudoja unstable_cache, Next aptinka, kad rezultatas cache'inamas, ir
+ * ISR mode aktyvuojasi). Pirmas request: pilnas SSR. Sekantys per 60s:
+ * <50ms iš cache'o.
+ */
+const fetchArtistData = unstable_cache(
+  async (artistId: number, country: string | null, score: number) => {
+    const [genres, substyles, tableLinks, dbPhotos, albums, tracks, members, followers, likeCount, news, rawEvents, _allTrackLegacyIds, legacyThreads, legacyNews, linkedTrackIdSet, awards] = await Promise.all([
+      getGenres(artistId), getSubstyles(artistId), getLinks(artistId), getPhotos(artistId), getAlbums(artistId), getTracks(artistId),
+      getMembers(artistId), getFollowers(artistId), getLikeCount(artistId), getNews(artistId), getEvents(artistId),
+      getAllArtistTrackLegacyIds(artistId),
+      getLegacyForumThreads(artistId),
+      getLegacyNewsThreads(artistId),
+      getLinkedTrackIds(artistId),
+      getArtistAwards(artistId),
+    ])
+    const linkedTrackIds = Array.from(linkedTrackIdSet)
+    const albumIds = (albums as any[]).map((a: any) => a.id).filter((x: any) => typeof x === 'number')
+    const allTrackIds = (tracks as any[]).map((t: any) => t.id).filter((x: any) => typeof x === 'number')
+    const allThreadIds = [
+      ...(legacyThreads as any[]).map((t) => t.legacy_id),
+      ...(legacyNews as any[]).map((t) => t.legacy_id),
+    ]
+    const [similar, legacyCommunity, ranks, lastPosts] = await Promise.all([
+      getSimilar(artistId, genres.map((g: any) => g.id)),
+      getLegacyCommunity(artistId, albumIds, allTrackIds),
+      getArtistRanks(artistId, country, genres as { id: number; name: string }[], score),
+      getLastPostsByThread(allThreadIds, 2),
+    ])
+    // Convert Map<number, PostInfo[]> to array for serialization
+    const lastPostsArr = Array.from(lastPosts.entries()).map(([k, v]) => [k, v] as [number, typeof v])
+    return {
+      genres, substyles, tableLinks, dbPhotos, albums, tracks, members, followers, likeCount,
+      news, rawEvents, legacyThreads, legacyNews, linkedTrackIds, awards,
+      similar, legacyCommunity, ranks, lastPostsArr,
+    }
+  },
+  ['artist-full-data-v1'],
+  { revalidate: ARTIST_CACHE_TTL, tags: ['artist'] },
+)
+
 async function ArtistContent({ artist }: { artist: any }) {
-  const [genres, substyles, tableLinks, dbPhotos, albums, tracks, members, followers, likeCount, news, rawEvents, allTrackLegacyIds, legacyThreads, legacyNews, linkedTrackIdSet, awards] = await Promise.all([
-    getGenres(artist.id), getSubstyles(artist.id), getLinks(artist.id), getPhotos(artist.id), getAlbums(artist.id), getTracks(artist.id),
-    getMembers(artist.id), getFollowers(artist.id), getLikeCount(artist.id), getNews(artist.id), getEvents(artist.id),
-    getAllArtistTrackLegacyIds(artist.id),
-    getLegacyForumThreads(artist.id),
-    getLegacyNewsThreads(artist.id),
-    getLinkedTrackIds(artist.id),
-    getArtistAwards(artist.id),
-  ])
+  const data = await fetchArtistData(
+    artist.id,
+    artist.country || null,
+    (artist as any).score || 0,
+  )
+  const {
+    genres, substyles, tableLinks, dbPhotos, albums, tracks, members, followers, likeCount,
+    news, rawEvents, legacyThreads, legacyNews, linkedTrackIds, awards,
+    similar, legacyCommunity, ranks, lastPostsArr,
+  } = data
   const links = buildSocialLinks(artist, tableLinks as { platform: string; url: string }[])
-  const linkedTrackIds = Array.from(linkedTrackIdSet)
-
-  // ── ANTRAS batch — viskas, kas priklauso nuo pirmo batch'o rezultatų ──
-  // Anksčiau buvo 4 sekvenciniai await'ai: getSimilar → getLegacyCommunity
-  // → getArtistRanks → getLastPostsByThread (kiekvienas ~150-300ms ant
-  // Supabase). Tai +600-1200ms TTFB. Dabar viskas vienu Promise.all batch'u
-  // — kiekvienas turi visas reikiamas dependencies iš pirmo batch'o,
-  // jokios cross-priklausomybės.
-  const albumIds = (albums as any[]).map((a: any) => a.id).filter((x: any) => typeof x === 'number')
-  const allTrackIds = (tracks as any[]).map((t: any) => t.id).filter((x: any) => typeof x === 'number')
-  const allThreadIds = [
-    ...(legacyThreads as any[]).map((t) => t.legacy_id),
-    ...(legacyNews as any[]).map((t) => t.legacy_id),
-  ]
-
-  const [similar, legacyCommunity, ranks, lastPosts] = await Promise.all([
-    getSimilar(artist.id, genres.map((g: any) => g.id)),
-    getLegacyCommunity(artist.id, albumIds, allTrackIds),
-    getArtistRanks(
-      artist.id,
-      artist.country || null,
-      genres as { id: number; name: string }[],
-      (artist as any).score || 0,
-    ),
-    getLastPostsByThread(allThreadIds, 2),
-  ])
+  const lastPosts = new Map(lastPostsArr)
 
   // Photos shown publicly — TIK is_active=true. artist_photos lentelė yra
   // kanoninis šaltinis; legacy `artists.photos` JSON kolumna jau nebenaudojama
