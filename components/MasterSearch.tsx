@@ -133,11 +133,6 @@ const CAT_ORDER: Category[] = [
   'news', 'blog_posts', 'discussions', 'venues',
 ]
 
-const POPULAR_QUERIES = [
-  'Andrius Mamontovas', 'Marijonas Mikutavičius', 'G&G Sindikatas',
-  'Antis', 'Foje', 'Andrius Pojavis',
-]
-
 export type MasterSearchProps = {
   open: boolean
   onClose: () => void
@@ -157,7 +152,10 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
   const abortRef = useRef<AbortController | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [recentQueries, setRecentQueries] = useState<string[]>([])
-  const [topArtists, setTopArtists] = useState<Hit[]>([])
+  // Trending = mix'as populiariausių atlikėjų + dainų pagal click'us per
+  // /api/search-master/trending. Fallback'as — top by score, jei dar nėra
+  // duomenų.
+  const [trending, setTrending] = useState<Hit[]>([])
   // Expanded — kai user'is filtruoja pagal vieną kategoriją, fetch'inam
   // limit=30 tos kategorijos rezultatų. Cache pagal `${q}|${cat}`.
   const [expanded, setExpanded] = useState<Partial<Record<Category, Hit[]>>>({})
@@ -253,24 +251,20 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
     return () => { cancelled = true }
   }, [activeCat, q, open])
 
-  // ── Užkrauti default top atlikėjus kai input tuščias ──
+  // ── Užkrauti trending atlikėjus + dainas (mix'as) kai input tuščias ──
+  // Šaltinis: /api/search-master/trending — agreguoja last 14d click'us
+  // iš search_clicks lentelės, fallback'ina į top by score jei dar nėra
+  // duomenų. Mix'inami atlikėjai su dainomis kad sekcija atrodytų tankiau.
   useEffect(() => {
-    if (!open || topArtists.length > 0) return
-    fetch('/api/artists?limit=8&sort=score')
+    if (!open || trending.length > 0) return
+    fetch('/api/search-master/trending?limit=10')
       .then(r => r.ok ? r.json() : null)
       .then(d => {
-        const arr = Array.isArray(d) ? d : (d?.artists || [])
-        setTopArtists(arr.slice(0, 8).map((a: any) => ({
-          id: a.id,
-          type: 'artists' as Category,
-          title: a.name,
-          image_url: a.cover_image_url,
-          href: `/atlikejai/${a.slug}`,
-          score: a.score,
-        })))
+        const items = (d?.items || []) as Hit[]
+        if (items.length > 0) setTrending(items)
       })
       .catch(() => {})
-  }, [open, topArtists.length])
+  }, [open, trending.length])
 
   // ── Debounced fetch ──
   // Loading flag turi būti TRUE kai tik užklausa keičiasi, ne tik kai
@@ -404,6 +398,19 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
       setRecentQueries(next)
       try { sessionStorage.setItem('musiclt-recent-search', JSON.stringify(next)) } catch {}
     }
+    // Log click'ą trending'ui — fire-and-forget, nelaukiam response'o.
+    try {
+      fetch('/api/search-master/log', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          entity_type: hit.type,
+          id: hit.id,
+          query: q.trim() || null,
+        }),
+        keepalive: true,
+      }).catch(() => {})
+    } catch {}
     onClose()
     // delay nav iki transition'o pabaigos kad smooth atrodytų
     setTimeout(() => router.push(hit.href), 50)
@@ -511,8 +518,7 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
         <div className="ms-body">
           {showEmpty && <EmptyState
             recent={recentQueries}
-            popular={POPULAR_QUERIES}
-            topArtists={topArtists}
+            trending={trending}
             onPick={(s) => setQ(s)}
             onGo={(h) => go(h)}
           />}
@@ -547,19 +553,15 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
           )}
         </div>
 
-        {/* ── Footer: hint ── */}
-        <div className="ms-footer">
-          <span className="ms-footer-keys">
-            <span className="ms-kbd">↑</span><span className="ms-kbd">↓</span> naviguoti
-            &nbsp;·&nbsp;
-            <span className="ms-kbd">Enter</span> atidaryti
-            &nbsp;·&nbsp;
-            <span className="ms-kbd">Esc</span> uždaryti
-          </span>
-          {tookMs > 0 && (
+        {/* ── Footer: tik rezultatų stats (jei yra) ──
+            Keyboard hints (↑/↓/Enter/Esc) pašalinti — apkraudavo modal'ą
+            informacija, kuri akivaizdi mouse user'iams ir power user'iai
+            jau žino shortcut'us. */}
+        {tookMs > 0 && (
+          <div className="ms-footer">
             <span className="ms-footer-stats">{total} rezultatai · {tookMs}ms</span>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </>
   )
@@ -706,11 +708,10 @@ function ResultRow({
 }
 
 function EmptyState({
-  recent, popular, topArtists, onPick, onGo,
+  recent, trending, onPick, onGo,
 }: {
   recent: string[]
-  popular: string[]
-  topArtists: Hit[]
+  trending: Hit[]
   onPick: (s: string) => void
   onGo: (h: Hit) => void
 }) {
@@ -729,42 +730,41 @@ function EmptyState({
         </div>
       )}
 
-      <div className="ms-empty-block">
-        <div className="ms-empty-title">Populiarios paieškos</div>
-        <div className="ms-empty-pills">
-          {popular.map(r => (
-            <button key={r} className="ms-pill" onClick={() => onPick(r)}>
-              <FlameIcon /> {r}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {topArtists.length > 0 && (
+      {trending.length > 0 && (
         <div className="ms-empty-block">
-          <div className="ms-empty-title">Top atlikėjai dabar</div>
+          <div className="ms-empty-title">
+            <FlameIcon /> Populiariausi šią savaitę
+          </div>
           <div className="ms-empty-grid">
-            {topArtists.map(a => (
-              <button
-                key={a.id}
-                className="ms-grid-item"
-                onClick={() => onGo(a)}
-              >
-                <div className="ms-grid-img-wrap">
-                  {a.image_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={proxyImg(a.image_url)} alt="" className="ms-grid-img" loading="lazy" />
-                  ) : (
-                    <div className="ms-grid-fallback" style={{ background: '#a78bfa22', color: '#a78bfa' }}>
-                      <IconArtist size={26} />
-                    </div>
-                  )}
-                </div>
-                <div className="ms-grid-text">
-                  <div className="ms-grid-title">{a.title}</div>
-                </div>
-              </button>
-            ))}
+            {trending.map(item => {
+              const meta = CAT_LABELS[item.type]
+              const Ico = meta?.Icon || IconArtist
+              const fallbackColor = meta?.color || '#a78bfa'
+              return (
+                <button
+                  key={`${item.type}-${item.id}`}
+                  className="ms-grid-item"
+                  onClick={() => onGo(item)}
+                >
+                  <div className="ms-grid-img-wrap" style={{
+                    borderRadius: item.type === 'tracks' || item.type === 'albums' ? 8 : '50%',
+                  }}>
+                    {item.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={proxyImg(item.image_url)} alt="" className="ms-grid-img" loading="lazy" />
+                    ) : (
+                      <div className="ms-grid-fallback" style={{ background: fallbackColor + '22', color: fallbackColor }}>
+                        <Ico size={26} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="ms-grid-text">
+                    <div className="ms-grid-title">{item.title}</div>
+                    {item.subtitle && <div className="ms-grid-sub">{item.subtitle}</div>}
+                  </div>
+                </button>
+              )
+            })}
           </div>
         </div>
       )}
@@ -1178,12 +1178,14 @@ const searchCss = `
 .ms-empty { padding: 18px 22px 20px; }
 .ms-empty-block { margin-bottom: 22px; }
 .ms-empty-title {
+  display: inline-flex; align-items: center; gap: 6px;
   font-size: 11px; font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-muted, #888);
   margin-bottom: 10px;
 }
+.ms-empty-title svg { color: var(--accent-orange, #f97316); }
 .ms-empty-pills { display: flex; flex-wrap: wrap; gap: 6px; }
 .ms-pill {
   display: inline-flex; align-items: center; gap: 6px;
