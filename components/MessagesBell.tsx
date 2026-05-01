@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -51,6 +52,20 @@ export function MessagesBell() {
   const [shoutLoading, setShoutLoading] = useState(false)
   const shoutLoaded = useRef(false)
   const wrapRef = useRef<HTMLDivElement>(null)
+
+  // Mobile detection — < 600px → renderinam dropdown'ą per portal'ą į
+  // document.body, kad backdrop-filter (header) nesukurtų containing block'o
+  // Safari'iuje. Anksčiau dropdown'as buvo mounted header'io viduje, todėl
+  // mobile Safari'is su header'io backdrop-filter padarydavo dropdown'ą
+  // nematomą (bound'inamas prie header'io stacking context).
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 600px)')
+    const update = () => setIsMobile(mq.matches)
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
 
   const isAuth = !!userId
 
@@ -168,136 +183,163 @@ export function MessagesBell() {
         )}
       </button>
 
-      {open && (
-        <>
-          <style>{`
-            .msg-bell-dropdown {
-              position: absolute; top: calc(100% + 8px); right: 0;
-              width: 360px; max-height: 520px; overflow: hidden;
-              background: var(--modal-bg);
-              border: 1px solid var(--modal-border);
-              border-radius: 14px;
-              box-shadow: var(--modal-shadow, 0 10px 40px rgba(0,0,0,0.25));
-              z-index: 250;
-              display: flex; flex-direction: column;
-            }
-            .msg-bell-mobile-overlay { display: none; }
-            @media (max-width: 600px) {
-              .msg-bell-dropdown {
-                position: fixed !important;
-                top: 56px !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
-                width: auto !important; max-height: none !important;
-                border-radius: 0 !important;
-                border: none !important;
-                border-top: 1px solid var(--border-default) !important;
-                box-shadow: none !important;
-                z-index: 9999 !important;
-              }
-              .msg-bell-mobile-overlay {
-                display: block;
-                position: fixed; top: 56px; left: 0; right: 0; bottom: 0;
-                z-index: 9998;
-                background: var(--bg-body);
-              }
-            }
-          `}</style>
-          <div className="msg-bell-mobile-overlay" onClick={() => setOpen(false)} />
-        <div className="msg-bell-dropdown">
-          {/* Tabs — Tavo pokalbiai (DM/grupės) vs Bendros diskusijos (live shoutbox).
-              Header'is su pavadinimu + "Atidaryti" pašalintas — apačioje yra
-              "Visi pokalbiai →" footer'is, kuris atlieka tą pačią funkciją.  */}
-          <div style={{ display: 'flex', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0 }}>
-            {([
-              ['personal', 'Tavo pokalbiai', isAuth ? unread : 0],
-              ['general', 'Bendros diskusijos', 0],
-            ] as const).map(([k, label, badge]) => {
-              const active = tab === k
-              return (
-                <button
-                  key={k}
-                  onClick={() => {
-                    setTab(k)
-                    if (k === 'personal' && conversations.length === 0) fetchConversations()
-                    if (k === 'general' && !shoutLoaded.current) fetchShout()
-                  }}
-                  style={{
-                    flex: 1, padding: '12px 14px',
-                    border: 'none', background: 'transparent', cursor: 'pointer',
-                    fontSize: 12.5, fontWeight: 700,
-                    color: active ? 'var(--text-primary)' : 'var(--text-muted)',
-                    borderBottom: active ? '2px solid var(--accent-orange)' : '2px solid transparent',
-                    transition: 'color .12s, border-color .12s',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                  }}
-                >
-                  {label}
-                  {badge > 0 && (
-                    <span style={{
-                      minWidth: 16, height: 16, padding: '0 4px', borderRadius: 8,
-                      background: 'var(--accent-orange)', color: '#fff',
-                      fontSize: 9, fontWeight: 800,
-                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                      lineHeight: 1,
-                    }}>
-                      {badge > 9 ? '9+' : badge}
-                    </span>
-                  )}
-                </button>
-              )
-            })}
-          </div>
-
-          <div style={{ flex: 1, overflowY: 'auto' }}>
-            {tab === 'personal' ? (
-              loading && conversations.length === 0 ? (
-                <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Kraunasi…</div>
-              ) : conversations.length === 0 ? (
-                <div style={{ padding: '36px 24px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 32, marginBottom: 8 }}>💬</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
-                    Pokalbių dar nėra
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                    Pradėk privačią žinutę arba grupę.
-                  </div>
-                </div>
-              ) : (
-                conversations.slice(0, 12).map(c => (
-                  <ConversationRow key={c.id} c={c} viewerId={userId!} onClick={() => setOpen(false)} />
-                ))
-              )
-            ) : (
-              shoutLoading && shoutMsgs.length === 0 ? (
-                <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Kraunasi…</div>
-              ) : shoutMsgs.length === 0 ? (
-                <div style={{ padding: '36px 24px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 32, marginBottom: 8 }}>📣</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
-                    Bendra diskusija tyli
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                    Užsuk į bendruomenę ir įmesk pirmą žinutę.
-                  </div>
-                </div>
-              ) : (
-                shoutMsgs.slice(-20).map(m => <ShoutRow key={m.id} m={m} />)
-              )
-            )}
-          </div>
-
-          <div style={{ padding: '10px 16px', borderTop: '1px solid var(--border-subtle)', textAlign: 'center' }}>
-            <Link
-              href={tab === 'personal' ? '/pokalbiai' : '/bendruomene'}
-              onClick={() => setOpen(false)}
-              style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textDecoration: 'none' }}
-            >
-              {tab === 'personal' ? 'Visi pokalbiai →' : 'Pilna bendruomenė →'}
-            </Link>
-          </div>
+      {/* DESKTOP dropdown — relatives header'iui (absolute) */}
+      {open && !isMobile && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 8px)', right: 0,
+          width: 360, maxHeight: 520, overflow: 'hidden',
+          background: 'var(--modal-bg)',
+          border: '1px solid var(--modal-border)',
+          borderRadius: 14,
+          boxShadow: 'var(--modal-shadow, 0 10px 40px rgba(0,0,0,0.25))',
+          zIndex: 250,
+          display: 'flex', flexDirection: 'column',
+        }}>
+          {renderDropdownContent({
+            tab, setTab, isAuth, unread, conversations, loading,
+            shoutMsgs, shoutLoading, userId, fetchConversations, fetchShout,
+            shoutLoaded, setOpen,
+          })}
         </div>
-        </>
+      )}
+
+      {/* MOBILE — fullscreen modal per portal į document.body, kad backdrop-filter
+          ant header'io (kuris sukuria containing block) neapribotų position: fixed
+          dropdown'o į header'io stacking context'ą Safari'iuje. */}
+      {open && isMobile && typeof document !== 'undefined' && createPortal(
+        <div
+          style={{
+            position: 'fixed', top: 56, left: 0, right: 0, bottom: 0,
+            zIndex: 9999, background: 'var(--bg-body)',
+            display: 'flex', flexDirection: 'column',
+          }}
+        >
+          {renderDropdownContent({
+            tab, setTab, isAuth, unread, conversations, loading,
+            shoutMsgs, shoutLoading, userId, fetchConversations, fetchShout,
+            shoutLoaded, setOpen,
+          })}
+        </div>,
+        document.body
       )}
     </div>
+  )
+}
+
+// Helper that renders the shared dropdown content (tabs + list + footer).
+// Used by both desktop inline dropdown and mobile portal modal so the markup
+// stays in one place.
+function renderDropdownContent(p: {
+  tab: 'personal' | 'general'
+  setTab: (t: 'personal' | 'general') => void
+  isAuth: boolean
+  unread: number
+  conversations: ConversationListItem[]
+  loading: boolean
+  shoutMsgs: ShoutMsg[]
+  shoutLoading: boolean
+  userId: string | null
+  fetchConversations: () => void
+  fetchShout: () => void
+  shoutLoaded: { current: boolean }
+  setOpen: (v: boolean) => void
+}) {
+  const {
+    tab, setTab, isAuth, unread, conversations, loading,
+    shoutMsgs, shoutLoading, userId, fetchConversations, fetchShout,
+    shoutLoaded, setOpen,
+  } = p
+  return (
+    <>
+      <div style={{ display: 'flex', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0 }}>
+        {([
+          ['personal', 'Tavo pokalbiai', isAuth ? unread : 0],
+          ['general', 'Bendros diskusijos', 0],
+        ] as const).map(([k, label, badge]) => {
+          const active = tab === k
+          return (
+            <button
+              key={k}
+              onClick={() => {
+                setTab(k)
+                if (k === 'personal' && conversations.length === 0) fetchConversations()
+                if (k === 'general' && !shoutLoaded.current) fetchShout()
+              }}
+              style={{
+                flex: 1, padding: '12px 14px',
+                border: 'none', background: 'transparent', cursor: 'pointer',
+                fontSize: 12.5, fontWeight: 700,
+                color: active ? 'var(--text-primary)' : 'var(--text-muted)',
+                borderBottom: active ? '2px solid var(--accent-orange)' : '2px solid transparent',
+                transition: 'color .12s, border-color .12s',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              }}
+            >
+              {label}
+              {badge > 0 && (
+                <span style={{
+                  minWidth: 16, height: 16, padding: '0 4px', borderRadius: 8,
+                  background: 'var(--accent-orange)', color: '#fff',
+                  fontSize: 9, fontWeight: 800,
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  lineHeight: 1,
+                }}>
+                  {badge > 9 ? '9+' : badge}
+                </span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+
+      <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch' as any }}>
+        {tab === 'personal' ? (
+          loading && conversations.length === 0 ? (
+            <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Kraunasi…</div>
+          ) : conversations.length === 0 ? (
+            <div style={{ padding: '36px 24px', textAlign: 'center' }}>
+              <div style={{ fontSize: 32, marginBottom: 8 }}>💬</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                Pokalbių dar nėra
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                Pradėk privačią žinutę arba grupę.
+              </div>
+            </div>
+          ) : (
+            conversations.slice(0, 12).map(c => (
+              <ConversationRow key={c.id} c={c} viewerId={userId!} onClick={() => setOpen(false)} />
+            ))
+          )
+        ) : (
+          shoutLoading && shoutMsgs.length === 0 ? (
+            <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Kraunasi…</div>
+          ) : shoutMsgs.length === 0 ? (
+            <div style={{ padding: '36px 24px', textAlign: 'center' }}>
+              <div style={{ fontSize: 32, marginBottom: 8 }}>📣</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                Bendra diskusija tyli
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                Užsuk į bendruomenę ir įmesk pirmą žinutę.
+              </div>
+            </div>
+          ) : (
+            shoutMsgs.slice(-20).map(m => <ShoutRow key={m.id} m={m} />)
+          )
+        )}
+      </div>
+
+      <div style={{ padding: '10px 16px', borderTop: '1px solid var(--border-subtle)', textAlign: 'center' }}>
+        <Link
+          href={tab === 'personal' ? '/pokalbiai' : '/bendruomene'}
+          onClick={() => setOpen(false)}
+          style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textDecoration: 'none' }}
+        >
+          {tab === 'personal' ? 'Visi pokalbiai →' : 'Pilna bendruomenė →'}
+        </Link>
+      </div>
+    </>
   )
 }
 
