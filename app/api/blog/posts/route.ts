@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createPost, getAllUserPosts, type PostUpsertFields } from '@/lib/supabase-blog'
 import { ensureUserBlog } from '@/lib/ensure-blog'
+import { resolveProfile } from '@/lib/profile-resolve'
 import { detectEmbed } from '@/lib/embed-detect'
 
 const POST_TYPES = ['article', 'quick', 'review', 'translation', 'creation', 'journal'] as const
@@ -10,9 +11,11 @@ type PostType = typeof POST_TYPES[number]
 
 export async function GET(_req: NextRequest) {
   const session = await getServerSession(authOptions)
-  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const profile = await resolveProfile(session)
+  if (!profile) return NextResponse.json({ error: 'Profilio nepavyko paruošti' }, { status: 500 })
   try {
-    const posts = await getAllUserPosts(session.user.id)
+    const posts = await getAllUserPosts(profile.id)
     return NextResponse.json(posts)
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
@@ -21,19 +24,23 @@ export async function GET(_req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  if (!session?.user?.id) return NextResponse.json({ error: 'Prisijunk' }, { status: 401 })
+  if (!session?.user) return NextResponse.json({ error: 'Prisijunk' }, { status: 401 })
 
-  // ensureUserBlog gali mest'i: profile not found, blog insert failed (RLS,
-  // schema mismatch, slug collision twice). Wrap'inam, kad klientas matytų
-  // tikslią klaidą, ne generinį 500.
+  const profile = await resolveProfile(session)
+  if (!profile) {
+    return NextResponse.json({ error: 'Profilio nepavyko paruošti' }, { status: 500 })
+  }
+
+  // ensureUserBlog gali mest'i: blog insert failed (RLS, schema mismatch,
+  // slug collision twice). Wrap'inam, kad klientas matytų tikslią klaidą.
   let blog
   try {
-    blog = await ensureUserBlog(session.user.id)
+    blog = await ensureUserBlog(profile)
   } catch (e: any) {
     console.error('[blog/posts] ensureUserBlog failed:', e?.message || e)
     return NextResponse.json({ error: `Nepavyko paruošti blogo: ${e?.message || 'unknown'}` }, { status: 500 })
   }
-  if (!blog) return NextResponse.json({ error: 'Profilis nerastas — bandyk dar kartą' }, { status: 500 })
+  if (!blog) return NextResponse.json({ error: 'Blog\'o sukurti nepavyko — bandyk dar kartą' }, { status: 500 })
 
   const body = await req.json()
   const postType: PostType = POST_TYPES.includes(body.post_type) ? body.post_type : 'article'
@@ -90,7 +97,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const post = await createPost(blog.id, session.user.id, data)
+    const post = await createPost(blog.id, profile.id, data)
     return NextResponse.json(post)
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })

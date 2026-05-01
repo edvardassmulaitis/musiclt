@@ -9,6 +9,7 @@ import TextAlign from '@tiptap/extension-text-align'
 import Placeholder from '@tiptap/extension-placeholder'
 import CharacterCount from '@tiptap/extension-character-count'
 import { Iframe } from '@/lib/tiptap-iframe'
+import { MusicCard } from '@/lib/tiptap-music-card'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface RichTextEditorProps {
@@ -93,7 +94,7 @@ export default function RichTextEditor({ value, onChange, placeholder, maxLength
       // Iframe palaiko schema'oje + auto-paste rules YouTube/Spotify/SoundCloud
       // konvertacijai. Image leidžia <img> nodes (kad image paste survive'intų
       // roundtrip per setContent).
-      ...(enableMediaPaste ? [Iframe, Image.configure({ HTMLAttributes: { class: 'rounded-lg' } })] : []),
+      ...(enableMediaPaste ? [Iframe, MusicCard, Image.configure({ HTMLAttributes: { class: 'rounded-lg' } })] : []),
     ],
     content: value || '',
     onUpdate: ({ editor }) => onChange(editor.getHTML()),

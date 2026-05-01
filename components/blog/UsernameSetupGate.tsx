@@ -50,7 +50,17 @@ export function UsernameSetupGate({
         Tavo blogas atrodys taip: <span style={{ color: '#dde8f8' }} className="font-mono">music.lt/blogas/{username || 'tavo-vardas'}</span>
       </p>
 
+      {/* Specifiškai vengiam password-manager trigger'io: name="blog-handle"
+          (ne "username"), autoComplete="off", data-1p-ignore (1Password)
+          ir data-lpignore (LastPass). Tai pat NE inside <form>, kad
+          browser'is netiktrintų submit handler'io. */}
       <input
+        type="text"
+        name="blog-handle"
+        autoComplete="off"
+        data-1p-ignore="true"
+        data-lpignore="true"
+        spellCheck={false}
         value={username}
         onChange={e => setUsername(e.target.value)}
         onKeyDown={e => e.key === 'Enter' && save()}

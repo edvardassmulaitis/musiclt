@@ -29,20 +29,19 @@ interface BlogEditorProps {
 export function BlogEditor({ value, onChange, placeholder }: BlogEditorProps) {
   const [showMusicModal, setShowMusicModal] = useState(false)
 
+  // Insertinam HTML su data-attrs — MusicCard Tiptap extension'as parseHTML'u
+  // sumatch'ina `a.ml-card` ir konvertuoja į custom node'ą, kuris per
+  // serializaciją išlieka kaip atomiška kortelė (ne flattin'tas tekstas).
   const insertMusicCard = useCallback((hit: AttachmentHit) => {
-    const typePath = hit.type === 'grupe' ? 'atlikejai' : hit.type === 'albumas' ? 'albumai' : 'dainos'
-    const url = `/${typePath}/${hit.slug || hit.id}`
-    const img = hit.image_url ? `<img src="${proxyImg(hit.image_url)}" alt="" style="width:48px;height:48px;border-radius:6px;object-fit:cover;flex-shrink:0" />` : ''
-    const typeLabel = hit.type === 'grupe' ? 'Atlikėjas' : hit.type === 'albumas' ? 'Albumas' : 'Daina'
+    const proxiedImg = hit.image_url ? proxyImg(hit.image_url) : ''
     const card =
-      `<a href="${url}" class="ml-card" style="display:flex;gap:10px;align-items:center;padding:10px;margin:14px 0;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);text-decoration:none;color:inherit" data-ml-type="${hit.type}" data-ml-id="${hit.id}">` +
-        img +
-        `<span style="display:flex;flex-direction:column;gap:1px;min-width:0">` +
-          `<span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#5e7290">${typeLabel}</span>` +
-          `<span style="font-size:13px;font-weight:600;color:#dde8f8">${escapeHtml(hit.title)}</span>` +
-          (hit.artist ? `<span style="font-size:11px;color:#5e7290">${escapeHtml(hit.artist)}</span>` : '') +
-        `</span>` +
-      `</a>`
+      `<a class="ml-card" ` +
+        `data-ml-type="${hit.type}" ` +
+        `data-ml-id="${hit.id}" ` +
+        `data-ml-slug="${escapeAttr(hit.slug || '')}" ` +
+        `data-ml-title="${escapeAttr(hit.title)}" ` +
+        `data-ml-artist="${escapeAttr(hit.artist || '')}" ` +
+        `data-ml-img="${escapeAttr(proxiedImg)}"></a>`
     onChange(value + card + '<p></p>')
     setShowMusicModal(false)
   }, [value, onChange])
@@ -117,7 +116,7 @@ export function BlogEditor({ value, onChange, placeholder }: BlogEditorProps) {
   )
 }
 
-function escapeHtml(s: string): string {
+function escapeAttr(s: string): string {
   return s
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')

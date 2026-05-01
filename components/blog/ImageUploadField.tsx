@@ -61,9 +61,9 @@ export function ImageUploadField({
       </label>
 
       {value ? (
-        <div className="relative rounded-lg overflow-hidden group">
+        <div className="relative rounded-lg overflow-hidden group inline-block max-w-full">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={value} alt="" className="w-full max-h-40 object-cover" />
+          <img src={value} alt="" className="block max-h-72 max-w-full w-auto" style={{ height: 'auto' }} />
           <button
             type="button"
             onClick={() => onChange('')}

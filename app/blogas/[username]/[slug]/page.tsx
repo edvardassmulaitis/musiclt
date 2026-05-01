@@ -100,11 +100,11 @@ export default async function PostPage({ params }: { params: Promise<{ username:
           )}
         </div>
 
-        {/* Cover (article/journal/creation/review) */}
+        {/* Cover (article/journal/creation/review) — natural ratio, no crop */}
         {cover && postType !== 'quick' && (
-          <div className="rounded-2xl overflow-hidden mb-8 aspect-[2/1]">
+          <div className="rounded-2xl overflow-hidden mb-8">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={cover} alt={post.title} className="w-full h-full object-cover" />
+            <img src={cover} alt={post.title} className="w-full h-auto block" />
           </div>
         )}
 

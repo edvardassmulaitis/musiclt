@@ -21,7 +21,7 @@ export const Iframe = Node.create({
   group: 'block',
   atom: true,        // Negali turėti vidinio turinio — tik attrs
   selectable: true,
-  draggable: false,
+  draggable: true,   // Galim drag'inti tarp paragrafų editor'iuje
 
   addAttributes() {
     return {

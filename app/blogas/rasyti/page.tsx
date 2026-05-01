@@ -287,21 +287,31 @@ function EditorInner() {
             <TranslationField value={translation} onChange={setTranslation} />
           )}
 
-          <input
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-            placeholder={titlePlaceholder(postType)}
-            className="w-full text-3xl font-black bg-transparent border-none outline-none mb-3"
-            style={{ fontFamily: "'Outfit', sans-serif", letterSpacing: '-.03em', color: '#f2f4f8' }}
-          />
+          <div className="mb-4">
+            <label className="text-[10px] font-bold uppercase tracking-wider mb-1.5 block" style={{ color: '#5e7290', fontFamily: "'Outfit', sans-serif" }}>
+              Pavadinimas
+            </label>
+            <input
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder={titlePlaceholder(postType)}
+              className="w-full px-3 py-2.5 text-2xl font-bold rounded-lg outline-none focus:border-[#f97316]/30 transition"
+              style={{ fontFamily: "'Outfit', sans-serif", letterSpacing: '-.02em', color: '#f2f4f8', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
+            />
+          </div>
 
-          <input
-            value={summary}
-            onChange={e => setSummary(e.target.value)}
-            placeholder="Trumpa santrauka (rodoma sąraše)"
-            className="w-full text-sm bg-transparent border-none outline-none mb-6"
-            style={{ color: '#5e7290' }}
-          />
+          <div className="mb-4">
+            <label className="text-[10px] font-bold uppercase tracking-wider mb-1.5 block" style={{ color: '#5e7290', fontFamily: "'Outfit', sans-serif" }}>
+              Santrauka <span className="font-normal text-[#334058] normal-case">(neprivaloma — rodoma feed sąraše)</span>
+            </label>
+            <input
+              value={summary}
+              onChange={e => setSummary(e.target.value)}
+              placeholder="1-2 sakiniai apie ką šis įrašas"
+              className="w-full px-3 py-2 text-sm rounded-lg outline-none focus:border-[#f97316]/30 transition"
+              style={{ color: '#dde8f8', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
+            />
+          </div>
 
           <div className="mb-6">
             <ImageUploadField value={coverUrl} onChange={setCoverUrl} />
