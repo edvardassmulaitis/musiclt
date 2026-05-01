@@ -57,6 +57,9 @@ const I = {
   blog: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 3v6h6"/><path d="M19 9v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7Z"/><path d="M9 13h6M9 17h4"/></svg>,
   vinyl: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>,
   guitar: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18 6.5 20.5a2.12 2.12 0 0 1-3-3L6 15"/><path d="m9 9 5 5L15 9 9 9z"/><path d="m22 2-9 9"/><path d="M9 9c-.5-1.5-2-2.5-3.5-2-1.5.5-2.5 2-2 3.5L4 12"/></svg>,
+  festival: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21V12h6v9"/><circle cx="12" cy="9" r="1.5"/></svg>,
+  gallery: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>,
+  users: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
 }
 
 const NAV: NavItem[] = [
@@ -223,15 +226,15 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
           <Link
             key={a?.id || `${kind}-${i}`}
             href={a ? `/atlikejai/${a.slug}` : '/atlikejai'}
-            className="sh-mini-artist"
+            className="sh-mini sh-mini-lg"
           >
             <ImageBox
               src={a?.image}
               accent={accent}
               glyph={I.music}
-              className="sh-mini-artist-img"
+              className="sh-mini-img"
             />
-            <span className="sh-mini-artist-name">
+            <span className="sh-mini-title sh-mini-title-2">
               {a?.name || <span style={{ opacity: 0.45 }}>Atlikėjas</span>}
             </span>
           </Link>
@@ -241,78 +244,81 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
   )
 
   return (
-    <div className="sh-panel sh-panel-muzika" style={{ width: 720 }}>
+    <div className="sh-panel sh-panel-muzika" style={{ width: 760 }}>
 
-      {/* ── ATLIKĖJAI — 2 horizontaliai scroll'inamos eilutės ── */}
+      {/* ── ATLIKĖJAI — 2 eilutės su LT/world stripe (didžiausi) ── */}
       <div className="sh-panel-section">
         <span className="sh-panel-section-title">Atlikėjai</span>
         <Link href="/atlikejai" className="sh-panel-section-more">Visi <ArrowRight size={11}/></Link>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 12 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
         {renderArtistRow(artistsLt, 'lt')}
         {renderArtistRow(artistsWorld, 'world')}
       </div>
 
-      {/* ── ALBUMAI — horizontaliai scroll'inama juosta ── */}
+      {/* ── ALBUMAI — vidutinis dydis ── */}
       <div className="sh-panel-section">
         <span className="sh-panel-section-title">Albumai</span>
         <Link href="/albumai" className="sh-panel-section-more">Visi <ArrowRight size={11}/></Link>
       </div>
-      <div className="sh-strip" style={{ marginBottom: 10 }}>
+      <div className="sh-strip" style={{ marginBottom: 14 }}>
         {(albums.length > 0 ? albums : Array(8).fill(null)).map((a, i) => (
           <Link
             key={a?.id || i}
             href={a ? `/lt/albumas/${a.slug}/${a.id}` : '/albumai'}
-            className="sh-mini-tile"
+            className="sh-mini sh-mini-md"
           >
             <ImageBox
               src={a?.image}
               accent={accent}
               glyph={I.vinyl}
-              className="sh-mini-tile-img"
+              className="sh-mini-img"
             />
-            <span className="sh-mini-tile-title">
+            <span className="sh-mini-title sh-mini-title-2">
               {a?.title || <span style={{ opacity: 0.5 }}>Albumas</span>}
             </span>
-            <span className="sh-mini-tile-meta">
+            <span className="sh-mini-meta">
               {a?.artist || ''}
             </span>
           </Link>
         ))}
       </div>
 
-      {/* ── DAINOS — horizontaliai scroll'inama juosta ── */}
+      {/* ── DAINOS — mažiausias dydis ── */}
       <div className="sh-panel-section">
         <span className="sh-panel-section-title">Dainos</span>
         <Link href="/muzika" className="sh-panel-section-more">Visos <ArrowRight size={11}/></Link>
       </div>
-      <div className="sh-strip" style={{ marginBottom: 12 }}>
-        {(tracks.length > 0 ? tracks : Array(8).fill(null)).map((t, i) => (
+      <div className="sh-strip" style={{ marginBottom: 14 }}>
+        {(tracks.length > 0 ? tracks : Array(10).fill(null)).map((t, i) => (
           <Link
             key={t?.id || i}
             href={t ? `/dainos/${t.artistSlug}-${quickSlug(t.title)}-${t.id}` : '/muzika'}
-            className="sh-mini-tile"
+            className="sh-mini sh-mini-sm"
           >
             <ImageBox
               src={t?.image}
               accent={accent}
               glyph={I.song}
-              className="sh-mini-tile-img"
+              className="sh-mini-img"
             />
-            <span className="sh-mini-tile-title">
+            <span className="sh-mini-title sh-mini-title-2">
               {t?.title || <span style={{ opacity: 0.5 }}>Daina</span>}
             </span>
-            <span className="sh-mini-tile-meta">
+            <span className="sh-mini-meta">
               {t?.artist || ''}
             </span>
           </Link>
         ))}
       </div>
 
-      {/* ── STILIAI — 8 main genres iš constants.ts su tematinėm spalvom ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 10, borderTop: '1px solid var(--border-default)' }}>
-        <span className="sh-panel-section-title" style={{ flexShrink: 0 }}>Stiliai</span>
-        <div style={{ display: 'flex', gap: 4, flex: 1, flexWrap: 'wrap' }}>
+      {/* ── STILIAI — title virš (kaip kitos sekcijos), apačioje 8 pills ── */}
+      <div style={{ paddingTop: 12, borderTop: '1px solid var(--border-default)' }}>
+        <div className="sh-panel-section">
+          <span className="sh-panel-section-title">Stiliai</span>
+          <Link href="/zanrai" className="sh-panel-section-more">Visi <ArrowRight size={11}/></Link>
+        </div>
+        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
           {styles.map(s => (
             <Link
               key={s.name}
@@ -578,6 +584,251 @@ function SkelbimaiPanel({ accent }: { accent: string }) {
 }
 
 /* ────────────────────────────────────────────────────────────────
+ * Mobile expansion — kompaktinis dropdown'o turinio variantas
+ * (po kiekviena top-level NAV kortele drawer'yje)
+ * ──────────────────────────────────────────────────────────────── */
+
+function MobileExpansion({
+  navKey, data, accent, onLink,
+}: {
+  navKey: NavItem['key']
+  data: NavPreview | null
+  accent: string
+  onLink: () => void
+}) {
+  if (navKey === 'muzika') {
+    const ltArtists = data?.artistsLt || []
+    const wrldArtists = data?.artistsWorld || []
+    const albums = data?.albums || []
+    const tracks = data?.tracks || []
+    return (
+      <div className="sh-mexp">
+        <Link href="/muzika" onClick={onLink} className="sh-mexp-cta" style={{ ['--it-rgb' as any]: hexToRgb(accent) }}>
+          Atidaryti Muziką <ArrowRight size={12}/>
+        </Link>
+
+        <div className="sh-mexp-section">
+          <span className="sh-mexp-title">Atlikėjai</span>
+          <Link href="/atlikejai" onClick={onLink} className="sh-mexp-more">Visi <ArrowRight size={10}/></Link>
+        </div>
+        <div className="sh-strip-wrap" style={{ marginBottom: 6 }}>
+          <RowStripe kind="lt" />
+          <div className="sh-strip">
+            {(ltArtists.length > 0 ? ltArtists.slice(0, 8) : Array(5).fill(null)).map((a, i) => (
+              <Link key={a?.id || `lt-${i}`} href={a ? `/atlikejai/${a.slug}` : '/atlikejai'} onClick={onLink} className="sh-mini sh-mini-xs">
+                <ImageBox src={a?.image} accent={accent} glyph={I.music} className="sh-mini-img" />
+                <span className="sh-mini-title sh-mini-title-2">{a?.name || 'Atlikėjas'}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+        <div className="sh-strip-wrap">
+          <RowStripe kind="world" />
+          <div className="sh-strip">
+            {(wrldArtists.length > 0 ? wrldArtists.slice(0, 8) : Array(5).fill(null)).map((a, i) => (
+              <Link key={a?.id || `w-${i}`} href={a ? `/atlikejai/${a.slug}` : '/atlikejai'} onClick={onLink} className="sh-mini sh-mini-xs">
+                <ImageBox src={a?.image} accent={accent} glyph={I.music} className="sh-mini-img" />
+                <span className="sh-mini-title sh-mini-title-2">{a?.name || 'Atlikėjas'}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        <div className="sh-mexp-section">
+          <span className="sh-mexp-title">Albumai</span>
+          <Link href="/albumai" onClick={onLink} className="sh-mexp-more">Visi <ArrowRight size={10}/></Link>
+        </div>
+        <div className="sh-strip">
+          {(albums.length > 0 ? albums.slice(0, 8) : Array(5).fill(null)).map((a, i) => (
+            <Link key={a?.id || i} href={a ? `/lt/albumas/${a.slug}/${a.id}` : '/albumai'} onClick={onLink} className="sh-mini sh-mini-xs">
+              <ImageBox src={a?.image} accent={accent} glyph={I.vinyl} className="sh-mini-img" />
+              <span className="sh-mini-title sh-mini-title-2">{a?.title || 'Albumas'}</span>
+            </Link>
+          ))}
+        </div>
+
+        <div className="sh-mexp-section">
+          <span className="sh-mexp-title">Dainos</span>
+          <Link href="/muzika" onClick={onLink} className="sh-mexp-more">Visos <ArrowRight size={10}/></Link>
+        </div>
+        <div className="sh-strip">
+          {(tracks.length > 0 ? tracks.slice(0, 8) : Array(5).fill(null)).map((t, i) => (
+            <Link key={t?.id || i} href={t ? `/dainos/${t.artistSlug}-${quickSlug(t.title)}-${t.id}` : '/muzika'} onClick={onLink} className="sh-mini sh-mini-xs">
+              <ImageBox src={t?.image} accent={accent} glyph={I.song} className="sh-mini-img" />
+              <span className="sh-mini-title sh-mini-title-2">{t?.title || 'Daina'}</span>
+            </Link>
+          ))}
+        </div>
+
+        <div className="sh-mexp-section">
+          <span className="sh-mexp-title">Stiliai</span>
+        </div>
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+          {GENRE_COLORS.map(s => (
+            <Link key={s.name} href={s.href} onClick={onLink} className="sh-style-pill" style={{ ['--it-rgb' as any]: s.rgb }}>
+              {s.short}
+            </Link>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (navKey === 'topai') {
+    return (
+      <div className="sh-mexp">
+        <Link href="/topas" onClick={onLink} className="sh-mexp-cta" style={{ ['--it-rgb' as any]: hexToRgb(accent) }}>
+          Atidaryti Topus <ArrowRight size={12}/>
+        </Link>
+        <div className="sh-mexp-grid">
+          <Link href="/topas" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#ef4444') }}>
+            <span className="sh-mexp-tile-icon">{I.trophy}</span>
+            <span className="sh-mexp-tile-label">Topai</span>
+          </Link>
+          <Link href="/balsavimai" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#ec4899') }}>
+            <span className="sh-mexp-tile-icon">{I.vote}</span>
+            <span className="sh-mexp-tile-label">Balsavimai</span>
+          </Link>
+          <Link href="/dienos-daina" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#10b981') }}>
+            <span className="sh-mexp-tile-icon">{I.song}</span>
+            <span className="sh-mexp-tile-label">Dienos daina</span>
+          </Link>
+          <Link href="/apdovanojimai" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#eab308') }}>
+            <span className="sh-mexp-tile-icon">{I.award}</span>
+            <span className="sh-mexp-tile-label">Apdovanojimai</span>
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  if (navKey === 'renginiai') {
+    const events = data?.events || []
+    return (
+      <div className="sh-mexp">
+        <Link href="/renginiai" onClick={onLink} className="sh-mexp-cta" style={{ ['--it-rgb' as any]: hexToRgb(accent) }}>
+          Atidaryti Renginius <ArrowRight size={12}/>
+        </Link>
+        <div className="sh-mexp-section">
+          <span className="sh-mexp-title">Artimiausi</span>
+          <Link href="/renginiai" onClick={onLink} className="sh-mexp-more">Visi <ArrowRight size={10}/></Link>
+        </div>
+        <div className="sh-strip">
+          {(events.length > 0 ? events.slice(0, 6) : Array(4).fill(null)).map((e, i) => (
+            <Link key={e?.id || i} href={e ? `/renginiai/${e.slug}` : '/renginiai'} onClick={onLink} className="sh-mini sh-mini-xs">
+              <ImageBox src={e?.image} accent={accent} glyph={I.calendar} className="sh-mini-img" />
+              <span className="sh-mini-title sh-mini-title-2">{e?.title || 'Renginys'}</span>
+            </Link>
+          ))}
+        </div>
+        <div className="sh-mexp-grid" style={{ marginTop: 10 }}>
+          <Link href="/festivaliai" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#06b6d4') }}>
+            <span className="sh-mexp-tile-icon">{I.festival}</span>
+            <span className="sh-mexp-tile-label">Festivaliai</span>
+          </Link>
+          <Link href="/galerija" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#ec4899') }}>
+            <span className="sh-mexp-tile-icon">{I.gallery}</span>
+            <span className="sh-mexp-tile-label">Galerija</span>
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  if (navKey === 'pramogos') {
+    return (
+      <div className="sh-mexp">
+        <Link href="/pramogos" onClick={onLink} className="sh-mexp-cta" style={{ ['--it-rgb' as any]: hexToRgb(accent) }}>
+          Atidaryti Pramogas <ArrowRight size={12}/>
+        </Link>
+        <div className="sh-mexp-grid">
+          <Link href="/boombox" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#f97316') }}>
+            <span className="sh-mexp-tile-icon">{I.boombox}</span>
+            <span className="sh-mexp-tile-label">Boombox</span>
+          </Link>
+          <Link href="/zaidimai" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#6366f1') }}>
+            <span className="sh-mexp-tile-icon">{I.game}</span>
+            <span className="sh-mexp-tile-label">Žaidimai</span>
+          </Link>
+          <Link href="/kvizai" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#14b8a6') }}>
+            <span className="sh-mexp-tile-icon">{I.quiz}</span>
+            <span className="sh-mexp-tile-label">Kvizai</span>
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  if (navKey === 'bendruomene') {
+    const news = data?.news || []
+    return (
+      <div className="sh-mexp">
+        <Link href="/bendruomene" onClick={onLink} className="sh-mexp-cta" style={{ ['--it-rgb' as any]: hexToRgb(accent) }}>
+          Atidaryti Bendruomenę <ArrowRight size={12}/>
+        </Link>
+        <div className="sh-mexp-section">
+          <span className="sh-mexp-title">Naujienos</span>
+          <Link href="/naujienos" onClick={onLink} className="sh-mexp-more">Visos <ArrowRight size={10}/></Link>
+        </div>
+        <div className="sh-strip">
+          {(news.length > 0 ? news.slice(0, 5) : Array(3).fill(null)).map((n, i) => (
+            <Link key={n?.id || i} href={n ? `/news/${n.slug}` : '/naujienos'} onClick={onLink} className="sh-mini sh-mini-xs">
+              <ImageBox src={n?.image} accent={accent} glyph={I.blog} className="sh-mini-img" />
+              <span className="sh-mini-title sh-mini-title-2">{n?.title || 'Naujiena'}</span>
+            </Link>
+          ))}
+        </div>
+        <div className="sh-mexp-grid" style={{ marginTop: 10 }}>
+          <Link href="/pokalbiai" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#06b6d4') }}>
+            <span className="sh-mexp-tile-icon">{I.chat}</span>
+            <span className="sh-mexp-tile-label">Pokalbiai</span>
+          </Link>
+          <Link href="/diskusijos" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#8b5cf6') }}>
+            <span className="sh-mexp-tile-icon">{I.forum}</span>
+            <span className="sh-mexp-tile-label">Diskusijos</span>
+          </Link>
+          <Link href="/blogas" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#a855f7') }}>
+            <span className="sh-mexp-tile-icon">{I.blog}</span>
+            <span className="sh-mexp-tile-label">Tinklaraščiai</span>
+          </Link>
+          <Link href="/vartotojai" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#f97316') }}>
+            <span className="sh-mexp-tile-icon">{I.users}</span>
+            <span className="sh-mexp-tile-label">Vartotojai</span>
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  if (navKey === 'skelbimai') {
+    return (
+      <div className="sh-mexp">
+        <Link href="/skelbimai" onClick={onLink} className="sh-mexp-cta" style={{ ['--it-rgb' as any]: hexToRgb(accent) }}>
+          Atidaryti Skelbimus <ArrowRight size={12}/>
+        </Link>
+        <div className="sh-mexp-grid">
+          {[
+            { label: 'Vinilas',         icon: I.vinyl,   rgb: '14, 165, 233' },
+            { label: 'CD ir kasetės',   icon: I.boombox, rgb: '6, 182, 212' },
+            { label: 'Instrumentai',    icon: I.guitar,  rgb: '245, 158, 11' },
+            { label: 'Audio įranga',    icon: I.music,   rgb: '168, 85, 247' },
+            { label: 'Studijos',        icon: I.quiz,    rgb: '236, 72, 153' },
+            { label: 'Paslaugos',       icon: I.market,  rgb: '16, 185, 129' },
+          ].map(t => (
+            <Link key={t.label} href="/skelbimai" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: t.rgb }}>
+              <span className="sh-mexp-tile-icon">{t.icon}</span>
+              <span className="sh-mexp-tile-label">{t.label}</span>
+            </Link>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  return null
+}
+
+/* ────────────────────────────────────────────────────────────────
  * Main component
  * ──────────────────────────────────────────────────────────────── */
 export function SiteHeader() {
@@ -586,6 +837,7 @@ export function SiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [preview, setPreview] = useState<NavPreview | null>(null)
+  const [mobileExpanded, setMobileExpanded] = useState<NavItem['key'] | null>(null)
 
   // Fetch nav preview data once on mount (cached aggressively)
   useEffect(() => {
@@ -770,83 +1022,68 @@ export function SiteHeader() {
         }
         .sh-strip::-webkit-scrollbar { display: none; }
 
-        /* Mini atlikėjo kortelė — kompaktinis avatar + vardas.
-           min-width:0 + max-width:78 — kad ilgi vardai nebreak'intų layout'o. */
-        .sh-mini-artist {
-          flex: 0 0 78px;
-          width: 78px;
+        /* Bendras mini-tile baseline — su size modifier'ais (-lg / -md / -sm).
+           min-width:0 reikalingas truncation'ui flex container'yje. */
+        .sh-mini {
+          flex-shrink: 0;
           min-width: 0;
-          max-width: 78px;
-          display: flex; flex-direction: column; gap: 4px;
+          display: flex; flex-direction: column;
           padding: 4px;
           border-radius: 8px;
           text-decoration: none;
           transition: background .15s;
           scroll-snap-align: start;
         }
-        .sh-mini-artist:hover { background: var(--bg-hover); }
-        .sh-mini-artist:hover .sh-mini-artist-img { transform: scale(1.06); }
-        .sh-mini-artist-img {
-          position: relative;
-          display: block;
-          width: 70px; height: 70px;
-          margin: 0 auto;
-          border-radius: 8px;
-          background-size: cover;
-          background-position: center;
-          background-color: var(--bg-hover);
-          transition: transform .22s ease;
-          overflow: hidden;
-        }
-        .sh-mini-artist-name {
-          font-size: 10.5px; font-weight: 700;
-          color: var(--text-primary);
-          line-height: 1.2;
-          text-align: center;
-          padding: 0 1px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
+        .sh-mini:hover { background: var(--bg-hover); }
+        .sh-mini:hover .sh-mini-img { transform: scale(1.06); }
 
-        /* Mini tile (albumas / daina) — fixed width + min-width:0 truncation'ui */
-        .sh-mini-tile {
-          flex: 0 0 78px;
-          width: 78px;
-          min-width: 0;
-          max-width: 78px;
-          display: flex; flex-direction: column; gap: 3px;
-          padding: 4px;
-          border-radius: 8px;
-          text-decoration: none;
-          transition: background .15s;
-          scroll-snap-align: start;
-        }
-        .sh-mini-tile:hover { background: var(--bg-hover); }
-        .sh-mini-tile:hover .sh-mini-tile-img { transform: scale(1.05); }
-        .sh-mini-tile-img {
+        /* Atlikėjai — didžiausi (90×90) */
+        .sh-mini-lg { flex-basis: 96px; width: 96px; max-width: 96px; gap: 5px; }
+        .sh-mini-lg .sh-mini-img { width: 88px; height: 88px; border-radius: 9px; }
+        .sh-mini-lg .sh-mini-title { font-size: 11.5px; text-align: center; }
+
+        /* Albumai — vidutiniai (74×74) */
+        .sh-mini-md { flex-basis: 82px; width: 82px; max-width: 82px; gap: 4px; }
+        .sh-mini-md .sh-mini-img { width: 74px; height: 74px; border-radius: 8px; }
+        .sh-mini-md .sh-mini-title { font-size: 11px; }
+
+        /* Dainos — mažiausi (60×60) */
+        .sh-mini-sm { flex-basis: 68px; width: 68px; max-width: 68px; gap: 3px; }
+        .sh-mini-sm .sh-mini-img { width: 60px; height: 60px; border-radius: 7px; }
+        .sh-mini-sm .sh-mini-title { font-size: 10.5px; }
+        .sh-mini-sm .sh-mini-meta { font-size: 9.5px; }
+
+        /* XS — mobile expansion turiniui (52×52) */
+        .sh-mini-xs { flex-basis: 60px; width: 60px; max-width: 60px; gap: 3px; padding: 3px; }
+        .sh-mini-xs .sh-mini-img { width: 54px; height: 54px; border-radius: 7px; }
+        .sh-mini-xs .sh-mini-title { font-size: 10px; }
+
+        .sh-mini-img {
           position: relative;
           display: block;
-          width: 70px; height: 70px;
           margin: 0 auto;
-          border-radius: 7px;
           background-size: cover;
           background-position: center;
           background-color: var(--bg-hover);
           transition: transform .22s ease;
           overflow: hidden;
         }
-        .sh-mini-tile-title {
-          font-size: 10.5px; font-weight: 700;
+        /* 2-line clamp — leidžia ilgesnius vardus matyti pilniau */
+        .sh-mini-title {
+          font-weight: 700;
           color: var(--text-primary);
-          line-height: 1.2;
+          line-height: 1.25;
           padding: 0 1px;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
           overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
+          word-break: break-word;
+          hyphens: auto;
         }
-        .sh-mini-tile-meta {
-          font-size: 9.5px; font-weight: 500;
+        .sh-mini-title-2 { -webkit-line-clamp: 2; }
+        .sh-mini-meta {
+          font-size: 10px; font-weight: 500;
           color: var(--text-muted);
           line-height: 1.2;
           padding: 0 1px;
@@ -1390,6 +1627,91 @@ export function SiteHeader() {
           flex-shrink: 0;
           color: rgba(var(--it-rgb), 1);
           opacity: 0.6;
+          transition: transform .22s ease;
+        }
+        /* Mobile drawer expansion — kompaktinis dropdown turinys */
+        .sh-mwrap { display: flex; flex-direction: column; }
+        .sh-mcard.expanded {
+          background: linear-gradient(135deg, rgba(var(--it-rgb), 0.22) 0%, rgba(var(--it-rgb), 0.07) 100%);
+          border-color: rgba(var(--it-rgb), 0.5);
+        }
+        .sh-mexp {
+          padding: 10px 4px 4px;
+          display: flex; flex-direction: column;
+          gap: 8px;
+        }
+        .sh-mexp-cta {
+          display: inline-flex; align-items: center; gap: 6px;
+          align-self: flex-start;
+          padding: 6px 12px;
+          border-radius: 999px;
+          font-size: 11.5px; font-weight: 700;
+          text-decoration: none;
+          color: rgba(var(--it-rgb), 1);
+          background: rgba(var(--it-rgb), 0.12);
+          border: 1px solid rgba(var(--it-rgb), 0.35);
+          transition: background .15s, border-color .15s;
+        }
+        .sh-mexp-cta:hover {
+          background: rgba(var(--it-rgb), 0.22);
+          border-color: rgba(var(--it-rgb), 0.55);
+        }
+        .sh-mexp-section {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 0 4px;
+          margin-top: 4px;
+        }
+        .sh-mexp-title {
+          font-size: 10px; font-weight: 800;
+          text-transform: uppercase; letter-spacing: 0.1em;
+          color: var(--text-muted);
+        }
+        .sh-mexp-more {
+          display: inline-flex; align-items: center; gap: 3px;
+          font-size: 10px; font-weight: 700;
+          padding: 2px 6px;
+          border-radius: 5px;
+          color: var(--text-secondary);
+          text-decoration: none;
+        }
+        .sh-mexp-more:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+        .sh-mexp-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 6px;
+        }
+        .sh-mexp-tile {
+          display: flex; align-items: center; gap: 8px;
+          padding: 8px 10px;
+          border-radius: 10px;
+          text-decoration: none;
+          background: linear-gradient(135deg, rgba(var(--it-rgb), 0.12) 0%, rgba(var(--it-rgb), 0.04) 100%);
+          border: 1px solid rgba(var(--it-rgb), 0.20);
+          transition: background .15s, border-color .15s, transform .15s;
+        }
+        .sh-mexp-tile:active { transform: scale(0.97); }
+        .sh-mexp-tile:hover {
+          background: linear-gradient(135deg, rgba(var(--it-rgb), 0.20) 0%, rgba(var(--it-rgb), 0.06) 100%);
+          border-color: rgba(var(--it-rgb), 0.45);
+        }
+        .sh-mexp-tile-icon {
+          flex-shrink: 0;
+          width: 26px; height: 26px;
+          border-radius: 7px;
+          display: flex; align-items: center; justify-content: center;
+          color: #fff;
+          background: linear-gradient(135deg, rgba(var(--it-rgb), 1) 0%, rgba(var(--it-rgb), 0.75) 100%);
+          box-shadow: 0 3px 8px rgba(var(--it-rgb), 0.3);
+        }
+        .sh-mexp-tile-icon svg { width: 14px; height: 14px; }
+        .sh-mexp-tile-label {
+          font-size: 11.5px; font-weight: 700;
+          color: var(--text-primary);
+          line-height: 1.2;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
       `}</style>
 
@@ -1546,25 +1868,36 @@ export function SiteHeader() {
           {NAV.map(n => {
             const active = isActive(n)
             const rgb = hexToRgb(n.accent)
+            const expanded = mobileExpanded === n.key
             return (
-              <Link
-                key={n.label}
-                href={n.href}
-                onClick={() => setMenuOpen(false)}
-                className={`sh-mcard${active ? ' active' : ''}`}
-                style={{ ['--it-rgb' as any]: rgb }}
-              >
-                <span className="sh-mcard-icon">{n.icon}</span>
-                <span className="sh-mcard-text">
-                  <span className="sh-mcard-title">{n.label}</span>
-                  <span className="sh-mcard-desc">{n.desc}</span>
-                </span>
-                <span className="sh-mcard-arrow">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="9 18 15 12 9 6"/>
-                  </svg>
-                </span>
-              </Link>
+              <div key={n.label} className="sh-mwrap">
+                <button
+                  type="button"
+                  onClick={() => setMobileExpanded(expanded ? null : n.key)}
+                  className={`sh-mcard${active ? ' active' : ''}${expanded ? ' expanded' : ''}`}
+                  style={{ ['--it-rgb' as any]: rgb }}
+                  aria-expanded={expanded}
+                >
+                  <span className="sh-mcard-icon">{n.icon}</span>
+                  <span className="sh-mcard-text">
+                    <span className="sh-mcard-title">{n.label}</span>
+                    <span className="sh-mcard-desc">{n.desc}</span>
+                  </span>
+                  <span className="sh-mcard-arrow" style={{ transform: expanded ? 'rotate(90deg)' : 'none' }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="9 18 15 12 9 6"/>
+                    </svg>
+                  </span>
+                </button>
+                {expanded && (
+                  <MobileExpansion
+                    navKey={n.key}
+                    data={preview}
+                    accent={n.accent}
+                    onLink={() => setMenuOpen(false)}
+                  />
+                )}
+              </div>
             )
           })}
         </nav>
