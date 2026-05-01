@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { proxyImg } from '@/lib/img-proxy'
 import { useGlobalChatRealtime } from '@/lib/chat-realtime'
 import {
   conversationDisplayName,
@@ -194,7 +195,8 @@ export function MessagesBell() {
               }
               .msg-bell-mobile-overlay {
                 display: block;
-                position: fixed; inset: 0; z-index: 9998;
+                position: fixed; top: 56px; left: 0; right: 0; bottom: 0;
+                z-index: 9998;
                 background: var(--bg-body);
               }
             }
@@ -327,7 +329,7 @@ function ShoutRow({ m }: { m: ShoutMsg }) {
     >
       {m.author_avatar ? (
         <Image
-          src={m.author_avatar}
+          src={proxyImg(m.author_avatar)}
           alt=""
           width={28}
           height={28}
@@ -394,7 +396,7 @@ function ConversationRow({ c, viewerId, onClick }: { c: ConversationListItem; vi
         onMouseLeave={e => (e.currentTarget.style.background = isUnread ? 'rgba(96,165,250,0.06)' : 'transparent')}
       >
         {url ? (
-          <Image src={url} alt="" width={36} height={36} unoptimized
+          <Image src={proxyImg(url)} alt="" width={36} height={36} unoptimized
             style={{ borderRadius: c.type === 'group' ? 8 : '50%', objectFit: 'cover', flexShrink: 0 }} />
         ) : (
           <div style={{

@@ -1,9 +1,12 @@
 'use client'
 
 import Image from 'next/image'
+import { proxyImg } from '@/lib/img-proxy'
 
 // Atomic avatar — gradient placeholder jei nėra paveiksliuko, square
 // rounded-full skeleton'as. Naudojam pokalbių sąraše, žinutėse, modaluose.
+// proxyImg() apvynioja music.lt URL'us per weserv.nl CDN — kitaip mobile
+// browser'iai blokuoja jų hot-link.
 
 type Props = {
   url: string | null | undefined
@@ -20,7 +23,7 @@ export function ChatAvatar({ url, fallbackName, size = 36, square }: Props) {
     return (
       <div style={{ width: size, height: size, position: 'relative', flexShrink: 0 }}>
         <Image
-          src={url}
+          src={proxyImg(url)}
           alt=""
           width={size}
           height={size}

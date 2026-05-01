@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { useSite } from '@/components/SiteContext'
 import { HomeChatsWidget } from '@/components/HomeChatsWidget'
+import { proxyImg } from '@/lib/img-proxy'
 
 /* ────────────────────────────── Types ────────────────────────────── */
 type Track = { id: number; slug: string; title: string; cover_url: string | null; created_at: string; artists: { id: number; slug: string; name: string; cover_image_url?: string | null } | null }
@@ -81,7 +82,7 @@ function strHue(s: string) {
 function Cover({ src, alt, size = 44, radius = 10, ytId, artistSrc }: { src?: string | null; alt: string; size?: number; radius?: number; ytId?: string | null; artistSrc?: string | null }) {
   const h = strHue(alt)
   const imgSrc = src || artistSrc || (ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : null)
-  if (imgSrc) return <img src={imgSrc} alt={alt} loading="lazy" style={{ width: size, height: size, borderRadius: radius, objectFit: 'cover', flexShrink: 0, display: 'block' }} />
+  if (imgSrc) return <img src={proxyImg(imgSrc)} alt={alt} loading="lazy" style={{ width: size, height: size, borderRadius: radius, objectFit: 'cover', flexShrink: 0, display: 'block' }} />
   return (
     <div style={{ width: size, height: size, borderRadius: radius, flexShrink: 0, background: `linear-gradient(135deg, hsl(${h},38%,16%), hsl(${(h + 40) % 360},28%,10%))`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: `hsl(${h},45%,45%)`, fontSize: size * 0.38, fontWeight: 800, fontFamily: 'Outfit, sans-serif' }}>
       {alt[0]?.toUpperCase() || '?'}
@@ -517,7 +518,7 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, dk }: {
             {/* Image zone */}
             <div className="hp-reels-img">
               {s.bgImg
-                ? <img src={s.bgImg} alt="" draggable={false} />
+                ? <img src={proxyImg(s.bgImg)} alt="" draggable={false} />
                 : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#0a1428,#162040)' }} />
               }
               {/* Video popup — on top of image */}
@@ -1054,7 +1055,7 @@ export default function Home() {
           <section className="hp-hero" ref={heroRef}>
             <div className="hp-hero-bg">
               {hero.bgImg ? (
-                <img key={heroIdx} src={hero.bgImg} alt="" onLoad={() => setHeroImgLoaded(true)} style={{ opacity: heroImgLoaded ? 1 : 0 }} />
+                <img key={heroIdx} src={proxyImg(hero.bgImg)} alt="" onLoad={() => setHeroImgLoaded(true)} style={{ opacity: heroImgLoaded ? 1 : 0 }} />
               ) : (
                 <div style={{ width: '100%', height: '100%', background: 'var(--homepage-hero-gradient)', position: 'relative', overflow: 'hidden' }}>
                   {/* Decorative music bars for slides without image */}
@@ -1216,7 +1217,7 @@ export default function Home() {
                     onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
                   >
                     {slide.bgImg
-                      ? <img src={slide.bgImg} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      ? <img src={proxyImg(slide.bgImg)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                       : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#0a1428,#162040)' }} />
                     }
                     <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.0) 50%)' }} />
@@ -1358,7 +1359,7 @@ export default function Home() {
                               {a.cover_image_url || a.artists?.cover_image_url ? (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img
-                                  src={a.cover_image_url || a.artists?.cover_image_url || ''}
+                                  src={proxyImg(a.cover_image_url || a.artists?.cover_image_url || '')}
                                   alt={sanitizeTitle(a.title)}
                                   loading="lazy"
                                   className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
@@ -1452,7 +1453,7 @@ export default function Home() {
                                 {imgSrc ? (
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img
-                                    src={imgSrc}
+                                    src={proxyImg(imgSrc)}
                                     alt={sanitizeTitle(ev.title)}
                                     loading="lazy"
                                     className="h-full w-auto max-w-[200px] object-cover transition-transform duration-500 group-hover:scale-[1.04]"

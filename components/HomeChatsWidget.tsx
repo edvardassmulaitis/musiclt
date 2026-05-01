@@ -22,6 +22,7 @@ import {
   type ConversationListItem,
 } from '@/lib/chat-types'
 import { formatSidebarTime } from '@/components/chat/ChatTime'
+import { proxyImg } from '@/lib/img-proxy'
 
 const MAX_ROWS = 4
 const REFRESH_MS = 30_000  // fallback'as jei realtime atsijungtų
@@ -193,7 +194,7 @@ function Avatar({ url, name, group }: { url: string | null; name: string; group:
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={url} alt=""
+        src={proxyImg(url)} alt=""
         style={{ width: 24, height: 24, borderRadius: radius, objectFit: 'cover', flexShrink: 0 }}
       />
     )
