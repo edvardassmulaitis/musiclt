@@ -16,6 +16,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { resolveAuthorId } from '@/lib/resolve-author'
 
 function isMissingTable(msg: string | null | undefined) {
   return !!msg && /relation .* does not exist|does not exist/i.test(msg)
@@ -23,8 +24,7 @@ function isMissingTable(msg: string | null | undefined) {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const userId = (session?.user as any)?.id
-  if (!userId) return NextResponse.json({ error: 'Reikia prisijungti' }, { status: 401 })
+  if (!session?.user?.email) return NextResponse.json({ error: 'Reikia prisijungti' }, { status: 401 })
 
   const body = await req.json().catch(() => ({}))
   const sub = body.subscription
@@ -33,6 +33,12 @@ export async function POST(req: NextRequest) {
   }
 
   const sb = createAdminClient()
+  // Naudojam resolveAuthorId (lookup pagal email) — session.user.id gali būti
+  // pasenęs UUID po DB wipe'o ir nesutapti su profiles.id (FK constraint failtų).
+  const userId = await resolveAuthorId(sb, session)
+  if (!userId) {
+    return NextResponse.json({ error: 'Profilis nerastas — atsijunk ir prisijunk iš naujo' }, { status: 500 })
+  }
   const ua = req.headers.get('user-agent')
 
   // Upsert pagal endpoint (UNIQUE) — jeigu user pakartotinai subscribe'ina,
@@ -57,14 +63,16 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const userId = (session?.user as any)?.id
-  if (!userId) return NextResponse.json({ error: 'Reikia prisijungti' }, { status: 401 })
+  if (!session?.user?.email) return NextResponse.json({ error: 'Reikia prisijungti' }, { status: 401 })
 
   const body = await req.json().catch(() => ({}))
   const endpoint = body.endpoint
   if (!endpoint) return NextResponse.json({ error: 'Reikia endpoint' }, { status: 400 })
 
   const sb = createAdminClient()
+  const userId = await resolveAuthorId(sb, session)
+  if (!userId) return NextResponse.json({ ok: true })  // nieko nepadaroma — bet ne klaida
+
   const { error } = await sb
     .from('push_subscriptions')
     .delete()
@@ -81,14 +89,16 @@ export async function DELETE(req: NextRequest) {
 //   GET /api/push/subscribe?endpoint=... → { subscribed: bool }
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const userId = (session?.user as any)?.id
-  if (!userId) return NextResponse.json({ subscribed: false })
+  if (!session?.user?.email) return NextResponse.json({ subscribed: false })
 
   const { searchParams } = new URL(req.url)
   const endpoint = searchParams.get('endpoint')
   if (!endpoint) return NextResponse.json({ subscribed: false })
 
   const sb = createAdminClient()
+  const userId = await resolveAuthorId(sb, session)
+  if (!userId) return NextResponse.json({ subscribed: false })
+
   const { data, error } = await sb
     .from('push_subscriptions')
     .select('id')
