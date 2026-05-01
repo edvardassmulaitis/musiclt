@@ -1,7 +1,9 @@
 // app/atlikejai/[slug]/page.tsx
 import { notFound } from 'next/navigation'
+import { Suspense } from 'react'
 import { createAdminClient } from '@/lib/supabase'
 import ArtistProfileClient from './artist-profile-client'
+import { PageLoader } from '@/components/PageLoader'
 import type { Metadata } from 'next'
 
 // Force dynamic — likes lentelė pildomas tiek nuo vartotojų toggle'ų,
@@ -693,8 +695,27 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return { title: `${a.name} — music.lt`, description: plain(a.description) || `${a.name} music.lt`, openGraph: { title: `${a.name} — music.lt`, images: a.cover_image_url ? [a.cover_image_url] : [] } }
 }
 
+// ──────────────────────────────────────────────────────────────────────
+// SUSPENSE PATTERN: artist'ą paimam greitai (1 query ~150ms), tada
+// tuoj pat grąžinam <Suspense> wrapper'į su PageLoader fallback'u.
+// SSR atsako early bytes turi loader'į → naudotojas iš karto mato
+// skeleton'ą. Visi 20+ likę queries paleidžiami <ArtistContent> viduje,
+// kuris stream'inasi į Suspense slot'ą kai tik Promise.all baigia.
+// Be šito buvo: full HTML buffer'inamas 2-3s → naudotojas mato tuščią
+// puslapį su top menu kelias sekundes.
+// ──────────────────────────────────────────────────────────────────────
 export default async function ArtistPage({ params }: Props) {
-  const { slug } = await params; const artist = await getArtist(slug); if (!artist) notFound()
+  const { slug } = await params
+  const artist = await getArtist(slug)
+  if (!artist) notFound()
+  return (
+    <Suspense fallback={<PageLoader variant="artist" />}>
+      <ArtistContent artist={artist} />
+    </Suspense>
+  )
+}
+
+async function ArtistContent({ artist }: { artist: any }) {
   const [genres, substyles, tableLinks, dbPhotos, albums, tracks, members, followers, likeCount, news, rawEvents, allTrackLegacyIds, legacyThreads, legacyNews, linkedTrackIdSet, awards] = await Promise.all([
     getGenres(artist.id), getSubstyles(artist.id), getLinks(artist.id), getPhotos(artist.id), getAlbums(artist.id), getTracks(artist.id),
     getMembers(artist.id), getFollowers(artist.id), getLikeCount(artist.id), getNews(artist.id), getEvents(artist.id),

@@ -8,10 +8,11 @@
 // canonical. Tai apsaugo nuo:
 //   - Senų URL'ų be artist prefix'o (/dainos/kregzdutes-29293)
 //   - Spelling renames (po artist/track slug pakeitimo)
-import React from 'react'
+import React, { Suspense } from 'react'
 import { notFound, redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase'
 import TrackPageClient from '@/app/lt/daina/[slug]/[id]/track-page-client'
+import { PageLoader } from '@/components/PageLoader'
 
 export const revalidate = 0
 
@@ -42,12 +43,22 @@ export async function generateMetadata({ params }: { params: Promise<{ slugId: s
   }
 }
 
+// SUSPENSE PATTERN — žr. /atlikejai/[slug]/page.tsx komentarą. parseSlugId
+// pati nieko neužklauisa (URL parse), todėl iškart grąžinam Suspense
+// wrapper'į ir slow queries vykdom <TrackContent> viduje.
 export default async function DainaPage({ params }: { params: Promise<{ slugId: string }> }): Promise<React.ReactElement> {
   const { slugId } = await params
   const parsed = parseSlugId(slugId)
   if (!parsed) notFound()
 
-  const { slug, id } = parsed
+  return (
+    <Suspense fallback={<PageLoader variant="track" />}>
+      <TrackContent slug={parsed.slug} id={parsed.id} />
+    </Suspense>
+  )
+}
+
+async function TrackContent({ slug, id }: { slug: string; id: number }): Promise<React.ReactElement> {
   const supabase = createAdminClient()
 
   // ── Fetch track ────────────────────────────────────────────────────────────

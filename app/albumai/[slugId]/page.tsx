@@ -6,8 +6,10 @@
 // Slug verifikacija po DB lookup'o; jei neatitinka — 301 redirect į canonical
 // (su artist prefix'u). Apsaugo nuo legacy URL'ų be artist + spelling renames.
 import { notFound, redirect } from 'next/navigation'
+import { Suspense } from 'react'
 import { createAdminClient } from '@/lib/supabase'
 import AlbumPageClient from '@/app/lt/albumas/[slug]/[id]/album-page-client'
+import { PageLoader } from '@/components/PageLoader'
 import type { Metadata } from 'next'
 
 type Props = { params: Promise<{ slugId: string }> }
@@ -176,22 +178,25 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
+// SUSPENSE PATTERN — žr. /atlikejai/[slug]/page.tsx komentarą. parseSlugId
+// pati nieko neužklauisa (URL parse), todėl iškart grąžinam Suspense
+// wrapper'į ir slow queries vykdom <AlbumContent> viduje (stream'ina į
+// fallback slot'ą). Naudotojas iš karto mato PageLoader'į vietoj balto ekrano.
 export default async function AlbumPage({ params }: Props) {
   const { slugId } = await params
   const parsed = parseSlugId(slugId)
   if (!parsed) notFound()
 
-  const { slug, id: albumId } = parsed
+  return (
+    <Suspense fallback={<PageLoader variant="album" />}>
+      <AlbumContent slugFromUrl={parsed.slug} albumId={parsed.id} />
+    </Suspense>
+  )
+}
 
-  // ── Paralelizuojam VISKĄ ────────────────────────────────────────────────
-  // Anksčiau: getAlbum sequential prieš Promise.all (5 queries) — 6 batch'ai.
-  // Dabar: getAlbum + tracks + likes paleidžiam VIENU batch'u (jiems reikia
-  // tik albumId, kurį turim iš URL). Tik getOtherAlbums ir getSimilarAlbums
-  // priklauso nuo artistId — juos vykdom antrame batch'e tik jei artistId
-  // dar nežinom. Bet dažnu atveju mums apskritai jų nereikia, nes jei album
-  // negalioja → notFound. Sprendimas: einam album + tracks + likes parallel,
-  // o jei album'as rastas — tada paralel paleidžiam dar 2 (otherAlbums,
-  // similarAlbums).
+async function AlbumContent({ slugFromUrl, albumId }: { slugFromUrl: string; albumId: number }) {
+  const slug = slugFromUrl
+
   const [album, tracks, likes] = await Promise.all([
     getAlbum(albumId),
     getAlbumTracks(albumId),
