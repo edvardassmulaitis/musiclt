@@ -1482,7 +1482,10 @@ export function SiteHeader() {
               className="sh-search-icon"
               style={{
                 width: 34, height: 34,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                // display: paliekam CSS klasėje (display:none default + flex
+                // ≤1080px). Inline style'as override'intų klasę ir ikona
+                // visada būtų matoma — tai sukėlė dvigubą paiešką desktop'e.
+                alignItems: 'center', justifyContent: 'center',
                 border: 'none', background: 'transparent', cursor: 'pointer',
                 color: 'var(--text-muted)', borderRadius: 8,
                 transition: 'color .15s, background .15s',

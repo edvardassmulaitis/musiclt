@@ -164,23 +164,45 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
   const expandedCacheRef = useRef<Map<string, Hit[]>>(new Map())
   const [expandLoading, setExpandLoading] = useState(false)
 
-  // ── Atidarius — focus input ──
+  // ── Atidarius — focus input + scroll lock ──
+  // iOS Safari nesofuokuoja per setTimeout (user-gesture'ą prarandam).
+  // Sprendimai:
+  //   1. Focus iškart (sync) — dažnai veikia, nes hook'as run'inasi
+  //      sinchroniniame React commit'e po user click'o.
+  //   2. autoFocus prop'as ant input'o (backup).
+  //   3. requestAnimationFrame fallback'as kai DOM dar montuojasi.
+  // Body scroll lock'as iOS'e: `overflow: hidden` neužtenka, reikia
+  // position:fixed + saugoti scrollY, kitu atveju background scroll'inasi.
   useEffect(() => {
-    if (open) {
-      // delay'as kad transition'as nelaužytų caret'o
-      const t = setTimeout(() => inputRef.current?.focus(), 80)
-      // Body scroll lock
-      document.body.style.overflow = 'hidden'
-      // Recent queries from sessionStorage (artifacts: jei išjungta — fail
-      // silently; localStorage čia ne — gali būti restricted env'uose).
-      try {
-        const saved = sessionStorage.getItem('musiclt-recent-search')
-        if (saved) setRecentQueries(JSON.parse(saved).slice(0, 8))
-      } catch {}
-      return () => {
-        clearTimeout(t)
-        document.body.style.overflow = ''
-      }
+    if (!open) return
+    inputRef.current?.focus()
+    requestAnimationFrame(() => inputRef.current?.focus())
+    const t = setTimeout(() => inputRef.current?.focus(), 60)
+
+    // iOS-friendly scroll lock
+    const scrollY = window.scrollY
+    const prev = {
+      overflow: document.body.style.overflow,
+      position: document.body.style.position,
+      top: document.body.style.top,
+      width: document.body.style.width,
+    }
+    document.body.style.overflow = 'hidden'
+    document.body.style.position = 'fixed'
+    document.body.style.top = `-${scrollY}px`
+    document.body.style.width = '100%'
+
+    try {
+      const saved = sessionStorage.getItem('musiclt-recent-search')
+      if (saved) setRecentQueries(JSON.parse(saved).slice(0, 8))
+    } catch {}
+    return () => {
+      clearTimeout(t)
+      document.body.style.overflow = prev.overflow
+      document.body.style.position = prev.position
+      document.body.style.top = prev.top
+      document.body.style.width = prev.width
+      window.scrollTo(0, scrollY)
     }
   }, [open])
 
@@ -436,6 +458,13 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
             className="ms-input"
             autoComplete="off"
             spellCheck={false}
+            // autoFocus — iOS Safari'ui užtikrinimui (kartu su sync focus
+            // call'u useEffect'e). Be šito mobile user'iams reikėdavo
+            // pirmiausia tap'inti į input'ą, o tik tada virš klaviatūra
+            // atsidarydavo.
+            autoFocus
+            inputMode="search"
+            enterKeyHint="search"
           />
           {q.length > 0 && (
             <button className="ms-clear" onClick={() => { setQ(''); inputRef.current?.focus() }} aria-label="Išvalyti">
@@ -1238,17 +1267,31 @@ const searchCss = `
     0 8px 24px rgba(0,0,0,0.08);
 }
 
-/* ── Mobile ── */
-@media (max-width: 640px) {
+/* ── Mobile (full-screen modal) ──
+   Naudojam 100dvh (dynamic viewport height) iOS Safari'ui — paprastas
+   100vh apima ir URL bar'ą, dėl ko shell apačia užvažiuoja po toolbar'u
+   ir browser scroll'inasi. 100dvh follow'ina realų visible viewport.
+   Fallback: 100vh seniems naršyklėms be dvh palaikymo. */
+@media (max-width: 768px) {
+  .ms-overlay {
+    /* Iškart visa screen — 100vh nuo pirmos eilutės. iOS overflow:hidden
+       ant body tik dalinai veikia, todėl reikia ir overlay'aus. */
+    height: 100vh;
+    height: 100dvh;
+    /* touch-action: none neleidžia gesture'ams praeiti į background'ą. */
+    touch-action: none;
+  }
   .ms-shell {
-    top: 0; left: 0; right: 0;
+    top: 0; left: 0; right: 0; bottom: 0;
     width: 100vw;
     max-height: 100vh; height: 100vh;
+    max-height: 100dvh; height: 100dvh;
     border-radius: 0;
     transform: none;
+    border: none;
   }
   @keyframes ms-pop { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: none } }
-  .ms-input { font-size: 16px; }
+  .ms-input { font-size: 16px; }   /* >=16px kad iOS auto-zoom'as nešoktų */
   .ms-input-wrap { padding: 12px 14px; }
   .ms-row-img { width: 40px; height: 40px; }
   .ms-row-badge { display: none; }
