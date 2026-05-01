@@ -57,6 +57,7 @@ const I = {
   blog: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 3v6h6"/><path d="M19 9v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7Z"/><path d="M9 13h6M9 17h4"/></svg>,
   vinyl: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>,
   news: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8M15 18h-5M10 6h8v4h-8V6Z"/></svg>,
+  trending: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>,
   guitar: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18 6.5 20.5a2.12 2.12 0 0 1-3-3L6 15"/><path d="m9 9 5 5L15 9 9 9z"/><path d="m22 2-9 9"/><path d="M9 9c-.5-1.5-2-2.5-3.5-2-1.5.5-2.5 2-2 3.5L4 12"/></svg>,
   festival: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21V12h6v9"/><circle cx="12" cy="9" r="1.5"/></svg>,
   gallery: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>,
@@ -258,8 +259,11 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
 
       {/* ── ATLIKĖJAI — 2 eilutės su LT/world stripe (didžiausi) ── */}
       <div className="sh-panel-section">
-        <span className="sh-panel-section-title">Atlikėjai</span>
-        <Link href="/atlikejai" className="sh-panel-section-more">Visi <ArrowRight size={11}/></Link>
+        <span className="sh-panel-section-title">
+          <span className="sh-trending-glyph" title="Trending — populiariausi">{I.trending}</span>
+          Atlikėjai
+        </span>
+        <Link href="/atlikejai" className="sh-panel-section-more">Daugiau <ArrowRight size={11}/></Link>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
         {renderArtistRow(artistsLt, 'lt')}
@@ -268,8 +272,11 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
 
       {/* ── ALBUMAI — vidutinis dydis ── */}
       <div className="sh-panel-section">
-        <span className="sh-panel-section-title">Albumai</span>
-        <Link href="/albumai" className="sh-panel-section-more">Visi <ArrowRight size={11}/></Link>
+        <span className="sh-panel-section-title">
+          <span className="sh-trending-glyph" title="Trending — populiariausi">{I.trending}</span>
+          Albumai
+        </span>
+        <Link href="/albumai" className="sh-panel-section-more">Daugiau <ArrowRight size={11}/></Link>
       </div>
       <div className="sh-strip" style={{ marginBottom: 14 }}>
         {(albums.length > 0 ? albums : Array(8).fill(null)).map((a, i) => (
@@ -296,8 +303,11 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
 
       {/* ── DAINOS — mažiausias dydis ── */}
       <div className="sh-panel-section">
-        <span className="sh-panel-section-title">Dainos</span>
-        <Link href="/muzika" className="sh-panel-section-more">Visos <ArrowRight size={11}/></Link>
+        <span className="sh-panel-section-title">
+          <span className="sh-trending-glyph" title="Trending — populiariausios">{I.trending}</span>
+          Dainos
+        </span>
+        <Link href="/muzika" className="sh-panel-section-more">Daugiau <ArrowRight size={11}/></Link>
       </div>
       <div className="sh-strip" style={{ marginBottom: 14 }}>
         {(tracks.length > 0 ? tracks : Array(10).fill(null)).map((t, i) => (
@@ -326,7 +336,7 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
       <div style={{ paddingTop: 12, borderTop: '1px solid var(--border-default)' }}>
         <div className="sh-panel-section">
           <span className="sh-panel-section-title">Stiliai</span>
-          <Link href="/zanrai" className="sh-panel-section-more">Visi <ArrowRight size={11}/></Link>
+          <Link href="/zanrai" className="sh-panel-section-more">Daugiau <ArrowRight size={11}/></Link>
         </div>
         <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
           {styles.map(s => (
@@ -396,7 +406,7 @@ function RenginiaiPanel({ data, accent }: { data: NavPreview | null; accent: str
     <div className="sh-panel" style={{ minWidth: 600 }}>
       <div className="sh-panel-section">
         <span className="sh-panel-section-title">Artimiausi renginiai</span>
-        <Link href="/renginiai" className="sh-panel-section-more">Visi <ArrowRight size={11}/></Link>
+        <Link href="/renginiai" className="sh-panel-section-more">Daugiau <ArrowRight size={11}/></Link>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
         {(events.length > 0 ? events : Array(4).fill(null)).map((e, i) => (
@@ -490,7 +500,7 @@ function NaujienosPanel({ data, accent }: { data: NavPreview | null; accent: str
     <div className="sh-panel" style={{ minWidth: 720 }}>
       <div className="sh-panel-section">
         <span className="sh-panel-section-title">Naujausios naujienos</span>
-        <Link href="/naujienos" className="sh-panel-section-more">Visos <ArrowRight size={11}/></Link>
+        <Link href="/naujienos" className="sh-panel-section-more">Daugiau <ArrowRight size={11}/></Link>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         {(news.length > 0 ? news : Array(4).fill(null)).map((n, i) => (
@@ -634,8 +644,11 @@ function MobileExpansion({
     return (
       <div className="sh-mexp">
         <div className="sh-mexp-section">
-          <span className="sh-mexp-title">Atlikėjai</span>
-          <Link href="/atlikejai" onClick={onLink} className="sh-mexp-more">Visi <ArrowRight size={10}/></Link>
+          <span className="sh-mexp-title">
+            <span className="sh-trending-glyph sh-trending-mini" title="Trending">{I.trending}</span>
+            Atlikėjai
+          </span>
+          <Link href="/atlikejai" onClick={onLink} className="sh-mexp-more">Daugiau <ArrowRight size={10}/></Link>
         </div>
         <div className="sh-strip-wrap" style={{ marginBottom: 6 }}>
           <RowStripe kind="lt" />
@@ -661,8 +674,11 @@ function MobileExpansion({
         </div>
 
         <div className="sh-mexp-section">
-          <span className="sh-mexp-title">Albumai</span>
-          <Link href="/albumai" onClick={onLink} className="sh-mexp-more">Visi <ArrowRight size={10}/></Link>
+          <span className="sh-mexp-title">
+            <span className="sh-trending-glyph sh-trending-mini" title="Trending">{I.trending}</span>
+            Albumai
+          </span>
+          <Link href="/albumai" onClick={onLink} className="sh-mexp-more">Daugiau <ArrowRight size={10}/></Link>
         </div>
         <div className="sh-strip">
           {(albums.length > 0 ? albums.slice(0, 8) : Array(5).fill(null)).map((a, i) => (
@@ -674,8 +690,11 @@ function MobileExpansion({
         </div>
 
         <div className="sh-mexp-section">
-          <span className="sh-mexp-title">Dainos</span>
-          <Link href="/muzika" onClick={onLink} className="sh-mexp-more">Visos <ArrowRight size={10}/></Link>
+          <span className="sh-mexp-title">
+            <span className="sh-trending-glyph sh-trending-mini" title="Trending">{I.trending}</span>
+            Dainos
+          </span>
+          <Link href="/muzika" onClick={onLink} className="sh-mexp-more">Daugiau <ArrowRight size={10}/></Link>
         </div>
         <div className="sh-strip">
           {(tracks.length > 0 ? tracks.slice(0, 8) : Array(5).fill(null)).map((t, i) => (
@@ -731,7 +750,7 @@ function MobileExpansion({
       <div className="sh-mexp">
         <div className="sh-mexp-section">
           <span className="sh-mexp-title">Artimiausi</span>
-          <Link href="/renginiai" onClick={onLink} className="sh-mexp-more">Visi <ArrowRight size={10}/></Link>
+          <Link href="/renginiai" onClick={onLink} className="sh-mexp-more">Daugiau <ArrowRight size={10}/></Link>
         </div>
         <div className="sh-strip">
           {(events.length > 0 ? events.slice(0, 6) : Array(4).fill(null)).map((e, i) => (
@@ -782,7 +801,7 @@ function MobileExpansion({
       <div className="sh-mexp">
         <div className="sh-mexp-section">
           <span className="sh-mexp-title">Naujausios</span>
-          <Link href="/naujienos" onClick={onLink} className="sh-mexp-more">Visos <ArrowRight size={10}/></Link>
+          <Link href="/naujienos" onClick={onLink} className="sh-mexp-more">Daugiau <ArrowRight size={10}/></Link>
         </div>
         <div className="sh-strip">
           {(news.length > 0 ? news.slice(0, 8) : Array(5).fill(null)).map((n, i) => (
@@ -1024,7 +1043,17 @@ export function SiteHeader() {
           text-transform: uppercase;
           letter-spacing: 0.1em;
           color: var(--text-muted);
+          display: inline-flex; align-items: center; gap: 5px;
         }
+        /* Trending glyph — mini up-arrow chart, kursoriaus-spalvotas accent
+           kuris vizualiai signalizuoja "trending / curated picks" virš
+           Atlikėjai/Albumai/Dainos sekcijų */
+        .sh-trending-glyph {
+          display: inline-flex; align-items: center;
+          color: var(--accent-orange);
+        }
+        .sh-trending-glyph svg { width: 11px; height: 11px; }
+        .sh-trending-mini svg { width: 10px; height: 10px; }
         .sh-panel-section-more {
           display: inline-flex; align-items: center; gap: 4px;
           font-size: 11px; font-weight: 700;
