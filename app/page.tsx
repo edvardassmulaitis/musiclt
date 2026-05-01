@@ -269,6 +269,119 @@ function BoomboxHomeWidget() {
 /* Shoutbox widget'as išperkeltas į components/HomeChatsWidget.tsx ir
    dabar yra dalis pokalbių sistemos (rodoma user'io pastarosios DM/grupės). */
 
+/* ────────────────────────────── Žmonės ──────────────────────────────
+   Žmonių sekcija — blogai, vertimai, kūryba (forumas).
+   Sujungia /api/blog/latest + /api/diskusijos į vieną horizontal row.
+   Empty state — kai nieko nėra, rodom CTA naujiems autoriams. */
+
+type ZmonesItem = {
+  id: string
+  type: 'blog' | 'discussion'
+  title: string
+  href: string
+  meta: string  // autorius arba diskusijos kategorija
+  excerpt: string | null
+  cover: string | null
+  badge: string | null
+  created_at: string
+}
+
+function ZmonesSection() {
+  const [items, setItems] = useState<ZmonesItem[]>([])
+  const [loading, setLoading] = useState(true)
+  useEffect(() => {
+    let alive = true
+    Promise.all([
+      fetch('/api/blog/latest?limit=8').then(r => r.json()).catch(() => []),
+      fetch('/api/diskusijos?sort=activity&limit=8').then(r => r.json()).catch(() => ({ discussions: [] })),
+    ]).then(([blogs, diskRes]: any[]) => {
+      if (!alive) return
+      const arr: ZmonesItem[] = []
+      ;(Array.isArray(blogs) ? blogs : []).forEach((b: any) => {
+        arr.push({
+          id: `b-${b.id}`,
+          type: 'blog',
+          title: sanitizeTitle(b.title || ''),
+          href: `/blogai/${b.blog_slug || b.author_slug || ''}/${b.slug || b.id}`,
+          meta: b.author_name || 'Autorius',
+          excerpt: b.excerpt || null,
+          cover: b.cover_url || b.image_url || null,
+          badge: 'BLOGAS',
+          created_at: b.created_at || new Date().toISOString(),
+        })
+      })
+      ;((diskRes?.discussions) || []).forEach((d: any) => {
+        arr.push({
+          id: `d-${d.id}`,
+          type: 'discussion',
+          title: sanitizeTitle(d.title || ''),
+          href: `/diskusijos/${d.slug || d.id}`,
+          meta: d.author_name || 'Anonimas',
+          excerpt: null,
+          cover: null,
+          badge: 'DISKUSIJA',
+          created_at: d.created_at || new Date().toISOString(),
+        })
+      })
+      arr.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))
+      setItems(arr)
+      setLoading(false)
+    }).catch(() => setLoading(false))
+    return () => { alive = false }
+  }, [])
+
+  return (
+    <section>
+      <SectionHead label="Žmonės" href="/bendruomene" cta="Visi →" />
+      <div className="hp-scroll flex items-stretch gap-3 pb-1">
+        {loading ? Array(5).fill(null).map((_, i) => (
+          <div key={i} className="shrink-0 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-3" style={{ width: 260, height: 130 }}>
+            <Skel w="35%" h={9} /><div className="mt-2"><Skel w="92%" h={12} /></div>
+            <div className="mt-1.5"><Skel w="78%" h={11} /></div>
+            <div className="mt-3"><Skel w="55%" h={9} /></div>
+          </div>
+        )) : items.length === 0 ? (
+          <div className="hp-card flex shrink-0 flex-col justify-center px-4 py-3" style={{ width: 360 }}>
+            <p className="m-0 font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)]">Žmonių zona — netrukus</p>
+            <p className="m-0 mt-1 text-[11.5px] text-[var(--text-muted)]">
+              Čia atsiras autorių blogai, vertimai, kūryba ir aktyviausios diskusijos. Pirmas tampi autoriumi <Link href="/blogai/naujas" className="text-[var(--accent-link)] no-underline">čia</Link>.
+            </p>
+          </div>
+        ) : items.slice(0, 14).map(it => (
+          <Link
+            key={it.id}
+            href={it.href}
+            className="hp-card group flex shrink-0 flex-col overflow-hidden p-3 no-underline"
+            style={{ width: 260 }}
+          >
+            <div className="mb-1.5 flex items-center gap-1.5">
+              {it.badge && (
+                <span className={`rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[8.5px] font-extrabold uppercase tracking-[0.06em] ${
+                  it.type === 'blog'
+                    ? 'bg-[var(--accent-orange)]/15 text-[var(--accent-orange)]'
+                    : 'bg-[var(--accent-link)]/15 text-[var(--accent-link)]'
+                }`}>{it.badge}</span>
+              )}
+              <span className="ml-auto text-[9px] text-[var(--text-faint)]">{timeAgo(it.created_at)}</span>
+            </div>
+            <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[13px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
+              {it.title}
+            </p>
+            {it.excerpt && (
+              <p className="m-0 mt-1.5 line-clamp-2 text-[11.5px] text-[var(--text-muted)]">
+                {it.excerpt}
+              </p>
+            )}
+            <p className="m-0 mt-auto pt-2 truncate text-[11px] text-[var(--text-secondary)]">
+              {it.meta}
+            </p>
+          </Link>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 /* ────────────────────────────── Discussions ────────────────────────────── */
 
 function DiscussionsWidget() {
@@ -960,6 +1073,8 @@ export default function Home() {
         .hp-hero-bg img{width:auto;height:100%;max-width:100%;object-fit:cover;object-position:center 25%;display:block;animation:hp-img-in .8s ease both;-webkit-mask-image:linear-gradient(to right, transparent 0%, black 12%, black 100%);mask-image:linear-gradient(to right, transparent 0%, black 12%, black 100%)}
         .hp-hero-grad{display:none}
         .hp-hero-content{position:relative;z-index:2;display:flex;align-items:stretch;max-width:1360px;margin:0 auto;padding:0 20px;width:100%;flex:1}
+        .hp-hero-content > .hp-hero-bg{position:absolute;top:0;bottom:0;left:35%;right:340px;z-index:0;overflow:hidden;display:flex;align-items:stretch;justify-content:flex-end}
+        .hp-hero-spacer{flex:1;min-height:120px}
         .hp-hero-left{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:36px 0 40px;min-width:0}
         .hp-hero-right{width:340px;flex-shrink:0;padding:20px 16px 20px 20px;display:flex;flex-direction:column;border-left:1px solid var(--border-default);background:var(--bg-body);position:relative;z-index:3}
 
@@ -1096,22 +1211,21 @@ export default function Home() {
         )}
         {pageReady && hero && (
           <section className="hp-hero" ref={heroRef}>
-            <div className="hp-hero-bg">
-              {hero.bgImg ? (
-                <img key={heroIdx} src={proxyImg(hero.bgImg)} alt="" onLoad={() => setHeroImgLoaded(true)} style={{ opacity: heroImgLoaded ? 1 : 0 }} />
-              ) : (
-                <div style={{ width: '100%', height: '100%', background: 'var(--homepage-hero-gradient)', position: 'relative', overflow: 'hidden' }}>
-                  {/* Decorative music bars for slides without image */}
-                  <div style={{ position: 'absolute', right: '8%', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'flex-end', gap: 5, opacity: 0.08 }}>
-                    {[35, 70, 50, 90, 60, 85, 40, 70, 100, 45, 75].map((h, i) => (
-                      <div key={i} style={{ width: 7, borderRadius: 3, background: '#f97316', height: h, animation: `hp-bar ${0.8 + (i % 4) * 0.15}s ease-in-out infinite alternate`, animationDelay: `${i * 0.08}s` }} />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
             <div className="hp-hero-grad" style={{ background: 'var(--homepage-hero-overlay)' }} />
             <div className="hp-hero-content">
+              <div className="hp-hero-bg">
+                {hero.bgImg ? (
+                  <img key={heroIdx} src={proxyImg(hero.bgImg)} alt="" onLoad={() => setHeroImgLoaded(true)} style={{ opacity: heroImgLoaded ? 1 : 0 }} />
+                ) : (
+                  <div style={{ width: '100%', height: '100%', background: 'var(--homepage-hero-gradient)', position: 'relative', overflow: 'hidden' }}>
+                    <div style={{ position: 'absolute', right: '8%', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'flex-end', gap: 5, opacity: 0.08 }}>
+                      {[35, 70, 50, 90, 60, 85, 40, 70, 100, 45, 75].map((h, i) => (
+                        <div key={i} style={{ width: 7, borderRadius: 3, background: '#f97316', height: h, animation: `hp-bar ${0.8 + (i % 4) * 0.15}s ease-in-out infinite alternate`, animationDelay: `${i * 0.08}s` }} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
               <div className="hp-hero-left">
                 <div key={heroIdx} style={{ animation: 'hp-in .5s ease both', display: 'flex', flexDirection: 'column', flex: 1 }}>
                   <div className="hp-hero-spacer" />
@@ -1317,10 +1431,21 @@ export default function Home() {
                   albumai (jie turi didesnius cover'ius). */}
               <section>
                 <SectionHead label="Naujos dainos" href="/muzika" />
-                {[0, 10].map((startIdx) => (
-                  <div key={startIdx} className={startIdx === 0 ? 'mb-2.5' : ''}>
+                {(() => {
+                  const isLT = (x: any) => {
+                    const c = x.artists?.country
+                    return !c || c === 'Lietuva' || c === 'LT' || c === 'Lithuania'
+                  }
+                  const ltT = tracks.filter(t => sanitizeTitle(t.title) && isLT(t))
+                  const wT = tracks.filter(t => sanitizeTitle(t.title) && !isLT(t))
+                  return [
+                    { lane: 'lt' as const, items: ltT },
+                    { lane: 'world' as const, items: wT },
+                  ]
+                })().map(({ lane, items }, laneIdx) => (
+                  <div key={lane} className={laneIdx === 0 ? 'mb-2.5' : ''}>
                     <div className="hp-scroll flex items-center gap-2 pb-0.5">
-                      <RowDivider icon={startIdx === 0 ? 'lt' : 'world'} />
+                      <RowDivider icon={lane} />
                       {tracks.length === 0 ? Array(5).fill(null).map((_, i) => (
                         <div
                           key={i}
@@ -1333,7 +1458,11 @@ export default function Home() {
                             <div className="mt-1.5"><Skel w="54%" h={9} /></div>
                           </div>
                         </div>
-                      )) : tracks.filter(t => sanitizeTitle(t.title)).slice(startIdx, startIdx + 10).map(t => {
+                      )) : items.length === 0 ? (
+                        <div className="flex shrink-0 items-center px-3 py-3 text-[12px] text-[var(--text-faint)]" style={{ width: 220 }}>
+                          {lane === 'lt' ? 'Lietuviškų dainų netrukus' : 'Užsienio dainų netrukus'}
+                        </div>
+                      ) : items.slice(0, 14).map(t => {
                         // API'as grąžina ir `artists.slug` (nested) ir `artist_slug` (flat alias).
                         // Track slug DB'e gali būti null — fallback'inam į client-side
                         // slugify(title), nes route handler trailing-{id} ir taip
@@ -1377,17 +1506,30 @@ export default function Home() {
                   ~140px aiškiai didesnis nei track row'o 38px thumb'as. */}
               <section>
                 <SectionHead label="Nauji albumai" href="/muzika?tab=albums" />
-                {[0, 12].map((startIdx) => (
-                  <div key={startIdx} className={startIdx === 0 ? 'mb-3' : ''}>
+                {(() => {
+                  const isLT = (x: any) => {
+                    const c = x.artists?.country
+                    return !c || c === 'Lietuva' || c === 'LT' || c === 'Lithuania'
+                  }
+                  return [
+                    { lane: 'lt' as const, items: albums.filter(isLT) },
+                    { lane: 'world' as const, items: albums.filter(a => !isLT(a)) },
+                  ]
+                })().map(({ lane, items }, laneIdx) => (
+                  <div key={lane} className={laneIdx === 0 ? 'mb-3' : ''}>
                     <div className="hp-scroll flex items-stretch gap-3 pb-0.5">
-                      <RowDivider icon={startIdx === 0 ? 'lt' : 'world'} />
+                      <RowDivider icon={lane} />
                       {albums.length === 0 ? Array(8).fill(null).map((_, i) => (
                         <div key={i} className="shrink-0" style={{ width: 156 }}>
                           <Skel w={156} h={156} r={12} />
                           <div className="mt-2"><Skel w="80%" h={12} /></div>
                           <div className="mt-1"><Skel w="60%" h={10} /></div>
                         </div>
-                      )) : albums.slice(startIdx, startIdx + 12).map(a => {
+                      )) : items.length === 0 ? (
+                        <div className="flex h-[156px] shrink-0 items-center px-3 text-[12px] text-[var(--text-faint)]">
+                          {lane === 'lt' ? 'Lietuviškų albumų netrukus' : 'Užsienio albumų netrukus'}
+                        </div>
+                      ) : items.slice(0, 14).map(a => {
                         const artistSlug = a.artists?.slug || (a as any).artist_slug
                         const aSlug = (a as any).slug || quickSlugify(sanitizeTitle(a.title))
                         const href = artistSlug ? `/albumai/${artistSlug}-${aSlug}-${a.id}` : `/albumai/${aSlug}-${a.id}`
@@ -1526,8 +1668,13 @@ export default function Home() {
                                   <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[13px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
                                     {sanitizeTitle(ev.title)}
                                   </p>
+                                  {validDate && (
+                                    <p className="m-0 mt-1 truncate font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--accent-orange)]">
+                                      {d!.getDate()} {MONTHS_FULL_LT[d!.getMonth()]} {d!.getFullYear()} m.
+                                    </p>
+                                  )}
                                   {venueLabel && (
-                                    <p className="m-0 mt-1 truncate text-[11.5px] text-[var(--text-muted)]">
+                                    <p className="m-0 mt-0.5 truncate text-[11px] text-[var(--text-muted)]">
                                       {venueLabel}
                                     </p>
                                   )}
@@ -1567,12 +1714,11 @@ export default function Home() {
             </div>
           </section>
 
-          {/* ── ROW 5: Diskusijos + Atlikėjai ── */}
-          <div className="hp-ne" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-            <section>
-              <SectionHead label="Bendruomenė" href="/diskusijos" cta="Visos diskusijos →" />
-              <DiscussionsWidget />
-            </section>
+          {/* ── Žmonės — naujas full-width row: blogai + diskusijos + kūryba ── */}
+          <ZmonesSection />
+
+          {/* ── Atlikėjai — full-width grid ── */}
+          <div>
             <section>
               <SectionHead label="Atrask atlikėjus" href="/atlikejai" />
               <div className="hp-ag grid grid-cols-4 gap-3.5">

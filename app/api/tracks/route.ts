@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
   }
 
   // ── Pilnas select su release_month, release_day ──
-  const SELECT_FIELDS = `id, title, type, release_date, release_year, release_month, release_day, video_url, video_views, video_views_checked_at, spotify_id, is_single, is_new, is_new_date, cover_url, lyrics, artists!tracks_artist_id_fkey(id, name, slug, cover_image_url), track_artists(artist_id), album_tracks(position, albums(id, title, year, cover_image_url))`
+  const SELECT_FIELDS = `id, title, type, release_date, release_year, release_month, release_day, video_url, video_views, video_views_checked_at, spotify_id, is_single, is_new, is_new_date, cover_url, lyrics, artists!tracks_artist_id_fkey(id, name, slug, cover_image_url, country), track_artists(artist_id), album_tracks(position, albums(id, title, year, cover_image_url))`
 
   if (search) {
     const { data: artistMatches } = await supabase

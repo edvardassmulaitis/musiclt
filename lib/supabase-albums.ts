@@ -88,7 +88,7 @@ export async function getAlbums(artistId?: number, limit = 50, offset = 0, searc
   let q = supabase
     .from('albums')
     .select(
-      'id, slug, title, year, cover_image_url, artist_id, type_studio, type_ep, type_compilation, type_live, type_single, type_remix, type_covers, type_holiday, type_soundtrack, type_demo, artists!albums_artist_id_fkey(id, name, slug)',
+      'id, slug, title, year, cover_image_url, artist_id, type_studio, type_ep, type_compilation, type_live, type_single, type_remix, type_covers, type_holiday, type_soundtrack, type_demo, artists!albums_artist_id_fkey(id, name, slug, cover_image_url, country)',
       { count: 'exact' }
     )
   if (artistId) q = q.eq('artist_id', artistId)
