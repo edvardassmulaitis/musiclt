@@ -4,14 +4,17 @@
 import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { listMyConversations } from '@/lib/chat'
+import { listMyConversations, resolveViewerId } from '@/lib/chat'
 import { ChatLayout } from '@/components/chat/ChatLayout'
 
 export const dynamic = 'force-dynamic'
 
 export default async function PokalbiaiPage() {
   const session = await getServerSession(authOptions)
-  const userId = (session?.user as any)?.id
+  // Naudojam resolveViewerId, kad gautume tikrą profile.id (ne stale JWT id).
+  // Be šito getConversation/assertParticipant fail'intų FORBIDDEN'u, nes
+  // chat_participants saugo realą profile.id, ne session.user.id.
+  const userId = await resolveViewerId(session)
   if (!userId) redirect('/auth/signin?callbackUrl=/pokalbiai')
 
   let conversations: any[] = []

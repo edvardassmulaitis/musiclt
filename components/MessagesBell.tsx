@@ -203,23 +203,9 @@ export function MessagesBell() {
           `}</style>
           <div className="msg-bell-mobile-overlay" onClick={() => setOpen(false)} />
         <div className="msg-bell-dropdown">
-          <div style={{
-            padding: '12px 16px', borderBottom: '1px solid var(--border-subtle)',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          }}>
-            <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)' }}>
-              Pokalbiai
-            </div>
-            <Link
-              href={tab === 'personal' ? '/pokalbiai' : '/bendruomene'}
-              onClick={() => setOpen(false)}
-              style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent-link)', textDecoration: 'none' }}
-            >
-              Atidaryti
-            </Link>
-          </div>
-
-          {/* Tabs — Tavo pokalbiai (DM/grupės) vs Bendros diskusijos (live shoutbox) */}
+          {/* Tabs — Tavo pokalbiai (DM/grupės) vs Bendros diskusijos (live shoutbox).
+              Header'is su pavadinimu + "Atidaryti" pašalintas — apačioje yra
+              "Visi pokalbiai →" footer'is, kuris atlieka tą pačią funkciją.  */}
           <div style={{ display: 'flex', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0 }}>
             {([
               ['personal', 'Tavo pokalbiai', isAuth ? unread : 0],

@@ -3,7 +3,7 @@
 import { redirect, notFound } from 'next/navigation'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { listMyConversations, getConversation, fetchMessages } from '@/lib/chat'
+import { listMyConversations, getConversation, fetchMessages, resolveViewerId } from '@/lib/chat'
 import { ChatLayout } from '@/components/chat/ChatLayout'
 
 export const dynamic = 'force-dynamic'
@@ -14,7 +14,9 @@ export default async function PokalbisPage({ params }: { params: Promise<{ id: s
   if (!convId || isNaN(convId)) notFound()
 
   const session = await getServerSession(authOptions)
-  const userId = (session?.user as any)?.id
+  // Resolve'inam į tikrą profile.id (matchina chat_participants), kad
+  // assertParticipant nepasakytų FORBIDDEN po DM sukūrimo redirect'o.
+  const userId = await resolveViewerId(session)
   if (!userId) redirect(`/auth/signin?callbackUrl=/pokalbiai/${convId}`)
 
   let conversations: any[] = []
