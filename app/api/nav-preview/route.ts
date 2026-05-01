@@ -19,40 +19,40 @@ export async function GET() {
 
   try {
     const [artistsLtRes, artistsWorldRes, albumsRes, tracksRes, eventsRes, newsRes] = await Promise.all([
-      // 5 LT atlikėjų pagal score
+      // 12 LT atlikėjų pagal score (su scroll'u juostoje)
       supabase
         .from('artists')
         .select('id, slug, name, country, cover_image_url')
         .eq('country', 'Lietuva')
         .not('score', 'is', null)
         .order('score', { ascending: false, nullsFirst: false })
-        .limit(5),
+        .limit(12),
 
-      // 5 užsienio atlikėjų pagal score
+      // 12 užsienio atlikėjų pagal score
       supabase
         .from('artists')
         .select('id, slug, name, country, cover_image_url')
         .neq('country', 'Lietuva')
         .not('score', 'is', null)
         .order('score', { ascending: false, nullsFirst: false })
-        .limit(5),
+        .limit(12),
 
-      // 6 naujausių albumų
+      // 12 naujausių albumų
       supabase
         .from('albums')
         .select('id, slug, title, cover_image_url, year, artists!albums_artist_id_fkey(name, slug)')
         .not('cover_image_url', 'is', null)
         .order('year', { ascending: false, nullsFirst: false })
         .order('month', { ascending: false, nullsFirst: false })
-        .limit(6),
+        .limit(12),
 
-      // 6 trending dainų (su cover ir artist info)
+      // 12 trending dainų
       supabase
         .from('tracks')
         .select('id, title, cover_url, release_year, artists!tracks_artist_id_fkey(id, name, slug, cover_image_url)')
         .not('cover_url', 'is', null)
         .order('id', { ascending: false })
-        .limit(6),
+        .limit(12),
 
       // 4 artimiausi renginiai
       supabase

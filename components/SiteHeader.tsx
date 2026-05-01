@@ -205,66 +205,68 @@ function RowStripe({ kind }: { kind: 'lt' | 'world' }) {
 }
 
 function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string }) {
-  const artistsLt    = data?.artistsLt.slice(0, 5)    || []
-  const artistsWorld = data?.artistsWorld.slice(0, 5) || []
-  const albums       = data?.albums.slice(0, 6)       || []
-  const tracks       = data?.tracks.slice(0, 6)       || []
+  const artistsLt    = data?.artistsLt    || []
+  const artistsWorld = data?.artistsWorld || []
+  const albums       = data?.albums       || []
+  const tracks       = data?.tracks       || []
 
-  // 8 main stiliai (statiniai — link'as į /zanrai page'ą)
+  // 8 main stiliai (link'as į /zanrai page'ą)
   const styles = [
-    { label: 'Rokas',      slug: 'rokas',      rgb: '239, 68, 68'   },
-    { label: 'Popsas',     slug: 'popsas',     rgb: '236, 72, 153'  },
-    { label: 'Hip-hop',    slug: 'hip-hop',    rgb: '168, 85, 247'  },
-    { label: 'Electronic', slug: 'electronic', rgb: '6, 182, 212'   },
-    { label: 'Folk',       slug: 'folk',       rgb: '16, 185, 129'  },
-    { label: 'Jazz',       slug: 'jazz',       rgb: '245, 158, 11'  },
-    { label: 'Klasika',    slug: 'klasika',    rgb: '139, 92, 246'  },
-    { label: 'Reggae',     slug: 'reggae',     rgb: '34, 197, 94'   },
+    { label: 'Rokas',      rgb: '239, 68, 68'   },
+    { label: 'Popsas',     rgb: '236, 72, 153'  },
+    { label: 'Hip-hop',    rgb: '168, 85, 247'  },
+    { label: 'Electronic', rgb: '6, 182, 212'   },
+    { label: 'Folk',       rgb: '16, 185, 129'  },
+    { label: 'Jazz',       rgb: '245, 158, 11'  },
+    { label: 'Klasika',    rgb: '139, 92, 246'  },
+    { label: 'Reggae',     rgb: '34, 197, 94'   },
   ]
 
   const renderArtistRow = (list: typeof artistsLt, kind: 'lt' | 'world') => (
-    <div className="sh-strip">
+    <div className="sh-strip-wrap">
       <RowStripe kind={kind} />
-      {(list.length > 0 ? list : Array(5).fill(null)).map((a, i) => (
-        <Link
-          key={a?.id || `${kind}-${i}`}
-          href={a ? `/atlikejai/${a.slug}` : '/atlikejai'}
-          className="sh-mini-artist"
-        >
-          <ImageBox
-            src={a?.image}
-            accent={accent}
-            glyph={I.music}
-            className="sh-mini-artist-img"
-          />
-          <span className="sh-mini-artist-name">
-            {a?.name || <span style={{ opacity: 0.45 }}>Atlikėjas</span>}
-          </span>
-        </Link>
-      ))}
+      <div className="sh-strip">
+        {(list.length > 0 ? list : Array(7).fill(null)).map((a, i) => (
+          <Link
+            key={a?.id || `${kind}-${i}`}
+            href={a ? `/atlikejai/${a.slug}` : '/atlikejai'}
+            className="sh-mini-artist"
+          >
+            <ImageBox
+              src={a?.image}
+              accent={accent}
+              glyph={I.music}
+              className="sh-mini-artist-img"
+            />
+            <span className="sh-mini-artist-name">
+              {a?.name || <span style={{ opacity: 0.45 }}>Atlikėjas</span>}
+            </span>
+          </Link>
+        ))}
+      </div>
     </div>
   )
 
   return (
-    <div className="sh-panel" style={{ minWidth: 820 }}>
+    <div className="sh-panel sh-panel-muzika" style={{ width: 720 }}>
 
-      {/* ── ATLIKĖJAI — 2 eilutės (LT + world) ── */}
+      {/* ── ATLIKĖJAI — 2 horizontaliai scroll'inamos eilutės ── */}
       <div className="sh-panel-section">
         <span className="sh-panel-section-title">Atlikėjai</span>
         <Link href="/atlikejai" className="sh-panel-section-more">Visi <ArrowRight size={11}/></Link>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 12 }}>
         {renderArtistRow(artistsLt, 'lt')}
         {renderArtistRow(artistsWorld, 'world')}
       </div>
 
-      {/* ── ALBUMAI — siaura horizontali juosta ── */}
+      {/* ── ALBUMAI — horizontaliai scroll'inama juosta ── */}
       <div className="sh-panel-section">
         <span className="sh-panel-section-title">Albumai</span>
         <Link href="/albumai" className="sh-panel-section-more">Visi <ArrowRight size={11}/></Link>
       </div>
-      <div className="sh-strip" style={{ marginBottom: 14 }}>
-        {(albums.length > 0 ? albums : Array(6).fill(null)).map((a, i) => (
+      <div className="sh-strip" style={{ marginBottom: 10 }}>
+        {(albums.length > 0 ? albums : Array(8).fill(null)).map((a, i) => (
           <Link
             key={a?.id || i}
             href={a ? `/lt/albumas/${a.slug}/${a.id}` : '/albumai'}
@@ -286,13 +288,13 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
         ))}
       </div>
 
-      {/* ── DAINOS — siaura horizontali juosta ── */}
+      {/* ── DAINOS — horizontaliai scroll'inama juosta ── */}
       <div className="sh-panel-section">
         <span className="sh-panel-section-title">Dainos</span>
         <Link href="/muzika" className="sh-panel-section-more">Visos <ArrowRight size={11}/></Link>
       </div>
-      <div className="sh-strip" style={{ marginBottom: 14 }}>
-        {(tracks.length > 0 ? tracks : Array(6).fill(null)).map((t, i) => (
+      <div className="sh-strip" style={{ marginBottom: 12 }}>
+        {(tracks.length > 0 ? tracks : Array(8).fill(null)).map((t, i) => (
           <Link
             key={t?.id || i}
             href={t ? `/dainos/${t.artistSlug}-${quickSlug(t.title)}-${t.id}` : '/muzika'}
@@ -315,16 +317,15 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
       </div>
 
       {/* ── STILIAI — 8 main genre pills ── */}
-      <div className="sh-panel-section">
-        <span className="sh-panel-section-title">Stiliai</span>
-        <Link href="/zanrai" className="sh-panel-section-more">Visi <ArrowRight size={11}/></Link>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 6 }}>
-        {styles.map(s => (
-          <Link key={s.slug} href={`/zanrai`} className="sh-style-pill" style={{ ['--it-rgb' as any]: s.rgb }}>
-            {s.label}
-          </Link>
-        ))}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 10, borderTop: '1px solid var(--border-default)' }}>
+        <span className="sh-panel-section-title" style={{ flexShrink: 0 }}>Stiliai</span>
+        <div style={{ display: 'flex', gap: 4, flex: 1, flexWrap: 'wrap' }}>
+          {styles.map(s => (
+            <Link key={s.label} href="/zanrai" className="sh-style-pill" style={{ ['--it-rgb' as any]: s.rgb }}>
+              {s.label}
+            </Link>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -711,9 +712,10 @@ export function SiteHeader() {
 
         .sh-panel-section {
           display: flex; align-items: center; justify-content: space-between;
-          margin-bottom: 12px;
+          margin-bottom: 8px;
           padding: 0 2px;
         }
+        .sh-panel-muzika .sh-panel-section { margin-bottom: 6px; }
         .sh-panel-section-title {
           font-size: 11px; font-weight: 800;
           text-transform: uppercase;
@@ -734,124 +736,137 @@ export function SiteHeader() {
           color: var(--text-primary);
         }
 
-        /* ── Naujos Muzika dropdown'o juostos ── */
+        /* ── Muzika dropdown'o kompakti­ška versija su horizontal scroll ── */
+
+        /* Muzika panel'as: paliekam padding'ą truputį mažesnį */
+        .sh-panel-muzika { padding: 14px; }
 
         /* LT vėliavos / world mėlynos juostelės indikatorius */
         .sh-stripe {
           flex-shrink: 0;
-          width: 4px;
+          width: 3px;
           align-self: stretch;
-          border-radius: 3px;
+          border-radius: 2px;
           overflow: hidden;
         }
-        .sh-stripe-lt {
-          display: flex; flex-direction: column;
-        }
-        .sh-stripe-world {
-          background: #3b82f6;
-          opacity: 0.7;
+        .sh-stripe-lt { display: flex; flex-direction: column; }
+        .sh-stripe-world { background: #3b82f6; opacity: 0.7; }
+
+        /* Wrapper'is, kuris turi LT stripe + horizontal scroll'inamą strip'ą */
+        .sh-strip-wrap {
+          display: flex; align-items: stretch; gap: 8px;
         }
 
-        /* Horizontal strip wrapper — viena juosta su LT/world stripe + kortelėmis */
+        /* Horizontal scroll'inama juosta. Slepiam scrollbar'ą bet leidim scroll. */
         .sh-strip {
           display: flex;
-          align-items: stretch;
-          gap: 8px;
-          padding: 4px 2px;
+          gap: 6px;
+          overflow-x: auto;
+          overflow-y: hidden;
+          flex: 1;
+          padding: 2px 0;
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+          scroll-snap-type: x proximity;
         }
+        .sh-strip::-webkit-scrollbar { display: none; }
 
-        /* Mini atlikėjo kortelė (avatar + vardas vienoje eilėje) */
+        /* Mini atlikėjo kortelė — kompaktinis avatar + vardas */
         .sh-mini-artist {
-          flex: 1; min-width: 0;
-          display: flex; flex-direction: column; gap: 5px;
-          padding: 6px;
-          border-radius: 9px;
+          flex: 0 0 78px;
+          display: flex; flex-direction: column; gap: 4px;
+          padding: 4px;
+          border-radius: 8px;
           text-decoration: none;
-          transition: background .15s, transform .15s;
+          transition: background .15s;
+          scroll-snap-align: start;
         }
         .sh-mini-artist:hover { background: var(--bg-hover); }
-        .sh-mini-artist:hover .sh-mini-artist-img { transform: scale(1.05); }
+        .sh-mini-artist:hover .sh-mini-artist-img { transform: scale(1.06); }
         .sh-mini-artist-img {
           position: relative;
           display: block;
-          width: 100%; aspect-ratio: 1;
-          border-radius: 9px;
+          width: 70px; height: 70px;
+          margin: 0 auto;
+          border-radius: 8px;
           background-size: cover;
           background-position: center;
           background-color: var(--bg-hover);
-          transition: transform .25s ease;
+          transition: transform .22s ease;
           overflow: hidden;
         }
         .sh-mini-artist-name {
-          font-size: 11px; font-weight: 700;
+          font-size: 10.5px; font-weight: 700;
           color: var(--text-primary);
           line-height: 1.2;
           text-align: center;
-          padding: 0 2px;
+          padding: 0 1px;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
 
-        /* Mini tile (albumas / daina narrow strip) */
+        /* Mini tile (albumas / daina) */
         .sh-mini-tile {
-          flex: 1; min-width: 0;
-          display: flex; flex-direction: column; gap: 4px;
-          padding: 6px;
-          border-radius: 9px;
+          flex: 0 0 78px;
+          display: flex; flex-direction: column; gap: 3px;
+          padding: 4px;
+          border-radius: 8px;
           text-decoration: none;
-          transition: background .15s, transform .15s;
+          transition: background .15s;
+          scroll-snap-align: start;
         }
         .sh-mini-tile:hover { background: var(--bg-hover); }
-        .sh-mini-tile:hover .sh-mini-tile-img { transform: scale(1.04); }
+        .sh-mini-tile:hover .sh-mini-tile-img { transform: scale(1.05); }
         .sh-mini-tile-img {
           position: relative;
           display: block;
-          width: 100%; aspect-ratio: 1;
-          border-radius: 8px;
+          width: 70px; height: 70px;
+          margin: 0 auto;
+          border-radius: 7px;
           background-size: cover;
           background-position: center;
           background-color: var(--bg-hover);
-          transition: transform .25s ease;
+          transition: transform .22s ease;
           overflow: hidden;
         }
         .sh-mini-tile-title {
-          font-size: 11.5px; font-weight: 700;
+          font-size: 10.5px; font-weight: 700;
           color: var(--text-primary);
           line-height: 1.2;
-          padding: 0 2px;
+          padding: 0 1px;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
         .sh-mini-tile-meta {
-          font-size: 10.5px; font-weight: 500;
+          font-size: 9.5px; font-weight: 500;
           color: var(--text-muted);
           line-height: 1.2;
-          padding: 0 2px;
+          padding: 0 1px;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
 
-        /* Žanro pill (Stiliai eilė) */
+        /* Žanro pill (Stiliai juostelė apačioje) */
         .sh-style-pill {
-          display: flex; align-items: center; justify-content: center;
-          padding: 9px 8px;
-          border-radius: 10px;
+          display: inline-flex; align-items: center; justify-content: center;
+          padding: 5px 11px;
+          border-radius: 999px;
           text-decoration: none;
-          font-size: 11.5px; font-weight: 700;
+          font-size: 11px; font-weight: 700;
           color: var(--text-primary);
-          background: linear-gradient(135deg, rgba(var(--it-rgb), 0.15) 0%, rgba(var(--it-rgb), 0.04) 100%);
-          border: 1px solid rgba(var(--it-rgb), 0.25);
+          background: linear-gradient(135deg, rgba(var(--it-rgb), 0.16) 0%, rgba(var(--it-rgb), 0.04) 100%);
+          border: 1px solid rgba(var(--it-rgb), 0.28);
           transition: transform .15s, border-color .15s, background .15s;
-          text-align: center;
-          line-height: 1.15;
+          line-height: 1.2;
+          white-space: nowrap;
         }
         .sh-style-pill:hover {
           transform: translateY(-1px);
           border-color: rgba(var(--it-rgb), 0.6);
-          background: linear-gradient(135deg, rgba(var(--it-rgb), 0.25) 0%, rgba(var(--it-rgb), 0.07) 100%);
+          background: linear-gradient(135deg, rgba(var(--it-rgb), 0.28) 0%, rgba(var(--it-rgb), 0.08) 100%);
         }
 
         /* Atlikėjo kortelė (kvadratinė foto + vardas) */
