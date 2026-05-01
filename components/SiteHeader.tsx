@@ -9,6 +9,7 @@ import { MessagesBell } from '@/components/MessagesBell'
 import { MasterSearch } from '@/components/MasterSearch'
 import { useSite } from '@/components/SiteContext'
 import { proxyImg } from '@/lib/img-proxy'
+import { GENRE_COLORS } from '@/lib/genre-colors'
 
 /* ──────────────────────────────────────────────────────────────────
  * Top meniu — 5 sekcijos su DINAMINIAIS rich preview dropdown'ais.
@@ -210,17 +211,9 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
   const albums       = data?.albums       || []
   const tracks       = data?.tracks       || []
 
-  // 8 main stiliai (link'as į /zanrai page'ą)
-  const styles = [
-    { label: 'Rokas',      rgb: '239, 68, 68'   },
-    { label: 'Popsas',     rgb: '236, 72, 153'  },
-    { label: 'Hip-hop',    rgb: '168, 85, 247'  },
-    { label: 'Electronic', rgb: '6, 182, 212'   },
-    { label: 'Folk',       rgb: '16, 185, 129'  },
-    { label: 'Jazz',       rgb: '245, 158, 11'  },
-    { label: 'Klasika',    rgb: '139, 92, 246'  },
-    { label: 'Reggae',     rgb: '34, 197, 94'   },
-  ]
+  // 8 main stiliai iš lib/genre-colors.ts (atitinka GENRES iš constants.ts).
+  // Spalvos centralizuotos — vėliau naudosim ir žanro page'uose, badge'uose.
+  const styles = GENRE_COLORS
 
   const renderArtistRow = (list: typeof artistsLt, kind: 'lt' | 'world') => (
     <div className="sh-strip-wrap">
@@ -316,13 +309,19 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
         ))}
       </div>
 
-      {/* ── STILIAI — 8 main genre pills ── */}
+      {/* ── STILIAI — 8 main genres iš constants.ts su tematinėm spalvom ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 10, borderTop: '1px solid var(--border-default)' }}>
         <span className="sh-panel-section-title" style={{ flexShrink: 0 }}>Stiliai</span>
         <div style={{ display: 'flex', gap: 4, flex: 1, flexWrap: 'wrap' }}>
           {styles.map(s => (
-            <Link key={s.label} href="/zanrai" className="sh-style-pill" style={{ ['--it-rgb' as any]: s.rgb }}>
-              {s.label}
+            <Link
+              key={s.name}
+              href={s.href}
+              className="sh-style-pill"
+              style={{ ['--it-rgb' as any]: s.rgb }}
+              title={s.name}
+            >
+              {s.short}
             </Link>
           ))}
         </div>
@@ -771,9 +770,13 @@ export function SiteHeader() {
         }
         .sh-strip::-webkit-scrollbar { display: none; }
 
-        /* Mini atlikėjo kortelė — kompaktinis avatar + vardas */
+        /* Mini atlikėjo kortelė — kompaktinis avatar + vardas.
+           min-width:0 + max-width:78 — kad ilgi vardai nebreak'intų layout'o. */
         .sh-mini-artist {
           flex: 0 0 78px;
+          width: 78px;
+          min-width: 0;
+          max-width: 78px;
           display: flex; flex-direction: column; gap: 4px;
           padding: 4px;
           border-radius: 8px;
@@ -806,9 +809,12 @@ export function SiteHeader() {
           white-space: nowrap;
         }
 
-        /* Mini tile (albumas / daina) */
+        /* Mini tile (albumas / daina) — fixed width + min-width:0 truncation'ui */
         .sh-mini-tile {
           flex: 0 0 78px;
+          width: 78px;
+          min-width: 0;
+          max-width: 78px;
           display: flex; flex-direction: column; gap: 3px;
           padding: 4px;
           border-radius: 8px;
@@ -849,24 +855,36 @@ export function SiteHeader() {
           white-space: nowrap;
         }
 
-        /* Žanro pill (Stiliai juostelė apačioje) */
+        /* Žanro pill (Stiliai juostelė apačioje).
+           Border + bg opacity pakelti, kad ir tamsesnės spalvos
+           (Sunkioji muzika #374151) būtų matomos ant dark theme.
+           Mažas accent dot kairėje — kad spalvinis kodas akivaizdus. */
         .sh-style-pill {
           display: inline-flex; align-items: center; justify-content: center;
-          padding: 5px 11px;
+          gap: 6px;
+          padding: 5px 11px 5px 9px;
           border-radius: 999px;
           text-decoration: none;
           font-size: 11px; font-weight: 700;
           color: var(--text-primary);
-          background: linear-gradient(135deg, rgba(var(--it-rgb), 0.16) 0%, rgba(var(--it-rgb), 0.04) 100%);
-          border: 1px solid rgba(var(--it-rgb), 0.28);
+          background: linear-gradient(135deg, rgba(var(--it-rgb), 0.20) 0%, rgba(var(--it-rgb), 0.06) 100%);
+          border: 1px solid rgba(var(--it-rgb), 0.45);
           transition: transform .15s, border-color .15s, background .15s;
           line-height: 1.2;
           white-space: nowrap;
         }
+        .sh-style-pill::before {
+          content: '';
+          width: 6px; height: 6px;
+          border-radius: 50%;
+          background: rgb(var(--it-rgb));
+          flex-shrink: 0;
+          box-shadow: 0 0 0 1.5px rgba(var(--it-rgb), 0.25);
+        }
         .sh-style-pill:hover {
           transform: translateY(-1px);
-          border-color: rgba(var(--it-rgb), 0.6);
-          background: linear-gradient(135deg, rgba(var(--it-rgb), 0.28) 0%, rgba(var(--it-rgb), 0.08) 100%);
+          border-color: rgba(var(--it-rgb), 0.75);
+          background: linear-gradient(135deg, rgba(var(--it-rgb), 0.32) 0%, rgba(var(--it-rgb), 0.12) 100%);
         }
 
         /* Atlikėjo kortelė (kvadratinė foto + vardas) */

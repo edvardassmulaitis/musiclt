@@ -28,13 +28,15 @@ export async function GET() {
         .order('score', { ascending: false, nullsFirst: false })
         .limit(12),
 
-      // 12 užsienio atlikėjų pagal score
+      // 12 užsienio atlikėjų — country != Lietuva ARBA null. Reikalaujam
+      // cover_image_url (kad nebūtų placeholder'iai), score nullable.
       supabase
         .from('artists')
-        .select('id, slug, name, country, cover_image_url')
-        .neq('country', 'Lietuva')
-        .not('score', 'is', null)
+        .select('id, slug, name, country, cover_image_url, score')
+        .or('country.is.null,country.neq.Lietuva')
+        .not('cover_image_url', 'is', null)
         .order('score', { ascending: false, nullsFirst: false })
+        .order('id', { ascending: false })
         .limit(12),
 
       // 12 naujausių albumų
