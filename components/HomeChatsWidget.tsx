@@ -12,7 +12,7 @@
 // Realtime: subscribe'inamės į global chat realtime, kad widget'as auto-refreshintųsi
 // gavus naują žinutę (ne polling'as).
 
-import { useEffect, useCallback, useState } from 'react'
+import { Component, type ErrorInfo, type ReactNode, useEffect, useCallback, useState } from 'react'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import { useGlobalChatRealtime } from '@/lib/chat-realtime'
@@ -27,7 +27,42 @@ import { proxyImg } from '@/lib/img-proxy'
 const MAX_ROWS = 4
 const REFRESH_MS = 30_000  // fallback'as jei realtime atsijungtų
 
+// Error boundary — saugiklis, kad chat klaida nesugriautų visos homepage'os.
+// Jei kas nors widget'e crashina (duomenų formatas, realtime client'as,
+// session race), rodom tylų placeholder'į vietoj išvis nieko.
+class ChatErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false }
+  static getDerivedStateFromError() { return { hasError: true } }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('[HomeChatsWidget] crashed:', error, info)
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{
+          background: 'var(--bg-surface)', border: '1px solid var(--border-default)',
+          borderRadius: 16, padding: '20px 14px', textAlign: 'center',
+        }}>
+          <div style={{ fontSize: 24, marginBottom: 6 }}>💬</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+            Pokalbių nepavyko užkrauti. <Link href="/pokalbiai" style={{ color: 'var(--accent-link)' }}>Atidaryti rankiniu būdu →</Link>
+          </div>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
 export function HomeChatsWidget() {
+  return (
+    <ChatErrorBoundary>
+      <HomeChatsWidgetInner />
+    </ChatErrorBoundary>
+  )
+}
+
+function HomeChatsWidgetInner() {
   const { data: session, status } = useSession()
   const userId = (session?.user as any)?.id || null
   const [conversations, setConversations] = useState<ConversationListItem[]>([])
@@ -128,12 +163,16 @@ export function HomeChatsWidget() {
 }
 
 function ConvRow({ c, viewerId, isLast }: { c: ConversationListItem; viewerId: string; isLast: boolean }) {
-  const name = conversationDisplayName(c, viewerId)
-  const avatarUrl = conversationDisplayAvatar(c, viewerId)
-  const unread = c.unread_count > 0
+  // Defensive: jei API kažkodėl grąžina conversation be participants masyvo
+  // (pvz. RPC migracija dar nesusivaidijo arba data malformed), tegul UI
+  // nesugriūna — naudojam tuščią masyvą fallback.
+  const safe = { ...c, participants: Array.isArray(c.participants) ? c.participants : [] }
+  const name = conversationDisplayName(safe, viewerId)
+  const avatarUrl = conversationDisplayAvatar(safe, viewerId)
+  const unread = (c.unread_count || 0) > 0
   const senderName = c.last_message_user_id === viewerId
     ? 'Tu'
-    : c.participants.find(p => p.user_id === c.last_message_user_id)?.full_name?.split(' ')[0] || ''
+    : safe.participants.find(p => p.user_id === c.last_message_user_id)?.full_name?.split(' ')[0] || ''
   const preview = c.last_message_preview
     ? (senderName ? `${senderName}: ${c.last_message_preview}` : c.last_message_preview)
     : 'Dar nėra žinučių'

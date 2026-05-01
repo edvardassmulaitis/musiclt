@@ -89,15 +89,18 @@ export type ConversationDetail = {
 }
 
 // Pagalbinė: pavadinimui — DM atveju kito vartotojo vardas; grupei — name.
-export function conversationDisplayName(c: { type: ConversationType; name: string | null; participants: ChatParticipantSummary[] }, viewerId: string): string {
+// Defensive: jei participants kažkodėl undefined / ne masyvas — naudojam [].
+export function conversationDisplayName(c: { type: ConversationType; name: string | null; participants?: ChatParticipantSummary[] | null }, viewerId: string): string {
   if (c.type === 'group') return c.name?.trim() || 'Grupė be pavadinimo'
-  const other = c.participants.find(p => p.user_id !== viewerId)
+  const parts = Array.isArray(c.participants) ? c.participants : []
+  const other = parts.find(p => p.user_id !== viewerId)
   if (!other) return 'Pokalbis'
   return other.full_name || other.username || 'Vartotojas'
 }
 
-export function conversationDisplayAvatar(c: { type: ConversationType; photo_url: string | null; participants: ChatParticipantSummary[] }, viewerId: string): string | null {
+export function conversationDisplayAvatar(c: { type: ConversationType; photo_url: string | null; participants?: ChatParticipantSummary[] | null }, viewerId: string): string | null {
   if (c.type === 'group') return c.photo_url || null
-  const other = c.participants.find(p => p.user_id !== viewerId)
+  const parts = Array.isArray(c.participants) ? c.participants : []
+  const other = parts.find(p => p.user_id !== viewerId)
   return other?.avatar_url || null
 }

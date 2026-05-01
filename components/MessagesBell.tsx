@@ -370,12 +370,15 @@ function ShoutRow({ m }: { m: ShoutMsg }) {
 }
 
 function ConversationRow({ c, viewerId, onClick }: { c: ConversationListItem; viewerId: string; onClick: () => void }) {
-  const name = conversationDisplayName(c, viewerId)
-  const url = conversationDisplayAvatar(c, viewerId)
-  const isUnread = c.unread_count > 0
+  // Defensive: API'as galėtų grąžinti participants kaip undefined jei migracija
+  // dar nesusivaidijo arba RPC schema neatitinka. Tegul UI nesugriūna.
+  const safe = { ...c, participants: Array.isArray(c.participants) ? c.participants : [] }
+  const name = conversationDisplayName(safe, viewerId)
+  const url = conversationDisplayAvatar(safe, viewerId)
+  const isUnread = (c.unread_count || 0) > 0
   const senderName = c.last_message_user_id === viewerId
     ? 'Tu'
-    : c.participants.find(p => p.user_id === c.last_message_user_id)?.full_name?.split(' ')[0] || ''
+    : safe.participants.find(p => p.user_id === c.last_message_user_id)?.full_name?.split(' ')[0] || ''
   const preview = c.last_message_preview
     ? (senderName ? `${senderName}: ${c.last_message_preview}` : c.last_message_preview)
     : 'Dar nėra žinučių'
