@@ -104,7 +104,7 @@ export async function getAllUserPosts(userId: string) {
   const sb = createAdminClient()
   const { data } = await sb
     .from('blog_posts')
-    .select('id, slug, title, summary, cover_image_url, status, published_at, reading_time_min, view_count, like_count, comment_count, created_at, updated_at')
+    .select('id, slug, title, summary, content, cover_image_url, post_type, rating, status, published_at, reading_time_min, view_count, like_count, comment_count, created_at, updated_at, blogs:blog_id(slug)')
     .eq('user_id', userId)
     .order('updated_at', { ascending: false })
   return data || []
@@ -145,7 +145,7 @@ export type PostUpsertFields = {
   status?: 'draft' | 'published'
   published_at?: string
   // Type discriminator + per-type laukai (visi nullable schemoje)
-  post_type?: 'article' | 'review' | 'translation' | 'creation' | 'event'
+  post_type?: 'article' | 'review' | 'translation' | 'creation' | 'event' | 'topas'
   rating?: number | null
   target_artist_id?: number | null
   target_album_id?: number | null
@@ -157,6 +157,7 @@ export type PostUpsertFields = {
   embed_title?: string | null
   embed_html?: string | null
   tags?: string[]
+  list_items?: any[]
 }
 
 export async function createPost(blogId: string, userId: string, data: PostUpsertFields & { slug: string }) {

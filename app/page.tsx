@@ -799,7 +799,7 @@ function ChartRow({ t, compact = false }: { t: TopEntry; compact?: boolean }) {
   const metaSize = compact ? 'text-[10.5px]' : 'text-[11px]'
   return (
     <Link
-      href={t.slug ? `/muzika/${t.slug}` : '/topai'}
+      href={t.slug ? `/muzika/${t.slug}` : '/topas'}
       className="hp-card flex items-center gap-2.5 px-2.5 py-2 no-underline"
     >
       <div className="w-7 shrink-0 text-center">
@@ -829,7 +829,7 @@ function ChartRow({ t, compact = false }: { t: TopEntry; compact?: boolean }) {
 function ChartVoteCTA({ className = '' }: { className?: string }) {
   return (
     <Link
-      href="/top40"
+      href="/topas/balsuoti"
       className={`mt-2.5 flex items-center justify-center rounded-[10px] bg-[var(--accent-orange)] p-2.5 font-['Outfit',sans-serif] text-[12px] font-extrabold text-white no-underline shadow-[0_2px_12px_rgba(249,115,22,0.3)] transition-all hover:-translate-y-px hover:shadow-[0_4px_18px_rgba(249,115,22,0.45)] ${className}`}
     >
       Balsuok
@@ -1110,126 +1110,78 @@ function HeroV2Card({ slide, dk }: { slide: HeroSlide; dk: boolean }) {
 function HeroChartCard({ slide }: { slide: HeroSlide }) {
   const isLT = slide.type === 'chart_lt'
   const tops = slide.chartTops || []
-  const accent = isLT ? 'var(--accent-orange)' : 'var(--accent-blue)'
-  const cover = (t: TopEntry | undefined) => t ? (t.cover_url || t.artist_image) : null
   return (
     <Link
       href={slide.href}
       className="group relative block aspect-[16/9] overflow-hidden rounded-2xl border border-[var(--border-default)] no-underline shadow-[0_8px_32px_rgba(0,0,0,0.25)] transition-all hover:-translate-y-0.5 hover:shadow-[0_14px_42px_rgba(0,0,0,0.4)]"
       style={{
         background: isLT
-          ? 'radial-gradient(ellipse at top right, rgba(249,115,22,0.18), rgba(10,14,26,0.98) 65%), linear-gradient(135deg, #1a1426 0%, #0a0e1a 100%)'
-          : 'radial-gradient(ellipse at top right, rgba(29,78,216,0.18), rgba(8,13,20,0.98) 65%), linear-gradient(135deg, #14182a 0%, #080d14 100%)',
+          ? 'radial-gradient(ellipse at top right, rgba(249,115,22,0.35), rgba(15,20,32,0.95) 65%), linear-gradient(135deg, #1a1426 0%, #0a0e1a 100%)'
+          : 'radial-gradient(ellipse at top right, rgba(29,78,216,0.35), rgba(15,20,32,0.95) 65%), linear-gradient(135deg, #14182a 0%, #080d14 100%)',
       }}
     >
-      {/* COLLAGE — right side asymmetric grid: #1 large 2x2, #2-5 smaller around */}
+      {/* BG artist image — collage style, faded */}
       {tops.length > 0 && (
-        <div
-          className="hp-chart-collage absolute right-4 bottom-4 top-4"
-          style={{
-            width: '52%',
-            display: 'grid',
-            gridTemplateColumns: '1.6fr 1fr 1fr',
-            gridTemplateRows: '1fr 1fr',
-            gap: 6,
-          }}
-        >
-          {/* #1 — large, spans 2 rows */}
-          {cover(tops[0]) ? (
-            <div
-              className="relative overflow-hidden rounded-lg"
-              style={{ gridColumn: '1', gridRow: '1 / span 2', boxShadow: '0 6px 22px rgba(0,0,0,0.5)' }}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+        <div className="absolute right-0 top-0 flex h-full w-[55%] items-stretch justify-end overflow-hidden opacity-55">
+          {tops.slice(0, 3).map((t, i) => (
+            t.cover_url || t.artist_image ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={proxyImg(cover(tops[0]) || '')}
+                key={t.track_id || i}
+                src={proxyImg(t.cover_url || t.artist_image || '')}
                 alt=""
                 loading="lazy"
-                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
+                className="h-full flex-1 object-cover"
+                style={{
+                  WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 25%, black 100%)',
+                  maskImage: 'linear-gradient(to right, transparent 0%, black 25%, black 100%)',
+                  filter: `saturate(1.1) hue-rotate(${i * 8}deg)`,
+                }}
               />
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent" />
-              <div
-                className="absolute left-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-md font-['Outfit',sans-serif] text-[14px] font-black text-white"
-                style={{ background: accent, boxShadow: '0 2px 8px rgba(0,0,0,0.5)' }}
-              >1</div>
-            </div>
-          ) : (
-            <div
-              className="rounded-lg"
-              style={{ gridColumn: '1', gridRow: '1 / span 2', background: 'rgba(255,255,255,0.04)' }}
-            />
-          )}
-          {/* #2-#5 — 1x1 each in 2x2 sub-grid right of #1 */}
-          {[1, 2, 3, 4].map(idx => {
-            const t = tops[idx]
-            const c = cover(t)
-            if (!c) {
-              return <div key={idx} className="rounded-md" style={{ background: 'rgba(255,255,255,0.04)' }} />
-            }
-            return (
-              <div key={idx} className="relative overflow-hidden rounded-md" style={{ boxShadow: '0 3px 10px rgba(0,0,0,0.4)' }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={proxyImg(c)} alt="" loading="lazy" className="h-full w-full object-cover" />
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                <div
-                  className="absolute right-1 bottom-1 inline-flex h-5 w-5 items-center justify-center rounded font-['Outfit',sans-serif] text-[10px] font-black text-white"
-                  style={{ background: 'rgba(0,0,0,0.75)' }}
-                >{idx + 1}</div>
-              </div>
+            ) : (
+              <div key={i} className="h-full flex-1 bg-gradient-to-br from-[var(--accent-orange)]/30 to-transparent" />
             )
-          })}
+          ))}
         </div>
       )}
-
-      {/* Equalizer decoration — top right corner */}
-      <div className="absolute right-5 top-5 z-[2] flex items-end gap-1 opacity-70">
-        {[20, 32, 26, 40, 28].map((h, i) => (
+      {/* Equalizer decoration */}
+      <div className="absolute right-6 top-6 z-[1] flex items-end gap-1 opacity-40">
+        {[40, 70, 55, 85, 60].map((h, i) => (
           <div
             key={i}
-            className="w-[3px] rounded-sm"
-            style={{ height: h, background: accent, animation: `hp-bar ${0.8 + (i % 3) * 0.15}s ease-in-out infinite alternate`, animationDelay: `${i * 0.08}s`, boxShadow: `0 0 6px ${accent}` }}
+            className={`w-1 rounded-sm ${isLT ? 'bg-[var(--accent-orange)]' : 'bg-[var(--accent-blue)]'}`}
+            style={{ height: h, animation: `hp-bar ${0.8 + (i % 3) * 0.15}s ease-in-out infinite alternate`, animationDelay: `${i * 0.08}s` }}
           />
         ))}
       </div>
-
-      {/* Left content — title, top 3 list, CTA */}
-      <div
-        className="relative z-[1] flex h-full flex-col p-5"
-        style={{ width: '46%' }}
-      >
+      {/* Content overlay */}
+      <div className="relative flex h-full flex-col p-5">
         <div className="mb-auto flex items-center gap-2">
-          <span
-            className="inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1 font-['Outfit',sans-serif] text-[10px] font-black uppercase tracking-[0.08em] text-white"
-            style={{ background: accent }}
-          >
+          <span className={`inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1 font-['Outfit',sans-serif] text-[10px] font-black uppercase tracking-[0.08em] text-white ${isLT ? 'bg-[var(--accent-orange)]' : 'bg-[var(--accent-blue)]'}`}>
             <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17h2v-7H3v7zm4 0h2V7H7v10zm4 0h2v-4h-2v4zm4 0h2v-9h-2v9zm4-13v13h2V4h-2z"/></svg>
             TOPAS
           </span>
         </div>
         <div>
-          <h3 className="m-0 mb-2.5 font-['Outfit',sans-serif] text-[28px] font-black tracking-tight text-white" style={{ lineHeight: 1.04 }}>
+          <h3 className="m-0 mb-2 font-['Outfit',sans-serif] text-[34px] font-black tracking-tight text-white">
             {slide.title}
           </h3>
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1.5">
             {tops.slice(0, 3).map(t => (
-              <div key={t.track_id || t.pos} className="flex items-center gap-2">
-                <span
-                  className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded font-['Outfit',sans-serif] text-[10.5px] font-black text-white"
-                  style={{ background: t.pos <= 3 ? accent : 'rgba(255,255,255,0.15)' }}
-                >{t.pos}</span>
+              <div key={t.track_id || t.pos} className="flex items-center gap-2.5">
+                <span className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded font-['Outfit',sans-serif] text-[12px] font-black ${
+                  t.pos <= 3 ? 'bg-[var(--accent-orange)] text-white' : 'bg-white/15 text-white'
+                }`}>{t.pos}</span>
                 <div className="min-w-0 flex-1">
-                  <p className="m-0 truncate font-['Outfit',sans-serif] text-[12.5px] font-bold leading-tight text-white">{t.title}</p>
-                  <p className="m-0 truncate text-[10.5px] leading-tight text-white/65">{t.artist}</p>
+                  <p className="m-0 truncate font-['Outfit',sans-serif] text-[13px] font-bold text-white">{t.title}</p>
+                  <p className="m-0 truncate text-[11px] text-white/70">{t.artist}</p>
                 </div>
               </div>
             ))}
           </div>
-          <span
-            className="mt-3 inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[11.5px] font-bold text-white/85 transition-colors"
-            style={{ color: 'rgba(255,255,255,0.85)' }}
-          >
+          <span className="mt-3 inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[12px] font-bold text-white/85 transition-colors group-hover:text-[var(--accent-orange)]">
             Pilnas top'as
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
           </span>
         </div>
       </div>
@@ -1402,7 +1354,7 @@ export default function Home() {
         type: 'chart_lt', chip: 'LT TOP 30', chipBg: '#ea580c',
         title: 'LT TOP 30',
         subtitle: ltTop.slice(0, 3).map(t => `${t.pos}. ${t.title}`).join(' · '),
-        href: '/top30',
+        href: '/topas/lt-top-30',
         bgImg: ltTop[0]?.artist_image || ltTop[0]?.cover_url || null,
         chartTops: ltTop.slice(0, 5),
       } as any)
@@ -1412,7 +1364,7 @@ export default function Home() {
         type: 'chart_world', chip: 'TOP 40', chipBg: '#1d4ed8',
         title: 'TOP 40',
         subtitle: worldTop.slice(0, 3).map(t => `${t.pos}. ${t.title}`).join(' · '),
-        href: '/top40',
+        href: '/topas/top-40',
         bgImg: worldTop[0]?.artist_image || worldTop[0]?.cover_url || null,
         chartTops: worldTop.slice(0, 5),
       } as any)
@@ -1671,9 +1623,7 @@ export default function Home() {
             <div style={{ display: 'flex', gap: 12, overflowX: 'auto', scrollbarWidth: 'none', height: 308, alignItems: 'stretch', scrollSnapType: 'x mandatory' }}>
               {heroSlides.map((slide, i) => {
                 const isSeen = seenSlides.has(slide.href)
-                const isChart = slide.type === 'chart_lt' || slide.type === 'chart_world'
-                const chartTops = slide.chartTops || []
-                const artistName = slide.artist?.name || null
+                const artistName = slide.artist?.name || (slide.type === 'chart_lt' ? 'LT TOP 30' : slide.type === 'chart_world' ? 'TOP 40' : null)
                 // Excerpt — tik news slide'uose subtitle yra real prose (renginiams ten data·vieta, chartams top tracks).
                 const showExcerpt = slide.type === 'news' && slide.subtitle && slide.subtitle.length > 5
                 return (
@@ -1686,70 +1636,30 @@ export default function Home() {
                       boxShadow: '0 6px 18px rgba(0,0,0,0.4)',
                     }}
                   >
-                    {isChart && chartTops.length > 0 ? (
-                      // ── Chart slide (LT TOP 30 / TOP 40) — collage + listing ──
-                      <div style={{
-                        width: '100%', height: '100%', position: 'relative',
-                        background: slide.type === 'chart_lt'
-                          ? 'linear-gradient(180deg, rgba(249,115,22,0.22) 0%, #0a0e1a 45%, #050810 100%)'
-                          : 'linear-gradient(180deg, rgba(29,78,216,0.22) 0%, #0a0e1a 45%, #050810 100%)',
-                        padding: '36px 10px 12px', display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'left',
-                      }}>
-                        {/* 2x2 collage of top 4 covers */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: 4, height: 140 }}>
-                          {[0, 1, 2, 3].map(idx => {
-                            const t = chartTops[idx]
-                            const c = t ? (t.cover_url || t.artist_image) : null
-                            if (!c) return <div key={idx} style={{ borderRadius: 6, background: 'rgba(255,255,255,0.04)' }} />
-                            return (
-                              <div key={idx} style={{ position: 'relative', borderRadius: 6, overflow: 'hidden' }}>
-                                <img src={proxyImg(c)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                                <span style={{ position: 'absolute', right: 3, bottom: 3, height: 15, minWidth: 15, padding: '0 4px', borderRadius: 3, background: 'rgba(0,0,0,0.78)', fontSize: 9, fontWeight: 900, color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Outfit,sans-serif', lineHeight: 1 }}>{idx + 1}</span>
-                              </div>
-                            )
-                          })}
-                        </div>
-                        {/* Chart title */}
-                        <p style={{ fontSize: 17, fontWeight: 900, color: '#fff', margin: 0, lineHeight: 1, fontFamily: 'Outfit,sans-serif', letterSpacing: '-0.02em' }}>{slide.title}</p>
-                        {/* Top 3 listing — compact */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 2 }}>
-                          {chartTops.slice(0, 3).map(t => (
-                            <div key={t.track_id || t.pos} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                              <span style={{ width: 14, height: 14, borderRadius: 3, fontSize: 9, fontWeight: 900, color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: t.pos <= 3 ? slide.chipBg : 'rgba(255,255,255,0.12)', fontFamily: 'Outfit,sans-serif', flexShrink: 0, lineHeight: 1 }}>{t.pos}</span>
-                              <span style={{ flex: 1, minWidth: 0, fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.95)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: 'Outfit,sans-serif' }}>{t.title}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ) : (
-                      // ── Default slide (news/event/promo) — bgImg + overlay ──
-                      <>
-                        {slide.bgImg
-                          ? <img src={proxyImg(slide.bgImg)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                          : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#0a1428,#162040)' }} />
-                        }
-                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.10) 60%, rgba(0,0,0,0) 75%)' }} />
-                        {/* Bottom: title + excerpt + artist */}
-                        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '10px 12px 12px', textAlign: 'left' }}>
-                          <p style={{ fontSize: 13.5, fontWeight: 800, color: '#fff', margin: 0, lineHeight: 1.22, fontFamily: 'Outfit,sans-serif', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.01em' } as any}>{slide.title}</p>
-                          {showExcerpt && (
-                            <p style={{ fontSize: 11, fontWeight: 500, color: 'rgba(255,255,255,0.78)', margin: '5px 0 0', lineHeight: 1.32, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' } as any}>{slide.subtitle}</p>
-                          )}
-                          {artistName && (
-                            <p style={{ fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.65)', margin: '6px 0 0', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artistName}</p>
-                          )}
-                        </div>
-                      </>
-                    )}
-                    {/* Top: chip badge — overlay both modes */}
-                    <div style={{ position: 'absolute', top: 10, left: 10, display: 'flex', alignItems: 'center', gap: 4, zIndex: 2 }}>
+                    {slide.bgImg
+                      ? <img src={proxyImg(slide.bgImg)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#0a1428,#162040)' }} />
+                    }
+                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.10) 60%, rgba(0,0,0,0) 75%)' }} />
+                    {/* Top: chip badge */}
+                    <div style={{ position: 'absolute', top: 10, left: 10, display: 'flex', alignItems: 'center', gap: 4 }}>
                       <span style={{ padding: '4px 9px', borderRadius: 12, fontSize: 9, fontWeight: 900, color: '#fff', background: slide.chipBg, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.06em', textTransform: 'uppercase', backdropFilter: 'blur(4px)' }}>
                         {slide.chip}
                       </span>
                     </div>
                     {!isSeen && (
-                      <div style={{ position: 'absolute', top: 10, right: 10, width: 8, height: 8, borderRadius: '50%', background: '#f97316', boxShadow: '0 0 0 2px #000', zIndex: 2 }} />
+                      <div style={{ position: 'absolute', top: 10, right: 10, width: 8, height: 8, borderRadius: '50%', background: '#f97316', boxShadow: '0 0 0 2px #000' }} />
                     )}
+                    {/* Bottom: title + excerpt + artist */}
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '10px 12px 12px', textAlign: 'left' }}>
+                      <p style={{ fontSize: 13.5, fontWeight: 800, color: '#fff', margin: 0, lineHeight: 1.22, fontFamily: 'Outfit,sans-serif', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.01em' } as any}>{slide.title}</p>
+                      {showExcerpt && (
+                        <p style={{ fontSize: 11, fontWeight: 500, color: 'rgba(255,255,255,0.78)', margin: '5px 0 0', lineHeight: 1.32, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' } as any}>{slide.subtitle}</p>
+                      )}
+                      {artistName && (
+                        <p style={{ fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.65)', margin: '6px 0 0', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artistName}</p>
+                      )}
+                    </div>
                   </button>
                 )
               })}

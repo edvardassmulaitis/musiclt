@@ -6,7 +6,7 @@ import { getPostById, updatePost, deletePost } from '@/lib/supabase-blog'
 import { resolveProfile } from '@/lib/profile-resolve'
 import { detectEmbed } from '@/lib/embed-detect'
 
-const POST_TYPES = ['article', 'review', 'translation', 'creation', 'event'] as const
+const POST_TYPES = ['article', 'review', 'translation', 'creation', 'event', 'topas'] as const
 
 // Allowlist — visi laukai, kuriuos klientas leidžia atnaujinti. Niekada
 // neperduodam status/published_at sandbagging — turim explicit handling.
@@ -15,7 +15,7 @@ const ALLOWED_FIELDS = new Set([
   'post_type', 'rating',
   'target_artist_id', 'target_album_id', 'target_track_id', 'target_event_id',
   'embed_url', 'embed_type', 'embed_thumbnail_url', 'embed_title', 'embed_html',
-  'tags',
+  'tags', 'list_items',
 ])
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -69,6 +69,23 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       .slice(0, 20)
       .map((t: any) => String(t).trim().toLowerCase())
       .filter(Boolean)
+  }
+
+  // ── List items normalize (topas tipas) ────────────────────────────────
+  if (Array.isArray(updates.list_items)) {
+    updates.list_items = updates.list_items
+      .slice(0, 50)
+      .map((item: any, idx: number) => ({
+        rank: idx + 1,
+        type: ['artist','album','track','custom'].includes(item?.type) ? item.type : 'custom',
+        entity_id: item?.entity_id ?? null,
+        entity_slug: item?.entity_slug ?? null,
+        title: String(item?.title || '').slice(0, 200),
+        artist: item?.artist ? String(item.artist).slice(0, 200) : null,
+        image_url: item?.image_url ? String(item.image_url).slice(0, 500) : null,
+        comment: item?.comment ? String(item.comment).slice(0, 500) : null,
+      }))
+      .filter((item: any) => item.title)
   }
 
   // ── Publish handling: nustatom published_at kai pereinama į published ─

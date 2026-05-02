@@ -85,7 +85,7 @@ export function formatActivityEvent(event: {
     case 'daily_vote':
       return { text: `${actor} balsavo už dienos dainą „${entity || ''}"`, url: '/dienos-daina' }
     case 'top_vote':
-      return { text: `${actor} balsavo ${event.metadata?.top_type === 'lt_top30' ? 'LT TOP 30' : 'TOP 40'}`, url: event.metadata?.top_type === 'lt_top30' ? '/top30' : '/top40' }
+      return { text: `${actor} balsavo ${event.metadata?.top_type === 'lt_top30' ? 'LT TOP 30' : 'TOP 40'}`, url: '/topas' }
     case 'voting_vote':
       return { text: `${actor} balsavo „${entity || event.metadata?.edition_title || 'balsavime'}"`, url: event.entity_url }
     case 'news':

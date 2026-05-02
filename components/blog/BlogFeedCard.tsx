@@ -3,10 +3,30 @@
 //
 // Vienas universalus card layout'as, paprastas, matching /blogas/mano
 // stilių. Tipas — mažas badge'ukas; rating recenzijoms — orange tag'as.
+// Excerpt'as: jei nėra summary, traukiam pirmą tekstą iš HTML content'o.
 
 import Link from 'next/link'
 import type { BlogPostType } from './post-types'
 import { POST_TYPE_OPTIONS } from './post-types'
+
+// Strip HTML tags + nuimam iframe/img wrappers, paliekam grynas raides.
+// Naudojam feed card'uose kai user'is nepildo summary (po 2026-05-02 drop'o).
+export function extractExcerpt(html: string | null, maxChars = 200): string {
+  if (!html) return ''
+  const text = html
+    .replace(/<iframe[^>]*>[\s\S]*?<\/iframe>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (text.length <= maxChars) return text
+  return text.slice(0, maxChars).replace(/\s+\S*$/, '') + '...'
+}
 
 export type FeedPost = {
   id: string
@@ -81,11 +101,15 @@ export function BlogFeedCard({ post }: { post: FeedPost }) {
             {post.title}
           </h3>
 
-          {post.summary && (
-            <p className="text-xs line-clamp-2 mb-2" style={{ color: '#8aa8cc' }}>
-              {post.summary}
-            </p>
-          )}
+          {(() => {
+            const excerpt = post.summary || extractExcerpt(post.content)
+            if (!excerpt) return null
+            return (
+              <p className="text-xs line-clamp-2 mb-2" style={{ color: '#8aa8cc' }}>
+                {excerpt}
+              </p>
+            )
+          })()}
 
           {post.tags && post.tags.length > 0 && (
             <div className="flex gap-1 flex-wrap mb-2">

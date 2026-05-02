@@ -147,6 +147,11 @@ export default async function PostPage({ params }: { params: Promise<{ username:
         {/* Main content */}
         {post.content && <PostContent html={post.content} />}
 
+        {/* Topas list rendering */}
+        {postType === 'topas' && Array.isArray(post.list_items) && post.list_items.length > 0 && (
+          <TopasList items={post.list_items} />
+        )}
+
         {/* Tags */}
         {post.tags && post.tags.length > 0 && (
           <div className="flex flex-wrap gap-1 mb-8 mt-4">
@@ -182,6 +187,51 @@ export default async function PostPage({ params }: { params: Promise<{ username:
         <PostInteractions postId={post.id} initialLikeCount={post.like_count || 0} initialComments={[]} />
       </article>
     </>
+  )
+}
+
+// ── Topas list (numeruotas sąrašas su nuorodomis) ────────────────────────
+function TopasList({ items }: { items: any[] }) {
+  return (
+    <div className="my-8 space-y-2">
+      {items.map((item, idx) => {
+        const href =
+          item.type === 'artist' ? `/atlikejai/${item.entity_slug || item.entity_id}` :
+          item.type === 'album'  ? `/albumai/${item.entity_slug || item.entity_id}` :
+          item.type === 'track'  ? `/dainos/${item.entity_slug || item.entity_id}` :
+          null
+        const Wrapper: any = href ? Link : 'div'
+        const wrapperProps = href ? { href } : {}
+        return (
+          <Wrapper
+            key={idx}
+            {...wrapperProps}
+            className={`flex gap-4 p-3 rounded-lg ${href ? 'transition hover:bg-white/[.04]' : ''}`}
+            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
+          >
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded flex items-center justify-center text-lg sm:text-xl font-black flex-shrink-0"
+              style={{ background: 'rgba(249,115,22,0.15)', color: '#f97316', fontFamily: "'Outfit', sans-serif" }}>
+              {item.rank || (idx + 1)}
+            </div>
+            {item.image_url && (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img src={item.image_url} alt="" className="w-12 h-12 sm:w-14 sm:h-14 rounded-md object-cover flex-shrink-0" />
+            )}
+            <div className="flex-1 min-w-0 self-center">
+              <p className="text-base font-bold truncate" style={{ color: '#f2f4f8', fontFamily: "'Outfit', sans-serif" }}>
+                {item.title}
+              </p>
+              {item.artist && (
+                <p className="text-xs truncate" style={{ color: '#8aa8cc' }}>{item.artist}</p>
+              )}
+              {item.comment && (
+                <p className="text-xs mt-1.5 leading-relaxed" style={{ color: '#a4b8d4' }}>{item.comment}</p>
+              )}
+            </div>
+          </Wrapper>
+        )
+      })}
+    </div>
   )
 }
 

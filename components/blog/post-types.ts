@@ -14,6 +14,7 @@ export type BlogPostType =
   | 'translation'
   | 'creation'
   | 'event'
+  | 'topas'
 
 export const POST_TYPE_OPTIONS: Array<{
   type: BlogPostType
@@ -22,6 +23,7 @@ export const POST_TYPE_OPTIONS: Array<{
 }> = [
   { type: 'article',     label: 'Įrašas',     hint: 'Tekstas + nuotraukos + embed\'ai' },
   { type: 'review',      label: 'Recenzija',  hint: 'Su balu ir music.lt įrašu' },
+  { type: 'topas',       label: 'Topas',      hint: 'Numeruotas sąrašas — atlikėjai/albumai/dainos' },
   { type: 'translation', label: 'Vertimas',   hint: 'LT vertimas pasirinktos dainos' },
   { type: 'creation',    label: 'Kūryba',     hint: 'Eilėraštis, esė, fiction' },
   { type: 'event',       label: 'Renginys',   hint: 'Renginio apžvalga' },

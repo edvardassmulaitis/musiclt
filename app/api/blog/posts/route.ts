@@ -7,7 +7,7 @@ import { resolveProfile } from '@/lib/profile-resolve'
 import { detectEmbed } from '@/lib/embed-detect'
 import { logActivity } from '@/lib/activity-logger'
 
-const POST_TYPES = ['article', 'review', 'translation', 'creation', 'event'] as const
+const POST_TYPES = ['article', 'review', 'translation', 'creation', 'event', 'topas'] as const
 type PostType = typeof POST_TYPES[number]
 
 export async function GET(_req: NextRequest) {
@@ -97,6 +97,25 @@ export async function POST(req: NextRequest) {
     // events.id yra UUID — perduodam kaip string'ą
     if (body.target_event_id) {
       ;(data as any).target_event_id = String(body.target_event_id)
+    }
+  }
+
+  if (postType === 'topas') {
+    // list_items: array of { rank, type, entity_id, entity_slug, title, artist, image_url, comment }
+    if (Array.isArray(body.list_items)) {
+      ;(data as any).list_items = body.list_items
+        .slice(0, 50)
+        .map((item: any, idx: number) => ({
+          rank: idx + 1,
+          type: ['artist','album','track','custom'].includes(item?.type) ? item.type : 'custom',
+          entity_id: item?.entity_id ?? null,
+          entity_slug: item?.entity_slug ?? null,
+          title: String(item?.title || '').slice(0, 200),
+          artist: item?.artist ? String(item.artist).slice(0, 200) : null,
+          image_url: item?.image_url ? String(item.image_url).slice(0, 500) : null,
+          comment: item?.comment ? String(item.comment).slice(0, 500) : null,
+        }))
+        .filter((item: any) => item.title)
     }
   }
 

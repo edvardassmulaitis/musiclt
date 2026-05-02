@@ -20,6 +20,7 @@ import { ImageUploadField } from '@/components/blog/ImageUploadField'
 import { ReviewTargetField, type ReviewTarget } from '@/components/blog/ReviewTargetField'
 import { TranslationField, type TranslationTarget } from '@/components/blog/TranslationField'
 import { EventTargetField, type EventTarget } from '@/components/blog/EventTargetField'
+import { ListEditorField, type ListItem } from '@/components/blog/ListEditorField'
 import { UsernameSetupGate } from '@/components/blog/UsernameSetupGate'
 
 type LoadedPost = {
@@ -34,6 +35,7 @@ type LoadedPost = {
   target_album_id?: number | null
   target_track_id?: number | null
   target_event_id?: string | null
+  list_items?: ListItem[]
 }
 
 function EditorInner() {
@@ -49,7 +51,6 @@ function EditorInner() {
   const [postType, setPostType] = useState<BlogPostType>(initialType || 'article')
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
-  const [summary, setSummary] = useState('')
   const [coverUrl, setCoverUrl] = useState('')
 
   // Review state
@@ -67,6 +68,9 @@ function EditorInner() {
   const [eventTarget, setEventTarget] = useState<EventTarget>({
     event_id: null, display: null,
   })
+
+  // Topas state
+  const [listItems, setListItems] = useState<ListItem[]>([])
 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -86,7 +90,6 @@ function EditorInner() {
       if (!p?.title) return
       setTitle(p.title || '')
       setContent(p.content || '')
-      setSummary(p.summary || '')
       setCoverUrl(p.cover_image_url || '')
       setPostType((p.post_type as BlogPostType) || 'article')
       setRating(p.rating ?? null)
@@ -105,6 +108,9 @@ function EditorInner() {
       if (p.target_event_id) {
         setEventTarget({ event_id: p.target_event_id, display: null })
       }
+      if (Array.isArray(p.list_items) && p.list_items.length > 0) {
+        setListItems(p.list_items)
+      }
     })
   }, [editId])
 
@@ -121,8 +127,11 @@ function EditorInner() {
     if (status === 'published' && postType === 'event') {
       if (!eventTarget.event_id) return 'Renginio apžvalgai pasirink renginį'
     }
+    if (status === 'published' && postType === 'topas') {
+      if (listItems.length < 2) return 'Topui pridėk bent 2 įrašus'
+    }
     return null
-  }, [postType, title, reviewTarget, rating, translation, eventTarget])
+  }, [postType, title, reviewTarget, rating, translation, eventTarget, listItems])
 
   async function handleSave(publishStatus: 'draft' | 'published') {
     const err = validate(publishStatus)
@@ -132,7 +141,6 @@ function EditorInner() {
     const body: any = {
       title: title.trim(),
       content,
-      summary: summary.trim() || null,
       cover_image_url: coverUrl || null,
       status: publishStatus,
       post_type: postType,
@@ -151,6 +159,10 @@ function EditorInner() {
 
     if (postType === 'event') {
       body.target_event_id = eventTarget.event_id
+    }
+
+    if (postType === 'topas') {
+      body.list_items = listItems
     }
 
     try {
@@ -247,6 +259,10 @@ function EditorInner() {
         <EventTargetField target={eventTarget} onChange={setEventTarget} />
       )}
 
+      {postType === 'topas' && (
+        <ListEditorField items={listItems} onChange={setListItems} />
+      )}
+
       {/* Pavadinimas */}
       <div className="mb-4">
         <label className="text-[10px] font-bold uppercase tracking-wider mb-1.5 block" style={{ color: '#5e7290', fontFamily: "'Outfit', sans-serif" }}>
@@ -258,20 +274,6 @@ function EditorInner() {
           placeholder={titlePlaceholder(postType)}
           className="w-full px-3 py-2.5 text-2xl font-bold rounded-lg outline-none focus:border-[#f97316]/30 transition"
           style={{ fontFamily: "'Outfit', sans-serif", letterSpacing: '-.02em', color: '#f2f4f8', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
-        />
-      </div>
-
-      {/* Santrauka */}
-      <div className="mb-4">
-        <label className="text-[10px] font-bold uppercase tracking-wider mb-1.5 block" style={{ color: '#5e7290', fontFamily: "'Outfit', sans-serif" }}>
-          Santrauka <span className="font-normal text-[#334058] normal-case">(neprivaloma)</span>
-        </label>
-        <input
-          value={summary}
-          onChange={e => setSummary(e.target.value)}
-          placeholder="1-2 sakiniai apie ką šis įrašas"
-          className="w-full px-3 py-2 text-sm rounded-lg outline-none focus:border-[#f97316]/30 transition"
-          style={{ color: '#dde8f8', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
         />
       </div>
 
@@ -296,6 +298,7 @@ function titlePlaceholder(type: BlogPostType): string {
     case 'translation': return 'Vertimo pavadinimas'
     case 'creation':    return 'Kūrinio pavadinimas'
     case 'event':       return 'Pvz. Andriaus Mamontovo koncertas Žalgirio arenoje'
+    case 'topas':       return 'Pvz. Mano TOP 10 LT albumų 2025'
     case 'article':
     default:            return 'Įrašo pavadinimas'
   }
@@ -307,6 +310,7 @@ function contentPlaceholder(type: BlogPostType): string {
     case 'translation': return 'Lietuviškas vertimas...'
     case 'creation':    return 'Pradėk kurti...'
     case 'event':       return 'Aprašyk renginį — atmosferą, atlikėjus, įspūdžius...'
+    case 'topas':       return 'Įžanga ir konteksto paaiškinimas (neprivaloma)...'
     case 'article':
     default:            return 'Įklijuok YouTube/Spotify nuorodą — auto-embed. Numesk nuotrauką — auto-upload.'
   }
