@@ -17,7 +17,9 @@ type Props = {
 
 export function NewConversationModal({ onClose }: Props) {
   const router = useRouter()
-  const [mode, setMode] = useState<'dm' | 'group'>('dm')
+  const [mode, setMode] = useState<'dm' | 'group' | 'discussion'>('dm')
+  const [discTitle, setDiscTitle] = useState('')
+  const [discBody, setDiscBody] = useState('')
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchUser[]>([])
   const [selected, setSelected] = useState<SearchUser[]>([])
@@ -112,7 +114,96 @@ export function NewConversationModal({ onClose }: Props) {
         <div style={{ display: 'flex', gap: 4, padding: 3, background: 'var(--bg-elevated)', borderRadius: 8, marginBottom: 14 }}>
           <ModeButton active={mode === 'dm'} onClick={() => { setMode('dm'); setSelected([]) }}>Privatus</ModeButton>
           <ModeButton active={mode === 'group'} onClick={() => setMode('group')}>Grupė</ModeButton>
+          <ModeButton active={mode === 'discussion'} onClick={() => setMode('discussion')}>Diskusija</ModeButton>
         </div>
+
+        {/* DISCUSSION mode — atviros bendruomenės temos. Po sukūrimo
+            redirect'inam į /pokalbiai/d/<slug>, kur user'is gali matyti
+            visus atsakymus chat-style. */}
+        {mode === 'discussion' && (
+          <div>
+            <input
+              type="text"
+              name={`zwx-${Math.random().toString(36).slice(2, 9)}`}
+              autoComplete="new-password"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              data-1p-ignore="true"
+              data-lpignore="true"
+              data-form-type="other"
+              value={discTitle}
+              onChange={e => setDiscTitle(e.target.value)}
+              placeholder="Diskusijos pavadinimas"
+              style={{
+                width: '100%', padding: '10px 12px', marginBottom: 10,
+                fontSize: 16, color: 'var(--text-primary)',
+                background: 'var(--bg-elevated)', border: '1px solid var(--border-default)',
+                borderRadius: 8, outline: 'none',
+              }}
+            />
+            <textarea
+              value={discBody}
+              onChange={e => setDiscBody(e.target.value)}
+              placeholder="Apie ką šita diskusija? (bent 10 simbolių)"
+              rows={5}
+              style={{
+                width: '100%', padding: '10px 12px', marginBottom: 12,
+                fontSize: 16, color: 'var(--text-primary)',
+                background: 'var(--bg-elevated)', border: '1px solid var(--border-default)',
+                borderRadius: 8, outline: 'none', resize: 'vertical',
+                fontFamily: 'inherit', lineHeight: 1.5,
+              }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button
+                onClick={onClose}
+                disabled={creating}
+                style={{
+                  padding: '8px 14px', borderRadius: 8,
+                  background: 'transparent', border: '1px solid var(--border-default)',
+                  color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                }}
+              >
+                Atšaukti
+              </button>
+              <button
+                onClick={async () => {
+                  if (discTitle.trim().length < 5 || discBody.trim().length < 10) {
+                    alert('Pavadinimas (5+) ir turinys (10+) per trumpas')
+                    return
+                  }
+                  setCreating(true)
+                  try {
+                    const res = await fetch('/api/diskusijos', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ title: discTitle.trim(), text: discBody.trim() }),
+                    })
+                    const json = await res.json()
+                    if (!res.ok) throw new Error(json.error)
+                    onClose()
+                    // Naujai sukurta diskusija — vedam tiesiai į chat-style view'ą.
+                    if (json.discussion?.slug) router.push(`/pokalbiai/d/${json.discussion.slug}`)
+                    else router.push('/pokalbiai')
+                  } catch (e: any) {
+                    alert(e?.message || 'Klaida')
+                    setCreating(false)
+                  }
+                }}
+                disabled={creating || discTitle.trim().length < 5 || discBody.trim().length < 10}
+                style={{
+                  padding: '8px 16px', borderRadius: 8,
+                  background: (discTitle.trim().length < 5 || discBody.trim().length < 10) ? 'var(--bg-hover)' : 'var(--accent-orange)',
+                  border: 'none', color: '#fff', fontSize: 13, fontWeight: 700,
+                  cursor: (discTitle.trim().length < 5 || discBody.trim().length < 10) ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {creating ? 'Kuriama…' : 'Sukurti diskusiją'}
+              </button>
+            </div>
+          </div>
+        )}
 
         {mode === 'group' && (
           <input
@@ -160,6 +251,9 @@ export function NewConversationModal({ onClose }: Props) {
           </div>
         )}
 
+        {/* User search + result list — naudojam tik DM/group mode'uose */}
+        {mode !== 'discussion' && (
+        <>
         <input
           ref={inputRef}
           type="search"
@@ -252,6 +346,8 @@ export function NewConversationModal({ onClose }: Props) {
             </button>
           </div>
         )}
+        </>
+        )}{/* end mode !== 'discussion' wrapper */}
       </div>
     </Modal>
   )

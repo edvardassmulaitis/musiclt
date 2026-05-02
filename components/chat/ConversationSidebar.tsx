@@ -11,6 +11,9 @@ export type SidebarTab = 'private' | 'discussions'
 
 export type DiscussionItem = {
   id: number
+  // 'discussion' = forum thread, kiti = entity (track/album/news/event)
+  // kuriose user'is komentavo. Kiekvienam tipui — savo URL.
+  kind?: 'discussion' | 'track' | 'album' | 'artist' | 'news' | 'event'
   slug: string
   title: string
   comment_count: number
@@ -18,6 +21,7 @@ export type DiscussionItem = {
   created_at: string
   is_author: boolean
   involvement: 'created' | 'commented'
+  url?: string
 }
 
 type Props = {
@@ -135,7 +139,7 @@ export function ConversationSidebar({
           data-form-type="other"
           value={filter}
           onChange={e => setFilter(e.target.value)}
-          placeholder={tab === 'private' ? 'Filtruoti pokalbius…' : 'Filtruoti diskusijas…'}
+          placeholder="Ieškoti…"
           style={{
             width: '100%', height: 36, padding: '0 12px',
             // iOS Safari neskautimas — 16px+ neleidžia auto-zoom'inti.
@@ -364,11 +368,12 @@ function DiscussionRow({ d }: { d: DiscussionItem }) {
     : formatSidebarTime(d.created_at)
   const subtitle = d.comment_count > 0
     ? `${d.comment_count} ${d.comment_count === 1 ? 'atsakymas' : 'atsakymai'}`
-    : 'Dar nėra atsakymų'
+    : (d.kind === 'discussion' ? 'Dar nėra atsakymų' : entityKindLabel(d.kind))
   const involvementBadge = d.involvement === 'created' ? 'autorius' : 'komentavai'
+  const href = d.url || (d.kind === 'discussion' ? `/pokalbiai/d/${d.slug}` : `/diskusijos/${d.slug}`)
   return (
     <Link
-      href={`/pokalbiai/d/${d.slug}`}
+      href={href}
       style={{
         display: 'flex', gap: 10, alignItems: 'center',
         padding: '10px 14px',
@@ -378,19 +383,7 @@ function DiscussionRow({ d }: { d: DiscussionItem }) {
       onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
     >
-      <div style={{
-        width: 40, height: 40, flexShrink: 0,
-        borderRadius: 8,
-        background: 'rgba(139, 92, 246, 0.18)',
-        border: '1px solid rgba(139, 92, 246, 0.35)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: '#c4b5fd',
-      }}>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M17 8h2a2 2 0 0 1 2 2v9l-3-3h-7a2 2 0 0 1-2-2v-1"/>
-          <path d="M3 13V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6l-3 3Z"/>
-        </svg>
-      </div>
+      <EntityIcon kind={d.kind} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 2 }}>
           <div style={{
@@ -421,3 +414,65 @@ function DiscussionRow({ d }: { d: DiscussionItem }) {
     </Link>
   )
 }
+
+function EntityIcon({ kind }: { kind?: DiscussionItem['kind'] }) {
+  // Skirtingos ikonos pagal entity tipą — kad sąraše atskirtum diskusiją
+  // nuo dainos/albumo komentaro.
+  const icons: Record<string, React.ReactNode> = {
+    discussion: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M17 8h2a2 2 0 0 1 2 2v9l-3-3h-7a2 2 0 0 1-2-2v-1"/>
+        <path d="M3 13V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6l-3 3Z"/>
+      </svg>
+    ),
+    track: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+      </svg>
+    ),
+    album: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/>
+      </svg>
+    ),
+    artist: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>
+      </svg>
+    ),
+    news: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14 3v6h6"/><path d="M19 9v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7Z"/>
+      </svg>
+    ),
+    event: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/>
+      </svg>
+    ),
+  }
+  return (
+    <div style={{
+      width: 40, height: 40, flexShrink: 0,
+      borderRadius: 8,
+      background: 'rgba(139, 92, 246, 0.18)',
+      border: '1px solid rgba(139, 92, 246, 0.35)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      color: '#c4b5fd',
+    }}>
+      {icons[kind || 'discussion'] || icons.discussion}
+    </div>
+  )
+}
+
+function entityKindLabel(kind?: DiscussionItem['kind']): string {
+  switch (kind) {
+    case 'track':  return 'Dainos komentaras'
+    case 'album':  return 'Albumo komentaras'
+    case 'artist': return 'Atlikėjo komentaras'
+    case 'news':   return 'Naujienos komentaras'
+    case 'event':  return 'Renginio komentaras'
+    default:       return 'Diskusija'
+  }
+}
+
