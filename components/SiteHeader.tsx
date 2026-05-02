@@ -986,7 +986,7 @@ export function SiteHeader() {
           bottom: 4px;
           height: 2px;
           border-radius: 2px;
-          background: var(--nav-accent);
+          background: var(--accent-orange);
           transform: scaleX(0);
           transition: transform .25s cubic-bezier(.4,0,.2,1);
         }
@@ -1734,21 +1734,28 @@ export function SiteHeader() {
           left: 0; top: 12px; bottom: 12px;
           width: 3px;
           border-radius: 0 3px 3px 0;
-          background: rgba(var(--it-rgb), 1);
+          background: var(--accent-orange);
         }
 
+        /* Mobile row ikona — monochrome solid look (be per-section spalvų).
+           Subtle dark plate + neutralus icon spalva — atrodo professional
+           kaip iOS Settings / macOS sidebar. */
         .sh-mrow-icon {
           flex-shrink: 0;
-          width: 40px; height: 40px;
-          border-radius: 11px;
+          width: 38px; height: 38px;
+          border-radius: 10px;
           display: flex; align-items: center; justify-content: center;
-          color: #fff;
-          background: linear-gradient(135deg, rgba(var(--it-rgb), 1) 0%, rgba(var(--it-rgb), 0.78) 100%);
-          box-shadow:
-            0 4px 12px rgba(var(--it-rgb), 0.30),
-            inset 0 1px 0 rgba(255, 255, 255, 0.25);
+          color: var(--text-primary);
+          background: var(--bg-hover);
+          border: 1px solid var(--border-default);
         }
-        .sh-mrow-icon svg { width: 20px; height: 20px; stroke-width: 2.2; }
+        .sh-mrow-icon svg { width: 19px; height: 19px; stroke-width: 2; }
+        /* Active row — accent ring around icon (orange brand color) */
+        .sh-mrow.active .sh-mrow-icon {
+          color: var(--accent-orange);
+          border-color: var(--accent-orange);
+          background: rgba(249, 115, 22, 0.08);
+        }
         .sh-mrow-text {
           flex: 1; min-width: 0;
           display: flex; flex-direction: column;
@@ -1975,7 +1982,6 @@ export function SiteHeader() {
                   <Link
                     href={n.href}
                     className={`sh-navlink${active ? ' active' : ''}`}
-                    style={{ ['--nav-accent' as any]: n.accent }}
                     onClick={() => {
                       setClosingKey(n.key)
                       setTimeout(() => setClosingKey(null), 600)
@@ -2122,7 +2128,6 @@ export function SiteHeader() {
                     type="button"
                     onClick={() => setDrawerView(n.key)}
                     className={`sh-mrow${active ? ' active' : ''}`}
-                    style={{ ['--it-rgb' as any]: hexToRgb(n.accent) }}
                   >
                     <span className="sh-mrow-icon">{n.icon}</span>
                     <span className="sh-mrow-text">
