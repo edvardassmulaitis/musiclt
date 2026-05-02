@@ -6,15 +6,14 @@ import { getPostById, updatePost, deletePost } from '@/lib/supabase-blog'
 import { resolveProfile } from '@/lib/profile-resolve'
 import { detectEmbed } from '@/lib/embed-detect'
 
-const POST_TYPES = ['article', 'quick', 'review', 'translation', 'creation', 'journal'] as const
+const POST_TYPES = ['article', 'review', 'translation', 'creation', 'event'] as const
 
 // Allowlist — visi laukai, kuriuos klientas leidžia atnaujinti. Niekada
 // neperduodam status/published_at sandbagging — turim explicit handling.
 const ALLOWED_FIELDS = new Set([
   'title', 'content', 'summary', 'cover_image_url', 'status',
   'post_type', 'rating',
-  'target_artist_id', 'target_album_id', 'target_track_id',
-  'original_url', 'original_author', 'original_lang',
+  'target_artist_id', 'target_album_id', 'target_track_id', 'target_event_id',
   'embed_url', 'embed_type', 'embed_thumbnail_url', 'embed_title', 'embed_html',
   'tags',
 ])

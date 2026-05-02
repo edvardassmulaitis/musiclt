@@ -16,14 +16,11 @@ export type FeedPost = {
   content: string | null
   cover_image_url: string | null
   post_type: BlogPostType
-  embed_url: string | null
-  embed_thumbnail_url: string | null
-  embed_type: string | null
-  embed_title: string | null
   rating: number | null
   target_artist_id: number | null
   target_album_id: number | null
   target_track_id: number | null
+  target_event_id: string | null
   tags: string[]
   published_at: string
   reading_time_min: number
@@ -47,7 +44,7 @@ export function BlogFeedCard({ post }: { post: FeedPost }) {
   const blogSlug = post.blogs?.slug
   const url = blogSlug ? `/blogas/${blogSlug}/${post.slug}` : '#'
   const typeMeta = POST_TYPE_OPTIONS.find(t => t.type === post.post_type)
-  const cover = post.post_type === 'quick' ? post.embed_thumbnail_url : post.cover_image_url
+  const cover = post.cover_image_url
 
   return (
     <Link
@@ -84,9 +81,9 @@ export function BlogFeedCard({ post }: { post: FeedPost }) {
             {post.title}
           </h3>
 
-          {(post.summary || (post.post_type === 'quick' && post.content)) && (
+          {post.summary && (
             <p className="text-xs line-clamp-2 mb-2" style={{ color: '#8aa8cc' }}>
-              {post.summary || post.content?.slice(0, 200)}
+              {post.summary}
             </p>
           )}
 

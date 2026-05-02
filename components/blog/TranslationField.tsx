@@ -1,78 +1,70 @@
 'use client'
 // components/blog/TranslationField.tsx
 //
-// Vertimo metadata. Paprastas grid be spalvotų boxų.
+// Vertimo formoje renkamės dainą iš music.lt katalogo. Originalo autorius
+// implicit'iškai = track.artist; kalba = "EN" (defaultas — vertimai
+// daugumoje Lietuvos atvejų EN→LT). Vartotojas neturi pildyti laisvo
+// teksto laukų, tik pasirinkti track'ą iš dropdown'o.
 
-const LANGS = [
-  { code: 'en', label: 'Anglų' },
-  { code: 'ru', label: 'Rusų' },
-  { code: 'de', label: 'Vokiečių' },
-  { code: 'fr', label: 'Prancūzų' },
-  { code: 'es', label: 'Ispanų' },
-  { code: 'it', label: 'Italų' },
-  { code: 'pl', label: 'Lenkų' },
-  { code: 'lv', label: 'Latvių' },
-  { code: 'et', label: 'Estų' },
-  { code: 'fi', label: 'Suomių' },
-  { code: 'sv', label: 'Švedų' },
-  { code: 'other', label: 'Kita' },
-]
+import MusicSearchPicker, { type AttachmentHit } from '@/components/MusicSearchPicker'
+import { proxyImg } from '@/lib/img-proxy'
 
-export type TranslationMeta = {
-  original_url: string
-  original_author: string
-  original_lang: string
+export type TranslationTarget = {
+  track_id: number | null
+  display: AttachmentHit | null
 }
 
 export function TranslationField({
-  value, onChange,
+  target, onChange,
 }: {
-  value: TranslationMeta
-  onChange: (v: TranslationMeta) => void
+  target: TranslationTarget
+  onChange: (t: TranslationTarget) => void
 }) {
-  return (
-    <div className="space-y-3 mb-6">
-      <div>
-        <label className="text-[10px] font-bold uppercase tracking-wider mb-2 block" style={{ color: '#5e7290', fontFamily: "'Outfit', sans-serif" }}>
-          Nuoroda į originalą
-        </label>
-        <input
-          value={value.original_url}
-          onChange={e => onChange({ ...value, original_url: e.target.value })}
-          placeholder="https://..."
-          className="w-full px-3 py-2 rounded-lg text-sm outline-none focus:border-[#f97316]/30 transition"
-          style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: '#dde8f8' }}
-        />
-      </div>
+  function handlePick(hit: AttachmentHit) {
+    if (hit.type !== 'daina') return
+    onChange({ track_id: hit.id, display: hit })
+  }
 
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="text-[10px] font-bold uppercase tracking-wider mb-2 block" style={{ color: '#5e7290', fontFamily: "'Outfit', sans-serif" }}>
-            Autorius
-          </label>
-          <input
-            value={value.original_author}
-            onChange={e => onChange({ ...value, original_author: e.target.value })}
-            placeholder="Originalo autorius"
-            className="w-full px-3 py-2 rounded-lg text-sm outline-none focus:border-[#f97316]/30 transition"
-            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: '#dde8f8' }}
-          />
-        </div>
-        <div>
-          <label className="text-[10px] font-bold uppercase tracking-wider mb-2 block" style={{ color: '#5e7290', fontFamily: "'Outfit', sans-serif" }}>
-            Kalba
-          </label>
-          <select
-            value={value.original_lang || ''}
-            onChange={e => onChange({ ...value, original_lang: e.target.value })}
-            className="w-full px-3 py-2 rounded-lg text-sm outline-none focus:border-[#f97316]/30 transition"
-            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: '#dde8f8' }}
+  function clear() {
+    onChange({ track_id: null, display: null })
+  }
+
+  return (
+    <div className="mb-6">
+      <label className="text-[10px] font-bold uppercase tracking-wider mb-2 block" style={{ color: '#5e7290', fontFamily: "'Outfit', sans-serif" }}>
+        Verčiama daina
+      </label>
+
+      {target.display ? (
+        <div className="flex items-center gap-3 px-3 py-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          {target.display.image_url && (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img src={proxyImg(target.display.image_url)} alt="" className="w-10 h-10 rounded object-cover" />
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold truncate" style={{ color: '#dde8f8' }}>
+              {target.display.title}
+              {target.display.artist && <span style={{ color: '#5e7290' }} className="font-normal"> — {target.display.artist}</span>}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={clear}
+            className="px-2 py-1 rounded text-xs hover:text-white transition"
+            style={{ color: '#5e7290' }}
           >
-            <option value="">— pasirink —</option>
-            {LANGS.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
-          </select>
+            ×
+          </button>
         </div>
-      </div>
+      ) : (
+        <MusicSearchPicker
+          attached={[]}
+          onAdd={handlePick}
+          placeholder="Pasirink dainą iš music.lt..."
+          typeFilter="daina"
+          compact
+        />
+      )}
     </div>
   )
 }

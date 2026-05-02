@@ -50,16 +50,40 @@ export function UsernameSetupGate({
         Tavo blogas atrodys taip: <span style={{ color: '#dde8f8' }} className="font-mono">music.lt/blogas/{username || 'tavo-vardas'}</span>
       </p>
 
-      {/* Specifiškai vengiam password-manager trigger'io: name="blog-handle"
-          (ne "username"), autoComplete="off", data-1p-ignore (1Password)
-          ir data-lpignore (LastPass). Tai pat NE inside <form>, kad
-          browser'is netiktrintų submit handler'io. */}
+      {/* HIDDEN TRAP fieldai PRIEŠ tikrąjį input'ą — Chrome/Safari/1Password
+          autofill targeting'as targetina pirmą username/password lauką
+          formoje. Įdedam apgaulingą porą (off-screen su tabIndex=-1, kad
+          tab'as juos preskočia ir aria-hidden, kad screen reader nepaminetu),
+          tad password manager'is "užkimba" čia, o tikrasis blog handle laukas
+          lieka švarus. */}
       <input
         type="text"
-        name="blog-handle"
+        name="username"
+        autoComplete="username"
+        tabIndex={-1}
+        aria-hidden="true"
+        style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px', opacity: 0 }}
+        readOnly
+      />
+      <input
+        type="password"
+        name="password"
+        autoComplete="current-password"
+        tabIndex={-1}
+        aria-hidden="true"
+        style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px', opacity: 0 }}
+        readOnly
+      />
+
+      {/* Tikrasis input'as — ne form'oje, su nestandartiniu name'u, kad
+          autofill heuristika neatpažintu kaip login lauko. */}
+      <input
+        type="text"
+        name="ml-blog-handle-67ab"
         autoComplete="off"
         data-1p-ignore="true"
         data-lpignore="true"
+        data-form-type="other"
         spellCheck={false}
         value={username}
         onChange={e => setUsername(e.target.value)}

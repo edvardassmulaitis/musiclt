@@ -145,14 +145,12 @@ export type PostUpsertFields = {
   status?: 'draft' | 'published'
   published_at?: string
   // Type discriminator + per-type laukai (visi nullable schemoje)
-  post_type?: 'article' | 'quick' | 'review' | 'translation' | 'creation' | 'journal'
+  post_type?: 'article' | 'review' | 'translation' | 'creation' | 'event'
   rating?: number | null
   target_artist_id?: number | null
   target_album_id?: number | null
   target_track_id?: number | null
-  original_url?: string | null
-  original_author?: string | null
-  original_lang?: string | null
+  target_event_id?: string | null
   embed_url?: string | null
   embed_type?: string | null
   embed_thumbnail_url?: string | null
@@ -272,7 +270,7 @@ export async function getLatestBlogPosts(limit = 6) {
   const sb = createAdminClient()
   const { data } = await sb
     .from('blog_posts')
-    .select('id, slug, title, summary, cover_image_url, post_type, embed_thumbnail_url, embed_type, embed_title, rating, tags, published_at, reading_time_min, like_count, blogs:blog_id(slug, title, profiles:user_id(full_name, username, avatar_url))')
+    .select('id, slug, title, summary, cover_image_url, post_type, rating, tags, published_at, reading_time_min, like_count, blogs:blog_id(slug, title, profiles:user_id(full_name, username, avatar_url))')
     .eq('status', 'published')
     .lte('published_at', new Date().toISOString())
     .order('published_at', { ascending: false })
@@ -298,8 +296,7 @@ export async function getBlogFeed(opts: {
     .from('blog_posts')
     .select(
       'id, slug, title, summary, content, cover_image_url, post_type, ' +
-      'embed_url, embed_thumbnail_url, embed_type, embed_title, ' +
-      'rating, target_artist_id, target_album_id, target_track_id, tags, ' +
+      'rating, target_artist_id, target_album_id, target_track_id, target_event_id, tags, ' +
       'published_at, reading_time_min, view_count, like_count, comment_count, ' +
       'blogs:blog_id(slug, title, profiles:user_id(id, full_name, username, avatar_url))',
       { count: 'exact' }
@@ -340,24 +337,26 @@ export async function getPopularTags(limit = 20) {
     .map(([tag, count]) => ({ tag, count }))
 }
 
-// ── REVIEW TARGET INFO ──────────────────────────────────────
-// Pakraunam artist/album/track display info recenzijos puslapiui. Visi trys
-// queries paraleliai — vienas tinka, kiti grąžina null.
+// ── TARGET INFO (review/translation/event) ──────────────────
+// Pakraunam display info iš atitinkamų lentelių. Visos užklausos paraleliai.
 export async function getReviewTargetInfo(opts: {
   artist_id?: number | null
   album_id?: number | null
   track_id?: number | null
+  event_id?: string | null
 }) {
   const sb = createAdminClient()
-  const [artistRes, albumRes, trackRes] = await Promise.all([
+  const [artistRes, albumRes, trackRes, eventRes] = await Promise.all([
     opts.artist_id ? sb.from('artists').select('id, name, slug, cover_image_url').eq('id', opts.artist_id).maybeSingle() : Promise.resolve({ data: null }),
     opts.album_id  ? sb.from('albums').select('id, title, slug, cover_image_url, artist:artist_id(id, name, slug)').eq('id', opts.album_id).maybeSingle() : Promise.resolve({ data: null }),
     opts.track_id  ? sb.from('tracks').select('id, title, slug, cover_image_url, artist:artist_id(id, name, slug)').eq('id', opts.track_id).maybeSingle() : Promise.resolve({ data: null }),
+    opts.event_id  ? sb.from('events').select('id, title, slug, start_date, city, cover_image_url').eq('id', opts.event_id).maybeSingle() : Promise.resolve({ data: null }),
   ])
   return {
     artist: artistRes.data,
     album: albumRes.data,
     track: trackRes.data,
+    event: eventRes.data,
   }
 }
 

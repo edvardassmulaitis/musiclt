@@ -12,9 +12,12 @@
 
 import { Node, mergeAttributes, nodePasteRule } from '@tiptap/core'
 
-const YT_REGEX = /https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/g
-const SPOTIFY_REGEX = /https?:\/\/open\.spotify\.com\/(track|album|playlist|episode)\/([a-zA-Z0-9]+)/g
-const SOUNDCLOUD_REGEX = /https?:\/\/soundcloud\.com\/[^\s]+/g
+// Pratęsiam regex'us iki URL pabaigos (whitespace) — kitaip nodePasteRule
+// nutraukia rungtynes po video ID'o, ir likę params (?v=...&list=...) lieka
+// kaip tekstas po embed'o.
+const YT_REGEX = /https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})\S*/g
+const SPOTIFY_REGEX = /https?:\/\/open\.spotify\.com\/(track|album|playlist|episode)\/([a-zA-Z0-9]+)\S*/g
+const SOUNDCLOUD_REGEX = /https?:\/\/(?:www\.)?soundcloud\.com\/\S+/g
 
 export const Iframe = Node.create({
   name: 'iframe',
@@ -47,20 +50,21 @@ export const Iframe = Node.create({
 
   addPasteRules() {
     return [
-      // YouTube
+      // YouTube — 480px max-width, aspect-ratio 16:9 (kad embed neimt'u
+      // visos straipsnio juostos, bet liktų atpažįstamas)
       nodePasteRule({
         find: YT_REGEX,
         type: this.type,
         getAttributes: (match) => ({
           src: `https://www.youtube.com/embed/${match[1]}`,
-          width: '100%',
-          height: '315',
+          width: '480',
+          height: '270',
           'data-type': 'youtube',
           'data-orig-url': match[0],
-          style: 'aspect-ratio:16/9;border:0;border-radius:10px;margin:16px 0;width:100%;height:auto',
+          style: 'border:0;border-radius:10px;margin:16px 0;max-width:100%;aspect-ratio:16/9;width:480px;height:auto',
         }),
       }),
-      // Spotify (track/album/playlist/episode)
+      // Spotify (track/album/playlist/episode) — siauresnis player'is
       nodePasteRule({
         find: SPOTIFY_REGEX,
         type: this.type,
@@ -70,25 +74,25 @@ export const Iframe = Node.create({
           const height = kind === 'track' ? '152' : '352'
           return {
             src: `https://open.spotify.com/embed/${kind}/${id}?theme=0`,
-            width: '100%',
+            width: '480',
             height,
             'data-type': `spotify-${kind}`,
             'data-orig-url': match[0],
-            style: 'border:0;border-radius:10px;margin:16px 0',
+            style: `border:0;border-radius:10px;margin:16px 0;max-width:100%;width:480px;height:${height}px`,
           }
         },
       }),
-      // SoundCloud — paste'intas link'as virsta iframe player'iu
+      // SoundCloud
       nodePasteRule({
         find: SOUNDCLOUD_REGEX,
         type: this.type,
         getAttributes: (match) => ({
           src: `https://w.soundcloud.com/player/?url=${encodeURIComponent(match[0])}&color=%23f97316&auto_play=false`,
-          width: '100%',
+          width: '480',
           height: '166',
           'data-type': 'soundcloud',
           'data-orig-url': match[0],
-          style: 'border:0;border-radius:10px;margin:16px 0',
+          style: 'border:0;border-radius:10px;margin:16px 0;max-width:100%;width:480px;height:166px',
         }),
       }),
     ]

@@ -6,11 +6,6 @@ import PostInteractions from './post-interactions'
 import { PostTypeBadge } from '@/components/blog/PostTypeBadge'
 import type { BlogPostType } from '@/components/blog/post-types'
 
-const LANG_LABELS: Record<string, string> = {
-  en: 'anglų', ru: 'rusų', de: 'vokiečių', fr: 'prancūzų', es: 'ispanų',
-  it: 'italų', pl: 'lenkų', lv: 'latvių', et: 'estų', fi: 'suomių', sv: 'švedų', other: 'kitos',
-}
-
 export async function generateMetadata({ params }: { params: Promise<{ username: string; slug: string }> }) {
   const { username, slug } = await params
   const post = await getPost(username, slug)
@@ -35,12 +30,13 @@ export default async function PostPage({ params }: { params: Promise<{ username:
   const postType: BlogPostType = (post.post_type as BlogPostType) || 'article'
   const artists = await getPostRelatedArtists(post.id)
 
-  // Recenzijai pakraunam target entity info, kad galėtume rodyti vardą + nuorodą
-  const reviewTarget = postType === 'review'
+  // Pakraunam target entity info pagal post tipą — review/translation/event
+  const targetInfo = (postType === 'review' || postType === 'translation' || postType === 'event')
     ? await getReviewTargetInfo({
         artist_id: post.target_artist_id ?? null,
         album_id:  post.target_album_id  ?? null,
         track_id:  post.target_track_id  ?? null,
+        event_id:  post.target_event_id  ?? null,
       })
     : null
 
@@ -71,8 +67,7 @@ export default async function PostPage({ params }: { params: Promise<{ username:
     ...(post.cover_image_url ? { image: post.cover_image_url } : {}),
   }
 
-  // Quick'ams cover'ą imam iš embed'o, jei nėra atskiro
-  const cover = post.cover_image_url || (postType === 'quick' ? post.embed_thumbnail_url : null)
+  const cover = post.cover_image_url
 
   return (
     <>
@@ -100,8 +95,8 @@ export default async function PostPage({ params }: { params: Promise<{ username:
           )}
         </div>
 
-        {/* Cover (article/journal/creation/review) — natural ratio, no crop */}
-        {cover && postType !== 'quick' && (
+        {/* Cover — natural ratio, no crop */}
+        {cover && (
           <div className="rounded-2xl overflow-hidden mb-8">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={cover} alt={post.title} className="w-full h-auto block" />
@@ -114,24 +109,9 @@ export default async function PostPage({ params }: { params: Promise<{ username:
           {post.title}
         </h1>
 
-        {/* Translation original info */}
-        {postType === 'translation' && (post.original_url || post.original_author || post.original_lang) && (
-          <div className="mb-6 p-3 rounded-lg text-xs" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-            <p style={{ color: '#b0bdd4' }}>
-              <span className="font-bold">Verstas iš {post.original_lang ? LANG_LABELS[post.original_lang] || post.original_lang : 'kitos kalbos'}</span>
-              {post.original_author && <span style={{ color: '#5e7290' }}> · autorius <span style={{ color: '#dde8f8' }}>{post.original_author}</span></span>}
-            </p>
-            {post.original_url && (
-              <a href={post.original_url} target="_blank" rel="noreferrer" className="hover:underline break-all" style={{ color: '#f97316' }}>
-                {post.original_url} ↗
-              </a>
-            )}
-          </div>
-        )}
-
-        {/* Review target info */}
-        {postType === 'review' && reviewTarget && (reviewTarget.artist || reviewTarget.album || reviewTarget.track) && (
-          <ReviewTargetCard target={reviewTarget} />
+        {/* Target entity card — review/translation/event */}
+        {targetInfo && (targetInfo.artist || targetInfo.album || targetInfo.track || targetInfo.event) && (
+          <TargetEntityCard target={targetInfo} postType={postType} />
         )}
 
         {/* Meta */}
@@ -152,19 +132,13 @@ export default async function PostPage({ params }: { params: Promise<{ username:
               {new Date(post.published_at).toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' })}
             </span>
           )}
-          {post.reading_time_min > 0 && postType !== 'quick' && (
+          {post.reading_time_min > 0 && (
             <span className="text-xs" style={{ color: '#334058' }}>{post.reading_time_min} min. skaitymo</span>
           )}
           <span className="text-xs" style={{ color: '#1e2e42' }}>👁 {post.view_count || 0}</span>
         </div>
 
-        {/* Quick post: rodom embed iškart kaip pagrindinis turinys */}
-        {postType === 'quick' && post.embed_html && (
-          <div className="mb-6 rounded-xl overflow-hidden" dangerouslySetInnerHTML={{ __html: post.embed_html }} />
-        )}
-
-        {/* Summary po embed'u quick'ams, prieš content kitiems */}
-        {post.summary && postType !== 'quick' && (
+        {post.summary && (
           <p className="text-lg mb-6 leading-relaxed" style={{ color: '#a4b8d4' }}>
             {post.summary}
           </p>
@@ -211,15 +185,25 @@ export default async function PostPage({ params }: { params: Promise<{ username:
   )
 }
 
-// ── Review target card ─────────────────────────────────────────────────────
-function ReviewTargetCard({ target }: { target: { artist: any; album: any; track: any } }) {
+// ── Target entity card (review/translation/event) ────────────────────────
+function TargetEntityCard({ target, postType }: { target: { artist: any; album: any; track: any; event: any }; postType: BlogPostType }) {
   let entity: { kind: string; href: string; name: string; subname?: string; image?: string | null } | null = null
 
-  if (target.track) {
+  if (target.event) {
+    const e = target.event
+    const date = e.start_date ? new Date(e.start_date).toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' }) : null
+    entity = {
+      kind: 'Renginys',
+      href: `/renginiai/${e.slug || e.id}`,
+      name: e.title,
+      subname: [date, e.city].filter(Boolean).join(' · '),
+      image: e.cover_image_url || null,
+    }
+  } else if (target.track) {
     const t = target.track
     const a = Array.isArray(t.artist) ? t.artist[0] : t.artist
     entity = {
-      kind: 'Daina',
+      kind: postType === 'translation' ? 'Verčiama daina' : 'Daina',
       href: `/dainos/${t.slug || t.id}`,
       name: t.title,
       subname: a?.name || undefined,

@@ -7,7 +7,7 @@ import { resolveProfile } from '@/lib/profile-resolve'
 import { detectEmbed } from '@/lib/embed-detect'
 import { logActivity } from '@/lib/activity-logger'
 
-const POST_TYPES = ['article', 'quick', 'review', 'translation', 'creation', 'journal'] as const
+const POST_TYPES = ['article', 'review', 'translation', 'creation', 'event'] as const
 type PostType = typeof POST_TYPES[number]
 
 export async function GET(_req: NextRequest) {
@@ -46,13 +46,10 @@ export async function POST(req: NextRequest) {
   const body = await req.json()
   const postType: PostType = POST_TYPES.includes(body.post_type) ? body.post_type : 'article'
 
-  // ── Per-type validacija ────────────────────────────────────────────────
-  // Quick mode'as gali neturėti title — auto-generuojam iš embed'o; visi kiti
-  // tipai reikalauja pavadinimo.
-  let title = (body.title || '').trim()
-  if (postType === 'quick' && !title) {
-    title = body.embed_title || body.embed_url || 'Quick post'
-  }
+  // Visi tipai reikalauja pavadinimo. Vertimas išimties būdu — jei nėra
+  // title'o, generuojam iš dainos pavadinimo (per target_track_id, nors
+  // čia neskaičiuojam — šitą padarys frontend default'as).
+  const title = (body.title || '').trim()
   if (!title) return NextResponse.json({ error: 'Trūksta pavadinimo' }, { status: 400 })
 
   // ── Slug generation ────────────────────────────────────────────────────
@@ -92,9 +89,15 @@ export async function POST(req: NextRequest) {
   }
 
   if (postType === 'translation') {
-    data.original_url = body.original_url || null
-    data.original_author = body.original_author || null
-    data.original_lang = body.original_lang || null
+    // Tik track_id reikalingas — autorius/kalba implicit'iški (track.artist + EN→LT)
+    data.target_track_id = numOrNull(body.target_track_id)
+  }
+
+  if (postType === 'event') {
+    // events.id yra UUID — perduodam kaip string'ą
+    if (body.target_event_id) {
+      ;(data as any).target_event_id = String(body.target_event_id)
+    }
   }
 
   try {
