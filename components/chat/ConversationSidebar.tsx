@@ -137,8 +137,9 @@ export function ConversationSidebar({
           onChange={e => setFilter(e.target.value)}
           placeholder={tab === 'private' ? 'Filtruoti pokalbius…' : 'Filtruoti diskusijas…'}
           style={{
-            width: '100%', height: 34, padding: '0 12px',
-            fontSize: 13, color: 'var(--text-primary)',
+            width: '100%', height: 36, padding: '0 12px',
+            // iOS Safari neskautimas — 16px+ neleidžia auto-zoom'inti.
+            fontSize: 16, color: 'var(--text-primary)',
             background: 'var(--input-bg, var(--bg-elevated))',
             border: '1px solid var(--input-border, var(--border-default))',
             borderRadius: 8, outline: 'none',

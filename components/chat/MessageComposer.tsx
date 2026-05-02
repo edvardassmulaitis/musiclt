@@ -133,7 +133,9 @@ export function MessageComposer({ placeholder, onSend, onTyping, disabled, compa
           style={{
             flex: 1, resize: 'none', border: 'none', outline: 'none',
             background: 'transparent', color: 'var(--text-primary)',
-            fontSize: 14, lineHeight: 1.5, padding: '8px 0',
+            // iOS Safari zoom'ina į bet kurį input'ą su font-size < 16px kai
+            // gauna fokusa. fontSize 16 sustabdo to elgesį globaliai.
+            fontSize: 16, lineHeight: 1.45, padding: '8px 0',
             fontFamily: 'inherit',
             minHeight: 24,
           }}

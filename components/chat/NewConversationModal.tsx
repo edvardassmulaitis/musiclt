@@ -117,8 +117,11 @@ export function NewConversationModal({ onClose }: Props) {
         {mode === 'group' && (
           <input
             type="text"
-            name="chat-group-name"
-            autoComplete="off"
+            // Safari atpažįsta net "chat-group-name" kaip vartotojo vardo lauką —
+            // todėl naudojam visiškai abstraktų atributą + new-password trick'ą,
+            // kuris išjungia VISUS autofill'us tarp Safari/Chrome/1Password.
+            name={`zwx-${Math.random().toString(36).slice(2, 9)}`}
+            autoComplete="new-password"
             autoCorrect="off"
             autoCapitalize="off"
             spellCheck={false}
@@ -130,7 +133,7 @@ export function NewConversationModal({ onClose }: Props) {
             placeholder="Grupės pavadinimas (neprivalomas)"
             style={{
               width: '100%', padding: '10px 12px', marginBottom: 10,
-              fontSize: 13, color: 'var(--text-primary)',
+              fontSize: 16, color: 'var(--text-primary)',
               background: 'var(--bg-elevated)', border: '1px solid var(--border-default)',
               borderRadius: 8, outline: 'none',
             }}
@@ -174,7 +177,7 @@ export function NewConversationModal({ onClose }: Props) {
           placeholder="Ieškoti vartotojų pagal vardą arba @username…"
           style={{
             width: '100%', padding: '10px 12px', marginBottom: 10,
-            fontSize: 13, color: 'var(--text-primary)',
+            fontSize: 16, color: 'var(--text-primary)',
             background: 'var(--bg-elevated)', border: '1px solid var(--border-default)',
             borderRadius: 8, outline: 'none',
           }}

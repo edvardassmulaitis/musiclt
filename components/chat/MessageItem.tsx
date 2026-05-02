@@ -97,8 +97,9 @@ export function MessageItem({ message, viewerId, grouped, onOpenThread, onToggle
         )}
       </div>
 
-      {/* Body */}
-      <div style={{ flex: 1, minWidth: 0 }}>
+      {/* Body — max-width, kad toolbar/embed'ai netemtų į page kraštą.
+          Slack-style chat'ai naudoja ~720px message column'ą. */}
+      <div style={{ flex: 1, minWidth: 0, position: 'relative', maxWidth: 760 }}>
         {!grouped && (
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 2 }}>
             <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{name}</span>
@@ -143,13 +144,17 @@ export function MessageItem({ message, viewerId, grouped, onOpenThread, onToggle
           <div style={{ fontSize: 13, fontStyle: 'italic', color: 'var(--text-muted)' }}>— žinutė ištrinta —</div>
         ) : (
           <>
-            <div style={{
-              fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.45,
-              wordBreak: 'break-word', whiteSpace: 'pre-wrap',
-            }}>
-              {linkify(message.body)}
-              {message.pending && <span style={{ fontSize: 10, marginLeft: 6, color: 'var(--text-muted)' }}>⌛</span>}
-            </div>
+            {/* Jei message body — tik vienas URL, kuris yra embed'inamas, slepiam
+                tekstą (rodysim tik embed'ą). Slack/Discord taip elgiasi. */}
+            {!isBodyJustEmbeddedUrl(message.body, embeds) && (
+              <div style={{
+                fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.45,
+                wordBreak: 'break-word', whiteSpace: 'pre-wrap',
+              }}>
+                {linkify(message.body, embeds)}
+                {message.pending && <span style={{ fontSize: 10, marginLeft: 6, color: 'var(--text-muted)' }}>⌛</span>}
+              </div>
+            )}
             <MessageEmbeds embeds={embeds} />
           </>
         )}
@@ -197,24 +202,21 @@ export function MessageItem({ message, viewerId, grouped, onOpenThread, onToggle
             💬 {message.reply_count} {message.reply_count === 1 ? 'atsakymas' : 'atsakymai'}
           </button>
         )}
-      </div>
 
-      {/* Hover toolbar */}
-      {showToolbar && (
-        <div
-          ref={reactionPickerRef}
-          style={{
-            // Inline toolbar — pozicionuojamas absolute prie messages bubble'o,
-            // tiesiai aukščiau body teksto (top: -10 iš row top'o, kad subtle
-            // perkrenta), kompaktiškas paddingas. Anksčiau buvo per toli į šoną
-            // (right: 12) ir aukštai (top: -14), atrodė atsijungus nuo žinutės.
-            position: 'absolute', top: -10, right: 14, zIndex: 5,
-            display: 'flex', gap: 1, padding: '1px 3px',
-            background: 'var(--modal-bg)', borderRadius: 6,
-            border: '1px solid var(--modal-border)',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
-          }}
-        >
+        {/* Hover toolbar — DABAR body div'o viduje, kad būtų prie body kontento
+            kraštinės, ne page kraštinės. Anksčiau buvo row vaikas su right:14,
+            kuris desktop'e nutemdavo toli į šoną. */}
+        {showToolbar && (
+          <div
+            ref={reactionPickerRef}
+            style={{
+              position: 'absolute', top: -10, right: 0, zIndex: 5,
+              display: 'flex', gap: 1, padding: '1px 3px',
+              background: 'var(--modal-bg)', borderRadius: 6,
+              border: '1px solid var(--modal-border)',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+            }}
+          >
           <ToolbarButton title="Reaguoti" onClick={() => setShowReactionPicker(s => !s)}>😀</ToolbarButton>
           {!threadView && onOpenThread && (
             <ToolbarButton title="Atsakyti į žinutę" onClick={() => onOpenThread(message.id)}>
@@ -249,8 +251,9 @@ export function MessageItem({ message, viewerId, grouped, onOpenThread, onToggle
               }} />
             </div>
           )}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -275,9 +278,12 @@ function ToolbarButton({ children, onClick, title }: { children: React.ReactNode
 }
 
 // Lengvas linkify — be papildomų bibliotekų. Pakeičia http(s)://… į <a>.
+// Jei URL'as yra embed'inamas (YouTube/Spotify/image), slepiam jį iš teksto —
+// embed'as parodys jį kaip player'į/preview, dublio nereikia.
 const URL_REGEX = /\bhttps?:\/\/[^\s]+/g
-function linkify(text: string): React.ReactNode {
+function linkify(text: string, embeds?: { url: string }[]): React.ReactNode {
   if (!text) return null
+  const embeddedUrls = new Set((embeds || []).map(e => e.url))
   const parts: React.ReactNode[] = []
   let lastIndex = 0
   let match: RegExpExecArray | null
@@ -286,14 +292,26 @@ function linkify(text: string): React.ReactNode {
   while ((match = re.exec(text)) !== null) {
     if (match.index > lastIndex) parts.push(text.slice(lastIndex, match.index))
     const url = match[0]
-    parts.push(
-      <a key={`l${i++}`} href={url} target="_blank" rel="noopener noreferrer"
-        style={{ color: 'var(--accent-link)', textDecoration: 'underline' }}>
-        {url}
-      </a>
-    )
+    if (embeddedUrls.has(url)) {
+      // URL bus parodytas kaip embed'as žemiau — pašalinam iš inline teksto.
+    } else {
+      parts.push(
+        <a key={`l${i++}`} href={url} target="_blank" rel="noopener noreferrer"
+          style={{ color: 'var(--accent-link)', textDecoration: 'underline' }}>
+          {url}
+        </a>
+      )
+    }
     lastIndex = match.index + url.length
   }
   if (lastIndex < text.length) parts.push(text.slice(lastIndex))
   return parts
+}
+
+// True, jei message body yra tik vienas URL (po trim'o), kuris yra embed'inamas.
+// Tada slepiam visą body div'ą — embed'as savaime informatyvus.
+function isBodyJustEmbeddedUrl(body: string, embeds: { url: string }[]): boolean {
+  if (!embeds || embeds.length === 0) return false
+  const trimmed = (body || '').trim()
+  return embeds.some(e => e.url === trimmed)
 }

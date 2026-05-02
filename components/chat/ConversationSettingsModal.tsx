@@ -97,8 +97,8 @@ export function ConversationSettingsModal({ conversation, viewerId, onClose, onU
             <Label>Pavadinimas</Label>
             <input
               type="text"
-              name="chat-group-rename"
-              autoComplete="off"
+              name={`zwx-${Math.random().toString(36).slice(2, 9)}`}
+              autoComplete="new-password"
               autoCorrect="off"
               autoCapitalize="off"
               spellCheck={false}
@@ -114,8 +114,8 @@ export function ConversationSettingsModal({ conversation, viewerId, onClose, onU
             <Label>Tema</Label>
             <input
               type="text"
-              name="chat-group-topic"
-              autoComplete="off"
+              name={`zwx-${Math.random().toString(36).slice(2, 9)}`}
+              autoComplete="new-password"
               autoCorrect="off"
               autoCapitalize="off"
               spellCheck={false}
@@ -242,7 +242,8 @@ function Label({ children }: { children: React.ReactNode }) {
 function fieldStyle(enabled: boolean): React.CSSProperties {
   return {
     width: '100%', padding: '10px 12px', marginBottom: 8,
-    fontSize: 13, color: 'var(--text-primary)',
+    // 16px+ — iOS Safari nezoom'ina į input'ą gavus fokusa.
+    fontSize: 16, color: 'var(--text-primary)',
     background: enabled ? 'var(--bg-elevated)' : 'var(--bg-hover)',
     border: '1px solid var(--border-default)', borderRadius: 8, outline: 'none',
     opacity: enabled ? 1 : 0.7,
