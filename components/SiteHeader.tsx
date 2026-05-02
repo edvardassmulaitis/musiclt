@@ -77,8 +77,8 @@ const NAV: NavItem[] = [
   {
     key: 'topai',
     label: 'Topai',
-    href: '/topas',
-    match: ['/topas', '/balsavimai', '/dienos-daina', '/apdovanojimai'],
+    href: '/topai',
+    match: ['/topai', '/topas', '/top40', '/top30', '/balsavimai', '/dienos-daina', '/apdovanojimai'],
     desc: 'Reitingai, balsavimai, apdovanojimai',
     accent: '#ef4444',
     icon: I.trophy,
@@ -222,34 +222,47 @@ function RowStripe({ kind }: { kind: 'lt' | 'world' }) {
 function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string }) {
   const artistsLt    = data?.artistsLt    || []
   const artistsWorld = data?.artistsWorld || []
-  const albums       = data?.albums       || []
-  const tracks       = data?.tracks       || []
 
   // 8 main stiliai iš lib/genre-colors.ts (atitinka GENRES iš constants.ts).
   // Spalvos centralizuotos — vėliau naudosim ir žanro page'uose, badge'uose.
   const styles = GENRE_COLORS
 
-  const renderArtistRow = (list: typeof artistsLt, kind: 'lt' | 'world') => (
-    <div className="sh-strip-wrap">
-      <RowStripe kind={kind} />
-      <div className="sh-strip">
-        {(list.length > 0 ? list : Array(7).fill(null)).map((a, i) => (
-          <Link
-            key={a?.id || `${kind}-${i}`}
-            href={a ? `/atlikejai/${a.slug}` : '/atlikejai'}
-            className="sh-mini sh-mini-lg"
-          >
-            <ImageBox
-              src={a?.image}
-              accent={accent}
-              glyph={I.music}
-              className="sh-mini-img"
-            />
-            <span className="sh-mini-title sh-mini-title-2">
-              {a?.name || <span style={{ opacity: 0.45 }}>Atlikėjas</span>}
-            </span>
-          </Link>
-        ))}
+  // Vienos atlikėjų eilutės renderis su savo header'iu (label + Daugiau)
+  // ir stripe (LT vėliava arba pasaulinė juostele).
+  const renderArtistSection = (
+    list: typeof artistsLt,
+    kind: 'lt' | 'world',
+    label: string,
+  ) => (
+    <div>
+      <div className="sh-panel-section">
+        <span className="sh-panel-section-title">
+          <span className="sh-trending-glyph" title="Trending — populiariausi">{I.trending}</span>
+          {label}
+        </span>
+        <Link href="/atlikejai" className="sh-panel-section-more">Daugiau <ArrowRight size={11}/></Link>
+      </div>
+      <div className="sh-strip-wrap">
+        <RowStripe kind={kind} />
+        <div className="sh-strip">
+          {(list.length > 0 ? list : Array(6).fill(null)).map((a, i) => (
+            <Link
+              key={a?.id || `${kind}-${i}`}
+              href={a ? `/atlikejai/${a.slug}` : '/atlikejai'}
+              className="sh-mini sh-mini-xl"
+            >
+              <ImageBox
+                src={a?.image}
+                accent={accent}
+                glyph={I.music}
+                className="sh-mini-img"
+              />
+              <span className="sh-mini-title sh-mini-title-2">
+                {a?.name || <span style={{ opacity: 0.45 }}>Atlikėjas</span>}
+              </span>
+            </Link>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -257,88 +270,21 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
   return (
     <div className="sh-panel sh-panel-muzika" style={{ width: 760 }}>
 
-      {/* ── ATLIKĖJAI — 2 eilutės su LT/world stripe (didžiausi) ── */}
-      <div className="sh-panel-section">
-        <span className="sh-panel-section-title">
-          <span className="sh-trending-glyph" title="Trending — populiariausi">{I.trending}</span>
-          Atlikėjai
-        </span>
-        <Link href="/atlikejai" className="sh-panel-section-more">Daugiau <ArrowRight size={11}/></Link>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
-        {renderArtistRow(artistsLt, 'lt')}
-        {renderArtistRow(artistsWorld, 'world')}
-      </div>
+      {/* ── ATLIKĖJAI: LT eilutė ── */}
+      {renderArtistSection(artistsLt, 'lt', 'Atlikėjai (Lietuva)')}
 
-      {/* ── ALBUMAI — vidutinis dydis ── */}
-      <div className="sh-panel-section">
-        <span className="sh-panel-section-title">
-          <span className="sh-trending-glyph" title="Trending — populiariausi">{I.trending}</span>
-          Albumai
-        </span>
-        <Link href="/albumai" className="sh-panel-section-more">Daugiau <ArrowRight size={11}/></Link>
-      </div>
-      <div className="sh-strip" style={{ marginBottom: 14 }}>
-        {(albums.length > 0 ? albums : Array(8).fill(null)).map((a, i) => (
-          <Link
-            key={a?.id || i}
-            href={a ? `/lt/albumas/${a.slug}/${a.id}` : '/albumai'}
-            className="sh-mini sh-mini-md"
-          >
-            <ImageBox
-              src={a?.image}
-              accent={accent}
-              glyph={I.vinyl}
-              className="sh-mini-img"
-            />
-            <span className="sh-mini-title sh-mini-title-2">
-              {a?.title || <span style={{ opacity: 0.5 }}>Albumas</span>}
-            </span>
-            <span className="sh-mini-meta">
-              {a?.artist || ''}
-            </span>
-          </Link>
-        ))}
-      </div>
+      <div style={{ height: 14 }} />
 
-      {/* ── DAINOS — mažiausias dydis ── */}
-      <div className="sh-panel-section">
-        <span className="sh-panel-section-title">
-          <span className="sh-trending-glyph" title="Trending — populiariausios">{I.trending}</span>
-          Dainos
-        </span>
-        <Link href="/muzika" className="sh-panel-section-more">Daugiau <ArrowRight size={11}/></Link>
-      </div>
-      <div className="sh-strip" style={{ marginBottom: 14 }}>
-        {(tracks.length > 0 ? tracks : Array(10).fill(null)).map((t, i) => (
-          <Link
-            key={t?.id || i}
-            href={t ? `/dainos/${t.artistSlug}-${quickSlug(t.title)}-${t.id}` : '/muzika'}
-            className="sh-mini sh-mini-sm"
-          >
-            <ImageBox
-              src={t?.image}
-              accent={accent}
-              glyph={I.song}
-              className="sh-mini-img"
-            />
-            <span className="sh-mini-title sh-mini-title-2">
-              {t?.title || <span style={{ opacity: 0.5 }}>Daina</span>}
-            </span>
-            <span className="sh-mini-meta">
-              {t?.artist || ''}
-            </span>
-          </Link>
-        ))}
-      </div>
+      {/* ── ATLIKĖJAI: užsienio eilutė ── */}
+      {renderArtistSection(artistsWorld, 'world', 'Atlikėjai (užsienio)')}
 
-      {/* ── STILIAI — title virš (kaip kitos sekcijos), apačioje 8 pills ── */}
-      <div style={{ paddingTop: 12, borderTop: '1px solid var(--border-default)' }}>
-        <div className="sh-panel-section">
+      {/* ── STILIAI — su daugiau erdvės kvėpavimui ── */}
+      <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--border-default)' }}>
+        <div className="sh-panel-section" style={{ marginBottom: 12 }}>
           <span className="sh-panel-section-title">Stiliai</span>
           <Link href="/zanrai" className="sh-panel-section-more">Daugiau <ArrowRight size={11}/></Link>
         </div>
-        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {styles.map(s => (
             <Link
               key={s.name}
@@ -373,7 +319,7 @@ function TopaiPanel({ accent }: { accent: string }) {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        <Link href="/topas" className="sh-feature-card" style={{ ['--it-rgb' as any]: hexToRgb('#ef4444') }}>
+        <Link href="/topai" className="sh-feature-card" style={{ ['--it-rgb' as any]: hexToRgb('#ef4444') }}>
           <span className="sh-feature-icon-sm">{I.trophy}</span>
           <span className="sh-feature-title-sm">Topai</span>
           <span className="sh-feature-desc-sm">Savaitės, mėnesio, all-time</span>
@@ -482,7 +428,7 @@ function PramogosPanel({ accent }: { accent: string }) {
 
       <div className="sh-panel-shortcuts">
         <Link href="/dienos-daina" className="sh-shortcut">Dienos daina →</Link>
-        <Link href="/topas" className="sh-shortcut">Topai →</Link>
+        <Link href="/topai" className="sh-shortcut">Topai →</Link>
       </div>
     </div>
   )
@@ -723,7 +669,7 @@ function MobileExpansion({
     return (
       <div className="sh-mexp">
         <div className="sh-mexp-grid">
-          <Link href="/topas" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#ef4444') }}>
+          <Link href="/topai" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#ef4444') }}>
             <span className="sh-mexp-tile-icon">{I.trophy}</span>
             <span className="sh-mexp-tile-label">Topai</span>
           </Link>
@@ -1137,6 +1083,11 @@ export function SiteHeader() {
         .sh-mini-lg .sh-mini-img { width: 88px; height: 88px; border-radius: 9px; }
         .sh-mini-lg .sh-mini-title { font-size: 11.5px; text-align: center; }
 
+        /* Atlikėjai XL — kai dropdown'e tik atlikėjai (daugiau erdvės) */
+        .sh-mini-xl { flex-basis: 116px; width: 116px; max-width: 116px; gap: 7px; padding: 6px; }
+        .sh-mini-xl .sh-mini-img { width: 108px; height: 108px; border-radius: 11px; }
+        .sh-mini-xl .sh-mini-title { font-size: 12.5px; text-align: center; }
+
         /* Albumai — vidutiniai (74×74) */
         .sh-mini-md { flex-basis: 82px; width: 82px; max-width: 82px; gap: 4px; }
         .sh-mini-md .sh-mini-img { width: 74px; height: 74px; border-radius: 8px; }
@@ -1193,11 +1144,11 @@ export function SiteHeader() {
            Mažas accent dot kairėje — kad spalvinis kodas akivaizdus. */
         .sh-style-pill {
           display: inline-flex; align-items: center; justify-content: center;
-          gap: 6px;
-          padding: 5px 11px 5px 9px;
+          gap: 7px;
+          padding: 8px 14px 8px 12px;
           border-radius: 999px;
           text-decoration: none;
-          font-size: 11px; font-weight: 700;
+          font-size: 12px; font-weight: 700;
           color: var(--text-primary);
           background: linear-gradient(135deg, rgba(var(--it-rgb), 0.20) 0%, rgba(var(--it-rgb), 0.06) 100%);
           border: 1px solid rgba(var(--it-rgb), 0.45);
@@ -1207,7 +1158,7 @@ export function SiteHeader() {
         }
         .sh-style-pill::before {
           content: '';
-          width: 6px; height: 6px;
+          width: 7px; height: 7px;
           border-radius: 50%;
           background: rgb(var(--it-rgb));
           flex-shrink: 0;
