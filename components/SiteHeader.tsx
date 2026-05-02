@@ -58,6 +58,14 @@ const I = {
   vinyl: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>,
   news: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8M15 18h-5M10 6h8v4h-8V6Z"/></svg>,
   trending: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>,
+  /* ── Genre / žanro ikonos ── */
+  mic: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>,
+  headphones: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 14a9 9 0 0 1 18 0"/><rect x="3" y="14" width="4" height="7" rx="1.5"/><rect x="17" y="14" width="4" height="7" rx="1.5"/></svg>,
+  equalizer: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="6" y1="3" x2="6" y2="21"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="18" y1="3" x2="18" y2="21"/><line x1="3" y1="9" x2="9" y2="9"/><line x1="9" y1="15" x2="15" y2="15"/><line x1="15" y1="6" x2="21" y2="6"/></svg>,
+  piano: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="6" width="18" height="12" rx="1.5"/><line x1="9" y1="6" x2="9" y2="14"/><line x1="15" y1="6" x2="15" y2="14"/><rect x="7" y="6" width="2" height="6" fill="currentColor"/><rect x="13" y="6" width="2" height="6" fill="currentColor"/></svg>,
+  flame: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>,
+  heart: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z"/></svg>,
+  shuffle: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>,
   guitar: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18 6.5 20.5a2.12 2.12 0 0 1-3-3L6 15"/><path d="m9 9 5 5L15 9 9 9z"/><path d="m22 2-9 9"/><path d="M9 9c-.5-1.5-2-2.5-3.5-2-1.5.5-2.5 2-2 3.5L4 12"/></svg>,
   festival: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21V12h6v9"/><circle cx="12" cy="9" r="1.5"/></svg>,
   gallery: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>,
@@ -227,73 +235,77 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
   // Spalvos centralizuotos — vėliau naudosim ir žanro page'uose, badge'uose.
   const styles = GENRE_COLORS
 
-  // Vienos atlikėjų eilutės renderis su savo header'iu (label + Daugiau)
-  // ir stripe (LT vėliava arba pasaulinė juostele).
-  const renderArtistSection = (
-    list: typeof artistsLt,
-    kind: 'lt' | 'world',
-    label: string,
-  ) => (
-    <div>
-      <div className="sh-panel-section">
-        <span className="sh-panel-section-title">
-          <span className="sh-trending-glyph" title="Trending — populiariausi">{I.trending}</span>
-          {label}
-        </span>
-        <Link href="/atlikejai" className="sh-panel-section-more">Daugiau <ArrowRight size={11}/></Link>
+  // Atlikėjų eilutė be header'io — flag stripe (LT vėliava arba pasaulinė
+  // mėlyna) kairėje yra pakankamas šalies indikatorius. Daugiau link'as
+  // dešinėje (homepage stiliumi — orange, no underline).
+  const renderArtistRow = (list: typeof artistsLt, kind: 'lt' | 'world') => (
+    <div className="sh-artist-row">
+      <RowStripe kind={kind} />
+      <div className="sh-strip">
+        {(list.length > 0 ? list : Array(6).fill(null)).map((a, i) => (
+          <Link
+            key={a?.id || `${kind}-${i}`}
+            href={a ? `/atlikejai/${a.slug}` : '/atlikejai'}
+            className="sh-mini sh-mini-xl"
+          >
+            <ImageBox
+              src={a?.image}
+              accent={accent}
+              glyph={I.music}
+              className="sh-mini-img"
+            />
+            <span className="sh-mini-title sh-mini-title-2">
+              {a?.name || <span style={{ opacity: 0.45 }}>Atlikėjas</span>}
+            </span>
+          </Link>
+        ))}
       </div>
-      <div className="sh-strip-wrap">
-        <RowStripe kind={kind} />
-        <div className="sh-strip">
-          {(list.length > 0 ? list : Array(6).fill(null)).map((a, i) => (
-            <Link
-              key={a?.id || `${kind}-${i}`}
-              href={a ? `/atlikejai/${a.slug}` : '/atlikejai'}
-              className="sh-mini sh-mini-xl"
-            >
-              <ImageBox
-                src={a?.image}
-                accent={accent}
-                glyph={I.music}
-                className="sh-mini-img"
-              />
-              <span className="sh-mini-title sh-mini-title-2">
-                {a?.name || <span style={{ opacity: 0.45 }}>Atlikėjas</span>}
-              </span>
-            </Link>
-          ))}
-        </div>
-      </div>
+      <Link
+        href={kind === 'lt' ? '/atlikejai?country=lt' : '/atlikejai?country=world'}
+        className="sh-more-link"
+      >
+        Daugiau →
+      </Link>
     </div>
   )
+
+  // 8 main stiliai su SVG ikonomis (no emojis) — atspindi žanro charakterį
+  const STYLE_ICONS: Record<string, React.ReactNode> = {
+    'Alternatyvioji muzika':     I.headphones,
+    'Elektroninė, šokių muzika': I.equalizer,
+    "Hip-hop'o muzika":          I.mic,
+    'Kitų stilių muzika':        I.shuffle,
+    'Pop, R&B muzika':           I.heart,
+    'Rimtoji muzika':            I.piano,
+    'Roko muzika':               I.guitar,
+    'Sunkioji muzika':           I.flame,
+  }
 
   return (
     <div className="sh-panel sh-panel-muzika" style={{ width: 760 }}>
 
-      {/* ── ATLIKĖJAI: LT eilutė ── */}
-      {renderArtistSection(artistsLt, 'lt', 'Atlikėjai (Lietuva)')}
+      {/* ── ATLIKĖJAI: LT + užsienio eilutės be header'ių, su flag stripe ── */}
+      {renderArtistRow(artistsLt, 'lt')}
+      <div style={{ height: 10 }} />
+      {renderArtistRow(artistsWorld, 'world')}
 
-      <div style={{ height: 14 }} />
-
-      {/* ── ATLIKĖJAI: užsienio eilutė ── */}
-      {renderArtistSection(artistsWorld, 'world', 'Atlikėjai (užsienio)')}
-
-      {/* ── STILIAI — su daugiau erdvės kvėpavimui ── */}
+      {/* ── STILIAI — 4-col grid'as didesnėmis kortelėmis su SVG ikonomis ── */}
       <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--border-default)' }}>
-        <div className="sh-panel-section" style={{ marginBottom: 12 }}>
-          <span className="sh-panel-section-title">Stiliai</span>
-          <Link href="/zanrai" className="sh-panel-section-more">Daugiau <ArrowRight size={11}/></Link>
+        <div className="sh-panel-head">
+          <h2 className="sh-panel-h2">Stiliai</h2>
+          <Link href="/zanrai" className="sh-more-link">Daugiau →</Link>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div className="sh-style-grid">
           {styles.map(s => (
             <Link
               key={s.name}
               href={s.href}
-              className="sh-style-pill"
+              className="sh-style-card"
               style={{ ['--it-rgb' as any]: s.rgb }}
               title={s.name}
             >
-              {s.short}
+              <span className="sh-style-card-icon">{STYLE_ICONS[s.name] || I.shuffle}</span>
+              <span className="sh-style-card-label">{s.short}</span>
             </Link>
           ))}
         </div>
@@ -1033,20 +1045,91 @@ export function SiteHeader() {
         /* Muzika panel'as: paliekam padding'ą truputį mažesnį */
         .sh-panel-muzika { padding: 14px; }
 
-        /* LT vėliavos / world mėlynos juostelės indikatorius */
+        /* LT vėliavos / world mėlynos juostelės indikatorius — kompaktinis,
+           ne išskleistas per visą sekcijos aukštį (centered su tile aukščiu) */
         .sh-stripe {
           flex-shrink: 0;
-          width: 3px;
-          align-self: stretch;
-          border-radius: 2px;
+          width: 4px;
+          height: 60px;
+          border-radius: 3px;
           overflow: hidden;
         }
         .sh-stripe-lt { display: flex; flex-direction: column; }
-        .sh-stripe-world { background: #3b82f6; opacity: 0.7; }
+        .sh-stripe-world { background: #3b82f6; opacity: 0.75; }
 
-        /* Wrapper'is, kuris turi LT stripe + horizontal scroll'inamą strip'ą */
+        /* Wrapper'is su flag + scroll strip + Daugiau link */
         .sh-strip-wrap {
-          display: flex; align-items: stretch; gap: 8px;
+          display: flex; align-items: center; gap: 10px;
+        }
+        /* Atlikėjų eilutė — flag (centruota) + scroll juosta + Daugiau link */
+        .sh-artist-row {
+          display: flex; align-items: center; gap: 10px;
+          padding: 4px 0;
+        }
+        .sh-artist-row .sh-strip { flex: 1; min-width: 0; }
+
+        /* Homepage stiliaus 'Daugiau →' link'as — orange, no underline */
+        .sh-more-link {
+          flex-shrink: 0;
+          font-family: 'Outfit', sans-serif;
+          font-size: 11.5px; font-weight: 700;
+          color: var(--accent-orange);
+          text-decoration: none;
+          padding-left: 6px;
+          transition: opacity .15s;
+        }
+        .sh-more-link:hover { opacity: 0.7; }
+
+        /* Homepage stiliaus h2 (section title) */
+        .sh-panel-head {
+          display: flex; align-items: center; justify-content: space-between;
+          margin-bottom: 14px;
+        }
+        .sh-panel-h2 {
+          margin: 0;
+          font-family: 'Outfit', sans-serif;
+          font-size: 17px; font-weight: 800;
+          letter-spacing: -0.01em;
+          color: var(--text-primary);
+        }
+
+        /* Stiliai grid — 4 cols × 2 rows */
+        .sh-style-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 8px;
+        }
+        .sh-style-card {
+          display: flex; align-items: center; gap: 11px;
+          padding: 11px 12px;
+          border-radius: 12px;
+          text-decoration: none;
+          background: linear-gradient(135deg, rgba(var(--it-rgb), 0.16) 0%, rgba(var(--it-rgb), 0.04) 100%);
+          border: 1px solid rgba(var(--it-rgb), 0.30);
+          transition: transform .15s, border-color .15s, background .15s;
+        }
+        .sh-style-card:hover {
+          transform: translateY(-2px);
+          border-color: rgba(var(--it-rgb), 0.6);
+          background: linear-gradient(135deg, rgba(var(--it-rgb), 0.24) 0%, rgba(var(--it-rgb), 0.07) 100%);
+        }
+        .sh-style-card-icon {
+          flex-shrink: 0;
+          width: 34px; height: 34px;
+          border-radius: 9px;
+          display: flex; align-items: center; justify-content: center;
+          color: #fff;
+          background: linear-gradient(135deg, rgba(var(--it-rgb), 1) 0%, rgba(var(--it-rgb), 0.78) 100%);
+          box-shadow: 0 4px 10px rgba(var(--it-rgb), 0.30), inset 0 1px 0 rgba(255,255,255,0.2);
+        }
+        .sh-style-card-icon svg { width: 17px; height: 17px; }
+        .sh-style-card-label {
+          font-size: 12.5px; font-weight: 700;
+          color: var(--text-primary);
+          line-height: 1.2;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
         /* Horizontal scroll'inama juosta. Slepiam scrollbar'ą bet leidim scroll. */
