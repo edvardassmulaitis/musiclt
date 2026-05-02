@@ -24,6 +24,7 @@ import { randomUUID } from 'crypto'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
+import { logActivity } from '@/lib/activity-logger'
 
 const ANON_COOKIE = 'ml_anon_id'
 const ANON_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
@@ -168,6 +169,33 @@ export async function POST(
     }
 
     const count = await getTotalCount(sb, artistId)
+
+    // ── Activity feed: tik kai naujas like (ne unlike) ────────────────
+    if (!existing) {
+      try {
+        const { data: artist } = await sb
+          .from('artists')
+          .select('name, slug, cover_image_url')
+          .eq('id', artistId)
+          .maybeSingle() as { data: any }
+        if (artist) {
+          await logActivity({
+            event_type: 'artist_like',
+            user_id: profile.id,
+            actor_name: session.user.name || profile.username,
+            actor_avatar: session.user.image || null,
+            entity_type: 'artist',
+            entity_id: artistId,
+            entity_title: artist.name,
+            entity_url: `/atlikejai/${artist.slug}`,
+            entity_image: artist.cover_image_url || null,
+          })
+        }
+      } catch (e: any) {
+        console.error('[activity-log] artist_like failed:', e?.message || e)
+      }
+    }
+
     return NextResponse.json({ liked: !existing, count, anonymous: false })
   }
 

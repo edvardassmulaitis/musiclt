@@ -30,8 +30,10 @@ type ActivityEvent = {
   event_type: string
   actor_name: string | null
   actor_avatar: string | null
+  entity_type: string | null
   entity_title: string | null
   entity_url: string | null
+  entity_image: string | null
   metadata: any
   created_at: string
 }
@@ -148,25 +150,31 @@ const TYPE_TINT: Record<string, string> = {
 const ACTIVITY_ICON: Record<string, React.ReactNode> = {
   track_like: SVG.heart,
   album_like: SVG.heart,
-  artist_like: SVG.star,
+  artist_like: SVG.heart,
   comment: SVG.comment,
   daily_nomination: SVG.music,
+  daily_vote: SVG.music,
   top_vote: SVG.trophy,
+  voting_vote: SVG.trophy,
   news: SVG.news,
   event_created: SVG.calendar,
   blog_post: SVG.pencil,
+  thread_created: SVG.comment,
 }
 
 const ACTIVITY_TINT: Record<string, string> = {
   track_like: '#ec4899',
   album_like: '#ec4899',
-  artist_like: '#eab308',
+  artist_like: '#ec4899',
   comment: '#3b82f6',
   daily_nomination: '#10b981',
+  daily_vote: '#10b981',
   top_vote: '#eab308',
+  voting_vote: '#eab308',
   news: '#06b6d4',
   event_created: '#3b82f6',
   blog_post: '#8b5cf6',
+  thread_created: '#8b5cf6',
 }
 
 function relTime(iso: string): string {
@@ -408,56 +416,60 @@ export function NotificationsBell() {
   const bellHover = 'var(--text-primary)'
 
   // ── Modal panel content (shared between desktop dropdown & mobile full-screen) ──
-  const renderHeader = (showCloseX: boolean) => (
-    <div style={{
-      padding: '14px 16px',
-      borderBottom: '1px solid var(--border-subtle)',
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      gap: 8,
-      flexShrink: 0,
-    }}>
-      <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
-        Pranešimai
-        {showBadge && (
+  // Header'is rodomas tik mobile'e (X mygtuko reikia) ARBA kai turim
+  // unread > 0 / mark-all-read mygtuką. Desktop'e su 0 unread — header'io
+  // visai nereikia, dropdown'as iškart pradeda nuo tabs.
+  const needsHeader = (showCloseX: boolean) => showCloseX || (isAuth && unread > 0)
+  const renderHeader = (showCloseX: boolean) => {
+    if (!needsHeader(showCloseX)) return null
+    return (
+      <div style={{
+        padding: '10px 16px',
+        borderBottom: '1px solid var(--border-subtle)',
+        display: 'flex', alignItems: 'center', justifyContent: showCloseX ? 'space-between' : 'flex-end',
+        gap: 8,
+        flexShrink: 0,
+      }}>
+        {showCloseX && showBadge && (
           <span style={{
-            padding: '2px 7px', borderRadius: 10,
+            padding: '3px 9px', borderRadius: 10,
             background: 'rgba(249,115,22,0.15)', color: 'var(--accent-orange)',
-            fontSize: 10, fontWeight: 800,
-          }}>{unread} naujų</span>
+            fontSize: 11, fontWeight: 800,
+          }}>{unread} {unread === 1 ? 'naujas' : 'naujų'}</span>
         )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {isAuth && unread > 0 && (
+            <button
+              onClick={markAllRead}
+              style={{
+                border: 'none', background: 'transparent',
+                color: 'var(--accent-link)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                padding: 0,
+              }}
+            >
+              Pažymėti visus
+            </button>
+          )}
+          {showCloseX && (
+            <button
+              onClick={() => setOpen(false)}
+              aria-label="Uždaryti"
+              style={{
+                width: 32, height: 32, borderRadius: 8,
+                border: 'none', background: 'var(--bg-hover)',
+                color: 'var(--text-secondary)', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        {isAuth && unread > 0 && (
-          <button
-            onClick={markAllRead}
-            style={{
-              border: 'none', background: 'transparent',
-              color: 'var(--accent-link)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-              padding: 0,
-            }}
-          >
-            Pažymėti visus
-          </button>
-        )}
-        {showCloseX && (
-          <button
-            onClick={() => setOpen(false)}
-            aria-label="Uždaryti"
-            style={{
-              width: 32, height: 32, borderRadius: 8,
-              border: 'none', background: 'var(--bg-hover)',
-              color: 'var(--text-secondary)', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
-        )}
-      </div>
-    </div>
-  )
+    )
+  }
 
   const renderTabs = () => (
     <div style={{
@@ -738,6 +750,12 @@ export function NotificationsBell() {
       const { text, url } = formatActivityEvent(ev)
       const icon = ACTIVITY_ICON[ev.event_type] || SVG.bell
       const tint = ACTIVITY_TINT[ev.event_type] || 'var(--text-muted)'
+      // Naudojam entity_image (artist photo, album cover) jeigu yra — atrodo
+      // gerokai gražiau nei abstrakti ikona. Smaller actor avatar overlay
+      // viršuje rodo, kas atliko veiksmą.
+      const useEntityImage = !!ev.entity_image
+      const showActorOverlay = useEntityImage && !!ev.actor_avatar
+      const isEntityRound = ev.entity_type === 'artist' || !ev.entity_type
       const inner = (
         <div style={{
           display: 'flex', gap: 12,
@@ -750,38 +768,67 @@ export function NotificationsBell() {
           onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
           onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
         >
-          {ev.actor_avatar ? (
-            <div style={{ position: 'relative', flexShrink: 0 }}>
+          {/* Avatar / entity image */}
+          <div style={{ position: 'relative', flexShrink: 0, width: 40, height: 40 }}>
+            {useEntityImage ? (
+              <Image
+                src={ev.entity_image as string}
+                alt=""
+                width={40}
+                height={40}
+                style={{
+                  width: 40, height: 40,
+                  borderRadius: isEntityRound ? '50%' : 8,
+                  objectFit: 'cover',
+                }}
+                unoptimized
+              />
+            ) : ev.actor_avatar ? (
               <Image
                 src={ev.actor_avatar}
                 alt=""
-                width={32}
-                height={32}
+                width={40}
+                height={40}
                 style={{ borderRadius: '50%', objectFit: 'cover' }}
                 unoptimized
               />
+            ) : (
+              <div style={{
+                width: 40, height: 40, borderRadius: '50%',
+                background: 'var(--bg-hover)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: tint,
+              }}>
+                <div style={{ width: 18, height: 18 }}>{icon}</div>
+              </div>
+            )}
+            {/* Mažas overlay actor avatar arba type ikona apatiniame dešiniame kampe */}
+            {showActorOverlay ? (
+              <Image
+                src={ev.actor_avatar as string}
+                alt=""
+                width={18}
+                height={18}
+                style={{
+                  position: 'absolute', bottom: -3, right: -3,
+                  borderRadius: '50%', objectFit: 'cover',
+                  border: '2px solid var(--bg-surface)',
+                }}
+                unoptimized
+              />
+            ) : (
               <div style={{
                 position: 'absolute', bottom: -2, right: -2,
-                width: 16, height: 16, borderRadius: '50%',
+                width: 18, height: 18, borderRadius: '50%',
                 background: 'var(--bg-surface)',
                 border: '1px solid var(--border-subtle)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 color: tint,
               }}>
-                <div style={{ width: 10, height: 10 }}>{icon}</div>
+                <div style={{ width: 11, height: 11 }}>{icon}</div>
               </div>
-            </div>
-          ) : (
-            <div style={{
-              width: 32, height: 32, borderRadius: '50%',
-              background: 'var(--bg-hover)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              flexShrink: 0,
-              color: tint,
-            }}>
-              <div style={{ width: 14, height: 14 }}>{icon}</div>
-            </div>
-          )}
+            )}
+          </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{
               fontSize: 13, color: 'var(--text-primary)',

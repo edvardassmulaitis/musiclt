@@ -5,6 +5,7 @@ import { createPost, getAllUserPosts, type PostUpsertFields } from '@/lib/supaba
 import { ensureUserBlog } from '@/lib/ensure-blog'
 import { resolveProfile } from '@/lib/profile-resolve'
 import { detectEmbed } from '@/lib/embed-detect'
+import { logActivity } from '@/lib/activity-logger'
 
 const POST_TYPES = ['article', 'quick', 'review', 'translation', 'creation', 'journal'] as const
 type PostType = typeof POST_TYPES[number]
@@ -98,6 +99,28 @@ export async function POST(req: NextRequest) {
 
   try {
     const post = await createPost(blog.id, profile.id, data)
+
+    // ── Activity feed: tik kai status='published' (draft'ai feed'e nepasirodo)
+    try {
+      const p: any = post
+      if (p?.status === 'published') {
+        const url = blog.slug && p.slug ? `/blogas/${blog.slug}/${p.slug}` : '/blogas'
+        await logActivity({
+          event_type: 'blog_post',
+          user_id: profile.id,
+          actor_name: profile.full_name || profile.username || null,
+          actor_avatar: profile.avatar_url || null,
+          entity_type: 'blog',
+          entity_id: typeof p.id === 'number' ? p.id : null,
+          entity_title: p.title || 'įrašas',
+          entity_url: url,
+          entity_image: p.cover_image_url || null,
+        })
+      }
+    } catch (e: any) {
+      console.error('[activity-log] blog_post failed:', e?.message || e)
+    }
+
     return NextResponse.json(post)
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })

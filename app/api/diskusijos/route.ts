@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { logActivity as logActivityShared } from '@/lib/activity-logger'
 
 function slugify(text: string): string {
   return text
@@ -94,8 +95,18 @@ export async function POST(req: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Log activity
-  await logActivity(supabase, session, (data as any).id, title.trim(), slug)
+  // Log activity per shared logger (event_type='thread_created' kad UI
+  // grąžintų teisingą ikoną + tekstą).
+  await logActivityShared({
+    event_type: 'thread_created',
+    user_id: session.user.id,
+    actor_name: session.user.name || session.user.email || 'Vartotojas',
+    actor_avatar: session.user.image || null,
+    entity_type: 'discussion',
+    entity_id: (data as any).id,
+    entity_title: title.trim(),
+    entity_url: `/diskusijos/${slug}`,
+  })
 
   return NextResponse.json({ discussion: data })
 }

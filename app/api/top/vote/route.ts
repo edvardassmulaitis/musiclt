@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { headers } from 'next/headers'
+import { logActivity } from '@/lib/activity-logger'
 
 const ANON_WEEKLY_LIMIT = 5
 const USER_WEEKLY_LIMIT = 10
@@ -83,6 +84,34 @@ export async function POST(req: Request) {
   }).select().single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // ── Activity feed ────────────────────────────────────────────────
+  try {
+    if (userId) {
+      const { data: track } = await supabase
+        .from('tracks')
+        .select('title, slug, cover_image_url, artists:artist_id(slug, name, cover_image_url)')
+        .eq('id', track_id)
+        .maybeSingle() as { data: any }
+      const artistSlug = track?.artists?.slug
+      const url = artistSlug && track?.slug ? `/atlikejai/${artistSlug}/${track.slug}` : '/topas'
+      const fullTitle = track ? `${track.title}${track.artists?.name ? ' — ' + track.artists.name : ''}` : 'daina'
+      await logActivity({
+        event_type: 'top_vote',
+        user_id: userId,
+        actor_name: (session?.user as any)?.name || null,
+        actor_avatar: (session?.user as any)?.image || null,
+        entity_type: 'track',
+        entity_id: track_id,
+        entity_title: fullTitle,
+        entity_url: url,
+        entity_image: track?.cover_image_url || track?.artists?.cover_image_url || null,
+        metadata: { week_id, vote_type, top_type: week?.top_type || null },
+      })
+    }
+  } catch (e: any) {
+    console.error('[activity-log] top_vote failed:', e?.message || e)
+  }
 
   const limit = userId ? USER_WEEKLY_LIMIT : ANON_WEEKLY_LIMIT
   const { count: used } = await supabase

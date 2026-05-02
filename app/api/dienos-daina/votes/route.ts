@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { headers } from 'next/headers'
+import { logActivity } from '@/lib/activity-logger'
 
 function todayLT(): string {
   return new Date().toLocaleDateString('lt-LT', {
@@ -76,6 +77,32 @@ export async function POST(req: Request) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // ── Activity feed ────────────────────────────────────────────────
+  try {
+    if (userId) {
+      const { data: track } = await supabase
+        .from('tracks')
+        .select('id, slug, title, cover_image_url, artist_id, artists:artist_id(slug, name, cover_image_url)')
+        .eq('id', nomination.track_id)
+        .maybeSingle() as { data: any }
+      const fullTitle = track ? `${track.title}${track.artists?.name ? ' — ' + track.artists.name : ''}` : 'daina'
+      await logActivity({
+        event_type: 'daily_vote',
+        user_id: userId,
+        actor_name: (session?.user as any)?.name || null,
+        actor_avatar: (session?.user as any)?.image || null,
+        entity_type: 'track',
+        entity_id: nomination.track_id,
+        entity_title: fullTitle,
+        entity_url: '/dienos-daina',
+        entity_image: track?.cover_image_url || track?.artists?.cover_image_url || null,
+      })
+    }
+  } catch (e: any) {
+    console.error('[activity-log] daily_vote failed:', e?.message || e)
+  }
+
   return NextResponse.json({ vote: data, weight })
 }
 
