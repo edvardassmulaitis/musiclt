@@ -26,7 +26,7 @@ export default function MuzikaPage() {
       icon={I.hero}
       tiles={[
         { label: 'Atlikėjai ir grupės', href: '/atlikejai',    desc: 'Naršyk Lietuvos scenos žemėlapį — nuo legendų iki naujokų',     icon: I.artist, accent: '#f59e0b', big: true },
-        { label: 'Topai',               href: '/topas',        desc: 'Savaitės, mėnesio ir visų laikų reitingai',                     icon: I.trophy, accent: '#ef4444' },
+        { label: 'Topai',               href: '/topai',        desc: 'TOP 40, LT TOP 30 ir kiti reitingai',                           icon: I.trophy, accent: '#ef4444' },
         { label: 'Balsavimai',          href: '/balsavimai',   desc: 'Aktualūs balsavimai ir reitingai',                              icon: I.vote,   accent: '#ec4899' },
         { label: 'Albumai',             href: '/albumai',      desc: 'Visi albumai vienoje vietoje',                                  icon: I.album,  accent: '#f97316', soon: true },
         { label: 'Žanrai ir stiliai',   href: '/zanrai',       desc: 'Rokas, hip-hop, popsas, electronic, folk',                      icon: I.genre,  accent: '#a855f7', soon: true },
