@@ -94,7 +94,7 @@ export async function POST(req: Request) {
         .eq('id', track_id)
         .maybeSingle() as { data: any }
       const artistSlug = track?.artists?.slug
-      const url = artistSlug && track?.slug ? `/atlikejai/${artistSlug}/${track.slug}` : (week?.top_type === 'lt_top30' ? '/top30' : '/top40')
+      const url = artistSlug && track?.slug ? `/atlikejai/${artistSlug}/${track.slug}` : '/topas'
       const fullTitle = track ? `${track.title}${track.artists?.name ? ' — ' + track.artists.name : ''}` : 'daina'
       await logActivity({
         event_type: 'top_vote',
