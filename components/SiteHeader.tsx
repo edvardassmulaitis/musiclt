@@ -289,7 +289,7 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
       <div style={{ height: 10 }} />
       {renderArtistRow(artistsWorld, 'world')}
 
-      {/* ── STILIAI — 4-col grid'as didesnėmis kortelėmis su SVG ikonomis ── */}
+      {/* ── STILIAI — Spotify-style bold colored cards (spalva = vizualas) ── */}
       <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--border-default)' }}>
         <div className="sh-panel-head">
           <h2 className="sh-panel-h2">Stiliai</h2>
@@ -304,8 +304,10 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
               style={{ ['--it-rgb' as any]: s.rgb }}
               title={s.name}
             >
-              <span className="sh-style-card-icon">{STYLE_ICONS[s.name] || I.shuffle}</span>
-              <span className="sh-style-card-label">{s.short}</span>
+              <span className="sh-style-card-name">{s.short}</span>
+              <span className="sh-style-card-deco" aria-hidden>
+                {STYLE_ICONS[s.name] || I.shuffle}
+              </span>
             </Link>
           ))}
         </div>
@@ -1093,44 +1095,61 @@ export function SiteHeader() {
           color: var(--text-primary);
         }
 
-        /* Stiliai grid — 4 cols × 2 rows */
+        /* Stiliai grid — Spotify-style bold colored kortelės */
         .sh-style-grid {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
-          gap: 8px;
+          gap: 10px;
         }
         .sh-style-card {
-          display: flex; align-items: center; gap: 11px;
-          padding: 11px 12px;
+          position: relative;
+          display: block;
+          padding: 14px 14px 18px;
           border-radius: 12px;
           text-decoration: none;
-          background: linear-gradient(135deg, rgba(var(--it-rgb), 0.16) 0%, rgba(var(--it-rgb), 0.04) 100%);
-          border: 1px solid rgba(var(--it-rgb), 0.30);
-          transition: transform .15s, border-color .15s, background .15s;
+          background:
+            radial-gradient(circle at 20% 0%, rgba(255,255,255,0.18) 0%, transparent 60%),
+            linear-gradient(135deg, rgb(var(--it-rgb)) 0%, rgba(var(--it-rgb), 0.78) 100%);
+          color: #fff;
+          overflow: hidden;
+          min-height: 78px;
+          transition: transform .18s ease, box-shadow .18s ease;
+          box-shadow:
+            0 4px 12px rgba(var(--it-rgb), 0.25),
+            inset 0 1px 0 rgba(255, 255, 255, 0.18);
         }
         .sh-style-card:hover {
-          transform: translateY(-2px);
-          border-color: rgba(var(--it-rgb), 0.6);
-          background: linear-gradient(135deg, rgba(var(--it-rgb), 0.24) 0%, rgba(var(--it-rgb), 0.07) 100%);
+          transform: translateY(-3px) rotate(-0.5deg);
+          box-shadow:
+            0 12px 24px rgba(var(--it-rgb), 0.40),
+            inset 0 1px 0 rgba(255, 255, 255, 0.20);
         }
-        .sh-style-card-icon {
-          flex-shrink: 0;
-          width: 34px; height: 34px;
-          border-radius: 9px;
-          display: flex; align-items: center; justify-content: center;
+        .sh-style-card:hover .sh-style-card-deco {
+          transform: rotate(15deg) scale(1.1);
+          opacity: 0.40;
+        }
+        .sh-style-card-name {
+          position: relative;
+          z-index: 1;
+          display: block;
+          font-family: 'Outfit', sans-serif;
+          font-size: 16px; font-weight: 800;
+          letter-spacing: -0.02em;
           color: #fff;
-          background: linear-gradient(135deg, rgba(var(--it-rgb), 1) 0%, rgba(var(--it-rgb), 0.78) 100%);
-          box-shadow: 0 4px 10px rgba(var(--it-rgb), 0.30), inset 0 1px 0 rgba(255,255,255,0.2);
+          line-height: 1.15;
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
         }
-        .sh-style-card-icon svg { width: 17px; height: 17px; }
-        .sh-style-card-label {
-          font-size: 12.5px; font-weight: 700;
-          color: var(--text-primary);
-          line-height: 1.2;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
+        .sh-style-card-deco {
+          position: absolute;
+          bottom: -14px; right: -14px;
+          width: 64px; height: 64px;
+          color: #fff;
+          opacity: 0.28;
+          transform: rotate(8deg);
+          transition: transform .35s cubic-bezier(.4,0,.2,1), opacity .25s;
+          pointer-events: none;
         }
+        .sh-style-card-deco svg { width: 100%; height: 100%; stroke-width: 1.6; }
 
         /* Horizontal scroll'inama juosta. Slepiam scrollbar'ą bet leidim scroll. */
         .sh-strip {
