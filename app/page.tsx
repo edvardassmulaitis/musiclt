@@ -1620,39 +1620,44 @@ export default function Home() {
 
         {heroSlides.length > 0 && (
           <div className="hp-feed-strip" style={{ padding: '14px 16px 0' }}>
-            <div style={{ display: 'flex', gap: 10, overflowX: 'auto', scrollbarWidth: 'none', height: 240, alignItems: 'stretch', scrollSnapType: 'x mandatory' }}>
+            <div style={{ display: 'flex', gap: 12, overflowX: 'auto', scrollbarWidth: 'none', height: 308, alignItems: 'stretch', scrollSnapType: 'x mandatory' }}>
               {heroSlides.map((slide, i) => {
                 const isSeen = seenSlides.has(slide.href)
                 const artistName = slide.artist?.name || (slide.type === 'chart_lt' ? 'LT TOP 30' : slide.type === 'chart_world' ? 'TOP 40' : null)
+                // Excerpt — tik news slide'uose subtitle yra real prose (renginiams ten data·vieta, chartams top tracks).
+                const showExcerpt = slide.type === 'news' && slide.subtitle && slide.subtitle.length > 5
                 return (
                   <button key={i} onClick={() => { setReelsIdx(i); setReelsOpen(true) }}
-                    style={{ flexShrink: 0, position: 'relative', borderRadius: 14, overflow: 'hidden',
+                    style={{ flexShrink: 0, position: 'relative', borderRadius: 16, overflow: 'hidden',
                       border: isSeen ? '2px solid rgba(255,255,255,0.10)' : '2px solid #f97316',
-                      background: '#000', cursor: 'pointer', padding: 0, width: 150, height: 220,
+                      background: '#000', cursor: 'pointer', padding: 0, width: 188, height: 290,
                       scrollSnapAlign: 'start',
                       transition: 'opacity .15s, border-color .15s, transform .15s',
-                      boxShadow: '0 4px 14px rgba(0,0,0,0.35)',
+                      boxShadow: '0 6px 18px rgba(0,0,0,0.4)',
                     }}
                   >
                     {slide.bgImg
                       ? <img src={proxyImg(slide.bgImg)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                       : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#0a1428,#162040)' }} />
                     }
-                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.20) 45%, rgba(0,0,0,0) 70%)' }} />
+                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.10) 60%, rgba(0,0,0,0) 75%)' }} />
                     {/* Top: chip badge */}
-                    <div style={{ position: 'absolute', top: 8, left: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{ padding: '3px 8px', borderRadius: 12, fontSize: 8.5, fontWeight: 900, color: '#fff', background: slide.chipBg, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.06em', textTransform: 'uppercase', backdropFilter: 'blur(4px)' }}>
+                    <div style={{ position: 'absolute', top: 10, left: 10, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ padding: '4px 9px', borderRadius: 12, fontSize: 9, fontWeight: 900, color: '#fff', background: slide.chipBg, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.06em', textTransform: 'uppercase', backdropFilter: 'blur(4px)' }}>
                         {slide.chip}
                       </span>
                     </div>
                     {!isSeen && (
-                      <div style={{ position: 'absolute', top: 8, right: 8, width: 7, height: 7, borderRadius: '50%', background: '#f97316', boxShadow: '0 0 0 1.5px #000' }} />
+                      <div style={{ position: 'absolute', top: 10, right: 10, width: 8, height: 8, borderRadius: '50%', background: '#f97316', boxShadow: '0 0 0 2px #000' }} />
                     )}
-                    {/* Bottom: title + artist */}
-                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '8px 10px 10px' }}>
-                      <p style={{ fontSize: 12, fontWeight: 800, color: '#fff', margin: 0, lineHeight: 1.2, fontFamily: 'Outfit,sans-serif', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' } as any}>{slide.title}</p>
+                    {/* Bottom: title + excerpt + artist */}
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '10px 12px 12px', textAlign: 'left' }}>
+                      <p style={{ fontSize: 13.5, fontWeight: 800, color: '#fff', margin: 0, lineHeight: 1.22, fontFamily: 'Outfit,sans-serif', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.01em' } as any}>{slide.title}</p>
+                      {showExcerpt && (
+                        <p style={{ fontSize: 11, fontWeight: 500, color: 'rgba(255,255,255,0.78)', margin: '5px 0 0', lineHeight: 1.32, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' } as any}>{slide.subtitle}</p>
+                      )}
                       {artistName && (
-                        <p style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.78)', margin: '3px 0 0', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artistName}</p>
+                        <p style={{ fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.65)', margin: '6px 0 0', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artistName}</p>
                       )}
                     </div>
                   </button>
