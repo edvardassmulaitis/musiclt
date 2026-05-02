@@ -27,9 +27,12 @@ type Item = {
   created_at: string
   is_author: boolean
   involvement: 'created' | 'commented'
-  // URL kuria click'as veda — diskusijoms /pokalbiai/d/<slug>, kitiems
-  // /<entity_path>/<slug>.
+  // URL kuria click'as veda. Diskusijoms /pokalbiai/d/<slug>; kitiems
+  // entity'jams /pokalbiai/e/<type>/<id> — chat-style komentarų view'as.
   url: string
+  // Entity-specifinis paveiksliukas (artist photo / album cover / news image).
+  // Jei null — sidebar parodo generic ikoną.
+  image_url: string | null
 }
 
 export async function GET(req: NextRequest) {
@@ -60,6 +63,7 @@ export async function GET(req: NextRequest) {
         last_comment_at: d.last_comment_at, created_at: d.created_at,
         is_author: true, involvement: 'created',
         url: `/pokalbiai/d/${d.slug}`,
+        image_url: null,
       })
     }
 
@@ -88,6 +92,7 @@ export async function GET(req: NextRequest) {
             last_comment_at: d.last_comment_at, created_at: d.created_at,
             is_author: false, involvement: 'commented',
             url: `/pokalbiai/d/${d.slug}`,
+            image_url: null,
           })
         }
       }
@@ -118,15 +123,16 @@ export async function GET(req: NextRequest) {
       if (c.event_id) { eventIds.add(c.event_id); pushLast(lastByEntity, `event:${c.event_id}`, c.created_at) }
     }
 
-    // Tracks
+    // Tracks — paimam ir cover_url, ir artist'o cover_image_url fallback'ui.
     if (trackIds.size > 0) {
       const { data: tracks } = await sb
         .from('tracks')
-        .select('id, slug, title, artists:artist_id(id, slug, name)')
+        .select('id, slug, title, cover_url, artists:artist_id(id, slug, name, cover_image_url)')
         .in('id', Array.from(trackIds))
       for (const t of tracks || []) {
         const artistName = (t as any).artists?.name || ''
-        const artistSlug = (t as any).artists?.slug || ''
+        const artistImg = (t as any).artists?.cover_image_url || null
+        const cover = (t as any).cover_url || artistImg
         items.push({
           id: t.id, kind: 'track', slug: t.slug || String(t.id),
           title: artistName ? `${t.title} — ${artistName}` : t.title,
@@ -134,7 +140,8 @@ export async function GET(req: NextRequest) {
           last_comment_at: lastByEntity.get(`track:${t.id}`) || null,
           created_at: lastByEntity.get(`track:${t.id}`) || new Date().toISOString(),
           is_author: false, involvement: 'commented',
-          url: artistSlug && t.slug ? `/lt/daina/${t.slug}/${t.id}` : `/dainos/${t.id}`,
+          url: `/pokalbiai/e/track/${t.id}`,
+          image_url: cover,
         })
       }
     }
@@ -143,11 +150,11 @@ export async function GET(req: NextRequest) {
     if (albumIds.size > 0) {
       const { data: albums } = await sb
         .from('albums')
-        .select('id, slug, title, artists:artist_id(id, slug, name)')
+        .select('id, slug, title, cover_image_url, artists:artist_id(id, slug, name, cover_image_url)')
         .in('id', Array.from(albumIds))
       for (const a of albums || []) {
         const artistName = (a as any).artists?.name || ''
-        const artistSlug = (a as any).artists?.slug || ''
+        const cover = (a as any).cover_image_url || (a as any).artists?.cover_image_url || null
         items.push({
           id: a.id, kind: 'album', slug: a.slug || String(a.id),
           title: artistName ? `${a.title} — ${artistName}` : a.title,
@@ -155,7 +162,8 @@ export async function GET(req: NextRequest) {
           last_comment_at: lastByEntity.get(`album:${a.id}`) || null,
           created_at: lastByEntity.get(`album:${a.id}`) || new Date().toISOString(),
           is_author: false, involvement: 'commented',
-          url: artistSlug && a.slug ? `/lt/albumas/${a.slug}/${a.id}` : `/albumai/${a.id}`,
+          url: `/pokalbiai/e/album/${a.id}`,
+          image_url: cover,
         })
       }
     }
@@ -164,7 +172,7 @@ export async function GET(req: NextRequest) {
     if (newsIds.size > 0) {
       const { data: news } = await sb
         .from('news')
-        .select('id, slug, title')
+        .select('id, slug, title, image_small_url, image_title_url')
         .in('id', Array.from(newsIds))
       for (const n of news || []) {
         items.push({
@@ -174,7 +182,8 @@ export async function GET(req: NextRequest) {
           last_comment_at: lastByEntity.get(`news:${n.id}`) || null,
           created_at: lastByEntity.get(`news:${n.id}`) || new Date().toISOString(),
           is_author: false, involvement: 'commented',
-          url: `/news/${n.slug || n.id}`,
+          url: `/pokalbiai/e/news/${n.id}`,
+          image_url: (n as any).image_small_url || (n as any).image_title_url || null,
         })
       }
     }
@@ -183,7 +192,7 @@ export async function GET(req: NextRequest) {
     if (eventIds.size > 0) {
       const { data: events } = await sb
         .from('events')
-        .select('id, slug, title')
+        .select('id, slug, title, image_small_url')
         .in('id', Array.from(eventIds))
       for (const e of events || []) {
         items.push({
@@ -193,7 +202,8 @@ export async function GET(req: NextRequest) {
           last_comment_at: lastByEntity.get(`event:${e.id}`) || null,
           created_at: lastByEntity.get(`event:${e.id}`) || new Date().toISOString(),
           is_author: false, involvement: 'commented',
-          url: `/renginiai/${e.slug || e.id}`,
+          url: `/pokalbiai/e/event/${e.id}`,
+          image_url: (e as any).image_small_url || null,
         })
       }
     }

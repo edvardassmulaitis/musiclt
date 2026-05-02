@@ -6,13 +6,12 @@ import type { ConversationListItem } from '@/lib/chat-types'
 import { conversationDisplayName, conversationDisplayAvatar } from '@/lib/chat-types'
 import { ChatAvatar, ChatGroupAvatar } from './ChatAvatar'
 import { formatSidebarTime } from './ChatTime'
+import { proxyImg } from '@/lib/img-proxy'
 
 export type SidebarTab = 'private' | 'discussions'
 
 export type DiscussionItem = {
   id: number
-  // 'discussion' = forum thread, kiti = entity (track/album/news/event)
-  // kuriose user'is komentavo. Kiekvienam tipui — savo URL.
   kind?: 'discussion' | 'track' | 'album' | 'artist' | 'news' | 'event'
   slug: string
   title: string
@@ -22,6 +21,9 @@ export type DiscussionItem = {
   is_author: boolean
   involvement: 'created' | 'commented'
   url?: string
+  // Entity image (artist photo / album cover / news image). Sidebar parodo
+  // vietoj generic ikonos jei yra.
+  image_url?: string | null
 }
 
 type Props = {
@@ -383,7 +385,7 @@ function DiscussionRow({ d }: { d: DiscussionItem }) {
       onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
     >
-      <EntityIcon kind={d.kind} />
+      <EntityAvatar kind={d.kind} imageUrl={d.image_url} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 2 }}>
           <div style={{
@@ -413,6 +415,29 @@ function DiscussionRow({ d }: { d: DiscussionItem }) {
       </div>
     </Link>
   )
+}
+
+// EntityAvatar — jei yra entity image (track cover/album cover/news image),
+// rodo jį per proxyImg() per 40x40 thumbnail'ą. Kitaip — generic ikona pagal
+// kind. Sidebar'e atrodo daug informatyvžiau už universalią diskusijos ikoną.
+function EntityAvatar({ kind, imageUrl }: { kind?: DiscussionItem['kind']; imageUrl?: string | null }) {
+  if (imageUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={proxyImg(imageUrl)}
+        alt=""
+        loading="lazy"
+        style={{
+          width: 40, height: 40, flexShrink: 0,
+          borderRadius: 8, objectFit: 'cover',
+          background: 'var(--bg-elevated)',
+          border: '1px solid var(--border-default)',
+        }}
+      />
+    )
+  }
+  return <EntityIcon kind={kind} />
 }
 
 function EntityIcon({ kind }: { kind?: DiscussionItem['kind'] }) {
