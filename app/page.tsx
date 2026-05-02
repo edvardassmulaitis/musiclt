@@ -106,7 +106,7 @@ function Skel({ w, h, r = 6 }: { w: number | string; h: number; r?: number }) {
 /** Tailwind versija SH'o — naudojam naujose sekcijose, kad font/letter-spacing
  *  atitiktų artist page'o tipografiją (`font-['Outfit',sans-serif]` +
  *  `tracking-[-0.01em]` + truputį didesnis font-size 18px). */
-function SectionHead({ label, href, cta = 'Visi →' }: { label: React.ReactNode; href?: string; cta?: string }) {
+function SectionHead({ label, href, cta = 'Daugiau →' }: { label: React.ReactNode; href?: string; cta?: string }) {
   return (
     <div className="mb-3.5 flex items-center justify-between">
       <h2 className="m-0 font-['Outfit',sans-serif] text-[17px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)] sm:text-[18px]">{label}</h2>
@@ -334,7 +334,7 @@ function ZmonesSection() {
 
   return (
     <section>
-      <SectionHead label="Žmonės" href="/bendruomene" cta="Visi →" />
+      <SectionHead label="Žmonės" href="/bendruomene" cta="Daugiau →" />
       <div className="hp-scroll flex items-stretch gap-3 pb-1">
         {loading ? Array(5).fill(null).map((_, i) => (
           <div key={i} className="shrink-0 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-3" style={{ width: 260, height: 130 }}>
@@ -1473,8 +1473,9 @@ export default function Home() {
         @keyframes hp-pulse{0%,100%{opacity:.05}50%{opacity:.08}}
         .hp-skel{background:var(--homepage-skeleton-bg);animation:hp-pulse 1.8s ease-in-out infinite}
         .hp-scroll{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-behavior:smooth}
-        .hp-hero-slot{width:calc(50% - 8px);min-width:0}
-        @media(max-width:768px){.hp-hero-slot{width:calc(100% - 12px)}}
+        .hp-hero-slot{width:580px;flex-shrink:0;min-width:0}
+        @media(min-width:1400px){.hp-hero-slot{width:calc((100% - 80px) / 2)}}
+        @media(max-width:768px){.hp-hero-slot{width:calc(88vw)}}
         .hp-scroll::-webkit-scrollbar{display:none}
         .hp-scroll-arrow{position:absolute;top:50%;transform:translateY(-50%);width:28px;height:28px;border-radius:50%;background:rgba(13,19,32,0.85);border:1px solid var(--border-default);color:var(--text-secondary);font-family:'Outfit',sans-serif;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:5;transition:opacity .18s,background .15s,color .15s,transform .15s;backdrop-filter:blur(8px);box-shadow:0 2px 10px rgba(0,0,0,0.25);padding:0;line-height:1}
         .hp-scroll-arrow:hover{background:var(--accent-orange);color:#fff;border-color:var(--accent-orange);transform:translateY(-50%) scale(1.08)}
@@ -1490,6 +1491,8 @@ export default function Home() {
         .hp-card:hover{border-color:var(--border-strong);background:var(--card-hover)}
         .hp-art:hover .hp-art-img{transform:scale(1.06)}
         .hp-disc-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+        .hp-hero-v2{display:block}
+        @media(max-width:768px){.hp-hero-v2{display:none}}
         .hp-feed-strip{display:none}
         .hp-mobile-chart{display:none}
         @media(max-width:960px){.hp-feed-strip{display:flex}.hp-mobile-chart{display:block}}
@@ -1616,33 +1619,42 @@ export default function Home() {
         <div style={{ opacity: pageReady ? 1 : 0, transition: 'opacity 0.3s ease', pointerEvents: pageReady ? 'auto' : 'none' }}>
 
         {heroSlides.length > 0 && (
-          <div className="hp-feed-strip" style={{ padding: '12px 16px 0' }}>
-            <div style={{ display: 'flex', gap: 7, overflowX: 'auto', scrollbarWidth: 'none', height: 112, alignItems: 'stretch' }}>
+          <div className="hp-feed-strip" style={{ padding: '14px 16px 0' }}>
+            <div style={{ display: 'flex', gap: 10, overflowX: 'auto', scrollbarWidth: 'none', height: 240, alignItems: 'stretch', scrollSnapType: 'x mandatory' }}>
               {heroSlides.map((slide, i) => {
                 const isSeen = seenSlides.has(slide.href)
-                const artistName = slide.artist?.name || null
+                const artistName = slide.artist?.name || (slide.type === 'chart_lt' ? 'LT TOP 30' : slide.type === 'chart_world' ? 'TOP 40' : null)
                 return (
                   <button key={i} onClick={() => { setReelsIdx(i); setReelsOpen(true) }}
-                    style={{ flexShrink: 0, position: 'relative', borderRadius: 11, overflow: 'hidden',
-                      border: isSeen ? `2px solid ${dk ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)'}` : '2px solid #f97316',
-                      background: '#000', cursor: 'pointer', padding: 0, width: 76, height: 108,
-                      transition: 'opacity .15s, border-color .15s' }}
-                    onMouseEnter={e => (e.currentTarget.style.opacity = '0.82')}
-                    onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                    style={{ flexShrink: 0, position: 'relative', borderRadius: 14, overflow: 'hidden',
+                      border: isSeen ? '2px solid rgba(255,255,255,0.10)' : '2px solid #f97316',
+                      background: '#000', cursor: 'pointer', padding: 0, width: 150, height: 220,
+                      scrollSnapAlign: 'start',
+                      transition: 'opacity .15s, border-color .15s, transform .15s',
+                      boxShadow: '0 4px 14px rgba(0,0,0,0.35)',
+                    }}
                   >
                     {slide.bgImg
                       ? <img src={proxyImg(slide.bgImg)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                       : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#0a1428,#162040)' }} />
                     }
-                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.0) 50%)' }} />
-                    {artistName && (
-                      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '5px 6px' }}>
-                        <p style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.9)', margin: 0, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'Outfit,sans-serif' }}>{artistName}</p>
-                      </div>
-                    )}
+                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.20) 45%, rgba(0,0,0,0) 70%)' }} />
+                    {/* Top: chip badge */}
+                    <div style={{ position: 'absolute', top: 8, left: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ padding: '3px 8px', borderRadius: 12, fontSize: 8.5, fontWeight: 900, color: '#fff', background: slide.chipBg, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.06em', textTransform: 'uppercase', backdropFilter: 'blur(4px)' }}>
+                        {slide.chip}
+                      </span>
+                    </div>
                     {!isSeen && (
-                      <div style={{ position: 'absolute', top: 5, right: 5, width: 6, height: 6, borderRadius: '50%', background: '#f97316', border: '1.5px solid #000' }} />
+                      <div style={{ position: 'absolute', top: 8, right: 8, width: 7, height: 7, borderRadius: '50%', background: '#f97316', boxShadow: '0 0 0 1.5px #000' }} />
                     )}
+                    {/* Bottom: title + artist */}
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '8px 10px 10px' }}>
+                      <p style={{ fontSize: 12, fontWeight: 800, color: '#fff', margin: 0, lineHeight: 1.2, fontFamily: 'Outfit,sans-serif', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' } as any}>{slide.title}</p>
+                      {artistName && (
+                        <p style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.78)', margin: '3px 0 0', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artistName}</p>
+                      )}
+                    </div>
                   </button>
                 )
               })}
@@ -1981,7 +1993,7 @@ export default function Home() {
 
           {/* ── BENDRUOMENĖ — naujausios diskusijos + main chat + vartotojų įrašai ── */}
           <section>
-            <SectionHead label="Bendruomenė" href="/bendruomene" cta="Visi →" />
+            <SectionHead label="Bendruomenė" href="/bendruomene" cta="Daugiau →" />
             <div className="hp-triple" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, alignItems: 'stretch' }}>
               <CommunityDiscussionsCard />
               <CommunityChatCard />
@@ -1991,7 +2003,7 @@ export default function Home() {
 
           {/* ── PRAMOGOS — Dienos daina + Boombox intro + Music Manager placeholder ── */}
           <section>
-            <SectionHead label="Pramogos" href="/pramogos" cta="Visi →" />
+            <SectionHead label="Pramogos" href="/pramogos" cta="Daugiau →" />
             <div className="hp-triple" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, alignItems: 'stretch' }}>
               <PramogosDienosDainaCard />
               <PramogosBoomboxIntroCard />
@@ -2001,7 +2013,7 @@ export default function Home() {
 
           {/* ── ISTORIJA — sukaktys, jubiliejai, gimtadieniai ── */}
           <section>
-            <SectionHead label="Istorija" href="/istorija" cta="Visi →" />
+            <SectionHead label="Istorija" href="/istorija" cta="Daugiau →" />
             <IstorijaSection />
           </section>
 
