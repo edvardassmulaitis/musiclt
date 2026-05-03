@@ -630,11 +630,8 @@ function MobileExpansion({
     const wrldArtists = data?.artistsWorld || []
     return (
       <div className="sh-mexp">
-        {/* ── ATLIKĖJAI: LT eilutė — Daugiau pakeltas virš strip'o ── */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
-          <Link href="/atlikejai?country=lt" onClick={onLink} className="sh-more-link">Daugiau →</Link>
-        </div>
-        <div className="sh-strip-wrap" style={{ marginBottom: 12 }}>
+        {/* ── ATLIKĖJAI: LT eilutė — Daugiau APAČIOJE strip'o ── */}
+        <div className="sh-strip-wrap" style={{ marginBottom: 4 }}>
           <RowStripe kind="lt" />
           <div className="sh-strip">
             {(ltArtists.length > 0 ? ltArtists.slice(0, 10) : Array(5).fill(null)).map((a, i) => (
@@ -645,12 +642,12 @@ function MobileExpansion({
             ))}
           </div>
         </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
+          <Link href="/atlikejai?country=lt" onClick={onLink} className="sh-more-link">Daugiau →</Link>
+        </div>
 
         {/* ── ATLIKĖJAI: užsienio eilutė ── */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
-          <Link href="/atlikejai?country=world" onClick={onLink} className="sh-more-link">Daugiau →</Link>
-        </div>
-        <div className="sh-strip-wrap" style={{ marginBottom: 16 }}>
+        <div className="sh-strip-wrap" style={{ marginBottom: 4 }}>
           <RowStripe kind="world" />
           <div className="sh-strip">
             {(wrldArtists.length > 0 ? wrldArtists.slice(0, 10) : Array(5).fill(null)).map((a, i) => (
@@ -661,19 +658,20 @@ function MobileExpansion({
             ))}
           </div>
         </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
+          <Link href="/atlikejai?country=world" onClick={onLink} className="sh-more-link">Daugiau →</Link>
+        </div>
 
-        {/* ── STILIAI — photo kortelės (su /admin/genres image jei nustatytas) ── */}
-        <div style={{ marginTop: 6, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
-            <span style={{
-              fontFamily: "'Outfit', sans-serif",
-              fontSize: 11, fontWeight: 800,
-              textTransform: 'uppercase', letterSpacing: '0.1em',
-              color: 'var(--text-muted)', paddingTop: 2,
-            }}>
-              Stiliai
-            </span>
-            <Link href="/zanrai" onClick={onLink} className="sh-more-link">Daugiau →</Link>
+        {/* ── STILIAI — kompaktinės photo kortelės su Daugiau apačioje ── */}
+        <div style={{ marginTop: 4, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
+          <div style={{
+            fontFamily: "'Outfit', sans-serif",
+            fontSize: 11, fontWeight: 800,
+            textTransform: 'uppercase', letterSpacing: '0.1em',
+            color: 'var(--text-muted)',
+            marginBottom: 10,
+          }}>
+            Stiliai
           </div>
           <div className="sh-style-grid sh-style-grid-mobile">
             {GENRE_COLORS.map(s => {
@@ -684,7 +682,7 @@ function MobileExpansion({
                   key={s.name}
                   href={s.href}
                   onClick={onLink}
-                  className={`sh-style-card${hasImage ? ' sh-style-card-photo' : ''}`}
+                  className={`sh-style-card sh-style-card-mobile${hasImage ? ' sh-style-card-photo' : ''}`}
                   style={{
                     ['--it-rgb' as any]: s.rgb,
                     ...(hasImage ? { backgroundImage:
@@ -697,6 +695,9 @@ function MobileExpansion({
                 </Link>
               )
             })}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+            <Link href="/zanrai" onClick={onLink} className="sh-more-link">Daugiau →</Link>
           </div>
         </div>
       </div>
@@ -1131,7 +1132,19 @@ export function SiteHeader() {
         /* Mobile drawer — 2-col vietoj 4-col (drawer'is siauresnis) */
         .sh-style-grid-mobile {
           grid-template-columns: repeat(2, 1fr);
-          gap: 8px;
+          gap: 6px;
+        }
+        /* Mobile style kortelės — kompaktiškesnės nei desktop'o (kad
+           neužimtų daugiau vietos nei atlikėjai) */
+        .sh-style-card-mobile {
+          min-height: 56px;
+          padding: 9px 10px;
+        }
+        .sh-style-card-mobile .sh-style-card-name {
+          font-size: 12.5px;
+        }
+        .sh-style-card-mobile.sh-style-card-photo {
+          min-height: 60px;
         }
         .sh-style-card {
           position: relative;
