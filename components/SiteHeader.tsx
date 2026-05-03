@@ -37,6 +37,8 @@ type NavPreview = {
   tracks:       { id: number; title: string; image: string | null; year: number | null; artist: string; artistSlug: string }[]
   events:       { id: number; slug: string; title: string; date: string; venue: string | null; image: string | null }[]
   news:         { id: number; slug: string; title: string; image: string | null; date: string }[]
+  /** name → cover_image_url map (admin'as nustato per /admin/genres) */
+  genres?:      Record<string, string | null>
 }
 
 const I = {
@@ -289,27 +291,39 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
       <div style={{ height: 10 }} />
       {renderArtistRow(artistsWorld, 'world')}
 
-      {/* ── STILIAI — Spotify-style bold colored cards (spalva = vizualas) ── */}
+      {/* ── STILIAI — realus stoko vizualas (admin'as nustato per /admin/genres),
+              fallback'as: solid color + decorative ikona ── */}
       <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--border-default)' }}>
         <div className="sh-panel-head">
           <h2 className="sh-panel-h2">Stiliai</h2>
           <Link href="/zanrai" className="sh-more-link">Daugiau →</Link>
         </div>
         <div className="sh-style-grid">
-          {styles.map(s => (
-            <Link
-              key={s.name}
-              href={s.href}
-              className="sh-style-card"
-              style={{ ['--it-rgb' as any]: s.rgb }}
-              title={s.name}
-            >
-              <span className="sh-style-card-name">{s.short}</span>
-              <span className="sh-style-card-deco" aria-hidden>
-                {STYLE_ICONS[s.name] || I.shuffle}
-              </span>
-            </Link>
-          ))}
+          {styles.map(s => {
+            const img = data?.genres?.[s.name] || null
+            const hasImage = !!img
+            return (
+              <Link
+                key={s.name}
+                href={s.href}
+                className={`sh-style-card${hasImage ? ' sh-style-card-photo' : ''}`}
+                style={{
+                  ['--it-rgb' as any]: s.rgb,
+                  ...(hasImage ? { backgroundImage:
+                    `linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.30) 55%, rgba(0,0,0,0.10) 100%), url(${proxyImg(img)})`
+                  } : {}),
+                }}
+                title={s.name}
+              >
+                <span className="sh-style-card-name">{s.short}</span>
+                {!hasImage && (
+                  <span className="sh-style-card-deco" aria-hidden>
+                    {STYLE_ICONS[s.name] || I.shuffle}
+                  </span>
+                )}
+              </Link>
+            )
+          })}
         </div>
       </div>
     </div>
@@ -1123,6 +1137,23 @@ export function SiteHeader() {
           box-shadow:
             0 12px 24px rgba(var(--it-rgb), 0.40),
             inset 0 1px 0 rgba(255, 255, 255, 0.20);
+        }
+        /* Su realiu stoko vizualu — gradient overlay tekstui readable + dark photo bg */
+        .sh-style-card-photo {
+          background-color: #1a1a1a;
+          background-size: cover;
+          background-position: center;
+          background-repeat: no-repeat;
+          padding-top: 30px; /* tekstui daugiau erdvės dėl overlay */
+          min-height: 92px;
+          box-shadow:
+            0 4px 14px rgba(0, 0, 0, 0.30),
+            inset 0 1px 0 rgba(255, 255, 255, 0.10);
+        }
+        .sh-style-card-photo:hover {
+          box-shadow:
+            0 14px 28px rgba(0, 0, 0, 0.40),
+            inset 0 1px 0 rgba(255, 255, 255, 0.15);
         }
         .sh-style-card:hover .sh-style-card-deco {
           transform: rotate(15deg) scale(1.1);

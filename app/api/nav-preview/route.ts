@@ -18,7 +18,8 @@ export async function GET() {
   const supabase = createAdminClient()
 
   try {
-    const [artistsLtRes, artistsWorldRes, albumsRes, tracksRes, eventsRes, newsRes] = await Promise.all([
+    const [artistsLtRes, artistsWorldRes, albumsRes, tracksRes, eventsRes, newsRes, genresRes] = await Promise.all([
+      // (genres pridėtas paskutinis — žr. apačioje)
       // 12 LT atlikėjų pagal score (su scroll'u juostoje)
       supabase
         .from('artists')
@@ -71,6 +72,12 @@ export async function GET() {
         .not('published_at', 'is', null)
         .order('published_at', { ascending: false })
         .limit(4),
+
+      // 8 main žanrai su cover_image_url (admin'as nustato per /admin/genres)
+      supabase
+        .from('genres')
+        .select('id, name, cover_image_url')
+        .order('name'),
     ])
 
     const payload = {
@@ -118,6 +125,11 @@ export async function GET() {
         image: n.image_small_url || n.image_title_url || null,
         date: n.published_at,
       })),
+      // Žanrų name → cover_image_url map (frontend lookup'ina pagal name iš GENRE_COLORS)
+      genres: (genresRes.data || []).reduce((acc: Record<string, string | null>, g: any) => {
+        acc[g.name] = g.cover_image_url || null
+        return acc
+      }, {} as Record<string, string | null>),
     }
 
     return NextResponse.json(payload, {

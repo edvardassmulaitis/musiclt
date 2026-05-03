@@ -51,6 +51,7 @@ export default function AdminDashboardPage() {
     { href: '/admin/voting', newHref: '/admin/voting', icon: '🗳️', label: 'Balsavimai' },
     { href: '/admin/boombox', newHref: '/admin/boombox', icon: '🎛️', label: 'Boombox' },
     { href: '/admin/search', newHref: '/admin/search', icon: '🔍', label: 'Paieška' },
+    { href: '/admin/genres', newHref: '/admin/genres', icon: '🎨', label: 'Žanrai' },
   ]
 
   return (
