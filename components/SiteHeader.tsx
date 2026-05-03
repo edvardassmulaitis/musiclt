@@ -667,7 +667,7 @@ function MobileExpansion({
               </Link>
             ))}
             <Link href="/atlikejai?country=lt" onClick={onLink} className="sh-more-tile">
-              Daugiau →
+              Daugiau
             </Link>
           </div>
         </div>
@@ -1159,28 +1159,31 @@ export function SiteHeader() {
           gap: 6px;
         }
 
-        /* "Daugiau →" kaip last tile horizontal scroll juostos gale —
-           kompaktiškas inline CTA, ne išstumtas didelis pill'as */
+        /* "Daugiau" kaip last card horizontal scroll juostos gale —
+           tile dydis matches sh-mini-md (atlikėjo kortelės dydis):
+           82px wide, image-zone aukštis (~74px) + label area, centered.
+           Be rodyklių — paprastas card su "Daugiau" tekstu centre. */
         .sh-more-tile {
-          flex: 0 0 auto;
-          align-self: center;
-          display: inline-flex;
+          flex: 0 0 82px;
+          width: 82px;
+          align-self: stretch;
+          display: flex;
           align-items: center;
-          padding: 6px 12px;
-          border-radius: 999px;
-          background: rgba(249, 115, 22, 0.12);
-          border: 1px solid rgba(249, 115, 22, 0.35);
+          justify-content: center;
+          padding: 6px;
+          border-radius: 10px;
+          background: rgba(249, 115, 22, 0.10);
+          border: 1px dashed rgba(249, 115, 22, 0.40);
           text-decoration: none;
           color: var(--accent-orange);
           font-family: 'Outfit', sans-serif;
-          font-size: 12px; font-weight: 700;
-          white-space: nowrap;
+          font-size: 13px; font-weight: 700;
+          text-align: center;
           transition: background .15s, border-color .15s;
-          margin-left: 6px;
         }
         .sh-more-tile:hover {
-          background: rgba(249, 115, 22, 0.22);
-          border-color: rgba(249, 115, 22, 0.6);
+          background: rgba(249, 115, 22, 0.20);
+          border-color: rgba(249, 115, 22, 0.65);
         }
         /* Mobile style kortelės — kompaktiškesnės nei desktop'o (kad
            neužimtų daugiau vietos nei atlikėjai) */
