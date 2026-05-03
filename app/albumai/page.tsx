@@ -1,5 +1,5 @@
-import { PlaceholderPage } from '@/components/PlaceholderPage'
-const _unused = PlaceholderPage
+import { PageLoader } from '@/components/PageLoader'
+
 export default function AlbumsIndexPage() {
-  return <div>test</div>
+  return <PageLoader variant="album" />
 }
