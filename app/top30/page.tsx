@@ -8,6 +8,10 @@ export const metadata: Metadata = {
   description: 'Šios savaitės LT TOP 30 — populiariausios lietuvių dainos. Balsuok už mėgstamas.',
 }
 
+// Topo state'as keičiasi po populate/vote/finalize/reset operacijų — turi būti
+// dynamic, kitaip Next.js išcache'ina ir admin pakeitimai nematomi public'e.
+export const dynamic = 'force-dynamic'
+
 async function getTopData(topType: string): Promise<TopData> {
   const supabase = createAdminClient()
   // Anchor į dabartinę kalendorinę savaitę (week_start = einamasis pirmadienis)

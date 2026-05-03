@@ -8,6 +8,9 @@ export const metadata: Metadata = {
   description: 'Visi music.lt muzikos topai vienoje vietoje — pasaulinis TOP 40, lietuviškas LT TOP 30, lankytojų sukurti ir oficialūs reitingai.',
 }
 
+// Hub puslapis priklauso nuo top40/top30 mini chart'ų — turi būti dynamic.
+export const dynamic = 'force-dynamic'
+
 type Mini = {
   position: number
   title: string

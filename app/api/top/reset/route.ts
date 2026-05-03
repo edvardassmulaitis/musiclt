@@ -50,11 +50,29 @@ export async function POST(req: Request) {
     .eq('week_id', week.id)
   if (votesErr) return NextResponse.json({ error: votesErr.message }, { status: 500 })
 
-  // 3. Egzistuojantiems entries'ams: position → prev_position (kad trend
-  //    rodiklis veiktų po sekančio finalize'o), total_votes=0, is_new=false.
-  //    PALIEKAME position'ą tą pačią — pre-finalize sortavimas vyksta pagal
-  //    total_votes (žr. /api/top/entries), tad position'as kol kas nesvarbus
-  //    iki kol bus iš naujo perskaičiuotas finalize'e.
+  // 2b. Pagal 12-savaičių taisyklę pašalinti dainas, kurios jau buvo tope
+  //     daugiau nei 12 ciklų (graduated). weeks_in_top counter'is auga per
+  //     kiekvieną finalize, todėl >= 12 = ji jau buvo 12 finalize ciklų.
+  const { data: graduated } = await supabase
+    .from('top_entries')
+    .select('id, track_id')
+    .eq('week_id', week.id)
+    .gte('weeks_in_top', 12)
+
+  let graduatedCount = 0
+  if (graduated && graduated.length > 0) {
+    const { error: gradErr } = await supabase
+      .from('top_entries')
+      .delete()
+      .in('id', graduated.map(g => g.id))
+    if (gradErr) return NextResponse.json({ error: gradErr.message }, { status: 500 })
+    graduatedCount = graduated.length
+  }
+
+  // 3. Egzistuojantiems entries'ams (po graduation): position → prev_position
+  //    (kad trend rodiklis veiktų po sekančio finalize'o), total_votes=0,
+  //    is_new=false. PALIEKAME position'ą tą pačią — pre-finalize sortavimas
+  //    vyksta pagal total_votes, position perskaičiuojamas finalize'e.
   const { data: existingEntries } = await supabase
     .from('top_entries')
     .select('id, position')
@@ -139,9 +157,16 @@ export async function POST(req: Request) {
   const totalEntries = (existingEntries?.length || 0) + inserted
 
   let msg = 'Naujas ciklas paleistas.'
+  if (graduatedCount > 0) msg += ` Pašalinta po 12 sav. taisyklės: ${graduatedCount}.`
   if (inserted > 0) msg += ` Pridėta naujų dainų: ${inserted}.`
   if (existingEntries?.length) msg += ` Senų dainų liko: ${existingEntries.length} (su trend istorija).`
   msg += ` Iš viso tope: ${totalEntries}. Balsavimas atvertas.`
 
-  return NextResponse.json({ ok: true, message: msg, total: totalEntries, new: inserted })
+  return NextResponse.json({
+    ok: true,
+    message: msg,
+    total: totalEntries,
+    new: inserted,
+    graduated: graduatedCount,
+  })
 }

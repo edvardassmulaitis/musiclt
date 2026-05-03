@@ -472,45 +472,75 @@ function AdminTopInner() {
                   <thead>
                     <tr className="border-b border-[var(--border-subtle)] text-left text-xs text-[var(--text-muted)] uppercase tracking-wide bg-[var(--bg-elevated)]/80">
                       <th className="px-3 py-2.5 w-8">#</th>
+                      <th className="px-3 py-2.5 w-10">Trend</th>
                       <th className="px-3 py-2.5">Daina</th>
+                      <th className="px-3 py-2.5 text-center w-14">Sav.</th>
                       <th className="px-3 py-2.5 text-right w-16">Balsai</th>
                       <th className="px-3 py-2.5 w-6"></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {entries.map((e, i) => (
-                      <tr key={e.id} className="border-b border-[var(--border-subtle)] last:border-0 hover:bg-[var(--bg-hover)]/80 transition-colors group">
-                        <td className="px-3 py-2.5">
-                          <span className={`text-sm font-black tabular-nums ${i < 3 ? 'text-orange-500' : 'text-[var(--text-secondary)]'}`}>
-                            {e.position ?? i + 1}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
-                              {e.tracks?.cover_url
-                                ? <img src={e.tracks.cover_url} alt="" className="w-full h-full object-cover" />
-                                : <div className="w-full h-full flex items-center justify-center text-gray-300 text-xs">♪</div>}
+                    {entries.map((e, i) => {
+                      const weeksMax = 12
+                      const weeksLeft = weeksMax - (e.weeks_in_top || 0)
+                      const isWarning = weeksLeft <= 2 && weeksLeft > 0
+                      const isLast = weeksLeft === 0
+                      return (
+                        <tr key={e.id} className="border-b border-[var(--border-subtle)] last:border-0 hover:bg-[var(--bg-hover)]/80 transition-colors group">
+                          <td className="px-3 py-2.5">
+                            <span className={`text-sm font-black tabular-nums ${i < 3 ? 'text-orange-500' : 'text-[var(--text-secondary)]'}`}>
+                              {e.position ?? i + 1}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <TrendBadge curr={e.position} prev={e.prev_position} />
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+                                {e.tracks?.cover_url
+                                  ? <img src={e.tracks.cover_url} alt="" className="w-full h-full object-cover" />
+                                  : <div className="w-full h-full flex items-center justify-center text-gray-300 text-xs">♪</div>}
+                              </div>
+                              <div className="min-w-0 flex items-center gap-2">
+                                <div className="min-w-0">
+                                  <p className="text-sm font-semibold text-gray-900 truncate">{e.tracks?.title ?? '—'}</p>
+                                  <p className="text-xs text-gray-400 truncate">{e.tracks?.artists?.name ?? '—'}</p>
+                                </div>
+                                {e.is_new && (
+                                  <span className="text-[9px] font-extrabold tracking-wider px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200 flex-shrink-0">
+                                    NEW
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            <div className="min-w-0">
-                              <p className="text-sm font-semibold text-gray-900 truncate">{e.tracks?.title ?? '—'}</p>
-                              <p className="text-xs text-gray-400 truncate">{e.tracks?.artists?.name ?? '—'}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-3 py-2.5 text-right">
-                          <span className="text-sm font-bold text-[var(--text-secondary)] tabular-nums">{e.total_votes}</span>
-                        </td>
-                        <td className="px-3 py-2.5">
-                          {!activeWeek?.is_finalized && (
-                            <button onClick={() => removeEntry(e.id)}
-                              className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-all text-sm w-5">
-                              ✕
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className="px-3 py-2.5 text-center">
+                            <span
+                              title={isLast ? 'Paskutinė savaitė tope (12/12)' : isWarning ? `Liko ${weeksLeft} savaitė(s) iki išėjimo` : `Šitos dainos savaičių tope: ${e.weeks_in_top || 0} iš 12`}
+                              className={`text-[11px] font-bold tabular-nums px-1.5 py-0.5 rounded ${
+                                isLast ? 'bg-red-50 text-red-600 border border-red-200' :
+                                isWarning ? 'bg-orange-50 text-orange-600 border border-orange-200' :
+                                'bg-gray-50 text-gray-500 border border-gray-200'
+                              }`}
+                            >
+                              {e.weeks_in_top || 0}/{weeksMax}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2.5 text-right">
+                            <span className="text-sm font-bold text-[var(--text-secondary)] tabular-nums">{e.total_votes}</span>
+                          </td>
+                          <td className="px-3 py-2.5">
+                            {!activeWeek?.is_finalized && (
+                              <button onClick={() => removeEntry(e.id)}
+                                className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-all text-sm w-5">
+                                ✕
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
