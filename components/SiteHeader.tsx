@@ -630,8 +630,8 @@ function MobileExpansion({
     const wrldArtists = data?.artistsWorld || []
     return (
       <div className="sh-mexp">
-        {/* ── ATLIKĖJAI: LT eilutė — Daugiau APAČIOJE strip'o ── */}
-        <div className="sh-strip-wrap" style={{ marginBottom: 4 }}>
+        {/* ── ATLIKĖJAI: LT eilutė — Daugiau kaip last tile strip'e ── */}
+        <div className="sh-strip-wrap" style={{ marginBottom: 10 }}>
           <RowStripe kind="lt" />
           <div className="sh-strip">
             {(ltArtists.length > 0 ? ltArtists.slice(0, 10) : Array(5).fill(null)).map((a, i) => (
@@ -640,14 +640,15 @@ function MobileExpansion({
                 <span className="sh-mini-title sh-mini-title-2">{a?.name || 'Atlikėjas'}</span>
               </Link>
             ))}
+            <Link href="/atlikejai?country=lt" onClick={onLink} className="sh-more-tile">
+              <span className="sh-more-tile-arrow">→</span>
+              <span className="sh-more-tile-label">Daugiau</span>
+            </Link>
           </div>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
-          <Link href="/atlikejai?country=lt" onClick={onLink} className="sh-more-link">Daugiau →</Link>
         </div>
 
         {/* ── ATLIKĖJAI: užsienio eilutė ── */}
-        <div className="sh-strip-wrap" style={{ marginBottom: 4 }}>
+        <div className="sh-strip-wrap" style={{ marginBottom: 12 }}>
           <RowStripe kind="world" />
           <div className="sh-strip">
             {(wrldArtists.length > 0 ? wrldArtists.slice(0, 10) : Array(5).fill(null)).map((a, i) => (
@@ -656,20 +657,21 @@ function MobileExpansion({
                 <span className="sh-mini-title sh-mini-title-2">{a?.name || 'Atlikėjas'}</span>
               </Link>
             ))}
+            <Link href="/atlikejai?country=world" onClick={onLink} className="sh-more-tile">
+              <span className="sh-more-tile-arrow">→</span>
+              <span className="sh-more-tile-label">Daugiau</span>
+            </Link>
           </div>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
-          <Link href="/atlikejai?country=world" onClick={onLink} className="sh-more-link">Daugiau →</Link>
-        </div>
 
-        {/* ── STILIAI — kompaktinės photo kortelės su Daugiau apačioje ── */}
-        <div style={{ marginTop: 4, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
+        {/* ── STILIAI — Daugiau kaip 9-as grid tile (po visų 8 žanrų) ── */}
+        <div style={{ paddingTop: 12, borderTop: '1px solid var(--border-default)' }}>
           <div style={{
             fontFamily: "'Outfit', sans-serif",
             fontSize: 11, fontWeight: 800,
             textTransform: 'uppercase', letterSpacing: '0.1em',
             color: 'var(--text-muted)',
-            marginBottom: 10,
+            marginBottom: 8,
           }}>
             Stiliai
           </div>
@@ -695,9 +697,10 @@ function MobileExpansion({
                 </Link>
               )
             })}
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
-            <Link href="/zanrai" onClick={onLink} className="sh-more-link">Daugiau →</Link>
+            {/* Daugiau kaip pilnos pločio 9-as grid tile */}
+            <Link href="/zanrai" onClick={onLink} className="sh-style-card sh-style-card-mobile sh-more-card">
+              <span className="sh-more-card-label">Visi stiliai →</span>
+            </Link>
           </div>
         </div>
       </div>
@@ -1133,6 +1136,54 @@ export function SiteHeader() {
         .sh-style-grid-mobile {
           grid-template-columns: repeat(2, 1fr);
           gap: 6px;
+        }
+
+        /* "Daugiau →" kaip last tile horizontal scroll juostos gale.
+           Vartotojas natūraliai swipe'ina dešinėn → mato CTA pill'ą. */
+        .sh-more-tile {
+          flex: 0 0 auto;
+          align-self: stretch;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 4px;
+          padding: 8px 16px;
+          border-radius: 10px;
+          background: rgba(249, 115, 22, 0.12);
+          border: 1px dashed rgba(249, 115, 22, 0.45);
+          text-decoration: none;
+          color: var(--accent-orange);
+          font-family: 'Outfit', sans-serif;
+          font-weight: 700;
+          transition: background .15s, border-color .15s;
+          margin-left: 4px;
+        }
+        .sh-more-tile:hover {
+          background: rgba(249, 115, 22, 0.22);
+          border-color: rgba(249, 115, 22, 0.7);
+        }
+        .sh-more-tile-arrow { font-size: 22px; line-height: 1; opacity: 0.85; }
+        .sh-more-tile-label { font-size: 10.5px; }
+
+        /* "Visi stiliai →" kaip 9-as grid tile'as Stiliai sekcijos gale */
+        .sh-more-card {
+          background: rgba(249, 115, 22, 0.10) !important;
+          border: 1px dashed rgba(249, 115, 22, 0.4) !important;
+          box-shadow: none !important;
+          color: var(--accent-orange);
+          align-items: center;
+          justify-content: center;
+        }
+        .sh-more-card:hover {
+          background: rgba(249, 115, 22, 0.18) !important;
+          border-color: rgba(249, 115, 22, 0.65) !important;
+          transform: none !important;
+        }
+        .sh-more-card-label {
+          font-family: 'Outfit', sans-serif;
+          font-size: 12.5px; font-weight: 700;
+          color: var(--accent-orange);
         }
         /* Mobile style kortelės — kompaktiškesnės nei desktop'o (kad
            neužimtų daugiau vietos nei atlikėjai) */
@@ -1898,7 +1949,7 @@ export function SiteHeader() {
 
         /* DRILLED-IN section view — scrollable */
         .sh-msection {
-          padding: 12px 14px 16px;
+          padding: 10px 12px 14px;
         }
 
         /* Footer — theme toggle */
