@@ -51,7 +51,10 @@ export async function POST(req: Request) {
   if (votesErr) return NextResponse.json({ error: votesErr.message }, { status: 500 })
 
   // 3. Egzistuojantiems entries'ams: position → prev_position (kad trend
-  //    veiktų), o naujasis position=null (bus nustatytas per finalize'ą).
+  //    rodiklis veiktų po sekančio finalize'o), total_votes=0, is_new=false.
+  //    PALIEKAME position'ą tą pačią — pre-finalize sortavimas vyksta pagal
+  //    total_votes (žr. /api/top/entries), tad position'as kol kas nesvarbus
+  //    iki kol bus iš naujo perskaičiuotas finalize'e.
   const { data: existingEntries } = await supabase
     .from('top_entries')
     .select('id, position')
@@ -63,8 +66,8 @@ export async function POST(req: Request) {
         .from('top_entries')
         .update({
           total_votes: 0,
-          prev_position: e.position,
-          position: null,
+          prev_position: e.position, // CARRY OVER — trend rodikliui
+          // position lieka kaip buvo (NOT NULL constraint, perskaičiuos finalize)
           is_new: false, // jau buvo tope ankstesniame cikle
         })
         .eq('id', e.id)
@@ -93,16 +96,21 @@ export async function POST(req: Request) {
     const toInsert = approved.filter(s => !existingSet.has(s.track_id))
 
     if (toInsert.length > 0) {
+      // Pozicijos integer'iu: tęsiame nuo egzistuojančių entries kiekio
+      // (NOT NULL constraint). Pre-finalize sortavimas vyks pagal total_votes,
+      // o galutinė pozicija perskaičiuojama finalize'e.
+      const baseCount = existingEntries?.length || 0
+
       const { error: insertErr } = await supabase.from('top_entries').insert(
-        toInsert.map(s => ({
+        toInsert.map((s, i) => ({
           week_id: week.id,
           track_id: s.track_id,
           top_type,
-          position: null,           // bus nustatyta per finalize
+          position: baseCount + i + 1, // bus perskaičiuota per finalize
           total_votes: 0,
-          is_new: true,             // nauja tope
+          is_new: true,                 // nauja tope
           weeks_in_top: 1,
-          peak_position: null,
+          peak_position: baseCount + i + 1,
         }))
       )
       if (insertErr) return NextResponse.json({ error: insertErr.message }, { status: 500 })
