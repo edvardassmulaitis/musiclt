@@ -1110,130 +1110,628 @@ function HeroV2Card({ slide, dk }: { slide: HeroSlide; dk: boolean }) {
 function HeroChartCard({ slide }: { slide: HeroSlide }) {
   const isLT = slide.type === 'chart_lt'
   const tops = slide.chartTops || []
-  const accent = isLT ? 'var(--accent-orange)' : 'var(--accent-blue)'
+  const accent = isLT ? '#f97316' : '#3b82f6'
+  const accentSoft = isLT ? 'rgba(249,115,22,0.22)' : 'rgba(59,130,246,0.22)'
   const cover = (t: TopEntry | undefined) => t ? (t.cover_url || t.artist_image) : null
+
+  // Tile renders a single mosaic cover with title overlay + position number.
+  // size 'big' → larger #1 tile; 'sm' → bottom-row tiles.
+  const Tile = ({ entry, size }: { entry: TopEntry | undefined; size: 'big' | 'md' | 'sm' }) => {
+    const c = cover(entry)
+    const titleSize = size === 'big' ? 14.5 : size === 'md' ? 12.5 : 11
+    const artistSize = size === 'big' ? 12 : size === 'md' ? 10.5 : 10
+    const padding = size === 'big' ? '10px 11px 10px' : '7px 8px 7px'
+    const numSize = size === 'big' ? 30 : size === 'md' ? 24 : 22
+    const numFont = size === 'big' ? 13.5 : 11.5
+    if (!entry || !c) {
+      return <div className="rounded-lg" style={{ background: 'rgba(255,255,255,0.05)', height: '100%', width: '100%' }} />
+    }
+    return (
+      <div className="relative h-full w-full overflow-hidden rounded-lg" style={{ boxShadow: size === 'big' ? '0 6px 22px rgba(0,0,0,0.5)' : '0 4px 14px rgba(0,0,0,0.4)' }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={proxyImg(c)}
+          alt=""
+          loading="lazy"
+          className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
+        />
+        {/* Bottom gradient for title legibility */}
+        <div className="pointer-events-none absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.12) 60%, rgba(0,0,0,0) 80%)' }} />
+        {/* Position badge — top-left */}
+        <span
+          className="absolute left-2 top-2 inline-flex items-center justify-center rounded-md font-['Outfit',sans-serif] font-black text-white"
+          style={{
+            background: entry.pos === 1 ? accent : 'rgba(0,0,0,0.78)',
+            height: numSize, minWidth: numSize, fontSize: numFont,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
+            backdropFilter: 'blur(2px)',
+          }}
+        >{entry.pos}</span>
+        {/* Title + artist — bottom */}
+        <div className="absolute bottom-0 left-0 right-0" style={{ padding }}>
+          <p
+            className="m-0 truncate font-['Outfit',sans-serif] font-black text-white"
+            style={{ fontSize: titleSize, lineHeight: 1.15, letterSpacing: '-0.01em', textShadow: '0 2px 6px rgba(0,0,0,0.85)' }}
+          >{entry.title}</p>
+          <p
+            className="m-0 truncate text-white/85"
+            style={{ fontSize: artistSize, lineHeight: 1.2, marginTop: 1, textShadow: '0 1px 4px rgba(0,0,0,0.85)' }}
+          >{entry.artist}</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <Link
       href={slide.href}
       className="group relative block aspect-[16/9] overflow-hidden rounded-2xl border border-[var(--border-default)] no-underline shadow-[0_8px_32px_rgba(0,0,0,0.25)] transition-all hover:-translate-y-0.5 hover:shadow-[0_14px_42px_rgba(0,0,0,0.4)]"
       style={{
         background: isLT
-          ? 'radial-gradient(ellipse at top right, rgba(249,115,22,0.18), rgba(10,14,26,0.98) 65%), linear-gradient(135deg, #1a1426 0%, #0a0e1a 100%)'
-          : 'radial-gradient(ellipse at top right, rgba(29,78,216,0.18), rgba(8,13,20,0.98) 65%), linear-gradient(135deg, #14182a 0%, #080d14 100%)',
+          ? `radial-gradient(ellipse at top left, ${accentSoft}, rgba(10,14,26,0.98) 60%), linear-gradient(135deg, #1a1426 0%, #0a0e1a 100%)`
+          : `radial-gradient(ellipse at top left, ${accentSoft}, rgba(8,13,20,0.98) 60%), linear-gradient(135deg, #14182a 0%, #080d14 100%)`,
       }}
     >
-      {/* COLLAGE — right side asymmetric grid: #1 large 2x2, #2-5 smaller around */}
+      {/* ── LEFT side: chip + chart title + CTA (38% width) ── */}
+      <div
+        className="relative z-[1] flex h-full flex-col justify-between p-6"
+        style={{ width: '38%' }}
+      >
+        {/* Top: TOP chip + week info */}
+        <div className="flex flex-col gap-2.5">
+          <span
+            className="inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1 font-['Outfit',sans-serif] text-[10px] font-black uppercase tracking-[0.08em] text-white"
+            style={{ background: accent, boxShadow: `0 2px 12px ${accentSoft}` }}
+          >
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17h2v-7H3v7zm4 0h2V7H7v10zm4 0h2v-4h-2v4zm4 0h2v-9h-2v9zm4-13v13h2V4h-2z"/></svg>
+            {isLT ? 'LT TOP 30' : 'TOP 40'}
+          </span>
+          <p className="m-0 text-[12px] font-medium uppercase tracking-[0.18em] text-white/55">
+            Šios savaitės topas
+          </p>
+        </div>
+
+        {/* Middle: Chart title — extra large */}
+        <div className="flex-1 flex items-center">
+          <h3
+            className="m-0 font-['Outfit',sans-serif] font-black tracking-tight text-white"
+            style={{ fontSize: 'clamp(36px, 4.2vw, 56px)', lineHeight: 0.96, letterSpacing: '-0.025em' }}
+          >
+            {slide.title}
+          </h3>
+        </div>
+
+        {/* Bottom: Vote CTA + secondary link */}
+        <div className="flex flex-col gap-2.5">
+          <span
+            className="group/cta inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 font-['Outfit',sans-serif] text-[14px] font-black text-white no-underline transition-all"
+            style={{
+              background: accent,
+              boxShadow: `0 6px 22px ${accentSoft}, 0 2px 8px rgba(0,0,0,0.3)`,
+              letterSpacing: '0.02em',
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+            Balsuok už mėgstamas
+          </span>
+          <span className="inline-flex items-center gap-1 self-start text-[11.5px] font-bold text-white/55 transition-colors group-hover:text-white/80">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            Pilnas topas
+          </span>
+        </div>
+      </div>
+
+      {/* ── RIGHT side: magazine mosaic (62% width) ── */}
       {tops.length > 0 && (
         <div
-          className="hp-chart-collage absolute right-4 bottom-4 top-4"
+          className="absolute right-4 top-4 bottom-4"
           style={{
-            width: '52%',
+            width: '58%',
             display: 'grid',
-            gridTemplateColumns: '1.6fr 1fr 1fr',
-            gridTemplateRows: '1fr 1fr',
-            gap: 6,
+            gridTemplateColumns: '3fr 2fr',
+            gridTemplateRows: '3fr 2fr',
+            gap: 7,
           }}
         >
-          {/* #1 — large, spans 2 rows */}
-          {cover(tops[0]) ? (
-            <div
-              className="relative overflow-hidden rounded-lg"
-              style={{ gridColumn: '1', gridRow: '1 / span 2', boxShadow: '0 6px 22px rgba(0,0,0,0.5)' }}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={proxyImg(cover(tops[0]) || '')}
-                alt=""
-                loading="lazy"
-                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
-              />
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent" />
-              <div
-                className="absolute left-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-md font-['Outfit',sans-serif] text-[14px] font-black text-white"
-                style={{ background: accent, boxShadow: '0 2px 8px rgba(0,0,0,0.5)' }}
-              >1</div>
+          {/* Top-left — #1, large 60% × 60% */}
+          <div style={{ gridColumn: 1, gridRow: 1 }}><Tile entry={tops[0]} size="big" /></div>
+          {/* Top-right — #2, mid */}
+          <div style={{ gridColumn: 2, gridRow: 1 }}><Tile entry={tops[1]} size="md" /></div>
+          {/* Bottom row — #3, #4, #5 split equal */}
+          <div
+            style={{
+              gridColumn: '1 / -1', gridRow: 2,
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr 1fr',
+              gap: 7,
+            }}
+          >
+            <Tile entry={tops[2]} size="sm" />
+            <Tile entry={tops[3]} size="sm" />
+            <Tile entry={tops[4]} size="sm" />
+          </div>
+        </div>
+      )}
+    </Link>
+  )
+}
+
+/* ────────────────────────────── Chart bottom sheet ──────────────────────────────
+   Mobile-first full-screen sheet, slides up from bottom. Lazy-loads full top
+   (30/40 entries) + balsavimo statusą. Inline vote per /api/top/vote — same
+   API kaip /top30 ir /top40 puslapiuose, todėl balsų limitai sutampa. */
+
+type ChartSheetEntry = {
+  position: number
+  track_id: number
+  title: string
+  artist: string
+  cover_url: string | null
+  artist_image: string | null
+  is_new?: boolean
+  weeks_in_top?: number
+  prev_position?: number | null
+}
+
+function ChartBottomSheet({
+  open, onClose, topType, title, accent,
+}: {
+  open: boolean
+  onClose: () => void
+  topType: 'lt_top30' | 'top40'
+  title: string
+  accent: string
+}) {
+  const [entries, setEntries] = useState<ChartSheetEntry[]>([])
+  const [weekId, setWeekId] = useState<number | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [votedIds, setVotedIds] = useState<number[]>([])
+  const [votesRemaining, setVotesRemaining] = useState<number>(5)
+  const [voteErr, setVoteErr] = useState<string | null>(null)
+  const [pendingId, setPendingId] = useState<number | null>(null)
+
+  // Load entries + vote status when opened. Reset state when closed so a fresh
+  // open re-fetches (rotating-week scenarios + chart switches).
+  useEffect(() => {
+    if (!open) return
+    let cancel = false
+    setLoading(true)
+    setVoteErr(null)
+    fetch(`/api/top/entries?type=${topType}`)
+      .then(r => r.json())
+      .then(d => {
+        if (cancel) return
+        const wId = d.week?.id ?? null
+        setWeekId(wId)
+        const list: ChartSheetEntry[] = (d.entries || []).map((e: any, i: number) => ({
+          position: e.position ?? (i + 1),
+          track_id: e.track_id,
+          title: sanitizeTitle(e.tracks?.title || ''),
+          artist: e.tracks?.artists?.name || '',
+          cover_url: e.tracks?.cover_url || null,
+          artist_image: e.tracks?.artists?.cover_image_url || null,
+          is_new: e.is_new,
+          weeks_in_top: e.weeks_in_top,
+          prev_position: e.prev_position,
+        }))
+        setEntries(list)
+        if (wId) {
+          fetch(`/api/top/vote?week_id=${wId}`).then(r => r.json()).then(v => {
+            if (cancel) return
+            setVotedIds(v.voted_track_ids || [])
+            setVotesRemaining(v.votes_remaining ?? 5)
+          }).catch(() => {})
+        }
+      })
+      .catch(() => { if (!cancel) setEntries([]) })
+      .finally(() => { if (!cancel) setLoading(false) })
+    return () => { cancel = true }
+  }, [open, topType])
+
+  // Lock body scroll while sheet is open. Restore previous overflow on unmount.
+  useEffect(() => {
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [open])
+
+  const handleVote = async (trackId: number) => {
+    if (!weekId || votedIds.includes(trackId) || pendingId === trackId) return
+    if (votesRemaining <= 0) {
+      setVoteErr('Pasiekei savaitės balsų limitą')
+      setTimeout(() => setVoteErr(null), 2500)
+      return
+    }
+    setPendingId(trackId)
+    try {
+      const res = await fetch('/api/top/vote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ track_id: trackId, week_id: weekId, vote_type: 'like' }),
+      })
+      const d = await res.json()
+      if (res.ok) {
+        setVotedIds(p => [...p, trackId])
+        setVotesRemaining(p => Math.max(0, p - 1))
+      } else {
+        setVoteErr(d.error || 'Klaida')
+        setTimeout(() => setVoteErr(null), 2500)
+      }
+    } catch {
+      setVoteErr('Tinklo klaida')
+      setTimeout(() => setVoteErr(null), 2500)
+    } finally {
+      setPendingId(null)
+    }
+  }
+
+  if (!open) return null
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${title} balsavimas`}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1200,
+        display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+        background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)',
+        animation: 'cbs-fade 0.18s ease-out',
+      }}
+      onClick={onClose}
+    >
+      <style>{`
+        @keyframes cbs-fade { from { opacity: 0 } to { opacity: 1 } }
+        @keyframes cbs-slide { from { transform: translateY(100%) } to { transform: translateY(0) } }
+        @keyframes cbs-spin { to { transform: rotate(360deg) } }
+        .cbs-vote-btn { transition: all 0.15s; }
+        .cbs-vote-btn:active:not(:disabled) { transform: scale(0.94); }
+      `}</style>
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: '100%', maxWidth: 560, maxHeight: '92vh',
+          background: 'linear-gradient(180deg, #0f1320 0%, #060912 100%)',
+          borderTopLeftRadius: 22, borderTopRightRadius: 22,
+          borderTop: `2px solid ${accent}`,
+          boxShadow: '0 -24px 80px rgba(0,0,0,0.6)',
+          display: 'flex', flexDirection: 'column',
+          animation: 'cbs-slide 0.28s cubic-bezier(0.32,0.72,0.28,1)',
+        }}
+      >
+        {/* Drag handle */}
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 6px' }}>
+          <div style={{ width: 44, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.22)' }} />
+        </div>
+
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 18px 12px', gap: 10 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+            <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: accent, fontFamily: 'Outfit,sans-serif' }}>
+              Balsuoti · šios savaitės topas
+            </span>
+            <h2 style={{ margin: '2px 0 0', fontSize: 22, fontWeight: 900, color: '#fff', fontFamily: 'Outfit,sans-serif', letterSpacing: '-0.02em', lineHeight: 1.05 }}>
+              {title}
+            </h2>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Uždaryti"
+            style={{
+              flexShrink: 0, width: 38, height: 38, borderRadius: '50%',
+              border: '1px solid rgba(255,255,255,0.12)',
+              background: 'rgba(255,255,255,0.06)',
+              color: '#fff', cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
+
+        {/* Vote status bar */}
+        <div style={{
+          margin: '0 18px 8px', padding: '9px 12px', borderRadius: 10,
+          background: 'rgba(255,255,255,0.04)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+        }}>
+          <span style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>
+            Balsų liko: <span style={{ color: accent, fontWeight: 900 }}>{votesRemaining}</span>
+          </span>
+          <Link
+            href={topType === 'lt_top30' ? '/top30' : '/top40'}
+            style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.65)', textDecoration: 'none', fontWeight: 700 }}
+          >
+            Visas puslapis →
+          </Link>
+        </div>
+
+        {voteErr && (
+          <div style={{ margin: '0 18px 8px', padding: '8px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.18)', border: '1px solid rgba(239,68,68,0.4)', color: '#fecaca', fontSize: 12, fontWeight: 600 }}>
+            {voteErr}
+          </div>
+        )}
+
+        {/* Entries list */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '4px 12px 18px', WebkitOverflowScrolling: 'touch' }}>
+          {loading && entries.length === 0 && (
+            <div style={{ padding: '40px 0', display: 'flex', justifyContent: 'center' }}>
+              <div style={{ width: 28, height: 28, border: `2.5px solid ${accent}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'cbs-spin 0.7s linear infinite' }} />
             </div>
-          ) : (
-            <div
-              className="rounded-lg"
-              style={{ gridColumn: '1', gridRow: '1 / span 2', background: 'rgba(255,255,255,0.04)' }}
-            />
           )}
-          {/* #2-#5 — 1x1 each in 2x2 sub-grid right of #1 */}
-          {[1, 2, 3, 4].map(idx => {
-            const t = tops[idx]
-            const c = cover(t)
-            if (!c) {
-              return <div key={idx} className="rounded-md" style={{ background: 'rgba(255,255,255,0.04)' }} />
-            }
+          {entries.map(e => {
+            const c = e.cover_url || e.artist_image
+            const voted = votedIds.includes(e.track_id)
+            const pending = pendingId === e.track_id
+            const trend =
+              e.is_new ? 'new'
+              : e.prev_position == null ? 'same'
+              : e.position < e.prev_position ? 'up'
+              : e.position > e.prev_position ? 'down'
+              : 'same'
             return (
-              <div key={idx} className="relative overflow-hidden rounded-md" style={{ boxShadow: '0 3px 10px rgba(0,0,0,0.4)' }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={proxyImg(c)} alt="" loading="lazy" className="h-full w-full object-cover" />
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                <div
-                  className="absolute right-1 bottom-1 inline-flex h-5 w-5 items-center justify-center rounded font-['Outfit',sans-serif] text-[10px] font-black text-white"
-                  style={{ background: 'rgba(0,0,0,0.75)' }}
-                >{idx + 1}</div>
+              <div
+                key={e.track_id || e.position}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '8px 6px', borderRadius: 10,
+                  borderBottom: '1px solid rgba(255,255,255,0.05)',
+                }}
+              >
+                {/* Position */}
+                <div style={{ width: 28, textAlign: 'center', flexShrink: 0 }}>
+                  <div style={{
+                    fontSize: 16, fontWeight: 900, color: e.position <= 3 ? accent : 'rgba(255,255,255,0.9)',
+                    fontFamily: 'Outfit,sans-serif', lineHeight: 1,
+                  }}>{e.position}</div>
+                  {trend !== 'same' && (
+                    <div style={{ fontSize: 8.5, fontWeight: 700, color: trend === 'up' ? '#22c55e' : trend === 'down' ? '#ef4444' : accent, marginTop: 2, lineHeight: 1 }}>
+                      {trend === 'up' ? '▲' : trend === 'down' ? '▼' : 'NEW'}
+                    </div>
+                  )}
+                </div>
+                {/* Cover */}
+                <div style={{ width: 44, height: 44, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: 'rgba(255,255,255,0.05)' }}>
+                  {c && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={proxyImg(c)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  )}
+                </div>
+                {/* Title + artist */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: 13.5, fontWeight: 800, color: '#fff', fontFamily: 'Outfit,sans-serif', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.005em' }}>{e.title}</p>
+                  <p style={{ margin: '1px 0 0', fontSize: 11.5, color: 'rgba(255,255,255,0.6)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.artist}</p>
+                </div>
+                {/* Vote button */}
+                <button
+                  className="cbs-vote-btn"
+                  onClick={() => handleVote(e.track_id)}
+                  disabled={voted || pending || votesRemaining <= 0}
+                  aria-label={voted ? 'Jau balsavai' : 'Balsuoti'}
+                  style={{
+                    flexShrink: 0,
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    padding: '7px 11px', borderRadius: 999,
+                    border: voted ? `1.5px solid ${accent}` : '1.5px solid rgba(255,255,255,0.18)',
+                    background: voted ? `${accent}` : 'rgba(255,255,255,0.04)',
+                    color: voted ? '#fff' : 'rgba(255,255,255,0.85)',
+                    fontFamily: 'Outfit,sans-serif', fontSize: 11.5, fontWeight: 800,
+                    cursor: (voted || pending || votesRemaining <= 0) ? 'default' : 'pointer',
+                    opacity: !voted && votesRemaining <= 0 ? 0.4 : 1,
+                  }}
+                >
+                  {pending ? (
+                    <span style={{ width: 12, height: 12, border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'cbs-spin 0.7s linear infinite' }} />
+                  ) : (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill={voted ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.4">
+                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                    </svg>
+                  )}
+                  <span>{voted ? 'Balsavai' : 'Balsuok'}</span>
+                </button>
               </div>
             )
           })}
-        </div>
-      )}
-
-      {/* Equalizer decoration — top right corner */}
-      <div className="absolute right-5 top-5 z-[2] flex items-end gap-1 opacity-70">
-        {[20, 32, 26, 40, 28].map((h, i) => (
-          <div
-            key={i}
-            className="w-[3px] rounded-sm"
-            style={{ height: h, background: accent, animation: `hp-bar ${0.8 + (i % 3) * 0.15}s ease-in-out infinite alternate`, animationDelay: `${i * 0.08}s`, boxShadow: `0 0 6px ${accent}` }}
-          />
-        ))}
-      </div>
-
-      {/* Left content — title, top 3 list, CTA */}
-      <div
-        className="relative z-[1] flex h-full flex-col p-5"
-        style={{ width: '46%' }}
-      >
-        <div className="mb-auto flex items-center gap-2">
-          <span
-            className="inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1 font-['Outfit',sans-serif] text-[10px] font-black uppercase tracking-[0.08em] text-white"
-            style={{ background: accent }}
-          >
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17h2v-7H3v7zm4 0h2V7H7v10zm4 0h2v-4h-2v4zm4 0h2v-9h-2v9zm4-13v13h2V4h-2z"/></svg>
-            TOPAS
-          </span>
-        </div>
-        <div>
-          <h3 className="m-0 mb-2.5 font-['Outfit',sans-serif] text-[28px] font-black tracking-tight text-white" style={{ lineHeight: 1.04 }}>
-            {slide.title}
-          </h3>
-          <div className="flex flex-col gap-1">
-            {tops.slice(0, 3).map(t => (
-              <div key={t.track_id || t.pos} className="flex items-center gap-2">
-                <span
-                  className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded font-['Outfit',sans-serif] text-[10.5px] font-black text-white"
-                  style={{ background: t.pos <= 3 ? accent : 'rgba(255,255,255,0.15)' }}
-                >{t.pos}</span>
-                <div className="min-w-0 flex-1">
-                  <p className="m-0 truncate font-['Outfit',sans-serif] text-[12.5px] font-bold leading-tight text-white">{t.title}</p>
-                  <p className="m-0 truncate text-[10.5px] leading-tight text-white/65">{t.artist}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-          <span
-            className="mt-3 inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[11.5px] font-bold text-white/85 transition-colors"
-            style={{ color: 'rgba(255,255,255,0.85)' }}
-          >
-            Pilnas top'as
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-          </span>
+          {!loading && entries.length === 0 && (
+            <p style={{ padding: 32, textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>Topas dar tuščias.</p>
+          )}
         </div>
       </div>
-    </Link>
+    </div>
+  )
+}
+
+/* ────────────────────────────── Mobile chart slide ──────────────────────────────
+   Asimetrinis mosaic + swipe-down gestural. Tap atidaro sheet'ą; swipe-down
+   tą patį, su pull animacija. Kortelė neslinkamos juostos child'as — todėl
+   horizontal swipe NETURI būti perimtas (ignore'uojam, jei dx > dy). */
+
+function MobileChartSlide({
+  slide, onOpen,
+}: {
+  slide: HeroSlide
+  onOpen: () => void
+}) {
+  const tops = slide.chartTops || []
+  const accent = slide.type === 'chart_lt' ? '#f97316' : '#3b82f6'
+  const cover = (t: TopEntry | undefined) => t ? (t.cover_url || t.artist_image) : null
+
+  const [pullY, setPullY] = useState(0)
+  const startRef = useRef<{ x: number; y: number } | null>(null)
+  const pullingRef = useRef(false)
+  const justPulledRef = useRef(false)
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    startRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+    pullingRef.current = false
+    setPullY(0)
+  }
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (!startRef.current) return
+    const dx = e.touches[0].clientX - startRef.current.x
+    const dy = e.touches[0].clientY - startRef.current.y
+    if (!pullingRef.current) {
+      if (dy > 14 && dy > Math.abs(dx) * 1.4) {
+        pullingRef.current = true
+      } else if (Math.abs(dx) > 10) {
+        // Horizontal swipe — leisk parent karuselei normaliai scroll'ą
+        startRef.current = null
+        return
+      }
+    }
+    if (pullingRef.current) {
+      setPullY(Math.max(0, Math.min(140, dy)))
+    }
+  }
+  const onTouchEnd = () => {
+    const wasPulling = pullingRef.current
+    const triggered = wasPulling && pullY > 70
+    if (triggered) {
+      justPulledRef.current = true
+      setTimeout(() => { justPulledRef.current = false }, 350)
+      onOpen()
+    } else if (wasPulling) {
+      // Vartotojas tempė bet nepasiekė threshold — nesuveiks click, bet
+      // setTimeout grąžins galimybę paspausti vėliau.
+      justPulledRef.current = true
+      setTimeout(() => { justPulledRef.current = false }, 200)
+    }
+    pullingRef.current = false
+    setPullY(0)
+    startRef.current = null
+  }
+  const onClick = () => {
+    if (justPulledRef.current) return
+    onOpen()
+  }
+
+  // Vizualinis pull progress — 0..1 mokant CTA hint'ą labiau matomą.
+  const pullProgress = Math.min(1, pullY / 70)
+  const liftY = pullY * 0.5
+
+  return (
+    <button
+      onClick={onClick}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      style={{
+        flexShrink: 0, position: 'relative', borderRadius: 16, overflow: 'hidden',
+        border: `2px solid ${accent}`,
+        background: '#000', cursor: 'pointer', padding: 0, width: 198, height: 300,
+        scrollSnapAlign: 'start',
+        transform: `translateY(${liftY}px)`,
+        transition: pullingRef.current ? 'none' : 'transform 0.25s cubic-bezier(0.32,0.72,0.28,1), border-color 0.15s',
+        boxShadow: '0 8px 22px rgba(0,0,0,0.45)',
+        textAlign: 'left',
+      }}
+    >
+      {/* BG gradient base */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        background: slide.type === 'chart_lt'
+          ? `linear-gradient(180deg, rgba(249,115,22,0.32) 0%, #0a0e1a 35%, #050810 100%)`
+          : `linear-gradient(180deg, rgba(59,130,246,0.32) 0%, #0a0e1a 35%, #050810 100%)`,
+      }} />
+
+      {/* TOP CHIP */}
+      <div style={{ position: 'absolute', top: 10, left: 10, zIndex: 3 }}>
+        <span style={{ padding: '4px 10px', borderRadius: 999, fontSize: 9.5, fontWeight: 900, color: '#fff', background: accent, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase', boxShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
+          {slide.chip}
+        </span>
+      </div>
+
+      {/* Pull-down indicator — vir top-right, fades-in pulling metu */}
+      <div style={{
+        position: 'absolute', top: 12, right: 12, zIndex: 3,
+        opacity: 0.4 + pullProgress * 0.6,
+        transform: `translateY(${pullY * 0.3}px)`,
+        transition: pullingRef.current ? 'none' : 'opacity 0.25s, transform 0.25s',
+        display: 'flex', alignItems: 'center', gap: 4,
+        padding: '4px 8px', borderRadius: 999,
+        background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
+        border: '1px solid rgba(255,255,255,0.18)',
+      }}>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" style={{ transform: `rotate(${pullProgress * 180}deg)`, transition: pullingRef.current ? 'none' : 'transform 0.25s' }}><path d="M6 9l6 6 6-6"/></svg>
+        <span style={{ fontSize: 9, fontWeight: 800, color: '#fff', fontFamily: 'Outfit,sans-serif', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+          Tempk
+        </span>
+      </div>
+
+      {/* MOSAIC — asimetrinis: #1 didelis kvadratas, #2 šalia, #3-4 apačioj */}
+      <div style={{
+        position: 'absolute', top: 44, left: 12, right: 12,
+        display: 'grid',
+        gridTemplateColumns: '2fr 1fr',
+        gridTemplateRows: '88px 60px',
+        gap: 5,
+      }}>
+        {/* #1 — top-left, big spans col 1, row 1 */}
+        <div style={{ gridColumn: 1, gridRow: 1, position: 'relative', borderRadius: 8, overflow: 'hidden', boxShadow: '0 4px 14px rgba(0,0,0,0.5)' }}>
+          {cover(tops[0]) ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={proxyImg(cover(tops[0]) || '')} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 55%)' }} />
+              <span style={{ position: 'absolute', top: 5, left: 5, padding: '2px 6px', borderRadius: 5, background: accent, color: '#fff', fontSize: 11, fontWeight: 900, fontFamily: 'Outfit,sans-serif', boxShadow: '0 2px 6px rgba(0,0,0,0.5)' }}>1</span>
+              <p style={{ position: 'absolute', left: 5, right: 5, bottom: 4, margin: 0, fontSize: 10.5, fontWeight: 900, color: '#fff', fontFamily: 'Outfit,sans-serif', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.01em', textShadow: '0 1px 4px rgba(0,0,0,0.9)' }}>{tops[0].title}</p>
+            </>
+          ) : <div style={{ width: '100%', height: '100%', background: 'rgba(255,255,255,0.05)' }} />}
+        </div>
+        {/* #2 — top-right small */}
+        <div style={{ gridColumn: 2, gridRow: 1, position: 'relative', borderRadius: 8, overflow: 'hidden', boxShadow: '0 3px 10px rgba(0,0,0,0.4)' }}>
+          {cover(tops[1]) ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={proxyImg(cover(tops[1]) || '')} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.78) 0%, transparent 60%)' }} />
+              <span style={{ position: 'absolute', top: 3, left: 3, padding: '1px 5px', borderRadius: 4, background: 'rgba(0,0,0,0.78)', color: '#fff', fontSize: 9.5, fontWeight: 900, fontFamily: 'Outfit,sans-serif' }}>2</span>
+              <p style={{ position: 'absolute', left: 3, right: 3, bottom: 2, margin: 0, fontSize: 8.5, fontWeight: 800, color: '#fff', fontFamily: 'Outfit,sans-serif', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textShadow: '0 1px 3px rgba(0,0,0,0.9)' }}>{tops[1].title}</p>
+            </>
+          ) : <div style={{ width: '100%', height: '100%', background: 'rgba(255,255,255,0.05)' }} />}
+        </div>
+        {/* Bottom row spans both cols, split into 2 (3 and 4) */}
+        <div style={{ gridColumn: '1 / -1', gridRow: 2, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5 }}>
+          {[2, 3].map(i => (
+            <div key={i} style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', boxShadow: '0 3px 10px rgba(0,0,0,0.4)' }}>
+              {cover(tops[i]) ? (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={proxyImg(cover(tops[i]) || '')} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 65%)' }} />
+                  <span style={{ position: 'absolute', top: 3, left: 3, padding: '1px 5px', borderRadius: 4, background: 'rgba(0,0,0,0.78)', color: '#fff', fontSize: 9.5, fontWeight: 900, fontFamily: 'Outfit,sans-serif' }}>{i + 1}</span>
+                  <p style={{ position: 'absolute', left: 4, right: 4, bottom: 2, margin: 0, fontSize: 8.5, fontWeight: 800, color: '#fff', fontFamily: 'Outfit,sans-serif', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textShadow: '0 1px 3px rgba(0,0,0,0.9)' }}>{tops[i].title}</p>
+                </>
+              ) : <div style={{ width: '100%', height: '100%', background: 'rgba(255,255,255,0.05)' }} />}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* CHART TITLE — centered below mosaic */}
+      <div style={{ position: 'absolute', left: 12, right: 12, bottom: 50, zIndex: 2 }}>
+        <p style={{ margin: 0, fontSize: 22, fontWeight: 900, color: '#fff', fontFamily: 'Outfit,sans-serif', lineHeight: 0.95, letterSpacing: '-0.025em' }}>{slide.title}</p>
+      </div>
+
+      {/* CTA "Balsuok" — bottom pinned */}
+      <div style={{ position: 'absolute', left: 12, right: 12, bottom: 10, zIndex: 2 }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+          padding: '8px 10px', borderRadius: 10,
+          background: accent, color: '#fff',
+          fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 900,
+          letterSpacing: '0.02em',
+          boxShadow: `0 4px 14px ${slide.type === 'chart_lt' ? 'rgba(249,115,22,0.45)' : 'rgba(59,130,246,0.45)'}`,
+        }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          Balsuok
+        </div>
+      </div>
+    </button>
   )
 }
 
@@ -1255,6 +1753,9 @@ export default function Home() {
   /* ── Reels state ── */
   const [reelsOpen, setReelsOpen] = useState(false)
   const [reelsIdx, setReelsIdx] = useState(0)
+
+  /* ── Chart bottom sheet state (mobile + naudojama bet kur) ── */
+  const [chartSheet, setChartSheet] = useState<{ topType: 'lt_top30' | 'top40'; title: string; accent: string } | null>(null)
 
   /* ── Hero state ── */
   const [ltTop, setLtTop] = useState<TopEntry[]>([])
@@ -1668,13 +2169,27 @@ export default function Home() {
 
         {heroSlides.length > 0 && (
           <div className="hp-feed-strip" style={{ padding: '14px 16px 0' }}>
-            <div style={{ display: 'flex', gap: 12, overflowX: 'auto', scrollbarWidth: 'none', height: 308, alignItems: 'stretch', scrollSnapType: 'x mandatory' }}>
+            <div style={{ display: 'flex', gap: 12, overflowX: 'auto', scrollbarWidth: 'none', height: 318, alignItems: 'stretch', scrollSnapType: 'x mandatory' }}>
               {heroSlides.map((slide, i) => {
-                const isSeen = seenSlides.has(slide.href)
                 const isChart = slide.type === 'chart_lt' || slide.type === 'chart_world'
                 const chartTops = slide.chartTops || []
+                if (isChart && chartTops.length > 0) {
+                  // ── Chart slide — asimetrinis mosaic + swipe-down → bottom sheet ──
+                  return (
+                    <MobileChartSlide
+                      key={i}
+                      slide={slide}
+                      onOpen={() => setChartSheet({
+                        topType: slide.type === 'chart_lt' ? 'lt_top30' : 'top40',
+                        title: slide.title,
+                        accent: slide.type === 'chart_lt' ? '#f97316' : '#3b82f6',
+                      })}
+                    />
+                  )
+                }
+                // ── Default slide (news/event/promo) — opens reels ──
+                const isSeen = seenSlides.has(slide.href)
                 const artistName = slide.artist?.name || null
-                // Excerpt — tik news slide'uose subtitle yra real prose (renginiams ten data·vieta, chartams top tracks).
                 const showExcerpt = slide.type === 'news' && slide.subtitle && slide.subtitle.length > 5
                 return (
                   <button key={i} onClick={() => { setReelsIdx(i); setReelsOpen(true) }}
@@ -1686,62 +2201,22 @@ export default function Home() {
                       boxShadow: '0 6px 18px rgba(0,0,0,0.4)',
                     }}
                   >
-                    {isChart && chartTops.length > 0 ? (
-                      // ── Chart slide (LT TOP 30 / TOP 40) — collage + listing ──
-                      <div style={{
-                        width: '100%', height: '100%', position: 'relative',
-                        background: slide.type === 'chart_lt'
-                          ? 'linear-gradient(180deg, rgba(249,115,22,0.22) 0%, #0a0e1a 45%, #050810 100%)'
-                          : 'linear-gradient(180deg, rgba(29,78,216,0.22) 0%, #0a0e1a 45%, #050810 100%)',
-                        padding: '36px 10px 12px', display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'left',
-                      }}>
-                        {/* 2x2 collage of top 4 covers */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: 4, height: 140 }}>
-                          {[0, 1, 2, 3].map(idx => {
-                            const t = chartTops[idx]
-                            const c = t ? (t.cover_url || t.artist_image) : null
-                            if (!c) return <div key={idx} style={{ borderRadius: 6, background: 'rgba(255,255,255,0.04)' }} />
-                            return (
-                              <div key={idx} style={{ position: 'relative', borderRadius: 6, overflow: 'hidden' }}>
-                                <img src={proxyImg(c)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                                <span style={{ position: 'absolute', right: 3, bottom: 3, height: 15, minWidth: 15, padding: '0 4px', borderRadius: 3, background: 'rgba(0,0,0,0.78)', fontSize: 9, fontWeight: 900, color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Outfit,sans-serif', lineHeight: 1 }}>{idx + 1}</span>
-                              </div>
-                            )
-                          })}
-                        </div>
-                        {/* Chart title */}
-                        <p style={{ fontSize: 17, fontWeight: 900, color: '#fff', margin: 0, lineHeight: 1, fontFamily: 'Outfit,sans-serif', letterSpacing: '-0.02em' }}>{slide.title}</p>
-                        {/* Top 3 listing — compact */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 2 }}>
-                          {chartTops.slice(0, 3).map(t => (
-                            <div key={t.track_id || t.pos} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                              <span style={{ width: 14, height: 14, borderRadius: 3, fontSize: 9, fontWeight: 900, color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: t.pos <= 3 ? slide.chipBg : 'rgba(255,255,255,0.12)', fontFamily: 'Outfit,sans-serif', flexShrink: 0, lineHeight: 1 }}>{t.pos}</span>
-                              <span style={{ flex: 1, minWidth: 0, fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.95)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: 'Outfit,sans-serif' }}>{t.title}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ) : (
-                      // ── Default slide (news/event/promo) — bgImg + overlay ──
-                      <>
-                        {slide.bgImg
-                          ? <img src={proxyImg(slide.bgImg)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                          : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#0a1428,#162040)' }} />
-                        }
-                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.10) 60%, rgba(0,0,0,0) 75%)' }} />
-                        {/* Bottom: title + excerpt + artist */}
-                        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '10px 12px 12px', textAlign: 'left' }}>
-                          <p style={{ fontSize: 13.5, fontWeight: 800, color: '#fff', margin: 0, lineHeight: 1.22, fontFamily: 'Outfit,sans-serif', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.01em' } as any}>{slide.title}</p>
-                          {showExcerpt && (
-                            <p style={{ fontSize: 11, fontWeight: 500, color: 'rgba(255,255,255,0.78)', margin: '5px 0 0', lineHeight: 1.32, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' } as any}>{slide.subtitle}</p>
-                          )}
-                          {artistName && (
-                            <p style={{ fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.65)', margin: '6px 0 0', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artistName}</p>
-                          )}
-                        </div>
-                      </>
-                    )}
-                    {/* Top: chip badge — overlay both modes */}
+                    {slide.bgImg
+                      ? <img src={proxyImg(slide.bgImg)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#0a1428,#162040)' }} />
+                    }
+                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.10) 60%, rgba(0,0,0,0) 75%)' }} />
+                    {/* Bottom: title + excerpt + artist */}
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '10px 12px 12px', textAlign: 'left' }}>
+                      <p style={{ fontSize: 13.5, fontWeight: 800, color: '#fff', margin: 0, lineHeight: 1.22, fontFamily: 'Outfit,sans-serif', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.01em' } as any}>{slide.title}</p>
+                      {showExcerpt && (
+                        <p style={{ fontSize: 11, fontWeight: 500, color: 'rgba(255,255,255,0.78)', margin: '5px 0 0', lineHeight: 1.32, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' } as any}>{slide.subtitle}</p>
+                      )}
+                      {artistName && (
+                        <p style={{ fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.65)', margin: '6px 0 0', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artistName}</p>
+                      )}
+                    </div>
+                    {/* Top: chip badge */}
                     <div style={{ position: 'absolute', top: 10, left: 10, display: 'flex', alignItems: 'center', gap: 4, zIndex: 2 }}>
                       <span style={{ padding: '4px 9px', borderRadius: 12, fontSize: 9, fontWeight: 900, color: '#fff', background: slide.chipBg, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.06em', textTransform: 'uppercase', backdropFilter: 'blur(4px)' }}>
                         {slide.chip}
@@ -1774,6 +2249,15 @@ export default function Home() {
             dk={dk}
           />
         )}
+
+        {/* ═══════════════════════ CHART BOTTOM SHEET ═══════════════════════ */}
+        <ChartBottomSheet
+          open={chartSheet != null}
+          onClose={() => setChartSheet(null)}
+          topType={chartSheet?.topType || 'lt_top30'}
+          title={chartSheet?.title || 'TOPAS'}
+          accent={chartSheet?.accent || '#f97316'}
+        />
 
         {/* ═══════════════════════ MAIN CONTENT ═══════════════════════ */}
         <div className="hp-cnt" style={{ maxWidth: 1360, margin: '0 auto', padding: '42px 20px', display: 'flex', flexDirection: 'column', gap: 44 }}>
