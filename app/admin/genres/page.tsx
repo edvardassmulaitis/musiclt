@@ -10,7 +10,6 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { GENRE_COLORS } from '@/lib/genre-colors'
-import ImageInput from '@/components/ImageInput'
 
 type Genre = {
   id: number
@@ -24,6 +23,7 @@ export default function AdminGenresPage() {
   const [genres, setGenres] = useState<Genre[]>([])
   const [loading, setLoading] = useState(true)
   const [savingId, setSavingId] = useState<number | null>(null)
+  const [uploadingId, setUploadingId] = useState<number | null>(null)
   const [editingUrls, setEditingUrls] = useState<Record<number, string>>({})
 
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
@@ -51,6 +51,26 @@ export default function AdminGenresPage() {
       setEditingUrls(prev => { const n = { ...prev }; delete n[id]; return n })
     }
     setSavingId(null)
+  }
+
+  // File upload — POSTina į /api/upload (Supabase storage 'covers' bucket'as),
+  // gauna public URL ir iškart išsaugo į genres.cover_image_url.
+  const uploadFile = async (id: number, file: File) => {
+    setUploadingId(id)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const r = await fetch('/api/upload', { method: 'POST', body: fd })
+      const d = await r.json()
+      if (d.url) {
+        await save(id, d.url)
+      } else {
+        alert(d.error || 'Upload nepavyko')
+      }
+    } catch (e: any) {
+      alert(e.message || 'Upload klaida')
+    }
+    setUploadingId(null)
   }
 
   if (status === 'loading' || loading) {
@@ -132,10 +152,33 @@ export default function AdminGenresPage() {
                   </span>
                 </div>
 
-                {/* URL input */}
+                {/* Upload from file (preferred — saves to Supabase storage) */}
+                <label
+                  className="block mb-2 px-3 py-2 rounded-lg text-xs font-bold text-center cursor-pointer border transition"
+                  style={{
+                    background: uploadingId === g.id ? 'var(--bg-hover)' : 'rgba(249,115,22,0.10)',
+                    color: 'var(--accent-orange)',
+                    borderColor: 'rgba(249,115,22,0.30)',
+                  }}
+                >
+                  {uploadingId === g.id ? 'Įkeliama…' : '📁 Įkelti failą'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    disabled={uploadingId === g.id}
+                    onChange={e => {
+                      const f = e.target.files?.[0]
+                      if (f) uploadFile(g.id, f)
+                      e.target.value = ''
+                    }}
+                  />
+                </label>
+
+                {/* URL input — fallback (jei nori paste'inti URL'ą rankiniu būdu) */}
                 <input
                   type="text"
-                  placeholder="Image URL (https://…)"
+                  placeholder="Arba paste URL…"
                   value={currentUrl}
                   onChange={e => setEditingUrls(prev => ({ ...prev, [g.id]: e.target.value }))}
                   className="w-full px-3 py-2 rounded-lg text-xs border mb-2"
@@ -157,7 +200,7 @@ export default function AdminGenresPage() {
                       color: '#fff',
                     }}
                   >
-                    {savingId === g.id ? 'Saugoma…' : 'Išsaugoti'}
+                    {savingId === g.id ? 'Saugoma…' : 'Išsaugoti URL'}
                   </button>
                   {g.cover_image_url && (
                     <button
@@ -174,8 +217,8 @@ export default function AdminGenresPage() {
                 </div>
 
                 <p className="mt-2 text-[10px]" style={{ color: 'var(--text-muted)' }}>
-                  Patarimas: 800×500 ar didesnis (16:10), JPEG/PNG/WebP.
-                  Įdėk Unsplash ar bet kokio CDN URL.
+                  Failas saugomas Supabase storage — patikima, image neatjungs net jei Unsplash dingtų.
+                  Patarimas: 800×500 ar didesnis (16:10), JPG/PNG/WebP iki 5MB.
                 </p>
               </div>
             )

@@ -284,7 +284,7 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
   }
 
   return (
-    <div className="sh-panel sh-panel-muzika" style={{ width: 760 }}>
+    <div className="sh-panel sh-panel-muzika" style={{ width: 920 }}>
 
       {/* ── ATLIKĖJAI: LT + užsienio eilutės be header'ių, su flag stripe ── */}
       {renderArtistRow(artistsLt, 'lt')}
@@ -293,9 +293,21 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
 
       {/* ── STILIAI — realus stoko vizualas (admin'as nustato per /admin/genres),
               fallback'as: solid color + decorative ikona ── */}
-      <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--border-default)' }}>
-        <div className="sh-panel-head">
-          <h2 className="sh-panel-h2">Stiliai</h2>
+      <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
+        {/* Header'is identiškas Atlikėjų eilutei — flex tarp title kairėje
+            ir Daugiau link'o dešinėje */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
+          <span style={{
+            fontFamily: "'Outfit', sans-serif",
+            fontSize: 11,
+            fontWeight: 800,
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+            color: 'var(--text-muted)',
+            paddingTop: 2,
+          }}>
+            Stiliai
+          </span>
           <Link href="/zanrai" className="sh-more-link">Daugiau →</Link>
         </div>
         <div className="sh-style-grid">
@@ -1061,28 +1073,31 @@ export function SiteHeader() {
         /* Muzika panel'as: paliekam padding'ą truputį mažesnį */
         .sh-panel-muzika { padding: 14px; }
 
-        /* LT vėliavos / world mėlynos juostelės indikatorius — kompaktinis,
-           ne išskleistas per visą sekcijos aukštį (centered su tile aukščiu) */
+        /* LT vėliavos / world mėlynos juostelės indikatorius — homepage style:
+           pritrauktas prie viršaus (align-self: flex-start), 38px aukščio */
         .sh-stripe {
           flex-shrink: 0;
-          width: 4px;
-          height: 60px;
-          border-radius: 3px;
+          width: 3px;
+          height: 38px;
+          border-radius: 2px;
           overflow: hidden;
+          align-self: flex-start;
+          margin-top: 8px;
         }
         .sh-stripe-lt { display: flex; flex-direction: column; }
-        .sh-stripe-world { background: #3b82f6; opacity: 0.75; }
+        .sh-stripe-world { background: #3b82f6; opacity: 0.65; }
 
         /* Wrapper'is su flag + scroll strip + Daugiau link */
         .sh-strip-wrap {
-          display: flex; align-items: center; gap: 10px;
+          display: flex; align-items: flex-start; gap: 10px;
         }
-        /* Atlikėjų eilutė — flag (centruota) + scroll juosta + Daugiau link */
+        /* Atlikėjų eilutė — flag (top-aligned) + scroll juosta + Daugiau link */
         .sh-artist-row {
-          display: flex; align-items: center; gap: 10px;
+          display: flex; align-items: flex-start; gap: 10px;
           padding: 4px 0;
         }
         .sh-artist-row .sh-strip { flex: 1; min-width: 0; }
+        .sh-artist-row .sh-more-link { align-self: flex-start; margin-top: 8px; }
 
         /* Homepage stiliaus 'Daugiau →' link'as — orange, no underline */
         .sh-more-link {
@@ -1117,8 +1132,10 @@ export function SiteHeader() {
         }
         .sh-style-card {
           position: relative;
-          display: block;
-          padding: 14px 14px 18px;
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-end;
+          padding: 12px 14px;
           border-radius: 12px;
           text-decoration: none;
           background:
@@ -1126,7 +1143,7 @@ export function SiteHeader() {
             linear-gradient(135deg, rgb(var(--it-rgb)) 0%, rgba(var(--it-rgb), 0.78) 100%);
           color: #fff;
           overflow: hidden;
-          min-height: 78px;
+          min-height: 92px;
           transition: transform .18s ease, box-shadow .18s ease;
           box-shadow:
             0 4px 12px rgba(var(--it-rgb), 0.25),
@@ -1138,14 +1155,14 @@ export function SiteHeader() {
             0 12px 24px rgba(var(--it-rgb), 0.40),
             inset 0 1px 0 rgba(255, 255, 255, 0.20);
         }
-        /* Su realiu stoko vizualu — gradient overlay tekstui readable + dark photo bg */
+        /* Su realiu stoko vizualu — image bg + STIPRUS dark gradient apačioje
+           kad title (apačioje pritrauktas) būtų visada readable */
         .sh-style-card-photo {
           background-color: #1a1a1a;
           background-size: cover;
           background-position: center;
           background-repeat: no-repeat;
-          padding-top: 30px; /* tekstui daugiau erdvės dėl overlay */
-          min-height: 92px;
+          min-height: 96px;
           box-shadow:
             0 4px 14px rgba(0, 0, 0, 0.30),
             inset 0 1px 0 rgba(255, 255, 255, 0.10);
@@ -1164,18 +1181,18 @@ export function SiteHeader() {
           z-index: 1;
           display: block;
           font-family: 'Outfit', sans-serif;
-          font-size: 16px; font-weight: 800;
-          letter-spacing: -0.02em;
+          font-size: 15px; font-weight: 800;
+          letter-spacing: -0.01em;
           color: #fff;
           line-height: 1.15;
-          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+          text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
         }
         .sh-style-card-deco {
           position: absolute;
-          bottom: -14px; right: -14px;
-          width: 64px; height: 64px;
+          top: -10px; right: -10px;
+          width: 52px; height: 52px;
           color: #fff;
-          opacity: 0.28;
+          opacity: 0.22;
           transform: rotate(8deg);
           transition: transform .35s cubic-bezier(.4,0,.2,1), opacity .25s;
           pointer-events: none;
