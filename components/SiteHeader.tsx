@@ -289,7 +289,20 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
   return (
     <div className="sh-panel sh-panel-muzika" style={{ width: 920 }}>
 
-      {/* ── ATLIKĖJAI: LT + užsienio eilutės be header'ių, su flag stripe ── */}
+      {/* ── ATLIKĖJAI sekcijos header'is — vienodas su Stiliai stiliumi ── */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 6,
+        fontFamily: "'Outfit', sans-serif",
+        fontSize: 11, fontWeight: 800,
+        textTransform: 'uppercase', letterSpacing: '0.1em',
+        color: 'var(--text-muted)',
+        marginBottom: 8,
+      }}>
+        <span className="sh-trending-glyph" title="Trending">{I.trending}</span>
+        Atlikėjai ir grupės
+      </div>
+
+      {/* ── ATLIKĖJAI: LT + užsienio eilutės su flag stripe ── */}
       {renderArtistRow(artistsLt, 'lt')}
       <div style={{ height: 10 }} />
       {renderArtistRow(artistsWorld, 'world')}
@@ -630,6 +643,19 @@ function MobileExpansion({
     const wrldArtists = data?.artistsWorld || []
     return (
       <div className="sh-mexp">
+        {/* ── ATLIKĖJAI sekcijos header'is (vienodas su Stiliai) ── */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          fontFamily: "'Outfit', sans-serif",
+          fontSize: 11, fontWeight: 800,
+          textTransform: 'uppercase', letterSpacing: '0.1em',
+          color: 'var(--text-muted)',
+          marginBottom: 8,
+        }}>
+          <span className="sh-trending-glyph" title="Trending">{I.trending}</span>
+          Atlikėjai ir grupės
+        </div>
+
         {/* ── ATLIKĖJAI: LT eilutė — Daugiau kaip last tile strip'e ── */}
         <div className="sh-strip-wrap" style={{ marginBottom: 10 }}>
           <RowStripe kind="lt" />
