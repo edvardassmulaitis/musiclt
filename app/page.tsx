@@ -1114,25 +1114,34 @@ function HeroChartCard({ slide }: { slide: HeroSlide }) {
   const accentSoft = isLT ? 'rgba(249,115,22,0.22)' : 'rgba(59,130,246,0.22)'
   const cover = (t: TopEntry | undefined) => t ? (t.cover_url || t.artist_image) : null
 
-  // Value-bearing eyebrow — naudojam, kas duoda info iš realių duomenų. Top
-  // prioritetas: nauji pretendentai (jei yra). Antra: 'kilo' rodyklių skaičius.
-  // Fallback'as — leader artist'as. Lithuanian agreement'ai keturių variantų.
-  const newCount = tops.filter(t => t.trend === 'new').length
-  const upCount = tops.filter(t => t.trend === 'up').length
-  const leadArtist = tops[0]?.artist || ''
-  let valueLabel: string
-  let valueValue: string
-  if (newCount > 0) {
-    valueLabel = newCount === 1 ? 'naujas pretendentas' : 'naujų pretendentų'
-    valueValue = String(newCount)
-  } else if (upCount > 0) {
-    valueLabel = upCount === 1 ? 'kūrinys kyla' : 'kūriniai kyla'
-    valueValue = String(upCount)
-  } else {
-    valueLabel = 'pirmauja'
-    valueValue = leadArtist
+  // Value tekstas — paminime KAS yra naujas pretendentas (vardais), arba kas
+  // šokteli į priekį, arba kas pirmauja. Inline forma, ne didelis skaičius.
+  // Dedup po artist'o, kad grupė neperpildytų sąrašo.
+  const dedupArtists = (entries: TopEntry[]) => {
+    const seen = new Set<string>()
+    const out: string[] = []
+    for (const t of entries) {
+      const a = (t.artist || '').trim()
+      if (!a || seen.has(a)) continue
+      seen.add(a); out.push(a)
+    }
+    return out
   }
-  const isNumeric = newCount > 0 || upCount > 0
+  const newArtists = dedupArtists(tops.filter(t => t.trend === 'new'))
+  const upArtists = dedupArtists(tops.filter(t => t.trend === 'up'))
+  const leadArtist = tops[0]?.artist || ''
+  let valueLead: string
+  let valueNames: string[]
+  if (newArtists.length > 0) {
+    valueLead = 'Tarp naujų pretendentų:'
+    valueNames = newArtists.slice(0, 4)
+  } else if (upArtists.length > 0) {
+    valueLead = 'Į priekį šokteli:'
+    valueNames = upArtists.slice(0, 4)
+  } else {
+    valueLead = 'Šią savaitę pirmauja:'
+    valueNames = leadArtist ? [leadArtist] : []
+  }
 
   // Tile renders a single mosaic cover with title overlay + position number.
   const Tile = ({ entry, size }: { entry: TopEntry | undefined; size: 'big' | 'md' | 'sm' }) => {
@@ -1202,44 +1211,39 @@ function HeroChartCard({ slide }: { slide: HeroSlide }) {
           {isLT ? 'LT TOP 30' : 'TOP 40'}
         </span>
 
-        {/* Middle: dynamic value display — naujų pretendentų / kylančių /
-            lyderio vardas. Žiūrovas mato KAS verta dėmesio šią savaitę,
-            ne pasyvų label'į. */}
-        <div className="flex flex-col gap-1">
-          {isNumeric ? (
-            <>
-              <p
-                className="m-0 font-['Outfit',sans-serif] font-black text-white"
-                style={{ fontSize: 'clamp(56px, 6vw, 88px)', lineHeight: 0.9, letterSpacing: '-0.04em', color: accent }}
-              >{valueValue}</p>
-              <p className="m-0 font-['Outfit',sans-serif] text-[14px] font-semibold tracking-tight text-white/85" style={{ marginTop: 2 }}>
-                {valueLabel} šią savaitę
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="m-0 text-[10.5px] font-bold uppercase tracking-[0.2em] text-white/45">
-                {valueLabel}
-              </p>
-              <p
-                className="m-0 font-['Outfit',sans-serif] font-black text-white"
-                style={{ fontSize: 'clamp(28px, 3.2vw, 40px)', lineHeight: 0.98, letterSpacing: '-0.025em', marginTop: 4 }}
-              >{valueValue}</p>
-            </>
+        {/* Middle: simple text value — paminime kandidatų vardus inline,
+            kad būtų info verte be perdėto vizualinio svorio. */}
+        <div className="flex flex-col gap-1.5" style={{ maxWidth: '92%' }}>
+          <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/55">
+            {valueLead}
+          </p>
+          {valueNames.length > 0 && (
+            <p
+              className="m-0 font-['Outfit',sans-serif] text-white"
+              style={{ fontSize: 17, lineHeight: 1.32, fontWeight: 700, letterSpacing: '-0.005em' }}
+            >
+              {valueNames.map((n, i) => (
+                <span key={i}>
+                  <span style={{ color: '#fff' }}>{n}</span>
+                  {i < valueNames.length - 1 && <span style={{ color: 'rgba(255,255,255,0.4)', margin: '0 6px' }}>·</span>}
+                </span>
+              ))}
+            </p>
           )}
         </div>
 
-        {/* Bottom: Vote CTA — paprastas 'Balsuok' (užtenka) */}
+        {/* Bottom: Vote CTA — match tcv-btn-primary scale (13px font, 10×22 pad) */}
         <span
-          className="inline-flex items-center justify-center gap-1.5 rounded-xl px-5 py-3 font-['Outfit',sans-serif] text-[14px] font-black text-white no-underline transition-all"
+          className="inline-flex w-fit items-center gap-1.5 rounded-[10px] font-['Outfit',sans-serif] text-white no-underline transition-all"
           style={{
             background: accent,
-            boxShadow: `0 6px 22px ${accentSoft}, 0 2px 8px rgba(0,0,0,0.3)`,
-            letterSpacing: '0.04em', textTransform: 'uppercase',
+            padding: '10px 20px',
+            fontSize: 13, fontWeight: 700, letterSpacing: '0.02em',
+            boxShadow: `0 4px 14px ${accentSoft}`,
           }}
         >
           Balsuok
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </span>
       </div>
 
@@ -1579,41 +1583,60 @@ function MobileChartSlide({
   const accentShadow = slide.type === 'chart_lt' ? 'rgba(249,115,22,0.45)' : 'rgba(59,130,246,0.45)'
   const cover = (t: TopEntry | undefined) => t ? (t.cover_url || t.artist_image) : null
 
-  // Subtilus pull-down feedback'as — bet click visada veikia (nepriklauso nuo
-  // pull state). Praeitos versijos `justPulledRef` gate'as iOS Safari'je
-  // blokavo tap'ą po net minimalaus touchmove'o → todėl pašalintas.
+  // iOS Safari kartais swallow'ina onClick po touchmove (net mažo). Todėl
+  // touchend pats detektuoja tap'ą (maxDist < 10px, duration < 600ms) IR
+  // šaukia onOpen tiesiogiai — nepriklausomai nuo click event'o. onClick
+  // lieka fallback'as desktop / mouse vartotojams. handledRef.current
+  // vienkartinis flag'as kad onClick nešauktų antros open() po touchend'o.
   const [pullY, setPullY] = useState(0)
-  const startRef = useRef<{ x: number; y: number } | null>(null)
+  const startRef = useRef<{ x: number; y: number; t: number } | null>(null)
   const pullingRef = useRef(false)
+  const maxDistRef = useRef(0)
+  const handledRef = useRef(false)
 
   const onTouchStart = (e: React.TouchEvent) => {
-    startRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+    startRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() }
     pullingRef.current = false
+    maxDistRef.current = 0
+    handledRef.current = false
   }
   const onTouchMove = (e: React.TouchEvent) => {
     if (!startRef.current) return
     const dx = e.touches[0].clientX - startRef.current.x
     const dy = e.touches[0].clientY - startRef.current.y
+    const dist = Math.sqrt(dx * dx + dy * dy)
+    if (dist > maxDistRef.current) maxDistRef.current = dist
+
     if (!pullingRef.current) {
       if (dy > 18 && dy > Math.abs(dx) * 1.6) {
         pullingRef.current = true
-      } else if (Math.abs(dx) > 8 || dy < -10) {
-        // Horizontal swipe arba up — abort pull tracking.
-        startRef.current = null
-        return
       }
     }
     if (pullingRef.current) setPullY(Math.max(0, Math.min(120, dy)))
   }
   const onTouchEnd = () => {
-    const triggered = pullingRef.current && pullY > 60
+    const start = startRef.current
+    const duration = start ? Date.now() - start.t : 999
+    const isTap = !!start && maxDistRef.current < 10 && duration < 600
+    const isSwipeDown = pullingRef.current && pullY > 60
+
     pullingRef.current = false
     setPullY(0)
     startRef.current = null
-    if (triggered) onOpen() // swipe-down → open
+
+    if (isTap || isSwipeDown) {
+      handledRef.current = true
+      // 400ms language wait kad sintetinis click po touchend nešauktų antrą open
+      setTimeout(() => { handledRef.current = false }, 400)
+      onOpen()
+    }
   }
-  // Click visada atidaro sheet'ą — be jokio gate'o.
-  const handleClick = () => onOpen()
+  // Mouse / desktop fallback. Mobile'e click'as gali iš viso nesušaukti, bet
+  // jei sušaukia po touchend (handledRef.current==true) — ignoruojam.
+  const handleClick = () => {
+    if (handledRef.current) return
+    onOpen()
+  }
 
   const liftY = pullY * 0.4
 
