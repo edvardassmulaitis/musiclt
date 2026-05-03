@@ -431,12 +431,16 @@ function DiscussionsWidget() {
 
 const REELS_DURATION = 8000
 
-function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, dk }: {
+function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChartVote, dk }: {
   slides: HeroSlide[]
   initialIdx: number
   seenSlides: Set<string>
   onSeen: (href: string) => void
   onClose: () => void
+  /** Optional — chart slides swipe-down ar Balsuok mygtukas atveria voting
+   *  sheet'ą per šitą callback'ą. Reels'ai LIEKA atviri foną — po balsavimo
+   *  user'is gali tęsti horizontalų navigavimą per news/event slides. */
+  onChartVote?: (slide: HeroSlide) => void
   dk: boolean
 }) {
   const [idx, setIdx] = useState(initialIdx)
@@ -529,8 +533,17 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, dk }: {
       if (dx < 0) goTo(idx + 1)
       else goTo(idx - 1)
     } else if (dy > 80 && Math.abs(dy) > Math.abs(dx)) {
-      // Swipe DOWN → close feed
-      onClose()
+      // Swipe DOWN — chart slide'uose atveria voting sheet'ą; visur kitur
+      // uždaro reels (default Stories-style behavior).
+      const cur = slides[idx]
+      const isChart = cur && (cur.type === 'chart_lt' || cur.type === 'chart_world')
+      if (isChart && onChartVote) {
+        onChartVote(cur)
+        // Reels lieka atviri fone — pause progress kol sheet'as atviras
+        stopProgress()
+      } else {
+        onClose()
+      }
     } else {
       // No significant swipe — resume progress
       startProgress()
@@ -721,25 +734,48 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, dk }: {
                 </button>
               )}
 
-              {/* Bottom action area */}
-              <div style={{ marginTop: 14, paddingTop: 0, display: 'flex', alignItems: 'center' }}>
-                <Link
-                  href={s.href}
-                  onClick={onClose}
-                  style={{
-                    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                    padding: '13px 20px', borderRadius: 14,
-                    background: seenSlides.has(s.href) ? 'rgba(255,255,255,0.12)' : '#f97316',
-                    color: '#fff', fontFamily: 'Outfit,sans-serif', fontSize: 14, fontWeight: 800,
-                    textDecoration: 'none', letterSpacing: '-0.01em',
-                    boxShadow: seenSlides.has(s.href) ? 'none' : '0 4px 20px rgba(249,115,22,0.35)',
-                    transition: 'all .2s',
-                  }}
-                >
-                  Daugiau
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                </Link>
-              </div>
+              {/* Bottom action area — chart slide'ams 'Balsuok' (atveria sheet'ą,
+                  reels lieka), kitiems standard 'Daugiau' link'as. */}
+              {(s.type === 'chart_lt' || s.type === 'chart_world') && onChartVote ? (
+                <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onChartVote(s); stopProgress() }}
+                    style={{
+                      width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                      padding: '13px 20px', borderRadius: 14, border: 'none', cursor: 'pointer',
+                      background: s.type === 'chart_lt' ? '#f97316' : '#3b82f6',
+                      color: '#fff', fontFamily: 'Outfit,sans-serif', fontSize: 14, fontWeight: 800,
+                      letterSpacing: '-0.01em',
+                      boxShadow: `0 4px 20px ${s.type === 'chart_lt' ? 'rgba(249,115,22,0.35)' : 'rgba(59,130,246,0.35)'}`,
+                    }}
+                  >
+                    Balsuok
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 19l-7-7 7-7" transform="rotate(90 12 12)"/></svg>
+                  </button>
+                  <p style={{ margin: 0, textAlign: 'center', fontSize: 10.5, color: 'rgba(255,255,255,0.5)', fontWeight: 600, letterSpacing: '0.04em' }}>
+                    arba pertempk žemyn ↓
+                  </p>
+                </div>
+              ) : (
+                <div style={{ marginTop: 14, paddingTop: 0, display: 'flex', alignItems: 'center' }}>
+                  <Link
+                    href={s.href}
+                    onClick={onClose}
+                    style={{
+                      flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                      padding: '13px 20px', borderRadius: 14,
+                      background: seenSlides.has(s.href) ? 'rgba(255,255,255,0.12)' : '#f97316',
+                      color: '#fff', fontFamily: 'Outfit,sans-serif', fontSize: 14, fontWeight: 800,
+                      textDecoration: 'none', letterSpacing: '-0.01em',
+                      boxShadow: seenSlides.has(s.href) ? 'none' : '0 4px 20px rgba(249,115,22,0.35)',
+                      transition: 'all .2s',
+                    }}
+                  >
+                    Daugiau
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -1226,15 +1262,15 @@ function HeroChartCard({ slide }: { slide: HeroSlide }) {
                   key={i}
                   style={{
                     fontFamily: 'Outfit,sans-serif',
-                    fontSize: 16, fontWeight: 800, color: '#fff',
-                    lineHeight: 1.25, letterSpacing: '-0.01em',
+                    fontSize: 14.5, fontWeight: 600, color: 'rgba(255,255,255,0.78)',
+                    lineHeight: 1.3, letterSpacing: '-0.005em',
                     display: 'flex', alignItems: 'center', gap: 8,
                     minWidth: 0,
                   }}
                 >
                   <span style={{
-                    flexShrink: 0, width: 5, height: 5, borderRadius: '50%',
-                    background: accent, opacity: 0.85,
+                    flexShrink: 0, width: 4, height: 4, borderRadius: '50%',
+                    background: accent, opacity: 0.7,
                   }} />
                   <span style={{
                     minWidth: 0, flex: 1,
@@ -1600,80 +1636,28 @@ function MobileChartSlide({
   const accentShadow = slide.type === 'chart_lt' ? 'rgba(249,115,22,0.45)' : 'rgba(59,130,246,0.45)'
   const cover = (t: TopEntry | undefined) => t ? (t.cover_url || t.artist_image) : null
 
-  // iOS Safari kartais swallow'ina onClick po touchmove (net mažo). Todėl
-  // touchend pats detektuoja tap'ą (maxDist < 10px, duration < 600ms) IR
-  // šaukia onOpen tiesiogiai — nepriklausomai nuo click event'o. onClick
-  // lieka fallback'as desktop / mouse vartotojams. handledRef.current
-  // vienkartinis flag'as kad onClick nešauktų antros open() po touchend'o.
-  const [pullY, setPullY] = useState(0)
-  const startRef = useRef<{ x: number; y: number; t: number } | null>(null)
-  const pullingRef = useRef(false)
-  const maxDistRef = useRef(0)
-  const handledRef = useRef(false)
-
-  const onTouchStart = (e: React.TouchEvent) => {
-    startRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() }
-    pullingRef.current = false
-    maxDistRef.current = 0
-    handledRef.current = false
-  }
-  const onTouchMove = (e: React.TouchEvent) => {
-    if (!startRef.current) return
-    const dx = e.touches[0].clientX - startRef.current.x
-    const dy = e.touches[0].clientY - startRef.current.y
-    const dist = Math.sqrt(dx * dx + dy * dy)
-    if (dist > maxDistRef.current) maxDistRef.current = dist
-
-    if (!pullingRef.current) {
-      if (dy > 18 && dy > Math.abs(dx) * 1.6) {
-        pullingRef.current = true
-      }
-    }
-    if (pullingRef.current) setPullY(Math.max(0, Math.min(120, dy)))
-  }
-  const onTouchEnd = () => {
-    const start = startRef.current
-    const duration = start ? Date.now() - start.t : 999
-    const isTap = !!start && maxDistRef.current < 10 && duration < 600
-    const isSwipeDown = pullingRef.current && pullY > 60
-
-    pullingRef.current = false
-    setPullY(0)
-    startRef.current = null
-
-    if (isTap || isSwipeDown) {
-      handledRef.current = true
-      // 400ms language wait kad sintetinis click po touchend nešauktų antrą open
-      setTimeout(() => { handledRef.current = false }, 400)
-      onOpen()
-    }
-  }
-  // Mouse / desktop fallback. Mobile'e click'as gali iš viso nesušaukti, bet
-  // jei sušaukia po touchend (handledRef.current==true) — ignoruojam.
-  const handleClick = () => {
-    if (handledRef.current) return
-    onOpen()
-  }
-
-  const liftY = pullY * 0.4
+  // Plain onClick — kaip news/event preview kortelės. Joks touch handler
+  // nereikalingas: paprastas tap'as atidaro reels (kuris pats turi swipe-down
+  // logiką balsavimo sheet'ui).
+  const handleClick = () => onOpen()
 
   // Top 3 only (ne 4) — #1 didžiausias top half, #2 + #3 50/50 apačioje.
   const t1 = tops[0]
   const t2 = tops[1]
   const t3 = tops[2]
 
-  // Render single tile su title + position + cover — DRY.
+  // Render single tile — #1 (big) gauna title + artist, #2/#3 tik artist'o
+  // vardą (paprastesnis preview, kad nesusikrautų teksto kiekiu).
   const renderTile = (t: TopEntry | undefined, big: boolean) => {
     const c = cover(t)
     if (!t || !c) return <div style={{ width: '100%', height: '100%', background: 'rgba(255,255,255,0.05)', borderRadius: 8 }} />
-    const titleSize = big ? 13 : 10.5
     const numSize = big ? 13 : 10.5
     const numPad = big ? '3px 8px' : '2px 6px'
     return (
       <>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={proxyImg(c)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.18) 45%, transparent 70%)' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.25) 45%, transparent 70%)' }} />
         <span style={{
           position: 'absolute', top: 5, left: 5, padding: numPad, borderRadius: 6,
           background: t.pos === 1 ? accent : 'rgba(0,0,0,0.82)',
@@ -1681,14 +1665,35 @@ function MobileChartSlide({
           fontFamily: 'Outfit,sans-serif', lineHeight: 1,
           boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
         }}>{t.pos}</span>
-        <p style={{
-          position: 'absolute', left: big ? 8 : 5, right: big ? 8 : 5, bottom: big ? 7 : 4,
-          margin: 0, fontSize: titleSize, fontWeight: 900, color: '#fff',
-          fontFamily: 'Outfit,sans-serif',
-          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          letterSpacing: '-0.01em', textShadow: '0 1px 4px rgba(0,0,0,0.95)',
-          lineHeight: 1.15,
-        }}>{t.title}</p>
+        {big ? (
+          // #1 — title + artist (du eilutes)
+          <div style={{ position: 'absolute', left: 8, right: 8, bottom: 6 }}>
+            <p style={{
+              margin: 0, fontSize: 12.5, fontWeight: 900, color: '#fff',
+              fontFamily: 'Outfit,sans-serif',
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              letterSpacing: '-0.01em', textShadow: '0 1px 4px rgba(0,0,0,0.95)',
+              lineHeight: 1.15,
+            }}>{t.title}</p>
+            <p style={{
+              margin: '1px 0 0', fontSize: 10.5, fontWeight: 600, color: 'rgba(255,255,255,0.85)',
+              fontFamily: 'Outfit,sans-serif',
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              textShadow: '0 1px 3px rgba(0,0,0,0.9)',
+              lineHeight: 1.2,
+            }}>{t.artist}</p>
+          </div>
+        ) : (
+          // #2/#3 — tik artist'o vardas
+          <p style={{
+            position: 'absolute', left: 5, right: 5, bottom: 4,
+            margin: 0, fontSize: 10.5, fontWeight: 800, color: '#fff',
+            fontFamily: 'Outfit,sans-serif',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            letterSpacing: '-0.005em', textShadow: '0 1px 4px rgba(0,0,0,0.95)',
+            lineHeight: 1.15,
+          }}>{t.artist}</p>
+        )}
       </>
     )
   }
@@ -1696,16 +1701,12 @@ function MobileChartSlide({
   return (
     <button
       onClick={handleClick}
-      onTouchStart={onTouchStart}
-      onTouchMove={onTouchMove}
-      onTouchEnd={onTouchEnd}
       style={{
         flexShrink: 0, position: 'relative', borderRadius: 16, overflow: 'hidden',
         border: `2px solid ${accent}`,
         background: '#000', cursor: 'pointer', padding: 0, width: 198, height: 312,
         scrollSnapAlign: 'start',
-        transform: `translateY(${liftY}px)`,
-        transition: pullingRef.current ? 'none' : 'transform 0.25s cubic-bezier(0.32,0.72,0.28,1), border-color 0.15s',
+        transition: 'border-color 0.15s, transform 0.15s',
         boxShadow: '0 8px 22px rgba(0,0,0,0.45)',
         textAlign: 'left',
         WebkitTapHighlightColor: 'transparent',
@@ -2204,16 +2205,15 @@ export default function Home() {
                 const isChart = slide.type === 'chart_lt' || slide.type === 'chart_world'
                 const chartTops = slide.chartTops || []
                 if (isChart && chartTops.length > 0) {
-                  // ── Chart slide — asimetrinis mosaic + swipe-down → bottom sheet ──
+                  // ── Chart slide — asimetrinis mosaic preview. Tap → reels
+                  // open su tuo idx (visa news/event juosta, su chart kaip
+                  // dalimi). Reels'ų viduj swipe-down ant chart slide atveria
+                  // chartSheet'ą balsavimui. ──
                   return (
                     <MobileChartSlide
                       key={i}
                       slide={slide}
-                      onOpen={() => setChartSheet({
-                        topType: slide.type === 'chart_lt' ? 'lt_top30' : 'top40',
-                        title: slide.title,
-                        accent: slide.type === 'chart_lt' ? '#f97316' : '#3b82f6',
-                      })}
+                      onOpen={() => { setReelsIdx(i); setReelsOpen(true) }}
                     />
                   )
                 }
@@ -2276,6 +2276,11 @@ export default function Home() {
               return next
             })}
             onClose={() => setReelsOpen(false)}
+            onChartVote={(s) => setChartSheet({
+              topType: s.type === 'chart_lt' ? 'lt_top30' : 'top40',
+              title: s.title,
+              accent: s.type === 'chart_lt' ? '#f97316' : '#3b82f6',
+            })}
             dk={dk}
           />
         )}
