@@ -235,7 +235,7 @@ function AdminTopInner() {
 
   const resetWeek = async () => {
     if (!activeWeek) return
-    if (!confirm('Atstatyti einamą savaitę? Bus IŠTRINTI visi balsai ir pozicijos. Topo dainos liks. Naudok testavimo ciklams.')) return
+    if (!confirm('Paleisti naują ciklą einamoje savaitėje? Senos dainos liks (su prev_position trendui), naujos approved pateks į topą, balsai bus išvalyti.')) return
     const res = await fetch('/api/top/reset', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -243,8 +243,9 @@ function AdminTopInner() {
     })
     const d = await res.json()
     if (res.ok) {
-      showMsg(d.message || 'Atstatyta ✓')
+      showMsg(d.message || 'Naujas ciklas ✓')
       loadEntries()
+      loadSuggestions()
     } else {
       showMsg(d.error || 'Klaida', 'err')
     }
@@ -328,11 +329,11 @@ function AdminTopInner() {
                   </button>
                 </>
               )}
-              {/* Reset visada matomas — leidžia testuoti pakartotinius ciklus */}
+              {/* Reset visada matomas — leidžia paleisti naują ciklą einamoje savaitėje */}
               <button onClick={resetWeek}
-                title="Atstatyti savaitę testavimui (išvalo balsus + pozicijas, palieka dainas)"
+                title="Paleidžia naują ciklą einamoje savaitėje: išvalo balsus, perkelia approved į topą, palieka senas dainas trendui"
                 className="px-4 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-xl text-xs font-bold transition-colors">
-                ↻ Atstatyti
+                ↻ Naujas ciklas
               </button>
             </div>
           </div>
