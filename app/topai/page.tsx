@@ -1,6 +1,7 @@
 import { Metadata } from 'next'
 import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase'
+import { getCurrentWeekMonday } from '@/lib/top-week'
 
 export const metadata: Metadata = {
   title: 'Muzikos topai — TOP 40, LT TOP 30 ir kiti | music.lt',
@@ -20,12 +21,14 @@ type Mini = {
 async function getMiniChart(topType: string, limit = 3): Promise<{ entries: Mini[]; week: any }> {
   const supabase = createAdminClient()
 
+  // Anchor į dabartinę kalendorinę savaitę
+  const thisMonday = getCurrentWeekMonday()
   const { data: week } = await supabase
     .from('top_weeks')
     .select('id, week_start, vote_close, is_finalized, total_votes')
     .eq('top_type', topType)
-    .eq('is_active', true)
-    .single()
+    .eq('week_start', thisMonday)
+    .maybeSingle()
 
   if (!week) return { entries: [], week: null }
 

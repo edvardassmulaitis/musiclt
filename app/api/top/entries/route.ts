@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { getCurrentWeekMonday } from '@/lib/top-week'
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
@@ -9,31 +10,35 @@ export async function GET(req: Request) {
   const weekId = searchParams.get('week_id')
   const supabase = createAdminClient()
 
-  let targetWeekId = weekId ? parseInt(weekId) : null
-
-  if (!targetWeekId) {
-    const { data: week } = await supabase
+  // Find target week — by explicit week_id, or by current calendar week's
+  // Monday (week_start anchor). NE TIKRINAM is_active flag — visada
+  // einame į einamosios kalendorinės savaitės įrašą.
+  let week: any = null
+  if (weekId) {
+    const { data } = await supabase
       .from('top_weeks')
-      .select('id')
-      .eq('top_type', topType)
-      .eq('is_active', true)
+      .select('*')
+      .eq('id', parseInt(weekId))
       .single()
-    targetWeekId = week?.id ?? null
+    week = data
+  } else {
+    const thisMonday = getCurrentWeekMonday()
+    const { data } = await supabase
+      .from('top_weeks')
+      .select('*')
+      .eq('top_type', topType)
+      .eq('week_start', thisMonday)
+      .maybeSingle()
+    week = data
   }
 
-  if (!targetWeekId) return NextResponse.json({ entries: [], week: null })
-
-  const { data: week } = await supabase
-    .from('top_weeks')
-    .select('*')
-    .eq('id', targetWeekId)
-    .single()
+  if (!week) return NextResponse.json({ entries: [], week: null })
 
   const { data: entries, error } = await supabase
     .from('top_entries')
     .select('id, position, prev_position, weeks_in_top, total_votes, is_new, peak_position, track_id')
-    .eq('week_id', targetWeekId)
-    .order(week?.is_finalized ? 'position' : 'total_votes', { ascending: week?.is_finalized ? true : false })
+    .eq('week_id', week.id)
+    .order(week.is_finalized ? 'position' : 'total_votes', { ascending: !!week.is_finalized })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   if (!entries?.length) return NextResponse.json({ entries: [], week })
@@ -60,15 +65,10 @@ export async function GET(req: Request) {
     tracks: trackMap.get(e.track_id) ?? null,
   }))
 
-  // CDN edge cache — homepage'o TOP30/TOP40 sekcijos. Topas atnaujinamas
-  // kartą per savaitę (cron'u), todėl drąsiai galim cache'inti net 5 min.
-  return NextResponse.json({ entries: merged, week }, {
-    headers: {
-      'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
-      'CDN-Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
-      'Vercel-CDN-Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
-    },
-  })
+  // BE cache header'ių — admin operacijos (populate, finalize, reset) turi
+  // matyti freshness'ą iš karto. Public /top40, /top30 puslapiai naudoja
+  // savo Supabase queries (server components), ne /api/top/entries.
+  return NextResponse.json({ entries: merged, week })
 }
 
 export async function POST(req: Request) {

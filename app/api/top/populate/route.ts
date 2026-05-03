@@ -2,17 +2,18 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { getCurrentWeekMonday } from '@/lib/top-week'
 
 /**
  * Admin-only testavimo endpoint'as.
  *
  * Įprastame flow'e patvirtinti pasiūlymai (`top_suggestions.status='approved'`)
- * pernešami į `top_entries` TIK kai cron'as pirmadienį sukuria naują savaitę
- * (žr. `app/api/top/cron/route.ts` ir `app/api/top/weeks/route.ts:69-99`).
+ * pernešami į `top_entries` TIK kai cron'as pirmadienį/sekmadienį sukuria
+ * naują savaitę (žr. `app/api/top/cron/route.ts`).
  *
  * Šitas endpoint'as leidžia admin'ui force'inti šitą perkėlimą į DABARTINĘ
- * aktyvią savaitę nelaukiant pirmadienio — tam, kad būtų galima testuoti
- * pilną flow'ą (pasiūlymai → topas → balsavimas → finalizavimas).
+ * kalendorinę savaitę — testavimui (pasiūlymai → topas → balsavimas →
+ * finalizavimas → reset → kartu vėl).
  *
  * Body: { top_type: 'top40' | 'lt_top30' }
  */
@@ -26,17 +27,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Bad top_type' }, { status: 400 })
 
   const supabase = createAdminClient()
+  const thisMonday = getCurrentWeekMonday()
 
-  // 1. Surasti aktyvią savaitę
+  // 1. Surasti dabartinės kalendorinės savaitės įrašą
   const { data: week } = await supabase
     .from('top_weeks')
     .select('id, is_finalized')
     .eq('top_type', top_type)
-    .eq('is_active', true)
+    .eq('week_start', thisMonday)
     .maybeSingle()
 
-  if (!week) return NextResponse.json({ error: 'Aktyvios savaitės nėra' }, { status: 404 })
-  if (week.is_finalized) return NextResponse.json({ error: 'Savaitė jau finalizuota' }, { status: 400 })
+  if (!week) return NextResponse.json({ error: 'Einamosios savaitės įrašo nėra' }, { status: 404 })
+  if (week.is_finalized) return NextResponse.json({ error: 'Savaitė jau finalizuota — naudok „Atstatyti"' }, { status: 400 })
 
   // 2. Surinkti patvirtintus pasiūlymus
   const { data: approved } = await supabase
@@ -59,9 +61,6 @@ export async function POST(req: Request) {
   const existingSet = new Set((existing || []).map(e => e.track_id))
   const toInsert = approved.filter(s => !existingSet.has(s.track_id))
 
-  if (!toInsert.length)
-    return NextResponse.json({ inserted: 0, message: 'Visi patvirtinti jau yra šios savaitės tope' })
-
   // 4. Suskaičiuoti dabartinį positions offset'ą
   const { count: existingCount } = await supabase
     .from('top_entries')
@@ -70,28 +69,32 @@ export async function POST(req: Request) {
 
   const baseCount = existingCount || 0
 
-  const rows = toInsert.map((s, i) => ({
-    week_id: week.id,
-    track_id: s.track_id,
-    top_type,
-    position: baseCount + i + 1,
-    total_votes: 0,
-    is_new: true,
-    weeks_in_top: 1,
-    peak_position: baseCount + i + 1,
-  }))
+  if (toInsert.length > 0) {
+    const rows = toInsert.map((s, i) => ({
+      week_id: week.id,
+      track_id: s.track_id,
+      top_type,
+      position: baseCount + i + 1,
+      total_votes: 0,
+      is_new: true,
+      weeks_in_top: 1,
+      peak_position: baseCount + i + 1,
+    }))
 
-  const { error: insertErr } = await supabase.from('top_entries').insert(rows)
-  if (insertErr) return NextResponse.json({ error: insertErr.message }, { status: 500 })
+    const { error: insertErr } = await supabase.from('top_entries').insert(rows)
+    if (insertErr) return NextResponse.json({ error: insertErr.message }, { status: 500 })
+  }
 
-  // 5. Pažymėti pasiūlymus kaip 'used' (kaip ir cron'as daro)
+  // 5. Pažymėti VISUS approved pasiūlymus kaip 'used' (net jei jau buvo tope)
   await supabase
     .from('top_suggestions')
     .update({ status: 'used' })
-    .in('id', toInsert.map(s => s.id))
+    .in('id', approved.map(s => s.id))
 
   return NextResponse.json({
-    inserted: rows.length,
-    message: `Pridėta ${rows.length} dainų į dabartinę savaitę. Pasiūlymai pažymėti kaip 'used'.`,
+    inserted: toInsert.length,
+    message: toInsert.length > 0
+      ? `Pridėta ${toInsert.length} dainų į dabartinę savaitę. Pasiūlymai pažymėti kaip 'used'.`
+      : 'Visi patvirtinti jau buvo tope. Pasiūlymai pažymėti kaip used.',
   })
 }

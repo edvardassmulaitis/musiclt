@@ -233,6 +233,23 @@ function AdminTopInner() {
     }
   }
 
+  const resetWeek = async () => {
+    if (!activeWeek) return
+    if (!confirm('Atstatyti einamą savaitę? Bus IŠTRINTI visi balsai ir pozicijos. Topo dainos liks. Naudok testavimo ciklams.')) return
+    const res = await fetch('/api/top/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ top_type: topType }),
+    })
+    const d = await res.json()
+    if (res.ok) {
+      showMsg(d.message || 'Atstatyta ✓')
+      loadEntries()
+    } else {
+      showMsg(d.error || 'Klaida', 'err')
+    }
+  }
+
   if (status === 'loading') return (
     <div className="min-h-screen bg-[#f8f7f5] flex items-center justify-center">
       <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
@@ -297,19 +314,27 @@ function AdminTopInner() {
                 <p className="text-sm font-semibold text-[var(--text-primary)]">{entries.length} dainų</p>
               </div>
             </div>
-            {!activeWeek.is_finalized && (
-              <div className="flex gap-2">
-                <button onClick={populateFromApproved}
-                  title="Įkelti patvirtintus pasiūlymus į dabartinę savaitę (testavimui)"
-                  className="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition-colors">
-                  ⤓ Įkelti patvirtintus
-                </button>
-                <button onClick={finalizeWeek}
-                  className="px-4 py-2 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 rounded-xl text-xs font-bold transition-colors">
-                  ⚡ Finalizuoti dabar
-                </button>
-              </div>
-            )}
+            <div className="flex gap-2 flex-wrap">
+              {!activeWeek.is_finalized && (
+                <>
+                  <button onClick={populateFromApproved}
+                    title="Įkelti patvirtintus pasiūlymus į dabartinę savaitę (testavimui)"
+                    className="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition-colors">
+                    ⤓ Įkelti patvirtintus
+                  </button>
+                  <button onClick={finalizeWeek}
+                    className="px-4 py-2 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 rounded-xl text-xs font-bold transition-colors">
+                    ⚡ Finalizuoti dabar
+                  </button>
+                </>
+              )}
+              {/* Reset visada matomas — leidžia testuoti pakartotinius ciklus */}
+              <button onClick={resetWeek}
+                title="Atstatyti savaitę testavimui (išvalo balsus + pozicijas, palieka dainas)"
+                className="px-4 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-xl text-xs font-bold transition-colors">
+                ↻ Atstatyti
+              </button>
+            </div>
           </div>
         )}
 

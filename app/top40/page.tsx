@@ -1,6 +1,7 @@
 import { Metadata } from 'next'
 import { createAdminClient } from '@/lib/supabase'
 import TopChartView, { type TopData } from '@/components/TopChartView'
+import { getCurrentWeekMonday } from '@/lib/top-week'
 
 export const metadata: Metadata = {
   title: 'TOP 40 — Pasaulinės muzikos topas | music.lt',
@@ -9,12 +10,14 @@ export const metadata: Metadata = {
 
 async function getTopData(topType: string): Promise<TopData> {
   const supabase = createAdminClient()
+  // Anchor į dabartinę kalendorinę savaitę (week_start = einamasis pirmadienis)
+  const thisMonday = getCurrentWeekMonday()
   const { data: week } = await supabase
     .from('top_weeks')
     .select('*')
     .eq('top_type', topType)
-    .eq('is_active', true)
-    .single()
+    .eq('week_start', thisMonday)
+    .maybeSingle()
   if (!week) return { entries: [], week: null }
   const { data: entries } = await supabase
     .from('top_entries')
