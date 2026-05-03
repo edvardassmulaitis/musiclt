@@ -641,8 +641,7 @@ function MobileExpansion({
               </Link>
             ))}
             <Link href="/atlikejai?country=lt" onClick={onLink} className="sh-more-tile">
-              <span className="sh-more-tile-arrow">→</span>
-              <span className="sh-more-tile-label">Daugiau</span>
+              Daugiau →
             </Link>
           </div>
         </div>
@@ -697,10 +696,6 @@ function MobileExpansion({
                 </Link>
               )
             })}
-            {/* Daugiau kaip pilnos pločio 9-as grid tile */}
-            <Link href="/zanrai" onClick={onLink} className="sh-style-card sh-style-card-mobile sh-more-card">
-              <span className="sh-more-card-label">Visi stiliai →</span>
-            </Link>
           </div>
         </div>
       </div>
@@ -1138,52 +1133,28 @@ export function SiteHeader() {
           gap: 6px;
         }
 
-        /* "Daugiau →" kaip last tile horizontal scroll juostos gale.
-           Vartotojas natūraliai swipe'ina dešinėn → mato CTA pill'ą. */
+        /* "Daugiau →" kaip last tile horizontal scroll juostos gale —
+           kompaktiškas inline CTA, ne išstumtas didelis pill'as */
         .sh-more-tile {
           flex: 0 0 auto;
-          align-self: stretch;
-          display: flex;
-          flex-direction: column;
+          align-self: center;
+          display: inline-flex;
           align-items: center;
-          justify-content: center;
-          gap: 4px;
-          padding: 8px 16px;
-          border-radius: 10px;
+          padding: 6px 12px;
+          border-radius: 999px;
           background: rgba(249, 115, 22, 0.12);
-          border: 1px dashed rgba(249, 115, 22, 0.45);
+          border: 1px solid rgba(249, 115, 22, 0.35);
           text-decoration: none;
           color: var(--accent-orange);
           font-family: 'Outfit', sans-serif;
-          font-weight: 700;
+          font-size: 12px; font-weight: 700;
+          white-space: nowrap;
           transition: background .15s, border-color .15s;
-          margin-left: 4px;
+          margin-left: 6px;
         }
         .sh-more-tile:hover {
           background: rgba(249, 115, 22, 0.22);
-          border-color: rgba(249, 115, 22, 0.7);
-        }
-        .sh-more-tile-arrow { font-size: 22px; line-height: 1; opacity: 0.85; }
-        .sh-more-tile-label { font-size: 10.5px; }
-
-        /* "Visi stiliai →" kaip 9-as grid tile'as Stiliai sekcijos gale */
-        .sh-more-card {
-          background: rgba(249, 115, 22, 0.10) !important;
-          border: 1px dashed rgba(249, 115, 22, 0.4) !important;
-          box-shadow: none !important;
-          color: var(--accent-orange);
-          align-items: center;
-          justify-content: center;
-        }
-        .sh-more-card:hover {
-          background: rgba(249, 115, 22, 0.18) !important;
-          border-color: rgba(249, 115, 22, 0.65) !important;
-          transform: none !important;
-        }
-        .sh-more-card-label {
-          font-family: 'Outfit', sans-serif;
-          font-size: 12.5px; font-weight: 700;
-          color: var(--accent-orange);
+          border-color: rgba(249, 115, 22, 0.6);
         }
         /* Mobile style kortelės — kompaktiškesnės nei desktop'o (kad
            neužimtų daugiau vietos nei atlikėjai) */
