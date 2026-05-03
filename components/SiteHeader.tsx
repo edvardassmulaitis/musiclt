@@ -628,33 +628,33 @@ function MobileExpansion({
   if (navKey === 'muzika') {
     const ltArtists = data?.artistsLt || []
     const wrldArtists = data?.artistsWorld || []
-    const albums = data?.albums || []
-    const tracks = data?.tracks || []
     return (
       <div className="sh-mexp">
-        <div className="sh-mexp-section">
-          <span className="sh-mexp-title">
-            <span className="sh-trending-glyph sh-trending-mini" title="Trending">{I.trending}</span>
-            Atlikėjai
-          </span>
-          <Link href="/atlikejai" onClick={onLink} className="sh-mexp-more">Daugiau <ArrowRight size={10}/></Link>
+        {/* ── ATLIKĖJAI: LT eilutė — Daugiau pakeltas virš strip'o ── */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
+          <Link href="/atlikejai?country=lt" onClick={onLink} className="sh-more-link">Daugiau →</Link>
         </div>
-        <div className="sh-strip-wrap" style={{ marginBottom: 6 }}>
+        <div className="sh-strip-wrap" style={{ marginBottom: 12 }}>
           <RowStripe kind="lt" />
           <div className="sh-strip">
-            {(ltArtists.length > 0 ? ltArtists.slice(0, 8) : Array(5).fill(null)).map((a, i) => (
-              <Link key={a?.id || `lt-${i}`} href={a ? `/atlikejai/${a.slug}` : '/atlikejai'} onClick={onLink} className="sh-mini sh-mini-xs">
+            {(ltArtists.length > 0 ? ltArtists.slice(0, 10) : Array(5).fill(null)).map((a, i) => (
+              <Link key={a?.id || `lt-${i}`} href={a ? `/atlikejai/${a.slug}` : '/atlikejai'} onClick={onLink} className="sh-mini sh-mini-md">
                 <ImageBox src={a?.image} accent={accent} glyph={I.music} className="sh-mini-img" />
                 <span className="sh-mini-title sh-mini-title-2">{a?.name || 'Atlikėjas'}</span>
               </Link>
             ))}
           </div>
         </div>
-        <div className="sh-strip-wrap">
+
+        {/* ── ATLIKĖJAI: užsienio eilutė ── */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
+          <Link href="/atlikejai?country=world" onClick={onLink} className="sh-more-link">Daugiau →</Link>
+        </div>
+        <div className="sh-strip-wrap" style={{ marginBottom: 16 }}>
           <RowStripe kind="world" />
           <div className="sh-strip">
-            {(wrldArtists.length > 0 ? wrldArtists.slice(0, 8) : Array(5).fill(null)).map((a, i) => (
-              <Link key={a?.id || `w-${i}`} href={a ? `/atlikejai/${a.slug}` : '/atlikejai'} onClick={onLink} className="sh-mini sh-mini-xs">
+            {(wrldArtists.length > 0 ? wrldArtists.slice(0, 10) : Array(5).fill(null)).map((a, i) => (
+              <Link key={a?.id || `w-${i}`} href={a ? `/atlikejai/${a.slug}` : '/atlikejai'} onClick={onLink} className="sh-mini sh-mini-md">
                 <ImageBox src={a?.image} accent={accent} glyph={I.music} className="sh-mini-img" />
                 <span className="sh-mini-title sh-mini-title-2">{a?.name || 'Atlikėjas'}</span>
               </Link>
@@ -662,47 +662,42 @@ function MobileExpansion({
           </div>
         </div>
 
-        <div className="sh-mexp-section">
-          <span className="sh-mexp-title">
-            <span className="sh-trending-glyph sh-trending-mini" title="Trending">{I.trending}</span>
-            Albumai
-          </span>
-          <Link href="/albumai" onClick={onLink} className="sh-mexp-more">Daugiau <ArrowRight size={10}/></Link>
-        </div>
-        <div className="sh-strip">
-          {(albums.length > 0 ? albums.slice(0, 8) : Array(5).fill(null)).map((a, i) => (
-            <Link key={a?.id || i} href={a ? `/lt/albumas/${a.slug}/${a.id}` : '/albumai'} onClick={onLink} className="sh-mini sh-mini-xs">
-              <ImageBox src={a?.image} accent={accent} glyph={I.vinyl} className="sh-mini-img" />
-              <span className="sh-mini-title sh-mini-title-2">{a?.title || 'Albumas'}</span>
-            </Link>
-          ))}
-        </div>
-
-        <div className="sh-mexp-section">
-          <span className="sh-mexp-title">
-            <span className="sh-trending-glyph sh-trending-mini" title="Trending">{I.trending}</span>
-            Dainos
-          </span>
-          <Link href="/muzika" onClick={onLink} className="sh-mexp-more">Daugiau <ArrowRight size={10}/></Link>
-        </div>
-        <div className="sh-strip">
-          {(tracks.length > 0 ? tracks.slice(0, 8) : Array(5).fill(null)).map((t, i) => (
-            <Link key={t?.id || i} href={t ? `/dainos/${t.artistSlug}-${quickSlug(t.title)}-${t.id}` : '/muzika'} onClick={onLink} className="sh-mini sh-mini-xs">
-              <ImageBox src={t?.image} accent={accent} glyph={I.song} className="sh-mini-img" />
-              <span className="sh-mini-title sh-mini-title-2">{t?.title || 'Daina'}</span>
-            </Link>
-          ))}
-        </div>
-
-        <div className="sh-mexp-section">
-          <span className="sh-mexp-title">Stiliai</span>
-        </div>
-        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-          {GENRE_COLORS.map(s => (
-            <Link key={s.name} href={s.href} onClick={onLink} className="sh-style-pill" style={{ ['--it-rgb' as any]: s.rgb }}>
-              {s.short}
-            </Link>
-          ))}
+        {/* ── STILIAI — photo kortelės (su /admin/genres image jei nustatytas) ── */}
+        <div style={{ marginTop: 6, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
+            <span style={{
+              fontFamily: "'Outfit', sans-serif",
+              fontSize: 11, fontWeight: 800,
+              textTransform: 'uppercase', letterSpacing: '0.1em',
+              color: 'var(--text-muted)', paddingTop: 2,
+            }}>
+              Stiliai
+            </span>
+            <Link href="/zanrai" onClick={onLink} className="sh-more-link">Daugiau →</Link>
+          </div>
+          <div className="sh-style-grid sh-style-grid-mobile">
+            {GENRE_COLORS.map(s => {
+              const img = data?.genres?.[s.name] || null
+              const hasImage = !!img
+              return (
+                <Link
+                  key={s.name}
+                  href={s.href}
+                  onClick={onLink}
+                  className={`sh-style-card${hasImage ? ' sh-style-card-photo' : ''}`}
+                  style={{
+                    ['--it-rgb' as any]: s.rgb,
+                    ...(hasImage ? { backgroundImage:
+                      `linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.30) 55%, rgba(0,0,0,0.10) 100%), url(${proxyImg(img)})`
+                    } : {}),
+                  }}
+                  title={s.name}
+                >
+                  <span className="sh-style-card-name">{s.short}</span>
+                </Link>
+              )
+            })}
+          </div>
         </div>
       </div>
     )
@@ -1132,6 +1127,11 @@ export function SiteHeader() {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
           gap: 10px;
+        }
+        /* Mobile drawer — 2-col vietoj 4-col (drawer'is siauresnis) */
+        .sh-style-grid-mobile {
+          grid-template-columns: repeat(2, 1fr);
+          gap: 8px;
         }
         .sh-style-card {
           position: relative;
