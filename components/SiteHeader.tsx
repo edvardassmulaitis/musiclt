@@ -237,37 +237,40 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
   // Spalvos centralizuotos — vėliau naudosim ir žanro page'uose, badge'uose.
   const styles = GENRE_COLORS
 
-  // Atlikėjų eilutė be header'io — flag stripe (LT vėliava arba pasaulinė
-  // mėlyna) kairėje yra pakankamas šalies indikatorius. Daugiau link'as
-  // dešinėje (homepage stiliumi — orange, no underline).
+  // Atlikėjų eilutė: Daugiau link'as virš strip'o (kaip Stiliai header'is),
+  // be tekstinio header'io — šalies indikatorius yra tik vėliavinė stripe.
   const renderArtistRow = (list: typeof artistsLt, kind: 'lt' | 'world') => (
-    <div className="sh-artist-row">
-      <RowStripe kind={kind} />
-      <div className="sh-strip">
-        {(list.length > 0 ? list : Array(6).fill(null)).map((a, i) => (
-          <Link
-            key={a?.id || `${kind}-${i}`}
-            href={a ? `/atlikejai/${a.slug}` : '/atlikejai'}
-            className="sh-mini sh-mini-xl"
-          >
-            <ImageBox
-              src={a?.image}
-              accent={accent}
-              glyph={I.music}
-              className="sh-mini-img"
-            />
-            <span className="sh-mini-title sh-mini-title-2">
-              {a?.name || <span style={{ opacity: 0.45 }}>Atlikėjas</span>}
-            </span>
-          </Link>
-        ))}
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
+        <Link
+          href={kind === 'lt' ? '/atlikejai?country=lt' : '/atlikejai?country=world'}
+          className="sh-more-link"
+        >
+          Daugiau →
+        </Link>
       </div>
-      <Link
-        href={kind === 'lt' ? '/atlikejai?country=lt' : '/atlikejai?country=world'}
-        className="sh-more-link"
-      >
-        Daugiau →
-      </Link>
+      <div className="sh-strip-wrap">
+        <RowStripe kind={kind} />
+        <div className="sh-strip">
+          {(list.length > 0 ? list : Array(6).fill(null)).map((a, i) => (
+            <Link
+              key={a?.id || `${kind}-${i}`}
+              href={a ? `/atlikejai/${a.slug}` : '/atlikejai'}
+              className="sh-mini sh-mini-xl"
+            >
+              <ImageBox
+                src={a?.image}
+                accent={accent}
+                glyph={I.music}
+                className="sh-mini-img"
+              />
+              <span className="sh-mini-title sh-mini-title-2">
+                {a?.name || <span style={{ opacity: 0.45 }}>Atlikėjas</span>}
+              </span>
+            </Link>
+          ))}
+        </div>
+      </div>
     </div>
   )
 
@@ -1011,14 +1014,14 @@ export function SiteHeader() {
 
         .sh-panel {
           padding: 18px;
-          background: rgba(var(--bg-surface-rgb), 0.92);
-          backdrop-filter: blur(40px) saturate(180%);
-          -webkit-backdrop-filter: blur(40px) saturate(180%);
+          background: rgba(var(--bg-surface-rgb), 0.99);
+          backdrop-filter: blur(60px) saturate(180%);
+          -webkit-backdrop-filter: blur(60px) saturate(180%);
           border: 1px solid var(--border-default);
           border-radius: 20px;
           box-shadow:
-            0 30px 80px rgba(0,0,0,0.30),
-            0 8px 20px rgba(0,0,0,0.12);
+            0 30px 80px rgba(0,0,0,0.45),
+            0 12px 30px rgba(0,0,0,0.20);
           position: relative;
           overflow: hidden;
         }
