@@ -1114,8 +1114,27 @@ function HeroChartCard({ slide }: { slide: HeroSlide }) {
   const accentSoft = isLT ? 'rgba(249,115,22,0.22)' : 'rgba(59,130,246,0.22)'
   const cover = (t: TopEntry | undefined) => t ? (t.cover_url || t.artist_image) : null
 
+  // Value-bearing eyebrow — naudojam, kas duoda info iš realių duomenų. Top
+  // prioritetas: nauji pretendentai (jei yra). Antra: 'kilo' rodyklių skaičius.
+  // Fallback'as — leader artist'as. Lithuanian agreement'ai keturių variantų.
+  const newCount = tops.filter(t => t.trend === 'new').length
+  const upCount = tops.filter(t => t.trend === 'up').length
+  const leadArtist = tops[0]?.artist || ''
+  let valueLabel: string
+  let valueValue: string
+  if (newCount > 0) {
+    valueLabel = newCount === 1 ? 'naujas pretendentas' : 'naujų pretendentų'
+    valueValue = String(newCount)
+  } else if (upCount > 0) {
+    valueLabel = upCount === 1 ? 'kūrinys kyla' : 'kūriniai kyla'
+    valueValue = String(upCount)
+  } else {
+    valueLabel = 'pirmauja'
+    valueValue = leadArtist
+  }
+  const isNumeric = newCount > 0 || upCount > 0
+
   // Tile renders a single mosaic cover with title overlay + position number.
-  // size 'big' → larger #1 tile; 'sm' → bottom-row tiles.
   const Tile = ({ entry, size }: { entry: TopEntry | undefined; size: 'big' | 'md' | 'sm' }) => {
     const c = cover(entry)
     const titleSize = size === 'big' ? 14.5 : size === 'md' ? 12.5 : 11
@@ -1135,9 +1154,7 @@ function HeroChartCard({ slide }: { slide: HeroSlide }) {
           loading="lazy"
           className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
         />
-        {/* Bottom gradient for title legibility */}
         <div className="pointer-events-none absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.12) 60%, rgba(0,0,0,0) 80%)' }} />
-        {/* Position badge — top-left */}
         <span
           className="absolute left-2 top-2 inline-flex items-center justify-center rounded-md font-['Outfit',sans-serif] font-black text-white"
           style={{
@@ -1147,7 +1164,6 @@ function HeroChartCard({ slide }: { slide: HeroSlide }) {
             backdropFilter: 'blur(2px)',
           }}
         >{entry.pos}</span>
-        {/* Title + artist — bottom */}
         <div className="absolute bottom-0 left-0 right-0" style={{ padding }}>
           <p
             className="m-0 truncate font-['Outfit',sans-serif] font-black text-white"
@@ -1172,58 +1188,62 @@ function HeroChartCard({ slide }: { slide: HeroSlide }) {
           : `radial-gradient(ellipse at top left, ${accentSoft}, rgba(8,13,20,0.98) 60%), linear-gradient(135deg, #14182a 0%, #080d14 100%)`,
       }}
     >
-      {/* ── LEFT side: chip + chart title + CTA (38% width) ── */}
+      {/* ── LEFT side: chip + value stat + CTA (38% width) ── */}
       <div
         className="relative z-[1] flex h-full flex-col justify-between p-6"
         style={{ width: '38%' }}
       >
-        {/* Top: TOP chip + week info */}
-        <div className="flex flex-col gap-2.5">
-          <span
-            className="inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1 font-['Outfit',sans-serif] text-[10px] font-black uppercase tracking-[0.08em] text-white"
-            style={{ background: accent, boxShadow: `0 2px 12px ${accentSoft}` }}
-          >
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17h2v-7H3v7zm4 0h2V7H7v10zm4 0h2v-4h-2v4zm4 0h2v-9h-2v9zm4-13v13h2V4h-2z"/></svg>
-            {isLT ? 'LT TOP 30' : 'TOP 40'}
-          </span>
-          <p className="m-0 text-[12px] font-medium uppercase tracking-[0.18em] text-white/55">
-            Šios savaitės topas
-          </p>
+        {/* Top: TOP chip — vienintelis chart name'o atvaizdavimas */}
+        <span
+          className="inline-flex w-fit items-center gap-1.5 rounded-full px-3.5 py-1.5 font-['Outfit',sans-serif] text-[11px] font-black uppercase tracking-[0.08em] text-white"
+          style={{ background: accent, boxShadow: `0 2px 14px ${accentSoft}`, alignSelf: 'flex-start' }}
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17h2v-7H3v7zm4 0h2V7H7v10zm4 0h2v-4h-2v4zm4 0h2v-9h-2v9zm4-13v13h2V4h-2z"/></svg>
+          {isLT ? 'LT TOP 30' : 'TOP 40'}
+        </span>
+
+        {/* Middle: dynamic value display — naujų pretendentų / kylančių /
+            lyderio vardas. Žiūrovas mato KAS verta dėmesio šią savaitę,
+            ne pasyvų label'į. */}
+        <div className="flex flex-col gap-1">
+          {isNumeric ? (
+            <>
+              <p
+                className="m-0 font-['Outfit',sans-serif] font-black text-white"
+                style={{ fontSize: 'clamp(56px, 6vw, 88px)', lineHeight: 0.9, letterSpacing: '-0.04em', color: accent }}
+              >{valueValue}</p>
+              <p className="m-0 font-['Outfit',sans-serif] text-[14px] font-semibold tracking-tight text-white/85" style={{ marginTop: 2 }}>
+                {valueLabel} šią savaitę
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="m-0 text-[10.5px] font-bold uppercase tracking-[0.2em] text-white/45">
+                {valueLabel}
+              </p>
+              <p
+                className="m-0 font-['Outfit',sans-serif] font-black text-white"
+                style={{ fontSize: 'clamp(28px, 3.2vw, 40px)', lineHeight: 0.98, letterSpacing: '-0.025em', marginTop: 4 }}
+              >{valueValue}</p>
+            </>
+          )}
         </div>
 
-        {/* Middle: Chart title — extra large */}
-        <div className="flex-1 flex items-center">
-          <h3
-            className="m-0 font-['Outfit',sans-serif] font-black tracking-tight text-white"
-            style={{ fontSize: 'clamp(36px, 4.2vw, 56px)', lineHeight: 0.96, letterSpacing: '-0.025em' }}
-          >
-            {slide.title}
-          </h3>
-        </div>
-
-        {/* Bottom: Vote CTA + secondary link */}
-        <div className="flex flex-col gap-2.5">
-          <span
-            className="group/cta inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 font-['Outfit',sans-serif] text-[14px] font-black text-white no-underline transition-all"
-            style={{
-              background: accent,
-              boxShadow: `0 6px 22px ${accentSoft}, 0 2px 8px rgba(0,0,0,0.3)`,
-              letterSpacing: '0.02em',
-            }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-            </svg>
-            Balsuok už mėgstamas
-          </span>
-          <span className="inline-flex items-center gap-1 self-start text-[11.5px] font-bold text-white/55 transition-colors group-hover:text-white/80">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-            Pilnas topas
-          </span>
-        </div>
+        {/* Bottom: Vote CTA — paprastas 'Balsuok' (užtenka) */}
+        <span
+          className="inline-flex items-center justify-center gap-1.5 rounded-xl px-5 py-3 font-['Outfit',sans-serif] text-[14px] font-black text-white no-underline transition-all"
+          style={{
+            background: accent,
+            boxShadow: `0 6px 22px ${accentSoft}, 0 2px 8px rgba(0,0,0,0.3)`,
+            letterSpacing: '0.04em', textTransform: 'uppercase',
+          }}
+        >
+          Balsuok
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </span>
       </div>
 
-      {/* ── RIGHT side: magazine mosaic (62% width) ── */}
+      {/* ── RIGHT side: magazine mosaic (58% width) ── */}
       {tops.length > 0 && (
         <div
           className="absolute right-4 top-4 bottom-4"
@@ -1235,11 +1255,8 @@ function HeroChartCard({ slide }: { slide: HeroSlide }) {
             gap: 7,
           }}
         >
-          {/* Top-left — #1, large 60% × 60% */}
           <div style={{ gridColumn: 1, gridRow: 1 }}><Tile entry={tops[0]} size="big" /></div>
-          {/* Top-right — #2, mid */}
           <div style={{ gridColumn: 2, gridRow: 1 }}><Tile entry={tops[1]} size="md" /></div>
-          {/* Bottom row — #3, #4, #5 split equal */}
           <div
             style={{
               gridColumn: '1 / -1', gridRow: 2,
@@ -1376,9 +1393,9 @@ function ChartBottomSheet({
       aria-modal="true"
       aria-label={`${title} balsavimas`}
       style={{
-        position: 'fixed', inset: 0, zIndex: 1200,
+        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1200,
         display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-        background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)',
+        background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)',
         animation: 'cbs-fade 0.18s ease-out',
       }}
       onClick={onClose}
@@ -1393,13 +1410,14 @@ function ChartBottomSheet({
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          width: '100%', maxWidth: 560, maxHeight: '92vh',
+          width: '100%', maxWidth: 560, maxHeight: '90vh',
           background: 'linear-gradient(180deg, #0f1320 0%, #060912 100%)',
           borderTopLeftRadius: 22, borderTopRightRadius: 22,
           borderTop: `2px solid ${accent}`,
           boxShadow: '0 -24px 80px rgba(0,0,0,0.6)',
           display: 'flex', flexDirection: 'column',
           animation: 'cbs-slide 0.28s cubic-bezier(0.32,0.72,0.28,1)',
+          animationFillMode: 'forwards',
         }}
       >
         {/* Drag handle */}
@@ -1526,11 +1544,11 @@ function ChartBottomSheet({
                 >
                   {pending ? (
                     <span style={{ width: 12, height: 12, border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'cbs-spin 0.7s linear infinite' }} />
-                  ) : (
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill={voted ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.4">
-                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                  ) : voted ? (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M5 12l5 5L20 7"/>
                     </svg>
-                  )}
+                  ) : null}
                   <span>{voted ? 'Balsavai' : 'Balsuok'}</span>
                 </button>
               </div>
@@ -1558,64 +1576,86 @@ function MobileChartSlide({
 }) {
   const tops = slide.chartTops || []
   const accent = slide.type === 'chart_lt' ? '#f97316' : '#3b82f6'
+  const accentShadow = slide.type === 'chart_lt' ? 'rgba(249,115,22,0.45)' : 'rgba(59,130,246,0.45)'
   const cover = (t: TopEntry | undefined) => t ? (t.cover_url || t.artist_image) : null
 
+  // Subtilus pull-down feedback'as — bet click visada veikia (nepriklauso nuo
+  // pull state). Praeitos versijos `justPulledRef` gate'as iOS Safari'je
+  // blokavo tap'ą po net minimalaus touchmove'o → todėl pašalintas.
   const [pullY, setPullY] = useState(0)
   const startRef = useRef<{ x: number; y: number } | null>(null)
   const pullingRef = useRef(false)
-  const justPulledRef = useRef(false)
 
   const onTouchStart = (e: React.TouchEvent) => {
     startRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
     pullingRef.current = false
-    setPullY(0)
   }
   const onTouchMove = (e: React.TouchEvent) => {
     if (!startRef.current) return
     const dx = e.touches[0].clientX - startRef.current.x
     const dy = e.touches[0].clientY - startRef.current.y
     if (!pullingRef.current) {
-      if (dy > 14 && dy > Math.abs(dx) * 1.4) {
+      if (dy > 18 && dy > Math.abs(dx) * 1.6) {
         pullingRef.current = true
-      } else if (Math.abs(dx) > 10) {
-        // Horizontal swipe — leisk parent karuselei normaliai scroll'ą
+      } else if (Math.abs(dx) > 8 || dy < -10) {
+        // Horizontal swipe arba up — abort pull tracking.
         startRef.current = null
         return
       }
     }
-    if (pullingRef.current) {
-      setPullY(Math.max(0, Math.min(140, dy)))
-    }
+    if (pullingRef.current) setPullY(Math.max(0, Math.min(120, dy)))
   }
   const onTouchEnd = () => {
-    const wasPulling = pullingRef.current
-    const triggered = wasPulling && pullY > 70
-    if (triggered) {
-      justPulledRef.current = true
-      setTimeout(() => { justPulledRef.current = false }, 350)
-      onOpen()
-    } else if (wasPulling) {
-      // Vartotojas tempė bet nepasiekė threshold — nesuveiks click, bet
-      // setTimeout grąžins galimybę paspausti vėliau.
-      justPulledRef.current = true
-      setTimeout(() => { justPulledRef.current = false }, 200)
-    }
+    const triggered = pullingRef.current && pullY > 60
     pullingRef.current = false
     setPullY(0)
     startRef.current = null
+    if (triggered) onOpen() // swipe-down → open
   }
-  const onClick = () => {
-    if (justPulledRef.current) return
-    onOpen()
-  }
+  // Click visada atidaro sheet'ą — be jokio gate'o.
+  const handleClick = () => onOpen()
 
-  // Vizualinis pull progress — 0..1 mokant CTA hint'ą labiau matomą.
-  const pullProgress = Math.min(1, pullY / 70)
-  const liftY = pullY * 0.5
+  const liftY = pullY * 0.4
+
+  // Top 3 only (ne 4) — #1 didžiausias top half, #2 + #3 50/50 apačioje.
+  const t1 = tops[0]
+  const t2 = tops[1]
+  const t3 = tops[2]
+
+  // Render single tile su title + position + cover — DRY.
+  const renderTile = (t: TopEntry | undefined, big: boolean) => {
+    const c = cover(t)
+    if (!t || !c) return <div style={{ width: '100%', height: '100%', background: 'rgba(255,255,255,0.05)', borderRadius: 8 }} />
+    const titleSize = big ? 13 : 10.5
+    const numSize = big ? 13 : 10.5
+    const numPad = big ? '3px 8px' : '2px 6px'
+    return (
+      <>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={proxyImg(c)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.18) 45%, transparent 70%)' }} />
+        <span style={{
+          position: 'absolute', top: 5, left: 5, padding: numPad, borderRadius: 6,
+          background: t.pos === 1 ? accent : 'rgba(0,0,0,0.82)',
+          color: '#fff', fontSize: numSize, fontWeight: 900,
+          fontFamily: 'Outfit,sans-serif', lineHeight: 1,
+          boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
+        }}>{t.pos}</span>
+        <p style={{
+          position: 'absolute', left: big ? 8 : 5, right: big ? 8 : 5, bottom: big ? 7 : 4,
+          margin: 0, fontSize: titleSize, fontWeight: 900, color: '#fff',
+          fontFamily: 'Outfit,sans-serif',
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          letterSpacing: '-0.01em', textShadow: '0 1px 4px rgba(0,0,0,0.95)',
+          lineHeight: 1.15,
+        }}>{t.title}</p>
+      </>
+    )
+  }
 
   return (
     <button
-      onClick={onClick}
+      onClick={handleClick}
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
@@ -1628,108 +1668,57 @@ function MobileChartSlide({
         transition: pullingRef.current ? 'none' : 'transform 0.25s cubic-bezier(0.32,0.72,0.28,1), border-color 0.15s',
         boxShadow: '0 8px 22px rgba(0,0,0,0.45)',
         textAlign: 'left',
+        WebkitTapHighlightColor: 'transparent',
+        touchAction: 'manipulation',
       }}
     >
-      {/* BG gradient base */}
+      {/* BG gradient base — pakelia accent spalvos sentiment'ą virš mosaic'o */}
       <div style={{
         position: 'absolute', inset: 0,
         background: slide.type === 'chart_lt'
-          ? `linear-gradient(180deg, rgba(249,115,22,0.32) 0%, #0a0e1a 35%, #050810 100%)`
-          : `linear-gradient(180deg, rgba(59,130,246,0.32) 0%, #0a0e1a 35%, #050810 100%)`,
+          ? `linear-gradient(180deg, rgba(249,115,22,0.32) 0%, #0a0e1a 30%, #050810 100%)`
+          : `linear-gradient(180deg, rgba(59,130,246,0.32) 0%, #0a0e1a 30%, #050810 100%)`,
       }} />
 
-      {/* TOP CHIP */}
+      {/* TOP CHIP — virš kortelės dešinėj-kairėj */}
       <div style={{ position: 'absolute', top: 10, left: 10, zIndex: 3 }}>
-        <span style={{ padding: '4px 10px', borderRadius: 999, fontSize: 9.5, fontWeight: 900, color: '#fff', background: accent, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase', boxShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
+        <span style={{ padding: '4px 10px', borderRadius: 999, fontSize: 10, fontWeight: 900, color: '#fff', background: accent, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase', boxShadow: '0 2px 10px rgba(0,0,0,0.4)' }}>
           {slide.chip}
         </span>
       </div>
 
-      {/* Pull-down indicator — vir top-right, fades-in pulling metu */}
+      {/* MOSAIC — TOP 3: #1 didelis viršuje, #2 + #3 apačioje */}
       <div style={{
-        position: 'absolute', top: 12, right: 12, zIndex: 3,
-        opacity: 0.4 + pullProgress * 0.6,
-        transform: `translateY(${pullY * 0.3}px)`,
-        transition: pullingRef.current ? 'none' : 'opacity 0.25s, transform 0.25s',
-        display: 'flex', alignItems: 'center', gap: 4,
-        padding: '4px 8px', borderRadius: 999,
-        background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
-        border: '1px solid rgba(255,255,255,0.18)',
+        position: 'absolute', top: 40, left: 12, right: 12,
+        display: 'flex', flexDirection: 'column', gap: 6,
       }}>
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" style={{ transform: `rotate(${pullProgress * 180}deg)`, transition: pullingRef.current ? 'none' : 'transform 0.25s' }}><path d="M6 9l6 6 6-6"/></svg>
-        <span style={{ fontSize: 9, fontWeight: 800, color: '#fff', fontFamily: 'Outfit,sans-serif', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-          Tempk
-        </span>
+        {/* #1 — top half, full width, didžiausias */}
+        <div style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', boxShadow: '0 5px 18px rgba(0,0,0,0.5)', height: 142 }}>
+          {renderTile(t1, true)}
+        </div>
+        {/* #2 + #3 — bottom row split 50/50 */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+          <div style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', boxShadow: '0 3px 12px rgba(0,0,0,0.45)', height: 88 }}>
+            {renderTile(t2, false)}
+          </div>
+          <div style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', boxShadow: '0 3px 12px rgba(0,0,0,0.45)', height: 88 }}>
+            {renderTile(t3, false)}
+          </div>
+        </div>
       </div>
 
-      {/* MOSAIC — asimetrinis: #1 didelis kvadratas, #2 šalia, #3-4 apačioj */}
+      {/* CTA "Balsuok" — apačioje, be sirdelės. */}
       <div style={{
-        position: 'absolute', top: 44, left: 12, right: 12,
-        display: 'grid',
-        gridTemplateColumns: '2fr 1fr',
-        gridTemplateRows: '88px 60px',
-        gap: 5,
+        position: 'absolute', left: 12, right: 12, bottom: 10, zIndex: 2,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+        padding: '9px 12px', borderRadius: 10,
+        background: accent, color: '#fff',
+        fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 900,
+        letterSpacing: '0.06em', textTransform: 'uppercase',
+        boxShadow: `0 4px 14px ${accentShadow}`,
       }}>
-        {/* #1 — top-left, big spans col 1, row 1 */}
-        <div style={{ gridColumn: 1, gridRow: 1, position: 'relative', borderRadius: 8, overflow: 'hidden', boxShadow: '0 4px 14px rgba(0,0,0,0.5)' }}>
-          {cover(tops[0]) ? (
-            <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={proxyImg(cover(tops[0]) || '')} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 55%)' }} />
-              <span style={{ position: 'absolute', top: 5, left: 5, padding: '2px 6px', borderRadius: 5, background: accent, color: '#fff', fontSize: 11, fontWeight: 900, fontFamily: 'Outfit,sans-serif', boxShadow: '0 2px 6px rgba(0,0,0,0.5)' }}>1</span>
-              <p style={{ position: 'absolute', left: 5, right: 5, bottom: 4, margin: 0, fontSize: 10.5, fontWeight: 900, color: '#fff', fontFamily: 'Outfit,sans-serif', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.01em', textShadow: '0 1px 4px rgba(0,0,0,0.9)' }}>{tops[0].title}</p>
-            </>
-          ) : <div style={{ width: '100%', height: '100%', background: 'rgba(255,255,255,0.05)' }} />}
-        </div>
-        {/* #2 — top-right small */}
-        <div style={{ gridColumn: 2, gridRow: 1, position: 'relative', borderRadius: 8, overflow: 'hidden', boxShadow: '0 3px 10px rgba(0,0,0,0.4)' }}>
-          {cover(tops[1]) ? (
-            <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={proxyImg(cover(tops[1]) || '')} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.78) 0%, transparent 60%)' }} />
-              <span style={{ position: 'absolute', top: 3, left: 3, padding: '1px 5px', borderRadius: 4, background: 'rgba(0,0,0,0.78)', color: '#fff', fontSize: 9.5, fontWeight: 900, fontFamily: 'Outfit,sans-serif' }}>2</span>
-              <p style={{ position: 'absolute', left: 3, right: 3, bottom: 2, margin: 0, fontSize: 8.5, fontWeight: 800, color: '#fff', fontFamily: 'Outfit,sans-serif', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textShadow: '0 1px 3px rgba(0,0,0,0.9)' }}>{tops[1].title}</p>
-            </>
-          ) : <div style={{ width: '100%', height: '100%', background: 'rgba(255,255,255,0.05)' }} />}
-        </div>
-        {/* Bottom row spans both cols, split into 2 (3 and 4) */}
-        <div style={{ gridColumn: '1 / -1', gridRow: 2, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5 }}>
-          {[2, 3].map(i => (
-            <div key={i} style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', boxShadow: '0 3px 10px rgba(0,0,0,0.4)' }}>
-              {cover(tops[i]) ? (
-                <>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={proxyImg(cover(tops[i]) || '')} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 65%)' }} />
-                  <span style={{ position: 'absolute', top: 3, left: 3, padding: '1px 5px', borderRadius: 4, background: 'rgba(0,0,0,0.78)', color: '#fff', fontSize: 9.5, fontWeight: 900, fontFamily: 'Outfit,sans-serif' }}>{i + 1}</span>
-                  <p style={{ position: 'absolute', left: 4, right: 4, bottom: 2, margin: 0, fontSize: 8.5, fontWeight: 800, color: '#fff', fontFamily: 'Outfit,sans-serif', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textShadow: '0 1px 3px rgba(0,0,0,0.9)' }}>{tops[i].title}</p>
-                </>
-              ) : <div style={{ width: '100%', height: '100%', background: 'rgba(255,255,255,0.05)' }} />}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* CHART TITLE — centered below mosaic */}
-      <div style={{ position: 'absolute', left: 12, right: 12, bottom: 50, zIndex: 2 }}>
-        <p style={{ margin: 0, fontSize: 22, fontWeight: 900, color: '#fff', fontFamily: 'Outfit,sans-serif', lineHeight: 0.95, letterSpacing: '-0.025em' }}>{slide.title}</p>
-      </div>
-
-      {/* CTA "Balsuok" — bottom pinned */}
-      <div style={{ position: 'absolute', left: 12, right: 12, bottom: 10, zIndex: 2 }}>
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-          padding: '8px 10px', borderRadius: 10,
-          background: accent, color: '#fff',
-          fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 900,
-          letterSpacing: '0.02em',
-          boxShadow: `0 4px 14px ${slide.type === 'chart_lt' ? 'rgba(249,115,22,0.45)' : 'rgba(59,130,246,0.45)'}`,
-        }}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-          Balsuok
-        </div>
+        Balsuok
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
       </div>
     </button>
   )
