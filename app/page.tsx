@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { useSite } from '@/components/SiteContext'
 import { HomeChatsWidget } from '@/components/HomeChatsWidget'
@@ -1211,24 +1212,37 @@ function HeroChartCard({ slide }: { slide: HeroSlide }) {
           {isLT ? 'LT TOP 30' : 'TOP 40'}
         </span>
 
-        {/* Middle: simple text value — paminime kandidatų vardus inline,
-            kad būtų info verte be perdėto vizualinio svorio. */}
-        <div className="flex flex-col gap-1.5" style={{ maxWidth: '92%' }}>
+        {/* Middle: bulleted list — kiekvienas atlikėjas savo eilutėje su
+            truncation'u, kad ilgi pavadinimai nelįstų ant dešinės mosaic'o.
+            min-width:0 ant flex child'o leidžia ellipsis veikti. */}
+        <div className="flex flex-col gap-1.5" style={{ minWidth: 0 }}>
           <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/55">
             {valueLead}
           </p>
           {valueNames.length > 0 && (
-            <p
-              className="m-0 font-['Outfit',sans-serif] text-white"
-              style={{ fontSize: 17, lineHeight: 1.32, fontWeight: 700, letterSpacing: '-0.005em' }}
-            >
-              {valueNames.map((n, i) => (
-                <span key={i}>
-                  <span style={{ color: '#fff' }}>{n}</span>
-                  {i < valueNames.length - 1 && <span style={{ color: 'rgba(255,255,255,0.4)', margin: '0 6px' }}>·</span>}
-                </span>
+            <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {valueNames.slice(0, 4).map((n, i) => (
+                <li
+                  key={i}
+                  style={{
+                    fontFamily: 'Outfit,sans-serif',
+                    fontSize: 16, fontWeight: 800, color: '#fff',
+                    lineHeight: 1.25, letterSpacing: '-0.01em',
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    minWidth: 0,
+                  }}
+                >
+                  <span style={{
+                    flexShrink: 0, width: 5, height: 5, borderRadius: '50%',
+                    background: accent, opacity: 0.85,
+                  }} />
+                  <span style={{
+                    minWidth: 0, flex: 1,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}>{n}</span>
+                </li>
               ))}
-            </p>
+            </ul>
           )}
         </div>
 
@@ -1390,8 +1404,11 @@ function ChartBottomSheet({
   }
 
   if (!open) return null
+  if (typeof document === 'undefined') return null
 
-  return (
+  // Portal į body — escape'ina bet kokį parent transform/filter/overflow,
+  // kuris galėtų sulaužyti `position: fixed` (iOS Safari ypač jautrus).
+  return createPortal((
     <div
       role="dialog"
       aria-modal="true"
@@ -1564,7 +1581,7 @@ function ChartBottomSheet({
         </div>
       </div>
     </div>
-  )
+  ), document.body)
 }
 
 /* ────────────────────────────── Mobile chart slide ──────────────────────────────
@@ -1685,7 +1702,7 @@ function MobileChartSlide({
       style={{
         flexShrink: 0, position: 'relative', borderRadius: 16, overflow: 'hidden',
         border: `2px solid ${accent}`,
-        background: '#000', cursor: 'pointer', padding: 0, width: 198, height: 300,
+        background: '#000', cursor: 'pointer', padding: 0, width: 198, height: 312,
         scrollSnapAlign: 'start',
         transform: `translateY(${liftY}px)`,
         transition: pullingRef.current ? 'none' : 'transform 0.25s cubic-bezier(0.32,0.72,0.28,1), border-color 0.15s',
@@ -1693,55 +1710,56 @@ function MobileChartSlide({
         textAlign: 'left',
         WebkitTapHighlightColor: 'transparent',
         touchAction: 'manipulation',
+        display: 'flex', flexDirection: 'column',
       }}
     >
-      {/* BG gradient base — pakelia accent spalvos sentiment'ą virš mosaic'o */}
+      {/* BG gradient base — absolutus, neblokuoja flex layout'o */}
       <div style={{
-        position: 'absolute', inset: 0,
+        position: 'absolute', inset: 0, pointerEvents: 'none',
         background: slide.type === 'chart_lt'
           ? `linear-gradient(180deg, rgba(249,115,22,0.32) 0%, #0a0e1a 30%, #050810 100%)`
           : `linear-gradient(180deg, rgba(59,130,246,0.32) 0%, #0a0e1a 30%, #050810 100%)`,
       }} />
 
-      {/* TOP CHIP — virš kortelės dešinėj-kairėj */}
-      <div style={{ position: 'absolute', top: 10, left: 10, zIndex: 3 }}>
+      {/* CHIP — virš kortelės */}
+      <div style={{ position: 'relative', zIndex: 2, padding: '10px 12px 8px', display: 'flex', justifyContent: 'flex-start' }}>
         <span style={{ padding: '4px 10px', borderRadius: 999, fontSize: 10, fontWeight: 900, color: '#fff', background: accent, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase', boxShadow: '0 2px 10px rgba(0,0,0,0.4)' }}>
           {slide.chip}
         </span>
       </div>
 
-      {/* MOSAIC — TOP 3: #1 didelis viršuje, #2 + #3 apačioje */}
+      {/* MOSAIC — flex'as imantis likusios erdvės. #1 70% aukščio, #2+#3 30%. */}
       <div style={{
-        position: 'absolute', top: 40, left: 12, right: 12,
-        display: 'flex', flexDirection: 'column', gap: 6,
+        position: 'relative', zIndex: 2, flex: 1,
+        padding: '0 12px',
+        display: 'flex', flexDirection: 'column', gap: 6, minHeight: 0,
       }}>
-        {/* #1 — top half, full width, didžiausias */}
-        <div style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', boxShadow: '0 5px 18px rgba(0,0,0,0.5)', height: 142 }}>
+        <div style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', boxShadow: '0 5px 18px rgba(0,0,0,0.5)', flex: '1.55 1 0', minHeight: 0 }}>
           {renderTile(t1, true)}
         </div>
-        {/* #2 + #3 — bottom row split 50/50 */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-          <div style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', boxShadow: '0 3px 12px rgba(0,0,0,0.45)', height: 88 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, flex: '1 1 0', minHeight: 0 }}>
+          <div style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', boxShadow: '0 3px 12px rgba(0,0,0,0.45)' }}>
             {renderTile(t2, false)}
           </div>
-          <div style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', boxShadow: '0 3px 12px rgba(0,0,0,0.45)', height: 88 }}>
+          <div style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', boxShadow: '0 3px 12px rgba(0,0,0,0.45)' }}>
             {renderTile(t3, false)}
           </div>
         </div>
       </div>
 
-      {/* CTA "Balsuok" — apačioje, be sirdelės. */}
-      <div style={{
-        position: 'absolute', left: 12, right: 12, bottom: 10, zIndex: 2,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-        padding: '9px 12px', borderRadius: 10,
-        background: accent, color: '#fff',
-        fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 900,
-        letterSpacing: '0.06em', textTransform: 'uppercase',
-        boxShadow: `0 4px 14px ${accentShadow}`,
-      }}>
-        Balsuok
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      {/* CTA "Balsuok" — flex item apačioje, fixed dydžio. Niekas po juo nelenda. */}
+      <div style={{ position: 'relative', zIndex: 2, padding: '8px 12px 10px' }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          padding: '9px 12px', borderRadius: 10,
+          background: accent, color: '#fff',
+          fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 900,
+          letterSpacing: '0.06em', textTransform: 'uppercase',
+          boxShadow: `0 4px 14px ${accentShadow}`,
+        }}>
+          Balsuok
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </div>
       </div>
     </button>
   )
