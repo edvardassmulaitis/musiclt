@@ -39,6 +39,11 @@ type NavPreview = {
   news:         { id: number; slug: string; title: string; image: string | null; date: string }[]
   /** name → cover_image_url map (admin'as nustato per /admin/genres) */
   genres?:      Record<string, string | null>
+  /** Total atlikėjų skaičiai DB'je — naudojama Daugiau tile'ui */
+  counts?: {
+    artistsLt:    number
+    artistsWorld: number
+  }
 }
 
 const I = {
@@ -237,18 +242,15 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
   // Spalvos centralizuotos — vėliau naudosim ir žanro page'uose, badge'uose.
   const styles = GENRE_COLORS
 
-  // Atlikėjų eilutė: Daugiau link'as virš strip'o (kaip Stiliai header'is),
-  // be tekstinio header'io — šalies indikatorius yra tik vėliavinė stripe.
-  const renderArtistRow = (list: typeof artistsLt, kind: 'lt' | 'world') => (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
-        <Link
-          href={kind === 'lt' ? '/atlikejai?country=lt' : '/atlikejai?country=world'}
-          className="sh-more-link"
-        >
-          Daugiau →
-        </Link>
-      </div>
+  // Atlikėjų eilutė: "+N" tile gale strip'o (rodo likusių atlikėjų skaičių)
+  const renderArtistRow = (list: typeof artistsLt, kind: 'lt' | 'world') => {
+    const total = kind === 'lt'
+      ? (data?.counts?.artistsLt    || 0)
+      : (data?.counts?.artistsWorld || 0)
+    const more = Math.max(0, total - Math.min(list.length, 12))
+    const displayCount = more > 0 ? more : total
+
+    return (
       <div className="sh-strip-wrap">
         <RowStripe kind={kind} />
         <div className="sh-strip">
@@ -269,10 +271,17 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
               </span>
             </Link>
           ))}
+          <Link
+            href={kind === 'lt' ? '/atlikejai?country=lt' : '/atlikejai?country=world'}
+            className="sh-more-tile sh-more-tile-xl"
+          >
+            <span className="sh-more-tile-plus">+</span>
+            <span className="sh-more-tile-count">{displayCount.toLocaleString('lt-LT')}</span>
+          </Link>
         </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   // 8 main stiliai su SVG ikonomis (no emojis) — atspindi žanro charakterį
   const STYLE_ICONS: Record<string, React.ReactNode> = {
@@ -641,6 +650,11 @@ function MobileExpansion({
   if (navKey === 'muzika') {
     const ltArtists = data?.artistsLt || []
     const wrldArtists = data?.artistsWorld || []
+    const ltTotal = data?.counts?.artistsLt || 0
+    const worldTotal = data?.counts?.artistsWorld || 0
+    // "+ N" — dar likusių atlikėjų skaičius (po jau parodytų strip'e)
+    const ltMore = Math.max(0, ltTotal - Math.min(ltArtists.length, 10))
+    const worldMore = Math.max(0, worldTotal - Math.min(wrldArtists.length, 10))
     return (
       <div className="sh-mexp">
         {/* ── ATLIKĖJAI sekcijos header'is (vienodas su Stiliai) ── */}
@@ -667,7 +681,8 @@ function MobileExpansion({
               </Link>
             ))}
             <Link href="/atlikejai?country=lt" onClick={onLink} className="sh-more-tile">
-              Daugiau
+              <span className="sh-more-tile-plus">+</span>
+              <span className="sh-more-tile-count">{(ltMore > 0 ? ltMore : ltTotal).toLocaleString('lt-LT')}</span>
             </Link>
           </div>
         </div>
@@ -683,8 +698,8 @@ function MobileExpansion({
               </Link>
             ))}
             <Link href="/atlikejai?country=world" onClick={onLink} className="sh-more-tile">
-              <span className="sh-more-tile-arrow">→</span>
-              <span className="sh-more-tile-label">Daugiau</span>
+              <span className="sh-more-tile-plus">+</span>
+              <span className="sh-more-tile-count">{(worldMore > 0 ? worldMore : worldTotal).toLocaleString('lt-LT')}</span>
             </Link>
           </div>
         </div>
@@ -1159,17 +1174,18 @@ export function SiteHeader() {
           gap: 6px;
         }
 
-        /* "Daugiau" kaip last card horizontal scroll juostos gale —
-           tile dydis matches sh-mini-md (atlikėjo kortelės dydis):
-           82px wide, image-zone aukštis (~74px) + label area, centered.
-           Be rodyklių — paprastas card su "Daugiau" tekstu centre. */
+        /* "+ {count}" kaip last card horizontal scroll juostos gale —
+           tile dydis matches sh-mini-md (atlikėjo kortelės plotis 82px),
+           rodo bendrą atlikėjų skaičių DB'je (atsinaujinia su SWR cache). */
         .sh-more-tile {
           flex: 0 0 82px;
           width: 82px;
           align-self: stretch;
           display: flex;
+          flex-direction: column;
           align-items: center;
           justify-content: center;
+          gap: 2px;
           padding: 6px;
           border-radius: 10px;
           background: rgba(249, 115, 22, 0.10);
@@ -1177,7 +1193,6 @@ export function SiteHeader() {
           text-decoration: none;
           color: var(--accent-orange);
           font-family: 'Outfit', sans-serif;
-          font-size: 13px; font-weight: 700;
           text-align: center;
           transition: background .15s, border-color .15s;
         }
@@ -1185,6 +1200,25 @@ export function SiteHeader() {
           background: rgba(249, 115, 22, 0.20);
           border-color: rgba(249, 115, 22, 0.65);
         }
+        .sh-more-tile-plus {
+          font-size: 22px;
+          font-weight: 700;
+          line-height: 1;
+          opacity: 0.75;
+        }
+        .sh-more-tile-count {
+          font-size: 13px;
+          font-weight: 800;
+          letter-spacing: -0.01em;
+          line-height: 1.1;
+        }
+        /* Desktop XL versija — matches sh-mini-xl atlikėjo plotis (116px) */
+        .sh-more-tile-xl {
+          flex-basis: 116px;
+          width: 116px;
+        }
+        .sh-more-tile-xl .sh-more-tile-plus { font-size: 28px; }
+        .sh-more-tile-xl .sh-more-tile-count { font-size: 15px; }
         /* Mobile style kortelės — kompaktiškesnės nei desktop'o (kad
            neužimtų daugiau vietos nei atlikėjai) */
         .sh-style-card-mobile {

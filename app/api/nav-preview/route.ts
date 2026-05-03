@@ -18,7 +18,7 @@ export async function GET() {
   const supabase = createAdminClient()
 
   try {
-    const [artistsLtRes, artistsWorldRes, albumsRes, tracksRes, eventsRes, newsRes, genresRes] = await Promise.all([
+    const [artistsLtRes, artistsWorldRes, albumsRes, tracksRes, eventsRes, newsRes, genresRes, ltCountRes, worldCountRes] = await Promise.all([
       // (genres pridėtas paskutinis — žr. apačioje)
       // 12 LT atlikėjų pagal score (su scroll'u juostoje)
       supabase
@@ -78,6 +78,18 @@ export async function GET() {
         .from('genres')
         .select('id, name, cover_image_url')
         .order('name'),
+
+      // LT atlikėjų skaičius (DB total) — naudojamas Daugiau tile'ui
+      supabase
+        .from('artists')
+        .select('id', { count: 'exact', head: true })
+        .eq('country', 'Lietuva'),
+
+      // Užsienio atlikėjų skaičius
+      supabase
+        .from('artists')
+        .select('id', { count: 'exact', head: true })
+        .or('country.is.null,country.neq.Lietuva'),
     ])
 
     const payload = {
@@ -130,6 +142,11 @@ export async function GET() {
         acc[g.name] = g.cover_image_url || null
         return acc
       }, {} as Record<string, string | null>),
+      // Total atlikėjų DB skaičiai — Daugiau tile'ui (atsinaujinia su SWR cache)
+      counts: {
+        artistsLt:    ltCountRes.count || 0,
+        artistsWorld: worldCountRes.count || 0,
+      },
     }
 
     return NextResponse.json(payload, {
