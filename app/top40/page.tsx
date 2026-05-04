@@ -64,7 +64,7 @@ export default async function Top40Page() {
       title="TOP 40"
       badge="Pasaulinis topas"
       subtitle="Šios savaitės karščiausios pasaulinės muzikos dainos. Klausytojų balsai formuoja reitingą."
-      accent={{ hex: '#ef4444', rgb: 'rgba(239, 68, 68, 0.10)' }}
+      accent={{ hex: '#f97316', rgb: 'rgba(249, 115, 22, 0.10)' }}
       siblingHref="/top30"
       siblingLabel="Lietuviška TOP 30"
     />

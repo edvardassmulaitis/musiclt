@@ -329,8 +329,8 @@ function ChartRow({
 }
 
 /**
- * Weeks progress: 12 dot'eliai/dash'iukai. Filled count = weeks_in_top.
- * Vizualus indikatorius vietoj "5/12 sav." teksto.
+ * Weeks progress: tiek dash'ų kiek savaičių (1-12). Tiesioginis vizualus
+ * indikatorius — kiekvienas dash'as = viena savaitė tope.
  */
 function WeeksProgress({ weeks, accent }: { weeks: number; accent: ThemeAccent }) {
   const max = 12
@@ -340,8 +340,8 @@ function WeeksProgress({ weeks, accent }: { weeks: number; accent: ThemeAccent }
       {Array.from({ length: max }, (_, i) => (
         <span
           key={i}
-          className={`tcv-week-dot ${i < w ? 'filled' : ''}`}
-          style={{ background: i < w ? accent.hex : undefined }}
+          className="tcv-week-dot"
+          style={{ background: i < w ? accent.hex : 'var(--bg-elevated)', opacity: i < w ? 1 : 0.6 }}
         />
       ))}
     </span>
@@ -616,41 +616,78 @@ export default function TopChartView({
 
         /* Body grid */
         .tcv-body { display: grid; grid-template-columns: 1fr 340px; gap: 22px; align-items: start; }
+        /* ───────── MOBILE (< 880px) — agresyvus compact layout ───────── */
         @media (max-width: 880px) {
-          .tcv-wrap { padding: 20px 14px 60px; }
-          .tcv-body { grid-template-columns: 1fr; gap: 14px; }
-          /* Sidebar (player + naujienos) NEbeslepiamas — rodomas VIRŠ pagrindinio sąrašo */
-          .tcv-sticky { position: static; order: -1; display: flex; flex-direction: column; gap: 12px; }
-          .tcv-list-wrap { order: 0; }
+          .tcv-wrap { padding: 14px 12px 40px; }
 
-          /* Tighter row layout mobile */
-          .tcv-row { gap: 8px; padding: 8px 10px; }
-          .tcv-cover { width: 34px; height: 34px; border-radius: 7px; }
-          .tcv-pos { width: 22px; font-size: 14px; }
-          .tcv-pos.top { font-size: 16px; }
-          .tcv-trend { width: 26px; }
-          .tcv-track-title { font-size: 13px; }
-          .tcv-artist { font-size: 11px; }
+          /* Hero: column, tight, no subtitle */
+          .tcv-hero { flex-direction: column; align-items: flex-start; gap: 10px; margin-bottom: 12px; }
+          .tcv-title { font-size: 26px; }
+          .tcv-sub { display: none; }
+          .tcv-hero-right { flex-direction: row; align-items: center; gap: 10px; }
+          .tcv-suggest-btn { padding: 7px 12px; font-size: 12px; }
+
+          /* Status bar: tight, no divider lines */
+          .tcv-status { padding: 8px 10px; gap: 8px; flex-wrap: wrap; }
+          .tcv-status-divider { display: none; }
+          .tcv-status-item { font-size: 11px; }
+
+          /* Body: flex column (NE grid) — paprasčiau ir patikimiau */
+          .tcv-body { display: flex !important; flex-direction: column; gap: 10px; grid-template-columns: none; }
+          .tcv-sticky { position: static !important; order: -1; display: flex; flex-direction: column; gap: 10px; top: auto; }
+          .tcv-list-wrap { order: 0; gap: 10px; }
+
+          /* Player: small, hide stats/Spotify button */
+          .tcv-player-video { aspect-ratio: 16/9; }
+          .tcv-player-info { padding: 10px 12px; }
+          .tcv-player-pos { margin-bottom: 4px; gap: 8px; }
+          .tcv-player-title { font-size: 15px; line-height: 1.25; }
+          .tcv-player-artist { font-size: 12px; margin-bottom: 8px; }
+          .tcv-player-meta { display: none; }
+          .tcv-spotify-btn { display: none; }
+
+          /* Newcomers panel'is — compact, hint slėpiamas */
+          .tcv-newcomers-panel { padding: 10px 12px; }
+          .tcv-newcomers-hint { display: none; }
+          .tcv-newcomers-head { margin-bottom: 8px; }
+          .tcv-newcomer-row { padding: 5px 6px; gap: 8px; }
+          .tcv-newcomer-cover { width: 30px; height: 30px; border-radius: 6px; }
+          .tcv-newcomer-title { font-size: 12px; }
+          .tcv-newcomer-artist { font-size: 10px; }
+
+          /* Pagrindinė lentelė: tight rows */
+          .tcv-list { border-radius: 12px; }
+          .tcv-row { gap: 7px; padding: 7px 9px; }
+          .tcv-cover { width: 32px; height: 32px; border-radius: 6px; }
+          .tcv-pos { width: 20px; font-size: 13px; }
+          .tcv-pos.top { font-size: 15px; }
+          .tcv-trend { width: 22px; }
+          .tcv-up, .tcv-down { font-size: 10px; }
+          .tcv-new { font-size: 8px; padding: 2px 4px; }
+          .tcv-track-title { font-size: 12px; }
+          .tcv-artist { font-size: 10px; }
           .tcv-weeks-progress { gap: 1px; }
-          .tcv-week-dot { width: 4px; height: 2px; }
-          .tcv-vote-btn { padding: 5px 9px; }
+          .tcv-week-dot { width: 3px; height: 2px; border-radius: 1px; }
           .tcv-spotify-icon { display: none; }
+          .tcv-vote-btn { padding: 5px 8px; font-size: 11px; gap: 4px; }
+          .tcv-vote-label { display: none; }
+          .tcv-vote-mine { font-size: 10px; }
 
-          /* Newcomers panel'is full width */
-          .tcv-newcomers-panel { padding: 12px; }
-          .tcv-newcomer-row { padding: 6px 8px; gap: 8px; }
-          .tcv-newcomer-cover { width: 32px; height: 32px; }
-          .tcv-newcomer-title { font-size: 13px; }
-          .tcv-newcomer-artist { font-size: 11px; }
+          /* Below-top dashed wrap'as compact */
+          .tcv-list-below { padding: 4px; }
+          .tcv-section-header { gap: 8px; }
+          .tcv-section-label { font-size: 10px; }
+          .tcv-section-hint { font-size: 10px; }
+        }
 
-          /* Hero compact */
-          .tcv-hero { gap: 12px; margin-bottom: 16px; }
-          .tcv-hero-right { flex-direction: row; align-items: center; gap: 12px; }
-          .tcv-status { padding: 10px 12px; gap: 10px; }
-
-          /* Player smaller */
-          .tcv-player-info { padding: 12px 14px; }
-          .tcv-player-title { font-size: 16px; }
+        /* ───────── ULTRA SMALL (< 400px) — telpa visus iPhone'us ───────── */
+        @media (max-width: 400px) {
+          .tcv-row { gap: 6px; padding: 6px 8px; }
+          .tcv-cover { width: 28px; height: 28px; }
+          .tcv-pos { width: 18px; font-size: 12px; }
+          .tcv-trend { width: 20px; }
+          .tcv-vote-btn { padding: 4px 6px; }
+          .tcv-newcomer-cover { width: 26px; height: 26px; }
         }
 
         /* List */
@@ -839,16 +876,15 @@ export default function TopChartView({
         .tcv-input::placeholder { color: var(--text-muted); }
         .tcv-input:focus { border-color: ${accent.hex}; }
 
-        /* Weeks progress dots */
+        /* Weeks progress dashes (12 dash'eliai = max savaitės) */
         .tcv-weeks-progress {
           display: inline-flex; gap: 2px; align-items: center;
+          margin-left: 2px;
         }
         .tcv-week-dot {
-          width: 6px; height: 3px; border-radius: 1px;
-          background: var(--bg-elevated);
-          transition: background 0.2s;
+          width: 5px; height: 3px; border-radius: 1.5px;
+          transition: background 0.2s, opacity 0.2s;
         }
-        .tcv-week-dot.filled { /* background set inline by accent */ }
 
         /* List wrapper — apsiame tiek main top'as, tiek below-top sekcija */
         .tcv-list-wrap { display: flex; flex-direction: column; gap: 16px; }
