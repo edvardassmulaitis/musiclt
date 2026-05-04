@@ -745,9 +745,7 @@ export default function EntityCommentsBlock({
           }
           style={compact ? undefined : { fontSize: headerSize }}
         >
-          {title} {totalCount > 0 && (
-            <span className={compact ? 'ml-1 text-[var(--accent-orange)]' : 'ml-1 font-bold text-[var(--text-faint)]'}>{totalCount}</span>
-          )}
+          {title}
         </h3>
         <div className="flex items-center gap-1.5">
           <SortChip k="newest" label="Naujausi" />
