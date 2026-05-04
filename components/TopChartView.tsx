@@ -251,49 +251,79 @@ function SuggestModal({ onClose, topType }: { onClose: () => void; topType: stri
 }
 
 function VoteButton({
-  entry, weekId, onVoted, votedIds, votesRemaining, accent,
+  entry, weekId, onVoted, votesPerTrack, votesRemaining, accent, weeklyLimit,
 }: {
   entry: Entry; weekId: number;
   onVoted: (id: number) => void;
-  votedIds: number[]; votesRemaining: number;
+  votesPerTrack: Record<number, number>;
+  votesRemaining: number;
+  weeklyLimit: number;
   accent: ThemeAccent;
 }) {
-  const [loading, setLoading] = useState(false)
+  const [pulsing, setPulsing] = useState(false)
   const [err, setErr] = useState('')
+  const [bursts, setBursts] = useState<number[]>([]) // animated +1 bursts
   const trackId = entry.tracks?.id ?? -1
-  const voted = votedIds.includes(trackId)
+  const songVotes = votesPerTrack[trackId] || 0
+  const voted = songVotes > 0
+  const canVote = votesRemaining > 0 && trackId >= 0
+  const maxedOut = songVotes >= weeklyLimit
 
-  const handleVote = async (e: React.MouseEvent) => {
+  const handleVote = async (e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation()
-    if (voted || votesRemaining <= 0 || trackId < 0) return
-    setLoading(true)
-    const res = await fetch('/api/top/vote', {
+    if (!canVote || maxedOut) return
+
+    // Optimistic update
+    onVoted(trackId)
+
+    // Burst animation
+    const burstId = Date.now() + Math.random()
+    setBursts(b => [...b, burstId])
+    setTimeout(() => setBursts(b => b.filter(x => x !== burstId)), 800)
+
+    // Pulse heart
+    setPulsing(true)
+    setTimeout(() => setPulsing(false), 200)
+
+    // API call (don't wait for spinner)
+    fetch('/api/top/vote', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ track_id: trackId, week_id: weekId, vote_type: 'like' }),
+    }).then(async (res) => {
+      if (!res.ok) {
+        const data = await res.json()
+        setErr(data.error || 'Klaida')
+        setTimeout(() => setErr(''), 3000)
+        // Note: not reverting optimistic state — user will see correct on reload
+      }
+    }).catch(() => {
+      setErr('Tinklo klaida')
+      setTimeout(() => setErr(''), 3000)
     })
-    const data = await res.json()
-    if (res.ok) onVoted(trackId)
-    else { setErr(data.error || 'Klaida'); setTimeout(() => setErr(''), 3000) }
-    setLoading(false)
   }
 
   return (
-    <div style={{ position: 'relative', flexShrink: 0 }}>
+    <div className="tcv-vote-wrap" style={{ position: 'relative', flexShrink: 0 }}>
       {err && <div className="tcv-vote-err">{err}</div>}
+      {bursts.map(id => (
+        <div key={id} className="tcv-vote-burst" style={{ color: accent.hex }}>+1</div>
+      ))}
       <button
         onClick={handleVote}
-        disabled={voted || loading || (votesRemaining <= 0 && !voted)}
-        className={`tcv-vote-btn${voted ? ' voted' : ''}${!voted && votesRemaining <= 0 ? ' disabled' : ''}`}
+        disabled={!canVote || maxedOut}
+        className={`tcv-vote-btn${voted ? ' voted' : ''}${!canVote || maxedOut ? ' disabled' : ''}${pulsing ? ' pulsing' : ''}`}
         style={voted ? { color: accent.hex, borderColor: accent.hex, background: accent.rgb } : undefined}
+        title={maxedOut ? `Maks. ${weeklyLimit} balsų per dainą` : !canVote ? 'Limitas pasiektas' : 'Spausk dar — gali atiduoti iki 10 balsų vienai dainai'}
       >
-        {loading
-          ? <span className="tcv-spinner" />
-          : <svg width="13" height="13" viewBox="0 0 24 24" fill={voted ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.4">
-              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-            </svg>
-        }
-        <span className="tcv-vote-label">{voted ? 'Patiko' : 'Patinka'}</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill={voted ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.4">
+          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+        </svg>
+        {songVotes > 0 ? (
+          <span className="tcv-vote-count">{songVotes}</span>
+        ) : (
+          <span className="tcv-vote-label">Balsuoti</span>
+        )}
       </button>
     </div>
   )
@@ -319,10 +349,12 @@ export default function TopChartView({
   siblingLabel: string
 }) {
   const { data: session } = useSession()
-  const [votedIds, setVotedIds] = useState<number[]>([])
-  const [votesRemaining, setVotesRemaining] = useState(5)
+  const weeklyLimit = session ? 10 : 5
+  const [votesPerTrack, setVotesPerTrack] = useState<Record<number, number>>({})
+  const [votesRemaining, setVotesRemaining] = useState(weeklyLimit)
   const [showSuggest, setShowSuggest] = useState(false)
   const [activeEntry, setActiveEntry] = useState<Entry | null>(data.entries[0] ?? null)
+  const [suggestions, setSuggestions] = useState<Array<{ id: number; trackTitle: string; artistName: string }>>([])
 
   useEffect(() => { setActiveEntry(data.entries[0] ?? null) }, [data])
 
@@ -330,14 +362,26 @@ export default function TopChartView({
     if (!data.week) return
     const res = await fetch(`/api/top/vote?week_id=${data.week.id}`)
     const d = await res.json()
-    setVotedIds(d.voted_track_ids || [])
-    setVotesRemaining(d.votes_remaining ?? (session ? 10 : 5))
-  }, [data.week?.id, session])  // eslint-disable-line
+    setVotesPerTrack(d.votes_per_track || {})
+    setVotesRemaining(d.votes_remaining ?? weeklyLimit)
+  }, [data.week?.id, weeklyLimit])  // eslint-disable-line
+
+  const loadSuggestions = useCallback(async () => {
+    const res = await fetch(`/api/top/suggestions?status=approved&type=${topType}`)
+    const d = await res.json()
+    const items = (d.suggestions || []).map((s: any) => ({
+      id: s.id,
+      trackTitle: s.track?.title ?? '—',
+      artistName: s.track?.artist_name ?? '—',
+    }))
+    setSuggestions(items)
+  }, [topType])
 
   useEffect(() => { loadVoteStatus() }, [loadVoteStatus])
+  useEffect(() => { loadSuggestions() }, [loadSuggestions])
 
   const handleVoted = (id: number) => {
-    setVotedIds(p => [...p, id])
+    setVotesPerTrack(p => ({ ...p, [id]: (p[id] || 0) + 1 }))
     setVotesRemaining(p => Math.max(0, p - 1))
   }
 
@@ -478,17 +522,42 @@ export default function TopChartView({
           padding: 6px 12px; border-radius: 999px;
           font-size: 12px; font-weight: 700; cursor: pointer;
           border: 1px solid var(--border-subtle); background: var(--bg-elevated);
-          color: var(--text-secondary); transition: all 0.15s; flex-shrink: 0;
+          color: var(--text-secondary); transition: transform 0.1s, background 0.15s, border-color 0.15s, color 0.15s;
+          flex-shrink: 0;
+          -webkit-tap-highlight-color: transparent;
+          touch-action: manipulation;
+          user-select: none;
         }
-        .tcv-vote-btn:hover:not(.voted):not(.disabled) {
+        .tcv-vote-btn:hover:not(.disabled) {
           background: ${accent.rgb}; border-color: ${accent.hex}; color: ${accent.hex};
         }
-        .tcv-vote-btn.voted { cursor: default; }
+        .tcv-vote-btn:active:not(.disabled) { transform: scale(0.92); }
+        .tcv-vote-btn.pulsing { animation: tcv-pulse 0.2s ease-out; }
+        @keyframes tcv-pulse {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.15); }
+          100% { transform: scale(1); }
+        }
         .tcv-vote-btn.disabled { opacity: 0.4; cursor: not-allowed; }
+        .tcv-vote-count {
+          font-weight: 900; font-size: 13px; min-width: 12px; text-align: center;
+          font-variant-numeric: tabular-nums;
+        }
         .tcv-vote-err { position: absolute; bottom: calc(100% + 6px); right: 0; padding: 5px 10px; background: #fee2e2; color: #991b1b; font-size: 11px; border-radius: 6px; white-space: nowrap; z-index: 10; }
+        .tcv-vote-burst {
+          position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+          font-size: 14px; font-weight: 900; pointer-events: none;
+          animation: tcv-burst 0.8s ease-out forwards;
+          z-index: 5;
+        }
+        @keyframes tcv-burst {
+          0% { opacity: 0; transform: translate(-50%, 0) scale(0.5); }
+          20% { opacity: 1; transform: translate(-50%, -8px) scale(1.2); }
+          100% { opacity: 0; transform: translate(-50%, -28px) scale(0.9); }
+        }
         .tcv-spinner { width: 11px; height: 11px; border: 1.5px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: tcv-spin 0.6s linear infinite; }
         @keyframes tcv-spin { to { transform: rotate(360deg) } }
-        .tcv-vote-label { display: inline; }
+        .tcv-vote-label { display: inline; font-size: 11px; }
         @media (max-width: 520px) { .tcv-vote-label { display: none; } .tcv-votes-cell { display: none; } }
 
         /* Sticky player */
@@ -564,6 +633,40 @@ export default function TopChartView({
         .tcv-input { width: 100%; padding: 10px 13px; background: var(--bg-elevated); border: 1px solid var(--input-border); border-radius: 10px; color: var(--text-primary); font-size: 13px; outline: none; box-sizing: border-box; transition: border-color 0.15s; }
         .tcv-input::placeholder { color: var(--text-muted); }
         .tcv-input:focus { border-color: ${accent.hex}; }
+
+        /* Suggestions panel po player'iu */
+        .tcv-suggestions-panel {
+          margin-top: 14px;
+          background: var(--bg-surface); border: 1px solid var(--border-subtle);
+          border-radius: 14px; padding: 14px; overflow: hidden;
+        }
+        .tcv-suggestions-head {
+          display: flex; align-items: center; gap: 7px;
+          font-size: 11px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;
+          color: var(--text-muted); margin-bottom: 10px;
+        }
+        .tcv-suggestions-head svg { color: ${accent.hex}; }
+        .tcv-suggestions-list { display: flex; flex-direction: column; gap: 4px; }
+        .tcv-suggestion-row {
+          display: flex; align-items: center; gap: 9px; padding: 6px 8px;
+          border-radius: 8px; transition: background 0.15s;
+        }
+        .tcv-suggestion-row:hover { background: var(--bg-hover); }
+        .tcv-suggestion-cover {
+          width: 28px; height: 28px; border-radius: 6px; flex-shrink: 0;
+          background: var(--bg-elevated); display: flex; align-items: center; justify-content: center;
+          font-size: 12px; color: var(--text-muted);
+        }
+        .tcv-suggestion-info { flex: 1; min-width: 0; }
+        .tcv-suggestion-title { margin: 0; font-size: 12px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tcv-suggestion-artist { margin: 1px 0 0; font-size: 10px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tcv-suggestion-counter {
+          font-size: 9px; font-weight: 800; padding: 2px 5px; border-radius: 4px;
+          background: var(--bg-elevated); color: var(--text-muted);
+          border: 1px solid var(--border-subtle); flex-shrink: 0;
+          font-variant-numeric: tabular-nums;
+        }
+        .tcv-suggestions-more { margin: 8px 0 0; font-size: 10px; color: var(--text-muted); text-align: center; }
 
         .tcv-results { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
         .tcv-result-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 10px; cursor: pointer; transition: background 0.15s; width: 100%; }
@@ -679,7 +782,8 @@ export default function TopChartView({
                     {data.week && (
                       <VoteButton
                         entry={entry} weekId={data.week.id} accent={accent}
-                        onVoted={handleVoted} votedIds={votedIds} votesRemaining={votesRemaining}
+                        onVoted={handleVoted} votesPerTrack={votesPerTrack}
+                        votesRemaining={votesRemaining} weeklyLimit={weeklyLimit}
                       />
                     )}
                   </div>
@@ -689,6 +793,33 @@ export default function TopChartView({
 
             <div className="tcv-sticky">
               <Player entry={activeEntry} accent={accent} />
+
+              {/* Suggestions panel — laukiantys kandidatai būsimai savaitei */}
+              {suggestions.length > 0 && (
+                <div className="tcv-suggestions-panel">
+                  <div className="tcv-suggestions-head">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                    <span>Laukia patekimo ({suggestions.length})</span>
+                  </div>
+                  <div className="tcv-suggestions-list">
+                    {suggestions.slice(0, 8).map(s => (
+                      <div key={s.id} className="tcv-suggestion-row">
+                        <div className="tcv-suggestion-cover">♪</div>
+                        <div className="tcv-suggestion-info">
+                          <p className="tcv-suggestion-title">{s.trackTitle}</p>
+                          <p className="tcv-suggestion-artist">{s.artistName}</p>
+                        </div>
+                        <span className="tcv-suggestion-counter">0/12</span>
+                      </div>
+                    ))}
+                  </div>
+                  {suggestions.length > 8 && (
+                    <p className="tcv-suggestions-more">+{suggestions.length - 8} dar</p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
