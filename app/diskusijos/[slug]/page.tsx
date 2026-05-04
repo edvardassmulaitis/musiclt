@@ -1,7 +1,7 @@
 import { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase'
-import CommentsSection from '@/components/CommentsSection'
+import EntityCommentsBlock from '@/components/EntityCommentsBlock'
 import Link from 'next/link'
 
 interface Props {
@@ -91,7 +91,7 @@ export default async function DiscussionPage({ params }: Props) {
           {discussion.body}
         </div>
 
-        <CommentsSection
+        <EntityCommentsBlock
           entityType="discussion"
           entityId={discussion.id}
           title={`Atsakymai (${discussion.comment_count})`}

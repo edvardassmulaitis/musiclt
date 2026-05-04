@@ -65,7 +65,7 @@ type LegacyComment = {
 type AnyComment = ModernComment | LegacyComment
 
 type Props = {
-  entityType: 'track' | 'album' | 'artist'
+  entityType: 'track' | 'album' | 'artist' | 'discussion'
   entityId: number
   /** Optional — only needed if the legacy endpoint differs (currently same shape). */
   legacyEndpoint?: string
@@ -81,6 +81,53 @@ type Props = {
 
 function stripHtml(html?: string | null): string {
   return decodeEntities((html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim())
+}
+
+/** Extract YouTube video ID iš įvairių URL formų. */
+const YT_PATTERNS = [
+  /youtube\.com\/watch\?v=([A-Za-z0-9_-]{11})/i,
+  /youtu\.be\/([A-Za-z0-9_-]{11})/i,
+  /youtube\.com\/embed\/([A-Za-z0-9_-]{11})/i,
+  /youtube\.com\/shorts\/([A-Za-z0-9_-]{11})/i,
+]
+
+function extractYouTubeId(url: string): string | null {
+  for (const re of YT_PATTERNS) {
+    const m = url.match(re)
+    if (m) return m[1]
+  }
+  return null
+}
+
+/** Iš body teksto extract'ina ir grąžina chunks: text + youtube embeds.
+ *  Naudojama legacy forum komentarų rendering'e — music.lt seniau leido
+ *  inline YT embed'us, mūsų DB'oje saugoma kaip plain URL teksto viduje. */
+function splitBodyWithYouTube(body: string): Array<{ kind: 'text' | 'yt'; value: string }> {
+  if (!body) return []
+  // URL pattern — youtube/youtu.be ar shorts. Grąžinam tekstą + atskiri YT URL'ai.
+  const urlRe = /https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\/[^\s<>]+/gi
+  const out: Array<{ kind: 'text' | 'yt'; value: string }> = []
+  let lastIdx = 0
+  let m: RegExpExecArray | null
+  while ((m = urlRe.exec(body)) !== null) {
+    const url = m[0]
+    const ytId = extractYouTubeId(url)
+    if (ytId) {
+      // Tekstas iki URL
+      if (m.index > lastIdx) {
+        const before = body.slice(lastIdx, m.index)
+        if (before) out.push({ kind: 'text', value: before })
+      }
+      out.push({ kind: 'yt', value: ytId })
+      lastIdx = m.index + url.length
+    }
+  }
+  if (lastIdx < body.length) {
+    const tail = body.slice(lastIdx)
+    if (tail) out.push({ kind: 'text', value: tail })
+  }
+  if (out.length === 0) return [{ kind: 'text', value: body }]
+  return out
 }
 
 /** Decode the most common HTML entities that legacy music.lt comments
@@ -269,7 +316,11 @@ export default function EntityCommentsBlock({
   const [legacy, setLegacy] = useState<LegacyComment[] | null>(null)
   const [likedIds, setLikedIds] = useState<Set<number>>(new Set())
   const [likedLegacyIds, setLikedLegacyIds] = useState<Set<number>>(new Set())
-  const [sort, setSort] = useState<'newest' | 'oldest' | 'popular'>('newest')
+  // Diskusijos thread'uose chronologinis sort'as (forum konvencija) — visi
+  // kiti entity'ai pradeda nuo „newest".
+  const [sort, setSort] = useState<'newest' | 'oldest' | 'popular'>(
+    entityType === 'discussion' ? 'oldest' : 'newest'
+  )
   const [draft, setDraft] = useState('')
   const [posting, setPosting] = useState(false)
   const [replyTo, setReplyTo] = useState<{ id: number; name: string; text: string } | null>(null)
@@ -280,17 +331,22 @@ export default function EntityCommentsBlock({
   const [likersUsers, setLikersUsers] = useState<LikeUser[]>([])
   const draftRef = useRef<HTMLTextAreaElement | null>(null)
 
-  const legacyUrl = legacyEndpoint || `/api/${entityType}s/${entityId}/comments`
+  // Discussions yra unified — visi komentarai jau gyvena modern `comments`
+  // lentelėj (per backfill_unify_forum.py). Legacy endpoint praleidžiamas.
+  const skipLegacy = entityType === 'discussion'
+  const legacyUrl = legacyEndpoint || (skipLegacy ? null : `/api/${entityType}s/${entityId}/comments`)
+  // Discussion'ai gali turėti tūkstančius komentarų — pakeliam limit'ą.
+  const fetchLimit = entityType === 'discussion' ? 5000 : 200
 
   const reload = async () => {
     setError('')
     try {
       const [modernRes, legacyRes] = await Promise.all([
-        fetch(`/api/comments?entity_type=${entityType}&entity_id=${entityId}&sort=newest&limit=200`),
-        fetch(legacyUrl),
+        fetch(`/api/comments?entity_type=${entityType}&entity_id=${entityId}&sort=oldest&limit=${fetchLimit}`),
+        legacyUrl ? fetch(legacyUrl) : Promise.resolve(null),
       ])
       const modernData = await modernRes.json()
-      const legacyData = await legacyRes.json()
+      const legacyData = legacyRes ? await legacyRes.json() : { comments: [] }
       const modernList: ModernComment[] = (modernData.comments || []).map((c: any) => ({ ...c, source: 'modern' as const }))
       const legacyList: LegacyComment[] = (legacyData.comments || legacyData || []).map((c: any) => ({ ...c, source: 'legacy' as const }))
       setModern(modernList)
@@ -765,7 +821,23 @@ export default function EntityCommentsBlock({
                       className="mt-1 whitespace-pre-wrap break-words text-[var(--text-primary)]"
                       style={{ fontSize, lineHeight: 1.55 }}
                     >
-                      {rest}
+                      {splitBodyWithYouTube(rest).map((chunk, idx) => {
+                        if (chunk.kind === 'yt') {
+                          return (
+                            <div key={`yt-${idx}`} className="my-2 overflow-hidden rounded-md" style={{ aspectRatio: '16/9', maxWidth: 560 }}>
+                              <iframe
+                                src={`https://www.youtube.com/embed/${chunk.value}`}
+                                title="YouTube video"
+                                style={{ width: '100%', height: '100%', border: 0 }}
+                                loading="lazy"
+                                allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                              />
+                            </div>
+                          )
+                        }
+                        return <span key={`t-${idx}`}>{chunk.value}</span>
+                      })}
                     </div>
                     {/* Music attachments — chip strip su cover thumb +
                         title, click navigates į entity puslapį. */}
