@@ -41,7 +41,8 @@ export async function GET(req: Request) {
   const entityType = searchParams.get('entity_type')
   const entityId = searchParams.get('entity_id')
   const sort = searchParams.get('sort') || 'newest' // newest | oldest | popular
-  const limit = parseInt(searchParams.get('limit') || '100')
+  const limit = Math.min(parseInt(searchParams.get('limit') || '100'), 1000)
+  const offset = Math.max(0, parseInt(searchParams.get('offset') || '0'))
 
   const col = entityCol(entityType)
   if (!col || !entityId) return NextResponse.json({ comments: [] })
@@ -65,7 +66,7 @@ export async function GET(req: Request) {
     .from('comments')
     .select('id, parent_id, author_id, body, like_count, reported_count, is_deleted, created_at, updated_at, music_attachments, profiles:author_id(username, full_name, avatar_url, email)')
     .eq(col, parseInt(entityId))
-    .limit(limit)
+    .range(offset, offset + limit - 1)
 
   if (sort === 'oldest') query = query.order('created_at', { ascending: true })
   else if (sort === 'popular') query = query.order('like_count', { ascending: false }).order('created_at', { ascending: false })
@@ -78,7 +79,7 @@ export async function GET(req: Request) {
       .from('comments')
       .select('id, parent_id, author_id, body, like_count, reported_count, is_deleted, created_at, updated_at, profiles:author_id(username, full_name, avatar_url, email)')
       .eq(col, parseInt(entityId))
-      .limit(limit)
+      .range(offset, offset + limit - 1)
       .order('created_at', { ascending: sort === 'oldest' })
     data = fallback.data
     error = fallback.error

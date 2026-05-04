@@ -335,19 +335,37 @@ export default function EntityCommentsBlock({
   // lentelėj (per backfill_unify_forum.py). Legacy endpoint praleidžiamas.
   const skipLegacy = entityType === 'discussion'
   const legacyUrl = legacyEndpoint || (skipLegacy ? null : `/api/${entityType}s/${entityId}/comments`)
-  // Discussion'ai gali turėti tūkstančius komentarų — pakeliam limit'ą.
-  const fetchLimit = entityType === 'discussion' ? 5000 : 200
+  // PostgREST max-rows = 1000 per request; jei thread'as turi daugiau,
+  // paginate'inam batch'ais. Track/album komentarų paprastai < 200, tad
+  // paginate'inimo praktiškai nereikia.
+  const PAGE_SIZE = 1000
+  const PAGE_LIMIT = entityType === 'discussion' ? 50 : 1  // max 50k komentarų
 
   const reload = async () => {
     setError('')
     try {
-      const [modernRes, legacyRes] = await Promise.all([
-        fetch(`/api/comments?entity_type=${entityType}&entity_id=${entityId}&sort=oldest&limit=${fetchLimit}`),
+      const fetchAllModern = async (): Promise<ModernComment[]> => {
+        const all: ModernComment[] = []
+        for (let page = 0; page < PAGE_LIMIT; page++) {
+          const offset = page * PAGE_SIZE
+          // Diskusijoms imam oldest pirma kad reply'ai būtų tvarkingoj eilėj
+          const sortParam = entityType === 'discussion' ? 'oldest' : 'newest'
+          const r = await fetch(
+            `/api/comments?entity_type=${entityType}&entity_id=${entityId}&sort=${sortParam}&limit=${PAGE_SIZE}&offset=${offset}`,
+          )
+          const d = await r.json()
+          const batch: ModernComment[] = (d.comments || []).map((c: any) => ({ ...c, source: 'modern' as const }))
+          all.push(...batch)
+          if (batch.length < PAGE_SIZE) break  // last page
+        }
+        return all
+      }
+
+      const [modernList, legacyRes] = await Promise.all([
+        fetchAllModern(),
         legacyUrl ? fetch(legacyUrl) : Promise.resolve(null),
       ])
-      const modernData = await modernRes.json()
       const legacyData = legacyRes ? await legacyRes.json() : { comments: [] }
-      const modernList: ModernComment[] = (modernData.comments || []).map((c: any) => ({ ...c, source: 'modern' as const }))
       const legacyList: LegacyComment[] = (legacyData.comments || legacyData || []).map((c: any) => ({ ...c, source: 'legacy' as const }))
       setModern(modernList)
       setLegacy(legacyList)
