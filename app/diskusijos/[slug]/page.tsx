@@ -80,69 +80,108 @@ type MentionedTrack = {
   mention_count: number
 }
 
-/** Parsina visus comments šitam thread'ui, ieškant /lt/daina/.../{ID}/ URL'ų,
- *  groupuoja pagal track legacy_id, lookup'ina tracks lentelę.
- *  Limit'as: top 12 paminėtų track'ų. */
+/** Parsina visus comments šitam thread'ui dviem paraleliais kanalais:
+ *  1) modern komentarai per `music_attachments` JSONB (MusicSearchPicker'iu prikabintos dainos)
+ *  2) legacy komentarai per `/lt/daina/{slug}/{id}/` URL'us body tekste
+ *  Suaggregojam pagal track id (prefer'inam modern track.id; legacy ID'us
+ *  resolve'inam per tracks.legacy_id lookup'ą). Top 12 mentioned. */
 async function getMentionedTracks(discussionId: number): Promise<MentionedTrack[]> {
   const supabase = createAdminClient()
-  // Surenkam visus body'us su daina URL'u
-  const idCounts = new Map<number, number>()
+
+  // ── Modern: music_attachments JSONB rinkimas ──
+  // Atskiri ID'ai per attachment (modern šaltinis turi {id, type, slug, title, ...}).
+  const modernIdCounts = new Map<number, { count: number; preview: any }>()
+  // ── Legacy: legacy_id iš URL'ų ──
+  const legacyIdCounts = new Map<number, number>()
+
   let offset = 0
   const limit = 1000
   for (let page = 0; page < 50; page++) {
     const { data } = await supabase
       .from('comments')
-      .select('body')
+      .select('body, music_attachments')
       .eq('discussion_id', discussionId)
       .eq('is_deleted', false)
-      .ilike('body', '%/lt/daina/%')
+      .or('body.ilike.%/lt/daina/%,music_attachments.not.is.null')
       .range(offset, offset + limit - 1)
     if (!data || data.length === 0) break
-    for (const r of data as Array<{ body: string | null }>) {
+    for (const r of data as Array<{ body: string | null; music_attachments: any }>) {
+      // 1) Modern attachments
+      const atts = Array.isArray(r.music_attachments) ? r.music_attachments : null
+      if (atts) {
+        const seenInComment = new Set<number>()
+        for (const a of atts) {
+          if (a?.type === 'daina' && typeof a.id === 'number') {
+            if (seenInComment.has(a.id)) continue
+            seenInComment.add(a.id)
+            const cur = modernIdCounts.get(a.id)
+            if (cur) cur.count += 1
+            else modernIdCounts.set(a.id, { count: 1, preview: a })
+          }
+        }
+      }
+      // 2) Legacy URL-extracted IDs
       const body = r.body || ''
-      // Pattern'ai: /lt/daina/{slug}/{id}/ — paimam tik id'us
-      const re = /\/lt\/daina\/[^/\s]+\/(\d+)\//g
-      let m: RegExpExecArray | null
-      const seen = new Set<number>()  // per-comment dedupe (vienas useris vienam post'ui)
-      while ((m = re.exec(body)) !== null) {
-        const id = parseInt(m[1], 10)
-        if (!Number.isFinite(id) || seen.has(id)) continue
-        seen.add(id)
-        idCounts.set(id, (idCounts.get(id) || 0) + 1)
+      if (body.includes('/lt/daina/')) {
+        const re = /\/lt\/daina\/[^/\s]+\/(\d+)\//g
+        let m: RegExpExecArray | null
+        const seen = new Set<number>()
+        while ((m = re.exec(body)) !== null) {
+          const id = parseInt(m[1], 10)
+          if (!Number.isFinite(id) || seen.has(id)) continue
+          seen.add(id)
+          legacyIdCounts.set(id, (legacyIdCounts.get(id) || 0) + 1)
+        }
       }
     }
     if (data.length < limit) break
     offset += limit
   }
-  if (idCounts.size === 0) return []
-  // Sortuojam pagal mention count
-  const sorted = [...idCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12)
-  const legacyIds = sorted.map(([id]) => id)
-  const { data: tracks } = await supabase
-    .from('tracks')
-    .select('id,legacy_id,slug,title,cover_url,artists!tracks_artist_id_fkey(name,slug)')
-    .in('legacy_id', legacyIds)
-  const tracksMap = new Map<number, any>()
-  for (const t of (tracks || []) as any[]) {
-    if (t.legacy_id != null) tracksMap.set(t.legacy_id, t)
-  }
-  // Sukuriam ordering'ą pagal sorted, drop'inam tuos kurių neradom DB
-  return sorted
-    .map(([legacyId, mention_count]) => {
-      const t = tracksMap.get(legacyId)
-      if (!t) return null
-      return {
-        id: t.id as number,
-        legacy_id: t.legacy_id as number | null,
-        slug: t.slug as string,
-        title: t.title as string,
-        cover_url: t.cover_url as string | null,
+
+  // Lookup'inam track rows abiem rinkiniam (track.id ir track.legacy_id)
+  const modernIds = [...modernIdCounts.keys()]
+  const legacyIds = [...legacyIdCounts.keys()]
+
+  const lookups = await Promise.all([
+    modernIds.length
+      ? supabase.from('tracks').select('id,legacy_id,slug,title,cover_url,artists!tracks_artist_id_fkey(name,slug)').in('id', modernIds)
+      : Promise.resolve({ data: [] }),
+    legacyIds.length
+      ? supabase.from('tracks').select('id,legacy_id,slug,title,cover_url,artists!tracks_artist_id_fkey(name,slug)').in('legacy_id', legacyIds)
+      : Promise.resolve({ data: [] }),
+  ])
+
+  // Suaggregojam: track.id = canonical key
+  const merged = new Map<number, MentionedTrack>()
+  const addOrBump = (t: any, addCount: number) => {
+    if (!t) return
+    const key = t.id as number
+    const ex = merged.get(key)
+    if (ex) {
+      ex.mention_count += addCount
+    } else {
+      merged.set(key, {
+        id: t.id,
+        legacy_id: t.legacy_id ?? null,
+        slug: t.slug,
+        title: t.title,
+        cover_url: t.cover_url ?? null,
         artist_name: t.artists?.name || null,
         artist_slug: t.artists?.slug || null,
-        mention_count,
-      }
-    })
-    .filter(Boolean) as MentionedTrack[]
+        mention_count: addCount,
+      })
+    }
+  }
+  for (const t of (lookups[0].data || []) as any[]) {
+    const c = modernIdCounts.get(t.id)?.count || 0
+    if (c) addOrBump(t, c)
+  }
+  for (const t of (lookups[1].data || []) as any[]) {
+    const c = t.legacy_id != null ? (legacyIdCounts.get(t.legacy_id) || 0) : 0
+    if (c) addOrBump(t, c)
+  }
+
+  return [...merged.values()].sort((a, b) => b.mention_count - a.mention_count).slice(0, 12)
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {

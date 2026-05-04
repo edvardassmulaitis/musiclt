@@ -322,6 +322,12 @@ export default function EntityCommentsBlock({
   const [draft, setDraft] = useState('')
   const [posting, setPosting] = useState(false)
   const [replyTo, setReplyTo] = useState<{ id: number; name: string; text: string } | null>(null)
+  const [replyModalOpen, setReplyModalOpen] = useState(false)
+  const [replyDraft, setReplyDraft] = useState('')
+  const [replyAttached, setReplyAttached] = useState<AttachmentHit[]>([])
+  const [replyPickerOpen, setReplyPickerOpen] = useState(false)
+  const [replyPosting, setReplyPosting] = useState(false)
+  const [replyError, setReplyError] = useState('')
   const [error, setError] = useState('')
   const [attached, setAttached] = useState<AttachmentHit[]>([])
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -481,6 +487,59 @@ export default function EntityCommentsBlock({
       setError('Tinklo klaida.')
     } finally {
       setPosting(false)
+    }
+  }
+
+  /** Modal'inis reply submit — atskira nuo inline composer'io flow'o.
+   *  Naudoja replyDraft + replyAttached + replyTo state'us. Sėkmės atveju
+   *  uždaro modal'ą ir reload'ina komentarus (naujasis comment'as įrašytas
+   *  thread'e per parent_id linkavimą). */
+  const submitReply = async () => {
+    if (!session?.user?.id) {
+      setReplyError('Reikia prisijungti.')
+      return
+    }
+    if (!replyTo) {
+      setReplyError('Nieko atsakyti.')
+      return
+    }
+    const rawText = replyDraft.trim()
+    if (!rawText && replyAttached.length === 0) {
+      setReplyError('Įrašyk komentarą arba prikabink dainą.')
+      return
+    }
+    const finalText = rawText
+      ? `${replyTo.name} rašė:\n${replyTo.text.slice(0, 240)}\n\n${rawText}`
+      : `${replyTo.name} rašė:\n${replyTo.text.slice(0, 240)}\n\n`
+    setReplyPosting(true)
+    setReplyError('')
+    try {
+      const res = await fetch('/api/comments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          entity_type: entityType,
+          entity_id: entityId,
+          parent_id: replyTo.id && replyTo.id > 0 ? replyTo.id : null,
+          text: finalText,
+          attachments: replyAttached.length > 0 ? replyAttached : undefined,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setReplyError(data.error || 'Klaida.')
+        return
+      }
+      // Sėkmingai išsiuntė — uždaro modal'ą, reset state, reload (su smooth)
+      setReplyModalOpen(false)
+      setReplyTo(null)
+      setReplyDraft('')
+      setReplyAttached([])
+      reload()
+    } catch {
+      setReplyError('Tinklo klaida.')
+    } finally {
+      setReplyPosting(false)
     }
   }
 
@@ -959,8 +1018,11 @@ export default function EntityCommentsBlock({
                               name: author,
                               text: rest.slice(0, 240),
                             })
-                            requestAnimationFrame(() => draftRef.current?.focus())
-                            requestAnimationFrame(() => draftRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
+                            // Modal vietoj scroll'inimo į top — useris nepamesto pozicijos.
+                            setReplyDraft('')
+                            setReplyAttached([])
+                            setReplyError('')
+                            setReplyModalOpen(true)
                           }}
                           className="inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--text-muted)] transition-colors hover:text-[var(--accent-orange)]"
                         >
@@ -1073,6 +1135,126 @@ export default function EntityCommentsBlock({
         count={likersFor?.count || 0}
         users={likersUsers}
       />
+
+      {/* Reply modal — atsakant į komentarą, useris nepamesta scroll pozicijos.
+          Modal rodo parent quote + composer + send. Ctrl+Enter siunčia. */}
+      {replyModalOpen && replyTo && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-end justify-center sm:items-center"
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)' }}
+          onClick={(e) => { if (e.target === e.currentTarget) setReplyModalOpen(false) }}
+        >
+          <div
+            className="w-full max-w-xl overflow-hidden rounded-t-2xl sm:rounded-2xl"
+            style={{ background: 'var(--card-bg)', border: '1px solid var(--border-default)' }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
+              <div className="flex items-center gap-2 text-sm font-bold text-[var(--text-primary)]">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="9 14 4 9 9 4" /><path d="M20 20v-7a4 4 0 0 0-4-4H4" /></svg>
+                Atsakyti į {replyTo.name}
+              </div>
+              <button
+                type="button"
+                onClick={() => setReplyModalOpen(false)}
+                className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+                aria-label="Uždaryti"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Parent quote */}
+            <div className="px-4 pt-3">
+              <div className="rounded-lg border-l-[3px] border-[var(--accent-orange)] bg-[var(--bg-elevated)] px-3 py-2">
+                <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-secondary)]">
+                  {replyTo.name} rašė:
+                </div>
+                <div className="mt-1 line-clamp-4 text-[12px] italic text-[var(--text-muted)]">
+                  {replyTo.text}
+                </div>
+              </div>
+            </div>
+
+            {/* Composer */}
+            <div className="px-4 py-3">
+              <textarea
+                value={replyDraft}
+                onChange={(e) => setReplyDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !replyPosting) {
+                    e.preventDefault()
+                    submitReply()
+                  }
+                  if (e.key === 'Escape') setReplyModalOpen(false)
+                }}
+                placeholder="Tavo atsakymas…"
+                rows={4}
+                autoFocus
+                className="w-full resize-y rounded-lg border border-[var(--border-default)] bg-[var(--bg-elevated)] px-3 py-2 text-[13px] text-[var(--text-primary)] outline-none focus:border-[var(--accent-orange)]"
+              />
+
+              {/* Music attachments preview */}
+              {replyAttached.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {replyAttached.map((a, i) => (
+                    <div
+                      key={`${a.type}-${a.id}-${i}`}
+                      className="inline-flex items-center gap-1 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-2 py-1 text-[11px]"
+                    >
+                      <span className="text-[var(--accent-orange)]">♪</span>
+                      <span className="text-[var(--text-primary)]">{a.title}</span>
+                      <button
+                        type="button"
+                        onClick={() => setReplyAttached((prev) => prev.filter((_, idx) => idx !== i))}
+                        className="ml-1 text-[var(--text-faint)] hover:text-[var(--text-primary)]"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {replyError && (
+                <div className="mt-2 rounded-md border border-red-500/30 bg-red-500/10 px-2 py-1 text-[11px] text-red-400">
+                  {replyError}
+                </div>
+              )}
+
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => setReplyPickerOpen(true)}
+                  className="inline-flex items-center gap-1 rounded-full border border-[var(--border-default)] bg-[var(--bg-elevated)] px-3 py-1.5 text-[11px] font-bold text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]"
+                >
+                  ♪ Pridėti dainos
+                </button>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-[var(--text-faint)]">⌘+Enter siųsti</span>
+                  <button
+                    type="button"
+                    onClick={submitReply}
+                    disabled={replyPosting || (!replyDraft.trim() && replyAttached.length === 0)}
+                    className="rounded-full bg-[var(--accent-orange)] px-4 py-1.5 text-[12px] font-bold text-white shadow-md transition-opacity hover:opacity-90 disabled:opacity-40"
+                  >
+                    {replyPosting ? 'Siunčia…' : 'Siųsti'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Music picker modal — atskirai nuo reply modal'o (z-index aukščiau) */}
+          <MusicSearchModal
+            open={replyPickerOpen}
+            onClose={() => setReplyPickerOpen(false)}
+            attached={replyAttached}
+            onAdd={(hit) => setReplyAttached((a) => [...a, hit])}
+            onRemove={(idx) => setReplyAttached((a) => a.filter((_, i) => i !== idx))}
+          />
+        </div>
+      )}
     </section>
   )
 }
