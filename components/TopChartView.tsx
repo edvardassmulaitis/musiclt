@@ -554,7 +554,16 @@ export default function TopChartView({
         .tcv-wrap {
           max-width: 1180px; margin: 0 auto; padding: 36px 20px 80px;
           color: var(--text-primary);
+          overflow-x: hidden;        /* APSAUGA — niekas neturi išlįsti horizontaliai */
+          box-sizing: border-box;
+          width: 100%;
         }
+        .tcv-wrap *, .tcv-wrap *::before, .tcv-wrap *::after { box-sizing: border-box; }
+        /* Min-width 0 leidžia flex/grid vaikams traukti'is be horizontal overflow'o */
+        .tcv-row, .tcv-newcomer-row, .tcv-info, .tcv-newcomer-info,
+        .tcv-track-meta, .tcv-track-title, .tcv-newcomer-title,
+        .tcv-newcomer-artist, .tcv-artist, .tcv-list, .tcv-list-wrap,
+        .tcv-body, .tcv-sticky, .tcv-player, .tcv-newcomers-panel { min-width: 0; }
 
         /* Hero */
         .tcv-hero { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; flex-wrap: wrap; margin-bottom: 24px; }
@@ -620,29 +629,41 @@ export default function TopChartView({
         @media (max-width: 880px) {
           .tcv-wrap { padding: 14px 12px 40px; }
 
-          /* Hero: column, tight, no subtitle */
-          .tcv-hero { flex-direction: column; align-items: flex-start; gap: 10px; margin-bottom: 12px; }
-          .tcv-title { font-size: 26px; }
+          /* Hero: row layout — title on left, action icons on right */
+          .tcv-hero { flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; flex-wrap: nowrap; }
+          .tcv-hero-left { flex: 1 1 auto; min-width: 0; }
+          .tcv-badge { font-size: 9px; padding: 3px 7px; }
+          .tcv-title { font-size: 22px; line-height: 1; }
           .tcv-sub { display: none; }
-          .tcv-hero-right { flex-direction: row; align-items: center; gap: 10px; }
-          .tcv-suggest-btn { padding: 7px 12px; font-size: 12px; }
+          .tcv-hero-right { flex: 0 0 auto; flex-direction: row; align-items: center; gap: 6px; }
+          /* Suggest: icon only on mobile */
+          .tcv-suggest-btn { padding: 7px 9px; }
+          .tcv-suggest-label { display: none; }
+          /* Sibling link: tiny */
+          .tcv-sibling-link { font-size: 10px; padding: 5px 8px; white-space: nowrap; }
 
-          /* Status bar: tight, no divider lines */
-          .tcv-status { padding: 8px 10px; gap: 8px; flex-wrap: wrap; }
+          /* Status bar: tight, single row, no divider lines */
+          .tcv-status { padding: 7px 10px; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
           .tcv-status-divider { display: none; }
-          .tcv-status-item { font-size: 11px; }
+          .tcv-status-item { font-size: 11px; gap: 4px; }
+          .tcv-countdown-pill { padding: 3px 7px; font-size: 10px; }
+          .tcv-guest-bar { padding: 7px 10px; font-size: 11px; margin-bottom: 10px; }
 
           /* Body: flex column (NE grid) — paprasčiau ir patikimiau */
           .tcv-body { display: flex !important; flex-direction: column; gap: 10px; grid-template-columns: none; }
           .tcv-sticky { position: static !important; order: -1; display: flex; flex-direction: column; gap: 10px; top: auto; }
           .tcv-list-wrap { order: 0; gap: 10px; }
 
-          /* Player: small, hide stats/Spotify button */
-          .tcv-player-video { aspect-ratio: 16/9; }
-          .tcv-player-info { padding: 10px 12px; }
-          .tcv-player-pos { margin-bottom: 4px; gap: 8px; }
-          .tcv-player-title { font-size: 15px; line-height: 1.25; }
-          .tcv-player-artist { font-size: 12px; margin-bottom: 8px; }
+          /* Player: COMPACT — mažesnis thumbnail, single-line info */
+          .tcv-player { border-radius: 12px; }
+          .tcv-player-video { aspect-ratio: 16/9; max-height: 200px; }
+          .tcv-play-btn { width: 40px; height: 40px; }
+          .tcv-play-btn svg { width: 14px; height: 14px; }
+          .tcv-player-info { padding: 8px 10px; }
+          .tcv-player-pos { margin-bottom: 2px; gap: 6px; }
+          .tcv-pos-num { font-size: 12px; }
+          .tcv-player-title { font-size: 14px; line-height: 1.25; margin: 0 0 2px; }
+          .tcv-player-artist { font-size: 11px; margin-bottom: 0; }
           .tcv-player-meta { display: none; }
           .tcv-spotify-btn { display: none; }
 
@@ -1008,9 +1029,14 @@ export default function TopChartView({
             <p className="tcv-sub">{subtitle}</p>
           </div>
           <div className="tcv-hero-right">
-            <button className="tcv-suggest-btn" onClick={() => setShowSuggest(true)}>
+            <button
+              className="tcv-suggest-btn"
+              onClick={() => setShowSuggest(true)}
+              aria-label="Siūlyti dainą"
+              title="Siūlyti dainą"
+            >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-              Siūlyti dainą
+              <span className="tcv-suggest-label">Siūlyti dainą</span>
             </button>
             <Link href={siblingHref} className="tcv-sibling-link">
               {siblingLabel} →
