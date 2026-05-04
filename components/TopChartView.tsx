@@ -10,7 +10,7 @@
  *   - Two-column body: kairėje sąrašo eilutės, dešinėje YT preview
  * ────────────────────────────────────────────────────────────────── */
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 
@@ -44,6 +44,28 @@ function getYouTubeId(url: string | null): string | null {
   if (!url) return null
   const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/)
   return m ? m[1] : null
+}
+
+/**
+ * Cover image fallback chain:
+ *   1. YouTube thumbnail (jei video_url'as turi YT id)
+ *   2. track.cover_url (jei track turi savo cover'į, pvz. albumo art)
+ *   3. artist.cover_image_url (atlikėjo profilio nuotrauka)
+ *   4. null (UI rodys ♪ iconą)
+ */
+function getCoverUrl(track: Track | null): string | null {
+  if (!track) return null
+  const ytId = getYouTubeId(track.video_url)
+  if (ytId) return `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`
+  if (track.cover_url) return track.cover_url
+  if (track.artists?.cover_image_url) return track.artists.cover_image_url
+  return null
+}
+
+function TrackCover({ track, size = 36 }: { track: Track | null; size?: number }) {
+  const url = getCoverUrl(track)
+  if (url) return <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+  return <span style={{ fontSize: size > 30 ? 14 : 12, color: 'var(--text-muted)' }}>♪</span>
 }
 
 function Countdown({ targetDate }: { targetDate: string }) {
@@ -272,7 +294,7 @@ function ChartRow({
         <TrendIndicator curr={entry.position} prev={entry.prev_position} isNew={entry.is_new} />
       </div>
       <div className="tcv-cover">
-        {entry.tracks?.cover_url ? <img src={entry.tracks.cover_url} alt="" /> : '♪'}
+        <TrackCover track={entry.tracks} size={36} />
       </div>
       <div className="tcv-info">
         <p className="tcv-track-title">{entry.tracks?.title ?? '—'}</p>
@@ -282,8 +304,12 @@ function ChartRow({
               {entry.tracks.artists.name}
             </Link>
           ) : <span className="tcv-artist">—</span>}
-          <span className="tcv-dot">·</span>
-          <span className="tcv-weeks">{entry.weeks_in_top}/12 sav.</span>
+          {entry.weeks_in_top >= 1 && (
+            <>
+              <span className="tcv-dot">·</span>
+              <WeeksProgress weeks={entry.weeks_in_top} accent={accent} />
+            </>
+          )}
         </div>
       </div>
       {entry.tracks?.spotify_id && (
@@ -291,7 +317,6 @@ function ChartRow({
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" /></svg>
         </a>
       )}
-      <span className="tcv-votes-cell">{entry.total_votes}</span>
       {weekId > 0 && (
         <VoteButton
           entry={entry} weekId={weekId} accent={accent}
@@ -300,6 +325,26 @@ function ChartRow({
         />
       )}
     </div>
+  )
+}
+
+/**
+ * Weeks progress: 12 dot'eliai/dash'iukai. Filled count = weeks_in_top.
+ * Vizualus indikatorius vietoj "5/12 sav." teksto.
+ */
+function WeeksProgress({ weeks, accent }: { weeks: number; accent: ThemeAccent }) {
+  const max = 12
+  const w = Math.min(weeks, max)
+  return (
+    <span className="tcv-weeks-progress" title={`${w}/${max} sav. tope`}>
+      {Array.from({ length: max }, (_, i) => (
+        <span
+          key={i}
+          className={`tcv-week-dot ${i < w ? 'filled' : ''}`}
+          style={{ background: i < w ? accent.hex : undefined }}
+        />
+      ))}
+    </span>
   )
 }
 
@@ -319,13 +364,12 @@ function NewcomerRow({
       onClick={onClick}
     >
       <div className="tcv-newcomer-cover">
-        {entry.tracks?.cover_url ? <img src={entry.tracks.cover_url} alt="" /> : '♪'}
+        <TrackCover track={entry.tracks} size={36} />
       </div>
       <div className="tcv-newcomer-info">
         <p className="tcv-newcomer-title">{entry.tracks?.title ?? '—'}</p>
         <p className="tcv-newcomer-artist">{entry.tracks?.artists?.name ?? '—'}</p>
       </div>
-      <span className="tcv-newcomer-counter">0/12</span>
       {weekId > 0 && (
         <VoteButton
           entry={entry} weekId={weekId} accent={accent}
@@ -338,41 +382,32 @@ function NewcomerRow({
 }
 
 function VoteButton({
-  entry, weekId, onVoted, votesPerTrack, votesRemaining, accent, weeklyLimit,
+  entry, weekId, onVoted, votesPerTrack, accent, weeklyLimit,
 }: {
   entry: Entry; weekId: number;
   onVoted: (id: number) => void;
   votesPerTrack: Record<number, number>;
-  votesRemaining: number;
+  votesRemaining?: number;
   weeklyLimit: number;
   accent: ThemeAccent;
 }) {
-  const [pulsing, setPulsing] = useState(false)
   const [err, setErr] = useState('')
-  const [bursts, setBursts] = useState<number[]>([]) // animated +1 bursts
+  const [bursts, setBursts] = useState<number[]>([])
+  const [boosting, setBoosting] = useState(false)
   const trackId = entry.tracks?.id ?? -1
   const songVotes = votesPerTrack[trackId] || 0
   const voted = songVotes > 0
-  const canVote = votesRemaining > 0 && trackId >= 0
   const maxedOut = songVotes >= weeklyLimit
+  const holdTimer = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const handleVote = async (e: React.MouseEvent | React.TouchEvent) => {
-    e.stopPropagation()
-    if (!canVote || maxedOut) return
-
-    // Optimistic update
+  const sendVote = () => {
+    if (maxedOut || trackId < 0) return false
+    // Optimistic
     onVoted(trackId)
-
-    // Burst animation
     const burstId = Date.now() + Math.random()
     setBursts(b => [...b, burstId])
-    setTimeout(() => setBursts(b => b.filter(x => x !== burstId)), 800)
+    setTimeout(() => setBursts(b => b.filter(x => x !== burstId)), 700)
 
-    // Pulse heart
-    setPulsing(true)
-    setTimeout(() => setPulsing(false), 200)
-
-    // API call (don't wait for spinner)
     fetch('/api/top/vote', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -382,13 +417,46 @@ function VoteButton({
         const data = await res.json()
         setErr(data.error || 'Klaida')
         setTimeout(() => setErr(''), 3000)
-        // Note: not reverting optimistic state — user will see correct on reload
       }
     }).catch(() => {
       setErr('Tinklo klaida')
       setTimeout(() => setErr(''), 3000)
     })
+    return true
   }
+
+  const stopHold = () => {
+    if (holdTimer.current) {
+      clearInterval(holdTimer.current)
+      holdTimer.current = null
+    }
+    setBoosting(false)
+  }
+
+  const startHold = () => {
+    // Auto-vote every 280ms while held (klauso 1 click + accelerated spam)
+    holdTimer.current = setInterval(() => {
+      const ok = sendVote()
+      if (!ok) stopHold()
+    }, 280)
+    setTimeout(() => { if (holdTimer.current) setBoosting(true) }, 250)
+  }
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (maxedOut) return
+    sendVote()
+  }
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    e.stopPropagation()
+    if (maxedOut) return
+    startHold()
+  }
+  const onPointerUp = () => stopHold()
+  const onPointerLeave = () => stopHold()
+
+  useEffect(() => () => stopHold(), [])
 
   return (
     <div className="tcv-vote-wrap" style={{ position: 'relative', flexShrink: 0 }}>
@@ -397,17 +465,21 @@ function VoteButton({
         <div key={id} className="tcv-vote-burst" style={{ color: accent.hex }}>+1</div>
       ))}
       <button
-        onClick={handleVote}
-        disabled={!canVote || maxedOut}
-        className={`tcv-vote-btn${voted ? ' voted' : ''}${!canVote || maxedOut ? ' disabled' : ''}${pulsing ? ' pulsing' : ''}`}
-        style={voted ? { color: accent.hex, borderColor: accent.hex, background: accent.rgb } : undefined}
-        title={maxedOut ? `Maks. ${weeklyLimit} balsų per dainą` : !canVote ? 'Limitas pasiektas' : 'Spausk dar — gali atiduoti iki 10 balsų vienai dainai'}
+        onClick={handleClick}
+        onPointerDown={onPointerDown}
+        onPointerUp={onPointerUp}
+        onPointerLeave={onPointerLeave}
+        onContextMenu={e => e.preventDefault()}
+        disabled={maxedOut}
+        className={`tcv-vote-btn${voted ? ' voted' : ''}${maxedOut ? ' maxed' : ''}${boosting ? ' boosting' : ''}`}
+        style={voted ? { color: accent.hex, borderColor: accent.hex } : undefined}
+        title={maxedOut ? `Pasiektas maks. (${weeklyLimit}) balsų šiai dainai` : 'Spausk arba palaikyk — iki ' + weeklyLimit + ' balsų'}
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill={voted ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.4">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill={voted ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.4">
           <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
         </svg>
-        {songVotes > 0 ? (
-          <span className="tcv-vote-count">{songVotes}</span>
+        {voted ? (
+          <span className="tcv-vote-mine" aria-label="Tavo balsai">{songVotes}</span>
         ) : (
           <span className="tcv-vote-label">Balsuoti</span>
         )}
@@ -626,6 +698,21 @@ export default function TopChartView({
           font-weight: 900; font-size: 13px; min-width: 12px; text-align: center;
           font-variant-numeric: tabular-nums;
         }
+        .tcv-vote-mine {
+          font-weight: 800; font-size: 11px; min-width: 10px; text-align: center;
+          font-variant-numeric: tabular-nums; opacity: 0.85;
+        }
+        .tcv-vote-btn.boosting {
+          animation: tcv-boost 0.6s ease-out infinite;
+          box-shadow: 0 0 0 0 ${accent.rgb};
+        }
+        @keyframes tcv-boost {
+          0%   { box-shadow: 0 0 0 0 ${accent.rgb}; }
+          50%  { box-shadow: 0 0 0 6px ${accent.rgb}; }
+          100% { box-shadow: 0 0 0 0 ${accent.rgb}; }
+        }
+        .tcv-vote-btn.maxed { opacity: 0.5; cursor: not-allowed; }
+        .tcv-vote-btn.maxed:hover { background: var(--bg-elevated); border-color: var(--border-subtle); color: var(--text-secondary); }
         .tcv-vote-err { position: absolute; bottom: calc(100% + 6px); right: 0; padding: 5px 10px; background: #fee2e2; color: #991b1b; font-size: 11px; border-radius: 6px; white-space: nowrap; z-index: 10; }
         .tcv-vote-burst {
           position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
@@ -716,6 +803,17 @@ export default function TopChartView({
         .tcv-input { width: 100%; padding: 10px 13px; background: var(--bg-elevated); border: 1px solid var(--input-border); border-radius: 10px; color: var(--text-primary); font-size: 13px; outline: none; box-sizing: border-box; transition: border-color 0.15s; }
         .tcv-input::placeholder { color: var(--text-muted); }
         .tcv-input:focus { border-color: ${accent.hex}; }
+
+        /* Weeks progress dots */
+        .tcv-weeks-progress {
+          display: inline-flex; gap: 2px; align-items: center;
+        }
+        .tcv-week-dot {
+          width: 6px; height: 3px; border-radius: 1px;
+          background: var(--bg-elevated);
+          transition: background 0.2s;
+        }
+        .tcv-week-dot.filled { /* background set inline by accent */ }
 
         /* List wrapper — apsiame tiek main top'as, tiek below-top sekcija */
         .tcv-list-wrap { display: flex; flex-direction: column; gap: 16px; }
@@ -865,16 +963,16 @@ export default function TopChartView({
             </>
           )}
           <div className="tcv-status-divider" />
-          <div className="tcv-status-item tcv-votes-left">
+          <div className="tcv-status-item">
             <span style={{ color: 'var(--text-muted)' }}>Tavo balsai</span>
-            <strong>{votesRemaining}</strong>
-            <span style={{ color: 'var(--text-muted)' }}>/{session ? 10 : 5}</span>
+            <strong>iki {session ? 10 : 5}</strong>
+            <span style={{ color: 'var(--text-muted)' }}>per dainą</span>
           </div>
         </div>
 
         {!session && (
           <div className="tcv-guest-bar">
-            Balsuoji kaip svečias (5 balsai/sav.). <Link href="/auth/signin">Prisijunk</Link> ir gauk 10 balsų.
+            Balsuoji kaip svečias (iki 5 balsų vienai dainai). <Link href="/auth/signin">Prisijunk</Link> ir balsuok iki 10 už mėgstamas.
           </div>
         )}
 
