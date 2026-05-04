@@ -29,6 +29,7 @@ import { proxyImg } from '@/lib/img-proxy'
 import { type AttachmentHit } from './MusicSearchPicker'
 import MusicSearchModal from './MusicSearchModal'
 import LikesModal, { type LikeUser } from './LikesModal'
+import CommentEditor from './CommentEditor'
 import { relativeTime } from '@/lib/relative-time'
 
 type ModernComment = {
@@ -81,6 +82,15 @@ type Props = {
 
 function stripHtml(html?: string | null): string {
   return decodeEntities((html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim())
+}
+
+/** Detektuoja, ar body'is yra HTML formato (Tiptap output) ar plain tekstas
+ *  (legacy / paprastas vartotojo įvedinys). HTML požymis: bent vienas valid'us
+ *  block tag'as. Konzervatyviai — jei suabejojam, traktuojam kaip plain tekstą,
+ *  kad legacy komentarai būtų rendr'inami su YT auto-detect. */
+function looksLikeHtml(text: string): boolean {
+  if (!text) return false
+  return /<(p|div|br|strong|em|u|b|i|ul|ol|li|blockquote|iframe|a|h[1-6])\b[^>]*>/i.test(text)
 }
 
 /** Extract YouTube video ID iš įvairių URL formų. */
@@ -741,13 +751,12 @@ export default function EntityCommentsBlock({
       {/* Composer body — textarea full-width on top, action row below.
           Buttons sit on their own row underneath so the textarea can stay
           generously wide even on narrow modal columns. */}
-      <textarea
-        ref={draftRef}
+      <CommentEditor
         value={draft}
-        onChange={(e) => setDraft(e.target.value)}
+        onChange={setDraft}
         placeholder={replyTo ? `Atsakyti @${replyTo.name}...` : 'Tavo komentaras'}
-        rows={compact ? 3 : 3}
-        className="w-full resize-none rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-2.5 text-[13.5px] leading-snug text-[var(--text-primary)] outline-none transition-colors placeholder:text-[var(--text-faint)] focus:border-[var(--accent-orange)]"
+        onSubmit={submit}
+        minHeight={compact ? 60 : 80}
       />
       <div className="mt-2 flex items-center justify-between gap-2">
         <button
@@ -910,28 +919,41 @@ export default function EntityCommentsBlock({
                         </div>
                       </div>
                     )}
-                    <div
-                      className="mt-1 whitespace-pre-wrap break-words text-[var(--text-primary)]"
-                      style={{ fontSize, lineHeight: 1.55 }}
-                    >
-                      {splitBodyWithYouTube(rest).map((chunk, idx) => {
-                        if (chunk.kind === 'yt') {
-                          return (
-                            <div key={`yt-${idx}`} className="my-2 overflow-hidden rounded-md" style={{ aspectRatio: '16/9', maxWidth: 560 }}>
-                              <iframe
-                                src={`https://www.youtube.com/embed/${chunk.value}`}
-                                title="YouTube video"
-                                style={{ width: '100%', height: '100%', border: 0 }}
-                                loading="lazy"
-                                allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                allowFullScreen
-                              />
-                            </div>
-                          )
-                        }
-                        return <span key={`t-${idx}`}>{chunk.value}</span>
-                      })}
-                    </div>
+                    {/* Body render'is — du keliai:
+                        1) HTML komentaras (Tiptap output) — render via dangerouslySetInnerHTML
+                           su prose-like dark stiliais. Iframe'us, formatavimą laiko.
+                        2) Plain text (legacy) — splitBodyWithYouTube atpažįsta YT URL'us
+                           ir konvertuoja į embed'us, likusius kaip span. */}
+                    {looksLikeHtml(rest) ? (
+                      <div
+                        className="comment-html-body mt-1 break-words text-[var(--text-primary)]"
+                        style={{ fontSize, lineHeight: 1.55 }}
+                        dangerouslySetInnerHTML={{ __html: rest }}
+                      />
+                    ) : (
+                      <div
+                        className="mt-1 whitespace-pre-wrap break-words text-[var(--text-primary)]"
+                        style={{ fontSize, lineHeight: 1.55 }}
+                      >
+                        {splitBodyWithYouTube(rest).map((chunk, idx) => {
+                          if (chunk.kind === 'yt') {
+                            return (
+                              <div key={`yt-${idx}`} className="my-2 overflow-hidden rounded-md" style={{ aspectRatio: '16/9', maxWidth: 560 }}>
+                                <iframe
+                                  src={`https://www.youtube.com/embed/${chunk.value}`}
+                                  title="YouTube video"
+                                  style={{ width: '100%', height: '100%', border: 0 }}
+                                  loading="lazy"
+                                  allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                  allowFullScreen
+                                />
+                              </div>
+                            )
+                          }
+                          return <span key={`t-${idx}`}>{chunk.value}</span>
+                        })}
+                      </div>
+                    )}
                     {/* Music attachments — chip strip su cover thumb +
                         title, click navigates į entity puslapį. */}
                     {Array.isArray(c.music_attachments) && c.music_attachments.length > 0 && (
@@ -1141,12 +1163,18 @@ export default function EntityCommentsBlock({
       {replyModalOpen && replyTo && (
         <div
           className="fixed inset-0 z-[9999] flex items-end justify-center sm:items-center"
-          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)' }}
+          style={{ background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(8px)' }}
           onClick={(e) => { if (e.target === e.currentTarget) setReplyModalOpen(false) }}
         >
           <div
-            className="w-full max-w-xl overflow-hidden rounded-t-2xl sm:rounded-2xl"
-            style={{ background: 'var(--card-bg)', border: '1px solid var(--border-default)' }}
+            className="w-full max-w-xl overflow-hidden rounded-t-2xl sm:rounded-2xl shadow-2xl"
+            style={{
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border-default)',
+              // Forsuojam opaque'ą — kad ką tik puslapis būtų tamsesnis, arba theme
+              // nebūtų pilnai opaque'inis card-bg, modal'o turinys lieka skaitomas.
+              opacity: 1,
+            }}
           >
             {/* Header */}
             <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
@@ -1178,20 +1206,13 @@ export default function EntityCommentsBlock({
 
             {/* Composer */}
             <div className="px-4 py-3">
-              <textarea
+              <CommentEditor
                 value={replyDraft}
-                onChange={(e) => setReplyDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !replyPosting) {
-                    e.preventDefault()
-                    submitReply()
-                  }
-                  if (e.key === 'Escape') setReplyModalOpen(false)
-                }}
+                onChange={setReplyDraft}
                 placeholder="Tavo atsakymas…"
-                rows={4}
+                onSubmit={() => { if (!replyPosting) submitReply() }}
                 autoFocus
-                className="w-full resize-y rounded-lg border border-[var(--border-default)] bg-[var(--bg-elevated)] px-3 py-2 text-[13px] text-[var(--text-primary)] outline-none focus:border-[var(--accent-orange)]"
+                minHeight={100}
               />
 
               {/* Music attachments preview */}

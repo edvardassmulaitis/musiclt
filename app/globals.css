@@ -540,3 +540,46 @@ html, body {
   border: 1px solid var(--border-default);
   border-radius: 0.75rem;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Komentarų HTML body render'is (Tiptap output via dangerouslySetInnerHTML)
+   Tame pačiame elemente turi gražiai rodytis paragraphas, citata, sąrašai,
+   YT iframe ir nuoroda. Paprastas reset'as + spacing'as.
+   ═══════════════════════════════════════════════════════════════════ */
+.comment-html-body p { margin: 0 0 0.4em 0; }
+.comment-html-body p:last-child { margin-bottom: 0; }
+.comment-html-body strong, .comment-html-body b { font-weight: 700; }
+.comment-html-body em, .comment-html-body i { font-style: italic; }
+.comment-html-body u { text-decoration: underline; }
+.comment-html-body s { text-decoration: line-through; }
+.comment-html-body blockquote {
+  border-left: 3px solid var(--accent-orange);
+  padding-left: 0.6em;
+  color: var(--text-muted);
+  font-style: italic;
+  margin: 0.4em 0;
+}
+.comment-html-body ul, .comment-html-body ol {
+  padding-left: 1.2em;
+  margin: 0.3em 0;
+}
+.comment-html-body ul { list-style: disc; }
+.comment-html-body ol { list-style: decimal; }
+.comment-html-body a {
+  color: #60a5fa;
+  text-decoration: underline;
+  word-break: break-word;
+}
+.comment-html-body iframe {
+  width: 100%;
+  max-width: 480px;
+  aspect-ratio: 16/9;
+  border-radius: 6px;
+  border: 0;
+  margin: 0.5em 0;
+}
+.comment-html-body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
