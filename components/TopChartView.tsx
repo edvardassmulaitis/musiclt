@@ -616,7 +616,42 @@ export default function TopChartView({
 
         /* Body grid */
         .tcv-body { display: grid; grid-template-columns: 1fr 340px; gap: 22px; align-items: start; }
-        @media (max-width: 880px) { .tcv-body { grid-template-columns: 1fr; } .tcv-sticky { display: none; } }
+        @media (max-width: 880px) {
+          .tcv-wrap { padding: 20px 14px 60px; }
+          .tcv-body { grid-template-columns: 1fr; gap: 14px; }
+          /* Sidebar (player + naujienos) NEbeslepiamas — rodomas VIRŠ pagrindinio sąrašo */
+          .tcv-sticky { position: static; order: -1; display: flex; flex-direction: column; gap: 12px; }
+          .tcv-list-wrap { order: 0; }
+
+          /* Tighter row layout mobile */
+          .tcv-row { gap: 8px; padding: 8px 10px; }
+          .tcv-cover { width: 34px; height: 34px; border-radius: 7px; }
+          .tcv-pos { width: 22px; font-size: 14px; }
+          .tcv-pos.top { font-size: 16px; }
+          .tcv-trend { width: 26px; }
+          .tcv-track-title { font-size: 13px; }
+          .tcv-artist { font-size: 11px; }
+          .tcv-weeks-progress { gap: 1px; }
+          .tcv-week-dot { width: 4px; height: 2px; }
+          .tcv-vote-btn { padding: 5px 9px; }
+          .tcv-spotify-icon { display: none; }
+
+          /* Newcomers panel'is full width */
+          .tcv-newcomers-panel { padding: 12px; }
+          .tcv-newcomer-row { padding: 6px 8px; gap: 8px; }
+          .tcv-newcomer-cover { width: 32px; height: 32px; }
+          .tcv-newcomer-title { font-size: 13px; }
+          .tcv-newcomer-artist { font-size: 11px; }
+
+          /* Hero compact */
+          .tcv-hero { gap: 12px; margin-bottom: 16px; }
+          .tcv-hero-right { flex-direction: row; align-items: center; gap: 12px; }
+          .tcv-status { padding: 10px 12px; gap: 10px; }
+
+          /* Player smaller */
+          .tcv-player-info { padding: 12px 14px; }
+          .tcv-player-title { font-size: 16px; }
+        }
 
         /* List */
         .tcv-list {
@@ -837,13 +872,18 @@ export default function TopChartView({
           font-size: 13px;
         }
 
-        /* Newcomers panel — pominapintai, su vote mygtukais */
+        /* Newcomers panel — pominapintai, su vote mygtukais (švelnesnis stilius) */
         .tcv-newcomers-panel {
           margin-top: 14px;
-          background: var(--bg-surface);
-          border: 2px solid ${accent.hex};
-          border-radius: 16px; padding: 14px;
-          box-shadow: 0 8px 24px ${accent.rgb};
+          background: linear-gradient(180deg, var(--bg-surface), ${accent.rgb});
+          border: 1px solid var(--border-subtle);
+          border-radius: 14px; padding: 14px;
+          position: relative;
+        }
+        .tcv-newcomers-panel::before {
+          content: '';
+          position: absolute; top: 0; left: 14px; right: 14px; height: 2px;
+          background: ${accent.hex}; border-radius: 0 0 2px 2px;
         }
         .tcv-newcomers-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
         .tcv-newcomers-badge {
