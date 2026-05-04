@@ -6,18 +6,25 @@ import { getCurrentWeekMonday } from '@/lib/top-week'
 
 /**
  * Admin-only TESTAVIMO endpoint'as — paleidžia VISIŠKAI naują ciklą einamoje
- * kalendorinėje savaitėje (NE pakeičiant savaitės datos):
+ * kalendorinėje savaitėje (NE pakeičiant savaitės datos).
  *
- *   1. Pažymi savaitę kaip nefinalizuotą (is_finalized=false, total_votes=0)
- *   2. Pašalina visus balsus už šitą savaitę (top_votes)
- *   3. Egzistuojantiems entries'ams: position → prev_position (kad trend
- *      rodiklis (↑↓) veiktų sekančiame finalize), position=null, total_votes=0,
- *      is_new=false (jie nebenauji — buvo praeitam cikle)
- *   4. Naujus approved pasiūlymus perkelia į top_entries (is_new=true) ir
- *      pažymi pasiūlymus kaip 'used'
+ * Reset = "start of next week marker". Tai vienintelis vietas kur:
+ *   - weeks_in_top += 1 (kiekvienas Reset = nauja savaitė tope)
+ *   - is_new transition true → false (nebenauja po pirmo Reset'o)
+ *   - prev_position = current position (kad trend rodikliai veiktų)
  *
- * Po Reset'o admin gali iš karto eiti į /top40 balsuoti — nereikia papildomai
- * spausti "Įkelti patvirtintus".
+ * 12-savaičių max taisyklė: prieš increment'inant, pašalinam dainas, kurios
+ * jau pasiekė 12 (jos jau buvo finalize'intos 12 ciklus, dabar grąžinamos
+ * į archyvą). Voting'as 12-tam ciklui leidžiamas, bet tada song graduates.
+ *
+ * Veiksmai (eilės tvarka):
+ *   1. Pašalina entries kur weeks_in_top >= 12 (graduated)
+ *   2. Išvalo top_votes už šitą savaitę
+ *   3. Likę entries: weeks_in_top += 1, prev_position = current position,
+ *      is_new=false, total_votes=0
+ *   4. Naujus approved pasiūlymus perkelia į top_entries (weeks_in_top=1,
+ *      is_new=true, prev_position=null) ir pažymi 'used'
+ *   5. Pažymi savaitę kaip nefinalizuotą (is_finalized=false, total_votes=0)
  *
  * Body: { top_type: 'top40' | 'lt_top30' }
  */
@@ -43,19 +50,10 @@ export async function POST(req: Request) {
 
   if (!week) return NextResponse.json({ error: 'Einamosios savaitės įrašo nėra' }, { status: 404 })
 
-  // 2. Išvalyti visus balsus
-  const { error: votesErr } = await supabase
-    .from('top_votes')
-    .delete()
-    .eq('week_id', week.id)
-  if (votesErr) return NextResponse.json({ error: votesErr.message }, { status: 500 })
-
-  // 2b. Pagal 12-savaičių taisyklę pašalinti dainas, kurios jau buvo tope
-  //     daugiau nei 12 ciklų (graduated). weeks_in_top counter'is auga per
-  //     kiekvieną finalize, todėl >= 12 = ji jau buvo 12 finalize ciklų.
+  // 2a. Graduation: pašalinti dainas, kurios pasiekė 12 savaičių
   const { data: graduated } = await supabase
     .from('top_entries')
-    .select('id, track_id')
+    .select('id')
     .eq('week_id', week.id)
     .gte('weeks_in_top', 12)
 
@@ -69,13 +67,19 @@ export async function POST(req: Request) {
     graduatedCount = graduated.length
   }
 
-  // 3. Egzistuojantiems entries'ams (po graduation): position → prev_position
-  //    (kad trend rodiklis veiktų po sekančio finalize'o), total_votes=0,
-  //    is_new=false. PALIEKAME position'ą tą pačią — pre-finalize sortavimas
-  //    vyksta pagal total_votes, position perskaičiuojamas finalize'e.
+  // 2b. Išvalyti visus balsus už šitą savaitę
+  const { error: votesErr } = await supabase
+    .from('top_votes')
+    .delete()
+    .eq('week_id', week.id)
+  if (votesErr) return NextResponse.json({ error: votesErr.message }, { status: 500 })
+
+  // 3. Likusiems entries'ams: weeks_in_top += 1 (žymime "nauja savaitė tope"),
+  //    prev_position = current position (trend), total_votes=0, is_new=false.
+  //    PALIEKAME pačią `position` reikšmę (NOT NULL constraint, nesvarbu prefinalize).
   const { data: existingEntries } = await supabase
     .from('top_entries')
-    .select('id, position')
+    .select('id, position, weeks_in_top')
     .eq('week_id', week.id)
 
   if (existingEntries && existingEntries.length > 0) {
@@ -84,9 +88,9 @@ export async function POST(req: Request) {
         .from('top_entries')
         .update({
           total_votes: 0,
-          prev_position: e.position, // CARRY OVER — trend rodikliui
-          // position lieka kaip buvo (NOT NULL constraint, perskaičiuos finalize)
-          is_new: false, // jau buvo tope ankstesniame cikle
+          prev_position: e.position,                        // CARRY OVER trend
+          weeks_in_top: (e.weeks_in_top || 0) + 1,          // increment cycle
+          is_new: false,                                     // jau buvo tope
         })
         .eq('id', e.id)
     ))
@@ -102,7 +106,7 @@ export async function POST(req: Request) {
 
   let inserted = 0
   if (approved && approved.length > 0) {
-    // Patikrinti dublikatus — gali būti, kad approved daina jau ankstesniame cikle pateko į topą
+    // Patikrinti dublikatus
     const trackIds = approved.map(s => s.track_id)
     const { data: existingForTracks } = await supabase
       .from('top_entries')
@@ -114,11 +118,7 @@ export async function POST(req: Request) {
     const toInsert = approved.filter(s => !existingSet.has(s.track_id))
 
     if (toInsert.length > 0) {
-      // Pozicijos integer'iu: tęsiame nuo egzistuojančių entries kiekio
-      // (NOT NULL constraint). Pre-finalize sortavimas vyks pagal total_votes,
-      // o galutinė pozicija perskaičiuojama finalize'e.
-      const baseCount = existingEntries?.length || 0
-
+      const baseCount = (existingEntries?.length || 0)
       const { error: insertErr } = await supabase.from('top_entries').insert(
         toInsert.map((s, i) => ({
           week_id: week.id,
@@ -126,8 +126,8 @@ export async function POST(req: Request) {
           top_type,
           position: baseCount + i + 1, // bus perskaičiuota per finalize
           total_votes: 0,
-          is_new: true,                 // nauja tope
-          weeks_in_top: 1,
+          is_new: true,                  // nauja tope
+          weeks_in_top: 1,               // pirma savaitė tope
           peak_position: baseCount + i + 1,
         }))
       )
@@ -154,12 +154,12 @@ export async function POST(req: Request) {
     .eq('id', week.id)
   if (weekErr) return NextResponse.json({ error: weekErr.message }, { status: 500 })
 
-  const totalEntries = (existingEntries?.length || 0) + inserted
+  const totalEntries = ((existingEntries?.length || 0)) + inserted
 
   let msg = 'Naujas ciklas paleistas.'
   if (graduatedCount > 0) msg += ` Pašalinta po 12 sav. taisyklės: ${graduatedCount}.`
-  if (inserted > 0) msg += ` Pridėta naujų dainų: ${inserted}.`
-  if (existingEntries?.length) msg += ` Senų dainų liko: ${existingEntries.length} (su trend istorija).`
+  if (inserted > 0) msg += ` Pridėta naujų: ${inserted} (1/12 NEW).`
+  if (existingEntries?.length) msg += ` Senų liko: ${existingEntries.length} (++weeks_in_top, prev_position trendui).`
   msg += ` Iš viso tope: ${totalEntries}. Balsavimas atvertas.`
 
   return NextResponse.json({
