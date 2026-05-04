@@ -316,11 +316,9 @@ export default function EntityCommentsBlock({
   const [legacy, setLegacy] = useState<LegacyComment[] | null>(null)
   const [likedIds, setLikedIds] = useState<Set<number>>(new Set())
   const [likedLegacyIds, setLikedLegacyIds] = useState<Set<number>>(new Set())
-  // Diskusijos thread'uose chronologinis sort'as (forum konvencija) — visi
-  // kiti entity'ai pradeda nuo „newest".
-  const [sort, setSort] = useState<'newest' | 'oldest' | 'popular'>(
-    entityType === 'discussion' ? 'oldest' : 'newest'
-  )
+  const [sort, setSort] = useState<'newest' | 'oldest' | 'popular'>('newest')
+  const [loadedPages, setLoadedPages] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
   const [draft, setDraft] = useState('')
   const [posting, setPosting] = useState(false)
   const [replyTo, setReplyTo] = useState<{ id: number; name: string; text: string } | null>(null)
@@ -335,40 +333,34 @@ export default function EntityCommentsBlock({
   // lentelėj (per backfill_unify_forum.py). Legacy endpoint praleidžiamas.
   const skipLegacy = entityType === 'discussion'
   const legacyUrl = legacyEndpoint || (skipLegacy ? null : `/api/${entityType}s/${entityId}/comments`)
-  // PostgREST max-rows = 1000 per request; jei thread'as turi daugiau,
-  // paginate'inam batch'ais. Track/album komentarų paprastai < 200, tad
-  // paginate'inimo praktiškai nereikia.
-  const PAGE_SIZE = 1000
-  const PAGE_LIMIT = entityType === 'discussion' ? 50 : 1  // max 50k komentarų
+  // Diskusijos puslapis gali turėti tūkstančius komentarų — load'inam
+  // 100 vienu metu kad UI nesulėtėtų. Track/album turi mažiau, fetch'inam
+  // visus iš karto (200 limit).
+  const PAGE_SIZE = entityType === 'discussion' ? 100 : 200
+
+  const fetchPage = async (page: number, sortParam: string): Promise<ModernComment[]> => {
+    const offset = page * PAGE_SIZE
+    const r = await fetch(
+      `/api/comments?entity_type=${entityType}&entity_id=${entityId}&sort=${sortParam}&limit=${PAGE_SIZE}&offset=${offset}`,
+    )
+    const d = await r.json()
+    return (d.comments || []).map((c: any) => ({ ...c, source: 'modern' as const }))
+  }
 
   const reload = async () => {
     setError('')
+    setLoadedPages(1)
     try {
-      const fetchAllModern = async (): Promise<ModernComment[]> => {
-        const all: ModernComment[] = []
-        for (let page = 0; page < PAGE_LIMIT; page++) {
-          const offset = page * PAGE_SIZE
-          // Diskusijoms imam oldest pirma kad reply'ai būtų tvarkingoj eilėj
-          const sortParam = entityType === 'discussion' ? 'oldest' : 'newest'
-          const r = await fetch(
-            `/api/comments?entity_type=${entityType}&entity_id=${entityId}&sort=${sortParam}&limit=${PAGE_SIZE}&offset=${offset}`,
-          )
-          const d = await r.json()
-          const batch: ModernComment[] = (d.comments || []).map((c: any) => ({ ...c, source: 'modern' as const }))
-          all.push(...batch)
-          if (batch.length < PAGE_SIZE) break  // last page
-        }
-        return all
-      }
-
-      const [modernList, legacyRes] = await Promise.all([
-        fetchAllModern(),
+      const [firstPage, legacyRes] = await Promise.all([
+        fetchPage(0, sort),
         legacyUrl ? fetch(legacyUrl) : Promise.resolve(null),
       ])
       const legacyData = legacyRes ? await legacyRes.json() : { comments: [] }
       const legacyList: LegacyComment[] = (legacyData.comments || legacyData || []).map((c: any) => ({ ...c, source: 'legacy' as const }))
-      setModern(modernList)
+      setModern(firstPage)
       setLegacy(legacyList)
+      setHasMore(firstPage.length >= PAGE_SIZE)
+      const modernList = firstPage
       // Likes set — both modern + legacy
       const ids = modernList.map(c => c.id).join(',')
       const lids = legacyList.map(c => c.legacy_id).join(',')
@@ -389,7 +381,33 @@ export default function EntityCommentsBlock({
   useEffect(() => {
     reload()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entityType, entityId])
+  }, [entityType, entityId, sort])
+
+  /** Load next page of modern comments — append to existing list. */
+  const loadMore = async () => {
+    const nextPage = loadedPages
+    try {
+      const more = await fetchPage(nextPage, sort)
+      setModern(prev => [...(prev || []), ...more])
+      setLoadedPages(prev => prev + 1)
+      setHasMore(more.length >= PAGE_SIZE)
+      // Atnaujinam likes set su naujais ID'ais
+      const ids = more.map(c => c.id).join(',')
+      if (ids) {
+        try {
+          const lr = await fetch(`/api/comments/likes?ids=${ids}`)
+          const ld = await lr.json()
+          setLikedIds(prev => {
+            const next = new Set(prev)
+            for (const id of ld.liked_ids || []) next.add(id)
+            return next
+          })
+        } catch { /* silent */ }
+      }
+    } catch {
+      /* silent */
+    }
+  }
 
   // Fetch likers when modal opens
   useEffect(() => {
@@ -1024,6 +1042,18 @@ export default function EntityCommentsBlock({
             )
           })}
         </ul>
+      )}
+
+      {hasMore && sortedAll.length > 0 && (
+        <div className="mt-3 flex justify-center">
+          <button
+            type="button"
+            onClick={loadMore}
+            className="rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-4 py-1.5 text-xs font-bold text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+          >
+            Daugiau komentarų
+          </button>
+        </div>
       )}
 
       {/* Music attachment overlay modal — atskiras nuo composer'io taip,
