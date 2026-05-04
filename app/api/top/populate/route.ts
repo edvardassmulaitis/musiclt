@@ -5,15 +5,16 @@ import { authOptions } from '@/lib/auth'
 import { getCurrentWeekMonday } from '@/lib/top-week'
 
 /**
- * Admin-only testavimo endpoint'as.
+ * Admin-only mid-cycle force-promote endpoint'as testavimui.
  *
- * Įprastame flow'e patvirtinti pasiūlymai (`top_suggestions.status='approved'`)
- * pernešami į `top_entries` TIK kai cron'as pirmadienį/sekmadienį sukuria
- * naują savaitę (žr. `app/api/top/cron/route.ts`).
+ * Naudojamas tada, kai admin'as nori IŠ KARTO permesti suggestions queue
+ * į newcomers (be cycle rotation). Pasiūlymai tampa newcomers (weeks_in_top=0,
+ * is_new=true) ir jau dalyvauja balsavime.
  *
- * Šitas endpoint'as leidžia admin'ui force'inti šitą perkėlimą į DABARTINĘ
- * kalendorinę savaitę — testavimui (pasiūlymai → topas → balsavimas →
- * finalizavimas → reset → kartu vėl).
+ * Skirtumas nuo Reset:
+ *   - Reset = pilna cycle rotation (state transition + suggestions → newcomers)
+ *   - Populate = TIK suggestions → newcomers (be state transition).
+ *     Naudinga, kai admin'as nori pridėti newcomer'į vidury savaitės.
  *
  * Body: { top_type: 'top40' | 'lt_top30' }
  */
@@ -77,8 +78,8 @@ export async function POST(req: Request) {
       position: baseCount + i + 1,
       total_votes: 0,
       is_new: true,
-      weeks_in_top: 1,
-      peak_position: baseCount + i + 1,
+      weeks_in_top: 0,                    // NEWCOMER (ne iš karto į topą)
+      peak_position: null,
     }))
 
     const { error: insertErr } = await supabase.from('top_entries').insert(rows)
@@ -94,7 +95,7 @@ export async function POST(req: Request) {
   return NextResponse.json({
     inserted: toInsert.length,
     message: toInsert.length > 0
-      ? `Pridėta ${toInsert.length} dainų į dabartinę savaitę. Pasiūlymai pažymėti kaip 'used'.`
-      : 'Visi patvirtinti jau buvo tope. Pasiūlymai pažymėti kaip used.',
+      ? `Pridėta ${toInsert.length} naujienų (newcomers, 0/12). Pasiūlymai pažymėti kaip 'used'.`
+      : 'Visi patvirtinti jau buvo naujienose. Pasiūlymai pažymėti kaip used.',
   })
 }

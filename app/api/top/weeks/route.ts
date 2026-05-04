@@ -59,6 +59,8 @@ export async function GET(req: Request) {
         .not('track_id', 'is', null)
 
       if (approved && approved.length > 0) {
+        // Suggestions tampa NEWCOMERS (weeks_in_top=0), ne iš karto į topą.
+        // Tik po cycle rotation (Reset) jei pateks į top N — tampa "in top".
         await supabase.from('top_entries').insert(
           approved.map((s, i) => ({
             week_id: newWeek.id,
@@ -67,8 +69,8 @@ export async function GET(req: Request) {
             position: i + 1,
             total_votes: 0,
             is_new: true,
-            weeks_in_top: 1,
-            peak_position: i + 1,
+            weeks_in_top: 0,         // NEWCOMER
+            peak_position: null,
           }))
         )
 
