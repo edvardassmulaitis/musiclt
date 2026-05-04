@@ -235,7 +235,7 @@ function AdminTopInner() {
 
   const resetWeek = async () => {
     if (!activeWeek) return
-    if (!confirm('Paleisti naują ciklą einamoje savaitėje? Senos dainos liks (su prev_position trendui), naujos approved pateks į topą, balsai bus išvalyti.')) return
+    if (!confirm('Paleisti naują ciklą einamoje savaitėje? Senos top dainos liks (su prev_position trendui), balsai bus išvalyti. Pasiūlymai NESIPILS automatiškai — naudok „Įkelti patvirtintus" jeigu nori pakelti naujus į topą.')) return
     const res = await fetch('/api/top/reset', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -331,7 +331,7 @@ function AdminTopInner() {
               )}
               {/* Reset visada matomas — leidžia paleisti naują ciklą einamoje savaitėje */}
               <button onClick={resetWeek}
-                title="Paleidžia naują ciklą einamoje savaitėje: išvalo balsus, perkelia approved į topą, palieka senas dainas trendui"
+                title="Paleidžia naują ciklą einamoje savaitėje: išvalo balsus, palieka senas top dainas trendui. Pasiūlymai NESIPILS automatiškai — naudok „Įkelti patvirtintus""
                 className="px-4 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-xl text-xs font-bold transition-colors">
                 ↻ Naujas ciklas
               </button>

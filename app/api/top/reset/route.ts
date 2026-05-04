@@ -5,26 +5,27 @@ import { authOptions } from '@/lib/auth'
 import { getCurrentWeekMonday } from '@/lib/top-week'
 
 /**
- * Admin-only TESTAVIMO endpoint'as — paleidžia VISIŠKAI naują ciklą einamoje
+ * Admin-only TESTAVIMO endpoint'as — paleidžia naują ciklą einamoje
  * kalendorinėje savaitėje (NE pakeičiant savaitės datos).
  *
- * Reset = "start of next week marker". Tai vienintelis vietas kur:
+ * SVARBU: Reset NEPILDO naujų pasiūlymų į topą! Tai admin'o sprendimas.
+ * Suggestions lieka suggestions panel'e iki kol admin paspaudžia
+ * "Įkelti patvirtintus" (žr. /api/top/populate).
+ *
+ * Reset = "start of next week marker" tik egzistuojantiems top_entries:
  *   - weeks_in_top += 1 (kiekvienas Reset = nauja savaitė tope)
  *   - is_new transition true → false (nebenauja po pirmo Reset'o)
  *   - prev_position = current position (kad trend rodikliai veiktų)
  *
  * 12-savaičių max taisyklė: prieš increment'inant, pašalinam dainas, kurios
- * jau pasiekė 12 (jos jau buvo finalize'intos 12 ciklus, dabar grąžinamos
- * į archyvą). Voting'as 12-tam ciklui leidžiamas, bet tada song graduates.
+ * jau pasiekė 12 (graduated, eina į archyvą).
  *
  * Veiksmai (eilės tvarka):
  *   1. Pašalina entries kur weeks_in_top >= 12 (graduated)
  *   2. Išvalo top_votes už šitą savaitę
  *   3. Likę entries: weeks_in_top += 1, prev_position = current position,
  *      is_new=false, total_votes=0
- *   4. Naujus approved pasiūlymus perkelia į top_entries (weeks_in_top=1,
- *      is_new=true, prev_position=null) ir pažymi 'used'
- *   5. Pažymi savaitę kaip nefinalizuotą (is_finalized=false, total_votes=0)
+ *   4. Pažymi savaitę kaip nefinalizuotą (is_finalized=false, total_votes=0)
  *
  * Body: { top_type: 'top40' | 'lt_top30' }
  */
@@ -96,53 +97,9 @@ export async function POST(req: Request) {
     ))
   }
 
-  // 4. Perkelti naujus approved pasiūlymus į top_entries
-  const { data: approved } = await supabase
-    .from('top_suggestions')
-    .select('id, track_id')
-    .eq('top_type', top_type)
-    .eq('status', 'approved')
-    .not('track_id', 'is', null)
-
-  let inserted = 0
-  if (approved && approved.length > 0) {
-    // Patikrinti dublikatus
-    const trackIds = approved.map(s => s.track_id)
-    const { data: existingForTracks } = await supabase
-      .from('top_entries')
-      .select('track_id')
-      .eq('week_id', week.id)
-      .in('track_id', trackIds)
-
-    const existingSet = new Set((existingForTracks || []).map(e => e.track_id))
-    const toInsert = approved.filter(s => !existingSet.has(s.track_id))
-
-    if (toInsert.length > 0) {
-      const baseCount = (existingEntries?.length || 0)
-      const { error: insertErr } = await supabase.from('top_entries').insert(
-        toInsert.map((s, i) => ({
-          week_id: week.id,
-          track_id: s.track_id,
-          top_type,
-          position: baseCount + i + 1, // bus perskaičiuota per finalize
-          total_votes: 0,
-          is_new: true,                  // nauja tope
-          weeks_in_top: 1,               // pirma savaitė tope
-          peak_position: baseCount + i + 1,
-        }))
-      )
-      if (insertErr) return NextResponse.json({ error: insertErr.message }, { status: 500 })
-      inserted = toInsert.length
-    }
-
-    // Pažymėti VISUS approved pasiūlymus kaip 'used'
-    await supabase
-      .from('top_suggestions')
-      .update({ status: 'used' })
-      .in('id', approved.map(s => s.id))
-  }
-
-  // 5. Atstatyti savaitės būseną — nefinalizuota, balsų skaičius 0
+  // 4. Atstatyti savaitės būseną — nefinalizuota, balsų skaičius 0
+  //    PASTABA: Reset NEPILDO naujų pasiūlymų į topą! Tai daro tik admin
+  //    rankiniu būdu per "Įkelti patvirtintus" mygtuką (/api/top/populate).
   const { error: weekErr } = await supabase
     .from('top_weeks')
     .update({
@@ -154,19 +111,18 @@ export async function POST(req: Request) {
     .eq('id', week.id)
   if (weekErr) return NextResponse.json({ error: weekErr.message }, { status: 500 })
 
-  const totalEntries = ((existingEntries?.length || 0)) + inserted
+  const totalEntries = (existingEntries?.length || 0)
 
   let msg = 'Naujas ciklas paleistas.'
   if (graduatedCount > 0) msg += ` Pašalinta po 12 sav. taisyklės: ${graduatedCount}.`
-  if (inserted > 0) msg += ` Pridėta naujų: ${inserted} (1/12 NEW).`
-  if (existingEntries?.length) msg += ` Senų liko: ${existingEntries.length} (++weeks_in_top, prev_position trendui).`
-  msg += ` Iš viso tope: ${totalEntries}. Balsavimas atvertas.`
+  if (existingEntries?.length) msg += ` Topo dainos: ${existingEntries.length} (++weeks_in_top, prev_position trendui).`
+  else msg += ' Topas tuščias — pridėk pasiūlymų ir spausk „Įkelti patvirtintus" jas pakelti į topą.'
+  msg += ' Balsavimas atvertas.'
 
   return NextResponse.json({
     ok: true,
     message: msg,
     total: totalEntries,
-    new: inserted,
     graduated: graduatedCount,
   })
 }
