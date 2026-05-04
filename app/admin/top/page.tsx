@@ -331,7 +331,7 @@ function AdminTopInner() {
               )}
               {/* Reset visada matomas — leidžia paleisti naują ciklą einamoje savaitėje */}
               <button onClick={resetWeek}
-                title="Paleidžia naują ciklą einamoje savaitėje: išvalo balsus, palieka senas top dainas trendui. Pasiūlymai NESIPILS automatiškai — naudok „Įkelti patvirtintus""
+                title='Paleidžia naują ciklą einamoje savaitėje: išvalo balsus, palieka senas top dainas trendui. Pasiūlymai NESIPILS automatiškai — naudok "Įkelti patvirtintus"'
                 className="px-4 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-xl text-xs font-bold transition-colors">
                 ↻ Naujas ciklas
               </button>
