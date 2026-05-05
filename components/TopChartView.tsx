@@ -623,8 +623,22 @@ export default function TopChartView({
         }
         .tcv-guest-bar a { color: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
 
-        /* Body grid */
-        .tcv-body { display: grid; grid-template-columns: 1fr 340px; gap: 22px; align-items: start; }
+        /* Body — MOBILE FIRST: flex column, sticky-area first (top), list second (below) */
+        .tcv-body {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          width: 100%;
+        }
+        @media (min-width: 880px) {
+          .tcv-body {
+            flex-direction: row-reverse;     /* desktop'e sidebar dešinėje */
+            align-items: flex-start;
+            gap: 22px;
+          }
+          .tcv-sticky { flex: 0 0 320px; position: sticky; top: 80px; }
+          .tcv-list-wrap { flex: 1 1 auto; min-width: 0; width: 100%; }
+        }
         /* ───────── MOBILE (< 880px) — agresyvus compact layout ───────── */
         @media (max-width: 880px) {
           .tcv-wrap { padding: 14px 12px 40px; }
@@ -649,23 +663,46 @@ export default function TopChartView({
           .tcv-countdown-pill { padding: 3px 7px; font-size: 10px; }
           .tcv-guest-bar { padding: 7px 10px; font-size: 11px; margin-bottom: 10px; }
 
-          /* Body: flex column (NE grid) — paprasčiau ir patikimiau */
-          .tcv-body { display: flex !important; flex-direction: column; gap: 10px; grid-template-columns: none; }
-          .tcv-sticky { position: static !important; order: -1; display: flex; flex-direction: column; gap: 10px; top: auto; }
-          .tcv-list-wrap { order: 0; gap: 10px; }
+          /* Body: flex column (DOM order: sticky pirma → top, list antra → below) */
+          .tcv-sticky { position: static; display: flex; flex-direction: column; gap: 10px; top: auto; }
+          .tcv-list-wrap { gap: 10px; }
 
-          /* Player: COMPACT — mažesnis thumbnail, single-line info */
-          .tcv-player { border-radius: 12px; }
-          .tcv-player-video { aspect-ratio: 16/9; max-height: 200px; }
-          .tcv-play-btn { width: 40px; height: 40px; }
-          .tcv-play-btn svg { width: 14px; height: 14px; }
-          .tcv-player-info { padding: 8px 10px; }
-          .tcv-player-pos { margin-bottom: 2px; gap: 6px; }
-          .tcv-pos-num { font-size: 12px; }
-          .tcv-player-title { font-size: 14px; line-height: 1.25; margin: 0 0 2px; }
-          .tcv-player-artist { font-size: 11px; margin-bottom: 0; }
+          /* Player: HORIZONTAL compact card — thumbnail kairėje, info dešinėje */
+          .tcv-player {
+            border-radius: 12px;
+            display: flex;
+            flex-direction: row;
+            align-items: stretch;
+            min-height: 90px;
+          }
+          .tcv-player-video {
+            flex: 0 0 90px;
+            width: 90px;
+            height: 90px;
+            aspect-ratio: 1;
+            max-height: none;
+            border-radius: 12px 0 0 12px;
+            overflow: hidden;
+          }
+          .tcv-thumb-img { width: 100%; height: 100%; object-fit: cover; }
+          .tcv-play-btn { width: 32px; height: 32px; }
+          .tcv-play-btn svg { width: 12px; height: 12px; }
+          .tcv-player-info {
+            flex: 1 1 auto;
+            min-width: 0;
+            padding: 8px 12px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 2px;
+          }
+          .tcv-player-pos { margin-bottom: 0; gap: 6px; }
+          .tcv-pos-num { font-size: 11px; }
+          .tcv-player-title { font-size: 13px; line-height: 1.2; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+          .tcv-player-artist { font-size: 11px; margin-bottom: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
           .tcv-player-meta { display: none; }
           .tcv-spotify-btn { display: none; }
+          .tcv-player-empty .tcv-player-video { background: var(--bg-elevated); }
 
           /* Newcomers panel'is — compact, hint slėpiamas */
           .tcv-newcomers-panel { padding: 10px 12px; }
@@ -1086,58 +1123,7 @@ export default function TopChartView({
           </div>
         ) : (
           <div className="tcv-body">
-            <div className="tcv-list-wrap">
-              {/* MAIN TOP — pozicijos 1 iki TOP_SIZE */}
-              <div className="tcv-list">
-                {mainTop.map(entry => (
-                  <ChartRow
-                    key={entry.id}
-                    entry={entry}
-                    isActive={activeEntry?.id === entry.id}
-                    weekId={data.week?.id ?? 0}
-                    accent={accent}
-                    onClick={() => setActiveEntry(entry)}
-                    onVoted={handleVoted}
-                    votesPerTrack={votesPerTrack}
-                    votesRemaining={votesRemaining}
-                    weeklyLimit={weeklyLimit}
-                  />
-                ))}
-                {mainTop.length === 0 && newcomers.length > 0 && (
-                  <div className="tcv-empty-inline">
-                    <p>Topas dar formuojasi — naujienos kovoja už pirmas vietas →</p>
-                  </div>
-                )}
-              </div>
-
-              {/* BELOW TOP — iškritusios dainos (anksčiau buvo tope) */}
-              {belowTop.length > 0 && (
-                <>
-                  <div className="tcv-section-header">
-                    <span className="tcv-section-label">Iškritusios iš topo</span>
-                    <span className="tcv-section-hint">Anksčiau buvo tope, šią savaitę nepateko</span>
-                  </div>
-                  <div className="tcv-list tcv-list-below">
-                    {belowTop.map(entry => (
-                      <ChartRow
-                        key={entry.id}
-                        entry={entry}
-                        isActive={activeEntry?.id === entry.id}
-                        weekId={data.week?.id ?? 0}
-                        accent={accent}
-                        onClick={() => setActiveEntry(entry)}
-                        onVoted={handleVoted}
-                        votesPerTrack={votesPerTrack}
-                        votesRemaining={votesRemaining}
-                        weeklyLimit={weeklyLimit}
-                        dimmed
-                      />
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-
+            {/* DOM order: sticky FIRST (top na mobile, right na desktop). Be order: -1 — paprastas DOM order. */}
             <div className="tcv-sticky">
               <Player entry={activeEntry} accent={accent} />
 
@@ -1168,6 +1154,57 @@ export default function TopChartView({
                     ))}
                   </div>
                 </div>
+              )}
+            </div>
+
+            {/* MAIN LIST + BELOW (po sticky DOM order'yje) */}
+            <div className="tcv-list-wrap">
+              <div className="tcv-list">
+                {mainTop.map(entry => (
+                  <ChartRow
+                    key={entry.id}
+                    entry={entry}
+                    isActive={activeEntry?.id === entry.id}
+                    weekId={data.week?.id ?? 0}
+                    accent={accent}
+                    onClick={() => setActiveEntry(entry)}
+                    onVoted={handleVoted}
+                    votesPerTrack={votesPerTrack}
+                    votesRemaining={votesRemaining}
+                    weeklyLimit={weeklyLimit}
+                  />
+                ))}
+                {mainTop.length === 0 && newcomers.length > 0 && (
+                  <div className="tcv-empty-inline">
+                    <p>Topas dar formuojasi — naujienos kovoja už pirmas vietas →</p>
+                  </div>
+                )}
+              </div>
+
+              {belowTop.length > 0 && (
+                <>
+                  <div className="tcv-section-header">
+                    <span className="tcv-section-label">Iškritusios iš topo</span>
+                    <span className="tcv-section-hint">Anksčiau buvo tope, šią savaitę nepateko</span>
+                  </div>
+                  <div className="tcv-list tcv-list-below">
+                    {belowTop.map(entry => (
+                      <ChartRow
+                        key={entry.id}
+                        entry={entry}
+                        isActive={activeEntry?.id === entry.id}
+                        weekId={data.week?.id ?? 0}
+                        accent={accent}
+                        onClick={() => setActiveEntry(entry)}
+                        onVoted={handleVoted}
+                        votesPerTrack={votesPerTrack}
+                        votesRemaining={votesRemaining}
+                        weeklyLimit={weeklyLimit}
+                        dimmed
+                      />
+                    ))}
+                  </div>
+                </>
               )}
             </div>
           </div>
