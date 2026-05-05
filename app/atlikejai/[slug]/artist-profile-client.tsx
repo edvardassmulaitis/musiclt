@@ -374,6 +374,35 @@ function PlayerCard({
   const playerRef = useRef<any>(null)
   const [apiReady, setApiReady] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
+  // Embed-disabled videos: kanalo savininkas (pvz SelMusic) išjungę embed'ą
+  // trečioms šalims. YT.Player onError grąžina kodus 101 / 150 šitam case'ui.
+  // Saugom Set'ą per session — jei vienas video disabled, mes display'inam
+  // fallback iškart, neretrying'inam YT.Player kuris tik vėl meta klaidą.
+  const [embedDisabled, setEmbedDisabled] = useState<Set<string>>(new Set())
+  const isEmbedDisabled = !!displayVid && embedDisabled.has(displayVid)
+
+  // Pre-flight embeddable check — apsisaugom mobile case'e (kur YT.Player
+  // onError negaunamas, plain iframe'e tik juodas langas su YouTube error
+  // tekstu) ir greitesnis fallback'as desktop'e (nelaukiam YT.Player onError).
+  // Server route'as cache'ina rezultatus per HTTP — pakartotini požiūriai cheap.
+  useEffect(() => {
+    if (!displayVid) return
+    if (embedDisabled.has(displayVid)) return // jau pažymėta
+    let cancelled = false
+    fetch(`/api/yt/embeddable?videoId=${encodeURIComponent(displayVid)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (cancelled || !d) return
+        if (d.embeddable === false) {
+          setEmbedDisabled(s => {
+            if (s.has(displayVid)) return s
+            const next = new Set(s); next.add(displayVid); return next
+          })
+        }
+      })
+      .catch(() => { /* network klaida — paliekam optimistic, YT.Player onError dar gali pagauti */ })
+    return () => { cancelled = true }
+  }, [displayVid])
   // Mobile detection — Safari iOS / Android Chrome turi griežtas autoplay
   // taisykles: YT.Player(target) sukuriamas useEffect'e (po setState/render),
   // ne tap handler'yje, todėl gesture context prarastas → autoplay blokuojamas.
@@ -428,6 +457,9 @@ function PlayerCard({
     // Mobile'e nevartojam YT.Player JS API — vietoj jo renderinam plain
     // `<iframe>` JSX'e (žemiau). Šitas effect'as praleidžiamas mobile'e.
     if (isMobileVP) return
+    // Embed-disabled? — YT.Player crash'intų su 101/150; vietoj to fallback'as
+    // (rodom thumbnail + "Žiūrėti YouTube'e" CTA, žemiau JSX'e).
+    if (embedDisabled.has(displayVid)) return
     // Already have a player? Just resume — don't recreate.
     if (playerRef.current) {
       try { playerRef.current.playVideo?.() } catch {}
@@ -442,6 +474,7 @@ function PlayerCard({
     inner.style.height = '100%'
     containerRef.current.innerHTML = ''
     containerRef.current.appendChild(inner)
+    const vidAtCreate = displayVid // closure'inam — onError gali ateiti po video change
     playerRef.current = new W.YT.Player(inner, {
       videoId: displayVid,
       width: '100%',
@@ -462,10 +495,30 @@ function PlayerCard({
         onStateChange: (e: any) => {
           setIsPaused(!(e.data === 1 || e.data === 3))
         },
+        // YT error codes:
+        //   2   — invalid videoId
+        //   5   — HTML5 player error
+        //   100 — video not found / private / removed
+        //   101, 150 — embedding disabled by owner (Klaida 153 server-side)
+        onError: (e: any) => {
+          const code = e?.data
+          if (code === 101 || code === 150) {
+            // Pažymim kaip disabled, kad iškart fallback'inom + nerebuild'intume
+            // YT.Player'io tam pačiam video.
+            setEmbedDisabled(s => {
+              if (s.has(vidAtCreate)) return s
+              const next = new Set(s); next.add(vidAtCreate); return next
+            })
+            // Naikinam pagedusį player'į, kad fallback overlay'us būtų matomas
+            try { playerRef.current?.destroy() } catch {}
+            playerRef.current = null
+            try { if (containerRef.current) containerRef.current.innerHTML = '' } catch {}
+          }
+        },
       },
     })
     // No cleanup — separate effects below manage destroy/pause.
-  }, [apiReady, playing, displayVid])
+  }, [apiReady, playing, displayVid, embedDisabled])
 
   // VIDEO CHANGE — destroy old player when displayVid changes, so the
   // create-effect above can build a new one for the new video.
@@ -547,7 +600,7 @@ function PlayerCard({
                 kovoti su Safari iOS autoplay'aus blokavimu, gesture
                 context'u, ar postMessage komandom. Simpler = bulletproof.
                 Desktop'as toliau naudoja YT.Player JS API per containerRef. */}
-            {isMobileVP && (
+            {isMobileVP && !isEmbedDisabled && (
               <iframe
                 key={`mobile-hero-${displayVid}`}
                 src={`https://www.youtube.com/embed/${displayVid}?playsinline=1&rel=0&modestbranding=1&iv_load_policy=3`}
@@ -558,7 +611,42 @@ function PlayerCard({
                 allowFullScreen
               />
             )}
-            <div ref={containerRef} className={isMobileVP ? 'hidden' : 'absolute inset-0 h-full w-full'} />
+            <div ref={containerRef} className={(isMobileVP || isEmbedDisabled) ? 'hidden' : 'absolute inset-0 h-full w-full'} />
+            {/* Fallback kai embed'as išjungtas (Klaida 153 / kodai 101, 150).
+                Rodom thumbnail + "Žiūrėti YouTube'e" CTA. Veikia tiek desktop
+                (po YT.Player onError), tiek mobile (po pre-flight check'o
+                jei pridėtas — kol kas mobile fallback'inasi tik per natural
+                YouTube error puslapį iframe'e). */}
+            {isEmbedDisabled && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black overflow-hidden">
+                {showThumb && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={`https://i.ytimg.com/vi/${displayVid}/hqdefault.jpg`}
+                    alt=""
+                    referrerPolicy="no-referrer"
+                    className="absolute inset-0 h-full w-full object-cover opacity-70"
+                  />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/40" />
+                <a
+                  href={`https://www.youtube.com/watch?v=${displayVid}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="relative z-10 flex flex-col items-center gap-3 text-white text-center px-6"
+                >
+                  <span className="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-red-600 shadow-[0_10px_40px_rgba(0,0,0,0.5)] ring-[6px] ring-white/10">
+                    <svg viewBox="0 0 24 24" width="32" height="32" fill="#fff" aria-hidden>
+                      <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/>
+                    </svg>
+                  </span>
+                  <div className="text-sm font-medium">Žiūrėti YouTube'e</div>
+                  <div className="text-xs text-white/70 max-w-xs">
+                    Šio video savininkas išjungęs įterpimą trečiose svetainėse
+                  </div>
+                </a>
+              </div>
+            )}
             {!isMobileVP && !playing && (
               <button
                 type="button"
@@ -3952,7 +4040,10 @@ export default function ArtistProfileClient({
   }
 
   return (
-    <div className="min-h-screen bg-[var(--bg-body)] font-['DM_Sans',system-ui,sans-serif] text-[var(--text-primary)] antialiased">
+    // route-enter: 280ms fade+slide-in kai loading.tsx (equalizer skeleton'as)
+    // pakeičiamas faktiniu content'u. Be šitos klasės swap'as matosi kaip
+    // abrupt blink — naudotojas pastebėjo, kad atrodo "lyg viskas persikrauna".
+    <div className="route-enter min-h-screen bg-[var(--bg-body)] font-['DM_Sans',system-ui,sans-serif] text-[var(--text-primary)] antialiased">
       <Hero
         artist={artist}
         heroImage={heroImage}
