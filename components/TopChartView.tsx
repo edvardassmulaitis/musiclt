@@ -552,14 +552,24 @@ export default function TopChartView({
   const [showSuggest, setShowSuggest] = useState(false)
   const [activeEntry, setActiveEntry] = useState<Entry | null>(data.entries[0] ?? null)
 
-  // Padalinam entries pagal state'ą:
-  //   - Newcomers: weeks_in_top === 0 (dar nepateko į topą)
-  //   - In top: weeks_in_top >= 1 ir position <= TOP_SIZE
-  //   - Below: weeks_in_top >= 1 ir position > TOP_SIZE (iškritusios)
+  // Padalinam entries pagal state'ą. POSITION yra primary skirstymo kriterijus —
+  // viskas, kas position > TOP_SIZE, eina į "iškritę" panel'į (nesvarbu kaip ten
+  // pakliuvo). weeks_in_top vis dar reikia atskirti naujienas nuo nuolat tope
+  // esančių dainų.
+  //
+  //   - Newcomers (NAUJIENOS): weeks_in_top = 0 IR position <= TOP_SIZE
+  //     (kovoja už pirmą savaitę tope)
+  //   - In top (TOP 1..N): weeks_in_top >= 1 IR position <= TOP_SIZE
+  //   - Below (IŠKRITĘ): position > TOP_SIZE (bet kokia priežastis: fell out,
+  //     buvo populate'inta bet liko outside, etc.)
   const TOP_SIZE = topType === 'top40' ? 40 : 30
-  const newcomers = data.entries.filter(e => (e.weeks_in_top || 0) === 0)
-  const mainTop = data.entries.filter(e => (e.weeks_in_top || 0) >= 1 && (e.position || 0) <= TOP_SIZE)
-  const belowTop = data.entries.filter(e => (e.weeks_in_top || 0) >= 1 && (e.position || 0) > TOP_SIZE)
+  const newcomers = data.entries.filter(e =>
+    (e.weeks_in_top || 0) === 0 && (e.position || 0) <= TOP_SIZE
+  )
+  const mainTop = data.entries.filter(e =>
+    (e.weeks_in_top || 0) >= 1 && (e.position || 0) <= TOP_SIZE
+  )
+  const belowTop = data.entries.filter(e => (e.position || 0) > TOP_SIZE)
 
   useEffect(() => { setActiveEntry(data.entries[0] ?? null) }, [data])
 
