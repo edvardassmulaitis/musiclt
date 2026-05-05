@@ -31,6 +31,23 @@ export function getCurrentWeekMonday(now: Date = new Date()): string {
 }
 
 /**
+ * Sufetchinti VISUS LIVE balsų count'us savaitei (top_votes lentelė).
+ * Grąžina Map<track_id, count>. Naudoti pre-finalize sortavimui ir display'ui.
+ */
+export async function fetchLiveVotes(supabase: any, weekId: number): Promise<Map<number, number>> {
+  const { data: votes } = await supabase
+    .from('top_votes')
+    .select('track_id')
+    .eq('week_id', weekId)
+    .eq('vote_type', 'like')
+  const map = new Map<number, number>()
+  ;(votes || []).forEach((v: any) => {
+    map.set(v.track_id, (map.get(v.track_id) || 0) + 1)
+  })
+  return map
+}
+
+/**
  * Skaičiuoja vote_close timestamp einamai savaitei.
  *
  * top40 → sekmadienis 13:00 UTC (= 15/16:00 Vilniaus)

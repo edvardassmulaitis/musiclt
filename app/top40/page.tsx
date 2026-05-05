@@ -1,7 +1,7 @@
 import { Metadata } from 'next'
 import { createAdminClient } from '@/lib/supabase'
 import TopChartView, { type TopData } from '@/components/TopChartView'
-import { getCurrentWeekMonday } from '@/lib/top-week'
+import { getCurrentWeekMonday, fetchLiveVotes } from '@/lib/top-week'
 
 export const metadata: Metadata = {
   title: 'TOP 40 — Pasaulinės muzikos topas | music.lt',
@@ -26,18 +26,21 @@ async function getTopData(topType: string): Promise<TopData> {
   const { data: entries } = await supabase
     .from('top_entries')
     .select(`
-      id, position, prev_position, weeks_in_top, total_votes, is_new, peak_position,
+      id, position, prev_position, weeks_in_top, total_votes, is_new, peak_position, track_id,
       tracks:track_id (
         id, slug, title, cover_url, spotify_id, video_url,
         artists:artist_id ( id, slug, name, cover_image_url )
       )
     `)
     .eq('week_id', week.id)
-    .order(week.is_finalized ? 'position' : 'total_votes', { ascending: !!week.is_finalized })
+
+  // LIVE votes — pre-finalize: ranking pagal LIVE skaičių (ne stale total_votes)
+  const liveVotes = await fetchLiveVotes(supabase, week.id)
 
   const normalized = (entries || []).map((e: any) => ({
     ...e,
     tracks: Array.isArray(e.tracks) ? e.tracks[0] ?? null : e.tracks,
+    total_votes: liveVotes.get(e.track_id) ?? 0,
   })).map((e: any) => ({
     ...e,
     tracks: e.tracks ? {
@@ -46,8 +49,13 @@ async function getTopData(topType: string): Promise<TopData> {
     } : null,
   }))
 
-  // Atnaujinti pozicijas pagal balsus jei dar nefinalizuota
+  // Sort: finalized → pagal position; nefinalized → pagal LIVE balsus
   const finalized = !!week.is_finalized
+  if (finalized) {
+    normalized.sort((a, b) => (a.position || 999) - (b.position || 999))
+  } else {
+    normalized.sort((a, b) => (b.total_votes || 0) - (a.total_votes || 0))
+  }
   const withPositions = finalized
     ? normalized
     : normalized.map((e, i) => ({ ...e, position: i + 1 }))

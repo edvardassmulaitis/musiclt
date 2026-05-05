@@ -38,10 +38,30 @@ export async function GET(req: Request) {
     .from('top_entries')
     .select('id, position, prev_position, weeks_in_top, total_votes, is_new, peak_position, track_id')
     .eq('week_id', week.id)
-    .order(week.is_finalized ? 'position' : 'total_votes', { ascending: !!week.is_finalized })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   if (!entries?.length) return NextResponse.json({ entries: [], week })
+
+  // LIVE vote counts (top_votes lentelė) — reikia matyti realių balsų count'ą
+  // tiek admin'e, tiek public'e PRE-finalize. top_entries.total_votes
+  // atnaujinama tik per finalize_top_week RPC, todėl mid-week būna 0.
+  const { data: liveVotes } = await supabase
+    .from('top_votes')
+    .select('track_id')
+    .eq('week_id', week.id)
+    .eq('vote_type', 'like')
+
+  const liveVoteMap = new Map<number, number>()
+  ;(liveVotes || []).forEach((v: any) => {
+    liveVoteMap.set(v.track_id, (liveVoteMap.get(v.track_id) || 0) + 1)
+  })
+
+  // Sort: jei finalized — pagal position; kitaip — pagal LIVE balsus
+  if (week.is_finalized) {
+    entries.sort((a, b) => (a.position || 999) - (b.position || 999))
+  } else {
+    entries.sort((a, b) => (liveVoteMap.get(b.track_id) || 0) - (liveVoteMap.get(a.track_id) || 0))
+  }
 
   const trackIds = entries.map(e => e.track_id).filter(Boolean)
   const { data: tracks } = await supabase
@@ -62,6 +82,8 @@ export async function GET(req: Request) {
   const merged = entries.map((e, i) => ({
     ...e,
     position: e.position ?? (i + 1),
+    // total_votes: LIVE count'as iš top_votes (ne stale top_entries.total_votes)
+    total_votes: liveVoteMap.get(e.track_id) ?? 0,
     tracks: trackMap.get(e.track_id) ?? null,
   }))
 

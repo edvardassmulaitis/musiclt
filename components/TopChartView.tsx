@@ -117,9 +117,9 @@ function Player({ entry, accent }: { entry: Entry | null; accent: ThemeAccent })
       <div className="tcv-player-video">
         {playing && vid ? (
           <iframe
-            src={`https://www.youtube.com/embed/${vid}?autoplay=1&rel=0&modestbranding=1`}
+            src={`https://www.youtube.com/embed/${vid}?autoplay=1&playsinline=1&rel=0&modestbranding=1&enablejsapi=1`}
             style={{ width: '100%', height: '100%', border: 'none' }}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             allowFullScreen
           />
         ) : (
@@ -927,7 +927,8 @@ export default function TopChartView({
         .tcv-mode-tab { padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid var(--border-subtle); background: var(--bg-elevated); color: var(--text-muted); transition: all 0.15s; }
         .tcv-mode-tab.active { background: ${accent.hex}; color: #fff; border-color: ${accent.hex}; }
 
-        .tcv-input { width: 100%; padding: 10px 13px; background: var(--bg-elevated); border: 1px solid var(--input-border); border-radius: 10px; color: var(--text-primary); font-size: 13px; outline: none; box-sizing: border-box; transition: border-color 0.15s; }
+        /* font-size 16px butini, kitaip iOS Safari prizoominta input'ą fokuse */
+        .tcv-input { width: 100%; padding: 10px 13px; background: var(--bg-elevated); border: 1px solid var(--input-border); border-radius: 10px; color: var(--text-primary); font-size: 16px; outline: none; box-sizing: border-box; transition: border-color 0.15s; }
         .tcv-input::placeholder { color: var(--text-muted); }
         .tcv-input:focus { border-color: ${accent.hex}; }
 
@@ -1092,12 +1093,9 @@ export default function TopChartView({
                   <h4>Apie {title}</h4>
                   <p>{subtitle}</p>
                   <ul>
-                    <li>Balsavimas vyksta visą savaitę. Iki <strong>10 balsų vienai dainai</strong>.</li>
-                    <li>Daina lieka tope iki <strong>12 savaičių</strong>, tada graduates.</li>
-                    <li>Naujienos kovoja už vietas tope — balsuok lygiavertiškai.</li>
-                    <li>Pasiūlymus siunčia adminas ir registruoti vartotojai.</li>
+                    <li>Iki <strong>10 balsų</strong> vienai dainai per savaitę</li>
+                    <li>Daina tope iki <strong>12 savaičių</strong></li>
                   </ul>
-                  <Link href={siblingHref} className="tcv-info-sibling">{siblingLabel} →</Link>
                 </div>
               )}
             </div>
