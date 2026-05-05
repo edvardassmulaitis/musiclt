@@ -87,8 +87,16 @@ function Countdown({ targetDate }: { targetDate: string }) {
   return <>{t}</>
 }
 
-function TrendIndicator({ curr, prev, isNew }: { curr: number; prev: number | null; isNew: boolean }) {
-  if (isNew || prev === null) return <span className="tcv-new">NEW</span>
+function TrendIndicator({ curr, prev, isNew, weeksInTop }: {
+  curr: number; prev: number | null; isNew: boolean; weeksInTop?: number
+}) {
+  // NEW jeigu: explicit is_new flag, prev_position null'as, ARBA šis yra
+  // pirmoji savaitė tope (weeks_in_top === 1 — ką tik ką promoted'inta iš
+  // newcomers'ių). Be to fallback'o net ir kai is_new flag'as nesutvarkytas
+  // legacy duomenys atvaizduos teisingai.
+  if (isNew || prev === null || weeksInTop === 1) {
+    return <span className="tcv-new">NEW</span>
+  }
   if (curr < prev) return <span className="tcv-up">↑{prev - curr}</span>
   if (curr > prev) return <span className="tcv-down">↓{curr - prev}</span>
   return <span className="tcv-same">—</span>
@@ -318,7 +326,12 @@ function ChartRow({
       <div className="tcv-pos-stack">
         <div className={`tcv-pos${top3 ? ' top' : ''}`}>{entry.position}</div>
         <div className="tcv-trend">
-          <TrendIndicator curr={entry.position} prev={entry.prev_position} isNew={entry.is_new} />
+          <TrendIndicator
+            curr={entry.position}
+            prev={entry.prev_position}
+            isNew={entry.is_new}
+            weeksInTop={entry.weeks_in_top}
+          />
         </div>
       </div>
       <div className="tcv-cover">

@@ -132,16 +132,25 @@ export async function POST(req: Request) {
       const newPeak = Math.min(oldPeak, newPos)
 
       let newWit: number
+      let newIsNew: boolean
       if (wasNewcomer) {
         if (newPos <= topSize) {
-          newWit = 1                  // Naujenos pateko į topą
+          // Naujenos PIRMĄ KARTĄ pateko į topą — žymim NEW, kad TrendIndicator
+          // rodytų NEW badge'ą, ne climb arrow'ą iš senos žemos pozicijos.
+          newWit = 1
+          newIsNew = true
           promotedCount++
         } else {
-          newWit = 0                  // Lieka newcomer dar vienam ciklui
+          // Lieka newcomer dar vienam ciklui — is_new pozicija nesvarbi
+          // (rodysim Naujienos panel'yje).
+          newWit = 0
+          newIsNew = true
           stayedNewcomer++
         }
       } else {
+        // Jau buvo tope >= 1 sav. — daugiau nebenauja, rodom climb/drop trend.
         newWit = (e.weeks_in_top || 0) + 1
+        newIsNew = false
         if (newPos <= topSize) stayedInTop++
         else droppedFromTop++
       }
@@ -154,7 +163,7 @@ export async function POST(req: Request) {
           peak_position: newPeak,
           weeks_in_top: newWit,
           total_votes: 0,
-          is_new: false,
+          is_new: newIsNew,
         },
       }
     })
