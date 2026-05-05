@@ -53,21 +53,16 @@ async function getTopData(topType: string): Promise<TopData> {
     } : null,
   }))
 
-  // SVARBU: pozicijos 1..N priskirtinos TIK in-top entries (weeks_in_top >= 1).
-  // Newcomers (weeks_in_top = 0) lieka su savo pozicijomis ir rodomi atskirame
-  // panel'yje (TopChartView filter'ina pagal weeks_in_top).
-  const finalized = !!week.is_finalized
+  // STABILUS rikiavimas: tiek pre-finalize, tiek post-finalize sortuojam pagal
+  // top_entries.position. Pozicijas keičia TIK finalize_top_week RPC (savaitės
+  // pabaigoje). Mid-week balsai kaupiasi į registered_votes counter'į, bet
+  // chart'o tvarkos NEKEIČIA — kitaip vienas user'is matytų savo pačio balsų
+  // efektą realtime ir tai pasirodytų kaip "manipuliacija".
   const inTop = normalized.filter((e: any) => (e.weeks_in_top || 0) >= 1)
   const newcomerEntries = normalized.filter((e: any) => (e.weeks_in_top || 0) === 0)
 
-  if (finalized) {
-    inTop.sort((a: any, b: any) => (a.position || 999) - (b.position || 999))
-  } else {
-    // Rank pagal registered_votes — anon nereitinguoja (spam protection).
-    inTop.sort((a: any, b: any) => (b.registered_votes || 0) - (a.registered_votes || 0))
-    inTop.forEach((e: any, i: number) => { e.position = i + 1 })
-  }
-  newcomerEntries.sort((a: any, b: any) => (b.registered_votes || 0) - (a.registered_votes || 0))
+  inTop.sort((a: any, b: any) => (a.position || 999) - (b.position || 999))
+  newcomerEntries.sort((a: any, b: any) => (a.position || 999) - (b.position || 999))
 
   return { entries: [...inTop, ...newcomerEntries] as any, week }
 }

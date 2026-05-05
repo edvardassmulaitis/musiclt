@@ -745,10 +745,13 @@ export default function TopChartView({
           .tcv-countdown-pill { padding: 3px 7px; font-size: 10px; }
           .tcv-guest-bar { padding: 7px 10px; font-size: 11px; margin-bottom: 10px; }
 
-          /* Body: flex column (DOM order: right-col pirma → player+newcomers, list antra) */
-          .tcv-right-col { position: static; display: flex; flex-direction: column; gap: 10px; top: auto; }
-          .tcv-sticky { position: static; display: flex; flex-direction: column; gap: 10px; top: auto; }
-          .tcv-list-wrap { gap: 10px; }
+          /* MOBILE: flatten right-col, naudojam order'ius kad surikiuoti DOM:
+             player → list → newcomers. tcv-body lieka flex column iš pradinio
+             rule'o, tad order'iai veikia. */
+          .tcv-right-col { display: contents; }
+          .tcv-sticky { position: static; display: block; top: auto; order: 1; }
+          .tcv-list-wrap { gap: 10px; order: 2; }
+          .tcv-newcomers-panel { order: 3; }
 
           /* Player: pilnas 16:9 thumbnail, jokios info sekcijos po juo */
           .tcv-player { border-radius: 12px; }
@@ -1179,41 +1182,12 @@ export default function TopChartView({
           </div>
         ) : (
           <div className="tcv-body">
-            {/* DOM order tikslingai:
-                  1. Right column (player + newcomers stack'inami kartu) — mobile: top, desktop: aside
-                  2. List-wrap (Top + Below) — mobile: middle, desktop: main
-                Newcomers panel'is desktop'e fiziškai prilipęs po player'iu (vienas dešinės kolonos elementas) — joks tarpas neatsiranda. */}
-            <div className="tcv-right-col">
-              <div className="tcv-sticky">
-                <Player entry={activeEntry} accent={accent} />
-              </div>
-              {newcomers.length > 0 && (
-                <div className="tcv-newcomers-panel">
-                  <div className="tcv-newcomers-head">
-                    <span className="tcv-newcomers-title">Naujienos</span>
-                    <span className="tcv-newcomers-sub">kovoja už vietą tope</span>
-                  </div>
-                  <div className="tcv-newcomers-list">
-                    {newcomers.map(entry => (
-                      <NewcomerRow
-                        key={entry.id}
-                        entry={entry}
-                        weekId={data.week?.id ?? 0}
-                        accent={accent}
-                        onVoted={handleVoted}
-                        votesPerTrack={votesPerTrack}
-                        votesRemaining={votesRemaining}
-                        weeklyLimit={weeklyLimit}
-                        onClick={() => setActiveEntry(entry)}
-                        isActive={activeEntry?.id === entry.id}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* DOM order: list FIRST (kairė kolona desktop'e), tada right-col
+                (player + newcomers — dešinė kolona desktop'e). Mobile'ui
+                .tcv-right-col turi `display: contents` ir `order` ant kiekvieno
+                vaiko, kad gauti player → list → newcomers eiliškumą. */}
 
-            {/* MAIN LIST + BELOW */}
+            {/* MAIN LIST + BELOW — desktop kairė kolona, mobile order: 2 */}
             <div className="tcv-list-wrap">
               <div className="tcv-list">
                 {mainTop.map(entry => (
@@ -1261,6 +1235,37 @@ export default function TopChartView({
                     ))}
                   </div>
                 </>
+              )}
+            </div>
+
+            {/* Right column — desktop dešinė kolona, mobile: flatten + order'ai */}
+            <div className="tcv-right-col">
+              <div className="tcv-sticky">
+                <Player entry={activeEntry} accent={accent} />
+              </div>
+              {newcomers.length > 0 && (
+                <div className="tcv-newcomers-panel">
+                  <div className="tcv-newcomers-head">
+                    <span className="tcv-newcomers-title">Naujienos</span>
+                    <span className="tcv-newcomers-sub">kovoja už vietą tope</span>
+                  </div>
+                  <div className="tcv-newcomers-list">
+                    {newcomers.map(entry => (
+                      <NewcomerRow
+                        key={entry.id}
+                        entry={entry}
+                        weekId={data.week?.id ?? 0}
+                        accent={accent}
+                        onVoted={handleVoted}
+                        votesPerTrack={votesPerTrack}
+                        votesRemaining={votesRemaining}
+                        weeklyLimit={weeklyLimit}
+                        onClick={() => setActiveEntry(entry)}
+                        isActive={activeEntry?.id === entry.id}
+                      />
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
           </div>

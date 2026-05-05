@@ -95,17 +95,14 @@ export async function GET(req: Request) {
     target.set(v.track_id, (target.get(v.track_id) || 0) + 1)
   })
 
-  // Padalinam į in-top vs newcomer'ius. Pozicijos 1..N priskirti TIK in-top
-  // sąraše. Newcomers eina pabaigoje. Rank'inam pagal regMap (anon ignored).
+  // STABILUS rikiavimas: visada pagal top_entries.position. Pozicijas keičia
+  // TIK finalize_top_week RPC; mid-week balsai kaupiasi į registered_votes
+  // counter'ius, bet chart'o tvarkos NEKEIČIA. Kitaip vienas user'is matytų
+  // savo balsų efektą realtime — atrodytų kaip "manipuliacija".
   const inTop = (entries as any[]).filter(e => (e.weeks_in_top || 0) >= 1)
   const newcomerEntries = (entries as any[]).filter(e => (e.weeks_in_top || 0) === 0)
-  if (week.is_finalized) {
-    inTop.sort((a, b) => (a.position || 999) - (b.position || 999))
-  } else {
-    inTop.sort((a, b) => (regMap.get(b.track_id) || 0) - (regMap.get(a.track_id) || 0))
-    inTop.forEach((e, i) => { e.position = i + 1 })
-  }
-  newcomerEntries.sort((a, b) => (regMap.get(b.track_id) || 0) - (regMap.get(a.track_id) || 0))
+  inTop.sort((a, b) => (a.position || 999) - (b.position || 999))
+  newcomerEntries.sort((a, b) => (a.position || 999) - (b.position || 999))
   entries.length = 0
   ;(entries as any[]).push(...inTop, ...newcomerEntries)
 
