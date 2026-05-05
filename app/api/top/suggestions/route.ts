@@ -83,42 +83,41 @@ export async function POST(req: Request) {
     }
   }
 
-  // ─── GUARD 2: daina senesnė nei 1 metai ───
-  // Per web tik freshmusic. Admin'as gali rankiniu būdu pridėti senesnių per
-  // /admin/top (POST /api/top/entries), bet user'iai per pasiūlymus — ne.
-  const { data: track } = await supabase
-    .from('tracks')
-    .select('id, release_date, release_year')
-    .eq('id', track_id)
-    .maybeSingle()
+  // ─── GUARD 2: daina senesnė nei 1 metai (TIK paprastiems user'iams) ───
+  // Per web tik freshmusic. Admin'as gali pridėti bet kokio amžiaus dainų —
+  // taip jam paprasčiau test'inti ir building back-catalog'us.
+  const isAdmin = ['admin', 'super_admin'].includes(session.user.role || '')
 
-  if (!track) {
-    return NextResponse.json({ error: 'Daina nerasta' }, { status: 404 })
-  }
+  if (!isAdmin) {
+    const { data: track } = await supabase
+      .from('tracks')
+      .select('id, release_date, release_year')
+      .eq('id', track_id)
+      .maybeSingle()
 
-  const oneYearAgo = new Date()
-  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1)
-  const currentYear = new Date().getFullYear()
+    if (!track) {
+      return NextResponse.json({ error: 'Daina nerasta' }, { status: 404 })
+    }
 
-  let tooOld = false
-  if (track.release_date) {
-    // Tikslesnis check — full date.
-    const rd = new Date(track.release_date)
-    if (Number.isFinite(rd.getTime()) && rd < oneYearAgo) tooOld = true
-  } else if (track.release_year) {
-    // Tik metai — leidžiam jei release_year >= currentYear - 1 (year 2025 May
-    // 2026 atveju gali būti tarp 4 mėn ir 16 mėn — duodam benefit of doubt).
-    if (track.release_year < currentYear - 1) tooOld = true
-  } else {
-    // Nei data, nei metai — negalim patikrinti, bet leidžiam: admin'as vis
-    // tiek peržiūrės. (Alternatyva — strict reject; pasirinkau lenient nes
-    // mūsų DB neturi 100% pilnumos ir kitaip per daug tikrų dainų atmestų.)
-  }
+    const oneYearAgo = new Date()
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1)
+    const currentYear = new Date().getFullYear()
 
-  if (tooOld) {
-    return NextResponse.json({
-      error: 'Galima siūlyti tik dainas, išleistas per paskutinius 12 mėnesių. Senesnėms — kreipkis į adminą.',
-    }, { status: 400 })
+    let tooOld = false
+    if (track.release_date) {
+      const rd = new Date(track.release_date)
+      if (Number.isFinite(rd.getTime()) && rd < oneYearAgo) tooOld = true
+    } else if (track.release_year) {
+      // Tik metai — leniant: accept jei release_year >= currentYear - 1
+      if (track.release_year < currentYear - 1) tooOld = true
+    }
+    // Nei data, nei metai — leidžiam (DB nėra 100% pilnas).
+
+    if (tooOld) {
+      return NextResponse.json({
+        error: 'Galima siūlyti tik dainas, išleistas per paskutinius 12 mėnesių. Senesnėms — kreipkis į adminą.',
+      }, { status: 400 })
+    }
   }
 
   // ─── Existing pasiūlymas — return idempotently ───

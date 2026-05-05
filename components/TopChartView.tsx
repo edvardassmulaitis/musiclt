@@ -560,24 +560,24 @@ export default function TopChartView({
   const [showSuggest, setShowSuggest] = useState(false)
   const [activeEntry, setActiveEntry] = useState<Entry | null>(data.entries[0] ?? null)
 
-  // Padalinam entries pagal state'ą. POSITION yra primary skirstymo kriterijus —
-  // viskas, kas position > TOP_SIZE, eina į "iškritę" panel'į (nesvarbu kaip ten
-  // pakliuvo). weeks_in_top vis dar reikia atskirti naujienas nuo nuolat tope
-  // esančių dainų.
+  // Padalinam entries pagal state'ą. weeks_in_top yra primary skirstymo
+  // kriterijus — semantika svarbesnė nei pozicija:
   //
-  //   - Newcomers (NAUJIENOS): weeks_in_top = 0 IR position <= TOP_SIZE
-  //     (kovoja už pirmą savaitę tope)
+  //   - Newcomers (NAUJIENOS): weeks_in_top = 0 — bet kokia pozicija. Daina
+  //     ką tik atėjo iš pasiūlymų queue, kovoja už pirmą savaitę tope.
+  //     Net jei jos pozicija šiuo metu > TOP_SIZE, ji vis tiek "naujiena",
+  //     dar nepatekusi į topą. Iškrist'i jos negali — niekada nebuvo tope.
   //   - In top (TOP 1..N): weeks_in_top >= 1 IR position <= TOP_SIZE
-  //   - Below (IŠKRITĘ): position > TOP_SIZE (bet kokia priežastis: fell out,
-  //     buvo populate'inta bet liko outside, etc.)
+  //   - Below (IŠKRITĘ IŠ TOPO): weeks_in_top >= 1 IR position > TOP_SIZE.
+  //     Tik anksčiau buvusios tope dainos, šią savaitę nepatekusios.
   const TOP_SIZE = topType === 'top40' ? 40 : 30
-  const newcomers = data.entries.filter(e =>
-    (e.weeks_in_top || 0) === 0 && (e.position || 0) <= TOP_SIZE
-  )
+  const newcomers = data.entries.filter(e => (e.weeks_in_top || 0) === 0)
   const mainTop = data.entries.filter(e =>
     (e.weeks_in_top || 0) >= 1 && (e.position || 0) <= TOP_SIZE
   )
-  const belowTop = data.entries.filter(e => (e.position || 0) > TOP_SIZE)
+  const belowTop = data.entries.filter(e =>
+    (e.weeks_in_top || 0) >= 1 && (e.position || 0) > TOP_SIZE
+  )
 
   useEffect(() => { setActiveEntry(data.entries[0] ?? null) }, [data])
 
@@ -755,9 +755,12 @@ export default function TopChartView({
           .tcv-right-col {
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 18px;
             align-self: start;
           }
+          /* Dar didesnis tarpas po sticky player'iu — kad iškritę panel'is
+             vizualiai atsiskirtų, ne klijuotųsi prie video. */
+          .tcv-right-col > .tcv-sticky { margin-bottom: 10px; }
           .tcv-sticky { position: sticky; top: 80px; z-index: 5; }
         }
         /* ───────── MOBILE (< 880px) — agresyvus compact layout ───────── */
