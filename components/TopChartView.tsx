@@ -761,20 +761,23 @@ export default function TopChartView({
             align-items: start;
           }
           .tcv-list-wrap { min-width: 0; }
-          /* Right column 50% pločio (lygiavert'ė su sąrašu). Player sticky'as,
-             likę panel'ai (naujienos, iškritę, siūlyk, archyvas) scroll'inami
-             normaliai, kad user'is pasiektų visus per ilgo chart'o scroll'ą. */
+          /* Right column 50% pločio (lygiavert'ė su sąrašu). NEPRISIRIŠAM prie
+             align-self:start, kad kolona ištįstų lygi sąrašo aukščiui. Tada
+             player'is gali būti sticky per VISĄ chart'o scroll'ą (sticky veikia
+             tik kol jo parent'as matomas — su tall parent'u player visada
+             matomas). Naujienos / iškritę / siūlyk / archyvas eina po player'iu
+             normaliai, scroll'inasi su puslapiu. */
           .tcv-right-col {
             display: flex;
             flex-direction: column;
             gap: 18px;
-            align-self: start;
             min-width: 0;
+            min-height: 100%;
           }
           /* Dar didesnis tarpas po sticky player'iu — kad iškritę panel'is
              vizualiai atsiskirtų, ne klijuotųsi prie video. */
           .tcv-right-col > .tcv-sticky { margin-bottom: 10px; }
-          .tcv-sticky { position: sticky; top: 80px; z-index: 5; }
+          .tcv-sticky { position: sticky; top: 80px; z-index: 5; align-self: stretch; }
         }
         /* ───────── MOBILE (< 880px) — agresyvus compact layout ───────── */
         @media (max-width: 880px) {
