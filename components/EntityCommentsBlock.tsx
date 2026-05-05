@@ -488,6 +488,17 @@ export default function EntityCommentsBlock({
   // Emit count changes — parent (mobile tab label) renders the chip.
   useEffect(() => { onCountChange?.(totalCount) }, [totalCount, onCountChange])
 
+  /** ID lookup map — leidžia render'inti parent quote'ą bet kuriam comment'ui
+   *  kuris turi parent_id (modern + legacy backfill'inti komentarai abu).
+   *  Su 17k+ thread'ų rodyti reply chain'us iš text-prefix nepakanka, nes
+   *  legacy backfill'as numeta originalų quote markup'ą — naudojam parent_id
+   *  resolved per backfill_unify_forum stage_resolve_parents. */
+  const modernById = useMemo(() => {
+    const m = new Map<number, ModernComment>()
+    for (const c of modern || []) m.set(c.id, c)
+    return m
+  }, [modern])
+
   const submit = async () => {
     if (!session?.user?.id) {
       setError('Reikia prisijungti, kad galėtum komentuoti.')
@@ -886,31 +897,46 @@ export default function EntityCommentsBlock({
             const rel = relativeTime(c.created_at)
             const id = isModern ? c.id : c.legacy_id
             const liked = isModern ? likedIds.has(c.id) : false
-            // Reply parsing — modern uses text-based "Author rašė:" prefix,
-            // legacy uses scraped HTML <div class="quote1"> blocks. We try
-            // BOTH paths so the orange quote box renders consistently
-            // regardless of source.
+            // Reply parsing — TRYS šaltiniai (priority order):
+            //   1. parent_id linkavimas (rezultatas iš backfill_unify_forum
+            //      stage_resolve_parents — naudojama legacy thread'uose kuriuose
+            //      reply chain išsaugotas tik per parent_username/parent_body_excerpt)
+            //   2. Body-prefix "Author rašė:" (modern composer'is + senas legacy
+            //      formatas)
+            //   3. HTML <div class="quote1"> blokai (kai kuriuose legacy posts)
             let quoteAuthor: string | null = null
             let quoteText: string | null = null
             let rest: string = ''
-            if (isModern) {
-              const parsed = parseReplyBody(c.body)
-              quoteAuthor = parsed.quoteAuthor
-              quoteText = parsed.quoteText
-              rest = parsed.rest
-            } else {
-              // Try HTML parse first (most legacy comments have content_html)
-              if (c.content_html) {
-                const parsed = parseLegacyHtmlQuote(c.content_html)
+            // Path 1 — parent_id lookup (works for both modern + migrated legacy)
+            if (isModern && c.parent_id != null) {
+              const parent = modernById.get(c.parent_id)
+              if (parent) {
+                quoteAuthor = parent.author_name || 'Vartotojas'
+                // Strip HTML tags from parent body for clean quote display
+                const parentBody = parent.body || ''
+                quoteText = parentBody.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 240)
+                rest = c.body
+              }
+            }
+            // Path 2/3 — fallback į text/HTML parsing
+            if (quoteAuthor == null) {
+              if (isModern) {
+                const parsed = parseReplyBody(c.body)
                 quoteAuthor = parsed.quoteAuthor
                 quoteText = parsed.quoteText
                 rest = parsed.rest
               } else {
-                // Fallback: text-only with possible "Author rašė:" prefix
-                const parsed = parseReplyBody(c.content_text || '')
-                quoteAuthor = parsed.quoteAuthor
-                quoteText = parsed.quoteText
-                rest = parsed.rest
+                if (c.content_html) {
+                  const parsed = parseLegacyHtmlQuote(c.content_html)
+                  quoteAuthor = parsed.quoteAuthor
+                  quoteText = parsed.quoteText
+                  rest = parsed.rest
+                } else {
+                  const parsed = parseReplyBody(c.content_text || '')
+                  quoteAuthor = parsed.quoteAuthor
+                  quoteText = parsed.quoteText
+                  rest = parsed.rest
+                }
               }
             }
             // Deleted komentarai matomi tik admin'ams (server filter'ina
