@@ -54,10 +54,18 @@ export async function GET(req: NextRequest) {
     })
     if (r.ok) {
       const html = await r.text()
-      // YT renderins embed-disabled error puslapį net su HTTP 200
+      // YT renderins embed-disabled error puslapį net su HTTP 200.
+      // YT player error codes:
+      //   101 / 150 — embedding disabled by owner (JS API kodai)
+      //   153       — server-side embed error puslapio kodas (HTML)
+      //   100       — video not found / private (yra ir kitų)
+      // Pagrindinis signal'as — `errorScreen` + `playerErrorMessageRenderer`
+      // present'as (visada buvo, kai embed'as išjungtas), arba LT/EN tekstas.
       if (
-        /Klaida\s*15[01]\b/.test(html) ||
-        /Error\s*15[01]\b/.test(html) ||
+        /Klaida\s*15[013]\b/.test(html) ||
+        /Klaida\s*101\b/.test(html) ||
+        /Error\s*15[013]\b/.test(html) ||
+        /Error\s*101\b/.test(html) ||
         /"errorScreen":\s*\{[^}]*?"playerErrorMessageRenderer"/.test(html) ||
         // EN tekstas, kai embed'as iš viso išjungtas
         /Video unavailable/.test(html) ||
