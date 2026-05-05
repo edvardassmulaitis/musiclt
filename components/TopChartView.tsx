@@ -758,7 +758,8 @@ export default function TopChartView({
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 14px 22px;
-            align-items: start;
+            align-items: stretch;   /* right-col ištįs iki list aukščio,
+                                       sticky player stays in view per visa scroll */
           }
           .tcv-list-wrap { min-width: 0; }
           /* Right column 50% pločio (lygiavert'ė su sąrašu). NEPRISIRIŠAM prie
