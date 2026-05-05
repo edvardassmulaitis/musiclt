@@ -187,6 +187,7 @@ function SuggestModal({ onClose, topType }: { onClose: () => void; topType: stri
   const [mode, setMode] = useState<'search' | 'manual'>('search')
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (query.length < 2) { setResults([]); return }
@@ -208,6 +209,7 @@ function SuggestModal({ onClose, topType }: { onClose: () => void; topType: stri
 
   const submit = async (trackId?: number) => {
     setSending(true)
+    setError(null)
     const res = await fetch('/api/top/suggestions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -217,7 +219,9 @@ function SuggestModal({ onClose, topType }: { onClose: () => void; topType: stri
         manual_artist: trackId ? null : manualArtist,
       }),
     })
+    const data = await res.json().catch(() => ({}))
     if (res.ok) setSent(true)
+    else setError(data?.error || 'Nepavyko išsiųsti pasiūlymo')
     setSending(false)
   }
 
@@ -236,9 +240,19 @@ function SuggestModal({ onClose, topType }: { onClose: () => void; topType: stri
           </div>
         ) : (
           <div className="tcv-modal-body">
+            {error && (
+              <div className="tcv-modal-error" role="alert">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                <span>{error}</span>
+              </div>
+            )}
             <div className="tcv-mode-tabs">
               {(['search', 'manual'] as const).map(m => (
-                <button key={m} onClick={() => setMode(m)} className={`tcv-mode-tab${mode === m ? ' active' : ''}`}>
+                <button key={m} onClick={() => { setMode(m); setError(null) }} className={`tcv-mode-tab${mode === m ? ' active' : ''}`}>
                   {m === 'search' ? 'Ieškoti' : 'Įvesti rankiniu'}
                 </button>
               ))}
@@ -981,6 +995,14 @@ export default function TopChartView({
         .tcv-modal-close { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 18px; padding: 2px 6px; border-radius: 6px; }
         .tcv-modal-close:hover { background: var(--bg-hover); color: var(--text-primary); }
         .tcv-modal-body { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+        .tcv-modal-error {
+          display: flex; align-items: flex-start; gap: 8px;
+          padding: 10px 12px; border-radius: 10px;
+          background: rgba(239, 68, 68, 0.08);
+          border: 1px solid rgba(239, 68, 68, 0.25);
+          color: #ef4444;
+          font-size: 12px; font-weight: 600; line-height: 1.4;
+        }
         .tcv-modal-sent { padding: 36px 20px; text-align: center; }
         .tcv-sent-title { font-size: 18px; font-weight: 800; color: var(--text-primary); margin: 0 0 6px; }
         .tcv-sent-sub { font-size: 13px; color: var(--text-muted); margin: 0 0 20px; }

@@ -57,17 +57,71 @@ export async function POST(req: Request) {
 
   if (!track_id) return NextResponse.json({ error: 'Daina nenurodyta' }, { status: 400 })
 
-  // Patikrinti ar dar ne šios savaitės dainos kandidatė
-  const { data: week } = await supabase
+  // ─── GUARD 1: daina jau yra einamos savaitės tope ───
+  // Suk'a per active week — jei track_id yra top_entries (bet kokia pozicija,
+  // įskaitant newcomers ir below-top), atmetam su aiškiu pranešimu.
+  const { data: activeWeek } = await supabase
     .from('top_weeks')
     .select('id')
     .eq('top_type', top_type)
     .eq('is_active', true)
-    .single()
+    .order('week_start', { ascending: false })
+    .limit(1)
+    .maybeSingle()
 
-  // (Leidžiame siūlyti net jei daina jau kandidatė - siūlymas bus atmestas admin)
+  if (activeWeek?.id) {
+    const { data: alreadyInTop } = await supabase
+      .from('top_entries')
+      .select('id, position, weeks_in_top')
+      .eq('week_id', activeWeek.id)
+      .eq('track_id', track_id)
+      .maybeSingle()
+    if (alreadyInTop) {
+      return NextResponse.json({
+        error: 'Ši daina jau yra šios savaitės tope — jos siūlyti nebereikia.',
+      }, { status: 400 })
+    }
+  }
 
-  // Patikrinti ar jau yra toks pasiūlymas
+  // ─── GUARD 2: daina senesnė nei 1 metai ───
+  // Per web tik freshmusic. Admin'as gali rankiniu būdu pridėti senesnių per
+  // /admin/top (POST /api/top/entries), bet user'iai per pasiūlymus — ne.
+  const { data: track } = await supabase
+    .from('tracks')
+    .select('id, release_date, release_year')
+    .eq('id', track_id)
+    .maybeSingle()
+
+  if (!track) {
+    return NextResponse.json({ error: 'Daina nerasta' }, { status: 404 })
+  }
+
+  const oneYearAgo = new Date()
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1)
+  const currentYear = new Date().getFullYear()
+
+  let tooOld = false
+  if (track.release_date) {
+    // Tikslesnis check — full date.
+    const rd = new Date(track.release_date)
+    if (Number.isFinite(rd.getTime()) && rd < oneYearAgo) tooOld = true
+  } else if (track.release_year) {
+    // Tik metai — leidžiam jei release_year >= currentYear - 1 (year 2025 May
+    // 2026 atveju gali būti tarp 4 mėn ir 16 mėn — duodam benefit of doubt).
+    if (track.release_year < currentYear - 1) tooOld = true
+  } else {
+    // Nei data, nei metai — negalim patikrinti, bet leidžiam: admin'as vis
+    // tiek peržiūrės. (Alternatyva — strict reject; pasirinkau lenient nes
+    // mūsų DB neturi 100% pilnumos ir kitaip per daug tikrų dainų atmestų.)
+  }
+
+  if (tooOld) {
+    return NextResponse.json({
+      error: 'Galima siūlyti tik dainas, išleistas per paskutinius 12 mėnesių. Senesnėms — kreipkis į adminą.',
+    }, { status: 400 })
+  }
+
+  // ─── Existing pasiūlymas — return idempotently ───
   const { data: existing } = await supabase
     .from('top_suggestions')
     .select('id, status')
@@ -76,7 +130,6 @@ export async function POST(req: Request) {
     .maybeSingle()
 
   if (existing) {
-    // Grąžinti esamą (kad PATCH galėtų approve)
     return NextResponse.json({ suggestion: existing })
   }
 
