@@ -708,18 +708,17 @@ export default function TopChartView({
             align-items: start;
           }
           .tcv-list-wrap { min-width: 0; }
-          /* Right column = sticky stack [player + newcomers], visi vienam blocke,
-             tad joks tarpas neatsiranda. Sticky grupei kaip visumai — prilimpa
-             prie viršaus per scroll. */
+          /* Right column su daug content'o (player + naujienos + iškritę +
+             siūlyk + archyvas). Tik PLAYER'IS sticky'as — likę elementai
+             scroll'inami normaliai, kad user'is pasiektų archyvą/siūlymus
+             per ilgo chart'o scroll'ą. */
           .tcv-right-col {
             display: flex;
             flex-direction: column;
             gap: 10px;
-            position: sticky;
-            top: 80px;
             align-self: start;
           }
-          .tcv-sticky { position: static; top: auto; }
+          .tcv-sticky { position: sticky; top: 80px; z-index: 5; }
         }
         /* ───────── MOBILE (< 880px) — agresyvus compact layout ───────── */
         @media (max-width: 880px) {
@@ -746,12 +745,14 @@ export default function TopChartView({
           .tcv-guest-bar { padding: 7px 10px; font-size: 11px; margin-bottom: 10px; }
 
           /* MOBILE: flatten right-col, naudojam order'ius kad surikiuoti DOM:
-             player → list → newcomers. tcv-body lieka flex column iš pradinio
-             rule'o, tad order'iai veikia. */
+             player → list → newcomers → iškritę → siūlyk → archyvas. */
           .tcv-right-col { display: contents; }
           .tcv-sticky { position: static; display: block; top: auto; order: 1; }
           .tcv-list-wrap { gap: 10px; order: 2; }
           .tcv-newcomers-panel { order: 3; }
+          .tcv-belowtop-panel { order: 4; }
+          .tcv-side-cta { order: 5; }
+          .tcv-rules { order: 6; }
 
           /* Player: pilnas 16:9 thumbnail, jokios info sekcijos po juo */
           .tcv-player { border-radius: 12px; }
@@ -1074,6 +1075,67 @@ export default function TopChartView({
           font-variant-numeric: tabular-nums;
         }
 
+        /* Generic side-panel (Iškritę iš topo) — kaip newcomers, bet be accent juostos */
+        .tcv-side-panel {
+          background: var(--bg-surface);
+          border: 1px solid var(--border-subtle);
+          border-radius: 14px; padding: 14px;
+        }
+        .tcv-side-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+        .tcv-side-title { font-size: 13px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-secondary); }
+        .tcv-side-sub { font-size: 11px; color: var(--text-muted); }
+        .tcv-side-list { display: flex; flex-direction: column; gap: 4px; }
+        .tcv-belowtop-panel .tcv-newcomer-row { opacity: 0.85; }
+        .tcv-belowtop-panel .tcv-newcomer-title { color: var(--text-secondary); }
+
+        /* Side CTA blokai (Siūlyk dainą / Topo archyvas) */
+        .tcv-side-cta {
+          display: flex; align-items: center; gap: 12px;
+          padding: 12px 14px;
+          background: var(--bg-surface);
+          border: 1px solid var(--border-subtle);
+          border-radius: 12px;
+          cursor: pointer;
+          width: 100%;
+          text-align: left;
+          transition: background 0.15s, border-color 0.15s, transform 0.05s;
+          color: inherit; text-decoration: none;
+        }
+        .tcv-side-cta:hover { background: var(--bg-hover); border-color: ${accent.hex}66; }
+        .tcv-side-cta:active { transform: scale(0.99); }
+        .tcv-side-cta-icon {
+          width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+          display: flex; align-items: center; justify-content: center;
+        }
+        .tcv-side-cta-icon-muted { background: var(--bg-elevated); color: var(--text-muted); }
+        .tcv-side-cta-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+        .tcv-side-cta-text strong { font-size: 13px; font-weight: 800; color: var(--text-primary); }
+        .tcv-side-cta-text span { font-size: 11px; color: var(--text-muted); line-height: 1.35; }
+        .tcv-side-cta-arrow { color: var(--text-muted); flex-shrink: 0; }
+
+        /* Topo taisyklės sekcija — page bottom */
+        .tcv-rules { margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border-subtle); }
+        .tcv-rules-title { margin: 0 0 16px; font-size: 18px; font-weight: 800; color: var(--text-primary); letter-spacing: -0.02em; }
+        .tcv-rules-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+        .tcv-rule-card {
+          display: flex; gap: 12px; padding: 14px;
+          background: var(--bg-surface);
+          border: 1px solid var(--border-subtle);
+          border-radius: 12px;
+        }
+        .tcv-rule-num {
+          flex-shrink: 0; width: 28px; height: 28px; border-radius: 8px;
+          color: white; font-weight: 800; font-size: 13px;
+          display: flex; align-items: center; justify-content: center;
+        }
+        .tcv-rule-card h3 { margin: 0 0 4px; font-size: 13px; font-weight: 800; color: var(--text-primary); }
+        .tcv-rule-card p { margin: 0; font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+        .tcv-rule-card p strong { color: var(--text-primary); font-weight: 700; }
+        .tcv-info-link-hint {
+          margin: 0; font-size: 10px; color: var(--text-muted);
+          font-style: italic; line-height: 1.4;
+        }
+
         /* (legacy) suggestions panel — paliekam stiliaus pasiekiamumui, bet jau nebenaudojam */
         .tcv-suggestions-panel {
           margin-top: 14px;
@@ -1155,12 +1217,9 @@ export default function TopChartView({
                       </div>
                     </div>
                   )}
-                  <ul>
-                    <li>Topas atsinaujina <strong>kiekvieną {topType === 'lt_top30' ? 'šeštadienį' : 'sekmadienį'} 15:00</strong></li>
-                    <li>Iki <strong>10 balsų</strong> vienai dainai per savaitę</li>
-                    <li>Į topą skaičiuojami tik <strong>prisijungusių narių balsai</strong></li>
-                    <li>Daina tope iki <strong>12 savaičių</strong></li>
-                  </ul>
+                  <p className="tcv-info-link-hint">
+                    Pilnas balsavimo reglamentas — žemiau, „Topo taisyklės" sekcijoje.
+                  </p>
                 </div>
               )}
             </div>
@@ -1210,35 +1269,10 @@ export default function TopChartView({
                   </div>
                 )}
               </div>
-
-              {belowTop.length > 0 && (
-                <>
-                  <div className="tcv-section-header">
-                    <span className="tcv-section-label">Iškritusios iš topo</span>
-                    <span className="tcv-section-hint">Anksčiau buvo tope, šią savaitę nepateko</span>
-                  </div>
-                  <div className="tcv-list tcv-list-below">
-                    {belowTop.map(entry => (
-                      <ChartRow
-                        key={entry.id}
-                        entry={entry}
-                        isActive={activeEntry?.id === entry.id}
-                        weekId={data.week?.id ?? 0}
-                        accent={accent}
-                        onClick={() => setActiveEntry(entry)}
-                        onVoted={handleVoted}
-                        votesPerTrack={votesPerTrack}
-                        votesRemaining={votesRemaining}
-                        weeklyLimit={weeklyLimit}
-                        dimmed
-                      />
-                    ))}
-                  </div>
-                </>
-              )}
             </div>
 
-            {/* Right column — desktop dešinė kolona, mobile: flatten + order'ai */}
+            {/* Right column — desktop dešinė kolona, mobile: flatten + order'ai
+                Tvarka: Player → Naujienos → Iškritę → Siūlyk dainą → Topo archyvas */}
             <div className="tcv-right-col">
               <div className="tcv-sticky">
                 <Player entry={activeEntry} accent={accent} />
@@ -1267,8 +1301,93 @@ export default function TopChartView({
                   </div>
                 </div>
               )}
+
+              {belowTop.length > 0 && (
+                <div className="tcv-side-panel tcv-belowtop-panel">
+                  <div className="tcv-side-head">
+                    <span className="tcv-side-title">Iškritę iš topo</span>
+                    <span className="tcv-side-sub">šią savaitę nepateko</span>
+                  </div>
+                  <div className="tcv-side-list">
+                    {belowTop.map(entry => (
+                      <NewcomerRow
+                        key={entry.id}
+                        entry={entry}
+                        weekId={data.week?.id ?? 0}
+                        accent={accent}
+                        onVoted={handleVoted}
+                        votesPerTrack={votesPerTrack}
+                        votesRemaining={votesRemaining}
+                        weeklyLimit={weeklyLimit}
+                        onClick={() => setActiveEntry(entry)}
+                        isActive={activeEntry?.id === entry.id}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Siūlyk dainą — pakvietimas po iškritusiomis */}
+              <button className="tcv-side-cta" onClick={() => setShowSuggest(true)}>
+                <div className="tcv-side-cta-icon" style={{ background: accent.hex }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                </div>
+                <div className="tcv-side-cta-text">
+                  <strong>Siūlyk dainą</strong>
+                  <span>Tavo pasiūlymai pateks į kitą savaitę</span>
+                </div>
+              </button>
+
+              {/* Topo archyvas — istoriniai topai */}
+              <Link href="/topai/archyvas" className="tcv-side-cta tcv-side-cta-archive">
+                <div className="tcv-side-cta-icon tcv-side-cta-icon-muted">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+                </div>
+                <div className="tcv-side-cta-text">
+                  <strong>Topo archyvas</strong>
+                  <span>Praėjusių savaičių rezultatai</span>
+                </div>
+                <svg className="tcv-side-cta-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><polyline points="9 6 15 12 9 18"/></svg>
+              </Link>
             </div>
           </div>
+        )}
+
+        {/* Topo taisyklės — sekcija žemiau pagrindinio body, pilnas reglamentas. */}
+        {data.entries.length > 0 && (
+          <section className="tcv-rules">
+            <h2 className="tcv-rules-title">Topo taisyklės</h2>
+            <div className="tcv-rules-grid">
+              <div className="tcv-rule-card">
+                <div className="tcv-rule-num" style={{ background: accent.hex }}>1</div>
+                <div>
+                  <h3>Atsinaujinimas</h3>
+                  <p>Topas perskaičiuojamas <strong>kiekvieną {topType === 'lt_top30' ? 'šeštadienį' : 'sekmadienį'} 15:00</strong>. Nauja savaitė startuoja iš karto.</p>
+                </div>
+              </div>
+              <div className="tcv-rule-card">
+                <div className="tcv-rule-num" style={{ background: accent.hex }}>2</div>
+                <div>
+                  <h3>Balsų limitas</h3>
+                  <p>Iki <strong>10 balsų</strong> vienai dainai per savaitę. Bendro savaitinio limito nėra.</p>
+                </div>
+              </div>
+              <div className="tcv-rule-card">
+                <div className="tcv-rule-num" style={{ background: accent.hex }}>3</div>
+                <div>
+                  <h3>Tik registruoti balsai</h3>
+                  <p>Į topą skaičiuojami tik <strong>prisijungusių narių balsai</strong>. Anonimiški balsai matomi, bet pozicijų nekeičia.</p>
+                </div>
+              </div>
+              <div className="tcv-rule-card">
+                <div className="tcv-rule-num" style={{ background: accent.hex }}>4</div>
+                <div>
+                  <h3>Maksimum 12 savaičių</h3>
+                  <p>Daina tope gali išbūti iki <strong>12 savaičių</strong>. Po to ji baigia sezoną — užleidžia vietą naujam.</p>
+                </div>
+              </div>
+            </div>
+          </section>
         )}
       </div>
 
