@@ -93,6 +93,21 @@ function looksLikeHtml(text: string): boolean {
   return /<(p|div|br|strong|em|u|b|i|ul|ol|li|blockquote|iframe|a|h[1-6])\b[^>]*>/i.test(text)
 }
 
+/** Force rel="nofollow ugc noopener noreferrer" + target="_blank" on every <a> tag.
+ *  Used before dangerouslySetInnerHTML so user-submitted comments — including legacy
+ *  posts and ones written by future Tiptap versions — never become a SEO link-building
+ *  vector. Idempotent: drops any existing rel/target attrs and rewrites them.
+ *  External-only? No — we apply to all hrefs uniformly; safer + simpler. */
+function tagLinksNofollow(html: string): string {
+  if (!html) return html
+  return html.replace(/<a\b([^>]*)>/gi, (full, attrs) => {
+    let cleaned = String(attrs)
+      .replace(/\s+rel="[^"]*"/gi, '')
+      .replace(/\s+target="[^"]*"/gi, '')
+    return `<a${cleaned} rel="nofollow ugc noopener noreferrer" target="_blank">`
+  })
+}
+
 /** Extract YouTube video ID iš įvairių URL formų. */
 const YT_PATTERNS = [
   /youtube\.com\/watch\?v=([A-Za-z0-9_-]{11})/i,
@@ -928,7 +943,7 @@ export default function EntityCommentsBlock({
                       <div
                         className="comment-html-body mt-1 break-words text-[var(--text-primary)]"
                         style={{ fontSize, lineHeight: 1.55 }}
-                        dangerouslySetInnerHTML={{ __html: rest }}
+                        dangerouslySetInnerHTML={{ __html: tagLinksNofollow(rest) }}
                       />
                     ) : (
                       <div
