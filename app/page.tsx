@@ -1151,9 +1151,9 @@ function HeroChartCard({ slide }: { slide: HeroSlide }) {
   const accentSoft = isLT ? 'rgba(249,115,22,0.22)' : 'rgba(59,130,246,0.22)'
   const cover = (t: TopEntry | undefined) => t ? (t.cover_url || t.artist_image) : null
 
-  // Value tekstas — paminime KAS yra naujas pretendentas (vardais), arba kas
-  // šokteli į priekį, arba kas pirmauja. Inline forma, ne didelis skaičius.
-  // Dedup po artist'o, kad grupė neperpildytų sąrašo.
+  // Value tekstas — paminime KAS yra naujas pretendentas (vardais). Jei naujų
+  // nėra (savaitės viduryje, kai topas mature), fallback'inam į pirmaujantį.
+  // Dedup'inam po artist'o, kad grupė neperpildytų sąrašo.
   const dedupArtists = (entries: TopEntry[]) => {
     const seen = new Set<string>()
     const out: string[] = []
@@ -1165,16 +1165,12 @@ function HeroChartCard({ slide }: { slide: HeroSlide }) {
     return out
   }
   const newArtists = dedupArtists(tops.filter(t => t.trend === 'new'))
-  const upArtists = dedupArtists(tops.filter(t => t.trend === 'up'))
   const leadArtist = tops[0]?.artist || ''
   let valueLead: string
   let valueNames: string[]
   if (newArtists.length > 0) {
     valueLead = 'Tarp naujų pretendentų:'
     valueNames = newArtists.slice(0, 4)
-  } else if (upArtists.length > 0) {
-    valueLead = 'Į priekį šokteli:'
-    valueNames = upArtists.slice(0, 4)
   } else {
     valueLead = 'Šią savaitę pirmauja:'
     valueNames = leadArtist ? [leadArtist] : []
