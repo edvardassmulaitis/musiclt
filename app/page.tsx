@@ -1152,8 +1152,7 @@ function HeroChartCard({ slide }: { slide: HeroSlide }) {
   const cover = (t: TopEntry | undefined) => t ? (t.cover_url || t.artist_image) : null
 
   // Value tekstas — paminime KAS yra naujas pretendentas (vardais). Jei naujų
-  // nėra (savaitės viduryje, kai topas mature), fallback'inam į pirmaujantį.
-  // Dedup'inam po artist'o, kad grupė neperpildytų sąrašo.
+  // nėra, eyebrow + sąrašas išvis nerodomas (kortelė lieka švari su mosaic'u).
   const dedupArtists = (entries: TopEntry[]) => {
     const seen = new Set<string>()
     const out: string[] = []
@@ -1165,16 +1164,8 @@ function HeroChartCard({ slide }: { slide: HeroSlide }) {
     return out
   }
   const newArtists = dedupArtists(tops.filter(t => t.trend === 'new'))
-  const leadArtist = tops[0]?.artist || ''
-  let valueLead: string
-  let valueNames: string[]
-  if (newArtists.length > 0) {
-    valueLead = 'Tarp naujų pretendentų:'
-    valueNames = newArtists.slice(0, 4)
-  } else {
-    valueLead = 'Šią savaitę pirmauja:'
-    valueNames = leadArtist ? [leadArtist] : []
-  }
+  const valueLead = newArtists.length > 0 ? 'Tarp naujų pretendentų:' : ''
+  const valueNames = newArtists.slice(0, 4)
 
   // Tile renders a single mosaic cover with title overlay + position number.
   const Tile = ({ entry, size }: { entry: TopEntry | undefined; size: 'big' | 'md' | 'sm' }) => {
@@ -1246,12 +1237,13 @@ function HeroChartCard({ slide }: { slide: HeroSlide }) {
 
         {/* Middle: bulleted list — kiekvienas atlikėjas savo eilutėje su
             truncation'u, kad ilgi pavadinimai nelįstų ant dešinės mosaic'o.
-            min-width:0 ant flex child'o leidžia ellipsis veikti. */}
-        <div className="flex flex-col gap-1.5" style={{ minWidth: 0 }}>
-          <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/55">
-            {valueLead}
-          </p>
-          {valueNames.length > 0 && (
+            Renderiamas TIK kai yra naujų pretendentų — kitaip kortelė lieka
+            švari su mosaic'u dešinėje + chip + Balsuok kairėje. */}
+        {valueNames.length > 0 && (
+          <div className="flex flex-col gap-1.5" style={{ minWidth: 0 }}>
+            <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/55">
+              {valueLead}
+            </p>
             <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
               {valueNames.slice(0, 4).map((n, i) => (
                 <li
@@ -1275,8 +1267,8 @@ function HeroChartCard({ slide }: { slide: HeroSlide }) {
                 </li>
               ))}
             </ul>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Bottom: Vote CTA — match tcv-btn-primary scale (13px font, 10×22 pad) */}
         <span
@@ -1700,7 +1692,7 @@ function MobileChartSlide({
       style={{
         flexShrink: 0, position: 'relative', borderRadius: 16, overflow: 'hidden',
         border: `2px solid ${accent}`,
-        background: '#000', cursor: 'pointer', padding: 0, width: 198, height: 312,
+        background: '#000', cursor: 'pointer', padding: 0, width: 188, height: 290,
         scrollSnapAlign: 'start',
         transition: 'border-color 0.15s, transform 0.15s',
         boxShadow: '0 8px 22px rgba(0,0,0,0.45)',
@@ -2196,7 +2188,7 @@ export default function Home() {
 
         {heroSlides.length > 0 && (
           <div className="hp-feed-strip" style={{ padding: '14px 16px 0' }}>
-            <div style={{ display: 'flex', gap: 12, overflowX: 'auto', scrollbarWidth: 'none', height: 318, alignItems: 'stretch', scrollSnapType: 'x mandatory' }}>
+            <div style={{ display: 'flex', gap: 12, overflowX: 'auto', scrollbarWidth: 'none', height: 296, alignItems: 'stretch', scrollSnapType: 'x mandatory' }}>
               {heroSlides.map((slide, i) => {
                 const isChart = slide.type === 'chart_lt' || slide.type === 'chart_world'
                 const chartTops = slide.chartTops || []
