@@ -298,12 +298,13 @@ function SuggestModal({ onClose, topType }: { onClose: () => void; topType: stri
 }
 
 function ChartRow({
-  entry, isActive, weekId, accent, onClick, onVoted,
+  entry, isActive, weekId, accent, onClick, onVoted, onVoteFailed,
   votesPerTrack, votesRemaining, weeklyLimit, dimmed,
 }: {
   entry: Entry; isActive: boolean; weekId: number;
   accent: ThemeAccent; onClick: () => void;
   onVoted: (id: number) => void;
+  onVoteFailed: (id: number) => void;
   votesPerTrack: Record<number, number>;
   votesRemaining: number; weeklyLimit: number;
   dimmed?: boolean;
@@ -333,7 +334,7 @@ function ChartRow({
       {weekId > 0 && (
         <VoteButton
           entry={entry} weekId={weekId} accent={accent}
-          onVoted={onVoted} votesPerTrack={votesPerTrack}
+          onVoted={onVoted} onVoteFailed={onVoteFailed} votesPerTrack={votesPerTrack}
           votesRemaining={votesRemaining} weeklyLimit={weeklyLimit}
         />
       )}
@@ -369,12 +370,13 @@ function WeeksProgress({ weeks, accent }: { weeks: number; accent: ThemeAccent }
 }
 
 function NewcomerRow({
-  entry, isActive, weekId, accent, onClick, onVoted,
+  entry, isActive, weekId, accent, onClick, onVoted, onVoteFailed,
   votesPerTrack, votesRemaining, weeklyLimit,
 }: {
   entry: Entry; isActive: boolean; weekId: number;
   accent: ThemeAccent; onClick: () => void;
   onVoted: (id: number) => void;
+  onVoteFailed: (id: number) => void;
   votesPerTrack: Record<number, number>;
   votesRemaining: number; weeklyLimit: number;
 }) {
@@ -393,7 +395,7 @@ function NewcomerRow({
       {weekId > 0 && (
         <VoteButton
           entry={entry} weekId={weekId} accent={accent}
-          onVoted={onVoted} votesPerTrack={votesPerTrack}
+          onVoted={onVoted} onVoteFailed={onVoteFailed} votesPerTrack={votesPerTrack}
           votesRemaining={votesRemaining} weeklyLimit={weeklyLimit}
         />
       )}
@@ -402,10 +404,11 @@ function NewcomerRow({
 }
 
 function VoteButton({
-  entry, weekId, onVoted, votesPerTrack, accent, weeklyLimit,
+  entry, weekId, onVoted, onVoteFailed, votesPerTrack, accent, weeklyLimit,
 }: {
   entry: Entry; weekId: number;
   onVoted: (id: number) => void;
+  onVoteFailed: (id: number) => void;
   votesPerTrack: Record<number, number>;
   votesRemaining?: number;
   weeklyLimit: number;
@@ -448,16 +451,21 @@ function VoteButton({
       body: JSON.stringify({ track_id: trackId, week_id: weekId, vote_type: 'like' }),
     }).then(async (res) => {
       if (!res.ok) {
-        const data = await res.json()
-        setErr(data.error || 'Klaida')
-        setTimeout(() => setErr(''), 3000)
-        // Server'is atmetė — koreguojam ref'ą atgal (sync'inam)
+        const data = await res.json().catch(() => ({}))
+        const msg = data?.error || `Klaida (${res.status})`
+        console.error('[top-vote] POST failed', { status: res.status, error: msg, track_id: trackId, week_id: weekId })
+        setErr(msg)
+        setTimeout(() => setErr(''), 4000)
+        // Server'is atmetė — koreguojam VISUS lokalus state'us atgal
         localVotesRef.current = Math.max(0, localVotesRef.current - 1)
+        onVoteFailed(trackId)
       }
-    }).catch(() => {
+    }).catch((e) => {
+      console.error('[top-vote] network error', e)
       setErr('Tinklo klaida')
-      setTimeout(() => setErr(''), 3000)
+      setTimeout(() => setErr(''), 4000)
       localVotesRef.current = Math.max(0, localVotesRef.current - 1)
+      onVoteFailed(trackId)
     })
 
     // Limit pasiektas po šito balsavimo? Sustabdyk hold.
@@ -598,6 +606,14 @@ export default function TopChartView({
   const handleVoted = (id: number) => {
     setVotesPerTrack(p => ({ ...p, [id]: (p[id] || 0) + 1 }))
     setVotesRemaining(p => Math.max(0, p - 1))
+  }
+
+  // Optimistic vote'as nepavyko serveryje — sumažinam local state'ą atgal,
+  // kad pill nerodytų klaidingo skaičiaus. Anksčiau tik localVotesRef'as
+  // sumažėdavo, bet votesPerTrack lik o inkrementuotas → pill meluodavo.
+  const handleVoteFailed = (id: number) => {
+    setVotesPerTrack(p => ({ ...p, [id]: Math.max(0, (p[id] || 0) - 1) }))
+    setVotesRemaining(p => p + 1)
   }
 
   const weekLabel = useMemo(() => {
@@ -1290,6 +1306,7 @@ export default function TopChartView({
                     accent={accent}
                     onClick={() => setActiveEntry(entry)}
                     onVoted={handleVoted}
+                    onVoteFailed={handleVoteFailed}
                     votesPerTrack={votesPerTrack}
                     votesRemaining={votesRemaining}
                     weeklyLimit={weeklyLimit}
@@ -1323,6 +1340,7 @@ export default function TopChartView({
                         weekId={data.week?.id ?? 0}
                         accent={accent}
                         onVoted={handleVoted}
+                        onVoteFailed={handleVoteFailed}
                         votesPerTrack={votesPerTrack}
                         votesRemaining={votesRemaining}
                         weeklyLimit={weeklyLimit}
@@ -1348,6 +1366,7 @@ export default function TopChartView({
                         weekId={data.week?.id ?? 0}
                         accent={accent}
                         onVoted={handleVoted}
+                        onVoteFailed={handleVoteFailed}
                         votesPerTrack={votesPerTrack}
                         votesRemaining={votesRemaining}
                         weeklyLimit={weeklyLimit}

@@ -30,12 +30,20 @@ export async function POST(req: Request) {
 
   const supabase = createAdminClient()
 
-  const { data: week } = await supabase
-    .from('top_weeks').select('*').eq('id', week_id).single()
-  if (!week) return NextResponse.json({ error: 'Savaitė nerasta' }, { status: 404 })
-  if (week.is_finalized) return NextResponse.json({ error: 'Savaitė jau finalizuota' }, { status: 400 })
-
   const userId = session?.user?.id ?? null
+  console.log('[top-vote] POST', { week_id, track_id, vote_type, userId, ip })
+
+  const { data: week, error: weekErr } = await supabase
+    .from('top_weeks').select('*').eq('id', week_id).single()
+  if (weekErr) console.error('[top-vote] week fetch error', weekErr)
+  if (!week) {
+    console.warn('[top-vote] week not found', { week_id })
+    return NextResponse.json({ error: 'Savaitė nerasta' }, { status: 404 })
+  }
+  if (week.is_finalized) {
+    console.warn('[top-vote] week is finalized', { week_id })
+    return NextResponse.json({ error: 'Savaitė jau finalizuota' }, { status: 400 })
+  }
 
   // Per-song limit check — KRITIŠKAI svarbu izoliuoti anon vs signed-in balsus
   // pagal user_id, NE tik IP. Kitaip neprisijungęs vartotojas tame pačiame IP
@@ -52,6 +60,7 @@ export async function POST(req: Request) {
     : await songVotesQuery.eq('voter_ip', ip).is('user_id', null)
 
   if ((songVotesBefore || 0) >= PER_SONG_LIMIT) {
+    console.warn('[top-vote] per-song limit reached', { week_id, track_id, userId, songVotesBefore })
     return NextResponse.json({
       error: `Maks. ${PER_SONG_LIMIT} balsų vienai dainai`,
       limit: PER_SONG_LIMIT,
@@ -71,7 +80,11 @@ export async function POST(req: Request) {
     votes: 1,
   }).select().single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error('[top-vote] INSERT FAILED', { week_id, track_id, userId, error })
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+  console.log('[top-vote] OK', { week_id, track_id, userId, voteId: data?.id })
 
   // ── Activity feed ────────────────────────────────────────────────
   // Tik PIRMAM balsui už šitą dainą (kad nespamintume feed'o).
