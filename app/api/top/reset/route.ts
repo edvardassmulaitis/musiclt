@@ -141,10 +141,13 @@ export async function POST(req: Request) {
           newIsNew = true
           promotedCount++
         } else {
-          // Lieka newcomer dar vienam ciklui — is_new pozicija nesvarbi
-          // (rodysim Naujienos panel'yje).
+          // Lieka newcomer dar vienam ciklui — NEBĖRA NEW. Daina jau
+          // praleido bent vieną ciklą Naujienos panel'yje, tad „freshness"
+          // dingusi. Admin'as nebematys NEW badge'o, panel'is vis tiek
+          // ją rodys (kaip kandidatę į topą), bet vizualiai nesimaišys
+          // su tikrais ką-tik-pasiūlytais kūriniais.
           newWit = 0
-          newIsNew = true
+          newIsNew = false
           stayedNewcomer++
         }
       } else {
