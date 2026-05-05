@@ -100,9 +100,10 @@ function Player({ entry, accent }: { entry: Entry | null; accent: ThemeAccent })
 
   if (!entry || !entry.tracks) return (
     <div className="tcv-player tcv-player-empty">
-      <div className="tcv-player-video" />
-      <div className="tcv-player-info">
-        <p className="tcv-player-title" style={{ color: 'var(--text-muted)' }}>Pasirink dainą</p>
+      <div className="tcv-player-video">
+        <div className="tcv-thumb">
+          <div className="tcv-thumb-empty" />
+        </div>
       </div>
     </div>
   )
@@ -140,36 +141,6 @@ function Player({ entry, accent }: { entry: Entry | null; accent: ThemeAccent })
               </div>
             )}
           </div>
-        )}
-      </div>
-      <div className="tcv-player-info">
-        <div className="tcv-player-pos">
-          <span className="tcv-pos-num" style={{ color: entry.position <= 3 ? accent.hex : 'var(--text-secondary)' }}>
-            #{entry.position}
-          </span>
-          <TrendIndicator curr={entry.position} prev={entry.prev_position} isNew={entry.is_new} />
-        </div>
-        <p className="tcv-player-title">{entry.tracks.title}</p>
-        {entry.tracks.artists && (
-          <Link href={`/atlikejai/${entry.tracks.artists.slug}`} className="tcv-player-artist">
-            {entry.tracks.artists.name}
-          </Link>
-        )}
-        <div className="tcv-player-meta">
-          <span>{entry.weeks_in_top} sav. tope</span>
-          {entry.peak_position && entry.peak_position <= 5 && <span>rekordas #{entry.peak_position}</span>}
-        </div>
-        {entry.tracks.spotify_id && (
-          <a
-            href={`https://open.spotify.com/track/${entry.tracks.spotify_id}`}
-            target="_blank" rel="noopener noreferrer"
-            className="tcv-spotify-btn"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" />
-            </svg>
-            Spotify
-          </a>
         )}
       </div>
     </div>
@@ -289,34 +260,26 @@ function ChartRow({
       className={`tcv-row${top3 ? ' top3' : ''}${isActive ? ' active' : ''}${dimmed ? ' dimmed' : ''}`}
       onClick={onClick}
     >
-      <div className={`tcv-pos${top3 ? ' top' : ''}`}>{entry.position}</div>
-      <div className="tcv-trend">
-        <TrendIndicator curr={entry.position} prev={entry.prev_position} isNew={entry.is_new} />
-      </div>
-      <div className="tcv-cover">
-        <TrackCover track={entry.tracks} size={36} />
-      </div>
-      <div className="tcv-info">
-        <p className="tcv-track-title">{entry.tracks?.title ?? '—'}</p>
-        <div className="tcv-track-meta">
-          {entry.tracks?.artists ? (
-            <Link href={`/atlikejai/${entry.tracks.artists.slug}`} className="tcv-artist" onClick={e => e.stopPropagation()}>
-              {entry.tracks.artists.name}
-            </Link>
-          ) : <span className="tcv-artist">—</span>}
-          {entry.weeks_in_top >= 1 && (
-            <>
-              <span className="tcv-dot">·</span>
-              <WeeksProgress weeks={entry.weeks_in_top} accent={accent} />
-            </>
-          )}
+      <div className="tcv-pos-stack">
+        <div className={`tcv-pos${top3 ? ' top' : ''}`}>{entry.position}</div>
+        <div className="tcv-trend">
+          <TrendIndicator curr={entry.position} prev={entry.prev_position} isNew={entry.is_new} />
         </div>
       </div>
-      {entry.tracks?.spotify_id && (
-        <a href={`https://open.spotify.com/track/${entry.tracks.spotify_id}`} target="_blank" rel="noopener noreferrer" className="tcv-spotify-icon" onClick={e => e.stopPropagation()}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" /></svg>
-        </a>
-      )}
+      <div className="tcv-cover">
+        <TrackCover track={entry.tracks} size={40} />
+      </div>
+      <div className="tcv-info">
+        {entry.tracks?.artists ? (
+          <Link href={`/atlikejai/${entry.tracks.artists.slug}`} className="tcv-row-artist" onClick={e => e.stopPropagation()}>
+            {entry.tracks.artists.name}
+          </Link>
+        ) : <span className="tcv-row-artist">—</span>}
+        <p className="tcv-row-title">{entry.tracks?.title ?? '—'}</p>
+        {entry.weeks_in_top >= 1 && (
+          <WeeksProgress weeks={entry.weeks_in_top} accent={accent} />
+        )}
+      </div>
       {weekId > 0 && (
         <VoteButton
           entry={entry} weekId={weekId} accent={accent}
@@ -329,21 +292,22 @@ function ChartRow({
 }
 
 /**
- * Weeks progress: tiek dash'ų kiek savaičių (1-12). Tiesioginis vizualus
- * indikatorius — kiekvienas dash'as = viena savaitė tope.
+ * Weeks progress — single thin bar with proportional fill + label.
+ * 1/12 sav. → bar 8% užpildytas. 12/12 → pilnai užpildytas + raudonas.
  */
 function WeeksProgress({ weeks, accent }: { weeks: number; accent: ThemeAccent }) {
   const max = 12
-  const w = Math.min(weeks, max)
+  const w = Math.min(Math.max(weeks, 0), max)
+  const pct = (w / max) * 100
+  const isLast = w >= 12
+  const isWarning = w >= 10
+  const fillColor = isLast ? '#ef4444' : isWarning ? '#f59e0b' : accent.hex
   return (
     <span className="tcv-weeks-progress" title={`${w}/${max} sav. tope`}>
-      {Array.from({ length: max }, (_, i) => (
-        <span
-          key={i}
-          className="tcv-week-dot"
-          style={{ background: i < w ? accent.hex : 'var(--bg-elevated)', opacity: i < w ? 1 : 0.6 }}
-        />
-      ))}
+      <span className="tcv-weeks-bar">
+        <span className="tcv-weeks-fill" style={{ width: pct + '%', background: fillColor }} />
+      </span>
+      <span className="tcv-weeks-label">{w}/{max}</span>
     </span>
   )
 }
@@ -400,9 +364,23 @@ function VoteButton({
   const maxedOut = songVotes >= weeklyLimit
   const holdTimer = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  // Lokalus skaitiklis ref'as — kad hold loop'as tiksliai žinotų current
+  // count'ą BE async setState round-trip (kitaip persisočiame virš limit'o).
+  const localVotesRef = useRef(songVotes)
+  useEffect(() => { localVotesRef.current = songVotes }, [songVotes])
+
+  const stopHold = () => {
+    if (holdTimer.current) {
+      clearInterval(holdTimer.current)
+      holdTimer.current = null
+    }
+    setBoosting(false)
+  }
+
   const sendVote = () => {
-    if (maxedOut || trackId < 0) return false
-    // Optimistic
+    // Naudoti REF, ne stale state — taip cap'inam tiksliai prie limit'o
+    if (localVotesRef.current >= weeklyLimit || trackId < 0) return false
+    localVotesRef.current += 1
     onVoted(trackId)
     const burstId = Date.now() + Math.random()
     setBursts(b => [...b, burstId])
@@ -417,24 +395,21 @@ function VoteButton({
         const data = await res.json()
         setErr(data.error || 'Klaida')
         setTimeout(() => setErr(''), 3000)
+        // Server'is atmetė — koreguojam ref'ą atgal (sync'inam)
+        localVotesRef.current = Math.max(0, localVotesRef.current - 1)
       }
     }).catch(() => {
       setErr('Tinklo klaida')
       setTimeout(() => setErr(''), 3000)
+      localVotesRef.current = Math.max(0, localVotesRef.current - 1)
     })
+
+    // Limit pasiektas po šito balsavimo? Sustabdyk hold.
+    if (localVotesRef.current >= weeklyLimit) stopHold()
     return true
   }
 
-  const stopHold = () => {
-    if (holdTimer.current) {
-      clearInterval(holdTimer.current)
-      holdTimer.current = null
-    }
-    setBoosting(false)
-  }
-
   const startHold = () => {
-    // Auto-vote every 280ms while held (klauso 1 click + accelerated spam)
     holdTimer.current = setInterval(() => {
       const ok = sendVote()
       if (!ok) stopHold()
@@ -473,10 +448,11 @@ function VoteButton({
         disabled={maxedOut}
         className={`tcv-vote-btn${voted ? ' voted' : ''}${maxedOut ? ' maxed' : ''}${boosting ? ' boosting' : ''}`}
         style={voted ? { color: accent.hex, borderColor: accent.hex } : undefined}
-        title={maxedOut ? `Pasiektas maks. (${weeklyLimit}) balsų šiai dainai` : 'Spausk arba palaikyk — iki ' + weeklyLimit + ' balsų'}
+        title={maxedOut ? `Pasiektas maks. (${weeklyLimit}) balsų` : 'Spausk arba palaikyk — iki ' + weeklyLimit}
       >
-        <svg width="15" height="15" viewBox="0 0 24 24" fill={voted ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.4">
-          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+        {/* Boost arrow up — žymi kilimą į viršų (ne įprastas like) */}
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 19V5M5 12l7-7 7 7"/>
         </svg>
         {voted ? (
           <span className="tcv-vote-mine" aria-label="Tavo balsai">{songVotes}</span>
@@ -565,37 +541,30 @@ export default function TopChartView({
         .tcv-newcomer-artist, .tcv-artist, .tcv-list, .tcv-list-wrap,
         .tcv-body, .tcv-sticky, .tcv-player, .tcv-newcomers-panel { min-width: 0; }
 
-        /* Hero */
-        .tcv-hero { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; flex-wrap: wrap; margin-bottom: 24px; }
-        .tcv-hero-left { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-        .tcv-badge {
-          display: inline-flex; align-items: center; gap: 8px;
-          padding: 4px 10px; border-radius: 999px;
-          background: ${accent.rgb}; color: ${accent.hex};
-          font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
-          border: 1px solid ${accent.rgb};
-          width: fit-content;
+        /* Hero — kompaktinis: TIK title + meta + suggest mygtukas */
+        .tcv-hero {
+          display: flex; align-items: center; justify-content: space-between;
+          gap: 12px; margin-bottom: 18px;
         }
+        .tcv-hero-left { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1 1 auto; }
         .tcv-title {
-          margin: 4px 0 0; font-size: clamp(28px, 4.4vw, 40px); font-weight: 900;
+          margin: 0; font-size: clamp(24px, 3.6vw, 36px); font-weight: 900;
           letter-spacing: -0.025em; line-height: 1.05; color: var(--text-primary);
         }
-        .tcv-sub { margin: 0; color: var(--text-muted); font-size: 14px; max-width: 56ch; }
-        .tcv-hero-right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+        .tcv-meta-line {
+          display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+          font-size: 12px; color: var(--text-muted);
+        }
+        .tcv-meta-dot { color: var(--text-muted); opacity: 0.5; }
         .tcv-suggest-btn {
           display: inline-flex; align-items: center; gap: 6px;
-          padding: 9px 16px; border-radius: 10px;
+          padding: 8px 14px; border-radius: 10px;
           background: ${accent.hex}; color: #fff; border: none;
-          font-size: 13px; font-weight: 700; cursor: pointer;
-          box-shadow: 0 8px 22px ${accent.rgb};
-          transition: transform 0.15s, box-shadow 0.15s;
+          font-size: 12px; font-weight: 700; cursor: pointer;
+          flex-shrink: 0;
+          transition: transform 0.15s, filter 0.15s;
         }
-        .tcv-suggest-btn:hover { transform: translateY(-1px); box-shadow: 0 12px 28px ${accent.rgb}; }
-        .tcv-sibling-link {
-          font-size: 12px; color: var(--text-muted); text-decoration: none; font-weight: 600;
-          padding: 5px 10px; border-radius: 8px; transition: background 0.15s, color 0.15s;
-        }
-        .tcv-sibling-link:hover { background: var(--bg-hover); color: var(--text-secondary); }
+        .tcv-suggest-btn:hover { transform: translateY(-1px); filter: brightness(1.05); }
 
         /* Status bar */
         .tcv-status {
@@ -623,21 +592,26 @@ export default function TopChartView({
         }
         .tcv-guest-bar a { color: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
 
-        /* Body — MOBILE FIRST: flex column, sticky-area first (top), list second (below) */
+        /* Body — mobile-first flex column. Mobile order: player → list → newcomers */
         .tcv-body {
           display: flex;
           flex-direction: column;
           gap: 12px;
           width: 100%;
         }
+        /* Sticky talpina TIK player'į, newcomers bus atskirai */
+        .tcv-sticky { display: flex; flex-direction: column; gap: 10px; }
+
         @media (min-width: 880px) {
           .tcv-body {
-            flex-direction: row-reverse;     /* desktop'e sidebar dešinėje */
-            align-items: flex-start;
+            display: grid;
+            grid-template-columns: 1fr 320px;
             gap: 22px;
+            align-items: start;
           }
-          .tcv-sticky { flex: 0 0 320px; position: sticky; top: 80px; }
-          .tcv-list-wrap { flex: 1 1 auto; min-width: 0; width: 100%; }
+          .tcv-list-wrap { grid-column: 1; grid-row: 1 / span 2; min-width: 0; }
+          .tcv-sticky { grid-column: 2; grid-row: 1; position: sticky; top: 80px; }
+          .tcv-newcomers-panel { grid-column: 2; grid-row: 2; margin-top: 0; }
         }
         /* ───────── MOBILE (< 880px) — agresyvus compact layout ───────── */
         @media (max-width: 880px) {
@@ -667,42 +641,11 @@ export default function TopChartView({
           .tcv-sticky { position: static; display: flex; flex-direction: column; gap: 10px; top: auto; }
           .tcv-list-wrap { gap: 10px; }
 
-          /* Player: HORIZONTAL compact card — thumbnail kairėje, info dešinėje */
-          .tcv-player {
-            border-radius: 12px;
-            display: flex;
-            flex-direction: row;
-            align-items: stretch;
-            min-height: 90px;
-          }
-          .tcv-player-video {
-            flex: 0 0 90px;
-            width: 90px;
-            height: 90px;
-            aspect-ratio: 1;
-            max-height: none;
-            border-radius: 12px 0 0 12px;
-            overflow: hidden;
-          }
-          .tcv-thumb-img { width: 100%; height: 100%; object-fit: cover; }
-          .tcv-play-btn { width: 32px; height: 32px; }
-          .tcv-play-btn svg { width: 12px; height: 12px; }
-          .tcv-player-info {
-            flex: 1 1 auto;
-            min-width: 0;
-            padding: 8px 12px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            gap: 2px;
-          }
-          .tcv-player-pos { margin-bottom: 0; gap: 6px; }
-          .tcv-pos-num { font-size: 11px; }
-          .tcv-player-title { font-size: 13px; line-height: 1.2; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-          .tcv-player-artist { font-size: 11px; margin-bottom: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-          .tcv-player-meta { display: none; }
-          .tcv-spotify-btn { display: none; }
-          .tcv-player-empty .tcv-player-video { background: var(--bg-elevated); }
+          /* Player: pilnas 16:9 thumbnail, jokios info sekcijos po juo */
+          .tcv-player { border-radius: 12px; }
+          .tcv-player-video { aspect-ratio: 16/9; max-height: 240px; border-radius: 12px; }
+          .tcv-play-btn { width: 48px; height: 48px; }
+          .tcv-play-btn svg { width: 16px; height: 16px; }
 
           /* Newcomers panel'is — compact, hint slėpiamas */
           .tcv-newcomers-panel { padding: 10px 12px; }
@@ -764,14 +707,18 @@ export default function TopChartView({
         .tcv-row.top3 { background: linear-gradient(90deg, ${accent.rgb} 0%, transparent 60%); }
         .tcv-row.top3.active { background: ${accent.rgb}; }
 
-        .tcv-pos {
-          width: 30px; flex-shrink: 0; text-align: center;
-          font-weight: 900; font-size: 16px; color: var(--text-muted);
-          font-variant-numeric: tabular-nums;
+        /* Pozicijos + trendo stack — vertikaliai sutaupytos vietos */
+        .tcv-pos-stack {
+          display: flex; flex-direction: column; align-items: center;
+          width: 32px; flex-shrink: 0; gap: 1px;
         }
-        .tcv-pos.top { color: ${accent.hex}; font-size: 18px; }
+        .tcv-pos {
+          font-weight: 900; font-size: 17px; color: var(--text-muted);
+          font-variant-numeric: tabular-nums; line-height: 1;
+        }
+        .tcv-pos.top { color: ${accent.hex}; font-size: 20px; }
         .tcv-trend {
-          width: 36px; flex-shrink: 0; display: flex; justify-content: center;
+          display: flex; justify-content: center; line-height: 1;
         }
         .tcv-new { font-size: 9px; font-weight: 800; padding: 2px 5px; border-radius: 4px; background: ${accent.rgb}; color: ${accent.hex}; letter-spacing: 0.06em; }
         .tcv-up { font-size: 11px; font-weight: 800; color: #10b981; }
@@ -786,13 +733,11 @@ export default function TopChartView({
         }
         .tcv-cover img { width: 100%; height: 100%; object-fit: cover; }
 
-        .tcv-info { flex: 1; min-width: 0; }
-        .tcv-track-title { margin: 0 0 2px; font-size: 14px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .tcv-track-meta { display: flex; align-items: center; gap: 6px; }
-        .tcv-artist { font-size: 12px; color: var(--text-secondary); font-weight: 500; text-decoration: none; }
-        .tcv-artist:hover { color: ${accent.hex}; }
-        .tcv-dot { color: var(--text-muted); font-size: 11px; }
-        .tcv-weeks { font-size: 11px; color: var(--text-muted); }
+        .tcv-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+        /* Artist FIRST (mažas, mute), Title SECOND (didelis), Progress THIRD */
+        .tcv-row-artist { font-size: 11px; color: var(--text-muted); font-weight: 500; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
+        .tcv-row-artist:hover { color: ${accent.hex}; }
+        .tcv-row-title { margin: 0; font-size: 14px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.25; }
 
         .tcv-spotify-icon { color: #1db954; opacity: 0.55; flex-shrink: 0; transition: opacity 0.15s; }
         .tcv-spotify-icon:hover { opacity: 1; }
@@ -934,14 +879,29 @@ export default function TopChartView({
         .tcv-input::placeholder { color: var(--text-muted); }
         .tcv-input:focus { border-color: ${accent.hex}; }
 
-        /* Weeks progress dashes (12 dash'eliai = max savaitės) */
+        /* Weeks progress — thin bar with proportional fill */
         .tcv-weeks-progress {
-          display: inline-flex; gap: 2px; align-items: center;
-          margin-left: 2px;
+          display: flex; align-items: center; gap: 6px;
+          margin-top: 1px;
         }
-        .tcv-week-dot {
-          width: 5px; height: 3px; border-radius: 1.5px;
-          transition: background 0.2s, opacity 0.2s;
+        .tcv-weeks-bar {
+          flex: 0 0 auto;
+          width: 64px; height: 3px;
+          background: var(--bg-elevated);
+          border-radius: 2px;
+          overflow: hidden;
+          position: relative;
+        }
+        .tcv-weeks-fill {
+          display: block; height: 100%;
+          border-radius: 2px;
+          transition: width 0.4s ease, background 0.3s;
+        }
+        .tcv-weeks-label {
+          font-size: 9px; color: var(--text-muted);
+          font-variant-numeric: tabular-nums;
+          letter-spacing: 0.02em;
+          font-weight: 600;
         }
 
         /* List wrapper — apsiame tiek main top'as, tiek below-top sekcija */
@@ -1058,60 +1018,39 @@ export default function TopChartView({
       `}</style>
 
       <div className="tcv-wrap">
-        {/* Hero */}
+        {/* Hero — kompaktinis: TIK title + suggest mygtukas */}
         <div className="tcv-hero">
           <div className="tcv-hero-left">
-            <span className="tcv-badge">{badge}</span>
             <h1 className="tcv-title">{title}</h1>
-            <p className="tcv-sub">{subtitle}</p>
-          </div>
-          <div className="tcv-hero-right">
-            <button
-              className="tcv-suggest-btn"
-              onClick={() => setShowSuggest(true)}
-              aria-label="Siūlyti dainą"
-              title="Siūlyti dainą"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-              <span className="tcv-suggest-label">Siūlyti dainą</span>
-            </button>
-            <Link href={siblingHref} className="tcv-sibling-link">
-              {siblingLabel} →
-            </Link>
-          </div>
-        </div>
-
-        {/* Status bar */}
-        <div className="tcv-status">
-          {weekLabel && (
-            <div className="tcv-status-item">
-              <span style={{ color: 'var(--text-muted)' }}>Savaitė</span>
-              <strong>{weekLabel}</strong>
+            <div className="tcv-meta-line">
+              {weekLabel && <span>Sav. {weekLabel}</span>}
+              {data.week?.vote_close && (
+                <>
+                  <span className="tcv-meta-dot">·</span>
+                  <span className="tcv-countdown-pill">
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                    <Countdown targetDate={data.week.vote_close} />
+                  </span>
+                </>
+              )}
+              <span className="tcv-meta-dot">·</span>
+              <span>iki {session ? 10 : 5}/daina</span>
             </div>
-          )}
-          {data.week?.vote_close && (
-            <>
-              <div className="tcv-status-divider" />
-              <div className="tcv-status-item">
-                <span style={{ color: 'var(--text-muted)' }}>Iki pabaigos</span>
-                <span className="tcv-countdown-pill">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-                  <Countdown targetDate={data.week.vote_close} />
-                </span>
-              </div>
-            </>
-          )}
-          <div className="tcv-status-divider" />
-          <div className="tcv-status-item">
-            <span style={{ color: 'var(--text-muted)' }}>Tavo balsai</span>
-            <strong>iki {session ? 10 : 5}</strong>
-            <span style={{ color: 'var(--text-muted)' }}>per dainą</span>
           </div>
+          <button
+            className="tcv-suggest-btn"
+            onClick={() => setShowSuggest(true)}
+            aria-label="Siūlyti dainą"
+            title="Siūlyti dainą"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+            <span className="tcv-suggest-label">Siūlyti dainą</span>
+          </button>
         </div>
 
         {!session && (
           <div className="tcv-guest-bar">
-            Balsuoji kaip svečias (iki 5 balsų vienai dainai). <Link href="/auth/signin">Prisijunk</Link> ir balsuok iki 10 už mėgstamas.
+            Balsuoji kaip svečias (iki 5 vienai dainai). <Link href="/auth/signin">Prisijunk</Link> — iki 10/daina.
           </div>
         )}
 
@@ -1123,41 +1062,15 @@ export default function TopChartView({
           </div>
         ) : (
           <div className="tcv-body">
-            {/* DOM order: sticky FIRST (top na mobile, right na desktop). Be order: -1 — paprastas DOM order. */}
+            {/* DOM order:
+                  1. Sticky (Player) — mobile: top, desktop: right column row 1
+                  2. List-wrap (Top + Below) — mobile: middle, desktop: left column
+                  3. Newcomers panel — mobile: bottom, desktop: right column row 2 */}
             <div className="tcv-sticky">
               <Player entry={activeEntry} accent={accent} />
-
-              {/* NAUJIENOS panel'is — newcomers (weeks_in_top=0) */}
-              {newcomers.length > 0 && (
-                <div className="tcv-newcomers-panel">
-                  <div className="tcv-newcomers-head">
-                    <span className="tcv-newcomers-badge" style={{ background: accent.hex, color: '#fff' }}>
-                      Naujienos
-                    </span>
-                    <span className="tcv-newcomers-count">({newcomers.length})</span>
-                  </div>
-                  <p className="tcv-newcomers-hint">Kovoja už vietą tope. Balsuok lygiavertiškai.</p>
-                  <div className="tcv-newcomers-list">
-                    {newcomers.map(entry => (
-                      <NewcomerRow
-                        key={entry.id}
-                        entry={entry}
-                        weekId={data.week?.id ?? 0}
-                        accent={accent}
-                        onVoted={handleVoted}
-                        votesPerTrack={votesPerTrack}
-                        votesRemaining={votesRemaining}
-                        weeklyLimit={weeklyLimit}
-                        onClick={() => setActiveEntry(entry)}
-                        isActive={activeEntry?.id === entry.id}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
 
-            {/* MAIN LIST + BELOW (po sticky DOM order'yje) */}
+            {/* MAIN LIST + BELOW */}
             <div className="tcv-list-wrap">
               <div className="tcv-list">
                 {mainTop.map(entry => (
@@ -1207,6 +1120,35 @@ export default function TopChartView({
                 </>
               )}
             </div>
+
+            {/* NAUJIENOS — atskiras blokas. Mobile: žemiau sąrašo. Desktop: dešinėje col, row 2. */}
+            {newcomers.length > 0 && (
+              <div className="tcv-newcomers-panel">
+                <div className="tcv-newcomers-head">
+                  <span className="tcv-newcomers-badge" style={{ background: accent.hex, color: '#fff' }}>
+                    Naujienos
+                  </span>
+                  <span className="tcv-newcomers-count">({newcomers.length})</span>
+                </div>
+                <p className="tcv-newcomers-hint">Kovoja už vietą tope. Balsuok lygiavertiškai.</p>
+                <div className="tcv-newcomers-list">
+                  {newcomers.map(entry => (
+                    <NewcomerRow
+                      key={entry.id}
+                      entry={entry}
+                      weekId={data.week?.id ?? 0}
+                      accent={accent}
+                      onVoted={handleVoted}
+                      votesPerTrack={votesPerTrack}
+                      votesRemaining={votesRemaining}
+                      weeklyLimit={weeklyLimit}
+                      onClick={() => setActiveEntry(entry)}
+                      isActive={activeEntry?.id === entry.id}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
