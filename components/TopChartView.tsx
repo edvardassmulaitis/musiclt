@@ -756,20 +756,20 @@ export default function TopChartView({
         @media (min-width: 880px) {
           .tcv-body {
             display: grid;
-            grid-template-columns: 1fr 320px;
+            grid-template-columns: 1fr 1fr;
             gap: 14px 22px;
             align-items: start;
           }
           .tcv-list-wrap { min-width: 0; }
-          /* Right column su daug content'o (player + naujienos + iškritę +
-             siūlyk + archyvas). Tik PLAYER'IS sticky'as — likę elementai
-             scroll'inami normaliai, kad user'is pasiektų archyvą/siūlymus
-             per ilgo chart'o scroll'ą. */
+          /* Right column 50% pločio (lygiavert'ė su sąrašu). Player sticky'as,
+             likę panel'ai (naujienos, iškritę, siūlyk, archyvas) scroll'inami
+             normaliai, kad user'is pasiektų visus per ilgo chart'o scroll'ą. */
           .tcv-right-col {
             display: flex;
             flex-direction: column;
             gap: 18px;
             align-self: start;
+            min-width: 0;
           }
           /* Dar didesnis tarpas po sticky player'iu — kad iškritę panel'is
              vizualiai atsiskirtų, ne klijuotųsi prie video. */
@@ -801,14 +801,29 @@ export default function TopChartView({
           .tcv-guest-bar { padding: 7px 10px; font-size: 11px; margin-bottom: 10px; }
 
           /* MOBILE: flatten right-col, naudojam order'ius kad surikiuoti DOM:
-             player → list → newcomers → iškritę → siūlyk → archyvas. */
+             player → list → newcomers → iškritę → siūlyk → archyvas. Player
+             sticky-as-zoom — laikosi viršuje, kai user'is scroll'ina sąrašą
+             žemyn (kaip muzikos atkūrimo programos). */
           .tcv-right-col { display: contents; }
-          .tcv-sticky { position: static; display: block; top: auto; order: 1; }
+          .tcv-sticky {
+            position: sticky;
+            top: 56px;             /* po globaliu site headeriu */
+            z-index: 10;
+            display: block;
+            order: 1;
+            background: var(--bg-page, #0a0a0a);
+            margin: 0 -12px 4px;   /* ištempt'i edge-to-edge mobile */
+            padding: 6px 12px;
+            border-bottom: 1px solid var(--border-subtle);
+          }
           .tcv-list-wrap { gap: 10px; order: 2; }
           .tcv-newcomers-panel { order: 3; }
           .tcv-belowtop-panel { order: 4; }
           .tcv-side-cta { order: 5; }
           .tcv-rules { order: 6; }
+          /* Sticky kontekste mažesnis 16:9 player'is, kad neuztraktų pus
+             ekrano */
+          .tcv-sticky .tcv-player-video { max-height: 200px; }
 
           /* Player: pilnas 16:9 thumbnail, jokios info sekcijos po juo */
           .tcv-player { border-radius: 12px; }
