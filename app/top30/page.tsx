@@ -1,7 +1,7 @@
 import { Metadata } from 'next'
 import { createAdminClient } from '@/lib/supabase'
 import TopChartView, { type TopData } from '@/components/TopChartView'
-import { getCurrentWeekMonday, fetchLiveVotes } from '@/lib/top-week'
+import { getCurrentWeekMonday, fetchLiveVoteSplit } from '@/lib/top-week'
 
 export const metadata: Metadata = {
   title: 'LT TOP 30 — Lietuvos muzikos topas | music.lt',
@@ -34,12 +34,15 @@ async function getTopData(topType: string): Promise<TopData> {
     `)
     .eq('week_id', week.id)
 
-  const liveVotes = await fetchLiveVotes(supabase, week.id)
+  // Registered/anon split — rank tik pagal registered (žr. /top40 komentarą).
+  const { registered: regVotes, anon: anonVotes } = await fetchLiveVoteSplit(supabase, week.id)
 
   const normalized = (entries || []).map((e: any) => ({
     ...e,
     tracks: Array.isArray(e.tracks) ? e.tracks[0] ?? null : e.tracks,
-    total_votes: liveVotes.get(e.track_id) ?? 0,
+    registered_votes: regVotes.get(e.track_id) ?? 0,
+    anon_votes: anonVotes.get(e.track_id) ?? 0,
+    total_votes: (regVotes.get(e.track_id) ?? 0) + (anonVotes.get(e.track_id) ?? 0),
   })).map((e: any) => ({
     ...e,
     tracks: e.tracks ? {
@@ -55,10 +58,10 @@ async function getTopData(topType: string): Promise<TopData> {
   if (finalized) {
     inTop.sort((a: any, b: any) => (a.position || 999) - (b.position || 999))
   } else {
-    inTop.sort((a: any, b: any) => (b.total_votes || 0) - (a.total_votes || 0))
+    inTop.sort((a: any, b: any) => (b.registered_votes || 0) - (a.registered_votes || 0))
     inTop.forEach((e: any, i: number) => { e.position = i + 1 })
   }
-  newcomerEntries.sort((a: any, b: any) => (b.total_votes || 0) - (a.total_votes || 0))
+  newcomerEntries.sort((a: any, b: any) => (b.registered_votes || 0) - (a.registered_votes || 0))
 
   return { entries: [...inTop, ...newcomerEntries] as any, week }
 }

@@ -24,6 +24,8 @@ type Entry = {
   prev_position: number | null
   weeks_in_top: number
   total_votes: number
+  registered_votes?: number
+  anon_votes?: number
   is_new: boolean
   peak_position: number | null
   tracks: { id: number; slug: string; title: string; cover_url: string | null; artists: { name: string } | null } | null
@@ -475,7 +477,8 @@ function AdminTopInner() {
                       <th className="px-3 py-2.5 w-10">Trend</th>
                       <th className="px-3 py-2.5">Daina</th>
                       <th className="px-3 py-2.5 text-center w-14">Sav.</th>
-                      <th className="px-3 py-2.5 text-right w-16">Balsai</th>
+                      <th className="px-3 py-2.5 text-right w-16" title="Prisijungę nariai (skaičiuojami į topą)">Reg.</th>
+                      <th className="px-3 py-2.5 text-right w-16" title="Neprisijungę (NĖRA topo formavime — display only)">Anon.</th>
                       <th className="px-3 py-2.5 w-6"></th>
                     </tr>
                   </thead>
@@ -528,7 +531,20 @@ function AdminTopInner() {
                             </span>
                           </td>
                           <td className="px-3 py-2.5 text-right">
-                            <span className="text-sm font-bold text-[var(--text-secondary)] tabular-nums">{e.total_votes}</span>
+                            <span
+                              className="text-sm font-bold text-emerald-600 tabular-nums"
+                              title="Registruoti balsai — į topą skaičiuoja TIK šie"
+                            >
+                              {e.registered_votes ?? 0}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2.5 text-right">
+                            <span
+                              className="text-sm font-medium text-gray-400 tabular-nums"
+                              title="Anoniminiai balsai — display only, į topą NEEINA"
+                            >
+                              {e.anon_votes ?? 0}
+                            </span>
                           </td>
                           <td className="px-3 py-2.5">
                             {!activeWeek?.is_finalized && (

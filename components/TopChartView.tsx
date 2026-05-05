@@ -95,66 +95,25 @@ function TrendIndicator({ curr, prev, isNew }: { curr: number; prev: number | nu
 }
 
 /**
- * Player su YT IFrame API — leidžia programmatic play() po user gesture'o.
- * iOS Safari blokuoja `autoplay=1` URL parametrą be tikro user click'o, bet
- * `player.playVideo()` po click event'o veikia patikimiau.
+ * Player — iOS Safari autoplay reliability:
+ *
+ * Vietoj useEffect+state+iframe-swap pattern'o (kuris "praranda" user-gesture
+ * kontekstą tarp click'o ir iframe creation'o), sukuriam iframe SINKRONIŠKAI
+ * pačiame click handler'yje. iOS Safari leidžia autoplay tik jei iframe
+ * sukurtas TAME PAČIAME synchronous click event tick'e. Re-render'ai per
+ * setState susiploja iki kelių mikrosekundžių, bet užtenka, kad Safari
+ * pažymėtų video kaip "user-initiated".
+ *
+ * Tech: tiesiog įkrauname iframe su `?autoplay=1&playsinline=1` query'ais.
+ * YT IFrame API nereikia (jis pridėjo įvairius race condition'us).
  */
 function Player({ entry, accent }: { entry: Entry | null; accent: ThemeAccent }) {
   const [playing, setPlaying] = useState(false)
   const [imgErr, setImgErr] = useState(false)
-  const containerRef = useRef<HTMLDivElement | null>(null)
-  const playerRef = useRef<any>(null)
+  const slotRef = useRef<HTMLDivElement | null>(null)
 
   // Reset playing kai keičiasi entry
-  useEffect(() => { setPlaying(false); setImgErr(false); playerRef.current = null }, [entry?.id])
-
-  // Užkraunam YT IFrame API skriptą (vieną kartą)
-  useEffect(() => {
-    if ((window as any).YT?.Player) return
-    if (document.querySelector('script[src*="youtube.com/iframe_api"]')) return
-    const tag = document.createElement('script')
-    tag.src = 'https://www.youtube.com/iframe_api'
-    tag.async = true
-    document.head.appendChild(tag)
-  }, [])
-
-  // Kai user paspaudžia play btn — sukuriam Player'į ir paleidžiam
-  useEffect(() => {
-    if (!playing || !entry?.tracks || !containerRef.current) return
-    const vid = getYouTubeId(entry.tracks.video_url)
-    if (!vid) return
-
-    const initPlayer = () => {
-      const YT = (window as any).YT
-      if (!YT?.Player || !containerRef.current) return
-      // Sukuriam target div — YT API jį pakeis į iframe
-      const target = document.createElement('div')
-      target.style.width = '100%'
-      target.style.height = '100%'
-      containerRef.current.innerHTML = ''
-      containerRef.current.appendChild(target)
-
-      playerRef.current = new YT.Player(target, {
-        videoId: vid,
-        playerVars: {
-          autoplay: 1,
-          playsinline: 1,
-          rel: 0,
-          modestbranding: 1,
-        },
-        events: {
-          onReady: (e: any) => { try { e.target.playVideo() } catch {} },
-        },
-      })
-    }
-
-    if ((window as any).YT?.Player) {
-      initPlayer()
-    } else {
-      // Lauk kol API užsikraus
-      ;(window as any).onYouTubeIframeAPIReady = initPlayer
-    }
-  }, [playing, entry?.id, entry?.tracks])
+  useEffect(() => { setPlaying(false); setImgErr(false) }, [entry?.id])
 
   if (!entry || !entry.tracks) return (
     <div className="tcv-player tcv-player-empty">
@@ -169,13 +128,33 @@ function Player({ entry, accent }: { entry: Entry | null; accent: ThemeAccent })
   const vid = getYouTubeId(entry.tracks.video_url)
   const cover = entry.tracks.cover_url
 
+  // Inline click handler — sukuriam iframe SINKRONIŠKAI (ne per useEffect),
+  // kad Safari'ui užtikrinti user-gesture context'ą.
+  const startPlay = () => {
+    if (!vid || !slotRef.current) return
+    const iframe = document.createElement('iframe')
+    iframe.src = `https://www.youtube.com/embed/${vid}?autoplay=1&playsinline=1&rel=0&modestbranding=1`
+    iframe.allow = 'autoplay; encrypted-media; picture-in-picture'
+    iframe.allowFullscreen = true
+    iframe.style.width = '100%'
+    iframe.style.height = '100%'
+    iframe.style.border = '0'
+    iframe.title = entry.tracks?.title || ''
+    slotRef.current.innerHTML = ''
+    slotRef.current.appendChild(iframe)
+    setPlaying(true)
+  }
+
   return (
     <div className="tcv-player">
       <div className="tcv-player-video">
-        {playing && vid ? (
-          <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
-        ) : (
-          <div className="tcv-thumb" onClick={() => vid && setPlaying(true)} style={{ cursor: vid ? 'pointer' : 'default' }}>
+        {/* slotRef visada montuotas — playing=true tik perjungia z-stack visibility */}
+        <div
+          ref={slotRef}
+          style={{ width: '100%', height: '100%', display: playing ? 'block' : 'none' }}
+        />
+        {!playing && (
+          <div className="tcv-thumb" onClick={startPlay} style={{ cursor: vid ? 'pointer' : 'default' }}>
             {vid && !imgErr ? (
               <img
                 src={`https://img.youtube.com/vi/${vid}/maxresdefault.jpg`}
@@ -669,6 +648,13 @@ export default function TopChartView({
         .tcv-info-popover ul { margin: 0 0 10px; padding-left: 16px; }
         .tcv-info-popover li { font-size: 11px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 4px; }
         .tcv-info-popover li strong { color: var(--text-primary); }
+        .tcv-info-countdown {
+          display: flex; flex-direction: column; gap: 2px;
+          background: ${accent.rgb}; border: 1px solid ${accent.hex}33;
+          border-radius: 8px; padding: 8px 10px; margin: 0 0 10px;
+        }
+        .tcv-info-countdown-label { font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+        .tcv-info-countdown-value { font-size: 14px; font-weight: 800; color: ${accent.hex}; font-variant-numeric: tabular-nums; }
         .tcv-info-sibling { display: inline-block; font-size: 11px; font-weight: 700; color: ${accent.hex}; text-decoration: none; padding-top: 6px; border-top: 1px solid var(--border-subtle); width: 100%; }
 
         /* Status bar */
@@ -718,14 +704,22 @@ export default function TopChartView({
           .tcv-body {
             display: grid;
             grid-template-columns: 1fr 320px;
-            grid-template-areas: "main aside" "main extra";
-            grid-template-rows: auto auto;
             gap: 14px 22px;
             align-items: start;
           }
-          .tcv-list-wrap { grid-area: main; min-width: 0; }
-          .tcv-sticky { grid-area: aside; top: 80px; }
-          .tcv-newcomers-panel { grid-area: extra; margin-top: 0; align-self: start; }
+          .tcv-list-wrap { min-width: 0; }
+          /* Right column = sticky stack [player + newcomers], visi vienam blocke,
+             tad joks tarpas neatsiranda. Sticky grupei kaip visumai — prilimpa
+             prie viršaus per scroll. */
+          .tcv-right-col {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            position: sticky;
+            top: 80px;
+            align-self: start;
+          }
+          .tcv-sticky { position: static; top: auto; }
         }
         /* ───────── MOBILE (< 880px) — agresyvus compact layout ───────── */
         @media (max-width: 880px) {
@@ -751,7 +745,8 @@ export default function TopChartView({
           .tcv-countdown-pill { padding: 3px 7px; font-size: 10px; }
           .tcv-guest-bar { padding: 7px 10px; font-size: 11px; margin-bottom: 10px; }
 
-          /* Body: flex column (DOM order: sticky pirma → top, list antra → below) */
+          /* Body: flex column (DOM order: right-col pirma → player+newcomers, list antra) */
+          .tcv-right-col { position: static; display: flex; flex-direction: column; gap: 10px; top: auto; }
           .tcv-sticky { position: static; display: flex; flex-direction: column; gap: 10px; top: auto; }
           .tcv-list-wrap { gap: 10px; }
 
@@ -919,8 +914,9 @@ export default function TopChartView({
         .tcv-vote-label { display: inline; font-size: 11px; }
         @media (max-width: 520px) { .tcv-vote-label { display: none; } .tcv-votes-cell { display: none; } }
 
-        /* Sticky player */
-        .tcv-sticky { position: sticky; top: 80px; }
+        /* tcv-sticky deprecated kaip standalone sticky — sticky'ina visa
+           .tcv-right-col grupė (player + newcomers kartu). Paliekam wrap'ą
+           tikslingai DOM ordering'ui. */
         .tcv-player {
           background: var(--bg-surface); border: 1px solid var(--border-subtle);
           border-radius: 16px; overflow: hidden;
@@ -1121,15 +1117,9 @@ export default function TopChartView({
       `}</style>
 
       <div className="tcv-wrap">
-        {/* Hero — viskas vienoje row'oje: title + countdown + + + ⋮ */}
+        {/* Hero — title + + + ⋮. Countdown perkeltas į info popover'į. */}
         <div className="tcv-hero">
           <h1 className="tcv-title">{title}</h1>
-          {data.week?.vote_close && (
-            <span className="tcv-countdown-pill">
-              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-              <Countdown targetDate={data.week.vote_close} />
-            </span>
-          )}
           <div className="tcv-hero-actions">
             <button
               className="tcv-suggest-btn"
@@ -1154,8 +1144,18 @@ export default function TopChartView({
                 <div className="tcv-info-popover">
                   <h4>Apie {title}</h4>
                   <p>{subtitle}</p>
+                  {data.week?.vote_close && (
+                    <div className="tcv-info-countdown">
+                      <div className="tcv-info-countdown-label">Iki šios savaitės pabaigos</div>
+                      <div className="tcv-info-countdown-value">
+                        <Countdown targetDate={data.week.vote_close} />
+                      </div>
+                    </div>
+                  )}
                   <ul>
+                    <li>Topas atsinaujina <strong>kiekvieną {topType === 'lt_top30' ? 'šeštadienį' : 'sekmadienį'} 15:00</strong></li>
                     <li>Iki <strong>10 balsų</strong> vienai dainai per savaitę</li>
+                    <li>Į topą skaičiuojami tik <strong>prisijungusių narių balsai</strong></li>
                     <li>Daina tope iki <strong>12 savaičių</strong></li>
                   </ul>
                 </div>
@@ -1179,12 +1179,38 @@ export default function TopChartView({
           </div>
         ) : (
           <div className="tcv-body">
-            {/* DOM order:
-                  1. Sticky (Player) — mobile: top, desktop: right column row 1
-                  2. List-wrap (Top + Below) — mobile: middle, desktop: left column
-                  3. Newcomers panel — mobile: bottom, desktop: right column row 2 */}
-            <div className="tcv-sticky">
-              <Player entry={activeEntry} accent={accent} />
+            {/* DOM order tikslingai:
+                  1. Right column (player + newcomers stack'inami kartu) — mobile: top, desktop: aside
+                  2. List-wrap (Top + Below) — mobile: middle, desktop: main
+                Newcomers panel'is desktop'e fiziškai prilipęs po player'iu (vienas dešinės kolonos elementas) — joks tarpas neatsiranda. */}
+            <div className="tcv-right-col">
+              <div className="tcv-sticky">
+                <Player entry={activeEntry} accent={accent} />
+              </div>
+              {newcomers.length > 0 && (
+                <div className="tcv-newcomers-panel">
+                  <div className="tcv-newcomers-head">
+                    <span className="tcv-newcomers-title">Naujienos</span>
+                    <span className="tcv-newcomers-sub">kovoja už vietą tope</span>
+                  </div>
+                  <div className="tcv-newcomers-list">
+                    {newcomers.map(entry => (
+                      <NewcomerRow
+                        key={entry.id}
+                        entry={entry}
+                        weekId={data.week?.id ?? 0}
+                        accent={accent}
+                        onVoted={handleVoted}
+                        votesPerTrack={votesPerTrack}
+                        votesRemaining={votesRemaining}
+                        weeklyLimit={weeklyLimit}
+                        onClick={() => setActiveEntry(entry)}
+                        isActive={activeEntry?.id === entry.id}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* MAIN LIST + BELOW */}
@@ -1237,32 +1263,6 @@ export default function TopChartView({
                 </>
               )}
             </div>
-
-            {/* NAUJIENOS — atskiras blokas. Mobile: žemiau sąrašo. Desktop: dešinėje col, row 2. */}
-            {newcomers.length > 0 && (
-              <div className="tcv-newcomers-panel">
-                <div className="tcv-newcomers-head">
-                  <span className="tcv-newcomers-title">Naujienos</span>
-                  <span className="tcv-newcomers-sub">kovoja už vietą tope</span>
-                </div>
-                <div className="tcv-newcomers-list">
-                  {newcomers.map(entry => (
-                    <NewcomerRow
-                      key={entry.id}
-                      entry={entry}
-                      weekId={data.week?.id ?? 0}
-                      accent={accent}
-                      onVoted={handleVoted}
-                      votesPerTrack={votesPerTrack}
-                      votesRemaining={votesRemaining}
-                      weeklyLimit={weeklyLimit}
-                      onClick={() => setActiveEntry(entry)}
-                      isActive={activeEntry?.id === entry.id}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         )}
       </div>

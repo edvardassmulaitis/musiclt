@@ -78,31 +78,34 @@ export async function GET(req: Request) {
   }
   if (!entries?.length) return NextResponse.json({ entries: [], week })
 
-  // LIVE vote counts (top_votes lentelė) — reikia matyti realių balsų count'ą
-  // tiek admin'e, tiek public'e PRE-finalize. top_entries.total_votes
-  // atnaujinama tik per finalize_top_week RPC, todėl mid-week būna 0.
+  // LIVE vote split (registered vs anon). Admin'as nori matyti split'ą
+  // (anti-spam), o rank'inimas remiasi TIK registered balsais — anon balsai
+  // pozicijų neįtakoja. top_entries.total_votes atnaujinama tik per finalize
+  // RPC, todėl mid-week LIVE imam iš top_votes.
   const { data: liveVotes } = await supabase
     .from('top_votes')
-    .select('track_id')
+    .select('track_id, user_id')
     .eq('week_id', week.id)
     .eq('vote_type', 'like')
 
-  const liveVoteMap = new Map<number, number>()
+  const regMap = new Map<number, number>()
+  const anonMap = new Map<number, number>()
   ;(liveVotes || []).forEach((v: any) => {
-    liveVoteMap.set(v.track_id, (liveVoteMap.get(v.track_id) || 0) + 1)
+    const target = v.user_id ? regMap : anonMap
+    target.set(v.track_id, (target.get(v.track_id) || 0) + 1)
   })
 
   // Padalinam į in-top vs newcomer'ius. Pozicijos 1..N priskirti TIK in-top
-  // sąraše. Newcomers eina pabaigoje (admin'as turi atskirą sekciją).
+  // sąraše. Newcomers eina pabaigoje. Rank'inam pagal regMap (anon ignored).
   const inTop = (entries as any[]).filter(e => (e.weeks_in_top || 0) >= 1)
   const newcomerEntries = (entries as any[]).filter(e => (e.weeks_in_top || 0) === 0)
   if (week.is_finalized) {
     inTop.sort((a, b) => (a.position || 999) - (b.position || 999))
   } else {
-    inTop.sort((a, b) => (liveVoteMap.get(b.track_id) || 0) - (liveVoteMap.get(a.track_id) || 0))
+    inTop.sort((a, b) => (regMap.get(b.track_id) || 0) - (regMap.get(a.track_id) || 0))
     inTop.forEach((e, i) => { e.position = i + 1 })
   }
-  newcomerEntries.sort((a, b) => (liveVoteMap.get(b.track_id) || 0) - (liveVoteMap.get(a.track_id) || 0))
+  newcomerEntries.sort((a, b) => (regMap.get(b.track_id) || 0) - (regMap.get(a.track_id) || 0))
   entries.length = 0
   ;(entries as any[]).push(...inTop, ...newcomerEntries)
 
@@ -125,8 +128,11 @@ export async function GET(req: Request) {
   const merged = entries.map((e, i) => ({
     ...e,
     position: e.position ?? (i + 1),
-    // total_votes: LIVE count'as iš top_votes (ne stale top_entries.total_votes)
-    total_votes: liveVoteMap.get(e.track_id) ?? 0,
+    // LIVE count'ai (registered + anon split). total_votes = pilna suma display'ui;
+    // registered_votes — admin'o spam-detection ir official ranking metric.
+    registered_votes: regMap.get(e.track_id) ?? 0,
+    anon_votes: anonMap.get(e.track_id) ?? 0,
+    total_votes: (regMap.get(e.track_id) ?? 0) + (anonMap.get(e.track_id) ?? 0),
     tracks: trackMap.get(e.track_id) ?? null,
   }))
 

@@ -31,20 +31,44 @@ export function getCurrentWeekMonday(now: Date = new Date()): string {
 }
 
 /**
- * Sufetchinti VISUS LIVE balsų count'us savaitei (top_votes lentelė).
- * Grąžina Map<track_id, count>. Naudoti pre-finalize sortavimui ir display'ui.
+ * Sufetchinti VISUS LIVE balsų count'us savaitei (registered + anon kartu).
+ * Naudoti tik display'ui — rank'inimui imk `fetchLiveVoteSplit` ir naudok
+ * `registered` map'ą.
  */
 export async function fetchLiveVotes(supabase: any, weekId: number): Promise<Map<number, number>> {
+  const split = await fetchLiveVoteSplit(supabase, weekId)
+  const map = new Map<number, number>()
+  for (const [tid, r] of split.registered) map.set(tid, r)
+  for (const [tid, a] of split.anon) map.set(tid, (map.get(tid) || 0) + a)
+  return map
+}
+
+/**
+ * Sufetchinti LIVE balsus, suskirstytus pagal user_id NULL/NE-NULL.
+ *
+ *   registered = top_votes WHERE user_id IS NOT NULL  → naudoti rank'inimui (chart pozicijos)
+ *   anon       = top_votes WHERE user_id IS NULL      → tik rodymui (admin spam-detection)
+ *
+ * Anti-spam taisyklė: anon balsai į top'o pozicijas NEĮEINA. Anon vis tiek
+ * gali balsuoti (skatina prisijungti), bet jų balsai įtakoja tik display
+ * counter'ius, ne ranking'ą.
+ */
+export async function fetchLiveVoteSplit(
+  supabase: any,
+  weekId: number,
+): Promise<{ registered: Map<number, number>; anon: Map<number, number> }> {
   const { data: votes } = await supabase
     .from('top_votes')
-    .select('track_id')
+    .select('track_id, user_id')
     .eq('week_id', weekId)
     .eq('vote_type', 'like')
-  const map = new Map<number, number>()
+  const registered = new Map<number, number>()
+  const anon = new Map<number, number>()
   ;(votes || []).forEach((v: any) => {
-    map.set(v.track_id, (map.get(v.track_id) || 0) + 1)
+    const target = v.user_id ? registered : anon
+    target.set(v.track_id, (target.get(v.track_id) || 0) + 1)
   })
-  return map
+  return { registered, anon }
 }
 
 /**
