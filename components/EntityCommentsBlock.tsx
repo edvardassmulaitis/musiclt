@@ -346,8 +346,16 @@ export default function EntityCommentsBlock({
   const [hasMore, setHasMore] = useState(false)
   const [draft, setDraft] = useState('')
   const [posting, setPosting] = useState(false)
-  const [replyTo, setReplyTo] = useState<{ id: number; name: string; text: string } | null>(null)
-  const [replyModalOpen, setReplyModalOpen] = useState(false)
+  // Reply target for the MODAL ONLY. Earlier this was a single shared `replyTo`
+  // used by both inline composer and modal — that caused the banner to leak
+  // into the inline composer after a successful modal submit if any setter
+  // raced (e.g. reload triggers re-render before state batch settled). We
+  // now keep modal target physically isolated so the inline composer can't
+  // even see it.
+  // SINGLE source of truth for "user is replying to comment X via modal".
+  // Modal is open <=> modalReplyTo !== null. No separate boolean — eliminates
+  // the race that made the banner leak into the inline composer.
+  const [modalReplyTo, setModalReplyTo] = useState<{ id: number; name: string; text: string } | null>(null)
   const [replyDraft, setReplyDraft] = useState('')
   const [replyAttached, setReplyAttached] = useState<AttachmentHit[]>([])
   const [replyPickerOpen, setReplyPickerOpen] = useState(false)
@@ -487,12 +495,9 @@ export default function EntityCommentsBlock({
     }
     const rawText = draft.trim()
     if (!rawText && attached.length === 0) return
-    // Naudojam tą patį "Author rašė:\nquote\n\nreply" wire format kaip
-    // diskusijos modal'as — taip viename body field'e telpa ir citata, ir
-    // atsakymas, o display logic'as parse'ina ir piešia orange quote box'ą.
-    const finalText = replyTo && rawText
-      ? `${replyTo.name} rašė:\n${replyTo.text.slice(0, 240)}\n\n${rawText}`
-      : rawText
+    // Inline composer'is — tik nauji komentarai (be reply context). Replies
+    // visada eina per modal'ą (žr. submitReply).
+    const finalText = rawText
     setPosting(true)
     setError('')
     try {
@@ -502,11 +507,7 @@ export default function EntityCommentsBlock({
         body: JSON.stringify({
           entity_type: entityType,
           entity_id: entityId,
-          // parent_id: only set when replying to a modern comment with a
-          // real FK id. Replies to legacy archived comments use parent_id=null
-          // (we keep the quote prefix in body for visual continuity, but
-          // can't FK-link to a legacy_id from the modern table).
-          parent_id: replyTo?.id && replyTo.id > 0 ? replyTo.id : null,
+          parent_id: null,
           text: finalText,
           attachments: attached.length > 0 ? attached : undefined,
         }),
@@ -516,11 +517,8 @@ export default function EntityCommentsBlock({
         setError(data.error || 'Klaida.')
         return
       }
-      // Force-clear editor via imperative ref (prop-based clear can race
-      // with Tiptap's onUpdate cycle). Also reset state.
       editorRef.current?.clear()
       setDraft('')
-      setReplyTo(null)
       setAttached([])
       showToast('Komentaras pridėtas')
       reload()
@@ -531,16 +529,16 @@ export default function EntityCommentsBlock({
     }
   }
 
-  /** Modal'inis reply submit — atskira nuo inline composer'io flow'o.
-   *  Naudoja replyDraft + replyAttached + replyTo state'us. Sėkmės atveju
-   *  uždaro modal'ą ir reload'ina komentarus (naujasis comment'as įrašytas
-   *  thread'e per parent_id linkavimą). */
+  /** Modal'inis reply submit. Naudoja replyDraft + replyAttached + modalReplyTo.
+   *  Sėkmės atveju setModalReplyTo(null) uždaro modal'ą (modal vis derive'as
+   *  iš modalReplyTo egzistavimo), o tai pat clean'ina target. Vienas state
+   *  šaltinis = jokios race sąlygos tarp replyTo / replyModalOpen. */
   const submitReply = async () => {
     if (!session?.user?.id) {
       setReplyError('Reikia prisijungti.')
       return
     }
-    if (!replyTo) {
+    if (!modalReplyTo) {
       setReplyError('Nieko atsakyti.')
       return
     }
@@ -550,8 +548,8 @@ export default function EntityCommentsBlock({
       return
     }
     const finalText = rawText
-      ? `${replyTo.name} rašė:\n${replyTo.text.slice(0, 240)}\n\n${rawText}`
-      : `${replyTo.name} rašė:\n${replyTo.text.slice(0, 240)}\n\n`
+      ? `${modalReplyTo.name} rašė:\n${modalReplyTo.text.slice(0, 240)}\n\n${rawText}`
+      : `${modalReplyTo.name} rašė:\n${modalReplyTo.text.slice(0, 240)}\n\n`
     setReplyPosting(true)
     setReplyError('')
     try {
@@ -561,7 +559,7 @@ export default function EntityCommentsBlock({
         body: JSON.stringify({
           entity_type: entityType,
           entity_id: entityId,
-          parent_id: replyTo.id && replyTo.id > 0 ? replyTo.id : null,
+          parent_id: modalReplyTo.id && modalReplyTo.id > 0 ? modalReplyTo.id : null,
           text: finalText,
           attachments: replyAttached.length > 0 ? replyAttached : undefined,
         }),
@@ -571,10 +569,8 @@ export default function EntityCommentsBlock({
         setReplyError(data.error || 'Klaida.')
         return
       }
-      // Sėkmingai išsiuntė — uždaro modal'ą, reset state, reload (su smooth)
       replyEditorRef.current?.clear()
-      setReplyModalOpen(false)
-      setReplyTo(null)
+      setModalReplyTo(null)
       setReplyDraft('')
       setReplyAttached([])
       showToast('Atsakymas išsiųstas')
@@ -728,35 +724,11 @@ export default function EntityCommentsBlock({
 
   // Composer block — extracted, used as the FIRST element inside the section
   // so the user is invited to write before scrolling through existing posts.
+  // Inline composer'is yra TIK naujiems komentarams. Reply'ai eina per
+  // dedikuotą modalą, tad jokio replyTo banner'io čia nereikia (anksčiau
+  // toks egzistavo bet leak'indavosi po sėkmingo modal submit'o).
   const Composer = (
     <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3">
-      {/* Inline reply banner — shows ONLY for inline-style replies (replyTo
-          set without modal). When user clicks reply on a specific comment,
-          we open the dedicated modal instead, so the inline composer stays
-          a clean "new comment" composer. */}
-      {replyTo && !replyModalOpen && (
-        <div className="mb-2 flex items-start gap-2 rounded-lg border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.08)] px-3 py-2">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="mt-0.5 shrink-0 text-[var(--accent-orange)]"><polyline points="9 14 4 9 9 4" /><path d="M20 20v-7a4 4 0 0 0-4-4H4" /></svg>
-          <div className="min-w-0 flex-1">
-            <div className="font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-[var(--accent-orange)]">
-              Atsakant: {replyTo.name}
-            </div>
-            <div className="mt-0.5 line-clamp-2 text-[11.5px] text-[var(--text-muted)]">
-              {replyTo.text}
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => setReplyTo(null)}
-            aria-label="Atšaukti atsakymą"
-            className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-[var(--text-faint)] transition-colors hover:text-[var(--text-primary)]"
-          >
-            <svg viewBox="0 0 16 16" width={11} height={11} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-              <path d="M3 3l10 10M13 3L3 13" />
-            </svg>
-          </button>
-        </div>
-      )}
       {attached.length > 0 && (
         <div className="mb-2 flex flex-wrap gap-1.5">
           {attached.map((hit, i) => (
@@ -792,7 +764,7 @@ export default function EntityCommentsBlock({
         ref={editorRef}
         value={draft}
         onChange={setDraft}
-        placeholder={replyTo && !replyModalOpen ? `Atsakyti @${replyTo.name}...` : 'Tavo komentaras'}
+        placeholder='Tavo komentaras'
         onSubmit={submit}
         minHeight={compact ? 60 : 80}
       />
@@ -1099,16 +1071,17 @@ export default function EntityCommentsBlock({
                         <button
                           type="button"
                           onClick={() => {
-                            setReplyTo({
+                            // Setting modalReplyTo OPENS the modal (modal renders
+                            // when modalReplyTo !== null). Single state mutation
+                            // = nothing to leak into the inline composer.
+                            setReplyDraft('')
+                            setReplyAttached([])
+                            setReplyError('')
+                            setModalReplyTo({
                               id: isModern ? c.id : 0,
                               name: author,
                               text: rest.slice(0, 240),
                             })
-                            // Modal vietoj scroll'inimo į top — useris nepamesto pozicijos.
-                            setReplyDraft('')
-                            setReplyAttached([])
-                            setReplyError('')
-                            setReplyModalOpen(true)
                           }}
                           className="inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--text-muted)] transition-colors hover:text-[var(--accent-orange)]"
                         >
@@ -1223,12 +1196,14 @@ export default function EntityCommentsBlock({
       />
 
       {/* Reply modal — atsakant į komentarą, useris nepamesta scroll pozicijos.
-          Modal rodo parent quote + composer + send. Ctrl+Enter siunčia. */}
-      {replyModalOpen && replyTo && (
+          Modal rodo parent quote + composer + send. Ctrl+Enter siunčia.
+          Modal'as render'inamas tik kai modalReplyTo nėra null. Vienas state
+          šaltinis = nereikia atskiro replyModalOpen boolean'o. */}
+      {modalReplyTo && (
         <div
           className="fixed inset-0 z-[9999] flex items-end justify-center sm:items-center"
           style={{ background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(8px)' }}
-          onClick={(e) => { if (e.target === e.currentTarget) setReplyModalOpen(false) }}
+          onClick={(e) => { if (e.target === e.currentTarget) setModalReplyTo(null) }}
         >
           <div
             className="w-full max-w-3xl overflow-hidden rounded-t-2xl sm:rounded-2xl shadow-2xl"
@@ -1242,11 +1217,11 @@ export default function EntityCommentsBlock({
             <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
               <div className="flex items-center gap-2 text-sm font-bold text-[var(--text-primary)]">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="9 14 4 9 9 4" /><path d="M20 20v-7a4 4 0 0 0-4-4H4" /></svg>
-                Atsakyti į {replyTo.name}
+                Atsakyti į {modalReplyTo.name}
               </div>
               <button
                 type="button"
-                onClick={() => setReplyModalOpen(false)}
+                onClick={() => setModalReplyTo(null)}
                 className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
                 aria-label="Uždaryti"
               >
@@ -1258,10 +1233,10 @@ export default function EntityCommentsBlock({
             <div className="px-4 pt-3">
               <div className="rounded-lg border-l-[3px] border-[var(--accent-orange)] bg-[var(--bg-elevated)] px-3 py-2">
                 <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-secondary)]">
-                  {replyTo.name} rašė:
+                  {modalReplyTo.name} rašė:
                 </div>
                 <div className="mt-1 line-clamp-4 text-[12px] italic text-[var(--text-muted)]">
-                  {replyTo.text}
+                  {modalReplyTo.text}
                 </div>
               </div>
             </div>
