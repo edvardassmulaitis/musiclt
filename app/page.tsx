@@ -1999,7 +1999,7 @@ export default function Home() {
     setHeroIdx(0)
     readyBits.current.hero = true
     tryReady.current()
-  }, [news, events, newsSongs])
+  }, [news, events, newsSongs, ltTop, worldTop])
 
   useEffect(() => {
     if (!heroSlides.length || heroVideoPlaying) return
