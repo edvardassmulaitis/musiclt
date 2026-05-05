@@ -57,6 +57,8 @@ export type TrackInAlbum = {
   duration?: string
   type: 'normal' | 'single' | 'remix' | 'live' | 'mashup' | 'instrumental'
   video_url?: string
+  video_views?: number | null
+  video_views_checked_at?: string | null
   spotify_id?: string
   is_single?: boolean
   lyrics?: string
@@ -119,7 +121,7 @@ export async function getAlbumById(id: number): Promise<AlbumFull & { tracks: Tr
 
   const { data: trackRows } = await supabase
     .from('album_tracks')
-    .select('*, tracks(id, title, slug, type, video_url, spotify_id, lyrics, is_single, track_artists(is_primary, artists(id, name)))')
+    .select('*, tracks(id, title, slug, type, video_url, video_views, video_views_checked_at, spotify_id, lyrics, is_single, track_artists(is_primary, artists(id, name)))')
     .eq('album_id', id)
     .order('position')
     .order('track_id')  // stable tiebreaker kai visi position=0
@@ -144,6 +146,8 @@ export async function getAlbumById(id: number): Promise<AlbumFull & { tracks: Tr
         disc_number: 1,
         type: r.tracks?.type || 'normal',
         video_url: r.tracks?.video_url || '',
+        video_views: r.tracks?.video_views ?? null,
+        video_views_checked_at: r.tracks?.video_views_checked_at || null,
         spotify_id: r.tracks?.spotify_id || '',
         // is_single dabar skaitomas iš TRACKS lentelės (t.y. tikras single flag'as),
         // ne iš album_tracks.is_primary (kuri reiškia "primary album version")
