@@ -25,7 +25,16 @@ import Placeholder from '@tiptap/extension-placeholder'
 import Image from '@tiptap/extension-image'
 import TextAlign from '@tiptap/extension-text-align'
 import { Iframe } from '@/lib/tiptap-iframe'
-import { useEffect, useRef, useState } from 'react'
+import {
+  forwardRef, useEffect, useImperativeHandle, useRef, useState,
+} from 'react'
+
+export interface CommentEditorHandle {
+  /** Force-clear editor content + reset internal state. Used by parent after submit. */
+  clear: () => void
+  /** Programmatically focus the editor input. */
+  focus: () => void
+}
 
 interface Props {
   value: string
@@ -79,12 +88,100 @@ const I = ({ children }: { children: React.ReactNode }) => (
   </svg>
 )
 
-export default function CommentEditor({
+/** Custom dark prompt modal — atstoja `window.prompt` (kuris atrodo iš
+ *  konteksto su native browser stiliumi). Tas pats theme'as kaip kitur app'e. */
+function PromptModal({
+  open, title, hint, defaultValue, placeholder, onCancel, onSubmit,
+}: {
+  open: boolean
+  title: string
+  hint?: string
+  defaultValue?: string
+  placeholder?: string
+  onCancel: () => void
+  onSubmit: (value: string) => void
+}) {
+  const [value, setValue] = useState(defaultValue ?? '')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // Reset on open + autofocus
+  useEffect(() => {
+    if (!open) return
+    setValue(defaultValue ?? '')
+    // Defer focus to next tick so transition completes
+    const t = setTimeout(() => {
+      inputRef.current?.focus()
+      inputRef.current?.select()
+    }, 30)
+    return () => clearTimeout(t)
+  }, [open, defaultValue])
+
+  if (!open) return null
+
+  return (
+    <div
+      className="fixed inset-0 z-[10000] flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(8px)' }}
+      onClick={(e) => { if (e.target === e.currentTarget) onCancel() }}
+    >
+      <div
+        className="w-full max-w-md overflow-hidden rounded-2xl shadow-2xl"
+        style={{
+          background: 'var(--bg-elevated)',
+          border: '1px solid var(--border-default)',
+        }}
+      >
+        <div className="border-b border-[var(--border-subtle)] px-4 py-3">
+          <div className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">
+            {title}
+          </div>
+          {hint && (
+            <div className="mt-0.5 text-[11.5px] text-[var(--text-muted)]">
+              {hint}
+            </div>
+          )}
+        </div>
+        <form
+          onSubmit={(e) => { e.preventDefault(); onSubmit(value) }}
+          className="px-4 py-4"
+        >
+          <input
+            ref={inputRef}
+            type="text"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder={placeholder}
+            className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2 text-[13.5px] text-[var(--text-primary)] outline-none transition-colors placeholder:text-[var(--text-faint)] focus:border-[var(--accent-orange)]"
+          />
+          <div className="mt-3 flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="rounded-full border border-[var(--border-subtle)] bg-transparent px-3.5 py-1.5 text-[11.5px] font-bold text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+            >
+              Atšaukti
+            </button>
+            <button
+              type="submit"
+              className="rounded-full bg-[var(--accent-orange)] px-4 py-1.5 text-[11.5px] font-extrabold text-white transition-opacity hover:opacity-90"
+            >
+              Gerai
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+const CommentEditor = forwardRef<CommentEditorHandle, Props>(function CommentEditor({
   value, onChange, placeholder = 'Tavo komentaras',
   onSubmit, autoFocus = false, minHeight = 90,
-}: Props) {
+}, ref) {
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [linkPrompt, setLinkPrompt] = useState<{ open: boolean; defaultValue: string }>({ open: false, defaultValue: '' })
+  const [ytPrompt, setYtPrompt] = useState<{ open: boolean }>({ open: false })
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -151,20 +248,43 @@ export default function CommentEditor({
     }
   }, [value, editor])
 
+  // Imperative API — parent calls clear() after successful submit. Forces
+  // editor reset bypassing prop-based reconciliation, which can lag because
+  // Tiptap's onUpdate cycle ping-pongs with parent state.
+  useImperativeHandle(ref, () => ({
+    clear: () => {
+      if (!editor) return
+      editor.commands.clearContent(false)
+      lastSetRef.current = ''
+      onChange('')
+    },
+    focus: () => editor?.commands.focus(),
+  }), [editor, onChange])
+
   if (!editor) return null
 
   const setLink = () => {
     const prev = editor.getAttributes('link').href as string | undefined
-    const url = window.prompt('Įvesk URL (paliek tuščią — pašalinti):', prev ?? 'https://')
-    if (url === null) return
-    if (url === '') { editor.chain().focus().unsetLink().run(); return }
-    // Basic URL sanitization — only allow http(s):// schemes
+    setLinkPrompt({ open: true, defaultValue: prev ?? 'https://' })
+  }
+
+  const handleLinkSubmit = (rawUrl: string) => {
+    setLinkPrompt({ open: false, defaultValue: '' })
+    const url = rawUrl.trim()
+    if (url === '') {
+      editor.chain().focus().unsetLink().run()
+      return
+    }
+    // Basic URL sanitization — only http(s):// or relative
     const safe = /^(https?:\/\/|\/)/i.test(url) ? url : `https://${url}`
     editor.chain().focus().extendMarkRange('link').setLink({ href: safe }).run()
   }
 
-  const insertYouTube = () => {
-    const url = window.prompt('YouTube URL:')
+  const insertYouTube = () => setYtPrompt({ open: true })
+
+  const handleYouTubeSubmit = (rawUrl: string) => {
+    setYtPrompt({ open: false })
+    const url = rawUrl.trim()
     if (!url) return
     const m = url.match(/(?:v=|\/|youtu\.be\/)([\w-]{11})/)
     const videoId = m?.[1]
@@ -172,9 +292,6 @@ export default function CommentEditor({
       alert('Negaliu rasti YouTube video ID. Įsitikink, kad URL teisingas.')
       return
     }
-    // Use Iframe node insert via insertContent (extension nepriklauso komanda
-    // setIframe — tik nodePasteRule auto-paste'ui). insertContent išparser'ina
-    // <iframe> tag'ą per parseHTML ir įdeda Iframe node'ą į editor schema.
     editor.chain().focus().insertContent({
       type: 'iframe',
       attrs: {
@@ -361,6 +478,28 @@ export default function CommentEditor({
           text-decoration: underline;
         }
       `}</style>
+
+      {/* Custom dark prompts — atstoja native window.prompt'us, kad išliktų app theme'as. */}
+      <PromptModal
+        open={linkPrompt.open}
+        title="Pridėti nuorodą"
+        hint="Įvesk URL (palik tuščią — pašalinti nuorodą)"
+        defaultValue={linkPrompt.defaultValue}
+        placeholder="https://"
+        onCancel={() => setLinkPrompt({ open: false, defaultValue: '' })}
+        onSubmit={handleLinkSubmit}
+      />
+      <PromptModal
+        open={ytPrompt.open}
+        title="Pridėti YouTube video"
+        hint="Įklijuok pilną YouTube URL — automatiškai bus įdėtas player'is"
+        defaultValue=""
+        placeholder="https://www.youtube.com/watch?v=..."
+        onCancel={() => setYtPrompt({ open: false })}
+        onSubmit={handleYouTubeSubmit}
+      />
     </div>
   )
-}
+})
+
+export default CommentEditor

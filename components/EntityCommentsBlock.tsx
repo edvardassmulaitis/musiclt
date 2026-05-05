@@ -29,7 +29,7 @@ import { proxyImg } from '@/lib/img-proxy'
 import { type AttachmentHit } from './MusicSearchPicker'
 import MusicSearchModal from './MusicSearchModal'
 import LikesModal, { type LikeUser } from './LikesModal'
-import CommentEditor from './CommentEditor'
+import CommentEditor, { type CommentEditorHandle } from './CommentEditor'
 import { relativeTime } from '@/lib/relative-time'
 
 type ModernComment = {
@@ -358,6 +358,18 @@ export default function EntityCommentsBlock({
   const [pickerOpen, setPickerOpen] = useState(false)
   const [likersFor, setLikersFor] = useState<{ entityType: string; entityId: number; count: number } | null>(null)
   const [likersUsers, setLikersUsers] = useState<LikeUser[]>([])
+  // Toast state — short success banner shown for ~2.4s after a successful post.
+  const [toast, setToast] = useState<{ kind: 'success' | 'info'; message: string } | null>(null)
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const showToast = (message: string, kind: 'success' | 'info' = 'success') => {
+    setToast({ kind, message })
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    toastTimerRef.current = setTimeout(() => setToast(null), 2400)
+  }
+  // Editor refs — used to imperatively clear after successful submit
+  // (prop-based clearing has a race vs Tiptap's onUpdate cycle).
+  const editorRef = useRef<CommentEditorHandle | null>(null)
+  const replyEditorRef = useRef<CommentEditorHandle | null>(null)
   const draftRef = useRef<HTMLTextAreaElement | null>(null)
 
   // Discussions yra unified — visi komentarai jau gyvena modern `comments`
@@ -504,9 +516,13 @@ export default function EntityCommentsBlock({
         setError(data.error || 'Klaida.')
         return
       }
+      // Force-clear editor via imperative ref (prop-based clear can race
+      // with Tiptap's onUpdate cycle). Also reset state.
+      editorRef.current?.clear()
       setDraft('')
       setReplyTo(null)
       setAttached([])
+      showToast('Komentaras pridėtas')
       reload()
     } catch {
       setError('Tinklo klaida.')
@@ -556,10 +572,12 @@ export default function EntityCommentsBlock({
         return
       }
       // Sėkmingai išsiuntė — uždaro modal'ą, reset state, reload (su smooth)
+      replyEditorRef.current?.clear()
       setReplyModalOpen(false)
       setReplyTo(null)
       setReplyDraft('')
       setReplyAttached([])
+      showToast('Atsakymas išsiųstas')
       reload()
     } catch {
       setReplyError('Tinklo klaida.')
@@ -712,7 +730,11 @@ export default function EntityCommentsBlock({
   // so the user is invited to write before scrolling through existing posts.
   const Composer = (
     <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3">
-      {replyTo && (
+      {/* Inline reply banner — shows ONLY for inline-style replies (replyTo
+          set without modal). When user clicks reply on a specific comment,
+          we open the dedicated modal instead, so the inline composer stays
+          a clean "new comment" composer. */}
+      {replyTo && !replyModalOpen && (
         <div className="mb-2 flex items-start gap-2 rounded-lg border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.08)] px-3 py-2">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="mt-0.5 shrink-0 text-[var(--accent-orange)]"><polyline points="9 14 4 9 9 4" /><path d="M20 20v-7a4 4 0 0 0-4-4H4" /></svg>
           <div className="min-w-0 flex-1">
@@ -767,9 +789,10 @@ export default function EntityCommentsBlock({
           Buttons sit on their own row underneath so the textarea can stay
           generously wide even on narrow modal columns. */}
       <CommentEditor
+        ref={editorRef}
         value={draft}
         onChange={setDraft}
-        placeholder={replyTo ? `Atsakyti @${replyTo.name}...` : 'Tavo komentaras'}
+        placeholder={replyTo && !replyModalOpen ? `Atsakyti @${replyTo.name}...` : 'Tavo komentaras'}
         onSubmit={submit}
         minHeight={compact ? 60 : 80}
       />
@@ -818,6 +841,32 @@ export default function EntityCommentsBlock({
 
   return (
     <section className="flex flex-col gap-3">
+      {/* Toast — fixed top-center notification, auto-hides after ~2.4s.
+          Used for "Komentaras pridėtas" / "Atsakymas išsiųstas" success
+          confirmations after submit. */}
+      {toast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed left-1/2 top-6 z-[10001] -translate-x-1/2 animate-in fade-in slide-in-from-top-2"
+        >
+          <div
+            className="flex items-center gap-2 rounded-full px-4 py-2 text-[12.5px] font-bold shadow-2xl"
+            style={{
+              background: toast.kind === 'success' ? 'rgba(34,197,94,0.15)' : 'var(--bg-elevated)',
+              border: `1px solid ${toast.kind === 'success' ? 'rgba(34,197,94,0.45)' : 'var(--border-default)'}`,
+              color: toast.kind === 'success' ? '#4ade80' : 'var(--text-primary)',
+              backdropFilter: 'blur(8px)',
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            {toast.message}
+          </div>
+        </div>
+      )}
+
       {/* Header — title + count + sort. Compact (modal) → mažutė uppercase
           versija, kad atitiktų gretimą "Dainos tekstas" subhead'ą. */}
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1182,12 +1231,10 @@ export default function EntityCommentsBlock({
           onClick={(e) => { if (e.target === e.currentTarget) setReplyModalOpen(false) }}
         >
           <div
-            className="w-full max-w-xl overflow-hidden rounded-t-2xl sm:rounded-2xl shadow-2xl"
+            className="w-full max-w-3xl overflow-hidden rounded-t-2xl sm:rounded-2xl shadow-2xl"
             style={{
               background: 'var(--bg-elevated)',
               border: '1px solid var(--border-default)',
-              // Forsuojam opaque'ą — kad ką tik puslapis būtų tamsesnis, arba theme
-              // nebūtų pilnai opaque'inis card-bg, modal'o turinys lieka skaitomas.
               opacity: 1,
             }}
           >
@@ -1222,6 +1269,7 @@ export default function EntityCommentsBlock({
             {/* Composer */}
             <div className="px-4 py-3">
               <CommentEditor
+                ref={replyEditorRef}
                 value={replyDraft}
                 onChange={setReplyDraft}
                 placeholder="Tavo atsakymas…"
