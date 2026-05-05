@@ -927,10 +927,23 @@ export default function EntityCommentsBlock({
                 rest = parsed.rest
               } else {
                 if (c.content_html) {
-                  const parsed = parseLegacyHtmlQuote(c.content_html)
-                  quoteAuthor = parsed.quoteAuthor
-                  quoteText = parsed.quoteText
-                  rest = parsed.rest
+                  // Naujausi scrape'ai įdeda nested <blockquote class="legacy-quote">
+                  // chain'ą tiesiai į content_html. Tas chain'as render'inasi
+                  // kaip orange citatos automatiškai per dangerouslySetInnerHTML.
+                  // Senesni scrape'ai gali turėti <div class="quote1"> formatą —
+                  // jei jis aptiktas, paliekam parseLegacyHtmlQuote elgesį.
+                  if (/<blockquote\s+class=["']?legacy-quote["']?/i.test(c.content_html)) {
+                    rest = c.content_html
+                    quoteAuthor = null
+                    quoteText = null
+                  } else if (/<div[^>]*class=["']?quote1["']?/i.test(c.content_html)) {
+                    const parsed = parseLegacyHtmlQuote(c.content_html)
+                    quoteAuthor = parsed.quoteAuthor
+                    quoteText = parsed.quoteText
+                    rest = parsed.rest
+                  } else {
+                    rest = c.content_html
+                  }
                 } else {
                   const parsed = parseReplyBody(c.content_text || '')
                   quoteAuthor = parsed.quoteAuthor
