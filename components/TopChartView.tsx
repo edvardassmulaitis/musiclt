@@ -292,22 +292,24 @@ function ChartRow({
 }
 
 /**
- * Weeks progress — single thin bar with proportional fill + label.
- * 1/12 sav. → bar 8% užpildytas. 12/12 → pilnai užpildytas + raudonas.
+ * Weeks progress — 12 dash'iukų, užpildytų pagal weeks_in_top.
+ * Be skaitinio label'io — vizualus indikatorius savaime.
  */
 function WeeksProgress({ weeks, accent }: { weeks: number; accent: ThemeAccent }) {
   const max = 12
   const w = Math.min(Math.max(weeks, 0), max)
-  const pct = (w / max) * 100
   const isLast = w >= 12
   const isWarning = w >= 10
   const fillColor = isLast ? '#ef4444' : isWarning ? '#f59e0b' : accent.hex
   return (
-    <span className="tcv-weeks-progress" title={`${w}/${max} sav. tope`}>
-      <span className="tcv-weeks-bar">
-        <span className="tcv-weeks-fill" style={{ width: pct + '%', background: fillColor }} />
-      </span>
-      <span className="tcv-weeks-label">{w}/{max}</span>
+    <span className="tcv-weeks-progress" title={`${w}/${max} sav. tope`} role="progressbar" aria-valuemin={0} aria-valuemax={max} aria-valuenow={w}>
+      {Array.from({ length: max }, (_, i) => (
+        <span
+          key={i}
+          className="tcv-week-dot"
+          style={{ background: i < w ? fillColor : 'var(--bg-elevated)' }}
+        />
+      ))}
     </span>
   )
 }
@@ -447,12 +449,16 @@ function VoteButton({
         onContextMenu={e => e.preventDefault()}
         disabled={maxedOut}
         className={`tcv-vote-btn${voted ? ' voted' : ''}${maxedOut ? ' maxed' : ''}${boosting ? ' boosting' : ''}`}
-        style={voted ? { color: accent.hex, borderColor: accent.hex } : undefined}
+        style={{
+          background: accent.hex,
+          color: '#fff',
+          borderColor: accent.hex,
+        }}
         title={maxedOut ? `Pasiektas maks. (${weeklyLimit}) balsų` : 'Spausk arba palaikyk — iki ' + weeklyLimit}
       >
-        {/* Boost arrow up — žymi kilimą į viršų (ne įprastas like) */}
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 19V5M5 12l7-7 7 7"/>
+        {/* Boost zap — energetinis simbolis */}
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="0">
+          <path d="M13 2L3 14h7l-1 8 11-14h-7l0-6z"/>
         </svg>
         {voted ? (
           <span className="tcv-vote-mine" aria-label="Tavo balsai">{songVotes}</span>
@@ -484,7 +490,7 @@ export default function TopChartView({
   siblingLabel: string
 }) {
   const { data: session } = useSession()
-  const weeklyLimit = session ? 10 : 5
+  const weeklyLimit = 10  // visiems vienodai (anon vs signed-in skirtumas — balso svoris finalize'e)
   const [votesPerTrack, setVotesPerTrack] = useState<Record<number, number>>({})
   const [votesRemaining, setVotesRemaining] = useState(weeklyLimit)
   const [showSuggest, setShowSuggest] = useState(false)
@@ -585,12 +591,23 @@ export default function TopChartView({
         }
         .tcv-votes-left { font-size: 12px; }
 
-        .tcv-guest-bar {
-          margin-bottom: 16px; padding: 10px 14px; border-radius: 10px;
-          background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.2);
-          color: #4338ca; font-size: 12px;
+        /* Anon hint — atsiranda po pirmo balso, kvies prisijungti */
+        .tcv-anon-hint {
+          margin-bottom: 14px; padding: 10px 14px; border-radius: 12px;
+          background: ${accent.rgb};
+          border: 1px solid ${accent.hex};
+          color: var(--text-primary); font-size: 12px;
+          display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
         }
-        .tcv-guest-bar a { color: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
+        .tcv-anon-hint-icon { font-size: 16px; flex-shrink: 0; }
+        .tcv-anon-hint strong { color: ${accent.hex}; }
+        .tcv-anon-hint-link {
+          margin-left: auto; padding: 5px 12px;
+          background: ${accent.hex}; color: #fff;
+          border-radius: 999px; font-size: 11px; font-weight: 700;
+          text-decoration: none; flex-shrink: 0;
+        }
+        .tcv-anon-hint-link:hover { filter: brightness(1.1); }
 
         /* Body — mobile-first flex column. Mobile order: player → list → newcomers */
         .tcv-body {
@@ -750,18 +767,18 @@ export default function TopChartView({
         .tcv-vote-btn {
           display: flex; align-items: center; gap: 5px;
           padding: 6px 12px; border-radius: 999px;
-          font-size: 12px; font-weight: 700; cursor: pointer;
-          border: 1px solid var(--border-subtle); background: var(--bg-elevated);
-          color: var(--text-secondary); transition: transform 0.1s, background 0.15s, border-color 0.15s, color 0.15s;
+          font-size: 12px; font-weight: 800; cursor: pointer;
+          border: 1px solid transparent;
+          /* background ir color setina inline'iniu stylu (accent.hex) */
+          transition: transform 0.1s, filter 0.15s;
           flex-shrink: 0;
           -webkit-tap-highlight-color: transparent;
           touch-action: manipulation;
           user-select: none;
+          box-shadow: 0 4px 12px ${accent.rgb};
         }
-        .tcv-vote-btn:hover:not(.disabled) {
-          background: ${accent.rgb}; border-color: ${accent.hex}; color: ${accent.hex};
-        }
-        .tcv-vote-btn:active:not(.disabled) { transform: scale(0.92); }
+        .tcv-vote-btn:hover:not(.disabled):not(.maxed) { filter: brightness(1.08); transform: translateY(-1px); }
+        .tcv-vote-btn:active:not(.disabled) { transform: scale(0.95); }
         .tcv-vote-btn.pulsing { animation: tcv-pulse 0.2s ease-out; }
         @keyframes tcv-pulse {
           0% { transform: scale(1); }
@@ -879,29 +896,15 @@ export default function TopChartView({
         .tcv-input::placeholder { color: var(--text-muted); }
         .tcv-input:focus { border-color: ${accent.hex}; }
 
-        /* Weeks progress — thin bar with proportional fill */
+        /* Weeks progress — 12 dashes (kaip artist player'is) */
         .tcv-weeks-progress {
-          display: flex; align-items: center; gap: 6px;
-          margin-top: 1px;
+          display: inline-flex; gap: 3px; align-items: center;
+          margin-top: 2px;
         }
-        .tcv-weeks-bar {
-          flex: 0 0 auto;
-          width: 64px; height: 3px;
-          background: var(--bg-elevated);
-          border-radius: 2px;
-          overflow: hidden;
-          position: relative;
-        }
-        .tcv-weeks-fill {
-          display: block; height: 100%;
-          border-radius: 2px;
-          transition: width 0.4s ease, background 0.3s;
-        }
-        .tcv-weeks-label {
-          font-size: 9px; color: var(--text-muted);
-          font-variant-numeric: tabular-nums;
-          letter-spacing: 0.02em;
-          font-weight: 600;
+        .tcv-week-dot {
+          display: inline-block;
+          width: 7px; height: 4px; border-radius: 1.5px;
+          transition: background 0.3s ease;
         }
 
         /* List wrapper — apsiame tiek main top'as, tiek below-top sekcija */
@@ -939,13 +942,12 @@ export default function TopChartView({
           position: absolute; top: 0; left: 14px; right: 14px; height: 2px;
           background: ${accent.hex}; border-radius: 0 0 2px 2px;
         }
-        .tcv-newcomers-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
-        .tcv-newcomers-badge {
-          font-size: 10px; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase;
-          padding: 4px 9px; border-radius: 999px;
+        .tcv-newcomers-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+        .tcv-newcomers-title {
+          font-size: 13px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
+          color: ${accent.hex};
         }
-        .tcv-newcomers-count { font-size: 12px; font-weight: 700; color: var(--text-secondary); }
-        .tcv-newcomers-hint { margin: 0 0 12px; font-size: 11px; color: var(--text-muted); }
+        .tcv-newcomers-sub { font-size: 11px; color: var(--text-muted); }
         .tcv-newcomers-list { display: flex; flex-direction: column; gap: 4px; }
         .tcv-newcomer-row {
           display: flex; align-items: center; gap: 10px;
@@ -1018,24 +1020,16 @@ export default function TopChartView({
       `}</style>
 
       <div className="tcv-wrap">
-        {/* Hero — kompaktinis: TIK title + suggest mygtukas */}
+        {/* Hero — kompaktinis: TIK title + countdown + suggest mygtukas */}
         <div className="tcv-hero">
           <div className="tcv-hero-left">
             <h1 className="tcv-title">{title}</h1>
-            <div className="tcv-meta-line">
-              {weekLabel && <span>Sav. {weekLabel}</span>}
-              {data.week?.vote_close && (
-                <>
-                  <span className="tcv-meta-dot">·</span>
-                  <span className="tcv-countdown-pill">
-                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-                    <Countdown targetDate={data.week.vote_close} />
-                  </span>
-                </>
-              )}
-              <span className="tcv-meta-dot">·</span>
-              <span>iki {session ? 10 : 5}/daina</span>
-            </div>
+            {data.week?.vote_close && (
+              <span className="tcv-countdown-pill">
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                <Countdown targetDate={data.week.vote_close} />
+              </span>
+            )}
           </div>
           <button
             className="tcv-suggest-btn"
@@ -1048,9 +1042,14 @@ export default function TopChartView({
           </button>
         </div>
 
-        {!session && (
-          <div className="tcv-guest-bar">
-            Balsuoji kaip svečias (iki 5 vienai dainai). <Link href="/auth/signin">Prisijunk</Link> — iki 10/daina.
+        {/* Anon hint — TIK kai jau prabalsavo. Subtilesnis "tavo balsai gali būti svaresni" priminimas. */}
+        {!session && Object.values(votesPerTrack).reduce((s, v) => s + v, 0) > 0 && (
+          <div className="tcv-anon-hint">
+            <span className="tcv-anon-hint-icon">⚡</span>
+            <span>
+              Prisijunk — tavo balsai bus <strong>3× svaresni</strong> finalizavime.
+            </span>
+            <Link href="/auth/signin" className="tcv-anon-hint-link">Prisijungti →</Link>
           </div>
         )}
 
@@ -1125,12 +1124,9 @@ export default function TopChartView({
             {newcomers.length > 0 && (
               <div className="tcv-newcomers-panel">
                 <div className="tcv-newcomers-head">
-                  <span className="tcv-newcomers-badge" style={{ background: accent.hex, color: '#fff' }}>
-                    Naujienos
-                  </span>
-                  <span className="tcv-newcomers-count">({newcomers.length})</span>
+                  <span className="tcv-newcomers-title">Naujienos</span>
+                  <span className="tcv-newcomers-sub">kovoja už vietą tope</span>
                 </div>
-                <p className="tcv-newcomers-hint">Kovoja už vietą tope. Balsuok lygiavertiškai.</p>
                 <div className="tcv-newcomers-list">
                   {newcomers.map(entry => (
                     <NewcomerRow
