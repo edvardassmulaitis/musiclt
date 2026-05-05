@@ -643,7 +643,12 @@ export default function TopChartView({
         .tcv-wrap {
           max-width: 1180px; margin: 0 auto; padding: 36px 20px 80px;
           color: var(--text-primary);
-          overflow-x: hidden;        /* APSAUGA — niekas neturi išlįsti horizontaliai */
+          /* overflow-x: clip clip'ina horizontaliai NEsukurdamas scroll
+             container'io — tai svarbu, kad sticky vaikai (player'is) galėtų
+             stick'inti relative to viewport, ne to .tcv-wrap. Senoji
+             overflow-x: hidden vertė kūrė overflow context'ą ir lūždavo
+             sticky pozicijos elgsena. */
+          overflow-x: clip;
           box-sizing: border-box;
           width: 100%;
         }
