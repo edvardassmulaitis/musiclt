@@ -32,14 +32,50 @@ export async function GET(req: Request) {
     week = data
   }
 
+  // Fallback'as: jei einamosios savaitės įrašo nėra DB (cron'as nesukūrė),
+  // naudoti naujausią savaitę kurios įraše YRA bent vienas top_entries —
+  // taip homepage'ui bus ką rodyti, o voting'as vis tiek bus prikabintas
+  // prie current week'o per /api/top/vote (kuris naudoja week_id atskirai).
+  if (!week) {
+    const { data: latest } = await supabase
+      .from('top_weeks')
+      .select('*')
+      .eq('top_type', topType)
+      .order('week_start', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    week = latest
+  }
   if (!week) return NextResponse.json({ entries: [], week: null })
 
-  const { data: entries, error } = await supabase
+  let { data: entries, error } = await supabase
     .from('top_entries')
     .select('id, position, prev_position, weeks_in_top, total_votes, is_new, peak_position, track_id')
     .eq('week_id', week.id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Jei einamosios savaitės įrašas EGZISTUOJA bet entries tuščia (cron'as
+  // sukūrė week'ą, bet nesurolovino entries iš praeitos savaitės), grąžinkim
+  // PRAEITOS savaitės entries display'ui. Voting'as lieka prikabintas prie
+  // einamosios savaitės.
+  if (!entries?.length) {
+    const { data: prevWeek } = await supabase
+      .from('top_weeks')
+      .select('id')
+      .eq('top_type', topType)
+      .lt('week_start', week.week_start)
+      .order('week_start', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (prevWeek?.id) {
+      const { data: prevEntries } = await supabase
+        .from('top_entries')
+        .select('id, position, prev_position, weeks_in_top, total_votes, is_new, peak_position, track_id')
+        .eq('week_id', prevWeek.id)
+      if (prevEntries?.length) entries = prevEntries
+    }
+  }
   if (!entries?.length) return NextResponse.json({ entries: [], week })
 
   // LIVE vote counts (top_votes lentelė) — reikia matyti realių balsų count'ą
@@ -56,12 +92,19 @@ export async function GET(req: Request) {
     liveVoteMap.set(v.track_id, (liveVoteMap.get(v.track_id) || 0) + 1)
   })
 
-  // Sort: jei finalized — pagal position; kitaip — pagal LIVE balsus
+  // Padalinam į in-top vs newcomer'ius. Pozicijos 1..N priskirti TIK in-top
+  // sąraše. Newcomers eina pabaigoje (admin'as turi atskirą sekciją).
+  const inTop = (entries as any[]).filter(e => (e.weeks_in_top || 0) >= 1)
+  const newcomerEntries = (entries as any[]).filter(e => (e.weeks_in_top || 0) === 0)
   if (week.is_finalized) {
-    entries.sort((a, b) => (a.position || 999) - (b.position || 999))
+    inTop.sort((a, b) => (a.position || 999) - (b.position || 999))
   } else {
-    entries.sort((a, b) => (liveVoteMap.get(b.track_id) || 0) - (liveVoteMap.get(a.track_id) || 0))
+    inTop.sort((a, b) => (liveVoteMap.get(b.track_id) || 0) - (liveVoteMap.get(a.track_id) || 0))
+    inTop.forEach((e, i) => { e.position = i + 1 })
   }
+  newcomerEntries.sort((a, b) => (liveVoteMap.get(b.track_id) || 0) - (liveVoteMap.get(a.track_id) || 0))
+  entries.length = 0
+  ;(entries as any[]).push(...inTop, ...newcomerEntries)
 
   const trackIds = entries.map(e => e.track_id).filter(Boolean)
   const { data: tracks } = await supabase
