@@ -77,7 +77,8 @@ function Countdown({ targetDate }: { targetDate: string }) {
       const d = Math.floor(diff / 86400000)
       const h = Math.floor((diff % 86400000) / 3600000)
       const m = Math.floor((diff % 3600000) / 60000)
-      setT(d > 0 ? `${d}d ${h}h` : `${h}h ${m}m`)
+      // Lietuviška forma: "5 d. 14 val." arba "14 val. 23 min."
+      setT(d > 0 ? `${d} d. ${h} val.` : `${h} val. ${m} min.`)
     }
     calc()
     const id = setInterval(calc, 30000)
@@ -270,11 +271,7 @@ function ChartRow({
         <TrackCover track={entry.tracks} size={40} />
       </div>
       <div className="tcv-info">
-        {entry.tracks?.artists ? (
-          <Link href={`/atlikejai/${entry.tracks.artists.slug}`} className="tcv-row-artist" onClick={e => e.stopPropagation()}>
-            {entry.tracks.artists.name}
-          </Link>
-        ) : <span className="tcv-row-artist">—</span>}
+        <span className="tcv-row-artist">{entry.tracks?.artists?.name ?? '—'}</span>
         <p className="tcv-row-title">{entry.tracks?.title ?? '—'}</p>
         {entry.weeks_in_top >= 1 && (
           <WeeksProgress weeks={entry.weeks_in_top} accent={accent} />
@@ -292,22 +289,26 @@ function ChartRow({
 }
 
 /**
- * Weeks progress — 12 dash'iukų, užpildytų pagal weeks_in_top.
- * Be skaitinio label'io — vizualus indikatorius savaime.
+ * Weeks progress — 5 dash'iukai, kurių užpildymas auga maždaug kas 2 savaites.
+ *   1-2 sav. → 1 / 5
+ *   3-4 sav. → 2 / 5
+ *   5-6 sav. → 3 / 5
+ *   7-8 sav. → 4 / 5
+ *   9-12 sav. → 5 / 5 (paskutinis cap)
+ *
+ * Spalva visada orange (accent) — be warning/critical color shifts.
  */
 function WeeksProgress({ weeks, accent }: { weeks: number; accent: ThemeAccent }) {
-  const max = 12
-  const w = Math.min(Math.max(weeks, 0), max)
-  const isLast = w >= 12
-  const isWarning = w >= 10
-  const fillColor = isLast ? '#ef4444' : isWarning ? '#f59e0b' : accent.hex
+  const totalSegments = 5
+  const w = Math.max(weeks, 0)
+  const filled = w === 0 ? 0 : Math.min(Math.ceil(w / 2), totalSegments)
   return (
-    <span className="tcv-weeks-progress" title={`${w}/${max} sav. tope`} role="progressbar" aria-valuemin={0} aria-valuemax={max} aria-valuenow={w}>
-      {Array.from({ length: max }, (_, i) => (
+    <span className="tcv-weeks-progress" title={`${w}/12 sav. tope`} role="progressbar" aria-valuemin={0} aria-valuemax={totalSegments} aria-valuenow={filled}>
+      {Array.from({ length: totalSegments }, (_, i) => (
         <span
           key={i}
-          className="tcv-week-dot"
-          style={{ background: i < w ? fillColor : 'var(--bg-elevated)' }}
+          className="tcv-week-dash"
+          style={{ background: i < filled ? accent.hex : 'var(--bg-elevated)' }}
         />
       ))}
     </span>
@@ -456,14 +457,16 @@ function VoteButton({
         }}
         title={maxedOut ? `Pasiektas maks. (${weeklyLimit}) balsų` : 'Spausk arba palaikyk — iki ' + weeklyLimit}
       >
-        {/* Boost zap — energetinis simbolis */}
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="0">
-          <path d="M13 2L3 14h7l-1 8 11-14h-7l0-6z"/>
-        </svg>
         {voted ? (
           <span className="tcv-vote-mine" aria-label="Tavo balsai">{songVotes}</span>
         ) : (
-          <span className="tcv-vote-label">Balsuoti</span>
+          <>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            <span className="tcv-vote-label">Balsuoti</span>
+          </>
         )}
       </button>
     </div>
@@ -507,6 +510,18 @@ export default function TopChartView({
 
   useEffect(() => { setActiveEntry(data.entries[0] ?? null) }, [data])
 
+  // 3-dots info popover state
+  const [showInfo, setShowInfo] = useState(false)
+  const infoRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (!showInfo) return
+    const onClick = (e: MouseEvent) => {
+      if (infoRef.current && !infoRef.current.contains(e.target as Node)) setShowInfo(false)
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [showInfo])
+
   const loadVoteStatus = useCallback(async () => {
     if (!data.week) return
     const res = await fetch(`/api/top/vote?week_id=${data.week.id}`)
@@ -547,21 +562,20 @@ export default function TopChartView({
         .tcv-newcomer-artist, .tcv-artist, .tcv-list, .tcv-list-wrap,
         .tcv-body, .tcv-sticky, .tcv-player, .tcv-newcomers-panel { min-width: 0; }
 
-        /* Hero — kompaktinis: TIK title + meta + suggest mygtukas */
+        /* Hero — title + countdown + actions visi vienoje row'oje */
         .tcv-hero {
-          display: flex; align-items: center; justify-content: space-between;
-          gap: 12px; margin-bottom: 18px;
+          display: flex; align-items: center;
+          gap: 12px; margin-bottom: 18px; flex-wrap: wrap;
         }
-        .tcv-hero-left { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1 1 auto; }
         .tcv-title {
-          margin: 0; font-size: clamp(24px, 3.6vw, 36px); font-weight: 900;
+          margin: 0; font-size: clamp(22px, 3.4vw, 32px); font-weight: 900;
           letter-spacing: -0.025em; line-height: 1.05; color: var(--text-primary);
+          flex-shrink: 0;
         }
-        .tcv-meta-line {
-          display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-          font-size: 12px; color: var(--text-muted);
+        .tcv-hero-actions {
+          display: flex; align-items: center; gap: 6px;
+          margin-left: auto; flex-shrink: 0;
         }
-        .tcv-meta-dot { color: var(--text-muted); opacity: 0.5; }
         .tcv-suggest-btn {
           display: inline-flex; align-items: center; gap: 6px;
           padding: 8px 14px; border-radius: 10px;
@@ -571,6 +585,31 @@ export default function TopChartView({
           transition: transform 0.15s, filter 0.15s;
         }
         .tcv-suggest-btn:hover { transform: translateY(-1px); filter: brightness(1.05); }
+
+        /* 3-dots info button + popover */
+        .tcv-info-wrap { position: relative; }
+        .tcv-info-btn {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 34px; height: 34px; border-radius: 10px;
+          background: var(--bg-elevated); color: var(--text-secondary);
+          border: 1px solid var(--border-subtle); cursor: pointer;
+          transition: all 0.15s;
+        }
+        .tcv-info-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+        .tcv-info-popover {
+          position: absolute; top: calc(100% + 6px); right: 0;
+          width: 280px; padding: 14px 16px;
+          background: var(--bg-surface); border: 1px solid var(--border-subtle);
+          border-radius: 12px;
+          box-shadow: 0 14px 32px rgba(0,0,0,0.18);
+          z-index: 20;
+        }
+        .tcv-info-popover h4 { margin: 0 0 6px; font-size: 13px; font-weight: 800; color: var(--text-primary); letter-spacing: -0.01em; }
+        .tcv-info-popover p { margin: 0 0 10px; font-size: 11px; color: var(--text-muted); line-height: 1.45; }
+        .tcv-info-popover ul { margin: 0 0 10px; padding-left: 16px; }
+        .tcv-info-popover li { font-size: 11px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 4px; }
+        .tcv-info-popover li strong { color: var(--text-primary); }
+        .tcv-info-sibling { display: inline-block; font-size: 11px; font-weight: 700; color: ${accent.hex}; text-decoration: none; padding-top: 6px; border-top: 1px solid var(--border-subtle); width: 100%; }
 
         /* Status bar */
         .tcv-status {
@@ -591,23 +630,15 @@ export default function TopChartView({
         }
         .tcv-votes-left { font-size: 12px; }
 
-        /* Anon hint — atsiranda po pirmo balso, kvies prisijungti */
+        /* Anon hint — atsiranda po pirmo balso. Subtle text-only banner. */
         .tcv-anon-hint {
-          margin-bottom: 14px; padding: 10px 14px; border-radius: 12px;
+          margin-bottom: 14px; padding: 10px 14px; border-radius: 10px;
           background: ${accent.rgb};
-          border: 1px solid ${accent.hex};
           color: var(--text-primary); font-size: 12px;
-          display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+          line-height: 1.4;
         }
-        .tcv-anon-hint-icon { font-size: 16px; flex-shrink: 0; }
+        .tcv-anon-hint a { color: ${accent.hex}; font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
         .tcv-anon-hint strong { color: ${accent.hex}; }
-        .tcv-anon-hint-link {
-          margin-left: auto; padding: 5px 12px;
-          background: ${accent.hex}; color: #fff;
-          border-radius: 999px; font-size: 11px; font-weight: 700;
-          text-decoration: none; flex-shrink: 0;
-        }
-        .tcv-anon-hint-link:hover { filter: brightness(1.1); }
 
         /* Body — mobile-first flex column. Mobile order: player → list → newcomers */
         .tcv-body {
@@ -616,8 +647,12 @@ export default function TopChartView({
           gap: 12px;
           width: 100%;
         }
-        /* Sticky talpina TIK player'į, newcomers bus atskirai */
-        .tcv-sticky { display: flex; flex-direction: column; gap: 10px; }
+        /* Sticky player VISADA — tiek mobile, tiek desktop'e (pridedam top offset'ą) */
+        .tcv-sticky {
+          display: flex; flex-direction: column; gap: 10px;
+          position: sticky; top: 64px; z-index: 5;
+          background: var(--bg-page, transparent);
+        }
 
         @media (min-width: 880px) {
           .tcv-body {
@@ -627,7 +662,7 @@ export default function TopChartView({
             align-items: start;
           }
           .tcv-list-wrap { grid-column: 1; grid-row: 1 / span 2; min-width: 0; }
-          .tcv-sticky { grid-column: 2; grid-row: 1; position: sticky; top: 80px; }
+          .tcv-sticky { grid-column: 2; grid-row: 1; top: 80px; }
           .tcv-newcomers-panel { grid-column: 2; grid-row: 2; margin-top: 0; }
         }
         /* ───────── MOBILE (< 880px) — agresyvus compact layout ───────── */
@@ -896,15 +931,18 @@ export default function TopChartView({
         .tcv-input::placeholder { color: var(--text-muted); }
         .tcv-input:focus { border-color: ${accent.hex}; }
 
-        /* Weeks progress — 12 dashes (kaip artist player'is) */
+        /* Weeks progress — 5 dash'iukai (kaip artist player'is). Wider. */
         .tcv-weeks-progress {
-          display: inline-flex; gap: 3px; align-items: center;
-          margin-top: 2px;
+          display: inline-flex; gap: 4px; align-items: center;
+          margin-top: 3px;
         }
-        .tcv-week-dot {
+        .tcv-week-dash {
           display: inline-block;
-          width: 7px; height: 4px; border-radius: 1.5px;
+          width: 14px; height: 4px; border-radius: 2px;
           transition: background 0.3s ease;
+        }
+        @media (max-width: 880px) {
+          .tcv-week-dash { width: 12px; height: 3px; }
         }
 
         /* List wrapper — apsiame tiek main top'as, tiek below-top sekcija */
@@ -1020,36 +1058,56 @@ export default function TopChartView({
       `}</style>
 
       <div className="tcv-wrap">
-        {/* Hero — kompaktinis: TIK title + countdown + suggest mygtukas */}
+        {/* Hero — viskas vienoje row'oje: title + countdown + + + ⋮ */}
         <div className="tcv-hero">
-          <div className="tcv-hero-left">
-            <h1 className="tcv-title">{title}</h1>
-            {data.week?.vote_close && (
-              <span className="tcv-countdown-pill">
-                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-                <Countdown targetDate={data.week.vote_close} />
-              </span>
-            )}
+          <h1 className="tcv-title">{title}</h1>
+          {data.week?.vote_close && (
+            <span className="tcv-countdown-pill">
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+              <Countdown targetDate={data.week.vote_close} />
+            </span>
+          )}
+          <div className="tcv-hero-actions">
+            <button
+              className="tcv-suggest-btn"
+              onClick={() => setShowSuggest(true)}
+              aria-label="Siūlyti dainą"
+              title="Siūlyti dainą"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+              <span className="tcv-suggest-label">Siūlyti dainą</span>
+            </button>
+
+            <div className="tcv-info-wrap" ref={infoRef}>
+              <button
+                className="tcv-info-btn"
+                onClick={() => setShowInfo(s => !s)}
+                aria-label="Apie topą"
+                title="Apie topą"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/></svg>
+              </button>
+              {showInfo && (
+                <div className="tcv-info-popover">
+                  <h4>Apie {title}</h4>
+                  <p>{subtitle}</p>
+                  <ul>
+                    <li>Balsavimas vyksta visą savaitę. Iki <strong>10 balsų vienai dainai</strong>.</li>
+                    <li>Daina lieka tope iki <strong>12 savaičių</strong>, tada graduates.</li>
+                    <li>Naujienos kovoja už vietas tope — balsuok lygiavertiškai.</li>
+                    <li>Pasiūlymus siunčia adminas ir registruoti vartotojai.</li>
+                  </ul>
+                  <Link href={siblingHref} className="tcv-info-sibling">{siblingLabel} →</Link>
+                </div>
+              )}
+            </div>
           </div>
-          <button
-            className="tcv-suggest-btn"
-            onClick={() => setShowSuggest(true)}
-            aria-label="Siūlyti dainą"
-            title="Siūlyti dainą"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-            <span className="tcv-suggest-label">Siūlyti dainą</span>
-          </button>
         </div>
 
-        {/* Anon hint — TIK kai jau prabalsavo. Subtilesnis "tavo balsai gali būti svaresni" priminimas. */}
+        {/* Anon hint — TIK kai jau prabalsavo. Be ikonos ir be Prisijungti button'o. */}
         {!session && Object.values(votesPerTrack).reduce((s, v) => s + v, 0) > 0 && (
           <div className="tcv-anon-hint">
-            <span className="tcv-anon-hint-icon">⚡</span>
-            <span>
-              Prisijunk — tavo balsai bus <strong>3× svaresni</strong> finalizavime.
-            </span>
-            <Link href="/auth/signin" className="tcv-anon-hint-link">Prisijungti →</Link>
+            <Link href="/auth/signin">Prisijunk</Link> — ir tavo balsai bus <strong>3× svaresni</strong> finalizavime.
           </div>
         )}
 
