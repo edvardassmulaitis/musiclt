@@ -94,10 +94,67 @@ function TrendIndicator({ curr, prev, isNew }: { curr: number; prev: number | nu
   return <span className="tcv-same">—</span>
 }
 
+/**
+ * Player su YT IFrame API — leidžia programmatic play() po user gesture'o.
+ * iOS Safari blokuoja `autoplay=1` URL parametrą be tikro user click'o, bet
+ * `player.playVideo()` po click event'o veikia patikimiau.
+ */
 function Player({ entry, accent }: { entry: Entry | null; accent: ThemeAccent }) {
   const [playing, setPlaying] = useState(false)
   const [imgErr, setImgErr] = useState(false)
-  useEffect(() => { setPlaying(false); setImgErr(false) }, [entry?.id])
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const playerRef = useRef<any>(null)
+
+  // Reset playing kai keičiasi entry
+  useEffect(() => { setPlaying(false); setImgErr(false); playerRef.current = null }, [entry?.id])
+
+  // Užkraunam YT IFrame API skriptą (vieną kartą)
+  useEffect(() => {
+    if ((window as any).YT?.Player) return
+    if (document.querySelector('script[src*="youtube.com/iframe_api"]')) return
+    const tag = document.createElement('script')
+    tag.src = 'https://www.youtube.com/iframe_api'
+    tag.async = true
+    document.head.appendChild(tag)
+  }, [])
+
+  // Kai user paspaudžia play btn — sukuriam Player'į ir paleidžiam
+  useEffect(() => {
+    if (!playing || !entry?.tracks || !containerRef.current) return
+    const vid = getYouTubeId(entry.tracks.video_url)
+    if (!vid) return
+
+    const initPlayer = () => {
+      const YT = (window as any).YT
+      if (!YT?.Player || !containerRef.current) return
+      // Sukuriam target div — YT API jį pakeis į iframe
+      const target = document.createElement('div')
+      target.style.width = '100%'
+      target.style.height = '100%'
+      containerRef.current.innerHTML = ''
+      containerRef.current.appendChild(target)
+
+      playerRef.current = new YT.Player(target, {
+        videoId: vid,
+        playerVars: {
+          autoplay: 1,
+          playsinline: 1,
+          rel: 0,
+          modestbranding: 1,
+        },
+        events: {
+          onReady: (e: any) => { try { e.target.playVideo() } catch {} },
+        },
+      })
+    }
+
+    if ((window as any).YT?.Player) {
+      initPlayer()
+    } else {
+      // Lauk kol API užsikraus
+      ;(window as any).onYouTubeIframeAPIReady = initPlayer
+    }
+  }, [playing, entry?.id, entry?.tracks])
 
   if (!entry || !entry.tracks) return (
     <div className="tcv-player tcv-player-empty">
@@ -116,12 +173,7 @@ function Player({ entry, accent }: { entry: Entry | null; accent: ThemeAccent })
     <div className="tcv-player">
       <div className="tcv-player-video">
         {playing && vid ? (
-          <iframe
-            src={`https://www.youtube.com/embed/${vid}?autoplay=1&playsinline=1&rel=0&modestbranding=1&enablejsapi=1`}
-            style={{ width: '100%', height: '100%', border: 'none' }}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowFullScreen
-          />
+          <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
         ) : (
           <div className="tcv-thumb" onClick={() => vid && setPlaying(true)} style={{ cursor: vid ? 'pointer' : 'default' }}>
             {vid && !imgErr ? (
@@ -160,10 +212,18 @@ function SuggestModal({ onClose, topType }: { onClose: () => void; topType: stri
   useEffect(() => {
     if (query.length < 2) { setResults([]); return }
     const t = setTimeout(async () => {
-      const res = await fetch(`/api/tracks?search=${encodeURIComponent(query)}&limit=6`)
+      // Master search (palaiko compound queries: artist+title kombinacijas)
+      const res = await fetch(`/api/search-master?q=${encodeURIComponent(query)}&categories=tracks&limit=8`)
       const data = await res.json()
-      setResults(data.tracks || [])
-    }, 300)
+      const hits = data.results?.tracks || []
+      // Hit struktūra: { id, title, subtitle (=artist name), image_url, ... }
+      setResults(hits.map((h: any) => ({
+        id: h.id,
+        title: h.title,
+        artist_name: h.subtitle,
+        cover_url: h.image_url,
+      })))
+    }, 250)
     return () => clearTimeout(t)
   }, [query])
 
@@ -658,12 +718,14 @@ export default function TopChartView({
           .tcv-body {
             display: grid;
             grid-template-columns: 1fr 320px;
-            gap: 22px;
+            grid-template-areas: "main aside" "main extra";
+            grid-template-rows: auto auto;
+            gap: 14px 22px;
             align-items: start;
           }
-          .tcv-list-wrap { grid-column: 1; grid-row: 1 / span 2; min-width: 0; }
-          .tcv-sticky { grid-column: 2; grid-row: 1; top: 80px; }
-          .tcv-newcomers-panel { grid-column: 2; grid-row: 2; margin-top: 0; }
+          .tcv-list-wrap { grid-area: main; min-width: 0; }
+          .tcv-sticky { grid-area: aside; top: 80px; }
+          .tcv-newcomers-panel { grid-area: extra; margin-top: 0; align-self: start; }
         }
         /* ───────── MOBILE (< 880px) — agresyvus compact layout ───────── */
         @media (max-width: 880px) {

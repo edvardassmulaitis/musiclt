@@ -49,18 +49,22 @@ async function getTopData(topType: string): Promise<TopData> {
     } : null,
   }))
 
-  // Sort: finalized → pagal position; nefinalized → pagal LIVE balsus
+  // SVARBU: pozicijos 1..N priskirtinos TIK in-top entries (weeks_in_top >= 1).
+  // Newcomers (weeks_in_top = 0) lieka su savo pozicijomis ir rodomi atskirame
+  // panel'yje (TopChartView filter'ina pagal weeks_in_top).
   const finalized = !!week.is_finalized
-  if (finalized) {
-    normalized.sort((a, b) => (a.position || 999) - (b.position || 999))
-  } else {
-    normalized.sort((a, b) => (b.total_votes || 0) - (a.total_votes || 0))
-  }
-  const withPositions = finalized
-    ? normalized
-    : normalized.map((e, i) => ({ ...e, position: i + 1 }))
+  const inTop = normalized.filter((e: any) => (e.weeks_in_top || 0) >= 1)
+  const newcomerEntries = normalized.filter((e: any) => (e.weeks_in_top || 0) === 0)
 
-  return { entries: withPositions as any, week }
+  if (finalized) {
+    inTop.sort((a: any, b: any) => (a.position || 999) - (b.position || 999))
+  } else {
+    inTop.sort((a: any, b: any) => (b.total_votes || 0) - (a.total_votes || 0))
+    inTop.forEach((e: any, i: number) => { e.position = i + 1 })
+  }
+  newcomerEntries.sort((a: any, b: any) => (b.total_votes || 0) - (a.total_votes || 0))
+
+  return { entries: [...inTop, ...newcomerEntries] as any, week }
 }
 
 export default async function Top40Page() {
