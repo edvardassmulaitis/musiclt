@@ -68,78 +68,96 @@ export async function POST(req: Request) {
 
   if (!week) return NextResponse.json({ error: 'Einamosios savaitės įrašo nėra' }, { status: 404 })
 
-  // 2. Egzistuojantys entries — state transitions
+  // 2. LIVE registered balsai — anon balsai į rikiavimą NEEINA (anti-spam).
+  //    Imami PRIEŠ balsų valymą, kad turėtume per kurį nors rerank'inti.
+  const { data: liveVotes } = await supabase
+    .from('top_votes')
+    .select('track_id, user_id')
+    .eq('week_id', week.id)
+    .eq('vote_type', 'like')
+    .not('user_id', 'is', null)
+
+  const voteMap = new Map<number, number>()
+  ;(liveVotes || []).forEach((v: any) => {
+    voteMap.set(v.track_id, (voteMap.get(v.track_id) || 0) + 1)
+  })
+
+  // 3. Egzistuojantys entries — graduate >=12 sav., kitus rerank'inam pagal balsus
   const { data: existingEntries } = await supabase
     .from('top_entries')
-    .select('id, position, weeks_in_top')
+    .select('id, track_id, position, peak_position, weeks_in_top')
     .eq('week_id', week.id)
 
   let graduatedCount = 0
   let promotedCount = 0   // newcomer → in top
   let stayedNewcomer = 0  // newcomer didn't make top
   let stayedInTop = 0     // already in top, weeks++
+  let droppedFromTop = 0  // was in top, now below
 
   if (existingEntries && existingEntries.length > 0) {
     const toDelete: number[] = []
-    const updates: Array<{ id: number; data: any }> = []
+    const survivors: any[] = []
 
+    // Pirmas perėjimas — graduate'inam tuos, kurie tope 12 sav.
     for (const e of existingEntries) {
       const wit = e.weeks_in_top || 0
-      const pos = e.position || 999
-
       if (wit >= 12) {
-        // Graduate
         toDelete.push(e.id)
         graduatedCount++
         continue
       }
-
-      if (wit === 0) {
-        // Newcomer — did it make top?
-        if (pos <= topSize) {
-          // Promoted to in-top
-          updates.push({
-            id: e.id,
-            data: {
-              weeks_in_top: 1,
-              prev_position: pos,
-              total_votes: 0,
-              is_new: false,
-            },
-          })
-          promotedCount++
-        } else {
-          // Stay newcomer for another cycle
-          updates.push({
-            id: e.id,
-            data: {
-              weeks_in_top: 0,
-              prev_position: pos,
-              total_votes: 0,
-              is_new: false,
-            },
-          })
-          stayedNewcomer++
-        }
-      } else {
-        // In top — increment cycle
-        updates.push({
-          id: e.id,
-          data: {
-            weeks_in_top: wit + 1,
-            prev_position: pos,
-            total_votes: 0,
-            is_new: false,
-          },
-        })
-        stayedInTop++
-      }
+      survivors.push({ ...e, votes: voteMap.get(e.track_id) || 0 })
     }
 
     if (toDelete.length > 0) {
       const { error } = await supabase.from('top_entries').delete().in('id', toDelete)
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    // Rikiuojam VISUS likučius pagal registered balsus desc'u (newcomers + in-top
+    // konkuruoja tame pačiame ranking'e — newcomer'is su daug balsų gali
+    // įstumti in-top'ą iš pozicijos). Ties'us nutraukiam pagal seną poziciją
+    // (stabili tvarka — kas turėjo aukštesnę poziciją, lieka aukščiau).
+    survivors.sort((a, b) => {
+      if (b.votes !== a.votes) return b.votes - a.votes
+      return (a.position || 999) - (b.position || 999)
+    })
+
+    // Naujos pozicijos + state transitions
+    const updates = survivors.map((e, i) => {
+      const newPos = i + 1
+      const oldPos = e.position || 999
+      const wasNewcomer = (e.weeks_in_top || 0) === 0
+      const oldPeak = e.peak_position || oldPos
+      const newPeak = Math.min(oldPeak, newPos)
+
+      let newWit: number
+      if (wasNewcomer) {
+        if (newPos <= topSize) {
+          newWit = 1                  // Naujenos pateko į topą
+          promotedCount++
+        } else {
+          newWit = 0                  // Lieka newcomer dar vienam ciklui
+          stayedNewcomer++
+        }
+      } else {
+        newWit = (e.weeks_in_top || 0) + 1
+        if (newPos <= topSize) stayedInTop++
+        else droppedFromTop++
+      }
+
+      return {
+        id: e.id,
+        data: {
+          position: newPos,
+          prev_position: oldPos,
+          peak_position: newPeak,
+          weeks_in_top: newWit,
+          total_votes: 0,
+          is_new: false,
+        },
+      }
+    })
 
     if (updates.length > 0) {
       await Promise.all(updates.map(u =>
@@ -148,14 +166,14 @@ export async function POST(req: Request) {
     }
   }
 
-  // 3. Išvalyti balsus už šitą savaitę
+  // 4. Išvalyti balsus už šitą savaitę (po rerank'o, kad nepamestume duomenų)
   const { error: votesErr } = await supabase
     .from('top_votes')
     .delete()
     .eq('week_id', week.id)
   if (votesErr) return NextResponse.json({ error: votesErr.message }, { status: 500 })
 
-  // 4. Suggestions queue → naujos newcomers
+  // 5. Suggestions queue → naujos newcomers
   const { data: approved } = await supabase
     .from('top_suggestions')
     .select('id, track_id')
@@ -212,7 +230,7 @@ export async function POST(req: Request) {
       .in('id', approved.map(s => s.id))
   }
 
-  // 5. Atrakinti savaitę
+  // 6. Atrakinti savaitę
   const { error: weekErr } = await supabase
     .from('top_weeks')
     .update({
@@ -227,9 +245,10 @@ export async function POST(req: Request) {
   const totalNewcomers = stayedNewcomer + newComersAdded
   const totalInTop = promotedCount + stayedInTop
 
-  let msg = `Naujas ciklas paleistas (${top_type}, top ${topSize}).`
+  let msg = `Naujas ciklas paleistas (${top_type}, top ${topSize}). Pozicijos perskaičiuotos pagal registered balsus.`
   if (graduatedCount > 0) msg += ` Graduated (12sav.): ${graduatedCount}.`
   if (promotedCount > 0) msg += ` Naujienos pateko į topą: ${promotedCount}.`
+  if (droppedFromTop > 0) msg += ` Iškrito iš topo: ${droppedFromTop}.`
   if (newComersAdded > 0) msg += ` Naujos naujienos iš pasiūlymų: ${newComersAdded}.`
   msg += ` Iš viso: ${totalNewcomers} naujienų + ${totalInTop} tope. Balsavimas atvertas.`
 
@@ -238,6 +257,7 @@ export async function POST(req: Request) {
     message: msg,
     graduated: graduatedCount,
     promoted: promotedCount,
+    dropped_from_top: droppedFromTop,
     newcomers_added: newComersAdded,
     newcomers_total: totalNewcomers,
     in_top_total: totalInTop,
