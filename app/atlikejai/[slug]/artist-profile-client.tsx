@@ -509,28 +509,19 @@ function PlayerCard({
     } catch {}
   }
 
-  // Toggle per-track play button: same track + playing → pause; same track
-  // + paused → resume; different track → switch + autoplay.
+  // Track click — paprasta logika (be pause toggle, nes plain iframe approach
+  // neturim programmatic pause API). Click ant track'o:
+  //   - Jei tas pats track + jau playing → no-op (user'is gali pausintis YT
+  //     chrome'e iframe'o viduje)
+  //   - Jei kitas track ARBA dar nepradėjus → start playback (set state
+  //     activeTrackId + playing=true, ping play count)
+  // Iframe'as pakeičia src per `key` rebuild → autoplay=1 paleidžia.
   const handleSelect = (id: number) => {
-    if (id === activeTrackId && playing) {
-      if (isPaused) {
-        try { playerRef.current?.playVideo() } catch {}
-        setIsPaused(false)
-        pingPlay(id)
-      } else {
-        try { playerRef.current?.pauseVideo() } catch {}
-        setIsPaused(true)
-      }
-      return
-    }
+    if (id === activeTrackId && playing) return  // already playing this track
     onSelectTrack(id)
     onRequestPlay()
     setIsPaused(false)
     pingPlay(id)
-    // Sinchroniškai paleidžiam playerVideo() jei playerRef'as exist'uoja.
-    // Track changes triggerina createEffect, kuris destroy'ina seną ir kuria
-    // naują player'į — gesture context per ref call iš click handler'io.
-    try { playerRef.current?.playVideo?.() } catch {}
   }
 
   return (
@@ -561,12 +552,14 @@ function PlayerCard({
                 chrome controls). Track switching = key changes → React
                 remount'ina iframe'ą, senas iframe naikina + sustabdo audio. */}
             {!isEmbedDisabled && playing && (
-              // mute=1 — Chrome'ui leidžia muted autoplay net be MEI score'o.
-              // User'is mato playback iškart prasidedanti, paskui paspaudžia
-              // 🔊 unmute (YT chrome'e arba mūsų custom badge'e).
+              // Mobile'e PRIVALOMA mute=1 — iOS Safari ir mobile Chrome
+              // griežtai blokuoja unmuted autoplay net su user gesture.
+              // Industry standard (Instagram, TikTok, Twitter) — mobile
+              // muted autoplay, user'is paspaudžia unmute. Desktop'e
+              // unmuted veikia po MEI engagement.
               <iframe
                 key={`hero-${displayVid}`}
-                src={`https://www.youtube.com/embed/${displayVid}?autoplay=1&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1`}
+                src={`https://www.youtube.com/embed/${displayVid}?autoplay=1${isMobileVP ? '&mute=1' : ''}&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1`}
                 title="YouTube player"
                 className="absolute inset-0 h-full w-full"
                 referrerPolicy="strict-origin-when-cross-origin"
@@ -712,7 +705,11 @@ function PlayerCard({
             {list.map((t, i) => {
               const v = yt(t.video_url)
               const isActive = t.id === activeTrackId
-              const isActivelyPlaying = isActive && playing && !isPaused
+              // Be programmatic YT.Player API'os neturime tikslaus play/pause
+              // state'o. UI rodo selected indicator kai `isActive`, bet
+              // nesimuluojame "playing" arba pause'inimo logikos — user'is
+              // valdys YT chrome'e iframe'o viduje.
+              const isActivelyPlaying = false
               // Popularity bar — vieninga logika visur: relatyvus tier
               // pagal track'o likes prieš artist'o didžiausią. Tas pats
               // track gauna tą patį dash skaičių nepriklausomai nuo to,
@@ -729,8 +726,9 @@ function PlayerCard({
                       isActive ? 'bg-[rgba(249,115,22,0.08)]' : 'hover:bg-[var(--bg-hover)]',
                     ].join(' ')}
                   >
-                    {/* Position / active equalizer — animates only while YT
-                        reports the player as playing (not paused/stopped). */}
+                    {/* Position number — visada rodom indeksą.
+                        Equalizer atskirtas (be playerio kontrolės nežinom
+                        ar realiai groja, todėl neapsimetam). */}
                     <span
                       className={[
                         'w-5 shrink-0 text-center font-["Outfit",sans-serif] text-[12px] font-bold tabular-nums',
@@ -738,7 +736,7 @@ function PlayerCard({
                       ].join(' ')}
                       aria-hidden
                     >
-                      {isActivelyPlaying ? <Equalizer /> : i + 1}
+                      {i + 1}
                     </span>
 
                     {/* Title — click opens the side drawer with duration +
