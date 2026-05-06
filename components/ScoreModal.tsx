@@ -34,7 +34,9 @@ type ExtraStats = {
 const CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
   catalog:    { label: 'Diskografija', color: '#3b82f6' },
   media:      { label: 'Turinys', color: '#8b5cf6' },
-  popularity: { label: 'Populiarumas', color: '#ec4899' },
+  popularity: { label: 'Populiarumas', color: '#ec4899' },                 // legacy v3
+  popularity_recent:  { label: 'Aktualus pop.', color: '#ec4899' },        // 0-13, last 3y
+  popularity_alltime: { label: 'Bendras pop.', color: '#a78bfa' },         // 0-12, lifetime
   community:  { label: 'Bendruomenė', color: '#f59e0b' },
   career:     { label: 'Karjera', color: '#10b981' },
   chart:      { label: 'Pasirodymai topuose', color: '#ef4444' },
@@ -45,7 +47,7 @@ const CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
 
 // Fixed display order — JSONB doesn't preserve key insertion order
 const CATEGORY_ORDER: Record<string, string[]> = {
-  lt:  ['catalog', 'media', 'popularity', 'community', 'career', 'awards'],
+  lt:  ['catalog', 'media', 'popularity_recent', 'popularity_alltime', 'community', 'career', 'awards'],
   int: ['catalog', 'chart', 'commercial', 'reach', 'awards'],
 }
 
