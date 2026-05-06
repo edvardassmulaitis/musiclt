@@ -561,9 +561,12 @@ function PlayerCard({
                 chrome controls). Track switching = key changes → React
                 remount'ina iframe'ą, senas iframe naikina + sustabdo audio. */}
             {!isEmbedDisabled && playing && (
+              // mute=1 — Chrome'ui leidžia muted autoplay net be MEI score'o.
+              // User'is mato playback iškart prasidedanti, paskui paspaudžia
+              // 🔊 unmute (YT chrome'e arba mūsų custom badge'e).
               <iframe
                 key={`hero-${displayVid}`}
-                src={`https://www.youtube.com/embed/${displayVid}?autoplay=1&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1`}
+                src={`https://www.youtube.com/embed/${displayVid}?autoplay=1&mute=1&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1`}
                 title="YouTube player"
                 className="absolute inset-0 h-full w-full"
                 referrerPolicy="strict-origin-when-cross-origin"

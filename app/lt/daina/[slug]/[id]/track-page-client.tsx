@@ -83,6 +83,64 @@ const YoutubeEmbed = memo(({ videoId }: { videoId: string }) => (
 ))
 YoutubeEmbed.displayName = 'YoutubeEmbed'
 
+/**
+ * CustomPlayOverlay — vietoj YT native chrome'o detail'ų rodom mūsų
+ * thumbnail + Play overlay'ą. Paspaudus:
+ *   1) inkrementuojam track_plays per /api/tracks/{id}/play (fire-and-forget)
+ *   2) mount'inam iframe'ą su autoplay=1&mute=1 — Chrome'as garantuotai laidžia
+ *      muted autoplay (bet kokiai MEI score). User'is paskui paspaudžia 🔊
+ *      YT chrome'e arba rodyti stay muted.
+ *
+ * Naudojamas track puslapyje (mobile + desktop col), gali būti reused kitur.
+ */
+function CustomPlayOverlay({ vid, title, trackId }: { vid: string; title: string; trackId: number }) {
+  const [started, setStarted] = useState(false)
+  const handleStart = () => {
+    if (started) return
+    setStarted(true)
+    // Fire-and-forget play count ping
+    try {
+      fetch(`/api/tracks/${trackId}/play`, { method: 'POST', keepalive: true }).catch(() => {})
+    } catch {}
+  }
+  return (
+    <div className="relative h-full w-full">
+      {!started ? (
+        <button
+          type="button"
+          onClick={handleStart}
+          aria-label="Paleisti"
+          className="group absolute inset-0 z-10 block cursor-pointer overflow-hidden border-0 p-0 bg-black"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={`https://i.ytimg.com/vi/${vid}/hqdefault.jpg`}
+            alt=""
+            referrerPolicy="no-referrer"
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-black/30" />
+          <span className="absolute left-1/2 top-1/2 flex h-[64px] w-[64px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_10px_40px_rgba(249,115,22,0.5)] ring-[6px] ring-white/10 transition-transform duration-200 group-hover:scale-110">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="#fff" aria-hidden>
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          </span>
+        </button>
+      ) : (
+        <iframe
+          key={`overlay-${vid}`}
+          src={`https://www.youtube.com/embed/${vid}?autoplay=1&mute=1&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1`}
+          title={title}
+          className="absolute inset-0 h-full w-full"
+          referrerPolicy="strict-origin-when-cross-origin"
+          allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+          allowFullScreen
+        />
+      )}
+    </div>
+  )
+}
+
 // AI image with loading state — separate memo so it never re-mounts
 // No external image service needed — AI image feature removed for now
 
@@ -642,18 +700,15 @@ export default function TrackPageClient({
         </div>
       )}
 
-      {/* ── Mobile inline player — kaip modal'e, virš tabs/turinio ──────── */}
+      {/* ── Mobile inline player — kaip modal'e, virš tabs/turinio ────────
+          Custom Play overlay (vietoj YT native chrome details), kad išvengtumėm
+          autoplay block'o + galėtumėm inkrementuoti track_plays per pingPlay()
+          fire-and-forget. Iframe mount'inamas tik po user gesture (clicked=true)
+          — autoplay=1&mute=1 garantuoja, kad video pradės grojimą iškart.
+      */}
       {vid && (
         <div className="aspect-video w-full bg-black lg:hidden">
-          <iframe
-            key={`mobile-track-${vid}`}
-            src={`https://www.youtube.com/embed/${vid}?playsinline=1&rel=0&modestbranding=1&iv_load_policy=3`}
-            title={`${track.title} — ${artist.name}`}
-            className="h-full w-full"
-            referrerPolicy="strict-origin-when-cross-origin"
-            allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-            allowFullScreen
-          />
+          <CustomPlayOverlay vid={vid} title={`${track.title} — ${artist.name}`} trackId={track.id} />
         </div>
       )}
 
@@ -740,15 +795,7 @@ export default function TrackPageClient({
                 Klausyti
               </div>
               <div className="aspect-video w-full overflow-hidden rounded-xl bg-black shadow-[0_18px_40px_-12px_rgba(0,0,0,0.5)]">
-                <iframe
-                  key={`desktop-track-${vid}`}
-                  src={`https://www.youtube.com/embed/${vid}?playsinline=1&rel=0&modestbranding=1&iv_load_policy=3`}
-                  title={`${track.title} — ${artist.name}`}
-                  className="h-full w-full"
-                  referrerPolicy="strict-origin-when-cross-origin"
-                  allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-                  allowFullScreen
-                />
+                <CustomPlayOverlay vid={vid} title={`${track.title} — ${artist.name}`} trackId={track.id} />
               </div>
               {track.spotify_id && (
                 <iframe
