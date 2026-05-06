@@ -386,6 +386,11 @@ function PlayerCard({
   // badge'o nerodom kol nepradėtas playback.
   const [needsUnmute, setNeedsUnmute] = useState(false)
   const heroIframeRef = useRef<HTMLIFrameElement>(null)
+  // Tracking iframe state — kad galėtumėm switch'inti track'us per
+  // postMessage loadVideoById (vietoj remount'ino) ir gaut event'us
+  // (track end → auto-skip į kitą).
+  const iframeReadyRef = useRef(false)
+  const iframeCurrentVidRef = useRef<string | null>(null)
 
   // Pre-flight embeddable check — apsisaugom mobile case'e (kur YT.Player
   // onError negaunamas, plain iframe'e tik juodas langas su YouTube error
@@ -448,6 +453,63 @@ function PlayerCard({
     ]
     return () => { timers.forEach(clearTimeout) }
   }, [isMobileVP, playing, displayVid, isEmbedDisabled])
+
+  // Track switching mid-playback: kai displayVid pasikeičia ir iframe'as
+  // jau ready, siunčiam loadVideoById command'ą vietoj remount'inant.
+  // Ši aplinkybė palaiko gesture context (iframe lieka tas pats) ir
+  // autoplay veikia tarp track'ų.
+  useEffect(() => {
+    if (!iframeReadyRef.current) return
+    if (!displayVid) return
+    if (iframeCurrentVidRef.current === displayVid) return
+    try {
+      heroIframeRef.current?.contentWindow?.postMessage(
+        JSON.stringify({
+          event: 'command',
+          func: 'loadVideoById',
+          args: [{ videoId: displayVid }],
+        }),
+        'https://www.youtube.com'
+      )
+      iframeCurrentVidRef.current = displayVid
+    } catch {}
+  }, [displayVid])
+
+  // YT IFrame API event listener — gauname onStateChange events kai
+  // iframe'as siunčia "listening" subscription'ą. Reikia auto-skip'ui
+  // į kitą track'ą po pabaigos (state=0).
+  useEffect(() => {
+    if (!playing) return
+    const onMessage = (e: MessageEvent) => {
+      if (e.origin !== 'https://www.youtube.com') return
+      let data: any = null
+      try {
+        data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data
+      } catch { return }
+      // YT siunčia event'us su event'o pavadinimu + info reikšme.
+      // onStateChange info: 0=ended, 1=playing, 2=paused, 3=buffering, 5=cued.
+      if (data?.event === 'onStateChange' && data?.info === 0) {
+        // Track ended — find next with video, switch.
+        const allTracks = [...tracksAllTime, ...tracksTrending]
+        const idx = allTracks.findIndex(t => t.id === activeTrackId)
+        if (idx < 0) return
+        // Search for next video-having track in current list (post-current
+        // index), su rollover į pradžią.
+        for (let i = 1; i <= allTracks.length; i++) {
+          const candidate = allTracks[(idx + i) % allTracks.length]
+          if (candidate && yt(candidate.video_url)) {
+            onSelectTrack(candidate.id)
+            try {
+              fetch(`/api/tracks/${candidate.id}/play`, { method: 'POST', keepalive: true }).catch(() => {})
+            } catch {}
+            return
+          }
+        }
+      }
+    }
+    window.addEventListener('message', onMessage)
+    return () => window.removeEventListener('message', onMessage)
+  }, [playing, activeTrackId, tracksAllTime, tracksTrending, onSelectTrack])
 
   // Load the IFrame API script once per session.
   useEffect(() => {
@@ -584,20 +646,36 @@ function PlayerCard({
                 chrome controls). Track switching = key changes → React
                 remount'ina iframe'ą, senas iframe naikina + sustabdo audio. */}
             {!isEmbedDisabled && playing && (
-              // Mobile'e PRIVALOMA mute=1 — iOS Safari ir mobile Chrome
-              // griežtai blokuoja unmuted autoplay net su user gesture.
-              // Industry standard (Instagram, TikTok, Twitter) — mobile
-              // muted autoplay, user'is paspaudžia unmute. Desktop'e
-              // unmuted veikia po MEI engagement.
+              // STABLE iframe — `key` neturi displayVid, todėl niekada ne-
+              // remount'inasi po pirmo paleidimo. Track perjungimai vyksta
+              // per postMessage `loadVideoById` (žemiau useEffect'e), kad:
+              //   (a) išlaikytume gesture context tarp track switch'ų
+              //   (autoplay veikia automatiškai)
+              //   (b) galim klausytis state events (track end → auto-skip).
+              //
+              // Mobile'e PRIVALOMA mute=1 — iOS Safari + mobile Chrome
+              // griežtai blokuoja unmuted autoplay. Auto-unmute attempt
+              // (žr. effect) bandys įjungti garsą po start'o.
               <iframe
                 ref={heroIframeRef}
-                key={`hero-${displayVid}`}
+                key="hero-stable"
                 src={`https://www.youtube.com/embed/${displayVid}?autoplay=1${isMobileVP ? '&mute=1' : ''}&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1&origin=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin : '')}`}
                 title="YouTube player"
                 className="absolute inset-0 h-full w-full"
                 referrerPolicy="strict-origin-when-cross-origin"
                 allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
                 allowFullScreen
+                onLoad={() => {
+                  iframeReadyRef.current = true
+                  iframeCurrentVidRef.current = displayVid
+                  // Subscribe to YT IFrame API events (onStateChange etc.)
+                  try {
+                    heroIframeRef.current?.contentWindow?.postMessage(
+                      JSON.stringify({ event: 'listening', channel: 'widget' }),
+                      'https://www.youtube.com'
+                    )
+                  } catch {}
+                }}
               />
             )}
             {/* Mobile unmute hint — kai mobile'e paleidžiam su mute=1,
