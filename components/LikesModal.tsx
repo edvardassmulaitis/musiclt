@@ -255,9 +255,30 @@ export default function LikesModal({
           style={{ flex: 1, overflowY: 'auto', padding: '4px 22px 22px' }}
         >
           {sortedUsers.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)', fontSize: 13 }}>
-              Dar niekas nepaspaudė.
-            </div>
+            // Tuščia situacija — du atvejai:
+            //  • Komentaras dar visai nelaikintas (count===0): bendras "dar niekas".
+            //  • Migracijos legacy komentaras (count>0, bet user list tuščias): senos
+            //    sistemos likes buvo agreguoti skaičiai be konkretaus user mapping'o,
+            //    tad rodom paaiškinimą vietoj klaidinančio "niekas nepaspaudė".
+            count > 0 ? (
+              <div style={{
+                textAlign: 'center', padding: '32px 24px',
+                color: 'var(--text-muted)', fontSize: 13, lineHeight: 1.55,
+              }}>
+                <div style={{ fontSize: 22, marginBottom: 10, opacity: 0.6 }}>📜</div>
+                <div style={{ fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                  {count} {count === 1 ? 'paspaudimas' : count >= 10 ? 'paspaudimų' : 'paspaudimai'} iš senos sistemos
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>
+                  Senoji music.lt forumo sistema saugojo tik bendrą skaičių —
+                  individualių vartotojų sąrašo neturim.
+                </div>
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)', fontSize: 13 }}>
+                Dar niekas nepaspaudė.
+              </div>
+            )
           ) : (
             <>
               <div style={{
