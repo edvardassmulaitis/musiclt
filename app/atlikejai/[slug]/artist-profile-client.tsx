@@ -381,40 +381,11 @@ function PlayerCard({
   const [embedDisabled, setEmbedDisabled] = useState<Set<string>>(new Set())
   const isEmbedDisabled = !!displayVid && embedDisabled.has(displayVid)
 
-  // Mobile mute hint state — kai mobile'e iframe paleidziamas su mute=1,
-  // rodom small badge "🔊 Spauskite garsui". Paspaudus → siunčiam YT
-  // postMessage unMute command. Jei pavyks → garsas ima groti, badge
-  // dingsta. Per session aiškiai praeina tik vieną kartą.
+  // Mobile mute hint state + iframe ref — naudojami auto-unmute attempt'e
+  // (žemiau, po isMobileVP declaration). Initialized'as kaip false — jokio
+  // badge'o nerodom kol nepradėtas playback.
   const [needsUnmute, setNeedsUnmute] = useState(false)
   const heroIframeRef = useRef<HTMLIFrameElement>(null)
-
-  // Auto-attempt unmute on mobile po iframe load. Jei browser leidžia
-  // (gesture context dar valid) — garsas pradeda groti automatiškai.
-  // Jei ne — needsUnmute lieka true ir badge'as rodomas.
-  useEffect(() => {
-    if (!isMobileVP || !playing || !displayVid || isEmbedDisabled) {
-      setNeedsUnmute(false)
-      return
-    }
-    setNeedsUnmute(true)
-    // Po short delay'aus (kad iframe spėtų užkrauti onReady), bandom
-    // unmute. Užklausa siunčiama dažniau (kelios kartos), nes onReady
-    // gali ateiti skirtingu laiku skirtingose narsyklėse.
-    const tryUnmute = () => {
-      try {
-        heroIframeRef.current?.contentWindow?.postMessage(
-          JSON.stringify({ event: 'command', func: 'unMute', args: [] }),
-          'https://www.youtube.com'
-        )
-      } catch {}
-    }
-    const timers = [
-      setTimeout(tryUnmute, 800),
-      setTimeout(tryUnmute, 1600),
-      setTimeout(tryUnmute, 3000),
-    ]
-    return () => { timers.forEach(clearTimeout) }
-  }, [isMobileVP, playing, displayVid, isEmbedDisabled])
 
   // Pre-flight embeddable check — apsisaugom mobile case'e (kur YT.Player
   // onError negaunamas, plain iframe'e tik juodas langas su YouTube error
@@ -451,6 +422,32 @@ function PlayerCard({
     m.addEventListener('change', h)
     return () => m.removeEventListener('change', h)
   }, [])
+
+  // Auto-attempt unmute on mobile po iframe load. Jei browser leidžia
+  // (gesture context dar valid) — garsas pradeda groti automatiškai.
+  // Jei ne — needsUnmute lieka true ir badge'as rodomas (žr. JSX žemiau).
+  // NB: turi būti PO isMobileVP deklaracijos.
+  useEffect(() => {
+    if (!isMobileVP || !playing || !displayVid || isEmbedDisabled) {
+      setNeedsUnmute(false)
+      return
+    }
+    setNeedsUnmute(true)
+    const tryUnmute = () => {
+      try {
+        heroIframeRef.current?.contentWindow?.postMessage(
+          JSON.stringify({ event: 'command', func: 'unMute', args: [] }),
+          'https://www.youtube.com'
+        )
+      } catch {}
+    }
+    const timers = [
+      setTimeout(tryUnmute, 800),
+      setTimeout(tryUnmute, 1600),
+      setTimeout(tryUnmute, 3000),
+    ]
+    return () => { timers.forEach(clearTimeout) }
+  }, [isMobileVP, playing, displayVid, isEmbedDisabled])
 
   // Load the IFrame API script once per session.
   useEffect(() => {
