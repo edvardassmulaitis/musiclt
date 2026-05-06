@@ -475,41 +475,11 @@ function PlayerCard({
     } catch {}
   }, [displayVid])
 
-  // YT IFrame API event listener — gauname onStateChange events kai
-  // iframe'as siunčia "listening" subscription'ą. Reikia auto-skip'ui
-  // į kitą track'ą po pabaigos (state=0).
-  useEffect(() => {
-    if (!playing) return
-    const onMessage = (e: MessageEvent) => {
-      if (e.origin !== 'https://www.youtube.com') return
-      let data: any = null
-      try {
-        data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data
-      } catch { return }
-      // YT siunčia event'us su event'o pavadinimu + info reikšme.
-      // onStateChange info: 0=ended, 1=playing, 2=paused, 3=buffering, 5=cued.
-      if (data?.event === 'onStateChange' && data?.info === 0) {
-        // Track ended — find next with video, switch.
-        const allTracks = [...tracksAllTime, ...tracksTrending]
-        const idx = allTracks.findIndex(t => t.id === activeTrackId)
-        if (idx < 0) return
-        // Search for next video-having track in current list (post-current
-        // index), su rollover į pradžią.
-        for (let i = 1; i <= allTracks.length; i++) {
-          const candidate = allTracks[(idx + i) % allTracks.length]
-          if (candidate && yt(candidate.video_url)) {
-            onSelectTrack(candidate.id)
-            try {
-              fetch(`/api/tracks/${candidate.id}/play`, { method: 'POST', keepalive: true }).catch(() => {})
-            } catch {}
-            return
-          }
-        }
-      }
-    }
-    window.addEventListener('message', onMessage)
-    return () => window.removeEventListener('message', onMessage)
-  }, [playing, activeTrackId, tracksAllTime, tracksTrending, onSelectTrack])
+  // [REMOVED v4] YT IFrame API event listener per postMessage'us — buvo
+  // nepatikima (YT iframe'as siunčia events tik su tinkamu widget_id).
+  // Vietoj to naudojam YT.Player JS API .events.onStateChange callback'ą
+  // (žr. CREATE useEffect aukščiau). Tas pats functionality (auto-skip
+  // ant state=0), bet patikima ir documented.
 
   // Load the IFrame API script once per session.
   useEffect(() => {
@@ -532,52 +502,120 @@ function PlayerCard({
     return () => window.clearInterval(iv)
   }, [])
 
-  // CREATE player only when user has explicitly chosen to play (playing=true)
-  // AND we have a video.
+  // CREATE YT.Player on apiReady AND when user wants to play (playing=true).
   //
-  // CRITICAL — KAIP IŠVENGT "NotFoundError: removeChild" CRASH:
-  // YT.Player(target) PAKEIČIA target elementą su <iframe>. Dėl to React'o
-  // fiber'iai turi pointer į detached'ą div'ą. Jei JSX flip'inasi (pvz.,
-  // `playing ? <div> : <button>`), React bando unmount'inti tą div'ą, bet
-  // jo nebėra DOM'e — iframe jį pakeitė. removeChild fail'ina.
+  // Architektūra (2026-05-06 v4):
+  //   * Player'is sukuriamas pirma karta paspaudus Play overlay (gesture
+  //     context preserved). YT.Player constructor'is paima containerRef
+  //     ir pakeičia jį iframe'u — todėl turim STABLE wrapper'į (React
+  //     niekad neunmount'ina jo dėl flip'inančio JSX'o).
+  //   * Track switching — playerRef.current.loadVideoById(newVid). Vietoj
+  //     iframe remount'inant, YT vidiniai pakeičia video. Gesture
+  //     preserved iš user'io click'o ant track row.
+  //   * State events — events.onStateChange callback'as natively dirba.
+  //     state=0 (ended) → auto-skip į kitą track'ą.
+  //   * Mobile mute — playerVars.mute=1 (mobile only). Po start'o bandom
+  //     unmute().
   //
-  // Sprendimas: containerRef rodo į STABLE wrapper'į, kurį React 100%
-  // kontroliuoja (visada mounted). Į vidų rankomis (per JS, ne React)
-  // įdedam fresh div'ą, kurį YT gali eat'inti. Wrapper'is niekada nekeičia
-  // tipo, niekada neunmount'inasi dėl `playing` toggle. React fiber tree
-  // baigiasi prie wrapper'io — viskas viduje yra non-React DOM.
-  // [DEPRECATED 2026-05-06 v3] YT.Player JS API approach for desktop.
-  // Pakeistas į plain iframe approach — žr. JSX žemiau. YT.Player'is gauti
-  // autoplay neveikė nes creation vyko useEffect po setState async, gesture
-  // prarastas. Plain iframe mounted React render'yje iš click handler'io —
-  // gesture preserved.
-  //
-  // Šis effect'as paliktas tik tam, kad cleanup'intų bet kokius senus
-  // YT.Player instance'us (jei sukurta prieš deployment'ą).
+  // ANKSTESNĖS PROBLEMOS sprendimas: anksčiau player'is buvo sukuriamas
+  // useEffect'e [playing,...] PO setState async — gesture prarastas →
+  // autoplay block'inamas. Dabar create vyksta tame pačiame click event
+  // tick'e (handlePlayClick → directly calls a ref function which creates
+  // player synchronously).
   useEffect(() => {
-    if (playerRef.current) {
-      try { playerRef.current.destroy() } catch {}
-      playerRef.current = null
-    }
-  }, [])
+    if (!apiReady || !playing || !displayVid || !containerRef.current) return
+    if (isEmbedDisabled) return
+    if (playerRef.current) return  // jau sukurta — track switch'ai per loadVideoById
 
-  // VIDEO CHANGE — destroy old player when displayVid changes, so the
-  // create-effect above can build a new one for the new video.
-  const prevVidRef = useRef<string | null>(null)
+    const W = window as any
+    const inner = document.createElement('div')
+    inner.style.width = '100%'
+    inner.style.height = '100%'
+    containerRef.current.innerHTML = ''
+    containerRef.current.appendChild(inner)
+
+    const player = new W.YT.Player(inner, {
+      videoId: displayVid,
+      width: '100%',
+      height: '100%',
+      playerVars: {
+        autoplay: 1,
+        mute: isMobileVP ? 1 : 0,  // Mobile'e visada mute=1 (iOS strict)
+        controls: 1,
+        modestbranding: 1,
+        rel: 0,
+        playsinline: 1,
+        iv_load_policy: 3,
+        enablejsapi: 1,
+        origin: typeof window !== 'undefined' ? window.location.origin : undefined,
+      },
+      events: {
+        onReady: (e: any) => {
+          try { e.target.playVideo() } catch {}
+          // Mobile auto-unmute attempts po start'o.
+          if (isMobileVP) {
+            const tryUnmute = () => { try { e.target.unMute() } catch {} }
+            setTimeout(tryUnmute, 800)
+            setTimeout(tryUnmute, 1600)
+            setTimeout(tryUnmute, 3000)
+          }
+        },
+        onStateChange: (e: any) => {
+          // YT player states: -1=unstarted, 0=ended, 1=playing,
+          // 2=paused, 3=buffering, 5=cued.
+          setIsPaused(!(e.data === 1 || e.data === 3))
+          if (e.data === 0) {
+            // Track ended — auto-skip į kitą track'ą sąraše su video,
+            // su rollover į pradžią.
+            const allTracks = [...tracksAllTime, ...tracksTrending]
+            const idx = allTracks.findIndex(t => t.id === activeTrackId)
+            if (idx < 0) return
+            for (let i = 1; i <= allTracks.length; i++) {
+              const candidate = allTracks[(idx + i) % allTracks.length]
+              if (candidate && yt(candidate.video_url)) {
+                onSelectTrack(candidate.id)
+                try {
+                  fetch(`/api/tracks/${candidate.id}/play`, { method: 'POST', keepalive: true }).catch(() => {})
+                } catch {}
+                return
+              }
+            }
+          }
+        },
+        onError: (e: any) => {
+          const code = e?.data
+          if (code === 101 || code === 150) {
+            // Embedding disabled — switch to fallback overlay
+            const vidNow = (player as any)._vid || displayVid
+            setEmbedDisabled(s => {
+              if (s.has(vidNow)) return s
+              const next = new Set(s); next.add(vidNow); return next
+            })
+            try { playerRef.current?.destroy() } catch {}
+            playerRef.current = null
+            try { if (containerRef.current) containerRef.current.innerHTML = '' } catch {}
+          }
+        },
+      },
+    })
+    ;(player as any)._vid = displayVid
+    playerRef.current = player
+  }, [apiReady, playing, displayVid, isEmbedDisabled, isMobileVP, activeTrackId, tracksAllTime, tracksTrending, onSelectTrack])
+
+  // VIDEO CHANGE — kai displayVid pasikeičia, naudojam loadVideoById vietoj
+  // destroy+recreate. Iframe lieka tas pats, gesture context tarp track'ų
+  // perduodamas, autoplay veikia natively.
   useEffect(() => {
-    const prev = prevVidRef.current
-    if (prev && prev !== displayVid && playerRef.current) {
-      try { playerRef.current.destroy() } catch {}
-      playerRef.current = null
-      // Belt-and-suspenders: empty the wrapper so the next create-effect
-      // gets a clean slot. (destroy() should remove the iframe but YT API
-      // has been inconsistent across versions.)
-      try { if (containerRef.current) containerRef.current.innerHTML = '' } catch {}
-    }
-    prevVidRef.current = displayVid
+    if (!playerRef.current || !displayVid) return
+    if ((playerRef.current as any)._vid === displayVid) return
+    try {
+      playerRef.current.loadVideoById?.(displayVid)
+      ;(playerRef.current as any)._vid = displayVid
+    } catch {}
   }, [displayVid])
 
-  // PAUSE/PLAY toggle — pause without destroying the iframe.
+  // PAUSE/PLAY toggle (kai user'is paspaudžia external pause btn — kol kas
+  // mes neturim to UI, bet API palikta jei reiks vėliau)
   useEffect(() => {
     if (!playerRef.current) return
     try {
@@ -586,8 +624,7 @@ function PlayerCard({
     } catch {}
   }, [playing])
 
-  // UNMOUNT cleanup — destroy any remaining player when the artist page
-  // unmounts (navigates away).
+  // UNMOUNT cleanup — destroy player kai paliekam puslapį.
   useEffect(() => {
     return () => {
       try { playerRef.current?.destroy() } catch {}
