@@ -1013,6 +1013,44 @@ function WikipediaImportCompact({ onImport, artistName }: { onImport: (data: any
   )
 }
 
+// 3-dot overflow menu — surinka šalines actions (PhotosFix, ClearYT,
+// YT enrich, Recalc score), kad header'is nebūtų perkrautas. Children'us
+// renderina vertikaliame dropdown'e su mažu spacing'u tarp jų.
+function ActionsOverflowMenu({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const close = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [open])
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen(p => !p)}
+        title="Daugiau veiksmų: foto fix, YT clear/enrich, perskaičiuoti balus"
+        className={`flex items-center justify-center w-8 h-8 rounded-lg border transition-colors ${open ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-[var(--bg-elevated)] border-[var(--input-border)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'}`}
+      >
+        <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
+          <circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>
+        </svg>
+      </button>
+      {open && (
+        <div
+          className="absolute right-0 top-10 z-50 w-72 bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl shadow-xl p-2 space-y-1"
+          onClick={() => {/* leidžiam children klick'ui pereiti, paskui closeinam su delay */ setTimeout(() => setOpen(false), 150)}}
+        >
+          {children}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function EditArtist() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -1029,7 +1067,6 @@ export default function EditArtist() {
   const [discographyKey, setDiscographyKey] = useState(0)
   const [formKey, setFormKey] = useState(0)
   const [artistScore, setArtistScore] = useState<number | null>(null)
-  const [pageViews, setPageViews] = useState<number | null>(null)
   const submitFnRef = useRef<{ fn: (() => void) | null }>({ fn: null })
 
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
@@ -1057,11 +1094,6 @@ export default function EditArtist() {
 
     fetch(`/api/artists/${artistId}/score`)
       .then(r => r.json()).then(d => setArtistScore(d.score ?? null)).catch(() => {})
-
-    // Page views — direkt iš /api/artists/{id} (ten page_view_count jau yra
-    // jei migracija aplikuota; jei ne — undefined, rodom "—")
-    fetch(`/api/artists/${artistId}`)
-      .then(r => r.json()).then(d => setPageViews(d.page_view_count ?? null)).catch(() => {})
   }, [status, isAdmin, artistId, router])
 
   const handleSubmit = useCallback(async (form: ArtistFormData) => {
@@ -1166,23 +1198,19 @@ export default function EditArtist() {
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
-            <span
-              className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-[var(--bg-elevated)] text-[var(--text-secondary)] border border-[var(--input-border)]"
-              title={pageViews == null ? 'Page view skaitiklis dar neaktyvus (migracija neaplikuota arba 0 peržiūrų)' : `${pageViews.toLocaleString('lt-LT')} unique sessions per 30min, viso atlikėjo puslapio peržiūrų`}
-            >
-              👁 {pageViews == null ? '—' : pageViews.toLocaleString('lt-LT')}
-            </span>
             <ScoreBadge artistId={artistId} score={artistScore} />
-            <PhotosFixButton artistId={artistId} onDone={() => {
-              // Re-fetch artist data so cover_image_url update'as atsispindi forme
-              fetch(`/api/artists/${artistId}`).then(r => r.json()).then(data => {
-                if (!data?.error) setInitialData(dbToForm(data))
-              }).catch(() => {})
-              setFormKey(k => k + 1)
-            }} />
-            <YoutubeClearButton artistId={artistId} onDone={() => setDiscographyKey(k => k + 1)} />
-            <YoutubeEnrichButton artistId={artistId} onDone={() => setDiscographyKey(k => k + 1)} />
-            <RecalcCascadeButton artistId={artistId} />
+            <ActionsOverflowMenu>
+              <PhotosFixButton artistId={artistId} onDone={() => {
+                // Re-fetch artist data so cover_image_url update'as atsispindi forme
+                fetch(`/api/artists/${artistId}`).then(r => r.json()).then(data => {
+                  if (!data?.error) setInitialData(dbToForm(data))
+                }).catch(() => {})
+                setFormKey(k => k + 1)
+              }} />
+              <YoutubeClearButton artistId={artistId} onDone={() => setDiscographyKey(k => k + 1)} />
+              <YoutubeEnrichButton artistId={artistId} onDone={() => setDiscographyKey(k => k + 1)} />
+              <RecalcCascadeButton artistId={artistId} />
+            </ActionsOverflowMenu>
             <Link href="/admin/artists"
               className="px-3 py-1.5 border border-[var(--input-border)] text-[var(--text-secondary)] rounded-lg text-sm font-medium hover:bg-[var(--bg-hover)] transition-colors">
               Atšaukti

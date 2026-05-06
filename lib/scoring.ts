@@ -75,9 +75,10 @@ export function aggregateAwardsData(
 }
 
 /** Awards subscore. Same formula across LT/INT (just different caps).
- *  Returns { points, max, details } shape ready for breakdown.categories.awards. */
+ *  Returns { points, max, details } shape ready for breakdown.categories.awards.
+ *  LT cap padidintas 11→25 (2026-05-06) — visa LT formulė skaluota į 100. */
 export function computeAwardsSubscore(agg: AwardAggregation, type: 'lt' | 'int'): ScoreCategory {
-  const cap = type === 'int' ? 15 : 11
+  const cap = type === 'int' ? 15 : 25
   // Major won: 5 each, capped at 10
   const majorWonPts = Math.min(10, agg.major_won * 5)
   // Major nom: 2 each, capped at 6
@@ -106,6 +107,10 @@ export function computeAwardsSubscore(agg: AwardAggregation, type: 'lt' | 'int')
 }
 
 // ── LT Scoring ─────────────────────────────────────────────────
+//
+// Categories sum to 100 (recalibrated 2026-05-06 — anksčiau buvo 50, bet
+// UI rodo /100, tad mokestis nesutiko su skale). Naujos vertės:
+//   catalog 25, media 15, community 20, career 15, awards 25 = 100.
 
 export function computeLTScore(data: {
   n_albums: number
@@ -118,39 +123,42 @@ export function computeLTScore(data: {
 }): ScoreBreakdown {
   const { n_albums, n_tracks, n_videos, n_lyrics, likes, career_years, awards } = data
 
-  // ① CATALOG (0-15): albums (log scale) + tracks
-  const albumPts = Math.min(12, Math.round(Math.log(n_albums + 1) * 4.0))
-  const trackPts = Math.min(4, Math.round(Math.log(n_tracks + 1) * 0.9))
-  const catalog = Math.min(15, albumPts + trackPts)
+  // ① CATALOG (0-25): albums (log scale) + tracks
+  const albumPts = Math.min(20, Math.round(Math.log(n_albums + 1) * 6.7))
+  const trackPts = Math.min(7, Math.round(Math.log(n_tracks + 1) * 1.5))
+  const catalog = Math.min(25, albumPts + trackPts)
 
-  // ② MEDIA (0-7): videos + lyrics coverage
-  const videoPts = Math.min(4, Math.round(Math.sqrt(n_videos) * 1.3))
-  const lyricsPts = Math.min(3, Math.round(Math.log(n_lyrics + 1) * 0.7))
-  const media = Math.min(7, videoPts + lyricsPts)
+  // ② MEDIA (0-15): videos + lyrics coverage
+  const videoPts = Math.min(9, Math.round(Math.sqrt(n_videos) * 2.8))
+  const lyricsPts = Math.min(6, Math.round(Math.log(n_lyrics + 1) * 1.5))
+  const media = Math.min(15, videoPts + lyricsPts)
 
-  // ③ COMMUNITY (0-10): likes — log scale
+  // ③ COMMUNITY (0-20): likes — log scale
   const community = likes > 0
-    ? Math.min(10, Math.round(Math.log(likes + 1) * 1.4))
+    ? Math.min(20, Math.round(Math.log(likes + 1) * 2.8))
     : 0
 
-  // ④ CAREER BONUS (0-7): bonus only, no penalty for short careers
+  // ④ CAREER BONUS (0-15): bonus only, no penalty for short careers
   const career = career_years >= 5
-    ? Math.min(7, Math.round(Math.log(career_years) * 2.0))
+    ? Math.min(15, Math.round(Math.log(career_years) * 4.3))
     : 0
 
-  // ⑤ AWARDS (0-11): aggregated wins + noms across channels
+  // ⑤ AWARDS (0-25): aggregated wins + noms across channels.
+  // Internal computeAwardsSubscore for 'lt' grąžins max=25 po atnaujinimo
+  // (anksčiau max=11). Su senaisiais duomenimis vertė bus pratęsta į
+  // platesnę skalę proporcingai.
   const awardsAgg = awards || { major_won:0, major_nominated:0, major_inducted:0, other_won:0, other_nominated:0, channels:0 }
   const awardsCat = computeAwardsSubscore(awardsAgg, 'lt')
 
-  const total = Math.min(50, catalog + media + community + career + awardsCat.points)
+  const total = Math.min(100, catalog + media + community + career + awardsCat.points)
 
   return {
     type: 'lt',
     categories: {
-      catalog: { points: catalog, max: 15, details: `${n_albums} alb., ${n_tracks} dainų` },
-      media:   { points: media, max: 7, details: `${n_videos} vaizdo klipų, ${n_lyrics} tekstų` },
-      community: { points: community, max: 10, details: `${likes} patiktukų` },
-      career:  { points: career, max: 7, details: career_years > 0 ? `${career_years} m. karjera` : 'nenurodyta' },
+      catalog: { points: catalog, max: 25, details: `${n_albums} alb., ${n_tracks} dainų` },
+      media:   { points: media, max: 15, details: `${n_videos} vaizdo klipų, ${n_lyrics} tekstų` },
+      community: { points: community, max: 20, details: `${likes} patiktukų` },
+      career:  { points: career, max: 15, details: career_years > 0 ? `${career_years} m. karjera` : 'nenurodyta' },
       awards:  awardsCat,
     },
     total,
