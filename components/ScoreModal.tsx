@@ -34,6 +34,7 @@ type ExtraStats = {
 const CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
   catalog:    { label: 'Diskografija', color: '#3b82f6' },
   media:      { label: 'Turinys', color: '#8b5cf6' },
+  popularity: { label: 'Populiarumas', color: '#ec4899' },
   community:  { label: 'Bendruomenė', color: '#f59e0b' },
   career:     { label: 'Karjera', color: '#10b981' },
   chart:      { label: 'Pasirodymai topuose', color: '#ef4444' },
@@ -44,7 +45,7 @@ const CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
 
 // Fixed display order — JSONB doesn't preserve key insertion order
 const CATEGORY_ORDER: Record<string, string[]> = {
-  lt:  ['catalog', 'media', 'community', 'career', 'awards'],
+  lt:  ['catalog', 'media', 'popularity', 'community', 'career', 'awards'],
   int: ['catalog', 'chart', 'commercial', 'reach', 'awards'],
 }
 
