@@ -566,7 +566,7 @@ function PlayerCard({
               // 🔊 unmute (YT chrome'e arba mūsų custom badge'e).
               <iframe
                 key={`hero-${displayVid}`}
-                src={`https://www.youtube.com/embed/${displayVid}?autoplay=1&mute=1&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1`}
+                src={`https://www.youtube.com/embed/${displayVid}?autoplay=1&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1`}
                 title="YouTube player"
                 className="absolute inset-0 h-full w-full"
                 referrerPolicy="strict-origin-when-cross-origin"

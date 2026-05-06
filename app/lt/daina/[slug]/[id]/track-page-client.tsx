@@ -129,7 +129,7 @@ function CustomPlayOverlay({ vid, title, trackId }: { vid: string; title: string
       ) : (
         <iframe
           key={`overlay-${vid}`}
-          src={`https://www.youtube.com/embed/${vid}?autoplay=1&mute=1&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1`}
+          src={`https://www.youtube.com/embed/${vid}?autoplay=1&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1`}
           title={title}
           className="absolute inset-0 h-full w-full"
           referrerPolicy="strict-origin-when-cross-origin"
