@@ -3950,7 +3950,9 @@ export default function ArtistProfileClient({
   const [albumModalOpen, setAlbumModalOpen] = useState<Album | null>(null)
   const [eventsModalOpen, setEventsModalOpen] = useState(false)
   const [discussionsModalOpen, setDiscussionsModalOpen] = useState(false)
-  const [activeThread, setActiveThread] = useState<LegacyThread | null>(null)
+  // activeThread state pašalintas — diskusijų kortelės dabar Link'ai į
+  // canonical /diskusijos/tema/{legacy_id} (rodantis pilną thread-page-client'ą
+  // su composer'iu, replies, sort), o ne open custom modal'ą.
   const [loaded, setLoaded] = useState(false)
   const [likesModalOpen, setLikesModalOpen] = useState(false)
   const [bioModalOpen, setBioModalOpen] = useState(false)
@@ -4236,18 +4238,9 @@ export default function ArtistProfileClient({
         open={discussionsModalOpen}
         threads={legacyThreads}
         onClose={() => setDiscussionsModalOpen(false)}
-        onOpenThread={(t) => {
-          // Atidarom thread modal'ą tame pačiame fiziniame stack'e —
-          // archyvas modal'as lieka užkulisiuose, žiūri pro thread modal'ą.
-          // Uždarius thread'ą, archyvas vis dar matomas, kol vartotojas
-          // jį uždaro atskirai.
-          setActiveThread(t)
-        }}
-      />
-
-      <DiscussionThreadModal
-        thread={activeThread}
-        onClose={() => setActiveThread(null)}
+        // Be onOpenThread — DiscussionRow be `onOpen` props automatiškai
+        // tampa <Link href="/diskusijos/tema/{legacy_id}">, kuris atidaro
+        // canonical thread page'ą.
       />
 
       <LikesModal
@@ -4645,8 +4638,13 @@ export default function ArtistProfileClient({
               </div>
               {legacyThreads.length > 0 ? (
                 <div className="grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {/* Cards link directly to canonical /diskusijos/tema/{legacy_id}
+                      page (kuris renderuoja pilną thread-page-client su likes,
+                      replies, composer, sort). Anksčiau buvo custom drawer su
+                      limited UI — user'is teisingai pastebėjo, kad geriau
+                      naudoti vieną komponentą visur. */}
                   {previewThreads.map((t) => (
-                    <DiscussionRow key={t.legacy_id} t={t} onOpen={setActiveThread} />
+                    <DiscussionRow key={t.legacy_id} t={t} />
                   ))}
                 </div>
               ) : (
