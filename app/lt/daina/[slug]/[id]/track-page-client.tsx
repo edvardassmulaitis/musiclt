@@ -127,6 +127,15 @@ export default function TrackPageClient({
 
   useEffect(() => { setLoaded(true) }, [])
 
+  // Page-view ping — fire-and-forget. Server-side endpoint dedup'ina
+  // per cookie (30 min lange), todėl page reload'ai netaškys counter'io.
+  // Migracija 20260506_page_view_tracking.sql turi būti aplikuota — jei
+  // ne, endpoint'as silently failina ir `tracks.page_view_count` lieka 0.
+  useEffect(() => {
+    if (!track.id) return
+    fetch(`/api/tracks/${track.id}/page-view`, { method: 'POST', keepalive: true }).catch(() => {})
+  }, [track.id])
+
   // ── Derived ────────────────────────────────────────────────────────────────
   const vid = ytId(track.video_url)
   const hasLyrics = !!track.lyrics?.trim()
@@ -493,7 +502,8 @@ export default function TrackPageClient({
   const trackTypeLabel = track.type === 'normal' ? 'Daina' : (track.type || 'Daina')
 
   return (
-    <div className="min-h-screen bg-[var(--bg-surface)] text-[var(--text-primary)]" style={{ fontFamily: "'DM Sans',system-ui,sans-serif", WebkitFontSmoothing: 'antialiased' }}>
+    // route-enter: 280ms fade-in iš loading.tsx skeleton'o (žr. globals.css).
+    <div className="route-enter min-h-screen bg-[var(--bg-surface)] text-[var(--text-primary)]" style={{ fontFamily: "'DM Sans',system-ui,sans-serif", WebkitFontSmoothing: 'antialiased' }}>
 
       {/* ── TOP BAR — pilnu viewport pločio, modal-style ─────────────────── */}
       <div className="flex items-center gap-4 border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3 sm:px-5">

@@ -49,11 +49,31 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const sb = createAdminClient()
 
   // ── 1. Track core ─────────────────────────────────────────────────────────
-  const { data: track, error: tErr } = await sb
-    .from('tracks')
-    .select('id, legacy_id, slug, source, video_views, video_views_checked_at, video_embeddable, score, score_breakdown, score_updated_at, imported_at, updated_at, created_at')
-    .eq('id', trackId)
-    .maybeSingle()
+  // page_view_count gali nebūti — migracija 20260506_page_view_tracking.sql
+  // dar neaplikuota. Jei kolonėlė trūksta, mažesnis SELECT'as fallback'inasi.
+  let trackData: any = null
+  let tErr: any = null
+  {
+    const r = await sb
+      .from('tracks')
+      .select('id, legacy_id, slug, source, source_url, video_views, video_views_checked_at, video_embeddable, page_view_count, score, score_breakdown, score_updated_at, imported_at, updated_at, created_at')
+      .eq('id', trackId)
+      .maybeSingle()
+    if (r.error && /page_view_count/.test(r.error.message)) {
+      // Fallback be page_view_count
+      const r2 = await sb
+        .from('tracks')
+        .select('id, legacy_id, slug, source, source_url, video_views, video_views_checked_at, video_embeddable, score, score_breakdown, score_updated_at, imported_at, updated_at, created_at')
+        .eq('id', trackId)
+        .maybeSingle()
+      trackData = r2.data
+      tErr = r2.error
+    } else {
+      trackData = r.data
+      tErr = r.error
+    }
+  }
+  const track = trackData
 
   if (tErr) return NextResponse.json({ error: tErr.message }, { status: 500 })
   if (!track) return NextResponse.json({ error: 'Track not found' }, { status: 404 })
@@ -91,12 +111,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     legacyId: t.legacy_id ?? null,
     slug: t.slug ?? null,
     source: t.source ?? null,
+    sourceUrl: t.source_url ?? null,
     views: {
       current: t.video_views ?? null,
       checked_at: t.video_views_checked_at ?? null,
       embeddable: t.video_embeddable ?? null,
       history: histRows || [],
     },
+    pageViews: t.page_view_count ?? null,  // null = migracija neaplikuota
     score: {
       value: t.score ?? null,
       breakdown: t.score_breakdown ?? null,

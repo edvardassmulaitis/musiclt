@@ -108,12 +108,14 @@ type StatsData = {
   legacyId: number | null
   slug: string | null
   source: string | null
+  sourceUrl: string | null
   views: {
     current: number | null
     checked_at: string | null
     embeddable: boolean | null
     history: Array<{ captured_at: string; views: number; video_id: string | null }>
   }
+  pageViews: number | null  // null = migracija neaplikuota
   score: { value: number | null; breakdown: any | null; updated_at: string | null }
   engagement: { likes: number; comments: number; plays: number; top_appearances: number; votes: number }
   timestamps: { created_at: string | null; imported_at: string | null; updated_at: string | null; score_updated_at: string | null }
@@ -215,21 +217,32 @@ function StatsCard({ trackId }: { trackId: number }) {
         </button>
       </div>
 
-      {/* YouTube Views */}
-      <div className="px-3 py-2 border-b border-[var(--border-subtle)] flex items-center gap-3">
-        <div className="flex-1 min-w-0">
+      {/* YouTube Views + Page Views */}
+      <div className="px-3 py-2 border-b border-[var(--border-subtle)] grid grid-cols-2 gap-3">
+        <div className="min-w-0">
           <div className="flex items-baseline gap-1.5">
-            <span className="text-[10px] uppercase tracking-wide font-semibold text-[var(--text-muted)]">YouTube Views</span>
+            <span className="text-[10px] uppercase tracking-wide font-semibold text-[var(--text-muted)]">YT Views</span>
             {v.embeddable === false && <span className="text-[9px] text-red-600 bg-red-50 border border-red-100 px-1 rounded">embed off</span>}
             {v.embeddable === true && <span className="text-[9px] text-green-700 bg-green-50 border border-green-100 px-1 rounded">embed ok</span>}
           </div>
           <div className="text-lg font-bold text-[var(--text-primary)] tabular-nums leading-tight" title={v.current?.toString() || ''}>
             {v.current != null ? v.current.toLocaleString('lt-LT') : '—'}
           </div>
-          <div className="text-[10px] text-[var(--text-faint)]">{v.history.length} snapshot'as{v.history.length === 1 ? '' : 'ai'}</div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-[var(--text-faint)]">{v.history.length} snapshot'as{v.history.length === 1 ? '' : 'ai'}</span>
+            <ViewsSparkline history={v.history} />
+          </div>
         </div>
-        <div className="shrink-0">
-          <ViewsSparkline history={v.history} />
+        <div className="min-w-0 border-l border-[var(--border-subtle)] pl-3">
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-[10px] uppercase tracking-wide font-semibold text-[var(--text-muted)]" title="Kiek kartų atidarytas /lt/daina/{slug} puslapis (nuo migracijos taikymo). 30 min dedup'as cookie'iu, kad refresh nedubliuotų.">Page views</span>
+          </div>
+          <div className="text-lg font-bold text-[var(--text-primary)] tabular-nums leading-tight">
+            {data.pageViews == null ? <span className="text-[var(--text-faint)] text-sm">—</span> : data.pageViews.toLocaleString('lt-LT')}
+          </div>
+          <div className="text-[10px] text-[var(--text-faint)]">
+            {data.pageViews == null ? 'migracija neaplikuota' : 'unique sessions/30min'}
+          </div>
         </div>
       </div>
 
@@ -257,19 +270,35 @@ function StatsCard({ trackId }: { trackId: number }) {
       {/* Engagement grid */}
       <div className="grid grid-cols-5 divide-x divide-[var(--border-subtle)] border-b border-[var(--border-subtle)]">
         {([
-          ['❤️', 'patinka', e.likes],
-          ['💬', 'komentarai', e.comments],
-          ['▶', 'paleidimai', e.plays],
-          ['📊', 'top sav.', e.top_appearances],
-          ['🗳️', 'balsai', e.votes],
-        ] as const).map(([icon, label, n], i) => (
-          <div key={i} className="px-2 py-2 text-center">
+          ['❤️', 'patinka', e.likes, 'Vartotojų like\'ų skaičius (likes lentelė, entity_type=track)'],
+          ['💬', 'komentarai', e.comments, 'Komentarų skaičius prie šitos dainos'],
+          ['▶', 'paleidimai', e.plays, 'Kiek kartų paspausta ▶ atlikėjo puslapio playerį (track_plays). Dar nėra global ping mechanizmo iš track puslapio.'],
+          ['📊', 'top sav.', e.top_appearances, 'Kiek savaičių daina buvo top chart\'uose'],
+          ['🗳️', 'DD balsai', e.votes, 'Dienos Dainos balsavimo balsai (daily_song_votes lentelė) — kol kas DD funkcija neaktyvi'],
+        ] as const).map(([icon, label, n, tip], i) => (
+          <div key={i} className="px-2 py-2 text-center" title={tip}>
             <div className="text-base leading-none">{icon}</div>
             <div className="text-sm font-bold text-[var(--text-primary)] tabular-nums mt-0.5">{fmtN(n)}</div>
             <div className="text-[9px] text-[var(--text-faint)] uppercase tracking-wide leading-tight">{label}</div>
           </div>
         ))}
       </div>
+
+      {/* Source link → music.lt */}
+      {data.sourceUrl && (
+        <div className="px-3 py-1.5 border-b border-[var(--border-subtle)] flex items-center gap-2 text-[11px]">
+          <span className="text-[var(--text-faint)]">Senoje svetainėje:</span>
+          <a
+            href={data.sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-500 hover:text-blue-700 hover:underline truncate font-mono"
+            title={data.sourceUrl}
+          >
+            {data.sourceUrl.replace(/^https?:\/\/(www\.)?/, '')} ↗
+          </a>
+        </div>
+      )}
 
       {/* Identifiers + timestamps */}
       <div className="px-3 py-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px]">
