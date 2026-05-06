@@ -381,6 +381,41 @@ function PlayerCard({
   const [embedDisabled, setEmbedDisabled] = useState<Set<string>>(new Set())
   const isEmbedDisabled = !!displayVid && embedDisabled.has(displayVid)
 
+  // Mobile mute hint state — kai mobile'e iframe paleidziamas su mute=1,
+  // rodom small badge "🔊 Spauskite garsui". Paspaudus → siunčiam YT
+  // postMessage unMute command. Jei pavyks → garsas ima groti, badge
+  // dingsta. Per session aiškiai praeina tik vieną kartą.
+  const [needsUnmute, setNeedsUnmute] = useState(false)
+  const heroIframeRef = useRef<HTMLIFrameElement>(null)
+
+  // Auto-attempt unmute on mobile po iframe load. Jei browser leidžia
+  // (gesture context dar valid) — garsas pradeda groti automatiškai.
+  // Jei ne — needsUnmute lieka true ir badge'as rodomas.
+  useEffect(() => {
+    if (!isMobileVP || !playing || !displayVid || isEmbedDisabled) {
+      setNeedsUnmute(false)
+      return
+    }
+    setNeedsUnmute(true)
+    // Po short delay'aus (kad iframe spėtų užkrauti onReady), bandom
+    // unmute. Užklausa siunčiama dažniau (kelios kartos), nes onReady
+    // gali ateiti skirtingu laiku skirtingose narsyklėse.
+    const tryUnmute = () => {
+      try {
+        heroIframeRef.current?.contentWindow?.postMessage(
+          JSON.stringify({ event: 'command', func: 'unMute', args: [] }),
+          'https://www.youtube.com'
+        )
+      } catch {}
+    }
+    const timers = [
+      setTimeout(tryUnmute, 800),
+      setTimeout(tryUnmute, 1600),
+      setTimeout(tryUnmute, 3000),
+    ]
+    return () => { timers.forEach(clearTimeout) }
+  }, [isMobileVP, playing, displayVid, isEmbedDisabled])
+
   // Pre-flight embeddable check — apsisaugom mobile case'e (kur YT.Player
   // onError negaunamas, plain iframe'e tik juodas langas su YouTube error
   // tekstu) ir greitesnis fallback'as desktop'e (nelaukiam YT.Player onError).
@@ -558,14 +593,41 @@ function PlayerCard({
               // muted autoplay, user'is paspaudžia unmute. Desktop'e
               // unmuted veikia po MEI engagement.
               <iframe
+                ref={heroIframeRef}
                 key={`hero-${displayVid}`}
-                src={`https://www.youtube.com/embed/${displayVid}?autoplay=1${isMobileVP ? '&mute=1' : ''}&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1`}
+                src={`https://www.youtube.com/embed/${displayVid}?autoplay=1${isMobileVP ? '&mute=1' : ''}&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1&origin=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin : '')}`}
                 title="YouTube player"
                 className="absolute inset-0 h-full w-full"
                 referrerPolicy="strict-origin-when-cross-origin"
                 allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
                 allowFullScreen
               />
+            )}
+            {/* Mobile unmute hint — kai mobile'e paleidžiam su mute=1,
+                rodom mažą semi-transparent badge top-right kampe.
+                Paspaudus — siunčiam unMute postMessage YT iframe'ui;
+                jei browser leidžia, garsas ima groti. Skipped jei needsUnmute
+                false (jau atunmute'inta arba desktop). */}
+            {playing && !isEmbedDisabled && isMobileVP && needsUnmute && (
+              <button
+                type="button"
+                onClick={() => {
+                  try {
+                    heroIframeRef.current?.contentWindow?.postMessage(
+                      JSON.stringify({ event: 'command', func: 'unMute', args: [] }),
+                      'https://www.youtube.com'
+                    )
+                  } catch {}
+                  setNeedsUnmute(false)
+                }}
+                className="absolute right-2 top-2 z-20 flex items-center gap-1.5 rounded-full bg-black/70 backdrop-blur-sm px-3 py-1.5 text-white text-xs font-bold shadow-lg ring-1 ring-white/20 hover:bg-black/85 transition-colors"
+                title="Įjungti garsą"
+              >
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                  <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                </svg>
+                Garsui
+              </button>
             )}
             {/* containerRef ref'as paliktas legacy YT.Player code'ui, kuris
                 jau nebenaudojamas — bet useEffect'ai destroy'ina jį clean'ai
@@ -606,7 +668,7 @@ function PlayerCard({
                 </a>
               </div>
             )}
-            {!isMobileVP && !playing && (
+            {!playing && (
               <button
                 type="button"
                 onClick={() => {
@@ -614,12 +676,6 @@ function PlayerCard({
                   if (target != null && target !== activeTrackId) onSelectTrack(target)
                   onRequestPlay()
                   if (target != null) pingPlay(target)
-                  // CRITICAL: call playVideo() SYNCHRONOUSLY iš click handler'io,
-                  // kad Chrome autoplay policy turėtų user gesture context'ą.
-                  // Jei player jau sukurtas — paleidžiam iškart. Jei dar ne (iframe
-                  // API kraunamas) — onReady event'as pamatys playing=true ir
-                  // paleidžia kai būna ready.
-                  try { playerRef.current?.playVideo?.() } catch {}
                 }}
                 aria-label="Paleisti"
                 className="group absolute inset-0 z-10 block cursor-pointer overflow-hidden border-0 p-0"

@@ -1,6 +1,6 @@
 'use client'
 // app/lt/daina/[slug]/[id]/track-page-client.tsx
-import { useState, useEffect, useCallback, memo, useMemo } from 'react'
+import { useState, useEffect, useCallback, memo, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import LegacyLikesPanel, { type LegacyLikeUser } from '@/components/LegacyLikesPanel'
 import ScoreCard from '@/components/ScoreCard'
@@ -95,10 +95,9 @@ YoutubeEmbed.displayName = 'YoutubeEmbed'
  */
 function CustomPlayOverlay({ vid, title, trackId }: { vid: string; title: string; trackId: number }) {
   const [started, setStarted] = useState(false)
-  // Mobile detection — PRIVALOMA mute=1 mobile Safari/Chrome'e (iOS griežtai
-  // blokuoja unmuted autoplay net su user gesture). Industry standard —
-  // user'is paspaudžia unmute YT chrome'e.
   const [isMobile, setIsMobile] = useState(false)
+  const [needsUnmute, setNeedsUnmute] = useState(false)
+  const iframeRef = useRef<HTMLIFrameElement>(null)
   useEffect(() => {
     if (typeof window === 'undefined') return
     const m = window.matchMedia('(max-width: 1023px)')
@@ -108,10 +107,33 @@ function CustomPlayOverlay({ vid, title, trackId }: { vid: string; title: string
     return () => m.removeEventListener('change', h)
   }, [])
 
+  // Auto-attempt unmute on mobile po iframe load — jei browser'is leidžia,
+  // garsas pradeda groti tiesiogiai. Jei ne — badge lieka.
+  useEffect(() => {
+    if (!started || !isMobile) {
+      setNeedsUnmute(false)
+      return
+    }
+    setNeedsUnmute(true)
+    const tryUnmute = () => {
+      try {
+        iframeRef.current?.contentWindow?.postMessage(
+          JSON.stringify({ event: 'command', func: 'unMute', args: [] }),
+          'https://www.youtube.com'
+        )
+      } catch {}
+    }
+    const timers = [
+      setTimeout(tryUnmute, 800),
+      setTimeout(tryUnmute, 1600),
+      setTimeout(tryUnmute, 3000),
+    ]
+    return () => { timers.forEach(clearTimeout) }
+  }, [started, isMobile])
+
   const handleStart = () => {
     if (started) return
     setStarted(true)
-    // Fire-and-forget play count ping
     try {
       fetch(`/api/tracks/${trackId}/play`, { method: 'POST', keepalive: true }).catch(() => {})
     } catch {}
@@ -140,15 +162,39 @@ function CustomPlayOverlay({ vid, title, trackId }: { vid: string; title: string
           </span>
         </button>
       ) : (
-        <iframe
-          key={`overlay-${vid}`}
-          src={`https://www.youtube.com/embed/${vid}?autoplay=1${isMobile ? '&mute=1' : ''}&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1`}
-          title={title}
-          className="absolute inset-0 h-full w-full"
-          referrerPolicy="strict-origin-when-cross-origin"
-          allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-          allowFullScreen
-        />
+        <>
+          <iframe
+            ref={iframeRef}
+            key={`overlay-${vid}`}
+            src={`https://www.youtube.com/embed/${vid}?autoplay=1${isMobile ? '&mute=1' : ''}&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1&origin=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin : '')}`}
+            title={title}
+            className="absolute inset-0 h-full w-full"
+            referrerPolicy="strict-origin-when-cross-origin"
+            allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+            allowFullScreen
+          />
+          {isMobile && needsUnmute && (
+            <button
+              type="button"
+              onClick={() => {
+                try {
+                  iframeRef.current?.contentWindow?.postMessage(
+                    JSON.stringify({ event: 'command', func: 'unMute', args: [] }),
+                    'https://www.youtube.com'
+                  )
+                } catch {}
+                setNeedsUnmute(false)
+              }}
+              className="absolute right-2 top-2 z-20 flex items-center gap-1.5 rounded-full bg-black/70 backdrop-blur-sm px-3 py-1.5 text-white text-xs font-bold shadow-lg ring-1 ring-white/20 hover:bg-black/85 transition-colors"
+              title="Įjungti garsą"
+            >
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+              </svg>
+              Garsui
+            </button>
+          )}
+        </>
       )}
     </div>
   )
