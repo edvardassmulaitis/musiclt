@@ -452,35 +452,42 @@ function PlayerCard({
   // įdedam fresh div'ą, kurį YT gali eat'inti. Wrapper'is niekada nekeičia
   // tipo, niekada neunmount'inasi dėl `playing` toggle. React fiber tree
   // baigiasi prie wrapper'io — viskas viduje yra non-React DOM.
+  // CREATE YT.Player on apiReady (NEPRIKLAUSO nuo `playing` — sukuriam
+  // silent player iškart kai turim video, o user'io click'ą sinchroniškai
+  // (per ref.current.playVideo()) pradedam playback'ą su gesture context.
+  //
+  // Anksčiau pattern'as buvo: useEffect on `playing=true` → CREATE Player →
+  // autoplay=1. Bet YT.Player creation vyksta po setState async, todėl
+  // gesture context dingsta. Chrome'as nelaidžia autoplay, video lieka 0:00.
+  //
+  // Solution v2 (2026-05-06): pre-create on mount (autoplay=0), call
+  // playVideo() iš click handler ant ref.current — gesture preserved.
   useEffect(() => {
-    if (!apiReady || !playing || !displayVid || !containerRef.current) return
-    // Mobile'e nevartojam YT.Player JS API — vietoj jo renderinam plain
-    // `<iframe>` JSX'e (žemiau). Šitas effect'as praleidžiamas mobile'e.
+    if (!apiReady || !displayVid || !containerRef.current) return
     if (isMobileVP) return
-    // Embed-disabled? — YT.Player crash'intų su 101/150; vietoj to fallback'as
-    // (rodom thumbnail + "Žiūrėti YouTube'e" CTA, žemiau JSX'e).
     if (embedDisabled.has(displayVid)) return
-    // Already have a player? Just resume — don't recreate.
+    // Already have player for this video? Done.
+    if (playerRef.current && (playerRef.current as any)._vid === displayVid) return
+
+    // Different video — destroy old, recreate
     if (playerRef.current) {
-      try { playerRef.current.playVideo?.() } catch {}
-      return
+      try { playerRef.current.destroy() } catch {}
+      playerRef.current = null
     }
 
     const W = window as any
-    // Insert a fresh inner div for YT to consume. YT will replace it with
-    // an iframe; the wrapper (containerRef) stays untouched.
     const inner = document.createElement('div')
     inner.style.width = '100%'
     inner.style.height = '100%'
     containerRef.current.innerHTML = ''
     containerRef.current.appendChild(inner)
-    const vidAtCreate = displayVid // closure'inam — onError gali ateiti po video change
-    playerRef.current = new W.YT.Player(inner, {
+    const vidAtCreate = displayVid
+    const player = new W.YT.Player(inner, {
       videoId: displayVid,
       width: '100%',
       height: '100%',
       playerVars: {
-        autoplay: 1,
+        autoplay: 0,  // CHANGED v2: 1→0 — vengiam Chrome autoplay block
         controls: 1,
         modestbranding: 1,
         rel: 0,
@@ -490,26 +497,21 @@ function PlayerCard({
       },
       events: {
         onReady: (e: any) => {
-          try { e.target.playVideo() } catch {}
+          // Jei user'is jau paspaudęs play (playing=true) — paleidžiam
+          if (playing) {
+            try { e.target.playVideo() } catch {}
+          }
         },
         onStateChange: (e: any) => {
           setIsPaused(!(e.data === 1 || e.data === 3))
         },
-        // YT error codes:
-        //   2   — invalid videoId
-        //   5   — HTML5 player error
-        //   100 — video not found / private / removed
-        //   101, 150 — embedding disabled by owner (Klaida 153 server-side)
         onError: (e: any) => {
           const code = e?.data
           if (code === 101 || code === 150) {
-            // Pažymim kaip disabled, kad iškart fallback'inom + nerebuild'intume
-            // YT.Player'io tam pačiam video.
             setEmbedDisabled(s => {
               if (s.has(vidAtCreate)) return s
               const next = new Set(s); next.add(vidAtCreate); return next
             })
-            // Naikinam pagedusį player'į, kad fallback overlay'us būtų matomas
             try { playerRef.current?.destroy() } catch {}
             playerRef.current = null
             try { if (containerRef.current) containerRef.current.innerHTML = '' } catch {}
@@ -517,8 +519,9 @@ function PlayerCard({
         },
       },
     })
-    // No cleanup — separate effects below manage destroy/pause.
-  }, [apiReady, playing, displayVid, embedDisabled])
+    ;(player as any)._vid = displayVid
+    playerRef.current = player
+  }, [apiReady, displayVid, embedDisabled, isMobileVP])
 
   // VIDEO CHANGE — destroy old player when displayVid changes, so the
   // create-effect above can build a new one for the new video.
@@ -580,6 +583,10 @@ function PlayerCard({
     onRequestPlay()
     setIsPaused(false)
     pingPlay(id)
+    // Sinchroniškai paleidžiam playerVideo() jei playerRef'as exist'uoja.
+    // Track changes triggerina createEffect, kuris destroy'ina seną ir kuria
+    // naują player'į — gesture context per ref call iš click handler'io.
+    try { playerRef.current?.playVideo?.() } catch {}
   }
 
   return (
@@ -655,6 +662,12 @@ function PlayerCard({
                   if (target != null && target !== activeTrackId) onSelectTrack(target)
                   onRequestPlay()
                   if (target != null) pingPlay(target)
+                  // CRITICAL: call playVideo() SYNCHRONOUSLY iš click handler'io,
+                  // kad Chrome autoplay policy turėtų user gesture context'ą.
+                  // Jei player jau sukurtas — paleidžiam iškart. Jei dar ne (iframe
+                  // API kraunamas) — onReady event'as pamatys playing=true ir
+                  // paleidžia kai būna ready.
+                  try { playerRef.current?.playVideo?.() } catch {}
                 }}
                 aria-label="Paleisti"
                 className="group absolute inset-0 z-10 block cursor-pointer overflow-hidden border-0 p-0"
