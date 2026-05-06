@@ -910,14 +910,17 @@ export default function EntityCommentsBlock({
             let quoteAuthor: string | null = null
             let quoteText: string | null = null
             let rest: string = ''
+            // Sentinel — kai true, fallback path'ai NEPERRAŠO rest/quote*
+            // (anksčiau Path 0 nustatydavo quoteAuthor=null, ir fallback
+            // sąlyga `quoteAuthor==null` perrašydavo rest į c.body).
+            let resolved = false
             // Path 0 — modern comment'as su content_html (= migrated legacy
             // su nested blockquote chain'u): render'inam pilną HTML, kad
             // pasirodytų visi nested ancestor quote'ai. Šis path NEnaudoja
             // parent_id (kuris suteiktų tik 1 lygį).
             if (isModern && c.content_html && /<blockquote\s+class=["']?legacy-quote/i.test(c.content_html)) {
               rest = c.content_html
-              quoteAuthor = null
-              quoteText = null
+              resolved = true
             }
             // Path 1 — parent_id lookup (modern komentarams BE content_html chain'o)
             else if (isModern && c.parent_id != null) {
@@ -928,10 +931,11 @@ export default function EntityCommentsBlock({
                 const parentBody = parent.body || ''
                 quoteText = parentBody.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 240)
                 rest = c.body
+                resolved = true
               }
             }
-            // Path 2/3 — fallback į text/HTML parsing
-            if (quoteAuthor == null) {
+            // Path 2/3 — fallback į text/HTML parsing tik jei dar neapdorotas
+            if (!resolved) {
               if (isModern) {
                 const parsed = parseReplyBody(c.body)
                 quoteAuthor = parsed.quoteAuthor
