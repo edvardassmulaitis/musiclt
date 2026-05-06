@@ -355,6 +355,7 @@ export type AlbumScoreInputs = {
   peak_chart_position?: number | null
   track_count?: number | null
   year?: number | null
+  total_video_views?: number  // SUM(album track.video_views) — naujas
 }
 
 export type AlbumScoreResult = {
@@ -426,6 +427,16 @@ export function computeAlbumScore(album: AlbumScoreInputs, artistScore: number =
   categories.artist_score = artistPts
   score += artistPts
 
+  // Album popularity (0-15): SUM track video_views in this album.
+  // log10(views + 1) × 1.9 → 1K=6, 100K=10, 1M=11, 10M=13, 100M+=15.
+  // Smarter signal nei vien certifications (kurių LT albumams nėra).
+  const totalViews = album.total_video_views || 0
+  const popPts = totalViews > 0
+    ? Math.min(15, Math.round(Math.log10(totalViews + 1) * 1.9))
+    : 0
+  categories.popularity = popPts
+  score += popPts
+
   return {
     final_score: Math.min(100, score),
     breakdown: {
@@ -438,6 +449,7 @@ export function computeAlbumScore(album: AlbumScoreInputs, artistScore: number =
         track_count: tc,
         year,
         artist_score: artistScore,
+        total_video_views: totalViews,
       },
     },
   }
@@ -464,7 +476,22 @@ export async function calculateAlbumScore(
       .single()
     artistScore = artistRow?.score || 0
   }
-  return computeAlbumScore(album, artistScore)
+
+  // Aggregate views from all album tracks. album_tracks junction → tracks.
+  // Skirtumas nuo artist'o: čia tik tracks priklausantys ŠIAM albumui.
+  let total_video_views = 0
+  try {
+    const { data: trackLinks } = await supabase
+      .from('album_tracks')
+      .select('tracks(video_views)')
+      .eq('album_id', albumId)
+    for (const r of (trackLinks || []) as any[]) {
+      const v = Number(r?.tracks?.video_views) || 0
+      total_video_views += v
+    }
+  } catch {}
+
+  return computeAlbumScore({ ...album, total_video_views }, artistScore)
 }
 
 // ── TRACK SCORING (mirrors Python wiki_worker.compute_track_score) ─
