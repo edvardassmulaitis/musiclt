@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
-import LikesModal from '@/components/LikesModal'
+import LikesModal, { type LikeUser } from '@/components/LikesModal'
 import { LikePill } from '@/components/LikePill'
 import BioModal from '@/components/BioModal'
 import ScoreCard from '@/components/ScoreCard'
@@ -219,6 +219,35 @@ function formatPostDate(iso: string): string {
   const hh = String(d.getHours()).padStart(2, '0')
   const mi = String(d.getMinutes()).padStart(2, '0')
   return `${yyyy}-${mm}-${dd} ${hh}:${mi}`
+}
+
+/** LT relative time format — "ką tik" / "prieš 5 minutes" / "prieš 19 metų".
+ *  Atitinka kanoninės /diskusijos/tema/[id] page'os timeAgo formatą. */
+function timeAgoLT(iso: string | null): string {
+  if (!iso) return ''
+  const then = new Date(iso).getTime()
+  if (isNaN(then)) return ''
+  const diff = Math.max(0, Date.now() - then)
+  const s = Math.floor(diff / 1000)
+  if (s < 45) return 'ką tik'
+  const m = Math.floor(s / 60)
+  if (m < 60) return `prieš ${m} ${pluralLT(m, ['minutę', 'minutes', 'minučių'])}`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `prieš ${h} ${pluralLT(h, ['valandą', 'valandas', 'valandų'])}`
+  const d = Math.floor(h / 24)
+  if (d < 30) return `prieš ${d} ${pluralLT(d, ['dieną', 'dienas', 'dienų'])}`
+  const mo = Math.floor(d / 30)
+  if (mo < 12) return `prieš ${mo} ${pluralLT(mo, ['mėnesį', 'mėnesius', 'mėnesių'])}`
+  const y = Math.floor(d / 365)
+  return `prieš ${y} ${pluralLT(y, ['metus', 'metus', 'metų'])}`
+}
+
+function pluralLT(n: number, forms: [string, string, string]): string {
+  const mod10 = n % 10
+  const mod100 = n % 100
+  if (mod10 === 1 && mod100 !== 11) return forms[0]
+  if (mod10 >= 2 && mod10 <= 9 && (mod100 < 10 || mod100 > 20)) return forms[1]
+  return forms[2]
 }
 
 /** Sanitize forum_posts.content_html — strip dangerous tags + on* handlers,
@@ -3394,6 +3423,8 @@ function DiscussionThreadModal({
   const [replyTo, setReplyTo] = useState<{ author: string; text: string } | null>(null)
   const [attached, setAttached] = useState<AttachmentHit[]>([])
   const [showPicker, setShowPicker] = useState(false)
+  const [postLikers, setPostLikers] = useState<Record<number, LikeUser[]>>({})
+  const [likesModalPostId, setLikesModalPostId] = useState<number | null>(null)
   const draftRef = useRef<HTMLTextAreaElement | null>(null)
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
 
@@ -3413,10 +3444,13 @@ function DiscussionThreadModal({
       if (scrollContainerRef.current) {
         scrollContainerRef.current.scrollTop = 0
       }
+      setPostLikers({})
+      setLikesModalPostId(null)
       fetch(`/api/threads/${thread.legacy_id}/posts`)
         .then(r => r.json())
         .then(d => {
           setPosts(d.posts || [])
+          setPostLikers(d.postLikers || {})
           // Po duomenų load'o dar kartą reset'inam scroll'ą — kad pradėtume
           // skaityti nuo pirmo (seniausio) komentaro, kaip kanoniniame page'e.
           requestAnimationFrame(() => {
@@ -3582,8 +3616,13 @@ function DiscussionThreadModal({
                 const author = p.author_username || 'Anonimas'
                 const html = (p.content_html && p.content_html.trim()) || ''
                 const plainText = (p.content_text && String(p.content_text).trim()) || (html ? stripHtml(html) : '')
-                const dateStr = p.created_at ? formatPostDate(p.created_at) : null
+                // Naudojam relative timeAgo formatą kaip kanoninej page'ai
+                // (pvz "prieš 19 metų" vs "2005-03-07 21:35"). Hover'uojant
+                // per `title` rodom pilną datą.
+                const dateRel = p.created_at ? timeAgoLT(p.created_at) : null
+                const dateAbs = p.created_at ? formatPostDate(p.created_at) : null
                 const likeCount = p.like_count || 0
+                const hasLikers = (postLikers[p.legacy_id]?.length || 0) > 0
                 return (
                   <li key={p.legacy_id} className="flex items-start gap-2.5 border-b border-[var(--border-subtle)] pb-3 last:border-b-0 last:pb-0">
                     <UserAvatar name={author} avatarUrl={p.author_avatar_url} size={28} />
@@ -3592,9 +3631,12 @@ function DiscussionThreadModal({
                         <span className="font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-secondary)]">
                           {author}
                         </span>
-                        {dateStr && (
-                          <span className="font-['Outfit',sans-serif] text-[10.5px] font-medium tabular-nums text-[var(--text-faint)]">
-                            {dateStr}
+                        {dateRel && (
+                          <span
+                            className="font-['Outfit',sans-serif] text-[10.5px] font-medium text-[var(--text-faint)]"
+                            title={dateAbs || ''}
+                          >
+                            {dateRel}
                           </span>
                         )}
                       </div>
@@ -3611,23 +3653,34 @@ function DiscussionThreadModal({
                           {plainText}
                         </div>
                       )}
-                      {/* Footer — like count + reply button */}
+                      {/* Footer — like count (clickable kai yra likers) + reply button */}
                       <div className="mt-2 flex items-center gap-3">
-                        <span
-                          className={[
-                            'inline-flex items-center gap-1 font-["Outfit",sans-serif] text-[11px] font-extrabold',
-                            likeCount > 0 ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]',
-                          ].join(' ')}
-                          aria-label={`${likeCount} patiko`}
-                        >
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
-                          {likeCount}
-                        </span>
+                        {hasLikers ? (
+                          <button
+                            type="button"
+                            onClick={() => setLikesModalPostId(p.legacy_id)}
+                            aria-label={`${likeCount} patiko — peržiūrėti`}
+                            className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--accent-orange)] transition-colors hover:bg-[rgba(249,115,22,0.12)]"
+                          >
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
+                            {likeCount}
+                          </button>
+                        ) : (
+                          <span
+                            className={[
+                              'inline-flex items-center gap-1 px-1.5 py-0.5 font-["Outfit",sans-serif] text-[11px] font-extrabold',
+                              likeCount > 0 ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]',
+                            ].join(' ')}
+                            aria-label={`${likeCount} patiko`}
+                          >
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
+                            {likeCount}
+                          </span>
+                        )}
                         <button
                           type="button"
                           onClick={() => {
                             setReplyTo({ author, text: plainText.slice(0, 200) })
-                            // Focus textarea after state update.
                             requestAnimationFrame(() => draftRef.current?.focus())
                           }}
                           className="inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--text-muted)] transition-colors hover:text-[var(--accent-orange)]"
@@ -3782,6 +3835,18 @@ function DiscussionThreadModal({
           </div>
         </div>
       </aside>
+
+      {/* LikesModal — overlay'inamas virš drawer'io kai user'is paspaudžia
+          ant ♥ count'o ant komentaro. Rodo kas like'ino tą komentarą su
+          username, rank, avatar (data iš /api/threads/{id}/posts postLikers).
+          Kanoninej /diskusijos/tema/{id} page'ai tas pats UI. */}
+      <LikesModal
+        open={likesModalPostId !== null}
+        onClose={() => setLikesModalPostId(null)}
+        title="Patiko"
+        count={likesModalPostId !== null ? (postLikers[likesModalPostId]?.length || 0) : 0}
+        users={likesModalPostId !== null ? (postLikers[likesModalPostId] || []) : []}
+      />
     </div>
   )
 }
