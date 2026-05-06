@@ -914,15 +914,16 @@ export default function EntityCommentsBlock({
             // (anksčiau Path 0 nustatydavo quoteAuthor=null, ir fallback
             // sąlyga `quoteAuthor==null` perrašydavo rest į c.body).
             let resolved = false
-            // Path 0 — modern comment'as su content_html (= migrated legacy
-            // su nested blockquote chain'u): render'inam pilną HTML, kad
-            // pasirodytų visi nested ancestor quote'ai. Šis path NEnaudoja
-            // parent_id (kuris suteiktų tik 1 lygį).
-            if (isModern && c.content_html && /<blockquote\s+class=["']?legacy-quote/i.test(c.content_html)) {
+            // Path 0 — modern comment'as su content_html (= MIGRATED LEGACY).
+            // Visi tokie komentarai išsaugoti su pilnu HTML kūnu, įskaitant
+            // image'us, blockquote chain'ą, music attachments. Render'inam
+            // tiesiai per dangerouslySetInnerHTML. Modernūs (UI-composed)
+            // komentarai content_html neturi, tad jiems nuvažiuoja į Path 1+.
+            if (isModern && c.content_html && c.content_html.trim()) {
               rest = c.content_html
               resolved = true
             }
-            // Path 1 — parent_id lookup (modern komentarams BE content_html chain'o)
+            // Path 1 — parent_id lookup (modern komentarams BE content_html)
             else if (isModern && c.parent_id != null) {
               const parent = modernById.get(c.parent_id)
               if (parent) {
