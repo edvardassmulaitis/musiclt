@@ -584,36 +584,72 @@ html, body {
   border-radius: 6px;
 }
 
-/* Legacy reply chain — visi nested ancestor quotes pre-prepended į content_html
-   per scraper'į (legacy music.lt forum'as saugojo VISĄ chain'ą kiekviename post'e).
-   Nested = mažesnis font, didesnis indentacija per kiekvieną lygį. */
-.comment-html-body blockquote.legacy-quote {
+/* Legacy reply chain — render'inami arba pilnai content_html viduje
+   (.comment-html-body), arba React'o LegacyChain komponente (sibling div).
+   Selektoriai be `.comment-html-body` prefix'o, kad veiktų abu atvejais. */
+blockquote.legacy-quote {
   border-left: 3px solid var(--accent-orange);
   background: rgba(249, 115, 22, 0.06);
-  padding: 6px 10px;
-  margin: 0 0 8px 0;
+  padding: 5px 8px 5px 10px;
+  margin: 0 0 4px 0;
   border-radius: 0 6px 6px 0;
 }
-.comment-html-body blockquote.legacy-quote + blockquote.legacy-quote {
-  margin-left: 12px;
-}
-.comment-html-body blockquote.legacy-quote
-  + blockquote.legacy-quote
-  + blockquote.legacy-quote {
-  margin-left: 24px;
-}
-.comment-html-body blockquote.legacy-quote .legacy-quote-author,
 blockquote.legacy-quote .legacy-quote-author {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-family: 'Outfit', sans-serif;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 0;
   color: var(--text-secondary);
   margin-bottom: 2px;
 }
-.comment-html-body blockquote.legacy-quote .legacy-quote-body {
-  font-size: 12.5px;
+blockquote.legacy-quote .legacy-quote-body,
+blockquote.legacy-quote .legacy-quote-body p {
+  font-size: 11.5px;
   font-style: italic;
   color: var(--text-muted);
   line-height: 1.45;
+  margin: 0;
+}
+blockquote.legacy-quote .legacy-quote-body p + p {
+  margin-top: 0.3em;
+}
+blockquote.legacy-quote .legacy-quote-body img {
+  max-width: 100%;
+  max-height: 160px;
+  height: auto;
+  border-radius: 4px;
+  margin: 4px 0;
+  opacity: 0.9;
+}
+blockquote.legacy-quote .legacy-quote-body iframe {
+  max-width: 280px;
+  aspect-ratio: 16/9;
+  border-radius: 4px;
+  border: 0;
+  margin: 4px 0;
+}
+/* Mini avatar next to author */
+blockquote.legacy-quote .legacy-quote-avatar {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  object-fit: cover;
+  background: var(--bg-elevated);
+}
+blockquote.legacy-quote .legacy-quote-avatar-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  font-size: 8px;
+  font-weight: 800;
+  color: white;
+  background: var(--accent-orange);
 }

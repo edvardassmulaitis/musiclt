@@ -133,14 +133,33 @@ function parseLegacyChain(html: string): { quotes: { author: string; body: strin
   return { quotes, rest: remainder }
 }
 
-/** Single quote block — orange citation styling, lowercase "author rašė:" */
-function QuoteBlock({ author, body, depth }: { author: string; body: string; depth: number }) {
+/** Single quote block — orange citation styling, lowercase "author rašė:"
+ *  with mini 16px avatar lookup by username (case-insensitive). */
+function QuoteBlock({
+  author, body, depth, avatarUrl,
+}: {
+  author: string; body: string; depth: number; avatarUrl?: string | null
+}) {
+  const initial = (author || '?').slice(0, 1).toUpperCase()
   return (
     <blockquote
       className="legacy-quote"
-      style={{ marginLeft: depth > 0 ? Math.min(depth, 4) * 12 : 0 }}
+      style={{ marginLeft: depth > 0 ? Math.min(depth, 4) * 14 : 0 }}
     >
-      <div className="legacy-quote-author">{author} rašė:</div>
+      <div className="legacy-quote-author">
+        {avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={proxyImg(avatarUrl)}
+            alt=""
+            referrerPolicy="no-referrer"
+            className="legacy-quote-avatar"
+          />
+        ) : (
+          <span className="legacy-quote-avatar-fallback">{initial}</span>
+        )}
+        <span>{author} rašė:</span>
+      </div>
       <div
         className="legacy-quote-body"
         dangerouslySetInnerHTML={{ __html: body }}
@@ -153,7 +172,12 @@ function QuoteBlock({ author, body, depth }: { author: string; body: string; dep
  *  (paskutinis depth=1 quote). Jei chain turi >=2 lygius, rodom toggle
  *  "Rodyti seniau (N)". Sutaupom vertikalios vietos ir nesidubliuoja
  *  ta pati informacija per kelis post'us. */
-function LegacyChain({ quotes }: { quotes: { author: string; body: string }[] }) {
+function LegacyChain({
+  quotes, avatarMap,
+}: {
+  quotes: { author: string; body: string }[]
+  avatarMap: Map<string, string>
+}) {
   const [expanded, setExpanded] = useState(false)
   if (quotes.length === 0) return null
   // quotes order: deepest ancestor first, immediate parent last
@@ -162,7 +186,13 @@ function LegacyChain({ quotes }: { quotes: { author: string; body: string }[] })
   return (
     <div className="mt-1 space-y-1">
       {expanded && quotes.slice(0, olderCount).map((q, i) => (
-        <QuoteBlock key={i} author={q.author} body={q.body} depth={i} />
+        <QuoteBlock
+          key={i}
+          author={q.author}
+          body={q.body}
+          depth={i}
+          avatarUrl={avatarMap.get(q.author.toLowerCase())}
+        />
       ))}
       {olderCount > 0 && (
         <button
@@ -179,7 +209,12 @@ function LegacyChain({ quotes }: { quotes: { author: string; body: string }[] })
             : `Rodyti senesnius (${olderCount})`}
         </button>
       )}
-      <QuoteBlock author={immediate.author} body={immediate.body} depth={olderCount} />
+      <QuoteBlock
+        author={immediate.author}
+        body={immediate.body}
+        depth={olderCount}
+        avatarUrl={avatarMap.get(immediate.author.toLowerCase())}
+      />
     </div>
   )
 }
@@ -572,6 +607,21 @@ export default function EntityCommentsBlock({
   const modernById = useMemo(() => {
     const m = new Map<number, ModernComment>()
     for (const c of modern || []) m.set(c.id, c)
+    return m
+  }, [modern])
+
+  /** Username (lowercased) → avatar URL map. Naudojama LegacyChain quote
+   *  block'uose mini avatarų rodymui. Surenkam iš modern komentarų autorių
+   *  duomenų — kiekvienas thread'o autorius bent vienam savo komentarui
+   *  yra modern.author_name + author_avatar, tad map'as padengia visus
+   *  chain'o quote autorius. */
+  const avatarByUsername = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const c of modern || []) {
+      if (c.author_name && c.author_avatar) {
+        m.set(c.author_name.toLowerCase(), c.author_avatar)
+      }
+    }
     return m
   }, [modern])
 
@@ -1091,7 +1141,9 @@ export default function EntityCommentsBlock({
                         tik immediate parent (depth 1), su toggle'iu, jei yra
                         senesnių lygių. Ne dublikuojam to paties turinio per
                         skirtingus post'us — sutaupo vietą. */}
-                    {legacyQuotes.length > 0 && <LegacyChain quotes={legacyQuotes} />}
+                    {legacyQuotes.length > 0 && (
+                      <LegacyChain quotes={legacyQuotes} avatarMap={avatarByUsername} />
+                    )}
                     {/* Body render'is — du keliai:
                         1) HTML komentaras (Tiptap output) — render via dangerouslySetInnerHTML
                            su prose-like dark stiliais. Iframe'us, formatavimą laiko.
