@@ -111,6 +111,79 @@ function tagLinksNofollow(html: string): string {
   })
 }
 
+/** Parse migrated legacy content_html: tear off the prepended legacy-quote
+ *  chain and return it as structured array (depth N → 1). The "rest" is the
+ *  actual reply body (everything AFTER the last legacy-quote blockquote).
+ *
+ *  Naudojama, kad UI rodytų gražų collapse/expand control'ą vietoj viso
+ *  chain'o inline (jei thread'as turi 5-10 lygius, ta pati informacija
+ *  kartojasi visuose post'uose, užtveriant skaitymą). */
+function parseLegacyChain(html: string): { quotes: { author: string; body: string }[]; rest: string } {
+  if (!html) return { quotes: [], rest: '' }
+  const quotes: { author: string; body: string }[] = []
+  // Greedy strip — pradžioje surenkam visus konsekutyvius blockquote'us
+  let remainder = html
+  const re = /^\s*<blockquote\s+class=["']legacy-quote["'][^>]*>\s*<div\s+class=["']legacy-quote-author["'][^>]*>([^<]*?)\s*ra[sš]ė:\s*<\/div>\s*<div\s+class=["']legacy-quote-body["'][^>]*>([\s\S]*?)<\/div>\s*<\/blockquote>\s*/i
+  while (true) {
+    const m = remainder.match(re)
+    if (!m) break
+    quotes.push({ author: m[1].trim(), body: m[2].trim() })
+    remainder = remainder.slice(m[0].length)
+  }
+  return { quotes, rest: remainder }
+}
+
+/** Single quote block — orange citation styling, lowercase "author rašė:" */
+function QuoteBlock({ author, body, depth }: { author: string; body: string; depth: number }) {
+  return (
+    <blockquote
+      className="legacy-quote"
+      style={{ marginLeft: depth > 0 ? Math.min(depth, 4) * 12 : 0 }}
+    >
+      <div className="legacy-quote-author">{author} rašė:</div>
+      <div
+        className="legacy-quote-body"
+        dangerouslySetInnerHTML={{ __html: body }}
+      />
+    </blockquote>
+  )
+}
+
+/** Collapsible reply-chain UI — by default rodom tik IMMEDIATE parent
+ *  (paskutinis depth=1 quote). Jei chain turi >=2 lygius, rodom toggle
+ *  "Rodyti seniau (N)". Sutaupom vertikalios vietos ir nesidubliuoja
+ *  ta pati informacija per kelis post'us. */
+function LegacyChain({ quotes }: { quotes: { author: string; body: string }[] }) {
+  const [expanded, setExpanded] = useState(false)
+  if (quotes.length === 0) return null
+  // quotes order: deepest ancestor first, immediate parent last
+  const immediate = quotes[quotes.length - 1]
+  const olderCount = quotes.length - 1
+  return (
+    <div className="mt-1 space-y-1">
+      {expanded && quotes.slice(0, olderCount).map((q, i) => (
+        <QuoteBlock key={i} author={q.author} body={q.body} depth={i} />
+      ))}
+      {olderCount > 0 && (
+        <button
+          type="button"
+          onClick={() => setExpanded(v => !v)}
+          className="ml-1 inline-flex items-center gap-1 text-[11px] font-bold text-[var(--text-faint)] transition-colors hover:text-[var(--accent-orange)]"
+        >
+          <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+               style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 150ms' }}>
+            <polyline points="3 5 6 8 9 5" />
+          </svg>
+          {expanded
+            ? `Slėpti senesnius (${olderCount})`
+            : `Rodyti senesnius (${olderCount})`}
+        </button>
+      )}
+      <QuoteBlock author={immediate.author} body={immediate.body} depth={olderCount} />
+    </div>
+  )
+}
+
 /** Extract YouTube video ID iš įvairių URL formų. */
 const YT_PATTERNS = [
   /youtube\.com\/watch\?v=([A-Za-z0-9_-]{11})/i,
@@ -916,11 +989,14 @@ export default function EntityCommentsBlock({
             let resolved = false
             // Path 0 — modern comment'as su content_html (= MIGRATED LEGACY).
             // Visi tokie komentarai išsaugoti su pilnu HTML kūnu, įskaitant
-            // image'us, blockquote chain'ą, music attachments. Render'inam
-            // tiesiai per dangerouslySetInnerHTML. Modernūs (UI-composed)
-            // komentarai content_html neturi, tad jiems nuvažiuoja į Path 1+.
+            // image'us, blockquote chain'ą, music attachments. Atplaukiam chain'ą
+            // į struktūruotus quotes (collapsible UI), o "rest" lieka tik
+            // tikrasis post body.
+            let legacyQuotes: { author: string; body: string }[] = []
             if (isModern && c.content_html && c.content_html.trim()) {
-              rest = c.content_html
+              const parsed = parseLegacyChain(c.content_html)
+              legacyQuotes = parsed.quotes
+              rest = parsed.rest || ''
               resolved = true
             }
             // Path 1 — parent_id lookup (modern komentarams BE content_html)
@@ -1011,6 +1087,11 @@ export default function EntityCommentsBlock({
                         </div>
                       </div>
                     )}
+                    {/* Migracijos legacy reply chain — collapsible. Default rodo
+                        tik immediate parent (depth 1), su toggle'iu, jei yra
+                        senesnių lygių. Ne dublikuojam to paties turinio per
+                        skirtingus post'us — sutaupo vietą. */}
+                    {legacyQuotes.length > 0 && <LegacyChain quotes={legacyQuotes} />}
                     {/* Body render'is — du keliai:
                         1) HTML komentaras (Tiptap output) — render via dangerouslySetInnerHTML
                            su prose-like dark stiliais. Iframe'us, formatavimą laiko.

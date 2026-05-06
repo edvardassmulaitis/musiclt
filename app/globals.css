@@ -602,12 +602,12 @@ html, body {
   + blockquote.legacy-quote {
   margin-left: 24px;
 }
-.comment-html-body blockquote.legacy-quote .legacy-quote-author {
+.comment-html-body blockquote.legacy-quote .legacy-quote-author,
+blockquote.legacy-quote .legacy-quote-author {
   font-family: 'Outfit', sans-serif;
-  font-size: 10.5px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
   color: var(--text-secondary);
   margin-bottom: 2px;
 }
