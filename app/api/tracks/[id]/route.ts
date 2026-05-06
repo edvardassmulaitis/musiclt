@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createClient } from '@supabase/supabase-js'
+import { enrichTrack } from '@/lib/yt-enrich'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -89,6 +90,15 @@ export async function PUT(
   try {
     const data = await req.json()
 
+    // Pirma — gaunam dabartinę video_url, kad galėtumėm detektuoti pakeitimą
+    // ir auto-trigger'inti YT views fetch po update'o.
+    const { data: existingTrack } = await supabase
+      .from('tracks')
+      .select('video_url')
+      .eq('id', trackId)
+      .maybeSingle()
+    const oldVideoUrl = (existingTrack as any)?.video_url || null
+
     const updates: Record<string, any> = {}
 
     if ('title' in data) updates.title = data.title
@@ -117,6 +127,18 @@ export async function PUT(
         : null
     }
 
+    // Auto-reset YT enrich state'ą jei video_url pasikeitė — kad enrichTrack
+    // (žemiau) iš naujo paimtų views naujam video. Be šito, enrichTrack
+    // pamatys senus video_views laukus ir tinkamai juos atnaujins, bet
+    // explicit reset'as garantuoja, kad UI iškart matys "kraunama".
+    const newVideoUrl = updates.video_url ?? oldVideoUrl
+    const videoChanged = newVideoUrl !== oldVideoUrl
+    if (videoChanged && newVideoUrl) {
+      updates.video_views = null
+      updates.video_views_checked_at = null
+      updates.video_embeddable = null
+    }
+
     if (Object.keys(updates).length > 0) {
       const { error } = await supabase.from('tracks').update(updates).eq('id', trackId)
       if (error) throw error
@@ -136,7 +158,31 @@ export async function PUT(
       }
     }
 
-    return NextResponse.json({ ok: true })
+    // Auto-trigger YT views fetch po video_url pakeitimo. Naudojam force=true
+    // kad bypass'intume 30 dienų refresh cutoff'ą. Await'inam su 8s timeout
+    // — jei pavyks per tą laiką, frontend stats card iškart matys naują
+    // video_views skaičių; jei timeout'uojam, vis tiek track update'as
+    // sėkmingas, views update'inasi background'e.
+    let enrichResult: any = null
+    if (videoChanged && newVideoUrl) {
+      try {
+        const enrichPromise = enrichTrack(trackId, true)
+        const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000))
+        const result = await Promise.race([enrichPromise, timeoutPromise])
+        if (result && (result as any).ok) {
+          enrichResult = {
+            views: (result as any).viewsAfter,
+            videoTitle: (result as any).videoTitle,
+            embeddable: (result as any).embeddable,
+          }
+        }
+      } catch (e: any) {
+        // Enrich klaida nesilaužia track save'ą — log only
+        console.warn('[track update] enrich failed:', e?.message)
+      }
+    }
+
+    return NextResponse.json({ ok: true, enrich: enrichResult })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
