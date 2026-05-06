@@ -2,6 +2,7 @@ import { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase'
 import EntityCommentsBlock from '@/components/EntityCommentsBlock'
+import DiscussionSidebar from '@/components/DiscussionSidebar'
 import Link from 'next/link'
 
 interface Props {
@@ -228,17 +229,14 @@ export default async function DiscussionPage({ params }: Props) {
   const discussion = await getDiscussion(slug)
   if (!discussion) notFound()
 
+  // View count atnaujinimas — fire-and-forget background, NEblokuojam SSR
+  // (anksčiau page laukdavo ~50-200ms PATCH'o net prieš render'inant header'į).
   const supabase = createAdminClient()
-  await supabase
+  void supabase
     .from('discussions')
     .update({ view_count: (discussion.view_count || 0) + 1 })
     .eq('id', discussion.id)
-
-  // Sidebar duomenys lygiagrečiai
-  const [topContributors, mentionedTracks] = await Promise.all([
-    getTopContributors(discussion.id),
-    getMentionedTracks(discussion.id),
-  ])
+    .then(() => {}, () => {}) // ignore errors
 
   return (
     <div style={{ background: '#080d14', minHeight: '100vh' }}>
@@ -295,82 +293,10 @@ export default async function DiscussionPage({ params }: Props) {
             />
           </div>
 
-          {/* SIDEBAR */}
+          {/* SIDEBAR — client-side fetch'inamas, kad SSR neblokuotų ant
+              top-contributors / mentioned-tracks aggregation queries. */}
           <aside className="hidden lg:block">
-            <div className="sticky top-6 flex flex-col gap-3">
-              {/* TOP NARIAI */}
-              {topContributors.length > 0 && (
-                <div className="rounded-2xl border border-white/5 bg-white/[0.025] p-4">
-                  <div className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.12em] text-gray-500">
-                    Aktyviausi nariai
-                  </div>
-                  <ul className="space-y-2">
-                    {topContributors.map((c, i) => {
-                      const name = c.full_name || c.username || 'Vartotojas'
-                      return (
-                        <li key={c.id} className="flex items-center gap-2.5">
-                          <span className="w-3 text-[10px] font-bold text-gray-600">{i + 1}.</span>
-                          {c.avatar_url ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={c.avatar_url} alt="" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }} />
-                          ) : (
-                            <Initials name={name} />
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <div className="truncate text-xs font-bold text-gray-200">{name}</div>
-                            <div className="text-[10px] text-gray-500">{c.count.toLocaleString()} atsakym{c.count % 10 === 1 && c.count !== 11 ? 'as' : 'ai'}</div>
-                          </div>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                </div>
-              )}
-
-              {/* PAMINĖTOS DAINOS — pseudo-player'is, klausomas per click → track puslapis */}
-              {mentionedTracks.length > 0 && (
-                <div className="rounded-2xl border border-white/5 bg-white/[0.025] p-4">
-                  <div className="mb-3 flex items-center justify-between">
-                    <div className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-gray-500">
-                      Paminėtos dainos
-                    </div>
-                    <div className="text-[10px] text-gray-600">{mentionedTracks.length}</div>
-                  </div>
-                  <ul className="space-y-2">
-                    {mentionedTracks.map((t) => (
-                      <li key={t.id}>
-                        <Link
-                          href={`/dainos/${t.slug}-${t.id}`}
-                          className="flex items-center gap-2.5 rounded-lg p-1.5 transition-colors hover:bg-white/5"
-                        >
-                          <div className="h-9 w-9 shrink-0 overflow-hidden rounded-md bg-white/5">
-                            {t.cover_url ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img src={t.cover_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            ) : (
-                              <div className="flex h-full w-full items-center justify-center text-xs text-gray-600">♪</div>
-                            )}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="truncate text-[12px] font-semibold text-gray-200">{t.title}</div>
-                            <div className="truncate text-[10px] text-gray-500">{t.artist_name || ''}</div>
-                          </div>
-                          <span className="shrink-0 rounded-full bg-white/5 px-1.5 py-0.5 text-[9px] font-bold text-gray-500">×{t.mention_count}</span>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Panašios diskusijos placeholder'is — ateities feature */}
-              <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.015] p-4 text-center">
-                <div className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-gray-600">
-                  Panašios diskusijos
-                </div>
-                <div className="mt-2 text-[11px] italic text-gray-600">netrukus</div>
-              </div>
-            </div>
+            <DiscussionSidebar discussionId={discussion.id} />
           </aside>
         </div>
       </div>
