@@ -452,76 +452,20 @@ function PlayerCard({
   // įdedam fresh div'ą, kurį YT gali eat'inti. Wrapper'is niekada nekeičia
   // tipo, niekada neunmount'inasi dėl `playing` toggle. React fiber tree
   // baigiasi prie wrapper'io — viskas viduje yra non-React DOM.
-  // CREATE YT.Player on apiReady (NEPRIKLAUSO nuo `playing` — sukuriam
-  // silent player iškart kai turim video, o user'io click'ą sinchroniškai
-  // (per ref.current.playVideo()) pradedam playback'ą su gesture context.
+  // [DEPRECATED 2026-05-06 v3] YT.Player JS API approach for desktop.
+  // Pakeistas į plain iframe approach — žr. JSX žemiau. YT.Player'is gauti
+  // autoplay neveikė nes creation vyko useEffect po setState async, gesture
+  // prarastas. Plain iframe mounted React render'yje iš click handler'io —
+  // gesture preserved.
   //
-  // Anksčiau pattern'as buvo: useEffect on `playing=true` → CREATE Player →
-  // autoplay=1. Bet YT.Player creation vyksta po setState async, todėl
-  // gesture context dingsta. Chrome'as nelaidžia autoplay, video lieka 0:00.
-  //
-  // Solution v2 (2026-05-06): pre-create on mount (autoplay=0), call
-  // playVideo() iš click handler ant ref.current — gesture preserved.
+  // Šis effect'as paliktas tik tam, kad cleanup'intų bet kokius senus
+  // YT.Player instance'us (jei sukurta prieš deployment'ą).
   useEffect(() => {
-    if (!apiReady || !displayVid || !containerRef.current) return
-    if (isMobileVP) return
-    if (embedDisabled.has(displayVid)) return
-    // Already have player for this video? Done.
-    if (playerRef.current && (playerRef.current as any)._vid === displayVid) return
-
-    // Different video — destroy old, recreate
     if (playerRef.current) {
       try { playerRef.current.destroy() } catch {}
       playerRef.current = null
     }
-
-    const W = window as any
-    const inner = document.createElement('div')
-    inner.style.width = '100%'
-    inner.style.height = '100%'
-    containerRef.current.innerHTML = ''
-    containerRef.current.appendChild(inner)
-    const vidAtCreate = displayVid
-    const player = new W.YT.Player(inner, {
-      videoId: displayVid,
-      width: '100%',
-      height: '100%',
-      playerVars: {
-        autoplay: 0,  // CHANGED v2: 1→0 — vengiam Chrome autoplay block
-        controls: 1,
-        modestbranding: 1,
-        rel: 0,
-        playsinline: 1,
-        iv_load_policy: 3,
-        origin: typeof window !== 'undefined' ? window.location.origin : undefined,
-      },
-      events: {
-        onReady: (e: any) => {
-          // Jei user'is jau paspaudęs play (playing=true) — paleidžiam
-          if (playing) {
-            try { e.target.playVideo() } catch {}
-          }
-        },
-        onStateChange: (e: any) => {
-          setIsPaused(!(e.data === 1 || e.data === 3))
-        },
-        onError: (e: any) => {
-          const code = e?.data
-          if (code === 101 || code === 150) {
-            setEmbedDisabled(s => {
-              if (s.has(vidAtCreate)) return s
-              const next = new Set(s); next.add(vidAtCreate); return next
-            })
-            try { playerRef.current?.destroy() } catch {}
-            playerRef.current = null
-            try { if (containerRef.current) containerRef.current.innerHTML = '' } catch {}
-          }
-        },
-      },
-    })
-    ;(player as any)._vid = displayVid
-    playerRef.current = player
-  }, [apiReady, displayVid, embedDisabled, isMobileVP])
+  }, [])
 
   // VIDEO CHANGE — destroy old player when displayVid changes, so the
   // create-effect above can build a new one for the new video.
@@ -607,10 +551,19 @@ function PlayerCard({
                 kovoti su Safari iOS autoplay'aus blokavimu, gesture
                 context'u, ar postMessage komandom. Simpler = bulletproof.
                 Desktop'as toliau naudoja YT.Player JS API per containerRef. */}
-            {isMobileVP && !isEmbedDisabled && (
+            {/* Unified iframe approach (2026-05-06 v3): mobile + desktop abu
+                naudoja plain iframe su autoplay=1. YT.Player JS API anksčiau
+                buvo desktop'ui programmatic'iam pause control'ui, bet creation
+                useEffect'e prarasdavo user gesture context'ą — autoplay block.
+                Plain iframe mount'inamas React render'yje kuris paleistas iš
+                click handler'io → gesture preserved → autoplay leidžiamas.
+                Pause kontrolė nuėjo į iframe'o vidų (user'is naudoja YT
+                chrome controls). Track switching = key changes → React
+                remount'ina iframe'ą, senas iframe naikina + sustabdo audio. */}
+            {!isEmbedDisabled && playing && (
               <iframe
-                key={`mobile-hero-${displayVid}`}
-                src={`https://www.youtube.com/embed/${displayVid}?playsinline=1&rel=0&modestbranding=1&iv_load_policy=3`}
+                key={`hero-${displayVid}`}
+                src={`https://www.youtube.com/embed/${displayVid}?autoplay=1&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1`}
                 title="YouTube player"
                 className="absolute inset-0 h-full w-full"
                 referrerPolicy="strict-origin-when-cross-origin"
@@ -618,7 +571,10 @@ function PlayerCard({
                 allowFullScreen
               />
             )}
-            <div ref={containerRef} className={(isMobileVP || isEmbedDisabled) ? 'hidden' : 'absolute inset-0 h-full w-full'} />
+            {/* containerRef ref'as paliktas legacy YT.Player code'ui, kuris
+                jau nebenaudojamas — bet useEffect'ai destroy'ina jį clean'ai
+                jei buvo sukurtas anksčiau. Wrapper nesilanko playing toggle'ui. */}
+            <div ref={containerRef} className="hidden" />
             {/* Fallback kai embed'as išjungtas (Klaida 153 / kodai 101, 150).
                 Rodom thumbnail + "Žiūrėti YouTube'e" CTA. Veikia tiek desktop
                 (po YT.Player onError), tiek mobile (po pre-flight check'o
