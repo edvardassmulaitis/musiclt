@@ -3826,6 +3826,12 @@ export default function ArtistProfileClient({
 
   useEffect(() => { setLoaded(true) }, [])
 
+  // Page-view ping — fire-and-forget. 30 min cookie dedup'as.
+  useEffect(() => {
+    if (!artist?.id) return
+    fetch(`/api/artists/${artist.id}/page-view`, { method: 'POST', keepalive: true }).catch(() => {})
+  }, [artist?.id])
+
   useEffect(() => {
     let cancelled = false
     fetch(`/api/artists/${artist.id}/like`, { cache: 'no-store' })

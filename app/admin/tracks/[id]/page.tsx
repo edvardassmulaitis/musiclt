@@ -287,14 +287,14 @@ function StatsCard({ trackId }: { trackId: number }) {
         return (
           <div className="px-3 py-2 border-b border-[var(--border-subtle)]"
             title={hasChart
-              ? `Aukščiausia vieta #${cp.peak_position}, viso ${cp.weeks_total} sav. chart'uose. ${cp.weeks_at_1 ? cp.weeks_at_1 + ' sav. #1, ' : ''}${cp.weeks_top10} sav. top 10. Chart score = SUM(101 - position) per visas savaites.`
+              ? `Aukščiausia vieta #${cp.peak_position}, viso ${cp.weeks_total} sav. chart'uose. ${cp.weeks_at_1 ? cp.weeks_at_1 + ' sav. #1, ' : ''}${cp.weeks_top10} sav. top 10. Score = vidutinė pozicija (100 = visada #1, 51 = visada #50). Palyginamas tarp dainų.`
               : 'Daina dar nepateko į top chart\'us'}>
             <div className="flex items-baseline gap-2">
               <span className="text-[10px] uppercase tracking-wide font-semibold text-[var(--text-muted)]">🏆 Top chart'ai</span>
               {hasChart && cp.weeks_at_1 > 0 && (
                 <span className="text-[9px] bg-yellow-100 text-yellow-800 border border-yellow-200 px-1 rounded">{cp.weeks_at_1} sav. #1</span>
               )}
-              <span className="ml-auto text-[10px] text-[var(--text-faint)]">score {cp.chart_score}</span>
+              <span className="ml-auto text-[10px] text-[var(--text-faint)]">score {cp.chart_score} / 100</span>
             </div>
             <div className="flex items-baseline gap-3 mt-0.5">
               <div>

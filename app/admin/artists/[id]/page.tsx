@@ -1029,6 +1029,7 @@ export default function EditArtist() {
   const [discographyKey, setDiscographyKey] = useState(0)
   const [formKey, setFormKey] = useState(0)
   const [artistScore, setArtistScore] = useState<number | null>(null)
+  const [pageViews, setPageViews] = useState<number | null>(null)
   const submitFnRef = useRef<{ fn: (() => void) | null }>({ fn: null })
 
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
@@ -1056,6 +1057,11 @@ export default function EditArtist() {
 
     fetch(`/api/artists/${artistId}/score`)
       .then(r => r.json()).then(d => setArtistScore(d.score ?? null)).catch(() => {})
+
+    // Page views — direkt iš /api/artists/{id} (ten page_view_count jau yra
+    // jei migracija aplikuota; jei ne — undefined, rodom "—")
+    fetch(`/api/artists/${artistId}`)
+      .then(r => r.json()).then(d => setPageViews(d.page_view_count ?? null)).catch(() => {})
   }, [status, isAdmin, artistId, router])
 
   const handleSubmit = useCallback(async (form: ArtistFormData) => {
@@ -1160,6 +1166,12 @@ export default function EditArtist() {
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
+            <span
+              className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-[var(--bg-elevated)] text-[var(--text-secondary)] border border-[var(--input-border)]"
+              title={pageViews == null ? 'Page view skaitiklis dar neaktyvus (migracija neaplikuota arba 0 peržiūrų)' : `${pageViews.toLocaleString('lt-LT')} unique sessions per 30min, viso atlikėjo puslapio peržiūrų`}
+            >
+              👁 {pageViews == null ? '—' : pageViews.toLocaleString('lt-LT')}
+            </span>
             <ScoreBadge artistId={artistId} score={artistScore} />
             <PhotosFixButton artistId={artistId} onDone={() => {
               // Re-fetch artist data so cover_image_url update'as atsispindi forme

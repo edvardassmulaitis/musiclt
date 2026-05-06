@@ -113,9 +113,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const peakPosition = positions.length > 0 ? Math.min(...positions) : null
   const weeksAt1 = positions.filter(p => p === 1).length
   const weeksTop10 = positions.filter(p => p <= 10).length
-  // Chart score: each week earns (101 - position) points (peak #1 = 100pts).
-  // Sum gives a single number that combines weeks + best position.
-  const chartScore = positions.reduce((s, p) => s + Math.max(0, 101 - p), 0)
+  // Chart score 0-100 — average position score across all weeks.
+  // Vienos savaitės score = (101 - position), tad #1 = 100, #50 = 51, #100 = 1.
+  // Galutinis = AVG → 0-100 range (palyginama tarp dainų, neauga su weeks).
+  const chartScore = weeksTotal > 0
+    ? Math.round(positions.reduce((s, p) => s + Math.max(0, 101 - p), 0) / weeksTotal)
+    : 0
 
   return NextResponse.json({
     ok: true,
