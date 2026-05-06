@@ -117,7 +117,14 @@ type StatsData = {
   }
   pageViews: number | null  // null = migracija neaplikuota
   score: { value: number | null; breakdown: any | null; updated_at: string | null }
-  engagement: { likes: number; comments: number; plays: number; top_appearances: number; votes: number }
+  engagement: { likes: number; comments: number; plays: number; votes: number }
+  chartPerformance: {
+    weeks_total: number
+    peak_position: number | null
+    weeks_at_1: number
+    weeks_top10: number
+    chart_score: number
+  }
   timestamps: { created_at: string | null; imported_at: string | null; updated_at: string | null; score_updated_at: string | null }
 }
 
@@ -267,13 +274,54 @@ function StatsCard({ trackId }: { trackId: number }) {
         )}
       </div>
 
-      {/* Engagement grid */}
-      <div className="grid grid-cols-5 divide-x divide-[var(--border-subtle)] border-b border-[var(--border-subtle)]">
+      {/* Chart performance — su peak position + weeks + chart_score */}
+      {(() => {
+        const cp = data.chartPerformance
+        const hasChart = cp.weeks_total > 0
+        const peakLabel = cp.peak_position != null ? `#${cp.peak_position}` : '—'
+        const peakColor = cp.peak_position == null ? 'text-[var(--text-faint)]'
+          : cp.peak_position === 1 ? 'text-yellow-500'
+          : cp.peak_position <= 3 ? 'text-orange-500'
+          : cp.peak_position <= 10 ? 'text-blue-500'
+          : 'text-[var(--text-secondary)]'
+        return (
+          <div className="px-3 py-2 border-b border-[var(--border-subtle)]"
+            title={hasChart
+              ? `Aukščiausia vieta #${cp.peak_position}, viso ${cp.weeks_total} sav. chart'uose. ${cp.weeks_at_1 ? cp.weeks_at_1 + ' sav. #1, ' : ''}${cp.weeks_top10} sav. top 10. Chart score = SUM(101 - position) per visas savaites.`
+              : 'Daina dar nepateko į top chart\'us'}>
+            <div className="flex items-baseline gap-2">
+              <span className="text-[10px] uppercase tracking-wide font-semibold text-[var(--text-muted)]">🏆 Top chart'ai</span>
+              {hasChart && cp.weeks_at_1 > 0 && (
+                <span className="text-[9px] bg-yellow-100 text-yellow-800 border border-yellow-200 px-1 rounded">{cp.weeks_at_1} sav. #1</span>
+              )}
+              <span className="ml-auto text-[10px] text-[var(--text-faint)]">score {cp.chart_score}</span>
+            </div>
+            <div className="flex items-baseline gap-3 mt-0.5">
+              <div>
+                <span className={`text-2xl font-bold tabular-nums ${peakColor}`}>{peakLabel}</span>
+                <span className="text-[10px] text-[var(--text-faint)] ml-1">peak</span>
+              </div>
+              <div>
+                <span className="text-lg font-bold text-[var(--text-secondary)] tabular-nums">{cp.weeks_total}</span>
+                <span className="text-[10px] text-[var(--text-faint)] ml-1">sav. viso</span>
+              </div>
+              {hasChart && (
+                <div>
+                  <span className="text-lg font-bold text-[var(--text-secondary)] tabular-nums">{cp.weeks_top10}</span>
+                  <span className="text-[10px] text-[var(--text-faint)] ml-1">sav. top 10</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* Engagement grid (4 cols dabar — top atskirai virš) */}
+      <div className="grid grid-cols-4 divide-x divide-[var(--border-subtle)] border-b border-[var(--border-subtle)]">
         {([
           ['❤️', 'patinka', e.likes, 'Vartotojų like\'ų skaičius (likes lentelė, entity_type=track)'],
           ['💬', 'komentarai', e.comments, 'Komentarų skaičius prie šitos dainos'],
-          ['▶', 'paleidimai', e.plays, 'Kiek kartų paspausta ▶ atlikėjo puslapio playerį (track_plays). Dar nėra global ping mechanizmo iš track puslapio.'],
-          ['📊', 'top sav.', e.top_appearances, 'Kiek savaičių daina buvo top chart\'uose'],
+          ['▶', 'paleidimai', e.plays, 'Kiek kartų paspausta ▶ atlikėjo puslapio playerį (track_plays). Iš track puslapio dar nėra ping\'o.'],
           ['🗳️', 'DD balsai', e.votes, 'Dienos Dainos balsavimo balsai (daily_song_votes lentelė) — kol kas DD funkcija neaktyvi'],
         ] as const).map(([icon, label, n, tip], i) => (
           <div key={i} className="px-2 py-2 text-center" title={tip}>

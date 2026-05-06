@@ -92,18 +92,30 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   // ── 3. Engagement counts (parallel) ───────────────────────────────────────
   // Naudojam HEAD count'us (count: 'exact', head: true) — greičiausi būdas.
-  const [likesRes, commentsRes, playsRes, topEntriesRes, votesRes] = await Promise.all([
+  // top_entries — vietoj count'o pasiimam visus position'us, kad galėtume
+  // suskaičiuoti peak + weeks_at_1 + weeks_top10 lokaliai.
+  const [likesRes, commentsRes, playsRes, topRowsRes, votesRes] = await Promise.all([
     sb.from('likes').select('*', { count: 'exact', head: true })
       .eq('entity_type', 'track').eq('entity_id', trackId),
     sb.from('comments').select('*', { count: 'exact', head: true })
       .eq('track_id', trackId),
     sb.from('track_plays').select('*', { count: 'exact', head: true })
       .eq('track_id', trackId),
-    sb.from('top_entries').select('*', { count: 'exact', head: true })
+    sb.from('top_entries').select('position')
       .eq('track_id', trackId),
     sb.from('daily_song_votes').select('*', { count: 'exact', head: true })
       .eq('track_id', trackId),
   ])
+
+  // Chart performance aggregation
+  const positions = (topRowsRes.data || []).map((r: any) => r.position).filter((p: any) => Number.isFinite(p)) as number[]
+  const weeksTotal = positions.length
+  const peakPosition = positions.length > 0 ? Math.min(...positions) : null
+  const weeksAt1 = positions.filter(p => p === 1).length
+  const weeksTop10 = positions.filter(p => p <= 10).length
+  // Chart score: each week earns (101 - position) points (peak #1 = 100pts).
+  // Sum gives a single number that combines weeks + best position.
+  const chartScore = positions.reduce((s, p) => s + Math.max(0, 101 - p), 0)
 
   return NextResponse.json({
     ok: true,
@@ -128,8 +140,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       likes: likesRes.count ?? 0,
       comments: commentsRes.count ?? 0,
       plays: playsRes.count ?? 0,
-      top_appearances: topEntriesRes.count ?? 0,
       votes: votesRes.count ?? 0,
+    },
+    chartPerformance: {
+      weeks_total: weeksTotal,
+      peak_position: peakPosition,    // null jei nė karto chart'uose
+      weeks_at_1: weeksAt1,
+      weeks_top10: weeksTop10,
+      chart_score: chartScore,        // sum((101 - position)) per week
     },
     timestamps: {
       created_at: t.created_at ?? null,
