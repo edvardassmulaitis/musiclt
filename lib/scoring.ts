@@ -671,9 +671,23 @@ export async function calculateArtistScore(
     }
   }
 
-  // Calculate career years
+  // Calculate career years.
+  // Pirmoji prielaida: artists.active_from (iš music.lt arba Wiki).
+  // Fallback'as: min(tracks.release_year) — patikimas kai music.lt neturi
+  // Veiklos pradžia lauko, bet tracks turi release_year iš dainų puslapių.
   const currentYear = new Date().getFullYear()
-  const activeFrom = artist?.active_from || 0
+  let activeFrom = artist?.active_from || 0
+  if (!activeFrom) {
+    const { data: oldestTrack } = await supabase
+      .from('tracks')
+      .select('release_year')
+      .eq('artist_id', artistId)
+      .not('release_year', 'is', null)
+      .order('release_year', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+    if (oldestTrack?.release_year) activeFrom = oldestTrack.release_year
+  }
   const activeUntil = artist?.active_until || currentYear
   const career_years = activeFrom > 0 ? (activeUntil - activeFrom) : 0
 
