@@ -489,6 +489,7 @@ export default function EntityCommentsBlock({
   const [pickerOpen, setPickerOpen] = useState(false)
   const [likersFor, setLikersFor] = useState<{ entityType: string; entityId: number; count: number } | null>(null)
   const [likersUsers, setLikersUsers] = useState<LikeUser[]>([])
+  const [likersLoading, setLikersLoading] = useState(false)
   // Toast state — short success banner shown for ~2.4s after a successful post.
   const [toast, setToast] = useState<{ kind: 'success' | 'info'; message: string } | null>(null)
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -586,12 +587,18 @@ export default function EntityCommentsBlock({
 
   // Fetch likers when modal opens
   useEffect(() => {
-    if (!likersFor) { setLikersUsers([]); return }
+    if (!likersFor) {
+      setLikersUsers([])
+      setLikersLoading(false)
+      return
+    }
     setLikersUsers([])
+    setLikersLoading(true)
     fetch(`/api/likes/${likersFor.entityType}/${likersFor.entityId}`)
       .then(r => r.json())
       .then(d => setLikersUsers(d.users || []))
       .catch(() => setLikersUsers([]))
+      .finally(() => setLikersLoading(false))
   }, [likersFor])
 
   // Merge + sort
@@ -1395,6 +1402,7 @@ export default function EntityCommentsBlock({
         title="Patiko"
         count={likersFor?.count || 0}
         users={likersUsers}
+        loading={likersLoading}
       />
 
       {/* Reply modal — atsakant į komentarą, useris nepamesta scroll pozicijos.

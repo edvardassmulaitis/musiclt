@@ -577,6 +577,35 @@ html, body {
   border-radius: 6px;
   border: 0;
   margin: 0.5em 0;
+  background: var(--bg-elevated); /* placeholder kol iframe load'inasi */
+}
+/* Spotify embedai turi savo proporcijas — track=152px, album/playlist=352px.
+   Override 16:9 aspect-ratio specific selectors'ais (jie laimi prieš
+   bendrąjį iframe rule'ą per source-order priority). */
+.comment-html-body iframe[src*="open.spotify.com/embed/track"],
+.comment-html-body iframe[src*="open.spotify.com/embed/episode"] {
+  max-width: 100%;
+  width: 100%;
+  aspect-ratio: auto;
+  height: 152px;
+  background: transparent;
+}
+.comment-html-body iframe[src*="open.spotify.com/embed/album"],
+.comment-html-body iframe[src*="open.spotify.com/embed/playlist"],
+.comment-html-body iframe[src*="open.spotify.com/embed/show"] {
+  max-width: 100%;
+  width: 100%;
+  aspect-ratio: auto;
+  height: 352px;
+  background: transparent;
+}
+/* SoundCloud embedai — irgi savo proporcijos */
+.comment-html-body iframe[src*="soundcloud.com/player"] {
+  max-width: 100%;
+  width: 100%;
+  aspect-ratio: auto;
+  height: 166px;
+  background: transparent;
 }
 .comment-html-body img {
   max-width: 100%;
