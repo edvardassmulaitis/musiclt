@@ -381,16 +381,11 @@ function PlayerCard({
   const [embedDisabled, setEmbedDisabled] = useState<Set<string>>(new Set())
   const isEmbedDisabled = !!displayVid && embedDisabled.has(displayVid)
 
-  // Mobile mute hint state + iframe ref — naudojami auto-unmute attempt'e
-  // (žemiau, po isMobileVP declaration). Initialized'as kaip false — jokio
-  // badge'o nerodom kol nepradėtas playback.
+  // Mobile mute hint state — kai mobile'e iframe paleidziamas su mute=1,
+  // rodom small badge "🔊 Garsui". Paspaudus → playerRef.current.unMute().
+  // YT.Player JS API tvarko visa unmute logika natively, jokio postMessage
+  // hack'o ne reik.
   const [needsUnmute, setNeedsUnmute] = useState(false)
-  const heroIframeRef = useRef<HTMLIFrameElement>(null)
-  // Tracking iframe state — kad galėtumėm switch'inti track'us per
-  // postMessage loadVideoById (vietoj remount'ino) ir gaut event'us
-  // (track end → auto-skip į kitą).
-  const iframeReadyRef = useRef(false)
-  const iframeCurrentVidRef = useRef<string | null>(null)
 
   // Pre-flight embeddable check — apsisaugom mobile case'e (kur YT.Player
   // onError negaunamas, plain iframe'e tik juodas langas su YouTube error
@@ -428,58 +423,12 @@ function PlayerCard({
     return () => m.removeEventListener('change', h)
   }, [])
 
-  // Auto-attempt unmute on mobile po iframe load. Jei browser leidžia
-  // (gesture context dar valid) — garsas pradeda groti automatiškai.
-  // Jei ne — needsUnmute lieka true ir badge'as rodomas (žr. JSX žemiau).
-  // NB: turi būti PO isMobileVP deklaracijos.
+  // Mobile needsUnmute initialization — tik kai pradedame playback su mute=1.
+  // YT.Player onReady auto-bandys unmute'inti per 800/1600/3000ms timer'ius;
+  // jei pavyks, badge dings (žr. CREATE useEffect onReady).
   useEffect(() => {
-    if (!isMobileVP || !playing || !displayVid || isEmbedDisabled) {
-      setNeedsUnmute(false)
-      return
-    }
-    setNeedsUnmute(true)
-    const tryUnmute = () => {
-      try {
-        heroIframeRef.current?.contentWindow?.postMessage(
-          JSON.stringify({ event: 'command', func: 'unMute', args: [] }),
-          'https://www.youtube.com'
-        )
-      } catch {}
-    }
-    const timers = [
-      setTimeout(tryUnmute, 800),
-      setTimeout(tryUnmute, 1600),
-      setTimeout(tryUnmute, 3000),
-    ]
-    return () => { timers.forEach(clearTimeout) }
+    setNeedsUnmute(isMobileVP && playing && !isEmbedDisabled && !!displayVid)
   }, [isMobileVP, playing, displayVid, isEmbedDisabled])
-
-  // Track switching mid-playback: kai displayVid pasikeičia ir iframe'as
-  // jau ready, siunčiam loadVideoById command'ą vietoj remount'inant.
-  // Ši aplinkybė palaiko gesture context (iframe lieka tas pats) ir
-  // autoplay veikia tarp track'ų.
-  useEffect(() => {
-    if (!iframeReadyRef.current) return
-    if (!displayVid) return
-    if (iframeCurrentVidRef.current === displayVid) return
-    try {
-      heroIframeRef.current?.contentWindow?.postMessage(
-        JSON.stringify({
-          event: 'command',
-          func: 'loadVideoById',
-          args: [{ videoId: displayVid }],
-        }),
-        'https://www.youtube.com'
-      )
-      iframeCurrentVidRef.current = displayVid
-    } catch {}
-  }, [displayVid])
-
-  // [REMOVED v4] YT IFrame API event listener per postMessage'us — buvo
-  // nepatikima (YT iframe'as siunčia events tik su tinkamu widget_id).
-  // Vietoj to naudojam YT.Player JS API .events.onStateChange callback'ą
-  // (žr. CREATE useEffect aukščiau). Tas pats functionality (auto-skip
-  // ant state=0), bet patikima ir documented.
 
   // Load the IFrame API script once per session.
   useEffect(() => {
@@ -682,54 +631,26 @@ function PlayerCard({
                 Pause kontrolė nuėjo į iframe'o vidų (user'is naudoja YT
                 chrome controls). Track switching = key changes → React
                 remount'ina iframe'ą, senas iframe naikina + sustabdo audio. */}
-            {!isEmbedDisabled && playing && (
-              // STABLE iframe — `key` neturi displayVid, todėl niekada ne-
-              // remount'inasi po pirmo paleidimo. Track perjungimai vyksta
-              // per postMessage `loadVideoById` (žemiau useEffect'e), kad:
-              //   (a) išlaikytume gesture context tarp track switch'ų
-              //   (autoplay veikia automatiškai)
-              //   (b) galim klausytis state events (track end → auto-skip).
-              //
-              // Mobile'e PRIVALOMA mute=1 — iOS Safari + mobile Chrome
-              // griežtai blokuoja unmuted autoplay. Auto-unmute attempt
-              // (žr. effect) bandys įjungti garsą po start'o.
-              <iframe
-                ref={heroIframeRef}
-                key="hero-stable"
-                src={`https://www.youtube.com/embed/${displayVid}?autoplay=1${isMobileVP ? '&mute=1' : ''}&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1&origin=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin : '')}`}
-                title="YouTube player"
-                className="absolute inset-0 h-full w-full"
-                referrerPolicy="strict-origin-when-cross-origin"
-                allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-                allowFullScreen
-                onLoad={() => {
-                  iframeReadyRef.current = true
-                  iframeCurrentVidRef.current = displayVid
-                  // Subscribe to YT IFrame API events (onStateChange etc.)
-                  try {
-                    heroIframeRef.current?.contentWindow?.postMessage(
-                      JSON.stringify({ event: 'listening', channel: 'widget' }),
-                      'https://www.youtube.com'
-                    )
-                  } catch {}
-                }}
-              />
-            )}
+            {/* YT.Player target wrapper'is — stable React-owned div'as.
+                YT.Player(target) constructor'is įdeda iframe'ą JS'u į
+                containerRef'ą; React niekad jo neunmount'ina dėl JSX flip'o.
+                Visada matomas, kai displayVid yra. Plain iframe BUVO čia
+                anksčiau — pasišalintas, kad nebebūtų double-play (YT.Player
+                + plain iframe abu groti vienu metu, hidden background = ne-
+                kontroliuojamas). */}
+            <div
+              ref={containerRef}
+              className={`absolute inset-0 h-full w-full ${isEmbedDisabled || !playing ? 'hidden' : ''}`}
+            />
             {/* Mobile unmute hint — kai mobile'e paleidžiam su mute=1,
                 rodom mažą semi-transparent badge top-right kampe.
-                Paspaudus — siunčiam unMute postMessage YT iframe'ui;
-                jei browser leidžia, garsas ima groti. Skipped jei needsUnmute
-                false (jau atunmute'inta arba desktop). */}
+                Paspaudus — kvieci YT.Player.unMute() (gesture preserved)
+                + skipped per session po pirmo unmute'o. */}
             {playing && !isEmbedDisabled && isMobileVP && needsUnmute && (
               <button
                 type="button"
                 onClick={() => {
-                  try {
-                    heroIframeRef.current?.contentWindow?.postMessage(
-                      JSON.stringify({ event: 'command', func: 'unMute', args: [] }),
-                      'https://www.youtube.com'
-                    )
-                  } catch {}
+                  try { playerRef.current?.unMute?.() } catch {}
                   setNeedsUnmute(false)
                 }}
                 className="absolute right-2 top-2 z-20 flex items-center gap-1.5 rounded-full bg-black/70 backdrop-blur-sm px-3 py-1.5 text-white text-xs font-bold shadow-lg ring-1 ring-white/20 hover:bg-black/85 transition-colors"
@@ -741,10 +662,6 @@ function PlayerCard({
                 Garsui
               </button>
             )}
-            {/* containerRef ref'as paliktas legacy YT.Player code'ui, kuris
-                jau nebenaudojamas — bet useEffect'ai destroy'ina jį clean'ai
-                jei buvo sukurtas anksčiau. Wrapper nesilanko playing toggle'ui. */}
-            <div ref={containerRef} className="hidden" />
             {/* Fallback kai embed'as išjungtas (Klaida 153 / kodai 101, 150).
                 Rodom thumbnail + "Žiūrėti YouTube'e" CTA. Veikia tiek desktop
                 (po YT.Player onError), tiek mobile (po pre-flight check'o
