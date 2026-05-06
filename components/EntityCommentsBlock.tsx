@@ -103,12 +103,24 @@ function looksLikeHtml(text: string): boolean {
  *  External-only? No — we apply to all hrefs uniformly; safer + simpler. */
 function tagLinksNofollow(html: string): string {
   if (!html) return html
-  return html.replace(/<a\b([^>]*)>/gi, (full, attrs) => {
-    let cleaned = String(attrs)
+  // 1) Apsaugot link'us nuo SEO PageRank perdavimo + atidaryt naujam tabe
+  let out = html.replace(/<a\b([^>]*)>/gi, (full, attrs) => {
+    const cleaned = String(attrs)
       .replace(/\s+rel="[^"]*"/gi, '')
       .replace(/\s+target="[^"]*"/gi, '')
     return `<a${cleaned} rel="nofollow ugc noopener noreferrer" target="_blank">`
   })
+  // 2) Lazy load iframes + images (be kelių šimtų užklausų į YouTube/weserv'ą
+  //    iš karto puslapio load metu — žymiai mažina initial paint laiką).
+  out = out.replace(/<iframe\b([^>]*)>/gi, (full, attrs) => {
+    if (/\bloading\s*=/i.test(attrs)) return full
+    return `<iframe${attrs} loading="lazy">`
+  })
+  out = out.replace(/<img\b([^>]*)>/gi, (full, attrs) => {
+    if (/\bloading\s*=/i.test(attrs)) return full
+    return `<img${attrs} loading="lazy" decoding="async">`
+  })
+  return out
 }
 
 /** Parse migrated legacy content_html: tear off the prepended legacy-quote
@@ -496,9 +508,10 @@ export default function EntityCommentsBlock({
   const skipLegacy = entityType === 'discussion'
   const legacyUrl = legacyEndpoint || (skipLegacy ? null : `/api/${entityType}s/${entityId}/comments`)
   // Diskusijos puslapis gali turėti tūkstančius komentarų — load'inam
-  // 100 vienu metu kad UI nesulėtėtų. Track/album turi mažiau, fetch'inam
-  // visus iš karto (200 limit).
-  const PAGE_SIZE = entityType === 'discussion' ? 100 : 200
+  // 40 vienu metu kad UI nesulėtėtų (legacy posts su nested chain'ais +
+  // images + iframes intensyviai apkrauna pradinį render'ą). Track/album
+  // turi mažiau, fetch'inam 200 iš karto.
+  const PAGE_SIZE = entityType === 'discussion' ? 40 : 200
 
   const fetchPage = async (page: number, sortParam: string): Promise<ModernComment[]> => {
     const offset = page * PAGE_SIZE
