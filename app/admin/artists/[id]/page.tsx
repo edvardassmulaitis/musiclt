@@ -333,6 +333,7 @@ function AlbumCard({ album, defaultOpen, onDeleted }: { album: any; defaultOpen:
 
 function SingleRow({ track, onDelete }: { track: any; onDelete: () => void }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const views = formatViews(track.video_views)
   return (
     <div className="flex items-center gap-2 px-3 py-1.5 hover:bg-[var(--bg-hover)]/80 group transition-colors">
       <div className="flex-1 min-w-0">
@@ -344,7 +345,14 @@ function SingleRow({ track, onDelete }: { track: any; onDelete: () => void }) {
           {track.release_year && <span className="text-xs text-[var(--text-muted)] shrink-0">{track.release_year}</span>}
           {track.video_url && <span className="text-blue-400 text-xs shrink-0">▶</span>}
           {track.has_lyrics && <span className="text-green-500 text-xs font-bold shrink-0">T</span>}
-
+          {views && (
+            <span
+              className="text-[10px] text-[var(--text-muted)] tabular-nums shrink-0"
+              title={`${track.video_views} peržiūrų${track.video_views_checked_at ? ` (${new Date(track.video_views_checked_at).toLocaleDateString()})` : ''}`}
+            >
+              {views}
+            </span>
+          )}
         </div>
         {track.albums_list?.[0] && <div className="text-[11px] text-[var(--text-muted)] truncate">{track.albums_list[0].title}</div>}
       </div>
