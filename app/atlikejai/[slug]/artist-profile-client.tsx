@@ -3389,12 +3389,13 @@ function DiscussionThreadModal({
     content_html: string | null
     like_count?: number | null
   }> | null>(null)
-  const [sort, setSort] = useState<'oldest' | 'newest' | 'popular'>('newest')
+  const [sort, setSort] = useState<'oldest' | 'newest' | 'popular'>('oldest')
   const [draft, setDraft] = useState('')
   const [replyTo, setReplyTo] = useState<{ author: string; text: string } | null>(null)
   const [attached, setAttached] = useState<AttachmentHit[]>([])
   const [showPicker, setShowPicker] = useState(false)
   const draftRef = useRef<HTMLTextAreaElement | null>(null)
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     if (thread) {
@@ -3404,12 +3405,26 @@ function DiscussionThreadModal({
       setPosts(null)
       setDraft('')
       setReplyTo(null)
-      setSort('newest')
+      setSort('oldest')
       setAttached([])
       setShowPicker(false)
+      // Scroll modal į viršų atidarius naują thread'ą — anksčiau scroll
+      // pozicija persistdavo iš ankstesnio modal'o.
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop = 0
+      }
       fetch(`/api/threads/${thread.legacy_id}/posts`)
         .then(r => r.json())
-        .then(d => setPosts(d.posts || []))
+        .then(d => {
+          setPosts(d.posts || [])
+          // Po duomenų load'o dar kartą reset'inam scroll'ą — kad pradėtume
+          // skaityti nuo pirmo (seniausio) komentaro, kaip kanoniniame page'e.
+          requestAnimationFrame(() => {
+            if (scrollContainerRef.current) {
+              scrollContainerRef.current.scrollTop = 0
+            }
+          })
+        })
         .catch(() => setPosts([]))
       document.body.style.overflow = 'hidden'
       return () => {
@@ -3482,58 +3497,75 @@ function DiscussionThreadModal({
         role="dialog"
         aria-label={title}
         className={[
-          'absolute left-0 top-0 flex h-full w-full max-w-[520px] flex-col border-r border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[24px_0_60px_-10px_rgba(0,0,0,0.5)]',
+          // Pamatuotas 720px platis — daugiau erdvės skaitymui (artimiau
+          // kanoninei /diskusijos/[slug] page, kuri turi 1200px content),
+          // bet vis tiek yra drawer (artist hero matomas dešinėj).
+          'absolute left-0 top-0 flex h-full w-full max-w-[720px] flex-col border-r border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[24px_0_60px_-10px_rgba(0,0,0,0.5)]',
           'transition-transform duration-200 ease-out',
           mounted ? 'translate-x-0' : '-translate-x-full',
         ].join(' ')}
       >
-        {/* Header */}
-        <div className="flex items-start gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
-          <div className="min-w-0 flex-1">
+        {/* Top bar — minimal close + open-full action. Title stays in
+            scrollable hero area (canonical-style). */}
+        <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-5 py-2.5">
+          <div className="font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--text-faint)]">
+            ← Diskusijos
+          </div>
+          <div className="flex items-center gap-1">
+            <a
+              href={`/diskusijos/tema/${thread.legacy_id}`}
+              target="_blank"
+              rel="noopener"
+              title="Atidaryti pilname puslapyje"
+              className="flex h-8 w-8 items-center justify-center rounded-[8px] border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+            >
+              <svg viewBox="0 0 24 24" width={13} height={13} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 3h7v7M21 3l-9 9M5 5h6M5 5v14h14v-6" />
+              </svg>
+            </a>
+            <button
+              onClick={handleClose}
+              aria-label="Uždaryti"
+              className="flex h-8 w-8 items-center justify-center rounded-[8px] border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+            >
+              <svg viewBox="0 0 16 16" width={12} height={12} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                <path d="M3 3l10 10M13 3L3 13" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Scrollable hero + posts area. Hero atvaizdavimas atitinka kanoninę
+            /diskusijos/[slug]: didelis H1, comment count subline, sort row;
+            tada — posts list (visa scroll'ina kartu, kaip kanoninej page'e). */}
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
+          {/* Hero — title + count */}
+          <div className="border-b border-[var(--border-subtle)] px-6 pb-5 pt-6">
             <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
               Diskusija
             </div>
-            <h2 className="mt-1 font-['Outfit',sans-serif] text-[17px] font-extrabold leading-tight text-[var(--text-primary)]">
+            <h1 className="mt-2 font-['Outfit',sans-serif] text-[24px] font-black leading-[1.15] text-[var(--text-primary)]">
               {title}
-            </h2>
+            </h1>
             {pc > 0 && (
-              <div className="mt-1 font-['Outfit',sans-serif] text-[11.5px] font-extrabold text-[var(--accent-orange)]">
-                {pc} {pc === 1 ? 'komentaras' : (pc < 10 ? 'komentarai' : 'komentarų')}
+              <div className="mt-2 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-muted)]">
+                <span className="text-[var(--accent-orange)]">{pc.toLocaleString()}</span>{' '}
+                {pc === 1 ? 'komentaras' : (pc < 10 ? 'komentarai' : 'komentarų')}
               </div>
             )}
           </div>
-          <a
-            href={`/diskusijos/tema/${thread.legacy_id}`}
-            target="_blank"
-            rel="noopener"
-            title="Atidaryti pilname puslapyje"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
-          >
-            <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M14 3h7v7M21 3l-9 9M5 5h6M5 5v14h14v-6" />
-            </svg>
-          </a>
-          <button
-            onClick={handleClose}
-            aria-label="Uždaryti"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
-          >
-            <svg viewBox="0 0 16 16" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-              <path d="M3 3l10 10M13 3L3 13" />
-            </svg>
-          </button>
-        </div>
 
-        {/* Sort row */}
-        <div className="flex items-center gap-2 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)]/40 px-5 py-2.5">
-          <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">Rūšiuoti</span>
-          <SortChip k="oldest" label="Seniausi" />
-          <SortChip k="newest" label="Naujausi" />
-          <SortChip k="popular" label="Populiariausi" />
-        </div>
+          {/* Sort row — sticky top, kad nebeb dingtų skrolinant */}
+          <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] px-6 py-3">
+            <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">Rūšiuoti</span>
+            <SortChip k="oldest" label="Seniausi" />
+            <SortChip k="newest" label="Naujausi" />
+            <SortChip k="popular" label="Populiariausi" />
+          </div>
 
-        {/* Posts list */}
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+          {/* Posts list (no longer separately scrollable — visa hero+sort+posts
+              kartu scroll'ina, kaip kanoninej /diskusijos/[slug] page'e). */}
+          <div className="px-6 py-4">
           {sortedPosts === null && (
             <div className="space-y-3">
               {[0, 1, 2].map((i) => (
@@ -3610,6 +3642,7 @@ function DiscussionThreadModal({
               })}
             </ul>
           )}
+          </div>
         </div>
 
         {/* Forum HTML styles — quote nesting, emoji image sizing, paragraph
