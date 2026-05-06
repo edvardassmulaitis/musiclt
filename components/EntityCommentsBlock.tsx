@@ -43,6 +43,9 @@ type ModernComment = {
   author_name: string | null
   author_avatar: string | null
   body: string
+  /** Optional HTML mirror of body — užpildytas migrated legacy komentarams su
+   *  nested blockquote chain'u, kad UI galėtų atvaizduoti visą reply hierarchiją. */
+  content_html?: string | null
   like_count: number
   music_attachments?: AttachmentHit[] | null
   created_at: string
@@ -907,8 +910,17 @@ export default function EntityCommentsBlock({
             let quoteAuthor: string | null = null
             let quoteText: string | null = null
             let rest: string = ''
-            // Path 1 — parent_id lookup (works for both modern + migrated legacy)
-            if (isModern && c.parent_id != null) {
+            // Path 0 — modern comment'as su content_html (= migrated legacy
+            // su nested blockquote chain'u): render'inam pilną HTML, kad
+            // pasirodytų visi nested ancestor quote'ai. Šis path NEnaudoja
+            // parent_id (kuris suteiktų tik 1 lygį).
+            if (isModern && c.content_html && /<blockquote\s+class=["']?legacy-quote/i.test(c.content_html)) {
+              rest = c.content_html
+              quoteAuthor = null
+              quoteText = null
+            }
+            // Path 1 — parent_id lookup (modern komentarams BE content_html chain'o)
+            else if (isModern && c.parent_id != null) {
               const parent = modernById.get(c.parent_id)
               if (parent) {
                 quoteAuthor = parent.author_name || 'Vartotojas'
