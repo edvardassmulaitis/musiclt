@@ -450,7 +450,27 @@ async function getLegacyForumThreads(artistId: number, limit = 200) {
     .eq('kind', 'discussion')
     .order('last_post_at', { ascending: false, nullsFirst: false })
     .limit(limit)
-  return data || []
+  // Enrich with discussions.slug — kad kortelės Link'us nukreiptume į
+  // canonical /diskusijos/{slug} (po data migracijos forum_threads → discussions),
+  // o ne legacy bridge'ą /diskusijos/tema/{legacy_id}. Tai užtikrina vienodą
+  // EntityCommentsBlock UI tiek artist profile contexte, tiek standalone'e.
+  const threads = data || []
+  if (threads.length > 0) {
+    const legacyIds = threads.map((t: any) => t.legacy_id)
+    const { data: discRows } = await sb
+      .from('discussions')
+      .select('legacy_id, slug')
+      .in('legacy_id', legacyIds)
+      .eq('is_legacy', true)
+    const slugMap = new Map(
+      ((discRows || []) as any[]).map((d: any) => [d.legacy_id, d.slug])
+    )
+    return threads.map((t: any) => ({
+      ...t,
+      canonical_slug: slugMap.get(t.legacy_id) || null,
+    }))
+  }
+  return threads
 }
 
 type PostInfo = { body: string; author_username: string | null; author_avatar_url: string | null; created_at: string | null }

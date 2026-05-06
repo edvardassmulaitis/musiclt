@@ -88,6 +88,10 @@ type LegacyThread = {
   first_post_at?: string | null; last_post_at?: string | null
   last_post?: LegacyPost | null
   recent_posts?: LegacyPost[]
+  /** Po data migracijos forum_threads → discussions, kortelė nukreipia į
+   *  /diskusijos/{canonical_slug} (canonical EntityCommentsBlock UI). Jei
+   *  null — fallback'as į legacy bridge'ą /diskusijos/tema/{legacy_id}. */
+  canonical_slug?: string | null
 }
 type Rank = { category: string; rank: number; total: number; scope: 'country' | 'genre' | 'global' }
 type Props = {
@@ -3392,8 +3396,13 @@ function DiscussionRow({ t, onOpen }: { t: LegacyThread; isLast?: boolean; onOpe
       </button>
     )
   }
+  // Po migracijos forum_threads → discussions, naudojam canonical_slug.
+  // Fallback'as legacy bridge'ui jei dar nemigruota.
+  const href = t.canonical_slug
+    ? `/diskusijos/${t.canonical_slug}`
+    : `/diskusijos/tema/${t.legacy_id}`
   return (
-    <Link href={`/diskusijos/tema/${t.legacy_id}`} className={sharedClassName}>
+    <Link href={href} className={sharedClassName}>
       {inner}
     </Link>
   )
