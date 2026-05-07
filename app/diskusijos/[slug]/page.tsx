@@ -1,5 +1,5 @@
 import { Metadata } from 'next'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase'
 import EntityCommentsBlock from '@/components/EntityCommentsBlock'
 import DiscussionSidebar from '@/components/DiscussionSidebar'
@@ -228,6 +228,13 @@ export default async function DiscussionPage({ params }: Props) {
   const { slug } = await params
   const discussion = await getDiscussion(slug)
   if (!discussion) notFound()
+
+  // Naujienos turi savo canonical UI page'ą su gallery, related news,
+  // music player ir t.t. — legacy news irgi keliaujam ten (su discussions
+  // table fallback per /news/[slug]/page.tsx).
+  if (discussion.legacy_kind === 'news') {
+    redirect(`/news/${slug}`)
+  }
 
   // View count atnaujinimas — fire-and-forget background, NEblokuojam SSR
   // (anksčiau page laukdavo ~50-200ms PATCH'o net prieš render'inant header'į).

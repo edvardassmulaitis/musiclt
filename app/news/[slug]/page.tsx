@@ -8,7 +8,8 @@ type Props = { params: Promise<{ slug: string }> }
 
 async function getNews(slug: string) {
   const supabase = createAdminClient()
-  const { data } = await supabase
+  // Modern news lentelė pirma — sukurtos per /admin/news editorial
+  const modern = await supabase
     .from('news')
     .select(`
       id, title, slug, body, type, source_url, source_name,
@@ -20,21 +21,94 @@ async function getNews(slug: string) {
       artist2:artist_id2 ( id, name, cover_image_url )
     `)
     .eq('slug', slug)
-    .single()
-  return data
+    .maybeSingle()
+  if (modern.data) return { ...modern.data, _source: 'modern' as const }
+
+  // Fallback'as — scraped legacy news iš discussions table su
+  // legacy_kind='news'. Adaptuojam į news shape kad NewsArticleClient'as
+  // galetume jį tiesiogiai render'inti — tas pats canonical UI.
+  const legacy = await supabase
+    .from('discussions')
+    .select(`
+      id, title, slug, body, legacy_kind, legacy_id, source_url, first_post_at,
+      created_at, last_comment_at, comment_count,
+      artist:artist_id ( id, name, cover_image_url, photos )
+    `)
+    .eq('slug', slug)
+    .eq('legacy_kind', 'news')
+    .eq('is_legacy', true)
+    .maybeSingle()
+  if (legacy.data) {
+    const a = legacy.data as any
+    return {
+      id: a.id,
+      title: a.title,
+      slug: a.slug,
+      body: a.body || '',
+      type: 'news',
+      source_url: a.source_url,
+      source_name: null,
+      published_at: a.first_post_at || a.created_at,
+      image_small_url: null,
+      gallery: [],
+      image1_url: null, image1_caption: null,
+      image2_url: null, image2_caption: null,
+      image3_url: null, image3_caption: null,
+      image4_url: null, image4_caption: null,
+      image5_url: null, image5_caption: null,
+      artist: a.artist,
+      artist2: null,
+      _source: 'legacy' as const,
+      _discussion_id: a.id,  // perkelt comments query'inant per discussion_id
+      _comment_count: a.comment_count,
+    }
+  }
+  return null
 }
 
 async function getRelatedNews(newsId: number, artistId?: number) {
   const supabase = createAdminClient()
-  let q = supabase
-    .from('news')
-    .select('id, title, slug, image_small_url, published_at, type')
-    .neq('id', newsId)
-    .order('published_at', { ascending: false })
-    .limit(4)
-  if (artistId) q = q.eq('artist_id', artistId)
-  const { data } = await q
-  return data || []
+  // Sujungiam modern news + legacy migrated news (discussions su legacy_kind='news').
+  const modernPromise = (async () => {
+    let q = supabase
+      .from('news')
+      .select('id, title, slug, image_small_url, published_at, type')
+      .neq('id', newsId)
+      .order('published_at', { ascending: false })
+      .limit(4)
+    if (artistId) q = q.eq('artist_id', artistId)
+    const { data } = await q
+    return (data || []).map((n: any) => ({ ...n, _source: 'modern' as const }))
+  })()
+  const legacyPromise = (async () => {
+    let q = supabase
+      .from('discussions')
+      .select('id, title, slug, first_post_at, created_at')
+      .eq('legacy_kind', 'news')
+      .eq('is_legacy', true)
+      .order('first_post_at', { ascending: false })
+      .limit(4)
+    if (artistId) q = q.eq('artist_id', artistId)
+    const { data } = await q
+    return (data || []).map((d: any) => ({
+      id: d.id,
+      title: d.title,
+      slug: d.slug,
+      image_small_url: null,
+      published_at: d.first_post_at || d.created_at,
+      type: 'news',
+      _source: 'legacy' as const,
+    }))
+  })()
+  const [modern, legacy] = await Promise.all([modernPromise, legacyPromise])
+  // Combine + sort by date desc, top 4
+  return [...modern, ...legacy]
+    .sort((a: any, b: any) => {
+      const ta = a.published_at ? new Date(a.published_at).getTime() : 0
+      const tb = b.published_at ? new Date(b.published_at).getTime() : 0
+      return tb - ta
+    })
+    .slice(0, 4)
 }
 
 async function getSongs(newsId: number) {

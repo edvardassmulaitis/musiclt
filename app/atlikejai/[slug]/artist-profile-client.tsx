@@ -4716,10 +4716,16 @@ export default function ArtistProfileClient({
               {(showArchive ? [...freshLegacyNews, ...archivedLegacyNews].slice(0, 60) : freshLegacyNews.slice(0, 12)).map(n => {
                 const title = n.title || slugToForumTitle(n.slug)
                 const pc = n.post_count ?? 0
+                // News kortelės nukreipia į /news/{slug} (canonical news UI
+                // su gallery, related news, music player). canonical_slug =
+                // discussions.slug po canonical pipeline migracijos.
+                const newsHref = n.canonical_slug
+                  ? `/news/${n.canonical_slug}`
+                  : `/diskusijos/tema/${n.legacy_id}`
                 return (
                   <Link
                     key={n.legacy_id}
-                    href={`/diskusijos/tema/${n.legacy_id}`}
+                    href={newsHref}
                     className="group flex flex-col gap-3 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5 no-underline transition-all hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.2)]"
                   >
                     <div className="flex items-center gap-2">
