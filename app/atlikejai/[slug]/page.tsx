@@ -443,34 +443,29 @@ function rankPriority(rank: string | null | undefined): number {
 async function getLegacyForumThreads(artistId: number, limit = 200) {
   if (!artistId) return []
   const sb = createAdminClient()
+  // Po canonical pipeline'os (forum_lib.upsert_discussion) — query'inam
+  // tiesiai discussions table su artist_id FK. legacy_kind='discussion'
+  // (legacy_kind='news' atskirai per getLegacyNewsThreads).
   const { data } = await sb
-    .from('forum_threads')
-    .select('legacy_id, slug, source_url, kind, title, post_count, last_post_at')
+    .from('discussions')
+    .select('id, legacy_id, slug, source_url, legacy_kind, title, comment_count, last_comment_at')
     .eq('artist_id', artistId)
-    .eq('kind', 'discussion')
-    .order('last_post_at', { ascending: false, nullsFirst: false })
+    .eq('legacy_kind', 'discussion')
+    .eq('is_legacy', true)
+    .order('last_comment_at', { ascending: false, nullsFirst: false })
     .limit(limit)
-  // Enrich with discussions.slug — kad kortelės Link'us nukreiptume į
-  // canonical /diskusijos/{slug} (po data migracijos forum_threads → discussions),
-  // o ne legacy bridge'ą /diskusijos/tema/{legacy_id}. Tai užtikrina vienodą
-  // EntityCommentsBlock UI tiek artist profile contexte, tiek standalone'e.
-  const threads = data || []
-  if (threads.length > 0) {
-    const legacyIds = threads.map((t: any) => t.legacy_id)
-    const { data: discRows } = await sb
-      .from('discussions')
-      .select('legacy_id, slug')
-      .in('legacy_id', legacyIds)
-      .eq('is_legacy', true)
-    const slugMap = new Map(
-      ((discRows || []) as any[]).map((d: any) => [d.legacy_id, d.slug])
-    )
-    return threads.map((t: any) => ({
-      ...t,
-      canonical_slug: slugMap.get(t.legacy_id) || null,
-    }))
-  }
-  return threads
+  // Map į UI-expected shape: kortelės jau turi `slug` (canonical) tiesiogiai,
+  // bet pridedam `canonical_slug` field'ą backward-compat su DiscussionRow.
+  return ((data || []) as any[]).map((d: any) => ({
+    legacy_id: d.legacy_id,
+    slug: d.slug,
+    source_url: d.source_url,
+    kind: d.legacy_kind,
+    title: d.title,
+    post_count: d.comment_count,
+    last_post_at: d.last_comment_at,
+    canonical_slug: d.slug,
+  }))
 }
 
 type PostInfo = { body: string; author_username: string | null; author_avatar_url: string | null; created_at: string | null }
@@ -488,55 +483,31 @@ async function getLastPostsByThread(threadIds: number[], perThread = 2): Promise
   if (threadIds.length === 0) return out
   const sb = createAdminClient()
   try {
+    // Canonical: comments table su legacy_thread_legacy_id field'u — bridge'as
+    // su forum_threads.legacy_id. JOIN su profiles per author_id avatarui.
     const { data } = await sb
-      .from('forum_posts')
-      .select('thread_legacy_id, content_text, content_html, author_username, created_at')
-      .in('thread_legacy_id', threadIds)
+      .from('comments')
+      .select('legacy_thread_legacy_id, body, content_html, author_id, created_at, profiles:author_id(username, avatar_url)')
+      .in('legacy_thread_legacy_id', threadIds)
       .order('created_at', { ascending: false })
       .limit(Math.min(1000, threadIds.length * perThread * 4))
-    const collected: any[] = []
-    for (const p of (data || []) as any[]) {
-      const arr = out.get(p.thread_legacy_id) || []
+    for (const c of (data || []) as any[]) {
+      const tid = c.legacy_thread_legacy_id
+      const arr = out.get(tid) || []
       if (arr.length >= perThread) continue
-      const text = (p.content_text && String(p.content_text).trim())
-        || (p.content_html && String(p.content_html).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim())
+      const text = (c.body && String(c.body).trim())
+        || (c.content_html && String(c.content_html).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim())
         || ''
-      const post = {
+      arr.push({
         body: text,
-        author_username: p.author_username || null,
-        author_avatar_url: null as string | null,
-        created_at: p.created_at || null,
-      }
-      arr.push(post)
-      collected.push(post)
-      out.set(p.thread_legacy_id, arr)
-    }
-    // Avatar batch'as — vienu IN visi unikalūs username'ai, kuriuos
-    // matysim preview'e.
-    const usernames = Array.from(new Set(
-      collected.map(p => p.author_username).filter((u: string | null): u is string => !!u)
-    ))
-    if (usernames.length > 0) {
-      const { data: avatarRows } = await sb
-        .from('likes')
-        .select('user_username, user_avatar_url')
-        .in('user_username', usernames)
-        .not('user_avatar_url', 'is', null)
-        .limit(2000)
-      const avatars = new Map<string, string>()
-      for (const r of (avatarRows || []) as any[]) {
-        if (r.user_username && r.user_avatar_url && !avatars.has(r.user_username)) {
-          avatars.set(r.user_username, r.user_avatar_url)
-        }
-      }
-      for (const p of collected) {
-        if (p.author_username && avatars.has(p.author_username)) {
-          p.author_avatar_url = avatars.get(p.author_username) || null
-        }
-      }
+        author_username: c.profiles?.username || null,
+        author_avatar_url: c.profiles?.avatar_url || null,
+        created_at: c.created_at || null,
+      })
+      out.set(tid, arr)
     }
   } catch {
-    // If forum_posts schema varies, silently return empty map
+    // Schema variation — silently return empty map
   }
   return out
 }
@@ -547,14 +518,26 @@ async function getLastPostsByThread(threadIds: number[], perThread = 2): Promise
 async function getLegacyNewsThreads(artistId: number, limit = 200) {
   if (!artistId) return []
   const sb = createAdminClient()
+  // Po canonical pipeline'os — query'inam discussions table (legacy_kind='news').
   const { data } = await sb
-    .from('forum_threads')
-    .select('legacy_id, slug, source_url, kind, title, post_count, first_post_at, last_post_at')
+    .from('discussions')
+    .select('id, legacy_id, slug, source_url, legacy_kind, title, comment_count, first_post_at, last_comment_at')
     .eq('artist_id', artistId)
-    .eq('kind', 'news')
+    .eq('legacy_kind', 'news')
+    .eq('is_legacy', true)
     .order('first_post_at', { ascending: false, nullsFirst: false })
     .limit(limit)
-  return data || []
+  return ((data || []) as any[]).map((d: any) => ({
+    legacy_id: d.legacy_id,
+    slug: d.slug,
+    source_url: d.source_url,
+    kind: d.legacy_kind,
+    title: d.title,
+    post_count: d.comment_count,
+    first_post_at: d.first_post_at,
+    last_post_at: d.last_comment_at,
+    canonical_slug: d.slug,
+  }))
 }
 /** Members — admin saves to artist_members (group_id + member_id pair).
  * When this artist IS the group, rows where group_id = artistId; join artists
