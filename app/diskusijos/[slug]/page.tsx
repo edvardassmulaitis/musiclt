@@ -13,7 +13,7 @@ async function getDiscussion(slug: string) {
   const supabase = createAdminClient()
   const { data } = await supabase
     .from('discussions')
-    .select('*')
+    .select('*, artist:artist_id(id, name, slug, cover_image_url)')
     .eq('slug', slug)
     .eq('is_deleted', false)
     .single()
@@ -238,12 +238,19 @@ export default async function DiscussionPage({ params }: Props) {
     .eq('id', discussion.id)
     .then(() => {}, () => {}) // ignore errors
 
+  // Migracijos news threads turi legacy_kind='news' — breadcrumb + display
+  // pavadinimas turi atitikti.
+  const isNewsThread = discussion.legacy_kind === 'news'
+  const isLegacy = discussion.is_legacy === true
+  const sectionLabel = isNewsThread ? 'Naujienos' : 'Diskusijos'
+  const sectionHref = isNewsThread ? '/naujienos' : '/diskusijos'
+
   return (
     <div style={{ background: '#080d14', minHeight: '100vh' }}>
       <div className="mx-auto px-5 py-8" style={{ maxWidth: 1200 }}>
         <div className="mb-5 text-sm">
-          <Link href="/diskusijos" className="text-gray-500 hover:text-white transition-colors">
-            ← Diskusijos
+          <Link href={sectionHref} className="text-gray-500 hover:text-white transition-colors">
+            ← {sectionLabel}
           </Link>
         </div>
 
@@ -272,19 +279,58 @@ export default async function DiscussionPage({ params }: Props) {
             </h1>
 
             <div className="mb-6 flex items-center gap-2 text-xs text-gray-500">
-              <span className="font-semibold text-gray-400">{discussion.author_name || 'Vartotojas'}</span>
-              <span className="text-gray-700">·</span>
-              <span>{fmtDate(discussion.created_at)}</span>
+              {/* Legacy migrated content neturi user — neperrodom "Vartotojas".
+                  Modern user-created — rodom author_name. */}
+              {!isLegacy && (
+                <>
+                  <span className="font-semibold text-gray-400">{discussion.author_name || 'Vartotojas'}</span>
+                  <span className="text-gray-700">·</span>
+                </>
+              )}
+              {/* Pirma fallback'inam į first_post_at (originali published data
+                  iš scraped article'o), tada created_at. Anksčiau visada
+                  rodydavo created_at = insert time, nepraktiška legacy news. */}
+              <span>{fmtDate(discussion.first_post_at || discussion.created_at)}</span>
             </div>
 
             {bodyIsMeaningful(discussion) && (
               <div
-                className="mb-8 whitespace-pre-wrap text-sm leading-relaxed text-gray-300"
+                className="forum-html mb-8 text-sm leading-relaxed text-gray-300"
                 style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '1.5rem' }}
-              >
-                {discussion.body}
+                dangerouslySetInnerHTML={{ __html: discussion.body }}
+              />
+            )}
+            {/* Susiję atlikėjai — discussions.artist_id (legacy news threads
+                visada turi vieną artist'ą; ateity galim plėsti į m2m). */}
+            {discussion.artist && (
+              <div className="mb-8 rounded-lg border border-white/10 bg-white/[0.02] p-4">
+                <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                  Susiję atlikėjai
+                </div>
+                <Link
+                  href={`/atlikejai/${discussion.artist.slug}`}
+                  className="inline-flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-white/5"
+                >
+                  {discussion.artist.cover_image_url && (
+                    <img
+                      src={discussion.artist.cover_image_url}
+                      alt={discussion.artist.name}
+                      className="h-12 w-12 rounded-full object-cover"
+                    />
+                  )}
+                  <span className="font-bold text-white">{discussion.artist.name}</span>
+                </Link>
               </div>
             )}
+            <style dangerouslySetInnerHTML={{ __html: `
+              .forum-html br + br { display: none; }
+              .forum-html p { margin: 0 0 0.8em 0; }
+              .forum-html p:last-child { margin-bottom: 0; }
+              .forum-html img { max-width: 100%; height: auto; margin: 0.5em 0; border-radius: 4px; }
+              .forum-html a { color: #f97316; text-decoration: none; }
+              .forum-html a:hover { text-decoration: underline; }
+              .forum-html b, .forum-html strong { color: #fff; }
+            ` }} />
 
             <EntityCommentsBlock
               entityType="discussion"
