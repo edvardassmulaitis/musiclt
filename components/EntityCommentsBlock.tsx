@@ -69,7 +69,7 @@ type LegacyComment = {
 type AnyComment = ModernComment | LegacyComment
 
 type Props = {
-  entityType: 'track' | 'album' | 'artist' | 'discussion'
+  entityType: 'track' | 'album' | 'artist' | 'discussion' | 'news' | 'event'
   entityId: number
   /** Optional — only needed if the legacy endpoint differs (currently same shape). */
   legacyEndpoint?: string
