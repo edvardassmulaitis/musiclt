@@ -7,10 +7,12 @@ import ArtistProfileClient from './artist-profile-client'
 import { PageLoader } from '@/components/PageLoader'
 import type { Metadata } from 'next'
 
-// `revalidate` segmento config'as nepakanka — Supabase JS klientas vidiniai
-// naudoja `cache: 'no-store'` ir Next forsuoja dynamic režimą. Bet opt-in
-// caching per `unstable_cache` veikia nepriklausomai nuo fetch flag'ų.
-// Sukam wrapper'į per pagrindinę 'get all artist data' funkciją (žemyn).
+// Force dynamic — po canonical pipeline migracijos artist data šviežia
+// turi rodytis iš karto po scrape'o, ne laukti unstable_cache 60s TTL.
+// (TTL keldavo problemas, kad pakeitus DB schema ar query'us, senas cache
+// dengdavo naujus duomenis.)
+export const dynamic = 'force-dynamic'
+
 const ARTIST_CACHE_TTL = 60
 
 type Props = { params: Promise<{ slug: string }> }
