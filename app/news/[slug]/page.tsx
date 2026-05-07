@@ -241,6 +241,46 @@ export default async function NewsPage({ params }: Props) {
   const artistObj = artist ? { id: (artist as any).id, name: (artist as any).name, cover_image_url: (artist as any).cover_image_url || undefined, photos: (artist as any).photos || undefined } : undefined
   const artist2Obj = artist2 ? { id: (artist2 as any).id, name: (artist2 as any).name, cover_image_url: (artist2 as any).cover_image_url || undefined } : undefined
 
+  // Related artists — iš `related_tracks` JSONB (kind='artist' įrašai)
+  // Tas pats column'as visiems related entity tipams (track/album/artist),
+  // filtruojam pagal kind front'e.
+  const relatedTracksRaw = (raw as any)._related_tracks || (raw as any).related_tracks || []
+  const relatedArtistsRaw = Array.isArray(relatedTracksRaw)
+    ? relatedTracksRaw.filter((e: any) => e?.kind === 'artist')
+    : []
+  // Sukurti pilną artist'ų sąrašą: primary (jei yra) + susiję iš article'o.
+  // Dedupe pagal id, primary pirmas.
+  const allArtists: { id: number; name: string; cover_image_url?: string }[] = []
+  const seenArtistIds = new Set<number>()
+  if (artistObj?.id) {
+    allArtists.push(artistObj)
+    seenArtistIds.add(artistObj.id)
+  }
+  for (const a of relatedArtistsRaw) {
+    if (!a?.id || seenArtistIds.has(a.id)) continue
+    seenArtistIds.add(a.id)
+    allArtists.push({ id: a.id, name: a.name || '', cover_image_url: a.cover_image_url || undefined })
+  }
+  // Cover image fallback — jei JSONB neturėjo cover_image_url (senstam
+  // backfill'ui), pa-paimam iš artists table'o.
+  const missingCovers = allArtists.filter(a => !a.cover_image_url).map(a => a.id)
+  if (missingCovers.length > 0) {
+    const supabase = createAdminClient()
+    const { data: coverRows } = await supabase
+      .from('artists')
+      .select('id, cover_image_url, name')
+      .in('id', missingCovers)
+    const covMap = new Map<number, { name: string; cover: string | null }>()
+    for (const r of coverRows || []) covMap.set(r.id as number, { name: r.name as string, cover: r.cover_image_url as any })
+    for (const a of allArtists) {
+      if (!a.cover_image_url && covMap.has(a.id)) {
+        const m = covMap.get(a.id)!
+        a.cover_image_url = m.cover || undefined
+        if (!a.name) a.name = m.name
+      }
+    }
+  }
+
   const [related, songs] = await Promise.all([
     getRelatedNews(raw.id, artistObj?.id),
     getSongs(raw.id, (raw as any)._related_tracks || undefined),
@@ -280,6 +320,7 @@ export default async function NewsPage({ params }: Props) {
     gallery,
     artist: artistObj,
     artist2: artist2Obj,
+    artists: allArtists,  // VISI susiję atlikėjai (primary + Susijusi info section)
   }
 
   return <NewsArticleClient news={news} related={related as any} songs={finalSongs} />

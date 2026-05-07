@@ -65,12 +65,14 @@ function NewsLikeButton({ newsId }: { newsId: number }) {
 /* ─── Types ──────────────────────────────────────────────────────────────── */
 type Photo     = { url: string; caption?: string; source?: string }
 type SongEntry = { id?: number; song_id?: number | null; title: string; artist_name: string; youtube_url: string; cover_url?: string }
+type ArtistRef = { id: number; name: string; cover_image_url?: string }
 type NewsItem  = {
   id: number; title: string; slug: string; body: string; type: string
   source_url?: string; source_name?: string; published_at: string
   image_small_url?: string; gallery?: Photo[]
   artist?:  { id: number; name: string; cover_image_url?: string; photos?: any[] }
   artist2?: { id: number; name: string; cover_image_url?: string } | null
+  artists?: ArtistRef[]  // VISI susiję atlikėjai (primary + Susijusi info section)
 }
 type RelatedNews = { id: number; title: string; slug: string; image_small_url?: string; published_at: string; type: string }
 type Comment   = { id: number; content: string; created_at: string; user_name: string; user_image?: string | null }
@@ -751,20 +753,24 @@ export default function NewsArticleClient({
 
             {hasSidebar && (
               <aside className="na-sidebar">
-                {/* Muzika pirmiau, atlikėjas po jos */}
+                {/* Muzika pirmiau, atlikėjai po jos */}
                 {songs.length > 0 && <MusicPlayer songs={songs} />}
-                {news.artist && (
-                  <div className="na-artist-card">
-                    {news.artist.cover_image_url
-                      ? <img src={news.artist.cover_image_url} alt={news.artist.name} />
-                      : <div className="na-artist-av">{news.artist.name[0]}</div>}
+                {/* Visi susiję atlikėjai (primary + Susijusi info section) */}
+                {(news.artists && news.artists.length > 0
+                  ? news.artists
+                  : news.artist ? [news.artist] : []
+                ).map((a, i) => (
+                  <div className="na-artist-card" key={`${a.id}-${i}`}>
+                    {a.cover_image_url
+                      ? <img src={a.cover_image_url} alt={a.name} />
+                      : <div className="na-artist-av">{(a.name || '?')[0]}</div>}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p className="na-artist-name">{news.artist.name}</p>
+                      <p className="na-artist-name">{a.name}</p>
                       <p className="na-artist-sub">music.lt atlikėjas</p>
                     </div>
-                    <Link href={`/atlikejai/${news.artist.id}`} className="na-artist-link">Profilis →</Link>
+                    <Link href={`/atlikejai/${a.id}`} className="na-artist-link">Profilis →</Link>
                   </div>
-                )}
+                ))}
                 <RelatedCard related={related} />
                 <ShareCard title={news.title} />
               </aside>
