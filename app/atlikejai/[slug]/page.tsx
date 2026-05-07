@@ -806,7 +806,9 @@ const fetchArtistData = unstable_cache(
       similar, legacyCommunity, ranks, lastPostsArr,
     }
   },
-  ['artist-full-data-v1'],
+  // v2 — bumped po canonical pipeline migracijos (forum_threads → discussions)
+  // kad senas cache su forum_threads queries neperdengtų naujų discussions queries.
+  ['artist-full-data-v2'],
   { revalidate: ARTIST_CACHE_TTL, tags: ['artist'] },
 )
 
