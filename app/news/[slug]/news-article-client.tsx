@@ -5,6 +5,62 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import EntityCommentsBlock from '@/components/EntityCommentsBlock'
+import LikesModal, { type LikeUser } from '@/components/LikesModal'
+
+/* ─── News article like button — entity_type='news', entity_id=news.id ────── */
+function NewsLikeButton({ newsId }: { newsId: number }) {
+  const { data: session } = useSession()
+  const [count, setCount] = useState(0)
+  const [liked, setLiked] = useState(false)
+  const [likers, setLikers] = useState<LikeUser[]>([])
+  const [modalOpen, setModalOpen] = useState(false)
+
+  useEffect(() => {
+    fetch(`/api/likes/news/${newsId}`)
+      .then(r => r.json())
+      .then(d => {
+        setCount(d.count || 0)
+        setLikers(d.users || [])
+      })
+      .catch(() => {})
+  }, [newsId])
+
+  async function toggleLike() {
+    if (!session?.user) return
+    const optimisticLiked = !liked
+    setLiked(optimisticLiked)
+    setCount(c => optimisticLiked ? c + 1 : Math.max(0, c - 1))
+    await fetch(`/api/news/${newsId}/like`, { method: 'POST' }).catch(() => {})
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={count > 0 ? () => setModalOpen(true) : (session?.user ? toggleLike : undefined)}
+        className="na-share-btn"
+        style={{
+          color: liked ? '#f97316' : 'inherit',
+          gap: 6,
+          display: 'inline-flex',
+          alignItems: 'center',
+        }}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
+          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+        </svg>
+        Patinka {count > 0 && <span style={{ marginLeft: 4 }}>{count}</span>}
+      </button>
+      <LikesModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title="Patinka"
+        count={count}
+        users={likers}
+      />
+    </>
+  )
+}
 
 /* ─── Types ──────────────────────────────────────────────────────────────── */
 type Photo     = { url: string; caption?: string; source?: string }
@@ -674,6 +730,8 @@ export default function NewsArticleClient({
               {gallery.length > 0 && <PhotoGallery photos={gallery} />}
               <div className="na-footer">
                 <Link href="/naujienos" className="na-back">← Visos naujienos</Link>
+                {/* News article like — entity_type='news', entity_id=news.id */}
+                <NewsLikeButton newsId={news.id} />
                 <button className="na-share-btn"
                   onClick={() => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(location.href)}`)}>
                   Dalintis

@@ -36,8 +36,9 @@ async function getNews(slug: string) {
     .from('discussions')
     .select(`
       id, title, slug, body, legacy_kind, legacy_id, source_url, first_post_at,
-      created_at, last_comment_at, comment_count,
-      artist:artist_id ( id, name, cover_image_url )
+      created_at, last_comment_at, comment_count, related_tracks,
+      artist:artist_id ( id, name, cover_image_url ),
+      artist2:artist_id2 ( id, name, cover_image_url )
     `)
     .eq('slug', slug)
     .eq('legacy_kind', 'news')
@@ -62,10 +63,11 @@ async function getNews(slug: string) {
       image4_url: null, image4_caption: null,
       image5_url: null, image5_caption: null,
       artist: a.artist,
-      artist2: null,
+      artist2: a.artist2,
       _source: 'legacy' as const,
-      _discussion_id: a.id,  // perkelt comments query'inant per discussion_id
+      _discussion_id: a.id,
       _comment_count: a.comment_count,
+      _related_tracks: a.related_tracks,  // canonical news_songs adapter
     }
   }
   return null
@@ -116,8 +118,28 @@ async function getRelatedNews(newsId: number, artistId?: number) {
     .slice(0, 4)
 }
 
-async function getSongs(newsId: number) {
+async function getSongs(newsId: number, legacyRelated?: any[]) {
   const supabase = createAdminClient()
+
+  // Legacy news naudoja `discussions.related_tracks` JSONB array
+  // (canonical news_songs adapter — scraper paima iš article HTML).
+  if (legacyRelated && legacyRelated.length > 0) {
+    const trackEntries = legacyRelated.filter((r: any) => r.kind === 'track')
+    const trackIds = trackEntries.map((r: any) => r.id)
+    if (trackIds.length === 0) return []
+    const { data: tracks } = await supabase
+      .from('tracks')
+      .select('id, title, video_url, cover_url, artists!tracks_artist_id_fkey(name)')
+      .in('id', trackIds)
+    return (tracks || []).map((t: any) => ({
+      id: t.id,
+      song_id: t.id,
+      title: t.title,
+      artist_name: t.artists?.name || '',
+      youtube_url: t.video_url || '',
+      cover_url: t.cover_url || '',
+    }))
+  }
 
   const { data: rows } = await supabase
     .from('news_songs')
@@ -221,11 +243,15 @@ export default async function NewsPage({ params }: Props) {
 
   const [related, songs] = await Promise.all([
     getRelatedNews(raw.id, artistObj?.id),
-    getSongs(raw.id),
+    getSongs(raw.id, (raw as any)._related_tracks || undefined),
   ])
 
+  // ARTIST tracks fallback'as TIK kai modern news (legacy news jau turi
+  // related_tracks iš article HTML — jei tuščias, tai reiškia article
+  // tikrai nemini muzikos, ir random fallback'as butų klaidinantis).
   let finalSongs = songs
-  if (finalSongs.length === 0 && artistObj?.id) {
+  const isLegacy = (raw as any)._source === 'legacy'
+  if (finalSongs.length === 0 && artistObj?.id && !isLegacy) {
     finalSongs = await getArtistTracks(artistObj.id)
   }
 
