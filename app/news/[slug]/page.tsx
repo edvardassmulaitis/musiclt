@@ -4,6 +4,10 @@ import { createAdminClient } from '@/lib/supabase'
 import NewsArticleClient from './news-article-client'
 import type { Metadata } from 'next'
 
+// Force-dynamic — kad legacy news fallback'as (discussions table) gauautume
+// fresh duomenis iškart po scrape'o, ne 404 dėl SSG cache'o.
+export const dynamic = 'force-dynamic'
+
 type Props = { params: Promise<{ slug: string }> }
 
 async function getNews(slug: string) {

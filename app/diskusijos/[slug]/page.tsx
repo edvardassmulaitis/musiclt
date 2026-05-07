@@ -5,6 +5,10 @@ import EntityCommentsBlock from '@/components/EntityCommentsBlock'
 import DiscussionSidebar from '@/components/DiscussionSidebar'
 import Link from 'next/link'
 
+// Po canonical pipeline migracijos (forum_threads → discussions) — fresh
+// data turi rodytis iš karto, ne laukti SSG cache invalidacijos.
+export const dynamic = 'force-dynamic'
+
 interface Props {
   params: Promise<{ slug: string }>
 }
