@@ -13,6 +13,7 @@ type Props = { params: Promise<{ slug: string }> }
 async function getNews(slug: string) {
   const supabase = createAdminClient()
   // Modern news lentelė pirma — sukurtos per /admin/news editorial
+  // (artists.photos column ne'egzistuoja, naudojam tik cover_image_url)
   const modern = await supabase
     .from('news')
     .select(`
@@ -21,7 +22,7 @@ async function getNews(slug: string) {
       image1_url, image1_caption, image2_url, image2_caption,
       image3_url, image3_caption, image4_url, image4_caption,
       image5_url, image5_caption,
-      artist:artist_id ( id, name, cover_image_url, photos ),
+      artist:artist_id ( id, name, cover_image_url ),
       artist2:artist_id2 ( id, name, cover_image_url )
     `)
     .eq('slug', slug)
@@ -36,7 +37,7 @@ async function getNews(slug: string) {
     .select(`
       id, title, slug, body, legacy_kind, legacy_id, source_url, first_post_at,
       created_at, last_comment_at, comment_count,
-      artist:artist_id ( id, name, cover_image_url, photos )
+      artist:artist_id ( id, name, cover_image_url )
     `)
     .eq('slug', slug)
     .eq('legacy_kind', 'news')
