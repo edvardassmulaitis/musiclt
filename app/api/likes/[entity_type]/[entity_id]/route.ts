@@ -13,7 +13,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 
 const ALLOWED_TYPES = new Set([
-  'artist', 'album', 'track', 'event', 'thread', 'post', 'comment',
+  'artist', 'album', 'track', 'event', 'thread', 'post', 'comment', 'news',
 ])
 
 export async function GET(
