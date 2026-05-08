@@ -843,10 +843,11 @@ async function ArtistContent({ artist }: { artist: any }) {
     (artist as any).score || 0,
   )
   const {
-    genres, substyles, tableLinks, dbPhotos, albums, tracks, members, memberOf, followers, likeCount,
+    genres, substyles, tableLinks, dbPhotos, albums, tracks, members, followers, likeCount,
     news, rawEvents, legacyThreads, legacyNews, linkedTrackIds, awards,
     similar, legacyCommunity, ranks, lastPostsArr,
-  } = data as any
+  } = data
+  const memberOf = (data as any).memberOf || []
   const links = buildSocialLinks(artist, tableLinks as { platform: string; url: string }[])
   const lastPosts = new Map(lastPostsArr)
 
