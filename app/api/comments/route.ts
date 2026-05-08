@@ -62,11 +62,22 @@ export async function GET(req: Request) {
   // SELECT comments + JOIN profiles. `email` reikalingas is_own match'ui kai
   // author_id po wipe'o nesutampa su current'iu profile UUID.
   // music_attachments — optional column (per migration 20260428).
+  //
+  // SPECIAL CASE 'news': legacy news yra discussions table (legacy_kind='news'),
+  // tad jų komentarai turi discussion_id, NE news_id. Modern news (admin-created)
+  // turi news_id. Filtras OR su abiem column'ais — entityId vienu atveju yra
+  // discussion.id (legacy), kitu — news.id (modern). Abi reikšmes ne'koliduoja
+  // tarpusavy (skirtingos sequence'os).
   let query = sb
     .from('comments')
     .select('id, parent_id, author_id, body, content_html, like_count, reported_count, is_deleted, created_at, updated_at, music_attachments, profiles:author_id(username, full_name, avatar_url, email)')
-    .eq(col, parseInt(entityId))
     .range(offset, offset + limit - 1)
+
+  if (entityType === 'news') {
+    query = query.or(`news_id.eq.${parseInt(entityId)},discussion_id.eq.${parseInt(entityId)}`)
+  } else {
+    query = query.eq(col, parseInt(entityId))
+  }
 
   if (sort === 'oldest') query = query.order('created_at', { ascending: true })
   else if (sort === 'popular') query = query.order('like_count', { ascending: false }).order('created_at', { ascending: false })
@@ -75,14 +86,19 @@ export async function GET(req: Request) {
   let { data, error } = await query as { data: any; error: any }
   // Migration 20260428 dar neaplikuota? Pakartojam be music_attachments.
   if (error && /music_attachments/.test(error.message)) {
-    const fallback = await sb
+    let fallback = sb
       .from('comments')
       .select('id, parent_id, author_id, body, content_html, like_count, reported_count, is_deleted, created_at, updated_at, profiles:author_id(username, full_name, avatar_url, email)')
-      .eq(col, parseInt(entityId))
       .range(offset, offset + limit - 1)
       .order('created_at', { ascending: sort === 'oldest' })
-    data = fallback.data
-    error = fallback.error
+    if (entityType === 'news') {
+      fallback = fallback.or(`news_id.eq.${parseInt(entityId)},discussion_id.eq.${parseInt(entityId)}`)
+    } else {
+      fallback = fallback.eq(col, parseInt(entityId))
+    }
+    const fb = await fallback
+    data = fb.data
+    error = fb.error
   }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
