@@ -99,8 +99,17 @@ export async function getEventBySlug(slug: string) {
     .eq('slug', slug)
     .single()
 
-  if (error) return null
-  return data
+  if (error || !data) return null
+
+  // Attendees ("Eis"/"Patiks") — atskira lentelė event_attendees (UUID-based,
+  // entity_id BIGINT vs events.id UUID schema'os incompatibility'ui spręsti).
+  const { data: attendees } = await supabase
+    .from('event_attendees')
+    .select('user_username, user_rank, user_avatar_url, source, created_at')
+    .eq('event_id', (data as any).id)
+    .order('created_at', { ascending: false })
+
+  return { ...(data as any), attendees: attendees || [] }
 }
 
 // ── Get single event by id ───────────────────────────────────────
