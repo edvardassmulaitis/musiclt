@@ -264,6 +264,15 @@ async function getTracks(id: number) {
     }
     for (const t of tracks) {
       ;(t as any).albums = albumsByTrack.get(t.id) || []
+      // Fallback: jei tracks.cover_url NULL (legacy import nepopulina šito
+      // column'o), pakeičiam į pirmą album'o cover_image_url. Frontend tikisi
+      // t.cover_url tiesiogiai (priority: explicit cover_url > YT thumbnail).
+      if (!(t as any).cover_url) {
+        const firstAlbum = ((t as any).albums || [])[0]
+        if (firstAlbum?.cover_image_url) {
+          ;(t as any).cover_url = firstAlbum.cover_image_url
+        }
+      }
     }
   }
 
