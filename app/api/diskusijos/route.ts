@@ -38,10 +38,16 @@ export async function GET(req: Request) {
   const offset = parseInt(searchParams.get('offset') || '0')
   const supabase = createAdminClient()
 
+  // Diskusijų puslapis rodo TIK tikras diskusijas — ne news, events,
+  // user_diary ir t.t. (legacy_kind='discussion' arba modern-created NULL).
+  // News persikėlę į /naujienos, events — į /renginiai. Be šito filter'o
+  // visi music.lt scraped news threads (legacy_kind='news') lįsdavo į
+  // diskusijų sąrašą ir maišydavo realų pokalbio turinį.
   let query = supabase
     .from('discussions')
     .select('id, slug, title, body, user_id, author_name, author_avatar, tags, is_pinned, is_locked, comment_count, like_count, view_count, last_comment_at, created_at', { count: 'exact' })
     .eq('is_deleted', false)
+    .or('legacy_kind.is.null,legacy_kind.eq.discussion')
     .range(offset, offset + limit - 1)
 
   if (tag) query = query.contains('tags', [tag])
