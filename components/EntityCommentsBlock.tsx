@@ -73,6 +73,10 @@ type Props = {
   entityId: number
   /** Optional — only needed if the legacy endpoint differs (currently same shape). */
   legacyEndpoint?: string
+  /** Skip legacy /api/{type}s/{id}/comments fetch entirely. Naudoti kai
+   *  legacy komentarai jau persikėlę į modern `comments` table per
+   *  entity_type (discussion/news/event). */
+  skipLegacy?: boolean
   /** Compact mode — modal use; tighter spacing. */
   compact?: boolean
   /** Title above the list. Defaults to "Diskusija". */
@@ -457,7 +461,7 @@ function Avatar({ name, url, size = 28 }: { name: string; url?: string | null; s
 }
 
 export default function EntityCommentsBlock({
-  entityType, entityId, legacyEndpoint, compact = false, title = 'Diskusija', onCountChange,
+  entityType, entityId, legacyEndpoint, skipLegacy: skipLegacyProp, compact = false, title = 'Diskusija', onCountChange,
 }: Props) {
   const { data: session, status: sessionStatus } = useSession()
   const [modern, setModern] = useState<ModernComment[] | null>(null)
@@ -506,7 +510,11 @@ export default function EntityCommentsBlock({
 
   // Discussions yra unified — visi komentarai jau gyvena modern `comments`
   // lentelėj (per backfill_unify_forum.py). Legacy endpoint praleidžiamas.
-  const skipLegacy = entityType === 'discussion'
+  // Skip legacy fetch:
+  //   - jei explicit prop'as skipLegacy=true (news pvz. — komentarai jau modern API'e)
+  //   - jei entityType='discussion' (DM jau persikelti į modern comments)
+  // Kitiems tipams (track/album/artist/event) — fetch'inam legacy endpoint'ą.
+  const skipLegacy = skipLegacyProp || entityType === 'discussion'
   const legacyUrl = legacyEndpoint || (skipLegacy ? null : `/api/${entityType}s/${entityId}/comments`)
   // Diskusijos puslapis gali turėti tūkstančius komentarų — load'inam
   // 40 vienu metu kad UI nesulėtėtų (legacy posts su nested chain'ais +
