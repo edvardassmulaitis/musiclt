@@ -15,41 +15,73 @@ function NewsLikeButton({ newsId }: { newsId: number }) {
   const [likers, setLikers] = useState<LikeUser[]>([])
   const [modalOpen, setModalOpen] = useState(false)
 
-  useEffect(() => {
+  // Detektuojam ar current user yra likers sąraše — set'inam `liked` state.
+  const refreshLikers = () => {
     fetch(`/api/likes/news/${newsId}`)
       .then(r => r.json())
       .then(d => {
+        const users: LikeUser[] = d.users || []
         setCount(d.count || 0)
-        setLikers(d.users || [])
+        setLikers(users)
+        const myUsername = (session?.user as any)?.name || (session?.user as any)?.email
+        if (myUsername) {
+          const isMine = users.some(u =>
+            (u.user_username || '').toLowerCase() === myUsername.toLowerCase()
+          )
+          setLiked(isMine)
+        } else {
+          setLiked(false)
+        }
       })
       .catch(() => {})
-  }, [newsId])
+  }
+
+  useEffect(() => {
+    refreshLikers()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newsId, session?.user])
 
   async function toggleLike() {
     if (!session?.user) return
     const optimisticLiked = !liked
     setLiked(optimisticLiked)
     setCount(c => optimisticLiked ? c + 1 : Math.max(0, c - 1))
-    await fetch(`/api/news/${newsId}/like`, { method: 'POST' }).catch(() => {})
+    try {
+      await fetch(`/api/news/${newsId}/like`, { method: 'POST' })
+      // Re-fetch authoritative state po POST'o (kad UI matytų realią DB būklę).
+      refreshLikers()
+    } catch {/* silent — optimistic update jau pritaikytas */}
   }
 
+  // Click on "Patinka" word/icon → toggle (auth required).
+  // Click on count number → open modal su likers list (visiems).
   return (
     <>
       <button
         type="button"
-        onClick={count > 0 ? () => setModalOpen(true) : (session?.user ? toggleLike : undefined)}
+        onClick={session?.user ? toggleLike : undefined}
         className="na-share-btn"
         style={{
           color: liked ? '#f97316' : 'inherit',
           gap: 6,
           display: 'inline-flex',
           alignItems: 'center',
+          cursor: session?.user ? 'pointer' : 'not-allowed',
         }}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
           <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
         </svg>
-        Patinka {count > 0 && <span style={{ marginLeft: 4 }}>{count}</span>}
+        Patinka
+        {count > 0 && (
+          <span
+            onClick={e => { e.stopPropagation(); setModalOpen(true) }}
+            style={{ marginLeft: 4, cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted' }}
+            title="Pamatyti kas paspaudė"
+          >
+            {count}
+          </span>
+        )}
       </button>
       <LikesModal
         open={modalOpen}
