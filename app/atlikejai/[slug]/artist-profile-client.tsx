@@ -2868,6 +2868,8 @@ function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' |
   const hasCover = !!e.cover_image_url && !coverFailed
 
   if (variant === 'past') {
+    const ac = e.attendee_count || 0
+    const cc = e.comment_count || 0
     return (
       <Link
         href={href}
@@ -2881,6 +2883,26 @@ function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' |
         <div className="min-w-0 flex-1">
           <div className="truncate text-[14px] font-bold leading-tight text-[var(--text-primary)]">{e.title}</div>
           {venue && <div className="mt-0.5 truncate text-[12px] text-[var(--text-muted)]">{venue}</div>}
+          {(ac > 0 || cc > 0) && (
+            <div className="mt-1 flex items-center gap-3 text-[11px] text-[var(--text-muted)]">
+              {ac > 0 && (
+                <span className="inline-flex items-center gap-1" title="Eis (dalyviai)">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                  </svg>
+                  {ac}
+                </span>
+              )}
+              {cc > 0 && (
+                <span className="inline-flex items-center gap-1" title="Komentarai">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                  </svg>
+                  {cc}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </Link>
     )
@@ -4746,7 +4768,11 @@ export default function ArtistProfileClient({
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {(showArchive ? [...freshLegacyNews, ...archivedLegacyNews].slice(0, 60) : freshLegacyNews.slice(0, 12)).map(n => {
                 const title = n.title || slugToForumTitle(n.slug)
-                const pc = n.post_count ?? 0
+                const pc = (n as any).post_count ?? 0
+                const lc = (n as any).like_count ?? 0
+                const dateStr = n.first_post_at
+                  ? new Date(n.first_post_at).toLocaleDateString('lt-LT', { year: 'numeric', month: 'short', day: 'numeric' })
+                  : null
                 // News kortelės nukreipia į /news/{slug} (canonical news UI
                 // su gallery, related news, music player). canonical_slug =
                 // discussions.slug po canonical pipeline migracijos.
@@ -4764,9 +4790,29 @@ export default function ArtistProfileClient({
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M20 3H4a2 2 0 00-2 2v14a2 2 0 002 2h16a2 2 0 002-2V5a2 2 0 00-2-2z" /></svg>
                       </div>
                       <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--accent-orange)]">Naujiena</div>
-                      {pc > 0 && <div className="ml-auto text-[11px] font-semibold text-[var(--text-muted)]">{pc} komentarai</div>}
+                      {dateStr && <div className="ml-auto text-[11px] font-medium text-[var(--text-muted)]">{dateStr}</div>}
                     </div>
                     <div className="text-[14px] font-bold leading-snug text-[var(--text-primary)] sm:text-[15px]">{title}</div>
+                    {(pc > 0 || lc > 0) && (
+                      <div className="mt-auto flex items-center gap-3 pt-1 text-[11px] text-[var(--text-muted)]">
+                        {lc > 0 && (
+                          <span className="inline-flex items-center gap-1">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                            </svg>
+                            {lc}
+                          </span>
+                        )}
+                        {pc > 0 && (
+                          <span className="inline-flex items-center gap-1">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                            </svg>
+                            {pc}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </Link>
                 )
               })}

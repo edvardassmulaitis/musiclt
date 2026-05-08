@@ -532,12 +532,30 @@ async function getLegacyNewsThreads(artistId: number, limit = 200) {
   // Po canonical pipeline'os — query'inam discussions table (legacy_kind='news').
   const { data } = await sb
     .from('discussions')
-    .select('id, legacy_id, slug, source_url, legacy_kind, title, comment_count, first_post_at, last_comment_at')
+    .select('id, legacy_id, slug, source_url, legacy_kind, title, comment_count, like_count, first_post_at, last_comment_at')
     .eq('artist_id', artistId)
     .eq('legacy_kind', 'news')
     .eq('is_legacy', true)
     .order('first_post_at', { ascending: false, nullsFirst: false })
     .limit(limit)
+
+  // Like counts iš canonical likes table (entity_type='news', entity_id=discussions.id)
+  const ids = (data || []).map((d: any) => d.id).filter(Boolean)
+  const likeCounts = new Map<number, number>()
+  if (ids.length > 0) {
+    for (let i = 0; i < ids.length; i += 200) {
+      const chunk = ids.slice(i, i + 200)
+      const { data: likes } = await sb
+        .from('likes')
+        .select('entity_id')
+        .eq('entity_type', 'news')
+        .in('entity_id', chunk)
+      for (const l of (likes || []) as any[]) {
+        likeCounts.set(l.entity_id, (likeCounts.get(l.entity_id) || 0) + 1)
+      }
+    }
+  }
+
   return ((data || []) as any[]).map((d: any) => ({
     legacy_id: d.legacy_id,
     slug: d.slug,
@@ -545,6 +563,7 @@ async function getLegacyNewsThreads(artistId: number, limit = 200) {
     kind: d.legacy_kind,
     title: d.title,
     post_count: d.comment_count,
+    like_count: likeCounts.get(d.id) || d.like_count || 0,
     first_post_at: d.first_post_at,
     last_post_at: d.last_comment_at,
     canonical_slug: d.slug,
@@ -608,6 +627,33 @@ async function getEvents(id: number) {
   const events = (data || [])
     .map((ea: any) => ea.events)
     .filter((e: any) => e && e.start_date)
+
+  // Attendee counts (event_attendees table) + comment counts (comments table)
+  const eventIds = events.map((e: any) => e.id).filter(Boolean)
+  const attendeeCounts = new Map<string, number>()
+  const commentCounts = new Map<string, number>()
+  if (eventIds.length > 0) {
+    const { data: attendees } = await sb
+      .from('event_attendees')
+      .select('event_id')
+      .in('event_id', eventIds)
+    for (const a of (attendees || []) as any[]) {
+      attendeeCounts.set(a.event_id, (attendeeCounts.get(a.event_id) || 0) + 1)
+    }
+    const { data: comments } = await sb
+      .from('comments')
+      .select('event_id')
+      .in('event_id', eventIds)
+      .eq('is_deleted', false)
+    for (const c of (comments || []) as any[]) {
+      if (c.event_id) commentCounts.set(c.event_id, (commentCounts.get(c.event_id) || 0) + 1)
+    }
+    for (const e of events) {
+      e.attendee_count = attendeeCounts.get(e.id) || 0
+      e.comment_count = commentCounts.get(e.id) || 0
+    }
+  }
+
   // Upcoming (asc) first, then past (desc). Cap at 12 combined.
   const upcoming = events
     .filter((e: any) => new Date(e.start_date).getTime() >= now)
@@ -831,8 +877,8 @@ const fetchArtistData = unstable_cache(
       similar, legacyCommunity, ranks, lastPostsArr,
     }
   },
-  // v3 — bumped po news title patch + multi-artist + LT United members
-  ['artist-full-data-v3'],
+  // v4 — bumped po news/event card meta (likes, comments, dates)
+  ['artist-full-data-v4'],
   { revalidate: ARTIST_CACHE_TTL, tags: ['artist'] },
 )
 
