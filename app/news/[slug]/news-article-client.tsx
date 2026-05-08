@@ -748,6 +748,7 @@ export default function NewsArticleClient({
                 entityType="news"
                 entityId={news.id}
                 title="Komentarai"
+                skipLegacy
               />
             </main>
 
