@@ -564,6 +564,20 @@ async function getMembers(id: number) {
     .filter((m: any) => m.id)
 }
 
+/** Member of — reverse lookup: kuriose grupėse šis atlikėjas yra narys.
+ * Pvz. Mikutavičius → LT United, Bovy. Užpildoma per backfill_artist_members.py
+ * (parsina iš live music.lt artist page'o `<a href="X-grupe-N.html">` link'us). */
+async function getMemberOf(id: number) {
+  const sb = createAdminClient()
+  const { data } = await sb
+    .from('artist_members')
+    .select('group_id, year_from, year_to, is_current, artists:group_id(id, slug, name, cover_image_url, type)')
+    .eq('member_id', id)
+  return (data || [])
+    .map((r: any) => ({ ...(r.artists || {}), member_from: r.year_from, member_until: r.is_current ? null : r.year_to }))
+    .filter((g: any) => g.id)
+}
+
 /** Substyles — admin saves additional music styles to artist_substyles. */
 async function getSubstyles(id: number): Promise<{ id: number; name: string }[]> {
   const sb = createAdminClient()
@@ -787,9 +801,9 @@ export default async function ArtistPage({ params }: Props) {
  */
 const fetchArtistData = unstable_cache(
   async (artistId: number, country: string | null, score: number) => {
-    const [genres, substyles, tableLinks, dbPhotos, albums, tracks, members, followers, likeCount, news, rawEvents, _allTrackLegacyIds, legacyThreads, legacyNews, linkedTrackIdSet, awards] = await Promise.all([
+    const [genres, substyles, tableLinks, dbPhotos, albums, tracks, members, memberOf, followers, likeCount, news, rawEvents, _allTrackLegacyIds, legacyThreads, legacyNews, linkedTrackIdSet, awards] = await Promise.all([
       getGenres(artistId), getSubstyles(artistId), getLinks(artistId), getPhotos(artistId), getAlbums(artistId), getTracks(artistId),
-      getMembers(artistId), getFollowers(artistId), getLikeCount(artistId), getNews(artistId), getEvents(artistId),
+      getMembers(artistId), getMemberOf(artistId), getFollowers(artistId), getLikeCount(artistId), getNews(artistId), getEvents(artistId),
       getAllArtistTrackLegacyIds(artistId),
       getLegacyForumThreads(artistId),
       getLegacyNewsThreads(artistId),
@@ -812,14 +826,13 @@ const fetchArtistData = unstable_cache(
     // Convert Map<number, PostInfo[]> to array for serialization
     const lastPostsArr = Array.from(lastPosts.entries()).map(([k, v]) => [k, v] as [number, typeof v])
     return {
-      genres, substyles, tableLinks, dbPhotos, albums, tracks, members, followers, likeCount,
+      genres, substyles, tableLinks, dbPhotos, albums, tracks, members, memberOf, followers, likeCount,
       news, rawEvents, legacyThreads, legacyNews, linkedTrackIds, awards,
       similar, legacyCommunity, ranks, lastPostsArr,
     }
   },
-  // v2 — bumped po canonical pipeline migracijos (forum_threads → discussions)
-  // kad senas cache su forum_threads queries neperdengtų naujų discussions queries.
-  ['artist-full-data-v2'],
+  // v3 — bumped po news title patch + multi-artist + LT United members
+  ['artist-full-data-v3'],
   { revalidate: ARTIST_CACHE_TTL, tags: ['artist'] },
 )
 
@@ -830,10 +843,10 @@ async function ArtistContent({ artist }: { artist: any }) {
     (artist as any).score || 0,
   )
   const {
-    genres, substyles, tableLinks, dbPhotos, albums, tracks, members, followers, likeCount,
+    genres, substyles, tableLinks, dbPhotos, albums, tracks, members, memberOf, followers, likeCount,
     news, rawEvents, legacyThreads, legacyNews, linkedTrackIds, awards,
     similar, legacyCommunity, ranks, lastPostsArr,
-  } = data
+  } = data as any
   const links = buildSocialLinks(artist, tableLinks as { platform: string; url: string }[])
   const lastPosts = new Map(lastPostsArr)
 
@@ -907,7 +920,7 @@ async function ArtistContent({ artist }: { artist: any }) {
         description: stripStyles(((artist.description || '').trim().length >= 20 ? artist.description : (artist as any).description_legacy) || ''),
         cover_image_url: artist.cover_image_url, cover_image_position: artist.cover_image_position, website: artist.website, spotify_id: artist.spotify_id, is_verified: artist.is_verified, gender: artist.gender, birth_date: artist.birth_date, death_date: artist.death_date, legacy_id: (artist as any).legacy_id ?? null, source: (artist as any).source ?? null, score: null, score_breakdown: null, score_updated_at: null }}
       heroImage={heroImage} genres={genres} links={links} photos={photos} albums={albums as any} tracks={tracks as any}
-      members={members} followers={followers} likeCount={likeCount} news={news as any} events={events}
+      members={members} memberOf={memberOf} followers={followers} likeCount={likeCount} news={news as any} events={events}
       similar={similar} newTracks={newTracks as any} topVideos={topVideos as any}
       chartData={mockChart(albums)} hasNewMusic={newTracks.length > 0}
       legacyCommunity={legacyCommunity} legacyThreads={legacyThreadsWithPosts as any} legacyNews={legacyNewsWithPosts as any}

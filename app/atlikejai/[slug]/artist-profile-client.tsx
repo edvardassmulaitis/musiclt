@@ -97,7 +97,7 @@ type Rank = { category: string; rank: number; total: number; scope: 'country' | 
 type Props = {
   artist: any; heroImage: string | null; genres: Genre[]; substyles?: Genre[]
   links: { platform: string; url: string }[]; photos: Photo[]
-  albums: Album[]; tracks: Track[]; members: Member[]; followers: number; likeCount: number
+  albums: Album[]; tracks: Track[]; members: Member[]; memberOf?: Member[]; followers: number; likeCount: number
   news: any[]; events: any[]; similar: any[]
   newTracks: Track[]; topVideos: Track[]; chartData: ChartPt[]; hasNewMusic: boolean
   legacyCommunity?: LegacyCommunity
@@ -2527,6 +2527,36 @@ function MembersInline({ members }: { members: Member[] }) {
   )
 }
 
+function MemberOfInline({ groups }: { groups: Member[] }) {
+  if (!groups.length) return null
+  return (
+    <div className="mt-3 flex flex-wrap gap-2">
+      <span className="mr-1 inline-flex items-center font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+        Narys grupėse
+      </span>
+      {groups.map(g => (
+        <Link
+          key={g.id}
+          href={`/atlikejai/${g.slug}`}
+          className="inline-flex items-center gap-2 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] py-1 pl-1 pr-3 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+        >
+          {g.cover_image_url ? (
+            <img src={proxyImg(g.cover_image_url)} alt={g.name} className="h-7 w-7 shrink-0 rounded-full object-cover" />
+          ) : (
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--cover-placeholder)] font-['Outfit',sans-serif] text-[11px] font-black text-[var(--text-faint)]">
+              {g.name[0]}
+            </div>
+          )}
+          <span className="font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)]">{g.name}</span>
+          {g.member_from && (
+            <span className="text-[11px] font-semibold text-[var(--text-muted)]">{g.member_from}–{g.member_until || 'dabar'}</span>
+          )}
+        </Link>
+      ))}
+    </div>
+  )
+}
+
 // ── GalleryCollage (beside bio) ────────────────────────────────────
 
 function GalleryCollage({
@@ -3946,7 +3976,7 @@ function AvatarBubble({ name, size = 28 }: { name: string; size?: number }) {
 // ── Main ────────────────────────────────────────────────────────────
 
 export default function ArtistProfileClient({
-  artist, heroImage, genres, substyles = [], links, photos, albums, tracks, members, followers, likeCount,
+  artist, heroImage, genres, substyles = [], links, photos, albums, tracks, members, memberOf = [], followers, likeCount,
   events, similar, newTracks,
   legacyCommunity, legacyThreads = [], legacyNews = [], ranks = [],
   linkedTrackIds = [], awards = [],
@@ -4497,6 +4527,7 @@ export default function ArtistProfileClient({
                     </>
                   )}
                   {!solo && members.length > 0 && <MembersInline members={members} />}
+                  {memberOf && memberOf.length > 0 && <MemberOfInline groups={memberOf} />}
                 </div>
               </div>
             </section>
