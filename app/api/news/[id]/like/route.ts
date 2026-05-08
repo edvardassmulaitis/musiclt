@@ -46,7 +46,7 @@ export async function POST(
     user_id: userId,
     user_username: (session.user as any).name || session.user.email || 'user',
     user_avatar_url: (session.user as any).image || null,
-    source: 'modern',
+    source: 'auth',  // CHECK constraint allows: 'auth', 'legacy_scrape', 'anon'
   })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ liked: true })
