@@ -4741,7 +4741,7 @@ export default function ArtistProfileClient({
                         className="w-[46vw] max-w-[180px] shrink-0"
                         style={{ scrollSnapAlign: 'start' }}
                       >
-                        <AlbumCard a={a} artistSlug={artist.slug} maxPop={maxAlbumPop} popularity={popLevel(i, visibleAlbums.length)} onOpen={setAlbumModalOpen} />
+                        <AlbumCard a={a} artistSlug={artist.slug} maxPop={maxAlbumPop} popularity={popLevel(i, visibleAlbums.length)} />
                       </div>
                     ))}
                   </div>
