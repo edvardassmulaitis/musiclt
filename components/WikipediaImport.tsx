@@ -439,6 +439,8 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
       let description = ''
       setStep('Skaitomas infobox...')
       let infoboxWebsite = '', infoboxYearsRaw = '', infoboxGenres: string[] | null = null
+      let infoboxOccupations: string[] = []   // Solo atlikėjų infobox: Singer, Songwriter, Producer, ...
+      let infoboxInstruments: string[] = []   // Solo atlikėjų infobox: Vocals, Guitar, Piano, ...
       let parsedMembers: BandMember[] = []
       try {
         const wtRes = await (await fetch(
@@ -459,6 +461,35 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
         }
         const yaM = rawWikitext.match(/\|\s*years[_ ]active\s*=\s*([^\n|<]+)/i)
         if (yaM) infoboxYearsRaw = yaM[1].trim()
+        // Occupations / Instruments — solo atlikėjų infobox laukai. Wiki
+        // pavadina juos arba „occupation"/„occupations", arba
+        // „instrument"/„instruments". Reikšmės dažniausiai delimitintos
+        // {{flatlist}}/{{plainlist}} arba comma-separated. Naudojam
+        // wiki-parser extractFieldNested kad gauti pilną wikitext segmento
+        // turinį net su nested template'ais.
+        const parseFlatList = (raw: string): string[] => {
+          if (!raw) return []
+          let s = raw
+          s = s.replace(/\{\{(?:flatlist|plainlist|hlist|ubl|unbulleted list)\s*\|/gi, '')
+          s = s.replace(/\}\}/g, '')
+          s = s.replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '')
+          s = s.replace(/<[^>]+>/g, ' ')
+          s = s.replace(/\[\[(?:[^\]|]+\|)?([^\]]+)\]\]/g, '$1')
+          // Splittinam pagal | (template separator), * (list item), comma, newline
+          const parts = s.split(/\s*[|*\n]+\s*|,\s+/).map(p => p.trim()).filter(p => p.length >= 2 && p.length <= 40)
+          // Dedupe + lowercase first letter normalizacija
+          const seen = new Set<string>()
+          const out: string[] = []
+          for (const p of parts) {
+            const key = p.toLowerCase()
+            if (!seen.has(key)) { seen.add(key); out.push(p) }
+          }
+          return out.slice(0, 8)
+        }
+        const occRaw = extractFieldNested(rawWikitext, 'occupations') || extractFieldNested(rawWikitext, 'occupation')
+        infoboxOccupations = parseFlatList(occRaw)
+        const insRaw = extractFieldNested(rawWikitext, 'instruments') || extractFieldNested(rawWikitext, 'instrument')
+        infoboxInstruments = parseFlatList(insRaw)
         parsedMembers = parseBandMembers(rawWikitext)
       } catch {}
 
@@ -669,8 +700,14 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
         birthYear, birthMonth, birthDay,
         deathYear, deathMonth, deathDay,
         gender, avatar, website, photos:[],
+        // Solo atlikėjų infobox papildomi laukai — perduodami į ArtistFormData,
+        // saugomi į artists.roles ir artists.instruments. Anksčiau buvo
+        // ignoruojami, todėl Andrius Mamontovas / Mikutavičius / etc. po
+        // wiki import'o turėdavo tuščius „Veikla" + „Instrumentai" laukus.
+        roles: infoboxOccupations,
+        instruments: infoboxInstruments,
         ...socials,
-      })
+      } as any)
 
       if (parsedMembers.length > 0) {
         setMembersLoading(true)

@@ -141,18 +141,25 @@ function fmtDate(iso: string | null | undefined): string {
   try { return new Date(iso).toLocaleString('lt-LT', { dateStyle: 'short', timeStyle: 'short' }) } catch { return iso.slice(0, 16) }
 }
 
-function ViewsSparkline({ history }: { history: StatsData['views']['history'] }) {
-  if (!history || history.length < 2) {
-    return <span className="text-[10px] text-[var(--text-faint)]">{history.length === 1 ? '1 snapshot — nepakanka trend\'ui' : '—'}</span>
+function ViewsSparkline({ history, currentVideoId }: { history: StatsData['views']['history']; currentVideoId?: string | null }) {
+  // Filtruojam tik dabartinio video_id snapshot'us — kitaip pakeitus
+  // YouTube nuorodą ir paėmus naują views (28K), delta su senu video
+  // (81M) rodys -81M „kritimą", kuris yra fake. Skaičiuojam delta tik
+  // tarp tos pačios YouTube video skirtingų snapshot'ų.
+  const relevantHistory = currentVideoId
+    ? history.filter(h => h.video_id === currentVideoId)
+    : history
+  if (!relevantHistory || relevantHistory.length < 2) {
+    return <span className="text-[10px] text-[var(--text-faint)]">{relevantHistory.length === 1 ? '1 snapshot — nepakanka trend\'ui' : '—'}</span>
   }
   const W = 120, H = 28, P = 2
-  const xs = history.map(h => new Date(h.captured_at).getTime())
-  const ys = history.map(h => h.views)
+  const xs = relevantHistory.map(h => new Date(h.captured_at).getTime())
+  const ys = relevantHistory.map(h => h.views)
   const xMin = Math.min(...xs), xMax = Math.max(...xs)
   const yMin = Math.min(...ys), yMax = Math.max(...ys)
   const xR = xMax - xMin || 1
   const yR = yMax - yMin || 1
-  const pts = history.map((h, i) => {
+  const pts = relevantHistory.map((h, i) => {
     const x = P + ((xs[i] - xMin) / xR) * (W - 2 * P)
     const y = (H - P) - ((ys[i] - yMin) / yR) * (H - 2 * P)
     return `${x.toFixed(1)},${y.toFixed(1)}`
@@ -163,7 +170,7 @@ function ViewsSparkline({ history }: { history: StatsData['views']['history'] })
       <svg width={W} height={H} className="block">
         <polyline points={pts} fill="none" stroke="currentColor" strokeWidth="1.5" className="text-blue-500" />
       </svg>
-      <span className={`text-[10px] tabular-nums ${delta >= 0 ? 'text-green-600' : 'text-red-500'}`} title={`Δ nuo pirmo snapshot'o`}>
+      <span className={`text-[10px] tabular-nums ${delta >= 0 ? 'text-green-600' : 'text-red-500'}`} title={`Δ nuo pirmo snapshot'o (tik dabartinis video_id)`}>
         {delta >= 0 ? '+' : ''}{fmtN(delta)}
       </span>
     </div>
@@ -237,7 +244,13 @@ function StatsCard({ trackId }: { trackId: number }) {
           </div>
           <div className="flex items-center gap-1.5">
             <span className="text-[10px] text-[var(--text-faint)]">{v.history.length} snapshot'as{v.history.length === 1 ? '' : 'ai'}</span>
-            <ViewsSparkline history={v.history} />
+            {/* Filtruojam tik dabartinio video_id snapshot'us — paskutinė
+                history entry priklauso current video'ai (enrichTrack visada
+                įrašo naują eilutę su nauju videoId po URL pakeitimo). */}
+            <ViewsSparkline
+              history={v.history}
+              currentVideoId={v.history.length > 0 ? v.history[v.history.length - 1].video_id : null}
+            />
           </div>
         </div>
         <div className="min-w-0 border-l border-[var(--border-subtle)] pl-3">

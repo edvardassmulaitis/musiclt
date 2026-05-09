@@ -993,9 +993,17 @@ function detectPopSignal(allTracks: any[]): { signal: PopSignal; max: number } {
     if (typeof sc === 'number' && sc > maxScore) maxScore = sc
     if (typeof vv === 'number' && vv > maxViews) maxViews = vv
   }
+  // Hierarchy: likes pirmiausia (user-driven, autentiškiausias signal'as
+  // kai vartotojai jau spaudė širdeles), tada video_views (objektyvus,
+  // labai diskriminuojantis nuo orders of magnitude), tada score (derived,
+  // intl atlikėjams visi tracks gauna 28-30 ir todėl per uniformus
+  // sorting'ui), galiausiai position fallback'as. Anksčiau score buvo
+  // antras po likes — todėl naujai importuotam Coldplay'ui (visi score
+  // ~30) sorting'as buvo praktiškai random, nors video_views nuo 28K
+  // iki 2.5B duotų aiškų ranking'ą. */
   if (maxLikes > 0) return { signal: 'likes', max: maxLikes }
-  if (maxScore > 0) return { signal: 'score', max: maxScore }
   if (maxViews > 0) return { signal: 'views', max: Math.log10(maxViews + 1) }
+  if (maxScore > 0) return { signal: 'score', max: maxScore }
   return { signal: 'none', max: 0 }
 }
 

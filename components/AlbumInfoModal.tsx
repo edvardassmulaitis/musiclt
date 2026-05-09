@@ -459,40 +459,60 @@ export default function AlbumInfoModal({
 
   // ── Main return — pure flex layout ──
 
+  // Layout dimensions per breakpoint — explicit JS conditions vietoj
+  // Tailwind responsive class'ių (max-lg / xl combinations buvo nepatikimi
+  // JIT compile'inime su arbitrary syntax). isMobile, isWideDesktop —
+  // matchMedia state, atnaujinamas resize handler'iu.
+  const isLgRange = !isMobile && !isWideDesktop  // 1024 ≤ vw < 1280
+  // Drawer plotis:
+  //   mobile (<1024):  100% (perdengia visą ekraną, jokio backdrop'o pro)
+  //   lg (1024-1279):  860px dešinėj + backdrop kairėj
+  //   xl (≥1280):      860px kairėj + dock flex-1 dešinėj
+  const drawerStyle: React.CSSProperties = isMobile
+    ? { width: '100%', flexShrink: 0 }
+    : { width: 860, flexShrink: 0, order: isWideDesktop ? 1 : 2 }
+  // Backdrop'as: matomas tik lg-range (ne mobile, ne xl)
+  const showBackdrop = isLgRange
+
   return (
     <div className="fixed inset-0 z-[9999] flex"
       role="dialog" aria-modal="true"
       aria-label={titleNow ? `${titleNow} albumo informacija` : 'Albumo informacija'}
       style={{ fontFamily: "'DM Sans',system-ui,sans-serif" }}>
 
-      {/* Backdrop — užima visą likusį plotą KAIRĖJ nuo drawer'io. Click
-          outside uždaro. xl viewport'e backdrop'as paslėptas (modal'as
-          fullscreen, drawer kairėj + dock dešinėj nepalieka tuščio
-          ploto). */}
-      <button type="button" aria-label="Uždaryti modal'ą"
-        onClick={onClose}
-        className="flex-1 cursor-pointer bg-black/65 transition-opacity duration-150 max-lg:hidden xl:hidden" />
+      {/* Backdrop — click-outside uždaro. Render'inamas tik lg viewport'e
+          (1024-1279px); mobile drawer perdengia visą ekraną, xl turim
+          dock'ą vietoj backdrop'o. */}
+      {showBackdrop && (
+        <button type="button" aria-label="Uždaryti modal'ą"
+          onClick={onClose}
+          style={{ flex: 1, order: 1 }}
+          className="cursor-pointer bg-black/65 transition-opacity duration-150" />
+      )}
 
-      {/* Drawer — modal'o pagrindinis turinys. Mobile: w-full (perdengia visą
-          ekraną). lg: 860px dešinėj. xl: 860px kairėj (dock dešinėj). */}
-      <aside className="flex h-full w-full shrink-0 flex-col overflow-hidden bg-[var(--bg-surface)] shadow-2xl lg:w-[860px] xl:order-1">
+      {/* Drawer — modal'o pagrindinis turinys. */}
+      <aside
+        style={drawerStyle}
+        className="flex h-full flex-col overflow-hidden bg-[var(--bg-surface)] shadow-2xl">
         <TopBar />
 
-        {/* Mobile tab bar — tik <lg, nes lg+ rodom tracks + comments šalia */}
-        <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-1.5 lg:hidden">
-          <button type="button" onClick={() => setMobileTab('tracks')}
-            className={['relative flex items-center gap-1.5 px-1 py-1.5 font-["Outfit",sans-serif] text-[12px] font-bold transition-colors', mobileTab === 'tracks' ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[6px] after:h-[2px] after:bg-[var(--accent-orange)]' : 'text-[var(--text-muted)]'].join(' ')}>
-            Dainos
-          </button>
-          <button type="button" onClick={() => setMobileTab('comments')}
-            className={['relative flex items-center gap-1.5 px-1 py-1.5 font-["Outfit",sans-serif] text-[12px] font-bold transition-colors', mobileTab === 'comments' ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[6px] after:h-[2px] after:bg-[var(--accent-orange)]' : 'text-[var(--text-muted)]'].join(' ')}>
-            Komentarai
-          </button>
-        </div>
+        {/* Mobile tab bar — tik mobile (<lg) */}
+        {isMobile && (
+          <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-1.5">
+            <button type="button" onClick={() => setMobileTab('tracks')}
+              className={['relative flex items-center gap-1.5 px-1 py-1.5 font-["Outfit",sans-serif] text-[12px] font-bold transition-colors', mobileTab === 'tracks' ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[6px] after:h-[2px] after:bg-[var(--accent-orange)]' : 'text-[var(--text-muted)]'].join(' ')}>
+              Dainos
+            </button>
+            <button type="button" onClick={() => setMobileTab('comments')}
+              className={['relative flex items-center gap-1.5 px-1 py-1.5 font-["Outfit",sans-serif] text-[12px] font-bold transition-colors', mobileTab === 'comments' ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[6px] after:h-[2px] after:bg-[var(--accent-orange)]' : 'text-[var(--text-muted)]'].join(' ')}>
+              Komentarai
+            </button>
+          </div>
+        )}
 
         {/* Mobile inline player */}
-        {showVideo && (
-          <div className="aspect-video w-full shrink-0 bg-black lg:hidden">
+        {isMobile && showVideo && (
+          <div className="aspect-video w-full shrink-0 bg-black">
             <iframe key={`mobile-album-modal-${playerVid}`}
               src={`https://www.youtube.com/embed/${playerVid}?playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&autoplay=${playing ? 1 : 0}`}
               title={titleNow} className="h-full w-full"
@@ -501,15 +521,19 @@ export default function AlbumInfoModal({
           </div>
         )}
 
-        {/* Body — lg+: tracks (left) + comments (right) side-by-side.
-            Mobile: viena kolona, perjungiama tab'ais. */}
+        {/* Body — desktop (lg+): tracks (left) + comments (right) side-by-side.
+            Mobile (<lg): viena kolona, perjungiama tab'ais. */}
         <div className="flex min-h-0 flex-1 overflow-hidden">
-          <div className={['flex h-full flex-1 flex-col', mobileTab === 'tracks' ? 'flex' : 'hidden lg:flex'].join(' ')}>
-            <Tracklist />
-          </div>
-          <div className={['flex h-full flex-1 flex-col', mobileTab === 'comments' ? 'flex' : 'hidden lg:flex'].join(' ')}>
-            <Comments />
-          </div>
+          {(!isMobile || mobileTab === 'tracks') && (
+            <div className="flex h-full flex-1 flex-col">
+              <Tracklist />
+            </div>
+          )}
+          {(!isMobile || mobileTab === 'comments') && (
+            <div className="flex h-full flex-1 flex-col">
+              <Comments />
+            </div>
+          )}
         </div>
       </aside>
 
