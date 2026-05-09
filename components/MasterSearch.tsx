@@ -47,27 +47,90 @@ type Hit = {
 }
 
 type Results = Record<Category, Hit[]>
+type Totals = Record<Category, number>
 
-const CAT_LABELS: Record<Category, { sg: string; pl: string; emoji: string; color: string }> = {
-  artists:     { sg: 'Atlikėjas',  pl: 'Atlikėjai',   emoji: '🎤', color: '#a78bfa' },
-  albums:      { sg: 'Albumas',    pl: 'Albumai',     emoji: '💿', color: '#60a5fa' },
-  tracks:      { sg: 'Daina',      pl: 'Dainos',      emoji: '🎵', color: '#34d399' },
-  profiles:    { sg: 'Vartotojas', pl: 'Vartotojai',  emoji: '👤', color: '#fb923c' },
-  events:      { sg: 'Renginys',   pl: 'Renginiai',   emoji: '📅', color: '#f472b6' },
-  venues:      { sg: 'Vieta',      pl: 'Vietos',      emoji: '📍', color: '#facc15' },
-  news:        { sg: 'Naujiena',   pl: 'Naujienos',   emoji: '📰', color: '#22d3ee' },
-  blog_posts:  { sg: 'Blogas',     pl: 'Blogai',      emoji: '✍️', color: '#a3e635' },
-  discussions: { sg: 'Diskusija',  pl: 'Diskusijos',  emoji: '💬', color: '#f87171' },
+/* ─── Modern line-art SVG icons (vietoj emoji) ────────────────────────
+ * Visi 16x16 viewBox, currentColor stroke / fill — paveldi tekstinę
+ * spalvą iš parent'o. Match'ina likusio site'o ikonų stilių (lib/ui/Icons.tsx).
+ */
+const IconArtist = (p: { size?: number }) => (
+  <svg width={p.size ?? 14} height={p.size ?? 14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+    <line x1="12" y1="19" x2="12" y2="23"/>
+    <line x1="8" y1="23" x2="16" y2="23"/>
+  </svg>
+)
+const IconAlbum = (p: { size?: number }) => (
+  <svg width={p.size ?? 14} height={p.size ?? 14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <circle cx="12" cy="12" r="10"/>
+    <circle cx="12" cy="12" r="3"/>
+  </svg>
+)
+const IconTrack = (p: { size?: number }) => (
+  <svg width={p.size ?? 14} height={p.size ?? 14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M9 18V5l12-2v13"/>
+    <circle cx="6" cy="18" r="3"/>
+    <circle cx="18" cy="16" r="3"/>
+  </svg>
+)
+const IconProfile = (p: { size?: number }) => (
+  <svg width={p.size ?? 14} height={p.size ?? 14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+    <circle cx="12" cy="7" r="4"/>
+  </svg>
+)
+const IconEvent = (p: { size?: number }) => (
+  <svg width={p.size ?? 14} height={p.size ?? 14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <rect x="3" y="4" width="18" height="18" rx="2"/>
+    <line x1="16" y1="2" x2="16" y2="6"/>
+    <line x1="8" y1="2" x2="8" y2="6"/>
+    <line x1="3" y1="10" x2="21" y2="10"/>
+  </svg>
+)
+const IconVenue = (p: { size?: number }) => (
+  <svg width={p.size ?? 14} height={p.size ?? 14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+    <circle cx="12" cy="10" r="3"/>
+  </svg>
+)
+const IconNews = (p: { size?: number }) => (
+  <svg width={p.size ?? 14} height={p.size ?? 14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/>
+    <path d="M18 14h-8M15 18h-5M10 6h8v4h-8z"/>
+  </svg>
+)
+const IconBlog = (p: { size?: number }) => (
+  <svg width={p.size ?? 14} height={p.size ?? 14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M12 20h9"/>
+    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+  </svg>
+)
+const IconDiscussion = (p: { size?: number }) => (
+  <svg width={p.size ?? 14} height={p.size ?? 14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+  </svg>
+)
+
+// Spalvos paletė — be žaliųjų atspalvių. Brand orange'as eina pagrindiniam
+// turiniui (dainos), o likę kategorijos turi distinct atspalvį, kad UI'jus
+// būtų lengva skenuoti. Visos čia hex'ais; CSS var alternatyva nepalaikytų
+// Color+'22' alpha trick'o, todėl liekam su literal'iais.
+const CAT_LABELS: Record<Category, { sg: string; pl: string; Icon: (p: { size?: number }) => React.ReactElement; color: string }> = {
+  artists:     { sg: 'Atlikėjas',  pl: 'Atlikėjai',   Icon: IconArtist,     color: '#a78bfa' }, // purple
+  albums:      { sg: 'Albumas',    pl: 'Albumai',     Icon: IconAlbum,      color: '#60a5fa' }, // blue
+  tracks:      { sg: 'Daina',      pl: 'Dainos',      Icon: IconTrack,      color: '#f97316' }, // orange (brand)
+  profiles:    { sg: 'Vartotojas', pl: 'Vartotojai',  Icon: IconProfile,    color: '#fb7185' }, // rose
+  events:      { sg: 'Renginys',   pl: 'Renginiai',   Icon: IconEvent,      color: '#f472b6' }, // pink
+  venues:      { sg: 'Vieta',      pl: 'Vietos',      Icon: IconVenue,      color: '#eab308' }, // amber
+  news:        { sg: 'Naujiena',   pl: 'Naujienos',   Icon: IconNews,       color: '#22d3ee' }, // cyan
+  blog_posts:  { sg: 'Blogas',     pl: 'Blogai',      Icon: IconBlog,       color: '#fb923c' }, // light orange
+  discussions: { sg: 'Diskusija',  pl: 'Diskusijos',  Icon: IconDiscussion, color: '#ef4444' }, // red
 }
 
 const CAT_ORDER: Category[] = [
   'artists', 'tracks', 'albums', 'events', 'profiles',
   'news', 'blog_posts', 'discussions', 'venues',
-]
-
-const POPULAR_QUERIES = [
-  'Andrius Mamontovas', 'Marijonas Mikutavičius', 'G&G Sindikatas',
-  'Antis', 'Foje', 'Andrius Pojavis',
 ]
 
 export type MasterSearchProps = {
@@ -81,32 +144,63 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
   const [q, setQ] = useState('')
   const [activeCat, setActiveCat] = useState<Category | 'all'>('all')
   const [results, setResults] = useState<Results>(emptyResults())
+  const [totals, setTotals] = useState<Totals>(emptyTotals())
   const [loading, setLoading] = useState(false)
   const [tookMs, setTookMs] = useState(0)
   const [selectedIdx, setSelectedIdx] = useState(0)
-  const cacheRef = useRef<Map<string, { results: Results; took_ms: number }>>(new Map())
+  const cacheRef = useRef<Map<string, { results: Results; totals: Totals; took_ms: number }>>(new Map())
   const abortRef = useRef<AbortController | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [recentQueries, setRecentQueries] = useState<string[]>([])
-  const [topArtists, setTopArtists] = useState<Hit[]>([])
+  // Trending = mix'as populiariausių atlikėjų + dainų pagal click'us per
+  // /api/search-master/trending. Fallback'as — top by score, jei dar nėra
+  // duomenų.
+  const [trending, setTrending] = useState<Hit[]>([])
+  // Expanded — kai user'is filtruoja pagal vieną kategoriją, fetch'inam
+  // limit=30 tos kategorijos rezultatų. Cache pagal `${q}|${cat}`.
+  const [expanded, setExpanded] = useState<Partial<Record<Category, Hit[]>>>({})
+  const expandedCacheRef = useRef<Map<string, Hit[]>>(new Map())
+  const [expandLoading, setExpandLoading] = useState(false)
 
-  // ── Atidarius — focus input ──
+  // ── Atidarius — focus input + scroll lock ──
+  // iOS Safari nesofuokuoja per setTimeout (user-gesture'ą prarandam).
+  // Sprendimai:
+  //   1. Focus iškart (sync) — dažnai veikia, nes hook'as run'inasi
+  //      sinchroniniame React commit'e po user click'o.
+  //   2. autoFocus prop'as ant input'o (backup).
+  //   3. requestAnimationFrame fallback'as kai DOM dar montuojasi.
+  // Body scroll lock'as iOS'e: `overflow: hidden` neužtenka, reikia
+  // position:fixed + saugoti scrollY, kitu atveju background scroll'inasi.
   useEffect(() => {
-    if (open) {
-      // delay'as kad transition'as nelaužytų caret'o
-      const t = setTimeout(() => inputRef.current?.focus(), 80)
-      // Body scroll lock
-      document.body.style.overflow = 'hidden'
-      // Recent queries from sessionStorage (artifacts: jei išjungta — fail
-      // silently; localStorage čia ne — gali būti restricted env'uose).
-      try {
-        const saved = sessionStorage.getItem('musiclt-recent-search')
-        if (saved) setRecentQueries(JSON.parse(saved).slice(0, 8))
-      } catch {}
-      return () => {
-        clearTimeout(t)
-        document.body.style.overflow = ''
-      }
+    if (!open) return
+    inputRef.current?.focus()
+    requestAnimationFrame(() => inputRef.current?.focus())
+    const t = setTimeout(() => inputRef.current?.focus(), 60)
+
+    // iOS-friendly scroll lock
+    const scrollY = window.scrollY
+    const prev = {
+      overflow: document.body.style.overflow,
+      position: document.body.style.position,
+      top: document.body.style.top,
+      width: document.body.style.width,
+    }
+    document.body.style.overflow = 'hidden'
+    document.body.style.position = 'fixed'
+    document.body.style.top = `-${scrollY}px`
+    document.body.style.width = '100%'
+
+    try {
+      const saved = sessionStorage.getItem('musiclt-recent-search')
+      if (saved) setRecentQueries(JSON.parse(saved).slice(0, 8))
+    } catch {}
+    return () => {
+      clearTimeout(t)
+      document.body.style.overflow = prev.overflow
+      document.body.style.position = prev.position
+      document.body.style.top = prev.top
+      document.body.style.width = prev.width
+      window.scrollTo(0, scrollY)
     }
   }, [open])
 
@@ -117,38 +211,91 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
       setActiveCat('all')
       setSelectedIdx(0)
       setResults(emptyResults())
+      setExpanded({})
     }
   }, [open])
 
-  // ── Užkrauti default top atlikėjus kai input tuščias ──
+  // ── Reset expanded kai keičiasi query ──
+  useEffect(() => { setExpanded({}) }, [q])
+
+  // ── Reset selection kai keičiasi kategorija (kad highlight'as nepasiklystų) ──
+  useEffect(() => { setSelectedIdx(0) }, [activeCat])
+
+  // ── Fetch expanded kai user'is pasirenka kategoriją ──
+  // Visi → nieko nedarom (rodom default limit=12 rezultatus iš `results`).
+  // Specifinė kategorija → fetch'inam limit=200 tos kategorijos rezultatų,
+  // kad user'is galėtų scroll'inti per visą katalogą (pvz. visas 220
+  // Mamontovo dainų be tolimesnių pagination round'ų).
   useEffect(() => {
-    if (!open || topArtists.length > 0) return
-    fetch('/api/artists?limit=8&sort=score')
+    if (!open || activeCat === 'all') return
+    const trimmed = q.trim()
+    if (trimmed.length < 1) return
+    const cacheKey = `${trimmed}|${activeCat}`
+    const cached = expandedCacheRef.current.get(cacheKey)
+    if (cached) {
+      setExpanded(prev => ({ ...prev, [activeCat]: cached }))
+      return
+    }
+    let cancelled = false
+    setExpandLoading(true)
+    fetch(`/api/search-master?q=${encodeURIComponent(trimmed)}&categories=${activeCat}&limit=200`)
       .then(r => r.ok ? r.json() : null)
       .then(d => {
-        const arr = Array.isArray(d) ? d : (d?.artists || [])
-        setTopArtists(arr.slice(0, 8).map((a: any) => ({
-          id: a.id,
-          type: 'artists' as Category,
-          title: a.name,
-          image_url: a.cover_image_url,
-          href: `/atlikejai/${a.slug}`,
-          score: a.score,
-        })))
+        if (cancelled || !d) return
+        const items = (d.results?.[activeCat] || []) as Hit[]
+        expandedCacheRef.current.set(cacheKey, items)
+        setExpanded(prev => ({ ...prev, [activeCat]: items }))
       })
       .catch(() => {})
-  }, [open, topArtists.length])
+      .finally(() => { if (!cancelled) setExpandLoading(false) })
+    return () => { cancelled = true }
+  }, [activeCat, q, open])
+
+  // ── Užkrauti trending atlikėjus + dainas (mix'as) kai input tuščias ──
+  // Šaltinis: /api/search-master/trending — agreguoja last 14d click'us
+  // iš search_clicks lentelės, fallback'ina į top by score jei dar nėra
+  // duomenų. Mix'inami atlikėjai su dainomis kad sekcija atrodytų tankiau.
+  useEffect(() => {
+    if (!open || trending.length > 0) return
+    fetch('/api/search-master/trending?limit=10')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        const items = (d?.items || []) as Hit[]
+        if (items.length > 0) setTrending(items)
+      })
+      .catch(() => {})
+  }, [open, trending.length])
 
   // ── Debounced fetch ──
+  // Loading flag turi būti TRUE kai tik užklausa keičiasi, ne tik kai
+  // fetch'as eina — taip "Nieko nerasta" neflash'ina tarp typing ir
+  // serverio response'o (140ms debounce + serverio latency).
+  // `lastQuery` saugo paskutinę užbaigtą fetch'ui užklausą, kad galėtume
+  // identifikuoti "stale" state'us.
+  const [lastQuery, setLastQuery] = useState('')
   useEffect(() => {
     if (!open) return
     const trimmed = q.trim()
     if (trimmed.length < 1) {
       setResults(emptyResults())
+      setTotals(emptyTotals())
       setTookMs(0)
+      setLoading(false)
+      setLastQuery('')
+      return
+    }
+    // Cache hit'as — galim atvaizduoti iškart be loading flash'o
+    if (cacheRef.current.has(trimmed)) {
+      const cached = cacheRef.current.get(trimmed)!
+      setResults(cached.results)
+      setTotals(cached.totals)
+      setTookMs(cached.took_ms)
+      setLastQuery(trimmed)
       setLoading(false)
       return
     }
+    // Visi kiti atvejai — show loading immediately
+    setLoading(true)
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
       runQuery(trimmed)
@@ -163,8 +310,11 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
     const cached = cacheRef.current.get(query)
     if (cached) {
       setResults(cached.results)
+      setTotals(cached.totals)
       setTookMs(cached.took_ms)
       setSelectedIdx(0)
+      setLastQuery(query)
+      setLoading(false)
       return
     }
     if (abortRef.current) abortRef.current.abort()
@@ -172,16 +322,21 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
     abortRef.current = ctrl
     setLoading(true)
     try {
-      const r = await fetch(`/api/search-master?q=${encodeURIComponent(query)}&limit=6`, {
+      // Default limit=12 — šiek tiek daugiau negu API default (10), kad
+      // "Visi" view'e tilptų po nurodytą kiekį per kategoriją.
+      const r = await fetch(`/api/search-master?q=${encodeURIComponent(query)}&limit=12`, {
         signal: ctrl.signal,
       })
       if (!r.ok) throw new Error('search failed')
       const d = await r.json()
       const safeResults: Results = { ...emptyResults(), ...(d.results || {}) }
-      cacheRef.current.set(query, { results: safeResults, took_ms: d.took_ms || 0 })
+      const safeTotals: Totals = { ...emptyTotals(), ...(d.totals || {}) }
+      cacheRef.current.set(query, { results: safeResults, totals: safeTotals, took_ms: d.took_ms || 0 })
       setResults(safeResults)
+      setTotals(safeTotals)
       setTookMs(d.took_ms || 0)
       setSelectedIdx(0)
+      setLastQuery(query)
     } catch (e: any) {
       if (e?.name === 'AbortError') return
       console.error('Search error:', e)
@@ -190,15 +345,27 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
     }
   }, [])
 
+  // ── Effective results — kai activeCat = specifinė kategorija ir
+  // turim expanded data tai kategorijai, naudojam ją (limit=30); kitaip
+  // grįžtam prie default'inių (limit=6). 'Visi' visada naudoja default. ──
+  const effectiveResults = useMemo<Results>(() => {
+    if (activeCat === 'all') return results
+    const expandedItems = expanded[activeCat]
+    if (expandedItems && expandedItems.length > 0) {
+      return { ...results, [activeCat]: expandedItems }
+    }
+    return results
+  }, [results, expanded, activeCat])
+
   // ── Flat list visų rezultatų (keyboard nav per visą sąrašą) ──
   const flatHits = useMemo(() => {
     const out: Hit[] = []
     for (const cat of CAT_ORDER) {
       if (activeCat !== 'all' && activeCat !== cat) continue
-      out.push(...(results[cat] || []))
+      out.push(...(effectiveResults[cat] || []))
     }
     return out
-  }, [results, activeCat])
+  }, [effectiveResults, activeCat])
 
   // ── Keyboard nav ──
   useEffect(() => {
@@ -231,6 +398,19 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
       setRecentQueries(next)
       try { sessionStorage.setItem('musiclt-recent-search', JSON.stringify(next)) } catch {}
     }
+    // Log click'ą trending'ui — fire-and-forget, nelaukiam response'o.
+    try {
+      fetch('/api/search-master/log', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          entity_type: hit.type,
+          id: hit.id,
+          query: q.trim() || null,
+        }),
+        keepalive: true,
+      }).catch(() => {})
+    } catch {}
     onClose()
     // delay nav iki transition'o pabaigos kad smooth atrodytų
     setTimeout(() => router.push(hit.href), 50)
@@ -246,13 +426,26 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
   if (!open) return null
 
   const total = flatHits.length
-  const showEmpty = q.trim().length === 0
-  const showNoResults = !showEmpty && !loading && total === 0
+  const trimmedQ = q.trim()
+  const showEmpty = trimmedQ.length === 0
+  // Stale: user'is keičia užklausą, bet fetch dar nesusinchronizavo —
+  // šiuo metu rodom loader, ne "nieko nerasta".
+  const isStale = !showEmpty && lastQuery !== trimmedQ
+  const showLoader = !showEmpty && (loading || isStale)
+  const showNoResults = !showEmpty && !showLoader && total === 0
 
-  // Counts per category for chip badges
+  // Counts per category — naudojam totals iš serverio (pilna count DB), o
+  // jei totals nepriėjo (legacy fallback), gradient'iškai imam returned items.
   const counts: Record<Category, number> = {} as any
-  for (const cat of CAT_ORDER) counts[cat] = (results[cat] || []).length
+  for (const cat of CAT_ORDER) {
+    counts[cat] = totals[cat] || (results[cat] || []).length
+  }
   const totalAcrossCats = CAT_ORDER.reduce((s, c) => s + counts[c], 0)
+  // Visible — kiek REALIAI matom UI'jus (limit'as gali skirtis nuo totals).
+  const visibleCounts: Record<Category, number> = {} as any
+  for (const cat of CAT_ORDER) {
+    visibleCounts[cat] = (effectiveResults[cat] || []).length
+  }
 
   return (
     <>
@@ -262,24 +455,36 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
         {/* ── Top: input ── */}
         <div className="ms-input-wrap">
           <span className="ms-input-icon" aria-hidden>
-            {loading ? <Spinner /> : <SearchIcon />}
+            {showLoader ? <Equalizer /> : <SearchIcon />}
           </span>
           <input
             ref={inputRef}
             value={q}
             onChange={e => setQ(e.target.value)}
-            placeholder="Ieškok atlikėjų, dainų, albumų, vartotojų, renginių…"
+            placeholder="Ieškoti"
             className="ms-input"
             autoComplete="off"
             spellCheck={false}
+            // autoFocus — iOS Safari'ui užtikrinimui (kartu su sync focus
+            // call'u useEffect'e). Be šito mobile user'iams reikėdavo
+            // pirmiausia tap'inti į input'ą, o tik tada virš klaviatūra
+            // atsidarydavo.
+            autoFocus
+            inputMode="search"
+            enterKeyHint="search"
           />
-          {q.length > 0 && (
-            <button className="ms-clear" onClick={() => { setQ(''); inputRef.current?.focus() }} aria-label="Išvalyti">
-              <CloseIcon />
-            </button>
-          )}
-          <button className="ms-close" onClick={onClose} aria-label="Uždaryti">
-            <span className="ms-kbd">Esc</span>
+          {/* Vienas X button'as: jei užklausa neturštia — clear'ina text'ą,
+              jei tuščia — uždaro modal'ą. Anksčiau buvo du atskirti
+              control'ai (clear X + Esc kbd label) — perdaug noisy. */}
+          <button
+            className="ms-close-x"
+            onClick={() => {
+              if (q.length > 0) { setQ(''); inputRef.current?.focus() }
+              else onClose()
+            }}
+            aria-label={q.length > 0 ? 'Išvalyti' : 'Uždaryti'}
+          >
+            <CloseIcon />
           </button>
         </div>
 
@@ -292,63 +497,76 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
             >
               Visi <span className="ms-chip-num">{totalAcrossCats}</span>
             </button>
-            {CAT_ORDER.filter(c => counts[c] > 0).map(cat => (
-              <button
-                key={cat}
-                className={`ms-chip ${activeCat === cat ? 'on' : ''}`}
-                onClick={() => setActiveCat(cat)}
-                style={activeCat === cat ? { borderColor: CAT_LABELS[cat].color, color: CAT_LABELS[cat].color } : undefined}
-              >
-                <span className="ms-chip-emoji">{CAT_LABELS[cat].emoji}</span>
-                {CAT_LABELS[cat].pl}
-                <span className="ms-chip-num">{counts[cat]}</span>
-              </button>
-            ))}
+            {CAT_ORDER.filter(c => counts[c] > 0).map(cat => {
+              const Ico = CAT_LABELS[cat].Icon
+              const isActive = activeCat === cat
+              return (
+                <button
+                  key={cat}
+                  className={`ms-chip ${isActive ? 'on' : ''}`}
+                  onClick={() => setActiveCat(cat)}
+                  style={isActive ? { borderColor: CAT_LABELS[cat].color, color: CAT_LABELS[cat].color } : undefined}
+                >
+                  <span className="ms-chip-ico" style={{ color: CAT_LABELS[cat].color }}><Ico size={13} /></span>
+                  {CAT_LABELS[cat].pl}
+                  <span className="ms-chip-num">{counts[cat]}{isActive && expandLoading ? '…' : ''}</span>
+                </button>
+              )
+            })}
           </div>
         )}
 
-        {/* ── Body ── */}
+        {/* ── Body ──
+            Render priority: empty state > loading (be results) > no-results > rezultatai.
+            Loader rodom kai užklausa keičiasi BET dar neturim rezultatų toj užklausai.
+            Jei jau turim cached results — rodom juos su small loading hint įvedimo lauke. */}
         <div className="ms-body">
           {showEmpty && <EmptyState
             recent={recentQueries}
-            popular={POPULAR_QUERIES}
-            topArtists={topArtists}
+            trending={trending}
             onPick={(s) => setQ(s)}
             onGo={(h) => go(h)}
           />}
 
+          {showLoader && total === 0 && (
+            <div className="ms-loader">
+              <BigEqualizer />
+              <div className="ms-loader-text">Ieškau „{trimmedQ}"…</div>
+            </div>
+          )}
+
           {showNoResults && (
             <div className="ms-noresults">
-              <div className="ms-noresults-emoji">🔍</div>
-              <div className="ms-noresults-title">Nieko nerasta užklausai „{q}"</div>
+              <div className="ms-noresults-icon">
+                <SearchIcon />
+              </div>
+              <div className="ms-noresults-title">Nieko nerasta užklausai „{trimmedQ}"</div>
               <div className="ms-noresults-hint">Pabandyk kitą paiešką arba tikrink rašybą.</div>
             </div>
           )}
 
           {!showEmpty && total > 0 && (
             <ResultsList
-              results={results}
+              results={effectiveResults}
+              totals={totals}
               activeCat={activeCat}
               selectedIdx={selectedIdx}
               onSelect={(i) => setSelectedIdx(i)}
               onGo={go}
+              onExpandCategory={(cat) => setActiveCat(cat)}
             />
           )}
         </div>
 
-        {/* ── Footer: hint ── */}
-        <div className="ms-footer">
-          <span className="ms-footer-keys">
-            <span className="ms-kbd">↑</span><span className="ms-kbd">↓</span> naviguoti
-            &nbsp;·&nbsp;
-            <span className="ms-kbd">Enter</span> atidaryti
-            &nbsp;·&nbsp;
-            <span className="ms-kbd">Esc</span> uždaryti
-          </span>
-          {tookMs > 0 && (
+        {/* ── Footer: tik rezultatų stats (jei yra) ──
+            Keyboard hints (↑/↓/Enter/Esc) pašalinti — apkraudavo modal'ą
+            informacija, kuri akivaizdi mouse user'iams ir power user'iai
+            jau žino shortcut'us. */}
+        {tookMs > 0 && (
+          <div className="ms-footer">
             <span className="ms-footer-stats">{total} rezultatai · {tookMs}ms</span>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </>
   )
@@ -357,13 +575,15 @@ export function MasterSearch({ open, onClose }: MasterSearchProps) {
 /* ─── Sub-components ─────────────────────────────────────────────── */
 
 function ResultsList({
-  results, activeCat, selectedIdx, onSelect, onGo,
+  results, totals, activeCat, selectedIdx, onSelect, onGo, onExpandCategory,
 }: {
   results: Results
+  totals: Totals
   activeCat: Category | 'all'
   selectedIdx: number
   onSelect: (i: number) => void
   onGo: (h: Hit) => void
+  onExpandCategory: (cat: Category) => void
 }) {
   let idx = -1
   return (
@@ -373,12 +593,17 @@ function ResultsList({
         if (items.length === 0) return null
         if (activeCat !== 'all' && activeCat !== cat) return null
         const meta = CAT_LABELS[cat]
+        const Ico = meta.Icon
+        const totalForCat = totals[cat] || items.length
+        const moreAvailable = activeCat === 'all' && totalForCat > items.length
         return (
           <div key={cat} className="ms-group">
             <div className="ms-group-head">
-              <span className="ms-group-emoji" aria-hidden>{meta.emoji}</span>
+              <span className="ms-group-ico" style={{ color: meta.color }} aria-hidden><Ico size={13} /></span>
               <span className="ms-group-label">{meta.pl}</span>
-              <span className="ms-group-count">{items.length}</span>
+              <span className="ms-group-count">
+                {totalForCat > items.length ? `${items.length} / ${totalForCat}` : items.length}
+              </span>
             </div>
             <div className={`ms-items ${cat === 'artists' || cat === 'profiles' ? 'as-grid' : ''}`}>
               {items.map(h => {
@@ -397,6 +622,16 @@ function ResultsList({
                 )
               })}
             </div>
+            {moreAvailable && (
+              <button
+                className="ms-more-link"
+                onClick={() => onExpandCategory(cat)}
+                style={{ color: meta.color }}
+              >
+                Rodyti visus {meta.pl.toLowerCase()} ({totalForCat})
+                <span aria-hidden style={{ marginLeft: 4 }}>→</span>
+              </button>
+            )}
           </div>
         )
       })}
@@ -415,6 +650,7 @@ function ResultRow({
   layoutGrid?: boolean
 }) {
   const meta = CAT_LABELS[hit.type]
+  const Ico = meta.Icon
   const img = proxyImg(hit.image_url || '')
   const isCircle = hit.type === 'artists' || hit.type === 'profiles'
 
@@ -431,8 +667,8 @@ function ResultRow({
             // eslint-disable-next-line @next/next/no-img-element
             <img src={img} alt="" className="ms-grid-img" loading="lazy" />
           ) : (
-            <div className="ms-grid-fallback" style={{ background: meta.color + '22' }}>
-              <span style={{ fontSize: 28 }}>{meta.emoji}</span>
+            <div className="ms-grid-fallback" style={{ background: meta.color + '22', color: meta.color }}>
+              <Ico size={26} />
             </div>
           )}
         </div>
@@ -457,7 +693,7 @@ function ResultRow({
           <img src={img} alt="" loading="lazy" />
         ) : (
           <div className="ms-row-fallback" style={{ background: meta.color + '22', color: meta.color }}>
-            <span>{meta.emoji}</span>
+            <Ico size={18} />
           </div>
         )}
       </div>
@@ -466,19 +702,21 @@ function ResultRow({
         {hit.subtitle && <div className="ms-row-sub">{hit.subtitle}</div>}
       </div>
       <div className="ms-row-badge" style={{ color: meta.color, borderColor: meta.color + '40' }}>
-        {meta.sg}
+        <Ico size={11} />
+        <span>{meta.sg}</span>
       </div>
-      <div className="ms-row-arrow">↵</div>
+      <div className="ms-row-arrow" aria-hidden>
+        <ArrowReturn />
+      </div>
     </button>
   )
 }
 
 function EmptyState({
-  recent, popular, topArtists, onPick, onGo,
+  recent, trending, onPick, onGo,
 }: {
   recent: string[]
-  popular: string[]
-  topArtists: Hit[]
+  trending: Hit[]
   onPick: (s: string) => void
   onGo: (h: Hit) => void
 }) {
@@ -497,42 +735,41 @@ function EmptyState({
         </div>
       )}
 
-      <div className="ms-empty-block">
-        <div className="ms-empty-title">Populiarios paieškos</div>
-        <div className="ms-empty-pills">
-          {popular.map(r => (
-            <button key={r} className="ms-pill" onClick={() => onPick(r)}>
-              <FlameIcon /> {r}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {topArtists.length > 0 && (
+      {trending.length > 0 && (
         <div className="ms-empty-block">
-          <div className="ms-empty-title">Top atlikėjai dabar</div>
+          <div className="ms-empty-title">
+            <FlameIcon /> Populiariausi šią savaitę
+          </div>
           <div className="ms-empty-grid">
-            {topArtists.map(a => (
-              <button
-                key={a.id}
-                className="ms-grid-item"
-                onClick={() => onGo(a)}
-              >
-                <div className="ms-grid-img-wrap">
-                  {a.image_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={proxyImg(a.image_url)} alt="" className="ms-grid-img" loading="lazy" />
-                  ) : (
-                    <div className="ms-grid-fallback" style={{ background: '#a78bfa22' }}>
-                      <span style={{ fontSize: 28 }}>🎤</span>
-                    </div>
-                  )}
-                </div>
-                <div className="ms-grid-text">
-                  <div className="ms-grid-title">{a.title}</div>
-                </div>
-              </button>
-            ))}
+            {trending.map(item => {
+              const meta = CAT_LABELS[item.type]
+              const Ico = meta?.Icon || IconArtist
+              const fallbackColor = meta?.color || '#a78bfa'
+              return (
+                <button
+                  key={`${item.type}-${item.id}`}
+                  className="ms-grid-item"
+                  onClick={() => onGo(item)}
+                >
+                  <div className="ms-grid-img-wrap" style={{
+                    borderRadius: item.type === 'tracks' || item.type === 'albums' ? 8 : '50%',
+                  }}>
+                    {item.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={proxyImg(item.image_url)} alt="" className="ms-grid-img" loading="lazy" />
+                    ) : (
+                      <div className="ms-grid-fallback" style={{ background: fallbackColor + '22', color: fallbackColor }}>
+                        <Ico size={26} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="ms-grid-text">
+                    <div className="ms-grid-title">{item.title}</div>
+                    {item.subtitle && <div className="ms-grid-sub">{item.subtitle}</div>}
+                  </div>
+                </button>
+              )
+            })}
           </div>
         </div>
       )}
@@ -569,10 +806,35 @@ function FlameIcon() {
     </svg>
   )
 }
-function Spinner() {
+/** Equalizer-style loader — 4 vertical bars bouncing su staggered delay'ais.
+ *  Match'ina kitur svetainėje naudojamą EqualizerLoader (MusicSearchPicker.tsx). */
+function Equalizer() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="ms-spin">
-      <path d="M21 12a9 9 0 1 1-6.22-8.55" />
+    <span className="ms-eq" aria-hidden>
+      {[0, 0.12, 0.24, 0.36].map((d, i) => (
+        <span key={i} style={{ animationDelay: `${d}s` }} />
+      ))}
+    </span>
+  )
+}
+
+/** Didesnė versija centriniam loading state'ui body viduje. */
+function BigEqualizer() {
+  return (
+    <span className="ms-eq-big" aria-hidden>
+      {[0, 0.10, 0.20, 0.30, 0.15].map((d, i) => (
+        <span key={i} style={{ animationDelay: `${d}s` }} />
+      ))}
+    </span>
+  )
+}
+
+/** Return arrow icon (Enter), naudojamas hover'inant row'ą. */
+function ArrowReturn() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="9 10 4 15 9 20"/>
+      <path d="M20 4v7a4 4 0 0 1-4 4H4"/>
     </svg>
   )
 }
@@ -583,6 +845,14 @@ function emptyResults(): Results {
     artists: [], albums: [], tracks: [],
     profiles: [], events: [], venues: [],
     news: [], blog_posts: [], discussions: [],
+  }
+}
+
+function emptyTotals(): Totals {
+  return {
+    artists: 0, albums: 0, tracks: 0,
+    profiles: 0, events: 0, venues: 0,
+    news: 0, blog_posts: 0, discussions: 0,
   }
 }
 
@@ -620,8 +890,35 @@ const searchCss = `
   0% { opacity: 0; transform: translate(-50%, 8px) scale(.97) }
   100% { opacity: 1; transform: translate(-50%, 0) scale(1) }
 }
-.ms-spin { animation: ms-rot 0.9s linear infinite; }
-@keyframes ms-rot { to { transform: rotate(360deg) } }
+
+/* ── Equalizer loader — 4 bars su animation delay'ais ── */
+.ms-eq {
+  display: inline-flex; align-items: flex-end;
+  gap: 2px; height: 16px; width: 18px;
+}
+.ms-eq > span {
+  display: block;
+  width: 3px; height: 30%;
+  background: var(--accent-orange, #fb923c);
+  border-radius: 1px;
+  animation: ms-eqBar .85s ease-in-out infinite alternate;
+}
+@keyframes ms-eqBar {
+  0% { height: 30%; }
+  50% { height: 100%; }
+  100% { height: 50%; }
+}
+.ms-eq-big {
+  display: inline-flex; align-items: flex-end;
+  gap: 4px; height: 44px; width: 50px;
+}
+.ms-eq-big > span {
+  display: block;
+  width: 6px; height: 30%;
+  background: var(--accent-orange, #fb923c);
+  border-radius: 2px;
+  animation: ms-eqBar 1.0s ease-in-out infinite alternate;
+}
 
 /* ── Input ── */
 .ms-input-wrap {
@@ -642,24 +939,27 @@ const searchCss = `
   font-family: inherit;
   letter-spacing: -0.005em;
   padding: 4px 0;
+  -webkit-appearance: none;
+  -webkit-tap-highlight-color: transparent;
 }
+.ms-input:focus, .ms-input:focus-visible { outline: none; box-shadow: none; }
 .ms-input::placeholder { color: var(--text-muted, #888); font-weight: 400; }
-.ms-clear {
-  width: 26px; height: 26px;
-  border: none; background: var(--bg-hover, rgba(255,255,255,0.05));
-  border-radius: 6px; cursor: pointer;
+/* Vienas close/clear X button'as — fully square, tinkamai didelis tap target. */
+.ms-close-x {
+  width: 32px; height: 32px;
+  border: none; background: transparent;
+  border-radius: 8px; cursor: pointer;
   color: var(--text-muted, #aaa);
   display: flex; align-items: center; justify-content: center;
   transition: background .12s, color .12s;
+  outline: none;
+  flex-shrink: 0;
 }
-.ms-clear:hover { background: var(--bg-hover, rgba(255,255,255,0.1)); color: var(--text-primary, #fff); }
-.ms-close {
-  border: none; background: transparent; cursor: pointer;
-  color: var(--text-muted, #888);
-  padding: 4px 8px; border-radius: 6px;
-  transition: color .12s;
+.ms-close-x:hover {
+  background: var(--bg-hover, rgba(255,255,255,0.08));
+  color: var(--text-primary, #fff);
 }
-.ms-close:hover { color: var(--text-primary, #fff); }
+.ms-close-x svg { width: 16px; height: 16px; }
 .ms-kbd {
   display: inline-block;
   font-family: 'SF Mono', monospace; font-size: 10px; font-weight: 600;
@@ -710,7 +1010,7 @@ const searchCss = `
   border-radius: 8px;
   margin-left: 1px;
 }
-.ms-chip-emoji { font-size: 13px; line-height: 1; }
+.ms-chip-ico { display: inline-flex; align-items: center; line-height: 1; }
 
 /* ── Body ── */
 .ms-body {
@@ -733,7 +1033,7 @@ const searchCss = `
   letter-spacing: 0.08em;
   color: var(--text-muted, #888);
 }
-.ms-group-emoji { font-size: 13px; line-height: 1; }
+.ms-group-ico { display: inline-flex; align-items: center; line-height: 1; }
 .ms-group-label { font-weight: 800; }
 .ms-group-count {
   margin-left: auto;
@@ -742,6 +1042,28 @@ const searchCss = `
   border-radius: 10px;
   font-size: 10px; font-weight: 700;
   color: var(--text-muted, #888);
+  font-variant-numeric: tabular-nums;
+}
+
+/* "Rodyti visus N" link'as kategorijos apačioje */
+.ms-more-link {
+  display: inline-flex; align-items: center;
+  gap: 4px;
+  margin: 4px 12px 6px;
+  padding: 6px 10px;
+  border: none; background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px; font-weight: 700;
+  letter-spacing: -0.005em;
+  border-radius: 6px;
+  transition: background .12s, transform .12s;
+  opacity: 0.9;
+}
+.ms-more-link:hover {
+  background: var(--bg-hover, rgba(255,255,255,0.05));
+  opacity: 1;
+  transform: translateX(2px);
 }
 .ms-items { display: flex; flex-direction: column; gap: 1px; }
 .ms-items.as-grid {
@@ -794,6 +1116,7 @@ const searchCss = `
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .ms-row-badge {
+  display: inline-flex; align-items: center; gap: 4px;
   font-size: 9.5px; font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -804,7 +1127,7 @@ const searchCss = `
   opacity: 0.85;
 }
 .ms-row-arrow {
-  font-size: 13px;
+  display: inline-flex; align-items: center;
   color: var(--text-muted, #666);
   opacity: 0;
   transition: opacity .1s;
@@ -860,12 +1183,14 @@ const searchCss = `
 .ms-empty { padding: 18px 22px 20px; }
 .ms-empty-block { margin-bottom: 22px; }
 .ms-empty-title {
+  display: inline-flex; align-items: center; gap: 6px;
   font-size: 11px; font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-muted, #888);
   margin-bottom: 10px;
 }
+.ms-empty-title svg { color: var(--accent-orange, #f97316); }
 .ms-empty-pills { display: flex; flex-wrap: wrap; gap: 6px; }
 .ms-pill {
   display: inline-flex; align-items: center; gap: 6px;
@@ -890,12 +1215,34 @@ const searchCss = `
   gap: 8px;
 }
 
+/* ── Loader (centrinis, body viduje) ── */
+.ms-loader {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 70px 20px;
+  gap: 14px;
+}
+.ms-loader-text {
+  font-size: 13px; font-weight: 500;
+  color: var(--text-muted, #888);
+  letter-spacing: -0.005em;
+}
+
 /* ── No results ── */
 .ms-noresults {
   text-align: center;
   padding: 60px 20px;
 }
-.ms-noresults-emoji { font-size: 36px; margin-bottom: 10px; opacity: 0.7; }
+.ms-noresults-icon {
+  display: inline-flex;
+  width: 48px; height: 48px;
+  align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: var(--bg-hover, rgba(255,255,255,0.05));
+  color: var(--text-muted, #888);
+  margin-bottom: 14px;
+}
+.ms-noresults-icon svg { width: 22px; height: 22px; }
 .ms-noresults-title {
   font-size: 16px; font-weight: 700;
   color: var(--text-primary, #fff);
@@ -927,17 +1274,31 @@ const searchCss = `
     0 8px 24px rgba(0,0,0,0.08);
 }
 
-/* ── Mobile ── */
-@media (max-width: 640px) {
+/* ── Mobile (full-screen modal) ──
+   Naudojam 100dvh (dynamic viewport height) iOS Safari'ui — paprastas
+   100vh apima ir URL bar'ą, dėl ko shell apačia užvažiuoja po toolbar'u
+   ir browser scroll'inasi. 100dvh follow'ina realų visible viewport.
+   Fallback: 100vh seniems naršyklėms be dvh palaikymo. */
+@media (max-width: 768px) {
+  .ms-overlay {
+    /* Iškart visa screen — 100vh nuo pirmos eilutės. iOS overflow:hidden
+       ant body tik dalinai veikia, todėl reikia ir overlay'aus. */
+    height: 100vh;
+    height: 100dvh;
+    /* touch-action: none neleidžia gesture'ams praeiti į background'ą. */
+    touch-action: none;
+  }
   .ms-shell {
-    top: 0; left: 0; right: 0;
+    top: 0; left: 0; right: 0; bottom: 0;
     width: 100vw;
     max-height: 100vh; height: 100vh;
+    max-height: 100dvh; height: 100dvh;
     border-radius: 0;
     transform: none;
+    border: none;
   }
   @keyframes ms-pop { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: none } }
-  .ms-input { font-size: 16px; }
+  .ms-input { font-size: 16px; }   /* >=16px kad iOS auto-zoom'as nešoktų */
   .ms-input-wrap { padding: 12px 14px; }
   .ms-row-img { width: 40px; height: 40px; }
   .ms-row-badge { display: none; }

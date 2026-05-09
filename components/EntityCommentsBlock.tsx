@@ -29,6 +29,7 @@ import { proxyImg } from '@/lib/img-proxy'
 import { type AttachmentHit } from './MusicSearchPicker'
 import MusicSearchModal from './MusicSearchModal'
 import LikesModal, { type LikeUser } from './LikesModal'
+import CommentEditor, { type CommentEditorHandle } from './CommentEditor'
 import { relativeTime } from '@/lib/relative-time'
 
 type ModernComment = {
@@ -42,6 +43,9 @@ type ModernComment = {
   author_name: string | null
   author_avatar: string | null
   body: string
+  /** Optional HTML mirror of body — užpildytas migrated legacy komentarams su
+   *  nested blockquote chain'u, kad UI galėtų atvaizduoti visą reply hierarchiją. */
+  content_html?: string | null
   like_count: number
   music_attachments?: AttachmentHit[] | null
   created_at: string
@@ -65,10 +69,14 @@ type LegacyComment = {
 type AnyComment = ModernComment | LegacyComment
 
 type Props = {
-  entityType: 'track' | 'album' | 'artist'
+  entityType: 'track' | 'album' | 'artist' | 'discussion' | 'news' | 'event'
   entityId: number
   /** Optional — only needed if the legacy endpoint differs (currently same shape). */
   legacyEndpoint?: string
+  /** Skip legacy /api/{type}s/{id}/comments fetch entirely. Naudoti kai
+   *  legacy komentarai jau persikėlę į modern `comments` table per
+   *  entity_type (discussion/news/event). */
+  skipLegacy?: boolean
   /** Compact mode — modal use; tighter spacing. */
   compact?: boolean
   /** Title above the list. Defaults to "Diskusija". */
@@ -81,6 +89,197 @@ type Props = {
 
 function stripHtml(html?: string | null): string {
   return decodeEntities((html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim())
+}
+
+/** Detektuoja, ar body'is yra HTML formato (Tiptap output) ar plain tekstas
+ *  (legacy / paprastas vartotojo įvedinys). HTML požymis: bent vienas valid'us
+ *  block tag'as. Konzervatyviai — jei suabejojam, traktuojam kaip plain tekstą,
+ *  kad legacy komentarai būtų rendr'inami su YT auto-detect. */
+function looksLikeHtml(text: string): boolean {
+  if (!text) return false
+  return /<(p|div|br|strong|em|u|b|i|ul|ol|li|blockquote|iframe|a|h[1-6])\b[^>]*>/i.test(text)
+}
+
+/** Force rel="nofollow ugc noopener noreferrer" + target="_blank" on every <a> tag.
+ *  Used before dangerouslySetInnerHTML so user-submitted comments — including legacy
+ *  posts and ones written by future Tiptap versions — never become a SEO link-building
+ *  vector. Idempotent: drops any existing rel/target attrs and rewrites them.
+ *  External-only? No — we apply to all hrefs uniformly; safer + simpler. */
+function tagLinksNofollow(html: string): string {
+  if (!html) return html
+  // 1) Apsaugot link'us nuo SEO PageRank perdavimo + atidaryt naujam tabe
+  let out = html.replace(/<a\b([^>]*)>/gi, (full, attrs) => {
+    const cleaned = String(attrs)
+      .replace(/\s+rel="[^"]*"/gi, '')
+      .replace(/\s+target="[^"]*"/gi, '')
+    return `<a${cleaned} rel="nofollow ugc noopener noreferrer" target="_blank">`
+  })
+  // 2) Lazy load iframes + images (be kelių šimtų užklausų į YouTube/weserv'ą
+  //    iš karto puslapio load metu — žymiai mažina initial paint laiką).
+  out = out.replace(/<iframe\b([^>]*)>/gi, (full, attrs) => {
+    if (/\bloading\s*=/i.test(attrs)) return full
+    return `<iframe${attrs} loading="lazy">`
+  })
+  out = out.replace(/<img\b([^>]*)>/gi, (full, attrs) => {
+    if (/\bloading\s*=/i.test(attrs)) return full
+    return `<img${attrs} loading="lazy" decoding="async">`
+  })
+  return out
+}
+
+/** Parse migrated legacy content_html: tear off the prepended legacy-quote
+ *  chain and return it as structured array (depth N → 1). The "rest" is the
+ *  actual reply body (everything AFTER the last legacy-quote blockquote).
+ *
+ *  Naudojama, kad UI rodytų gražų collapse/expand control'ą vietoj viso
+ *  chain'o inline (jei thread'as turi 5-10 lygius, ta pati informacija
+ *  kartojasi visuose post'uose, užtveriant skaitymą). */
+function parseLegacyChain(html: string): { quotes: { author: string; body: string }[]; rest: string } {
+  if (!html) return { quotes: [], rest: '' }
+  const quotes: { author: string; body: string }[] = []
+  // Greedy strip — pradžioje surenkam visus konsekutyvius blockquote'us
+  let remainder = html
+  const re = /^\s*<blockquote\s+class=["']legacy-quote["'][^>]*>\s*<div\s+class=["']legacy-quote-author["'][^>]*>([^<]*?)\s*ra[sš]ė:\s*<\/div>\s*<div\s+class=["']legacy-quote-body["'][^>]*>([\s\S]*?)<\/div>\s*<\/blockquote>\s*/i
+  while (true) {
+    const m = remainder.match(re)
+    if (!m) break
+    quotes.push({ author: m[1].trim(), body: m[2].trim() })
+    remainder = remainder.slice(m[0].length)
+  }
+  return { quotes, rest: remainder }
+}
+
+/** Single quote block — orange citation styling, lowercase "author rašė:"
+ *  with mini 16px avatar lookup by username (case-insensitive). */
+function QuoteBlock({
+  author, body, depth, avatarUrl,
+}: {
+  author: string; body: string; depth: number; avatarUrl?: string | null
+}) {
+  const initial = (author || '?').slice(0, 1).toUpperCase()
+  return (
+    <blockquote
+      className="legacy-quote"
+      style={{ marginLeft: depth > 0 ? Math.min(depth, 4) * 14 : 0 }}
+    >
+      <div className="legacy-quote-author">
+        {avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={proxyImg(avatarUrl)}
+            alt=""
+            referrerPolicy="no-referrer"
+            className="legacy-quote-avatar"
+          />
+        ) : (
+          <span className="legacy-quote-avatar-fallback">{initial}</span>
+        )}
+        <span>{author} rašė:</span>
+      </div>
+      <div
+        className="legacy-quote-body"
+        dangerouslySetInnerHTML={{ __html: body }}
+      />
+    </blockquote>
+  )
+}
+
+/** Collapsible reply-chain UI — by default rodom tik IMMEDIATE parent
+ *  (paskutinis depth=1 quote). Jei chain turi >=2 lygius, rodom toggle
+ *  "Rodyti seniau (N)". Sutaupom vertikalios vietos ir nesidubliuoja
+ *  ta pati informacija per kelis post'us. */
+function LegacyChain({
+  quotes, avatarMap,
+}: {
+  quotes: { author: string; body: string }[]
+  avatarMap: Map<string, string>
+}) {
+  const [expanded, setExpanded] = useState(false)
+  if (quotes.length === 0) return null
+  // quotes order: deepest ancestor first, immediate parent last
+  const immediate = quotes[quotes.length - 1]
+  const olderCount = quotes.length - 1
+  return (
+    <div className="mt-1 space-y-1">
+      {expanded && quotes.slice(0, olderCount).map((q, i) => (
+        <QuoteBlock
+          key={i}
+          author={q.author}
+          body={q.body}
+          depth={i}
+          avatarUrl={avatarMap.get(q.author.toLowerCase())}
+        />
+      ))}
+      {olderCount > 0 && (
+        <button
+          type="button"
+          onClick={() => setExpanded(v => !v)}
+          className="ml-1 inline-flex items-center gap-1 text-[11px] font-bold text-[var(--text-faint)] transition-colors hover:text-[var(--accent-orange)]"
+        >
+          <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+               style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 150ms' }}>
+            <polyline points="3 5 6 8 9 5" />
+          </svg>
+          {expanded
+            ? `Slėpti senesnius (${olderCount})`
+            : `Rodyti senesnius (${olderCount})`}
+        </button>
+      )}
+      <QuoteBlock
+        author={immediate.author}
+        body={immediate.body}
+        depth={olderCount}
+        avatarUrl={avatarMap.get(immediate.author.toLowerCase())}
+      />
+    </div>
+  )
+}
+
+/** Extract YouTube video ID iš įvairių URL formų. */
+const YT_PATTERNS = [
+  /youtube\.com\/watch\?v=([A-Za-z0-9_-]{11})/i,
+  /youtu\.be\/([A-Za-z0-9_-]{11})/i,
+  /youtube\.com\/embed\/([A-Za-z0-9_-]{11})/i,
+  /youtube\.com\/shorts\/([A-Za-z0-9_-]{11})/i,
+]
+
+function extractYouTubeId(url: string): string | null {
+  for (const re of YT_PATTERNS) {
+    const m = url.match(re)
+    if (m) return m[1]
+  }
+  return null
+}
+
+/** Iš body teksto extract'ina ir grąžina chunks: text + youtube embeds.
+ *  Naudojama legacy forum komentarų rendering'e — music.lt seniau leido
+ *  inline YT embed'us, mūsų DB'oje saugoma kaip plain URL teksto viduje. */
+function splitBodyWithYouTube(body: string): Array<{ kind: 'text' | 'yt'; value: string }> {
+  if (!body) return []
+  // URL pattern — youtube/youtu.be ar shorts. Grąžinam tekstą + atskiri YT URL'ai.
+  const urlRe = /https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\/[^\s<>]+/gi
+  const out: Array<{ kind: 'text' | 'yt'; value: string }> = []
+  let lastIdx = 0
+  let m: RegExpExecArray | null
+  while ((m = urlRe.exec(body)) !== null) {
+    const url = m[0]
+    const ytId = extractYouTubeId(url)
+    if (ytId) {
+      // Tekstas iki URL
+      if (m.index > lastIdx) {
+        const before = body.slice(lastIdx, m.index)
+        if (before) out.push({ kind: 'text', value: before })
+      }
+      out.push({ kind: 'yt', value: ytId })
+      lastIdx = m.index + url.length
+    }
+  }
+  if (lastIdx < body.length) {
+    const tail = body.slice(lastIdx)
+    if (tail) out.push({ kind: 'text', value: tail })
+  }
+  if (out.length === 0) return [{ kind: 'text', value: body }]
+  return out
 }
 
 /** Decode the most common HTML entities that legacy music.lt comments
@@ -262,7 +461,7 @@ function Avatar({ name, url, size = 28 }: { name: string; url?: string | null; s
 }
 
 export default function EntityCommentsBlock({
-  entityType, entityId, legacyEndpoint, compact = false, title = 'Diskusija', onCountChange,
+  entityType, entityId, legacyEndpoint, skipLegacy: skipLegacyProp, compact = false, title = 'Diskusija', onCountChange,
 }: Props) {
   const { data: session, status: sessionStatus } = useSession()
   const [modern, setModern] = useState<ModernComment[] | null>(null)
@@ -270,31 +469,82 @@ export default function EntityCommentsBlock({
   const [likedIds, setLikedIds] = useState<Set<number>>(new Set())
   const [likedLegacyIds, setLikedLegacyIds] = useState<Set<number>>(new Set())
   const [sort, setSort] = useState<'newest' | 'oldest' | 'popular'>('newest')
+  const [loadedPages, setLoadedPages] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
   const [draft, setDraft] = useState('')
   const [posting, setPosting] = useState(false)
-  const [replyTo, setReplyTo] = useState<{ id: number; name: string; text: string } | null>(null)
+  // Reply target for the MODAL ONLY. Earlier this was a single shared `replyTo`
+  // used by both inline composer and modal — that caused the banner to leak
+  // into the inline composer after a successful modal submit if any setter
+  // raced (e.g. reload triggers re-render before state batch settled). We
+  // now keep modal target physically isolated so the inline composer can't
+  // even see it.
+  // SINGLE source of truth for "user is replying to comment X via modal".
+  // Modal is open <=> modalReplyTo !== null. No separate boolean — eliminates
+  // the race that made the banner leak into the inline composer.
+  const [modalReplyTo, setModalReplyTo] = useState<{ id: number; name: string; text: string } | null>(null)
+  const [replyDraft, setReplyDraft] = useState('')
+  const [replyAttached, setReplyAttached] = useState<AttachmentHit[]>([])
+  const [replyPickerOpen, setReplyPickerOpen] = useState(false)
+  const [replyPosting, setReplyPosting] = useState(false)
+  const [replyError, setReplyError] = useState('')
   const [error, setError] = useState('')
   const [attached, setAttached] = useState<AttachmentHit[]>([])
   const [pickerOpen, setPickerOpen] = useState(false)
   const [likersFor, setLikersFor] = useState<{ entityType: string; entityId: number; count: number } | null>(null)
   const [likersUsers, setLikersUsers] = useState<LikeUser[]>([])
+  const [likersLoading, setLikersLoading] = useState(false)
+  // Toast state — short success banner shown for ~2.4s after a successful post.
+  const [toast, setToast] = useState<{ kind: 'success' | 'info'; message: string } | null>(null)
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const showToast = (message: string, kind: 'success' | 'info' = 'success') => {
+    setToast({ kind, message })
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    toastTimerRef.current = setTimeout(() => setToast(null), 2400)
+  }
+  // Editor refs — used to imperatively clear after successful submit
+  // (prop-based clearing has a race vs Tiptap's onUpdate cycle).
+  const editorRef = useRef<CommentEditorHandle | null>(null)
+  const replyEditorRef = useRef<CommentEditorHandle | null>(null)
   const draftRef = useRef<HTMLTextAreaElement | null>(null)
 
-  const legacyUrl = legacyEndpoint || `/api/${entityType}s/${entityId}/comments`
+  // Discussions yra unified — visi komentarai jau gyvena modern `comments`
+  // lentelėj (per backfill_unify_forum.py). Legacy endpoint praleidžiamas.
+  // Skip legacy fetch:
+  //   - jei explicit prop'as skipLegacy=true (news pvz. — komentarai jau modern API'e)
+  //   - jei entityType='discussion' (DM jau persikelti į modern comments)
+  // Kitiems tipams (track/album/artist/event) — fetch'inam legacy endpoint'ą.
+  const skipLegacy = skipLegacyProp || entityType === 'discussion'
+  const legacyUrl = legacyEndpoint || (skipLegacy ? null : `/api/${entityType}s/${entityId}/comments`)
+  // Diskusijos puslapis gali turėti tūkstančius komentarų — load'inam
+  // 40 vienu metu kad UI nesulėtėtų (legacy posts su nested chain'ais +
+  // images + iframes intensyviai apkrauna pradinį render'ą). Track/album
+  // turi mažiau, fetch'inam 200 iš karto.
+  const PAGE_SIZE = entityType === 'discussion' ? 40 : 200
+
+  const fetchPage = async (page: number, sortParam: string): Promise<ModernComment[]> => {
+    const offset = page * PAGE_SIZE
+    const r = await fetch(
+      `/api/comments?entity_type=${entityType}&entity_id=${entityId}&sort=${sortParam}&limit=${PAGE_SIZE}&offset=${offset}`,
+    )
+    const d = await r.json()
+    return (d.comments || []).map((c: any) => ({ ...c, source: 'modern' as const }))
+  }
 
   const reload = async () => {
     setError('')
+    setLoadedPages(1)
     try {
-      const [modernRes, legacyRes] = await Promise.all([
-        fetch(`/api/comments?entity_type=${entityType}&entity_id=${entityId}&sort=newest&limit=200`),
-        fetch(legacyUrl),
+      const [firstPage, legacyRes] = await Promise.all([
+        fetchPage(0, sort),
+        legacyUrl ? fetch(legacyUrl) : Promise.resolve(null),
       ])
-      const modernData = await modernRes.json()
-      const legacyData = await legacyRes.json()
-      const modernList: ModernComment[] = (modernData.comments || []).map((c: any) => ({ ...c, source: 'modern' as const }))
+      const legacyData = legacyRes ? await legacyRes.json() : { comments: [] }
       const legacyList: LegacyComment[] = (legacyData.comments || legacyData || []).map((c: any) => ({ ...c, source: 'legacy' as const }))
-      setModern(modernList)
+      setModern(firstPage)
       setLegacy(legacyList)
+      setHasMore(firstPage.length >= PAGE_SIZE)
+      const modernList = firstPage
       // Likes set — both modern + legacy
       const ids = modernList.map(c => c.id).join(',')
       const lids = legacyList.map(c => c.legacy_id).join(',')
@@ -315,16 +565,48 @@ export default function EntityCommentsBlock({
   useEffect(() => {
     reload()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entityType, entityId])
+  }, [entityType, entityId, sort])
+
+  /** Load next page of modern comments — append to existing list. */
+  const loadMore = async () => {
+    const nextPage = loadedPages
+    try {
+      const more = await fetchPage(nextPage, sort)
+      setModern(prev => [...(prev || []), ...more])
+      setLoadedPages(prev => prev + 1)
+      setHasMore(more.length >= PAGE_SIZE)
+      // Atnaujinam likes set su naujais ID'ais
+      const ids = more.map(c => c.id).join(',')
+      if (ids) {
+        try {
+          const lr = await fetch(`/api/comments/likes?ids=${ids}`)
+          const ld = await lr.json()
+          setLikedIds(prev => {
+            const next = new Set(prev)
+            for (const id of ld.liked_ids || []) next.add(id)
+            return next
+          })
+        } catch { /* silent */ }
+      }
+    } catch {
+      /* silent */
+    }
+  }
 
   // Fetch likers when modal opens
   useEffect(() => {
-    if (!likersFor) { setLikersUsers([]); return }
+    if (!likersFor) {
+      setLikersUsers([])
+      setLikersLoading(false)
+      return
+    }
     setLikersUsers([])
+    setLikersLoading(true)
     fetch(`/api/likes/${likersFor.entityType}/${likersFor.entityId}`)
       .then(r => r.json())
       .then(d => setLikersUsers(d.users || []))
       .catch(() => setLikersUsers([]))
+      .finally(() => setLikersLoading(false))
   }, [likersFor])
 
   // Merge + sort
@@ -345,6 +627,32 @@ export default function EntityCommentsBlock({
   // Emit count changes — parent (mobile tab label) renders the chip.
   useEffect(() => { onCountChange?.(totalCount) }, [totalCount, onCountChange])
 
+  /** ID lookup map — leidžia render'inti parent quote'ą bet kuriam comment'ui
+   *  kuris turi parent_id (modern + legacy backfill'inti komentarai abu).
+   *  Su 17k+ thread'ų rodyti reply chain'us iš text-prefix nepakanka, nes
+   *  legacy backfill'as numeta originalų quote markup'ą — naudojam parent_id
+   *  resolved per backfill_unify_forum stage_resolve_parents. */
+  const modernById = useMemo(() => {
+    const m = new Map<number, ModernComment>()
+    for (const c of modern || []) m.set(c.id, c)
+    return m
+  }, [modern])
+
+  /** Username (lowercased) → avatar URL map. Naudojama LegacyChain quote
+   *  block'uose mini avatarų rodymui. Surenkam iš modern komentarų autorių
+   *  duomenų — kiekvienas thread'o autorius bent vienam savo komentarui
+   *  yra modern.author_name + author_avatar, tad map'as padengia visus
+   *  chain'o quote autorius. */
+  const avatarByUsername = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const c of modern || []) {
+      if (c.author_name && c.author_avatar) {
+        m.set(c.author_name.toLowerCase(), c.author_avatar)
+      }
+    }
+    return m
+  }, [modern])
+
   const submit = async () => {
     if (!session?.user?.id) {
       setError('Reikia prisijungti, kad galėtum komentuoti.')
@@ -352,12 +660,9 @@ export default function EntityCommentsBlock({
     }
     const rawText = draft.trim()
     if (!rawText && attached.length === 0) return
-    // Naudojam tą patį "Author rašė:\nquote\n\nreply" wire format kaip
-    // diskusijos modal'as — taip viename body field'e telpa ir citata, ir
-    // atsakymas, o display logic'as parse'ina ir piešia orange quote box'ą.
-    const finalText = replyTo && rawText
-      ? `${replyTo.name} rašė:\n${replyTo.text.slice(0, 240)}\n\n${rawText}`
-      : rawText
+    // Inline composer'is — tik nauji komentarai (be reply context). Replies
+    // visada eina per modal'ą (žr. submitReply).
+    const finalText = rawText
     setPosting(true)
     setError('')
     try {
@@ -367,11 +672,7 @@ export default function EntityCommentsBlock({
         body: JSON.stringify({
           entity_type: entityType,
           entity_id: entityId,
-          // parent_id: only set when replying to a modern comment with a
-          // real FK id. Replies to legacy archived comments use parent_id=null
-          // (we keep the quote prefix in body for visual continuity, but
-          // can't FK-link to a legacy_id from the modern table).
-          parent_id: replyTo?.id && replyTo.id > 0 ? replyTo.id : null,
+          parent_id: null,
           text: finalText,
           attachments: attached.length > 0 ? attached : undefined,
         }),
@@ -381,14 +682,68 @@ export default function EntityCommentsBlock({
         setError(data.error || 'Klaida.')
         return
       }
+      editorRef.current?.clear()
       setDraft('')
-      setReplyTo(null)
       setAttached([])
+      showToast('Komentaras pridėtas')
       reload()
     } catch {
       setError('Tinklo klaida.')
     } finally {
       setPosting(false)
+    }
+  }
+
+  /** Modal'inis reply submit. Naudoja replyDraft + replyAttached + modalReplyTo.
+   *  Sėkmės atveju setModalReplyTo(null) uždaro modal'ą (modal vis derive'as
+   *  iš modalReplyTo egzistavimo), o tai pat clean'ina target. Vienas state
+   *  šaltinis = jokios race sąlygos tarp replyTo / replyModalOpen. */
+  const submitReply = async () => {
+    if (!session?.user?.id) {
+      setReplyError('Reikia prisijungti.')
+      return
+    }
+    if (!modalReplyTo) {
+      setReplyError('Nieko atsakyti.')
+      return
+    }
+    const rawText = replyDraft.trim()
+    if (!rawText && replyAttached.length === 0) {
+      setReplyError('Įrašyk komentarą arba prikabink dainą.')
+      return
+    }
+    const finalText = rawText
+      ? `${modalReplyTo.name} rašė:\n${modalReplyTo.text.slice(0, 240)}\n\n${rawText}`
+      : `${modalReplyTo.name} rašė:\n${modalReplyTo.text.slice(0, 240)}\n\n`
+    setReplyPosting(true)
+    setReplyError('')
+    try {
+      const res = await fetch('/api/comments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          entity_type: entityType,
+          entity_id: entityId,
+          parent_id: modalReplyTo.id && modalReplyTo.id > 0 ? modalReplyTo.id : null,
+          text: finalText,
+          attachments: replyAttached.length > 0 ? replyAttached : undefined,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setReplyError(data.error || 'Klaida.')
+        return
+      }
+      replyEditorRef.current?.clear()
+      setModalReplyTo(null)
+      setReplyDraft('')
+      setReplyAttached([])
+      showToast('Atsakymas išsiųstas')
+      reload()
+    } catch {
+      setReplyError('Tinklo klaida.')
+    } finally {
+      setReplyPosting(false)
     }
   }
 
@@ -534,31 +889,11 @@ export default function EntityCommentsBlock({
 
   // Composer block — extracted, used as the FIRST element inside the section
   // so the user is invited to write before scrolling through existing posts.
+  // Inline composer'is yra TIK naujiems komentarams. Reply'ai eina per
+  // dedikuotą modalą, tad jokio replyTo banner'io čia nereikia (anksčiau
+  // toks egzistavo bet leak'indavosi po sėkmingo modal submit'o).
   const Composer = (
     <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3">
-      {replyTo && (
-        <div className="mb-2 flex items-start gap-2 rounded-lg border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.08)] px-3 py-2">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="mt-0.5 shrink-0 text-[var(--accent-orange)]"><polyline points="9 14 4 9 9 4" /><path d="M20 20v-7a4 4 0 0 0-4-4H4" /></svg>
-          <div className="min-w-0 flex-1">
-            <div className="font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-[var(--accent-orange)]">
-              Atsakant: {replyTo.name}
-            </div>
-            <div className="mt-0.5 line-clamp-2 text-[11.5px] text-[var(--text-muted)]">
-              {replyTo.text}
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => setReplyTo(null)}
-            aria-label="Atšaukti atsakymą"
-            className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-[var(--text-faint)] transition-colors hover:text-[var(--text-primary)]"
-          >
-            <svg viewBox="0 0 16 16" width={11} height={11} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-              <path d="M3 3l10 10M13 3L3 13" />
-            </svg>
-          </button>
-        </div>
-      )}
       {attached.length > 0 && (
         <div className="mb-2 flex flex-wrap gap-1.5">
           {attached.map((hit, i) => (
@@ -590,13 +925,13 @@ export default function EntityCommentsBlock({
       {/* Composer body — textarea full-width on top, action row below.
           Buttons sit on their own row underneath so the textarea can stay
           generously wide even on narrow modal columns. */}
-      <textarea
-        ref={draftRef}
+      <CommentEditor
+        ref={editorRef}
         value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        placeholder={replyTo ? `Atsakyti @${replyTo.name}...` : 'Tavo komentaras'}
-        rows={compact ? 3 : 3}
-        className="w-full resize-none rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-2.5 text-[13.5px] leading-snug text-[var(--text-primary)] outline-none transition-colors placeholder:text-[var(--text-faint)] focus:border-[var(--accent-orange)]"
+        onChange={setDraft}
+        placeholder='Tavo komentaras'
+        onSubmit={submit}
+        minHeight={compact ? 60 : 80}
       />
       <div className="mt-2 flex items-center justify-between gap-2">
         <button
@@ -643,6 +978,32 @@ export default function EntityCommentsBlock({
 
   return (
     <section className="flex flex-col gap-3">
+      {/* Toast — fixed top-center notification, auto-hides after ~2.4s.
+          Used for "Komentaras pridėtas" / "Atsakymas išsiųstas" success
+          confirmations after submit. */}
+      {toast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed left-1/2 top-6 z-[10001] -translate-x-1/2 animate-in fade-in slide-in-from-top-2"
+        >
+          <div
+            className="flex items-center gap-2 rounded-full px-4 py-2 text-[12.5px] font-bold shadow-2xl"
+            style={{
+              background: toast.kind === 'success' ? 'rgba(34,197,94,0.15)' : 'var(--bg-elevated)',
+              border: `1px solid ${toast.kind === 'success' ? 'rgba(34,197,94,0.45)' : 'var(--border-default)'}`,
+              color: toast.kind === 'success' ? '#4ade80' : 'var(--text-primary)',
+              backdropFilter: 'blur(8px)',
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            {toast.message}
+          </div>
+        </div>
+      )}
+
       {/* Header — title + count + sort. Compact (modal) → mažutė uppercase
           versija, kad atitiktų gretimą "Dainos tekstas" subhead'ą. */}
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -653,9 +1014,7 @@ export default function EntityCommentsBlock({
           }
           style={compact ? undefined : { fontSize: headerSize }}
         >
-          {title} {totalCount > 0 && (
-            <span className={compact ? 'ml-1 text-[var(--accent-orange)]' : 'ml-1 font-bold text-[var(--text-faint)]'}>{totalCount}</span>
-          )}
+          {title}
         </h3>
         <div className="flex items-center gap-1.5">
           <SortChip k="newest" label="Naujausi" />
@@ -692,31 +1051,76 @@ export default function EntityCommentsBlock({
             const rel = relativeTime(c.created_at)
             const id = isModern ? c.id : c.legacy_id
             const liked = isModern ? likedIds.has(c.id) : false
-            // Reply parsing — modern uses text-based "Author rašė:" prefix,
-            // legacy uses scraped HTML <div class="quote1"> blocks. We try
-            // BOTH paths so the orange quote box renders consistently
-            // regardless of source.
+            // Reply parsing — TRYS šaltiniai (priority order):
+            //   1. parent_id linkavimas (rezultatas iš backfill_unify_forum
+            //      stage_resolve_parents — naudojama legacy thread'uose kuriuose
+            //      reply chain išsaugotas tik per parent_username/parent_body_excerpt)
+            //   2. Body-prefix "Author rašė:" (modern composer'is + senas legacy
+            //      formatas)
+            //   3. HTML <div class="quote1"> blokai (kai kuriuose legacy posts)
             let quoteAuthor: string | null = null
             let quoteText: string | null = null
             let rest: string = ''
-            if (isModern) {
-              const parsed = parseReplyBody(c.body)
-              quoteAuthor = parsed.quoteAuthor
-              quoteText = parsed.quoteText
-              rest = parsed.rest
-            } else {
-              // Try HTML parse first (most legacy comments have content_html)
-              if (c.content_html) {
-                const parsed = parseLegacyHtmlQuote(c.content_html)
+            // Sentinel — kai true, fallback path'ai NEPERRAŠO rest/quote*
+            // (anksčiau Path 0 nustatydavo quoteAuthor=null, ir fallback
+            // sąlyga `quoteAuthor==null` perrašydavo rest į c.body).
+            let resolved = false
+            // Path 0 — modern comment'as su content_html (= MIGRATED LEGACY).
+            // Visi tokie komentarai išsaugoti su pilnu HTML kūnu, įskaitant
+            // image'us, blockquote chain'ą, music attachments. Atplaukiam chain'ą
+            // į struktūruotus quotes (collapsible UI), o "rest" lieka tik
+            // tikrasis post body.
+            let legacyQuotes: { author: string; body: string }[] = []
+            if (isModern && c.content_html && c.content_html.trim()) {
+              const parsed = parseLegacyChain(c.content_html)
+              legacyQuotes = parsed.quotes
+              rest = parsed.rest || ''
+              resolved = true
+            }
+            // Path 1 — parent_id lookup (modern komentarams BE content_html)
+            else if (isModern && c.parent_id != null) {
+              const parent = modernById.get(c.parent_id)
+              if (parent) {
+                quoteAuthor = parent.author_name || 'Vartotojas'
+                // Strip HTML tags from parent body for clean quote display
+                const parentBody = parent.body || ''
+                quoteText = parentBody.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 240)
+                rest = c.body
+                resolved = true
+              }
+            }
+            // Path 2/3 — fallback į text/HTML parsing tik jei dar neapdorotas
+            if (!resolved) {
+              if (isModern) {
+                const parsed = parseReplyBody(c.body)
                 quoteAuthor = parsed.quoteAuthor
                 quoteText = parsed.quoteText
                 rest = parsed.rest
               } else {
-                // Fallback: text-only with possible "Author rašė:" prefix
-                const parsed = parseReplyBody(c.content_text || '')
-                quoteAuthor = parsed.quoteAuthor
-                quoteText = parsed.quoteText
-                rest = parsed.rest
+                if (c.content_html) {
+                  // Naujausi scrape'ai įdeda nested <blockquote class="legacy-quote">
+                  // chain'ą tiesiai į content_html. Tas chain'as render'inasi
+                  // kaip orange citatos automatiškai per dangerouslySetInnerHTML.
+                  // Senesni scrape'ai gali turėti <div class="quote1"> formatą —
+                  // jei jis aptiktas, paliekam parseLegacyHtmlQuote elgesį.
+                  if (/<blockquote\s+class=["']?legacy-quote["']?/i.test(c.content_html)) {
+                    rest = c.content_html
+                    quoteAuthor = null
+                    quoteText = null
+                  } else if (/<div[^>]*class=["']?quote1["']?/i.test(c.content_html)) {
+                    const parsed = parseLegacyHtmlQuote(c.content_html)
+                    quoteAuthor = parsed.quoteAuthor
+                    quoteText = parsed.quoteText
+                    rest = parsed.rest
+                  } else {
+                    rest = c.content_html
+                  }
+                } else {
+                  const parsed = parseReplyBody(c.content_text || '')
+                  quoteAuthor = parsed.quoteAuthor
+                  quoteText = parsed.quoteText
+                  rest = parsed.rest
+                }
               }
             }
             // Deleted komentarai matomi tik admin'ams (server filter'ina
@@ -761,12 +1165,48 @@ export default function EntityCommentsBlock({
                         </div>
                       </div>
                     )}
-                    <div
-                      className="mt-1 whitespace-pre-wrap break-words text-[var(--text-primary)]"
-                      style={{ fontSize, lineHeight: 1.55 }}
-                    >
-                      {rest}
-                    </div>
+                    {/* Migracijos legacy reply chain — collapsible. Default rodo
+                        tik immediate parent (depth 1), su toggle'iu, jei yra
+                        senesnių lygių. Ne dublikuojam to paties turinio per
+                        skirtingus post'us — sutaupo vietą. */}
+                    {legacyQuotes.length > 0 && (
+                      <LegacyChain quotes={legacyQuotes} avatarMap={avatarByUsername} />
+                    )}
+                    {/* Body render'is — du keliai:
+                        1) HTML komentaras (Tiptap output) — render via dangerouslySetInnerHTML
+                           su prose-like dark stiliais. Iframe'us, formatavimą laiko.
+                        2) Plain text (legacy) — splitBodyWithYouTube atpažįsta YT URL'us
+                           ir konvertuoja į embed'us, likusius kaip span. */}
+                    {looksLikeHtml(rest) ? (
+                      <div
+                        className="comment-html-body mt-1 break-words text-[var(--text-primary)]"
+                        style={{ fontSize, lineHeight: 1.55 }}
+                        dangerouslySetInnerHTML={{ __html: tagLinksNofollow(rest) }}
+                      />
+                    ) : (
+                      <div
+                        className="mt-1 whitespace-pre-wrap break-words text-[var(--text-primary)]"
+                        style={{ fontSize, lineHeight: 1.55 }}
+                      >
+                        {splitBodyWithYouTube(rest).map((chunk, idx) => {
+                          if (chunk.kind === 'yt') {
+                            return (
+                              <div key={`yt-${idx}`} className="my-2 overflow-hidden rounded-md" style={{ aspectRatio: '16/9', maxWidth: 560 }}>
+                                <iframe
+                                  src={`https://www.youtube.com/embed/${chunk.value}`}
+                                  title="YouTube video"
+                                  style={{ width: '100%', height: '100%', border: 0 }}
+                                  loading="lazy"
+                                  allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                  allowFullScreen
+                                />
+                              </div>
+                            )
+                          }
+                          return <span key={`t-${idx}`}>{chunk.value}</span>
+                        })}
+                      </div>
+                    )}
                     {/* Music attachments — chip strip su cover thumb +
                         title, click navigates į entity puslapį. */}
                     {Array.isArray(c.music_attachments) && c.music_attachments.length > 0 && (
@@ -848,13 +1288,17 @@ export default function EntityCommentsBlock({
                         <button
                           type="button"
                           onClick={() => {
-                            setReplyTo({
+                            // Setting modalReplyTo OPENS the modal (modal renders
+                            // when modalReplyTo !== null). Single state mutation
+                            // = nothing to leak into the inline composer.
+                            setReplyDraft('')
+                            setReplyAttached([])
+                            setReplyError('')
+                            setModalReplyTo({
                               id: isModern ? c.id : 0,
                               name: author,
                               text: rest.slice(0, 240),
                             })
-                            requestAnimationFrame(() => draftRef.current?.focus())
-                            requestAnimationFrame(() => draftRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
                           }}
                           className="inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--text-muted)] transition-colors hover:text-[var(--accent-orange)]"
                         >
@@ -936,6 +1380,18 @@ export default function EntityCommentsBlock({
         </ul>
       )}
 
+      {hasMore && sortedAll.length > 0 && (
+        <div className="mt-3 flex justify-center">
+          <button
+            type="button"
+            onClick={loadMore}
+            className="rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-4 py-1.5 text-xs font-bold text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+          >
+            Daugiau komentarų
+          </button>
+        </div>
+      )}
+
       {/* Music attachment overlay modal — atskiras nuo composer'io taip,
           kad search results scrollas neperstumdytų teksto laukelio ar
           komentarų sąrašo. */}
@@ -954,7 +1410,128 @@ export default function EntityCommentsBlock({
         title="Patiko"
         count={likersFor?.count || 0}
         users={likersUsers}
+        loading={likersLoading}
       />
+
+      {/* Reply modal — atsakant į komentarą, useris nepamesta scroll pozicijos.
+          Modal rodo parent quote + composer + send. Ctrl+Enter siunčia.
+          Modal'as render'inamas tik kai modalReplyTo nėra null. Vienas state
+          šaltinis = nereikia atskiro replyModalOpen boolean'o. */}
+      {modalReplyTo && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-end justify-center sm:items-center"
+          style={{ background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(8px)' }}
+          onClick={(e) => { if (e.target === e.currentTarget) setModalReplyTo(null) }}
+        >
+          <div
+            className="w-full max-w-3xl overflow-hidden rounded-t-2xl sm:rounded-2xl shadow-2xl"
+            style={{
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border-default)',
+              opacity: 1,
+            }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
+              <div className="flex items-center gap-2 text-sm font-bold text-[var(--text-primary)]">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="9 14 4 9 9 4" /><path d="M20 20v-7a4 4 0 0 0-4-4H4" /></svg>
+                Atsakyti į {modalReplyTo.name}
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalReplyTo(null)}
+                className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+                aria-label="Uždaryti"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Parent quote */}
+            <div className="px-4 pt-3">
+              <div className="rounded-lg border-l-[3px] border-[var(--accent-orange)] bg-[var(--bg-elevated)] px-3 py-2">
+                <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-secondary)]">
+                  {modalReplyTo.name} rašė:
+                </div>
+                <div className="mt-1 line-clamp-4 text-[12px] italic text-[var(--text-muted)]">
+                  {modalReplyTo.text}
+                </div>
+              </div>
+            </div>
+
+            {/* Composer */}
+            <div className="px-4 py-3">
+              <CommentEditor
+                ref={replyEditorRef}
+                value={replyDraft}
+                onChange={setReplyDraft}
+                placeholder="Tavo atsakymas…"
+                onSubmit={() => { if (!replyPosting) submitReply() }}
+                autoFocus
+                minHeight={100}
+              />
+
+              {/* Music attachments preview */}
+              {replyAttached.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {replyAttached.map((a, i) => (
+                    <div
+                      key={`${a.type}-${a.id}-${i}`}
+                      className="inline-flex items-center gap-1 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-2 py-1 text-[11px]"
+                    >
+                      <span className="text-[var(--accent-orange)]">♪</span>
+                      <span className="text-[var(--text-primary)]">{a.title}</span>
+                      <button
+                        type="button"
+                        onClick={() => setReplyAttached((prev) => prev.filter((_, idx) => idx !== i))}
+                        className="ml-1 text-[var(--text-faint)] hover:text-[var(--text-primary)]"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {replyError && (
+                <div className="mt-2 rounded-md border border-red-500/30 bg-red-500/10 px-2 py-1 text-[11px] text-red-400">
+                  {replyError}
+                </div>
+              )}
+
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => setReplyPickerOpen(true)}
+                  className="inline-flex items-center gap-1 rounded-full border border-[var(--border-default)] bg-[var(--bg-elevated)] px-3 py-1.5 text-[11px] font-bold text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]"
+                >
+                  ♪ Pridėti dainos
+                </button>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-[var(--text-faint)]">⌘+Enter siųsti</span>
+                  <button
+                    type="button"
+                    onClick={submitReply}
+                    disabled={replyPosting || (!replyDraft.trim() && replyAttached.length === 0)}
+                    className="rounded-full bg-[var(--accent-orange)] px-4 py-1.5 text-[12px] font-bold text-white shadow-md transition-opacity hover:opacity-90 disabled:opacity-40"
+                  >
+                    {replyPosting ? 'Siunčia…' : 'Siųsti'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Music picker modal — atskirai nuo reply modal'o (z-index aukščiau) */}
+          <MusicSearchModal
+            open={replyPickerOpen}
+            onClose={() => setReplyPickerOpen(false)}
+            attached={replyAttached}
+            onAdd={(hit) => setReplyAttached((a) => [...a, hit])}
+            onRemove={(idx) => setReplyAttached((a) => a.filter((_, i) => i !== idx))}
+          />
+        </div>
+      )}
     </section>
   )
 }

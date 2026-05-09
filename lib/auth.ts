@@ -24,31 +24,62 @@ export const authOptions: AuthOptions = {
   callbacks: {
     async signIn({ user, account }) {
       if (!user.email) return false
+      const normEmail = user.email.trim().toLowerCase()
 
       try {
         const supabase = createAdminClient()
-        const { data: existing } = await supabase
+        // .limit(1).maybeSingle() — net jei race'as įvyko ir yra dublikatų,
+        // pasiimam kanoninę eilutę (ankstesnė versija naudojo .single()
+        // kuris išmesdavo error'ą, ir catch'as resetint role į 'user' —
+        // taip 2026-05-02 vakarą Edvardas prarado admin teises).
+        const { data: candidates } = await supabase
           .from('profiles')
-          .select('id, role')
-          .eq('email', user.email)
-          .single()
+          .select('id, role, created_at')
+          .ilike('email', normEmail)
+          .order('created_at', { ascending: true })
+          .limit(5)
+
+        // Jei yra kelios eilutės (dėl ankstesnių duplicate'ų prieš cleanup
+        // migraciją), pasirenkam tą su admin/super_admin role; jei nėra —
+        // seniausią. Cleanup migracija (20260502b) tai sutvarko visiems
+        // — bet code'as turi būti resilient bet kuriuo atveju.
+        const existing = (candidates || []).sort((a: any, b: any) => {
+          const rank = (r: string) => r === 'super_admin' ? 0 : r === 'admin' ? 1 : 2
+          return rank(a.role) - rank(b.role)
+        })[0]
 
         if (!existing) {
           const { data: whitelisted } = await supabase
             .from('admin_whitelist')
             .select('role')
-            .eq('email', user.email)
-            .single()
+            .ilike('email', normEmail)
+            .limit(1)
+            .maybeSingle()
           const role = whitelisted?.role || (whitelisted ? 'admin' : 'user')
           const { data: newProfile } = await supabase
             .from('profiles')
-            .insert({ email: user.email, full_name: user.name, avatar_url: user.image, role, provider: account?.provider })
+            .insert({ email: normEmail, full_name: user.name, avatar_url: user.image, role, provider: account?.provider })
             .select('id')
             .single()
           user.role = role
           if (newProfile) user.id = newProfile.id
         } else {
-          user.role = existing.role
+          // Net jei profile.role lygus 'user', re-check'inam admin_whitelist —
+          // jei email yra whitelist'e, bet profilis neatnaujintas, force'inam
+          // admin. Tai apsaugo nuo recovery scenario, kai admin'o role
+          // anksčiau buvo netyčia perrašytas.
+          const { data: whitelisted } = await supabase
+            .from('admin_whitelist')
+            .select('role')
+            .ilike('email', normEmail)
+            .limit(1)
+            .maybeSingle()
+          if (whitelisted?.role && existing.role !== whitelisted.role) {
+            await supabase.from('profiles').update({ role: whitelisted.role }).eq('id', existing.id)
+            user.role = whitelisted.role
+          } else {
+            user.role = existing.role
+          }
           user.id = existing.id
         }
 
@@ -94,11 +125,15 @@ export const authOptions: AuthOptions = {
       if (!token.role && token.email) {
         try {
           const supabase = createAdminClient()
+          const normEmail = (token.email as string).trim().toLowerCase()
+          // .limit(1).maybeSingle() — saugus jei kažkokiu būdu yra duplikatų
           const { data } = await supabase
             .from('profiles')
             .select('role, id, full_name, avatar_url')
-            .eq('email', token.email)
-            .single()
+            .ilike('email', normEmail)
+            .order('created_at', { ascending: true })
+            .limit(1)
+            .maybeSingle()
           if (data) {
             token.role = data.role
             token.id = data.id

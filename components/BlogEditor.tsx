@@ -1,10 +1,23 @@
 'use client'
+// components/BlogEditor.tsx
+//
+// Wrapper around RichTextEditor specially blog'ui:
+//   - Įjungia auto-embed paste (YouTube/Spotify/SoundCloud) — user'is
+//     tiesiog įklijuoja URL kažkur straipsnyje, ir jis virsta iframe'u
+//   - Image paste/drop iš screenshot tool'ų ar Finder'io į /api/upload
+//   - Vienas mygtukas viršuje — `+ Pridėti music.lt įrašą` — open'ina
+//     MusicSearchPicker modal'ą ir įterpia entity card'ą į turinį
+//
+// Visi kiti embed'ai/upload'ai dirba per paste. Norėjom paprastinti — vietoj
+// 3 atskirų toolbar mygtukų (YT/SP, music.lt, image), paliekam tik vieną
+// kuris reikalauja explicit pasirinkimo iš mūsų DB.
 
 import { useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import dynamic from 'next/dynamic'
+import MusicSearchPicker, { type AttachmentHit } from '@/components/MusicSearchPicker'
+import { proxyImg } from '@/lib/img-proxy'
 
-// Dynamically import to avoid SSR issues with Tiptap
 const RichTextEditor = dynamic(() => import('@/components/RichTextEditor'), { ssr: false })
 
 interface BlogEditorProps {
@@ -14,86 +27,63 @@ interface BlogEditorProps {
 }
 
 export function BlogEditor({ value, onChange, placeholder }: BlogEditorProps) {
-  const [showEmbedModal, setShowEmbedModal] = useState(false)
-  const [embedUrl, setEmbedUrl] = useState('')
+  const [showMusicModal, setShowMusicModal] = useState(false)
 
-  const insertEmbed = useCallback(() => {
-    if (!embedUrl.trim()) return
-    let embedHtml = ''
-
-    // YouTube
-    const ytMatch = embedUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([\w-]+)/)
-    if (ytMatch) {
-      embedHtml = `<div class="embed-yt" style="position:relative;padding-bottom:56.25%;height:0;margin:24px 0;border-radius:12px;overflow:hidden"><iframe src="https://www.youtube.com/embed/${ytMatch[1]}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:0" allowfullscreen></iframe></div>`
-    }
-
-    // Spotify track
-    const spotifyTrackMatch = embedUrl.match(/open\.spotify\.com\/track\/([\w]+)/)
-    if (spotifyTrackMatch) {
-      embedHtml = `<iframe src="https://open.spotify.com/embed/track/${spotifyTrackMatch[1]}?theme=0" width="100%" height="152" frameBorder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy" style="border-radius:12px;margin:24px 0"></iframe>`
-    }
-
-    // Spotify album
-    const spotifyAlbumMatch = embedUrl.match(/open\.spotify\.com\/album\/([\w]+)/)
-    if (spotifyAlbumMatch) {
-      embedHtml = `<iframe src="https://open.spotify.com/embed/album/${spotifyAlbumMatch[1]}?theme=0" width="100%" height="352" frameBorder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy" style="border-radius:12px;margin:24px 0"></iframe>`
-    }
-
-    // Spotify playlist
-    const spotifyPlaylistMatch = embedUrl.match(/open\.spotify\.com\/playlist\/([\w]+)/)
-    if (spotifyPlaylistMatch) {
-      embedHtml = `<iframe src="https://open.spotify.com/embed/playlist/${spotifyPlaylistMatch[1]}?theme=0" width="100%" height="352" frameBorder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy" style="border-radius:12px;margin:24px 0"></iframe>`
-    }
-
-    if (embedHtml) {
-      // Append embed HTML to current content
-      onChange(value + embedHtml + '<p></p>')
-      setShowEmbedModal(false)
-      setEmbedUrl('')
-    }
-  }, [embedUrl, value, onChange])
+  // Insertinam HTML su data-attrs — MusicCard Tiptap extension'as parseHTML'u
+  // sumatch'ina `a.ml-card` ir konvertuoja į custom node'ą, kuris per
+  // serializaciją išlieka kaip atomiška kortelė (ne flattin'tas tekstas).
+  const insertMusicCard = useCallback((hit: AttachmentHit) => {
+    const proxiedImg = hit.image_url ? proxyImg(hit.image_url) : ''
+    const card =
+      `<a class="ml-card" ` +
+        `data-ml-type="${hit.type}" ` +
+        `data-ml-id="${hit.id}" ` +
+        `data-ml-slug="${escapeAttr(hit.slug || '')}" ` +
+        `data-ml-title="${escapeAttr(hit.title)}" ` +
+        `data-ml-artist="${escapeAttr(hit.artist || '')}" ` +
+        `data-ml-img="${escapeAttr(proxiedImg)}"></a>`
+    onChange(value + card + '<p></p>')
+    setShowMusicModal(false)
+  }, [value, onChange])
 
   return (
     <div>
-      {/* Embed button above editor */}
-      <div className="flex items-center gap-2 mb-2">
+      {/* Subtle hint above editor */}
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[10px]" style={{ color: '#5e7290' }}>
+          Įklijuok YouTube / Spotify nuorodą — auto-embed. Numesk nuotrauką — auto-upload.
+        </p>
         <button
           type="button"
-          onClick={() => setShowEmbedModal(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
-          style={{ background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.2)', color: 'var(--accent-orange)' }}>
-          🎵 Įterpti YouTube / Spotify
+          onClick={() => setShowMusicModal(true)}
+          className="px-2.5 py-1 rounded-md text-[10px] font-bold transition"
+          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#8aa8cc' }}
+        >
+          + music.lt
         </button>
-        <span className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>Įklijuok nuorodą ir embed atsiras straipsnyje</span>
       </div>
 
-      {/* Existing Tiptap editor with dark theme override */}
       <div className="blog-editor-dark">
         <RichTextEditor
           value={value}
           onChange={onChange}
-          placeholder={placeholder || 'Pradėk rašyti savo straipsnį...'}
+          placeholder={placeholder || 'Pradėk rašyti...'}
+          enableMediaPaste
         />
       </div>
 
-      {/* Embed modal */}
-      {showEmbedModal && typeof document !== 'undefined' && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={() => setShowEmbedModal(false)}>
-          <div className="w-full max-w-md mx-4 rounded-2xl p-6" style={{ background: 'var(--modal-bg)', border: '1px solid var(--modal-border)' }} onClick={e => e.stopPropagation()}>
-            <h3 className="text-base font-black mb-1" style={{ color: 'var(--text-primary)' }}>Įterpti muzikos embed</h3>
-            <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>Palaikoma: YouTube, Spotify (track, album, playlist)</p>
-            <input
-              value={embedUrl}
-              onChange={e => setEmbedUrl(e.target.value)}
-              placeholder="https://youtube.com/watch?v=... arba https://open.spotify.com/track/..."
-              className="w-full h-10 rounded-lg px-3 text-sm focus:outline-none mb-3"
-              style={{ background: 'var(--input-bg)', border: '1px solid var(--input-border)', color: 'var(--input-text)' }}
-              onKeyDown={e => e.key === 'Enter' && insertEmbed()}
-              autoFocus
+      {showMusicModal && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={() => setShowMusicModal(false)}>
+          <div className="w-full max-w-lg mx-4 rounded-2xl p-6" style={{ background: 'var(--modal-bg)', border: '1px solid var(--modal-border)' }} onClick={e => e.stopPropagation()}>
+            <h3 className="text-base font-black mb-1" style={{ color: 'var(--text-primary)' }}>Pridėti įrašą iš music.lt</h3>
+            <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>Susirask atlikėją, albumą ar dainą — bus įterpta kaip kortelė</p>
+            <MusicSearchPicker
+              attached={[]}
+              onAdd={insertMusicCard}
+              placeholder="Rašyk pavadinimą..."
             />
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setShowEmbedModal(false)} className="px-4 py-2 rounded-lg text-xs font-bold" style={{ color: 'var(--text-muted)' }}>Atšaukti</button>
-              <button onClick={insertEmbed} className="px-4 py-2 rounded-lg text-xs font-bold transition" style={{ background: 'var(--accent-orange)', color: 'var(--text-primary)' }}>Įterpti</button>
+            <div className="flex justify-end mt-4">
+              <button onClick={() => setShowMusicModal(false)} className="px-4 py-2 rounded-lg text-xs font-bold" style={{ color: 'var(--text-muted)' }}>Uždaryti</button>
             </div>
           </div>
         </div>,
@@ -115,11 +105,22 @@ export function BlogEditor({ value, onChange, placeholder }: BlogEditorProps) {
         .blog-editor-dark .prose { color: #b0bdd4 !important; }
         .blog-editor-dark .prose h2 { color: #f2f4f8 !important; }
         .blog-editor-dark .prose h3 { color: #dde8f8 !important; }
-        .blog-editor-dark .ProseMirror { color: #b0bdd4; min-height: 300px; }
+        .blog-editor-dark .ProseMirror { color: #b0bdd4; min-height: 280px; }
         .blog-editor-dark .ProseMirror p.is-editor-empty:first-child::before { color: rgba(255,255,255,0.15) !important; }
         .blog-editor-dark .ProseMirror blockquote { border-left-color: rgba(249,115,22,0.5); color: rgba(200,215,240,0.55); }
+        .blog-editor-dark .ProseMirror img { border-radius: 10px; margin: 16px 0; max-width: 100%; }
+        .blog-editor-dark .ProseMirror iframe { border-radius: 10px; margin: 20px 0; }
         .blog-editor-dark .w-px.bg-gray-200 { background: rgba(255,255,255,0.08) !important; }
       `}</style>
     </div>
   )
+}
+
+function escapeAttr(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 }
