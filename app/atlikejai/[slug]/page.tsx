@@ -112,7 +112,10 @@ async function getPhotos(id: number) {
 }
 async function getAlbums(id: number) {
   const sb = createAdminClient()
-  const { data } = await sb.from('albums').select('id, slug, title, year, month, cover_image_url, type_studio, type_compilation, type_ep, type_single, type_live, type_remix, type_soundtrack, type_demo, spotify_id, video_url, legacy_id, score').eq('artist_id', id).order('year', { ascending: false })
+  // Skip pending review entries — admin'as turi approve'inti per
+  // /admin/import/pending. Default filter = visi paprasti source'ai
+  // (legacy_scrape, wikipedia, etc.) BET NE 'legacy_scrape_pending'.
+  const { data } = await sb.from('albums').select('id, slug, title, year, month, cover_image_url, type_studio, type_compilation, type_ep, type_single, type_live, type_remix, type_soundtrack, type_demo, spotify_id, video_url, legacy_id, score').eq('artist_id', id).neq('source', 'legacy_scrape_pending').order('year', { ascending: false })
   const albums = (data || []) as any[]
   if (albums.length === 0) return albums
   // Attach album like counts.
@@ -208,8 +211,12 @@ async function getTracks(id: number) {
     // score + video_views — naudojami Top/Naujos dainos PopBar'ui kai
     // like_count'ai dar tušti (pvz. naujai importuoti intl atlikėjai).
     // Fallback hierarchy: like_count → score → video_views → position.
+    //
+    // Filter `source != 'legacy_scrape_pending'` — pending review entries
+    // matomi tik admin'e, kol patvirtinti.
     .select('id, slug, title, type, video_url, spotify_id, cover_url, release_date, lyrics, is_new, is_new_date, release_year, release_month, legacy_id, score, video_views')
     .eq('artist_id', id)
+    .neq('source', 'legacy_scrape_pending')
     .order('created_at', { ascending: false })
     .range(0, 9999)
   const tracks = (data || []) as any[]
