@@ -30,9 +30,6 @@ type Props = {
   title: string   // kept in prop signature for other callers; not rendered
   count: number   // used by the LikePill in the header
   users: LikeUser[]
-  /** When true, render an equalizer loader instead of the empty state.
-   *  Avoids briefly flashing 'Dar niekas nepaspaude' before users[] arrive. */
-  loading?: boolean
   /** Subject being liked — artist/album/track name. When provided (with
    *  subjectPhoto), the modal shows a rich header with mini photo + name +
    *  LikePill. Omitted callers get a minimal header (just the close X). */
@@ -91,7 +88,7 @@ function rankLevel(rank: string | null | undefined): number {
 }
 
 export default function LikesModal({
-  open, onClose, count, users, loading,
+  open, onClose, count, users,
   subjectName, subjectPhoto,
   selfLiked, authed, onToggleSelfLike, selfLikePending,
 }: Props) {
@@ -258,11 +255,9 @@ export default function LikesModal({
           style={{ flex: 1, overflowY: 'auto', padding: '4px 22px 22px' }}
         >
           {sortedUsers.length === 0 ? (
-            loading ? <EqualizerLoader /> : (
-              <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)', fontSize: 13 }}>
-                Dar niekas nepaspaudė.
-              </div>
-            )
+            <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)', fontSize: 13 }}>
+              Dar niekas nepaspaudė.
+            </div>
           ) : (
             <>
               <div style={{
@@ -379,49 +374,6 @@ function HeartIcon({ size = 16 }: { size?: number }) {
     <svg viewBox="0 0 24 24" width={size} height={size} fill="#fff" stroke="#fff">
       <path d="M12 21s-7-4.5-9.5-9A5.5 5.5 0 0 1 12 6a5.5 5.5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9z" />
     </svg>
-  )
-}
-
-/** Animated equalizer — 5 bars bouncing in random rhythm. Used while
- *  fetching likers list to avoid flashing the "Dar niekas nepaspaudė"
- *  empty state during the brief load window. */
-function EqualizerLoader() {
-  const bars = [
-    { delay: '0ms',   duration: '850ms' },
-    { delay: '120ms', duration: '720ms' },
-    { delay: '240ms', duration: '900ms' },
-    { delay: '60ms',  duration: '780ms' },
-    { delay: '180ms', duration: '820ms' },
-  ]
-  return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center',
-      gap: 14, padding: '40px 20px',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 32 }} aria-label="Kraunama…">
-        {bars.map((b, i) => (
-          <span
-            key={i}
-            style={{
-              width: 4,
-              height: '100%',
-              background: 'var(--accent-orange)',
-              borderRadius: 2,
-              opacity: 0.85,
-              animation: `eqBar ${b.duration} ease-in-out ${b.delay} infinite alternate`,
-              transformOrigin: 'bottom',
-            }}
-          />
-        ))}
-      </div>
-      <div style={{ fontSize: 11, color: 'var(--text-faint)' }}>Kraunama…</div>
-      <style jsx>{`
-        @keyframes eqBar {
-          0%   { transform: scaleY(0.18); }
-          100% { transform: scaleY(1); }
-        }
-      `}</style>
-    </div>
   )
 }
 

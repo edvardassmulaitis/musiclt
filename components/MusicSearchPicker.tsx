@@ -38,8 +38,6 @@ type Props = {
   placeholder?: string
   /** Compact (smaller padding/text) for use inside modals. */
   compact?: boolean
-  /** Filtruoti rezultatus tik tam tikram tipui (vertimui — tik 'daina'). */
-  typeFilter?: AttachmentHit['type']
 }
 
 const TYPE_LABEL: Record<AttachmentHit['type'], string> = {
@@ -49,7 +47,7 @@ const TYPE_LABEL: Record<AttachmentHit['type'], string> = {
 }
 
 export default function MusicSearchPicker({
-  attached = [], onAdd, placeholder = 'Pridėk muzikos...', compact = false, typeFilter,
+  attached = [], onAdd, placeholder = 'Pridėk muzikos...', compact = false,
 }: Props) {
   const [q, setQ] = useState('')
   const [results, setResults] = useState<AttachmentHit[]>([])
@@ -95,9 +93,7 @@ export default function MusicSearchPicker({
 
   const attachedKey = (h: AttachmentHit) => `${h.type}:${h.id}`
   const attachedSet = new Set(attached.map(attachedKey))
-  const filtered = results
-    .filter(h => !attachedSet.has(attachedKey(h)))
-    .filter(h => !typeFilter || h.type === typeFilter)
+  const filtered = results.filter(h => !attachedSet.has(attachedKey(h)))
 
   const fontSize = compact ? 12 : 13
   const padY = compact ? 'py-1.5' : 'py-2'

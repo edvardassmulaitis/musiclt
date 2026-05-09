@@ -87,10 +87,18 @@ export type ParticipantEnriched = VotingParticipant & {
 }
 
 // ============================================================================
-// Slugify — re-eksportas iš shared utility (palaiko visas kalbas, ne tik LT)
+// Slugify (LT diakritiniai)
 // ============================================================================
-import { slugify } from './slugify'
-export { slugify }
+export function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[ąčęėįšųūž]/g, c =>
+      ({ ą: 'a', č: 'c', ę: 'e', ė: 'e', į: 'i', š: 's', ų: 'u', ū: 'u', ž: 'z' }[c] || c)
+    )
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 80)
+}
 
 // ============================================================================
 // Enrichment: prijungia artist/track/album duomenis prie participant

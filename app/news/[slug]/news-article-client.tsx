@@ -4,107 +4,16 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
-import EntityCommentsBlock from '@/components/EntityCommentsBlock'
-import LikesModal, { type LikeUser } from '@/components/LikesModal'
-
-/* ─── News article like button — entity_type='news', entity_id=news.id ────── */
-function NewsLikeButton({ newsId }: { newsId: number }) {
-  const { data: session } = useSession()
-  const [count, setCount] = useState(0)
-  const [liked, setLiked] = useState(false)
-  const [likers, setLikers] = useState<LikeUser[]>([])
-  const [modalOpen, setModalOpen] = useState(false)
-
-  // Detektuojam ar current user yra likers sąraše — set'inam `liked` state.
-  const refreshLikers = () => {
-    fetch(`/api/likes/news/${newsId}`)
-      .then(r => r.json())
-      .then(d => {
-        const users: LikeUser[] = d.users || []
-        setCount(d.count || 0)
-        setLikers(users)
-        const myUsername = (session?.user as any)?.name || (session?.user as any)?.email
-        if (myUsername) {
-          const isMine = users.some(u =>
-            (u.user_username || '').toLowerCase() === myUsername.toLowerCase()
-          )
-          setLiked(isMine)
-        } else {
-          setLiked(false)
-        }
-      })
-      .catch(() => {})
-  }
-
-  useEffect(() => {
-    refreshLikers()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [newsId, session?.user])
-
-  async function toggleLike() {
-    if (!session?.user) return
-    const optimisticLiked = !liked
-    setLiked(optimisticLiked)
-    setCount(c => optimisticLiked ? c + 1 : Math.max(0, c - 1))
-    try {
-      await fetch(`/api/news/${newsId}/like`, { method: 'POST' })
-      // Re-fetch authoritative state po POST'o (kad UI matytų realią DB būklę).
-      refreshLikers()
-    } catch {/* silent — optimistic update jau pritaikytas */}
-  }
-
-  // Click on "Patinka" word/icon → toggle (auth required).
-  // Click on count number → open modal su likers list (visiems).
-  return (
-    <>
-      <button
-        type="button"
-        onClick={session?.user ? toggleLike : undefined}
-        className="na-share-btn"
-        style={{
-          color: liked ? '#f97316' : 'inherit',
-          gap: 6,
-          display: 'inline-flex',
-          alignItems: 'center',
-          cursor: session?.user ? 'pointer' : 'not-allowed',
-        }}
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
-          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-        </svg>
-        Patinka
-        {count > 0 && (
-          <span
-            onClick={e => { e.stopPropagation(); setModalOpen(true) }}
-            style={{ marginLeft: 4, cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted' }}
-            title="Pamatyti kas paspaudė"
-          >
-            {count}
-          </span>
-        )}
-      </button>
-      <LikesModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        title="Patinka"
-        count={count}
-        users={likers}
-      />
-    </>
-  )
-}
 
 /* ─── Types ──────────────────────────────────────────────────────────────── */
 type Photo     = { url: string; caption?: string; source?: string }
 type SongEntry = { id?: number; song_id?: number | null; title: string; artist_name: string; youtube_url: string; cover_url?: string }
-type ArtistRef = { id: number; name: string; cover_image_url?: string }
 type NewsItem  = {
   id: number; title: string; slug: string; body: string; type: string
   source_url?: string; source_name?: string; published_at: string
   image_small_url?: string; gallery?: Photo[]
   artist?:  { id: number; name: string; cover_image_url?: string; photos?: any[] }
   artist2?: { id: number; name: string; cover_image_url?: string } | null
-  artists?: ArtistRef[]  // VISI susiję atlikėjai (primary + Susijusi info section)
 }
 type RelatedNews = { id: number; title: string; slug: string; image_small_url?: string; published_at: string; type: string }
 type Comment   = { id: number; content: string; created_at: string; user_name: string; user_image?: string | null }
@@ -747,10 +656,12 @@ export default function NewsArticleClient({
               <div className="na-meta">
                 <span className="na-date">{formatDate(news.published_at)}</span>
               </div>
-              {/* "Skaityti šaltinį" link'as pašalintas iš public UI —
-                  source_url paliktas DB ir prieinamas adminui per
-                  /admin/news editor (kad galetume rasti original article
-                  jei reikalinga). Public viewers tik mato canonical UI. */}
+              {news.source_url && (
+                <a href={news.source_url} target="_blank" rel="noopener" className="na-source-btn">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                  Skaityti šaltinį
+                </a>
+              )}
             </div>
           </div>
         </div>
@@ -764,46 +675,31 @@ export default function NewsArticleClient({
               {gallery.length > 0 && <PhotoGallery photos={gallery} />}
               <div className="na-footer">
                 <Link href="/naujienos" className="na-back">← Visos naujienos</Link>
-                {/* News article like — entity_type='news', entity_id=news.id */}
-                <NewsLikeButton newsId={news.id} />
                 <button className="na-share-btn"
                   onClick={() => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(location.href)}`)}>
                   Dalintis
                 </button>
               </div>
 
-              {/* Reuse'inam EntityCommentsBlock — tas pats UI komponentas
-                  kaip diskusijoms (modern + legacy comments + likes per
-                  entity_type='comment'). Anksčiau buvo custom Comments,
-                  kuris nesinchronizavo su likers UI. */}
-              <EntityCommentsBlock
-                entityType="news"
-                entityId={news.id}
-                title="Komentarai"
-                skipLegacy
-              />
+              <Comments newsId={news.id} />
             </main>
 
             {hasSidebar && (
               <aside className="na-sidebar">
-                {/* Muzika pirmiau, atlikėjai po jos */}
+                {/* Muzika pirmiau, atlikėjas po jos */}
                 {songs.length > 0 && <MusicPlayer songs={songs} />}
-                {/* Visi susiję atlikėjai (primary + Susijusi info section) */}
-                {(news.artists && news.artists.length > 0
-                  ? news.artists
-                  : news.artist ? [news.artist] : []
-                ).map((a, i) => (
-                  <div className="na-artist-card" key={`${a.id}-${i}`}>
-                    {a.cover_image_url
-                      ? <img src={a.cover_image_url} alt={a.name} />
-                      : <div className="na-artist-av">{(a.name || '?')[0]}</div>}
+                {news.artist && (
+                  <div className="na-artist-card">
+                    {news.artist.cover_image_url
+                      ? <img src={news.artist.cover_image_url} alt={news.artist.name} />
+                      : <div className="na-artist-av">{news.artist.name[0]}</div>}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p className="na-artist-name">{a.name}</p>
+                      <p className="na-artist-name">{news.artist.name}</p>
                       <p className="na-artist-sub">music.lt atlikėjas</p>
                     </div>
-                    <Link href={`/atlikejai/${a.id}`} className="na-artist-link">Profilis →</Link>
+                    <Link href={`/atlikejai/${news.artist.id}`} className="na-artist-link">Profilis →</Link>
                   </div>
-                ))}
+                )}
                 <RelatedCard related={related} />
                 <ShareCard title={news.title} />
               </aside>

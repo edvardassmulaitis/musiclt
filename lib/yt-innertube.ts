@@ -91,7 +91,7 @@ export type YtVideoDetails = {
   channelId: string | null
   isPrivate: boolean
   /** Iš kurio source'o gavome viewCount — tinkamas debug'ui. */
-  source?: 'data_api' | 'watch_page' | 'player_api' | 'search_text'
+  source?: 'watch_page' | 'player_api' | 'search_text'
 }
 
 /** Žmoniško "1.2M views" / "1,234,567 views" parsinimas į tikslų skaičių (apytikslis). */
@@ -107,36 +107,6 @@ function parseHumanViewCount(text: string): number {
              : m[2] === 'B' || m[2] === 'b' ? 1e9
              : 1
   return Math.round(num * mult)
-}
-
-/** Source 0 (PIRMINIS) — YouTube Data API v3. Auth'enticated, patikimas,
- *  veikia ir iš Vercel'io (kur InnerTube'as dažnai bot-blocked). Naudoja
- *  YOUTUBE_API_KEY env var — tas pats kuris jau dirba `/api/yt/embeddable`.
- *
- *  Quota: 1 unit už statistics + 1 už status (dinaminei kombinacijai),
- *  default daily quota 10k → ~5k video užklausos / diena. Coldplay'aus
- *  150 tracks = 150 units, OK budget'as.
- *
- *  Jei API key nenustatytas — grąžina null ir tęsiame į InnerTube fallback'us. */
-async function tryYtDataApi(videoId: string): Promise<YtVideoDetails | null> {
-  const apiKey = process.env.YOUTUBE_API_KEY
-  if (!apiKey) return null
-  try {
-    const url = `https://www.googleapis.com/youtube/v3/videos?part=statistics,snippet,status&id=${encodeURIComponent(videoId)}&key=${encodeURIComponent(apiKey)}`
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
-    if (!res.ok) return null
-    const data = (await res.json()) as any
-    const item = data?.items?.[0]
-    if (!item) return null
-    const viewCount = parseInt(item?.statistics?.viewCount || '0', 10)
-    if (!Number.isFinite(viewCount) || viewCount <= 0) return null
-    const title = item?.snippet?.title || ''
-    const channelId = item?.snippet?.channelId || null
-    const isPrivate = item?.status?.privacyStatus === 'private'
-    return { videoId, title, viewCount, channelId, isPrivate, source: 'data_api' }
-  } catch {
-    return null
-  }
 }
 
 /** Source A — watch puslapis. Pigiausias, bet Vercel'is gauna tuščias atsakas
@@ -228,21 +198,16 @@ async function trySearchText(videoId: string): Promise<YtVideoDetails | null> {
 
 /**
  * Gauna view count + meta. Bandomas fallback chain'as:
- *   0) YouTube Data API v3   — patikimas, oficialus (jei YOUTUBE_API_KEY set)
- *   1) watch puslapis        — tikslus, dažnai veikia, Vercel'is dažnai
- *                              bot-blocked
- *   2) /player InnerTube     — tikslus, geriau dirba iš sandbox'ų
- *   3) search-text           — APROKSIMACIJA iš "1.2M views" string'o (last resort)
+ *   1) watch puslapis     — tikslus, dažnai veikia, tikėtinai gauna ratelimit'ą
+ *   2) /player InnerTube  — tikslus, geriau dirba iš sandbox'ų
+ *   3) search-text        — APROKSIMACIJA iš "1.2M views" string'o (last resort)
  *
  * Grąžinamas pirmasis sėkmingas — `source` rodo, kuris suveikė.
- * Data API turi prioritetą, nes jis tinkamiausias Vercel server-side
- * kontekstui (kitur InnerTube'as ratelimitins/blokuoja). InnerTube
- * fallback'ai išlaikomi, kad enrichment'as veiktų ir be API key
- * (pvz. development environment'e).
+ * Pirmasis source per visą artist'o run'ą su didžiausia tikimybe pavyks; jei jis
+ * nepavyks (rate-limit), pereinam į kitą.
  */
 export async function getVideoDetails(videoId: string): Promise<YtVideoDetails | null> {
   const sources: Array<(id: string) => Promise<YtVideoDetails | null>> = [
-    tryYtDataApi,
     tryWatchPage,
     tryPlayerApi,
     trySearchText,

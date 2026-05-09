@@ -161,11 +161,7 @@ function AdminTracksContent() {
                           </Link>
                           <div className="flex items-center gap-1.5 mt-0.5">
                             {t.is_new && <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-medium">NEW</span>}
-                            {Array.isArray(t.featuring) && t.featuring.length > 0 && (
-                              <span className="text-xs text-purple-500" title={t.featuring.map((f: any) => f.name).join(', ')}>
-                                feat. {t.featuring.map((f: any) => f.name).filter(Boolean).join(', ')}
-                              </span>
-                            )}
+                            {t.featuring_count > 0 && <span className="text-xs text-purple-500">feat. ({t.featuring_count})</span>}
                             {!t.video_url && <span className="text-xs text-amber-500">▷ nėra video</span>}
                           </div>
                         </div>

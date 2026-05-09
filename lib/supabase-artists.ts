@@ -42,8 +42,13 @@ export type ArtistFull = ArtistRow & {
   breaks: { from: string; to: string }[]
 }
 
-// Vieninga slugify utility — palaiko Unicode (visos kalbos). Žr. lib/slugify.ts.
-import { slugify } from './slugify'
+function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[ąčęėįšųūž]/g, c => ({ ą:'a',č:'c',ę:'e',ė:'e',į:'i',š:'s',ų:'u',ū:'u',ž:'z' }[c] || c))
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+}
 
 // ── Photo meta helpers ────────────────────────────────────────────────────────
 // We store author + sourceUrl in the caption field as JSON: {"a":"...","s":"..."}
