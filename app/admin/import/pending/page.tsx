@@ -276,12 +276,17 @@ async function PendingTable({ artistId }: { artistId?: number }) {
   )
 }
 
-export default function PendingReviewPage({
+export default async function PendingReviewPage({
   searchParams,
 }: {
-  searchParams?: { artist?: string }
+  // Next.js 15+ — searchParams atvyksta kaip Promise; reikia await'inti
+  // serverio komponente prieš naudojant. Anksčiau tipas buvo plain object —
+  // veikė lokaliai, bet Vercel'io build'as suriko, kad neatitinka PageProps
+  // constraint'o.
+  searchParams?: Promise<{ artist?: string }>
 }) {
-  const raw = searchParams?.artist
+  const params = (await searchParams) ?? {}
+  const raw = params.artist
   const artistId = raw && /^\d+$/.test(raw) ? Number(raw) : undefined
   return (
     <Suspense fallback={<div className="p-8 text-[var(--text-muted)]">Kraunama…</div>}>
