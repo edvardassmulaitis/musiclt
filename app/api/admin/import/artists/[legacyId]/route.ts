@@ -42,7 +42,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ leg
   if (aErr) return NextResponse.json({ error: aErr.message }, { status: 500 })
   if (!artist) return NextResponse.json({ error: 'Artist not found' }, { status: 404 })
 
-  const [jobs, albums, tracks, photos, legacyLikes] = await Promise.all([
+  const [jobs, albums, allTracks, photos, legacyLikes] = await Promise.all([
     supabase.from('import_jobs')
       .select('*')
       .eq('artist_legacy_id', legacyId)
@@ -52,11 +52,13 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ leg
       .select('id, legacy_id, title, year, source, cover_image_url, type_studio, type_ep, type_single, type_live, type_compilation, type_remix, type_soundtrack')
       .eq('artist_id', artist.id)
       .order('year', { ascending: false, nullsFirst: false }),
+    // VISI tracks (ne tik standalone) — reikalingi cross-check'ui pagal source.
+    // Front'as filtruoja standalone'us (be album_id) atskirai.
     supabase.from('tracks')
-      .select('id, legacy_id, title, duration_seconds, source')
+      .select('id, legacy_id, title, duration_seconds, source, album_id, release_year')
       .eq('artist_id', artist.id)
-      .is('album_id', null)
-      .limit(500),
+      .order('release_year', { ascending: false, nullsFirst: false })
+      .limit(2000),
     supabase.from('artist_photos')
       .select('id, url, caption, source_url, photographer_id, taken_at, sort_order')
       .eq('artist_id', artist.id)
@@ -68,11 +70,15 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ leg
       .eq('entity_id', artist.id),
   ])
 
+  const tracks = (allTracks.data || []) as any[]
   return NextResponse.json({
     artist,
     jobs: jobs.data || [],
     albums: albums.data || [],
-    standalone_tracks: tracks.data || [],
+    // standalone_tracks paliekam backward-compat (UI parodo "Dainos be albumo" sekciją)
+    standalone_tracks: tracks.filter(t => t.album_id == null),
+    // Visi tracks — reikalingi cross-check'ui (TIK WIKI / TIK MUSIC.LT)
+    all_tracks: tracks,
     photos: photos.data || [],
     legacy_like_count: legacyLikes.count || 0,
   })
