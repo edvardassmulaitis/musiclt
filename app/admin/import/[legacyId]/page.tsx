@@ -62,8 +62,9 @@ type Track = {
   legacy_id: number | null
   title: string
   source: string | null
-  album_id?: number | null
   release_year?: number | null
+  // album_id: tracks neturi tokio column'o; album↔track many-to-many per
+  // album_tracks junction. API serveryje nustatom standalone_tracks atskirai.
 }
 
 type Photo = {
