@@ -270,15 +270,15 @@ export default function AlbumInfoModal({
     <div
       className={[
         'fixed inset-0 z-[9999]',
-        // Wide-desktop (≥1280px): grid layout su drawer'iu kairėj (860px) +
-        // dock'u dešinėj (likusi vieta). Solid bg-surface fonas dengia
-        // visą viewport'ą — niekas nesisikiša pro modal'ą iš page'o
-        // už nugaros (tas pats pattern'as kaip TrackInfoModal). Be šito
-        // drawer + dock buvo absolute right-0 ir overlap'uodavo (drawer'is
-        // perdengdavo dock'ą, vietoj to, kad sėdėtų greta) — todėl dešinėj
-        // matėsi tuščias / juodas plotas.
+        // Wide-desktop (≥1280px): flex row layout — drawer kairėj (fix 860px),
+        // dock dešinėj (flex-1, fills rest). Solid bg-surface'as dengia visą
+        // viewport'ą, todėl page'o turinio iš apačios nesimato.
+        // Anksčiau buvo `grid grid-cols-[860px_minmax(0,1fr)]` su `h-full` ant
+        // vidinių aside'ų — bet vidiniai elementai collaps'indavosi į natural
+        // height ir likdavo apačioj/viršuj su juodu plotu. Flex layout su
+        // explicit width/height ant aside'ų pasitvarko patikimai.
         isWideDesktop
-          ? 'grid grid-cols-[860px_minmax(0,1fr)] grid-rows-[minmax(0,1fr)] bg-[var(--bg-surface)]'
+          ? 'flex bg-[var(--bg-surface)]'
           : '',
       ].filter(Boolean).join(' ')}
       role="dialog"
@@ -307,10 +307,11 @@ export default function AlbumInfoModal({
       {isWideDesktop && (
         <aside
           className={[
-            // col-start-2 — dock'as visada eina į grid'o 2-ą koloną (dešinę),
-            // nepriklausomai nuo JSX render order'io. Drawer'is gauna
-            // col-start-1 (kairę).
-            'relative col-start-2 flex h-full min-w-[420px] flex-col gap-4 overflow-y-auto border-l border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-5',
+            // Dock'as — flex item su flex-1 (užpildo likusią vietą po drawer'io
+            // 860px). order-2 ant abu drawer'į ir dock'ą NEREIKIA, nes JSX
+            // render order'is teisingas (dock pirmas, drawer antras), bet
+            // kelias renderiosis FLEX-row tvarka be order'io.
+            'relative order-2 flex h-full flex-1 min-w-[420px] flex-col gap-4 overflow-y-auto border-l border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-5',
             'transition-opacity duration-200',
             mounted ? 'opacity-100' : 'opacity-0',
           ].join(' ')}
@@ -426,8 +427,9 @@ export default function AlbumInfoModal({
       <aside
         className={[
           isWideDesktop
-            // Docked (xl): grid item, no absolute, no slide
-            ? 'relative col-start-1 flex h-full w-full flex-col overflow-hidden bg-[var(--bg-surface)]'
+            // Docked (xl): flex item, fix 860px, in row order before dock.
+            // order-1 garantuoja kairę poziciją net jei JSX dock pirmas.
+            ? 'relative order-1 flex h-full w-[860px] shrink-0 flex-col overflow-hidden bg-[var(--bg-surface)]'
             // Drawer (mobile / lg): absolute right-aligned su slide
             : [
                 'absolute right-0 top-0 flex h-full w-full flex-col overflow-hidden bg-[var(--bg-surface)] shadow-2xl transition-transform duration-200 ease-out lg:max-w-[860px]',

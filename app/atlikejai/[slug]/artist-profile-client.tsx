@@ -363,16 +363,13 @@ function PlayerCard({
   useEffect(() => { if (!hasTrending && tab === 'trending') setTab('all') }, [hasTrending, tab])
 
   const list = tab === 'trending' ? tracksTrending : tracksAllTime
-  // Max likes tarp visų atlikėjo trekų — naudojama PopBar relatyviam
-  // skaičiavimui (kiekvienas atlikėjas turi savo HIT'us, ne fixed thresholds).
-  const maxTrackLikes = useMemo(() => {
-    let max = 0
-    for (const t of [...tracksAllTime, ...tracksTrending]) {
-      const lk = (t as any).like_count
-      if (typeof lk === 'number' && lk > max) max = lk
-    }
-    return max
-  }, [tracksAllTime, tracksTrending])
+  // Pop signal'as su fallback hierarchy — pirma like_count, paskui score,
+  // paskui video_views (log scale), paskui position-based. Naujai importuotas
+  // intl atlikėjas (Coldplay) likes'ų neturės iškart, bet score + video_views
+  // jau bus iš Wiki/YouTube enrichment'o → bar'ai rodomi.
+  const popInfo = useMemo(() => (
+    detectPopSignal([...tracksAllTime, ...tracksTrending])
+  ), [tracksAllTime, tracksTrending])
   const activeTrack = [...tracksAllTime, ...tracksTrending].find(t => t.id === activeTrackId)
   const activeVid = yt(activeTrack?.video_url)
   const firstWithVideo = list.find(t => yt(t.video_url)) || tracksAllTime.find(t => yt(t.video_url))
@@ -828,14 +825,11 @@ function PlayerCard({
               // nesimuluojame "playing" arba pause'inimo logikos — user'is
               // valdys YT chrome'e iframe'o viduje.
               const isActivelyPlaying = false
-              // Popularity bar — vieninga logika visur: relatyvus tier
-              // pagal track'o likes prieš artist'o didžiausią. Tas pats
-              // track gauna tą patį dash skaičių nepriklausomai nuo to,
-              // kuriame tab'e (Top / Naujos / Kitos) yra rodomas. Žr.
-              // popLevelRelative — ji garantuoja min 1 dash kai artist
-              // turi bet kokios like'ų aktyvumo, ir 0 dashes kai
-              // duomenų iš viso nėra.
-              const pop = popLevelRelative((t as any).like_count || 0, maxTrackLikes)
+              // Popularity bar — vieninga logika su signal'o fallback'u.
+              // Hierarchy: like_count → score → video_views (log) →
+              // position. Naujai importuotam intl atlikėjui (kol nėra
+              // likes) bar'ai rodomi pagal score arba YT views, ne 0.
+              const pop = popLevelWithFallback(t, i, list.length, popInfo)
               return (
                 <li key={t.id}>
                   <div
@@ -974,6 +968,62 @@ function popLevelRelative(value: number, max: number): number {
   if (pct >= 0.30) return 3
   if (pct >= 0.10) return 2
   return 1
+}
+
+/** Hierarchinis populiarumo signalas tarp atlikėjo trekų. Naujam intl
+ *  atlikėjui (pvz. Coldplay'ui ką tik importavus) like_count'ai 0 — todėl
+ *  fallback'inam į score, paskui video_views (log scale, kad 1B vs 21M
+ *  nebūtų iškraipyta), galiausiai į position-based hint'ą. Kiekvienam
+ *  track'ui skaičiuojam su tuo pačiu signalu, kad palyginimai būtų
+ *  prasmingi (mix'inti likes su score nelygintų niekuo).
+ *
+ *  signal: 'likes' | 'score' | 'views' | 'none'
+ *  popValue(t): išversta į max-comparable skalę
+ *  maxValue:    didžiausia value tarp visų artist trekų
+ */
+type PopSignal = 'likes' | 'score' | 'views' | 'none'
+
+function detectPopSignal(allTracks: any[]): { signal: PopSignal; max: number } {
+  let maxLikes = 0, maxScore = 0, maxViews = 0
+  for (const t of allTracks) {
+    const lk = t?.like_count
+    const sc = t?.score
+    const vv = t?.video_views
+    if (typeof lk === 'number' && lk > maxLikes) maxLikes = lk
+    if (typeof sc === 'number' && sc > maxScore) maxScore = sc
+    if (typeof vv === 'number' && vv > maxViews) maxViews = vv
+  }
+  if (maxLikes > 0) return { signal: 'likes', max: maxLikes }
+  if (maxScore > 0) return { signal: 'score', max: maxScore }
+  if (maxViews > 0) return { signal: 'views', max: Math.log10(maxViews + 1) }
+  return { signal: 'none', max: 0 }
+}
+
+function trackPopValue(t: any, signal: PopSignal): number {
+  if (signal === 'likes') return t?.like_count || 0
+  if (signal === 'score') return t?.score || 0
+  if (signal === 'views') return Math.log10((t?.video_views || 0) + 1)
+  return 0
+}
+
+/** Pop level su pilnu fallback'u: signalų hierarchy, paskui pozicija
+ *  (kuo aukščiau sąraše, tuo daugiau dashes). Niekada nerodom tuščio bar'o
+ *  jei sąrašas nėra tuščias — tikrai-šviežiam intl atlikėjui be jokių
+ *  signalų position-based estimate'as bent rodo, kad tracks egzistuoja
+ *  ir tvarkomi pagal tvarką. */
+function popLevelWithFallback(
+  t: any,
+  idx: number,
+  total: number,
+  popInfo: { signal: PopSignal; max: number }
+): number {
+  if (popInfo.signal !== 'none') {
+    return popLevelRelative(trackPopValue(t, popInfo.signal), popInfo.max)
+  }
+  // Position-based fallback: 5 dash top, 1 dash bottom
+  if (total <= 1) return 3
+  const ratio = (total - idx) / total
+  return Math.max(1, Math.min(5, Math.ceil(ratio * 5)))
 }
 
 /** Active-track indicator — 3 bars that bounce independently. We use this in
@@ -4183,17 +4233,12 @@ export default function ArtistProfileClient({
     return max
   }, [albums])
 
-  // Max track likes per artist — naudojam tam, kad ir orphan ("Kitos
-  // dainos") sąraše PopBar atrodytų vienodai kaip player'io track sąraše.
-  // Pasiekiama iš tracks + newTracks visumos (player'is parent'e gauna abu).
-  const maxTrackLikes = useMemo(() => {
-    let max = 0
-    for (const t of [...tracks, ...newTracks]) {
-      const lk = (t as any).like_count
-      if (typeof lk === 'number' && lk > max) max = lk
-    }
-    return max
-  }, [tracks, newTracks])
+  // Pop signal'as su fallback hierarchy — taip pat kaip HeroPlayer'yje.
+  // Garantuoja, kad orphan ("Kitos dainos") sąraše bar'ai rodomi net jei
+  // like_count'ai 0 (naujai importuotam intl atlikėjui).
+  const popInfoTracks = useMemo(() => (
+    detectPopSignal([...tracks, ...newTracks])
+  ), [tracks, newTracks])
 
   // Player'is rodo tracks be cap'o — vartotojas gali scroll'inti per visą
   // diskografiją. Anksčiau buvo .slice(0, 100), bet kai kurie atlikėjai
@@ -4658,12 +4703,12 @@ export default function ArtistProfileClient({
                     </div>
                   )}
                   <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
-                    {orphanTracks.map((t) => (
+                    {orphanTracks.map((t, i) => (
                       <TrackRow
                         key={t.id}
                         t={t}
                         artistSlug={artist.slug}
-                        popularity={popLevelRelative((t as any).like_count || 0, maxTrackLikes)}
+                        popularity={popLevelWithFallback(t, i, orphanTracks.length, popInfoTracks)}
                       />
                     ))}
                   </div>

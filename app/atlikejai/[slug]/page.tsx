@@ -205,7 +205,10 @@ async function getTracks(id: number) {
   // public puslapyje, geriau matyti viską.
   const { data } = await sb
     .from('tracks')
-    .select('id, slug, title, type, video_url, spotify_id, cover_url, release_date, lyrics, is_new, is_new_date, release_year, release_month, legacy_id')
+    // score + video_views — naudojami Top/Naujos dainos PopBar'ui kai
+    // like_count'ai dar tušti (pvz. naujai importuoti intl atlikėjai).
+    // Fallback hierarchy: like_count → score → video_views → position.
+    .select('id, slug, title, type, video_url, spotify_id, cover_url, release_date, lyrics, is_new, is_new_date, release_year, release_month, legacy_id, score, video_views')
     .eq('artist_id', id)
     .order('created_at', { ascending: false })
     .range(0, 9999)
