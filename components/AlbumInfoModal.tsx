@@ -268,27 +268,49 @@ export default function AlbumInfoModal({
 
   return (
     <div
-      className="fixed inset-0 z-[9999]"
+      className={[
+        'fixed inset-0 z-[9999]',
+        // Wide-desktop (≥1280px): grid layout su drawer'iu kairėj (860px) +
+        // dock'u dešinėj (likusi vieta). Solid bg-surface fonas dengia
+        // visą viewport'ą — niekas nesisikiša pro modal'ą iš page'o
+        // už nugaros (tas pats pattern'as kaip TrackInfoModal). Be šito
+        // drawer + dock buvo absolute right-0 ir overlap'uodavo (drawer'is
+        // perdengdavo dock'ą, vietoj to, kad sėdėtų greta) — todėl dešinėj
+        // matėsi tuščias / juodas plotas.
+        isWideDesktop
+          ? 'grid grid-cols-[860px_minmax(0,1fr)] grid-rows-[minmax(0,1fr)] bg-[var(--bg-surface)]'
+          : '',
+      ].filter(Boolean).join(' ')}
       role="dialog"
       aria-modal="true"
       aria-label={titleNow ? `${titleNow} albumo informacija` : 'Albumo informacija'}
       style={{ fontFamily: "'DM Sans',system-ui,sans-serif" }}
     >
-      {/* Backdrop — click-outside closes (only outside the wide-desktop dock) */}
-      <div
-        onClick={(e) => { if (!isWideDesktop && e.target === e.currentTarget) handleClose() }}
-        className={[
-          'absolute inset-0 transition-opacity duration-200',
-          mounted ? 'bg-black/65 opacity-100' : 'bg-black/65 opacity-0',
-        ].join(' ')}
-      />
+      {/* Backdrop — click-outside closes (only outside the wide-desktop dock).
+          Dock'e (xl) backdrop'as nereikalingas, nes modal'as fullscreen ir
+          jokio page'o turinio nematyti. */}
+      {!isWideDesktop && (
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) handleClose() }}
+          className={[
+            'absolute inset-0 transition-opacity duration-200',
+            mounted ? 'bg-black/65 opacity-100' : 'bg-black/65 opacity-0',
+          ].join(' ')}
+        />
+      )}
 
-      {/* Wide desktop dock player + Daugiau strip — fixed right side, narrower
-          than modal so they sit side-by-side on ≥1280px. */}
+      {/* Wide desktop dock player + Daugiau strip — sėdi grid'o kolonoje 2
+          (dešinėj nuo drawer'io). Anksčiau buvo `absolute right-0`, kuris
+          overlap'avo su drawer'iu (irgi `right-0`) ir todėl dock'as buvo
+          pridengtas. Dabar grid layout'as patikimai padalina viewport'ą:
+          [DRAWER 860px][DOCK fills rest]. */}
       {isWideDesktop && (
         <aside
           className={[
-            'absolute right-0 top-0 hidden h-full w-[calc(100vw-860px)] min-w-[420px] flex-col gap-4 overflow-y-auto border-l border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-5 shadow-[-12px_0_40px_-20px_rgba(0,0,0,0.6)] xl:flex',
+            // col-start-2 — dock'as visada eina į grid'o 2-ą koloną (dešinę),
+            // nepriklausomai nuo JSX render order'io. Drawer'is gauna
+            // col-start-1 (kairę).
+            'relative col-start-2 flex h-full min-w-[420px] flex-col gap-4 overflow-y-auto border-l border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-5',
             'transition-opacity duration-200',
             mounted ? 'opacity-100' : 'opacity-0',
           ].join(' ')}
@@ -391,13 +413,27 @@ export default function AlbumInfoModal({
         </aside>
       )}
 
-      {/* Drawer (modal panel). Mobile = fullscreen, lg = max-width 860, xl =
-          fixed 860 with dock to the right (handled above). */}
+      {/* Drawer (modal panel).
+          - Mobile (default): fullscreen drawer, slide-in iš dešinės via
+            translate-x-full → translate-x-0.
+          - lg (≥1024): max-width 860, drawer sėdi dešiniame krašte, slide
+            animacija iš dešinės.
+          - xl (≥1280): drawer sėdi grid'o kolonoje 1 (kairėj), be slide
+            animacijos. Dock'as toliau dešinėj. Tai dengia viewport'ą iki
+            galo ir pašalina overlap'ą tarp drawer'io + dock'o, kuris
+            sukėlė juodą plotą rodant.
+          - bg-surface — solid, kad page'o turinio iš apačios nesimatytų. */}
       <aside
         className={[
-          'absolute right-0 top-0 flex h-full w-full flex-col overflow-hidden bg-[var(--bg-surface)] shadow-2xl transition-transform duration-200 ease-out lg:max-w-[860px]',
-          drawerTransform,
-        ].join(' ')}
+          isWideDesktop
+            // Docked (xl): grid item, no absolute, no slide
+            ? 'relative col-start-1 flex h-full w-full flex-col overflow-hidden bg-[var(--bg-surface)]'
+            // Drawer (mobile / lg): absolute right-aligned su slide
+            : [
+                'absolute right-0 top-0 flex h-full w-full flex-col overflow-hidden bg-[var(--bg-surface)] shadow-2xl transition-transform duration-200 ease-out lg:max-w-[860px]',
+                drawerTransform,
+              ].join(' '),
+        ].filter(Boolean).join(' ')}
       >
         {/* Top bar */}
         <div className="flex items-center gap-3 border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-3 sm:gap-4 sm:px-5">
