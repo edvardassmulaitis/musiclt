@@ -4249,18 +4249,46 @@ export default function ArtistProfileClient({
   // Player'is rodo tracks be cap'o — vartotojas gali scroll'inti per visą
   // diskografiją. Anksčiau buvo .slice(0, 100), bet kai kurie atlikėjai
   // (Mamontovas 220+, didžiosios DJ'jaus kompiliacijos 1000+) turi gerokai
-  // daugiau dainų. Filtruojam, kad video-turintys keliautų į priekį, bet
-  // visus rodom.
+  // daugiau dainų.
+  //
+  // Top dainos rikiavimas — pagal popularumo signalą (likes → score →
+  // log10(views) → position). Anksčiau buvo tik created_at desc'ą rodomas
+  // (server'io sort'as), todėl Coldplay'aus 1B-views „Yellow" liko žemai
+  // už 50M-views naujausių track'ų. Dabar — su video tracks pirma, viduj
+  // jų sortuojant pagal popularumą; orphan'ai (be video) eina į galą,
+  // taip pat sortuojami tarpusavyje.
   const tracksAllTime = useMemo(() => {
-    const withVideo = tracks.filter(t => yt(t.video_url))
-    const rest = tracks.filter(t => !yt(t.video_url))
-    return [...withVideo, ...rest]
+    const popInfo = detectPopSignal(tracks)
+    const sorted = [...tracks].sort((a: any, b: any) => {
+      // Pirmiausia — su video aukščiau už be video
+      const aHasV = !!yt(a.video_url)
+      const bHasV = !!yt(b.video_url)
+      if (aHasV !== bHasV) return aHasV ? -1 : 1
+      // Tada — pagal pop signal'ą desc
+      if (popInfo.signal !== 'none') {
+        const av = trackPopValue(a, popInfo.signal)
+        const bv = trackPopValue(b, popInfo.signal)
+        if (av !== bv) return bv - av
+      }
+      return 0
+    })
+    return sorted
   }, [tracks])
 
   const tracksTrending = useMemo(() => {
-    const withVideo = newTracks.filter(t => yt(t.video_url))
-    const rest = newTracks.filter(t => !yt(t.video_url))
-    return [...withVideo, ...rest]
+    const popInfo = detectPopSignal(newTracks)
+    const sorted = [...newTracks].sort((a: any, b: any) => {
+      const aHasV = !!yt(a.video_url)
+      const bHasV = !!yt(b.video_url)
+      if (aHasV !== bHasV) return aHasV ? -1 : 1
+      if (popInfo.signal !== 'none') {
+        const av = trackPopValue(a, popInfo.signal)
+        const bv = trackPopValue(b, popInfo.signal)
+        if (av !== bv) return bv - av
+      }
+      return 0
+    })
+    return sorted
   }, [newTracks])
 
   const hasAnyVideo = tracksAllTime.some(t => yt(t.video_url)) || tracksTrending.some(t => yt(t.video_url))
@@ -4300,7 +4328,20 @@ export default function ArtistProfileClient({
   // (kad nesi-dubliuotų), bet jei active'ių tik 2 ir viena tampa hero'jum,
   // galerija lieka su 1. Dabar paliekam visas — vartotojas mato pilną
   // foto sąrašą + lengvai matosi kuri yra hero (ji dažnai pirma sort_order).
-  const galleryPhotos = useMemo(() => photos, [photos])
+  //
+  // Sort: nuo naujausios iki seniausios pagal taken_at. Wikipedia/Commons
+  // nuotraukos turi DateTimeOriginal metadata, atrandant per scrape'ą →
+  // taken_at. Be metadatos foto eina į galą (sort_order tvarka).
+  const galleryPhotos = useMemo(() => {
+    const withDate = photos.filter(p => p.taken_at)
+    const noDate = photos.filter(p => !p.taken_at)
+    withDate.sort((a, b) => {
+      const ta = new Date(a.taken_at!).getTime()
+      const tb = new Date(b.taken_at!).getTime()
+      return tb - ta  // desc
+    })
+    return [...withDate, ...noDate]
+  }, [photos])
 
   const bioSubtitle = [
     active,
