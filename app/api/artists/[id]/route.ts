@@ -153,12 +153,6 @@ export async function PATCH(
     // NB: 'photos' column DROPPED (db-cleanup-atlanta.sql). Photo data
     // dabar gyvena tik artist_photos lentelėje per /api/artists/[id]/photos PUT.
     'facebook','youtube','tiktok','spotify','soundcloud','bandcamp','twitter',
-    // Solo atlikėjų papildomi infobox laukai (text[] tipai DB'ėje):
-    //   roles — Singer, Songwriter, Producer, ...
-    //   instruments — Vocals, Guitar, Piano, ...
-    // Wiki import (WikipediaImport.tsx) pildo iš {{occupation}}/{{instrument}}
-    // infobox laukų; admin form'a leidžia rankiniam editavimui.
-    'roles','instruments',
   ]
 
   for (const f of dbFields) {

@@ -89,31 +89,6 @@ export async function GET(
     }
   }
 
-  // Post likers — per post'us, kurie turi like_count > 0, fetch'inam
-  // user_username + avatar iš `likes` lentelės (entity_type='forum_post').
-  // Used in DiscussionThreadModal — click ♥ atidaro LikesModal su likeris'ų
-  // sąrašu, kaip kanoninej /diskusijos/tema/[id] page'ai.
-  type LikerRow = { user_username: string; user_rank: string | null; user_avatar_url: string | null }
-  const postLikers: Record<number, LikerRow[]> = {}
-  const postIdsWithLikes = posts.filter((p) => (p.like_count ?? 0) > 0).map((p) => p.legacy_id)
-  if (postIdsWithLikes.length > 0) {
-    const { data: likerRows } = await sb
-      .from('likes')
-      .select('entity_legacy_id, user_username, user_rank, user_avatar_url')
-      .eq('entity_type', 'forum_post')
-      .in('entity_legacy_id', postIdsWithLikes)
-      .limit(5000)
-    for (const l of (likerRows || []) as any[]) {
-      const pid = l.entity_legacy_id
-      if (!postLikers[pid]) postLikers[pid] = []
-      postLikers[pid].push({
-        user_username: l.user_username || '',
-        user_rank: l.user_rank || null,
-        user_avatar_url: l.user_avatar_url || null,
-      })
-    }
-  }
-
   const out: Post[] = posts.map((p: any) => ({
     legacy_id: p.legacy_id,
     author_username: p.author_username || null,
@@ -134,6 +109,5 @@ export async function GET(
       kind: threadRow.kind,
     },
     posts: out,
-    postLikers,
   })
 }

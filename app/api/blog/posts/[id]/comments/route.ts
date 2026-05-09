@@ -29,18 +29,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const sb = createAdminClient()
       const { data: post } = await sb
         .from('blog_posts')
-        .select('id, slug, title, blogs:blog_id(user_id, slug, profiles:user_id(email))')
+        .select('id, slug, title, blogs:blog_id(user_id, slug)')
         .eq('id', id)
         .maybeSingle() as { data: any }
       const recipientId = post?.blogs?.user_id
-      const recipientEmail = post?.blogs?.profiles?.email || null
       if (recipientId && recipientId !== session.user.id) {
         const blogSlug = post?.blogs?.slug
         const postSlug = post?.slug
         const url = blogSlug && postSlug ? `/blogas/${blogSlug}/${postSlug}` : '/blogas'
         await notifyFromSession({
           recipientUserId: recipientId,
-          recipientEmail,
           actorSession: session,
           type: 'blog_comment',
           entity_type: 'blog',

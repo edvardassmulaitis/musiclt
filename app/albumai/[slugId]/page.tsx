@@ -6,16 +6,9 @@
 // Slug verifikacija po DB lookup'o; jei neatitinka — 301 redirect į canonical
 // (su artist prefix'u). Apsaugo nuo legacy URL'ų be artist + spelling renames.
 import { notFound, redirect } from 'next/navigation'
-import { Suspense } from 'react'
-import { unstable_cache } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase'
 import AlbumPageClient from '@/app/lt/albumas/[slug]/[id]/album-page-client'
-import { PageLoader } from '@/components/PageLoader'
 import type { Metadata } from 'next'
-
-// Function-level cache (60s TTL) — žr. /atlikejai/[slug]/page.tsx komentarą,
-// kodėl naudojam unstable_cache vietoj revalidate config'o.
-const ALBUM_CACHE_TTL = 60
 
 type Props = { params: Promise<{ slugId: string }> }
 
@@ -183,49 +176,28 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
-// SUSPENSE PATTERN — žr. /atlikejai/[slug]/page.tsx komentarą. parseSlugId
-// pati nieko neužklauisa (URL parse), todėl iškart grąžinam Suspense
-// wrapper'į ir slow queries vykdom <AlbumContent> viduje (stream'ina į
-// fallback slot'ą). Naudotojas iš karto mato PageLoader'į vietoj balto ekrano.
 export default async function AlbumPage({ params }: Props) {
   const { slugId } = await params
   const parsed = parseSlugId(slugId)
   if (!parsed) notFound()
 
-  return (
-    <Suspense fallback={<PageLoader variant="album" />}>
-      <AlbumContent slugFromUrl={parsed.slug} albumId={parsed.id} />
-    </Suspense>
-  )
-}
+  const { slug, id: albumId } = parsed
 
-// Cache'inam visą album page data (60s) — sekantys hit'ai per 60s
-// gauna iš function memory cache'o (~50-200ms) vietoj re-running queries.
-const fetchAlbumData = unstable_cache(
-  async (albumId: number) => {
-    const [album, tracks, likes] = await Promise.all([
-      getAlbum(albumId),
-      getAlbumTracks(albumId),
-      getAlbumLikes(albumId),
-    ])
-    if (!album) return null
-    const artist = album.artists
-    const [otherAlbums, similarAlbums, legacyLikes] = await Promise.all([
-      getOtherAlbums(artist.id, albumId),
-      getSimilarAlbums(artist.id, albumId),
-      getLegacyAlbumLikes(album.legacy_id ?? null),
-    ])
-    return { album, tracks, likes, otherAlbums, similarAlbums, legacyLikes }
-  },
-  ['album-full-data-v1'],
-  { revalidate: ALBUM_CACHE_TTL, tags: ['album'] },
-)
-
-async function AlbumContent({ slugFromUrl, albumId }: { slugFromUrl: string; albumId: number }) {
-  const slug = slugFromUrl
-  const data = await fetchAlbumData(albumId)
-  if (!data) notFound()
-  const { album, tracks, likes, otherAlbums, similarAlbums, legacyLikes } = data
+  // ── Paralelizuojam VISKĄ ────────────────────────────────────────────────
+  // Anksčiau: getAlbum sequential prieš Promise.all (5 queries) — 6 batch'ai.
+  // Dabar: getAlbum + tracks + likes paleidžiam VIENU batch'u (jiems reikia
+  // tik albumId, kurį turim iš URL). Tik getOtherAlbums ir getSimilarAlbums
+  // priklauso nuo artistId — juos vykdom antrame batch'e tik jei artistId
+  // dar nežinom. Bet dažnu atveju mums apskritai jų nereikia, nes jei album
+  // negalioja → notFound. Sprendimas: einam album + tracks + likes parallel,
+  // o jei album'as rastas — tada paralel paleidžiam dar 2 (otherAlbums,
+  // similarAlbums).
+  const [album, tracks, likes] = await Promise.all([
+    getAlbum(albumId),
+    getAlbumTracks(albumId),
+    getAlbumLikes(albumId),
+  ])
+  if (!album) notFound()
 
   const artist = album.artists
 
@@ -238,6 +210,12 @@ async function AlbumContent({ slugFromUrl, albumId }: { slugFromUrl: string; alb
   } else if (album.slug !== slug) {
     notFound()
   }
+
+  const [otherAlbums, similarAlbums, legacyLikes] = await Promise.all([
+    getOtherAlbums(artist.id, albumId),
+    getSimilarAlbums(artist.id, albumId),
+    getLegacyAlbumLikes(album.legacy_id ?? null),
+  ])
 
   return (
     <AlbumPageClient

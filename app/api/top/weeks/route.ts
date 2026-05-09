@@ -1,30 +1,39 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
-import { getCurrentWeekMonday, getVoteClose } from '@/lib/top-week'
 
-/**
- * Self-heal anchor: visada nustato dabartinę kalendorinę savaitę kaip
- * topas savaitę. Jei DB neturi įrašo einamai savaitei — kuriam.
- *
- * NE kuriame ateities savaičių! Anchor'as yra `getCurrentWeekMonday()`,
- * pagal kurį visa logika sukasi:
- *   - thisMonday = einamosios savaitės pirmadienis (jei sekmadienis,
- *     atsisukame į praėjusį pirmadienį — Mon-Sun savaitė).
- *   - Surandame įrašą week_start = thisMonday.
- *   - Jei nėra: kuriame su is_active=true, perkeliame approved pasiūlymus.
- *   - Jei yra: PALIEKAME RAMYBĖJE (ne keičiame is_active/is_finalized).
- *
- * Kron'o vaidmuo: sekmadienį/šeštadienį finalizuoja einamą savaitę. Naują
- * savaitę kuria PIRMADIENĮ (kai calendar pereina). Jei kron'as nesukūrė —
- * šis self-heal sukurs vos tik admin/lankytojas atidaro topas puslapį.
- */
+function getMondayOf(date: Date): string {
+  const d = new Date(date)
+  const day = d.getDay()
+  const diff = day === 0 ? -6 : 1 - day
+  d.setDate(d.getDate() + diff)
+  return d.toISOString().split('T')[0]
+}
+
+function getVoteClose(topType: string, mondayStr: string): string {
+  const monday = new Date(mondayStr + 'T00:00:00')
+  if (topType === 'lt_top30') {
+    // Šeštadienis 15:00 Vilnius ≈ 13:00 UTC
+    const sat = new Date(monday)
+    sat.setDate(sat.getDate() + 5)
+    sat.setUTCHours(13, 0, 0, 0)
+    return sat.toISOString()
+  } else {
+    // Sekmadienis 15:00 Vilnius ≈ 13:00 UTC
+    const sun = new Date(monday)
+    sun.setDate(sun.getDate() + 6)
+    sun.setUTCHours(13, 0, 0, 0)
+    return sun.toISOString()
+  }
+}
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const topType = searchParams.get('type') || 'top40'
   const supabase = createAdminClient()
 
-  const thisMonday = getCurrentWeekMonday()
+  const thisMonday = getMondayOf(new Date())
 
+  // Patikrinti ar šios savaitės įrašas jau egzistuoja
   const { data: existing } = await supabase
     .from('top_weeks')
     .select('id')
@@ -33,8 +42,16 @@ export async function GET(req: Request) {
     .maybeSingle()
 
   if (!existing) {
+    // Deaktyvuoti senąją savaitę
+    await supabase
+      .from('top_weeks')
+      .update({ is_active: false })
+      .eq('top_type', topType)
+      .eq('is_active', true)
+
     const voteClose = getVoteClose(topType, thisMonday)
 
+    // Sukurti naują savaitę
     const { data: newWeek } = await supabase
       .from('top_weeks')
       .insert({
@@ -49,40 +66,38 @@ export async function GET(req: Request) {
       .select()
       .single()
 
+    // Perkelti approved pasiūlymus į naują savaitę
     if (newWeek) {
-      // Perkelti approved pasiūlymus į naujos savaitės top_entries
       const { data: approved } = await supabase
         .from('top_suggestions')
-        .select('id, track_id')
+        .select('track_id')
         .eq('top_type', topType)
         .eq('status', 'approved')
-        .not('track_id', 'is', null)
 
       if (approved && approved.length > 0) {
-        // Suggestions tampa NEWCOMERS (weeks_in_top=0), ne iš karto į topą.
-        // Tik po cycle rotation (Reset) jei pateks į top N — tampa "in top".
-        await supabase.from('top_entries').insert(
-          approved.map((s, i) => ({
-            week_id: newWeek.id,
-            track_id: s.track_id,
-            top_type: topType,
-            position: i + 1,
-            total_votes: 0,
-            is_new: true,
-            weeks_in_top: 0,         // NEWCOMER
-            peak_position: null,
-          }))
-        )
+        const entries = approved.map((s, i) => ({
+          week_id: newWeek.id,
+          track_id: s.track_id,
+          top_type: topType,
+          position: i + 1,
+          total_votes: 0,
+          is_new: true,
+          weeks_in_top: 1,
+          peak_position: i + 1,
+        }))
 
+        await supabase.from('top_entries').insert(entries)
+
+        // Pažymėti kaip 'used'
         await supabase
           .from('top_suggestions')
           .update({ status: 'used' })
-          .in('id', approved.map(s => s.id))
+          .eq('top_type', topType)
+          .eq('status', 'approved')
       }
     }
   }
 
-  // Grąžinti savaičių sąrašą (visada — tiek po self-heal, tiek be jo)
   const { data, error } = await supabase
     .from('top_weeks')
     .select('*')

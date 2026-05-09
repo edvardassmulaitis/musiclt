@@ -167,31 +167,6 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
           </div>
         )}
 
-        {/* ATTENDEES — kas paspaudė "Eis" / "Patiks" music.lt source'e */}
-        {(ev as any).attendees && (ev as any).attendees.length > 0 && (
-          <div className="max-w-3xl mb-12">
-            <p className="text-[10px] font-black uppercase tracking-[0.12em] mb-3" style={{ color: '#334058' }}>
-              Dalyvauja ({(ev as any).attendees.length})
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {(ev as any).attendees.map((att: any, i: number) => (
-                <Link key={`${att.user_username}-${i}`} href={`/u/${att.user_username}`}
-                  className="flex items-center gap-2 pl-1 pr-3 py-1 rounded-full transition-all hover:bg-white/[.06]"
-                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                  <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
-                    style={{ background: `hsl(${(att.user_username.charCodeAt(0) || 65) * 17 % 360},30%,16%)` }}>
-                    {att.user_avatar_url
-                      ? <img src={att.user_avatar_url} alt={att.user_username} className="w-full h-full object-cover" />
-                      : <span className="text-xs font-bold" style={{ color: 'rgba(255,255,255,0.2)' }}>{att.user_username[0]}</span>}
-                  </div>
-                  <span className="text-xs font-bold transition" style={{ color: '#c8d8f0' }}>{att.user_username}</span>
-                  {att.user_rank && <span className="text-[9px]" style={{ color: '#4a6580' }}>{att.user_rank}</span>}
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Back */}
         <div className="pb-10">
           <Link href="/renginiai" className="text-xs font-bold hover:text-blue-400 transition" style={{ color: '#334058' }}>

@@ -75,10 +75,9 @@ export function aggregateAwardsData(
 }
 
 /** Awards subscore. Same formula across LT/INT (just different caps).
- *  Returns { points, max, details } shape ready for breakdown.categories.awards.
- *  LT cap 20 (2026-05-06 v3 — popularity gavo 20pts, awards sumažintas iki 20). */
+ *  Returns { points, max, details } shape ready for breakdown.categories.awards. */
 export function computeAwardsSubscore(agg: AwardAggregation, type: 'lt' | 'int'): ScoreCategory {
-  const cap = type === 'int' ? 15 : 20
+  const cap = type === 'int' ? 15 : 11
   // Major won: 5 each, capped at 10
   const majorWonPts = Math.min(10, agg.major_won * 5)
   // Major nom: 2 each, capped at 6
@@ -107,20 +106,6 @@ export function computeAwardsSubscore(agg: AwardAggregation, type: 'lt' | 'int')
 }
 
 // ── LT Scoring ─────────────────────────────────────────────────
-//
-// Categories sum to 100. 2026-05-06 v4 atnaujinimas — popularity skaida
-// į ALL-TIME + RECENT, kad ilgų catalog'ų atlikėjai neturėtų automatinį
-// pranašumą prieš naujus.
-//
-// Naujos vertės (LT):
-//   catalog 22, media 10, community 13, career 10, awards 20,
-//   popularity_alltime 12, popularity_recent 13 = 100
-//
-// All-time popularity = log10(SUM views) — istorinė reach
-// Recent popularity = log10(SUM views WHERE release_year >= now-3y)
-//                     — dabartinė įtaka
-// Atlikėjas turintis daug aktyvių dainų gauna abu balus; legacy artist
-// su tik vienu hit'u prieš 20m gauna tik all-time, ne recent.
 
 export function computeLTScore(data: {
   n_albums: number
@@ -129,77 +114,49 @@ export function computeLTScore(data: {
   n_lyrics: number
   likes: number
   career_years: number
-  total_video_views?: number       // SUM lifetime
-  recent_video_views?: number      // SUM where release_year >= now-3y
   awards?: AwardAggregation
 }): ScoreBreakdown {
-  const {
-    n_albums, n_tracks, n_videos, n_lyrics, likes, career_years,
-    total_video_views = 0, recent_video_views = 0, awards
-  } = data
+  const { n_albums, n_tracks, n_videos, n_lyrics, likes, career_years, awards } = data
 
-  // ① CATALOG (0-22): albums + tracks (log scale)
-  const albumPts = Math.min(17, Math.round(Math.log(n_albums + 1) * 5.9))
-  const trackPts = Math.min(6, Math.round(Math.log(n_tracks + 1) * 1.3))
-  const catalog = Math.min(22, albumPts + trackPts)
+  // ① CATALOG (0-15): albums (log scale) + tracks
+  const albumPts = Math.min(12, Math.round(Math.log(n_albums + 1) * 4.0))
+  const trackPts = Math.min(4, Math.round(Math.log(n_tracks + 1) * 0.9))
+  const catalog = Math.min(15, albumPts + trackPts)
 
-  // ② MEDIA (0-10): videos + lyrics coverage
-  const videoPts = Math.min(6, Math.round(Math.sqrt(n_videos) * 1.9))
-  const lyricsPts = Math.min(4, Math.round(Math.log(n_lyrics + 1) * 1.0))
-  const media = Math.min(10, videoPts + lyricsPts)
+  // ② MEDIA (0-7): videos + lyrics coverage
+  const videoPts = Math.min(4, Math.round(Math.sqrt(n_videos) * 1.3))
+  const lyricsPts = Math.min(3, Math.round(Math.log(n_lyrics + 1) * 0.7))
+  const media = Math.min(7, videoPts + lyricsPts)
 
-  // ③ COMMUNITY (0-13): site likes — log scale
+  // ③ COMMUNITY (0-10): likes — log scale
   const community = likes > 0
-    ? Math.min(13, Math.round(Math.log(likes + 1) * 1.8))
+    ? Math.min(10, Math.round(Math.log(likes + 1) * 1.4))
     : 0
 
-  // ④ CAREER BONUS (0-10): bonus only, no penalty for short careers
+  // ④ CAREER BONUS (0-7): bonus only, no penalty for short careers
   const career = career_years >= 5
-    ? Math.min(10, Math.round(Math.log(career_years) * 2.85))
+    ? Math.min(7, Math.round(Math.log(career_years) * 2.0))
     : 0
 
-  // ⑤ AWARDS (0-20)
+  // ⑤ AWARDS (0-11): aggregated wins + noms across channels
   const awardsAgg = awards || { major_won:0, major_nominated:0, major_inducted:0, other_won:0, other_nominated:0, channels:0 }
   const awardsCat = computeAwardsSubscore(awardsAgg, 'lt')
 
-  // ⑥ ALL-TIME POPULARITY (0-12): log10(SUM views) × 1.5
-  //   1K=4.5, 100K=7.5, 1M=9, 10M=10.5, 100M+=12
-  const popAllTime = total_video_views > 0
-    ? Math.min(12, Math.round(Math.log10(total_video_views + 1) * 1.5))
-    : 0
-
-  // ⑦ RECENT POPULARITY (0-13): log10(SUM views in last 3y) × 1.65
-  //   1K=5, 100K=8.25, 1M=9.9, 10M=11.55, 100M+=13
-  // Šitas labiausiai svarbus — atvaizduoja CURRENT relevance, ne lifetime.
-  const popRecent = recent_video_views > 0
-    ? Math.min(13, Math.round(Math.log10(recent_video_views + 1) * 1.65))
-    : 0
-
-  const total = Math.min(
-    100,
-    catalog + media + community + career + awardsCat.points + popAllTime + popRecent
-  )
-
-  const fmtViews = (n: number) => n >= 1_000_000
-    ? `${(n / 1_000_000).toFixed(n < 10_000_000 ? 1 : 0)}M perž.`
-    : n >= 1_000 ? `${(n / 1_000).toFixed(0)}K perž.`
-    : n > 0 ? `${n} perž.` : 'nėra perž.'
+  const total = Math.min(50, catalog + media + community + career + awardsCat.points)
 
   return {
     type: 'lt',
     categories: {
-      catalog: { points: catalog, max: 22, details: `${n_albums} alb., ${n_tracks} dainų` },
-      media:   { points: media, max: 10, details: `${n_videos} vaizdo klipų, ${n_lyrics} tekstų` },
-      popularity_recent:  { points: popRecent, max: 13, details: `pastaraisiais 3m: ${fmtViews(recent_video_views)}` },
-      popularity_alltime: { points: popAllTime, max: 12, details: `viso laiko: ${fmtViews(total_video_views)}` },
-      community: { points: community, max: 13, details: `${likes} patiktukų` },
-      career:  { points: career, max: 10, details: career_years > 0 ? `${career_years} m. karjera` : 'nenurodyta' },
-      awards:  { ...awardsCat, max: 20 },
+      catalog: { points: catalog, max: 15, details: `${n_albums} alb., ${n_tracks} dainų` },
+      media:   { points: media, max: 7, details: `${n_videos} vaizdo klipų, ${n_lyrics} tekstų` },
+      community: { points: community, max: 10, details: `${likes} patiktukų` },
+      career:  { points: career, max: 7, details: career_years > 0 ? `${career_years} m. karjera` : 'nenurodyta' },
+      awards:  awardsCat,
     },
     total,
     score_override: 0,
     final_score: total,
-    inputs: { n_albums, n_tracks, n_videos, n_lyrics, likes, career_years, total_video_views, recent_video_views },
+    inputs: { n_albums, n_tracks, n_videos, n_lyrics, likes, career_years },
   }
 }
 
@@ -355,7 +312,6 @@ export type AlbumScoreInputs = {
   peak_chart_position?: number | null
   track_count?: number | null
   year?: number | null
-  total_video_views?: number  // SUM(album track.video_views) — naujas
 }
 
 export type AlbumScoreResult = {
@@ -427,16 +383,6 @@ export function computeAlbumScore(album: AlbumScoreInputs, artistScore: number =
   categories.artist_score = artistPts
   score += artistPts
 
-  // Album popularity (0-15): SUM track video_views in this album.
-  // log10(views + 1) × 1.9 → 1K=6, 100K=10, 1M=11, 10M=13, 100M+=15.
-  // Smarter signal nei vien certifications (kurių LT albumams nėra).
-  const totalViews = album.total_video_views || 0
-  const popPts = totalViews > 0
-    ? Math.min(15, Math.round(Math.log10(totalViews + 1) * 1.9))
-    : 0
-  categories.popularity = popPts
-  score += popPts
-
   return {
     final_score: Math.min(100, score),
     breakdown: {
@@ -449,7 +395,6 @@ export function computeAlbumScore(album: AlbumScoreInputs, artistScore: number =
         track_count: tc,
         year,
         artist_score: artistScore,
-        total_video_views: totalViews,
       },
     },
   }
@@ -476,22 +421,7 @@ export async function calculateAlbumScore(
       .single()
     artistScore = artistRow?.score || 0
   }
-
-  // Aggregate views from all album tracks. album_tracks junction → tracks.
-  // Skirtumas nuo artist'o: čia tik tracks priklausantys ŠIAM albumui.
-  let total_video_views = 0
-  try {
-    const { data: trackLinks } = await supabase
-      .from('album_tracks')
-      .select('tracks(video_views)')
-      .eq('album_id', albumId)
-    for (const r of (trackLinks || []) as any[]) {
-      const v = Number(r?.tracks?.video_views) || 0
-      total_video_views += v
-    }
-  } catch {}
-
-  return computeAlbumScore({ ...album, total_video_views }, artistScore)
+  return computeAlbumScore(album, artistScore)
 }
 
 // ── TRACK SCORING (mirrors Python wiki_worker.compute_track_score) ─
@@ -679,42 +609,9 @@ export async function calculateArtistScore(
     .eq('entity_id', artistId)
   const likes = likeCount || 0
 
-  // YT views aggregation — pull all track video_views + release_year,
-  // suskaičiuojam (a) total lifetime ir (b) recent 3y views atskirai.
-  // Recent — track'ai išleisti per pastaruosius 3 metus.
-  const recentCutoffYear = new Date().getFullYear() - 3
-  const { data: viewRows } = await supabase
-    .from('tracks')
-    .select('video_views, release_year')
-    .eq('artist_id', artistId)
-    .not('video_views', 'is', null)
-  let total_video_views = 0
-  let recent_video_views = 0
-  for (const r of (viewRows || []) as any[]) {
-    const v = Number(r.video_views) || 0
-    total_video_views += v
-    if (r.release_year && r.release_year >= recentCutoffYear) {
-      recent_video_views += v
-    }
-  }
-
-  // Calculate career years.
-  // Pirmoji prielaida: artists.active_from (iš music.lt arba Wiki).
-  // Fallback'as: min(tracks.release_year) — patikimas kai music.lt neturi
-  // Veiklos pradžia lauko, bet tracks turi release_year iš dainų puslapių.
+  // Calculate career years
   const currentYear = new Date().getFullYear()
-  let activeFrom = artist?.active_from || 0
-  if (!activeFrom) {
-    const { data: oldestTrack } = await supabase
-      .from('tracks')
-      .select('release_year')
-      .eq('artist_id', artistId)
-      .not('release_year', 'is', null)
-      .order('release_year', { ascending: true })
-      .limit(1)
-      .maybeSingle()
-    if (oldestTrack?.release_year) activeFrom = oldestTrack.release_year
-  }
+  const activeFrom = artist?.active_from || 0
   const activeUntil = artist?.active_until || currentYear
   const career_years = activeFrom > 0 ? (activeUntil - activeFrom) : 0
 
@@ -742,8 +639,6 @@ export async function calculateArtistScore(
     n_lyrics: n_lyrics || 0,
     likes: likes || 0,
     career_years,
-    total_video_views,
-    recent_video_views,
     awards: awardsAgg,
   }
 
