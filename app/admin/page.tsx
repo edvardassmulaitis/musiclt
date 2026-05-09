@@ -1,16 +1,94 @@
 'use client'
+// Admin dashboard — sugrupuotos sekcijos, kiekviena su touch-friendly kortelėm.
+// Migracija aukščiausiai (kasdienio darbo srautas: aktyvuoti, peržiūrėti pending,
+// patvirtinti). Po jos — content management (atlikėjai/albums/tracks/news/events).
+// Pabaigoje — sistemos meta (genres/search/settings/voting).
+//
+// Mobile-first: kortelės stack'inasi 1 kolona <640px, 2 kolonos sm:, 3 kolonos lg:.
+// Touch targets >= 44px (iOS HIG). Niekur ne small text be papildomos akcijos.
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
+type Counts = {
+  artists: number; albums: number; tracks: number
+  news: number; events: number; venues: number
+  top_pending: number
+  pending_albums: number   // legacy_scrape_pending
+  pending_tracks: number
+  active_jobs: number      // import_jobs running/pending
+}
+
+type AdminCard = {
+  href: string
+  newHref?: string
+  icon: string
+  label: string
+  count?: number
+  badge?: { text: string; color: 'orange' | 'red' | 'green' | 'blue' }
+  hint?: string
+}
+
+function Card({ card }: { card: AdminCard }) {
+  const badgeColors: Record<string, string> = {
+    orange: 'bg-orange-100 text-orange-700 border-orange-200',
+    red:    'bg-red-100 text-red-700 border-red-200',
+    green:  'bg-green-100 text-green-700 border-green-200',
+    blue:   'bg-blue-100 text-blue-700 border-blue-200',
+  }
+  return (
+    <div className="overflow-hidden rounded-xl border border-[var(--input-border)] bg-[var(--bg-surface)] transition-all hover:border-[var(--border-strong)] hover:shadow-md">
+      <Link
+        href={card.href}
+        className="flex min-h-[60px] items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--bg-hover)]"
+      >
+        <span className="text-2xl">{card.icon}</span>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <span className="truncate font-semibold text-[var(--text-primary)]">{card.label}</span>
+          {card.hint && (
+            <span className="truncate text-[11px] text-[var(--text-muted)]">{card.hint}</span>
+          )}
+        </div>
+        {card.badge && (
+          <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10.5px] font-bold ${badgeColors[card.badge.color]}`}>
+            {card.badge.text}
+          </span>
+        )}
+        {card.count !== undefined && !card.badge && (
+          <span className="shrink-0 rounded-full bg-[var(--bg-elevated)] px-2 py-0.5 text-xs text-[var(--text-muted)]">
+            {card.count.toLocaleString('lt-LT')}
+          </span>
+        )}
+      </Link>
+      {card.newHref && (
+        <Link
+          href={card.newHref}
+          className="flex min-h-[36px] w-full items-center justify-center border-t border-[var(--border-subtle)] py-2 text-xs text-music-blue transition-colors hover:bg-[var(--hover-blue)]"
+        >
+          + Naujas
+        </Link>
+      )}
+    </div>
+  )
+}
+
+function SectionTitle({ icon, label, hint }: { icon: string; label: string; hint?: string }) {
+  return (
+    <div className="mb-3 flex items-baseline gap-2">
+      <span className="text-lg">{icon}</span>
+      <h2 className="font-['Outfit',sans-serif] text-sm font-extrabold uppercase tracking-[0.12em] text-[var(--text-secondary)]">
+        {label}
+      </h2>
+      {hint && <span className="text-[11px] text-[var(--text-faint)]">— {hint}</span>}
+    </div>
+  )
+}
+
 export default function AdminDashboardPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const [counts, setCounts] = useState<{
-    artists: number; albums: number; tracks: number; news: number; events: number; venues: number
-    top_pending: number
-  } | null>(null)
+  const [counts, setCounts] = useState<Counts | null>(null)
 
   const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'super_admin'
 
@@ -26,7 +104,11 @@ export default function AdminDashboardPage() {
       fetch('/api/events?limit=1&showPast=true').then(r => r.json()),
       fetch('/api/top/suggestions?status=pending').then(r => r.json()),
       fetch('/api/venues').then(r => r.json()),
-    ]).then(([ar, al, tr, nw, ev, sg, vn]) => {
+      // Migration counters — turi būti light query'ai. Naudojam REST API
+      // su `Prefer: count=exact, head=true` jei reikia, bet dabar tiesiog
+      // imam .total iš normalaus list endpoint'o.
+      fetch('/api/admin/import/pending/counts').then(r => r.ok ? r.json() : { albums: 0, tracks: 0, jobs: 0 }).catch(() => ({ albums: 0, tracks: 0, jobs: 0 })),
+    ]).then(([ar, al, tr, nw, ev, sg, vn, mig]) => {
       setCounts({
         artists: ar.total || 0,
         albums: al.total || 0,
@@ -35,73 +117,121 @@ export default function AdminDashboardPage() {
         events: ev.total || 0,
         top_pending: sg.suggestions?.length || 0,
         venues: vn.venues?.length || 0,
+        pending_albums: mig.albums || 0,
+        pending_tracks: mig.tracks || 0,
+        active_jobs: mig.jobs || 0,
       })
     })
   }, [isAdmin])
 
   if (status === 'loading' || !isAdmin) return null
 
-  const items = [
+  const totalPending = (counts?.pending_albums || 0) + (counts?.pending_tracks || 0)
+
+  // ── Sekcijos ────────────────────────────────────────────────────────
+  const migration: AdminCard[] = [
+    {
+      href: '/admin/import',
+      icon: '🚀',
+      label: 'Atlikėjų migracija',
+      hint: 'Wiki + scrape job queue, bulk run',
+      badge: counts?.active_jobs && counts.active_jobs > 0
+        ? { text: `${counts.active_jobs} aktyvūs`, color: 'orange' }
+        : undefined,
+    },
+    {
+      href: '/admin/import/pending',
+      icon: '⏳',
+      label: 'Pending review',
+      hint: 'music.lt has, Wiki neturi — patvirtinti',
+      badge: totalPending > 0
+        ? { text: `${totalPending} laukia`, color: 'orange' }
+        : undefined,
+    },
+    {
+      href: '/admin/import/forum',
+      icon: '🧵',
+      label: 'Forum migracija',
+      hint: 'Senas forumas → diskusijų threads',
+    },
+  ]
+
+  const content: AdminCard[] = [
     { href: '/admin/artists', newHref: '/admin/artists/new', icon: '🎤', label: 'Atlikėjai', count: counts?.artists },
     { href: '/admin/albums', newHref: '/admin/albums/new', icon: '💿', label: 'Albumai', count: counts?.albums },
     { href: '/admin/tracks', newHref: '/admin/tracks/new', icon: '🎵', label: 'Dainos', count: counts?.tracks },
     { href: '/admin/news', newHref: '/admin/news/new', icon: '📰', label: 'Naujienos', count: counts?.news },
     { href: '/admin/events', newHref: '/admin/events/new', icon: '📅', label: 'Renginiai', count: counts?.events },
     { href: '/admin/venues', newHref: '/admin/venues/new', icon: '📍', label: 'Vietos', count: counts?.venues },
-    { href: '/admin/voting', newHref: '/admin/voting', icon: '🗳️', label: 'Balsavimai' },
-    { href: '/admin/boombox', newHref: '/admin/boombox', icon: '🎛️', label: 'Boombox' },
-    { href: '/admin/search', newHref: '/admin/search', icon: '🔍', label: 'Paieška' },
-    { href: '/admin/genres', newHref: '/admin/genres', icon: '🎨', label: 'Žanrai' },
+    { href: '/admin/comments', icon: '💬', label: 'Komentarai', hint: 'Visi komentarai per visas surfaces' },
+  ]
+
+  const tops: AdminCard[] = [
+    {
+      href: '/admin/top',
+      icon: '🏆',
+      label: 'TOP sąrašai',
+      hint: 'TOP 40 · LT TOP 30',
+      badge: counts?.top_pending && counts.top_pending > 0
+        ? { text: `${counts.top_pending} laukia`, color: 'orange' }
+        : undefined,
+    },
+    { href: '/admin/dienos-daina', icon: '⭐', label: 'Dienos daina', hint: 'Daily song spotlight' },
+    { href: '/admin/voting', icon: '🗳️', label: 'Balsavimai', hint: 'Apdovanojimai, votings' },
+    { href: '/admin/boombox', icon: '🎛️', label: 'Boombox', hint: 'Live stream player config' },
+  ]
+
+  const system: AdminCard[] = [
+    { href: '/admin/genres', icon: '🎨', label: 'Žanrai' },
+    { href: '/admin/eventai', icon: '📅', label: 'Eventai (legacy)' },
+    { href: '/admin/search', icon: '🔍', label: 'Paieška' },
+    { href: '/admin/users', icon: '👥', label: 'Vartotojai' },
+    { href: '/admin/settings', icon: '⚙️', label: 'Nustatymai' },
   ]
 
   return (
     <div className="min-h-screen bg-[var(--bg-elevated)]">
-      <div className="w-full px-6 py-8">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl">
-
-          {items.map(item => (
-            <div key={item.href} className="bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-xl overflow-hidden">
-              <Link href={item.href} className="flex items-center gap-3 px-4 py-3 hover:bg-[var(--bg-hover)] transition-colors">
-                <span className="text-xl">{item.icon}</span>
-                <span className="font-semibold text-[var(--text-primary)]">{item.label}</span>
-                {item.count !== undefined && (
-                  <span className="ml-auto text-xs text-[var(--text-muted)] bg-[var(--bg-elevated)] px-2 py-0.5 rounded-full">
-                    {item.count}
-                  </span>
-                )}
-              </Link>
-              <Link href={item.newHref}
-                className="flex items-center justify-center gap-1 w-full py-2 text-xs text-music-blue border-t border-[var(--border-subtle)] hover:bg-[var(--hover-blue)] transition-colors">
-                + Naujas
-              </Link>
-            </div>
-          ))}
-
-          {/* TOP sąrašai */}
-          <div className="bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-xl overflow-hidden sm:col-span-3">
-            <Link href="/admin/top" className="flex items-center gap-3 px-4 py-3 hover:bg-[var(--bg-hover)] transition-colors">
-              <span className="text-xl">🏆</span>
-              <span className="font-semibold text-[var(--text-primary)]">TOP sąrašai</span>
-              <span className="text-xs text-[var(--text-muted)] ml-1">TOP 40 · LT TOP 30</span>
-              {counts?.top_pending !== undefined && counts.top_pending > 0 && (
-                <span className="ml-auto text-xs font-bold text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full">
-                  {counts.top_pending} laukia
-                </span>
-              )}
-            </Link>
-            <div className="flex border-t border-[var(--border-subtle)]">
-              <Link href="/admin/top?type=top40"
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs text-music-blue hover:bg-[var(--hover-blue)] transition-colors border-r border-[var(--border-subtle)]">
-                🌍 TOP 40
-              </Link>
-              <Link href="/admin/top?type=lt_top30"
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs text-music-blue hover:bg-[var(--hover-blue)] transition-colors">
-                🇱🇹 LT TOP 30
-              </Link>
-            </div>
-          </div>
-
+      <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+        <div className="mb-6">
+          <h1 className="font-['Outfit',sans-serif] text-2xl font-extrabold text-[var(--text-primary)] sm:text-3xl">
+            Admin dashboard
+          </h1>
+          <p className="mt-1 text-[12.5px] text-[var(--text-muted)]">
+            Migracijos workflow + content management. Optimizuotas mobile'ui.
+          </p>
         </div>
+
+        {/* Migracija — top priority section, paskutiniai veiksmai */}
+        <section className="mb-8">
+          <SectionTitle icon="🚀" label="Migracija" hint="aktyvuoti scrape, patvirtinti pending entries" />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {migration.map(card => <Card key={card.href} card={card} />)}
+          </div>
+        </section>
+
+        {/* Content management */}
+        <section className="mb-8">
+          <SectionTitle icon="📚" label="Turinys" hint="atlikėjai, albumai, dainos, news, events" />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {content.map(card => <Card key={card.href} card={card} />)}
+          </div>
+        </section>
+
+        {/* TOP / charts / votings */}
+        <section className="mb-8">
+          <SectionTitle icon="🏆" label="Topai ir balsavimai" />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {tops.map(card => <Card key={card.href} card={card} />)}
+          </div>
+        </section>
+
+        {/* System */}
+        <section className="mb-6">
+          <SectionTitle icon="⚙️" label="Sistema" />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {system.map(card => <Card key={card.href} card={card} />)}
+          </div>
+        </section>
       </div>
     </div>
   )
