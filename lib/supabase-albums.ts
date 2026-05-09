@@ -11,11 +11,8 @@ function toInt(v: any): number | null {
   return isNaN(n) || n === 0 ? null : n
 }
 
-function slugify(text: string): string {
-  return text.toLowerCase()
-    .replace(/[ąčęėįšųūž]/g, c => ({ ą:'a',č:'c',ę:'e',ė:'e',į:'i',š:'s',ų:'u',ū:'u',ž:'z' }[c] || c))
-    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-}
+// Vieninga slugify utility — palaiko Unicode (visos kalbos). Žr. lib/slugify.ts.
+import { slugify } from './slugify'
 
 export type AlbumFull = {
   id?: number

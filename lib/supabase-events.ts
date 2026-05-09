@@ -1,14 +1,7 @@
 import { createAdminClient } from '@/lib/supabase'
 
-// ── Slug helper ──────────────────────────────────────────────────
-function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[ąčęėįšųūž]/g, c => ({ ą:'a',č:'c',ę:'e',ė:'e',į:'i',š:'s',ų:'u',ū:'u',ž:'z' }[c] || c))
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .substring(0, 80)
-}
+// Vieninga slugify utility — palaiko Unicode (visos kalbos). Žr. lib/slugify.ts.
+import { slugify } from './slugify'
 
 // ── Get events list (public) ─────────────────────────────────────
 export async function getEvents(opts: {
