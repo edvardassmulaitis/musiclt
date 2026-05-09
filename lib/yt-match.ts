@@ -114,7 +114,23 @@ export function scoreCandidate(artist: string, track: string, c: YtSearchResult)
   // Track match — 0..50 (bigger weight, kiekvienas track unique)
   let trackRatio = 0
   if (trackTokens.length === 0) {
-    reasons.push('NO track tokens (?!)')
+    // Non-Latin title (Arabic, Cyrillic, CJK ar pan.) po normalize lieka
+    // tuščios. Be šito patikrinimo bet koks artist'o video gauna max
+    // score per artist match'ą — Coldplay'aus „بنی آدم" gaudavo Yellow
+    // video (1.3B views) per default'u. Dabar reikalaujam, kad
+    // candidate title'e būtų original raw chars.
+    const trackRaw = track.toLowerCase().normalize('NFKC').replace(/\s+/g, ' ').trim()
+    const titleRaw = c.title.toLowerCase().normalize('NFKC')
+    if (trackRaw && titleRaw.includes(trackRaw)) {
+      // Exact non-Latin match — labai stiprus signal'as
+      score += 50
+      trackRatio = 1
+      reasons.push('+50 raw non-Latin track match')
+    } else {
+      // Skip candidate be raw match'o — non-Latin title reikia disambiguator'o
+      score -= 30
+      reasons.push('-30 no raw track match (non-Latin)')
+    }
   } else {
     const inTitle = trackTokens.filter(t => titleNorm.includes(t)).length
     trackRatio = inTitle / trackTokens.length
