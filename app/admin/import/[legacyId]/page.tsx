@@ -136,37 +136,6 @@ export default function AdminImportDetailPage() {
     } finally { setActionLoading(false) }
   }
 
-  // Per-row pending review actions — kviečiam tą patį API kaip
-  // /admin/import/pending: PATCH = approve (set source='legacy_scrape'),
-  // DELETE = reject (cascade trinant likes/comments). Po sėkmingo
-  // operacijos reload'inam page'ą.
-  const [pendingBusy, setPendingBusy] = useState<string | null>(null) // 'album:123' / 'track:456'
-  const handlePending = useCallback(async (kind: 'album' | 'track', id: number, action: 'approve' | 'reject') => {
-    if (action === 'reject') {
-      const ok = confirm(
-        `Atmesti šį ${kind === 'album' ? 'albumą' : 'dainą'}?\n\n` +
-        'Visi music.lt likes ir komentarai bus ištrinti negrąžinamai.'
-      )
-      if (!ok) return
-    }
-    const key = `${kind}:${id}`
-    setPendingBusy(key)
-    setActionMsg(null)
-    try {
-      const r = await fetch(`/api/admin/import/pending/${kind}/${id}`, {
-        method: action === 'approve' ? 'PATCH' : 'DELETE',
-      })
-      if (!r.ok) {
-        const j = await r.json().catch(() => ({}))
-        setActionMsg(`Klaida: ${j.error || r.statusText}`)
-      } else {
-        await load()
-      }
-    } finally {
-      setPendingBusy(null)
-    }
-  }, [load])
-
   if (status === 'loading' || !isAdmin) return null
 
   if (loading && !data) return (
@@ -183,25 +152,10 @@ export default function AdminImportDetailPage() {
 
   const { artist, jobs, albums, standalone_tracks, photos, legacy_like_count } = data
 
-  // Cross-check: album'ai grupuojami per match status:
-  //   bothAlbums    — Wiki įrašas su legacy_id (overlay match'as su music.lt)
-  //                   ARBA legacy `legacy+wikipedia` source (LT atlikėjams)
-  //   wikiAlbums    — Wiki įrašas BE legacy_id (Wiki turi, music.lt nematė)
-  //   legacyAlbums  — source='legacy_scrape_pending' (music.lt turi, Wiki ne;
-  //                   pending review per /admin/import/pending) ARBA pure
-  //                   legacy LT scrape'as (legacy_scrape_v1)
-  const bothAlbums = albums.filter(a =>
-    (a.legacy_id != null && a.source !== 'legacy_scrape_pending')
-    || a.source === 'legacy+wikipedia' || a.source === 'wikipedia+legacy'
-  )
-  const wikiAlbums = albums.filter(a =>
-    a.legacy_id == null
-    && (a.source === 'wikipedia' || (a.source || '').startsWith('wiki'))
-  )
-  const legacyAlbums = albums.filter(a =>
-    a.source === 'legacy_scrape_v1' || a.source === 'legacy_scrape_pending'
-  )
-  const pendingAlbums = albums.filter(a => a.source === 'legacy_scrape_pending')
+  // Cross-check: album'ai grupuojami pagal source
+  const wikiAlbums = albums.filter(a => a.source === 'wikipedia' || (a.source || '').startsWith('wiki'))
+  const legacyAlbums = albums.filter(a => a.source === 'legacy_scrape_v1')
+  const bothAlbums = albums.filter(a => a.source === 'legacy+wikipedia' || a.source === 'wikipedia+legacy')
 
   const lastWiki = jobs.find(j => j.job_type === 'wiki' && j.status === 'completed')
   const lastScrape = jobs.find(j => j.job_type === 'scrape' && j.status === 'completed')
@@ -266,30 +220,6 @@ export default function AdminImportDetailPage() {
           <SmallStat label="Legacy likes" value={legacy_like_count} />
         </div>
 
-        {/* Pending review banner — kai music.lt'as turi įrašų, kurių Wiki
-            neturėjo, juos sukuriam su source='legacy_scrape_pending' ir
-            admin'as turi patvirtinti per /admin/import/pending. Banner'is
-            rodomas tik kai yra ką patvirtinti. */}
-        {pendingAlbums.length > 0 && (
-          <Link
-            href={`/admin/import/pending?artist=${legacyId}`}
-            className="mb-6 flex items-center gap-3 rounded-xl border border-orange-300 bg-orange-50 px-4 py-3 transition-colors hover:bg-orange-100"
-          >
-            <span className="text-2xl">⏳</span>
-            <div className="flex-1">
-              <div className="font-semibold text-orange-900">
-                {pendingAlbums.length} pending review {pendingAlbums.length === 1 ? 'įrašas' : 'įrašai'}
-              </div>
-              <div className="text-xs text-orange-700">
-                Music.lt turi šių albumų, bet Wiki canonical neturėjo —
-                spauskite, kad peržiūrėtum ir patvirtintum (Approve) arba
-                atmestumi (Reject).
-              </div>
-            </div>
-            <span className="text-orange-700">→</span>
-          </Link>
-        )}
-
         {/* Jobs history */}
         <Section title="Import job istorija">
           {jobs.length === 0 ? (
@@ -343,14 +273,7 @@ export default function AdminImportDetailPage() {
                 id: a.id,
                 title: a.title,
                 meta: `${albumTypeLabel(a)} ${a.year ?? ''}`.trim(),
-                // Approve/Reject mygtukai matomi tik kai įrašas yra pending —
-                // legacy_scrape_v1 (jau patvirtintas LT scrape) jų nereikia.
-                pending: a.source === 'legacy_scrape_pending',
               }))}
-              onApprove={id => handlePending('album', id, 'approve')}
-              onReject={id => handlePending('album', id, 'reject')}
-              busyKey={pendingBusy}
-              kind="album"
             />
           </div>
           {albums.length === 0 && (
@@ -451,165 +374,32 @@ function JobRow({ job }: { job: ImportJob }) {
   )
 }
 
-/** Report'o struktūra (scrape worker'io output'as):
- *   { albums, tracks, likes_artist, forum_threads, duration_sec, last_lines,
- *     yt_enrich: { ok, foundNew, skipped, viewsUpdated, errors, ... } | { ok:false, status, body }
- *     score_recalc: { ok, artist_score, albums_scored, tracks_scored } | { ok:false, ... }
- *   }
- *
- * Wiki worker — kitokia struktūra (artist updated, albums/tracks inserted, photos count).
- * Universalus render'is: žinomus keys atvaizduoja struktūruotai, likusius
- * generic'ai (su json snippet'ų expandable).
- */
 function ReportBlock({ report, completedAt }: { report: any; completedAt: string | null }) {
   if (!report) return <div className="text-sm text-[var(--text-muted)]">Reporto nėra</div>
 
-  // Numeric scrape counts — pagrindinė info iš subprocess'o po scrape'o.
-  const numericKeys = ['albums', 'tracks', 'likes_artist', 'likes_album', 'likes_track',
-                       'forum_threads', 'news_threads', 'duration_sec', 'photos_added',
-                       'tracks_inserted', 'albums_inserted']
-  const numericStats = numericKeys
-    .filter(k => typeof report[k] === 'number')
-    .map(k => ({ k, v: report[k] as number }))
-
+  const entries = Object.entries(report).filter(([, v]) => v !== null && v !== undefined)
   return (
-    <div className="space-y-3">
-      <div className="text-xs text-[var(--text-muted)]">
+    <div className="bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-xl p-4">
+      <div className="text-xs text-[var(--text-muted)] mb-2">
         Baigta: {completedAt ? new Date(completedAt).toLocaleString('lt') : '—'}
       </div>
-
-      {/* Numeric stats grid */}
-      {numericStats.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2">
-          {numericStats.map(({ k, v }) => (
-            <div key={k} className="p-2 bg-[var(--bg-elevated)] rounded border border-[var(--input-border)]">
-              <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wide">{k.replace(/_/g, ' ')}</div>
-              <div className="text-base font-bold tabular-nums text-[var(--text-primary)]">
-                {k === 'duration_sec' ? `${v.toFixed(0)}s` : v.toLocaleString()}
-              </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {entries.map(([k, v]) => (
+          <div key={k} className="p-2 bg-[var(--bg-elevated)] rounded">
+            <div className="text-[10px] text-[var(--text-muted)] uppercase">{k}</div>
+            <div className="text-sm font-semibold text-[var(--text-primary)] truncate" title={String(v)}>
+              {typeof v === 'object' ? JSON.stringify(v) : String(v)}
             </div>
-          ))}
-        </div>
-      )}
-
-      {/* YT enrich card */}
-      {report.yt_enrich && <YtEnrichCard data={report.yt_enrich} />}
-
-      {/* Score recalc card */}
-      {report.score_recalc && <ScoreRecalcCard data={report.score_recalc} />}
-
-      {/* last_lines — raw subprocess output */}
-      {typeof report.last_lines === 'string' && report.last_lines.trim() && (
-        <details className="bg-[var(--bg-elevated)] rounded-xl border border-[var(--input-border)]">
-          <summary className="px-3 py-2 text-xs font-semibold text-[var(--text-muted)] cursor-pointer">
-            Raw scraper output (last lines)
-          </summary>
-          <pre className="px-3 pb-3 text-[11px] font-mono whitespace-pre-wrap break-words text-[var(--text-secondary)]">
-            {report.last_lines}
-          </pre>
-        </details>
-      )}
-    </div>
-  )
-}
-
-function YtEnrichCard({ data }: { data: any }) {
-  if (data?.skipped) {
-    return (
-      <div className="p-3 bg-stone-50 border border-stone-200 rounded-xl text-sm">
-        <div className="font-semibold text-stone-700 mb-1">▶ YouTube enrich praleista</div>
-        <div className="text-xs text-stone-600">{data.reason || 'unknown'}</div>
-      </div>
-    )
-  }
-  if (data?.ok === false) {
-    return (
-      <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm">
-        <div className="font-semibold text-red-700 mb-1">▶ YouTube enrich KLAIDA</div>
-        <div className="text-xs text-red-600">
-          {data.status ? `HTTP ${data.status}: ` : ''}{data.body || data.exception || 'unknown'}
-        </div>
-        {data.status === 401 && (
-          <div className="mt-2 text-[11px] text-red-700 bg-red-100 px-2 py-1 rounded">
-            Tikriausiai INTERNAL_API_SECRET nesutampa tarp Vercel ir Mac worker'io. Patikrink Vercel env vars.
           </div>
-        )}
-      </div>
-    )
-  }
-  return (
-    <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl">
-      <div className="text-sm font-semibold text-rose-800 mb-2">▶ YouTube enrich</div>
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-        <YtMini label="Iš viso" value={data.totalTracks} />
-        <YtMini label="Apdorota" value={data.processed} />
-        <YtMini label="Rasta naujų" value={data.foundNew} tone="green" />
-        <YtMini label="Praleista" value={data.skipped} tone="amber" />
-        <YtMini label="Views update" value={data.viewsUpdated} tone="blue" />
-      </div>
-      {data.errors > 0 && (
-        <div className="mt-2 text-xs text-red-700">⚠ {data.errors} klaidos track'uose</div>
-      )}
-    </div>
-  )
-}
-
-function ScoreRecalcCard({ data }: { data: any }) {
-  if (data?.skipped) {
-    return (
-      <div className="p-3 bg-stone-50 border border-stone-200 rounded-xl text-sm">
-        <div className="font-semibold text-stone-700 mb-1">↻ Score recalc praleistas</div>
-        <div className="text-xs text-stone-600">{data.reason || 'unknown'}</div>
-      </div>
-    )
-  }
-  if (data?.ok === false) {
-    return (
-      <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm">
-        <div className="font-semibold text-red-700 mb-1">↻ Score recalc KLAIDA</div>
-        <div className="text-xs text-red-600">
-          {data.status ? `HTTP ${data.status}: ` : ''}{data.body || data.exception || 'unknown'}
-        </div>
-      </div>
-    )
-  }
-  return (
-    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl">
-      <div className="text-sm font-semibold text-amber-800 mb-2">↻ Score recalc</div>
-      <div className="grid grid-cols-3 gap-2">
-        <YtMini label="Artist score" value={data.artist_score} tone="amber" />
-        <YtMini label="Albumai" value={data.albums_scored} tone="amber" />
-        <YtMini label="Track'ai" value={data.tracks_scored} tone="amber" />
+        ))}
       </div>
     </div>
   )
 }
 
-function YtMini({ label, value, tone }: { label: string; value: number | undefined; tone?: 'green' | 'amber' | 'blue' }) {
-  const v = value ?? 0
-  const cls = tone === 'green' ? 'text-green-700'
-            : tone === 'amber' ? 'text-amber-700'
-            : tone === 'blue'  ? 'text-blue-700'
-            : 'text-[var(--text-primary)]'
-  return (
-    <div className="bg-white border border-[var(--input-border)] rounded p-2">
-      <div className="text-[10px] uppercase tracking-wide text-[var(--text-faint)]">{label}</div>
-      <div className={`text-base font-bold tabular-nums ${cls}`}>{v.toLocaleString()}</div>
-    </div>
-  )
-}
-
-function DiffColumn({ title, color, items, onApprove, onReject, busyKey, kind }: {
+function DiffColumn({ title, color, items }: {
   title: string; color: 'green' | 'blue' | 'purple'
-  // `pending` flag valdo, ar rodyti per-row Approve/Reject mygtukus.
-  // Tik legacy_scrape_pending įrašai laukia patvirtinimo; legacy_scrape_v1
-  // (LT scrape patvirtintas) tų mygtukų nerodom — sąrašas tas pats column'as
-  // tik mygtukai sąlyginiai.
-  items: Array<{ id: number; title: string; meta: string; pending?: boolean }>
-  onApprove?: (id: number) => void | Promise<void>
-  onReject?: (id: number) => void | Promise<void>
-  busyKey?: string | null  // 'album:123' / 'track:456' formate
-  kind?: 'album' | 'track'
+  items: Array<{ id: number; title: string; meta: string }>
 }) {
   const colorClass = {
     green: 'border-green-300 bg-green-50',
@@ -626,41 +416,12 @@ function DiffColumn({ title, color, items, onApprove, onReject, busyKey, kind }:
         <div className="text-xs text-gray-500 italic">—</div>
       ) : (
         <div className="space-y-1 max-h-64 overflow-y-auto">
-          {items.map(it => {
-            const showActions = it.pending && (onApprove || onReject) && kind
-            const myKey = kind ? `${kind}:${it.id}` : ''
-            const isBusy = busyKey === myKey
-            return (
-              <div key={it.id} className="text-xs bg-white rounded px-2 py-1.5 border border-gray-200">
-                <div className="font-medium text-gray-800 truncate">{it.title}</div>
-                <div className="flex items-center justify-between gap-2 mt-0.5">
-                  <div className="text-[10px] text-gray-500 truncate">{it.meta}</div>
-                  {showActions && (
-                    <div className="flex gap-1 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => onApprove?.(it.id)}
-                        disabled={isBusy}
-                        title="Patvirtinti — taps matomas viešai"
-                        className="rounded bg-green-600 px-1.5 py-0.5 text-[10px] font-bold text-white hover:bg-green-700 disabled:opacity-40"
-                      >
-                        {isBusy ? '…' : '✓'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onReject?.(it.id)}
-                        disabled={isBusy}
-                        title="Atmesti — ištrinti įrašą + likes/komentarus"
-                        className="rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white hover:bg-red-700 disabled:opacity-40"
-                      >
-                        {isBusy ? '…' : '✕'}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )
-          })}
+          {items.map(it => (
+            <div key={it.id} className="text-xs bg-white rounded px-2 py-1 border border-gray-200">
+              <div className="font-medium text-gray-800 truncate">{it.title}</div>
+              <div className="text-[10px] text-gray-500">{it.meta}</div>
+            </div>
+          ))}
         </div>
       )}
     </div>
