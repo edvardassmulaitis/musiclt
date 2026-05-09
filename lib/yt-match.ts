@@ -29,13 +29,28 @@ const MAX_DURATION_S = 1500        // 25min — DJ set'ai/pilnaalbumai per ilgi
 const LOW_VIEW_THRESHOLD = 50      // mažiau už šitą — sketchy upload, bandom kitą
 const MISSING_TOKEN_PENALTY = 15   // per missing track token (kai trackRatio < 1 ir >=2 token'ai)
 
-/** Lowercase, strip diacritics, drop common parens/brackets/feat segments, keep alphanumerics. */
+/** Pažymi parenthesized content kaip "meta-tag" (skipinamą per match'ą).
+ *  Track variant'ai (pvz. „We Pray (Be Our Guest)") NĖRA meta-tag'ai —
+ *  jie disambig'uoja unikalią daina'os versiją, todėl turi likti
+ *  tokenizacijai ir match score'ui. */
+const META_PAREN_RE = /\b(lyric|video|official|audio|hd|hq|4k|remaster|remastered|feat|featuring|ft|version|extended|radio|clean|explicit|stereo|mono|edit|deluxe|reissue|with\s+lyrics)\b/i
+
+/** Lowercase, strip diacritics, drop META parens/brackets/feat segments,
+ *  keep alphanumerics. Anksčiau visi `(...)` blok'ai buvo strip'inami,
+ *  todėl „We Pray (Be Our Guest)" → „we pray", o YouTube match'as
+ *  priskirdavo bazinę „We Pray" video versiją (dvi atskiros dainos
+ *  atrodydavo kaip vienos search'e). Dabar — strip'inam tik metatag
+ *  parens; variant suffix'ai išlieka tokenizacijai. */
 export function normalizeText(s: string): string {
   return (s || '')
     .toLowerCase()
     .normalize('NFD').replace(/[̀-ͯ]/g, '')   // diacritics
-    .replace(/\([^)]*\)/g, ' ')                          // (lyric video), (feat. X)
-    .replace(/\[[^\]]*\]/g, ' ')                         // [official], [HD]
+    .replace(/\(([^)]*)\)/g, (_, content: string) =>
+      META_PAREN_RE.test(content) ? ' ' : ' ' + content + ' '
+    )
+    .replace(/\[([^\]]*)\]/g, (_, content: string) =>
+      META_PAREN_RE.test(content) ? ' ' : ' ' + content + ' '
+    )
     .replace(/\bfeat\.?\b|\bft\.?\b|\bfeaturing\b/g, ' ')
     .replace(/[^a-z0-9 ]+/g, ' ')
     .replace(/\s+/g, ' ')

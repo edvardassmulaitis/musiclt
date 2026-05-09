@@ -665,9 +665,15 @@ export function parseTracklist(wikitext: string): TrackEntry[] {
       if (/^\s*hidden\s*track/.test(titleRaw)) continue
 
       const durStr = lenM?.[1]?.trim() || ''
-      const durMatch = durStr.match(/^(\d+):(\d+)$/)
+      // Palaikom MM:SS arba HH:MM:SS formatą. Anksčiau tik MM:SS — todėl
+      // 1:44:35 (Coldplay documentary 1h44m) praeidavo be duration check'o
+      // (regex'as nematch'ino). Hard cap 15min — bet kokia ilgesnė „daina"
+      // greičiausiai documentary, mix tape, ar full album upload.
+      const durMatch = durStr.match(/^(\d+):(\d+)(?::(\d+))?$/)
       if (durMatch) {
-        const totalSec = parseInt(durMatch[1]) * 60 + parseInt(durMatch[2])
+        const totalSec = durMatch[3]
+          ? parseInt(durMatch[1]) * 3600 + parseInt(durMatch[2]) * 60 + parseInt(durMatch[3])
+          : parseInt(durMatch[1]) * 60 + parseInt(durMatch[2])
         if (totalSec < 10) continue
         if (totalSec > 900) continue
       }
@@ -746,8 +752,16 @@ export function parseTracklist(wikitext: string): TrackEntry[] {
     const standard = tlWithPos.filter(({ block, pos }) => {
       const hl = getHeadline(block)
       if (isReissueBlock(hl, block)) return false
+      // Documentary / DVD bonus / film tracklists — Live in Buenos Aires
+      // Wiki page'o DVD 2 turi „Coldplay: A Head Full of Dreams" 104:35min
+      // documentary kaip vienintelę „track" entry. Ne muzika, todėl tokius
+      // blok'us praleidžiam. Tikrinam ir headline'ą, ir sekcijos antraštę
+      // virš šito Track listing block'o.
+      const hlLow = hl.toLowerCase()
+      if (/\b(documentary|film|movie|featurette|trailer|interview|behind\s+the\s+scenes|making\s+of)\b/.test(hlLow)) return false
       const sectionBefore = getSectionBeforePos(wikitext, pos)
       if (/reissue|remaster|anniversary|box.?set|collector|deluxe|expanded|bonus|demo|outtake/i.test(sectionBefore)) return false
+      if (/\b(documentary|dvd\s*[2-9]|film|behind[- ]the[- ]scenes|making[- ]of|featurette)\b/i.test(sectionBefore)) return false
       return true
     }).map(({ block }) => block)
 
