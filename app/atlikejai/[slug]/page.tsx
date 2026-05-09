@@ -904,9 +904,23 @@ async function ArtistContent({ artist }: { artist: any }) {
   // kanoninis šaltinis; legacy `artists.photos` JSON kolumna jau nebenaudojama
   // (anksčiau čia būdavo merge'inama be is_active filter'io ir todėl rodėsi
   // hidden nuotraukos viešai).
-  const photos: { url: string; caption?: string }[] = dbPhotos
+  //
+  // SVARBU: išsaugom taken_at + source_url + license + photographer fields,
+  // kad MasonryGallery galėtų rodyti year badge'us ant nuotraukų ir Lightbox
+  // galėtų rodyti pilną PhotoCredit (autorius, licenzija, šaltinis). Anksčiau
+  // čia būdavo strip'inama iki tik {url, caption} ir todėl year badges
+  // nesirodydavo nė vienoj nuotraukoj.
+  const photos = dbPhotos
     .filter((p: any) => p.is_active === true)
-    .map((p: any) => ({ url: p.url, caption: p.caption }))
+    .map((p: any) => ({
+      url: p.url,
+      caption: p.caption,
+      taken_at: p.taken_at || null,
+      source_url: p.source_url || null,
+      license: p.license || null,
+      photographer_slug: p.photographer_slug || null,
+      photographer_name: p.photographer_name || null,
+    }))
 
   // Hero image preference (NEVER cover_image_url — that's a small profile thumb):
   //  1. Explicitly set wide cover (admin-chosen)

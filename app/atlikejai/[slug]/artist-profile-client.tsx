@@ -358,7 +358,14 @@ function PlayerCard({
   hasAnyVideo: boolean
 }) {
   const hasTrending = tracksTrending.length > 0
-  const [tab, setTab] = useState<'all' | 'trending'>(hasTrending ? 'trending' : 'all')
+  // Default tab — visada „Top dainos" (visi atlikėjo hits sortuoti pagal
+  // populiarumą). Anksčiau buvo `hasTrending ? 'trending' : 'all'` —
+  // intl atlikėjams su naujais išleidimais (Coldplay 4 Moon Music 2024
+  // singles) defaultindavom į „Naujos dainos", todėl pradinis vaizdas
+  // rodydavo 4 ką tik išleistus tracks vietoj žinomus hits (Yellow,
+  // Hymn for the Weekend ir kt.). Dabar Top dainos visiems atlikėjams
+  // default'as — vartotojas mato ranking'ą iš karto.
+  const [tab, setTab] = useState<'all' | 'trending'>('all')
   // If "Nauja" becomes empty (e.g. tracks reshuffle), snap back to "Populiaru".
   useEffect(() => { if (!hasTrending && tab === 'trending') setTab('all') }, [hasTrending, tab])
 
