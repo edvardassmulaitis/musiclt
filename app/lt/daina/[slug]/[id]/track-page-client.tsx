@@ -1,6 +1,6 @@
 'use client'
 // app/lt/daina/[slug]/[id]/track-page-client.tsx
-import { useState, useEffect, useCallback, memo, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, memo, useMemo } from 'react'
 import Link from 'next/link'
 import LegacyLikesPanel, { type LegacyLikeUser } from '@/components/LegacyLikesPanel'
 import ScoreCard from '@/components/ScoreCard'
@@ -83,123 +83,6 @@ const YoutubeEmbed = memo(({ videoId }: { videoId: string }) => (
 ))
 YoutubeEmbed.displayName = 'YoutubeEmbed'
 
-/**
- * CustomPlayOverlay — vietoj YT native chrome'o detail'ų rodom mūsų
- * thumbnail + Play overlay'ą. Paspaudus:
- *   1) inkrementuojam track_plays per /api/tracks/{id}/play (fire-and-forget)
- *   2) mount'inam iframe'ą su autoplay=1&mute=1 — Chrome'as garantuotai laidžia
- *      muted autoplay (bet kokiai MEI score). User'is paskui paspaudžia 🔊
- *      YT chrome'e arba rodyti stay muted.
- *
- * Naudojamas track puslapyje (mobile + desktop col), gali būti reused kitur.
- */
-function CustomPlayOverlay({ vid, title, trackId }: { vid: string; title: string; trackId: number }) {
-  const [started, setStarted] = useState(false)
-  const [isMobile, setIsMobile] = useState(false)
-  const [needsUnmute, setNeedsUnmute] = useState(false)
-  const iframeRef = useRef<HTMLIFrameElement>(null)
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const m = window.matchMedia('(max-width: 1023px)')
-    setIsMobile(m.matches)
-    const h = (e: MediaQueryListEvent) => setIsMobile(e.matches)
-    m.addEventListener('change', h)
-    return () => m.removeEventListener('change', h)
-  }, [])
-
-  // Auto-attempt unmute on mobile po iframe load — jei browser'is leidžia,
-  // garsas pradeda groti tiesiogiai. Jei ne — badge lieka.
-  useEffect(() => {
-    if (!started || !isMobile) {
-      setNeedsUnmute(false)
-      return
-    }
-    setNeedsUnmute(true)
-    const tryUnmute = () => {
-      try {
-        iframeRef.current?.contentWindow?.postMessage(
-          JSON.stringify({ event: 'command', func: 'unMute', args: [] }),
-          'https://www.youtube.com'
-        )
-      } catch {}
-    }
-    const timers = [
-      setTimeout(tryUnmute, 800),
-      setTimeout(tryUnmute, 1600),
-      setTimeout(tryUnmute, 3000),
-    ]
-    return () => { timers.forEach(clearTimeout) }
-  }, [started, isMobile])
-
-  const handleStart = () => {
-    if (started) return
-    setStarted(true)
-    try {
-      fetch(`/api/tracks/${trackId}/play`, { method: 'POST', keepalive: true }).catch(() => {})
-    } catch {}
-  }
-  return (
-    <div className="relative h-full w-full">
-      {!started ? (
-        <button
-          type="button"
-          onClick={handleStart}
-          aria-label="Paleisti"
-          className="group absolute inset-0 z-10 block cursor-pointer overflow-hidden border-0 p-0 bg-black"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={`https://i.ytimg.com/vi/${vid}/hqdefault.jpg`}
-            alt=""
-            referrerPolicy="no-referrer"
-            className="absolute inset-0 h-full w-full object-cover"
-          />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-black/30" />
-          <span className="absolute left-1/2 top-1/2 flex h-[64px] w-[64px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_10px_40px_rgba(249,115,22,0.5)] ring-[6px] ring-white/10 transition-transform duration-200 group-hover:scale-110">
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="#fff" aria-hidden>
-              <path d="M8 5v14l11-7z" />
-            </svg>
-          </span>
-        </button>
-      ) : (
-        <>
-          <iframe
-            ref={iframeRef}
-            key={`overlay-${vid}`}
-            src={`https://www.youtube.com/embed/${vid}?autoplay=1${isMobile ? '&mute=1' : ''}&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1&origin=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin : '')}`}
-            title={title}
-            className="absolute inset-0 h-full w-full"
-            referrerPolicy="strict-origin-when-cross-origin"
-            allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-            allowFullScreen
-          />
-          {isMobile && needsUnmute && (
-            <button
-              type="button"
-              onClick={() => {
-                try {
-                  iframeRef.current?.contentWindow?.postMessage(
-                    JSON.stringify({ event: 'command', func: 'unMute', args: [] }),
-                    'https://www.youtube.com'
-                  )
-                } catch {}
-                setNeedsUnmute(false)
-              }}
-              className="absolute right-2 top-2 z-20 flex items-center gap-1.5 rounded-full bg-black/70 backdrop-blur-sm px-3 py-1.5 text-white text-xs font-bold shadow-lg ring-1 ring-white/20 hover:bg-black/85 transition-colors"
-              title="Įjungti garsą"
-            >
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
-              </svg>
-              Garsui
-            </button>
-          )}
-        </>
-      )}
-    </div>
-  )
-}
-
 // AI image with loading state — separate memo so it never re-mounts
 // No external image service needed — AI image feature removed for now
 
@@ -243,15 +126,6 @@ export default function TrackPageClient({
   const [aiErr, setAiErr] = useState(false)
 
   useEffect(() => { setLoaded(true) }, [])
-
-  // Page-view ping — fire-and-forget. Server-side endpoint dedup'ina
-  // per cookie (30 min lange), todėl page reload'ai netaškys counter'io.
-  // Migracija 20260506_page_view_tracking.sql turi būti aplikuota — jei
-  // ne, endpoint'as silently failina ir `tracks.page_view_count` lieka 0.
-  useEffect(() => {
-    if (!track.id) return
-    fetch(`/api/tracks/${track.id}/page-view`, { method: 'POST', keepalive: true }).catch(() => {})
-  }, [track.id])
 
   // ── Derived ────────────────────────────────────────────────────────────────
   const vid = ytId(track.video_url)
@@ -619,8 +493,7 @@ export default function TrackPageClient({
   const trackTypeLabel = track.type === 'normal' ? 'Daina' : (track.type || 'Daina')
 
   return (
-    // route-enter: 280ms fade-in iš loading.tsx skeleton'o (žr. globals.css).
-    <div className="route-enter min-h-screen bg-[var(--bg-surface)] text-[var(--text-primary)]" style={{ fontFamily: "'DM Sans',system-ui,sans-serif", WebkitFontSmoothing: 'antialiased' }}>
+    <div className="min-h-screen bg-[var(--bg-surface)] text-[var(--text-primary)]" style={{ fontFamily: "'DM Sans',system-ui,sans-serif", WebkitFontSmoothing: 'antialiased' }}>
 
       {/* ── TOP BAR — pilnu viewport pločio, modal-style ─────────────────── */}
       <div className="flex items-center gap-4 border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3 sm:px-5">
@@ -759,15 +632,18 @@ export default function TrackPageClient({
         </div>
       )}
 
-      {/* ── Mobile inline player — kaip modal'e, virš tabs/turinio ────────
-          Custom Play overlay (vietoj YT native chrome details), kad išvengtumėm
-          autoplay block'o + galėtumėm inkrementuoti track_plays per pingPlay()
-          fire-and-forget. Iframe mount'inamas tik po user gesture (clicked=true)
-          — autoplay=1&mute=1 garantuoja, kad video pradės grojimą iškart.
-      */}
+      {/* ── Mobile inline player — kaip modal'e, virš tabs/turinio ──────── */}
       {vid && (
         <div className="aspect-video w-full bg-black lg:hidden">
-          <CustomPlayOverlay vid={vid} title={`${track.title} — ${artist.name}`} trackId={track.id} />
+          <iframe
+            key={`mobile-track-${vid}`}
+            src={`https://www.youtube.com/embed/${vid}?playsinline=1&rel=0&modestbranding=1&iv_load_policy=3`}
+            title={`${track.title} — ${artist.name}`}
+            className="h-full w-full"
+            referrerPolicy="strict-origin-when-cross-origin"
+            allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+            allowFullScreen
+          />
         </div>
       )}
 
@@ -854,7 +730,15 @@ export default function TrackPageClient({
                 Klausyti
               </div>
               <div className="aspect-video w-full overflow-hidden rounded-xl bg-black shadow-[0_18px_40px_-12px_rgba(0,0,0,0.5)]">
-                <CustomPlayOverlay vid={vid} title={`${track.title} — ${artist.name}`} trackId={track.id} />
+                <iframe
+                  key={`desktop-track-${vid}`}
+                  src={`https://www.youtube.com/embed/${vid}?playsinline=1&rel=0&modestbranding=1&iv_load_policy=3`}
+                  title={`${track.title} — ${artist.name}`}
+                  className="h-full w-full"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                  allowFullScreen
+                />
               </div>
               {track.spotify_id && (
                 <iframe

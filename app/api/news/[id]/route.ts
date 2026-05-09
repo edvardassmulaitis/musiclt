@@ -7,64 +7,17 @@ import { createAdminClient } from '@/lib/supabase'
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = createAdminClient()
-  // Modern news pirma (admin-sukurtos) — `artists.photos` column nera (drop'inta),
-  // todėl naudojam tik cover_image_url.
-  const modern = await supabase
+  const { data, error } = await supabase
     .from('news')
     .select(`
       *,
-      artist:artist_id(id, name, slug, cover_image_url),
+      artist:artist_id(id, name, slug, cover_image_url, photos),
       artist2:artist_id2(id, name, slug, cover_image_url)
     `)
     .eq('id', id)
-    .maybeSingle()
-  if (modern.data) return NextResponse.json(modern.data)
-
-  // Legacy fallback'as — discussions table su legacy_kind='news'. Admin
-  // edit form'as gali naudoti tuos pačius laukus (title, body, slug,
-  // source_url, artist_id, artist_id2). Adapt'inam į modern news shape.
-  const legacy = await supabase
-    .from('discussions')
-    .select(`
-      id, slug, title, body, source_url, legacy_kind, legacy_id, is_legacy,
-      first_post_at, created_at, related_tracks,
-      artist:artist_id(id, name, slug, cover_image_url),
-      artist2:artist_id2(id, name, slug, cover_image_url)
-    `)
-    .eq('id', id)
-    .eq('legacy_kind', 'news')
-    .eq('is_legacy', true)
-    .maybeSingle()
-  if (legacy.data) {
-    const a = legacy.data as any
-    return NextResponse.json({
-      id: a.id,
-      title: a.title,
-      slug: a.slug,
-      body: a.body || '',
-      type: 'news',
-      source_url: a.source_url,
-      source_name: null,
-      published_at: a.first_post_at || a.created_at,
-      image_small_url: null,
-      image_title_url: null,
-      gallery: [],
-      image1_url: null, image1_caption: null,
-      image2_url: null, image2_caption: null,
-      image3_url: null, image3_caption: null,
-      image4_url: null, image4_caption: null,
-      image5_url: null, image5_caption: null,
-      is_featured: false,
-      is_hidden_home: false,
-      is_title_page: false,
-      is_delfi: false,
-      artist: a.artist,
-      artist2: a.artist2,
-      _source: 'legacy',
-      _related_tracks: a.related_tracks,
-    })
-  }
-  return NextResponse.json({ error: 'Naujiena nerasta' }, { status: 404 })
+    .single()
+  if (error) return NextResponse.json({ error: error.message }, { status: 404 })
+  return NextResponse.json(data)
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

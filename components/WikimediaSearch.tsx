@@ -13,10 +13,6 @@ type WikiImage = {
   width: number
   height: number
   descriptionUrl: string
-  /** ISO date string (`YYYY-MM-DD`) jei DateTimeOriginal yra extmetadata.
-   *  Naudojama galerijos sortinimui (naujausios viršuje) + display ant
-   *  korteles. */
-  takenAt?: string | null
 }
 
 function parseAuthor(raw: string): string {
@@ -86,34 +82,15 @@ async function searchImages(query: string, offset = 0): Promise<{ images: WikiIm
       const license = licenseTemplates.includes('CC') || licenseTemplates.includes('Public')
         ? licenseTemplates
         : parseLicense(meta.Templates?.value || [])
-      // DateTimeOriginal — Commons metadata field rodantis kada nuotrauka
-      // padaryta (ne kada įkelta). Formatas paprastai 'YYYY:MM:DD HH:MM:SS'
-      // arba 'YYYY-MM-DD'. Pasiimam tik datos dalį.
-      const dateRaw = (meta.DateTimeOriginal?.value || '').replace(/<[^>]+>/g, '').trim()
-      let takenAt: string | null = null
-      if (dateRaw) {
-        const m = dateRaw.match(/^(\d{4})[-:](\d{1,2})[-:](\d{1,2})/)
-        if (m) {
-          const y = m[1]
-          const mo = String(parseInt(m[2], 10)).padStart(2, '0')
-          const d = String(parseInt(m[3], 10)).padStart(2, '0')
-          takenAt = `${y}-${mo}-${d}`
-        } else {
-          // Fallback — bare year
-          const ym = dateRaw.match(/(\d{4})/)
-          if (ym) takenAt = `${ym[1]}-01-01`
-        }
-      }
       return {
         title: p.title,
         thumb: info.thumburl || info.url,
-        fullUrl: info.url,
+        fullUrl: info.url,  // original full resolution
         author,
         license: license || licenseTemplates || '',
         width: info.width || 0,
         height: info.height || 0,
         descriptionUrl: info.descriptionurl || '',
-        takenAt,
       }
     })
     .filter(img =>
@@ -197,13 +174,13 @@ export default function WikimediaSearch({
         if (res.ok) {
           const d = await res.json()
           if (d.url && (d.url.includes('supabase') || d.url.startsWith('/'))) {
-            uploaded.push({ url: d.url, author: authorStr, authorUrl: img.descriptionUrl, takenAt: img.takenAt, sourceUrl: img.descriptionUrl } as any)
+            uploaded.push({ url: d.url, author: authorStr, authorUrl: img.descriptionUrl } as any)
             continue
           }
         }
       } catch {}
       // Fallback to direct wikimedia URL
-      uploaded.push({ url: img.fullUrl, author: authorStr, authorUrl: img.descriptionUrl, takenAt: img.takenAt, sourceUrl: img.descriptionUrl } as any)
+      uploaded.push({ url: img.fullUrl, author: authorStr, authorUrl: img.descriptionUrl } as any)
     }
     setLoading(false)
     onAddMultiple(uploaded)

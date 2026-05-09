@@ -99,9 +99,6 @@ export type ArtistFormData = {
   gender: 'male'|'female'|''
   facebook: string; youtube: string; tiktok: string
   spotify: string; soundcloud: string; bandcamp: string; twitter: string
-  // Solo atlikėjų infobox laukai — užpildomi WikipediaImport, saugomi į
-  // artists.roles / artists.instruments (text[] DB tipai).
-  roles?: string[]; instruments?: string[]
 }
 
 export const emptyArtistForm: ArtistFormData = {
@@ -112,7 +109,6 @@ export const emptyArtistForm: ArtistFormData = {
   deathYear:'', deathMonth:'', deathDay:'', gender:'',
   facebook:'', youtube:'', tiktok:'',
   spotify:'', soundcloud:'', bandcamp:'', twitter:'',
-  roles: [], instruments: [],
 }
 
 type Props = {

@@ -136,6 +136,37 @@ export default function AdminImportDetailPage() {
     } finally { setActionLoading(false) }
   }
 
+  // Per-row pending review actions — kviečiam tą patį API kaip
+  // /admin/import/pending: PATCH = approve (set source='legacy_scrape'),
+  // DELETE = reject (cascade trinant likes/comments). Po sėkmingo
+  // operacijos reload'inam page'ą.
+  const [pendingBusy, setPendingBusy] = useState<string | null>(null) // 'album:123' / 'track:456'
+  const handlePending = useCallback(async (kind: 'album' | 'track', id: number, action: 'approve' | 'reject') => {
+    if (action === 'reject') {
+      const ok = confirm(
+        `Atmesti šį ${kind === 'album' ? 'albumą' : 'dainą'}?\n\n` +
+        'Visi music.lt likes ir komentarai bus ištrinti negrąžinamai.'
+      )
+      if (!ok) return
+    }
+    const key = `${kind}:${id}`
+    setPendingBusy(key)
+    setActionMsg(null)
+    try {
+      const r = await fetch(`/api/admin/import/pending/${kind}/${id}`, {
+        method: action === 'approve' ? 'PATCH' : 'DELETE',
+      })
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}))
+        setActionMsg(`Klaida: ${j.error || r.statusText}`)
+      } else {
+        await load()
+      }
+    } finally {
+      setPendingBusy(null)
+    }
+  }, [load])
+
   if (status === 'loading' || !isAdmin) return null
 
   if (loading && !data) return (
@@ -312,7 +343,14 @@ export default function AdminImportDetailPage() {
                 id: a.id,
                 title: a.title,
                 meta: `${albumTypeLabel(a)} ${a.year ?? ''}`.trim(),
+                // Approve/Reject mygtukai matomi tik kai įrašas yra pending —
+                // legacy_scrape_v1 (jau patvirtintas LT scrape) jų nereikia.
+                pending: a.source === 'legacy_scrape_pending',
               }))}
+              onApprove={id => handlePending('album', id, 'approve')}
+              onReject={id => handlePending('album', id, 'reject')}
+              busyKey={pendingBusy}
+              kind="album"
             />
           </div>
           {albums.length === 0 && (
@@ -561,9 +599,17 @@ function YtMini({ label, value, tone }: { label: string; value: number | undefin
   )
 }
 
-function DiffColumn({ title, color, items }: {
+function DiffColumn({ title, color, items, onApprove, onReject, busyKey, kind }: {
   title: string; color: 'green' | 'blue' | 'purple'
-  items: Array<{ id: number; title: string; meta: string }>
+  // `pending` flag valdo, ar rodyti per-row Approve/Reject mygtukus.
+  // Tik legacy_scrape_pending įrašai laukia patvirtinimo; legacy_scrape_v1
+  // (LT scrape patvirtintas) tų mygtukų nerodom — sąrašas tas pats column'as
+  // tik mygtukai sąlyginiai.
+  items: Array<{ id: number; title: string; meta: string; pending?: boolean }>
+  onApprove?: (id: number) => void | Promise<void>
+  onReject?: (id: number) => void | Promise<void>
+  busyKey?: string | null  // 'album:123' / 'track:456' formate
+  kind?: 'album' | 'track'
 }) {
   const colorClass = {
     green: 'border-green-300 bg-green-50',
@@ -580,12 +626,41 @@ function DiffColumn({ title, color, items }: {
         <div className="text-xs text-gray-500 italic">—</div>
       ) : (
         <div className="space-y-1 max-h-64 overflow-y-auto">
-          {items.map(it => (
-            <div key={it.id} className="text-xs bg-white rounded px-2 py-1 border border-gray-200">
-              <div className="font-medium text-gray-800 truncate">{it.title}</div>
-              <div className="text-[10px] text-gray-500">{it.meta}</div>
-            </div>
-          ))}
+          {items.map(it => {
+            const showActions = it.pending && (onApprove || onReject) && kind
+            const myKey = kind ? `${kind}:${it.id}` : ''
+            const isBusy = busyKey === myKey
+            return (
+              <div key={it.id} className="text-xs bg-white rounded px-2 py-1.5 border border-gray-200">
+                <div className="font-medium text-gray-800 truncate">{it.title}</div>
+                <div className="flex items-center justify-between gap-2 mt-0.5">
+                  <div className="text-[10px] text-gray-500 truncate">{it.meta}</div>
+                  {showActions && (
+                    <div className="flex gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => onApprove?.(it.id)}
+                        disabled={isBusy}
+                        title="Patvirtinti — taps matomas viešai"
+                        className="rounded bg-green-600 px-1.5 py-0.5 text-[10px] font-bold text-white hover:bg-green-700 disabled:opacity-40"
+                      >
+                        {isBusy ? '…' : '✓'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onReject?.(it.id)}
+                        disabled={isBusy}
+                        title="Atmesti — ištrinti įrašą + likes/komentarus"
+                        className="rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white hover:bg-red-700 disabled:opacity-40"
+                      >
+                        {isBusy ? '…' : '✕'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
     </div>

@@ -11,8 +11,11 @@ function toInt(v: any): number | null {
   return isNaN(n) || n === 0 ? null : n
 }
 
-// Vieninga slugify utility — palaiko Unicode (visos kalbos). Žr. lib/slugify.ts.
-import { slugify } from './slugify'
+function slugify(text: string): string {
+  return text.toLowerCase()
+    .replace(/[ąčęėįšųūž]/g, c => ({ ą:'a',č:'c',ę:'e',ė:'e',į:'i',š:'s',ų:'u',ū:'u',ž:'z' }[c] || c))
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+}
 
 export type AlbumFull = {
   id?: number
@@ -54,8 +57,6 @@ export type TrackInAlbum = {
   duration?: string
   type: 'normal' | 'single' | 'remix' | 'live' | 'mashup' | 'instrumental'
   video_url?: string
-  video_views?: number | null
-  video_views_checked_at?: string | null
   spotify_id?: string
   is_single?: boolean
   lyrics?: string
@@ -87,7 +88,7 @@ export async function getAlbums(artistId?: number, limit = 50, offset = 0, searc
   let q = supabase
     .from('albums')
     .select(
-      'id, slug, title, year, month, day, cover_image_url, artist_id, type_studio, type_ep, type_compilation, type_live, type_single, type_remix, type_covers, type_holiday, type_soundtrack, type_demo, is_upcoming, artists!albums_artist_id_fkey(id, name, slug, cover_image_url, country)',
+      'id, slug, title, year, cover_image_url, artist_id, type_studio, type_ep, type_compilation, type_live, type_single, type_remix, type_covers, type_holiday, type_soundtrack, type_demo, artists!albums_artist_id_fkey(id, name, slug)',
       { count: 'exact' }
     )
   if (artistId) q = q.eq('artist_id', artistId)
@@ -102,11 +103,6 @@ export async function getAlbums(artistId?: number, limit = 50, offset = 0, searc
     artist_name: a.artists?.name || '',
     artist_slug: a.artists?.slug || '',
     cover_url: a.cover_image_url || null,
-    // Pre-compose release_date string nuo year+month+day, jei yra.
-    // Frontend'ui reikalinga countdown logikai (Po X d. / Greitai / data).
-    release_date: a.year && a.month && a.day
-      ? `${a.year}-${String(a.month).padStart(2,'0')}-${String(a.day).padStart(2,'0')}`
-      : (a.year && a.month ? `${a.year}-${String(a.month).padStart(2,'0')}-01` : null),
   }))
   return { albums, total: count || 0 }
 }
@@ -118,7 +114,7 @@ export async function getAlbumById(id: number): Promise<AlbumFull & { tracks: Tr
 
   const { data: trackRows } = await supabase
     .from('album_tracks')
-    .select('*, tracks(id, title, slug, type, video_url, video_views, video_views_checked_at, spotify_id, lyrics, is_single, track_artists(is_primary, artists(id, name)))')
+    .select('*, tracks(id, title, slug, type, video_url, spotify_id, lyrics, is_single, track_artists(is_primary, artists(id, name)))')
     .eq('album_id', id)
     .order('position')
     .order('track_id')  // stable tiebreaker kai visi position=0
@@ -143,8 +139,6 @@ export async function getAlbumById(id: number): Promise<AlbumFull & { tracks: Tr
         disc_number: 1,
         type: r.tracks?.type || 'normal',
         video_url: r.tracks?.video_url || '',
-        video_views: r.tracks?.video_views ?? null,
-        video_views_checked_at: r.tracks?.video_views_checked_at || null,
         spotify_id: r.tracks?.spotify_id || '',
         // is_single dabar skaitomas iš TRACKS lentelės (t.y. tikras single flag'as),
         // ne iš album_tracks.is_primary (kuri reiškia "primary album version")

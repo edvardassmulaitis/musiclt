@@ -1,5 +1,4 @@
 .next/
-.next-tmp
 node_modules/
 next-env.d.ts
 .DS_Store

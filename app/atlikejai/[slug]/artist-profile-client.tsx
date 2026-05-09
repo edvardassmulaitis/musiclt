@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
-import LikesModal, { type LikeUser } from '@/components/LikesModal'
+import LikesModal from '@/components/LikesModal'
 import { LikePill } from '@/components/LikePill'
 import BioModal from '@/components/BioModal'
 import ScoreCard from '@/components/ScoreCard'
@@ -11,7 +11,7 @@ import type { LegacyLikeUser } from '@/components/LegacyLikesPanel'
 import EntityCommentsBlock from '@/components/EntityCommentsBlock'
 import MusicSearchPicker, { AttachmentChips, type AttachmentHit } from '@/components/MusicSearchPicker'
 import LyricsWithReactions from '@/components/LyricsWithReactions'
-import { proxyImg, proxyImgResized } from '@/lib/img-proxy'
+import { proxyImg } from '@/lib/img-proxy'
 import { formatArtistList } from '@/lib/format-artists'
 import DropBar from '@/components/DropBar'
 import AlbumInfoModal from '@/components/AlbumInfoModal'
@@ -88,16 +88,12 @@ type LegacyThread = {
   first_post_at?: string | null; last_post_at?: string | null
   last_post?: LegacyPost | null
   recent_posts?: LegacyPost[]
-  /** Po data migracijos forum_threads → discussions, kortelė nukreipia į
-   *  /diskusijos/{canonical_slug} (canonical EntityCommentsBlock UI). Jei
-   *  null — fallback'as į legacy bridge'ą /diskusijos/tema/{legacy_id}. */
-  canonical_slug?: string | null
 }
 type Rank = { category: string; rank: number; total: number; scope: 'country' | 'genre' | 'global' }
 type Props = {
   artist: any; heroImage: string | null; genres: Genre[]; substyles?: Genre[]
   links: { platform: string; url: string }[]; photos: Photo[]
-  albums: Album[]; tracks: Track[]; members: Member[]; memberOf?: Member[]; followers: number; likeCount: number
+  albums: Album[]; tracks: Track[]; members: Member[]; followers: number; likeCount: number
   news: any[]; events: any[]; similar: any[]
   newTracks: Track[]; topVideos: Track[]; chartData: ChartPt[]; hasNewMusic: boolean
   legacyCommunity?: LegacyCommunity
@@ -178,19 +174,8 @@ function photoYear(raw?: string | null): number | null {
   return new Date(t).getFullYear()
 }
 
-/** „coldplay-l194526" → „Coldplay" (be legacy ID artifact'o uodegoje).
- *  music.lt diskusijų slug'ai dažnai turi `-l\d{5,}` priesagą — ta vidinė
- *  ID nieko nepasako vartotojui. Po išvalymo dar capitalize'inam pirmą raidę,
- *  kad „coldplay" netiekt'ų lower-case kai title field'as null. */
 function slugToForumTitle(slug: string): string {
-  const cleaned = (slug || '')
-    .replace(/\/$/, '')
-    .replace(/-l\d{4,}$/i, '')   // trailing legacy ID „...-l194526"
-    .replace(/-/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-  if (!cleaned) return 'Diskusija'
-  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
+  return (slug || '').replace(/\/$/, '').replace(/-/g, ' ').replace(/\s+/g, ' ').trim() || 'Diskusija'
 }
 
 const aType = (a: Album) => {
@@ -204,20 +189,17 @@ const aType = (a: Album) => {
   return 'Studijinis'
 }
 
-/** Filter-tab labels. 'all' acts as reset-to-everything. Trumpos formos —
- *  „Studijiniai albumai" / „EP albumai" / „Gyvai įrašyti albumai" buvo
- *  nereikalingai ilgi (žodis „albumai" kartojosi 5+ chip'uose, „Gyvai
- *  įrašyti" wrap'inosi). Trumpinimas išlaiko reikšmę be redundancijos. */
+/** Filter-tab labels. 'all' acts as reset-to-everything. */
 const FILTER_LABEL: Record<string, string> = {
-  all: 'Visi',
-  Studijinis: 'Studijiniai',
-  EP: 'EP',
+  all: 'Visi įrašai',
+  Studijinis: 'Studijiniai albumai',
+  EP: 'EP albumai',
   Singlas: 'Singlai',
-  Live: 'Gyvai',
+  Live: 'Gyvai įrašyti albumai',
   Rinkinys: 'Rinkiniai',
-  Remix: 'Remiksai',
-  OST: 'OST',
-  Demo: 'Demo',
+  Remix: 'Remiksų albumai',
+  OST: 'OST albumai',
+  Demo: 'Demo albumai',
   orphan: 'Kitos dainos',
 }
 
@@ -237,35 +219,6 @@ function formatPostDate(iso: string): string {
   const hh = String(d.getHours()).padStart(2, '0')
   const mi = String(d.getMinutes()).padStart(2, '0')
   return `${yyyy}-${mm}-${dd} ${hh}:${mi}`
-}
-
-/** LT relative time format — "ką tik" / "prieš 5 minutes" / "prieš 19 metų".
- *  Atitinka kanoninės /diskusijos/tema/[id] page'os timeAgo formatą. */
-function timeAgoLT(iso: string | null): string {
-  if (!iso) return ''
-  const then = new Date(iso).getTime()
-  if (isNaN(then)) return ''
-  const diff = Math.max(0, Date.now() - then)
-  const s = Math.floor(diff / 1000)
-  if (s < 45) return 'ką tik'
-  const m = Math.floor(s / 60)
-  if (m < 60) return `prieš ${m} ${pluralLT(m, ['minutę', 'minutes', 'minučių'])}`
-  const h = Math.floor(m / 60)
-  if (h < 24) return `prieš ${h} ${pluralLT(h, ['valandą', 'valandas', 'valandų'])}`
-  const d = Math.floor(h / 24)
-  if (d < 30) return `prieš ${d} ${pluralLT(d, ['dieną', 'dienas', 'dienų'])}`
-  const mo = Math.floor(d / 30)
-  if (mo < 12) return `prieš ${mo} ${pluralLT(mo, ['mėnesį', 'mėnesius', 'mėnesių'])}`
-  const y = Math.floor(d / 365)
-  return `prieš ${y} ${pluralLT(y, ['metus', 'metus', 'metų'])}`
-}
-
-function pluralLT(n: number, forms: [string, string, string]): string {
-  const mod10 = n % 10
-  const mod100 = n % 100
-  if (mod10 === 1 && mod100 !== 11) return forms[0]
-  if (mod10 >= 2 && mod10 <= 9 && (mod100 < 10 || mod100 > 20)) return forms[1]
-  return forms[2]
 }
 
 /** Sanitize forum_posts.content_html — strip dangerous tags + on* handlers,
@@ -372,25 +325,21 @@ function PlayerCard({
   hasAnyVideo: boolean
 }) {
   const hasTrending = tracksTrending.length > 0
-  // Default tab — visada „Top dainos" (visi atlikėjo hits sortuoti pagal
-  // populiarumą). Anksčiau buvo `hasTrending ? 'trending' : 'all'` —
-  // intl atlikėjams su naujais išleidimais (Coldplay 4 Moon Music 2024
-  // singles) defaultindavom į „Naujos dainos", todėl pradinis vaizdas
-  // rodydavo 4 ką tik išleistus tracks vietoj žinomus hits (Yellow,
-  // Hymn for the Weekend ir kt.). Dabar Top dainos visiems atlikėjams
-  // default'as — vartotojas mato ranking'ą iš karto.
-  const [tab, setTab] = useState<'all' | 'trending'>('all')
+  const [tab, setTab] = useState<'all' | 'trending'>(hasTrending ? 'trending' : 'all')
   // If "Nauja" becomes empty (e.g. tracks reshuffle), snap back to "Populiaru".
   useEffect(() => { if (!hasTrending && tab === 'trending') setTab('all') }, [hasTrending, tab])
 
   const list = tab === 'trending' ? tracksTrending : tracksAllTime
-  // Pop signal'as su fallback hierarchy — pirma like_count, paskui score,
-  // paskui video_views (log scale), paskui position-based. Naujai importuotas
-  // intl atlikėjas (Coldplay) likes'ų neturės iškart, bet score + video_views
-  // jau bus iš Wiki/YouTube enrichment'o → bar'ai rodomi.
-  const popInfo = useMemo(() => (
-    detectPopSignal([...tracksAllTime, ...tracksTrending])
-  ), [tracksAllTime, tracksTrending])
+  // Max likes tarp visų atlikėjo trekų — naudojama PopBar relatyviam
+  // skaičiavimui (kiekvienas atlikėjas turi savo HIT'us, ne fixed thresholds).
+  const maxTrackLikes = useMemo(() => {
+    let max = 0
+    for (const t of [...tracksAllTime, ...tracksTrending]) {
+      const lk = (t as any).like_count
+      if (typeof lk === 'number' && lk > max) max = lk
+    }
+    return max
+  }, [tracksAllTime, tracksTrending])
   const activeTrack = [...tracksAllTime, ...tracksTrending].find(t => t.id === activeTrackId)
   const activeVid = yt(activeTrack?.video_url)
   const firstWithVideo = list.find(t => yt(t.video_url)) || tracksAllTime.find(t => yt(t.video_url))
@@ -425,41 +374,6 @@ function PlayerCard({
   const playerRef = useRef<any>(null)
   const [apiReady, setApiReady] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
-  // Embed-disabled videos: kanalo savininkas (pvz SelMusic) išjungę embed'ą
-  // trečioms šalims. YT.Player onError grąžina kodus 101 / 150 šitam case'ui.
-  // Saugom Set'ą per session — jei vienas video disabled, mes display'inam
-  // fallback iškart, neretrying'inam YT.Player kuris tik vėl meta klaidą.
-  const [embedDisabled, setEmbedDisabled] = useState<Set<string>>(new Set())
-  const isEmbedDisabled = !!displayVid && embedDisabled.has(displayVid)
-
-  // Mobile mute hint state — kai mobile'e iframe paleidziamas su mute=1,
-  // rodom small badge "🔊 Garsui". Paspaudus → playerRef.current.unMute().
-  // YT.Player JS API tvarko visa unmute logika natively, jokio postMessage
-  // hack'o ne reik.
-  const [needsUnmute, setNeedsUnmute] = useState(false)
-
-  // Pre-flight embeddable check — apsisaugom mobile case'e (kur YT.Player
-  // onError negaunamas, plain iframe'e tik juodas langas su YouTube error
-  // tekstu) ir greitesnis fallback'as desktop'e (nelaukiam YT.Player onError).
-  // Server route'as cache'ina rezultatus per HTTP — pakartotini požiūriai cheap.
-  useEffect(() => {
-    if (!displayVid) return
-    if (embedDisabled.has(displayVid)) return // jau pažymėta
-    let cancelled = false
-    fetch(`/api/yt/embeddable?videoId=${encodeURIComponent(displayVid)}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => {
-        if (cancelled || !d) return
-        if (d.embeddable === false) {
-          setEmbedDisabled(s => {
-            if (s.has(displayVid)) return s
-            const next = new Set(s); next.add(displayVid); return next
-          })
-        }
-      })
-      .catch(() => { /* network klaida — paliekam optimistic, YT.Player onError dar gali pagauti */ })
-    return () => { cancelled = true }
-  }, [displayVid])
   // Mobile detection — Safari iOS / Android Chrome turi griežtas autoplay
   // taisykles: YT.Player(target) sukuriamas useEffect'e (po setState/render),
   // ne tap handler'yje, todėl gesture context prarastas → autoplay blokuojamas.
@@ -473,13 +387,6 @@ function PlayerCard({
     m.addEventListener('change', h)
     return () => m.removeEventListener('change', h)
   }, [])
-
-  // Mobile needsUnmute initialization — tik kai pradedame playback su mute=1.
-  // YT.Player onReady auto-bandys unmute'inti per 800/1600/3000ms timer'ius;
-  // jei pavyks, badge dings (žr. CREATE useEffect onReady).
-  useEffect(() => {
-    setNeedsUnmute(isMobileVP && playing && !isEmbedDisabled && !!displayVid)
-  }, [isMobileVP, playing, displayVid, isEmbedDisabled])
 
   // Load the IFrame API script once per session.
   useEffect(() => {
@@ -502,120 +409,81 @@ function PlayerCard({
     return () => window.clearInterval(iv)
   }, [])
 
-  // CREATE YT.Player on apiReady AND when user wants to play (playing=true).
+  // CREATE player only when user has explicitly chosen to play (playing=true)
+  // AND we have a video.
   //
-  // Architektūra (2026-05-06 v4):
-  //   * Player'is sukuriamas pirma karta paspaudus Play overlay (gesture
-  //     context preserved). YT.Player constructor'is paima containerRef
-  //     ir pakeičia jį iframe'u — todėl turim STABLE wrapper'į (React
-  //     niekad neunmount'ina jo dėl flip'inančio JSX'o).
-  //   * Track switching — playerRef.current.loadVideoById(newVid). Vietoj
-  //     iframe remount'inant, YT vidiniai pakeičia video. Gesture
-  //     preserved iš user'io click'o ant track row.
-  //   * State events — events.onStateChange callback'as natively dirba.
-  //     state=0 (ended) → auto-skip į kitą track'ą.
-  //   * Mobile mute — playerVars.mute=1 (mobile only). Po start'o bandom
-  //     unmute().
+  // CRITICAL — KAIP IŠVENGT "NotFoundError: removeChild" CRASH:
+  // YT.Player(target) PAKEIČIA target elementą su <iframe>. Dėl to React'o
+  // fiber'iai turi pointer į detached'ą div'ą. Jei JSX flip'inasi (pvz.,
+  // `playing ? <div> : <button>`), React bando unmount'inti tą div'ą, bet
+  // jo nebėra DOM'e — iframe jį pakeitė. removeChild fail'ina.
   //
-  // ANKSTESNĖS PROBLEMOS sprendimas: anksčiau player'is buvo sukuriamas
-  // useEffect'e [playing,...] PO setState async — gesture prarastas →
-  // autoplay block'inamas. Dabar create vyksta tame pačiame click event
-  // tick'e (handlePlayClick → directly calls a ref function which creates
-  // player synchronously).
+  // Sprendimas: containerRef rodo į STABLE wrapper'į, kurį React 100%
+  // kontroliuoja (visada mounted). Į vidų rankomis (per JS, ne React)
+  // įdedam fresh div'ą, kurį YT gali eat'inti. Wrapper'is niekada nekeičia
+  // tipo, niekada neunmount'inasi dėl `playing` toggle. React fiber tree
+  // baigiasi prie wrapper'io — viskas viduje yra non-React DOM.
   useEffect(() => {
     if (!apiReady || !playing || !displayVid || !containerRef.current) return
-    if (isEmbedDisabled) return
-    if (playerRef.current) return  // jau sukurta — track switch'ai per loadVideoById
+    // Mobile'e nevartojam YT.Player JS API — vietoj jo renderinam plain
+    // `<iframe>` JSX'e (žemiau). Šitas effect'as praleidžiamas mobile'e.
+    if (isMobileVP) return
+    // Already have a player? Just resume — don't recreate.
+    if (playerRef.current) {
+      try { playerRef.current.playVideo?.() } catch {}
+      return
+    }
 
     const W = window as any
+    // Insert a fresh inner div for YT to consume. YT will replace it with
+    // an iframe; the wrapper (containerRef) stays untouched.
     const inner = document.createElement('div')
     inner.style.width = '100%'
     inner.style.height = '100%'
     containerRef.current.innerHTML = ''
     containerRef.current.appendChild(inner)
-
-    const player = new W.YT.Player(inner, {
+    playerRef.current = new W.YT.Player(inner, {
       videoId: displayVid,
       width: '100%',
       height: '100%',
       playerVars: {
         autoplay: 1,
-        mute: isMobileVP ? 1 : 0,  // Mobile'e visada mute=1 (iOS strict)
         controls: 1,
         modestbranding: 1,
         rel: 0,
         playsinline: 1,
         iv_load_policy: 3,
-        enablejsapi: 1,
         origin: typeof window !== 'undefined' ? window.location.origin : undefined,
       },
       events: {
         onReady: (e: any) => {
           try { e.target.playVideo() } catch {}
-          // Mobile auto-unmute attempts po start'o.
-          if (isMobileVP) {
-            const tryUnmute = () => { try { e.target.unMute() } catch {} }
-            setTimeout(tryUnmute, 800)
-            setTimeout(tryUnmute, 1600)
-            setTimeout(tryUnmute, 3000)
-          }
         },
         onStateChange: (e: any) => {
-          // YT player states: -1=unstarted, 0=ended, 1=playing,
-          // 2=paused, 3=buffering, 5=cued.
           setIsPaused(!(e.data === 1 || e.data === 3))
-          if (e.data === 0) {
-            // Track ended — auto-skip į kitą track'ą sąraše su video,
-            // su rollover į pradžią.
-            const allTracks = [...tracksAllTime, ...tracksTrending]
-            const idx = allTracks.findIndex(t => t.id === activeTrackId)
-            if (idx < 0) return
-            for (let i = 1; i <= allTracks.length; i++) {
-              const candidate = allTracks[(idx + i) % allTracks.length]
-              if (candidate && yt(candidate.video_url)) {
-                onSelectTrack(candidate.id)
-                try {
-                  fetch(`/api/tracks/${candidate.id}/play`, { method: 'POST', keepalive: true }).catch(() => {})
-                } catch {}
-                return
-              }
-            }
-          }
-        },
-        onError: (e: any) => {
-          const code = e?.data
-          if (code === 101 || code === 150) {
-            // Embedding disabled — switch to fallback overlay
-            const vidNow = (player as any)._vid || displayVid
-            setEmbedDisabled(s => {
-              if (s.has(vidNow)) return s
-              const next = new Set(s); next.add(vidNow); return next
-            })
-            try { playerRef.current?.destroy() } catch {}
-            playerRef.current = null
-            try { if (containerRef.current) containerRef.current.innerHTML = '' } catch {}
-          }
         },
       },
     })
-    ;(player as any)._vid = displayVid
-    playerRef.current = player
-  }, [apiReady, playing, displayVid, isEmbedDisabled, isMobileVP, activeTrackId, tracksAllTime, tracksTrending, onSelectTrack])
+    // No cleanup — separate effects below manage destroy/pause.
+  }, [apiReady, playing, displayVid])
 
-  // VIDEO CHANGE — kai displayVid pasikeičia, naudojam loadVideoById vietoj
-  // destroy+recreate. Iframe lieka tas pats, gesture context tarp track'ų
-  // perduodamas, autoplay veikia natively.
+  // VIDEO CHANGE — destroy old player when displayVid changes, so the
+  // create-effect above can build a new one for the new video.
+  const prevVidRef = useRef<string | null>(null)
   useEffect(() => {
-    if (!playerRef.current || !displayVid) return
-    if ((playerRef.current as any)._vid === displayVid) return
-    try {
-      playerRef.current.loadVideoById?.(displayVid)
-      ;(playerRef.current as any)._vid = displayVid
-    } catch {}
+    const prev = prevVidRef.current
+    if (prev && prev !== displayVid && playerRef.current) {
+      try { playerRef.current.destroy() } catch {}
+      playerRef.current = null
+      // Belt-and-suspenders: empty the wrapper so the next create-effect
+      // gets a clean slot. (destroy() should remove the iframe but YT API
+      // has been inconsistent across versions.)
+      try { if (containerRef.current) containerRef.current.innerHTML = '' } catch {}
+    }
+    prevVidRef.current = displayVid
   }, [displayVid])
 
-  // PAUSE/PLAY toggle (kai user'is paspaudžia external pause btn — kol kas
-  // mes neturim to UI, bet API palikta jei reiks vėliau)
+  // PAUSE/PLAY toggle — pause without destroying the iframe.
   useEffect(() => {
     if (!playerRef.current) return
     try {
@@ -624,7 +492,8 @@ function PlayerCard({
     } catch {}
   }, [playing])
 
-  // UNMOUNT cleanup — destroy player kai paliekam puslapį.
+  // UNMOUNT cleanup — destroy any remaining player when the artist page
+  // unmounts (navigates away).
   useEffect(() => {
     return () => {
       try { playerRef.current?.destroy() } catch {}
@@ -640,15 +509,20 @@ function PlayerCard({
     } catch {}
   }
 
-  // Track click — paprasta logika (be pause toggle, nes plain iframe approach
-  // neturim programmatic pause API). Click ant track'o:
-  //   - Jei tas pats track + jau playing → no-op (user'is gali pausintis YT
-  //     chrome'e iframe'o viduje)
-  //   - Jei kitas track ARBA dar nepradėjus → start playback (set state
-  //     activeTrackId + playing=true, ping play count)
-  // Iframe'as pakeičia src per `key` rebuild → autoplay=1 paleidžia.
+  // Toggle per-track play button: same track + playing → pause; same track
+  // + paused → resume; different track → switch + autoplay.
   const handleSelect = (id: number) => {
-    if (id === activeTrackId && playing) return  // already playing this track
+    if (id === activeTrackId && playing) {
+      if (isPaused) {
+        try { playerRef.current?.playVideo() } catch {}
+        setIsPaused(false)
+        pingPlay(id)
+      } else {
+        try { playerRef.current?.pauseVideo() } catch {}
+        setIsPaused(true)
+      }
+      return
+    }
     onSelectTrack(id)
     onRequestPlay()
     setIsPaused(false)
@@ -657,12 +531,7 @@ function PlayerCard({
 
   return (
     <div className="overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-elevated)] shadow-[0_20px_60px_-20px_rgba(0,0,0,0.4)]">
-      {/* Player aspect: 16:9 mobile (visiškas screen layout'as kai aplink
-          tuščia), 21:9 desktop'e (kompaktiškas, palieka daugiau erdvės track
-          list'ui). Anksčiau buvo aspect-video visur — desktop hero player
-          užimdavo ~258px aukščio, nustumdamas track list'ą ir paliekant
-          mažai apžvalgos vienu žvilgsniu. */}
-      <div className="relative aspect-video lg:aspect-[21/9] overflow-hidden bg-black">
+      <div className="relative aspect-video overflow-hidden bg-black">
         {displayVid ? (
           // YT IFrame API replaces an inner div with <iframe>. The OUTER
           // wrapper (containerRef) is React-owned and ALWAYS mounted —
@@ -678,82 +547,19 @@ function PlayerCard({
                 kovoti su Safari iOS autoplay'aus blokavimu, gesture
                 context'u, ar postMessage komandom. Simpler = bulletproof.
                 Desktop'as toliau naudoja YT.Player JS API per containerRef. */}
-            {/* Unified iframe approach (2026-05-06 v3): mobile + desktop abu
-                naudoja plain iframe su autoplay=1. YT.Player JS API anksčiau
-                buvo desktop'ui programmatic'iam pause control'ui, bet creation
-                useEffect'e prarasdavo user gesture context'ą — autoplay block.
-                Plain iframe mount'inamas React render'yje kuris paleistas iš
-                click handler'io → gesture preserved → autoplay leidžiamas.
-                Pause kontrolė nuėjo į iframe'o vidų (user'is naudoja YT
-                chrome controls). Track switching = key changes → React
-                remount'ina iframe'ą, senas iframe naikina + sustabdo audio. */}
-            {/* YT.Player target wrapper'is — stable React-owned div'as.
-                YT.Player(target) constructor'is įdeda iframe'ą JS'u į
-                containerRef'ą; React niekad jo neunmount'ina dėl JSX flip'o.
-                Visada matomas, kai displayVid yra. Plain iframe BUVO čia
-                anksčiau — pasišalintas, kad nebebūtų double-play (YT.Player
-                + plain iframe abu groti vienu metu, hidden background = ne-
-                kontroliuojamas). */}
-            <div
-              ref={containerRef}
-              className={`absolute inset-0 h-full w-full ${isEmbedDisabled || !playing ? 'hidden' : ''}`}
-            />
-            {/* Mobile unmute hint — kai mobile'e paleidžiam su mute=1,
-                rodom mažą semi-transparent badge top-right kampe.
-                Paspaudus — kvieci YT.Player.unMute() (gesture preserved)
-                + skipped per session po pirmo unmute'o. */}
-            {playing && !isEmbedDisabled && isMobileVP && needsUnmute && (
-              <button
-                type="button"
-                onClick={() => {
-                  try { playerRef.current?.unMute?.() } catch {}
-                  setNeedsUnmute(false)
-                }}
-                className="absolute right-2 top-2 z-20 flex items-center gap-1.5 rounded-full bg-black/70 backdrop-blur-sm px-3 py-1.5 text-white text-xs font-bold shadow-lg ring-1 ring-white/20 hover:bg-black/85 transition-colors"
-                title="Įjungti garsą"
-              >
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                  <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
-                </svg>
-                Garsui
-              </button>
+            {isMobileVP && (
+              <iframe
+                key={`mobile-hero-${displayVid}`}
+                src={`https://www.youtube.com/embed/${displayVid}?playsinline=1&rel=0&modestbranding=1&iv_load_policy=3`}
+                title="YouTube player"
+                className="absolute inset-0 h-full w-full"
+                referrerPolicy="strict-origin-when-cross-origin"
+                allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                allowFullScreen
+              />
             )}
-            {/* Fallback kai embed'as išjungtas (Klaida 153 / kodai 101, 150).
-                Rodom thumbnail + "Žiūrėti YouTube'e" CTA. Veikia tiek desktop
-                (po YT.Player onError), tiek mobile (po pre-flight check'o
-                jei pridėtas — kol kas mobile fallback'inasi tik per natural
-                YouTube error puslapį iframe'e). */}
-            {isEmbedDisabled && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black overflow-hidden">
-                {showThumb && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={`https://i.ytimg.com/vi/${displayVid}/hqdefault.jpg`}
-                    alt=""
-                    referrerPolicy="no-referrer"
-                    className="absolute inset-0 h-full w-full object-cover opacity-70"
-                  />
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/40" />
-                <a
-                  href={`https://www.youtube.com/watch?v=${displayVid}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="relative z-10 flex flex-col items-center gap-3 text-white text-center px-6"
-                >
-                  <span className="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-red-600 shadow-[0_10px_40px_rgba(0,0,0,0.5)] ring-[6px] ring-white/10">
-                    <svg viewBox="0 0 24 24" width="32" height="32" fill="#fff" aria-hidden>
-                      <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/>
-                    </svg>
-                  </span>
-                  <div className="text-sm font-medium">Žiūrėti YouTube'e</div>
-                  <div className="text-xs text-white/70 max-w-xs">
-                    Šio video savininkas išjungęs įterpimą trečiose svetainėse
-                  </div>
-                </a>
-              </div>
-            )}
-            {!playing && (
+            <div ref={containerRef} className={isMobileVP ? 'hidden' : 'absolute inset-0 h-full w-full'} />
+            {!isMobileVP && !playing && (
               <button
                 type="button"
                 onClick={() => {
@@ -846,16 +652,15 @@ function PlayerCard({
             {list.map((t, i) => {
               const v = yt(t.video_url)
               const isActive = t.id === activeTrackId
-              // Be programmatic YT.Player API'os neturime tikslaus play/pause
-              // state'o. UI rodo selected indicator kai `isActive`, bet
-              // nesimuluojame "playing" arba pause'inimo logikos — user'is
-              // valdys YT chrome'e iframe'o viduje.
-              const isActivelyPlaying = false
-              // Popularity bar — vieninga logika su signal'o fallback'u.
-              // Hierarchy: like_count → score → video_views (log) →
-              // position. Naujai importuotam intl atlikėjui (kol nėra
-              // likes) bar'ai rodomi pagal score arba YT views, ne 0.
-              const pop = popLevelWithFallback(t, i, list.length, popInfo)
+              const isActivelyPlaying = isActive && playing && !isPaused
+              // Popularity bar — vieninga logika visur: relatyvus tier
+              // pagal track'o likes prieš artist'o didžiausią. Tas pats
+              // track gauna tą patį dash skaičių nepriklausomai nuo to,
+              // kuriame tab'e (Top / Naujos / Kitos) yra rodomas. Žr.
+              // popLevelRelative — ji garantuoja min 1 dash kai artist
+              // turi bet kokios like'ų aktyvumo, ir 0 dashes kai
+              // duomenų iš viso nėra.
+              const pop = popLevelRelative((t as any).like_count || 0, maxTrackLikes)
               return (
                 <li key={t.id}>
                   <div
@@ -864,9 +669,8 @@ function PlayerCard({
                       isActive ? 'bg-[rgba(249,115,22,0.08)]' : 'hover:bg-[var(--bg-hover)]',
                     ].join(' ')}
                   >
-                    {/* Position number — visada rodom indeksą.
-                        Equalizer atskirtas (be playerio kontrolės nežinom
-                        ar realiai groja, todėl neapsimetam). */}
+                    {/* Position / active equalizer — animates only while YT
+                        reports the player as playing (not paused/stopped). */}
                     <span
                       className={[
                         'w-5 shrink-0 text-center font-["Outfit",sans-serif] text-[12px] font-bold tabular-nums',
@@ -874,7 +678,7 @@ function PlayerCard({
                       ].join(' ')}
                       aria-hidden
                     >
-                      {i + 1}
+                      {isActivelyPlaying ? <Equalizer /> : i + 1}
                     </span>
 
                     {/* Title — click opens the side drawer with duration +
@@ -996,70 +800,6 @@ function popLevelRelative(value: number, max: number): number {
   return 1
 }
 
-/** Hierarchinis populiarumo signalas tarp atlikėjo trekų. Naujam intl
- *  atlikėjui (pvz. Coldplay'ui ką tik importavus) like_count'ai 0 — todėl
- *  fallback'inam į score, paskui video_views (log scale, kad 1B vs 21M
- *  nebūtų iškraipyta), galiausiai į position-based hint'ą. Kiekvienam
- *  track'ui skaičiuojam su tuo pačiu signalu, kad palyginimai būtų
- *  prasmingi (mix'inti likes su score nelygintų niekuo).
- *
- *  signal: 'likes' | 'score' | 'views' | 'none'
- *  popValue(t): išversta į max-comparable skalę
- *  maxValue:    didžiausia value tarp visų artist trekų
- */
-type PopSignal = 'likes' | 'score' | 'views' | 'none'
-
-function detectPopSignal(allTracks: any[]): { signal: PopSignal; max: number } {
-  let maxLikes = 0, maxScore = 0, maxViews = 0
-  for (const t of allTracks) {
-    const lk = t?.like_count
-    const sc = t?.score
-    const vv = t?.video_views
-    if (typeof lk === 'number' && lk > maxLikes) maxLikes = lk
-    if (typeof sc === 'number' && sc > maxScore) maxScore = sc
-    if (typeof vv === 'number' && vv > maxViews) maxViews = vv
-  }
-  // Hierarchy: likes pirmiausia (user-driven, autentiškiausias signal'as
-  // kai vartotojai jau spaudė širdeles), tada video_views (objektyvus,
-  // labai diskriminuojantis nuo orders of magnitude), tada score (derived,
-  // intl atlikėjams visi tracks gauna 28-30 ir todėl per uniformus
-  // sorting'ui), galiausiai position fallback'as. Anksčiau score buvo
-  // antras po likes — todėl naujai importuotam Coldplay'ui (visi score
-  // ~30) sorting'as buvo praktiškai random, nors video_views nuo 28K
-  // iki 2.5B duotų aiškų ranking'ą. */
-  if (maxLikes > 0) return { signal: 'likes', max: maxLikes }
-  if (maxViews > 0) return { signal: 'views', max: Math.log10(maxViews + 1) }
-  if (maxScore > 0) return { signal: 'score', max: maxScore }
-  return { signal: 'none', max: 0 }
-}
-
-function trackPopValue(t: any, signal: PopSignal): number {
-  if (signal === 'likes') return t?.like_count || 0
-  if (signal === 'score') return t?.score || 0
-  if (signal === 'views') return Math.log10((t?.video_views || 0) + 1)
-  return 0
-}
-
-/** Pop level su pilnu fallback'u: signalų hierarchy, paskui pozicija
- *  (kuo aukščiau sąraše, tuo daugiau dashes). Niekada nerodom tuščio bar'o
- *  jei sąrašas nėra tuščias — tikrai-šviežiam intl atlikėjui be jokių
- *  signalų position-based estimate'as bent rodo, kad tracks egzistuoja
- *  ir tvarkomi pagal tvarką. */
-function popLevelWithFallback(
-  t: any,
-  idx: number,
-  total: number,
-  popInfo: { signal: PopSignal; max: number }
-): number {
-  if (popInfo.signal !== 'none') {
-    return popLevelRelative(trackPopValue(t, popInfo.signal), popInfo.max)
-  }
-  // Position-based fallback: 5 dash top, 1 dash bottom
-  if (total <= 1) return 3
-  const ratio = (total - idx) / total
-  return Math.max(1, Math.min(5, Math.ceil(ratio * 5)))
-}
-
 /** Active-track indicator — 3 bars that bounce independently. We use this in
  *  place of a pause icon because we genuinely can't tell if the iframe is
  *  paused; showing "pause" would be a lie. An equalizer just says "this is
@@ -1085,24 +825,16 @@ function Equalizer() {
 }
 
 /** 5-dot popularity bar. Anksčiau buvo 4 — su 5 lygiais geriau matosi
- *  skirtumai tarp top hit'o, vidutinio ir silpnesnio įrašo.
- *  Pridėtas title attr — vartotojas peliuke gauna paaiškinimą („Populiarumas
- *  4/5"), kas tos juostelės. Be jo segmentai atrodė dekoratyviai be reikšmės. */
+ *  skirtumai tarp top hit'o, vidutinio ir silpnesnio įrašo. */
 function PopBar({ level }: { level: number }) {
   const total = 5
   return (
-    <div
-      className="mt-1 flex gap-[3px]"
-      title={level > 0 ? `Populiarumas ${level}/${total}` : 'Populiarumas — duomenų dar nėra'}
-      role="img"
-      aria-label={level > 0 ? `Populiarumas ${level} iš ${total}` : 'Populiarumo duomenų nėra'}
-    >
+    <div className="mt-1 flex gap-[3px]" aria-hidden>
       {Array.from({ length: total }).map((_, i) => {
         const filled = i < level
         return (
           <span
             key={i}
-            aria-hidden
             className={[
               'h-[3px] w-[14px] rounded-[2px] transition-colors',
               filled ? 'bg-[var(--accent-orange)]' : 'bg-[var(--border-default)]',
@@ -1928,7 +1660,6 @@ function Hero({
   tracksAllTime, tracksTrending, activeTrackId, onSelectTrack,
   playing, onRequestPlay, onOpenTrackInfo, hasAnyVideo,
   upcomingEvents, onOpenEventsModal,
-  genres, flag,
 }: {
   artist: any; heroImage: string | null; loaded: boolean
   likes: number; selfLiked?: boolean
@@ -1940,12 +1671,6 @@ function Hero({
   hasAnyVideo: boolean
   upcomingEvents: any[]
   onOpenEventsModal: () => void
-  /** Headline meta — žanras + šalies vėliava rodomi po pavadinimu hero
-   *  zonoje, kad pirmasis impression'as iš karto turėtų konteksto („kas tai
-   *  per atlikėjas — iš kur ir koks žanras"). Anksčiau ši info gyveno tik
-   *  side info card'e po hero — disconnected'as. */
-  genres: Genre[]
-  flag: string
 }) {
   const coverPos = parseCoverPos(artist.cover_image_position || 'center 30%')
   // Adaptyvus hero foto plotis pagal nuotraukos aspect ratio. Anksčiau buvo
@@ -1983,14 +1708,12 @@ function Hero({
           <>
             {/* Layer 1 — strong blur backdrop (visada matomas kraštuose).
                 Maskuoja low-res music.lt thumb upscale artifacts kai original
-                paveiksliukis mažas (~600px).
-                Resize į 400px — backdrop turi 60px blur'ą, todėl resoliucijos
-                nereikia daugiau nei 400 (dar mažesnis būtų pixelated po blur'o). */}
+                paveiksliukis mažas (~600px). */}
             <div
               aria-hidden
               className="absolute inset-0"
               style={{
-                backgroundImage: `url(${proxyImgResized(heroImage, 400)})`,
+                backgroundImage: `url(${proxyImg(heroImage)})`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
                 filter: 'blur(60px) saturate(1.3) brightness(0.85)',
@@ -2006,11 +1729,7 @@ function Hero({
                 "softfocus" tipo nuotrauką, ne pixelated artefaktą. */}
             <img
               id="hero-photo"
-              // Resize iki 1200px width — Wikimedia/Supabase originals dažnai
-              // 4K+ (~5MB), bet hero render'inasi max 720px desktop / 380px
-              // mobile. Su weserv.nl &w=1200&output=webp grąžina ~150-300KB
-              // versiją. Mobile load'as nuo 5s+ → <1s.
-              src={proxyImgResized(heroImage, 1200)}
+              src={proxyImg(heroImage)}
               alt={artist.name}
               referrerPolicy="no-referrer"
               onLoad={handleHeroLoad}
@@ -2093,31 +1812,6 @@ function Hero({
             </span>
             )}
           </h1>
-          {/* Headline meta — country + main genre + active years. Tik desktop'e
-              (lg+) hero overlay'aus zonoje (kur title), kad pirmasis žvilgsnis
-              iškart matytų konteksto. Mobile'e tas pats meta gyvena žemiau —
-              sideinfo strip'e — ten ir lieka, kad hero plotas mobile'e
-              nesusipakuotų per smulkiai. */}
-          {(artist.country || genres[0] || artist.active_from) && (
-            <div className="hidden flex-wrap items-center gap-2 text-[12px] font-bold lg:flex">
-              {artist.country && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-black/35 px-3 py-1 text-white backdrop-blur-sm ring-1 ring-white/15">
-                  <span className="text-[14px] leading-none">{flag}</span>
-                  <span>{artist.country}</span>
-                </span>
-              )}
-              {genres[0] && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-black/35 px-3 py-1 text-white backdrop-blur-sm ring-1 ring-white/15">
-                  {genres[0].name}
-                </span>
-              )}
-              {artist.active_from && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-black/35 px-3 py-1 text-white backdrop-blur-sm ring-1 ring-white/15">
-                  {artist.active_from}–{artist.active_until || 'dabar'}
-                </span>
-              )}
-            </div>
-          )}
           <div className="flex flex-wrap items-center gap-2">
             <LikePill
               likes={likes}
@@ -2269,20 +1963,9 @@ function SideInfo({
   const yearsActiveRange = artist.active_from
     ? `${artist.active_from}–${artist.active_until || 'dabar'}`
     : null
-  // „43 metai" rodom atskirai — kaip muted tail po pagrindinio reikšmės teksto.
-  // Anksčiau buvo „(43 m.)" su parens ir abreviatūra — feel'inosi neaiškiai;
-  // dabar `· 43 metai` (be parens, su pilnu žodžiu) — natūraliau skaitosi.
-  // LT pluralizacija: 10–19 ar paskutinis skaitmuo 0 → „metų"; kitaip →
-  // „metai" (Lithuanian „metai" yra plurale tantum, vienaskaitos formos
-  // nėra, todėl visur „metai" / „metų" pagal kiekio formą).
-  const ltMetai = (n: number): string => {
-    const lastTwo = n % 100
-    const lastOne = n % 10
-    if (lastTwo >= 10 && lastTwo <= 19) return 'metų'
-    if (lastOne === 0) return 'metų'
-    return 'metai'
-  }
-  const yearsActiveTail = activeYears > 0 ? `${activeYears} ${ltMetai(activeYears)}` : null
+  // "(43 m.)" rodom atskirai — kaip muted tail po pagrindinio reikšmės teksto,
+  // kad pagrindinis stilius išliktų vieningas su likusiu sidebar'iu.
+  const yearsActiveTail = activeYears > 0 ? `${activeYears} m.` : null
   const ageFromBirth = (birth: string, end?: string | null): number | null => {
     const b = new Date(birth)
     if (isNaN(b.getTime())) return null
@@ -2345,14 +2028,14 @@ function SideInfo({
           return {
             label: 'Gyveno',
             main: `${fmtLtDate(artist.birth_date)} – ${fmtLtDate(artist.death_date)}`,
-            tail: lived != null ? `${lived} ${ltMetai(lived)}` : null,
+            tail: lived != null ? `${lived} m.` : null,
             zodiac: z,
           }
         }
         return {
           label: 'Gimimo data',
           main: fmtLtDate(artist.birth_date),
-          tail: yr != null ? `${yr} ${ltMetai(yr)}` : null,
+          tail: yr != null ? `${yr} m.` : null,
           zodiac: z,
         }
       })()
@@ -2457,7 +2140,7 @@ function SideInfo({
                 <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-faint)]">Veikla</span>
                 <span className="font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)]">{yearsActiveRange}</span>
                 {yearsActiveTail && (
-                  <span className="font-['Outfit',sans-serif] text-[12px] font-medium text-[var(--text-muted)]">· {yearsActiveTail}</span>
+                  <span className="font-['Outfit',sans-serif] text-[12px] font-medium text-[var(--text-muted)]">({yearsActiveTail})</span>
                 )}
               </span>
             )}
@@ -2466,7 +2149,7 @@ function SideInfo({
                 <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-faint)]">{birthLine.label}</span>
                 <span className="font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)]">{birthLine.main}</span>
                 {birthLine.tail && (
-                  <span className="font-['Outfit',sans-serif] text-[12px] font-medium text-[var(--text-muted)]">· {birthLine.tail}</span>
+                  <span className="font-['Outfit',sans-serif] text-[12px] font-medium text-[var(--text-muted)]">({birthLine.tail})</span>
                 )}
                 {birthLine.zodiac && (
                   <span title={birthLine.zodiac.name} aria-label={birthLine.zodiac.name} className="ml-0.5 text-[14px] leading-none text-[var(--accent-orange)]">
@@ -2537,7 +2220,7 @@ function SideInfo({
               <div className="mt-0.5 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">
                 {yearsActiveRange}
                 {yearsActiveTail && (
-                  <span className="ml-1.5 font-medium text-[12.5px] text-[var(--text-muted)]">· {yearsActiveTail}</span>
+                  <span className="ml-1.5 font-medium text-[12.5px] text-[var(--text-muted)]">({yearsActiveTail})</span>
                 )}
               </div>
             </div>
@@ -2548,7 +2231,7 @@ function SideInfo({
               <div className="mt-0.5 flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">
                 <span>{birthLine.main}</span>
                 {birthLine.tail && (
-                  <span className="font-medium text-[12.5px] text-[var(--text-muted)]">· {birthLine.tail}</span>
+                  <span className="font-medium text-[12.5px] text-[var(--text-muted)]">({birthLine.tail})</span>
                 )}
                 {birthLine.zodiac && (
                   <span
@@ -2661,36 +2344,6 @@ function MembersInline({ members }: { members: Member[] }) {
           <span className="font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)]">{m.name}</span>
           {m.member_from && (
             <span className="text-[11px] font-semibold text-[var(--text-muted)]">{m.member_from}–{m.member_until || 'dabar'}</span>
-          )}
-        </Link>
-      ))}
-    </div>
-  )
-}
-
-function MemberOfInline({ groups }: { groups: Member[] }) {
-  if (!groups.length) return null
-  return (
-    <div className="mt-3 flex flex-wrap gap-2">
-      <span className="mr-1 inline-flex items-center font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
-        Narys grupėse
-      </span>
-      {groups.map(g => (
-        <Link
-          key={g.id}
-          href={`/atlikejai/${g.slug}`}
-          className="inline-flex items-center gap-2 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] py-1 pl-1 pr-3 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
-        >
-          {g.cover_image_url ? (
-            <img src={proxyImg(g.cover_image_url)} alt={g.name} className="h-7 w-7 shrink-0 rounded-full object-cover" />
-          ) : (
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--cover-placeholder)] font-['Outfit',sans-serif] text-[11px] font-black text-[var(--text-faint)]">
-              {g.name[0]}
-            </div>
-          )}
-          <span className="font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)]">{g.name}</span>
-          {g.member_from && (
-            <span className="text-[11px] font-semibold text-[var(--text-muted)]">{g.member_from}–{g.member_until || 'dabar'}</span>
           )}
         </Link>
       ))}
@@ -3009,8 +2662,6 @@ function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' |
   const hasCover = !!e.cover_image_url && !coverFailed
 
   if (variant === 'past') {
-    const ac = e.attendee_count || 0
-    const cc = e.comment_count || 0
     return (
       <Link
         href={href}
@@ -3024,26 +2675,6 @@ function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' |
         <div className="min-w-0 flex-1">
           <div className="truncate text-[14px] font-bold leading-tight text-[var(--text-primary)]">{e.title}</div>
           {venue && <div className="mt-0.5 truncate text-[12px] text-[var(--text-muted)]">{venue}</div>}
-          {(ac > 0 || cc > 0) && (
-            <div className="mt-1 flex items-center gap-3 text-[11px] text-[var(--text-muted)]">
-              {ac > 0 && (
-                <span className="inline-flex items-center gap-1" title="Eis (dalyviai)">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                  </svg>
-                  {ac}
-                </span>
-              )}
-              {cc > 0 && (
-                <span className="inline-flex items-center gap-1" title="Komentarai">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                  </svg>
-                  {cc}
-                </span>
-              )}
-            </div>
-          )}
         </div>
       </Link>
     )
@@ -3526,14 +3157,7 @@ function UserAvatar({ name, avatarUrl, size = 22 }: { name: string; avatarUrl?: 
  *  /diskusijos/tema/... yra fallback'as kai prop'as `onOpen` neperduotas.
  */
 function DiscussionRow({ t, onOpen }: { t: LegacyThread; isLast?: boolean; onOpen?: (t: LegacyThread) => void }) {
-  // music.lt diskusijų title kartais turi vidinį legacy ID artifact'ą („Coldplay
-  // l194526"). Perleidžiam per slugToForumTitle clean'inimą, kuris nukerpa
-  // `l\d+` priesagą — bet tik jei title pats atrodo kaip auto-slug, ne real
-  // pavadinimas su didžiosiomis raidėmis ar diakritikais (kaip „Coldplay daina
-  // \"The Scientist\"").
-  const rawTitle = t.title || slugToForumTitle(t.slug)
-  const looksAutoSlug = /\sl\d{4,}$/i.test(rawTitle) || /^[a-zĄČĘĖĮŠŲŪŽąčęėįšųūž][a-zĄČĘĖĮŠŲŪŽąčęėįšųūž\s\-_]*$/.test(rawTitle)
-  const title = looksAutoSlug ? slugToForumTitle(t.slug) : rawTitle
+  const title = t.title || slugToForumTitle(t.slug)
   const pc = t.post_count ?? 0
   const recent = (t.recent_posts && t.recent_posts.length > 0)
     ? t.recent_posts
@@ -3552,15 +3176,10 @@ function DiscussionRow({ t, onOpen }: { t: LegacyThread; isLast?: boolean; onOpe
         {title}
       </div>
 
-      {/* Comments preview — iki 2 paskutinių, su realiais avatarais.
-          „Dar nekomentuota" placeholder rodomas TIK kai pc === 0. Anksčiau
-          jis ir su `pc > 0` rodydavosi (kai recent_posts nesipareina iš db),
-          tada apačioj būdavo „27 komentarų" — internal contradiction. */}
+      {/* Comments preview — iki 2 paskutinių, su realiais avatarais. */}
       <div className="flex flex-1 flex-col gap-2">
         {recent.length === 0 ? (
-          pc === 0
-            ? <div className="text-[11.5px] leading-tight text-[var(--text-faint)]">Dar nekomentuota</div>
-            : null
+          <div className="text-[11.5px] leading-tight text-[var(--text-faint)]">Dar nekomentuota</div>
         ) : (
           recent.map((p, i) => {
             const text = stripHtml(p.body || '').slice(0, 140)
@@ -3601,13 +3220,8 @@ function DiscussionRow({ t, onOpen }: { t: LegacyThread; isLast?: boolean; onOpe
       </button>
     )
   }
-  // Po migracijos forum_threads → discussions, naudojam canonical_slug.
-  // Fallback'as legacy bridge'ui jei dar nemigruota.
-  const href = t.canonical_slug
-    ? `/diskusijos/${t.canonical_slug}`
-    : `/diskusijos/tema/${t.legacy_id}`
   return (
-    <Link href={href} className={sharedClassName}>
+    <Link href={`/diskusijos/tema/${t.legacy_id}`} className={sharedClassName}>
       {inner}
     </Link>
   )
@@ -3632,15 +3246,12 @@ function DiscussionThreadModal({
     content_html: string | null
     like_count?: number | null
   }> | null>(null)
-  const [sort, setSort] = useState<'oldest' | 'newest' | 'popular'>('oldest')
+  const [sort, setSort] = useState<'oldest' | 'newest' | 'popular'>('newest')
   const [draft, setDraft] = useState('')
   const [replyTo, setReplyTo] = useState<{ author: string; text: string } | null>(null)
   const [attached, setAttached] = useState<AttachmentHit[]>([])
   const [showPicker, setShowPicker] = useState(false)
-  const [postLikers, setPostLikers] = useState<Record<number, LikeUser[]>>({})
-  const [likesModalPostId, setLikesModalPostId] = useState<number | null>(null)
   const draftRef = useRef<HTMLTextAreaElement | null>(null)
-  const scrollContainerRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     if (thread) {
@@ -3650,29 +3261,12 @@ function DiscussionThreadModal({
       setPosts(null)
       setDraft('')
       setReplyTo(null)
-      setSort('oldest')
+      setSort('newest')
       setAttached([])
       setShowPicker(false)
-      // Scroll modal į viršų atidarius naują thread'ą — anksčiau scroll
-      // pozicija persistdavo iš ankstesnio modal'o.
-      if (scrollContainerRef.current) {
-        scrollContainerRef.current.scrollTop = 0
-      }
-      setPostLikers({})
-      setLikesModalPostId(null)
       fetch(`/api/threads/${thread.legacy_id}/posts`)
         .then(r => r.json())
-        .then(d => {
-          setPosts(d.posts || [])
-          setPostLikers(d.postLikers || {})
-          // Po duomenų load'o dar kartą reset'inam scroll'ą — kad pradėtume
-          // skaityti nuo pirmo (seniausio) komentaro, kaip kanoniniame page'e.
-          requestAnimationFrame(() => {
-            if (scrollContainerRef.current) {
-              scrollContainerRef.current.scrollTop = 0
-            }
-          })
-        })
+        .then(d => setPosts(d.posts || []))
         .catch(() => setPosts([]))
       document.body.style.overflow = 'hidden'
       return () => {
@@ -3745,75 +3339,58 @@ function DiscussionThreadModal({
         role="dialog"
         aria-label={title}
         className={[
-          // Pamatuotas 720px platis — daugiau erdvės skaitymui (artimiau
-          // kanoninei /diskusijos/[slug] page, kuri turi 1200px content),
-          // bet vis tiek yra drawer (artist hero matomas dešinėj).
-          'absolute left-0 top-0 flex h-full w-full max-w-[720px] flex-col border-r border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[24px_0_60px_-10px_rgba(0,0,0,0.5)]',
+          'absolute left-0 top-0 flex h-full w-full max-w-[520px] flex-col border-r border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[24px_0_60px_-10px_rgba(0,0,0,0.5)]',
           'transition-transform duration-200 ease-out',
           mounted ? 'translate-x-0' : '-translate-x-full',
         ].join(' ')}
       >
-        {/* Top bar — minimal close + open-full action. Title stays in
-            scrollable hero area (canonical-style). */}
-        <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-5 py-2.5">
-          <div className="font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--text-faint)]">
-            ← Diskusijos
-          </div>
-          <div className="flex items-center gap-1">
-            <a
-              href={`/diskusijos/tema/${thread.legacy_id}`}
-              target="_blank"
-              rel="noopener"
-              title="Atidaryti pilname puslapyje"
-              className="flex h-8 w-8 items-center justify-center rounded-[8px] border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
-            >
-              <svg viewBox="0 0 24 24" width={13} height={13} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M14 3h7v7M21 3l-9 9M5 5h6M5 5v14h14v-6" />
-              </svg>
-            </a>
-            <button
-              onClick={handleClose}
-              aria-label="Uždaryti"
-              className="flex h-8 w-8 items-center justify-center rounded-[8px] border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
-            >
-              <svg viewBox="0 0 16 16" width={12} height={12} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-                <path d="M3 3l10 10M13 3L3 13" />
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        {/* Scrollable hero + posts area. Hero atvaizdavimas atitinka kanoninę
-            /diskusijos/[slug]: didelis H1, comment count subline, sort row;
-            tada — posts list (visa scroll'ina kartu, kaip kanoninej page'e). */}
-        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
-          {/* Hero — title + count */}
-          <div className="border-b border-[var(--border-subtle)] px-6 pb-5 pt-6">
+        {/* Header */}
+        <div className="flex items-start gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
+          <div className="min-w-0 flex-1">
             <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
               Diskusija
             </div>
-            <h1 className="mt-2 font-['Outfit',sans-serif] text-[24px] font-black leading-[1.15] text-[var(--text-primary)]">
+            <h2 className="mt-1 font-['Outfit',sans-serif] text-[17px] font-extrabold leading-tight text-[var(--text-primary)]">
               {title}
-            </h1>
+            </h2>
             {pc > 0 && (
-              <div className="mt-2 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-muted)]">
-                <span className="text-[var(--accent-orange)]">{pc.toLocaleString()}</span>{' '}
-                {pc === 1 ? 'komentaras' : (pc < 10 ? 'komentarai' : 'komentarų')}
+              <div className="mt-1 font-['Outfit',sans-serif] text-[11.5px] font-extrabold text-[var(--accent-orange)]">
+                {pc} {pc === 1 ? 'komentaras' : (pc < 10 ? 'komentarai' : 'komentarų')}
               </div>
             )}
           </div>
+          <a
+            href={`/diskusijos/tema/${thread.legacy_id}`}
+            target="_blank"
+            rel="noopener"
+            title="Atidaryti pilname puslapyje"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+          >
+            <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 3h7v7M21 3l-9 9M5 5h6M5 5v14h14v-6" />
+            </svg>
+          </a>
+          <button
+            onClick={handleClose}
+            aria-label="Uždaryti"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+          >
+            <svg viewBox="0 0 16 16" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+              <path d="M3 3l10 10M13 3L3 13" />
+            </svg>
+          </button>
+        </div>
 
-          {/* Sort row — sticky top, kad nebeb dingtų skrolinant */}
-          <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] px-6 py-3">
-            <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">Rūšiuoti</span>
-            <SortChip k="oldest" label="Seniausi" />
-            <SortChip k="newest" label="Naujausi" />
-            <SortChip k="popular" label="Populiariausi" />
-          </div>
+        {/* Sort row */}
+        <div className="flex items-center gap-2 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)]/40 px-5 py-2.5">
+          <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">Rūšiuoti</span>
+          <SortChip k="oldest" label="Seniausi" />
+          <SortChip k="newest" label="Naujausi" />
+          <SortChip k="popular" label="Populiariausi" />
+        </div>
 
-          {/* Posts list (no longer separately scrollable — visa hero+sort+posts
-              kartu scroll'ina, kaip kanoninej /diskusijos/[slug] page'e). */}
-          <div className="px-6 py-4">
+        {/* Posts list */}
+        <div className="flex-1 overflow-y-auto px-5 py-4">
           {sortedPosts === null && (
             <div className="space-y-3">
               {[0, 1, 2].map((i) => (
@@ -3830,13 +3407,8 @@ function DiscussionThreadModal({
                 const author = p.author_username || 'Anonimas'
                 const html = (p.content_html && p.content_html.trim()) || ''
                 const plainText = (p.content_text && String(p.content_text).trim()) || (html ? stripHtml(html) : '')
-                // Naudojam relative timeAgo formatą kaip kanoninej page'ai
-                // (pvz "prieš 19 metų" vs "2005-03-07 21:35"). Hover'uojant
-                // per `title` rodom pilną datą.
-                const dateRel = p.created_at ? timeAgoLT(p.created_at) : null
-                const dateAbs = p.created_at ? formatPostDate(p.created_at) : null
+                const dateStr = p.created_at ? formatPostDate(p.created_at) : null
                 const likeCount = p.like_count || 0
-                const hasLikers = (postLikers[p.legacy_id]?.length || 0) > 0
                 return (
                   <li key={p.legacy_id} className="flex items-start gap-2.5 border-b border-[var(--border-subtle)] pb-3 last:border-b-0 last:pb-0">
                     <UserAvatar name={author} avatarUrl={p.author_avatar_url} size={28} />
@@ -3845,12 +3417,9 @@ function DiscussionThreadModal({
                         <span className="font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-secondary)]">
                           {author}
                         </span>
-                        {dateRel && (
-                          <span
-                            className="font-['Outfit',sans-serif] text-[10.5px] font-medium text-[var(--text-faint)]"
-                            title={dateAbs || ''}
-                          >
-                            {dateRel}
+                        {dateStr && (
+                          <span className="font-['Outfit',sans-serif] text-[10.5px] font-medium tabular-nums text-[var(--text-faint)]">
+                            {dateStr}
                           </span>
                         )}
                       </div>
@@ -3867,34 +3436,23 @@ function DiscussionThreadModal({
                           {plainText}
                         </div>
                       )}
-                      {/* Footer — like count (clickable kai yra likers) + reply button */}
+                      {/* Footer — like count + reply button */}
                       <div className="mt-2 flex items-center gap-3">
-                        {hasLikers ? (
-                          <button
-                            type="button"
-                            onClick={() => setLikesModalPostId(p.legacy_id)}
-                            aria-label={`${likeCount} patiko — peržiūrėti`}
-                            className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--accent-orange)] transition-colors hover:bg-[rgba(249,115,22,0.12)]"
-                          >
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
-                            {likeCount}
-                          </button>
-                        ) : (
-                          <span
-                            className={[
-                              'inline-flex items-center gap-1 px-1.5 py-0.5 font-["Outfit",sans-serif] text-[11px] font-extrabold',
-                              likeCount > 0 ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]',
-                            ].join(' ')}
-                            aria-label={`${likeCount} patiko`}
-                          >
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
-                            {likeCount}
-                          </span>
-                        )}
+                        <span
+                          className={[
+                            'inline-flex items-center gap-1 font-["Outfit",sans-serif] text-[11px] font-extrabold',
+                            likeCount > 0 ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]',
+                          ].join(' ')}
+                          aria-label={`${likeCount} patiko`}
+                        >
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
+                          {likeCount}
+                        </span>
                         <button
                           type="button"
                           onClick={() => {
                             setReplyTo({ author, text: plainText.slice(0, 200) })
+                            // Focus textarea after state update.
                             requestAnimationFrame(() => draftRef.current?.focus())
                           }}
                           className="inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--text-muted)] transition-colors hover:text-[var(--accent-orange)]"
@@ -3909,7 +3467,6 @@ function DiscussionThreadModal({
               })}
             </ul>
           )}
-          </div>
         </div>
 
         {/* Forum HTML styles — quote nesting, emoji image sizing, paragraph
@@ -4049,18 +3606,6 @@ function DiscussionThreadModal({
           </div>
         </div>
       </aside>
-
-      {/* LikesModal — overlay'inamas virš drawer'io kai user'is paspaudžia
-          ant ♥ count'o ant komentaro. Rodo kas like'ino tą komentarą su
-          username, rank, avatar (data iš /api/threads/{id}/posts postLikers).
-          Kanoninej /diskusijos/tema/{id} page'ai tas pats UI. */}
-      <LikesModal
-        open={likesModalPostId !== null}
-        onClose={() => setLikesModalPostId(null)}
-        title="Patiko"
-        count={likesModalPostId !== null ? (postLikers[likesModalPostId]?.length || 0) : 0}
-        users={likesModalPostId !== null ? (postLikers[likesModalPostId] || []) : []}
-      />
     </div>
   )
 }
@@ -4151,7 +3696,7 @@ function AvatarBubble({ name, size = 28 }: { name: string; size?: number }) {
 // ── Main ────────────────────────────────────────────────────────────
 
 export default function ArtistProfileClient({
-  artist, heroImage, genres, substyles = [], links, photos, albums, tracks, members, memberOf = [], followers, likeCount,
+  artist, heroImage, genres, substyles = [], links, photos, albums, tracks, members, followers, likeCount,
   events, similar, newTracks,
   legacyCommunity, legacyThreads = [], legacyNews = [], ranks = [],
   linkedTrackIds = [], awards = [],
@@ -4164,9 +3709,7 @@ export default function ArtistProfileClient({
   const [albumModalOpen, setAlbumModalOpen] = useState<Album | null>(null)
   const [eventsModalOpen, setEventsModalOpen] = useState(false)
   const [discussionsModalOpen, setDiscussionsModalOpen] = useState(false)
-  // activeThread state pašalintas — diskusijų kortelės dabar Link'ai į
-  // canonical /diskusijos/tema/{legacy_id} (rodantis pilną thread-page-client'ą
-  // su composer'iu, replies, sort), o ne open custom modal'ą.
+  const [activeThread, setActiveThread] = useState<LegacyThread | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [likesModalOpen, setLikesModalOpen] = useState(false)
   const [bioModalOpen, setBioModalOpen] = useState(false)
@@ -4194,12 +3737,6 @@ export default function ArtistProfileClient({
   const [anonNudge, setAnonNudge] = useState(false)
 
   useEffect(() => { setLoaded(true) }, [])
-
-  // Page-view ping — fire-and-forget. 30 min cookie dedup'as.
-  useEffect(() => {
-    if (!artist?.id) return
-    fetch(`/api/artists/${artist.id}/page-view`, { method: 'POST', keepalive: true }).catch(() => {})
-  }, [artist?.id])
 
   useEffect(() => {
     let cancelled = false
@@ -4336,56 +3873,33 @@ export default function ArtistProfileClient({
     return max
   }, [albums])
 
-  // Pop signal'as su fallback hierarchy — taip pat kaip HeroPlayer'yje.
-  // Garantuoja, kad orphan ("Kitos dainos") sąraše bar'ai rodomi net jei
-  // like_count'ai 0 (naujai importuotam intl atlikėjui).
-  const popInfoTracks = useMemo(() => (
-    detectPopSignal([...tracks, ...newTracks])
-  ), [tracks, newTracks])
+  // Max track likes per artist — naudojam tam, kad ir orphan ("Kitos
+  // dainos") sąraše PopBar atrodytų vienodai kaip player'io track sąraše.
+  // Pasiekiama iš tracks + newTracks visumos (player'is parent'e gauna abu).
+  const maxTrackLikes = useMemo(() => {
+    let max = 0
+    for (const t of [...tracks, ...newTracks]) {
+      const lk = (t as any).like_count
+      if (typeof lk === 'number' && lk > max) max = lk
+    }
+    return max
+  }, [tracks, newTracks])
 
   // Player'is rodo tracks be cap'o — vartotojas gali scroll'inti per visą
   // diskografiją. Anksčiau buvo .slice(0, 100), bet kai kurie atlikėjai
   // (Mamontovas 220+, didžiosios DJ'jaus kompiliacijos 1000+) turi gerokai
-  // daugiau dainų.
-  //
-  // Top dainos rikiavimas — pagal popularumo signalą (likes → score →
-  // log10(views) → position). Anksčiau buvo tik created_at desc'ą rodomas
-  // (server'io sort'as), todėl Coldplay'aus 1B-views „Yellow" liko žemai
-  // už 50M-views naujausių track'ų. Dabar — su video tracks pirma, viduj
-  // jų sortuojant pagal popularumą; orphan'ai (be video) eina į galą,
-  // taip pat sortuojami tarpusavyje.
+  // daugiau dainų. Filtruojam, kad video-turintys keliautų į priekį, bet
+  // visus rodom.
   const tracksAllTime = useMemo(() => {
-    const popInfo = detectPopSignal(tracks)
-    const sorted = [...tracks].sort((a: any, b: any) => {
-      // Pirmiausia — su video aukščiau už be video
-      const aHasV = !!yt(a.video_url)
-      const bHasV = !!yt(b.video_url)
-      if (aHasV !== bHasV) return aHasV ? -1 : 1
-      // Tada — pagal pop signal'ą desc
-      if (popInfo.signal !== 'none') {
-        const av = trackPopValue(a, popInfo.signal)
-        const bv = trackPopValue(b, popInfo.signal)
-        if (av !== bv) return bv - av
-      }
-      return 0
-    })
-    return sorted
+    const withVideo = tracks.filter(t => yt(t.video_url))
+    const rest = tracks.filter(t => !yt(t.video_url))
+    return [...withVideo, ...rest]
   }, [tracks])
 
   const tracksTrending = useMemo(() => {
-    const popInfo = detectPopSignal(newTracks)
-    const sorted = [...newTracks].sort((a: any, b: any) => {
-      const aHasV = !!yt(a.video_url)
-      const bHasV = !!yt(b.video_url)
-      if (aHasV !== bHasV) return aHasV ? -1 : 1
-      if (popInfo.signal !== 'none') {
-        const av = trackPopValue(a, popInfo.signal)
-        const bv = trackPopValue(b, popInfo.signal)
-        if (av !== bv) return bv - av
-      }
-      return 0
-    })
-    return sorted
+    const withVideo = newTracks.filter(t => yt(t.video_url))
+    const rest = newTracks.filter(t => !yt(t.video_url))
+    return [...withVideo, ...rest]
   }, [newTracks])
 
   const hasAnyVideo = tracksAllTime.some(t => yt(t.video_url)) || tracksTrending.some(t => yt(t.video_url))
@@ -4425,20 +3939,7 @@ export default function ArtistProfileClient({
   // (kad nesi-dubliuotų), bet jei active'ių tik 2 ir viena tampa hero'jum,
   // galerija lieka su 1. Dabar paliekam visas — vartotojas mato pilną
   // foto sąrašą + lengvai matosi kuri yra hero (ji dažnai pirma sort_order).
-  //
-  // Sort: nuo naujausios iki seniausios pagal taken_at. Wikipedia/Commons
-  // nuotraukos turi DateTimeOriginal metadata, atrandant per scrape'ą →
-  // taken_at. Be metadatos foto eina į galą (sort_order tvarka).
-  const galleryPhotos = useMemo(() => {
-    const withDate = photos.filter(p => p.taken_at)
-    const noDate = photos.filter(p => !p.taken_at)
-    withDate.sort((a, b) => {
-      const ta = new Date(a.taken_at!).getTime()
-      const tb = new Date(b.taken_at!).getTime()
-      return tb - ta  // desc
-    })
-    return [...withDate, ...noDate]
-  }, [photos])
+  const galleryPhotos = useMemo(() => photos, [photos])
 
   const bioSubtitle = [
     active,
@@ -4451,10 +3952,7 @@ export default function ArtistProfileClient({
   }
 
   return (
-    // route-enter: 280ms fade+slide-in kai loading.tsx (equalizer skeleton'as)
-    // pakeičiamas faktiniu content'u. Be šitos klasės swap'as matosi kaip
-    // abrupt blink — naudotojas pastebėjo, kad atrodo "lyg viskas persikrauna".
-    <div className="route-enter min-h-screen bg-[var(--bg-body)] font-['DM_Sans',system-ui,sans-serif] text-[var(--text-primary)] antialiased">
+    <div className="min-h-screen bg-[var(--bg-body)] font-['DM_Sans',system-ui,sans-serif] text-[var(--text-primary)] antialiased">
       <Hero
         artist={artist}
         heroImage={heroImage}
@@ -4476,8 +3974,6 @@ export default function ArtistProfileClient({
         hasAnyVideo={hasAnyVideo}
         upcomingEvents={upcomingEvents}
         onOpenEventsModal={() => setEventsModalOpen(true)}
-        genres={genres}
-        flag={flag}
       />
 
       <EventsModal
@@ -4490,9 +3986,18 @@ export default function ArtistProfileClient({
         open={discussionsModalOpen}
         threads={legacyThreads}
         onClose={() => setDiscussionsModalOpen(false)}
-        // Be onOpenThread — DiscussionRow be `onOpen` props automatiškai
-        // tampa <Link href="/diskusijos/tema/{legacy_id}">, kuris atidaro
-        // canonical thread page'ą.
+        onOpenThread={(t) => {
+          // Atidarom thread modal'ą tame pačiame fiziniame stack'e —
+          // archyvas modal'as lieka užkulisiuose, žiūri pro thread modal'ą.
+          // Uždarius thread'ą, archyvas vis dar matomas, kol vartotojas
+          // jį uždaro atskirai.
+          setActiveThread(t)
+        }}
+      />
+
+      <DiscussionThreadModal
+        thread={activeThread}
+        onClose={() => setActiveThread(null)}
       />
 
       <LikesModal
@@ -4663,26 +4168,20 @@ export default function ArtistProfileClient({
 
         {/* BIO + MEMBERS + SIDE INFO — adaptive layout.
             Mobile: stacked — horizontal SideInfo strip on top, bio + members below.
-            Desktop su bio: 2-col — [bio | vertical SideInfo 320px].
-            Desktop be bio: full-width horizontal strip viršuj, members below
-              (anksčiau buvo float-right sidebar šalia trumpo members row,
-              paliekant didžiulį tuščią plotą). */}
+            Desktop: 2-col — [bio | vertical SideInfo 320px].
+            The mobile stack surfaces details (country / genre / socials)
+            above the bio so they're the first thing seen without scrolling. */}
         {(() => {
           const sideInfoAvailable = !!artist.country || genres.length > 0 || links.length > 0 || artist.website || !!artist.active_from || !!artist.birth_date || !!artist.death_date
           const bioHeader = solo ? 'Apie atlikėją' : 'Apie grupę'
 
           if (!hasBio && members.length === 0 && !sideInfoAvailable) return null
 
-          // Be bio — naudojam full-width horizontal SideInfo viršuje (mobile
-          // ir desktop), nes nieko nėra ką wrap'inti aplink float-right
-          // kortelę. Dėl to dingsta tuščias plotas šalia members row'o.
-          const useHorizontalDesktop = !hasBio
-
           return (
             <section>
-              {/* Horizontal strip — mobile visada; desktop tik kai bio nėra */}
+              {/* Mobile: horizontal strip on top */}
               {sideInfoAvailable && (
-                <div className={useHorizontalDesktop ? 'mb-6' : 'mb-6 lg:hidden'}>
+                <div className="mb-6 lg:hidden">
                   <SideInfo
                     artist={artist}
                     flag={flag}
@@ -4695,9 +4194,9 @@ export default function ArtistProfileClient({
                   />
                 </div>
               )}
-              {/* Mobile/horizontal: score card below sideinfo strip */}
+              {/* Mobile: score card below sideinfo strip */}
               {artist.score !== null && artist.score !== undefined && (
-                <div className={useHorizontalDesktop ? 'mb-6' : 'mb-6 lg:hidden'}>
+                <div className="mb-6 lg:hidden">
                   <ScoreCard
                     entityType="artist"
                     score={artist.score}
@@ -4705,12 +4204,16 @@ export default function ArtistProfileClient({
                   />
                 </div>
               )}
-              {/* Desktop su bio: float right info card. Bio teksto srautas
-                  apgaubia kortelę — klasikinis žurnalo layout'as. Be bio
-                  šitos šakos vis tiek nepasiekiame (useHorizontalDesktop
-                  pagrobia info aukščiau). */}
+              {/* Desktop: float right'as info card'ams — bio teksto srautas
+                  apgaubia kortelę. Anksčiau buvo 2-col grid'as su fiksuotu
+                  320px sidebar'iu, dėl ko atsirasdavo tuščia erdvė po trumpu
+                  bio. Su float'u: kai bio trumpas, sidebar'as natūraliai
+                  baigia sekciją; kai ilgas — tekstas tęsiasi po info card'o
+                  pilnu pločiu (klasikinis žurnalo layout'as).
+                  Mobile: sidebar matomas viršuje (horizontal strip), bio
+                  apačioj — tas pats kaip ir prieš tai. */}
               <div className="lg:[display:flow-root]">
-                {!useHorizontalDesktop && (sideInfoAvailable || (artist.score !== null && artist.score !== undefined)) && (
+                {(sideInfoAvailable || (artist.score !== null && artist.score !== undefined)) && (
                   <div className="hidden lg:float-right lg:ml-8 lg:mb-4 lg:flex lg:w-[320px] lg:flex-col lg:gap-4">
                     {sideInfoAvailable && (
                       <SideInfo
@@ -4742,7 +4245,6 @@ export default function ArtistProfileClient({
                     </>
                   )}
                   {!solo && members.length > 0 && <MembersInline members={members} />}
-                  {memberOf && memberOf.length > 0 && <MemberOfInline groups={memberOf} />}
                 </div>
               </div>
             </section>
@@ -4827,18 +4329,14 @@ export default function ArtistProfileClient({
                         className="w-[46vw] max-w-[180px] shrink-0"
                         style={{ scrollSnapAlign: 'start' }}
                       >
-                        <AlbumCard a={a} artistSlug={artist.slug} maxPop={maxAlbumPop} popularity={popLevel(i, visibleAlbums.length)} />
+                        <AlbumCard a={a} artistSlug={artist.slug} maxPop={maxAlbumPop} popularity={popLevel(i, visibleAlbums.length)} onOpen={setAlbumModalOpen} />
                       </div>
                     ))}
                   </div>
                   {/* Desktop (sm+): pilnas grid'as, visi albumai matomi.
-                      Anksčiau buvo 4–8 col su itin plonomis ~150px kortelėmis —
-                      žemos rezoliucijos cover'iams gerai, bet pop atlikėjams su
-                      didelės rezoliucijos cover'iais (Coldplay, ColdPlay-class)
-                      gaunasi pernelyg sutankinta. Naujas grid: 3–6 col, didesni
-                      tile'ai (~190px @ 1440px / 7 col → ~210px @ 6 col), aiškiau
-                      matosi cover artwork. */}
-                  <div className="hidden gap-3 sm:grid sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                      Tankesnis grid (4-8 col), kad cover'iai būtų mažesni
+                      ir low-res quality nesimatytų. */}
+                  <div className="hidden gap-3 sm:grid sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
                     {visibleAlbums.map((a, i) => (
                       <AlbumCard key={a.id} a={a} artistSlug={artist.slug} maxPop={maxAlbumPop} popularity={popLevel(i, visibleAlbums.length)} onOpen={setAlbumModalOpen} />
                     ))}
@@ -4855,12 +4353,12 @@ export default function ArtistProfileClient({
                     </div>
                   )}
                   <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
-                    {orphanTracks.map((t, i) => (
+                    {orphanTracks.map((t) => (
                       <TrackRow
                         key={t.id}
                         t={t}
                         artistSlug={artist.slug}
-                        popularity={popLevelWithFallback(t, i, orphanTracks.length, popInfoTracks)}
+                        popularity={popLevelRelative((t as any).like_count || 0, maxTrackLikes)}
                       />
                     ))}
                   </div>
@@ -4897,13 +4395,8 @@ export default function ArtistProfileClient({
               </div>
               {legacyThreads.length > 0 ? (
                 <div className="grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {/* Cards link directly to canonical /diskusijos/tema/{legacy_id}
-                      page (kuris renderuoja pilną thread-page-client su likes,
-                      replies, composer, sort). Anksčiau buvo custom drawer su
-                      limited UI — user'is teisingai pastebėjo, kad geriau
-                      naudoti vieną komponentą visur. */}
                   {previewThreads.map((t) => (
-                    <DiscussionRow key={t.legacy_id} t={t} />
+                    <DiscussionRow key={t.legacy_id} t={t} onOpen={setActiveThread} />
                   ))}
                 </div>
               ) : (
@@ -4965,36 +4458,11 @@ export default function ArtistProfileClient({
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {(showArchive ? [...freshLegacyNews, ...archivedLegacyNews].slice(0, 60) : freshLegacyNews.slice(0, 12)).map(n => {
                 const title = n.title || slugToForumTitle(n.slug)
-                const pc = (n as any).post_count ?? 0
-                const lc = (n as any).like_count ?? 0
-                // Migration timestamp detection — Coldplay'aus visi naujienų
-                // įrašai turėjo `first_post_at = NOW()` (2026-05-09), nes
-                // legacy scrape'as nemigravo originalios datos. Heuristika:
-                // jei pirmasis post falls within last 14 dienų IR be aktyvumo
-                // (no last_post_at), greičiausiai tai migracijos timestamp,
-                // ne tikra naujiena. Tikrinam `last_post_at` — jei užfiksuotas
-                // realus aktyvumas, pasitikim data.
-                const rawDate = n.first_post_at
-                const lastAct = (n as any).last_post_at
-                const dateStr = (() => {
-                  if (!rawDate) return null
-                  const d = new Date(rawDate)
-                  if (isNaN(d.getTime())) return null
-                  const ageDays = (Date.now() - d.getTime()) / 86400000
-                  // Suspicious: <14 dienų sena IR jokio activity → tikriausiai migration ts
-                  if (ageDays < 14 && !lastAct) return null
-                  return d.toLocaleDateString('lt-LT', { year: 'numeric', month: 'short', day: 'numeric' })
-                })()
-                // News kortelės nukreipia į /news/{slug} (canonical news UI
-                // su gallery, related news, music player). canonical_slug =
-                // discussions.slug po canonical pipeline migracijos.
-                const newsHref = n.canonical_slug
-                  ? `/news/${n.canonical_slug}`
-                  : `/diskusijos/tema/${n.legacy_id}`
+                const pc = n.post_count ?? 0
                 return (
                   <Link
                     key={n.legacy_id}
-                    href={newsHref}
+                    href={`/diskusijos/tema/${n.legacy_id}`}
                     className="group flex flex-col gap-3 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5 no-underline transition-all hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.2)]"
                   >
                     <div className="flex items-center gap-2">
@@ -5002,29 +4470,9 @@ export default function ArtistProfileClient({
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M20 3H4a2 2 0 00-2 2v14a2 2 0 002 2h16a2 2 0 002-2V5a2 2 0 00-2-2z" /></svg>
                       </div>
                       <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--accent-orange)]">Naujiena</div>
-                      {dateStr && <div className="ml-auto text-[11px] font-medium text-[var(--text-muted)]">{dateStr}</div>}
+                      {pc > 0 && <div className="ml-auto text-[11px] font-semibold text-[var(--text-muted)]">{pc} komentarai</div>}
                     </div>
                     <div className="text-[14px] font-bold leading-snug text-[var(--text-primary)] sm:text-[15px]">{title}</div>
-                    {(pc > 0 || lc > 0) && (
-                      <div className="mt-auto flex items-center gap-3 pt-1 text-[11px] text-[var(--text-muted)]">
-                        {lc > 0 && (
-                          <span className="inline-flex items-center gap-1">
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                            </svg>
-                            {lc}
-                          </span>
-                        )}
-                        {pc > 0 && (
-                          <span className="inline-flex items-center gap-1">
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                            </svg>
-                            {pc}
-                          </span>
-                        )}
-                      </div>
-                    )}
                   </Link>
                 )
               })}
@@ -5043,23 +4491,12 @@ export default function ArtistProfileClient({
           </section>
         )}
 
-        {/* Similar — neturi būti grupės narys ar grupė, kuriose šis artist
-            yra narys. Anksčiau Coldplay'aus „panaši muzika" rodydavo „Chris
-            Martin" (Coldplay vokalistas) — algoritmas nefiltravo band
-            member'ių. Filtras paima visus member.id ir memberOf.id ir
-            pašalina iš similar list'o. */}
-        {(() => {
-          const excludeIds = new Set<number>([
-            ...members.map(m => m.id),
-            ...(memberOf || []).map(g => g.id),
-          ])
-          const filteredSimilar = similar.filter((a: any) => !excludeIds.has(a.id))
-          if (filteredSimilar.length === 0) return null
-          return (
+        {/* Similar */}
+        {similar.length > 0 && (
           <section>
             <SectionTitle label="Panaši muzika" />
             <div className="flex snap-x gap-4 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {filteredSimilar.map((a: any) => (
+              {similar.map((a: any) => (
                 <Link key={a.id} href={`/atlikejai/${a.slug}`} className="w-[110px] shrink-0 snap-start text-center no-underline sm:w-[130px]">
                   <div className="relative mx-auto mb-2.5 h-[90px] w-[90px] overflow-hidden rounded-full border-2 border-[var(--border-default)] transition-all hover:scale-105 hover:border-[var(--border-strong)] sm:h-[108px] sm:w-[108px]">
                     {a.cover_image_url ? (
@@ -5075,8 +4512,7 @@ export default function ArtistProfileClient({
               ))}
             </div>
           </section>
-          )
-        })()}
+        )}
 
       </main>
     </div>
