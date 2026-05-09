@@ -174,8 +174,17 @@ function photoYear(raw?: string | null): number | null {
   return new Date(t).getFullYear()
 }
 
+/** „coldplay-l194526" → „Coldplay" (be legacy ID artifact'o uodegoje).
+ *  music.lt diskusijų slug'ai dažnai turi `-l\d{5,}` priesagą. */
 function slugToForumTitle(slug: string): string {
-  return (slug || '').replace(/\/$/, '').replace(/-/g, ' ').replace(/\s+/g, ' ').trim() || 'Diskusija'
+  const cleaned = (slug || '')
+    .replace(/\/$/, '')
+    .replace(/-l\d{4,}$/i, '')
+    .replace(/-/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!cleaned) return 'Diskusija'
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
 }
 
 const aType = (a: Album) => {
@@ -189,17 +198,19 @@ const aType = (a: Album) => {
   return 'Studijinis'
 }
 
-/** Filter-tab labels. 'all' acts as reset-to-everything. */
+/** Filter-tab labels. 'all' acts as reset-to-everything. Trumpos formos —
+ *  „Studijiniai albumai" / „EP albumai" / „Gyvai įrašyti albumai" buvo
+ *  nereikalingai ilgi (žodis „albumai" kartojosi 5+ chip'uose). */
 const FILTER_LABEL: Record<string, string> = {
-  all: 'Visi įrašai',
-  Studijinis: 'Studijiniai albumai',
-  EP: 'EP albumai',
+  all: 'Visi',
+  Studijinis: 'Studijiniai',
+  EP: 'EP',
   Singlas: 'Singlai',
-  Live: 'Gyvai įrašyti albumai',
+  Live: 'Gyvai',
   Rinkinys: 'Rinkiniai',
-  Remix: 'Remiksų albumai',
-  OST: 'OST albumai',
-  Demo: 'Demo albumai',
+  Remix: 'Remiksai',
+  OST: 'OST',
+  Demo: 'Demo',
   orphan: 'Kitos dainos',
 }
 
@@ -531,7 +542,10 @@ function PlayerCard({
 
   return (
     <div className="overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-elevated)] shadow-[0_20px_60px_-20px_rgba(0,0,0,0.4)]">
-      <div className="relative aspect-video overflow-hidden bg-black">
+      {/* Player aspect: 16:9 mobile, 21:9 desktop'e (kompaktiškas, palieka
+          daugiau erdvės track list'ui). Anksčiau buvo aspect-video visur —
+          desktop hero player užimdavo ~258px aukščio. */}
+      <div className="relative aspect-video lg:aspect-[21/9] overflow-hidden bg-black">
         {displayVid ? (
           // YT IFrame API replaces an inner div with <iframe>. The OUTER
           // wrapper (containerRef) is React-owned and ALWAYS mounted —
@@ -825,16 +839,24 @@ function Equalizer() {
 }
 
 /** 5-dot popularity bar. Anksčiau buvo 4 — su 5 lygiais geriau matosi
- *  skirtumai tarp top hit'o, vidutinio ir silpnesnio įrašo. */
+ *  skirtumai tarp top hit'o, vidutinio ir silpnesnio įrašo.
+ *  Pridėtas title attr — vartotojas peliuke gauna paaiškinimą („Populiarumas
+ *  4/5"), kas tos juostelės. Be jo segmentai atrodė dekoratyviai be reikšmės. */
 function PopBar({ level }: { level: number }) {
   const total = 5
   return (
-    <div className="mt-1 flex gap-[3px]" aria-hidden>
+    <div
+      className="mt-1 flex gap-[3px]"
+      title={level > 0 ? `Populiarumas ${level}/${total}` : 'Populiarumas — duomenų dar nėra'}
+      role="img"
+      aria-label={level > 0 ? `Populiarumas ${level} iš ${total}` : 'Populiarumo duomenų nėra'}
+    >
       {Array.from({ length: total }).map((_, i) => {
         const filled = i < level
         return (
           <span
             key={i}
+            aria-hidden
             className={[
               'h-[3px] w-[14px] rounded-[2px] transition-colors',
               filled ? 'bg-[var(--accent-orange)]' : 'bg-[var(--border-default)]',
@@ -1660,6 +1682,7 @@ function Hero({
   tracksAllTime, tracksTrending, activeTrackId, onSelectTrack,
   playing, onRequestPlay, onOpenTrackInfo, hasAnyVideo,
   upcomingEvents, onOpenEventsModal,
+  genres, flag,
 }: {
   artist: any; heroImage: string | null; loaded: boolean
   likes: number; selfLiked?: boolean
@@ -1668,6 +1691,10 @@ function Hero({
   activeTrackId: number | null; onSelectTrack: (id: number) => void
   playing: boolean; onRequestPlay: () => void
   onOpenTrackInfo: (t: Track) => void
+  /** Headline meta — žanras + šalies vėliava rodomi po pavadinimu hero
+   *  zonoje, kad pirmasis impression'as iš karto turėtų konteksto. */
+  genres: Genre[]
+  flag: string
   hasAnyVideo: boolean
   upcomingEvents: any[]
   onOpenEventsModal: () => void
@@ -1812,6 +1839,30 @@ function Hero({
             </span>
             )}
           </h1>
+          {/* Headline meta — country + main genre + active years. Tik desktop'e
+              (lg+) hero overlay'aus zonoje, kad pirmasis žvilgsnis iškart
+              matytų konteksto. Mobile'e tas pats meta gyvena žemiau (info card),
+              kad hero plotas mobile'e nesusipakuotų per smulkiai. */}
+          {(artist.country || genres[0] || artist.active_from) && (
+            <div className="hidden flex-wrap items-center gap-2 text-[12px] font-bold lg:flex">
+              {artist.country && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-black/35 px-3 py-1 text-white backdrop-blur-sm ring-1 ring-white/15">
+                  <span className="text-[14px] leading-none">{flag}</span>
+                  <span>{artist.country}</span>
+                </span>
+              )}
+              {genres[0] && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-black/35 px-3 py-1 text-white backdrop-blur-sm ring-1 ring-white/15">
+                  {genres[0].name}
+                </span>
+              )}
+              {artist.active_from && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-black/35 px-3 py-1 text-white backdrop-blur-sm ring-1 ring-white/15">
+                  {artist.active_from}–{artist.active_until || 'dabar'}
+                </span>
+              )}
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-2">
             <LikePill
               likes={likes}
@@ -1963,9 +2014,17 @@ function SideInfo({
   const yearsActiveRange = artist.active_from
     ? `${artist.active_from}–${artist.active_until || 'dabar'}`
     : null
-  // "(43 m.)" rodom atskirai — kaip muted tail po pagrindinio reikšmės teksto,
-  // kad pagrindinis stilius išliktų vieningas su likusiu sidebar'iu.
-  const yearsActiveTail = activeYears > 0 ? `${activeYears} m.` : null
+  // „43 metai" rodom atskirai — kaip muted tail po pagrindinio reikšmės teksto.
+  // Anksčiau buvo „(43 m.)" su parens ir abreviatūra — feel'inosi neaiškiai;
+  // dabar `· 43 metai` (be parens, su pilnu žodžiu, LT pluralizacija).
+  const ltMetai = (n: number): string => {
+    const lastTwo = n % 100
+    const lastOne = n % 10
+    if (lastTwo >= 10 && lastTwo <= 19) return 'metų'
+    if (lastOne === 0) return 'metų'
+    return 'metai'
+  }
+  const yearsActiveTail = activeYears > 0 ? `${activeYears} ${ltMetai(activeYears)}` : null
   const ageFromBirth = (birth: string, end?: string | null): number | null => {
     const b = new Date(birth)
     if (isNaN(b.getTime())) return null
@@ -2028,14 +2087,14 @@ function SideInfo({
           return {
             label: 'Gyveno',
             main: `${fmtLtDate(artist.birth_date)} – ${fmtLtDate(artist.death_date)}`,
-            tail: lived != null ? `${lived} m.` : null,
+            tail: lived != null ? `${lived} ${ltMetai(lived)}` : null,
             zodiac: z,
           }
         }
         return {
           label: 'Gimimo data',
           main: fmtLtDate(artist.birth_date),
-          tail: yr != null ? `${yr} m.` : null,
+          tail: yr != null ? `${yr} ${ltMetai(yr)}` : null,
           zodiac: z,
         }
       })()
@@ -2140,7 +2199,7 @@ function SideInfo({
                 <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-faint)]">Veikla</span>
                 <span className="font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)]">{yearsActiveRange}</span>
                 {yearsActiveTail && (
-                  <span className="font-['Outfit',sans-serif] text-[12px] font-medium text-[var(--text-muted)]">({yearsActiveTail})</span>
+                  <span className="font-['Outfit',sans-serif] text-[12px] font-medium text-[var(--text-muted)]">· {yearsActiveTail}</span>
                 )}
               </span>
             )}
@@ -2149,7 +2208,7 @@ function SideInfo({
                 <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-faint)]">{birthLine.label}</span>
                 <span className="font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)]">{birthLine.main}</span>
                 {birthLine.tail && (
-                  <span className="font-['Outfit',sans-serif] text-[12px] font-medium text-[var(--text-muted)]">({birthLine.tail})</span>
+                  <span className="font-['Outfit',sans-serif] text-[12px] font-medium text-[var(--text-muted)]">· {birthLine.tail}</span>
                 )}
                 {birthLine.zodiac && (
                   <span title={birthLine.zodiac.name} aria-label={birthLine.zodiac.name} className="ml-0.5 text-[14px] leading-none text-[var(--accent-orange)]">
@@ -2220,7 +2279,7 @@ function SideInfo({
               <div className="mt-0.5 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">
                 {yearsActiveRange}
                 {yearsActiveTail && (
-                  <span className="ml-1.5 font-medium text-[12.5px] text-[var(--text-muted)]">({yearsActiveTail})</span>
+                  <span className="ml-1.5 font-medium text-[12.5px] text-[var(--text-muted)]">· {yearsActiveTail}</span>
                 )}
               </div>
             </div>
@@ -2231,7 +2290,7 @@ function SideInfo({
               <div className="mt-0.5 flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">
                 <span>{birthLine.main}</span>
                 {birthLine.tail && (
-                  <span className="font-medium text-[12.5px] text-[var(--text-muted)]">({birthLine.tail})</span>
+                  <span className="font-medium text-[12.5px] text-[var(--text-muted)]">· {birthLine.tail}</span>
                 )}
                 {birthLine.zodiac && (
                   <span
@@ -3157,7 +3216,12 @@ function UserAvatar({ name, avatarUrl, size = 22 }: { name: string; avatarUrl?: 
  *  /diskusijos/tema/... yra fallback'as kai prop'as `onOpen` neperduotas.
  */
 function DiscussionRow({ t, onOpen }: { t: LegacyThread; isLast?: boolean; onOpen?: (t: LegacyThread) => void }) {
-  const title = t.title || slugToForumTitle(t.slug)
+  // music.lt diskusijų title kartais turi vidinį legacy ID artifact'ą
+  // („Coldplay l194526"). Jei title atrodo kaip auto-slug — perleidžiam
+  // per slugToForumTitle clean'inimą (kuris nukerpa `-l\d+` priesagą).
+  const rawTitle = t.title || slugToForumTitle(t.slug)
+  const looksAutoSlug = /\sl\d{4,}$/i.test(rawTitle) || /^[a-zĄČĘĖĮŠŲŪŽąčęėįšųūž][a-zĄČĘĖĮŠŲŪŽąčęėįšųūž\s\-_]*$/.test(rawTitle)
+  const title = looksAutoSlug ? slugToForumTitle(t.slug) : rawTitle
   const pc = t.post_count ?? 0
   const recent = (t.recent_posts && t.recent_posts.length > 0)
     ? t.recent_posts
@@ -3176,10 +3240,15 @@ function DiscussionRow({ t, onOpen }: { t: LegacyThread; isLast?: boolean; onOpe
         {title}
       </div>
 
-      {/* Comments preview — iki 2 paskutinių, su realiais avatarais. */}
+      {/* Comments preview — iki 2 paskutinių, su realiais avatarais.
+          „Dar nekomentuota" placeholder rodomas TIK kai pc === 0. Anksčiau
+          jis ir su `pc > 0` rodydavosi (kai recent_posts nesipareina iš db),
+          tada apačioj būdavo „27 komentarų" — internal contradiction. */}
       <div className="flex flex-1 flex-col gap-2">
         {recent.length === 0 ? (
-          <div className="text-[11.5px] leading-tight text-[var(--text-faint)]">Dar nekomentuota</div>
+          pc === 0
+            ? <div className="text-[11.5px] leading-tight text-[var(--text-faint)]">Dar nekomentuota</div>
+            : null
         ) : (
           recent.map((p, i) => {
             const text = stripHtml(p.body || '').slice(0, 140)
@@ -3974,6 +4043,8 @@ export default function ArtistProfileClient({
         hasAnyVideo={hasAnyVideo}
         upcomingEvents={upcomingEvents}
         onOpenEventsModal={() => setEventsModalOpen(true)}
+        genres={genres}
+        flag={flag}
       />
 
       <EventsModal
@@ -4168,20 +4239,26 @@ export default function ArtistProfileClient({
 
         {/* BIO + MEMBERS + SIDE INFO — adaptive layout.
             Mobile: stacked — horizontal SideInfo strip on top, bio + members below.
-            Desktop: 2-col — [bio | vertical SideInfo 320px].
-            The mobile stack surfaces details (country / genre / socials)
-            above the bio so they're the first thing seen without scrolling. */}
+            Desktop su bio: 2-col — [bio | vertical SideInfo 320px].
+            Desktop be bio: full-width horizontal strip viršuj, members below
+              (anksčiau buvo float-right sidebar šalia trumpo members row,
+              paliekant didžiulį tuščią plotą šaly). */}
         {(() => {
           const sideInfoAvailable = !!artist.country || genres.length > 0 || links.length > 0 || artist.website || !!artist.active_from || !!artist.birth_date || !!artist.death_date
           const bioHeader = solo ? 'Apie atlikėją' : 'Apie grupę'
 
           if (!hasBio && members.length === 0 && !sideInfoAvailable) return null
 
+          // Be bio — naudojam full-width horizontal SideInfo viršuje (mobile
+          // ir desktop), nes nieko nėra ką wrap'inti aplink float-right
+          // kortelę. Dingsta tuščias plotas šalia members row'o.
+          const useHorizontalDesktop = !hasBio
+
           return (
             <section>
-              {/* Mobile: horizontal strip on top */}
+              {/* Horizontal strip — mobile visada; desktop tik kai bio nėra */}
               {sideInfoAvailable && (
-                <div className="mb-6 lg:hidden">
+                <div className={useHorizontalDesktop ? 'mb-6' : 'mb-6 lg:hidden'}>
                   <SideInfo
                     artist={artist}
                     flag={flag}
@@ -4194,9 +4271,9 @@ export default function ArtistProfileClient({
                   />
                 </div>
               )}
-              {/* Mobile: score card below sideinfo strip */}
+              {/* Score card below sideinfo strip */}
               {artist.score !== null && artist.score !== undefined && (
-                <div className="mb-6 lg:hidden">
+                <div className={useHorizontalDesktop ? 'mb-6' : 'mb-6 lg:hidden'}>
                   <ScoreCard
                     entityType="artist"
                     score={artist.score}
@@ -4204,16 +4281,12 @@ export default function ArtistProfileClient({
                   />
                 </div>
               )}
-              {/* Desktop: float right'as info card'ams — bio teksto srautas
-                  apgaubia kortelę. Anksčiau buvo 2-col grid'as su fiksuotu
-                  320px sidebar'iu, dėl ko atsirasdavo tuščia erdvė po trumpu
-                  bio. Su float'u: kai bio trumpas, sidebar'as natūraliai
-                  baigia sekciją; kai ilgas — tekstas tęsiasi po info card'o
-                  pilnu pločiu (klasikinis žurnalo layout'as).
-                  Mobile: sidebar matomas viršuje (horizontal strip), bio
-                  apačioj — tas pats kaip ir prieš tai. */}
+              {/* Desktop su bio: float right info card. Bio teksto srautas
+                  apgaubia kortelę — klasikinis žurnalo layout'as. Be bio —
+                  šitos šakos nepasiekiame (useHorizontalDesktop pagrobia info
+                  aukščiau). */}
               <div className="lg:[display:flow-root]">
-                {(sideInfoAvailable || (artist.score !== null && artist.score !== undefined)) && (
+                {!useHorizontalDesktop && (sideInfoAvailable || (artist.score !== null && artist.score !== undefined)) && (
                   <div className="hidden lg:float-right lg:ml-8 lg:mb-4 lg:flex lg:w-[320px] lg:flex-col lg:gap-4">
                     {sideInfoAvailable && (
                       <SideInfo
@@ -4336,7 +4409,7 @@ export default function ArtistProfileClient({
                   {/* Desktop (sm+): pilnas grid'as, visi albumai matomi.
                       Tankesnis grid (4-8 col), kad cover'iai būtų mažesni
                       ir low-res quality nesimatytų. */}
-                  <div className="hidden gap-3 sm:grid sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
+                  <div className="hidden gap-3 sm:grid sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
                     {visibleAlbums.map((a, i) => (
                       <AlbumCard key={a.id} a={a} artistSlug={artist.slug} maxPop={maxAlbumPop} popularity={popLevel(i, visibleAlbums.length)} onOpen={setAlbumModalOpen} />
                     ))}
@@ -4491,12 +4564,19 @@ export default function ArtistProfileClient({
           </section>
         )}
 
-        {/* Similar */}
-        {similar.length > 0 && (
+        {/* Similar — neturi būti grupės narys. Anksčiau Coldplay'aus
+            „panaši muzika" rodydavo „Chris Martin" (Coldplay vokalistas) —
+            algoritmas nefiltravo band member'ių. Filtras paima visus
+            member.id ir pašalina iš similar list'o. */}
+        {(() => {
+          const excludeIds = new Set<number>(members.map(m => m.id))
+          const filteredSimilar = similar.filter((a: any) => !excludeIds.has(a.id))
+          if (filteredSimilar.length === 0) return null
+          return (
           <section>
             <SectionTitle label="Panaši muzika" />
             <div className="flex snap-x gap-4 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {similar.map((a: any) => (
+              {filteredSimilar.map((a: any) => (
                 <Link key={a.id} href={`/atlikejai/${a.slug}`} className="w-[110px] shrink-0 snap-start text-center no-underline sm:w-[130px]">
                   <div className="relative mx-auto mb-2.5 h-[90px] w-[90px] overflow-hidden rounded-full border-2 border-[var(--border-default)] transition-all hover:scale-105 hover:border-[var(--border-strong)] sm:h-[108px] sm:w-[108px]">
                     {a.cover_image_url ? (
@@ -4512,7 +4592,8 @@ export default function ArtistProfileClient({
               ))}
             </div>
           </section>
-        )}
+          )
+        })()}
 
       </main>
     </div>

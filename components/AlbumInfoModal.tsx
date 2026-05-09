@@ -84,10 +84,16 @@ function popLevelByPosition(index: number, total: number): number {
 }
 function PopBar({ level }: { level: number }) {
   return (
-    <div className="mt-1 flex items-center gap-[3px]">
+    <div
+      className="mt-1 flex items-center gap-[3px]"
+      title={level > 0 ? `Populiarumas ${level}/5` : 'Populiarumas — duomenų dar nėra'}
+      role="img"
+      aria-label={level > 0 ? `Populiarumas ${level} iš 5` : 'Populiarumo duomenų nėra'}
+    >
       {Array.from({ length: 5 }).map((_, i) => (
         <span
           key={i}
+          aria-hidden
           className={[
             'h-[3px] w-[10px] rounded-full transition-colors',
             i < level ? 'bg-[var(--accent-orange)]' : 'bg-[var(--popup-bg)]',
