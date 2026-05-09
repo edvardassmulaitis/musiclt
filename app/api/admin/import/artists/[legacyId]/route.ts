@@ -54,8 +54,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ leg
       .order('year', { ascending: false, nullsFirst: false }),
     // VISI tracks (ne tik standalone) — reikalingi cross-check'ui pagal source.
     // Front'as filtruoja standalone'us (be album_id) atskirai.
+    // SVARBU: tracks table neturi duration_seconds column'o — anksciau toks
+    // select fail'indavo silently (PostgREST 42703), del to standalone_tracks
+    // visada buvo []. Pasilekam tik tikrai egzistuojancius column'us.
     supabase.from('tracks')
-      .select('id, legacy_id, title, duration_seconds, source, album_id, release_year')
+      .select('id, legacy_id, title, source, album_id, release_year')
       .eq('artist_id', artist.id)
       .order('release_year', { ascending: false, nullsFirst: false })
       .limit(2000),

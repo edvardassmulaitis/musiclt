@@ -61,7 +61,6 @@ type Track = {
   id: number
   legacy_id: number | null
   title: string
-  duration_seconds: number | null
   source: string | null
   album_id?: number | null
   release_year?: number | null
@@ -396,7 +395,7 @@ export default function AdminImportDetailPage() {
                 items={bothTracks.map(t => ({
                   id: t.id,
                   title: t.title,
-                  meta: `${t.release_year ?? ''} ${fmtDur(t.duration_seconds)}`.trim(),
+                  meta: t.release_year ? String(t.release_year) : '—',
                 }))}
               />
               <DiffColumn
@@ -405,7 +404,7 @@ export default function AdminImportDetailPage() {
                 items={wikiTracks.map(t => ({
                   id: t.id,
                   title: t.title,
-                  meta: `${t.release_year ?? ''} ${fmtDur(t.duration_seconds)}`.trim(),
+                  meta: t.release_year ? String(t.release_year) : '—',
                 }))}
               />
               <DiffColumn
@@ -414,7 +413,7 @@ export default function AdminImportDetailPage() {
                 items={legacyTracks.map(t => ({
                   id: t.id,
                   title: t.title,
-                  meta: `${t.release_year ?? ''} ${fmtDur(t.duration_seconds)}`.trim(),
+                  meta: t.release_year ? String(t.release_year) : '—',
                   pending: t.source === 'legacy_scrape_pending',
                 }))}
                 onApprove={id => handlePending('track', id, 'approve')}
@@ -434,7 +433,7 @@ export default function AdminImportDetailPage() {
                 <thead className="bg-[var(--bg-elevated)] text-xs uppercase text-[var(--text-muted)]">
                   <tr>
                     <th className="px-3 py-2 text-left">Pavadinimas</th>
-                    <th className="px-3 py-2 text-right">Trukmė</th>
+                    <th className="px-3 py-2 text-right">Metai</th>
                     <th className="px-3 py-2 text-right">Šaltinis</th>
                   </tr>
                 </thead>
@@ -442,7 +441,7 @@ export default function AdminImportDetailPage() {
                   {standalone_tracks.slice(0, 100).map(t => (
                     <tr key={t.id} className="border-t border-[var(--border-subtle)]">
                       <td className="px-3 py-1.5">{t.title}</td>
-                      <td className="px-3 py-1.5 text-right tabular-nums">{fmtDur(t.duration_seconds)}</td>
+                      <td className="px-3 py-1.5 text-right tabular-nums">{t.release_year ?? '—'}</td>
                       <td className="px-3 py-1.5 text-right text-xs text-[var(--text-muted)]">{t.source || '?'}</td>
                     </tr>
                   ))}
