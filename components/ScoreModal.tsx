@@ -25,9 +25,18 @@ type ScoreData = {
   updated_at: string | null
 }
 
+type ExtraStats = {
+  page_views: number | null
+  album_count: number | null
+  track_count: number | null
+}
+
 const CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
   catalog:    { label: 'Diskografija', color: '#3b82f6' },
   media:      { label: 'Turinys', color: '#8b5cf6' },
+  popularity: { label: 'Populiarumas', color: '#ec4899' },                 // legacy v3
+  popularity_recent:  { label: 'Aktualus pop.', color: '#ec4899' },        // 0-13, last 3y
+  popularity_alltime: { label: 'Bendras pop.', color: '#a78bfa' },         // 0-12, lifetime
   community:  { label: 'Bendruomenė', color: '#f59e0b' },
   career:     { label: 'Karjera', color: '#10b981' },
   chart:      { label: 'Pasirodymai topuose', color: '#ef4444' },
@@ -38,7 +47,7 @@ const CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
 
 // Fixed display order — JSONB doesn't preserve key insertion order
 const CATEGORY_ORDER: Record<string, string[]> = {
-  lt:  ['catalog', 'media', 'community', 'career', 'awards'],
+  lt:  ['catalog', 'media', 'popularity_recent', 'popularity_alltime', 'community', 'career', 'awards'],
   int: ['catalog', 'chart', 'commercial', 'reach', 'awards'],
 }
 
@@ -67,6 +76,7 @@ function ScoreBar({ label, value, max, color, details }: {
 
 export default function ScoreModal({ artistId, onClose }: { artistId: string; onClose: () => void }) {
   const [data, setData] = useState<ScoreData | null>(null)
+  const [extra, setExtra] = useState<ExtraStats>({ page_views: null, album_count: null, track_count: null })
   const [loading, setLoading] = useState(true)
   const [calculating, setCalculating] = useState(false)
   const [override, setOverride] = useState(0)
@@ -80,6 +90,22 @@ export default function ScoreModal({ artistId, onClose }: { artistId: string; on
       setOverride(json.score_override || 0)
     } catch {}
     finally { setLoading(false) }
+  }, [artistId])
+
+  // Atskiras fetch'as papildomai statistikai (page views + albums + tracks)
+  // — neblokuoja score load'ą, parodom kai abu užkrauti.
+  useEffect(() => {
+    Promise.all([
+      fetch(`/api/artists/${artistId}`).then(r => r.json()).catch(() => null),
+      fetch(`/api/albums?artist_id=${artistId}&limit=1`).then(r => r.json()).catch(() => null),
+      fetch(`/api/tracks?artist_id=${artistId}&limit=1`).then(r => r.json()).catch(() => null),
+    ]).then(([art, alb, tr]) => {
+      setExtra({
+        page_views: art?.page_view_count ?? null,
+        album_count: alb?.total ?? null,
+        track_count: tr?.total ?? null,
+      })
+    })
   }, [artistId])
 
   useEffect(() => { fetchScore() }, [fetchScore])
@@ -163,7 +189,7 @@ export default function ScoreModal({ artistId, onClose }: { artistId: string; on
         ) : (
           <>
             {/* Big score number */}
-            <div className="text-center mb-5">
+            <div className="text-center mb-3">
               <div className="inline-flex items-baseline gap-1">
                 <span className="text-5xl font-black text-[var(--text-primary)] tabular-nums">{data.score}</span>
                 <span className="text-lg text-[var(--text-faint)]">/100</span>
@@ -173,6 +199,34 @@ export default function ScoreModal({ artistId, onClose }: { artistId: string; on
                   Atnaujinta {new Date(data.updated_at).toLocaleDateString('lt-LT')}
                 </p>
               )}
+            </div>
+
+            {/* Quick stats — page views + counts */}
+            <div className="grid grid-cols-3 gap-2 mb-5 px-2">
+              <div className="text-center bg-[var(--bg-elevated)] rounded-lg py-2"
+                title={extra.page_views == null ? 'Page view skaitiklis dar neaktyvus (migracija neaplikuota arba 0)' : 'Unique sessions per 30min — atlikėjo puslapio peržiūros'}>
+                <div className="text-[18px] leading-none">👁</div>
+                <div className="text-sm font-bold text-[var(--text-primary)] tabular-nums mt-1">
+                  {extra.page_views == null ? '—' : extra.page_views.toLocaleString('lt-LT')}
+                </div>
+                <div className="text-[9px] text-[var(--text-faint)] uppercase tracking-wide">peržiūrų</div>
+              </div>
+              <div className="text-center bg-[var(--bg-elevated)] rounded-lg py-2"
+                title="Bendras albumų skaičius diskografijoje">
+                <div className="text-[18px] leading-none">💿</div>
+                <div className="text-sm font-bold text-[var(--text-primary)] tabular-nums mt-1">
+                  {extra.album_count ?? '—'}
+                </div>
+                <div className="text-[9px] text-[var(--text-faint)] uppercase tracking-wide">albumai</div>
+              </div>
+              <div className="text-center bg-[var(--bg-elevated)] rounded-lg py-2"
+                title="Bendras dainų skaičius (visi albumai + singles)">
+                <div className="text-[18px] leading-none">🎵</div>
+                <div className="text-sm font-bold text-[var(--text-primary)] tabular-nums mt-1">
+                  {extra.track_count ?? '—'}
+                </div>
+                <div className="text-[9px] text-[var(--text-faint)] uppercase tracking-wide">dainos</div>
+              </div>
             </div>
 
             {/* Breakdown bars */}

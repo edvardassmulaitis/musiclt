@@ -31,10 +31,16 @@ export async function GET(req: NextRequest) {
 
   const sb = createAdminClient()
 
+  // Chat-related notifications (chat_message, chat_reaction, chat_thread_reply)
+  // turi savo "kanalą" — MessagesBell unread badge ir /pokalbiai sąraše. Į
+  // bendrą NotificationsBell list'ą jų netraukiam, kad neduplikatų.
+  const CHAT_TYPES = ['chat_message', 'chat_reaction', 'chat_thread_reply']
+
   let query = sb
     .from('notifications')
     .select('id, type, actor_id, actor_username, actor_full_name, actor_avatar_url, entity_type, entity_id, url, title, snippet, data, read_at, created_at')
     .eq('user_id', userId)
+    .not('type', 'in', `(${CHAT_TYPES.join(',')})`)
     .order('created_at', { ascending: false })
     .limit(limit)
 
@@ -48,11 +54,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Unread count — atskira užklausa (mažas overhead'as, indeksuotas).
+  // Unread count — atskira užklausa, taip pat be chat tipų.
   const { count: unreadCount, error: countErr } = await sb
     .from('notifications')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId)
+    .not('type', 'in', `(${CHAT_TYPES.join(',')})`)
     .is('read_at', null)
 
   return NextResponse.json({

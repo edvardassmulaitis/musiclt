@@ -97,6 +97,284 @@ function CoverMini({ value, onChange }: { value: string; onChange: (url: string)
   )
 }
 
+// ── TrackStats card ─────────────────────────────────────────────────────────
+// Sukrauta info iš /api/admin/tracks/[id]/stats — viskas, ką žinome apie
+// dainą: views (su sparkline iš history), score breakdown, engagement
+// (likes/comments/plays/top/votes), timestamp'ai, identifiers. Tikslas —
+// ką nors netaisius, admin'as iškart mato visus skaičius.
+type StatsData = {
+  ok: true
+  trackId: number
+  legacyId: number | null
+  slug: string | null
+  source: string | null
+  sourceUrl: string | null
+  views: {
+    current: number | null
+    checked_at: string | null
+    embeddable: boolean | null
+    history: Array<{ captured_at: string; views: number; video_id: string | null }>
+  }
+  pageViews: number | null  // null = migracija neaplikuota
+  score: { value: number | null; breakdown: any | null; updated_at: string | null }
+  engagement: { likes: number; comments: number; plays: number; votes: number }
+  chartPerformance: {
+    weeks_total: number
+    peak_position: number | null
+    weeks_at_1: number
+    weeks_top10: number
+    chart_score: number
+  }
+  timestamps: { created_at: string | null; imported_at: string | null; updated_at: string | null; score_updated_at: string | null }
+}
+
+function fmtN(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n)) return '—'
+  if (n < 1000) return String(n)
+  if (n < 1_000_000) return (n / 1000).toFixed(n < 10_000 ? 1 : 0).replace(/\.0$/, '') + 'K'
+  if (n < 1_000_000_000) return (n / 1_000_000).toFixed(n < 10_000_000 ? 1 : 0).replace(/\.0$/, '') + 'M'
+  return (n / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'B'
+}
+
+function fmtDate(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  try { return new Date(iso).toLocaleString('lt-LT', { dateStyle: 'short', timeStyle: 'short' }) } catch { return iso.slice(0, 16) }
+}
+
+function ViewsSparkline({ history, currentVideoId }: { history: StatsData['views']['history']; currentVideoId?: string | null }) {
+  // Filtruojam tik dabartinio video_id snapshot'us — kitaip pakeitus
+  // YouTube nuorodą ir paėmus naują views (28K), delta su senu video
+  // (81M) rodys -81M „kritimą", kuris yra fake. Skaičiuojam delta tik
+  // tarp tos pačios YouTube video skirtingų snapshot'ų.
+  const relevantHistory = currentVideoId
+    ? history.filter(h => h.video_id === currentVideoId)
+    : history
+  if (!relevantHistory || relevantHistory.length < 2) {
+    return <span className="text-[10px] text-[var(--text-faint)]">{relevantHistory.length === 1 ? '1 snapshot — nepakanka trend\'ui' : '—'}</span>
+  }
+  const W = 120, H = 28, P = 2
+  const xs = relevantHistory.map(h => new Date(h.captured_at).getTime())
+  const ys = relevantHistory.map(h => h.views)
+  const xMin = Math.min(...xs), xMax = Math.max(...xs)
+  const yMin = Math.min(...ys), yMax = Math.max(...ys)
+  const xR = xMax - xMin || 1
+  const yR = yMax - yMin || 1
+  const pts = relevantHistory.map((h, i) => {
+    const x = P + ((xs[i] - xMin) / xR) * (W - 2 * P)
+    const y = (H - P) - ((ys[i] - yMin) / yR) * (H - 2 * P)
+    return `${x.toFixed(1)},${y.toFixed(1)}`
+  }).join(' ')
+  const delta = ys[ys.length - 1] - ys[0]
+  return (
+    <div className="flex items-center gap-1.5">
+      <svg width={W} height={H} className="block">
+        <polyline points={pts} fill="none" stroke="currentColor" strokeWidth="1.5" className="text-blue-500" />
+      </svg>
+      <span className={`text-[10px] tabular-nums ${delta >= 0 ? 'text-green-600' : 'text-red-500'}`} title={`Δ nuo pirmo snapshot'o (tik dabartinis video_id)`}>
+        {delta >= 0 ? '+' : ''}{fmtN(delta)}
+      </span>
+    </div>
+  )
+}
+
+function StatsCard({ trackId }: { trackId: number }) {
+  const [data, setData] = useState<StatsData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [showBreakdown, setShowBreakdown] = useState(false)
+
+  const refresh = useCallback(async () => {
+    setLoading(true); setError(null)
+    try {
+      const r = await fetch(`/api/admin/tracks/${trackId}/stats`, { cache: 'no-store' })
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
+      const j = await r.json()
+      if (!j.ok) throw new Error(j.error || 'fail')
+      setData(j as StatsData)
+    } catch (e: any) {
+      setError(e.message || 'fail')
+    } finally {
+      setLoading(false)
+    }
+  }, [trackId])
+
+  useEffect(() => { refresh() }, [refresh])
+
+  if (loading && !data) {
+    return (
+      <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-subtle)] shadow-sm p-3 flex items-center gap-2 text-xs text-[var(--text-muted)]">
+        <span className="inline-block w-3 h-3 border border-blue-400 border-t-transparent rounded-full animate-spin" />
+        Kraunama statistika…
+      </div>
+    )
+  }
+  if (error || !data) {
+    return (
+      <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-subtle)] shadow-sm p-3 text-xs text-red-500">
+        Statistikos klaida: {error || 'no data'}
+      </div>
+    )
+  }
+
+  const v = data.views
+  const e = data.engagement
+  const s = data.score
+
+  return (
+    <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-subtle)] shadow-sm overflow-hidden">
+      <div className="px-3 py-2 border-b border-[var(--border-subtle)] flex items-center gap-1.5">
+        <span className="text-xs font-bold text-[var(--text-secondary)]">Statistika</span>
+        <span className="text-[10px] text-[var(--text-faint)]">paskutinis enrich {fmtDate(v.checked_at)}</span>
+        <button type="button" onClick={refresh} disabled={loading}
+          className="ml-auto text-[10px] text-blue-500 hover:underline disabled:opacity-50">
+          {loading ? '…' : '↻ atnaujinti'}
+        </button>
+      </div>
+
+      {/* YouTube Views + Page Views */}
+      <div className="px-3 py-2 border-b border-[var(--border-subtle)] grid grid-cols-2 gap-3">
+        <div className="min-w-0">
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-[10px] uppercase tracking-wide font-semibold text-[var(--text-muted)]">YT Views</span>
+            {v.embeddable === false && <span className="text-[9px] text-red-600 bg-red-50 border border-red-100 px-1 rounded">embed off</span>}
+            {v.embeddable === true && <span className="text-[9px] text-green-700 bg-green-50 border border-green-100 px-1 rounded">embed ok</span>}
+          </div>
+          <div className="text-lg font-bold text-[var(--text-primary)] tabular-nums leading-tight" title={v.current?.toString() || ''}>
+            {v.current != null ? v.current.toLocaleString('lt-LT') : '—'}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-[var(--text-faint)]">{v.history.length} snapshot'as{v.history.length === 1 ? '' : 'ai'}</span>
+            {/* Filtruojam tik dabartinio video_id snapshot'us — paskutinė
+                history entry priklauso current video'ai (enrichTrack visada
+                įrašo naują eilutę su nauju videoId po URL pakeitimo). */}
+            <ViewsSparkline
+              history={v.history}
+              currentVideoId={v.history.length > 0 ? v.history[v.history.length - 1].video_id : null}
+            />
+          </div>
+        </div>
+        <div className="min-w-0 border-l border-[var(--border-subtle)] pl-3">
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-[10px] uppercase tracking-wide font-semibold text-[var(--text-muted)]" title="Kiek kartų atidarytas /lt/daina/{slug} puslapis (nuo migracijos taikymo). 30 min dedup'as cookie'iu, kad refresh nedubliuotų.">Page views</span>
+          </div>
+          <div className="text-lg font-bold text-[var(--text-primary)] tabular-nums leading-tight">
+            {data.pageViews == null ? <span className="text-[var(--text-faint)] text-sm">—</span> : data.pageViews.toLocaleString('lt-LT')}
+          </div>
+          <div className="text-[10px] text-[var(--text-faint)]">
+            {data.pageViews == null ? 'migracija neaplikuota' : 'unique sessions/30min'}
+          </div>
+        </div>
+      </div>
+
+      {/* Score */}
+      <div className="px-3 py-2 border-b border-[var(--border-subtle)]">
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-[10px] uppercase tracking-wide font-semibold text-[var(--text-muted)]">Score</span>
+          <span className="text-lg font-bold text-[var(--text-primary)] tabular-nums">{s.value ?? '—'}</span>
+          <span className="text-[10px] text-[var(--text-faint)]">/ 100</span>
+          {s.updated_at && <span className="ml-auto text-[10px] text-[var(--text-faint)]">{fmtDate(s.updated_at)}</span>}
+          {s.breakdown && (
+            <button type="button" onClick={() => setShowBreakdown(p => !p)}
+              className="text-[10px] text-blue-500 hover:underline">
+              {showBreakdown ? 'sutraukti' : 'detalės'}
+            </button>
+          )}
+        </div>
+        {showBreakdown && s.breakdown && (
+          <pre className="mt-1.5 text-[10px] bg-[var(--bg-elevated)] rounded p-2 overflow-x-auto text-[var(--text-muted)] font-mono leading-relaxed">
+            {JSON.stringify(s.breakdown, null, 2)}
+          </pre>
+        )}
+      </div>
+
+      {/* Chart performance — su peak position + weeks + chart_score */}
+      {(() => {
+        const cp = data.chartPerformance
+        const hasChart = cp.weeks_total > 0
+        const peakLabel = cp.peak_position != null ? `#${cp.peak_position}` : '—'
+        const peakColor = cp.peak_position == null ? 'text-[var(--text-faint)]'
+          : cp.peak_position === 1 ? 'text-yellow-500'
+          : cp.peak_position <= 3 ? 'text-orange-500'
+          : cp.peak_position <= 10 ? 'text-blue-500'
+          : 'text-[var(--text-secondary)]'
+        return (
+          <div className="px-3 py-2 border-b border-[var(--border-subtle)]"
+            title={hasChart
+              ? `Aukščiausia vieta #${cp.peak_position}, viso ${cp.weeks_total} sav. chart'uose. ${cp.weeks_at_1 ? cp.weeks_at_1 + ' sav. #1, ' : ''}${cp.weeks_top10} sav. top 10. Score = vidutinė pozicija (100 = visada #1, 51 = visada #50). Palyginamas tarp dainų.`
+              : 'Daina dar nepateko į top chart\'us'}>
+            <div className="flex items-baseline gap-2">
+              <span className="text-[10px] uppercase tracking-wide font-semibold text-[var(--text-muted)]">🏆 Top chart'ai</span>
+              {hasChart && cp.weeks_at_1 > 0 && (
+                <span className="text-[9px] bg-yellow-100 text-yellow-800 border border-yellow-200 px-1 rounded">{cp.weeks_at_1} sav. #1</span>
+              )}
+              <span className="ml-auto text-[10px] text-[var(--text-faint)]">score {cp.chart_score} / 100</span>
+            </div>
+            <div className="flex items-baseline gap-3 mt-0.5">
+              <div>
+                <span className={`text-2xl font-bold tabular-nums ${peakColor}`}>{peakLabel}</span>
+                <span className="text-[10px] text-[var(--text-faint)] ml-1">peak</span>
+              </div>
+              <div>
+                <span className="text-lg font-bold text-[var(--text-secondary)] tabular-nums">{cp.weeks_total}</span>
+                <span className="text-[10px] text-[var(--text-faint)] ml-1">sav. viso</span>
+              </div>
+              {hasChart && (
+                <div>
+                  <span className="text-lg font-bold text-[var(--text-secondary)] tabular-nums">{cp.weeks_top10}</span>
+                  <span className="text-[10px] text-[var(--text-faint)] ml-1">sav. top 10</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* Engagement grid (4 cols dabar — top atskirai virš) */}
+      <div className="grid grid-cols-4 divide-x divide-[var(--border-subtle)] border-b border-[var(--border-subtle)]">
+        {([
+          ['❤️', 'patinka', e.likes, 'Vartotojų like\'ų skaičius (likes lentelė, entity_type=track)'],
+          ['💬', 'komentarai', e.comments, 'Komentarų skaičius prie šitos dainos'],
+          ['▶', 'paleidimai', e.plays, 'Kiek kartų paspausta ▶ atlikėjo puslapio playerį (track_plays). Iš track puslapio dar nėra ping\'o.'],
+          ['🗳️', 'DD balsai', e.votes, 'Dienos Dainos balsavimo balsai (daily_song_votes lentelė) — kol kas DD funkcija neaktyvi'],
+        ] as const).map(([icon, label, n, tip], i) => (
+          <div key={i} className="px-2 py-2 text-center" title={tip}>
+            <div className="text-base leading-none">{icon}</div>
+            <div className="text-sm font-bold text-[var(--text-primary)] tabular-nums mt-0.5">{fmtN(n)}</div>
+            <div className="text-[9px] text-[var(--text-faint)] uppercase tracking-wide leading-tight">{label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Source link → music.lt */}
+      {data.sourceUrl && (
+        <div className="px-3 py-1.5 border-b border-[var(--border-subtle)] flex items-center gap-2 text-[11px]">
+          <span className="text-[var(--text-faint)]">Senoje svetainėje:</span>
+          <a
+            href={data.sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-500 hover:text-blue-700 hover:underline truncate font-mono"
+            title={data.sourceUrl}
+          >
+            {data.sourceUrl.replace(/^https?:\/\/(www\.)?/, '')} ↗
+          </a>
+        </div>
+      )}
+
+      {/* Identifiers + timestamps */}
+      <div className="px-3 py-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px]">
+        <div><span className="text-[var(--text-faint)]">ID:</span> <span className="font-mono text-[var(--text-secondary)]">{data.trackId}</span></div>
+        <div><span className="text-[var(--text-faint)]">Legacy:</span> <span className="font-mono text-[var(--text-secondary)]">{data.legacyId ?? '—'}</span></div>
+        <div className="col-span-2"><span className="text-[var(--text-faint)]">Slug:</span> <span className="font-mono text-[var(--text-secondary)]">{data.slug || '—'}</span></div>
+        <div><span className="text-[var(--text-faint)]">Sukurta:</span> <span className="text-[var(--text-secondary)]">{fmtDate(data.timestamps.created_at)}</span></div>
+        <div><span className="text-[var(--text-faint)]">Importuota:</span> <span className="text-[var(--text-secondary)]">{fmtDate(data.timestamps.imported_at)}</span></div>
+        <div><span className="text-[var(--text-faint)]">Atnaujinta:</span> <span className="text-[var(--text-secondary)]">{fmtDate(data.timestamps.updated_at)}</span></div>
+        <div><span className="text-[var(--text-faint)]">Šaltinis:</span> <span className="text-[var(--text-secondary)]">{data.source || '—'}</span></div>
+      </div>
+    </div>
+  )
+}
+
 export default function AdminTrackEditPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
   const id = resolvedParams?.id
@@ -397,6 +675,10 @@ export default function AdminTrackEditPage({ params }: { params: Promise<{ id: s
           {isNew && isNewDate && <p className="text-xs text-green-500 mt-1">nuo {isNewDate} · išsaugoma automatiškai</p>}
         </div>
       </div>
+
+      {!isNewTrack && id && /^\d+$/.test(String(id)) && (
+        <StatsCard trackId={Number(id)} />
+      )}
 
       {albums.length > 0 && (
         <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-subtle)] shadow-sm overflow-hidden">

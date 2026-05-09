@@ -3,6 +3,20 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { getPostById, updatePost, deletePost } from '@/lib/supabase-blog'
+import { resolveProfile } from '@/lib/profile-resolve'
+import { detectEmbed } from '@/lib/embed-detect'
+
+const POST_TYPES = ['article', 'review', 'translation', 'creation', 'event', 'topas'] as const
+
+// Allowlist — visi laukai, kuriuos klientas leidžia atnaujinti. Niekada
+// neperduodam status/published_at sandbagging — turim explicit handling.
+const ALLOWED_FIELDS = new Set([
+  'title', 'content', 'summary', 'cover_image_url', 'status',
+  'post_type', 'rating',
+  'target_artist_id', 'target_album_id', 'target_track_id', 'target_event_id',
+  'embed_url', 'embed_type', 'embed_thumbnail_url', 'embed_title', 'embed_html',
+  'tags', 'list_items',
+])
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -17,17 +31,70 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
-  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const profile = await resolveProfile(session)
+  if (!profile) return NextResponse.json({ error: 'Profilio nepavyko paruošti' }, { status: 500 })
   const { id } = await params
   const body = await req.json()
-  
-  // If publishing, set published_at
-  if (body.status === 'published' && !body.published_at) {
-    body.published_at = new Date().toISOString()
+
+  const updates: Record<string, any> = {}
+  for (const key of Object.keys(body)) {
+    if (ALLOWED_FIELDS.has(key)) updates[key] = body[key]
   }
-  
+
+  // ── Validation: post_type ─────────────────────────────────────────────
+  if (updates.post_type && !POST_TYPES.includes(updates.post_type)) {
+    return NextResponse.json({ error: 'Netinkamas tipas' }, { status: 400 })
+  }
+
+  // ── Embed re-detection: jei URL keičiasi, perskaičiuojam metadata ─────
+  if (updates.embed_url) {
+    const detected = detectEmbed(updates.embed_url)
+    if (detected) {
+      updates.embed_type = updates.embed_type || detected.type
+      updates.embed_html = updates.embed_html || detected.html
+      updates.embed_thumbnail_url = updates.embed_thumbnail_url || detected.thumbnailUrl
+    }
+  }
+
+  // ── Rating clamp ──────────────────────────────────────────────────────
+  if (updates.rating !== undefined && updates.rating !== null) {
+    const n = Number(updates.rating)
+    updates.rating = Number.isFinite(n) ? Math.max(1, Math.min(10, Math.round(n))) : null
+  }
+
+  // ── Tags normalize ────────────────────────────────────────────────────
+  if (Array.isArray(updates.tags)) {
+    updates.tags = updates.tags
+      .slice(0, 20)
+      .map((t: any) => String(t).trim().toLowerCase())
+      .filter(Boolean)
+  }
+
+  // ── List items normalize (topas tipas) ────────────────────────────────
+  if (Array.isArray(updates.list_items)) {
+    updates.list_items = updates.list_items
+      .slice(0, 50)
+      .map((item: any, idx: number) => ({
+        rank: idx + 1,
+        type: ['artist','album','track','custom'].includes(item?.type) ? item.type : 'custom',
+        entity_id: item?.entity_id ?? null,
+        entity_slug: item?.entity_slug ?? null,
+        title: String(item?.title || '').slice(0, 200),
+        artist: item?.artist ? String(item.artist).slice(0, 200) : null,
+        image_url: item?.image_url ? String(item.image_url).slice(0, 500) : null,
+        comment: item?.comment ? String(item.comment).slice(0, 500) : null,
+      }))
+      .filter((item: any) => item.title)
+  }
+
+  // ── Publish handling: nustatom published_at kai pereinama į published ─
+  if (updates.status === 'published') {
+    updates.published_at = new Date().toISOString()
+  }
+
   try {
-    await updatePost(id, session.user.id, body)
+    await updatePost(id, profile.id, updates)
     return NextResponse.json({ ok: true })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
@@ -36,10 +103,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
-  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const profile = await resolveProfile(session)
+  if (!profile) return NextResponse.json({ error: 'Profilio nepavyko paruošti' }, { status: 500 })
   const { id } = await params
   try {
-    await deletePost(id, session.user.id)
+    await deletePost(id, profile.id)
     return NextResponse.json({ ok: true })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })

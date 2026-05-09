@@ -20,19 +20,37 @@ export type ScoredCandidate = YtSearchResult & {
   trackRatio: number  // 0..1 — track tokens title'e
 }
 
-const ACCEPT_THRESHOLD = 60        // bendras balas iš ~120 max
+const ACCEPT_THRESHOLD = 70        // bendras balas iš ~120 max (bumpinta 60→70 2026-05-05
+                                   // po SEL pilot'o false-positive case'ų: "Tik Tok" matched "Tik")
 const MIN_ARTIST_RATIO = 0.5       // hard gate: >=50% artist tokenų title ARBA channel'yje
+const MIN_TRACK_RATIO = 0.5        // hard gate: >=50% track tokenų title'e (kai >=2 token'ai)
 const MIN_DURATION_S = 25
 const MAX_DURATION_S = 1500        // 25min — DJ set'ai/pilnaalbumai per ilgi
 const LOW_VIEW_THRESHOLD = 50      // mažiau už šitą — sketchy upload, bandom kitą
+const MISSING_TOKEN_PENALTY = 15   // per missing track token (kai trackRatio < 1 ir >=2 token'ai)
 
-/** Lowercase, strip diacritics, drop common parens/brackets/feat segments, keep alphanumerics. */
+/** Pažymi parenthesized content kaip "meta-tag" (skipinamą per match'ą).
+ *  Track variant'ai (pvz. „We Pray (Be Our Guest)") NĖRA meta-tag'ai —
+ *  jie disambig'uoja unikalią daina'os versiją, todėl turi likti
+ *  tokenizacijai ir match score'ui. */
+const META_PAREN_RE = /\b(lyric|video|official|audio|hd|hq|4k|remaster|remastered|feat|featuring|ft|version|extended|radio|clean|explicit|stereo|mono|edit|deluxe|reissue|with\s+lyrics)\b/i
+
+/** Lowercase, strip diacritics, drop META parens/brackets/feat segments,
+ *  keep alphanumerics. Anksčiau visi `(...)` blok'ai buvo strip'inami,
+ *  todėl „We Pray (Be Our Guest)" → „we pray", o YouTube match'as
+ *  priskirdavo bazinę „We Pray" video versiją (dvi atskiros dainos
+ *  atrodydavo kaip vienos search'e). Dabar — strip'inam tik metatag
+ *  parens; variant suffix'ai išlieka tokenizacijai. */
 export function normalizeText(s: string): string {
   return (s || '')
     .toLowerCase()
     .normalize('NFD').replace(/[̀-ͯ]/g, '')   // diacritics
-    .replace(/\([^)]*\)/g, ' ')                          // (lyric video), (feat. X)
-    .replace(/\[[^\]]*\]/g, ' ')                         // [official], [HD]
+    .replace(/\(([^)]*)\)/g, (_, content: string) =>
+      META_PAREN_RE.test(content) ? ' ' : ' ' + content + ' '
+    )
+    .replace(/\[([^\]]*)\]/g, (_, content: string) =>
+      META_PAREN_RE.test(content) ? ' ' : ' ' + content + ' '
+    )
     .replace(/\bfeat\.?\b|\bft\.?\b|\bfeaturing\b/g, ' ')
     .replace(/[^a-z0-9 ]+/g, ' ')
     .replace(/\s+/g, ' ')
@@ -96,12 +114,52 @@ export function scoreCandidate(artist: string, track: string, c: YtSearchResult)
   // Track match — 0..50 (bigger weight, kiekvienas track unique)
   let trackRatio = 0
   if (trackTokens.length === 0) {
-    reasons.push('NO track tokens (?!)')
+    // Non-Latin title (Arabic, Cyrillic, CJK ar pan.) po normalize lieka
+    // tuščios. Be šito patikrinimo bet koks artist'o video gauna max
+    // score per artist match'ą — Coldplay'aus „بنی آدم" gaudavo Yellow
+    // video (1.3B views) per default'u. Dabar reikalaujam, kad
+    // candidate title'e būtų original raw chars.
+    const trackRaw = track.toLowerCase().normalize('NFKC').replace(/\s+/g, ' ').trim()
+    const titleRaw = c.title.toLowerCase().normalize('NFKC')
+    if (trackRaw && titleRaw.includes(trackRaw)) {
+      // Exact non-Latin match — labai stiprus signal'as
+      score += 50
+      trackRatio = 1
+      reasons.push('+50 raw non-Latin track match')
+    } else {
+      // Skip candidate be raw match'o — non-Latin title reikia disambiguator'o
+      score -= 30
+      reasons.push('-30 no raw track match (non-Latin)')
+    }
   } else {
     const inTitle = trackTokens.filter(t => titleNorm.includes(t)).length
     trackRatio = inTitle / trackTokens.length
     score += Math.round(trackRatio * 50)
     reasons.push(`track ${inTitle}/${trackTokens.length} title`)
+
+    // Penalty per missing track token (apsauga nuo "Tik Tok" matching
+    // "Tik" video — 1/2 token'ų sutampa su 50% trackRatio, bet užklausa
+    // turi specifiškesnį "Tok" kuris kandidate trūksta). Mažiau bauda
+    // 1-token track'ams (jie tampa MIN_TRACK_RATIO check apačioje).
+    if (trackRatio < 1 && trackTokens.length >= 2) {
+      const missing = trackTokens.length - inTitle
+      const penalty = missing * MISSING_TOKEN_PENALTY
+      score -= penalty
+      reasons.push(`-${penalty} missing ${missing} track tok`)
+    }
+
+    // Normalized title equality bonus — jei track title po normalize
+    // visiškai sutampa su candidate title minus artist tokens, tai
+    // very strong signal. Apsisaugom nuo edge case "Tik" search →
+    // candidate "SEL - Tik (Live)" → po artist + suffix strip == "tik".
+    const titleStripped = artistTokens.length > 0
+      ? titleNorm.split(' ').filter(t => !artistTokens.includes(t)).join(' ').trim()
+      : titleNorm
+    const normTrack = normalizeText(track)
+    if (normTrack && (titleStripped === normTrack || titleStripped.startsWith(normTrack + ' ') || titleStripped.endsWith(' ' + normTrack))) {
+      score += 10
+      reasons.push('+10 exact title match')
+    }
   }
 
   // Channel signals (+10 max)
@@ -171,7 +229,19 @@ export function pickBestMatch(artist: string, track: string, candidates: YtSearc
     }
   }
 
+  // Hard gate: kai track turi >=2 token'us, reikalaujam bent 50% sutapimo.
+  // Be šito SEL "Tik Tok" eitų į "Tik" video net su missing-token penalty,
+  // jei artist + channel boost'as duoda pakankamai score'o.
   const top = artistOk[0]
+  const trackTokenCount = tokenize(track).length
+  if (trackTokenCount >= 2 && top.trackRatio < MIN_TRACK_RATIO) {
+    return {
+      ok: false,
+      reason: `track tokens neatitinka (ratio ${top.trackRatio.toFixed(2)} < ${MIN_TRACK_RATIO}: "${top.title}" / ${top.channel})`,
+      ranked,
+    }
+  }
+
   if (top.score >= ACCEPT_THRESHOLD) {
     return { ok: true, pick: top, ranked }
   }

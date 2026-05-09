@@ -1,24 +1,28 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { useSite } from '@/components/SiteContext'
+import { HomeChatsWidget } from '@/components/HomeChatsWidget'
+import { proxyImg } from '@/lib/img-proxy'
 
 /* ────────────────────────────── Types ────────────────────────────── */
 type Track = { id: number; slug: string; title: string; cover_url: string | null; created_at: string; artists: { id: number; slug: string; name: string; cover_image_url?: string | null } | null }
 type Album = { id: number; slug: string; title: string; year: number | null; cover_image_url: string | null; created_at: string; artists: { id: number; slug: string; name: string; cover_image_url?: string | null } | null }
 type Artist = { id: number; slug: string; name: string; cover_image_url: string | null }
-type Event = { id: number; slug: string; title: string; event_date: string; venue_custom: string | null; image_small_url: string | null; venues: { name: string; city: string } | null }
+type EventArtist = { artists?: { id: number; name: string; slug: string; cover_image_url?: string | null } | null; artist_id?: number; sort_order?: number; is_headliner?: boolean }
+type Event = { id: number; slug: string; title: string; event_date?: string; start_date?: string; end_date?: string; venue_custom?: string | null; venue_name?: string | null; venue_id?: number | null; image_small_url?: string | null; cover_image_url?: string | null; image_url?: string | null; city?: string | null; address?: string | null; created_at?: string; venues?: { name: string; city: string } | null; event_artists?: EventArtist[] | null }
 type NewsItem = { id: number; slug: string; title: string; image_small_url: string | null; image_title_url?: string | null; published_at: string; type: string | null; excerpt?: string | null; songs?: { youtube_url?: string | null; title?: string | null; artist_name?: string | null; cover_url?: string | null }[]; artist: { name: string; slug: string; cover_image_url?: string | null } | null }
 type TopEntry = { pos: number; track_id: number; title: string; artist: string; cover_url: string | null; artist_image: string | null; trend: string; wks?: number; slug?: string; artist_slug?: string }
 type Nomination = { id: number; votes: number; weighted_votes: number; tracks: { id: number; title: string; cover_url: string | null; artists: { name: string } | null } | null }
 type Discussion = { id: number; slug: string; title: string; author_name: string | null; comment_count: number; created_at: string; tags: string[] }
-type ShoutMsg = { id: number; author_name: string; author_avatar: string | null; body: string; created_at: string; user_id: string }
 type HeroSlide = {
   type: string; chip: string; chipBg: string; title: string; subtitle: string
   href: string; bgImg?: string | null; videoId?: string | null
   songTitle?: string | null; songArtist?: string | null; songCover?: string | null
   artist?: { name: string; slug: string; image?: string | null } | null
+  chartTops?: TopEntry[]
 }
 
 /* ────────────────────────────── Helpers ────────────────────────────── */
@@ -81,7 +85,7 @@ function strHue(s: string) {
 function Cover({ src, alt, size = 44, radius = 10, ytId, artistSrc }: { src?: string | null; alt: string; size?: number; radius?: number; ytId?: string | null; artistSrc?: string | null }) {
   const h = strHue(alt)
   const imgSrc = src || artistSrc || (ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : null)
-  if (imgSrc) return <img src={imgSrc} alt={alt} loading="lazy" style={{ width: size, height: size, borderRadius: radius, objectFit: 'cover', flexShrink: 0, display: 'block' }} />
+  if (imgSrc) return <img src={proxyImg(imgSrc)} alt={alt} loading="lazy" style={{ width: size, height: size, borderRadius: radius, objectFit: 'cover', flexShrink: 0, display: 'block' }} />
   return (
     <div style={{ width: size, height: size, borderRadius: radius, flexShrink: 0, background: `linear-gradient(135deg, hsl(${h},38%,16%), hsl(${(h + 40) % 360},28%,10%))`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: `hsl(${h},45%,45%)`, fontSize: size * 0.38, fontWeight: 800, fontFamily: 'Outfit, sans-serif' }}>
       {alt[0]?.toUpperCase() || '?'}
@@ -90,29 +94,20 @@ function Cover({ src, alt, size = 44, radius = 10, ytId, artistSrc }: { src?: st
 }
 
 function TrendIcon({ t }: { t: string }) {
-  if (t === 'up') return <span style={{ color: '#34d399', fontSize: 10, fontWeight: 900 }}>▲</span>
-  if (t === 'down') return <span style={{ color: '#f87171', fontSize: 10, fontWeight: 900 }}>▼</span>
-  if (t === 'new') return <span style={{ fontSize: 8, fontWeight: 800, color: '#fbbf24', background: 'rgba(251,191,36,0.12)', padding: '1px 5px', borderRadius: 3, letterSpacing: '0.04em' }}>N</span>
-  return <span style={{ color: '#243040', fontSize: 10 }}>–</span>
+  if (t === 'up') return <span className="text-[10px] font-black text-[var(--accent-green)]">▲</span>
+  if (t === 'down') return <span className="text-[10px] font-black text-[var(--accent-red)]">▼</span>
+  if (t === 'new') return <span className="rounded-[3px] bg-[var(--accent-yellow)]/15 px-[5px] py-px text-[8px] font-extrabold tracking-[0.04em] text-[var(--accent-yellow)]">N</span>
+  return <span className="text-[10px] text-[var(--text-faint)]">–</span>
 }
 
 function Skel({ w, h, r = 6 }: { w: number | string; h: number; r?: number }) {
   return <div className="hp-skel" style={{ width: w, height: h, borderRadius: r, flexShrink: 0 }} />
 }
 
-function SH({ label, href, cta = 'Visi →' }: { label: React.ReactNode; href?: string; cta?: string }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-      <h2 style={{ fontFamily: 'Outfit, sans-serif', fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em', margin: 0 }}>{label}</h2>
-      {href && <Link href={href} style={{ fontSize: 12, color: 'var(--accent-link)', fontWeight: 700, textDecoration: 'none', transition: 'color .15s' }} onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')} onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>{cta}</Link>}
-    </div>
-  )
-}
-
 /** Tailwind versija SH'o — naudojam naujose sekcijose, kad font/letter-spacing
  *  atitiktų artist page'o tipografiją (`font-['Outfit',sans-serif]` +
  *  `tracking-[-0.01em]` + truputį didesnis font-size 18px). */
-function SectionHead({ label, href, cta = 'Visi →' }: { label: React.ReactNode; href?: string; cta?: string }) {
+function SectionHead({ label, href, cta = 'Daugiau →' }: { label: React.ReactNode; href?: string; cta?: string }) {
   return (
     <div className="mb-3.5 flex items-center justify-between">
       <h2 className="m-0 font-['Outfit',sans-serif] text-[17px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)] sm:text-[18px]">{label}</h2>
@@ -139,42 +134,70 @@ function DienosDainaWidget() {
   }, [])
   const w = noms[0]
   if (loading) return (
-    <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 16, padding: 16 }}>
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 14 }}><Skel w={54} h={54} r={10} /><div style={{ flex: 1 }}><Skel w="40%" h={9} /><div style={{ marginTop: 5 }}><Skel w="70%" h={12} /></div><div style={{ marginTop: 4 }}><Skel w="45%" h={9} /></div></div></div>
-      {Array(3).fill(null).map((_, i) => <div key={i} style={{ display: 'flex', gap: 8, padding: '7px 0', alignItems: 'center' }}><Skel w={14} h={10} /><Skel w={26} h={26} r={6} /><div style={{ flex: 1 }}><Skel w="65%" h={10} /></div></div>)}
+    <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
+      <div className="mb-3.5 flex items-center gap-3">
+        <Skel w={54} h={54} r={10} />
+        <div className="flex-1">
+          <Skel w="40%" h={9} />
+          <div className="mt-1.5"><Skel w="70%" h={12} /></div>
+          <div className="mt-1"><Skel w="45%" h={9} /></div>
+        </div>
+      </div>
+      {Array(3).fill(null).map((_, i) => (
+        <div key={i} className="flex items-center gap-2 py-[7px]">
+          <Skel w={14} h={10} /><Skel w={26} h={26} r={6} />
+          <div className="flex-1"><Skel w="65%" h={10} /></div>
+        </div>
+      ))}
     </div>
   )
   return (
-    <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 16, overflow: 'hidden' }}>
-      <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 12 }}>
+    <div className="overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
+      <div className="flex items-center gap-3 border-b border-[var(--border-subtle)] px-4 py-3.5">
         <Cover src={w?.tracks?.cover_url} alt={w?.tracks?.title || 'daina'} size={54} radius={10} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 700, margin: '0 0 2px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Šiandien pirmauja</p>
-          <h3 style={{ fontFamily: 'Outfit, sans-serif', fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 1px', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div className="min-w-0 flex-1">
+          <p className="m-0 mb-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--text-muted)]">Šiandien pirmauja</p>
+          <h3 className="m-0 truncate font-['Outfit',sans-serif] text-[15px] font-extrabold leading-tight text-[var(--text-primary)]">
             {sanitizeTitle(w?.tracks?.title || 'Dar nėra')}
           </h3>
-          <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0 }}>{w?.tracks?.artists?.name || ''}</p>
+          <p className="m-0 text-[11px] text-[var(--text-muted)]">{w?.tracks?.artists?.name || ''}</p>
         </div>
-        <Link href="/dienos-daina" style={{ flexShrink: 0, background: '#f97316', color: '#fff', fontWeight: 800, fontSize: 11, padding: '7px 14px', borderRadius: 20, textDecoration: 'none', boxShadow: '0 3px 14px rgba(249,115,22,0.35)', transition: 'transform .15s' }} onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-1px)')} onMouseLeave={e => (e.currentTarget.style.transform = 'none')}>
+        <Link
+          href="/dienos-daina"
+          className="shrink-0 rounded-[20px] bg-[var(--accent-orange)] px-3.5 py-[7px] text-[11px] font-extrabold text-white no-underline shadow-[0_3px_14px_rgba(249,115,22,0.35)] transition-transform hover:-translate-y-px"
+        >
           Balsuoti
         </Link>
       </div>
       <div>
-        <div style={{ padding: '8px 16px 6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: 9, fontWeight: 800, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Rytdienos kandidatai</span>
-          <Link href="/dienos-daina" style={{ fontSize: 9, color: 'var(--accent-link)', fontWeight: 700, textDecoration: 'none' }}>+ Siūlyti</Link>
+        <div className="flex items-center justify-between px-4 pb-1.5 pt-2">
+          <span className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">Rytdienos kandidatai</span>
+          <Link href="/dienos-daina" className="text-[9px] font-bold text-[var(--accent-link)] no-underline">+ Siūlyti</Link>
         </div>
-        {noms.length === 0 ? <div style={{ padding: '14px 16px', color: 'var(--text-muted)', fontSize: 12, textAlign: 'center' }}>Kol kas nėra nominacijų</div>
-        : noms.slice(0, 5).map((n, i) => (
-          <div key={n.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 16px', borderTop: '1px solid var(--border-subtle)', transition: 'background .12s' }} onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-            <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-faint)', width: 14, textAlign: 'center', flexShrink: 0 }}>{i + 1}</span>
+        {noms.length === 0 ? (
+          <div className="px-4 py-3.5 text-center text-[12px] text-[var(--text-muted)]">Kol kas nėra nominacijų</div>
+        ) : noms.slice(0, 5).map((n, i) => (
+          <div
+            key={n.id}
+            className="flex items-center gap-2 border-t border-[var(--border-subtle)] px-4 py-1.5 transition-colors hover:bg-[var(--bg-hover)]"
+          >
+            <span className="w-3.5 shrink-0 text-center text-[10px] font-extrabold text-[var(--text-faint)]">{i + 1}</span>
             <Cover src={n.tracks?.cover_url} alt={n.tracks?.title || '?'} size={26} radius={6} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(n.tracks?.title || '')}</p>
-              <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: 0 }}>{n.tracks?.artists?.name}</p>
+            <div className="min-w-0 flex-1">
+              <p className="m-0 truncate text-[11px] font-bold text-[var(--text-primary)]">{sanitizeTitle(n.tracks?.title || '')}</p>
+              <p className="m-0 text-[10px] text-[var(--text-muted)]">{n.tracks?.artists?.name}</p>
             </div>
-            <button onClick={() => voted === null && setVoted(i)} disabled={voted !== null}
-              style={{ fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 10, flexShrink: 0, cursor: voted !== null ? 'default' : 'pointer', border: voted === i ? '1px solid rgba(52,211,153,0.3)' : '1px solid var(--border-default)', background: voted === i ? 'rgba(52,211,153,0.1)' : 'transparent', color: voted === i ? '#34d399' : voted !== null ? 'var(--text-faint)' : 'var(--accent-link)', transition: 'all 0.15s' }}>
+            <button
+              onClick={() => voted === null && setVoted(i)}
+              disabled={voted !== null}
+              className={`shrink-0 rounded-[10px] border px-2 py-[3px] text-[10px] font-bold transition-all ${
+                voted === i
+                  ? 'border-[var(--accent-green)]/30 bg-[var(--accent-green)]/10 text-[var(--accent-green)] cursor-default'
+                  : voted !== null
+                    ? 'border-[var(--border-default)] bg-transparent text-[var(--text-faint)] cursor-default'
+                    : 'border-[var(--border-default)] bg-transparent text-[var(--accent-link)] cursor-pointer'
+              }`}
+            >
               {voted === i ? '✓' : 'Balsuoti'}
             </button>
           </div>
@@ -207,110 +230,158 @@ function BoomboxHomeWidget() {
   }, [])
 
   return (
-    <Link href="/boombox" style={{
-      display: 'block',
-      background: 'linear-gradient(135deg, rgba(249,115,22,0.12), rgba(29,78,216,0.06))',
-      border: '1px solid rgba(249,115,22,0.25)',
-      borderRadius: 16,
-      padding: 16,
-      textDecoration: 'none',
-      color: 'var(--text-primary)',
-      transition: 'transform .15s, box-shadow .15s',
-    }}
-      onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-1px)')}
-      onMouseLeave={e => (e.currentTarget.style.transform = 'none')}
+    <Link
+      href="/boombox"
+      className="block rounded-2xl border border-[var(--accent-orange)]/25 bg-gradient-to-br from-[var(--accent-orange)]/10 to-[var(--accent-blue)]/[0.06] p-4 text-[var(--text-primary)] no-underline transition-all hover:-translate-y-px"
     >
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 32, marginBottom: 10 }}>
+      <div className="mb-2.5 flex h-8 items-end gap-1">
         {[40, 75, 55, 95, 68, 50, 80].map((h, i) => (
-          <div key={i} style={{
-            width: 5, height: `${h}%`, borderRadius: 2,
-            background: 'linear-gradient(0deg, var(--accent-orange), #fbbf24)',
-            animation: `bbHomeEq 1.1s infinite ease-in-out ${i * 0.12}s`,
-          }} />
+          <div
+            key={i}
+            className="w-[5px] rounded-[2px] bg-gradient-to-t from-[var(--accent-orange)] to-[var(--accent-yellow)]"
+            style={{ height: `${h}%`, animation: `bbHomeEq 1.1s infinite ease-in-out ${i * 0.12}s` }}
+          />
         ))}
       </div>
       <style>{`@keyframes bbHomeEq { 0%, 100% { transform: scaleY(0.4); } 50% { transform: scaleY(1); } }`}</style>
 
-      <div style={{ fontFamily: 'Outfit, system-ui, sans-serif', fontSize: 22, fontWeight: 900, letterSpacing: '-0.5px', marginBottom: 4 }}>
+      <div className="mb-1 font-['Outfit','system-ui',sans-serif] text-[22px] font-black tracking-[-0.5px]">
         BOOMBOX
       </div>
-      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12 }}>
+      <div className="mb-3 text-[12px] text-[var(--text-secondary)]">
         3 misijos · ~2 min · drop'ai
       </div>
 
       {state.loading ? null : state.hasContent ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-muted)' }}>
+        <div className="flex items-center gap-2 text-[12px] text-[var(--text-muted)]">
           {state.completedToday > 0 && (
-            <span style={{ color: 'var(--accent-green)' }}>✓ {state.completedToday}/3</span>
+            <span className="text-[var(--accent-green)]">✓ {state.completedToday}/3</span>
           )}
           {state.streak > 0 && (
-            <span style={{ color: 'var(--accent-orange)' }}>🔥 {state.streak} d.</span>
+            <span className="text-[var(--accent-orange)]">🔥 {state.streak} d.</span>
           )}
-          <span style={{ marginLeft: 'auto', fontWeight: 600, color: 'var(--accent-orange)' }}>Pradėti →</span>
+          <span className="ml-auto font-semibold text-[var(--accent-orange)]">Pradėti →</span>
         </div>
       ) : (
-        <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>Šiandien dar nepublikuota</div>
+        <div className="text-[12px] text-[var(--text-faint)]">Šiandien dar nepublikuota</div>
       )}
     </Link>
   )
 }
 
-/* ────────────────────────────── Shoutbox ────────────────────────────── */
+/* Shoutbox widget'as išperkeltas į components/HomeChatsWidget.tsx ir
+   dabar yra dalis pokalbių sistemos (rodoma user'io pastarosios DM/grupės). */
 
-function ShoutboxWidget() {
-  const [msgs, setMsgs] = useState<ShoutMsg[]>([])
+/* ────────────────────────────── Žmonės ──────────────────────────────
+   Žmonių sekcija — blogai, vertimai, kūryba (forumas).
+   Sujungia /api/blog/latest + /api/diskusijos į vieną horizontal row.
+   Empty state — kai nieko nėra, rodom CTA naujiems autoriams. */
+
+type ZmonesItem = {
+  id: string
+  type: 'blog' | 'discussion'
+  title: string
+  href: string
+  meta: string  // autorius arba diskusijos kategorija
+  excerpt: string | null
+  cover: string | null
+  badge: string | null
+  created_at: string
+}
+
+function ZmonesSection() {
+  const [items, setItems] = useState<ZmonesItem[]>([])
   const [loading, setLoading] = useState(true)
-  const load = useCallback(async (since?: string) => {
-    try {
-      const r = await fetch(since ? `/api/live/shoutbox?since=${encodeURIComponent(since)}&limit=12` : '/api/live/shoutbox?limit=12')
-      const d = await r.json()
-      if (d.messages?.length) {
-        if (!since) { setMsgs([...d.messages].reverse()) }
-        else { setMsgs(prev => { const ids = new Set(prev.map((m: ShoutMsg) => m.id)); const fresh = d.messages.filter((m: ShoutMsg) => !ids.has(m.id)); return fresh.length ? [...prev, ...fresh].slice(-12) : prev }) }
-      }
-      setLoading(false)
-    } catch { setLoading(false) }
-  }, [])
   useEffect(() => {
-    load()
-    const iv = setInterval(() => { setMsgs(prev => { const last = prev[prev.length - 1]; if (last) load(last.created_at); return prev }) }, 8000)
-    return () => clearInterval(iv)
-  }, [load])
+    let alive = true
+    Promise.all([
+      fetch('/api/blog/latest?limit=8').then(r => r.json()).catch(() => []),
+      fetch('/api/diskusijos?sort=activity&limit=8').then(r => r.json()).catch(() => ({ discussions: [] })),
+    ]).then(([blogs, diskRes]: any[]) => {
+      if (!alive) return
+      const arr: ZmonesItem[] = []
+      ;(Array.isArray(blogs) ? blogs : []).forEach((b: any) => {
+        arr.push({
+          id: `b-${b.id}`,
+          type: 'blog',
+          title: sanitizeTitle(b.title || ''),
+          href: `/blogai/${b.blog_slug || b.author_slug || ''}/${b.slug || b.id}`,
+          meta: b.author_name || 'Autorius',
+          excerpt: b.excerpt || null,
+          cover: b.cover_url || b.image_url || null,
+          badge: 'BLOGAS',
+          created_at: b.created_at || new Date().toISOString(),
+        })
+      })
+      ;((diskRes?.discussions) || []).forEach((d: any) => {
+        arr.push({
+          id: `d-${d.id}`,
+          type: 'discussion',
+          title: sanitizeTitle(d.title || ''),
+          href: `/diskusijos/${d.slug || d.id}`,
+          meta: d.author_name || 'Anonimas',
+          excerpt: null,
+          cover: null,
+          badge: 'DISKUSIJA',
+          created_at: d.created_at || new Date().toISOString(),
+        })
+      })
+      arr.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))
+      setItems(arr)
+      setLoading(false)
+    }).catch(() => setLoading(false))
+    return () => { alive = false }
+  }, [])
+
   return (
-    <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ padding: '11px 14px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-          <span style={{ fontFamily: 'Outfit, sans-serif', fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>Gyvi pokalbiai</span>
-          <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 6px #22c55e' }} />
-        </div>
-        <Link href="/bendruomene" style={{ fontSize: 10, color: 'var(--accent-link)', fontWeight: 700, textDecoration: 'none' }}>Visi →</Link>
-      </div>
-      <div style={{ flex: 1 }}>
-        {loading ? Array(4).fill(null).map((_, i) => (
-          <div key={i} style={{ display: 'flex', gap: 9, padding: '9px 14px', borderBottom: i < 3 ? '1px solid var(--border-subtle)' : 'none' }}>
-            <Skel w={24} h={24} r={12} /><div style={{ flex: 1 }}><Skel w="40%" h={9} /><div style={{ marginTop: 4 }}><Skel w="75%" h={10} /></div></div>
+    <section>
+      <SectionHead label="Žmonės" href="/bendruomene" cta="Daugiau →" />
+      <div className="hp-scroll flex items-stretch gap-3 pb-1">
+        {loading ? Array(5).fill(null).map((_, i) => (
+          <div key={i} className="shrink-0 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-3" style={{ width: 260, height: 130 }}>
+            <Skel w="35%" h={9} /><div className="mt-2"><Skel w="92%" h={12} /></div>
+            <div className="mt-1.5"><Skel w="78%" h={11} /></div>
+            <div className="mt-3"><Skel w="55%" h={9} /></div>
           </div>
-        ))
-        : msgs.length === 0 ? <div style={{ padding: '18px', color: 'var(--text-muted)', fontSize: 12, textAlign: 'center' }}>Dar nėra žinučių</div>
-        : msgs.slice(-6).map((m, i, arr) => (
-          <div key={m.id} style={{ display: 'flex', gap: 9, padding: '8px 14px', borderBottom: i < arr.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
-            <div style={{ width: 24, height: 24, borderRadius: '50%', flexShrink: 0, background: `hsl(${strHue(m.author_name)},28%,14%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: `hsl(${strHue(m.author_name)},45%,52%)`, fontFamily: 'Outfit, sans-serif' }}>{m.author_name[0]?.toUpperCase()}</div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', gap: 5, alignItems: 'center', marginBottom: 1 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-link)' }}>{m.author_name}</span>
-                <span style={{ fontSize: 9, color: 'var(--text-faint)' }}>{timeAgo(m.created_at)}</span>
-              </div>
-              <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>{m.body}</p>
+        )) : items.length === 0 ? (
+          <div className="hp-card flex shrink-0 flex-col justify-center px-4 py-3" style={{ width: 360 }}>
+            <p className="m-0 font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)]">Žmonių zona — netrukus</p>
+            <p className="m-0 mt-1 text-[11.5px] text-[var(--text-muted)]">
+              Čia atsiras autorių blogai, vertimai, kūryba ir aktyviausios diskusijos. Pirmas tampi autoriumi <Link href="/blogai/naujas" className="text-[var(--accent-link)] no-underline">čia</Link>.
+            </p>
+          </div>
+        ) : items.slice(0, 14).map(it => (
+          <Link
+            key={it.id}
+            href={it.href}
+            className="hp-card group flex shrink-0 flex-col overflow-hidden p-3 no-underline"
+            style={{ width: 260 }}
+          >
+            <div className="mb-1.5 flex items-center gap-1.5">
+              {it.badge && (
+                <span className={`rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[8.5px] font-extrabold uppercase tracking-[0.06em] ${
+                  it.type === 'blog'
+                    ? 'bg-[var(--accent-orange)]/15 text-[var(--accent-orange)]'
+                    : 'bg-[var(--accent-link)]/15 text-[var(--accent-link)]'
+                }`}>{it.badge}</span>
+              )}
+              <span className="ml-auto text-[9px] text-[var(--text-faint)]">{timeAgo(it.created_at)}</span>
             </div>
-          </div>
+            <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[13px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
+              {it.title}
+            </p>
+            {it.excerpt && (
+              <p className="m-0 mt-1.5 line-clamp-2 text-[11.5px] text-[var(--text-muted)]">
+                {it.excerpt}
+              </p>
+            )}
+            <p className="m-0 mt-auto pt-2 truncate text-[11px] text-[var(--text-secondary)]">
+              {it.meta}
+            </p>
+          </Link>
         ))}
       </div>
-      <div style={{ padding: '9px 12px', borderTop: '1px solid var(--border-subtle)' }}>
-        <Link href="/bendruomene" style={{ display: 'block', textAlign: 'center', padding: '7px', borderRadius: 10, background: 'var(--bg-hover)', border: '1px solid var(--border-default)', color: 'var(--accent-link)', fontSize: 11, fontWeight: 700, textDecoration: 'none', transition: 'background .15s' }} onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-active)')} onMouseLeave={e => (e.currentTarget.style.background = 'var(--bg-hover)')}>
-          Prisijungti prie pokalbio →
-        </Link>
-      </div>
-    </div>
+    </section>
   )
 }
 
@@ -323,10 +394,11 @@ function DiscussionsWidget() {
   if (loading || !discs.length) return (
     <div className="hp-disc-grid">
       {Array(4).fill(null).map((_, i) => (
-        <div key={i} style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
-          <div style={{ marginBottom: 8 }}><Skel w="30%" h={8} /></div>
-          <Skel w="90%" h={11} /><div style={{ marginTop: 4 }}><Skel w="60%" h={11} /></div>
-          <div style={{ marginTop: 8 }}><Skel w="45%" h={8} /></div>
+        <div key={i} className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-3.5 py-3">
+          <div className="mb-2"><Skel w="30%" h={8} /></div>
+          <Skel w="90%" h={11} />
+          <div className="mt-1"><Skel w="60%" h={11} /></div>
+          <div className="mt-2"><Skel w="45%" h={8} /></div>
         </div>
       ))}
     </div>
@@ -334,16 +406,19 @@ function DiscussionsWidget() {
   return (
     <div className="hp-disc-grid">
       {discs.map(d => (
-        <Link key={d.id} href={`/diskusijos/${d.slug}`}
-          style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--bg-surface)', border: '1px solid var(--border-default)', textDecoration: 'none', display: 'block', transition: 'border-color 0.15s, background .15s' }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.background = 'var(--bg-hover)' }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-default)'; e.currentTarget.style.background = 'var(--bg-surface)' }}>
-          <div style={{ display: 'flex', gap: 5, marginBottom: 5, alignItems: 'center' }}>
-            {(d.tags || []).slice(0, 1).map(t => <span key={t} style={{ fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 4, background: 'var(--bg-active)', color: 'var(--accent-link)' }}>{t}</span>)}
-            <span style={{ fontSize: 9, color: 'var(--text-faint)', marginLeft: 'auto' }}>{timeAgo(d.created_at)}</span>
+        <Link
+          key={d.id}
+          href={`/diskusijos/${d.slug}`}
+          className="block rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-3.5 py-3 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+        >
+          <div className="mb-1.5 flex items-center gap-1.5">
+            {(d.tags || []).slice(0, 1).map(t => (
+              <span key={t} className="rounded bg-[var(--bg-active)] px-1.5 py-0.5 text-[9px] font-extrabold text-[var(--accent-link)]">{t}</span>
+            ))}
+            <span className="ml-auto text-[9px] text-[var(--text-faint)]">{timeAgo(d.created_at)}</span>
           </div>
-          <p style={{ fontFamily: 'Outfit, sans-serif', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 5px', lineHeight: 1.35, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' } as any}>{d.title}</p>
-          <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: 0 }}>{d.author_name} · {d.comment_count} atsak.</p>
+          <p className="m-0 mb-1.5 line-clamp-2 font-['Outfit',sans-serif] text-[13px] font-bold leading-snug text-[var(--text-primary)]">{d.title}</p>
+          <p className="m-0 text-[10px] text-[var(--text-muted)]">{d.author_name} · {d.comment_count} atsak.</p>
         </Link>
       ))}
     </div>
@@ -356,12 +431,16 @@ function DiscussionsWidget() {
 
 const REELS_DURATION = 8000
 
-function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, dk }: {
+function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChartVote, dk }: {
   slides: HeroSlide[]
   initialIdx: number
   seenSlides: Set<string>
   onSeen: (href: string) => void
   onClose: () => void
+  /** Optional — chart slides swipe-down ar Balsuok mygtukas atveria voting
+   *  sheet'ą per šitą callback'ą. Reels'ai LIEKA atviri foną — po balsavimo
+   *  user'is gali tęsti horizontalų navigavimą per news/event slides. */
+  onChartVote?: (slide: HeroSlide) => void
   dk: boolean
 }) {
   const [idx, setIdx] = useState(initialIdx)
@@ -454,8 +533,17 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, dk }: {
       if (dx < 0) goTo(idx + 1)
       else goTo(idx - 1)
     } else if (dy > 80 && Math.abs(dy) > Math.abs(dx)) {
-      // Swipe DOWN → close feed
-      onClose()
+      // Swipe DOWN — chart slide'uose atveria voting sheet'ą; visur kitur
+      // uždaro reels (default Stories-style behavior).
+      const cur = slides[idx]
+      const isChart = cur && (cur.type === 'chart_lt' || cur.type === 'chart_world')
+      if (isChart && onChartVote) {
+        onChartVote(cur)
+        // Reels lieka atviri fone — pause progress kol sheet'as atviras
+        stopProgress()
+      } else {
+        onClose()
+      }
     } else {
       // No significant swipe — resume progress
       startProgress()
@@ -559,7 +647,7 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, dk }: {
             {/* Image zone */}
             <div className="hp-reels-img">
               {s.bgImg
-                ? <img src={s.bgImg} alt="" draggable={false} />
+                ? <img src={proxyImg(s.bgImg)} alt="" draggable={false} />
                 : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#0a1428,#162040)' }} />
               }
               {/* Video popup — on top of image */}
@@ -646,25 +734,48 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, dk }: {
                 </button>
               )}
 
-              {/* Bottom action area */}
-              <div style={{ marginTop: 14, paddingTop: 0, display: 'flex', alignItems: 'center' }}>
-                <Link
-                  href={s.href}
-                  onClick={onClose}
-                  style={{
-                    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                    padding: '13px 20px', borderRadius: 14,
-                    background: seenSlides.has(s.href) ? 'rgba(255,255,255,0.12)' : '#f97316',
-                    color: '#fff', fontFamily: 'Outfit,sans-serif', fontSize: 14, fontWeight: 800,
-                    textDecoration: 'none', letterSpacing: '-0.01em',
-                    boxShadow: seenSlides.has(s.href) ? 'none' : '0 4px 20px rgba(249,115,22,0.35)',
-                    transition: 'all .2s',
-                  }}
-                >
-                  Daugiau
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                </Link>
-              </div>
+              {/* Bottom action area — chart slide'ams 'Balsuok' (atveria sheet'ą,
+                  reels lieka), kitiems standard 'Daugiau' link'as. */}
+              {(s.type === 'chart_lt' || s.type === 'chart_world') && onChartVote ? (
+                <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onChartVote(s); stopProgress() }}
+                    style={{
+                      width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                      padding: '13px 20px', borderRadius: 14, border: 'none', cursor: 'pointer',
+                      background: s.type === 'chart_lt' ? '#f97316' : '#3b82f6',
+                      color: '#fff', fontFamily: 'Outfit,sans-serif', fontSize: 14, fontWeight: 800,
+                      letterSpacing: '-0.01em',
+                      boxShadow: `0 4px 20px ${s.type === 'chart_lt' ? 'rgba(249,115,22,0.35)' : 'rgba(59,130,246,0.35)'}`,
+                    }}
+                  >
+                    Balsuok
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 19l-7-7 7-7" transform="rotate(90 12 12)"/></svg>
+                  </button>
+                  <p style={{ margin: 0, textAlign: 'center', fontSize: 10.5, color: 'rgba(255,255,255,0.5)', fontWeight: 600, letterSpacing: '0.04em' }}>
+                    arba pertempk žemyn ↓
+                  </p>
+                </div>
+              ) : (
+                <div style={{ marginTop: 14, paddingTop: 0, display: 'flex', alignItems: 'center' }}>
+                  <Link
+                    href={s.href}
+                    onClick={onClose}
+                    style={{
+                      flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                      padding: '13px 20px', borderRadius: 14,
+                      background: seenSlides.has(s.href) ? 'rgba(255,255,255,0.12)' : '#f97316',
+                      color: '#fff', fontFamily: 'Outfit,sans-serif', fontSize: 14, fontWeight: 800,
+                      textDecoration: 'none', letterSpacing: '-0.01em',
+                      boxShadow: seenSlides.has(s.href) ? 'none' : '0 4px 20px rgba(249,115,22,0.35)',
+                      transition: 'all .2s',
+                    }}
+                  >
+                    Daugiau
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -688,6 +799,971 @@ function RowDivider({ icon }: { icon: 'lt' | 'world' }) {
 
 
 
+/* ────────────────────────────── Chart widget bits ──────────────────────────────
+   Bendri komponentai naudojami DESKTOP hero sidebar ir MOBILE chart blokuose,
+   kad neturėtume daryti lygiai to paties dk-branching'o dviejose vietose.
+   `compact` flag — desktop versija mažesnis font + padding'as. */
+
+function ChartTabs({ active, onSelect, compact = false }: {
+  active: 'lt' | 'world'
+  onSelect: (k: 'lt' | 'world') => void
+  compact?: boolean
+}) {
+  const tabPad = compact ? 'py-[7px] text-[11px]' : 'py-[9px] text-[12px]'
+  return (
+    <div className="mb-3 flex">
+      <div className="flex flex-1 gap-[3px] rounded-[10px] bg-[var(--bg-hover)] p-[3px]">
+        {([['lt', 'LT TOP 30'], ['world', 'TOP 40']] as const).map(([k, l]) => (
+          <button
+            key={k}
+            onClick={() => onSelect(k)}
+            className={`flex-1 rounded-lg border-none font-['Outfit',sans-serif] font-bold transition-all ${tabPad} ${
+              active === k
+                ? 'bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-sm'
+                : 'bg-transparent text-[var(--text-muted)]'
+            }`}
+          >
+            {l}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function ChartRow({ t, compact = false }: { t: TopEntry; compact?: boolean }) {
+  const titleSize = compact ? 'text-[12.5px]' : 'text-[13px]'
+  const metaSize = compact ? 'text-[10.5px]' : 'text-[11px]'
+  return (
+    <Link
+      href={t.slug ? `/muzika/${t.slug}` : '/topai'}
+      className="hp-card flex items-center gap-2.5 px-2.5 py-2 no-underline"
+    >
+      <div className="w-7 shrink-0 text-center">
+        <span
+          className={`block font-['Outfit',sans-serif] text-[16px] font-black leading-none ${
+            t.pos <= 3 ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]'
+          }`}
+        >
+          {t.pos}
+        </span>
+        <div className="mt-[2px]"><TrendIcon t={t.trend} /></div>
+      </div>
+      <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg">
+        <Cover src={t.cover_url || t.artist_image} alt={t.title} size={40} radius={8} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className={`m-0 truncate font-bold text-[var(--text-primary)] ${titleSize}`}>{t.title}</p>
+        <p className={`m-0 mt-[2px] truncate text-[var(--text-muted)] ${metaSize}`}>{t.artist}</p>
+      </div>
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--bg-active)] transition-colors">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="ml-px text-[var(--text-primary)]"><path d="M8 5v14l11-7z"/></svg>
+      </div>
+    </Link>
+  )
+}
+
+function ChartVoteCTA({ className = '' }: { className?: string }) {
+  return (
+    <Link
+      href="/top40"
+      className={`mt-2.5 flex items-center justify-center rounded-[10px] bg-[var(--accent-orange)] p-2.5 font-['Outfit',sans-serif] text-[12px] font-extrabold text-white no-underline shadow-[0_2px_12px_rgba(249,115,22,0.3)] transition-all hover:-translate-y-px hover:shadow-[0_4px_18px_rgba(249,115,22,0.45)] ${className}`}
+    >
+      Balsuok
+    </Link>
+  )
+}
+
+
+/* ────────────────────────────── Bendruomenė cards ──────────────────────────────
+   Trys bokso pavyzdys: discussions, main chat preview, user posts. Stilistika
+   atitinka kitas widget kortelės — rounded-2xl + bg-surface + border-default. */
+
+function CommunityDiscussionsCard() {
+  const [discs, setDiscs] = useState<Discussion[]>([])
+  const [loading, setLoading] = useState(true)
+  useEffect(() => {
+    fetch('/api/diskusijos?sort=activity&limit=4').then(r => r.json()).then(d => { setDiscs(d.discussions || []); setLoading(false) }).catch(() => setLoading(false))
+  }, [])
+  return (
+    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
+      <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
+        <span className="font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)]">Naujausios diskusijos</span>
+        <Link href="/diskusijos" className="text-[11px] font-bold text-[var(--accent-link)] no-underline">Visos →</Link>
+      </div>
+      <div className="flex-1">
+        {loading ? Array(3).fill(null).map((_, i) => (
+          <div key={i} className="flex items-center gap-2.5 border-b border-[var(--border-subtle)] px-4 py-2.5">
+            <Skel w={28} h={28} r={14} />
+            <div className="flex-1"><Skel w="80%" h={11} /><div className="mt-1.5"><Skel w="55%" h={9} /></div></div>
+          </div>
+        )) : discs.length === 0 ? (
+          <div className="px-4 py-6 text-center text-[12px] text-[var(--text-muted)]">Diskusijų dar nėra</div>
+        ) : discs.slice(0, 4).map((d, i) => {
+          const hue = strHue(d.author_name || '?')
+          return (
+            <Link key={d.id} href={`/diskusijos/${d.slug}`} className="flex items-center gap-2.5 border-b border-[var(--border-subtle)] px-4 py-2.5 no-underline transition-colors hover:bg-[var(--bg-hover)]" style={{ borderBottomWidth: i === 3 ? 0 : 1 }}>
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-['Outfit',sans-serif] text-[11px] font-extrabold" style={{ background: `hsl(${hue},32%,18%)`, color: `hsl(${hue},45%,55%)` }}>
+                {(d.author_name || '?').charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="m-0 truncate font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--text-primary)]">{d.title}</p>
+                <p className="m-0 mt-0.5 text-[10.5px] text-[var(--text-muted)]">{d.author_name} · {d.comment_count} ats. · {timeAgo(d.created_at)}</p>
+              </div>
+            </Link>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function CommunityChatCard() {
+  return (
+    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
+      <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
+        <span className="font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)]">Pokalbiai</span>
+        <Link href="/pokalbiai" className="text-[11px] font-bold text-[var(--accent-link)] no-underline">Atidaryti →</Link>
+      </div>
+      <div className="flex-1 overflow-hidden">
+        <HomeChatsWidget />
+      </div>
+    </div>
+  )
+}
+
+function CommunityUserPostsCard() {
+  type Post = { id: string; type: 'blog'|'discussion'; title: string; href: string; meta: string; created_at: string; badge: string }
+  const [posts, setPosts] = useState<Post[]>([])
+  const [loading, setLoading] = useState(true)
+  useEffect(() => {
+    let alive = true
+    Promise.all([
+      fetch('/api/blog/latest?limit=6').then(r => r.json()).catch(() => []),
+      fetch('/api/diskusijos?sort=activity&limit=4').then(r => r.json()).catch(() => ({ discussions: [] })),
+    ]).then(([blogs, diskRes]: any[]) => {
+      if (!alive) return
+      const arr: Post[] = []
+      ;(Array.isArray(blogs) ? blogs : []).forEach((b: any) => arr.push({
+        id: `b-${b.id}`, type: 'blog', title: sanitizeTitle(b.title || ''),
+        href: `/blogai/${b.blog_slug || b.author_slug || ''}/${b.slug || b.id}`,
+        meta: b.author_name || 'Autorius',
+        created_at: b.created_at || new Date().toISOString(),
+        badge: 'BLOGAS',
+      }))
+      ;((diskRes?.discussions) || []).slice(0, 2).forEach((d: any) => arr.push({
+        id: `d-${d.id}`, type: 'discussion', title: sanitizeTitle(d.title || ''),
+        href: `/diskusijos/${d.slug || d.id}`,
+        meta: d.author_name || 'Anonimas',
+        created_at: d.created_at || new Date().toISOString(),
+        badge: 'DISKUSIJA',
+      }))
+      arr.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))
+      setPosts(arr.slice(0, 5))
+      setLoading(false)
+    }).catch(() => setLoading(false))
+    return () => { alive = false }
+  }, [])
+  return (
+    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
+      <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
+        <span className="font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)]">Vartotojų įrašai</span>
+        <Link href="/blogai" className="text-[11px] font-bold text-[var(--accent-link)] no-underline">Visi →</Link>
+      </div>
+      <div className="flex-1">
+        {loading ? Array(3).fill(null).map((_, i) => (
+          <div key={i} className="border-b border-[var(--border-subtle)] px-4 py-2.5">
+            <Skel w="35%" h={9} /><div className="mt-1.5"><Skel w="85%" h={11} /></div>
+          </div>
+        )) : posts.length === 0 ? (
+          <div className="px-4 py-6 text-center">
+            <p className="m-0 text-[12px] font-bold text-[var(--text-secondary)]">Pirmas autorius — tu?</p>
+            <p className="m-0 mt-1 text-[11px] text-[var(--text-muted)]">Blogai, vertimai, kūryba — dalinkis su bendruomene.</p>
+            <Link href="/blogai/naujas" className="mt-2 inline-flex rounded-md bg-[var(--accent-orange)] px-3 py-1.5 text-[11px] font-bold text-white no-underline">Pradėti</Link>
+          </div>
+        ) : posts.map((p, i) => (
+          <Link key={p.id} href={p.href} className="block border-b border-[var(--border-subtle)] px-4 py-2.5 no-underline transition-colors hover:bg-[var(--bg-hover)]" style={{ borderBottomWidth: i === posts.length - 1 ? 0 : 1 }}>
+            <div className="mb-0.5 flex items-center gap-1.5">
+              <span className={`rounded px-1.5 py-px font-['Outfit',sans-serif] text-[8.5px] font-extrabold uppercase tracking-[0.06em] ${
+                p.type === 'blog' ? 'bg-[var(--accent-orange)]/15 text-[var(--accent-orange)]' : 'bg-[var(--accent-link)]/15 text-[var(--accent-link)]'
+              }`}>{p.badge}</span>
+              <span className="text-[9px] text-[var(--text-faint)]">{timeAgo(p.created_at)}</span>
+            </div>
+            <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--text-primary)]">{p.title}</p>
+            <p className="m-0 mt-0.5 truncate text-[10.5px] text-[var(--text-muted)]">{p.meta}</p>
+          </Link>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/* ────────────────────────────── Pramogos cards ────────────────────────────── */
+
+function PramogosDienosDainaCard() {
+  return (
+    <div className="flex h-full flex-col">
+      <div className="mb-2 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.08em] text-[var(--text-faint)]">Dienos daina</div>
+      <div className="flex-1"><DienosDainaWidget /></div>
+    </div>
+  )
+}
+
+function PramogosBoomboxIntroCard() {
+  const [data, setData] = useState<{ image: any; loading: boolean }>({ image: null, loading: true })
+  useEffect(() => {
+    fetch('/api/boombox/today').then(r => r.json()).then(d => setData({ image: d.image || null, loading: false })).catch(() => setData({ image: null, loading: false }))
+  }, [])
+  return (
+    <div className="flex h-full flex-col">
+      <div className="mb-2 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.08em] text-[var(--text-faint)]">Boombox</div>
+      <Link href="/boombox" className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--accent-orange)]/25 bg-gradient-to-br from-[var(--accent-orange)]/10 to-[var(--accent-blue)]/[0.06] no-underline">
+        <div className="relative aspect-video overflow-hidden border-b border-[var(--border-subtle)] bg-[var(--cover-placeholder)]">
+          {data.loading ? (
+            <div className="absolute inset-0 hp-skel" />
+          ) : data.image?.image_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={proxyImg(data.image.image_url)} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-3xl">🎵</div>
+          )}
+          <div className="absolute left-3 top-3 rounded-md bg-black/72 px-2 py-1 backdrop-blur-sm">
+            <span className="font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.08em] text-white">Atspėk iš vaizdo</span>
+          </div>
+        </div>
+        <div className="flex flex-1 flex-col gap-2 p-4">
+          <p className="m-0 font-['Outfit',sans-serif] text-[15px] font-extrabold leading-tight text-[var(--text-primary)]">{data.image?.title || 'Kuri tai daina?'}</p>
+          <p className="m-0 text-[11.5px] text-[var(--text-muted)]">3 misijos · ~2 min · drop'ai. Pradėk nuo paveikslėlio užuominos.</p>
+          <span className="mt-auto inline-flex w-fit rounded-md bg-[var(--accent-orange)] px-3 py-1.5 font-['Outfit',sans-serif] text-[11px] font-extrabold text-white">Pradėti →</span>
+        </div>
+      </Link>
+    </div>
+  )
+}
+
+function PramogosManagerPlaceholderCard() {
+  return (
+    <div className="flex h-full flex-col">
+      <div className="mb-2 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.08em] text-[var(--text-faint)]">Music Manager</div>
+      <div className="flex h-full flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-[var(--border-default)] bg-[var(--bg-surface)] p-6 text-center">
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--accent-blue)]/15 text-2xl">🎚️</div>
+        <p className="m-0 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">Music Manager</p>
+        <p className="m-0 text-[11.5px] leading-relaxed text-[var(--text-muted)]">Žaidimas, kuriame valdai savo grupę, planuoji turus, pasirenki pasirodymus. Greitai.</p>
+        <span className="mt-1 rounded-md bg-[var(--accent-yellow)]/15 px-2 py-0.5 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.08em] text-[var(--accent-yellow)]">Greitai</span>
+      </div>
+    </div>
+  )
+}
+
+/* ────────────────────────────── Istorija sekcija ────────────────────────────── */
+
+function IstorijaSection() {
+  // Placeholder data — kol nėra DB join'o, rodom tipinius items.
+  // TODO: /api/istorija endpoint'as su real anniversaries iš album.year + artist.born/died.
+  type IstItem = { id: string; type: 'jubiliejus'|'gimtadienis'|'mirtis'; title: string; subtitle: string; date: string; href: string; emoji: string }
+  const items: IstItem[] = [
+    { id: 'placeholder-1', type: 'jubiliejus', title: 'Albumų jubiliejai', subtitle: 'Kasdien primename albumų sukaktis', date: 'Kas dieną', href: '/istorija/jubiliejai', emoji: '💿' },
+    { id: 'placeholder-2', type: 'gimtadienis', title: 'Atlikėjų gimtadieniai', subtitle: 'Kas šiandien gimęs?', date: 'Šiandien', href: '/istorija/gimtadieniai', emoji: '🎂' },
+    { id: 'placeholder-3', type: 'mirtis', title: 'Sukaktys', subtitle: 'Atminčiai — netekties datos', date: 'Atminimas', href: '/istorija/mirtys', emoji: '🕯️' },
+  ]
+  return (
+    <div className="hp-scroll flex items-stretch gap-3 pb-1">
+      {items.map(it => (
+        <Link
+          key={it.id}
+          href={it.href}
+          className="hp-card group flex shrink-0 flex-col overflow-hidden p-4 no-underline"
+          style={{ width: 280, minHeight: 130 }}
+        >
+          <div className="mb-2 flex items-center gap-2">
+            <span className="text-2xl">{it.emoji}</span>
+            <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.08em] text-[var(--accent-orange)]">{it.date}</span>
+          </div>
+          <p className="m-0 font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{it.title}</p>
+          <p className="m-0 mt-1.5 text-[11.5px] leading-relaxed text-[var(--text-muted)]">{it.subtitle}</p>
+        </Link>
+      ))}
+    </div>
+  )
+}
+
+/* ────────────────────────────── Hero v2 Card ──────────────────────────────
+   Vienoda kortelė rendinama hero karuselėje. Trys tipai:
+   - 'chart_lt' / 'chart_world' — koliažas su top atlikėjais ir top 3 dainomis
+   - default (news/event/promo) — bg image + chip + title + subtitle */
+
+function HeroV2Card({ slide, dk }: { slide: HeroSlide; dk: boolean }) {
+  if (slide.type === 'chart_lt' || slide.type === 'chart_world') {
+    return <HeroChartCard slide={slide} />
+  }
+  // Regular slide (news/event/promo)
+  return (
+    <Link
+      href={slide.href}
+      className="group relative block aspect-[16/9] overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] no-underline shadow-[0_8px_32px_rgba(0,0,0,0.25)] transition-all hover:-translate-y-0.5 hover:shadow-[0_14px_42px_rgba(0,0,0,0.35)]"
+    >
+      {/* BG image — height-driven, hugs right side for portrait covers */}
+      <div className="absolute inset-0 flex items-stretch justify-end overflow-hidden">
+        {slide.bgImg ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={proxyImg(slide.bgImg)}
+            alt=""
+            loading="lazy"
+            className="h-full w-auto max-w-full object-cover"
+            style={{
+              objectPosition: 'center 25%',
+              WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 18%, black 100%)',
+              maskImage: 'linear-gradient(to right, transparent 0%, black 18%, black 100%)',
+            }}
+          />
+        ) : (
+          <div className="h-full w-full" style={{ background: 'var(--homepage-hero-gradient)' }} />
+        )}
+      </div>
+      {/* Bottom gradient for text readability */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
+      {/* Content */}
+      <div className="absolute inset-0 flex flex-col justify-end p-5">
+        <span
+          className="mb-2 inline-flex w-fit rounded-full px-3 py-1 font-['Outfit',sans-serif] text-[10px] font-black uppercase tracking-[0.08em] text-white"
+          style={{ background: slide.chipBg }}
+        >
+          {slide.chip}
+        </span>
+        <h3 className="m-0 line-clamp-2 max-w-[420px] font-['Outfit',sans-serif] text-[28px] font-black leading-[1.08] tracking-tight text-white transition-opacity group-hover:opacity-90">
+          {slide.title}
+        </h3>
+        {slide.subtitle && (
+          <p className="m-0 mt-2 line-clamp-2 max-w-[420px] text-[13px] leading-relaxed text-white/85">
+            {slide.subtitle}
+          </p>
+        )}
+      </div>
+    </Link>
+  )
+}
+
+function HeroChartCard({ slide }: { slide: HeroSlide }) {
+  const isLT = slide.type === 'chart_lt'
+  const tops = slide.chartTops || []
+  const accent = isLT ? '#f97316' : '#3b82f6'
+  const accentSoft = isLT ? 'rgba(249,115,22,0.22)' : 'rgba(59,130,246,0.22)'
+  const cover = (t: TopEntry | undefined) => t ? (t.cover_url || t.artist_image) : null
+
+  // Value tekstas — paminime KAS yra naujas pretendentas (vardais). Jei naujų
+  // nėra, eyebrow + sąrašas išvis nerodomas (kortelė lieka švari su mosaic'u).
+  const dedupArtists = (entries: TopEntry[]) => {
+    const seen = new Set<string>()
+    const out: string[] = []
+    for (const t of entries) {
+      const a = (t.artist || '').trim()
+      if (!a || seen.has(a)) continue
+      seen.add(a); out.push(a)
+    }
+    return out
+  }
+  const newArtists = dedupArtists(tops.filter(t => t.trend === 'new'))
+  const valueLead = newArtists.length > 0 ? 'Tarp naujų pretendentų:' : ''
+  const valueNames = newArtists.slice(0, 4)
+
+  // Tile renders a single mosaic cover with title overlay + position number.
+  const Tile = ({ entry, size }: { entry: TopEntry | undefined; size: 'big' | 'md' | 'sm' }) => {
+    const c = cover(entry)
+    const titleSize = size === 'big' ? 14.5 : size === 'md' ? 12.5 : 11
+    const artistSize = size === 'big' ? 12 : size === 'md' ? 10.5 : 10
+    const padding = size === 'big' ? '10px 11px 10px' : '7px 8px 7px'
+    const numSize = size === 'big' ? 30 : size === 'md' ? 24 : 22
+    const numFont = size === 'big' ? 13.5 : 11.5
+    if (!entry || !c) {
+      return <div className="rounded-lg" style={{ background: 'rgba(255,255,255,0.05)', height: '100%', width: '100%' }} />
+    }
+    return (
+      <div className="relative h-full w-full overflow-hidden rounded-lg" style={{ boxShadow: size === 'big' ? '0 6px 22px rgba(0,0,0,0.5)' : '0 4px 14px rgba(0,0,0,0.4)' }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={proxyImg(c)}
+          alt=""
+          loading="lazy"
+          className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
+        />
+        <div className="pointer-events-none absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.12) 60%, rgba(0,0,0,0) 80%)' }} />
+        <span
+          className="absolute left-2 top-2 inline-flex items-center justify-center rounded-md font-['Outfit',sans-serif] font-black text-white"
+          style={{
+            background: entry.pos === 1 ? accent : 'rgba(0,0,0,0.78)',
+            height: numSize, minWidth: numSize, fontSize: numFont,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
+            backdropFilter: 'blur(2px)',
+          }}
+        >{entry.pos}</span>
+        <div className="absolute bottom-0 left-0 right-0" style={{ padding }}>
+          <p
+            className="m-0 truncate font-['Outfit',sans-serif] font-black text-white"
+            style={{ fontSize: titleSize, lineHeight: 1.15, letterSpacing: '-0.01em', textShadow: '0 2px 6px rgba(0,0,0,0.85)' }}
+          >{entry.title}</p>
+          <p
+            className="m-0 truncate text-white/85"
+            style={{ fontSize: artistSize, lineHeight: 1.2, marginTop: 1, textShadow: '0 1px 4px rgba(0,0,0,0.85)' }}
+          >{entry.artist}</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <Link
+      href={slide.href}
+      className="group relative block aspect-[16/9] overflow-hidden rounded-2xl border border-[var(--border-default)] no-underline shadow-[0_8px_32px_rgba(0,0,0,0.25)] transition-all hover:-translate-y-0.5 hover:shadow-[0_14px_42px_rgba(0,0,0,0.4)]"
+      style={{
+        background: isLT
+          ? `radial-gradient(ellipse at top left, ${accentSoft}, rgba(10,14,26,0.98) 60%), linear-gradient(135deg, #1a1426 0%, #0a0e1a 100%)`
+          : `radial-gradient(ellipse at top left, ${accentSoft}, rgba(8,13,20,0.98) 60%), linear-gradient(135deg, #14182a 0%, #080d14 100%)`,
+      }}
+    >
+      {/* ── LEFT side: chip + value stat + CTA (38% width) ── */}
+      <div
+        className="relative z-[1] flex h-full flex-col justify-between p-6"
+        style={{ width: '38%' }}
+      >
+        {/* Top: TOP chip — vienintelis chart name'o atvaizdavimas */}
+        <span
+          className="inline-flex w-fit items-center gap-1.5 rounded-full px-3.5 py-1.5 font-['Outfit',sans-serif] text-[11px] font-black uppercase tracking-[0.08em] text-white"
+          style={{ background: accent, boxShadow: `0 2px 14px ${accentSoft}`, alignSelf: 'flex-start' }}
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17h2v-7H3v7zm4 0h2V7H7v10zm4 0h2v-4h-2v4zm4 0h2v-9h-2v9zm4-13v13h2V4h-2z"/></svg>
+          {isLT ? 'LT TOP 30' : 'TOP 40'}
+        </span>
+
+        {/* Middle: bulleted list — kiekvienas atlikėjas savo eilutėje su
+            truncation'u, kad ilgi pavadinimai nelįstų ant dešinės mosaic'o.
+            Renderiamas TIK kai yra naujų pretendentų — kitaip kortelė lieka
+            švari su mosaic'u dešinėje + chip + Balsuok kairėje. */}
+        {valueNames.length > 0 && (
+          <div className="flex flex-col gap-1.5" style={{ minWidth: 0 }}>
+            <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/55">
+              {valueLead}
+            </p>
+            <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {valueNames.slice(0, 4).map((n, i) => (
+                <li
+                  key={i}
+                  style={{
+                    fontFamily: 'Outfit,sans-serif',
+                    fontSize: 14.5, fontWeight: 600, color: 'rgba(255,255,255,0.78)',
+                    lineHeight: 1.3, letterSpacing: '-0.005em',
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    minWidth: 0,
+                  }}
+                >
+                  <span style={{
+                    flexShrink: 0, width: 4, height: 4, borderRadius: '50%',
+                    background: accent, opacity: 0.7,
+                  }} />
+                  <span style={{
+                    minWidth: 0, flex: 1,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}>{n}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Bottom: Vote CTA — match tcv-btn-primary scale (13px font, 10×22 pad) */}
+        <span
+          className="inline-flex w-fit items-center gap-1.5 rounded-[10px] font-['Outfit',sans-serif] text-white no-underline transition-all"
+          style={{
+            background: accent,
+            padding: '10px 20px',
+            fontSize: 13, fontWeight: 700, letterSpacing: '0.02em',
+            boxShadow: `0 4px 14px ${accentSoft}`,
+          }}
+        >
+          Balsuok
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </span>
+      </div>
+
+      {/* ── RIGHT side: magazine mosaic (58% width) ── */}
+      {tops.length > 0 && (
+        <div
+          className="absolute right-4 top-4 bottom-4"
+          style={{
+            width: '58%',
+            display: 'grid',
+            gridTemplateColumns: '3fr 2fr',
+            gridTemplateRows: '3fr 2fr',
+            gap: 7,
+          }}
+        >
+          <div style={{ gridColumn: 1, gridRow: 1 }}><Tile entry={tops[0]} size="big" /></div>
+          <div style={{ gridColumn: 2, gridRow: 1 }}><Tile entry={tops[1]} size="md" /></div>
+          <div
+            style={{
+              gridColumn: '1 / -1', gridRow: 2,
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr 1fr',
+              gap: 7,
+            }}
+          >
+            <Tile entry={tops[2]} size="sm" />
+            <Tile entry={tops[3]} size="sm" />
+            <Tile entry={tops[4]} size="sm" />
+          </div>
+        </div>
+      )}
+    </Link>
+  )
+}
+
+/* ────────────────────────────── Chart bottom sheet ──────────────────────────────
+   Mobile-first full-screen sheet, slides up from bottom. Lazy-loads full top
+   (30/40 entries) + balsavimo statusą. Inline vote per /api/top/vote — same
+   API kaip /top30 ir /top40 puslapiuose, todėl balsų limitai sutampa. */
+
+type ChartSheetEntry = {
+  position: number
+  track_id: number
+  title: string
+  artist: string
+  cover_url: string | null
+  artist_image: string | null
+  is_new?: boolean
+  weeks_in_top?: number
+  prev_position?: number | null
+}
+
+function ChartBottomSheet({
+  open, onClose, topType, title, accent,
+}: {
+  open: boolean
+  onClose: () => void
+  topType: 'lt_top30' | 'top40'
+  title: string
+  accent: string
+}) {
+  const [entries, setEntries] = useState<ChartSheetEntry[]>([])
+  const [weekId, setWeekId] = useState<number | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [votedIds, setVotedIds] = useState<number[]>([])
+  const [votesRemaining, setVotesRemaining] = useState<number>(5)
+  const [voteErr, setVoteErr] = useState<string | null>(null)
+  const [pendingId, setPendingId] = useState<number | null>(null)
+
+  // Load entries + vote status when opened. Reset state when closed so a fresh
+  // open re-fetches (rotating-week scenarios + chart switches).
+  useEffect(() => {
+    if (!open) return
+    let cancel = false
+    setLoading(true)
+    setVoteErr(null)
+    fetch(`/api/top/entries?type=${topType}`)
+      .then(r => r.json())
+      .then(d => {
+        if (cancel) return
+        const wId = d.week?.id ?? null
+        setWeekId(wId)
+        const list: ChartSheetEntry[] = (d.entries || []).map((e: any, i: number) => ({
+          position: e.position ?? (i + 1),
+          track_id: e.track_id,
+          title: sanitizeTitle(e.tracks?.title || ''),
+          artist: e.tracks?.artists?.name || '',
+          cover_url: e.tracks?.cover_url || null,
+          artist_image: e.tracks?.artists?.cover_image_url || null,
+          is_new: e.is_new,
+          weeks_in_top: e.weeks_in_top,
+          prev_position: e.prev_position,
+        }))
+        setEntries(list)
+        if (wId) {
+          fetch(`/api/top/vote?week_id=${wId}`).then(r => r.json()).then(v => {
+            if (cancel) return
+            setVotedIds(v.voted_track_ids || [])
+            setVotesRemaining(v.votes_remaining ?? 5)
+          }).catch(() => {})
+        }
+      })
+      .catch(() => { if (!cancel) setEntries([]) })
+      .finally(() => { if (!cancel) setLoading(false) })
+    return () => { cancel = true }
+  }, [open, topType])
+
+  // Lock body scroll while sheet is open. Restore previous overflow on unmount.
+  useEffect(() => {
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [open])
+
+  const handleVote = async (trackId: number) => {
+    if (!weekId || votedIds.includes(trackId) || pendingId === trackId) return
+    if (votesRemaining <= 0) {
+      setVoteErr('Pasiekei savaitės balsų limitą')
+      setTimeout(() => setVoteErr(null), 2500)
+      return
+    }
+    setPendingId(trackId)
+    try {
+      const res = await fetch('/api/top/vote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ track_id: trackId, week_id: weekId, vote_type: 'like' }),
+      })
+      const d = await res.json()
+      if (res.ok) {
+        setVotedIds(p => [...p, trackId])
+        setVotesRemaining(p => Math.max(0, p - 1))
+      } else {
+        setVoteErr(d.error || 'Klaida')
+        setTimeout(() => setVoteErr(null), 2500)
+      }
+    } catch {
+      setVoteErr('Tinklo klaida')
+      setTimeout(() => setVoteErr(null), 2500)
+    } finally {
+      setPendingId(null)
+    }
+  }
+
+  if (!open) return null
+  if (typeof document === 'undefined') return null
+
+  // Portal į body — escape'ina bet kokį parent transform/filter/overflow,
+  // kuris galėtų sulaužyti `position: fixed` (iOS Safari ypač jautrus).
+  return createPortal((
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${title} balsavimas`}
+      style={{
+        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1200,
+        display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+        background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)',
+        animation: 'cbs-fade 0.18s ease-out',
+      }}
+      onClick={onClose}
+    >
+      <style>{`
+        @keyframes cbs-fade { from { opacity: 0 } to { opacity: 1 } }
+        @keyframes cbs-slide { from { transform: translateY(100%) } to { transform: translateY(0) } }
+        @keyframes cbs-spin { to { transform: rotate(360deg) } }
+        .cbs-vote-btn { transition: all 0.15s; }
+        .cbs-vote-btn:active:not(:disabled) { transform: scale(0.94); }
+      `}</style>
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: '100%', maxWidth: 560, maxHeight: '90vh',
+          background: 'linear-gradient(180deg, #0f1320 0%, #060912 100%)',
+          borderTopLeftRadius: 22, borderTopRightRadius: 22,
+          borderTop: `2px solid ${accent}`,
+          boxShadow: '0 -24px 80px rgba(0,0,0,0.6)',
+          display: 'flex', flexDirection: 'column',
+          animation: 'cbs-slide 0.28s cubic-bezier(0.32,0.72,0.28,1)',
+          animationFillMode: 'forwards',
+        }}
+      >
+        {/* Drag handle */}
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 6px' }}>
+          <div style={{ width: 44, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.22)' }} />
+        </div>
+
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 18px 12px', gap: 10 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+            <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: accent, fontFamily: 'Outfit,sans-serif' }}>
+              Balsuoti · šios savaitės topas
+            </span>
+            <h2 style={{ margin: '2px 0 0', fontSize: 22, fontWeight: 900, color: '#fff', fontFamily: 'Outfit,sans-serif', letterSpacing: '-0.02em', lineHeight: 1.05 }}>
+              {title}
+            </h2>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Uždaryti"
+            style={{
+              flexShrink: 0, width: 38, height: 38, borderRadius: '50%',
+              border: '1px solid rgba(255,255,255,0.12)',
+              background: 'rgba(255,255,255,0.06)',
+              color: '#fff', cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
+
+        {/* Vote status bar */}
+        <div style={{
+          margin: '0 18px 8px', padding: '9px 12px', borderRadius: 10,
+          background: 'rgba(255,255,255,0.04)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+        }}>
+          <span style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>
+            Balsų liko: <span style={{ color: accent, fontWeight: 900 }}>{votesRemaining}</span>
+          </span>
+          <Link
+            href={topType === 'lt_top30' ? '/top30' : '/top40'}
+            style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.65)', textDecoration: 'none', fontWeight: 700 }}
+          >
+            Visas puslapis →
+          </Link>
+        </div>
+
+        {voteErr && (
+          <div style={{ margin: '0 18px 8px', padding: '8px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.18)', border: '1px solid rgba(239,68,68,0.4)', color: '#fecaca', fontSize: 12, fontWeight: 600 }}>
+            {voteErr}
+          </div>
+        )}
+
+        {/* Entries list */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '4px 12px 18px', WebkitOverflowScrolling: 'touch' }}>
+          {loading && entries.length === 0 && (
+            <div style={{ padding: '40px 0', display: 'flex', justifyContent: 'center' }}>
+              <div style={{ width: 28, height: 28, border: `2.5px solid ${accent}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'cbs-spin 0.7s linear infinite' }} />
+            </div>
+          )}
+          {entries.map(e => {
+            const c = e.cover_url || e.artist_image
+            const voted = votedIds.includes(e.track_id)
+            const pending = pendingId === e.track_id
+            const trend =
+              e.is_new ? 'new'
+              : e.prev_position == null ? 'same'
+              : e.position < e.prev_position ? 'up'
+              : e.position > e.prev_position ? 'down'
+              : 'same'
+            return (
+              <div
+                key={e.track_id || e.position}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '8px 6px', borderRadius: 10,
+                  borderBottom: '1px solid rgba(255,255,255,0.05)',
+                }}
+              >
+                {/* Position */}
+                <div style={{ width: 28, textAlign: 'center', flexShrink: 0 }}>
+                  <div style={{
+                    fontSize: 16, fontWeight: 900, color: e.position <= 3 ? accent : 'rgba(255,255,255,0.9)',
+                    fontFamily: 'Outfit,sans-serif', lineHeight: 1,
+                  }}>{e.position}</div>
+                  {trend !== 'same' && (
+                    <div style={{ fontSize: 8.5, fontWeight: 700, color: trend === 'up' ? '#22c55e' : trend === 'down' ? '#ef4444' : accent, marginTop: 2, lineHeight: 1 }}>
+                      {trend === 'up' ? '▲' : trend === 'down' ? '▼' : 'NEW'}
+                    </div>
+                  )}
+                </div>
+                {/* Cover */}
+                <div style={{ width: 44, height: 44, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: 'rgba(255,255,255,0.05)' }}>
+                  {c && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={proxyImg(c)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  )}
+                </div>
+                {/* Title + artist */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: 13.5, fontWeight: 800, color: '#fff', fontFamily: 'Outfit,sans-serif', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.005em' }}>{e.title}</p>
+                  <p style={{ margin: '1px 0 0', fontSize: 11.5, color: 'rgba(255,255,255,0.6)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.artist}</p>
+                </div>
+                {/* Vote button */}
+                <button
+                  className="cbs-vote-btn"
+                  onClick={() => handleVote(e.track_id)}
+                  disabled={voted || pending || votesRemaining <= 0}
+                  aria-label={voted ? 'Jau balsavai' : 'Balsuoti'}
+                  style={{
+                    flexShrink: 0,
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    padding: '7px 11px', borderRadius: 999,
+                    border: voted ? `1.5px solid ${accent}` : '1.5px solid rgba(255,255,255,0.18)',
+                    background: voted ? `${accent}` : 'rgba(255,255,255,0.04)',
+                    color: voted ? '#fff' : 'rgba(255,255,255,0.85)',
+                    fontFamily: 'Outfit,sans-serif', fontSize: 11.5, fontWeight: 800,
+                    cursor: (voted || pending || votesRemaining <= 0) ? 'default' : 'pointer',
+                    opacity: !voted && votesRemaining <= 0 ? 0.4 : 1,
+                  }}
+                >
+                  {pending ? (
+                    <span style={{ width: 12, height: 12, border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'cbs-spin 0.7s linear infinite' }} />
+                  ) : voted ? (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M5 12l5 5L20 7"/>
+                    </svg>
+                  ) : null}
+                  <span>{voted ? 'Balsavai' : 'Balsuok'}</span>
+                </button>
+              </div>
+            )
+          })}
+          {!loading && entries.length === 0 && (
+            <p style={{ padding: 32, textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>Topas dar tuščias.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  ), document.body)
+}
+
+/* ────────────────────────────── Mobile chart slide ──────────────────────────────
+   Asimetrinis mosaic + swipe-down gestural. Tap atidaro sheet'ą; swipe-down
+   tą patį, su pull animacija. Kortelė neslinkamos juostos child'as — todėl
+   horizontal swipe NETURI būti perimtas (ignore'uojam, jei dx > dy). */
+
+function MobileChartSlide({
+  slide, onOpen,
+}: {
+  slide: HeroSlide
+  onOpen: () => void
+}) {
+  const tops = slide.chartTops || []
+  const accent = slide.type === 'chart_lt' ? '#f97316' : '#3b82f6'
+  const accentShadow = slide.type === 'chart_lt' ? 'rgba(249,115,22,0.45)' : 'rgba(59,130,246,0.45)'
+  const cover = (t: TopEntry | undefined) => t ? (t.cover_url || t.artist_image) : null
+
+  // Plain onClick — kaip news/event preview kortelės. Joks touch handler
+  // nereikalingas: paprastas tap'as atidaro reels (kuris pats turi swipe-down
+  // logiką balsavimo sheet'ui).
+  const handleClick = () => onOpen()
+
+  // Top 3 only (ne 4) — #1 didžiausias top half, #2 + #3 50/50 apačioje.
+  const t1 = tops[0]
+  const t2 = tops[1]
+  const t3 = tops[2]
+
+  // Render single tile — #1 (big) gauna title + artist, #2/#3 tik artist'o
+  // vardą (paprastesnis preview, kad nesusikrautų teksto kiekiu).
+  const renderTile = (t: TopEntry | undefined, big: boolean) => {
+    const c = cover(t)
+    if (!t || !c) return <div style={{ width: '100%', height: '100%', background: 'rgba(255,255,255,0.05)', borderRadius: 8 }} />
+    const numSize = big ? 13 : 10.5
+    const numPad = big ? '3px 8px' : '2px 6px'
+    return (
+      <>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={proxyImg(c)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.25) 45%, transparent 70%)' }} />
+        <span style={{
+          position: 'absolute', top: 5, left: 5, padding: numPad, borderRadius: 6,
+          background: t.pos === 1 ? accent : 'rgba(0,0,0,0.82)',
+          color: '#fff', fontSize: numSize, fontWeight: 900,
+          fontFamily: 'Outfit,sans-serif', lineHeight: 1,
+          boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
+        }}>{t.pos}</span>
+        {big ? (
+          // #1 — title + artist (du eilutes)
+          <div style={{ position: 'absolute', left: 8, right: 8, bottom: 6 }}>
+            <p style={{
+              margin: 0, fontSize: 12.5, fontWeight: 900, color: '#fff',
+              fontFamily: 'Outfit,sans-serif',
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              letterSpacing: '-0.01em', textShadow: '0 1px 4px rgba(0,0,0,0.95)',
+              lineHeight: 1.15,
+            }}>{t.title}</p>
+            <p style={{
+              margin: '1px 0 0', fontSize: 10.5, fontWeight: 600, color: 'rgba(255,255,255,0.85)',
+              fontFamily: 'Outfit,sans-serif',
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              textShadow: '0 1px 3px rgba(0,0,0,0.9)',
+              lineHeight: 1.2,
+            }}>{t.artist}</p>
+          </div>
+        ) : (
+          // #2/#3 — tik artist'o vardas
+          <p style={{
+            position: 'absolute', left: 5, right: 5, bottom: 4,
+            margin: 0, fontSize: 10.5, fontWeight: 800, color: '#fff',
+            fontFamily: 'Outfit,sans-serif',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            letterSpacing: '-0.005em', textShadow: '0 1px 4px rgba(0,0,0,0.95)',
+            lineHeight: 1.15,
+          }}>{t.artist}</p>
+        )}
+      </>
+    )
+  }
+
+  return (
+    <button
+      onClick={handleClick}
+      style={{
+        flexShrink: 0, position: 'relative', borderRadius: 16, overflow: 'hidden',
+        border: `2px solid ${accent}`,
+        background: '#000', cursor: 'pointer', padding: 0, width: 188, height: 290,
+        scrollSnapAlign: 'start',
+        transition: 'border-color 0.15s, transform 0.15s',
+        boxShadow: '0 8px 22px rgba(0,0,0,0.45)',
+        textAlign: 'left',
+        WebkitTapHighlightColor: 'transparent',
+        touchAction: 'manipulation',
+        display: 'flex', flexDirection: 'column',
+      }}
+    >
+      {/* BG gradient base — absolutus, neblokuoja flex layout'o */}
+      <div style={{
+        position: 'absolute', inset: 0, pointerEvents: 'none',
+        background: slide.type === 'chart_lt'
+          ? `linear-gradient(180deg, rgba(249,115,22,0.32) 0%, #0a0e1a 30%, #050810 100%)`
+          : `linear-gradient(180deg, rgba(59,130,246,0.32) 0%, #0a0e1a 30%, #050810 100%)`,
+      }} />
+
+      {/* CHIP — virš kortelės */}
+      <div style={{ position: 'relative', zIndex: 2, padding: '10px 12px 8px', display: 'flex', justifyContent: 'flex-start' }}>
+        <span style={{ padding: '4px 10px', borderRadius: 999, fontSize: 10, fontWeight: 900, color: '#fff', background: accent, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase', boxShadow: '0 2px 10px rgba(0,0,0,0.4)' }}>
+          {slide.chip}
+        </span>
+      </div>
+
+      {/* MOSAIC — flex'as imantis likusios erdvės. #1 70% aukščio, #2+#3 30%. */}
+      <div style={{
+        position: 'relative', zIndex: 2, flex: 1,
+        padding: '0 12px',
+        display: 'flex', flexDirection: 'column', gap: 6, minHeight: 0,
+      }}>
+        <div style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', boxShadow: '0 5px 18px rgba(0,0,0,0.5)', flex: '1.55 1 0', minHeight: 0 }}>
+          {renderTile(t1, true)}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, flex: '1 1 0', minHeight: 0 }}>
+          <div style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', boxShadow: '0 3px 12px rgba(0,0,0,0.45)' }}>
+            {renderTile(t2, false)}
+          </div>
+          <div style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', boxShadow: '0 3px 12px rgba(0,0,0,0.45)' }}>
+            {renderTile(t3, false)}
+          </div>
+        </div>
+      </div>
+
+      {/* CTA "Balsuok" — flex item apačioje, fixed dydžio. Niekas po juo nelenda. */}
+      <div style={{ position: 'relative', zIndex: 2, padding: '8px 12px 10px' }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          padding: '9px 12px', borderRadius: 10,
+          background: accent, color: '#fff',
+          fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 900,
+          letterSpacing: '0.06em', textTransform: 'uppercase',
+          boxShadow: `0 4px 14px ${accentShadow}`,
+        }}>
+          Balsuok
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </div>
+      </div>
+    </button>
+  )
+}
+
+/* ────────────────────────────── HScroll wrapper ──────────────────────────────
+   Wrap horizontal scroll containers su mini ◄ ► buttons dešinėj pusėj —
+   desktop only. Click → scrollLeft/scrollRight by container width × 0.85. */
+
+function HScrollHints() {
+  // Component scoped — Naudojama hp-scroll containers per ref forwarding.
+  // Šiuo momentu generic — prisirišame per parent .hp-scroll-wrap class'ę.
+  return null
+}
+
 export default function Home() {
   const { dk } = useSite()
 
@@ -696,6 +1772,9 @@ export default function Home() {
   /* ── Reels state ── */
   const [reelsOpen, setReelsOpen] = useState(false)
   const [reelsIdx, setReelsIdx] = useState(0)
+
+  /* ── Chart bottom sheet state (mobile + naudojama bet kur) ── */
+  const [chartSheet, setChartSheet] = useState<{ topType: 'lt_top30' | 'top40'; title: string; accent: string } | null>(null)
 
   /* ── Hero state ── */
   const [ltTop, setLtTop] = useState<TopEntry[]>([])
@@ -706,18 +1785,90 @@ export default function Home() {
   const [events, setEvents] = useState<Event[]>([])
   const [news, setNews] = useState<NewsItem[]>([])
   const [pageReady, setPageReady] = useState(false)
+  // overlayVisible — kontroliuoja kada pageReady overlay pašalinamas iš DOM.
+  // pageReady true → CSS .overlay-fade-out 320ms fade → po 350ms unmount.
+  const [overlayVisible, setOverlayVisible] = useState(true)
+  // Per-section progress feedback'as buvo padarytas, bet po greitaveikos
+  // optimizacijų (Promise.all batch'inimas, CDN cache, batched news+songs)
+  // visi 7 fetch'ai paprastai baigiasi <300ms — naudotojas matydavo per-step
+  // dash'us tik 1-2 frame'us. Atgal grąžintas paprastas centrinis equalizer'is
+  // toks pat kaip MasterSearch'o BigEqualizer (.eq-loader-big globalsCSS).
+  useEffect(() => {
+    if (!pageReady) return
+    const t = setTimeout(() => setOverlayVisible(false), 350)
+    return () => clearTimeout(t)
+  }, [pageReady])
   const mountTime = useRef(Date.now())
   const readyBits = useRef({ hero: false, tops: false, tracks: false })
   const tryReady = useRef(() => {
     const { hero, tops, tracks } = readyBits.current
     if (hero && tops && tracks) {
-      const elapsed = Date.now() - mountTime.current
-      setTimeout(() => setPageReady(true), Math.max(0, 600 - elapsed))
+      // Anksčiau: setTimeout(..., Math.max(0, 600 - elapsed)) — 600ms
+      // artificial minimum delay (sukėlė "ilgokai kraunasi" jausmą net
+      // kai duomenys atvažiavo per 200ms). Dabar be delay'aus.
+      setPageReady(true)
     }
   })
   const filtEvt = events
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>([])
   const [heroIdx, setHeroIdx] = useState(0)
+
+  /* Horizontal scroll arrows — ant ne-touch įrenginių prie kiekvieno .hp-scroll
+     parent'o pridedam ◄ ► mygtukus. Mygtukai scrollina 85% conteinerio pločio
+     ir slepia/rodo save pagal scrollLeft poziciją. */
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) return
+    const cleanups: Array<() => void> = []
+    const attach = () => {
+      document.querySelectorAll<HTMLElement>('.hp-scroll').forEach(el => {
+        if (el.dataset.scrollAttached === '1') return
+        const parent = el.parentElement
+        if (!parent) return
+        el.dataset.scrollAttached = '1'
+        if (getComputedStyle(parent).position === 'static') parent.style.position = 'relative'
+        const btnL = document.createElement('button')
+        btnL.className = 'hp-scroll-arrow hp-scroll-arrow-l'
+        btnL.type = 'button'
+        btnL.setAttribute('aria-label', 'Slinkti į kairę')
+        btnL.textContent = '‹'
+        const btnR = document.createElement('button')
+        btnR.className = 'hp-scroll-arrow hp-scroll-arrow-r'
+        btnR.type = 'button'
+        btnR.setAttribute('aria-label', 'Slinkti į dešinę')
+        btnR.textContent = '›'
+        const update = () => {
+          const maxScroll = el.scrollWidth - el.clientWidth - 4
+          btnL.style.opacity = el.scrollLeft > 4 ? '1' : '0'
+          btnL.style.pointerEvents = el.scrollLeft > 4 ? 'auto' : 'none'
+          btnR.style.opacity = el.scrollLeft < maxScroll ? '1' : '0'
+          btnR.style.pointerEvents = el.scrollLeft < maxScroll ? 'auto' : 'none'
+        }
+        btnL.onclick = () => el.scrollBy({ left: -el.clientWidth * 0.85, behavior: 'smooth' })
+        btnR.onclick = () => el.scrollBy({ left: el.clientWidth * 0.85, behavior: 'smooth' })
+        el.addEventListener('scroll', update, { passive: true })
+        parent.appendChild(btnL)
+        parent.appendChild(btnR)
+        update()
+        cleanups.push(() => {
+          el.removeEventListener('scroll', update)
+          btnL.remove()
+          btnR.remove()
+          delete el.dataset.scrollAttached
+        })
+      })
+    }
+    // Initial attach + retry kelis kartus, nes content async render'inasi.
+    attach()
+    const t1 = setTimeout(attach, 400)
+    const t2 = setTimeout(attach, 1200)
+    const t3 = setTimeout(attach, 3000)
+    return () => {
+      clearTimeout(t1); clearTimeout(t2); clearTimeout(t3)
+      cleanups.forEach(fn => fn())
+    }
+  }, [])
+
   const [heroImgLoaded, setHeroImgLoaded] = useState(false)
   const [heroVideoPlaying, setHeroVideoPlaying] = useState(false)
   const [newsSongs, setNewsSongs] = useState<Record<number, { youtube_url: string; title: string | null; artist_name: string | null }[]>>({})
@@ -731,39 +1882,61 @@ export default function Home() {
   })
 
   useEffect(() => {
+    // 7 fetch'ai paraleliai. Kiekvienas baigęsis bumpina loadProgress (0..7)
+    // → naudotojas mato realų progresą dash bar'e (mažiau "ilgokai kraunasi"
+    // jausmas).
     fetch('/api/top/entries?type=lt_top30').then(r => r.json()).then(d => { setLtTop(parseTop(d.entries || [])); readyBits.current.tops = true; tryReady.current() }).catch(() => { readyBits.current.tops = true; tryReady.current() })
     fetch('/api/top/entries?type=top40').then(r => r.json()).then(d => setWorldTop(parseTop(d.entries || []))).catch(() => {})
     fetch('/api/tracks?limit=24').then(r => r.json()).then(d => { setTracks(d.tracks || []); readyBits.current.tracks = true; tryReady.current() }).catch(() => { readyBits.current.tracks = true; tryReady.current() })
-    fetch('/api/albums?limit=16').then(r => r.json()).then(d => setAlbums(d.albums || [])).catch(() => {})
+    fetch('/api/albums?limit=24').then(r => r.json()).then(d => setAlbums(d.albums || [])).catch(() => {})
     // Sort artists by score (descending) — kai duomenų bazėje 200+ atlikėjų,
     // Atrask sekcija turėtų rodyti aukščiausiai score'inamus, ne tik
     // alfabetiškai pirmus. Limit'as 24 — pakanka 8 grid'ui + buffer'is jei
     // kas filtruosis.
     fetch('/api/artists?limit=24&sort=score').then(r => r.json()).then(d => setArtists(d.artists || [])).catch(() => {})
-    fetch('/api/events?limit=10').then(r => r.json()).then(d => setEvents(d.events || [])).catch(() => {})
-    fetch('/api/news?limit=30').then(r => r.json()).then(d => setNews(d.news || [])).catch(() => {})
+    fetch('/api/events?limit=24').then(r => r.json()).then(d => setEvents(d.events || [])).catch(() => {})
+    // News + songs vienu request'u (anksčiau buvo /api/news + 30× /api/news/{id}/songs).
+    // ?include=songs grąžina { ..., songs: [...] } per news. Hero parsina
+    // pirmąją YT-bearing dainą iš to array'aus.
+    fetch('/api/news?limit=30&include=songs')
+      .then(r => r.json())
+      .then(d => {
+        const newsList = d.news || []
+        setNews(newsList)
+        const songsMap: Record<number, any[]> = {}
+        for (const n of newsList) {
+          if (Array.isArray(n.songs) && n.songs.length > 0) {
+            songsMap[n.id] = n.songs
+          }
+        }
+        setNewsSongs(songsMap)
+      })
+      .catch(() => {})
   }, [])
-
-  useEffect(() => {
-    if (!news.length) return
-    const heroNews = news.slice(0, 30)
-    Promise.all(
-      heroNews.map(n =>
-        fetch(`/api/news/${n.id}/songs`)
-          .then(r => r.json())
-          .then(songs => ({ id: n.id, songs: Array.isArray(songs) ? songs : [] }))
-          .catch(() => ({ id: n.id, songs: [] }))
-      )
-    ).then(results => {
-      const map: Record<number, any[]> = {}
-      results.forEach(r => { map[r.id] = r.songs })
-      setNewsSongs(map)
-    })
-  }, [news])
 
   /* ── Hero slides ── */
   useEffect(() => {
     const slides: HeroSlide[] = []
+    if (ltTop.length > 0) {
+      slides.push({
+        type: 'chart_lt', chip: 'LT TOP 30', chipBg: '#ea580c',
+        title: 'LT TOP 30',
+        subtitle: ltTop.slice(0, 3).map(t => `${t.pos}. ${t.title}`).join(' · '),
+        href: '/top30',
+        bgImg: ltTop[0]?.artist_image || ltTop[0]?.cover_url || null,
+        chartTops: ltTop.slice(0, 5),
+      } as any)
+    }
+    if (worldTop.length > 0) {
+      slides.push({
+        type: 'chart_world', chip: 'TOP 40', chipBg: '#1d4ed8',
+        title: 'TOP 40',
+        subtitle: worldTop.slice(0, 3).map(t => `${t.pos}. ${t.title}`).join(' · '),
+        href: '/top40',
+        bgImg: worldTop[0]?.artist_image || worldTop[0]?.cover_url || null,
+        chartTops: worldTop.slice(0, 5),
+      } as any)
+    }
     news.slice(0, 30).forEach(n => {
       const typeLT = n.type === 'review' ? 'Recenzija' : n.type === 'interview' ? 'Interviu' : n.type === 'report' ? 'Reportažas' : 'Naujiena'
       const songs = newsSongs[n.id] || []
@@ -782,16 +1955,26 @@ export default function Home() {
       })
     })
     events.slice(0, 3).forEach(ev => {
-      const d = ev.event_date ? new Date(ev.event_date) : null
-      const dateStr = d && !isNaN(d.getTime()) ? `${d.getDate()} ${MONTHS_LT[d.getMonth()]}. · ` : ''
-      const venue = ev.venues?.name || ev.venue_custom || ''
-      const city = ev.venues?.city || ''
+      const dateRaw = (ev as any).start_date || ev.event_date
+      const d = dateRaw ? new Date(dateRaw) : null
+      const dateStr = d && !isNaN(d.getTime()) ? `${d.getDate()} ${MONTHS_FULL_LT[d.getMonth()]} ${d.getFullYear()} m.` : ''
+      const venue = ev.venue_name || ev.venues?.name || ev.venue_custom || ''
+      const city = ev.city || ev.venues?.city || ''
+      const cityVenue = [city, venue].filter(Boolean).join(', ')
+      const artistList = (ev.event_artists || [])
+        .filter(ea => ea.artists?.name)
+        .map(ea => ea.artists!.name)
+      const artistText = artistList.length > 0
+        ? artistList.slice(0, 3).join(', ') + (artistList.length > 3 ? ` +${artistList.length - 3}` : '')
+        : sanitizeTitle(ev.title)  // fallback to title if no artists
+      const firstArtist = (ev.event_artists || []).find(ea => ea.artists?.cover_image_url)
       slides.push({
         type: 'event', chip: 'RENGINYS', chipBg: '#047857',
-        title: sanitizeTitle(ev.title),
-        subtitle: `${dateStr}${venue}${city ? ` · ${city}` : ''}`.replace(/· $/, ''),
-        bgImg: ev.image_small_url,
+        title: artistText,  // ARTISTS as primary text
+        subtitle: [dateStr, cityVenue].filter(Boolean).join(' · '),
+        bgImg: ev.image_small_url || ev.cover_image_url || null,
         href: `/renginiai/${ev.slug}`,
+        artist: firstArtist?.artists ? { name: firstArtist.artists.name, slug: firstArtist.artists.slug, image: firstArtist.artists.cover_image_url || null } : null,
       })
     })
     if (!slides.length) slides.push({
@@ -804,7 +1987,7 @@ export default function Home() {
     setHeroIdx(0)
     readyBits.current.hero = true
     tryReady.current()
-  }, [news, events, newsSongs])
+  }, [news, events, newsSongs, ltTop, worldTop])
 
   useEffect(() => {
     if (!heroSlides.length || heroVideoPlaying) return
@@ -857,8 +2040,16 @@ export default function Home() {
         @keyframes hp-img-in{from{opacity:0;transform:scale(1.04)}to{opacity:1;transform:scale(1)}}
         @keyframes hp-pulse{0%,100%{opacity:.05}50%{opacity:.08}}
         .hp-skel{background:var(--homepage-skeleton-bg);animation:hp-pulse 1.8s ease-in-out infinite}
-        .hp-scroll{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+        .hp-scroll{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-behavior:smooth}
+        .hp-hero-slot{width:580px;flex-shrink:0;min-width:0}
+        @media(min-width:1400px){.hp-hero-slot{width:calc((100% - 80px) / 2)}}
+        @media(max-width:768px){.hp-hero-slot{width:calc(88vw)}}
         .hp-scroll::-webkit-scrollbar{display:none}
+        .hp-scroll-arrow{position:absolute;top:50%;transform:translateY(-50%);width:28px;height:28px;border-radius:50%;background:rgba(13,19,32,0.85);border:1px solid var(--border-default);color:var(--text-secondary);font-family:'Outfit',sans-serif;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:5;transition:opacity .18s,background .15s,color .15s,transform .15s;backdrop-filter:blur(8px);box-shadow:0 2px 10px rgba(0,0,0,0.25);padding:0;line-height:1}
+        .hp-scroll-arrow:hover{background:var(--accent-orange);color:#fff;border-color:var(--accent-orange);transform:translateY(-50%) scale(1.08)}
+        .hp-scroll-arrow-l{left:-8px}
+        .hp-scroll-arrow-r{right:-8px}
+        @media (pointer: coarse){.hp-scroll-arrow{display:none}}
         .hp-pill{cursor:pointer;padding:5px 13px;border-radius:18px;font-size:11px;font-weight:700;border:1px solid var(--border-default);color:var(--text-muted);background:transparent;transition:all .15s;white-space:nowrap;font-family:'DM Sans',sans-serif}
         .hp-pill.hp-act{background:var(--homepage-pill-active);border-color:${dk ? 'rgba(29,78,216,.32)' : 'rgba(29,78,216,.2)'};color:var(--accent-blue)}
         .hp-pill:hover{color:${dk ? '#b8d0e8' : '#1a2a40'};border-color:var(--border-strong)}
@@ -868,6 +2059,8 @@ export default function Home() {
         .hp-card:hover{border-color:var(--border-strong);background:var(--card-hover)}
         .hp-art:hover .hp-art-img{transform:scale(1.06)}
         .hp-disc-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+        .hp-hero-v2{display:block}
+        @media(max-width:768px){.hp-hero-v2{display:none}}
         .hp-feed-strip{display:none}
         .hp-mobile-chart{display:none}
         @media(max-width:960px){.hp-feed-strip{display:flex}.hp-mobile-chart{display:block}}
@@ -888,10 +2081,12 @@ export default function Home() {
 
         /* ── Hero cinematic ── */
         .hp-hero{position:relative;overflow:hidden;min-height:420px;display:flex;background:var(--bg-body)}
-        .hp-hero-bg{position:absolute;top:0;bottom:0;left:35%;right:340px;z-index:0;overflow:hidden;-webkit-mask-image:linear-gradient(to bottom, black 65%, transparent 100%);mask-image:linear-gradient(to bottom, black 65%, transparent 100%)}
-        .hp-hero-bg img{width:100%;height:100%;object-fit:cover;object-position:center 25%;animation:hp-img-in .8s ease both;-webkit-mask-image:linear-gradient(to right, transparent 0%, black 10%, black 88%, transparent 100%);mask-image:linear-gradient(to right, transparent 0%, black 10%, black 88%, transparent 100%)}
+        .hp-hero-bg{position:absolute;top:0;bottom:0;left:35%;right:340px;z-index:0;overflow:hidden;display:flex;align-items:stretch;justify-content:flex-end;-webkit-mask-image:linear-gradient(to bottom, black 65%, transparent 100%);mask-image:linear-gradient(to bottom, black 65%, transparent 100%)}
+        .hp-hero-bg img{width:auto;height:100%;max-width:100%;object-fit:cover;object-position:center 25%;display:block;animation:hp-img-in .8s ease both;-webkit-mask-image:linear-gradient(to right, transparent 0%, black 12%, black 100%);mask-image:linear-gradient(to right, transparent 0%, black 12%, black 100%)}
         .hp-hero-grad{display:none}
         .hp-hero-content{position:relative;z-index:2;display:flex;align-items:stretch;max-width:1360px;margin:0 auto;padding:0 20px;width:100%;flex:1}
+        .hp-hero-content > .hp-hero-bg{position:absolute;top:0;bottom:0;left:35%;right:340px;z-index:0;overflow:hidden;display:flex;align-items:stretch;justify-content:flex-end}
+        .hp-hero-spacer{flex:1;min-height:120px}
         .hp-hero-left{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:36px 0 40px;min-width:0}
         .hp-hero-right{width:340px;flex-shrink:0;padding:20px 16px 20px 20px;display:flex;flex-direction:column;border-left:1px solid var(--border-default);background:var(--bg-body);position:relative;z-index:3}
 
@@ -939,224 +2134,51 @@ export default function Home() {
           .hp-ag{grid-template-columns:repeat(3,1fr)!important}
         }
       `}</style>
-      <div className="hp">
+      <div className="hp route-enter">
 
-        {/* ═══════════════════════ CINEMATIC HERO ═══════════════════════ */}
-        {!pageReady && (
-          <div style={{
-            position: 'fixed', inset: 0, zIndex: 9999,
-            background: dk ? '#080e1a' : '#f0f4fa',
-            display: 'flex', flexDirection: 'column',
-            alignItems: 'center', justifyContent: 'center',
-          }}>
-            <style>{`
-              @keyframes bar-bounce {
-                0%, 100% { transform: scaleY(0.2); }
-                50% { transform: scaleY(1); }
-              }
-            `}</style>
-            {/* Music visualizer bars */}
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 5, height: 48 }}>
-              {[0.3, 0.6, 1.0, 0.7, 0.45, 0.85, 0.55, 0.75, 0.4, 0.9, 0.65].map((delay, i) => (
-                <div key={i} style={{
-                  width: 5, borderRadius: 3,
-                  background: '#f97316',
-                  height: `${20 + i % 3 * 14 + (i % 5) * 6}px`,
-                  transformOrigin: 'bottom',
-                  animation: `bar-bounce ${0.7 + delay * 0.6}s ease-in-out infinite`,
-                  animationDelay: `${delay * 0.4}s`,
-                }} />
-              ))}
+        {/* ═══════════════════════ HOMEPAGE LOAD OVERLAY ═══════════════════════
+            Centruotas equalizer'is — toks pat stilius kaip MasterSearch'o
+            BigEqualizer (klasė `.eq-loader-big` iš globals.css, 5 bars,
+            6×44px, asymmetric ms-eqBar animacija). Po greitaveikos
+            optimizacijų užklausos baigiasi <300ms — todėl per-section
+            progress feedback'as buvo nereikalingas (matosi tik 1-2 frames).
+            Overlay stays in DOM 350ms po pageReady=true; CSS
+            .overlay-fade-out per 320ms fade'ina opacity iki 0. */}
+        {overlayVisible && (
+          <div
+            className={pageReady ? 'overlay-fade-out' : ''}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 9999,
+              background: dk ? '#080e1a' : '#f0f4fa',
+              display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center',
+              gap: 18,
+              pointerEvents: pageReady ? 'none' : 'auto',
+            }}
+          >
+            {/* music.lt brand mark */}
+            <div style={{ display: 'flex', alignItems: 'center', opacity: 0.7 }}>
+              <span style={{ fontFamily: 'Outfit,sans-serif', fontWeight: 900, fontSize: 22, color: dk ? '#fff' : '#0f1a2e', letterSpacing: '-0.01em' }}>music.</span>
+              <span style={{ fontFamily: 'Outfit,sans-serif', fontWeight: 900, fontSize: 22, color: '#f97316', letterSpacing: '-0.01em' }}>lt</span>
             </div>
-            {/* music.lt logo */}
-            <div style={{ marginTop: 20, display: 'flex', alignItems: 'center', opacity: 0.55 }}>
-              <span style={{ fontFamily: 'Outfit,sans-serif', fontWeight: 900, fontSize: 17, color: dk ? '#fff' : '#0f1a2e' }}>music.</span>
-              <span style={{ fontFamily: 'Outfit,sans-serif', fontWeight: 900, fontSize: 17, color: '#f97316' }}>lt</span>
-            </div>
+
+            {/* BigEqualizer — vienodas su search'o loader'iu */}
+            <span className="eq-loader-big" aria-label="Loading">
+              <span /><span /><span /><span /><span />
+            </span>
           </div>
         )}
-        {pageReady && hero && (
-          <section className="hp-hero" ref={heroRef}>
-            <div className="hp-hero-bg">
-              {hero.bgImg ? (
-                <img key={heroIdx} src={hero.bgImg} alt="" onLoad={() => setHeroImgLoaded(true)} style={{ opacity: heroImgLoaded ? 1 : 0 }} />
-              ) : (
-                <div style={{ width: '100%', height: '100%', background: 'var(--homepage-hero-gradient)', position: 'relative', overflow: 'hidden' }}>
-                  {/* Decorative music bars for slides without image */}
-                  <div style={{ position: 'absolute', right: '8%', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'flex-end', gap: 5, opacity: 0.08 }}>
-                    {[35, 70, 50, 90, 60, 85, 40, 70, 100, 45, 75].map((h, i) => (
-                      <div key={i} style={{ width: 7, borderRadius: 3, background: '#f97316', height: h, animation: `hp-bar ${0.8 + (i % 4) * 0.15}s ease-in-out infinite alternate`, animationDelay: `${i * 0.08}s` }} />
-                    ))}
+        {pageReady && heroSlides.length > 0 && (
+          <section className="hp-hero-v2" ref={heroRef}>
+            <div className="mx-auto max-w-[1360px] px-5 pt-5">
+              <div className="hp-scroll hp-hero-track flex items-stretch gap-4 pb-1 snap-x snap-mandatory">
+                {heroSlides.map((slide, i) => (
+                  <div key={i} className="hp-hero-slot shrink-0 snap-start">
+                    <HeroV2Card slide={slide} dk={dk} />
                   </div>
-                </div>
-              )}
-            </div>
-            <div className="hp-hero-grad" style={{ background: 'var(--homepage-hero-overlay)' }} />
-            <div className="hp-hero-content">
-              <div className="hp-hero-left">
-                <div key={heroIdx} style={{ animation: 'hp-in .5s ease both', display: 'flex', flexDirection: 'column', flex: 1 }}>
-                  <div className="hp-hero-spacer" />
-                  <div style={{ marginBottom: 12 }}>
-                    <span style={{ padding: '4px 14px', borderRadius: 20, fontSize: 10, fontWeight: 900, color: '#fff', background: hero.chipBg, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                      {hero.chip}
-                    </span>
-                  </div>
-                  <Link href={hero.href} className="hp-hero-title" style={{
-                    fontFamily: 'Outfit,sans-serif', fontSize: 42, fontWeight: 900,
-                    color: dk ? '#fff' : 'var(--text-primary)', lineHeight: 1.06, margin: '0 0 10px',
-                    letterSpacing: '-0.025em', maxWidth: 500, display: 'block',
-                    textShadow: dk ? '0 2px 20px rgba(0,0,0,0.4)' : 'none',
-                    textDecoration: 'none', transition: 'opacity .15s',
-                  }}
-                    onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
-                    onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
-                    {hero.title}
-                  </Link>
-                  {hero.subtitle && (
-                    <p className="hp-hero-excerpt" style={{
-                      fontSize: 14, color: dk ? 'rgba(210,225,245,0.65)' : 'var(--text-muted)',
-                      margin: '0 0 14px', lineHeight: 1.55, maxWidth: 480,
-                      display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                    }}>
-                      {hero.subtitle}
-                    </p>
-                  )}
-                  {/* FIX #3 (desktop): video card stays as is — looks good on desktop */}
-                  {hero.videoId && !heroVideoPlaying && (
-                    <button className="hp-hero-vidcard" onClick={() => setHeroVideoPlaying(true)} style={{
-                      display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px 8px 8px',
-                      background: dk ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
-                      backdropFilter: dk ? 'blur(12px)' : 'none',
-                      border: `1px solid ${dk ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}`,
-                      borderRadius: 12, cursor: 'pointer', overflow: 'hidden', transition: 'all .2s', width: 220,
-                    }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = dk ? 'rgba(255,255,255,.2)' : 'rgba(0,0,0,.15)'; e.currentTarget.style.background = dk ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor = dk ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.08)'; e.currentTarget.style.background = dk ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' }}>
-                      {/* Thumbnail — no play overlay */}
-                      <div style={{ width: 42, height: 42, flexShrink: 0, borderRadius: 8, overflow: 'hidden' }}>
-                        <img src={`https://img.youtube.com/vi/${hero.videoId}/mqdefault.jpg`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      </div>
-                      {/* Song info */}
-                      <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
-                        <p style={{ fontSize: 11, fontWeight: 700, color: dk ? '#fff' : 'var(--text-primary)', margin: '0 0 1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hero.songTitle || 'Klausyti'}</p>
-                        {hero.songArtist && <p style={{ fontSize: 10, color: dk ? 'rgba(255,255,255,0.45)' : 'var(--text-muted)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hero.songArtist}</p>}
-                      </div>
-                      {/* YouTube icon pill */}
-                      <div style={{
-                        flexShrink: 0, width: 28, height: 28, borderRadius: '50%',
-                        background: 'rgba(255,255,255,0.12)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      }}>
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg>
-                      </div>
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* YouTube lightbox — desktop hero */}
-              {hero.videoId && heroVideoPlaying && (
-                <div style={{
-                  position: 'absolute', inset: 0, zIndex: 10,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  padding: '50px 20px',
-                  background: dk ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.85)',
-                  backdropFilter: 'blur(8px)',
-                  animation: 'hp-in .2s ease both',
-                }} onClick={() => setHeroVideoPlaying(false)}>
-                  <div style={{
-                    width: '100%', maxWidth: 560, aspectRatio: '16/9',
-                    borderRadius: 14, overflow: 'hidden', background: '#000',
-                    boxShadow: dk ? '0 16px 64px rgba(0,0,0,0.9)' : '0 16px 64px rgba(0,0,0,0.2)',
-                    border: `1px solid ${dk ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
-                    position: 'relative',
-                  }} onClick={e => e.stopPropagation()}>
-                    <iframe src={`https://www.youtube.com/embed/${hero.videoId}?autoplay=1&rel=0`} style={{ width: '100%', height: '100%', border: 'none' }} allow="autoplay; encrypted-media" allowFullScreen />
-                    <button onClick={() => setHeroVideoPlaying(false)} style={{
-                      position: 'absolute', top: 8, right: 8, width: 30, height: 30, borderRadius: '50%',
-                      background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.2)',
-                      color: '#fff', fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>✕</button>
-                  </div>
-                </div>
-              )}
-
-              {/* Chart sidebar */}
-              <div className="hp-hero-right">
-                <div style={{ display: 'flex', marginBottom: 12 }}>
-                  <div style={{ display: 'flex', flex: 1, borderRadius: 10, padding: 3, background: dk ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.03)', gap: 3 }}>
-                    {([['lt', 'LT TOP 30'], ['world', 'TOP 40']] as const).map(([k, l]) => (
-                      <button key={k} onClick={() => setChartTab(k)}
-                        style={{
-                          flex: 1, padding: '7px 0', borderRadius: 8, fontSize: 11, fontWeight: 700,
-                          border: 'none', cursor: 'pointer', transition: 'all .15s', fontFamily: 'Outfit,sans-serif',
-                          background: chartTab === k ? (dk ? 'rgba(255,255,255,.1)' : '#fff') : 'transparent',
-                          color: chartTab === k ? (dk ? '#fff' : '#0f1a2e') : (dk ? '#6a88aa' : '#8899aa'),
-                          boxShadow: chartTab === k ? (dk ? 'none' : '0 1px 3px rgba(0,0,0,.08)') : 'none',
-                        }}>{l}</button>
-                    ))}
-                  </div>
-                </div>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {chartData.length === 0
-                    ? Array.from({ length: 5 }).map((_, i) => (
-                      <div key={i} className="hp-card" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px' }}>
-                        <Skel w={20} h={16} /><Skel w={40} h={40} r={8} />
-                        <div style={{ flex: 1 }}><Skel w="72%" h={11} /><div style={{ marginTop: 4 }}><Skel w="50%" h={9} /></div></div>
-                      </div>
-                    ))
-                    : chartData.slice(0, 5).map((t, i) => (
-                      <Link key={t.track_id || i} href={t.slug ? `/muzika/${t.slug}` : '/topas'}
-                        className="hp-card"
-                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', textDecoration: 'none' }}>
-                        <div style={{ width: 28, flexShrink: 0, textAlign: 'center' }}>
-                          <span style={{ fontSize: 16, fontWeight: 900, fontFamily: 'Outfit,sans-serif', display: 'block', lineHeight: 1, color: t.pos <= 3 ? 'var(--homepage-pos-accent)' : (dk ? '#4a6888' : '#c0ccd8') }}>{t.pos}</span>
-                          <div style={{ marginTop: 2 }}><TrendIcon t={t.trend} /></div>
-                        </div>
-                        <div style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 8, overflow: 'hidden' }}>
-                          <Cover src={t.cover_url || t.artist_image} alt={t.title} size={40} radius={8} />
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</p>
-                          <p style={{ fontSize: 10.5, color: 'var(--text-muted)', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.artist}</p>
-                        </div>
-                        <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: dk ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background .15s' }}>
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill={dk ? '#fff' : '#0f1a2e'} style={{ marginLeft: 1 }}><path d="M8 5v14l11-7z"/></svg>
-                        </div>
-                      </Link>
-                    ))}
-                </div>
-                <Link href="/topas/balsuoti" style={{
-                  marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  padding: '10px', borderRadius: 10, background: '#f97316', color: '#fff',
-                  fontSize: 12, fontWeight: 800, textDecoration: 'none', fontFamily: 'Outfit,sans-serif',
-                  transition: 'all .15s', boxShadow: '0 2px 12px rgba(249,115,22,.3)',
-                }}
-                  onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 4px 18px rgba(249,115,22,.45)'; e.currentTarget.style.transform = 'translateY(-1px)' }}
-                  onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 2px 12px rgba(249,115,22,.3)'; e.currentTarget.style.transform = 'none' }}>
-                  Balsuok
-                </Link>
-
+                ))}
               </div>
             </div>
-
-            {/* Hero dots */}
-            {heroSlides.length > 1 && (
-              <div className="hp-hero-dots" style={{ position: 'absolute', bottom: 18, left: 0, right: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, zIndex: 3 }}>
-                <button onClick={() => { setHeroImgLoaded(false); setHeroVideoPlaying(false); setHeroIdx(p => (p - 1 + heroSlides.length) % heroSlides.length) }}
-                  aria-label="Ankstesnis"
-                  style={{ width: 30, height: 30, borderRadius: '50%', border: `1px solid ${dk ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.12)'}`, background: dk ? 'rgba(0,0,0,.3)' : 'rgba(255,255,255,.5)', color: dk ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.4)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .15s', backdropFilter: 'blur(4px)' }}>‹</button>
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                  {heroSlides.map((_, i) => (
-                    <button key={i} onClick={() => { setHeroImgLoaded(false); setHeroVideoPlaying(false); setHeroIdx(i) }}
-                      style={{ borderRadius: 4, border: 'none', cursor: 'pointer', padding: 0, background: i === heroIdx ? '#f97316' : dk ? 'rgba(255,255,255,.18)' : 'rgba(0,0,0,.18)', width: i === heroIdx ? 28 : 10, height: 6, transition: 'all .3s', boxShadow: i === heroIdx ? '0 0 10px rgba(249,115,22,0.5)' : 'none' }} />
-                  ))}
-                </div>
-                <button onClick={() => { setHeroImgLoaded(false); setHeroVideoPlaying(false); setHeroIdx(p => (p + 1) % heroSlides.length) }}
-                  aria-label="Kitas"
-                  style={{ width: 30, height: 30, borderRadius: '50%', border: `1px solid ${dk ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.12)'}`, background: dk ? 'rgba(0,0,0,.3)' : 'rgba(255,255,255,.5)', color: dk ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.4)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .15s', backdropFilter: 'blur(4px)' }}>›</button>
-              </div>
-            )}
           </section>
         )}
 
@@ -1165,32 +2187,61 @@ export default function Home() {
         <div style={{ opacity: pageReady ? 1 : 0, transition: 'opacity 0.3s ease', pointerEvents: pageReady ? 'auto' : 'none' }}>
 
         {heroSlides.length > 0 && (
-          <div className="hp-feed-strip" style={{ padding: '12px 16px 0' }}>
-            <div style={{ display: 'flex', gap: 7, overflowX: 'auto', scrollbarWidth: 'none', height: 112, alignItems: 'stretch' }}>
+          <div className="hp-feed-strip" style={{ padding: '14px 16px 0' }}>
+            <div style={{ display: 'flex', gap: 12, overflowX: 'auto', scrollbarWidth: 'none', height: 296, alignItems: 'stretch', scrollSnapType: 'x mandatory' }}>
               {heroSlides.map((slide, i) => {
+                const isChart = slide.type === 'chart_lt' || slide.type === 'chart_world'
+                const chartTops = slide.chartTops || []
+                if (isChart && chartTops.length > 0) {
+                  // ── Chart slide — asimetrinis mosaic preview. Tap → reels
+                  // open su tuo idx (visa news/event juosta, su chart kaip
+                  // dalimi). Reels'ų viduj swipe-down ant chart slide atveria
+                  // chartSheet'ą balsavimui. ──
+                  return (
+                    <MobileChartSlide
+                      key={i}
+                      slide={slide}
+                      onOpen={() => { setReelsIdx(i); setReelsOpen(true) }}
+                    />
+                  )
+                }
+                // ── Default slide (news/event/promo) — opens reels ──
                 const isSeen = seenSlides.has(slide.href)
                 const artistName = slide.artist?.name || null
+                const showExcerpt = slide.type === 'news' && slide.subtitle && slide.subtitle.length > 5
                 return (
                   <button key={i} onClick={() => { setReelsIdx(i); setReelsOpen(true) }}
-                    style={{ flexShrink: 0, position: 'relative', borderRadius: 11, overflow: 'hidden',
-                      border: isSeen ? `2px solid ${dk ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)'}` : '2px solid #f97316',
-                      background: '#000', cursor: 'pointer', padding: 0, width: 76, height: 108,
-                      transition: 'opacity .15s, border-color .15s' }}
-                    onMouseEnter={e => (e.currentTarget.style.opacity = '0.82')}
-                    onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                    style={{ flexShrink: 0, position: 'relative', borderRadius: 16, overflow: 'hidden',
+                      border: isSeen ? '2px solid rgba(255,255,255,0.10)' : '2px solid #f97316',
+                      background: '#000', cursor: 'pointer', padding: 0, width: 188, height: 290,
+                      scrollSnapAlign: 'start',
+                      transition: 'opacity .15s, border-color .15s, transform .15s',
+                      boxShadow: '0 6px 18px rgba(0,0,0,0.4)',
+                    }}
                   >
                     {slide.bgImg
-                      ? <img src={slide.bgImg} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      ? <img src={proxyImg(slide.bgImg)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                       : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#0a1428,#162040)' }} />
                     }
-                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.0) 50%)' }} />
-                    {artistName && (
-                      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '5px 6px' }}>
-                        <p style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.9)', margin: 0, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'Outfit,sans-serif' }}>{artistName}</p>
-                      </div>
-                    )}
+                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.10) 60%, rgba(0,0,0,0) 75%)' }} />
+                    {/* Bottom: title + excerpt + artist */}
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '10px 12px 12px', textAlign: 'left' }}>
+                      <p style={{ fontSize: 13.5, fontWeight: 800, color: '#fff', margin: 0, lineHeight: 1.22, fontFamily: 'Outfit,sans-serif', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.01em' } as any}>{slide.title}</p>
+                      {showExcerpt && (
+                        <p style={{ fontSize: 11, fontWeight: 500, color: 'rgba(255,255,255,0.78)', margin: '5px 0 0', lineHeight: 1.32, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' } as any}>{slide.subtitle}</p>
+                      )}
+                      {artistName && (
+                        <p style={{ fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.65)', margin: '6px 0 0', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artistName}</p>
+                      )}
+                    </div>
+                    {/* Top: chip badge */}
+                    <div style={{ position: 'absolute', top: 10, left: 10, display: 'flex', alignItems: 'center', gap: 4, zIndex: 2 }}>
+                      <span style={{ padding: '4px 9px', borderRadius: 12, fontSize: 9, fontWeight: 900, color: '#fff', background: slide.chipBg, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.06em', textTransform: 'uppercase', backdropFilter: 'blur(4px)' }}>
+                        {slide.chip}
+                      </span>
+                    </div>
                     {!isSeen && (
-                      <div style={{ position: 'absolute', top: 5, right: 5, width: 6, height: 6, borderRadius: '50%', background: '#f97316', border: '1.5px solid #000' }} />
+                      <div style={{ position: 'absolute', top: 10, right: 10, width: 8, height: 8, borderRadius: '50%', background: '#f97316', boxShadow: '0 0 0 2px #000', zIndex: 2 }} />
                     )}
                   </button>
                 )
@@ -1199,52 +2250,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* ═══════════════════════ MOBILE CHART ═══════════════════════ */}
-        <div className="hp-mobile-chart" style={{ maxWidth: 1360, margin: '0 auto', padding: '20px 20px 0' }}>
-          <div style={{ display: 'flex', marginBottom: 12 }}>
-            <div style={{ display: 'flex', flex: 1, borderRadius: 10, padding: 3, background: dk ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.03)', gap: 3 }}>
-              {([['lt', 'LT TOP 30'], ['world', 'TOP 40']] as const).map(([k, l]) => (
-                <button key={k} onClick={() => setChartTab(k)}
-                  style={{
-                    flex: 1, padding: '9px 0', borderRadius: 8, fontSize: 12, fontWeight: 700,
-                    border: 'none', cursor: 'pointer', transition: 'all .15s', fontFamily: 'Outfit,sans-serif',
-                    background: chartTab === k ? (dk ? 'rgba(255,255,255,.1)' : '#fff') : 'transparent',
-                    color: chartTab === k ? (dk ? '#fff' : '#0f1a2e') : (dk ? '#6a88aa' : '#8899aa'),
-                    boxShadow: chartTab === k ? (dk ? 'none' : '0 1px 3px rgba(0,0,0,.08)') : 'none',
-                  }}>{l}</button>
-              ))}
-            </div>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {chartData.slice(0, 5).map((t, i) => (
-              <Link key={t.track_id || i} href={t.slug ? `/muzika/${t.slug}` : '/topas'}
-                className="hp-card"
-                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', textDecoration: 'none' }}>
-                <div style={{ width: 28, flexShrink: 0, textAlign: 'center' }}>
-                  <span style={{ fontSize: 16, fontWeight: 900, fontFamily: 'Outfit,sans-serif', display: 'block', lineHeight: 1, color: t.pos <= 3 ? 'var(--homepage-pos-accent)' : (dk ? '#4a6888' : '#c0ccd8') }}>{t.pos}</span>
-                  <div style={{ marginTop: 2 }}><TrendIcon t={t.trend} /></div>
-                </div>
-                <div style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 8, overflow: 'hidden' }}>
-                  <Cover src={t.cover_url || t.artist_image} alt={t.title} size={40} radius={8} />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</p>
-                  <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.artist}</p>
-                </div>
-                <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: dk ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill={dk ? '#fff' : '#0f1a2e'} style={{ marginLeft: 1 }}><path d="M8 5v14l11-7z"/></svg>
-                </div>
-              </Link>
-            ))}
-          </div>
-          <Link href="/topas/balsuoti" style={{
-            marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: '10px', borderRadius: 10, background: '#f97316', color: '#fff',
-            fontSize: 12, fontWeight: 800, textDecoration: 'none', fontFamily: 'Outfit,sans-serif',
-            boxShadow: '0 2px 12px rgba(249,115,22,.3)',
-          }}>Balsuok</Link>
-        </div>
-        {/* hp-mobile-chart CSS moved to main style block above */}
+        {/* Mobile chart pašalintas — chart'ai integruoti į hero v2. */}
 
         {/* ═══════════════════════ REELS OVERLAY — horizontal Stories ═══════════════════════ */}
         {reelsOpen && (
@@ -1258,41 +2264,66 @@ export default function Home() {
               return next
             })}
             onClose={() => setReelsOpen(false)}
+            onChartVote={(s) => setChartSheet({
+              topType: s.type === 'chart_lt' ? 'lt_top30' : 'top40',
+              title: s.title,
+              accent: s.type === 'chart_lt' ? '#f97316' : '#3b82f6',
+            })}
             dk={dk}
           />
         )}
 
+        {/* ═══════════════════════ CHART BOTTOM SHEET ═══════════════════════ */}
+        <ChartBottomSheet
+          open={chartSheet != null}
+          onClose={() => setChartSheet(null)}
+          topType={chartSheet?.topType || 'lt_top30'}
+          title={chartSheet?.title || 'TOPAS'}
+          accent={chartSheet?.accent || '#f97316'}
+        />
+
         {/* ═══════════════════════ MAIN CONTENT ═══════════════════════ */}
         <div className="hp-cnt" style={{ maxWidth: 1360, margin: '0 auto', padding: '42px 20px', display: 'flex', flexDirection: 'column', gap: 44 }}>
 
-          {/* ── Muzika + Renginiai (dviejų stulpelių layout) ── */}
-          <div className="hp-music-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 24, alignItems: 'start' }}>
-
-            {/* LEFT: Naujos dainos + Nauji albumai */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 32, minWidth: 0 }}>
+          {/* ── Muzika full-width: Naujos dainos + Nauji albumai ── */}
 
               {/* Naujos dainos — kompaktiškas horizontal row,
                   thumb + title + artist. Tylesnė vizualinė akcentuotė nei
                   albumai (jie turi didesnius cover'ius). */}
               <section>
                 <SectionHead label="Naujos dainos" href="/muzika" />
-                {[0, 10].map((startIdx) => (
-                  <div key={startIdx} className={startIdx === 0 ? 'mb-2.5' : ''}>
+                {(() => {
+                  const isLT = (x: any) => {
+                    const c = x.artists?.country
+                    return !c || c === 'Lietuva' || c === 'LT' || c === 'Lithuania'
+                  }
+                  const ltT = tracks.filter(t => sanitizeTitle(t.title) && isLT(t))
+                  const wT = tracks.filter(t => sanitizeTitle(t.title) && !isLT(t))
+                  return [
+                    { lane: 'lt' as const, items: ltT },
+                    { lane: 'world' as const, items: wT },
+                  ]
+                })().map(({ lane, items }, laneIdx) => (
+                  <div key={lane} className={laneIdx === 0 ? 'mb-2.5' : ''}>
                     <div className="hp-scroll flex items-center gap-2 pb-0.5">
-                      <RowDivider icon={startIdx === 0 ? 'lt' : 'world'} />
+                      <RowDivider icon={lane} />
                       {tracks.length === 0 ? Array(5).fill(null).map((_, i) => (
                         <div
                           key={i}
-                          className="flex shrink-0 items-center gap-2.5 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2.5"
-                          style={{ width: 178 }}
+                          className="flex shrink-0 items-center gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-3.5 py-3"
+                          style={{ width: 220 }}
                         >
-                          <Skel w={38} h={38} r={8} />
+                          <Skel w={48} h={48} r={9} />
                           <div className="flex-1">
-                            <Skel w="76%" h={10} />
-                            <div className="mt-1.5"><Skel w="54%" h={8} /></div>
+                            <Skel w="76%" h={11} />
+                            <div className="mt-1.5"><Skel w="54%" h={9} /></div>
                           </div>
                         </div>
-                      )) : tracks.filter(t => sanitizeTitle(t.title)).slice(startIdx, startIdx + 10).map(t => {
+                      )) : items.length === 0 ? (
+                        <div className="flex shrink-0 items-center px-3 py-3 text-[12px] text-[var(--text-faint)]" style={{ width: 220 }}>
+                          {lane === 'lt' ? 'Lietuviškų dainų netrukus' : 'Užsienio dainų netrukus'}
+                        </div>
+                      ) : items.slice(0, 14).map(t => {
                         // API'as grąžina ir `artists.slug` (nested) ir `artist_slug` (flat alias).
                         // Track slug DB'e gali būti null — fallback'inam į client-side
                         // slugify(title), nes route handler trailing-{id} ir taip
@@ -1304,15 +2335,22 @@ export default function Home() {
                           <Link
                             key={t.id}
                             href={href}
-                            className="hp-card flex shrink-0 items-center gap-2.5 px-3 py-2.5"
-                            style={{ width: 178 }}
+                            className="hp-card flex shrink-0 items-center gap-3 px-3.5 py-3"
+                            style={{ width: 220 }}
                           >
-                            <Cover src={t.cover_url} artistSrc={t.artists?.cover_image_url} alt={sanitizeTitle(t.title)} size={38} radius={8} />
+                            <Cover
+                              src={t.cover_url || (t as any).albums_list?.[0]?.cover_image_url}
+                              artistSrc={t.artists?.cover_image_url}
+                              ytId={extractYouTubeId((t as any).video_url)}
+                              alt={sanitizeTitle(t.title)}
+                              size={48}
+                              radius={9}
+                            />
                             <div className="min-w-0 flex-1">
-                              <p className="m-0 truncate font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]">
+                              <p className="m-0 truncate font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--text-primary)]">
                                 {sanitizeTitle(t.title)}
                               </p>
-                              <p className="m-0 mt-0.5 truncate text-[11px] text-[var(--text-muted)]">
+                              <p className="m-0 mt-1 truncate text-[12px] text-[var(--text-muted)]">
                                 {t.artists?.name}
                               </p>
                             </div>
@@ -1329,17 +2367,30 @@ export default function Home() {
                   ~140px aiškiai didesnis nei track row'o 38px thumb'as. */}
               <section>
                 <SectionHead label="Nauji albumai" href="/muzika?tab=albums" />
-                {[0, 7].map((startIdx) => (
-                  <div key={startIdx} className={startIdx === 0 ? 'mb-3' : ''}>
+                {(() => {
+                  const isLT = (x: any) => {
+                    const c = x.artists?.country
+                    return !c || c === 'Lietuva' || c === 'LT' || c === 'Lithuania'
+                  }
+                  return [
+                    { lane: 'lt' as const, items: albums.filter(isLT) },
+                    { lane: 'world' as const, items: albums.filter(a => !isLT(a)) },
+                  ]
+                })().map(({ lane, items }, laneIdx) => (
+                  <div key={lane} className={laneIdx === 0 ? 'mb-3' : ''}>
                     <div className="hp-scroll flex items-stretch gap-3 pb-0.5">
-                      <RowDivider icon={startIdx === 0 ? 'lt' : 'world'} />
-                      {albums.length === 0 ? Array(5).fill(null).map((_, i) => (
-                        <div key={i} className="shrink-0" style={{ width: 144 }}>
-                          <Skel w={144} h={144} r={12} />
-                          <div className="mt-2"><Skel w="80%" h={11} /></div>
-                          <div className="mt-1"><Skel w="60%" h={9} /></div>
+                      <RowDivider icon={lane} />
+                      {albums.length === 0 ? Array(8).fill(null).map((_, i) => (
+                        <div key={i} className="shrink-0" style={{ width: 156 }}>
+                          <Skel w={156} h={156} r={12} />
+                          <div className="mt-2"><Skel w="80%" h={12} /></div>
+                          <div className="mt-1"><Skel w="60%" h={10} /></div>
                         </div>
-                      )) : albums.slice(startIdx, startIdx + 7).map(a => {
+                      )) : items.length === 0 ? (
+                        <div className="flex h-[156px] shrink-0 items-center px-3 text-[12px] text-[var(--text-faint)]">
+                          {lane === 'lt' ? 'Lietuviškų albumų netrukus' : 'Užsienio albumų netrukus'}
+                        </div>
+                      ) : items.slice(0, 14).map(a => {
                         const artistSlug = a.artists?.slug || (a as any).artist_slug
                         const aSlug = (a as any).slug || quickSlugify(sanitizeTitle(a.title))
                         const href = artistSlug ? `/albumai/${artistSlug}-${aSlug}-${a.id}` : `/albumai/${aSlug}-${a.id}`
@@ -1348,13 +2399,13 @@ export default function Home() {
                             key={a.id}
                             href={href}
                             className="group block shrink-0 no-underline"
-                            style={{ width: 144 }}
+                            style={{ width: 156 }}
                           >
                             <div className="relative aspect-square overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)] group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]">
                               {a.cover_image_url || a.artists?.cover_image_url ? (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img
-                                  src={a.cover_image_url || a.artists?.cover_image_url || ''}
+                                  src={proxyImg(a.cover_image_url || a.artists?.cover_image_url || '')}
                                   alt={sanitizeTitle(a.title)}
                                   loading="lazy"
                                   className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
@@ -1365,17 +2416,40 @@ export default function Home() {
                               )}
                               {/* Hover orange tint nuo apačios */}
                               <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[rgba(249,115,22,0.12)] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-                              {a.year && (
-                                <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold text-white backdrop-blur-sm">
-                                  {a.year}
-                                </span>
-                              )}
+                              {(() => {
+                                const rd = (a as any).release_date as string | null
+                                const releaseD = rd ? new Date(rd) : null
+                                const validRD = releaseD && !isNaN(releaseD.getTime())
+                                const diff = validRD ? Math.ceil((releaseD!.getTime() - Date.now()) / 86400000) : null
+                                const isUpcoming = (a as any).is_upcoming === true || (diff !== null && diff > 0)
+                                const hasContent = !!(a.cover_image_url)
+                                let label: string | null = null
+                                let highlight = false
+                                if (isUpcoming && diff !== null && diff > 0 && diff <= 60) {
+                                  label = diff === 1 ? 'Rytoj' : `Po ${diff} d.`
+                                  highlight = diff <= 14
+                                } else if (isUpcoming && (diff === null || diff > 60) && hasContent) {
+                                  label = 'Greitai'
+                                  highlight = true
+                                } else if (validRD && diff !== null && diff <= 0) {
+                                  label = `${MONTHS_LT[releaseD!.getMonth()]}. ${releaseD!.getDate()}, ${releaseD!.getFullYear()}`
+                                } else if (a.year) {
+                                  label = String(a.year)
+                                }
+                                return label ? (
+                                  <span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold backdrop-blur-sm ${
+                                    highlight ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'
+                                  }`}>
+                                    {label}
+                                  </span>
+                                ) : null
+                              })()}
                             </div>
                             <div className="mt-2 px-0.5">
-                              <p className="m-0 truncate font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
+                              <p className="m-0 truncate font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
                                 {sanitizeTitle(a.title)}
                               </p>
-                              <p className="m-0 mt-0.5 truncate text-[11px] text-[var(--text-muted)]">
+                              <p className="m-0 mt-1 truncate text-[12px] text-[var(--text-muted)]">
                                 {a.artists?.name}
                               </p>
                             </div>
@@ -1386,78 +2460,168 @@ export default function Home() {
                   </div>
                 ))}
               </section>
-            </div>
-
-            {/* RIGHT: Renginiai widget */}
-            <div style={{ position: 'sticky', top: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                <h2 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em', margin: 0 }}>Renginiai</h2>
-                <Link href="/renginiai" style={{ fontSize: 12, color: 'var(--accent-link)', fontWeight: 700, textDecoration: 'none' }} onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')} onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>Visi →</Link>
-              </div>
-              <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 14, overflow: 'hidden' }}>
-                {filtEvt.length === 0 ? Array(5).fill(null).map((_, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderBottom: i < 4 ? '1px solid var(--border-subtle)' : 'none' }}>
-                    <Skel w={44} h={44} r={9} /><div style={{ flex: 1 }}><Skel w="80%" h={10} /><div style={{ marginTop: 4 }}><Skel w="55%" h={8} /></div></div>
-                  </div>
-                )) : filtEvt.slice(0, 8).map((ev, i, arr) => {
-                  const d = ev.event_date ? new Date(ev.event_date) : null
-                  const validDate = d && !isNaN(d.getTime())
-                  const diffDays = validDate ? Math.ceil((d!.getTime() - Date.now()) / 86400000) : null
-                  const isClose = diffDays !== null && diffDays >= 0 && diffDays <= 3
-                  const countdown = diffDays === null || diffDays < 0 ? null : diffDays === 0 ? 'Šiandien' : diffDays === 1 ? 'Rytoj' : `Po ${diffDays}d.`
-                  return (
-                    <Link key={ev.id} href={`/renginiai/${ev.slug}`}
-                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', textDecoration: 'none', borderBottom: i < arr.length - 1 ? '1px solid var(--border-subtle)' : 'none', transition: 'background .12s' }}
-                      onMouseEnter={e => (e.currentTarget.style.background = dk ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)')}
-                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                    >
-                      <div style={{ width: 44, height: 44, borderRadius: 9, overflow: 'hidden', flexShrink: 0, background: 'var(--bg-body)' }}>
-                        {ev.image_small_url
-                          ? <img src={ev.image_small_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: dk ? '#0e1626' : '#e8eef8', fontSize: 18 }}>🎵</div>
-                        }
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sanitizeTitle(ev.title)}</p>
-                        <p style={{ fontSize: 10.5, color: 'var(--text-muted)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {validDate ? `${d!.getDate()} ${MONTHS_LT[d!.getMonth()]}.` : ''}{ev.venues?.city ? ` · ${ev.venues.city}` : ev.venues?.name ? ` · ${ev.venues.name}` : ''}
-                        </p>
-                      </div>
-                      {countdown && (
-                        <span style={{
-                          flexShrink: 0, fontSize: 9, fontWeight: 800, fontFamily: 'Outfit,sans-serif',
-                          color: isClose ? '#f97316' : (dk ? '#3d5a78' : '#99aabb'),
-                          background: isClose ? (dk ? 'rgba(249,115,22,0.12)' : 'rgba(249,115,22,0.09)') : 'transparent',
-                          padding: isClose ? '2px 6px' : '0', borderRadius: 5, whiteSpace: 'nowrap',
-                        }}>{countdown}</span>
-                      )}
-                    </Link>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
-
-
-
-          {/* ── ROW 4: Three-column ── */}
+          {/* ── Renginiai LT + Užsienio: 2 lanes su badge'ais 'NAUJIENA' / 'GREITAI' ── */}
           <section>
-            <div className="hp-triple" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, alignItems: 'start' }}>
-              <div><SH label="Dienos daina" href="/dienos-daina" /><DienosDainaWidget /></div>
-              <div><SH label="Gyvi pokalbiai" href="/bendruomene" cta="Bendruomenė →" /><ShoutboxWidget /></div>
-              <div>
-                <SH label="Boombox" href="/boombox" cta="3 misijos kasdien →" />
-                <BoomboxHomeWidget />
-              </div>
+            <SectionHead label="Renginiai" href="/renginiai" />
+            {(() => {
+              // LT cities heuristic — visa kita laikoma "užsienis"
+              const LT_CITIES = new Set(['Vilnius','Kaunas','Klaipėda','Klaipeda','Šiauliai','Siauliai','Panevėžys','Panevezys','Alytus','Marijampolė','Marijampole','Mažeikiai','Mazeikiai','Jonava','Utena','Kėdainiai','Kedainiai','Tauragė','Taurage','Telšiai','Telsiai','Visaginas','Plungė','Plunge','Druskininkai','Palanga','Anykščiai','Anyksciai','Trakai','Birštonas','Birstonas','Ukmergė','Ukmerge','Kretinga','Šilutė','Silute','Radviliškis','Radviliskis','Rokiškis','Rokiskis','Elektrėnai','Elektrenai','Šalčininkai','Salcininkai','Pakruojis','Lentvaris'])
+              const isLT = (ev: any) => {
+                const c = ev.venues?.city || (ev as any).city || ''
+                return c ? LT_CITIES.has(c) : true // be city — laikom LT
+              }
+              const lt = filtEvt.filter(isLT)
+              const world = filtEvt.filter(ev => !isLT(ev))
+              return (
+                <>
+                  {[
+                    { lane: 'lt' as const, items: lt },
+                    { lane: 'world' as const, items: world },
+                  ].map(({ lane, items }, laneIdx) => (
+                    <div key={lane} className={laneIdx === 0 ? 'mb-3' : ''}>
+                      <div className="hp-scroll flex items-stretch gap-3 pb-1">
+                        <RowDivider icon={lane} />
+                        {filtEvt.length === 0 ? Array(4).fill(null).map((_, i) => (
+                          <div
+                            key={i}
+                            className="flex shrink-0 items-center gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-2"
+                            style={{ height: 110 }}
+                          >
+                            <Skel w={94} h={94} r={9} />
+                            <div className="flex-1" style={{ width: 200 }}>
+                              <Skel w="80%" h={11} />
+                              <div className="mt-1.5"><Skel w="55%" h={9} /></div>
+                              <div className="mt-2"><Skel w="35%" h={8} /></div>
+                            </div>
+                          </div>
+                        )) : items.length === 0 ? (
+                          <div className="flex h-[110px] shrink-0 items-center px-3 text-[12px] text-[var(--text-faint)]">
+                            {lane === 'lt' ? 'Lietuvoje renginių nėra' : 'Užsienio renginių nėra'}
+                          </div>
+                        ) : items.slice(0, 14).map(ev => {
+                          const dateRaw = (ev as any).start_date || ev.event_date
+                          const d = dateRaw ? new Date(dateRaw) : null
+                          const validDate = d && !isNaN(d.getTime())
+                          const diffDays = validDate ? Math.ceil((d!.getTime() - Date.now()) / 86400000) : null
+                          const isClose = diffDays !== null && diffDays >= 0 && diffDays <= 3
+                          const isUpcoming = diffDays !== null && diffDays >= 0 && diffDays <= 7
+                          const created = ev.created_at ? new Date(ev.created_at) : null
+                          const ageDays = created ? (Date.now() - created.getTime()) / 86400000 : 999
+                          const isNew = ageDays <= 7
+                          const countdown = diffDays === null || diffDays < 0 ? null : diffDays === 0 ? 'Šiandien' : diffDays === 1 ? 'Rytoj' : `Po ${diffDays}d.`
+                          const imgSrc = ev.image_small_url || ev.cover_image_url || null
+                          const city = ev.city || ev.venues?.city || ''
+                          const venue = ev.venue_name || ev.venues?.name || ev.venue_custom || ''
+                          const venueLabel = [city, venue].filter(Boolean).join(', ')
+                          const artistList = (ev.event_artists || []).filter(ea => ea.artists?.name).map(ea => ea.artists!.name)
+                          const artistText = artistList.length > 0
+                            ? artistList.slice(0, 2).join(', ') + (artistList.length > 2 ? ` +${artistList.length - 2}` : '')
+                            : sanitizeTitle(ev.title)
+                          return (
+                            <Link
+                              key={ev.id}
+                              href={`/renginiai/${ev.slug}`}
+                              className="hp-card group flex shrink-0 items-stretch gap-0 overflow-hidden p-0 no-underline"
+                              style={{ height: 110 }}
+                            >
+                              {/* Image — height-driven, natural aspect ratio */}
+                              <div className="relative h-full shrink-0 bg-[var(--cover-placeholder)]">
+                                {imgSrc ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={proxyImg(imgSrc)}
+                                    alt={artistText}
+                                    loading="lazy"
+                                    className="h-full w-auto max-w-[200px] object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                                    style={{ display: 'block' }}
+                                  />
+                                ) : (
+                                  <div className="flex h-full items-center justify-center px-6 text-2xl text-[var(--text-faint)]">🎵</div>
+                                )}
+                                {validDate && (
+                                  <div className="absolute left-1.5 top-1.5 rounded-md bg-black/72 px-1.5 py-1 backdrop-blur-sm">
+                                    <div className="font-['Outfit',sans-serif] text-[13px] font-extrabold leading-none text-white">{d!.getDate()}</div>
+                                    <div className="mt-0.5 text-[8px] font-bold uppercase leading-none tracking-[0.06em] text-white/85">{MONTHS_LT[d!.getMonth()]}</div>
+                                  </div>
+                                )}
+                              </div>
+                              {/* Info */}
+                              <div className="flex min-w-0 flex-col justify-between px-3 py-2.5" style={{ width: 220 }}>
+                                <div className="min-w-0">
+                                  <div className="mb-1 flex flex-wrap items-center gap-1">
+                                    {isNew && (
+                                      <span className="rounded bg-[var(--accent-green)]/15 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[8.5px] font-extrabold uppercase tracking-[0.06em] text-[var(--accent-green)]">NAUJIENA</span>
+                                    )}
+                                    {isUpcoming && (
+                                      <span className="rounded bg-[var(--accent-orange)]/15 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[8.5px] font-extrabold uppercase tracking-[0.06em] text-[var(--accent-orange)]">GREITAI</span>
+                                    )}
+                                  </div>
+                                  {validDate && (
+                                    <p className="m-0 mb-1 truncate font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.04em] text-[var(--accent-orange)]">
+                                      {d!.getDate()} {MONTHS_FULL_LT[d!.getMonth()]} {d!.getFullYear()} m.
+                                    </p>
+                                  )}
+                                  <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[13px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
+                                    {artistText}
+                                  </p>
+                                  {venueLabel && (
+                                    <p className="m-0 mt-1 truncate text-[11px] text-[var(--text-muted)]">
+                                      {venueLabel}
+                                    </p>
+                                  )}
+                                </div>
+                                {countdown && (
+                                  <span className={`mt-1 inline-flex w-fit rounded-md px-1.5 py-0.5 font-['Outfit',sans-serif] text-[10px] font-extrabold ${
+                                    isClose
+                                      ? 'bg-[var(--accent-orange)] text-white'
+                                      : 'bg-[var(--bg-active)] text-[var(--text-muted)]'
+                                  }`}>
+                                    {countdown}
+                                  </span>
+                                )}
+                              </div>
+                            </Link>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )
+            })()}
+          </section>
+
+
+
+          {/* ── BENDRUOMENĖ — naujausios diskusijos + main chat + vartotojų įrašai ── */}
+          <section>
+            <SectionHead label="Bendruomenė" href="/bendruomene" cta="Daugiau →" />
+            <div className="hp-triple" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, alignItems: 'stretch' }}>
+              <CommunityDiscussionsCard />
+              <CommunityChatCard />
+              <CommunityUserPostsCard />
             </div>
           </section>
 
-          {/* ── ROW 5: Diskusijos + Atlikėjai ── */}
-          <div className="hp-ne" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-            <section>
-              <SH label="Bendruomenė" href="/diskusijos" cta="Visos diskusijos →" />
-              <DiscussionsWidget />
-            </section>
+          {/* ── PRAMOGOS — Dienos daina + Boombox intro + Music Manager placeholder ── */}
+          <section>
+            <SectionHead label="Pramogos" href="/pramogos" cta="Daugiau →" />
+            <div className="hp-triple" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, alignItems: 'stretch' }}>
+              <PramogosDienosDainaCard />
+              <PramogosBoomboxIntroCard />
+              <PramogosManagerPlaceholderCard />
+            </div>
+          </section>
+
+          {/* ── ISTORIJA — sukaktys, jubiliejai, gimtadieniai ── */}
+          <section>
+            <SectionHead label="Istorija" href="/istorija" cta="Daugiau →" />
+            <IstorijaSection />
+          </section>
+
+          {/* ── Atlikėjai + CTA — paslėpta (kol kas) ── */}
+          {false && (<>
+          <div>
             <section>
               <SectionHead label="Atrask atlikėjus" href="/atlikejai" />
               <div className="hp-ag grid grid-cols-4 gap-3.5">
@@ -1510,6 +2674,7 @@ export default function Home() {
               </Link>
             </div>
           </section>
+          </>)}
 
         </div>{/* end hp-cnt */}
         </div>{/* end below-hero content */}

@@ -70,7 +70,20 @@ export async function POST(req: NextRequest) {
   const albumYearById = new Map<number, number | null>()
   for (const a of (albums || []) as any[]) {
     try {
-      const r = computeAlbumScore(a, artistScore)
+      // Aggregate views from tracks in this album per album_tracks junction
+      // — reikalinga popularity kategorijai computeAlbumScore.
+      let total_video_views = 0
+      try {
+        const { data: trackLinks } = await supabase
+          .from('album_tracks')
+          .select('tracks(video_views)')
+          .eq('album_id', a.id)
+        for (const r of (trackLinks || []) as any[]) {
+          total_video_views += Number(r?.tracks?.video_views) || 0
+        }
+      } catch {}
+
+      const r = computeAlbumScore({ ...a, total_video_views }, artistScore)
       await supabase
         .from('albums')
         .update({

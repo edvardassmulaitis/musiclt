@@ -13,7 +13,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 
 const ALLOWED_TYPES = new Set([
-  'artist', 'album', 'track', 'event', 'thread', 'post', 'comment',
+  'artist', 'album', 'track', 'event', 'thread', 'post', 'comment', 'news',
 ])
 
 export async function GET(
@@ -43,13 +43,36 @@ export async function GET(
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Avatar fallback: artist/album/track scraping istoriškai nepagaudavo
-  // user_avatar_url'ų (parse_like_list regex'as veikia comment listing'ams,
-  // bet ne entity-rate;list page'ams). Comment likes scraping pagauna avatars.
-  // Užpildom missing avatarus iš bet kurio kito likes row'o tos pačios
-  // username'os su ne null avatar_url. Taip user'is mato avatarą bet kuriame
-  // modal'e, jei jis kažkur scrap'inant buvo pagautas.
-  const users = data || []
+  // Modern comment likes — atskira lentelė `comment_likes` (užregistruoti
+  // user'iai). Sumerge'inam su scraped legacy likes (kurie yra `likes` table'je
+  // su entity_type='comment'). Be šito merge'o, naujai paspausti likes
+  // (auth user'iai) modal'e nematysi — count'as kabo, bet sąrašas tuščias.
+  let users: any[] = data || []
+  if (entity_type === 'comment') {
+    const { data: modernLikes } = await sb
+      .from('comment_likes')
+      .select('user_id, created_at, profiles:user_id(username, full_name, avatar_url)')
+      .eq('comment_id', eid)
+      .order('created_at', { ascending: false })
+      .limit(200)
+    const modernAsLikes = (modernLikes || []).map((l: any) => ({
+      user_username: l.profiles?.username || l.profiles?.full_name || 'Vartotojas',
+      user_rank: null,
+      user_avatar_url: l.profiles?.avatar_url || null,
+      source: 'modern',
+      created_at: l.created_at,
+    }))
+    // Dedupe pagal username — modern likes turi prioritetą (su realiu profile)
+    const seen = new Set<string>()
+    const merged: any[] = []
+    for (const u of [...modernAsLikes, ...users]) {
+      const key = (u.user_username || '').toLowerCase()
+      if (key && seen.has(key)) continue
+      seen.add(key)
+      merged.push(u)
+    }
+    users = merged
+  }
   const missing = users.filter(u => !u.user_avatar_url).map(u => u.user_username)
   if (missing.length > 0) {
     const { data: avatarRows } = await sb
@@ -72,7 +95,7 @@ export async function GET(
   }
 
   return NextResponse.json({
-    count: count || users.length,
+    count: users.length,
     users,
   })
 }
