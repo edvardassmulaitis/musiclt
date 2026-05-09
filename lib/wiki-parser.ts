@@ -685,22 +685,38 @@ export function parseTracklist(wikitext: string): TrackEntry[] {
       const finalTitle = cleanWikiText(cleanTitle)
       if (finalTitle) {
         const normalizedTitle = finalTitle.toLowerCase().replace(/['\u2019]/g, '')
+        // is_single attribution \u2014 pirma exact match, paskui keletas atsargi\u0173
+        // fallback'\u0173 (slash split, plural form). Parenthesized variant'\u0173
+        // ('(Be Our Guest)', '(Album Edit)') NEPROMOTE'inam \u012f single per
+        // startsWith \u2014 Wikipedia singles infobox da\u017enai listina tik bazin\u012f
+        // pavadinim\u0105, o albume yra alt-versija kaip atskira track. Anks\u010diau
+        // buvo `startsWith + ' (' bei NE-known-variant` \u2192 "We Pray (Be Our
+        // Guest)" gaudavo is_single=true antr\u0105 kart\u0105, nors realyb\u0117j tai
+        // album'o bonus, ne atskiras single release'as.
         const is_single = singles.size > 0 ? (
           singles.has(normalizedTitle) ||
           [...singles].some(s => {
             if (normalizedTitle === s) return true
+            // Plural form (rare): "Heart" single \u2192 "Hearts" track
             if (normalizedTitle.startsWith(s)) {
               const after = normalizedTitle.slice(s.length)
               if (after.startsWith('s ') && !after.includes('reprise')) return true
-              if (after.startsWith(' (') && !/remix|version|mix|edit|live|acoustic|instrumental|demo|dub\b/i.test(after)) return true
+              // \u26a0 Anks\u010diau \u010dia buvo parenthesized auto-promote \u2014 i\u0161trinta,
+              // nes klaidingai mark'indavo "We Pray (Be Our Guest)" kaip
+              // atskir\u0105 single, nors tai tos pa\u010dios "We Pray" alt-versija.
             }
+            // Slash split \u2014 "X/Y" single match'inasi su "X" ar "Y" track
             if (s.includes('/')) {
               const parts = s.split('/').map(p => p.replace(/["""]/g, '').trim()).filter(Boolean)
               if (parts.some(p => p === normalizedTitle || normalizedTitle.startsWith(p + ' ') || p.startsWith(normalizedTitle))) return true
             }
+            // Reverse case: "Track" su single "Track (Reprise)" \u2014 track yra
+            // base, single yra parenthesized; nepromote'inam track'o.
             if (s.startsWith(normalizedTitle + ' ')) {
               const sAfter = s.slice(normalizedTitle.length)
-              if (!/(remix|version|mix|edit|live|acoustic|instrumental|demo|dub)\b/i.test(sAfter)) return true
+              // Tik plain prefix (pvz "X" prefix'as "X Y"), ne parenthesized
+              if (!/(remix|version|mix|edit|live|acoustic|instrumental|demo|dub)\b/i.test(sAfter)
+                  && !sAfter.startsWith(' (')) return true
             }
             return false
           })

@@ -11,7 +11,7 @@ import type { LegacyLikeUser } from '@/components/LegacyLikesPanel'
 import EntityCommentsBlock from '@/components/EntityCommentsBlock'
 import MusicSearchPicker, { AttachmentChips, type AttachmentHit } from '@/components/MusicSearchPicker'
 import LyricsWithReactions from '@/components/LyricsWithReactions'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImg, proxyImgResized } from '@/lib/img-proxy'
 import { formatArtistList } from '@/lib/format-artists'
 import DropBar from '@/components/DropBar'
 import AlbumInfoModal from '@/components/AlbumInfoModal'
@@ -1934,12 +1934,14 @@ function Hero({
           <>
             {/* Layer 1 — strong blur backdrop (visada matomas kraštuose).
                 Maskuoja low-res music.lt thumb upscale artifacts kai original
-                paveiksliukis mažas (~600px). */}
+                paveiksliukis mažas (~600px).
+                Resize į 400px — backdrop turi 60px blur'ą, todėl resoliucijos
+                nereikia daugiau nei 400 (dar mažesnis būtų pixelated po blur'o). */}
             <div
               aria-hidden
               className="absolute inset-0"
               style={{
-                backgroundImage: `url(${proxyImg(heroImage)})`,
+                backgroundImage: `url(${proxyImgResized(heroImage, 400)})`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
                 filter: 'blur(60px) saturate(1.3) brightness(0.85)',
@@ -1955,7 +1957,11 @@ function Hero({
                 "softfocus" tipo nuotrauką, ne pixelated artefaktą. */}
             <img
               id="hero-photo"
-              src={proxyImg(heroImage)}
+              // Resize iki 1200px width — Wikimedia/Supabase originals dažnai
+              // 4K+ (~5MB), bet hero render'inasi max 720px desktop / 380px
+              // mobile. Su weserv.nl &w=1200&output=webp grąžina ~150-300KB
+              // versiją. Mobile load'as nuo 5s+ → <1s.
+              src={proxyImgResized(heroImage, 1200)}
               alt={artist.name}
               referrerPolicy="no-referrer"
               onLoad={handleHeroLoad}
