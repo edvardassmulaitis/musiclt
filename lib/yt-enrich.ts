@@ -50,7 +50,7 @@ export async function enrichTrack(trackId: number, force = false): Promise<Enric
 
   const { data: track, error: tErr } = await supabase
     .from('tracks')
-    .select('id, title, artist_id, video_url, youtube_searched_at, video_views, video_views_checked_at')
+    .select('id, title, artist_id, video_url, youtube_searched_at, video_views, video_views_checked_at, video_uploaded_at')
     .eq('id', trackId)
     .maybeSingle()
 
@@ -128,6 +128,13 @@ export async function enrichTrack(trackId: number, force = false): Promise<Enric
         viewsAfter = details.viewCount
         updates.video_views = details.viewCount
         updates.video_views_checked_at = new Date().toISOString()
+        // uploadDate iš YT (Data API publishedAt arba watch page JSON-LD).
+        // Naudinga LT atlikėjams kaip release date proxy + leidžia
+        // apskaičiuoti views/day rate'ą. Saugom tik jei dar neturim
+        // (vėlesnis enrich'as nepertepa anksčiau gautos datos).
+        if (details.uploadedAt && !(t as any).video_uploaded_at) {
+          updates.video_uploaded_at = details.uploadedAt
+        }
 
         const { data: hist, error: hErr } = await (supabase
           .from('track_video_views_history') as any)

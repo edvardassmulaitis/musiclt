@@ -90,6 +90,11 @@ export type YtVideoDetails = {
   viewCount: number
   channelId: string | null
   isPrivate: boolean
+  /** ISO timestamp kada video įkeltas į YouTube. Iš Data API'o `snippet.publishedAt`
+   *  arba watch page'o JSON-LD `uploadDate`. Naudojamas:
+   *   - LT atlikėjams kaip release date proxy (oficialių singlų dažnai nėra)
+   *   - views/day rate'ui apskaičiuoti (kaip greitai surinkta) */
+  uploadedAt?: string | null
   /** Iš kurio source'o gavome viewCount — tinkamas debug'ui. */
   source?: 'data_api' | 'watch_page' | 'player_api' | 'search_text'
 }
@@ -133,7 +138,10 @@ async function tryYtDataApi(videoId: string): Promise<YtVideoDetails | null> {
     const title = item?.snippet?.title || ''
     const channelId = item?.snippet?.channelId || null
     const isPrivate = item?.status?.privacyStatus === 'private'
-    return { videoId, title, viewCount, channelId, isPrivate, source: 'data_api' }
+    // publishedAt iš Data API yra ISO 8601, pvz "2008-09-26T05:00:00Z".
+    // Saugom kaip-yra (timestamptz parsing'ą daro Postgres).
+    const uploadedAt: string | null = item?.snippet?.publishedAt || null
+    return { videoId, title, viewCount, channelId, isPrivate, uploadedAt, source: 'data_api' }
   } catch {
     return null
   }
@@ -164,7 +172,12 @@ async function tryWatchPage(videoId: string): Promise<YtVideoDetails | null> {
   const cidMatch = html.match(/"channelId":"(UC[A-Za-z0-9_-]{20,})"/)
   if (cidMatch) channelId = cidMatch[1]
   const isPrivate = /"status":"LOGIN_REQUIRED"/i.test(html.slice(0, 50000))
-  return { videoId, title, viewCount, channelId, isPrivate, source: 'watch_page' }
+  // uploadDate — JSON-LD blokas YouTube'o watch page'e arba `publishDate`
+  // ar `datePublished` itemprop'as. Pirmasis match'as wins (visi vienodi).
+  let uploadedAt: string | null = null
+  const upM = html.match(/"uploadDate":"([^"]+)"/) || html.match(/itemprop="datePublished"\s+content="([^"]+)"/)
+  if (upM) uploadedAt = upM[1]
+  return { videoId, title, viewCount, channelId, isPrivate, uploadedAt, source: 'watch_page' }
 }
 
 /** Source B — InnerTube /player POST. Iš sandbox'ų veikia, iš Vercel'io kartais 400. */
