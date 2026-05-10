@@ -132,7 +132,20 @@ async function tryYtDataApi(videoId: string): Promise<YtVideoDetails | null> {
     if (!res.ok) return null
     const data = (await res.json()) as any
     const item = data?.items?.[0]
-    if (!item) return null
+    if (!item) {
+      // Data API grąžino tuščią items — video ištrintas, channel pašalintas
+      // ar region-blocked visiems. Sugeneruojam „virtual private" rezultatą,
+      // kad enrich logika clear'intų video_url (nes track'as su mirusiu
+      // video naviguojant pagal-tabs sukelia 0-views ar embed klaidas).
+      return {
+        videoId,
+        title: '',
+        viewCount: 0,
+        channelId: null,
+        isPrivate: true,  // ← treat „missing" same as „private" → clear
+        source: 'data_api',
+      }
+    }
     const viewCount = parseInt(item?.statistics?.viewCount || '0', 10)
     if (!Number.isFinite(viewCount) || viewCount <= 0) return null
     const title = item?.snippet?.title || ''

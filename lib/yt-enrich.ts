@@ -151,8 +151,20 @@ export async function enrichTrack(trackId: number, force = false): Promise<Enric
           warnings.push(`viewCount aproksimacija (search-text fallback, ne tikslus)`)
         }
       } else if (details?.isPrivate) {
-        warnings.push(`Video privatus / pašalintas (videoId=${videoId})`)
+        // Privatus/ištrintas video — clear visus video lauk'us, kad track'as
+        // nesivilktų po sistemą su nemataju YT video. Iš naujo paleidus
+        // search'ą (admin'e), youtube_searched_at jau set'intas, todėl
+        // nereikia enrich rodos infinite loop. User'is gali rankiniu būdu
+        // nustatyti naują video_url admin'e.
+        updates.video_url = null
+        updates.video_views = null
+        updates.video_views_checked_at = null
+        updates.video_uploaded_at = null
+        updates.video_embeddable = false
+        warnings.push(`Video privatus / pašalintas — išvalyta (videoId=${videoId})`)
       } else {
+        // Visi 3 source'ai failed — gali būti rate-limit'as ar bot block'as.
+        // NEPASLINK'INAM clear, nes gali būti tik laikinas — user'is gali pakartoti.
         warnings.push(`Visi 3 view source'ai failed (videoId=${videoId})`)
       }
     } catch (e: any) {
