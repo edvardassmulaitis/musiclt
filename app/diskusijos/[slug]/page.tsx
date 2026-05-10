@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase'
 import EntityCommentsBlock from '@/components/EntityCommentsBlock'
 import DiscussionSidebar from '@/components/DiscussionSidebar'
 import Link from 'next/link'
+import { prettifyDiscussionTitle } from '@/lib/forum-title'
 
 // ISR — 30s cache (po canonical pipeline migracijos discussions duomenys
 // retai keičiasi, todėl force-dynamic buvo per agresyvus + lėmė ilgą SSR
@@ -194,9 +195,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
   const d = await getDiscussion(slug)
   if (!d) return { title: 'Diskusija nerasta' }
+  const cleanTitle = prettifyDiscussionTitle(d.title, slug)
   return {
-    title: `${d.title} | Diskusijos | music.lt`,
-    description: (d.body || d.title || '').slice(0, 160),
+    title: `${cleanTitle} | Diskusijos | music.lt`,
+    description: (d.body || cleanTitle || '').slice(0, 160),
   }
 }
 
@@ -287,7 +289,7 @@ export default async function DiscussionPage({ params }: Props) {
             <h1 className="mb-2 text-3xl font-black leading-tight text-white">
               {discussion.is_locked && <span className="mr-2 text-gray-600">🔒</span>}
               {discussion.is_pinned && <span className="mr-2 text-orange-400">📌</span>}
-              {discussion.title}
+              {prettifyDiscussionTitle(discussion.title, slug)}
             </h1>
 
             <div className="mb-6 flex items-center gap-2 text-xs text-gray-500">

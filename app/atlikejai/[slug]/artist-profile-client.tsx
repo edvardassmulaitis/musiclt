@@ -178,8 +178,18 @@ function photoYear(raw?: string | null): number | null {
   return new Date(t).getFullYear()
 }
 
+/** „coldplay-l194526" → „Coldplay" (be legacy ID artifact'o uodegoje).
+ *  music.lt diskusijų slug'ai dažnai turi `-l\d{5,}` priesagą — ta vidinė ID
+ *  nieko nepasako vartotojui. Po išvalymo capitalize'inam pirmą raidę. */
 function slugToForumTitle(slug: string): string {
-  return (slug || '').replace(/\/$/, '').replace(/-/g, ' ').replace(/\s+/g, ' ').trim() || 'Diskusija'
+  const cleaned = (slug || '')
+    .replace(/\/$/, '')
+    .replace(/-l\d{4,}$/i, '')
+    .replace(/-/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!cleaned) return 'Diskusija'
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
 }
 
 const aType = (a: Album) => {
@@ -3441,7 +3451,12 @@ function UserAvatar({ name, avatarUrl, size = 22 }: { name: string; avatarUrl?: 
  *  /diskusijos/tema/... yra fallback'as kai prop'as `onOpen` neperduotas.
  */
 function DiscussionRow({ t, onOpen }: { t: LegacyThread; isLast?: boolean; onOpen?: (t: LegacyThread) => void }) {
-  const title = t.title || slugToForumTitle(t.slug)
+  // music.lt diskusijų title kartais turi vidinį legacy ID artifact'ą
+  // („Coldplay l194526"). Jei title atrodo kaip auto-slug — perleidžiam
+  // per slugToForumTitle clean'inimą (kuris nukerpa `-l\d+` priesagą).
+  const rawTitle = t.title || slugToForumTitle(t.slug)
+  const looksAutoSlug = /\sl\d{4,}$/i.test(rawTitle) || /^[a-zĄČĘĖĮŠŲŪŽąčęėįšųūž][a-zĄČĘĖĮŠŲŪŽąčęėįšųūž\s\-_]*$/.test(rawTitle)
+  const title = looksAutoSlug ? slugToForumTitle(t.slug) : rawTitle
   const pc = t.post_count ?? 0
   const recent = (t.recent_posts && t.recent_posts.length > 0)
     ? t.recent_posts
@@ -3460,10 +3475,15 @@ function DiscussionRow({ t, onOpen }: { t: LegacyThread; isLast?: boolean; onOpe
         {title}
       </div>
 
-      {/* Comments preview — iki 2 paskutinių, su realiais avatarais. */}
+      {/* Comments preview — iki 2 paskutinių, su realiais avatarais.
+          „Dar nekomentuota" placeholder rodomas TIK kai pc === 0. Anksčiau
+          jis ir su `pc > 0` rodydavosi (kai recent_posts nesipareina iš db),
+          tada apačioj būdavo „27 komentarų" — internal contradiction. */}
       <div className="flex flex-1 flex-col gap-2">
         {recent.length === 0 ? (
-          <div className="text-[11.5px] leading-tight text-[var(--text-faint)]">Dar nekomentuota</div>
+          pc === 0
+            ? <div className="text-[11.5px] leading-tight text-[var(--text-faint)]">Dar nekomentuota</div>
+            : null
         ) : (
           recent.map((p, i) => {
             const text = stripHtml(p.body || '').slice(0, 140)
@@ -4821,9 +4841,32 @@ export default function ArtistProfileClient({
                 const title = n.title || slugToForumTitle(n.slug)
                 const pc = (n as any).post_count ?? 0
                 const lc = (n as any).like_count ?? 0
-                const dateStr = n.first_post_at
-                  ? new Date(n.first_post_at).toLocaleDateString('lt-LT', { year: 'numeric', month: 'short', day: 'numeric' })
-                  : null
+                // Migration timestamp detection — Coldplay/intl artistų visi
+                // naujienų įrašai turėjo `first_post_at = NOW()` IR
+                // `last_post_at = NOW()` (tas pats), nes legacy scrape'as
+                // nemigravo originalios datos. Heuristika: jei (a) data
+                // jaunesnė nei 30 dienų IR (b) first_post_at ≈ last_post_at
+                // (skirtumas <60s — abu set'inti tame pačiame migration
+                // call'e), tai NOW() artifact'as, ne real news date.
+                // Mikutavičiui: news properly migrated su real datomis
+                // (2002, 2008 ir t.t.) — ageDays >> 30, praeina filtrą.
+                const rawDate = n.first_post_at
+                const lastAct = (n as any).last_post_at
+                const dateStr = (() => {
+                  if (!rawDate) return null
+                  const d = new Date(rawDate)
+                  if (isNaN(d.getTime())) return null
+                  const ageDays = (Date.now() - d.getTime()) / 86400000
+                  if (ageDays < 30) {
+                    if (!lastAct) return null
+                    const lastD = new Date(lastAct)
+                    if (!isNaN(lastD.getTime())) {
+                      const gapSec = Math.abs(lastD.getTime() - d.getTime()) / 1000
+                      if (gapSec < 60) return null
+                    }
+                  }
+                  return d.toLocaleDateString('lt-LT', { year: 'numeric', month: 'short', day: 'numeric' })
+                })()
                 // News kortelės nukreipia į /news/{slug} (canonical news UI
                 // su gallery, related news, music player). canonical_slug =
                 // discussions.slug po canonical pipeline migracijos.
