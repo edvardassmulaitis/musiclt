@@ -4384,29 +4384,32 @@ export default function ArtistProfileClient({
   // (Mamontovas 220+, didžiosios DJ'jaus kompiliacijos 1000+) turi gerokai
   // daugiau dainų. Filtruojam, kad video-turintys keliautų į priekį, bet
   // visus rodom.
+  // Composite popularity score: heavier weight ant likes (UGC engagement),
+  // tada score (Wiki-derived), tada log10(views) (YT engagement), bonus
+  // už is_single (artist'o oficialus release'as). Naudojamas BOTH
+  // tracksAllTime ir tracksTrending sortinimui — kad PopBar dashes
+  // (relatyvus) atitiktų sąrašo eiliškumą.
+  const trackSortVal = (t: any): number => {
+    const likes = (t.like_count || 0) * 100
+    const score = (t.score || 0)
+    const views = Math.log10((t.video_views || 0) + 1) * 10
+    const single = t.is_single ? 50 : 0
+    return likes + score + views + single
+  }
+
   const tracksAllTime = useMemo(() => {
-    const withVideo = tracks.filter(t => yt(t.video_url))
-    const rest = tracks.filter(t => !yt(t.video_url))
+    // With-video tracks pirmiau (UX — instant play), bet kiekvienoje
+    // grupėje sortinama pagal composite populiarumą. Anksčiau buvo tik
+    // grupavimas + DB created_at desc — dėl to track'ai su daugiau
+    // populiarumo dashes pasirodydavo žemiau už track'us su mažiau.
+    const withVideo = tracks.filter(t => yt(t.video_url)).slice().sort((a, b) => trackSortVal(b) - trackSortVal(a))
+    const rest = tracks.filter(t => !yt(t.video_url)).slice().sort((a, b) => trackSortVal(b) - trackSortVal(a))
     return [...withVideo, ...rest]
   }, [tracks])
 
   const tracksTrending = useMemo(() => {
-    // Composite popularity score: heavier weight ant likes (UGC engagement),
-    // tada score (Wiki-derived), tada log10(views) (YT engagement), bonus
-    // už is_single (artist'o oficialus išleidimas, ne album track). Trending
-    // sąrašas naujasiems atlikėjams gali turėti 0 likes — fallback'inam į
-    // score+views, kad rikiuotė atspindėtų real popularity, ne random'ą.
-    const sortVal = (t: any): number => {
-      const likes = (t.like_count || 0) * 100
-      const score = (t.score || 0)
-      const views = Math.log10((t.video_views || 0) + 1) * 10
-      const single = t.is_single ? 50 : 0
-      return likes + score + views + single
-    }
-    // With-video tracks rikiuojami pirmieji (UX preferansas — instant play),
-    // bet kiekvienoje grupėje sortinami pagal populiarumą.
-    const withVideo = newTracks.filter(t => yt(t.video_url)).sort((a, b) => sortVal(b) - sortVal(a))
-    const rest = newTracks.filter(t => !yt(t.video_url)).sort((a, b) => sortVal(b) - sortVal(a))
+    const withVideo = newTracks.filter(t => yt(t.video_url)).slice().sort((a, b) => trackSortVal(b) - trackSortVal(a))
+    const rest = newTracks.filter(t => !yt(t.video_url)).slice().sort((a, b) => trackSortVal(b) - trackSortVal(a))
     return [...withVideo, ...rest]
   }, [newTracks])
 
