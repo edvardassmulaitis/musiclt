@@ -563,8 +563,8 @@ function DiscographyPanel({ artistId, artistName, artistType, refreshKey, onImpo
   )
 }
 
-function MobileBreadcrumb({ artistName, artistId, albumCount, trackCount, onWikiImport }: {
-  artistName: string; artistId: string
+function MobileBreadcrumb({ artistName, artistId, artistSlug, albumCount, trackCount, onWikiImport }: {
+  artistName: string; artistId: string; artistSlug: string
   albumCount: number | null; trackCount: number | null
   onWikiImport: (data: any) => void
 }) {
@@ -612,8 +612,20 @@ function MobileBreadcrumb({ artistName, artistId, albumCount, trackCount, onWiki
                   <span className="bg-[var(--bg-elevated)] text-[var(--text-secondary)] text-xs font-bold px-1.5 py-0.5 rounded-full">{trackCount}</span>
                 </Link>
               )}
-              <div className="border-t border-[var(--border-subtle)]">
-                <WikipediaImportCompact artistName={artistName} onImport={(data) => { onWikiImport(data); setOpen(false) }} />
+              {artistSlug && (
+                <a href={`/atlikejai/${artistSlug}`} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)}
+                  className="flex items-center gap-2 px-3 py-2 text-sm text-emerald-600 hover:bg-[var(--bg-hover)]">
+                  <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                  Žiūrėti viešai
+                </a>
+              )}
+              <div className="border-t border-[var(--border-subtle)] flex items-center justify-between gap-1">
+                <div className="flex-1">
+                  <WikipediaImportCompact artistName={artistName} onImport={(data) => { onWikiImport(data); setOpen(false) }} />
+                </div>
+                <div className="flex-shrink-0 pr-2">
+                  <ScrapeCommandButton artistId={artistId} artistName={artistName} />
+                </div>
               </div>
               <div className="border-t border-[var(--border-subtle)] px-3 py-2">
                 <Link href={`/admin/albums/new?artist_id=${artistId}`} onClick={() => setOpen(false)}
@@ -637,6 +649,75 @@ function MobileBreadcrumb({ artistName, artistId, albumCount, trackCount, onWiki
 
 function WikipediaImportWithHint({ artistName, onImport }: { artistName?: string; onImport: (data: any) => void }) {
   return <WikipediaImport onImport={onImport} initialSearch={artistName} />
+}
+
+/** ScrapeCommandModal — rodo CLI komandą music.lt scrape pilnam atlikėjo
+ *  importui. Komanda paleidžiama iš Mac'o terminalu (sandbox'as nepanaudoja
+ *  music.lt'o tiesiogiai dėl lokaciinio block'ų). Plus copy-to-clipboard. */
+function ScrapeCommandButton({ artistId, artistName }: { artistId: string; artistName: string }) {
+  const [open, setOpen] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const cmd = `cd "/Users/edvardas_s/Documents/Claude/Projects/Music.lt rebuild/scraper" && \\\nsource .venv/bin/activate && \\\npython3 import_artist.py ${artistId}`
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(cmd)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch { /* clipboard API gali būti neavailable iframes */ }
+  }
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)}
+        className="flex items-center gap-1.5 px-2 py-1 text-xs text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded-lg transition-colors font-medium"
+        title="Music.lt scrape — komanda paleidimui ant Mac'o terminalo">
+        <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
+          <polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" />
+        </svg>
+        Music.lt scrape
+      </button>
+      {open && (
+        <FullscreenModal onClose={() => setOpen(false)} title={`Music.lt scrape: ${artistName}`} maxWidth="max-w-xl">
+          <div className="p-4 space-y-3 text-sm">
+            <p className="text-[var(--text-secondary)]">
+              Sandbox negali pasiekti music.lt (region/agent block'ai), todėl scrape paleidžiamas iš tavo Mac'o terminalu. Komanda apima visus žingsnius (group_deep_scrape + news + events + lyrics + YT enrich).
+            </p>
+            <div className="rounded-xl bg-[var(--bg-elevated)] border border-[var(--border-subtle)] p-3 font-mono text-[12px] text-[var(--text-primary)] whitespace-pre-wrap break-all">
+              {cmd}
+            </div>
+            <div className="flex gap-2">
+              <button type="button" onClick={copy}
+                className={`flex-1 min-h-[44px] px-4 rounded-xl font-bold text-sm transition-colors ${copied ? 'bg-green-500 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}>
+                {copied ? '✓ Nukopijuota' : '📋 Kopijuoti komandą'}
+              </button>
+              <button type="button" onClick={() => setOpen(false)}
+                className="min-h-[44px] px-4 rounded-xl bg-[var(--bg-surface)] border border-[var(--input-border)] text-[var(--text-secondary)] font-medium hover:bg-[var(--bg-hover)]">
+                Uždaryti
+              </button>
+            </div>
+            <p className="text-[11px] text-[var(--text-muted)]">
+              Trunka 5–15 min priklausomai nuo content kiekio. Po to admin'e nieko spausti nereikia — duomenys + YT enrich automatiškai.
+            </p>
+          </div>
+        </FullscreenModal>
+      )}
+    </>
+  )
+}
+
+/** PublicProfileLink — atidaro viešą atlikėjo puslapį naujame tab'e. */
+function PublicProfileLink({ slug }: { slug: string }) {
+  if (!slug) return null
+  return (
+    <a href={`/atlikejai/${slug}`} target="_blank" rel="noopener noreferrer"
+      className="flex items-center gap-1.5 px-2 py-1 text-xs text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-lg transition-colors font-medium"
+      title="Atidaryti viešą atlikėjo puslapį">
+      <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+        <polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
+      </svg>
+      Žiūrėti viešai
+    </a>
+  )
 }
 
 /** Manual cascade recalc — recomputes artist + all its albums + tracks scores.
@@ -1104,6 +1185,7 @@ export default function EditArtist() {
   const params = useParams()
   const [initialData, setInitialData] = useState<ArtistFormData | null>(null)
   const [artistName, setArtistName] = useState('')
+  const [artistSlug, setArtistSlug] = useState('')
   const [artistType, setArtistType] = useState<'solo'|'group'>('group')
   const [albumCount, setAlbumCount] = useState<number | null>(null)
   const [trackCount, setTrackCount] = useState<number | null>(null)
@@ -1130,6 +1212,7 @@ export default function EditArtist() {
         if (data.error) { alert('Atlikėjas nerastas!'); router.push('/admin/artists'); return }
         setInitialData(dbToForm(data))
         setArtistName(data.name || '')
+        setArtistSlug(data.slug || '')
         setArtistType(data.type === 'solo' ? 'solo' : 'group')
       })
 
@@ -1204,6 +1287,7 @@ export default function EditArtist() {
             <MobileBreadcrumb
               artistName={artistName}
               artistId={artistId}
+              artistSlug={artistSlug}
               albumCount={albumCount}
               trackCount={trackCount}
               onWikiImport={(data: Partial<ArtistFormData>) => {
@@ -1219,6 +1303,7 @@ export default function EditArtist() {
             />
 
             <div className="hidden lg:flex items-center gap-1 shrink-0 border-l border-[var(--input-border)] pl-2 ml-1">
+              <PublicProfileLink slug={artistSlug} />
               <WikipediaImportCompact
                 artistName={artistName}
                 onImport={(data: Partial<ArtistFormData>) => {
@@ -1241,6 +1326,7 @@ export default function EditArtist() {
                   })
                 }}
               />
+              <ScrapeCommandButton artistId={artistId} artistName={artistName} />
             </div>
           </div>
 
