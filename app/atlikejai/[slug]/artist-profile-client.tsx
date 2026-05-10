@@ -658,7 +658,13 @@ function PlayerCard({
 
   return (
     <div className="overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-elevated)] shadow-[0_20px_60px_-20px_rgba(0,0,0,0.4)]">
-      <div className="relative aspect-video overflow-hidden bg-black">
+      {/* Player area — mobile: aspect-video (resp.), desktop: fixed 260px
+          height. Anksčiau buvo aspect-video desktop'e, bet kai YT iframe
+          load'as įvykdavo, padarinys: layout shift'as (player'is keisdavo
+          aukštį truputį). Fixed h-[260px] desktop'e garantuoja jokio
+          resize, neprikl. nuo iframe state'o. 260px atitinka aspect-video
+          ant ~460px wide kolonos (16:9 = 258.75px → 260 round'inta). */}
+      <div className="relative aspect-video lg:aspect-auto lg:h-[260px] w-full overflow-hidden bg-black">
         {displayVid ? (
           // YT IFrame API replaces an inner div with <iframe>. The OUTER
           // wrapper (containerRef) is React-owned and ALWAYS mounted —
@@ -806,25 +812,49 @@ function PlayerCard({
         )}
       </div>
 
-      {/* Filter chips — vienas track sąrašas, čip'ais perfiltruojam.
-          Anksčiau buvo 2 tab'ai (Top dainos / Naujos dainos), kurie
-          dalindavo dėmesį ir sortindavo skirtingai. Dabar — vienas
-          populiarumu sortintas sąrašas, NEW badge ant track'o jei
-          šviežias, chips leidžia filtruoti. */}
-      <div className="flex flex-wrap items-center gap-1.5 border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2">
-        <FilterChipMini active={filter === 'all'} onClick={() => setFilter('all')}>
-          Visos · {tracksAllTime.length}
-        </FilterChipMini>
-        {hasNew && (
-          <FilterChipMini active={filter === 'new'} onClick={() => setFilter('new')}>
-            🆕 Naujausi · {newTrackIds.size}
-          </FilterChipMini>
-        )}
-        {hasSingles && (
-          <FilterChipMini active={filter === 'singles'} onClick={() => setFilter('singles')}>
-            Singlai · {singleTrackIds.size}
-          </FilterChipMini>
-        )}
+      {/* Filter — segmented pill stilius (kaip LikePill), right-aligned.
+          Order: Visos | Singlai | Naujausios. Visos/Naujausios feminine
+          plural (matches „dainos"), Singlai masculine (atskira reikšmė). */}
+      <div className="flex justify-end border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2">
+        <div className="inline-flex overflow-hidden rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] font-['Outfit',sans-serif] text-[11.5px] font-bold">
+          <button
+            onClick={() => setFilter('all')}
+            className={[
+              'px-3 py-1.5 transition-colors',
+              filter === 'all'
+                ? 'bg-[var(--accent-orange)] text-white shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]'
+                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]',
+            ].join(' ')}
+          >
+            Visos · {tracksAllTime.length}
+          </button>
+          {hasSingles && (
+            <button
+              onClick={() => setFilter('singles')}
+              className={[
+                'border-l border-[var(--border-subtle)] px-3 py-1.5 transition-colors',
+                filter === 'singles'
+                  ? 'bg-[var(--accent-orange)] text-white shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]'
+                  : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]',
+              ].join(' ')}
+            >
+              Singlai · {singleTrackIds.size}
+            </button>
+          )}
+          {hasNew && (
+            <button
+              onClick={() => setFilter('new')}
+              className={[
+                'border-l border-[var(--border-subtle)] px-3 py-1.5 transition-colors',
+                filter === 'new'
+                  ? 'bg-[var(--accent-orange)] text-white shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]'
+                  : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]',
+              ].join(' ')}
+            >
+              Naujausios · {newTrackIds.size}
+            </button>
+          )}
+        </div>
       </div>
 
       <div
@@ -883,8 +913,9 @@ function PlayerCard({
                     </span>
 
                     {/* Title — click opens the side drawer with duration +
-                        full lyrics + likes. NEW badge ant svežių track'ų
-                        (visada matomas, ne tik naujasių filtre). */}
+                        full lyrics + likes. Release date badge ant svežių
+                        track'ų (visada matomas, ne tik filtre). Mėlyna brand
+                        spalva, formatas „YYYY-MM". */}
                     <button
                       type="button"
                       onClick={() => onOpenTrackInfo(t)}
@@ -895,14 +926,22 @@ function PlayerCard({
                         isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-primary)]',
                       ].join(' ')}>
                         <span className="truncate">{t.title}</span>
-                        {newTrackIds.has(t.id) && (
-                          <span
-                            className="shrink-0 rounded bg-[rgba(34,197,94,0.18)] px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-[#4ade80]"
-                            title="Šviežias įrašas (per pastaruosius 24 mėn.)"
-                          >
-                            🆕 Nauja
-                          </span>
-                        )}
+                        {newTrackIds.has(t.id) && (() => {
+                          // Release date format: "YYYY-MM" jei turim mėnesį,
+                          // tiesiog "YYYY" jei tik metus.
+                          const yr = (t as any).release_year
+                          const mo = (t as any).release_month
+                          if (!yr) return null
+                          const dateLabel = mo ? `${yr}-${String(mo).padStart(2, '0')}` : String(yr)
+                          return (
+                            <span
+                              className="shrink-0 rounded bg-[rgba(59,130,246,0.16)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9.5px] font-extrabold tabular-nums tracking-wider text-[#60a5fa]"
+                              title={`Išleista ${dateLabel}`}
+                            >
+                              {dateLabel}
+                            </span>
+                          )
+                        })()}
                       </div>
                       <PopBar level={pop} />
                     </button>
