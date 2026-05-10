@@ -373,13 +373,15 @@ function PlayerCard({
   useEffect(() => { if (!hasTrending && tab === 'trending') setTab('all') }, [hasTrending, tab])
 
   const list = tab === 'trending' ? tracksTrending : tracksAllTime
-  // Pop signal'as su fallback hierarchy — pirma like_count, paskui score,
-  // paskui video_views (log scale), paskui position-based. Naujai importuotas
-  // intl atlikėjas (Coldplay) likes'ų neturės iškart, bet score + video_views
-  // jau bus iš Wiki/YouTube enrichment'o → bar'ai rodomi.
-  const popInfo = useMemo(() => (
-    detectPopSignal([...tracksAllTime, ...tracksTrending])
-  ), [tracksAllTime, tracksTrending])
+  // Pop signal'as PER TAB — anksčiau buvo computed iš [tracksAllTime,
+  // tracksTrending] kombinuoto sąrašo, ir trending tab'e visi naujieji
+  // track'ai atsidurdavo pas top-hit'us su 10k+ likes/views, todėl visi
+  // gaudavo level 1 (apatinę juostelę). Dabar kiekvienas tab'as turi savo
+  // relatyvią skalę — naujausioj kategorijoj top hit'as gauna 5 dashes,
+  // mažiausiai populiarus 1 dash, neprikl. nuo all-time top'o.
+  const popInfoAllTime = useMemo(() => detectPopSignal(tracksAllTime), [tracksAllTime])
+  const popInfoTrending = useMemo(() => detectPopSignal(tracksTrending), [tracksTrending])
+  const popInfo = tab === 'trending' ? popInfoTrending : popInfoAllTime
   const activeTrack = [...tracksAllTime, ...tracksTrending].find(t => t.id === activeTrackId)
   const activeVid = yt(activeTrack?.video_url)
   const firstWithVideo = list.find(t => yt(t.video_url)) || tracksAllTime.find(t => yt(t.video_url))
@@ -4278,8 +4280,22 @@ export default function ArtistProfileClient({
   }, [tracks])
 
   const tracksTrending = useMemo(() => {
-    const withVideo = newTracks.filter(t => yt(t.video_url))
-    const rest = newTracks.filter(t => !yt(t.video_url))
+    // Composite popularity score: heavier weight ant likes (UGC engagement),
+    // tada score (Wiki-derived), tada log10(views) (YT engagement), bonus
+    // už is_single (artist'o oficialus išleidimas, ne album track). Trending
+    // sąrašas naujasiems atlikėjams gali turėti 0 likes — fallback'inam į
+    // score+views, kad rikiuotė atspindėtų real popularity, ne random'ą.
+    const sortVal = (t: any): number => {
+      const likes = (t.like_count || 0) * 100
+      const score = (t.score || 0)
+      const views = Math.log10((t.video_views || 0) + 1) * 10
+      const single = t.is_single ? 50 : 0
+      return likes + score + views + single
+    }
+    // With-video tracks rikiuojami pirmieji (UX preferansas — instant play),
+    // bet kiekvienoje grupėje sortinami pagal populiarumą.
+    const withVideo = newTracks.filter(t => yt(t.video_url)).sort((a, b) => sortVal(b) - sortVal(a))
+    const rest = newTracks.filter(t => !yt(t.video_url)).sort((a, b) => sortVal(b) - sortVal(a))
     return [...withVideo, ...rest]
   }, [newTracks])
 
