@@ -4387,32 +4387,30 @@ export default function ArtistProfileClient({
   // (Mamontovas 220+, didžiosios DJ'jaus kompiliacijos 1000+) turi gerokai
   // daugiau dainų. Filtruojam, kad video-turintys keliautų į priekį, bet
   // visus rodom.
-  // Composite popularity score — VIEWS-HEAVY (2026-05-10 rewrite).
+  // Composite popularity score — VIEWS-DOMINANT (2026-05-10 v2 simplify).
   //
-  // Anksčiau buvo `likes×100 + score + log10(views)×10 + single?50:0`,
-  // bet music.lt likes count'ai SKEW'inti (platforma su mažėjančiu
-  // populiarumu — top hit'ai accumulated likes prieš kelis metus, naujesni
-  // gauna mažiau, neproportionally tikram populiarumui). YT views global,
-  // all-time, geresnis tikras-popularity rodiklis.
+  // Iš v1 pašalinta:
+  //  - score × 0.2 (uniform per artist'ą, nedifferencijuoja — Coldplay'aus
+  //    173 tracks visi gauna ~5.8 score'o, nieko negalima ranko'inti)
+  //  - year_recency (penalizuodavo klasikus — Yellow 2000 gaudavo 0,
+  //    My Universe 2021 gaudavo +25, todėl naujesni track'ai neteisingai
+  //    aukščiau už klasikinius hit'us)
   //
-  // Nauja formulė:
-  //   views_log × 50    — dominuoja (1.3B views = 9.13 × 50 = 456)
-  //   likes_log × 15    — log-skalinta (200 likes = 2.31 × 15 = 35), dampens skew
-  //   is_single ? 15 : 0  — official release bonus
-  //   score × 0.2       — Wiki-derived score 0-100 → contribuiton 0-20
-  //   year_recency      — 30 (2026) → 0 (1996+), boost'as naujoms dainoms
+  // Liko (data-resilient — veikia ir kai 86% tracks turi 0 likes):
+  //   views_log × 50    — dominuoja (1.3B views ≈ 456 pts)
+  //   likes_log × 10    — small bonus kai turim (200 likes ≈ 23 pts)
+  //   is_single ? 10 : 0   — official release smaller bonus
+  //   has_video ? 5 : 0    — playable bonus (UX preference)
   //
-  // Coldplay'aus pavyzdys: Yellow su 1.3B views (≈ The Scientist'o)
-  // pakyla nuo #3 (likes 118 buvo) į #2 (views vienodi su top hit'u).
-  const CURRENT_YEAR = new Date().getFullYear()
+  // YT views — globalus, all-time, geriausias TIKRAS-populiarumo rodiklis.
+  // Music.lt likes — sparse, skewed (deklinuojanti platforma); naudojam tik
+  // kaip subtle tiebreaker kai data prieinama.
   const trackSortVal = (t: any): number => {
     const viewsLog = Math.log10((t.video_views || 0) + 1) * 50
-    const likesLog = Math.log10((t.like_count || 0) + 1) * 15
-    const single = t.is_single ? 15 : 0
-    const scoreTerm = (t.score || 0) * 0.2
-    const yr = (t as any).release_year
-    const yearRecency = yr ? Math.max(0, 30 - (CURRENT_YEAR - yr)) : 0
-    return viewsLog + likesLog + single + scoreTerm + yearRecency
+    const likesLog = Math.log10((t.like_count || 0) + 1) * 10
+    const single = t.is_single ? 10 : 0
+    const video = t.video_url ? 5 : 0
+    return viewsLog + likesLog + single + video
   }
 
   const tracksAllTime = useMemo(() => {
