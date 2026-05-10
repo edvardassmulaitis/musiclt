@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
-import { prettifyDiscussionTitle } from '@/lib/forum-title'
 
 type Discussion = {
   id: number; slug: string; title: string; body: string
@@ -130,7 +129,7 @@ function DiscussionCard({ d }: { d: Discussion }) {
                 </span>
               ))}
             </div>
-            <h3 className="text-sm font-bold text-white group-hover:text-blue-300 transition-colors leading-snug">{prettifyDiscussionTitle(d.title, d.slug)}</h3>
+            <h3 className="text-sm font-bold text-white group-hover:text-blue-300 transition-colors leading-snug">{d.title}</h3>
             <p className="text-xs text-gray-600 mt-1 line-clamp-1">{d.body}</p>
             <div className="flex items-center gap-3 mt-2">
               <span className="text-xs text-gray-600">{d.author_name || 'Vartotojas'}</span>

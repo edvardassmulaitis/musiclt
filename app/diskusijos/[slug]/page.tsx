@@ -3,7 +3,6 @@ import { notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase'
 import CommentsSection from '@/components/CommentsSection'
 import Link from 'next/link'
-import { prettifyDiscussionTitle } from '@/lib/forum-title'
 
 interface Props {
   params: Promise<{ slug: string }>
@@ -24,10 +23,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
   const d = await getDiscussion(slug)
   if (!d) return { title: 'Diskusija nerasta' }
-  const cleanTitle = prettifyDiscussionTitle(d.title, slug)
   return {
-    title: `${cleanTitle} | Diskusijos | music.lt`,
-    description: (d.body || '').slice(0, 160),
+    title: `${d.title} | Diskusijos | music.lt`,
+    description: d.body.slice(0, 160),
   }
 }
 
@@ -35,9 +33,6 @@ export default async function DiscussionPage({ params }: Props) {
   const { slug } = await params
   const discussion = await getDiscussion(slug)
   if (!discussion) notFound()
-
-  // „Coldplay l194526" → „Coldplay" (legacy ID artifact'o cleanup).
-  const cleanTitle = prettifyDiscussionTitle(discussion.title, slug)
 
   const supabase = createAdminClient()
   await supabase
@@ -60,7 +55,7 @@ export default async function DiscussionPage({ params }: Props) {
         <div className="flex items-center gap-2 text-sm mb-6">
           <Link href="/diskusijos" className="text-gray-500 hover:text-white transition-colors">💬 Diskusijos</Link>
           <span className="text-gray-700">›</span>
-          <span className="text-gray-400 truncate">{cleanTitle}</span>
+          <span className="text-gray-400 truncate">{discussion.title}</span>
         </div>
 
         {discussion.tags?.length > 0 && (
@@ -78,7 +73,7 @@ export default async function DiscussionPage({ params }: Props) {
         <h1 className="text-3xl font-black text-white leading-tight mb-3">
           {discussion.is_locked && <span className="text-gray-600 mr-2">🔒</span>}
           {discussion.is_pinned && <span className="text-orange-400 mr-2">📌</span>}
-          {cleanTitle}
+          {discussion.title}
         </h1>
 
         <div className="flex items-center gap-3 text-xs text-gray-500 mb-6">
