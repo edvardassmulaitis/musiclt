@@ -112,7 +112,16 @@ async function getPhotos(id: number) {
 }
 async function getAlbums(id: number) {
   const sb = createAdminClient()
-  const { data } = await sb.from('albums').select('id, slug, title, year, month, cover_image_url, type_studio, type_compilation, type_ep, type_single, type_live, type_remix, type_soundtrack, type_demo, spotify_id, video_url, legacy_id, score').eq('artist_id', id).order('year', { ascending: false })
+  const { data } = await sb
+    .from('albums')
+    .select('id, slug, title, year, month, cover_image_url, type_studio, type_compilation, type_ep, type_single, type_live, type_remix, type_soundtrack, type_demo, spotify_id, video_url, legacy_id, score')
+    .eq('artist_id', id)
+    // Pending review įrašai (sukurti per match_legacy_overlay) viešai
+    // nematomi — admin pirma turi patvirtinti per /admin/import/pending.
+    // NULL-safe: PostgREST `neq` neapima NULL eilučių (three-valued logic),
+    // todėl OR.
+    .or('source.is.null,source.neq.legacy_scrape_pending')
+    .order('year', { ascending: false })
   const albums = (data || []) as any[]
   if (albums.length === 0) return albums
   // Attach album like counts.
@@ -210,6 +219,9 @@ async function getTracks(id: number) {
     // Fallback hierarchy: like_count → score → video_views → position.
     .select('id, slug, title, type, video_url, spotify_id, cover_url, release_date, lyrics, is_new, is_new_date, release_year, release_month, legacy_id, score, video_views')
     .eq('artist_id', id)
+    // Pending review įrašai (sukurti per match_legacy_overlay) viešai
+    // matyti neturi — admin pirma turi patvirtinti.
+    .or('source.is.null,source.neq.legacy_scrape_pending')
     .order('created_at', { ascending: false })
     .range(0, 9999)
   const tracks = (data || []) as any[]
@@ -533,6 +545,9 @@ async function getLegacyNewsThreads(artistId: number, limit = 200) {
   if (!artistId) return []
   const sb = createAdminClient()
   // Po canonical pipeline'os — query'inam discussions table (legacy_kind='news').
+  // Sort: pirma pagal first_post_at desc (real news date kai žinom), NULL'us
+  // atidedam pabaigai, ir tarp jų sort'inam pagal legacy_id desc (proxy
+  // "naujausiai importuota viršuje", kol bus paleistas backfill_news_batch).
   const { data } = await sb
     .from('discussions')
     .select('id, legacy_id, slug, source_url, legacy_kind, title, comment_count, like_count, first_post_at, last_comment_at')
@@ -540,6 +555,7 @@ async function getLegacyNewsThreads(artistId: number, limit = 200) {
     .eq('legacy_kind', 'news')
     .eq('is_legacy', true)
     .order('first_post_at', { ascending: false, nullsFirst: false })
+    .order('legacy_id', { ascending: false })
     .limit(limit)
 
   // Like counts iš canonical likes table (entity_type='news', entity_id=discussions.id)
