@@ -160,15 +160,6 @@ export const SKIP_WEB = ['store','shop','merch','bandsintown','songkick','last.f
 
 /**
  * Clean Wikipedia wikitext markup and HTML.
- *
- * Tvarko ne-lotyni\u0161kus track title'us per Wikipedia template'us:
- *   {{lang|fa|\u0628\u0646\u06cc \u0622\u062f\u0645}}      \u2192 "\u0628\u0646\u06cc \u0622\u062f\u0645"
- *   {{lang-ar|...}}          \u2192 text dalis
- *   {{transl|ja|Hatsune Miku}} \u2192 "Hatsune Miku"
- *   {{nihongo|Tokyo|\u6771\u4eac|T\u014dky\u014d}} \u2192 "Tokyo" (display dalis)
- *   {{rtl-lang|he|\u05e9\u05dc\u05d5\u05dd}}     \u2192 "\u05e9\u05dc\u05d5\u05dd"
- *   {{IPA|...}}              \u2192 tu\u0161\u010dia (skip pronunciation)
- * Visi kiti template'ai (be specifinio handler'io) nuvalomi \u012f tu\u0161\u010di\u0105.
  */
 export function cleanWikiText(raw: string): string {
   let s = raw
@@ -177,24 +168,6 @@ export function cleanWikiText(raw: string): string {
   s = s.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]+>/g, '')
   s = s.replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, (_: string, _l: string, d: string) => d.replace(/^["'\u201c\u2018]+|["'\u201d\u2019]+$/g, '').trim())
   s = s.replace(/\[\[([^\]]+)\]\]/g, (_: string, l: string) => l.replace(/#[^\]]*$/, '').replace(/_/g, ' ').replace(/^["'\u201c\u2018]+|["'\u201d\u2019]+$/g, '').trim())
-
-  // \u2500\u2500 Lokalizacijos / transliteracijos template'ai \u2500\u2500
-  // I\u0161 `{{lang|XX|text}}` ir `{{lang-XX|text}}` i\u0161traukiam paskutin\u012f param'\u0105
-  // (tikr\u0105j\u012f tekst\u0105 originalia kalba). Anks\u010diau visi `{{...}}` buvo tiesiog
-  // wipe'inami, tod\u0117l Coldplay \u201e\u0628\u0646\u06cc \u0622\u062f\u0645" tap'davo \u201e{{lang" \u2192 tu\u0161\u010dias.
-  s = s.replace(/\{\{lang-[a-z]+\s*\|\s*([^}|]+?)\s*(?:\|[^}]*)?\}\}/gi, '$1')
-  s = s.replace(/\{\{lang\s*\|\s*[^|}]+\s*\|\s*([^}|]+?)\s*(?:\|[^}]*)?\}\}/gi, '$1')
-  // {{transl|<lang>|<text>}} arba {{transl|<lang>|<scheme>|<text>}}
-  s = s.replace(/\{\{transl\s*\|\s*[^|}]+\s*\|\s*(?:[^|}]+\s*\|\s*)?([^}|]+?)\s*\}\}/gi, '$1')
-  // {{nihongo|english|kanji|romaji|...}} \u2192 english (1-as param), nes display'ui
-  // angl\u0173 versija geriausia naudai.
-  s = s.replace(/\{\{nihongo\s*\|\s*([^|}]+?)\s*(?:\|[^}]*)?\}\}/gi, '$1')
-  // {{rtl-lang|XX|text}}
-  s = s.replace(/\{\{rtl-lang\s*\|\s*[^|}]+\s*\|\s*([^}|]+?)\s*(?:\|[^}]*)?\}\}/gi, '$1')
-  // Tarimo template'ai (IPA, IPAc, respell, audio) \u2192 wipe (nereikia track title'e)
-  s = s.replace(/\{\{(?:IPA|IPAc-[a-z]+|respell|audio|pronunciation)\s*\|[^}]*\}\}/gi, '')
-
-  // Visi kiti lik\u0119 template'ai \u2192 wipe (default'as)
   s = s.replace(/\[\[|\]\]/g, '').replace(/\{\{[^}]*\}\}/g, '').replace(/''+/g, '')
   s = s.replace(/\[\w*\s*\d*\]/g, '')
   s = s.replace(/\s*\([^)]*\bsong\b[^)]*\)/gi, '').replace(/\s*\([^)]*\balbum\b[^)]*\)/gi, '')
@@ -650,14 +623,10 @@ export function parseTracklist(wikitext: string): TrackEntry[] {
     const nums = [...tl.matchAll(/\|\s*title(\d+)\s*=/g)].map(m => parseInt(m[1])).sort((a,b) => a-b)
     let order = startOrder
     for (const num of nums) {
-      // `{{...}}` template'as gali turėti `|` viduj (pvz `{{lang|fa|بنی آدم}}`).
-      // Anksčiau regex'as stop'indavo ant pirmo `|`, kad ir esančio template'o
-      // viduje → title'e likdavo „{{lang". Atomic'iai matchin'am `{{...}}` kaip
-      // vienetą (ne nested), kad pipe template'o viduje neperrinktų regex'o.
-      const titleM = tl.match(new RegExp(`\\|\\s*title${num}\\s*=\\s*((?:\\[\\[[^\\]]*\\]\\]|\\{\\{[^{}]*\\}\\}|[^|\\n])+)`))
+      const titleM = tl.match(new RegExp(`\\|\\s*title${num}\\s*=\\s*((?:\\[\\[[^\\]]*\\]\\]|[^|\\n])+)`))
       if (!titleM) continue
       const lenM = tl.match(new RegExp(`\\|\\s*length${num}\\s*=\\s*([^|\\n]+)`))
-      const noteM = tl.match(new RegExp(`\\|\\s*note${num}\\s*=\\s*((?:\\[\\[[^\\]]*\\]\\]|\\{\\{[^{}]*\\}\\}|[^|\\n])+)`))
+      const noteM = tl.match(new RegExp(`\\|\\s*note${num}\\s*=\\s*([^|\\n]+)`))
 
       const noteStr_raw = (noteM?.[1] || '').toLowerCase()
       if (/^\s*hidden\s*track/.test(noteStr_raw)) continue
@@ -685,38 +654,22 @@ export function parseTracklist(wikitext: string): TrackEntry[] {
       const finalTitle = cleanWikiText(cleanTitle)
       if (finalTitle) {
         const normalizedTitle = finalTitle.toLowerCase().replace(/['\u2019]/g, '')
-        // is_single attribution \u2014 pirma exact match, paskui keletas atsargi\u0173
-        // fallback'\u0173 (slash split, plural form). Parenthesized variant'\u0173
-        // ('(Be Our Guest)', '(Album Edit)') NEPROMOTE'inam \u012f single per
-        // startsWith \u2014 Wikipedia singles infobox da\u017enai listina tik bazin\u012f
-        // pavadinim\u0105, o albume yra alt-versija kaip atskira track. Anks\u010diau
-        // buvo `startsWith + ' (' bei NE-known-variant` \u2192 "We Pray (Be Our
-        // Guest)" gaudavo is_single=true antr\u0105 kart\u0105, nors realyb\u0117j tai
-        // album'o bonus, ne atskiras single release'as.
         const is_single = singles.size > 0 ? (
           singles.has(normalizedTitle) ||
           [...singles].some(s => {
             if (normalizedTitle === s) return true
-            // Plural form (rare): "Heart" single \u2192 "Hearts" track
             if (normalizedTitle.startsWith(s)) {
               const after = normalizedTitle.slice(s.length)
               if (after.startsWith('s ') && !after.includes('reprise')) return true
-              // \u26a0 Anks\u010diau \u010dia buvo parenthesized auto-promote \u2014 i\u0161trinta,
-              // nes klaidingai mark'indavo "We Pray (Be Our Guest)" kaip
-              // atskir\u0105 single, nors tai tos pa\u010dios "We Pray" alt-versija.
+              if (after.startsWith(' (') && !/remix|version|mix|edit|live|acoustic|instrumental|demo|dub\b/i.test(after)) return true
             }
-            // Slash split \u2014 "X/Y" single match'inasi su "X" ar "Y" track
             if (s.includes('/')) {
               const parts = s.split('/').map(p => p.replace(/["""]/g, '').trim()).filter(Boolean)
               if (parts.some(p => p === normalizedTitle || normalizedTitle.startsWith(p + ' ') || p.startsWith(normalizedTitle))) return true
             }
-            // Reverse case: "Track" su single "Track (Reprise)" \u2014 track yra
-            // base, single yra parenthesized; nepromote'inam track'o.
             if (s.startsWith(normalizedTitle + ' ')) {
               const sAfter = s.slice(normalizedTitle.length)
-              // Tik plain prefix (pvz "X" prefix'as "X Y"), ne parenthesized
-              if (!/(remix|version|mix|edit|live|acoustic|instrumental|demo|dub)\b/i.test(sAfter)
-                  && !sAfter.startsWith(' (')) return true
+              if (!/(remix|version|mix|edit|live|acoustic|instrumental|demo|dub)\b/i.test(sAfter)) return true
             }
             return false
           })

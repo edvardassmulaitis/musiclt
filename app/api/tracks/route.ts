@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
   }
 
   // ── Pilnas select su release_month, release_day ──
-  const SELECT_FIELDS = `id, title, type, release_date, release_year, release_month, release_day, video_url, video_views, video_views_checked_at, spotify_id, is_single, is_new, is_new_date, cover_url, lyrics, artists!tracks_artist_id_fkey(id, name, slug, cover_image_url, country), track_artists(artist_id, is_primary, artists(id, name, slug)), album_tracks(position, albums(id, title, year, cover_image_url))`
+  const SELECT_FIELDS = `id, title, type, release_date, release_year, release_month, release_day, video_url, video_views, video_views_checked_at, spotify_id, is_single, is_new, is_new_date, cover_url, lyrics, artists!tracks_artist_id_fkey(id, name, slug), track_artists(artist_id), album_tracks(position, albums(id, title, year))`
 
   if (search) {
     const { data: artistMatches } = await supabase
@@ -116,7 +116,7 @@ function isRealTrack(t: any): boolean {
 
 function mapTrack(t: any) {
   const albumList = (t.album_tracks || [])
-    .map((at: any) => at.albums ? { id: at.albums.id, title: at.albums.title, year: at.albums.year, position: at.position, cover_image_url: at.albums.cover_image_url || null } : null)
+    .map((at: any) => at.albums ? { id: at.albums.id, title: at.albums.title, year: at.albums.year, position: at.position } : null)
     .filter(Boolean)
   return {
     id: t.id,
@@ -138,16 +138,7 @@ function mapTrack(t: any) {
     artists: t.artists,
     artist_name: t.artists?.name || '',
     artist_slug: t.artists?.slug || '',
-    featuring_count: (t.track_artists || []).filter((ta: any) => !ta.is_primary).length,
-    // Featuring artist names — non-primary track_artists. Primary artist
-    // jau yra `artists` field'e (FK iš tracks.artist_id), tad praleidžiam.
-    featuring: (t.track_artists || [])
-      .filter((ta: any) => !ta.is_primary && ta.artists)
-      .map((ta: any) => ({
-        artist_id: ta.artist_id,
-        name: ta.artists?.name || '',
-        slug: ta.artists?.slug || '',
-      })),
+    featuring_count: (t.track_artists || []).length,
     album_count: albumList.length,
     albums_list: albumList,
   }

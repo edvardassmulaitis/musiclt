@@ -15,22 +15,19 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { resolveAuthorId } from '@/lib/resolve-author'
 import { notifyFromSession } from '@/lib/notifications'
-import { logActivity } from '@/lib/activity-logger'
 
 const EDIT_WINDOW_MINUTES = 20
 
-type EntityType = 'track' | 'album' | 'news' | 'event' | 'discussion'
-type EntityCol = 'track_id' | 'album_id' | 'news_id' | 'event_id' | 'discussion_id'
+type EntityType = 'track' | 'album' | 'news' | 'event'
 
-const ENTITY_COL: Record<EntityType, EntityCol> = {
+const ENTITY_COL: Record<EntityType, 'track_id' | 'album_id' | 'news_id' | 'event_id'> = {
   track: 'track_id',
   album: 'album_id',
   news: 'news_id',
   event: 'event_id',
-  discussion: 'discussion_id',
 }
 
-function entityCol(t: string | null): EntityCol | null {
+function entityCol(t: string | null): 'track_id' | 'album_id' | 'news_id' | 'event_id' | null {
   if (!t) return null
   return ENTITY_COL[t as EntityType] ?? null
 }
@@ -41,8 +38,7 @@ export async function GET(req: Request) {
   const entityType = searchParams.get('entity_type')
   const entityId = searchParams.get('entity_id')
   const sort = searchParams.get('sort') || 'newest' // newest | oldest | popular
-  const limit = Math.min(parseInt(searchParams.get('limit') || '100'), 1000)
-  const offset = Math.max(0, parseInt(searchParams.get('offset') || '0'))
+  const limit = parseInt(searchParams.get('limit') || '100')
 
   const col = entityCol(entityType)
   if (!col || !entityId) return NextResponse.json({ comments: [] })
@@ -62,22 +58,11 @@ export async function GET(req: Request) {
   // SELECT comments + JOIN profiles. `email` reikalingas is_own match'ui kai
   // author_id po wipe'o nesutampa su current'iu profile UUID.
   // music_attachments — optional column (per migration 20260428).
-  //
-  // SPECIAL CASE 'news': legacy news yra discussions table (legacy_kind='news'),
-  // tad jų komentarai turi discussion_id, NE news_id. Modern news (admin-created)
-  // turi news_id. Filtras OR su abiem column'ais — entityId vienu atveju yra
-  // discussion.id (legacy), kitu — news.id (modern). Abi reikšmes ne'koliduoja
-  // tarpusavy (skirtingos sequence'os).
   let query = sb
     .from('comments')
-    .select('id, parent_id, author_id, body, content_html, like_count, reported_count, is_deleted, created_at, updated_at, music_attachments, profiles:author_id(username, full_name, avatar_url, email)')
-    .range(offset, offset + limit - 1)
-
-  if (entityType === 'news') {
-    query = query.or(`news_id.eq.${parseInt(entityId)},discussion_id.eq.${parseInt(entityId)}`)
-  } else {
-    query = query.eq(col, parseInt(entityId))
-  }
+    .select('id, parent_id, author_id, body, like_count, reported_count, is_deleted, created_at, updated_at, music_attachments, profiles:author_id(username, full_name, avatar_url, email)')
+    .eq(col, parseInt(entityId))
+    .limit(limit)
 
   if (sort === 'oldest') query = query.order('created_at', { ascending: true })
   else if (sort === 'popular') query = query.order('like_count', { ascending: false }).order('created_at', { ascending: false })
@@ -86,19 +71,14 @@ export async function GET(req: Request) {
   let { data, error } = await query as { data: any; error: any }
   // Migration 20260428 dar neaplikuota? Pakartojam be music_attachments.
   if (error && /music_attachments/.test(error.message)) {
-    let fallback = sb
+    const fallback = await sb
       .from('comments')
-      .select('id, parent_id, author_id, body, content_html, like_count, reported_count, is_deleted, created_at, updated_at, profiles:author_id(username, full_name, avatar_url, email)')
-      .range(offset, offset + limit - 1)
+      .select('id, parent_id, author_id, body, like_count, reported_count, is_deleted, created_at, updated_at, profiles:author_id(username, full_name, avatar_url, email)')
+      .eq(col, parseInt(entityId))
+      .limit(limit)
       .order('created_at', { ascending: sort === 'oldest' })
-    if (entityType === 'news') {
-      fallback = fallback.or(`news_id.eq.${parseInt(entityId)},discussion_id.eq.${parseInt(entityId)}`)
-    } else {
-      fallback = fallback.eq(col, parseInt(entityId))
-    }
-    const fb = await fallback
-    data = fb.data
-    error = fb.error
+    data = fallback.data
+    error = fallback.error
   }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
@@ -122,10 +102,6 @@ export async function GET(req: Request) {
       author_name: c.profiles?.full_name || c.profiles?.username || 'Vartotojas',
       author_avatar: c.profiles?.avatar_url || null,
       body: c.body || '',
-      // Migrated legacy comments turi content_html su nested blockquote
-      // chain'u (parsinama scraper'io). Jei jis užpildytas — UI render'ina
-      // jį per dangerouslySetInnerHTML, kad parodytų visą reply hierarchiją.
-      content_html: c.content_html || null,
       like_count: c.like_count || 0,
       reported_count: c.reported_count || 0,
       is_deleted: c.is_deleted,
@@ -207,24 +183,6 @@ export async function POST(req: Request) {
 
   const c: any = data
 
-  // ── Activity feed: visi komentarai populate'ina globalų "Kas vyksta". ──
-  try {
-    const actorName = c.profiles?.full_name || c.profiles?.username || (session.user as any)?.name || null
-    const actorAvatar = c.profiles?.avatar_url || (session.user as any)?.image || null
-    await logActivity({
-      event_type: 'comment',
-      user_id: authorId,
-      actor_name: actorName,
-      actor_avatar: actorAvatar,
-      entity_type,
-      entity_id: parseInt(entity_id),
-      entity_title: (text || '').slice(0, 80),
-      entity_url: buildEntityUrl(entity_type, parseInt(entity_id), sb),
-    })
-  } catch (e: any) {
-    console.error('[activity-log] comment failed:', e?.message || e)
-  }
-
   // ── Notification: jeigu tai reply, žinom tėvo komentaro autorių. ──────
   // Notification kūrimas yra fire-and-forget — jeigu DB klaida ar table
   // dar neegzistuoja, notifyFromSession nesvaidys (žr. lib/notifications.ts).
@@ -232,14 +190,12 @@ export async function POST(req: Request) {
     if (parent_id) {
       const { data: parent } = await sb
         .from('comments')
-        .select('author_id, profiles:author_id(email)')
+        .select('author_id')
         .eq('id', parent_id)
         .maybeSingle() as { data: any }
-      const parentEmail = parent?.profiles?.email || null
       if (parent?.author_id && parent.author_id !== authorId) {
         await notifyFromSession({
           recipientUserId: parent.author_id,
-          recipientEmail: parentEmail,    // ← FK fallback
           actorSession: session,
           type: 'comment_reply',
           entity_type,
@@ -273,12 +229,11 @@ export async function POST(req: Request) {
 // commented entity. Async because we lookup slug from DB (small queries, OK).
 function buildEntityUrl(entityType: string, entityId: number, _sb: any): string {
   switch (entityType) {
-    case 'track':       return `/dainos/${entityId}`
-    case 'album':       return `/albumai/${entityId}`
-    case 'news':        return `/news/${entityId}`
-    case 'event':       return `/renginiai/${entityId}`
-    case 'discussion':  return `/diskusijos/${entityId}` // ID, ne slug — deep link redirect'inasi
-    default:            return '/'
+    case 'track':  return `/dainos/${entityId}`
+    case 'album':  return `/albumai/${entityId}`
+    case 'news':   return `/news/${entityId}`
+    case 'event':  return `/renginiai/${entityId}`
+    default:       return '/'
   }
 }
 
