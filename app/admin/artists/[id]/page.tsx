@@ -619,13 +619,10 @@ function MobileBreadcrumb({ artistName, artistId, artistSlug, albumCount, trackC
                   Žiūrėti viešai
                 </a>
               )}
-              <div className="border-t border-[var(--border-subtle)] flex items-center justify-between gap-1">
-                <div className="flex-1">
-                  <WikipediaImportCompact artistName={artistName} onImport={(data) => { onWikiImport(data); setOpen(false) }} />
-                </div>
-                <div className="flex-shrink-0 pr-2">
-                  <ScrapeCommandButton artistId={artistId} artistName={artistName} />
-                </div>
+              {/* Migracijos veiksmai — pilnos eilutės pločio touch targets, ne side-by-side. */}
+              <div className="border-t border-[var(--border-subtle)]">
+                <WikipediaImportFullRow artistName={artistName} onImport={(data) => { onWikiImport(data); setOpen(false) }} />
+                <ScrapeCommandFullRow artistId={artistId} artistName={artistName} onOpenChange={() => setOpen(false)} />
               </div>
               <div className="border-t border-[var(--border-subtle)] px-3 py-2">
                 <Link href={`/admin/albums/new?artist_id=${artistId}`} onClick={() => setOpen(false)}
@@ -671,6 +668,78 @@ function ScrapeCommandButton({ artistId, artistName }: { artistId: string; artis
         className="flex items-center gap-1.5 px-2 py-1 text-xs text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded-lg transition-colors font-medium"
         title="Music.lt scrape — komanda paleidimui ant Mac'o terminalo">
         <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
+          <polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" />
+        </svg>
+        Music.lt scrape
+      </button>
+      {open && (
+        <FullscreenModal onClose={() => setOpen(false)} title={`Music.lt scrape: ${artistName}`} maxWidth="max-w-xl">
+          <div className="p-4 space-y-3 text-sm">
+            <p className="text-[var(--text-secondary)]">
+              Sandbox negali pasiekti music.lt (region/agent block'ai), todėl scrape paleidžiamas iš tavo Mac'o terminalu. Komanda apima visus žingsnius (group_deep_scrape + news + events + lyrics + YT enrich).
+            </p>
+            <div className="rounded-xl bg-[var(--bg-elevated)] border border-[var(--border-subtle)] p-3 font-mono text-[12px] text-[var(--text-primary)] whitespace-pre-wrap break-all">
+              {cmd}
+            </div>
+            <div className="flex gap-2">
+              <button type="button" onClick={copy}
+                className={`flex-1 min-h-[44px] px-4 rounded-xl font-bold text-sm transition-colors ${copied ? 'bg-green-500 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}>
+                {copied ? '✓ Nukopijuota' : '📋 Kopijuoti komandą'}
+              </button>
+              <button type="button" onClick={() => setOpen(false)}
+                className="min-h-[44px] px-4 rounded-xl bg-[var(--bg-surface)] border border-[var(--input-border)] text-[var(--text-secondary)] font-medium hover:bg-[var(--bg-hover)]">
+                Uždaryti
+              </button>
+            </div>
+            <p className="text-[11px] text-[var(--text-muted)]">
+              Trunka 5–15 min priklausomai nuo content kiekio. Po to admin'e nieko spausti nereikia — duomenys + YT enrich automatiškai.
+            </p>
+          </div>
+        </FullscreenModal>
+      )}
+    </>
+  )
+}
+
+/** WikipediaImportFullRow — full-width dropdown row varianta WikipediaImportCompact'ui.
+ *  Naudojama MobileBreadcrumb dropdown'e kad item'as netilptų side-by-side. */
+function WikipediaImportFullRow({ artistName, onImport }: { artistName: string; onImport: (data: any) => void }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)}
+        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-[var(--bg-hover)] transition-colors">
+        <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current text-slate-500 shrink-0">
+          <path d="M22 2h-3.5l-3 9-3-9h-1l-3 9-3-9H2l4.5 13h1L11 6l3.5 9h1L20 2h2z"/>
+        </svg>
+        Įkelti Wiki info
+      </button>
+      {open && (
+        <FullscreenModal onClose={() => setOpen(false)} title="Atnaujinti iš Wikipedia" maxWidth="max-w-2xl">
+          <WikipediaImportWithHint artistName={artistName} onImport={(data: any) => { onImport(data); setOpen(false) }} />
+        </FullscreenModal>
+      )}
+    </>
+  )
+}
+
+/** ScrapeCommandFullRow — full-width dropdown row varianta ScrapeCommandButton'ui. */
+function ScrapeCommandFullRow({ artistId, artistName, onOpenChange }: { artistId: string; artistName: string; onOpenChange?: () => void }) {
+  const [open, setOpen] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const cmd = `cd "/Users/edvardas_s/Documents/Claude/Projects/Music.lt rebuild/scraper" && \\\nsource .venv/bin/activate && \\\npython3 import_artist.py ${artistId}`
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(cmd)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch { /* */ }
+  }
+  return (
+    <>
+      <button type="button" onClick={() => { setOpen(true); onOpenChange?.() }}
+        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-purple-700 hover:bg-purple-50 transition-colors border-t border-[var(--border-subtle)]">
+        <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2 shrink-0">
           <polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" />
         </svg>
         Music.lt scrape
@@ -1332,18 +1401,21 @@ export default function EditArtist() {
 
           <div className="flex items-center gap-1.5 shrink-0">
             <ScoreBadge artistId={artistId} score={artistScore} />
-            <ActionsOverflowMenu>
-              <PhotosFixButton artistId={artistId} onDone={() => {
-                // Re-fetch artist data so cover_image_url update'as atsispindi forme
-                fetch(`/api/artists/${artistId}`).then(r => r.json()).then(data => {
-                  if (!data?.error) setInitialData(dbToForm(data))
-                }).catch(() => {})
-                setFormKey(k => k + 1)
-              }} />
-              <YoutubeClearButton artistId={artistId} onDone={() => setDiscographyKey(k => k + 1)} />
-              <YoutubeEnrichButton artistId={artistId} onDone={() => setDiscographyKey(k => k + 1)} />
-              <RecalcCascadeButton artistId={artistId} />
-            </ActionsOverflowMenu>
+            {/* Advanced fix actions — tik desktop. Mobile gauna juos per
+                MobileBreadcrumb hamburger meniu (kad nesimaišytų du 3-dot menus). */}
+            <div className="hidden lg:block">
+              <ActionsOverflowMenu>
+                <PhotosFixButton artistId={artistId} onDone={() => {
+                  fetch(`/api/artists/${artistId}`).then(r => r.json()).then(data => {
+                    if (!data?.error) setInitialData(dbToForm(data))
+                  }).catch(() => {})
+                  setFormKey(k => k + 1)
+                }} />
+                <YoutubeClearButton artistId={artistId} onDone={() => setDiscographyKey(k => k + 1)} />
+                <YoutubeEnrichButton artistId={artistId} onDone={() => setDiscographyKey(k => k + 1)} />
+                <RecalcCascadeButton artistId={artistId} />
+              </ActionsOverflowMenu>
+            </div>
             <Link href="/admin/artists"
               className="px-3 py-1.5 border border-[var(--input-border)] text-[var(--text-secondary)] rounded-lg text-sm font-medium hover:bg-[var(--bg-hover)] transition-colors">
               Atšaukti
