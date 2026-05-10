@@ -2208,14 +2208,12 @@ function Hero({
             loaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
           ].join(' ')}
         >
-          {/* Player wrapper — kai useris paleidžia video (`playing=true`),
-              wrapper'is ekspanduojasi platesnis (max-w nuo ~440 → ~640px),
-              kad iframe gautų daugiau ploto cinematic peržiūrai. Smooth
-              transition per 300ms, kad neatrodytų sukrečiantis. */}
-          <div className={[
-            'w-full transition-[max-width] duration-300 ease-out',
-            playing ? 'lg:max-w-[640px]' : 'lg:max-w-[440px]',
-          ].join(' ')}>
+          {/* Player wrapper — fixed max-width nepriklausomai nuo playing
+              state'o. Anksčiau buvo `playing ? 640px : 440px` toggle su
+              300ms transition (intencionali „expansion paleidžiant", bet
+              user'iui sukeldavo nemalonų layout shift'ą). Lock'inta į
+              640px — column constrain'a iki 460px bet kuriuo atveju. */}
+          <div className="w-full lg:max-w-[640px]">
             <PlayerCard
               tracksAllTime={tracksAllTime}
               tracksTrending={tracksTrending}
