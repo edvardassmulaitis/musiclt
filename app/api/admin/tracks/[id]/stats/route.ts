@@ -56,14 +56,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   {
     const r = await sb
       .from('tracks')
-      .select('id, legacy_id, slug, source, source_url, video_views, video_views_checked_at, video_embeddable, page_view_count, score, score_breakdown, score_updated_at, imported_at, updated_at, created_at')
+      .select('id, legacy_id, slug, source, source_url, video_views, video_views_checked_at, video_uploaded_at, video_embeddable, page_view_count, score, score_breakdown, score_updated_at, imported_at, updated_at, created_at')
       .eq('id', trackId)
       .maybeSingle()
     if (r.error && /page_view_count/.test(r.error.message)) {
       // Fallback be page_view_count
       const r2 = await sb
         .from('tracks')
-        .select('id, legacy_id, slug, source, source_url, video_views, video_views_checked_at, video_embeddable, score, score_breakdown, score_updated_at, imported_at, updated_at, created_at')
+        .select('id, legacy_id, slug, source, source_url, video_views, video_views_checked_at, video_uploaded_at, video_embeddable, score, score_breakdown, score_updated_at, imported_at, updated_at, created_at')
         .eq('id', trackId)
         .maybeSingle()
       trackData = r2.data
@@ -130,6 +130,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     views: {
       current: t.video_views ?? null,
       checked_at: t.video_views_checked_at ?? null,
+      uploaded_at: t.video_uploaded_at ?? null,
       embeddable: t.video_embeddable ?? null,
       history: histRows || [],
     },
