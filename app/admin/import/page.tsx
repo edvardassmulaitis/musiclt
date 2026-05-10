@@ -204,45 +204,48 @@ export default function AdminImportPage() {
 
   return (
     <div className="min-h-screen bg-[var(--bg-elevated)]">
-      <div className="w-full px-6 py-6 max-w-[1600px] mx-auto">
+      <div className="w-full px-4 sm:px-6 py-4 sm:py-6 max-w-[1600px] mx-auto">
 
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-[var(--text-primary)]">Migracijos valdymas</h1>
-            <p className="text-sm text-[var(--text-muted)]">
-              Wiki + music.lt scrape per grupę. Worker'is veikia ant Mac'o (žr. scraper/wiki_worker.py ir scrape_worker.py).
-            </p>
+        {/* Compact header — mobile-friendly */}
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <Link href="/admin" className="text-music-blue hover:underline shrink-0">
+                <svg viewBox="0 0 24 24" className="w-5 h-5 fill-none stroke-current stroke-2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+              </Link>
+              <h1 className="text-lg sm:text-2xl font-bold text-[var(--text-primary)] truncate">Migracijos valdymas</h1>
+              <HelpToggle />
+            </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 shrink-0">
             <Link
               href="/admin/import/forum"
-              className="px-3 py-1.5 text-xs bg-blue-50 text-blue-700 rounded-lg border border-blue-200 hover:bg-blue-100"
-              title="Forumų thread'ų migracija (forum_worker)"
+              className="px-2 py-1.5 text-xs bg-blue-50 text-blue-700 rounded-lg border border-blue-200 hover:bg-blue-100"
+              title="Forumų thread'ų migracija"
             >
-              💬 Forumai
+              💬
             </Link>
             <button
               onClick={triggerScoreRecalc}
               disabled={actionLoading}
-              className="px-3 py-1.5 text-xs bg-amber-50 text-amber-700 rounded-lg border border-amber-200 hover:bg-amber-100 disabled:opacity-50"
+              className="px-2 py-1.5 text-xs bg-amber-50 text-amber-700 rounded-lg border border-amber-200 hover:bg-amber-100 disabled:opacity-50"
               title="Pažymi visus atlikėjus stale → Vercel cron periodiškai perskaičiuoja kas naktį"
             >
-              🎯 Recalc visi score
+              🎯
             </button>
-            <Link href="/admin" className="text-sm text-music-blue hover:underline">← Admin</Link>
           </div>
         </div>
 
-        {/* Stats cards */}
+        {/* Stats cards — kompaktiški, 3 svarbiausi metric'ai. Tiksli formuluotė:
+            Importuoti = real DB state'as (album_count > 0 — atlikėjas turi
+            content'o), nepriklausomai ar tai per job queue ar import_artist.py.
+            "Aktyvu dabar" = pending + running job queue (CLI imports šito nekelia). */}
         {stats && (
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
-            <StatCard label="Iš viso atlikėjų" value={stats.total_artists} />
-            <StatCard label="Wiki ✓" value={stats.wiki_done} sub={`${pct(stats.wiki_done, stats.total_artists)}%`} />
-            <StatCard label="Scrape ✓" value={stats.scrape_done} sub={`${pct(stats.scrape_done, stats.total_artists)}%`} />
-            <StatCard label="Abu ✓" value={stats.both_done} sub={`${pct(stats.both_done, stats.total_artists)}%`} />
-            <StatCard label="Aktyvu dabar" value={stats.running_jobs + stats.pending_jobs}
-              sub={`${stats.running_jobs} vyksta · ${stats.pending_jobs} eile`}
+          <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4">
+            <StatCard label="Iš viso" value={stats.total_artists} />
+            <StatCard label="Importuoti" value={stats.both_done} sub={`${pct(stats.both_done, stats.total_artists)}%`} />
+            <StatCard label="Aktyvūs job'ai" value={stats.running_jobs + stats.pending_jobs}
+              sub={(stats.running_jobs > 0 || stats.pending_jobs > 0) ? `${stats.running_jobs}▶ ${stats.pending_jobs}⏳` : '—'}
               highlight={stats.running_jobs > 0} />
           </div>
         )}
@@ -438,6 +441,68 @@ export default function AdminImportPage() {
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
+
+/** HelpToggle — ⓘ ikonėlė kuri rodo modal'ą su pilnu paaiškinimu apie
+ *  migracijos workflow. Anksčiau visas help text'as buvo permanently rodomas
+ *  page'o viršuje (užimdavo daug vietos mobile'e). */
+function HelpToggle() {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)}
+        className="shrink-0 w-6 h-6 rounded-full bg-[var(--bg-elevated)] border border-[var(--input-border)] flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--bg-hover)] transition-colors"
+        title="Apie migracijos workflow'ą">
+        <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/>
+        </svg>
+      </button>
+      {open && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setOpen(false)}>
+          <div className="bg-[var(--bg-surface)] rounded-t-2xl sm:rounded-2xl max-w-lg w-full max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="sticky top-0 bg-[var(--bg-surface)] border-b border-[var(--border-subtle)] px-4 py-3 flex items-center justify-between">
+              <h2 className="font-bold text-[var(--text-primary)]">Migracijos workflow</h2>
+              <button onClick={() => setOpen(false)} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]">✕</button>
+            </div>
+            <div className="p-4 space-y-4 text-sm text-[var(--text-secondary)]">
+              <section>
+                <h3 className="font-semibold text-[var(--text-primary)] mb-1.5">Stats reikšmės</h3>
+                <ul className="space-y-1 text-[12.5px]">
+                  <li><strong>Iš viso</strong> — visi atlikėjai DB'oje (12k+ iš legacy)</li>
+                  <li><strong>Importuoti</strong> — turintys wiki + scrape (real DB content). Galima per UI flow (Įkelti Wiki info / Music.lt scrape) arba per CLI (<code>import_artist.py</code>)</li>
+                  <li><strong>Aktyvūs job'ai</strong> — job queue (vyksta / eilėje) — kuria iš UI „Paleisti Wiki/Scrape" mygtukai</li>
+                </ul>
+              </section>
+              <section>
+                <h3 className="font-semibold text-[var(--text-primary)] mb-1.5">Du importo būdai</h3>
+                <ol className="space-y-1.5 text-[12.5px] list-decimal pl-4">
+                  <li><strong>Per artist page UI</strong> — atidaryk atlikėjo admin → „Įkelti Wiki info" arba „Music.lt scrape" (komanda terminale). Geriausia kasdieniam atlikėjui.</li>
+                  <li><strong>Per šitą page (bulk)</strong> — pažymėk N atlikėjų → „Paleisti Wiki / Scrape" → sukuria job queue. Mac worker'is poliuoja queue ir vykdo background'e.</li>
+                </ol>
+              </section>
+              <section>
+                <h3 className="font-semibold text-[var(--text-primary)] mb-1.5">Worker'is ant Mac'o</h3>
+                <p className="text-[12.5px] mb-2">Reikia paleisti, kad apdorotų eilėje esančius jobs. Vienas worker'is nuolat (background):</p>
+                <div className="rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-subtle)] p-2.5 font-mono text-[11px] text-[var(--text-primary)] whitespace-pre-wrap break-all">
+                  {`cd "/Users/edvardas_s/Documents/Claude/Projects/Music.lt rebuild" && \\\nbash scraper/run_worker.sh wiki`}
+                </div>
+                <p className="text-[11.5px] text-[var(--text-muted)] mt-2">
+                  Atskirai scrape jobs: <code>bash scraper/run_worker.sh scrape</code>. Worker'is dirbs tol kol pasakai Ctrl+C.
+                </p>
+              </section>
+              <section>
+                <h3 className="font-semibold text-[var(--text-primary)] mb-1.5">Single atlikėjui — viskas vienu metu</h3>
+                <p className="text-[12.5px] mb-2">Greičiausia kelti naują atlikėją (scrape + news + events + lyrics + YT enrich):</p>
+                <div className="rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-subtle)] p-2.5 font-mono text-[11px] text-[var(--text-primary)] whitespace-pre-wrap break-all">
+                  {`python3 scraper/import_artist.py <artist_id>`}
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
 
 function StatCard({ label, value, sub, highlight }: { label: string; value: number; sub?: string; highlight?: boolean }) {
   return (
