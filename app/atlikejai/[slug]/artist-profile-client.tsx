@@ -657,15 +657,22 @@ function PlayerCard({
   }
 
   return (
-    // w-full + max-width lock — kad outer wrapper'is nesikeistų pločio
-    // tarp paused/playing state'ų. Anksčiau iframe load'as kartais
-    // pakeisdavo wrapper width truputį (browser intrinsic-content
-    // recompute), dėl ko visa kortelė pasistumdavo per kelis pikselius.
-    <div className="w-full max-w-full overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-elevated)] shadow-[0_20px_60px_-20px_rgba(0,0,0,0.4)]">
-      {/* Player area — mobile: aspect-video (resp.), desktop: fixed 260px
-          height + 100% width (lock'ina abi dimensijas). Iframe load'as
-          nebegali keisti dydzio neprikl. nuo state'o. */}
-      <div className="relative aspect-video lg:aspect-auto lg:h-[260px] w-full max-w-full overflow-hidden bg-black">
+    // Hardened size lock — multiple defensive layers prevent any size
+    // change tarp paused/playing state'u. CSS `contain: size layout`
+    // izoliuoja inner content layout from parent (iframe injectai
+    // negali push'inti parent dydziui).
+    <div
+      className="w-full max-w-full overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-elevated)] shadow-[0_20px_60px_-20px_rgba(0,0,0,0.4)]"
+      style={{ contain: 'layout', boxSizing: 'border-box' }}
+    >
+      {/* Player area — mobile: aspect-video, desktop: fixed 260px height
+          + 100% width. `contain: strict` hard'iest CSS containment —
+          iframe negali iseiti is shio box dydziu. min-w/min-h: 0
+          prevent intrinsic-size grow. */}
+      <div
+        className="relative aspect-video lg:aspect-auto lg:h-[260px] w-full max-w-full overflow-hidden bg-black"
+        style={{ contain: 'strict', minWidth: 0, minHeight: 0, boxSizing: 'border-box' }}
+      >
         {displayVid ? (
           // YT IFrame API replaces an inner div with <iframe>. The OUTER
           // wrapper (containerRef) is React-owned and ALWAYS mounted —

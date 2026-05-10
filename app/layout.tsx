@@ -6,6 +6,15 @@ import { SiteShell } from '@/components/SiteShell'
 export const metadata: Metadata = {
   title: 'Music.lt - Lietuviškos muzikos bendruomenė',
   description: 'Lietuviškos muzikos atlikėjai, albumai, dainos ir renginiai',
+  // Explicit icon override — Vercel default „V" favicon nepriima icon.svg
+  // konvencijos kai kuriuose browser'iuose. Forcing per metadata.icons.
+  icons: {
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+    ],
+    shortcut: '/icon.svg',
+    apple: '/icon.svg',
+  },
 }
 
 export default function RootLayout({
@@ -16,6 +25,9 @@ export default function RootLayout({
   return (
     <html lang="lt">
       <head>
+        {/* Defensive favicon link — forcing icon.svg net jei Next.js
+            metadata.icons negeneruoja link tag'o teisingai. */}
+        <link rel="icon" type="image/svg+xml" href="/icon.svg" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
