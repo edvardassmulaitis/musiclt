@@ -26,6 +26,7 @@ type TrackRow = {
   is_single: boolean | null
   release_year: number | null
   release_month: number | null
+  release_day: number | null
   video_url: string | null
   video_views: number | null
   score: number | null
@@ -46,7 +47,7 @@ async function getTracks(id: number): Promise<TrackRow[]> {
   const sb = createAdminClient()
   const { data } = await sb
     .from('tracks')
-    .select('id, slug, title, type, is_single, release_year, release_month, video_url, video_views, score')
+    .select('id, slug, title, type, is_single, release_year, release_month, release_day, video_url, video_views, score')
     .eq('artist_id', id)
     .or('source.is.null,source.neq.legacy_scrape_pending')
     .range(0, 9999)
@@ -71,12 +72,44 @@ async function getTracks(id: number): Promise<TrackRow[]> {
   return tracks
 }
 
+// Composite formulė — VIEWS-HEAVY (atitinka public artist-profile-client.tsx
+// trackSortVal). Kiekvienas terminas atskirai grąžinamas, kad admin matytų
+// breakdown'ą lentelėje.
+const CURRENT_YEAR = new Date().getFullYear()
+
+function trackScoreBreakdown(t: TrackRow): {
+  viewsLog: number
+  likesLog: number
+  single: number
+  scoreTerm: number
+  yearRecency: number
+  total: number
+} {
+  const viewsLog = Math.log10((t.video_views || 0) + 1) * 50
+  const likesLog = Math.log10((t.like_count || 0) + 1) * 15
+  const single = t.is_single ? 15 : 0
+  const scoreTerm = (t.score || 0) * 0.2
+  const yr = t.release_year
+  const yearRecency = yr ? Math.max(0, 30 - (CURRENT_YEAR - yr)) : 0
+  return {
+    viewsLog, likesLog, single, scoreTerm, yearRecency,
+    total: viewsLog + likesLog + single + scoreTerm + yearRecency,
+  }
+}
+
 function trackSortVal(t: TrackRow): number {
-  const likes = (t.like_count || 0) * 100
-  const score = (t.score || 0)
-  const views = Math.log10((t.video_views || 0) + 1) * 10
-  const single = t.is_single ? 50 : 0
-  return likes + score + views + single
+  return trackScoreBreakdown(t).total
+}
+
+function fmtReleaseDate(t: TrackRow): string {
+  const yr = t.release_year
+  const mo = t.release_month
+  const dy = t.release_day
+  if (!yr) return '—'
+  const pad = (n: number) => String(n).padStart(2, '0')
+  if (mo && dy) return `${yr}-${pad(mo)}-${pad(dy)}`
+  if (mo) return `${yr}-${pad(mo)}`
+  return String(yr)
 }
 
 type PopSignal = 'likes' | 'score' | 'views' | 'none'
@@ -141,19 +174,27 @@ export default async function TracksDebugPage({ params }: Props) {
 
       <div className="mb-6 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 text-[13px] text-[var(--text-muted)]">
         <p className="mb-2">
-          <strong className="text-[var(--text-primary)]">Composite sort formulė:</strong>{' '}
+          <strong className="text-[var(--text-primary)]">Composite formulė (views-heavy, 2026-05-10):</strong>{' '}
           <code className="rounded bg-[var(--bg-elevated)] px-1.5 py-0.5 text-[12px]">
-            likes×100 + score + log10(views)×10 + (is_single ? 50 : 0)
+            views_log×50 + likes_log×15 + (single ? 15 : 0) + score×0.2 + year_recency
           </code>
         </p>
+        <ul className="mb-2 ml-4 list-disc space-y-0.5 text-[12px]">
+          <li><code>views_log</code> = log₁₀(video_views + 1) — 1.3B views ≈ 9.13</li>
+          <li><code>likes_log</code> = log₁₀(like_count + 1) — 200 likes ≈ 2.31, dampens skew</li>
+          <li><code>single</code> = is_single bonus +15</li>
+          <li><code>score</code> = Wiki-derived 0-100 (žr. lib/scoring.ts), kontribuoja 0-20</li>
+          <li><code>year_recency</code> = max(0, 30 − (2026 − release_year)), naujesni gauna iki +30</li>
+        </ul>
         <p className="mb-2">
           <strong className="text-[var(--text-primary)]">PopBar signal:</strong>{' '}
           <span className="rounded bg-[var(--bg-elevated)] px-1.5 py-0.5 font-bold text-[var(--accent-orange)]">
             {popInfo.signal}
           </span>{' '}
           (max ={' '}
-          <span className="tabular-nums">{popInfo.max.toFixed(2)}</span>) — visi PopBar
-          dashes skaičiuojami relatyviai prie šio max.
+          <span className="tabular-nums">{popInfo.max.toFixed(2)}</span>) — PopBar
+          dashes relatyviai prie max'o per detectPopSignal hierarchy
+          (likes → score → log10(views) → none).
         </p>
         <p>
           <strong className="text-[var(--text-primary)]">Track'ai:</strong> {tracks.length} ·{' '}
@@ -169,20 +210,22 @@ export default async function TracksDebugPage({ params }: Props) {
             <tr>
               <th className="px-3 py-2.5">#</th>
               <th className="px-3 py-2.5">Track</th>
-              <th className="px-3 py-2.5 text-right">Likes</th>
-              <th className="px-3 py-2.5 text-right">Score</th>
               <th className="px-3 py-2.5 text-right">Views</th>
-              <th className="px-3 py-2.5 text-right">log10(views)</th>
-              <th className="px-3 py-2.5 text-center">Single</th>
+              <th className="px-3 py-2.5 text-right" title="log10(views+1) × 50">+views×50</th>
+              <th className="px-3 py-2.5 text-right">Likes</th>
+              <th className="px-3 py-2.5 text-right" title="log10(likes+1) × 15">+likes×15</th>
+              <th className="px-3 py-2.5 text-center" title="is_single ? +15 : 0">+Single</th>
+              <th className="px-3 py-2.5 text-right" title="score × 0.2">+score×0.2</th>
+              <th className="px-3 py-2.5 text-right" title="max(0, 30 − (2026 − year))">+recency</th>
               <th className="px-3 py-2.5 text-center">Video</th>
-              <th className="px-3 py-2.5 text-center">Year</th>
-              <th className="px-3 py-2.5 text-right font-extrabold text-[var(--accent-orange)]">Composite</th>
+              <th className="px-3 py-2.5 text-center">Date</th>
+              <th className="px-3 py-2.5 text-right font-extrabold text-[var(--accent-orange)]">Σ Composite</th>
               <th className="px-3 py-2.5 text-center">PopBar</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--border-subtle)]">
             {sorted.map((t, i) => {
-              const composite = trackSortVal(t)
+              const bd = trackScoreBreakdown(t)
               const popVal = trackPopValue(t, popInfo.signal)
               const level = popLevel(popVal, popInfo.max)
               const hasVideo = yt(t.video_url)
@@ -194,33 +237,39 @@ export default async function TracksDebugPage({ params }: Props) {
                       {t.title}
                     </Link>
                   </td>
-                  <td className="px-3 py-2 text-right tabular-nums">{t.like_count}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">
-                    {t.score != null ? t.score.toFixed(1) : '—'}
-                  </td>
                   <td className="px-3 py-2 text-right tabular-nums">
                     {t.video_views != null ? t.video_views.toLocaleString('lt-LT') : '—'}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums text-[var(--text-muted)]">
-                    {t.video_views ? Math.log10(t.video_views + 1).toFixed(2) : '—'}
+                    {bd.viewsLog.toFixed(1)}
                   </td>
-                  <td className="px-3 py-2 text-center">
+                  <td className="px-3 py-2 text-right tabular-nums">{t.like_count}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-[var(--text-muted)]">
+                    {bd.likesLog.toFixed(1)}
+                  </td>
+                  <td className="px-3 py-2 text-center tabular-nums">
                     {t.is_single ? (
                       <span className="rounded bg-[rgba(59,130,246,0.16)] px-1.5 py-0.5 text-[10px] font-bold text-[#60a5fa]">
-                        ✓
+                        +15
                       </span>
                     ) : (
                       <span className="text-[var(--text-faint)]">—</span>
                     )}
                   </td>
+                  <td className="px-3 py-2 text-right tabular-nums text-[var(--text-muted)]" title={t.score != null ? `score=${t.score.toFixed(1)}` : ''}>
+                    {bd.scoreTerm.toFixed(1)}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums text-[var(--text-muted)]">
+                    {bd.yearRecency.toFixed(0)}
+                  </td>
                   <td className="px-3 py-2 text-center">
                     {hasVideo ? '▶' : <span className="text-[var(--text-faint)]">—</span>}
                   </td>
                   <td className="px-3 py-2 text-center tabular-nums text-[var(--text-muted)]">
-                    {t.release_year || '—'}
+                    {fmtReleaseDate(t)}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums font-extrabold text-[var(--accent-orange)]">
-                    {composite.toFixed(1)}
+                    {bd.total.toFixed(1)}
                   </td>
                   <td className="px-3 py-2 text-center">
                     <div className="inline-flex gap-[2px]">

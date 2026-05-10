@@ -949,21 +949,24 @@ function PlayerCard({
                       ].join(' ')}>
                         <span className="truncate">{t.title}</span>
                         {(() => {
-                          // Release date badge — rodomas:
-                          //  • Visada Singlai filtre (kad matyt'ųsi metai
-                          //    sortuojant pagal naujausi)
-                          //  • Naujausi filtre (vis dar arba release <24mo)
-                          //  • Visos filtre — tik svežiems (<24mo) per
-                          //    newTrackIds patikra
+                          // Release date badge — pilna data jei turim
+                          // (year-month-day), kitaip ką turim. Rodomas:
+                          //  • Visada Singlai filtre
+                          //  • Naujausi filtre (release <24mo)
+                          //  • Visos filtre — tik svežiems (<24mo)
                           const yr = (t as any).release_year
                           const mo = (t as any).release_month
+                          const dy = (t as any).release_day
                           if (!yr) return null
                           const showAlways = filter === 'singles'
                           const showAsNew = newTrackIds.has(t.id)
                           if (!showAlways && !showAsNew) return null
-                          const dateLabel = mo && showAsNew
-                            ? `${yr}-${String(mo).padStart(2, '0')}`
-                            : String(yr)
+                          const pad = (n: number) => String(n).padStart(2, '0')
+                          const dateLabel = mo && dy
+                            ? `${yr}-${pad(mo)}-${pad(dy)}`
+                            : mo
+                              ? `${yr}-${pad(mo)}`
+                              : String(yr)
                           return (
                             <span
                               className="shrink-0 rounded bg-[rgba(59,130,246,0.16)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9.5px] font-extrabold tabular-nums tracking-wider text-[#60a5fa]"
@@ -4384,17 +4387,32 @@ export default function ArtistProfileClient({
   // (Mamontovas 220+, didžiosios DJ'jaus kompiliacijos 1000+) turi gerokai
   // daugiau dainų. Filtruojam, kad video-turintys keliautų į priekį, bet
   // visus rodom.
-  // Composite popularity score: heavier weight ant likes (UGC engagement),
-  // tada score (Wiki-derived), tada log10(views) (YT engagement), bonus
-  // už is_single (artist'o oficialus release'as). Naudojamas BOTH
-  // tracksAllTime ir tracksTrending sortinimui — kad PopBar dashes
-  // (relatyvus) atitiktų sąrašo eiliškumą.
+  // Composite popularity score — VIEWS-HEAVY (2026-05-10 rewrite).
+  //
+  // Anksčiau buvo `likes×100 + score + log10(views)×10 + single?50:0`,
+  // bet music.lt likes count'ai SKEW'inti (platforma su mažėjančiu
+  // populiarumu — top hit'ai accumulated likes prieš kelis metus, naujesni
+  // gauna mažiau, neproportionally tikram populiarumui). YT views global,
+  // all-time, geresnis tikras-popularity rodiklis.
+  //
+  // Nauja formulė:
+  //   views_log × 50    — dominuoja (1.3B views = 9.13 × 50 = 456)
+  //   likes_log × 15    — log-skalinta (200 likes = 2.31 × 15 = 35), dampens skew
+  //   is_single ? 15 : 0  — official release bonus
+  //   score × 0.2       — Wiki-derived score 0-100 → contribuiton 0-20
+  //   year_recency      — 30 (2026) → 0 (1996+), boost'as naujoms dainoms
+  //
+  // Coldplay'aus pavyzdys: Yellow su 1.3B views (≈ The Scientist'o)
+  // pakyla nuo #3 (likes 118 buvo) į #2 (views vienodi su top hit'u).
+  const CURRENT_YEAR = new Date().getFullYear()
   const trackSortVal = (t: any): number => {
-    const likes = (t.like_count || 0) * 100
-    const score = (t.score || 0)
-    const views = Math.log10((t.video_views || 0) + 1) * 10
-    const single = t.is_single ? 50 : 0
-    return likes + score + views + single
+    const viewsLog = Math.log10((t.video_views || 0) + 1) * 50
+    const likesLog = Math.log10((t.like_count || 0) + 1) * 15
+    const single = t.is_single ? 15 : 0
+    const scoreTerm = (t.score || 0) * 0.2
+    const yr = (t as any).release_year
+    const yearRecency = yr ? Math.max(0, 30 - (CURRENT_YEAR - yr)) : 0
+    return viewsLog + likesLog + single + scoreTerm + yearRecency
   }
 
   const tracksAllTime = useMemo(() => {
