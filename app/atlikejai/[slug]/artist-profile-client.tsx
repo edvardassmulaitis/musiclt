@@ -385,7 +385,21 @@ function PlayerCard({
 
   const list = useMemo(() => {
     if (filter === 'new') return tracksAllTime.filter(t => newTrackIds.has(t.id))
-    if (filter === 'singles') return tracksAllTime.filter(t => singleTrackIds.has(t.id))
+    if (filter === 'singles') {
+      // Singlai sortinami nuo naujausio žemyn (pagal release_year DESC,
+      // tiebreak pagal release_month). Be metų — į apačią.
+      return tracksAllTime
+        .filter(t => singleTrackIds.has(t.id))
+        .slice()
+        .sort((a, b) => {
+          const ay = (a as any).release_year || 0
+          const by = (b as any).release_year || 0
+          if (by !== ay) return by - ay
+          const am = (a as any).release_month || 0
+          const bm = (b as any).release_month || 0
+          return bm - am
+        })
+    }
     return tracksAllTime
   }, [filter, tracksAllTime, newTrackIds, singleTrackIds])
 
@@ -934,13 +948,22 @@ function PlayerCard({
                         isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-primary)]',
                       ].join(' ')}>
                         <span className="truncate">{t.title}</span>
-                        {newTrackIds.has(t.id) && (() => {
-                          // Release date format: "YYYY-MM" jei turim mėnesį,
-                          // tiesiog "YYYY" jei tik metus.
+                        {(() => {
+                          // Release date badge — rodomas:
+                          //  • Visada Singlai filtre (kad matyt'ųsi metai
+                          //    sortuojant pagal naujausi)
+                          //  • Naujausi filtre (vis dar arba release <24mo)
+                          //  • Visos filtre — tik svežiems (<24mo) per
+                          //    newTrackIds patikra
                           const yr = (t as any).release_year
                           const mo = (t as any).release_month
                           if (!yr) return null
-                          const dateLabel = mo ? `${yr}-${String(mo).padStart(2, '0')}` : String(yr)
+                          const showAlways = filter === 'singles'
+                          const showAsNew = newTrackIds.has(t.id)
+                          if (!showAlways && !showAsNew) return null
+                          const dateLabel = mo && showAsNew
+                            ? `${yr}-${String(mo).padStart(2, '0')}`
+                            : String(yr)
                           return (
                             <span
                               className="shrink-0 rounded bg-[rgba(59,130,246,0.16)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9.5px] font-extrabold tabular-nums tracking-wider text-[#60a5fa]"
