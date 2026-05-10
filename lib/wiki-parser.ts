@@ -663,11 +663,31 @@ export function parseTracklist(wikitext: string): TrackEntry[] {
       if (/^\s*hidden\s*track/.test(noteStr_raw)) continue
       const titleRaw = (titleM?.[1] || '').toLowerCase()
       if (/^\s*hidden\s*track/.test(titleRaw)) continue
+      // Per-track DVD/video skip — Britney Spears Circus „bonus DVD" buvo
+      // pažymėtas kaip atskira sekcija (gaudytas block-level), bet kai
+      // Wikipedia editor įdeda DVD content vidury bendro Track listing
+      // block'o (kartais lieka „Making of the Album" 9:34 šalia regular
+      // tracks), block-level filter'is jį praleis. Apsidraudžiam:
+      const trashTitlePatterns = [
+        /\bmaking\s+of\s+(the\s+)?(album|video|record)\b/i,
+        /^\s*photo\s+gallery\s*$/i,
+        /\bmusic\s+video\b/i,
+        /\bdirector'?s\s+cut\b/i,
+        /^\s*(behind\s+the\s+scenes|featurette|interview|trailer|teaser)\b/i,
+        /\bvideo\s+(edit|version|mix)\b/i,
+      ]
+      if (trashTitlePatterns.some(re => re.test(titleRaw) || re.test(noteStr_raw))) continue
 
       const durStr = lenM?.[1]?.trim() || ''
-      const durMatch = durStr.match(/^(\d+):(\d+)$/)
+      // Palaikom MM:SS arba HH:MM:SS formatą. Anksčiau tik MM:SS — todėl
+      // 1:44:35 (Coldplay documentary 1h44m) praeidavo be duration check'o
+      // (regex'as nematch'ino). Hard cap 15min — bet kokia ilgesnė „daina"
+      // greičiausiai documentary, mix tape, ar full album upload.
+      const durMatch = durStr.match(/^(\d+):(\d+)(?::(\d+))?$/)
       if (durMatch) {
-        const totalSec = parseInt(durMatch[1]) * 60 + parseInt(durMatch[2])
+        const totalSec = durMatch[3]
+          ? parseInt(durMatch[1]) * 3600 + parseInt(durMatch[2]) * 60 + parseInt(durMatch[3])
+          : parseInt(durMatch[1]) * 60 + parseInt(durMatch[2])
         if (totalSec < 10) continue
         if (totalSec > 900) continue
       }
@@ -746,8 +766,20 @@ export function parseTracklist(wikitext: string): TrackEntry[] {
     const standard = tlWithPos.filter(({ block, pos }) => {
       const hl = getHeadline(block)
       if (isReissueBlock(hl, block)) return false
+      // Documentary / DVD bonus / film / music video / photo gallery tracklists.
+      // Skipinam visą Track listing block'ą, jei headline'as nurodo NE muzikos
+      // turinį. Anksčiau Britney Spears Circus „bonus DVD" sekcija (su
+      // „Making of the Album" 9:34min ir „Photo Gallery") praeidavo, nes
+      // headline'e buvo „Deluxe edition (bonus DVD)" ir regex ieškojo tik
+      // „documentary|film|making of" žodžių (be DVD/video/gallery).
+      const hlLow = hl.toLowerCase()
+      if (/\b(documentary|film|movie|featurette|trailer|interview|behind\s+the\s+scenes|making\s+of|music\s+video|video\s+album|photo\s+gallery|gallery|bonus\s+dvd|video\s+edition|videos?\b)\b/.test(hlLow)) return false
+      // Standalone „DVD" žodžio fix — pvz „Circus – Deluxe edition (bonus DVD)"
+      // headline'e bonus DVD jau aukščiau, bet kas jei tik DVD: „Disc 2: DVD"
+      if (/\bdvd\b/i.test(hlLow)) return false
       const sectionBefore = getSectionBeforePos(wikitext, pos)
       if (/reissue|remaster|anniversary|box.?set|collector|deluxe|expanded|bonus|demo|outtake/i.test(sectionBefore)) return false
+      if (/\b(documentary|dvd\s*[2-9]|film|behind[- ]the[- ]scenes|making[- ]of|featurette)\b/i.test(sectionBefore)) return false
       return true
     }).map(({ block }) => block)
 
