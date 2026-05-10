@@ -90,13 +90,35 @@ export async function enrichTrack(trackId: number, force = false): Promise<Enric
         const outcome = pickBestMatch(artistName, t.title, results)
         if (outcome.ok) {
           const pick = outcome.pick
-          videoId = pick.videoId
-          videoUrl = `https://www.youtube.com/watch?v=${pick.videoId}`
-          videoTitle = pick.title
-          videoChannel = pick.channel
-          matchScore = pick.score
-          updates.video_url = videoUrl
-          wasFound = true
+          // Dedup: ar tas pats videoId jau priskirtas kitam to atlikėjo
+          // trackui? yt-match'as kartais grąžina vieną live-koncerto video
+          // visiems 10 setlist'o track'ams. Jei jau yra — paliekam šį
+          // track'ą be URL'o (admin gali manualiai nustatyti, arba
+          // pridėt unikalų YT URL ant atlikėjo channel'io).
+          const { data: existingDup } = await supabase
+            .from('tracks')
+            .select('id, title')
+            .eq('artist_id', t.artist_id)
+            .eq('video_url', `https://www.youtube.com/watch?v=${pick.videoId}`)
+            .neq('id', trackId)
+            .limit(1)
+            .maybeSingle()
+          if (existingDup) {
+            const dupTitle = (existingDup as any).title || `track #${(existingDup as any).id}`
+            skipReason = `videoId ${pick.videoId} jau priskirtas '${dupTitle}'`
+            warnings.push(`Match'as su videoId ${pick.videoId} (score=${pick.score}) — bet jau priskirtas '${dupTitle}'. Nesaugom.`)
+            videoTitle = pick.title
+            videoChannel = pick.channel
+            matchScore = pick.score
+          } else {
+            videoId = pick.videoId
+            videoUrl = `https://www.youtube.com/watch?v=${pick.videoId}`
+            videoTitle = pick.title
+            videoChannel = pick.channel
+            matchScore = pick.score
+            updates.video_url = videoUrl
+            wasFound = true
+          }
         } else {
           // Buvo kandidatų, bet nė vienas nesiekė confidence threshold'o.
           skipReason = outcome.reason
