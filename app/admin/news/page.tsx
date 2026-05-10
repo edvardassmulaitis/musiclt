@@ -189,7 +189,7 @@ export default function NewsAdmin() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1.5 justify-end">
-                        <Link href={`/lt/muzika/${item.slug}/${item.id}/`} target="_blank"
+                        <Link href={`/news/${item.slug}`} target="_blank"
                           className="px-2.5 py-1.5 bg-[var(--bg-elevated)] hover:bg-[var(--bg-active)] rounded-lg text-xs text-[var(--text-muted)] transition-colors">
                           👁
                         </Link>

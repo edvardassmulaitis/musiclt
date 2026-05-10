@@ -20,11 +20,14 @@ export type ScoredCandidate = YtSearchResult & {
   trackRatio: number  // 0..1 — track tokens title'e
 }
 
-const ACCEPT_THRESHOLD = 60        // bendras balas iš ~120 max
+const ACCEPT_THRESHOLD = 70        // bendras balas iš ~120 max (bumpinta 60→70 2026-05-05
+                                   // po SEL pilot'o false-positive case'ų: "Tik Tok" matched "Tik")
 const MIN_ARTIST_RATIO = 0.5       // hard gate: >=50% artist tokenų title ARBA channel'yje
+const MIN_TRACK_RATIO = 0.5        // hard gate: >=50% track tokenų title'e (kai >=2 token'ai)
 const MIN_DURATION_S = 25
 const MAX_DURATION_S = 1500        // 25min — DJ set'ai/pilnaalbumai per ilgi
 const LOW_VIEW_THRESHOLD = 50      // mažiau už šitą — sketchy upload, bandom kitą
+const MISSING_TOKEN_PENALTY = 15   // per missing track token (kai trackRatio < 1 ir >=2 token'ai)
 
 /** Lowercase, strip diacritics, drop common parens/brackets/feat segments, keep alphanumerics. */
 export function normalizeText(s: string): string {
@@ -102,6 +105,30 @@ export function scoreCandidate(artist: string, track: string, c: YtSearchResult)
     trackRatio = inTitle / trackTokens.length
     score += Math.round(trackRatio * 50)
     reasons.push(`track ${inTitle}/${trackTokens.length} title`)
+
+    // Penalty per missing track token (apsauga nuo "Tik Tok" matching
+    // "Tik" video — 1/2 token'ų sutampa su 50% trackRatio, bet užklausa
+    // turi specifiškesnį "Tok" kuris kandidate trūksta). Mažiau bauda
+    // 1-token track'ams (jie tampa MIN_TRACK_RATIO check apačioje).
+    if (trackRatio < 1 && trackTokens.length >= 2) {
+      const missing = trackTokens.length - inTitle
+      const penalty = missing * MISSING_TOKEN_PENALTY
+      score -= penalty
+      reasons.push(`-${penalty} missing ${missing} track tok`)
+    }
+
+    // Normalized title equality bonus — jei track title po normalize
+    // visiškai sutampa su candidate title minus artist tokens, tai
+    // very strong signal. Apsisaugom nuo edge case "Tik" search →
+    // candidate "SEL - Tik (Live)" → po artist + suffix strip == "tik".
+    const titleStripped = artistTokens.length > 0
+      ? titleNorm.split(' ').filter(t => !artistTokens.includes(t)).join(' ').trim()
+      : titleNorm
+    const normTrack = normalizeText(track)
+    if (normTrack && (titleStripped === normTrack || titleStripped.startsWith(normTrack + ' ') || titleStripped.endsWith(' ' + normTrack))) {
+      score += 10
+      reasons.push('+10 exact title match')
+    }
   }
 
   // Channel signals (+10 max)
@@ -171,7 +198,19 @@ export function pickBestMatch(artist: string, track: string, candidates: YtSearc
     }
   }
 
+  // Hard gate: kai track turi >=2 token'us, reikalaujam bent 50% sutapimo.
+  // Be šito SEL "Tik Tok" eitų į "Tik" video net su missing-token penalty,
+  // jei artist + channel boost'as duoda pakankamai score'o.
   const top = artistOk[0]
+  const trackTokenCount = tokenize(track).length
+  if (trackTokenCount >= 2 && top.trackRatio < MIN_TRACK_RATIO) {
+    return {
+      ok: false,
+      reason: `track tokens neatitinka (ratio ${top.trackRatio.toFixed(2)} < ${MIN_TRACK_RATIO}: "${top.title}" / ${top.channel})`,
+      ranked,
+    }
+  }
+
   if (top.score >= ACCEPT_THRESHOLD) {
     return { ok: true, pick: top, ranked }
   }

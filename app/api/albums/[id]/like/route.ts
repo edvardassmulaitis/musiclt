@@ -11,6 +11,7 @@ import { randomUUID } from 'crypto'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
+import { logActivity } from '@/lib/activity-logger'
 
 const ANON_COOKIE = 'ml_anon_id'
 const ANON_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
@@ -147,6 +148,34 @@ export async function POST(
     }
 
     const count = await getTotalCount(sb, albumId)
+
+    if (!existing) {
+      try {
+        const { data: album } = await sb
+          .from('albums')
+          .select('title, slug, cover_image_url, artist_id, artists:artist_id(slug, name)')
+          .eq('id', albumId)
+          .maybeSingle() as { data: any }
+        if (album) {
+          const artistSlug = album.artists?.slug
+          const url = artistSlug && album.slug ? `/atlikejai/${artistSlug}/${album.slug}` : `/albumai/${albumId}`
+          await logActivity({
+            event_type: 'album_like',
+            user_id: profile.id,
+            actor_name: session.user.name || profile.username,
+            actor_avatar: session.user.image || null,
+            entity_type: 'album',
+            entity_id: albumId,
+            entity_title: `${album.title}${album.artists?.name ? ' — ' + album.artists.name : ''}`,
+            entity_url: url,
+            entity_image: album.cover_image_url || null,
+          })
+        }
+      } catch (e: any) {
+        console.error('[activity-log] album_like failed:', e?.message || e)
+      }
+    }
+
     return NextResponse.json({ liked: !existing, count, anonymous: false })
   }
 

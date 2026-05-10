@@ -54,7 +54,7 @@ export async function POST(req: Request) {
       user_id: userIdVal,
       user_username: (session.user as any).name || (session.user as any).email || 'user',
       user_avatar_url: (session.user as any).image || null,
-      source: 'modern',
+      source: 'auth',  // CHECK constraint allows: 'auth', 'legacy_scrape', 'anon'
     })
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ liked: true })
@@ -79,7 +79,7 @@ export async function POST(req: Request) {
     (!!viewerEmail && !!targetEmail && viewerEmail === targetEmail)
   )
   if (isSelf) {
-    return NextResponse.json({ error: 'Negalima palaikinti savo paties komentaro' }, { status: 403 })
+    return NextResponse.json({ error: 'Negalima pamėgti savo paties komentaro' }, { status: 403 })
   }
 
   // Toggle: jei jau patiko — pašalinam; jei ne — įdedam.
@@ -119,11 +119,10 @@ export async function POST(req: Request) {
   await recomputeLikeCount()
 
   // ── Notification: pranešam komentaro autoriui (jei ne pats sau). ─────
+  // Pass'inam recipient_email kaip fallback — jei stored author_id stale
+  // po DB wipe'o, createNotification resolve'ins per email lookup'ą.
   try {
     if (targetComment?.author_id && !isSelf) {
-      // Trumpą snippet'ą sudarom iš komentaro body — geras context'as
-      // recipient'ui. body lauką patrauk papildomu select'u (saugiau nei
-      // perpasti į prior pull, kuris jau gavo email JOIN'ą).
       const { data: full } = await sb
         .from('comments')
         .select('body, track_id, album_id, news_id, event_id')
@@ -140,6 +139,7 @@ export async function POST(req: Request) {
 
       await notifyFromSession({
         recipientUserId: targetComment.author_id,
+        recipientEmail: targetEmail,    // ← email iš profiles JOIN
         actorSession: session,
         type: 'comment_like',
         entity_type: entType,

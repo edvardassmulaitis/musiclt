@@ -3,17 +3,128 @@
 @tailwind utilities;
 
 /* ═══════════════════════════════════════════════════════════════════
-   GLOBAL SKELETON — naudojamas /app/loading.tsx + visiuose route
-   loading'iuose (artist/album/song). Anksčiau klasė buvo apibrėžta
-   tik homepage page.tsx scoped styled-jsx bloke, todėl loading.tsx
-   skeleton'ai matydavo nestyled div'us (jokio pulse'o). Pridedam
-   čia, kad veiktų visur, kur Next streaming'ina UI prieš data fetch.
+   GLOBAL SKELETON + LOADER + ROUTE TRANSITION
+   Naudojami /app/loading.tsx + visiuose route loading'iuose
+   (artist/album/song). Tikslas — sklandus app-stilius:
+     1. Skeleton'as švelnus (žemesnis kontrastas, lėtesnis pulse) — kad
+        nesikrautų akys.
+     2. Centruotas equalizer'is (.eq-loader) — muzikinė identite,
+        focal point vietoj blokuoto skeleton'o gausybės.
+     3. Route-enter fade-in (.route-enter) — kai loading.tsx pakeičia
+        page.tsx, naujas content'as įsitraukia su 250ms opacity+slide
+        animacija. Anksčiau buvo abrupt swap kuris atrodydavo "lyg viskas
+        persikrautų".
    ═══════════════════════════════════════════════════════════════════ */
+
+/* Original skeleton — paliekame backwards-compat'ui (homepage page.tsx
+   inline'iniam Skel komponentui). Naujas dizainas pereina prie soft. */
 @keyframes hp-pulse { 0%, 100% { opacity: .05 } 50% { opacity: .08 } }
 .hp-skel {
   background: var(--homepage-skeleton-bg, rgba(255,255,255,0.05));
   animation: hp-pulse 1.8s ease-in-out infinite;
 }
+
+/* Soft skeleton — naudojamas loading.tsx faile'ams. Lengviau akiai,
+   lėtesnis ritmas (2.4s vietoj 1.8s), žemesnis kontrastas. */
+@keyframes hp-pulse-soft { 0%, 100% { opacity: .035 } 50% { opacity: .065 } }
+.hp-skel-soft {
+  background: var(--homepage-skeleton-bg, rgba(255,255,255,0.05));
+  animation: hp-pulse-soft 2.4s ease-in-out infinite;
+  border-radius: 6px;
+}
+
+/* Equalizer loader — muzikiniam app'ui pritaikyta animacija.
+   Du dydžiai: .eq-loader (small, ~32px tall) — naudojamas loading.tsx
+   skeleton'uose. .eq-loader-big (44px tall) — naudojamas centriniame
+   homepage'o overlay'e. Animacija + matmenys MATCH'ina MasterSearch'o
+   BigEqualizer (.ms-eq-big), kad visi loader'iai svetainėje atrodytų
+   identiški. */
+@keyframes eq-bar {
+  0%   { height: 30%; }
+  50%  { height: 100%; }
+  100% { height: 50%; }
+}
+.eq-loader {
+  display: inline-flex;
+  gap: 4px;
+  align-items: flex-end;
+  height: 32px;
+}
+.eq-loader > span {
+  display: block;
+  width: 4px;
+  height: 30%;
+  background: #f97316;  /* music.lt brand orange */
+  border-radius: 2px;
+  animation: eq-bar 0.9s ease-in-out infinite alternate;
+  opacity: 0.9;
+}
+.eq-loader > span:nth-child(1) { animation-delay: 0.00s; }
+.eq-loader > span:nth-child(2) { animation-delay: 0.10s; }
+.eq-loader > span:nth-child(3) { animation-delay: 0.20s; }
+.eq-loader > span:nth-child(4) { animation-delay: 0.30s; }
+.eq-loader > span:nth-child(5) { animation-delay: 0.15s; }
+
+/* Big variant — match'ina MasterSearch'o `.ms-eq-big` exact (5 bars, 6px wide,
+   gap 4px, 44px tall, 1s alternate animacija). Naudojamas homepage'o
+   centriniame loading overlay'e ir ten, kur reikalinga didesnė versija. */
+.eq-loader-big {
+  display: inline-flex;
+  gap: 4px;
+  align-items: flex-end;
+  height: 44px;
+  width: 50px;
+}
+.eq-loader-big > span {
+  display: block;
+  width: 6px;
+  height: 30%;
+  background: #f97316;
+  border-radius: 2px;
+  animation: eq-bar 1.0s ease-in-out infinite alternate;
+}
+.eq-loader-big > span:nth-child(1) { animation-delay: 0.00s; }
+.eq-loader-big > span:nth-child(2) { animation-delay: 0.10s; }
+.eq-loader-big > span:nth-child(3) { animation-delay: 0.20s; }
+.eq-loader-big > span:nth-child(4) { animation-delay: 0.30s; }
+.eq-loader-big > span:nth-child(5) { animation-delay: 0.15s; }
+
+/* Route enter — kai page.tsx pakeičia loading.tsx, content'as fade'ina
+   per 280ms (opacity + 6px translateY). Tai eliminuoja "blink" jausmą.
+   Klasė pridedama route'o page.tsx top-level div'e (žr. ArtistPage,
+   AlbumPage, TrackPage, Home wrapper'iai). */
+@keyframes route-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.route-enter { animation: route-fade-in 0.28s ease-out both; }
+
+/* Loading screen layout helper — centruoja equalizer'į ekrane
+   ir leidžia švelnų fade-out (kai loading.tsx pasišalina, jį uždengia
+   page'as su .route-enter — ir taip transition'as atrodo "from dim to bright"). */
+.loading-screen-eq {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-height: 280px;
+  color: var(--text-muted, rgba(255,255,255,0.5));
+  font-family: 'Outfit', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+/* Page overlay fade-out — naudojamas homepage'o pageReady overlay'e
+   (anksčiau būdavo abrupt disappear kai pageReady=true; dabar fade'inasi
+   per 320ms). Klasė pridedama kai pageReady tampa true. */
+@keyframes overlay-fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; visibility: hidden; }
+}
+.overlay-fade-out { animation: overlay-fade-out 0.32s ease-out forwards; }
 
 /* ═══════════════════════════════════════════════════════════════════
    GLOBAL FOCUS STYLE — disable browser's default blue focus ring on
@@ -65,6 +176,8 @@ select:focus-visible {
   --accent-blue:     #1d4ed8;
   --accent-link:     #5a8ec8;
   --accent-green:    #22c55e;
+  --accent-yellow:   #fbbf24;
+  --accent-red:      #f87171;
 
   /* Modals & overlays */
   --modal-bg:        #0d1320;
@@ -205,6 +318,8 @@ select:focus-visible {
   --accent-blue:     #1d4ed8;
   --accent-link:     #2563eb;
   --accent-green:    #16a34a;
+  --accent-yellow:   #d97706;
+  --accent-red:      #dc2626;
 
   /* Modals & overlays */
   --modal-bg:        #ffffff;
@@ -424,4 +539,146 @@ html, body {
   background: var(--bg-surface);
   border: 1px solid var(--border-default);
   border-radius: 0.75rem;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Komentarų HTML body render'is (Tiptap output via dangerouslySetInnerHTML)
+   Tame pačiame elemente turi gražiai rodytis paragraphas, citata, sąrašai,
+   YT iframe ir nuoroda. Paprastas reset'as + spacing'as.
+   ═══════════════════════════════════════════════════════════════════ */
+.comment-html-body p { margin: 0 0 0.4em 0; }
+.comment-html-body p:last-child { margin-bottom: 0; }
+.comment-html-body strong, .comment-html-body b { font-weight: 700; }
+.comment-html-body em, .comment-html-body i { font-style: italic; }
+.comment-html-body u { text-decoration: underline; }
+.comment-html-body s { text-decoration: line-through; }
+.comment-html-body blockquote {
+  border-left: 3px solid var(--accent-orange);
+  padding-left: 0.6em;
+  color: var(--text-muted);
+  font-style: italic;
+  margin: 0.4em 0;
+}
+.comment-html-body ul, .comment-html-body ol {
+  padding-left: 1.2em;
+  margin: 0.3em 0;
+}
+.comment-html-body ul { list-style: disc; }
+.comment-html-body ol { list-style: decimal; }
+.comment-html-body a {
+  color: #60a5fa;
+  text-decoration: underline;
+  word-break: break-word;
+}
+.comment-html-body iframe {
+  width: 100%;
+  max-width: 480px;
+  aspect-ratio: 16/9;
+  border-radius: 6px;
+  border: 0;
+  margin: 0.5em 0;
+  background: var(--bg-elevated); /* placeholder kol iframe load'inasi */
+}
+/* Spotify embedai turi savo proporcijas — track=152px, album/playlist=352px.
+   Override 16:9 aspect-ratio specific selectors'ais (jie laimi prieš
+   bendrąjį iframe rule'ą per source-order priority). */
+.comment-html-body iframe[src*="open.spotify.com/embed/track"],
+.comment-html-body iframe[src*="open.spotify.com/embed/episode"] {
+  max-width: 100%;
+  width: 100%;
+  aspect-ratio: auto;
+  height: 152px;
+  background: transparent;
+}
+.comment-html-body iframe[src*="open.spotify.com/embed/album"],
+.comment-html-body iframe[src*="open.spotify.com/embed/playlist"],
+.comment-html-body iframe[src*="open.spotify.com/embed/show"] {
+  max-width: 100%;
+  width: 100%;
+  aspect-ratio: auto;
+  height: 352px;
+  background: transparent;
+}
+/* SoundCloud embedai — irgi savo proporcijos */
+.comment-html-body iframe[src*="soundcloud.com/player"] {
+  max-width: 100%;
+  width: 100%;
+  aspect-ratio: auto;
+  height: 166px;
+  background: transparent;
+}
+.comment-html-body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
+
+/* Legacy reply chain — render'inami arba pilnai content_html viduje
+   (.comment-html-body), arba React'o LegacyChain komponente (sibling div).
+   Selektoriai be `.comment-html-body` prefix'o, kad veiktų abu atvejais. */
+blockquote.legacy-quote {
+  border-left: 3px solid var(--accent-orange);
+  background: rgba(249, 115, 22, 0.06);
+  padding: 5px 8px 5px 10px;
+  margin: 0 0 4px 0;
+  border-radius: 0 6px 6px 0;
+}
+blockquote.legacy-quote .legacy-quote-author {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--text-secondary);
+  margin-bottom: 2px;
+}
+blockquote.legacy-quote .legacy-quote-body,
+blockquote.legacy-quote .legacy-quote-body p {
+  font-size: 11.5px;
+  font-style: italic;
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin: 0;
+}
+blockquote.legacy-quote .legacy-quote-body p + p {
+  margin-top: 0.3em;
+}
+blockquote.legacy-quote .legacy-quote-body img {
+  max-width: 100%;
+  max-height: 160px;
+  height: auto;
+  border-radius: 4px;
+  margin: 4px 0;
+  opacity: 0.9;
+}
+blockquote.legacy-quote .legacy-quote-body iframe {
+  max-width: 280px;
+  aspect-ratio: 16/9;
+  border-radius: 4px;
+  border: 0;
+  margin: 4px 0;
+}
+/* Mini avatar next to author */
+blockquote.legacy-quote .legacy-quote-avatar {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  object-fit: cover;
+  background: var(--bg-elevated);
+}
+blockquote.legacy-quote .legacy-quote-avatar-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  font-size: 8px;
+  font-weight: 800;
+  color: white;
+  background: var(--accent-orange);
 }

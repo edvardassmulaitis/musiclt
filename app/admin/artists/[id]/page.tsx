@@ -333,6 +333,7 @@ function AlbumCard({ album, defaultOpen, onDeleted }: { album: any; defaultOpen:
 
 function SingleRow({ track, onDelete }: { track: any; onDelete: () => void }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const views = formatViews(track.video_views)
   return (
     <div className="flex items-center gap-2 px-3 py-1.5 hover:bg-[var(--bg-hover)]/80 group transition-colors">
       <div className="flex-1 min-w-0">
@@ -344,7 +345,14 @@ function SingleRow({ track, onDelete }: { track: any; onDelete: () => void }) {
           {track.release_year && <span className="text-xs text-[var(--text-muted)] shrink-0">{track.release_year}</span>}
           {track.video_url && <span className="text-blue-400 text-xs shrink-0">▶</span>}
           {track.has_lyrics && <span className="text-green-500 text-xs font-bold shrink-0">T</span>}
-
+          {views && (
+            <span
+              className="text-[10px] text-[var(--text-muted)] tabular-nums shrink-0"
+              title={`${track.video_views} peržiūrų${track.video_views_checked_at ? ` (${new Date(track.video_views_checked_at).toLocaleDateString()})` : ''}`}
+            >
+              {views}
+            </span>
+          )}
         </div>
         {track.albums_list?.[0] && <div className="text-[11px] text-[var(--text-muted)] truncate">{track.albums_list[0].title}</div>}
       </div>
@@ -1005,6 +1013,44 @@ function WikipediaImportCompact({ onImport, artistName }: { onImport: (data: any
   )
 }
 
+// 3-dot overflow menu — surinka šalines actions (PhotosFix, ClearYT,
+// YT enrich, Recalc score), kad header'is nebūtų perkrautas. Children'us
+// renderina vertikaliame dropdown'e su mažu spacing'u tarp jų.
+function ActionsOverflowMenu({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const close = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [open])
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen(p => !p)}
+        title="Daugiau veiksmų: foto fix, YT clear/enrich, perskaičiuoti balus"
+        className={`flex items-center justify-center w-8 h-8 rounded-lg border transition-colors ${open ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-[var(--bg-elevated)] border-[var(--input-border)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'}`}
+      >
+        <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
+          <circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>
+        </svg>
+      </button>
+      {open && (
+        <div
+          className="absolute right-0 top-10 z-50 w-72 bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl shadow-xl p-2 space-y-1"
+          onClick={() => {/* leidžiam children klick'ui pereiti, paskui closeinam su delay */ setTimeout(() => setOpen(false), 150)}}
+        >
+          {children}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function EditArtist() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -1153,16 +1199,18 @@ export default function EditArtist() {
 
           <div className="flex items-center gap-1.5 shrink-0">
             <ScoreBadge artistId={artistId} score={artistScore} />
-            <PhotosFixButton artistId={artistId} onDone={() => {
-              // Re-fetch artist data so cover_image_url update'as atsispindi forme
-              fetch(`/api/artists/${artistId}`).then(r => r.json()).then(data => {
-                if (!data?.error) setInitialData(dbToForm(data))
-              }).catch(() => {})
-              setFormKey(k => k + 1)
-            }} />
-            <YoutubeClearButton artistId={artistId} onDone={() => setDiscographyKey(k => k + 1)} />
-            <YoutubeEnrichButton artistId={artistId} onDone={() => setDiscographyKey(k => k + 1)} />
-            <RecalcCascadeButton artistId={artistId} />
+            <ActionsOverflowMenu>
+              <PhotosFixButton artistId={artistId} onDone={() => {
+                // Re-fetch artist data so cover_image_url update'as atsispindi forme
+                fetch(`/api/artists/${artistId}`).then(r => r.json()).then(data => {
+                  if (!data?.error) setInitialData(dbToForm(data))
+                }).catch(() => {})
+                setFormKey(k => k + 1)
+              }} />
+              <YoutubeClearButton artistId={artistId} onDone={() => setDiscographyKey(k => k + 1)} />
+              <YoutubeEnrichButton artistId={artistId} onDone={() => setDiscographyKey(k => k + 1)} />
+              <RecalcCascadeButton artistId={artistId} />
+            </ActionsOverflowMenu>
             <Link href="/admin/artists"
               className="px-3 py-1.5 border border-[var(--input-border)] text-[var(--text-secondary)] rounded-lg text-sm font-medium hover:bg-[var(--bg-hover)] transition-colors">
               Atšaukti

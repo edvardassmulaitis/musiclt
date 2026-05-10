@@ -705,7 +705,10 @@ async function enrichTracks(albumId: number, artistName: string, addLog: (s: str
 
     // Lyrics — praleidžiam jei jau turi lyrics ARBA jau buvo ieškota
     if (lyrics && !t.lyrics && !t.lyrics_searched_at) try {
-      const r = await fetch(`/api/search/lyrics?artist=${encodeURIComponent(artistName)}&title=${encodeURIComponent(t.title)}`)
+      // Pasiunčiam duration_seconds — leidžia LRCLib /api/get exact match'inti
+      // (greičiau ir tiksliau nei /api/search fuzzy fallback'as).
+      const durParam = t.duration_seconds ? `&duration=${t.duration_seconds}` : ''
+      const r = await fetch(`/api/search/lyrics?artist=${encodeURIComponent(artistName)}&title=${encodeURIComponent(t.title)}${durParam}`)
       if (r.ok) { const d = await r.json(); if (d.lyrics) { u.lyrics = d.lyrics; lyrN++ } }
       u.lyrics_searched_at = new Date().toISOString()
     } catch {}

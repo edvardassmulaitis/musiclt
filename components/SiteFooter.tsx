@@ -13,7 +13,7 @@ export function SiteFooter() {
           </div>
           {[
             { t: 'Platforma', l: [['Topai', '/'], ['Nauja muzika', '/'], ['Renginiai', '/'], ['Atlikėjai', '/atlikejai'], ['Albumai', '/']] },
-            { t: 'Bendruomenė', l: [['Diskusijos', '/'], ['Blogai', '/blogas/mano'], ['Gyvi pokalbiai', '/'], ['Dienos daina', '/']] },
+            { t: 'Bendruomenė', l: [['Diskusijos', '/diskusijos'], ['Pokalbiai', '/pokalbiai'], ['Blogai', '/blogas/mano'], ['Dienos daina', '/dienos-daina']] },
             { t: 'Informacija', l: [['Apie mus', '/'], ['Atlikėjams', '/'], ['Reklama', '/'], ['Kontaktai', '/'], ['Privatumas', '/privatumas']] },
           ].map(col => (
             <div key={col.t}>
