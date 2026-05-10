@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { createPortal } from 'react-dom'
 import LikesModal, { type LikeUser } from '@/components/LikesModal'
+import { prettifyDiscussionTitle } from '@/lib/forum-title'
 
 type ThreadRow = {
   legacy_id: number
@@ -286,7 +287,7 @@ export default function ThreadPageClient({
 
   const tree = useMemo(() => sortTree(buildTree(posts), sort), [posts, sort])
 
-  const title = thread.title || (thread.slug || '').replace(/\/$/, '').replace(/-/g, ' ')
+  const title = prettifyDiscussionTitle(thread.title, thread.slug || '')
   const firstAt = thread.first_post_at
   const postCount = thread.post_count ?? posts.length
   const threadLikes = thread.like_count ?? 0
