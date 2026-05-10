@@ -4366,15 +4366,19 @@ export default function ArtistProfileClient({
   })
   const pastEvents = allPastEvents.filter((e: any) => new Date(e.start_date).getTime() >= freshnessCutoff)
   const freshLegacyNews = (legacyNews || []).filter((n: any) => {
-    const raw = n.last_post_at || n.first_post_at
+    // Naudojam TIK first_post_at (real publication date). last_post_at
+    // (DB: last_comment_at) būna scraper'io artifact'as kai komentarų nebuvo
+    // — set'intas į NOW(), todėl naujienos be tikros datos klaidingai
+    // patekdavo į "fresh" sekciją. Be first_post_at → archive.
+    const raw = n.first_post_at
     if (!raw) return false
     const ts = new Date(raw).getTime()
     return isFinite(ts) && ts >= freshnessCutoff
   })
   const archivedPastEvents = allPastEvents.filter((e: any) => new Date(e.start_date).getTime() < freshnessCutoff)
   const archivedLegacyNews = (legacyNews || []).filter((n: any) => {
-    const raw = n.last_post_at || n.first_post_at
-    if (!raw) return true  // su null timestamp — į archive, ne fresh
+    const raw = n.first_post_at
+    if (!raw) return true  // be tikros datos → archyvas
     const ts = new Date(raw).getTime()
     return !isFinite(ts) || ts < freshnessCutoff
   })
