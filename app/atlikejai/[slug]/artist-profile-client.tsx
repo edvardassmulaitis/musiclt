@@ -657,14 +657,15 @@ function PlayerCard({
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-elevated)] shadow-[0_20px_60px_-20px_rgba(0,0,0,0.4)]">
+    // w-full + max-width lock — kad outer wrapper'is nesikeistų pločio
+    // tarp paused/playing state'ų. Anksčiau iframe load'as kartais
+    // pakeisdavo wrapper width truputį (browser intrinsic-content
+    // recompute), dėl ko visa kortelė pasistumdavo per kelis pikselius.
+    <div className="w-full max-w-full overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-elevated)] shadow-[0_20px_60px_-20px_rgba(0,0,0,0.4)]">
       {/* Player area — mobile: aspect-video (resp.), desktop: fixed 260px
-          height. Anksčiau buvo aspect-video desktop'e, bet kai YT iframe
-          load'as įvykdavo, padarinys: layout shift'as (player'is keisdavo
-          aukštį truputį). Fixed h-[260px] desktop'e garantuoja jokio
-          resize, neprikl. nuo iframe state'o. 260px atitinka aspect-video
-          ant ~460px wide kolonos (16:9 = 258.75px → 260 round'inta). */}
-      <div className="relative aspect-video lg:aspect-auto lg:h-[260px] w-full overflow-hidden bg-black">
+          height + 100% width (lock'ina abi dimensijas). Iframe load'as
+          nebegali keisti dydzio neprikl. nuo state'o. */}
+      <div className="relative aspect-video lg:aspect-auto lg:h-[260px] w-full max-w-full overflow-hidden bg-black">
         {displayVid ? (
           // YT IFrame API replaces an inner div with <iframe>. The OUTER
           // wrapper (containerRef) is React-owned and ALWAYS mounted —

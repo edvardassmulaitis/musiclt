@@ -217,7 +217,7 @@ async function getTracks(id: number) {
     // score + video_views — naudojami Top/Naujos dainos PopBar'ui kai
     // like_count'ai dar tušti (pvz. naujai importuoti intl atlikėjai).
     // Fallback hierarchy: like_count → score → video_views → position.
-    .select('id, slug, title, type, video_url, spotify_id, cover_url, release_date, lyrics, is_new, is_new_date, release_year, release_month, legacy_id, score, video_views')
+    .select('id, slug, title, type, video_url, spotify_id, cover_url, release_date, lyrics, is_new, is_new_date, is_single, release_year, release_month, legacy_id, score, video_views')
     .eq('artist_id', id)
     // Pending review įrašai (sukurti per match_legacy_overlay) viešai
     // matyti neturi — admin pirma turi patvirtinti.
