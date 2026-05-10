@@ -16,19 +16,23 @@ export type PageLoaderVariant = 'artist' | 'album' | 'track' | 'generic'
 export function PageLoader({ variant = 'generic' }: { variant?: PageLoaderVariant }) {
   return (
     <div style={{ maxWidth: 1280, margin: '0 auto', padding: '20px 16px' }}>
-      {/* Centruotas brand + equalizer — visada matomas */}
+      {/* Centruotas equalizer + tagline. Music.lt logo pašalintas — jis
+          jau matosi site header'yje, dvigubėdavo per loading state'ą.
+          „Tavo muzikos pasaulis" tagline'as suteikia šiltą identitetą. */}
       <div style={{
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
-        gap: 18, padding: '60px 16px 40px',
+        gap: 16, padding: '60px 16px 40px',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', opacity: 0.7 }}>
-          <span style={{ fontFamily: 'Outfit,sans-serif', fontWeight: 900, fontSize: 22, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>music.</span>
-          <span style={{ fontFamily: 'Outfit,sans-serif', fontWeight: 900, fontSize: 22, color: '#f97316', letterSpacing: '-0.01em' }}>lt</span>
-        </div>
         <span className="eq-loader-big" aria-label="Loading">
           <span /><span /><span /><span /><span />
         </span>
+        <div style={{
+          fontFamily: 'Outfit,sans-serif', fontWeight: 600, fontSize: 14,
+          color: 'var(--text-muted)', letterSpacing: '0.03em', opacity: 0.85,
+        }}>
+          Tavo muzikos pasaulis
+        </div>
       </div>
 
       {/* Structural hints — match'ina realią page'o struktūrą per variant */}

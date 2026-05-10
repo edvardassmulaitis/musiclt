@@ -2001,24 +2001,16 @@ function Hero({
   onOpenEventsModal: () => void
 }) {
   const coverPos = parseCoverPos(artist.cover_image_position || 'center 30%')
-  // Adaptyvus hero foto plotis pagal nuotraukos aspect ratio. Anksčiau buvo
-  // fixed 420px — gerai portrait'ui, blogai landscape'ui (kraštai nukerpa
-  // svarbias dalis). Dabar aptinkam natural dimensions per onLoad ir
-  // pritaikom konteinerio plotį:
-  //   portrait  (ratio < 0.85)  → 380px (tall narrow)
-  //   square    (~0.85–1.30)    → 480px (balansuota)
-  //   landscape (ratio > 1.30)  → 720px (wide short)
-  const [heroWidth, setHeroWidth] = useState<number>(480)  // default for SSR
-  const handleHeroLoad = (ev: React.SyntheticEvent<HTMLImageElement>) => {
-    const el = ev.currentTarget
-    const w = el.naturalWidth
-    const h = el.naturalHeight
-    if (!w || !h) return
-    const r = w / h
-    if (r < 0.85) setHeroWidth(380)
-    else if (r > 1.30) setHeroWidth(720)
-    else setHeroWidth(480)
-  }
+  // Hero foto FIXED width 600px desktop'e — be JS-based dimension detection.
+  // Anksčiau buvo adaptyvus (380/480/720 pagal natural aspect ratio onLoad'e),
+  // bet tai sukeldavo CLS (Cumulative Layout Shift): SSR render'inosi 480px
+  // default, paskui image load'as triggerindavo state pakeitimą → container
+  // width keisdavosi → visa hero zona reflow'inosi. Vartotojui atrodydavo
+  // kaip „cropped" pradžioj, „pilnesni" po refresh'o (cache).
+  // Fixed 600px middle-ground — landscape photos look great, portrait
+  // get center-cropped pagal cover_image_position. Object-cover handles
+  // crop'inimą, nereikia JS measurement'o. */
+  const heroWidth = 600
 
   return (
     <section className="relative isolate w-full bg-[var(--bg-surface)]">
@@ -2035,17 +2027,17 @@ function Hero({
         {heroImage ? (
           <>
             {/* Layer 1 — strong blur backdrop (visada matomas kraštuose).
-                Maskuoja low-res music.lt thumb upscale artifacts kai original
-                paveiksliukis mažas (~600px).
-                Resize į 400px — backdrop turi 60px blur'ą, todėl resoliucijos
-                nereikia daugiau nei 400 (dar mažesnis būtų pixelated po blur'o). */}
+                Maskuoja low-res music.lt thumb upscale artifacts.
+                BackgroundPosition align'intas su layer 2 objectPosition,
+                kad layer 1 (kuris load'as greičiau) iš anksto pozicionuoja
+                tinkamą foto dalį — be „crop jump" kai layer 2 atvyksta. */}
             <div
               aria-hidden
               className="absolute inset-0"
               style={{
                 backgroundImage: `url(${proxyImgResized(heroImage, 400)})`,
                 backgroundSize: 'cover',
-                backgroundPosition: 'center',
+                backgroundPosition: `${coverPos.x}% ${coverPos.y}%`,
                 filter: 'blur(60px) saturate(1.3) brightness(0.85)',
                 transform: 'scale(1.3)',
               }}
@@ -2066,7 +2058,8 @@ function Hero({
               src={proxyImgResized(heroImage, 1200)}
               alt={artist.name}
               referrerPolicy="no-referrer"
-              onLoad={handleHeroLoad}
+              loading="eager"
+              fetchPriority="high"
               onClick={() => {
                 if (typeof window === 'undefined') return
                 if (window.innerWidth < 1024) return
