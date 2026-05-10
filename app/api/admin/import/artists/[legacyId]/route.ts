@@ -42,7 +42,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ leg
   if (aErr) return NextResponse.json({ error: aErr.message }, { status: 500 })
   if (!artist) return NextResponse.json({ error: 'Artist not found' }, { status: 404 })
 
-  const [jobs, albums, allTracks, photos, legacyLikes] = await Promise.all([
+  const [jobs, albums, tracks, photos, legacyLikes] = await Promise.all([
     supabase.from('import_jobs')
       .select('*')
       .eq('artist_legacy_id', legacyId)
@@ -52,16 +52,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ leg
       .select('id, legacy_id, title, year, source, cover_image_url, type_studio, type_ep, type_single, type_live, type_compilation, type_remix, type_soundtrack')
       .eq('artist_id', artist.id)
       .order('year', { ascending: false, nullsFirst: false }),
-    // VISI tracks — reikalingi cross-check'ui pagal source.
-    // SVARBU: tracks table neturi nei duration_seconds, nei album_id
-    // (album↔track many-to-many per album_tracks junction). Anksciau
-    // toks select fail'indavo silently su 42703, del to standalone_tracks
-    // visada buvo []. Pasilekam tik tikrai egzistuojancius column'us.
     supabase.from('tracks')
-      .select('id, legacy_id, title, source, release_year')
+      .select('id, legacy_id, title, duration_seconds, source')
       .eq('artist_id', artist.id)
-      .order('release_year', { ascending: false, nullsFirst: false })
-      .limit(2000),
+      .is('album_id', null)
+      .limit(500),
     supabase.from('artist_photos')
       .select('id, url, caption, source_url, photographer_id, taken_at, sort_order')
       .eq('artist_id', artist.id)
@@ -73,29 +68,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ leg
       .eq('entity_id', artist.id),
   ])
 
-  const tracks = (allTracks.data || []) as any[]
-
-  // standalone_tracks = tracks NEPRISKIRTI nei vienam albumui per album_tracks
-  // junction. Reikalinga atskira užklausa, nes tracks table neturi album_id
-  // column'o. Backward-compat su senu UI "Dainos be albumo" sekcija.
-  let standaloneTracks: any[] = []
-  if (tracks.length > 0) {
-    const trackIds = tracks.map(t => t.id)
-    const { data: junctions } = await supabase
-      .from('album_tracks')
-      .select('track_id')
-      .in('track_id', trackIds)
-    const inAlbum = new Set((junctions || []).map((j: any) => j.track_id))
-    standaloneTracks = tracks.filter(t => !inAlbum.has(t.id))
-  }
-
   return NextResponse.json({
     artist,
     jobs: jobs.data || [],
     albums: albums.data || [],
-    standalone_tracks: standaloneTracks,
-    // Visi tracks — reikalingi cross-check'ui (TIK WIKI / TIK MUSIC.LT)
-    all_tracks: tracks,
+    standalone_tracks: tracks.data || [],
     photos: photos.data || [],
     legacy_like_count: legacyLikes.count || 0,
   })

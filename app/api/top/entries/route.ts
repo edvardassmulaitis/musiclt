@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { getCurrentWeekMonday } from '@/lib/top-week'
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
@@ -9,34 +10,101 @@ export async function GET(req: Request) {
   const weekId = searchParams.get('week_id')
   const supabase = createAdminClient()
 
-  let targetWeekId = weekId ? parseInt(weekId) : null
+  // Find target week — by explicit week_id, or by current calendar week's
+  // Monday (week_start anchor). NE TIKRINAM is_active flag — visada
+  // einame į einamosios kalendorinės savaitės įrašą.
+  let week: any = null
+  if (weekId) {
+    const { data } = await supabase
+      .from('top_weeks')
+      .select('*')
+      .eq('id', parseInt(weekId))
+      .single()
+    week = data
+  } else {
+    const thisMonday = getCurrentWeekMonday()
+    const { data } = await supabase
+      .from('top_weeks')
+      .select('*')
+      .eq('top_type', topType)
+      .eq('week_start', thisMonday)
+      .maybeSingle()
+    week = data
+  }
 
-  if (!targetWeekId) {
-    const { data: week } = await supabase
+  // Fallback'as: jei einamosios savaitės įrašo nėra DB (cron'as nesukūrė),
+  // naudoti naujausią savaitę kurios įraše YRA bent vienas top_entries —
+  // taip homepage'ui bus ką rodyti, o voting'as vis tiek bus prikabintas
+  // prie current week'o per /api/top/vote (kuris naudoja week_id atskirai).
+  if (!week) {
+    const { data: latest } = await supabase
+      .from('top_weeks')
+      .select('*')
+      .eq('top_type', topType)
+      .order('week_start', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    week = latest
+  }
+  if (!week) return NextResponse.json({ entries: [], week: null })
+
+  let { data: entries, error } = await supabase
+    .from('top_entries')
+    .select('id, position, prev_position, weeks_in_top, total_votes, is_new, peak_position, track_id')
+    .eq('week_id', week.id)
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Jei einamosios savaitės įrašas EGZISTUOJA bet entries tuščia (cron'as
+  // sukūrė week'ą, bet nesurolovino entries iš praeitos savaitės), grąžinkim
+  // PRAEITOS savaitės entries display'ui. Voting'as lieka prikabintas prie
+  // einamosios savaitės.
+  if (!entries?.length) {
+    const { data: prevWeek } = await supabase
       .from('top_weeks')
       .select('id')
       .eq('top_type', topType)
-      .eq('is_active', true)
-      .single()
-    targetWeekId = week?.id ?? null
+      .lt('week_start', week.week_start)
+      .order('week_start', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (prevWeek?.id) {
+      const { data: prevEntries } = await supabase
+        .from('top_entries')
+        .select('id, position, prev_position, weeks_in_top, total_votes, is_new, peak_position, track_id')
+        .eq('week_id', prevWeek.id)
+      if (prevEntries?.length) entries = prevEntries
+    }
   }
-
-  if (!targetWeekId) return NextResponse.json({ entries: [], week: null })
-
-  const { data: week } = await supabase
-    .from('top_weeks')
-    .select('*')
-    .eq('id', targetWeekId)
-    .single()
-
-  const { data: entries, error } = await supabase
-    .from('top_entries')
-    .select('id, position, prev_position, weeks_in_top, total_votes, is_new, peak_position, track_id')
-    .eq('week_id', targetWeekId)
-    .order(week?.is_finalized ? 'position' : 'total_votes', { ascending: week?.is_finalized ? true : false })
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   if (!entries?.length) return NextResponse.json({ entries: [], week })
+
+  // LIVE vote split (registered vs anon). Admin'as nori matyti split'ą
+  // (anti-spam), o rank'inimas remiasi TIK registered balsais — anon balsai
+  // pozicijų neįtakoja. top_entries.total_votes atnaujinama tik per finalize
+  // RPC, todėl mid-week LIVE imam iš top_votes.
+  const { data: liveVotes } = await supabase
+    .from('top_votes')
+    .select('track_id, user_id')
+    .eq('week_id', week.id)
+    .eq('vote_type', 'like')
+
+  const regMap = new Map<number, number>()
+  const anonMap = new Map<number, number>()
+  ;(liveVotes || []).forEach((v: any) => {
+    const target = v.user_id ? regMap : anonMap
+    target.set(v.track_id, (target.get(v.track_id) || 0) + 1)
+  })
+
+  // STABILUS rikiavimas: visada pagal top_entries.position. Pozicijas keičia
+  // TIK finalize_top_week RPC; mid-week balsai kaupiasi į registered_votes
+  // counter'ius, bet chart'o tvarkos NEKEIČIA. Kitaip vienas user'is matytų
+  // savo balsų efektą realtime — atrodytų kaip "manipuliacija".
+  const inTop = (entries as any[]).filter(e => (e.weeks_in_top || 0) >= 1)
+  const newcomerEntries = (entries as any[]).filter(e => (e.weeks_in_top || 0) === 0)
+  inTop.sort((a, b) => (a.position || 999) - (b.position || 999))
+  newcomerEntries.sort((a, b) => (a.position || 999) - (b.position || 999))
+  entries.length = 0
+  ;(entries as any[]).push(...inTop, ...newcomerEntries)
 
   const trackIds = entries.map(e => e.track_id).filter(Boolean)
   const { data: tracks } = await supabase
@@ -57,18 +125,18 @@ export async function GET(req: Request) {
   const merged = entries.map((e, i) => ({
     ...e,
     position: e.position ?? (i + 1),
+    // LIVE count'ai (registered + anon split). total_votes = pilna suma display'ui;
+    // registered_votes — admin'o spam-detection ir official ranking metric.
+    registered_votes: regMap.get(e.track_id) ?? 0,
+    anon_votes: anonMap.get(e.track_id) ?? 0,
+    total_votes: (regMap.get(e.track_id) ?? 0) + (anonMap.get(e.track_id) ?? 0),
     tracks: trackMap.get(e.track_id) ?? null,
   }))
 
-  // CDN edge cache — homepage'o TOP30/TOP40 sekcijos. Topas atnaujinamas
-  // kartą per savaitę (cron'u), todėl drąsiai galim cache'inti net 5 min.
-  return NextResponse.json({ entries: merged, week }, {
-    headers: {
-      'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
-      'CDN-Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
-      'Vercel-CDN-Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
-    },
-  })
+  // BE cache header'ių — admin operacijos (populate, finalize, reset) turi
+  // matyti freshness'ą iš karto. Public /top40, /top30 puslapiai naudoja
+  // savo Supabase queries (server components), ne /api/top/entries.
+  return NextResponse.json({ entries: merged, week })
 }
 
 export async function POST(req: Request) {

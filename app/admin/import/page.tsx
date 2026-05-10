@@ -215,6 +215,13 @@ export default function AdminImportPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <Link
+              href="/admin/import/forum"
+              className="px-3 py-1.5 text-xs bg-blue-50 text-blue-700 rounded-lg border border-blue-200 hover:bg-blue-100"
+              title="Forumų thread'ų migracija (forum_worker)"
+            >
+              💬 Forumai
+            </Link>
             <button
               onClick={triggerScoreRecalc}
               disabled={actionLoading}

@@ -61,10 +61,8 @@ type Track = {
   id: number
   legacy_id: number | null
   title: string
+  duration_seconds: number | null
   source: string | null
-  release_year?: number | null
-  // album_id: tracks neturi tokio column'o; album↔track many-to-many per
-  // album_tracks junction. API serveryje nustatom standalone_tracks atskirai.
 }
 
 type Photo = {
@@ -82,7 +80,6 @@ type DetailData = {
   jobs: ImportJob[]
   albums: Album[]
   standalone_tracks: Track[]
-  all_tracks?: Track[]  // Visi atlikėjo tracks (su album_id ir be) — naudojami cross-check'ui
   photos: Photo[]
   legacy_like_count: number  // pavadinimas paliktas backward-compat su API; vidiniai count'ai dabar ateina iš `likes` lentelės
 }
@@ -139,37 +136,6 @@ export default function AdminImportDetailPage() {
     } finally { setActionLoading(false) }
   }
 
-  // Per-row pending review actions — kviečiam tą patį API kaip
-  // /admin/import/pending: PATCH = approve (set source='legacy_scrape'),
-  // DELETE = reject (cascade trinant likes/comments). Po sėkmingo
-  // operacijos reload'inam page'ą.
-  const [pendingBusy, setPendingBusy] = useState<string | null>(null) // 'album:123' / 'track:456'
-  const handlePending = useCallback(async (kind: 'album' | 'track', id: number, action: 'approve' | 'reject') => {
-    if (action === 'reject') {
-      const ok = confirm(
-        `Atmesti šį ${kind === 'album' ? 'albumą' : 'dainą'}?\n\n` +
-        'Visi music.lt likes ir komentarai bus ištrinti negrąžinamai.'
-      )
-      if (!ok) return
-    }
-    const key = `${kind}:${id}`
-    setPendingBusy(key)
-    setActionMsg(null)
-    try {
-      const r = await fetch(`/api/admin/import/pending/${kind}/${id}`, {
-        method: action === 'approve' ? 'PATCH' : 'DELETE',
-      })
-      if (!r.ok) {
-        const j = await r.json().catch(() => ({}))
-        setActionMsg(`Klaida: ${j.error || r.statusText}`)
-      } else {
-        await load()
-      }
-    } finally {
-      setPendingBusy(null)
-    }
-  }, [load])
-
   if (status === 'loading' || !isAdmin) return null
 
   if (loading && !data) return (
@@ -185,43 +151,11 @@ export default function AdminImportDetailPage() {
   )
 
   const { artist, jobs, albums, standalone_tracks, photos, legacy_like_count } = data
-  const allTracks = data.all_tracks ?? standalone_tracks  // backward-compat jei API nepatraukė
 
-  // Cross-check: album'ai grupuojami per match status:
-  //   bothAlbums    — Wiki įrašas su legacy_id (overlay match'as su music.lt)
-  //                   ARBA legacy `legacy+wikipedia` source (LT atlikėjams)
-  //   wikiAlbums    — Wiki įrašas BE legacy_id (Wiki turi, music.lt nematė)
-  //   legacyAlbums  — source='legacy_scrape_pending' (music.lt turi, Wiki ne;
-  //                   pending review per /admin/import/pending) ARBA pure
-  //                   legacy LT scrape'as (legacy_scrape_v1)
-  const bothAlbums = albums.filter(a =>
-    (a.legacy_id != null && a.source !== 'legacy_scrape_pending')
-    || a.source === 'legacy+wikipedia' || a.source === 'wikipedia+legacy'
-  )
-  const wikiAlbums = albums.filter(a =>
-    a.legacy_id == null
-    && (a.source === 'wikipedia' || (a.source || '').startsWith('wiki'))
-  )
-  const legacyAlbums = albums.filter(a =>
-    a.source === 'legacy_scrape_v1' || a.source === 'legacy_scrape_pending'
-  )
-  const pendingAlbums = albums.filter(a => a.source === 'legacy_scrape_pending')
-
-  // Tracks cross-check — ta pati logika kaip albums'ams.
-  const bothTracks = allTracks.filter(t =>
-    (t.legacy_id != null && t.source !== 'legacy_scrape_pending')
-    || t.source === 'legacy+wikipedia' || t.source === 'wikipedia+legacy'
-  )
-  const wikiTracks = allTracks.filter(t =>
-    t.legacy_id == null
-    && (t.source === 'wikipedia' || (t.source || '').startsWith('wiki'))
-  )
-  const legacyTracks = allTracks.filter(t =>
-    t.source === 'legacy_scrape_v1' || t.source === 'legacy_scrape_pending'
-  )
-  const pendingTracks = allTracks.filter(t => t.source === 'legacy_scrape_pending')
-
-  const totalPending = pendingAlbums.length + pendingTracks.length
+  // Cross-check: album'ai grupuojami pagal source
+  const wikiAlbums = albums.filter(a => a.source === 'wikipedia' || (a.source || '').startsWith('wiki'))
+  const legacyAlbums = albums.filter(a => a.source === 'legacy_scrape_v1')
+  const bothAlbums = albums.filter(a => a.source === 'legacy+wikipedia' || a.source === 'wikipedia+legacy')
 
   const lastWiki = jobs.find(j => j.job_type === 'wiki' && j.status === 'completed')
   const lastScrape = jobs.find(j => j.job_type === 'scrape' && j.status === 'completed')
@@ -286,35 +220,6 @@ export default function AdminImportDetailPage() {
           <SmallStat label="Legacy likes" value={legacy_like_count} />
         </div>
 
-        {/* Pending review banner — kai music.lt'as turi įrašų, kurių Wiki
-            neturėjo, juos sukuriam su source='legacy_scrape_pending' ir
-            admin'as turi patvirtinti per /admin/import/pending. Banner'is
-            rodomas tik kai yra ką patvirtinti. */}
-        {totalPending > 0 && (
-          <Link
-            href={`/admin/import/pending?artist=${legacyId}`}
-            className="mb-6 flex items-center gap-3 rounded-xl border border-orange-300 bg-orange-50 px-4 py-3 transition-colors hover:bg-orange-100"
-          >
-            <span className="text-2xl">⏳</span>
-            <div className="flex-1">
-              <div className="font-semibold text-orange-900">
-                {totalPending} pending review {totalPending === 1 ? 'įrašas' : 'įrašai'}
-                {pendingAlbums.length > 0 && pendingTracks.length > 0 && (
-                  <span className="ml-2 text-xs font-normal opacity-70">
-                    ({pendingAlbums.length} albumai, {pendingTracks.length} dainos)
-                  </span>
-                )}
-              </div>
-              <div className="text-xs text-orange-700">
-                Music.lt turi šių įrašų, bet Wiki canonical neturėjo —
-                spauskite, kad peržiūrėtum ir patvirtintum (Approve) arba
-                atmestumi (Reject). Veiksmai taip pat prieinami inline cross-check kortelėse.
-              </div>
-            </div>
-            <span className="text-orange-700">→</span>
-          </Link>
-        )}
-
         {/* Jobs history */}
         <Section title="Import job istorija">
           {jobs.length === 0 ? (
@@ -368,63 +273,13 @@ export default function AdminImportDetailPage() {
                 id: a.id,
                 title: a.title,
                 meta: `${albumTypeLabel(a)} ${a.year ?? ''}`.trim(),
-                // Approve/Reject mygtukai matomi tik kai įrašas yra pending —
-                // legacy_scrape_v1 (jau patvirtintas LT scrape) jų nereikia.
-                pending: a.source === 'legacy_scrape_pending',
               }))}
-              onApprove={id => handlePending('album', id, 'approve')}
-              onReject={id => handlePending('album', id, 'reject')}
-              busyKey={pendingBusy}
-              kind="album"
             />
           </div>
           {albums.length === 0 && (
             <div className="text-sm text-[var(--text-muted)]">Albumų dar nėra. Paleisk Wiki arba Scrape importą.</div>
           )}
         </Section>
-
-        {/* Cross-check tracks — ta pati logika kaip albums'ams. Tracks gauname
-            iš `all_tracks` (visi atlikėjo tracks, ne tik standalone), kad
-            galėtume rodyti TIK MUSIC.LT pending overlay tracks net jei jie
-            priskirti albumo'ams. */}
-        {allTracks.length > 0 && (
-          <Section title={`Dainų cross-check (${allTracks.length})`}>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <DiffColumn
-                title="🟢 Abiejose"
-                color="green"
-                items={bothTracks.map(t => ({
-                  id: t.id,
-                  title: t.title,
-                  meta: t.release_year ? String(t.release_year) : '—',
-                }))}
-              />
-              <DiffColumn
-                title="📘 Tik Wiki"
-                color="blue"
-                items={wikiTracks.map(t => ({
-                  id: t.id,
-                  title: t.title,
-                  meta: t.release_year ? String(t.release_year) : '—',
-                }))}
-              />
-              <DiffColumn
-                title="🌐 Tik music.lt"
-                color="purple"
-                items={legacyTracks.map(t => ({
-                  id: t.id,
-                  title: t.title,
-                  meta: t.release_year ? String(t.release_year) : '—',
-                  pending: t.source === 'legacy_scrape_pending',
-                }))}
-                onApprove={id => handlePending('track', id, 'approve')}
-                onReject={id => handlePending('track', id, 'reject')}
-                busyKey={pendingBusy}
-                kind="track"
-              />
-            </div>
-          </Section>
-        )}
 
         {/* Standalone tracks */}
         {standalone_tracks.length > 0 && (
@@ -434,7 +289,7 @@ export default function AdminImportDetailPage() {
                 <thead className="bg-[var(--bg-elevated)] text-xs uppercase text-[var(--text-muted)]">
                   <tr>
                     <th className="px-3 py-2 text-left">Pavadinimas</th>
-                    <th className="px-3 py-2 text-right">Metai</th>
+                    <th className="px-3 py-2 text-right">Trukmė</th>
                     <th className="px-3 py-2 text-right">Šaltinis</th>
                   </tr>
                 </thead>
@@ -442,7 +297,7 @@ export default function AdminImportDetailPage() {
                   {standalone_tracks.slice(0, 100).map(t => (
                     <tr key={t.id} className="border-t border-[var(--border-subtle)]">
                       <td className="px-3 py-1.5">{t.title}</td>
-                      <td className="px-3 py-1.5 text-right tabular-nums">{t.release_year ?? '—'}</td>
+                      <td className="px-3 py-1.5 text-right tabular-nums">{fmtDur(t.duration_seconds)}</td>
                       <td className="px-3 py-1.5 text-right text-xs text-[var(--text-muted)]">{t.source || '?'}</td>
                     </tr>
                   ))}
@@ -667,17 +522,9 @@ function YtMini({ label, value, tone }: { label: string; value: number | undefin
   )
 }
 
-function DiffColumn({ title, color, items, onApprove, onReject, busyKey, kind }: {
+function DiffColumn({ title, color, items }: {
   title: string; color: 'green' | 'blue' | 'purple'
-  // `pending` flag valdo, ar rodyti per-row Approve/Reject mygtukus.
-  // Tik legacy_scrape_pending įrašai laukia patvirtinimo; legacy_scrape_v1
-  // (LT scrape patvirtintas) tų mygtukų nerodom — sąrašas tas pats column'as
-  // tik mygtukai sąlyginiai.
-  items: Array<{ id: number; title: string; meta: string; pending?: boolean }>
-  onApprove?: (id: number) => void | Promise<void>
-  onReject?: (id: number) => void | Promise<void>
-  busyKey?: string | null  // 'album:123' / 'track:456' formate
-  kind?: 'album' | 'track'
+  items: Array<{ id: number; title: string; meta: string }>
 }) {
   const colorClass = {
     green: 'border-green-300 bg-green-50',
@@ -694,41 +541,12 @@ function DiffColumn({ title, color, items, onApprove, onReject, busyKey, kind }:
         <div className="text-xs text-gray-500 italic">—</div>
       ) : (
         <div className="space-y-1 max-h-64 overflow-y-auto">
-          {items.map(it => {
-            const showActions = it.pending && (onApprove || onReject) && kind
-            const myKey = kind ? `${kind}:${it.id}` : ''
-            const isBusy = busyKey === myKey
-            return (
-              <div key={it.id} className="text-xs bg-white rounded px-2 py-1.5 border border-gray-200">
-                <div className="font-medium text-gray-800 truncate">{it.title}</div>
-                <div className="flex items-center justify-between gap-2 mt-0.5">
-                  <div className="text-[10px] text-gray-500 truncate">{it.meta}</div>
-                  {showActions && (
-                    <div className="flex gap-1 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => onApprove?.(it.id)}
-                        disabled={isBusy}
-                        title="Patvirtinti — taps matomas viešai"
-                        className="rounded bg-green-600 px-1.5 py-0.5 text-[10px] font-bold text-white hover:bg-green-700 disabled:opacity-40"
-                      >
-                        {isBusy ? '…' : '✓'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onReject?.(it.id)}
-                        disabled={isBusy}
-                        title="Atmesti — ištrinti įrašą + likes/komentarus"
-                        className="rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white hover:bg-red-700 disabled:opacity-40"
-                      >
-                        {isBusy ? '…' : '✕'}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )
-          })}
+          {items.map(it => (
+            <div key={it.id} className="text-xs bg-white rounded px-2 py-1 border border-gray-200">
+              <div className="font-medium text-gray-800 truncate">{it.title}</div>
+              <div className="text-[10px] text-gray-500">{it.meta}</div>
+            </div>
+          ))}
         </div>
       )}
     </div>

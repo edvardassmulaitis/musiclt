@@ -24,6 +24,8 @@ type Entry = {
   prev_position: number | null
   weeks_in_top: number
   total_votes: number
+  registered_votes?: number
+  anon_votes?: number
   is_new: boolean
   peak_position: number | null
   tracks: { id: number; slug: string; title: string; cover_url: string | null; artists: { name: string } | null } | null
@@ -215,6 +217,42 @@ function AdminTopInner() {
     else { const d = await res.json(); showMsg(d.error || 'Klaida', 'err') }
   }
 
+  const populateFromApproved = async () => {
+    if (!activeWeek) return
+    if (!confirm('Įkelti VISUS patvirtintus pasiūlymus į dabartinę savaitę? (Naudok testavimui — normaliai cronas tai padarys pirmadienį.)')) return
+    const res = await fetch('/api/top/populate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ top_type: topType }),
+    })
+    const d = await res.json()
+    if (res.ok) {
+      showMsg(d.message || `Pridėta ${d.inserted} dainų ✓`)
+      loadEntries()
+      loadSuggestions()
+    } else {
+      showMsg(d.error || 'Klaida', 'err')
+    }
+  }
+
+  const resetWeek = async () => {
+    if (!activeWeek) return
+    if (!confirm('Paleisti naują ciklą einamoje savaitėje? Senos top dainos liks (su prev_position trendui), balsai bus išvalyti. Pasiūlymai NESIPILS automatiškai — naudok „Įkelti patvirtintus" jeigu nori pakelti naujus į topą.')) return
+    const res = await fetch('/api/top/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ top_type: topType }),
+    })
+    const d = await res.json()
+    if (res.ok) {
+      showMsg(d.message || 'Naujas ciklas ✓')
+      loadEntries()
+      loadSuggestions()
+    } else {
+      showMsg(d.error || 'Klaida', 'err')
+    }
+  }
+
   if (status === 'loading') return (
     <div className="min-h-screen bg-[#f8f7f5] flex items-center justify-center">
       <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
@@ -279,12 +317,27 @@ function AdminTopInner() {
                 <p className="text-sm font-semibold text-[var(--text-primary)]">{entries.length} dainų</p>
               </div>
             </div>
-            {!activeWeek.is_finalized && (
-              <button onClick={finalizeWeek}
-                className="px-4 py-2 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 rounded-xl text-xs font-bold transition-colors">
-                ⚡ Finalizuoti dabar
+            <div className="flex gap-2 flex-wrap">
+              {!activeWeek.is_finalized && (
+                <>
+                  <button onClick={populateFromApproved}
+                    title="Įkelti patvirtintus pasiūlymus į dabartinę savaitę (testavimui)"
+                    className="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition-colors">
+                    ⤓ Įkelti patvirtintus
+                  </button>
+                  <button onClick={finalizeWeek}
+                    className="px-4 py-2 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 rounded-xl text-xs font-bold transition-colors">
+                    ⚡ Finalizuoti dabar
+                  </button>
+                </>
+              )}
+              {/* Reset visada matomas — leidžia paleisti naują ciklą einamoje savaitėje */}
+              <button onClick={resetWeek}
+                title='Paleidžia naują ciklą einamoje savaitėje: išvalo balsus, palieka senas top dainas trendui. Pasiūlymai NESIPILS automatiškai — naudok "Įkelti patvirtintus"'
+                className="px-4 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-xl text-xs font-bold transition-colors">
+                ↻ Naujas ciklas
               </button>
-            )}
+            </div>
           </div>
         )}
 
@@ -421,45 +474,89 @@ function AdminTopInner() {
                   <thead>
                     <tr className="border-b border-[var(--border-subtle)] text-left text-xs text-[var(--text-muted)] uppercase tracking-wide bg-[var(--bg-elevated)]/80">
                       <th className="px-3 py-2.5 w-8">#</th>
+                      <th className="px-3 py-2.5 w-10">Trend</th>
                       <th className="px-3 py-2.5">Daina</th>
-                      <th className="px-3 py-2.5 text-right w-16">Balsai</th>
+                      <th className="px-3 py-2.5 text-center w-14">Sav.</th>
+                      <th className="px-3 py-2.5 text-right w-16" title="Prisijungę nariai (skaičiuojami į topą)">Reg.</th>
+                      <th className="px-3 py-2.5 text-right w-16" title="Neprisijungę (NĖRA topo formavime — display only)">Anon.</th>
                       <th className="px-3 py-2.5 w-6"></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {entries.map((e, i) => (
-                      <tr key={e.id} className="border-b border-[var(--border-subtle)] last:border-0 hover:bg-[var(--bg-hover)]/80 transition-colors group">
-                        <td className="px-3 py-2.5">
-                          <span className={`text-sm font-black tabular-nums ${i < 3 ? 'text-orange-500' : 'text-[var(--text-secondary)]'}`}>
-                            {e.position ?? i + 1}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
-                              {e.tracks?.cover_url
-                                ? <img src={e.tracks.cover_url} alt="" className="w-full h-full object-cover" />
-                                : <div className="w-full h-full flex items-center justify-center text-gray-300 text-xs">♪</div>}
+                    {entries.map((e, i) => {
+                      const weeksMax = 12
+                      const weeksLeft = weeksMax - (e.weeks_in_top || 0)
+                      const isWarning = weeksLeft <= 2 && weeksLeft > 0
+                      const isLast = weeksLeft === 0
+                      return (
+                        <tr key={e.id} className="border-b border-[var(--border-subtle)] last:border-0 hover:bg-[var(--bg-hover)]/80 transition-colors group">
+                          <td className="px-3 py-2.5">
+                            <span className={`text-sm font-black tabular-nums ${i < 3 ? 'text-orange-500' : 'text-[var(--text-secondary)]'}`}>
+                              {e.position ?? i + 1}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <TrendBadge curr={e.position} prev={e.prev_position} />
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+                                {e.tracks?.cover_url
+                                  ? <img src={e.tracks.cover_url} alt="" className="w-full h-full object-cover" />
+                                  : <div className="w-full h-full flex items-center justify-center text-gray-300 text-xs">♪</div>}
+                              </div>
+                              <div className="min-w-0 flex items-center gap-2">
+                                <div className="min-w-0">
+                                  <p className="text-sm font-semibold text-gray-900 truncate">{e.tracks?.title ?? '—'}</p>
+                                  <p className="text-xs text-gray-400 truncate">{e.tracks?.artists?.name ?? '—'}</p>
+                                </div>
+                                {e.is_new && (
+                                  <span className="text-[9px] font-extrabold tracking-wider px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200 flex-shrink-0">
+                                    NEW
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            <div className="min-w-0">
-                              <p className="text-sm font-semibold text-gray-900 truncate">{e.tracks?.title ?? '—'}</p>
-                              <p className="text-xs text-gray-400 truncate">{e.tracks?.artists?.name ?? '—'}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-3 py-2.5 text-right">
-                          <span className="text-sm font-bold text-[var(--text-secondary)] tabular-nums">{e.total_votes}</span>
-                        </td>
-                        <td className="px-3 py-2.5">
-                          {!activeWeek?.is_finalized && (
-                            <button onClick={() => removeEntry(e.id)}
-                              className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-all text-sm w-5">
-                              ✕
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className="px-3 py-2.5 text-center">
+                            <span
+                              title={isLast ? 'Paskutinė savaitė tope (12/12)' : isWarning ? `Liko ${weeksLeft} savaitė(s) iki išėjimo` : `Šitos dainos savaičių tope: ${e.weeks_in_top || 0} iš 12`}
+                              className={`text-[11px] font-bold tabular-nums px-1.5 py-0.5 rounded ${
+                                isLast ? 'bg-red-50 text-red-600 border border-red-200' :
+                                isWarning ? 'bg-orange-50 text-orange-600 border border-orange-200' :
+                                'bg-gray-50 text-gray-500 border border-gray-200'
+                              }`}
+                            >
+                              {e.weeks_in_top || 0}/{weeksMax}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2.5 text-right">
+                            <span
+                              className="text-sm font-bold text-emerald-600 tabular-nums"
+                              title="Registruoti balsai — į topą skaičiuoja TIK šie"
+                            >
+                              {e.registered_votes ?? 0}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2.5 text-right">
+                            <span
+                              className="text-sm font-medium text-gray-400 tabular-nums"
+                              title="Anoniminiai balsai — display only, į topą NEEINA"
+                            >
+                              {e.anon_votes ?? 0}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2.5">
+                            {!activeWeek?.is_finalized && (
+                              <button onClick={() => removeEntry(e.id)}
+                                className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-all text-sm w-5">
+                                ✕
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>

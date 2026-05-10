@@ -89,16 +89,10 @@ function popLevelByPosition(index: number, total: number): number {
 
 function PopBar({ level }: { level: number }) {
   return (
-    <div
-      className="mt-1 flex items-center gap-[3px]"
-      title={level > 0 ? `Populiarumas ${level}/5` : 'Populiarumas — duomenų dar nėra'}
-      role="img"
-      aria-label={level > 0 ? `Populiarumas ${level} iš 5` : 'Populiarumo duomenų nėra'}
-    >
+    <div className="mt-1 flex items-center gap-[3px]">
       {Array.from({ length: 5 }).map((_, i) => (
         <span
           key={i}
-          aria-hidden
           className={[
             'h-[3px] w-[10px] rounded-full transition-colors',
             i < level ? 'bg-[var(--accent-orange)]' : 'bg-[var(--popup-bg)]',
@@ -122,6 +116,12 @@ export default function AlbumPageClient({
   const [likesModalOpen, setLikesModalOpen] = useState(false)
   const [likeUsers, setLikeUsers] = useState<any[]>([])
   const [likeUsersLoaded, setLikeUsersLoaded] = useState(false)
+
+  // Page-view ping — fire-and-forget. 30 min cookie dedup'as.
+  useEffect(() => {
+    if (!album.id) return
+    fetch(`/api/albums/${album.id}/page-view`, { method: 'POST', keepalive: true }).catch(() => {})
+  }, [album.id])
 
   // Like sync. Komentarai nebeloadina'mi čia — EntityCommentsBlock pats
   // fetch'ina /api/albums/[id]/comments savo viduje.
@@ -334,7 +334,8 @@ export default function AlbumPageClient({
   const showVideo = !!playerVid
 
   return (
-    <div className="min-h-screen bg-[var(--bg-surface)] text-[var(--text-primary)]" style={{ fontFamily: "'DM Sans',system-ui,sans-serif", WebkitFontSmoothing: 'antialiased' }}>
+    // route-enter: 280ms fade-in iš loading.tsx skeleton'o (žr. globals.css).
+    <div className="route-enter min-h-screen bg-[var(--bg-surface)] text-[var(--text-primary)]" style={{ fontFamily: "'DM Sans',system-ui,sans-serif", WebkitFontSmoothing: 'antialiased' }}>
 
       {/* ── TOP BAR — full viewport, modal-style ─────────────────────────── */}
       <div className="flex items-center gap-4 border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3 sm:px-5">
