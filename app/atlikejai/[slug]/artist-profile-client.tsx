@@ -367,21 +367,31 @@ function PlayerCard({
   onOpenTrackInfo: (t: Track) => void
   hasAnyVideo: boolean
 }) {
-  const hasTrending = tracksTrending.length > 0
-  const [tab, setTab] = useState<'all' | 'trending'>(hasTrending ? 'trending' : 'all')
-  // If "Nauja" becomes empty (e.g. tracks reshuffle), snap back to "Populiaru".
-  useEffect(() => { if (!hasTrending && tab === 'trending') setTab('all') }, [hasTrending, tab])
+  // Vienas track sąrašas su filter chip'ais (vietoj 2 tabų).
+  // newTrackIds = tracksTrending (jau filtruotas <24 mo); singleTrackIds
+  // = tracks su is_single. Filter pakeitimas tik perfiltruoja displayList'ą,
+  // nesukinėja sort'o (sort visada same: composite popularity from parent).
+  const newTrackIds = useMemo(() => new Set(tracksTrending.map(t => t.id)), [tracksTrending])
+  const singleTrackIds = useMemo(() => new Set(tracksAllTime.filter(t => (t as any).is_single).map(t => t.id)), [tracksAllTime])
+  const hasNew = newTrackIds.size > 0
+  const hasSingles = singleTrackIds.size > 0
+  type Filter = 'all' | 'new' | 'singles'
+  const [filter, setFilter] = useState<Filter>('all')
+  // Snap back kai filter tampa tuščias (pvz. trending dingo po reshuffle).
+  useEffect(() => {
+    if (filter === 'new' && !hasNew) setFilter('all')
+    if (filter === 'singles' && !hasSingles) setFilter('all')
+  }, [filter, hasNew, hasSingles])
 
-  const list = tab === 'trending' ? tracksTrending : tracksAllTime
-  // Pop signal'as PER TAB — anksčiau buvo computed iš [tracksAllTime,
-  // tracksTrending] kombinuoto sąrašo, ir trending tab'e visi naujieji
-  // track'ai atsidurdavo pas top-hit'us su 10k+ likes/views, todėl visi
-  // gaudavo level 1 (apatinę juostelę). Dabar kiekvienas tab'as turi savo
-  // relatyvią skalę — naujausioj kategorijoj top hit'as gauna 5 dashes,
-  // mažiausiai populiarus 1 dash, neprikl. nuo all-time top'o.
-  const popInfoAllTime = useMemo(() => detectPopSignal(tracksAllTime), [tracksAllTime])
-  const popInfoTrending = useMemo(() => detectPopSignal(tracksTrending), [tracksTrending])
-  const popInfo = tab === 'trending' ? popInfoTrending : popInfoAllTime
+  const list = useMemo(() => {
+    if (filter === 'new') return tracksAllTime.filter(t => newTrackIds.has(t.id))
+    if (filter === 'singles') return tracksAllTime.filter(t => singleTrackIds.has(t.id))
+    return tracksAllTime
+  }, [filter, tracksAllTime, newTrackIds, singleTrackIds])
+
+  // PopBar relatyvumas per current filter — kai useris filter'is naujausiems,
+  // top trending track'as gauna 5 dashes neprikl. nuo all-time top'o.
+  const popInfo = useMemo(() => detectPopSignal(list), [list])
   const activeTrack = [...tracksAllTime, ...tracksTrending].find(t => t.id === activeTrackId)
   const activeVid = yt(activeTrack?.video_url)
   const firstWithVideo = list.find(t => yt(t.video_url)) || tracksAllTime.find(t => yt(t.video_url))
@@ -796,15 +806,24 @@ function PlayerCard({
         )}
       </div>
 
-      {/* Tabs — brighter active color + thicker underline */}
-      <div className="flex items-center gap-1 border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-3 pt-1">
-        <TabButton active={tab === 'all'} onClick={() => setTab('all')}>
-          Top dainos
-        </TabButton>
-        {hasTrending && (
-          <TabButton active={tab === 'trending'} onClick={() => setTab('trending')}>
-            Naujos dainos
-          </TabButton>
+      {/* Filter chips — vienas track sąrašas, čip'ais perfiltruojam.
+          Anksčiau buvo 2 tab'ai (Top dainos / Naujos dainos), kurie
+          dalindavo dėmesį ir sortindavo skirtingai. Dabar — vienas
+          populiarumu sortintas sąrašas, NEW badge ant track'o jei
+          šviežias, chips leidžia filtruoti. */}
+      <div className="flex flex-wrap items-center gap-1.5 border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2">
+        <FilterChipMini active={filter === 'all'} onClick={() => setFilter('all')}>
+          Visos · {tracksAllTime.length}
+        </FilterChipMini>
+        {hasNew && (
+          <FilterChipMini active={filter === 'new'} onClick={() => setFilter('new')}>
+            🆕 Naujausi · {newTrackIds.size}
+          </FilterChipMini>
+        )}
+        {hasSingles && (
+          <FilterChipMini active={filter === 'singles'} onClick={() => setFilter('singles')}>
+            Singlai · {singleTrackIds.size}
+          </FilterChipMini>
         )}
       </div>
 
@@ -824,7 +843,7 @@ function PlayerCard({
           <div className="flex min-h-[160px] flex-col items-center justify-center gap-1 px-6 py-8 text-center">
             <div className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-wider text-[var(--text-muted)]">Nieko</div>
             <div className="text-[11px] text-[var(--text-faint)]">
-              {tab === 'trending' ? 'Per 2 metus naujų nebuvo' : 'Dainų nėra'}
+              {filter === 'new' ? 'Per 2 metus naujų nebuvo' : filter === 'singles' ? 'Singlų nėra' : 'Dainų nėra'}
             </div>
           </div>
         ) : (
@@ -864,17 +883,26 @@ function PlayerCard({
                     </span>
 
                     {/* Title — click opens the side drawer with duration +
-                        full lyrics + likes. */}
+                        full lyrics + likes. NEW badge ant svežių track'ų
+                        (visada matomas, ne tik naujasių filtre). */}
                     <button
                       type="button"
                       onClick={() => onOpenTrackInfo(t)}
                       className="flex min-w-0 flex-1 cursor-pointer flex-col items-start border-0 bg-transparent p-0 text-left"
                     >
                       <div className={[
-                        'w-full truncate font-["Outfit",sans-serif] text-[13px] font-bold leading-tight',
+                        'flex w-full items-center gap-1.5 font-["Outfit",sans-serif] text-[13px] font-bold leading-tight',
                         isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-primary)]',
                       ].join(' ')}>
-                        {t.title}
+                        <span className="truncate">{t.title}</span>
+                        {newTrackIds.has(t.id) && (
+                          <span
+                            className="shrink-0 rounded bg-[rgba(34,197,94,0.18)] px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-[#4ade80]"
+                            title="Šviežias įrašas (per pastaruosius 24 mėn.)"
+                          >
+                            🆕 Nauja
+                          </span>
+                        )}
                       </div>
                       <PopBar level={pop} />
                     </button>
@@ -1887,6 +1915,28 @@ function TabButton({ active, disabled, onClick, children }: {
       {active && (
         <span className="absolute -bottom-px left-3 right-3 h-[2px] rounded-full bg-[var(--accent-orange)]" />
       )}
+    </button>
+  )
+}
+
+/** Compact filter chip naudojamas PlayerCard'e — orange-fill kai active,
+ *  border kai inactive. Stilius matchina Muzika sekcijos FilterChip
+ *  komponentą (ten gyvena per FilterChip), bet šitas padarytas mažesnis,
+ *  kad telpa player'io header juostoje. */
+function FilterChipMini({ active, onClick, children }: {
+  active: boolean; onClick: () => void; children: React.ReactNode
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={[
+        'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 font-["Outfit",sans-serif] text-[11px] font-bold transition-all',
+        active
+          ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white shadow-[0_2px_8px_rgba(249,115,22,0.25)]'
+          : 'border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]',
+      ].join(' ')}
+    >
+      {children}
     </button>
   )
 }
