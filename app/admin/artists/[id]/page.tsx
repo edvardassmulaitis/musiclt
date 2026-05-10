@@ -179,7 +179,34 @@ function TrackRow({ track, onDelete, onEnriched }: { track: any; onDelete?: () =
         {featuring.length > 0 && <span className="text-xs text-[var(--text-muted)] whitespace-nowrap">su {featuring.join(', ')}</span>}
       </div>
       {hasVideo && <span className="text-blue-400 text-xs shrink-0" title={track.video_url}>▶</span>}
-      {views && <span className="text-[10px] text-[var(--text-muted)] tabular-nums shrink-0" title={`${track.video_views} peržiūrų${track.video_views_checked_at ? ` (${new Date(track.video_views_checked_at).toLocaleDateString()})` : ''}`}>{views}</span>}
+      {views && (
+        <span
+          className="text-[10px] text-[var(--text-muted)] tabular-nums shrink-0"
+          title={
+            `${track.video_views?.toLocaleString?.('lt-LT') || track.video_views} peržiūrų`
+            + (track.video_views_checked_at ? ` (patikrinta ${new Date(track.video_views_checked_at).toLocaleDateString('lt-LT')})` : '')
+            + (track.video_uploaded_at ? `\nĮkelta: ${new Date(track.video_uploaded_at).toLocaleDateString('lt-LT')}` : '')
+            + (track.video_uploaded_at && track.video_views ? (() => {
+                const days = Math.max(1, Math.round((Date.now() - new Date(track.video_uploaded_at).getTime()) / 86400000))
+                const perDay = Math.round(track.video_views / days)
+                return `\n≈ ${perDay.toLocaleString('lt-LT')} peržiūrų/dieną (${days} d.)`
+              })() : '')
+          }
+        >
+          {views}
+          {track.video_uploaded_at && track.video_views ? (
+            <span className="ml-1 text-[var(--text-faint)]">
+              · {(() => {
+                const days = Math.max(1, Math.round((Date.now() - new Date(track.video_uploaded_at).getTime()) / 86400000))
+                const perDay = Math.round(track.video_views / days)
+                if (perDay >= 1_000_000) return `${(perDay / 1_000_000).toFixed(1)}M/d`
+                if (perDay >= 1_000) return `${(perDay / 1_000).toFixed(1)}K/d`
+                return `${perDay}/d`
+              })()}
+            </span>
+          ) : null}
+        </span>
+      )}
       {hasLyrics && <span className="text-green-500 text-xs font-bold shrink-0">T</span>}
       {trackId && (
         <button onClick={e => { e.stopPropagation(); runYtEnrich() }}
@@ -348,9 +375,29 @@ function SingleRow({ track, onDelete }: { track: any; onDelete: () => void }) {
           {views && (
             <span
               className="text-[10px] text-[var(--text-muted)] tabular-nums shrink-0"
-              title={`${track.video_views} peržiūrų${track.video_views_checked_at ? ` (${new Date(track.video_views_checked_at).toLocaleDateString()})` : ''}`}
+              title={
+                `${track.video_views?.toLocaleString?.('lt-LT') || track.video_views} peržiūrų`
+                + (track.video_views_checked_at ? ` (patikrinta ${new Date(track.video_views_checked_at).toLocaleDateString('lt-LT')})` : '')
+                + (track.video_uploaded_at ? `\nĮkelta: ${new Date(track.video_uploaded_at).toLocaleDateString('lt-LT')}` : '')
+                + (track.video_uploaded_at && track.video_views ? (() => {
+                    const days = Math.max(1, Math.round((Date.now() - new Date(track.video_uploaded_at).getTime()) / 86400000))
+                    const perDay = Math.round(track.video_views / days)
+                    return `\n≈ ${perDay.toLocaleString('lt-LT')} peržiūrų/dieną (${days} d.)`
+                  })() : '')
+              }
             >
               {views}
+              {track.video_uploaded_at && track.video_views ? (
+                <span className="ml-1 text-[var(--text-faint)]">
+                  · {(() => {
+                    const days = Math.max(1, Math.round((Date.now() - new Date(track.video_uploaded_at).getTime()) / 86400000))
+                    const perDay = Math.round(track.video_views / days)
+                    if (perDay >= 1_000_000) return `${(perDay / 1_000_000).toFixed(1)}M/d`
+                    if (perDay >= 1_000) return `${(perDay / 1_000).toFixed(1)}K/d`
+                    return `${perDay}/d`
+                  })()}
+                </span>
+              ) : null}
             </span>
           )}
         </div>
