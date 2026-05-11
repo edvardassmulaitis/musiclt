@@ -342,7 +342,19 @@ function parseSinglesSection(wikitext: string): SingleSongItem[] {
 
       // Surinkti wiki links TIK iš pavadinimo dalies (prieš <br) — ne iš featured artistų
       // pvz. "[[Stay with Me]]"<br>{{small|(with [[Calvin Harris]])}} → tik "Stay with Me"
-      const titlePortion = afterScope.replace(/<br\s*\/?\s*>.*/i, '').replace(/\{\{small\|.*$/i, '')
+      // BUG: anksčiau <span> markup nebuvo strip'inamas. Metallica
+      // "The View"<span ...> (with [[Lou Reed]])</span> — wiki-link regex
+      // surinkdavo IR "The View" IR "Lou Reed" → 2 atskiri singlai vietoj 1.
+      // Fix: strip'inam <span>...</span>, taip pat featuring-style parens
+      // su 'with' / 'featuring' / 'feat'.
+      let titlePortion = afterScope
+        .replace(/<br\s*\/?\s*>.*/i, '')
+        .replace(/\{\{small\|.*$/i, '')
+        .replace(/<span[^>]*>[\s\S]*?<\/span>/gi, '')
+        .replace(/<sup[^>]*>[\s\S]*?<\/sup>/gi, '')
+        // featuring artistų parens po pagrindinio title — taip pat strip'inti
+        // kad ne-title wiki-link'ai nebūtų agreguojami
+        .replace(/\s*\((?:with|feat(?:uring)?\.?|ft\.?)\s+[^)]+\)/gi, '')
       const allLinks: string[] = []
       const linkRe = /\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/g
       let lm: RegExpExecArray | null
