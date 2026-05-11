@@ -917,16 +917,27 @@ function PlayerCard({
               // likes) bar'ai rodomi pagal score arba YT views, ne 0.
               const pop = popLevelWithFallback(t, i, list.length, popInfo)
               return (
-                <li key={t.id}>
+                <li key={t.id} className="group/row">
+                  {/* Spotify-style split row (2026-05-10 UX):
+                       • Click row body (#, title, popbar) → PLAY (if video)
+                       • Click ▶ button → PLAY (explicit)
+                       • Click ⋯ button → MODAL (lyrics + comments)
+                      Anksciau title btn atidarydavo modal'a, ▶ btn play —
+                      du tap targets, inconsistent. Dabar row visada PLAY,
+                      ⋯ menu atskirai info'i. */}
                   <div
+                    onClick={() => v && handleSelect(t.id)}
+                    role={v ? 'button' : undefined}
+                    tabIndex={v ? 0 : undefined}
+                    onKeyDown={(e) => { if (v && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); handleSelect(t.id) } }}
+                    aria-label={v ? `Leisti ${t.title}` : `${t.title} — video nėra`}
                     className={[
                       'flex w-full items-center gap-2 px-3 py-2 transition-colors',
                       isActive ? 'bg-[rgba(249,115,22,0.08)]' : 'hover:bg-[var(--bg-hover)]',
+                      v ? 'cursor-pointer' : '',
                     ].join(' ')}
                   >
-                    {/* Position number — visada rodom indeksą.
-                        Equalizer atskirtas (be playerio kontrolės nežinom
-                        ar realiai groja, todėl neapsimetam). */}
+                    {/* Position number */}
                     <span
                       className={[
                         'w-5 shrink-0 text-center font-["Outfit",sans-serif] text-[12px] font-bold tabular-nums',
@@ -937,26 +948,15 @@ function PlayerCard({
                       {i + 1}
                     </span>
 
-                    {/* Title — click opens the side drawer with duration +
-                        full lyrics + likes. Release date badge ant svežių
-                        track'ų (visada matomas, ne tik filtre). Mėlyna brand
-                        spalva, formatas „YYYY-MM". */}
-                    <button
-                      type="button"
-                      onClick={() => onOpenTrackInfo(t)}
-                      className="flex min-w-0 flex-1 cursor-pointer flex-col items-start border-0 bg-transparent p-0 text-left"
-                    >
+                    {/* Title + PopBar — plain text (ne button); click'as
+                        bubble'ina į row'ą. Release date badge ant svežių. */}
+                    <div className="flex min-w-0 flex-1 flex-col items-start">
                       <div className={[
                         'flex w-full items-center gap-1.5 font-["Outfit",sans-serif] text-[13px] font-bold leading-tight',
                         isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-primary)]',
                       ].join(' ')}>
                         <span className="truncate">{t.title}</span>
                         {(() => {
-                          // Release date badge — pilna data jei turim
-                          // (year-month-day), kitaip ką turim. Rodomas:
-                          //  • Visada Singlai filtre
-                          //  • Naujausi filtre (release <24mo)
-                          //  • Visos filtre — tik svežiems (<24mo)
                           const yr = (t as any).release_year
                           const mo = (t as any).release_month
                           const dy = (t as any).release_day
@@ -981,13 +981,29 @@ function PlayerCard({
                         })()}
                       </div>
                       <PopBar level={pop} />
+                    </div>
+
+                    {/* ⋯ (info) menu — atidaro modal su lyrics + komentarais.
+                        stopPropagation kad row'o click'as neprasidetu paraleliai.
+                        Mobile'e visada matomas; desktop'e tik on row hover. */}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); onOpenTrackInfo(t) }}
+                      aria-label={`${t.title} — informacija (žodžiai, komentarai)`}
+                      title="Žodžiai ir komentarai"
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[var(--text-faint)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] lg:opacity-0 lg:group-hover/row:opacity-100"
+                    >
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden>
+                        <circle cx="5" cy="12" r="1.6" />
+                        <circle cx="12" cy="12" r="1.6" />
+                        <circle cx="19" cy="12" r="1.6" />
+                      </svg>
                     </button>
 
-                    {/* Play / pause — right-hand side. On the active track
-                        this toggles the YT player; on any other track it
-                        switches + autoplays that track. */}
+                    {/* Play / pause — explicit target (taip pat veikia row click).
+                        stopPropagation kad nesusidublina su row handler. */}
                     <button
-                      onClick={() => v && handleSelect(t.id)}
+                      onClick={(e) => { e.stopPropagation(); if (v) handleSelect(t.id) }}
                       disabled={!v}
                       aria-label={
                         !v ? 'Video nėra'
