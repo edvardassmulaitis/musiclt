@@ -123,16 +123,19 @@ function CoverImageField({ value, onChange }: { value: string; onChange: (url: s
 }
 
 // ── TrackList ─────────────────────────────────────────────────────────────────
-function TrackList({ tracks, isMobile, onAdd, onUpdate, onRemove, onHardDelete, onReorder, onSave }: {
+function TrackList({ tracks, isMobile, artistId, onAdd, onAddExisting, onUpdate, onRemove, onHardDelete, onReorder, onSave }: {
   tracks: TrackInAlbum[]
   isMobile: boolean
+  artistId?: number
   onAdd: () => void
+  onAddExisting: (t: { id: number; title: string; type?: string }) => void
   onUpdate: (i: number, f: keyof TrackInAlbum, v: any) => void
   onRemove: (i: number) => void
   onHardDelete: (i: number) => void
   onReorder: (from: number, to: number) => void
   onSave: () => void
 }) {
+  const [pickerOpen, setPickerOpen] = useState(false)
   const dragIdx = useRef<number | null>(null)
   const [dragOver, setDragOver] = useState<number | null>(null)
   const onDragStart = (i: number) => { dragIdx.current = i }
@@ -240,11 +243,115 @@ function TrackList({ tracks, isMobile, onAdd, onUpdate, onRemove, onHardDelete, 
         </div>
       )}
 
-      <div className="p-2.5">
+      <div className="p-2.5 flex flex-col sm:flex-row gap-2">
         <button type="button" onClick={onAdd}
-          className="w-full py-2 border-2 border-dashed border-[var(--input-border)] text-[var(--text-muted)] rounded-xl text-sm hover:border-blue-300 hover:text-blue-500 active:bg-blue-50 transition-colors">
-          + Pridėti dainą
+          className="flex-1 py-2 border-2 border-dashed border-[var(--input-border)] text-[var(--text-muted)] rounded-xl text-sm hover:border-blue-300 hover:text-blue-500 active:bg-blue-50 transition-colors">
+          + Nauja daina
         </button>
+        {artistId != null && (
+          <button type="button" onClick={() => setPickerOpen(true)}
+            className="flex-1 py-2 border-2 border-dashed border-amber-300 text-amber-600 rounded-xl text-sm hover:border-amber-400 hover:bg-amber-50 active:bg-amber-100 transition-colors"
+            title="Pasirinkti iš atlikėjo dainų, kurios dar nepriskirtos prie šio albumo">
+            + Iš nepriskirtų dainų
+          </button>
+        )}
+      </div>
+      {pickerOpen && artistId != null && (
+        <ExistingTrackPicker
+          artistId={artistId}
+          currentTrackIds={tracks.map(t => t.track_id || t.id).filter((x): x is number => typeof x === 'number')}
+          onPick={(t) => { onAddExisting(t); setPickerOpen(false) }}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
+    </div>
+  )
+}
+
+// ── ExistingTrackPicker ───────────────────────────────────────────────────────
+// Modal'as kuris fetch'ina visus artist'o tracks ir leidžia pasirinkti vieną
+// (ne iš dabartinio album'o). Naudoja /api/tracks?artist_id=X — esamas
+// endpoint'as. Filter'ina out tuos, kurie jau yra album'o tracks sąraše.
+function ExistingTrackPicker({ artistId, currentTrackIds, onPick, onClose }: {
+  artistId: number
+  currentTrackIds: number[]
+  onPick: (t: { id: number; title: string; type?: string }) => void
+  onClose: () => void
+}) {
+  const [tracks, setTracks] = useState<Array<{ id: number; title: string; type?: string; source?: string; album_tracks?: Array<{ album_id: number }>}>>([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [filterOrphans, setFilterOrphans] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      try {
+        const res = await fetch(`/api/tracks?artist_id=${artistId}&limit=1000`)
+        if (!res.ok) throw new Error(`${res.status}`)
+        const data = await res.json()
+        if (cancelled) return
+        const rows = Array.isArray(data) ? data : data.tracks || []
+        setTracks(rows)
+      } catch (e) { console.error('[picker] fetch fail', e) }
+      finally { if (!cancelled) setLoading(false) }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [artistId])
+
+  const currentSet = new Set(currentTrackIds)
+  const lower = search.toLowerCase()
+  const filtered = tracks
+    .filter(t => !currentSet.has(t.id))
+    .filter(t => !filterOrphans || !t.album_tracks || t.album_tracks.length === 0)
+    .filter(t => !lower || t.title.toLowerCase().includes(lower))
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div className="w-full max-w-2xl max-h-[80vh] flex flex-col rounded-xl bg-[var(--bg-surface)] border border-[var(--border-default)] shadow-2xl"
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-subtle)]">
+          <div>
+            <div className="font-bold text-[var(--text-primary)]">Pridėti esamą dainą</div>
+            <div className="text-[11px] text-[var(--text-muted)]">Artist'o tracks dar nepriskirti prie šio albumo</div>
+          </div>
+          <button onClick={onClose} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] text-xl">×</button>
+        </div>
+        <div className="px-4 py-2 border-b border-[var(--border-subtle)] flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+          <input type="text" autoFocus placeholder="Ieškoti..." value={search} onChange={e => setSearch(e.target.value)}
+            className="flex-1 px-3 py-2 rounded-lg border border-[var(--input-border)] bg-[var(--bg-elevated)] text-sm" />
+          <label className="flex items-center gap-2 text-[11px] text-[var(--text-secondary)] cursor-pointer select-none">
+            <input type="checkbox" checked={filterOrphans} onChange={e => setFilterOrphans(e.target.checked)} />
+            Tik orphan (be albumo)
+          </label>
+        </div>
+        <div className="flex-1 overflow-y-auto p-2">
+          {loading ? (
+            <div className="p-4 text-center text-[var(--text-muted)] text-sm">Kraunama...</div>
+          ) : filtered.length === 0 ? (
+            <div className="p-4 text-center text-[var(--text-muted)] text-sm">Nieko nerasta</div>
+          ) : (
+            filtered.map(t => (
+              <button key={t.id} type="button" onClick={() => onPick({ id: t.id, title: t.title, type: t.type })}
+                className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg hover:bg-[var(--bg-hover)] text-left">
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm text-[var(--text-primary)] truncate">{t.title}</div>
+                  <div className="text-[10px] text-[var(--text-muted)] flex gap-2">
+                    <span>id #{t.id}</span>
+                    {t.type && t.type !== 'normal' && <span className="text-purple-500">{t.type}</span>}
+                    {t.source === 'legacy_scrape_pending' && <span className="text-amber-500 font-bold">pending</span>}
+                    <span>{t.album_tracks && t.album_tracks.length > 0 ? `${t.album_tracks.length} alb.` : 'orphan'}</span>
+                  </div>
+                </div>
+                <span className="text-[10px] text-blue-500 shrink-0">pridėti →</span>
+              </button>
+            ))
+          )}
+        </div>
+        <div className="px-4 py-2 border-t border-[var(--border-subtle)] text-[11px] text-[var(--text-muted)]">
+          {loading ? '' : `${filtered.length} iš ${tracks.length - currentSet.size}`}
+        </div>
       </div>
     </div>
   )
@@ -322,6 +429,23 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
     ...p,
     tracks: [...(p.tracks || []), { title: '', sort_order: (p.tracks?.length || 0) + 1, type: 'normal', disc_number: 1 }]
   }))
+
+  // Pridėti EGZISTUOJANTĮ track'ą iš artist'o sąrašo. Naudojama kai daina jau
+  // sukurta (per Wiki import arba music.lt scrape) bet neturi album_tracks
+  // priskirimo — orphan track. User pasirinka iš modal'o → pridedam su
+  // track_id, kad išsaugant POST /api/albums atlieka album_tracks JOIN insert
+  // be naujo tracks record kūrimo.
+  const addExistingTrack = (t: { id: number; title: string; type?: string }) => setForm(p => {
+    const next = (p.tracks || []).slice()
+    next.push({
+      track_id: t.id,
+      title: t.title,
+      sort_order: next.length + 1,
+      type: (t.type as TrackInAlbum['type']) || 'normal',
+      disc_number: 1,
+    })
+    return { ...p, tracks: next }
+  })
 
   const upTrack = (i: number, f: keyof TrackInAlbum, v: any) => {
     setForm(p => {
@@ -640,7 +764,7 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
           <div className="bg-[var(--bg-surface)] min-h-screen">
             <TracksHeader count={trackCount} />
             <TrackList tracks={form.tracks || []} isMobile={true}
-              onAdd={addTrack} onUpdate={upTrack} onRemove={rmTrack} onHardDelete={hardDeleteTrack} onReorder={reorderTracks} onSave={handleSubmit} />
+              artistId={form.artist_id} onAdd={addTrack} onAddExisting={addExistingTrack} onUpdate={upTrack} onRemove={rmTrack} onHardDelete={hardDeleteTrack} onReorder={reorderTracks} onSave={handleSubmit} />
           </div>
         )}
       </div>
@@ -651,7 +775,7 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
           <div className="m-3 bg-[var(--bg-surface)] rounded-xl border border-[var(--border-subtle)] shadow-sm overflow-hidden">
             <TracksHeader count={trackCount} />
             <TrackList tracks={form.tracks || []} isMobile={false}
-              onAdd={addTrack} onUpdate={upTrack} onRemove={rmTrack} onHardDelete={hardDeleteTrack} onReorder={reorderTracks} onSave={handleSubmit} />
+              artistId={form.artist_id} onAdd={addTrack} onAddExisting={addExistingTrack} onUpdate={upTrack} onRemove={rmTrack} onHardDelete={hardDeleteTrack} onReorder={reorderTracks} onSave={handleSubmit} />
           </div>
         </div>
       </div>
