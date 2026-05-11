@@ -1748,8 +1748,10 @@ function TrackInfoModal({
             • Jei lyrics nėra → komentarai (visada).
             Vienoda taisyklė visiems viewport'ams = bulletproof. */}
         <div ref={bodyScrollRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4">
-          {lyricsText && mobileTab === 'lyrics' ? (
-            <>
+          {/* Lyrics — always mounted (rodom/slepiam pagal tab), kad
+              reactions counts būtų laiku užkrauti. */}
+          {lyricsText && (
+            <div className={mobileTab === 'lyrics' ? 'block' : 'hidden'}>
               <div className="mb-4 flex items-baseline gap-2">
                 <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                   Dainos tekstas
@@ -1759,8 +1761,12 @@ function TrackInfoModal({
                 </span>
               </div>
               <LyricsWithReactions trackId={track.id} lyrics={lyricsText} compact />
-            </>
-          ) : (
+            </div>
+          )}
+          {/* Komentarai — taip pat always mounted, kad count badge'as
+              būtų populated iškart kai modal'as atsidaro (anksčiau load'inosi
+              tik kai user'is paspaudžia tab'ą → 0 rodydavo iki click'o). */}
+          <div className={!lyricsText || mobileTab === 'comments' ? 'block' : 'hidden'}>
             <EntityCommentsBlock
               entityType="track"
               entityId={track.id}
@@ -1768,7 +1774,7 @@ function TrackInfoModal({
               title="Komentarai"
               onCountChange={setCommentTotal}
             />
-          )}
+          </div>
         </div>
       </aside>
 
@@ -2284,7 +2290,7 @@ function SideInfo({
                     className="flex h-9 items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-3 text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
                   >
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
-                    <span className="font-['Outfit',sans-serif] text-[12.5px] font-bold tracking-tight">{domain}</span>
+                    <span className="max-w-[160px] truncate font-['Outfit',sans-serif] text-[12.5px] font-bold tracking-tight sm:max-w-none">{domain}</span>
                   </a>
                 )
               })()}

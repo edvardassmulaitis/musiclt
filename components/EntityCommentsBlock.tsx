@@ -121,8 +121,14 @@ function tagLinksNofollow(html: string): string {
     return `<iframe${attrs} loading="lazy">`
   })
   out = out.replace(/<img\b([^>]*)>/gi, (full, attrs) => {
-    if (/\bloading\s*=/i.test(attrs)) return full
-    return `<img${attrs} loading="lazy" decoding="async">`
+    // Broken-image fallback: legacy music.lt comments turi <img> nuorodų į
+    // emoji GIF'us su path'ais, kurie nepervežti į naują serverį. Browser
+    // rodo blue '?' box'ą. Su onerror handler'iu element'as save-hides kai
+    // load fail'ina — useris mato tiesiog tarp žodžių, ne broken icon'ą.
+    let a = String(attrs)
+    if (!/\bloading\s*=/i.test(a)) a += ' loading="lazy" decoding="async"'
+    if (!/\bonerror\s*=/i.test(a)) a += ' onerror="this.style.display=\'none\'"'
+    return `<img${a}>`
   })
   return out
 }
