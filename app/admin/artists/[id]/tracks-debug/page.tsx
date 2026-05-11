@@ -29,8 +29,16 @@ type TrackRow = {
   release_day: number | null
   video_url: string | null
   video_views: number | null
+  video_uploaded_at: string | null
+  spotify_id: string | null
+  lyrics: string | null
   score: number | null
+  source: string | null
+  legacy_id: number | null
+  imported_at: string | null
+  score_updated_at: string | null
   like_count: number
+  album_titles: string  // joined album titles
 }
 
 async function getArtist(id: number) {
@@ -47,15 +55,16 @@ async function getTracks(id: number): Promise<TrackRow[]> {
   const sb = createAdminClient()
   const { data } = await sb
     .from('tracks')
-    .select('id, slug, title, type, is_single, release_year, release_month, release_day, video_url, video_views, score')
+    .select('id, slug, title, type, is_single, release_year, release_month, release_day, video_url, video_views, video_uploaded_at, spotify_id, lyrics, score, source, legacy_id, imported_at, score_updated_at')
     .eq('artist_id', id)
     .or('source.is.null,source.neq.legacy_scrape_pending')
     .range(0, 9999)
   const tracks = (data || []) as any[]
   if (tracks.length === 0) return []
 
-  // Like counts iš likes lentelės
   const ids = tracks.map(t => t.id)
+
+  // Like counts iš likes lentelės
   const likeMap = new Map<number, number>()
   for (let i = 0; i < ids.length; i += 200) {
     const chunk = ids.slice(i, i + 200)
@@ -68,7 +77,29 @@ async function getTracks(id: number): Promise<TrackRow[]> {
       likeMap.set(l.entity_id, (likeMap.get(l.entity_id) || 0) + 1)
     }
   }
-  for (const t of tracks) t.like_count = likeMap.get(t.id) || 0
+
+  // Album titles per track — JOIN per album_tracks → albums. Vienam track'ui
+  // gali būti keli albumai (compilation, soundtrack); rodom comma-separated.
+  const albumMap = new Map<number, string[]>()
+  for (let i = 0; i < ids.length; i += 200) {
+    const chunk = ids.slice(i, i + 200)
+    const { data: at } = await sb
+      .from('album_tracks')
+      .select('track_id, albums(title, year)')
+      .in('track_id', chunk)
+    for (const r of (at || []) as any[]) {
+      const title = r.albums?.title
+      if (!title) continue
+      const arr = albumMap.get(r.track_id) || []
+      if (!arr.includes(title)) arr.push(title)
+      albumMap.set(r.track_id, arr)
+    }
+  }
+
+  for (const t of tracks) {
+    t.like_count = likeMap.get(t.id) || 0
+    t.album_titles = (albumMap.get(t.id) || []).join(', ')
+  }
   return tracks
 }
 
@@ -165,7 +196,7 @@ export default async function TracksDebugPage({ params }: Props) {
   const totalSingles = tracks.filter(t => t.is_single).length
 
   return (
-    <div className="mx-auto max-w-[1400px] px-6 py-8">
+    <div className="mx-auto max-w-[1800px] px-4 py-8">
       <div className="mb-6 flex items-center gap-4">
         <Link href={`/admin/artists/${id}`} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]">
           ← Atlikėjas
@@ -236,13 +267,17 @@ export default async function TracksDebugPage({ params }: Props) {
             <tr>
               <th className="px-3 py-2.5">#</th>
               <th className="px-3 py-2.5">Track</th>
+              <th className="px-3 py-2.5" title="Album'as (-ai) iš album_tracks JOIN'o">Album</th>
               <th className="px-3 py-2.5 text-right">Views</th>
               <th className="px-3 py-2.5 text-right" title="log10(views+1) × 50">+views×50</th>
               <th className="px-3 py-2.5 text-right">Likes</th>
               <th className="px-3 py-2.5 text-right" title="log10(likes+1) × 10">+likes×10</th>
               <th className="px-3 py-2.5 text-center" title="is_single ? +10 : 0">+Single</th>
               <th className="px-3 py-2.5 text-center" title="video_url ? +5 : 0">+Video</th>
-              <th className="px-3 py-2.5 text-center">Date</th>
+              <th className="px-3 py-2.5 text-center" title="Release date (Y-M-D arba tik Y jei tik metai)">Date</th>
+              <th className="px-3 py-2.5 text-center" title="YT video upload date (iš YouTube Data API snippet.publishedAt)">YT date</th>
+              <th className="px-3 py-2.5 text-center" title="✓=yra, ×=nėra. Spotify ID, lyrics, music.lt legacy ID">Meta</th>
+              <th className="px-3 py-2.5 text-center" title="Track source: wikipedia, legacy_scrape_v1, legacy+wikipedia, etc.">Source</th>
               <th className="px-3 py-2.5 text-right font-extrabold text-[var(--accent-orange)]">Σ Composite</th>
               <th className="px-3 py-2.5 text-center">PopBar</th>
             </tr>
@@ -253,6 +288,13 @@ export default async function TracksDebugPage({ params }: Props) {
               const popVal = trackPopValue(t, popInfo.signal)
               const level = popLevel(popVal, popInfo.max)
               const hasVideo = yt(t.video_url)
+              const ytDate = t.video_uploaded_at ? new Date(t.video_uploaded_at).toISOString().slice(0, 10) : '—'
+              const hasLyrics = !!(t.lyrics && t.lyrics.trim().length > 10)
+              const hasSpotify = !!t.spotify_id
+              const sourceLabel = (t.source || 'unknown')
+                .replace('legacy+wikipedia', 'wiki+lt')
+                .replace('legacy_scrape_v1', 'lt')
+                .replace('wikipedia', 'wiki')
               return (
                 <tr key={t.id} className="hover:bg-[var(--bg-hover)]">
                   <td className="px-3 py-2 tabular-nums text-[var(--text-faint)]">{i + 1}</td>
@@ -260,6 +302,9 @@ export default async function TracksDebugPage({ params }: Props) {
                     <Link href={`/admin/tracks/${t.id}`} className="hover:text-[var(--accent-orange)]">
                       {t.title}
                     </Link>
+                  </td>
+                  <td className="px-3 py-2 text-[11px] text-[var(--text-muted)] max-w-[180px] truncate" title={t.album_titles}>
+                    {t.album_titles || '—'}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">
                     {t.video_views != null ? t.video_views.toLocaleString('lt-LT') : '—'}
@@ -289,8 +334,23 @@ export default async function TracksDebugPage({ params }: Props) {
                       <span className="text-[var(--text-faint)]">—</span>
                     )}
                   </td>
-                  <td className="px-3 py-2 text-center tabular-nums text-[var(--text-muted)]">
+                  <td className="px-3 py-2 text-center tabular-nums text-[var(--text-muted)]" title={t.release_year ? `release_year=${t.release_year} release_month=${t.release_month ?? 'null'} release_day=${t.release_day ?? 'null'}` : 'release_year=null'}>
                     {fmtReleaseDate(t)}
+                  </td>
+                  <td className="px-3 py-2 text-center tabular-nums text-[10px] text-[var(--text-muted)]">
+                    {ytDate}
+                  </td>
+                  <td className="px-3 py-2 text-center text-[10px]" title={`spotify_id=${t.spotify_id || 'null'}, lyrics_len=${t.lyrics?.length || 0}, legacy_id=${t.legacy_id || 'null'}`}>
+                    <span className={hasSpotify ? 'text-emerald-400' : 'text-[var(--text-faint)]'}>S</span>
+                    <span className="mx-0.5">·</span>
+                    <span className={hasLyrics ? 'text-emerald-400' : 'text-[var(--text-faint)]'}>L</span>
+                    <span className="mx-0.5">·</span>
+                    <span className={t.legacy_id ? 'text-emerald-400' : 'text-[var(--text-faint)]'} title={t.legacy_id ? `music.lt legacy_id=${t.legacy_id}` : 'no music.lt mapping'}>
+                      {t.legacy_id ? `#${t.legacy_id}` : '—'}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 text-center text-[10px] text-[var(--text-muted)]" title={`source=${t.source || 'null'}, imported_at=${t.imported_at || 'null'}`}>
+                    {sourceLabel}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums font-extrabold text-[var(--accent-orange)]">
                     {bd.total.toFixed(1)}
