@@ -758,20 +758,32 @@ export function parseTracklist(wikitext: string): TrackEntry[] {
           })
         ) : undefined
         const noteStr = (noteM?.[1] || '').toLowerCase()
-        // Strip featuring/feat/with clauses prieš type-check — kad band'o
-        // pavadinimas (pvz "Live Squad", "Cover Girls") nematchin'tų į
-        // track type "live"/"covers". Anksčiau "(featuring Live Squad)"
-        // → \blive\b match'ino → klaidingai pažymėdavo kaip live recording.
-        const noteForType = noteStr
-          .replace(/\(?\s*feat(?:uring)?[.\s][^)]*\)?/gi, '')
-          .replace(/\(?\s*with\s[^)]*\)?/gi, '')
+        // Track type detection: griežtesnė nei bare \blive\b, nes featuring
+        // artist'ai gali turėti band-name'us su "live", "cover", "remix" žodžiais
+        // (pvz [[Live Squad]], [[The Cover Girls]]). Apima du sluoksnius:
+        //
+        // 1) Strip [[wikilink]] interior'us — band names yra wikilink'uose,
+        //    todėl jų vidus negali generuoti track-type signal'o.
+        // 2) Reikalauti aiškaus konteksto (paren'ai, kabliuku/kabliu, "version",
+        //    "recording", "at/from"), ne bare \blive\b — kad plain text
+        //    "featuring Live Squad" neaktyvuotų.
+        const stripped = noteStr
+          .replace(/\[\[[^\]]*\]\]/g, '')         // [[Live Squad]] → ''
+          .replace(/\{\{[^}]*\}\}/g, '')          // {{lang|en|...}} → ''
+          .replace(/<[^>]+>/g, '')                // <ref>...</ref> → ''
+        // Explicit live phrasings (Wikipedia editorial konvencija):
+        //   (live), live at X, live from X, live version, live recording,
+        //   recorded live, live in studio, live on TV, etc.
+        const LIVE_RE = /(?:^|[\s(,\-])live(?:\s+(?:at|from|in|on|version|recording|performance|cut|take))?(?:[\s),\-.]|$)|recorded\s+live\b/i
+        const COVER_RE = /(?:^|[\s(,\-])covers?(?:\s+(?:of|version))?(?:[\s),\-.]|$)|cover\s+version\b/i
+        const REMIX_RE = /\bremix(?:\s+version)?\b/i
         const titleLower = finalTitle.toLowerCase()
         let trackType: TrackEntry['type'] = 'normal'
-        if (/\binstrumental\b/.test(noteForType) || /\binstrumental\b/.test(titleLower)) trackType = 'instrumental'
-        else if (/\blive\b/.test(noteForType) || /\b(live at|live from|concert|recorded live)\b/.test(noteForType)) trackType = 'live'
-        else if (/\bremix\b/.test(noteForType) || /\bremix\b/.test(titleLower)) trackType = 'remix'
-        else if (/\bcover\b/.test(noteForType) || /\bcovers?\b/.test(noteForType)) trackType = 'covers'
-        else if (/\bmashup\b/.test(noteForType) || /\bmashup\b/.test(titleLower)) trackType = 'mashup'
+        if (/\binstrumental\b/.test(stripped) || /\binstrumental\b/.test(titleLower)) trackType = 'instrumental'
+        else if (LIVE_RE.test(stripped) || LIVE_RE.test(titleLower)) trackType = 'live'
+        else if (REMIX_RE.test(stripped) || REMIX_RE.test(titleLower)) trackType = 'remix'
+        else if (COVER_RE.test(stripped)) trackType = 'covers'
+        else if (/\bmashup\b/.test(stripped) || /\bmashup\b/.test(titleLower)) trackType = 'mashup'
         tracks.push({ title: finalTitle, duration: lenM?.[1]?.trim(), sort_order: order++, is_single, featuring: featuring.length ? featuring : undefined, type: trackType })
       }
     }
