@@ -378,7 +378,9 @@ export default async function TracksDebugPage({ params }: Props) {
               <th className="px-3 py-2.5 text-center" title="video_url ? +5 : 0">+Video</th>
               <th className="px-3 py-2.5 text-center" title="Release date (Y-M-D arba tik Y jei tik metai)">Date</th>
               <th className="px-3 py-2.5 text-center" title="YT video upload date (iš YouTube Data API snippet.publishedAt)">YT date</th>
-              <th className="px-3 py-2.5 text-center" title="✓=yra, ×=nėra. Spotify ID, lyrics, music.lt legacy ID">Meta</th>
+              <th className="px-3 py-2.5 text-center" title="Spotify ID iš music.lt iframe embed'o">Spotify</th>
+              <th className="px-3 py-2.5 text-center" title="Lyrics (žodžiai) ilgis. Iš music.lt body arba LRCLib backfill'o">Lyrics</th>
+              <th className="px-3 py-2.5 text-center" title="music.lt legacy ID (matched per match_legacy_overlay)">LT id</th>
               <th className="px-3 py-2.5 text-center" title="Track source: wikipedia, legacy_scrape_v1, legacy+wikipedia, etc.">Source</th>
               <th className="px-3 py-2.5 text-right font-extrabold text-[var(--accent-orange)]">Σ Composite</th>
               <th className="px-3 py-2.5 text-center">PopBar</th>
@@ -445,14 +447,26 @@ export default async function TracksDebugPage({ params }: Props) {
                   <td className="px-3 py-2 text-center tabular-nums text-[10px] text-[var(--text-muted)]">
                     {ytDate}
                   </td>
-                  <td className="px-3 py-2 text-center text-[10px]" title={`spotify_id=${t.spotify_id || 'null'}, lyrics_len=${t.lyrics?.length || 0}, legacy_id=${t.legacy_id || 'null'}`}>
-                    <span className={hasSpotify ? 'text-emerald-400' : 'text-[var(--text-faint)]'}>S</span>
-                    <span className="mx-0.5">·</span>
-                    <span className={hasLyrics ? 'text-emerald-400' : 'text-[var(--text-faint)]'}>L</span>
-                    <span className="mx-0.5">·</span>
-                    <span className={t.legacy_id ? 'text-emerald-400' : 'text-[var(--text-faint)]'} title={t.legacy_id ? `music.lt legacy_id=${t.legacy_id}` : 'no music.lt mapping'}>
-                      {t.legacy_id ? `#${t.legacy_id}` : '—'}
-                    </span>
+                  <td className="px-3 py-2 text-center" title={t.spotify_id ? `spotify_id=${t.spotify_id}` : 'null'}>
+                    {hasSpotify ? (
+                      <a href={`https://open.spotify.com/track/${t.spotify_id}`} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center w-5 h-5 rounded bg-emerald-500/15 text-emerald-400 text-[11px] font-bold hover:bg-emerald-500/30">✓</a>
+                    ) : (
+                      <span className="text-[var(--text-faint)] text-[11px]">×</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-center text-[10px] tabular-nums" title={hasLyrics ? `${t.lyrics?.length || 0} chars` : 'no lyrics'}>
+                    {hasLyrics ? (
+                      <span className="rounded bg-blue-500/15 px-1.5 py-0.5 text-blue-400 font-bold">{Math.round((t.lyrics?.length || 0) / 100) / 10}k</span>
+                    ) : (
+                      <span className="text-[var(--text-faint)]">×</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-center text-[10px] tabular-nums" title={t.legacy_id ? `music.lt legacy_id=${t.legacy_id}` : 'no music.lt mapping'}>
+                    {t.legacy_id ? (
+                      <span className="text-amber-500">#{t.legacy_id}</span>
+                    ) : (
+                      <span className="text-[var(--text-faint)]">—</span>
+                    )}
                   </td>
                   <td className="px-3 py-2 text-center text-[10px] text-[var(--text-muted)]" title={`source=${t.source || 'null'}, imported_at=${t.imported_at || 'null'}`}>
                     {sourceLabel}

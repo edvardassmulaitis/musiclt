@@ -747,21 +747,33 @@ function PublicProfileLink({ slug }: { slug: string }) {
 }
 
 /** TracksDebugLink — admin'o lentelė su track score breakdown'ais, pop bars,
- *  YT views, likes, dates. Naudinga debug'inant scoring/single detection. */
+ *  YT views, likes, dates. Naudinga debug'inant scoring/single detection.
+ *  Plius albums-debug — tas pats album lygmenyje. */
 function TracksDebugLink({ artistId }: { artistId: string }) {
   return (
-    <Link href={`/admin/artists/${artistId}/tracks-debug`}
-      className="flex items-center gap-1.5 px-2 py-1 text-xs text-amber-700 hover:text-amber-900 hover:bg-amber-50 rounded-lg transition-colors font-medium"
-      title="Tracks debug lentelė — score breakdown, singles, datos">
-      <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
-        <rect x="3" y="3" width="18" height="18" rx="2" />
-        <line x1="9" y1="3" x2="9" y2="21" />
-        <line x1="15" y1="3" x2="15" y2="21" />
-        <line x1="3" y1="9" x2="21" y2="9" />
-        <line x1="3" y1="15" x2="21" y2="15" />
-      </svg>
-      Debug
-    </Link>
+    <div className="flex items-center gap-0.5">
+      <Link href={`/admin/artists/${artistId}/tracks-debug`}
+        className="flex items-center gap-1.5 px-2 py-1 text-xs text-amber-700 hover:text-amber-900 hover:bg-amber-50 rounded-lg transition-colors font-medium"
+        title="Tracks debug lentelė — score breakdown, singles, datos, spotify, lyrics">
+        <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <line x1="9" y1="3" x2="9" y2="21" />
+          <line x1="15" y1="3" x2="15" y2="21" />
+          <line x1="3" y1="9" x2="21" y2="9" />
+          <line x1="3" y1="15" x2="21" y2="15" />
+        </svg>
+        Tracks
+      </Link>
+      <Link href={`/admin/artists/${artistId}/albums-debug`}
+        className="flex items-center gap-1.5 px-2 py-1 text-xs text-amber-700 hover:text-amber-900 hover:bg-amber-50 rounded-lg transition-colors font-medium"
+        title="Albums debug lentelė — track count, singles, lyrics, likes, spotify, cover">
+        <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="9" />
+          <circle cx="12" cy="12" r="2" fill="currentColor" />
+        </svg>
+        Albums
+      </Link>
+    </div>
   )
 }
 
