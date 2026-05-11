@@ -136,6 +136,12 @@ export default function AlbumInfoModal({
 
   // Mobile tab — Dainos vs Komentarai (analogiškai TrackInfoModal Tekstas/Komentarai).
   const [mobileTab, setMobileTab] = useState<'tracks' | 'comments'>('tracks')
+  // videoStarted — false default, rodom thumbnail + orange play overlay.
+  // Click → postMessage play + hide overlay (matches TrackInfoModal pattern).
+  const [videoStarted, setVideoStarted] = useState(false)
+  // Refs for iframe postMessage + body scroll reset on tab switch.
+  const videoIframeRef = useRef<HTMLIFrameElement>(null)
+  const bodyScrollRef = useRef<HTMLDivElement>(null)
 
   // LikePill state — duplicates standalone page logic, paprastesnis tvarkymas.
   const [selfLiked, setSelfLiked] = useState(false)
@@ -183,6 +189,14 @@ export default function AlbumInfoModal({
       })
       .catch(() => {})
     return () => { cancelled = true }
+  }, [albumId])
+
+  // Reset scroll + videoStarted kai albumId keičiasi (prev/next album'as).
+  useEffect(() => {
+    bodyScrollRef.current?.scrollTo({ top: 0 })
+  }, [mobileTab])
+  useEffect(() => {
+    setVideoStarted(false)
   }, [albumId])
 
   // ESC key + body scroll lock (position:fixed pattern — iOS-safe).
@@ -269,8 +283,19 @@ export default function AlbumInfoModal({
   const showVideo = !!playerVid
 
   const handlePlay = (idx: number) => {
+    const track = sortedTracks[idx]
+    const newVid = ytId(track?.video_url || null) || albumYtId
     setActiveIdx(idx)
     setPlaying(true)
+    setVideoStarted(true)
+    // Same iframe (same video) — postMessage play. Different video — iframe
+    // re-mounts via key change, autoplay=1 URL param triggers play.
+    if (newVid === playerVid && newVid) {
+      videoIframeRef.current?.contentWindow?.postMessage(
+        JSON.stringify({ event: 'command', func: 'playVideo', args: [] }),
+        '*',
+      )
+    }
   }
 
   // Don't render anything if no album active
@@ -289,286 +314,189 @@ export default function AlbumInfoModal({
 
   // Root — portaled į document.body. Kitaip .route-enter wrapper'io
   // transform: translateY(0) end-state laužia fixed inset-0 pozicionavimą.
+  // Root — portaled į document.body. Song-modal pattern: backdrop wrapper
+  // (bottom sheet mobile, centered card desktop), iframe always-mounted +
+  // click-to-play orange overlay, fixed h-[90vh]/sm:h-[85vh].
   return createPortal(
     <div
-      className="fixed inset-0 z-[9999]"
+      className={[
+        'fixed inset-0 z-[9999] flex items-end justify-center backdrop-blur-sm sm:items-center',
+        'bg-black/60 sm:bg-black/30',
+        'lg:justify-start lg:pl-[10%]',
+      ].join(' ')}
       role="dialog"
       aria-modal="true"
       aria-label={titleNow ? `${titleNow} albumo informacija` : 'Albumo informacija'}
+      onClick={(e) => { if (e.target === e.currentTarget) handleClose() }}
       style={{ fontFamily: "'DM Sans',system-ui,sans-serif" }}
     >
-      {/* Backdrop — click-outside closes (only outside the wide-desktop dock) */}
-      <div
-        onClick={(e) => { if (!isWideDesktop && e.target === e.currentTarget) handleClose() }}
-        className={[
-          'absolute inset-0 transition-opacity duration-200',
-          mounted ? 'bg-black/65 opacity-100' : 'bg-black/65 opacity-0',
-        ].join(' ')}
-      />
-
-      {/* Wide desktop dock player + Daugiau strip — fixed right side, narrower
-          than modal so they sit side-by-side on ≥1280px. */}
-      {isWideDesktop && (
-        <aside
-          className={[
-            'absolute right-0 top-0 hidden h-full w-[calc(100vw-860px)] min-w-[420px] flex-col gap-4 overflow-y-auto border-l border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-5 shadow-[-12px_0_40px_-20px_rgba(0,0,0,0.6)] xl:flex',
-            'transition-opacity duration-200',
-            mounted ? 'opacity-100' : 'opacity-0',
-          ].join(' ')}
-        >
-          {showVideo ? (
-            <div>
-              <div className="mb-2 flex items-center justify-between">
-                <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
-                  Klausyti
-                </div>
-                {activeTrack && (
-                  <span className="truncate font-['Outfit',sans-serif] text-[10.5px] font-bold text-[var(--accent-orange)]">
-                    {activeTrack.title}
-                  </span>
-                )}
-              </div>
-              <div className="aspect-video w-full overflow-hidden rounded-xl bg-black shadow-[0_18px_40px_-12px_rgba(0,0,0,0.5)]">
-                <iframe
-                  key={`dock-album-${playerVid}`}
-                  src={`https://www.youtube.com/embed/${playerVid}?playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&autoplay=${playing ? 1 : 0}`}
-                  title={titleNow}
-                  className="h-full w-full"
-                  referrerPolicy="strict-origin-when-cross-origin"
-                  allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-                  allowFullScreen
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-elevated)] py-10 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--card-bg)] ring-1 ring-[var(--border-subtle)]">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--text-muted)]">
-                  <path d="M23 7l-7 5 7 5V7z" />
-                  <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-                </svg>
-              </div>
-              <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
-                Vaizdo įrašo nėra
-              </div>
-            </div>
-          )}
-
-          {/* Other albums — vertical list */}
-          {details && details.otherAlbums.length > 0 && (
-            <div>
-              <div className="mb-2 flex items-baseline justify-between">
-                <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
-                  Daugiau {artist?.name}
-                </div>
-                <Link
-                  href={`/atlikejai/${artist?.slug}`}
-                  className="font-['Outfit',sans-serif] text-[10px] font-bold text-[var(--accent-orange)] no-underline hover:underline"
-                >
-                  Visi →
-                </Link>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                {details.otherAlbums.slice(0, 6).map(a => (
-                  <button
-                    key={a.id}
-                    type="button"
-                    onClick={() => {
-                      // Same-modal switch: parent wraps prev/next, but for
-                      // "Daugiau" cards we just call onNext if it'd land on
-                      // this album. Simpler: emit a special event. For now —
-                      // use onNext-like semantics: parent should provide a
-                      // "select album by id" callback. Pakol kas paliekam
-                      // kaip Link'ą, kad atidarytų naują modal'ą per parent.
-                    }}
-                    className="hidden"
-                  />
-                ))}
-                {details.otherAlbums.slice(0, 6).map(a => (
-                  <Link
-                    key={a.id}
-                    href={`/albumai/${a.slug}-${a.id}`}
-                    title={a.title}
-                    className="group flex items-center gap-2.5 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
-                  >
-                    <div className="aspect-square h-12 shrink-0 overflow-hidden rounded bg-[var(--cover-placeholder)]">
-                      {a.cover_image_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={proxyImg(a.cover_image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-[18px]">💿</div>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate font-['Outfit',sans-serif] text-[12.5px] font-extrabold text-[var(--text-primary)]">{a.title}</div>
-                      {a.year && <div className="truncate text-[10.5px] text-[var(--text-muted)]">{a.year}</div>}
-                    </div>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-[var(--text-faint)] transition-transform group-hover:translate-x-0.5">
-                      <path d="M9 18l6-6-6-6" />
-                    </svg>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
-        </aside>
-      )}
-
-      {/* Drawer (modal panel). Mobile = fullscreen, lg = max-width 860, xl =
-          fixed 860 with dock to the right (handled above). */}
       <aside
+        onClick={(e) => e.stopPropagation()}
         className={[
-          'absolute right-0 top-0 flex h-full w-full flex-col overflow-hidden bg-[var(--bg-surface)] shadow-2xl transition-transform duration-200 ease-out lg:max-w-[860px]',
-          drawerTransform,
+          'flex w-full flex-col overflow-hidden bg-[var(--bg-surface)] shadow-[0_24px_60px_-10px_rgba(0,0,0,0.5)]',
+          'h-[90vh] rounded-t-2xl',
+          'sm:h-[85vh] sm:rounded-2xl sm:mx-4 sm:max-w-[720px]',
         ].join(' ')}
       >
-        {/* Top bar */}
-        <div className="flex items-center gap-3 border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-3 sm:gap-4 sm:px-5">
-          {/* Cover thumb — clickable Link į artist (same pattern kaip page'e) */}
+        {/* Mobile handle bar */}
+        <div className="flex shrink-0 justify-center pt-2 pb-1 sm:hidden">
+          <div className="h-1 w-10 rounded-full bg-[var(--border-default)]" />
+        </div>
+
+        {/* Header — cover + title + artist + external + close */}
+        <div className="flex shrink-0 items-center gap-2.5 border-b border-[var(--border-subtle)] px-4 py-2">
           {artist ? (
             <Link
               href={`/atlikejai/${artist.slug}`}
               aria-label={`Pas ${artist.name}`}
-              title={`Pas ${artist.name}`}
-              className="group relative shrink-0 overflow-hidden rounded-xl border border-[var(--border-subtle)] transition-all hover:border-[var(--accent-orange)] hover:shadow-[0_0_0_3px_rgba(249,115,22,0.18)]"
-              style={{ width: 72, height: 72 }}
+              className="shrink-0 overflow-hidden rounded-lg border border-[var(--border-subtle)]"
+              style={{ width: 40, height: 40 }}
             >
               {coverNow ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={proxyImg(coverNow)} alt={titleNow} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
               ) : (
-                <div className="flex h-full w-full items-center justify-center bg-[var(--cover-placeholder)] text-[24px]">💿</div>
+                <div className="flex h-full w-full items-center justify-center bg-[var(--cover-placeholder)] text-[16px]">💿</div>
               )}
             </Link>
           ) : (
-            <div
-              className="shrink-0 overflow-hidden rounded-xl border border-[var(--border-subtle)]"
-              style={{ width: 72, height: 72 }}
-            >
+            <div className="shrink-0 overflow-hidden rounded-lg border border-[var(--border-subtle)]" style={{ width: 40, height: 40 }}>
               {coverNow ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={proxyImg(coverNow)} alt={titleNow} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
               ) : (
-                <div className="flex h-full w-full items-center justify-center bg-[var(--cover-placeholder)] text-[24px]">💿</div>
+                <div className="flex h-full w-full items-center justify-center bg-[var(--cover-placeholder)] text-[16px]">💿</div>
               )}
             </div>
           )}
-
-          {/* Identity cluster */}
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-baseline gap-2">
-              <span className="truncate font-['Outfit',sans-serif] text-[15px] font-extrabold leading-tight text-[var(--text-primary)] sm:text-[16px]">
-                {titleNow || 'Kraunama…'}
-              </span>
-              {album?.is_upcoming && (
-                <span className="inline-flex items-center rounded-full border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.18)] px-2 py-0.5 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
-                  Greitai
-                </span>
-              )}
+            <div className="truncate font-['Outfit',sans-serif] text-[15px] font-extrabold leading-tight text-[var(--text-primary)]">
+              {titleNow || 'Kraunama…'}
             </div>
             {artist && (
-              <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[12px]">
+              <div className="truncate text-[11.5px] leading-tight">
                 <Link href={`/atlikejai/${artist.slug}`} className="font-['Outfit',sans-serif] font-bold text-[var(--accent-orange)] no-underline hover:underline">
                   {artist.name}
                 </Link>
-                {albumTypeLabel && (
-                  <>
-                    <span className="text-[var(--text-faint)]">·</span>
-                    <span className="text-[var(--text-muted)]">{albumTypeLabel}</span>
-                  </>
-                )}
-                {album?.dateFormatted && (
-                  <>
-                    <span className="text-[var(--text-faint)]">·</span>
-                    <span className="text-[var(--text-muted)]">{album.dateFormatted}</span>
-                  </>
-                )}
               </div>
             )}
-            <div className="mt-1.5 flex flex-wrap items-center gap-2">
-              <LikePill
-                likes={likeCount}
-                selfLiked={selfLiked}
-                onToggle={onToggleLike}
-                pending={selfLikePending}
-                variant="surface"
-              />
-              {tracks.length > 0 && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[10.5px] font-bold text-[var(--text-muted)]">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                    <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
-                  </svg>
-                  {tracks.length} {tracks.length === 1 ? 'daina' : 'dainos'}
-                </span>
-              )}
-            </div>
           </div>
-
-          {/* Prev / Next / External / Close */}
-          <div className="flex shrink-0 items-center gap-1">
-            {onPrev && (
-              <button
-                type="button"
-                onClick={onPrev}
-                aria-label="Ankstesnis albumas"
-                title="Ankstesnis albumas"
-                className="hidden h-8 w-8 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] sm:flex"
-              >
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M15 18l-6-6 6-6" />
-                </svg>
-              </button>
-            )}
-            {onNext && (
-              <button
-                type="button"
-                onClick={onNext}
-                aria-label="Kitas albumas"
-                title="Kitas albumas"
-                className="hidden h-8 w-8 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] sm:flex"
-              >
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M9 18l6-6-6-6" />
-                </svg>
-              </button>
-            )}
-            {album && (
-              <Link
-                href={`/albumai/${album.slug}-${album.id}`}
-                aria-label="Atidaryti albumo puslapį"
-                title="Atidaryti albumo puslapį"
-                className="hidden h-8 w-8 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] sm:flex"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M7 17L17 7" />
-                  <path d="M8 7h9v9" />
-                </svg>
-              </Link>
-            )}
-            <button
-              type="button"
-              onClick={handleClose}
-              aria-label="Uždaryti"
-              title="Uždaryti"
-              className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+          {album && (
+            <Link
+              href={`/albumai/${album.slug}-${album.id}`}
+              target="_blank"
+              rel="noopener"
+              aria-label="Atidaryti albumo puslapį"
+              title="Atidaryti albumo puslapį"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
             >
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
+              <svg viewBox="0 0 24 24" width={11} height={11} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 3h7v7M21 3l-9 9M5 5h6M5 5v14h14v-6" />
               </svg>
-            </button>
+            </Link>
+          )}
+          <button
+            type="button"
+            onClick={handleClose}
+            aria-label="Uždaryti"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+          >
+            <svg viewBox="0 0 16 16" width={11} height={11} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+              <path d="M3 3l10 10M13 3L3 13" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Row 2: 2-col video + meta (60/40) */}
+        <div className="grid shrink-0 grid-cols-[minmax(0,3fr)_minmax(0,2fr)] border-b border-[var(--border-subtle)]">
+          {/* Left: video — iframe always-mounted (enablejsapi=1, no autoplay).
+              Overlay (thumbnail + orange play button) covers iframe until click.
+              Click → setVideoStarted(true) + postMessage playVideo. */}
+          <div className="relative aspect-video max-h-[220px] w-full overflow-hidden bg-black sm:max-h-[340px]">
+            {playerVid ? (
+              <>
+                <iframe
+                  ref={videoIframeRef}
+                  key={`album-modal-video-${playerVid}`}
+                  src={`https://www.youtube.com/embed/${playerVid}?playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1`}
+                  title={titleNow}
+                  className="absolute inset-0 h-full w-full"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                  allowFullScreen
+                />
+                {!videoStarted && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVideoStarted(true)
+                      setPlaying(true)
+                      videoIframeRef.current?.contentWindow?.postMessage(
+                        JSON.stringify({ event: 'command', func: 'playVideo', args: [] }),
+                        '*',
+                      )
+                    }}
+                    aria-label={`Leisti ${titleNow} vaizdo įrašą`}
+                    className="group absolute inset-0 block h-full w-full overflow-hidden"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`https://i.ytimg.com/vi/${playerVid}/hqdefault.jpg`}
+                      alt=""
+                      className="absolute inset-0 h-full w-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute inset-0 bg-black/25 transition-colors group-hover:bg-black/40" />
+                    <span className="absolute left-1/2 top-1/2 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_8px_24px_rgba(249,115,22,0.5)] ring-[3px] ring-white/15 transition-transform group-hover:scale-110 sm:h-14 sm:w-14">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    </span>
+                  </button>
+                )}
+              </>
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-[10px] uppercase tracking-wider text-[var(--text-faint)]">
+                Vaizdo įrašo nėra
+              </div>
+            )}
+          </div>
+          {/* Right: meta stack — LikePill + data + tipas */}
+          <div className="flex flex-col items-start gap-1 border-l border-[var(--border-subtle)] px-2.5 py-2 text-[11px]">
+            <LikePill
+              likes={likeCount}
+              selfLiked={selfLiked}
+              onToggle={onToggleLike}
+              pending={selfLikePending}
+              variant="surface"
+            />
+            {album?.dateFormatted && (
+              <span className="mt-2 font-['Outfit',sans-serif] text-[11px] font-extrabold leading-tight text-[var(--text-primary)]">
+                {album.dateFormatted}
+              </span>
+            )}
+            {albumTypeLabel && (
+              <span className="font-['Outfit',sans-serif] text-[10.5px] font-bold leading-tight text-[var(--text-muted)]">
+                {albumTypeLabel}
+              </span>
+            )}
+            {album?.is_upcoming && (
+              <span className="inline-flex items-center rounded-full border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.18)] px-2 py-0.5 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
+                Greitai
+              </span>
+            )}
           </div>
         </div>
 
-        {/* Mobile tabs (lyrics→tracks here). Slepiasi, kai ≥lg. */}
-        <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-1.5 lg:hidden">
+        {/* Tabs — Dainos / Komentarai */}
+        <div className="flex shrink-0 items-center gap-4 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-1.5">
           <button
             type="button"
             onClick={() => setMobileTab('tracks')}
             className={[
-              "relative flex items-center gap-1.5 px-1 py-1.5 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors",
+              "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors",
               mobileTab === 'tracks'
-                ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[6px] after:h-[2px] after:bg-[var(--accent-orange)]'
+                ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[8px] after:h-[2px] after:bg-[var(--accent-orange)]'
                 : 'text-[var(--text-muted)]',
             ].join(' ')}
           >
@@ -578,9 +506,9 @@ export default function AlbumInfoModal({
             type="button"
             onClick={() => setMobileTab('comments')}
             className={[
-              "relative flex items-center gap-1.5 px-1 py-1.5 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors",
+              "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors",
               mobileTab === 'comments'
-                ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[6px] after:h-[2px] after:bg-[var(--accent-orange)]'
+                ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[8px] after:h-[2px] after:bg-[var(--accent-orange)]'
                 : 'text-[var(--text-muted)]',
             ].join(' ')}
           >
@@ -588,40 +516,9 @@ export default function AlbumInfoModal({
           </button>
         </div>
 
-        {/* Mobile inline player */}
-        {showVideo && (
-          <div className="aspect-video w-full shrink-0 bg-black lg:hidden">
-            <iframe
-              key={`mobile-album-modal-${playerVid}`}
-              src={`https://www.youtube.com/embed/${playerVid}?playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&autoplay=${playing ? 1 : 0}`}
-              title={titleNow}
-              className="h-full w-full"
-              referrerPolicy="strict-origin-when-cross-origin"
-              allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-              allowFullScreen
-            />
-          </div>
-        )}
-
-        {/* Body — 2-col grid on lg (drawer 860px → tracklist+comments split),
-            single-col on mobile (with tab toggle). Player+Daugiau yra dock'e
-            atskirai (xl), todėl čia jie nerenderinami. */}
-        <div className={[
-          'min-h-0 flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:divide-x lg:divide-[var(--border-subtle)]',
-        ].join(' ')}>
-          {/* Tracklist column */}
-          <div className={[
-            'min-h-0 overflow-y-auto px-4 py-4 sm:px-5',
-            mobileTab === 'tracks' ? 'block' : 'hidden lg:block',
-          ].join(' ')}>
-            <div className="mb-3 flex items-baseline gap-2">
-              <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
-                Dainos
-              </div>
-              {tracks.length > 0 && (
-                <span className="font-['Outfit',sans-serif] text-[10px] font-bold text-[var(--text-faint)]">{tracks.length}</span>
-              )}
-            </div>
+        {/* Body — VIENA scroll kolona. Tracks ARBA komentarai pagal tab. */}
+        <div ref={bodyScrollRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4">
+          <div className={mobileTab === 'tracks' ? 'block' : 'hidden'}>
             {loading && tracks.length === 0 ? (
               <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-10 text-center text-[12px] text-[var(--text-faint)]">
                 Kraunama…
@@ -678,19 +575,6 @@ export default function AlbumInfoModal({
                           </div>
                           <PopBar level={level} />
                         </button>
-                        {artist && (
-                          <Link
-                            href={`/dainos/${artist?.slug || ''}-${t.slug || t.id}-${t.id}`}
-                            aria-label={`Atidaryti ${t.title}`}
-                            title="Atidaryti dainą"
-                            className="hidden h-7 w-7 shrink-0 items-center justify-center rounded-full text-[var(--text-faint)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--accent-orange)] sm:flex"
-                          >
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                              <path d="M7 17L17 7" />
-                              <path d="M8 7h9v9" />
-                            </svg>
-                          </Link>
-                        )}
                         <button
                           onClick={() => canPlay && handlePlay(i)}
                           disabled={!canPlay}
@@ -723,12 +607,7 @@ export default function AlbumInfoModal({
               </ul>
             )}
           </div>
-
-          {/* Comments column */}
-          <div className={[
-            'min-h-0 overflow-y-auto px-4 py-4 sm:px-5',
-            mobileTab === 'comments' ? 'block' : 'hidden lg:block',
-          ].join(' ')}>
+          <div className={mobileTab === 'comments' ? 'block' : 'hidden'}>
             {album ? (
               <EntityCommentsBlock
                 entityType="album"
