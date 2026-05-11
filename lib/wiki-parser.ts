@@ -560,6 +560,15 @@ export function isDiscBlock(tl: string): boolean {
 /**
  * Parse singles mentioned in artist infobox.
  */
+/** Normalizuoja pavadinimą lookup'ui — lowercased + apostrophe stripped.
+ *  Naudojama ir singles Set'e (names) ir dates Map'e (key) kad track'as
+ *  galėtų rastas nepriklausomai nuo apostrophes variantų ('Don't' vs 'Dont').
+ *  Anksčiau Set turėjo "don't panic", o track lookup pridėdavo "dont panic"
+ *  → mismatch → is_single=false net real single'ams. */
+function normalizeSingleKey(name: string): string {
+  return name.toLowerCase().replace(/['’‘]/g, '').trim()
+}
+
 export function parseSinglesFromInfobox(wikitext: string): { names: Set<string>; dates: Map<string, SingleInfoboxData> } {
   const names = new Set<string>()
   const dates = new Map<string, SingleInfoboxData>()
@@ -578,7 +587,7 @@ export function parseSinglesFromInfobox(wikitext: string): { names: Set<string>;
     let lm: RegExpExecArray | null
     while ((lm = re.exec(text)) !== null) {
       const name = lm[2] ? lm[2].replace(/['"\u201c\u201d\u2018\u2019]+/g, '').trim() : lm[1].replace(/#[^\]]*$/, '').replace(disambigRe, '').replace(/['"\u201c\u201d\u2018\u2019]+/g, '').trim()
-      if (name.length > 1) names.add(name.toLowerCase())
+      if (name.length > 1) names.add(normalizeSingleKey(name))
     }
   }
 
@@ -608,12 +617,16 @@ export function parseSinglesFromInfobox(wikitext: string): { names: Set<string>;
         const plain = sm[2].replace(/\{\{[^}]*\}\}/g, '').replace(/<[^>]+>/g, '').replace(/['""\u201c\u201d\u2018\u2019]+/g, '').trim()
         if (plain.length > 1 && !plain.includes('|') && !plain.includes('=')) name = plain
       }
-      if (name) { names.add(name.toLowerCase()); singlesByNum[sm[1]] = name.toLowerCase() }
+      if (name) {
+        const norm = normalizeSingleKey(name)
+        names.add(norm)
+        singlesByNum[sm[1]] = norm
+      }
       const rawVal = sm[2].replace(/\[\[[^\]|]+\|([^\]]+)\]\]/g, '$1').replace(/\[\[([^\]]+)\]\]/g, '$1')
         .replace(disambigRe, '')
       if (rawVal.includes('/')) {
         for (const part of rawVal.split('/')) {
-          const clean = part.replace(/['""\u201c\u201d\u2018\u2019]+/g, '').trim().toLowerCase()
+          const clean = normalizeSingleKey(part.replace(/['""\u201c\u201d\u2018\u2019]+/g, ''))
           if (clean.length > 1) names.add(clean)
         }
       }
@@ -704,7 +717,10 @@ export function parseTracklist(wikitext: string): TrackEntry[] {
       if (!featuring.length) featuring = tf
       const finalTitle = cleanWikiText(cleanTitle)
       if (finalTitle) {
-        const normalizedTitle = finalTitle.toLowerCase().replace(/['\u2019]/g, '')
+        // Apostrophe normalization: match `normalizeSingleKey` exactly so
+        // tracks like "Don't Panic" lookup correctly against the singles Set
+        // (which strips ASCII ', curly \u2019, and reverse-curly \u2018).
+        const normalizedTitle = finalTitle.toLowerCase().replace(/['\u2019\u2018]/g, '').trim()
         // is_single attribution \u2014 pirma exact match, paskui keletas atsargi\u0173
         // fallback'\u0173 (slash split, plural form). Parenthesized variant'\u0173
         // ('(Be Our Guest)', '(Album Edit)') NEPROMOTE'inam \u012f single per

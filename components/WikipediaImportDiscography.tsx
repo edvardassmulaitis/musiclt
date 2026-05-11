@@ -804,14 +804,15 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
         const { dates } = parseSinglesFromInfobox(wikitext)
         if (!dates.size) return songs
         return songs.map(s => {
-          const key = s.title.toLowerCase().replace(/[''”]/g, '')
+          // Apostrophe normalization: match wiki-parser.ts normalizeSingleKey
+          const key = s.title.toLowerCase().replace(/['’‘]/g, '').trim()
           // Tiesioginis match
           let dateInfo = dates.get(key)
           // Jei nėra — ieškoti per “/” split (double A-side)
           if (!dateInfo) {
             for (const [dKey, dVal] of dates.entries()) {
               if (dKey.includes('/')) {
-                const parts = dKey.split('/').map(p => p.replace(/[“””]/g, '').trim())
+                const parts = dKey.split('/').map(p => p.replace(/['’‘“”"]/g, '').trim())
                 if (parts.some(p => p === key)) { dateInfo = dVal; break }
               }
             }
@@ -1004,7 +1005,8 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       const { dates: singleDates } = parseSinglesFromInfobox(wikitext)
       if (singleDates.size > 0) {
         setSongs(prev => prev.map(s => {
-          const key = s.title.toLowerCase().replace(/['\u2019]/g, '')
+          // Apostrophe normalization: match wiki-parser.ts normalizeSingleKey
+          const key = s.title.toLowerCase().replace(/['\u2019\u2018]/g, '').trim()
           const dateInfo = singleDates.get(key)
           if (dateInfo && !s.month && !s.day) {
             return { ...s, year: dateInfo.year ?? s.year, month: dateInfo.month, day: dateInfo.day }
@@ -1168,7 +1170,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                 if (!extraDates.has(dKey)) extraDates.set(dKey, dVal)
                 // Double A-side
                 if (dKey.includes('/')) {
-                  dKey.split('/').map(p => p.replace(/[\u201c\u201d"']/g, '').trim()).filter(Boolean)
+                  dKey.split('/').map(p => p.replace(/['\u2019\u2018\u201c\u201d"]/g, '').trim()).filter(Boolean)
                     .forEach(p => { if (!extraDates.has(p)) extraDates.set(p, dVal) })
                 }
               }
@@ -1216,7 +1218,8 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
       updateTask('import-singles', `${song.title} (${songsDone + 1}/${toImport.length})`)
       try {
         // Viršelis ir data iš singlo Wikipedia puslapio (bendras abiem šakoms)
-        const key = song.title.toLowerCase().replace(/[''"]/g, '')
+        // Apostrophe normalization: match wiki-parser.ts normalizeSingleKey
+        const key = song.title.toLowerCase().replace(/['’‘"]/g, '').trim()
         const extra = !song.month ? extraDates.get(key) : null
         const { coverUrl, wikiDate } = await fetchSingleWikiInfo(song.title)
         const finalYear = extra?.year ?? wikiDate?.year ?? song.year
