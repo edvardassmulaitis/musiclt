@@ -60,6 +60,13 @@ export type TrackInAlbum = {
   is_single?: boolean
   lyrics?: string
   featuring?: string[]
+  // Release date — singles iš {{Singles}} infobox'o (single1date),
+  // non-singles fallback į albumo year. Anksčiau šis lauką payload'e
+  // perduodavom, bet syncAlbumTracks INSERT/UPDATE jo neįrašydavo
+  // į DB → visi non-singles likdavo be release datų.
+  release_year?: number | null
+  release_month?: number | null
+  release_day?: number | null
 }
 
 export type TrackFull = {
@@ -266,6 +273,10 @@ async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackI
       // singles infobox neminin). Anksčiau "Hymn for the Weekend" prarado
       // is_single=true kai user importavo "Music of the Spheres" albume tame
       // pačiame track-id, bet to albumo {{Singles}} template'e nebuvo Hymn.
+      //
+      // release_year/month/day FILL-ONLY: jei DB jau turi, neperrašom;
+      // jei nėra — užfilling'inam iš payload (parser'is jau prikabino
+      // singles datas + albumo year fallback'ą non-singles).
       const cleanTitle = t.title.trim()
       const newSlug = slugify(cleanTitle)
       const updateBody: any = {
@@ -275,6 +286,9 @@ async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackI
         spotify_id: t.spotify_id || null,
       }
       if (t.is_single) updateBody.is_single = true
+      if (t.release_year) updateBody.release_year = t.release_year
+      if (t.release_month) updateBody.release_month = t.release_month
+      if (t.release_day) updateBody.release_day = t.release_day
       await supabase.from('tracks').update(updateBody).eq('id', trackId)
     } else {
       // Naujas track
@@ -298,6 +312,9 @@ async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackI
           spotify_id: t.spotify_id || null,
         }
         if (t.is_single) updateBody.is_single = true
+        if (t.release_year) updateBody.release_year = t.release_year
+        if (t.release_month) updateBody.release_month = t.release_month
+        if (t.release_day) updateBody.release_day = t.release_day
         await supabase.from('tracks').update(updateBody).eq('id', trackId)
       } else {
         // Unikalus slug jei reikia
@@ -318,6 +335,9 @@ async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackI
           is_single: t.is_single || false,
           video_url: t.video_url || null,
           spotify_id: t.spotify_id || null,
+          release_year: t.release_year || null,
+          release_month: t.release_month || null,
+          release_day: t.release_day || null,
         }).select('id').single()
 
         if (trackError) { console.error('[syncAlbumTracks] Failed to insert track:', cleanTitle, trackError.message, trackError.details); continue }
