@@ -1388,64 +1388,6 @@ function TrackInfoModal({
   // comments. Future: portal hero player into a modal-aware container
   // instead of duplicating.
 
-  // ── Modal Body (lyrics + comments) ─────────────────────────────────
-  // Bendra body struktūra naudojama tiek dock režime, tiek standartiniame
-  // modal'e. Layout principai:
-  //  • Konteineris turi `flex-1 min-h-0` — užima likusią aukštį, leidžia
-  //    vaikams shrink'intis žemiau content size (min-h-0 yra MUST flex'e).
-  //  • Mobile (be lyrics): viena kolona overflow-y-auto.
-  //  • Mobile (su lyrics): flex flex-col + viena kolona matoma per kartą
-  //    (mobileTab), kita su `hidden`. Aktyvi kolona — flex-1 + overflow-y-auto.
-  //  • Desktop ≥lg (su lyrics): flex flex-row, ABI kolonos matomos kartu,
-  //    divide-x atskiria. Kiekvienos kolonos overflow-y-auto = nepriklausomas
-  //    scroll'as. Tai svarbu: scroll'as tame pačiame elemente, kuriame
-  //    overflow apsibrėžtas — be nested scroll'ų painiavos.
-  const Body = (
-    <div className="flex flex-1 min-h-0 flex-col lg:flex-row lg:divide-x lg:divide-[var(--border-subtle)]">
-      {lyricsText ? (
-        <>
-          {/* Lyrics kolona */}
-          <div className={[
-            'min-h-0 flex-1 overflow-y-auto px-5 py-5',
-            mobileTab === 'lyrics' ? 'flex flex-col' : 'hidden lg:flex lg:flex-col',
-          ].join(' ')}>
-            <div className="mb-4 flex shrink-0 items-baseline gap-2">
-              <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
-                Dainos tekstas
-              </div>
-              <span className="font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
-                pažymėk → reaguok
-              </span>
-            </div>
-            <LyricsWithReactions trackId={track.id} lyrics={lyricsText} compact />
-          </div>
-          {/* Komentarai */}
-          <div className={[
-            'min-h-0 flex-1 overflow-y-auto px-5 py-5',
-            mobileTab === 'comments' ? 'flex flex-col' : 'hidden lg:flex lg:flex-col',
-          ].join(' ')}>
-            <EntityCommentsBlock
-              entityType="track"
-              entityId={track.id}
-              compact
-              title="Komentarai"
-              onCountChange={setCommentTotal}
-            />
-          </div>
-        </>
-      ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-          <EntityCommentsBlock
-            entityType="track"
-            entityId={track.id}
-            compact
-            title="Komentarai"
-          />
-        </div>
-      )}
-    </div>
-  )
-
   // ── Likers Modal (shared between dock + standard) ──────────────────
   const LikersOverlay = likersOpen ? (
     <div
@@ -1607,7 +1549,44 @@ function TrackInfoModal({
           aria-label={`Apie dainą ${track.title}`}
           className="row-start-2 col-start-1 flex w-[860px] flex-col overflow-hidden border-r border-[var(--border-default)] bg-[var(--bg-surface)]"
         >
-          {Body}
+          {/* Dock mode body — 2 cols (lyrics | comments) su nepriklausomu
+              scroll'u kiekvienam. Wide-desktop (≥1280px) gauna pakankamai
+              vietos abiems iš karto. */}
+          <div className="flex flex-1 min-h-0 flex-row divide-x divide-[var(--border-subtle)]">
+            {lyricsText ? (
+              <>
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5">
+                  <div className="mb-4 flex items-baseline gap-2">
+                    <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                      Dainos tekstas
+                    </div>
+                    <span className="font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
+                      pažymėk → reaguok
+                    </span>
+                  </div>
+                  <LyricsWithReactions trackId={track.id} lyrics={lyricsText} compact />
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5">
+                  <EntityCommentsBlock
+                    entityType="track"
+                    entityId={track.id}
+                    compact
+                    title="Komentarai"
+                    onCountChange={setCommentTotal}
+                  />
+                </div>
+              </>
+            ) : (
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5">
+                <EntityCommentsBlock
+                  entityType="track"
+                  entityId={track.id}
+                  compact
+                  title="Komentarai"
+                />
+              </div>
+            )}
+          </div>
         </aside>
 
         {/* Docked player — dešinė kolona */}
@@ -1741,19 +1720,31 @@ function TrackInfoModal({
       className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center"
       onClick={(e) => { if (e.target === e.currentTarget) handleClose() }}
     >
+      {/* ════════════════════════════════════════════════════════════════
+          STANDARD MODAL ASIDE — bulletproof scroll-everywhere approach.
+
+          Filosofija:
+          • max-h-[90vh] (NE fixed h-[90vh]) — modal'as user-content-sized,
+            nesistengia užimti pilnos 90vh kai content trumpas. Tai elgesys,
+            kurio user'is tikisi — small content → small modal.
+          • overflow-hidden ant aside (kad rounded corner'iai apkirptų vaikus).
+          • Header'is + meta + mobile player + tabs — visi shrink-0, sticky'ish
+            viršuje. Niekada nedingsta — visada matomi.
+          • Body — VIENA scroll kolona (overflow-y-auto). VISKAS body'je
+            scroll'inasi kartu — be nested scroll'ų, be flex-row split'ų.
+          • Mobile tabs perjungia lyrics ↔ komentarai TAME PAČIAME body'je.
+            Desktop ≤lg taip pat — vienodas elgesys, nesusiveda į edge case'us.
+          • Wide desktop (≥lg) su lyrics → split UI gyvena tik dock mode'e
+            (≥1280px). Ten useris turi pakankamai vietos pilnam takeover'iui.
+          • overscroll-contain — iOS Safari'e nepralaužia į body scroll. */}
       <aside
         role="dialog"
         aria-label={`Apie dainą ${track.title}`}
         onClick={(e) => e.stopPropagation()}
         className={[
-          // Bottom sheet (mobile) — h-[90vh] FIX'UOTAS aukštis (NE max-h).
-          // overflow-hidden — niekas neturi iškrist iš aside ribų; vidiniai
-          // overflow-y-auto vaikai patys tvarkosi savo scroll'us.
           'flex w-full flex-col overflow-hidden bg-[var(--bg-surface)] shadow-[0_24px_60px_-10px_rgba(0,0,0,0.5)]',
-          'h-[90vh] rounded-t-2xl',
-          // Centered card (desktop ≥sm) — h-[85vh] fixed.
-          'sm:h-[85vh] sm:rounded-2xl sm:mx-4',
-          lyricsText ? 'sm:max-w-[860px]' : 'sm:max-w-[640px]',
+          'max-h-[90vh] rounded-t-2xl',
+          'sm:max-h-[85vh] sm:rounded-2xl sm:mx-4 sm:max-w-[640px]',
           'transition-all duration-300 ease-out',
           mounted
             ? 'translate-y-0 opacity-100 sm:scale-100'
@@ -1765,7 +1756,7 @@ function TrackInfoModal({
           <div className="h-1 w-10 rounded-full bg-[var(--border-default)]" />
         </div>
 
-        {/* Header — thumb + title + close. shrink-0. */}
+        {/* Header — thumb + title + close */}
         <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border-subtle)] px-5 py-3">
           {artistThumbUrl && (
             // eslint-disable-next-line @next/next/no-img-element
@@ -1799,7 +1790,7 @@ function TrackInfoModal({
           </button>
         </div>
 
-        {/* Meta chips — LikePill, data, duration, albums, external link. shrink-0. */}
+        {/* Meta chips */}
         <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-[var(--border-subtle)] px-5 py-3">
           <LikePill
             likes={likes}
@@ -1818,51 +1809,23 @@ function TrackInfoModal({
               {dur}
             </span>
           )}
-          {(track.albums || []).slice(0, 2).map((al) => (
-            <Link
-              key={al.id}
-              href={`/lt/albumas/${al.slug}/${al.id}`}
-              target="_blank"
-              rel="noopener"
-              title={al.title}
-              className="hidden h-9 items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] py-0.5 pl-1 pr-2.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] sm:inline-flex"
-            >
-              <span className="h-7 w-7 shrink-0 overflow-hidden rounded-full bg-[var(--cover-placeholder)]">
-                {al.cover_image_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={proxyImg(al.cover_image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
-                ) : null}
-              </span>
-              <span className="max-w-[140px] truncate font-['Outfit',sans-serif] text-[11.5px] font-extrabold text-[var(--text-primary)]">
-                {al.title}
-              </span>
-            </Link>
-          ))}
-          {(track.albums || []).length > 2 && (
-            <span
-              title={(track.albums || []).slice(2).map(a => a.title).join(', ')}
-              className="hidden h-9 shrink-0 items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 font-['Outfit',sans-serif] text-[11.5px] font-extrabold text-[var(--text-muted)] sm:inline-flex"
-            >
-              +{(track.albums || []).length - 2}
-            </span>
-          )}
           <Link
             href={trackHref}
             target="_blank"
             rel="noopener"
             title="Atidaryti dainos puslapį naujame lange"
             aria-label="Atidaryti dainos puslapį"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+            className="ml-auto inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
           >
-            <svg viewBox="0 0 24 24" width={13} height={13} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <svg viewBox="0 0 24 24" width={12} height={12} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
               <path d="M14 3h7v7M21 3l-9 9M5 5h6M5 5v14h14v-6" />
             </svg>
           </Link>
         </div>
 
-        {/* Mobile inline player — kai mobile + turi video. shrink-0. */}
+        {/* Mobile inline player — kai mobile + turi video */}
         {isMobile && trackVid && (
-          <div className="aspect-video w-full shrink-0 overflow-hidden bg-black lg:hidden">
+          <div className="aspect-video w-full shrink-0 overflow-hidden bg-black">
             <iframe
               key={`mobile-inline-${trackVid}`}
               src={`https://www.youtube.com/embed/${trackVid}?playsinline=1&rel=0&modestbranding=1&iv_load_policy=3`}
@@ -1875,16 +1838,16 @@ function TrackInfoModal({
           </div>
         )}
 
-        {/* Mobile tabs — tik kai lyrics yra. shrink-0. lg:hidden. */}
+        {/* Tabs — tik kai lyrics yra. Visiems viewport'ams (standard modal'e). */}
         {lyricsText && (
-          <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-1.5 lg:hidden">
+          <div className="flex shrink-0 items-center gap-4 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-2">
             <button
               type="button"
               onClick={() => setMobileTab('lyrics')}
               className={[
-                "relative flex items-center gap-1.5 px-1 py-1.5 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors",
+                "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors",
                 mobileTab === 'lyrics'
-                  ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[6px] after:h-[2px] after:bg-[var(--accent-orange)]'
+                  ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[8px] after:h-[2px] after:bg-[var(--accent-orange)]'
                   : 'text-[var(--text-muted)]',
               ].join(' ')}
             >
@@ -1894,9 +1857,9 @@ function TrackInfoModal({
               type="button"
               onClick={() => setMobileTab('comments')}
               className={[
-                "relative flex items-center gap-1.5 px-1 py-1.5 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors",
+                "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[12px] font-bold transition-colors",
                 mobileTab === 'comments'
-                  ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[6px] after:h-[2px] after:bg-[var(--accent-orange)]'
+                  ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[8px] after:h-[2px] after:bg-[var(--accent-orange)]'
                   : 'text-[var(--text-muted)]',
               ].join(' ')}
             >
@@ -1910,8 +1873,40 @@ function TrackInfoModal({
           </div>
         )}
 
-        {/* Body — flex-1 min-h-0 (užima likusią vietą). */}
-        {Body}
+        {/* ── BODY — VIENA scroll kolona ─────────────────────────────────
+            flex-1 min-h-0 (užima likusią vietą), overflow-y-auto (scroll'as
+            čia ir tik čia), overscroll-contain (iOS Safari fix — scroll'as
+            neprasprūsta į pagrindinį page'ą). Vidus — jokio kito overflow,
+            jokios flex tricks, tik content stack'as.
+
+            Kas matoma:
+            • Jei lyrics yra IR mobileTab='lyrics' → lyrics
+            • Jei lyrics yra IR mobileTab='comments' → komentarai
+            • Jei lyrics nėra → komentarai (visada).
+            Vienoda taisyklė visiems viewport'ams = bulletproof. */}
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 py-5">
+          {lyricsText && mobileTab === 'lyrics' ? (
+            <>
+              <div className="mb-4 flex items-baseline gap-2">
+                <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                  Dainos tekstas
+                </div>
+                <span className="font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
+                  pažymėk → reaguok
+                </span>
+              </div>
+              <LyricsWithReactions trackId={track.id} lyrics={lyricsText} compact />
+            </>
+          ) : (
+            <EntityCommentsBlock
+              entityType="track"
+              entityId={track.id}
+              compact
+              title="Komentarai"
+              onCountChange={setCommentTotal}
+            />
+          )}
+        </div>
       </aside>
 
       {LikersOverlay}
