@@ -1385,7 +1385,7 @@ function TrackInfoModal({
   const ltMonths = ['sausio','vasario','kovo','balandžio','gegužės','birželio','liepos','rugpjūčio','rugsėjo','spalio','lapkričio','gruodžio']
   const fullDate = track.release_date
     ? (() => { const d = new Date(track.release_date!); return isNaN(d.getTime()) ? null : `${d.getFullYear()} m. ${ltMonths[d.getMonth()]} ${d.getDate()} d.` })()
-    : (track.release_year && track.release_month ? `${track.release_year} m. ${ltMonths[track.release_month - 1]}` : null)
+    : (track.release_year && track.release_month ? `${track.release_year} m. ${ltMonths[track.release_month - 1]} mėn.` : null)
   const dateLabel = fullDate || (year ? `${year} m.` : null)
   const baseLikes = typeof track.like_count === 'number' ? track.like_count : 0
   const likes = baseLikes + (selfLiked ? 1 : 0)
@@ -1558,7 +1558,7 @@ function TrackInfoModal({
             Video visada matomas (mažas), useris gali click'inti native play
             arba YouTube fullscreen'inti. Meta — popbar (reactions) +
             likes + data + albums vertikaliai dešinėj. */}
-        <div className="grid shrink-0 grid-cols-[3fr_2fr] border-b border-[var(--border-subtle)]">
+        <div className="grid shrink-0 grid-cols-[7fr_3fr] border-b border-[var(--border-subtle)]">
           {/* Left: small video */}
           <div className="aspect-video w-full overflow-hidden bg-black">
             {trackVid ? (
@@ -1580,7 +1580,7 @@ function TrackInfoModal({
 
           {/* Right: meta stack — popbar, likes, date, albums */}
           <div className="flex flex-col gap-1.5 border-l border-[var(--border-subtle)] px-2.5 py-2 text-[11px]">
-            <DropBar trackId={track.id} compact />
+            {/* DropBar (emoji reactions) paslėpta — re-enable kai prieš user'iui jis taps relevant. */}
             <LikePill
               likes={likes}
               selfLiked={selfLiked}

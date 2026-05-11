@@ -687,7 +687,7 @@ export default function TrackPageClient({
               onOpenModal={() => setLikersModalEntity({ type: 'track', id: track.id, label: 'dainą' })}
               variant="surface"
             />
-            <DropBar trackId={track.id} compact />
+            {/* DropBar paslėpta — re-enable kai user'iui taps relevant. */}
           </div>
         </div>
         {/* Meta cluster — data + albumai. Slepiasi siauresniam ekrane. */}
