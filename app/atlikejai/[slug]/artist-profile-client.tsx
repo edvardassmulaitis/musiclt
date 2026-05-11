@@ -983,21 +983,19 @@ function PlayerCard({
                       <PopBar level={pop} />
                     </div>
 
-                    {/* ⋯ (info) menu — atidaro modal su lyrics + komentarais.
-                        stopPropagation kad row'o click'as neprasidetu paraleliai.
-                        Mobile'e visada matomas; desktop'e tik on row hover. */}
+                    {/* Lyrics/info button — visada matomas (anksčiau ⋯ buvo
+                        opacity-0 desktop'e, neryški). Dabar — pillow su
+                        „♪ Žodžiai" tekstu, aiškiai komunikuoja, kas atsidarys
+                        modal'e. Subtilus card-bg, hover gauna orange tint. */}
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); onOpenTrackInfo(t) }}
-                      aria-label={`${t.title} — informacija (žodžiai, komentarai)`}
-                      title="Žodžiai ir komentarai"
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[var(--text-faint)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] lg:opacity-0 lg:group-hover/row:opacity-100"
+                      aria-label={`${t.title} — žodžiai ir komentarai`}
+                      title="Žodžiai, komentarai ir daugiau"
+                      className="flex shrink-0 items-center gap-1 rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[10.5px] font-bold text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.1)] hover:text-[var(--accent-orange)]"
                     >
-                      <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden>
-                        <circle cx="5" cy="12" r="1.6" />
-                        <circle cx="12" cy="12" r="1.6" />
-                        <circle cx="19" cy="12" r="1.6" />
-                      </svg>
+                      <span className="text-[12px] leading-none" aria-hidden>♪</span>
+                      <span className="hidden sm:inline">Žodžiai</span>
                     </button>
 
                     {/* Play / pause — explicit target (taip pat veikia row click).
