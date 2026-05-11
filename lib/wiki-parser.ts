@@ -351,13 +351,22 @@ export function parseMainPageDiscography(wikitext: string, soloOnly = false, gro
         }
         if (depth === 3 || depth === 4) {
           const typeH = h.replace(/\[\[.*?\]\]/g, '')
-          if (typeH.includes('studio') || typeH.includes('album')) currentType = 'studio'
+          // ORDER matters — specifūs tipai PIRMA, 'album' fallback'as paskutinis.
+          // Anksčiau 'album' generic check buvo PIRMAS → "Cover albums",
+          // "Live albums", "Soundtrack albums" → klaidingai tapdavo 'studio'.
+          if (typeH.includes('single')) { currentType = 'single'; skipGroup = true }
           else if (typeH.includes(' ep') || typeH === 'eps') currentType = 'ep'
-          else if (typeH.includes('single')) { currentType = 'single'; skipGroup = true }
+          else if (typeH.includes('tribute')) currentType = 'covers'
+          else if (typeH.includes('cover')) currentType = 'covers'
+          else if (typeH.includes('soundtrack') || typeH.includes('score')) currentType = 'soundtrack'
+          else if (typeH.includes('remix')) currentType = 'remix'
+          else if (typeH.includes('holiday') || typeH.includes('christmas')) currentType = 'holiday'
+          else if (typeH.includes('demo')) currentType = 'demo'
           else if (typeH.includes('compilation') || typeH.includes('greatest') || typeH.includes('best of')) currentType = 'compilation'
           else if (typeH.includes('live') || typeH.includes('concert')) currentType = 'live'
           else if (typeH.includes('box') || typeH.includes('video') || typeH.includes('dvd')) { skipGroup = true }
           else if (/solo|as lead|as artist|as performer/i.test(typeH)) currentType = 'studio'
+          else if (typeH.includes('studio') || typeH.includes('album')) currentType = 'studio'
         }
       }
       continue
@@ -396,21 +405,35 @@ export function parseDiscographyPage(wikitext: string): DiscographyItem[] {
       const depth = hm[1].length, h = hm[2].toLowerCase()
       if (depth === 2 && /^album/.test(h)) inSinglesSection = false
       skipSection = /video|dvd|film|promo|tour|guest|appear|certif|box.?set|music.video/.test(h)
-      if (h.includes('studio')) { currentType = 'studio'; skipSection = false; inSinglesSection = false }
-      else if (h.includes('collaborative') || h.includes('collaboration')) { currentType = 'studio'; skipSection = false; inSinglesSection = false }
-      else if (h.includes('extended play') || h.includes(' ep') || h === 'eps') { currentType = 'ep'; skipSection = false }
-      else if (h.includes('single')) { currentType = 'single'; skipSection = true; inSinglesSection = true }
-      else if (h.includes('remix')) { currentType = 'remix'; skipSection = false }
-      else if (h.includes('cover')) { currentType = 'covers'; skipSection = false }
-      else if (h.includes('holiday') || h.includes('christmas') || h.includes('xmas')) { currentType = 'holiday'; skipSection = false }
-      else if (h.includes('soundtrack') || h.includes('score')) { currentType = 'soundtrack'; skipSection = false }
-      else if (h.includes('demo')) { currentType = 'demo'; skipSection = false }
-      else if (h.includes('compilation') || h.includes('greatest') || h.includes('best of') || h.includes('collection')) { currentType = 'compilation'; skipSection = false }
-      else if (h.includes('live') || h.includes('concert')) { currentType = 'live'; skipSection = false }
-      else if (h.includes('box')) { currentType = 'other'; skipSection = true }
-      else if (depth === 2 && /chart|video|promo|appear/.test(h)) { inSinglesSection = true; skipSection = true }
-      else if (/^\d{4}s?$/.test(h.trim())) { skipSection = inSinglesSection }
-      else if (depth >= 3 && inSinglesSection) { skipSection = true }
+      // matched track flag — kad žinotume ar dabartinė sekcija yra
+      // atpažintas album tipas. Jei NĖRA — currentType paveldima iš ankstesnės
+      // sekcijos, kuri buvo bug priežastis: Metallica 'Tribute albums' ėjo
+      // po 'Collaboration albums' kuri set'ino currentType='studio'. Tributes
+      // tipas neegzistuoja explicit'ai — be safety, jie tapdavo studio.
+      let matched = false
+      if (h.includes('studio')) { currentType = 'studio'; skipSection = false; inSinglesSection = false; matched = true }
+      else if (h.includes('collaborative') || h.includes('collaboration')) { currentType = 'studio'; skipSection = false; inSinglesSection = false; matched = true }
+      else if (h.includes('extended play') || h.includes(' ep') || h === 'eps') { currentType = 'ep'; skipSection = false; matched = true }
+      else if (h.includes('single')) { currentType = 'single'; skipSection = true; inSinglesSection = true; matched = true }
+      else if (h.includes('remix')) { currentType = 'remix'; skipSection = false; matched = true }
+      // Tribute albumus traktuojam kaip 'covers' — Wiki konvencija: tribute
+      // albumai yra dažnai cover'iai of an artist/genre. Jei norėsim atskirti,
+      // reikės naujo 'tribute' tipo enum'e.
+      else if (h.includes('tribute')) { currentType = 'covers'; skipSection = false; matched = true }
+      else if (h.includes('cover')) { currentType = 'covers'; skipSection = false; matched = true }
+      else if (h.includes('holiday') || h.includes('christmas') || h.includes('xmas')) { currentType = 'holiday'; skipSection = false; matched = true }
+      else if (h.includes('soundtrack') || h.includes('score')) { currentType = 'soundtrack'; skipSection = false; matched = true }
+      else if (h.includes('demo')) { currentType = 'demo'; skipSection = false; matched = true }
+      else if (h.includes('compilation') || h.includes('greatest') || h.includes('best of') || h.includes('collection')) { currentType = 'compilation'; skipSection = false; matched = true }
+      else if (h.includes('live') || h.includes('concert')) { currentType = 'live'; skipSection = false; matched = true }
+      else if (h.includes('box')) { currentType = 'other'; skipSection = true; matched = true }
+      else if (depth === 2 && /chart|video|promo|appear/.test(h)) { inSinglesSection = true; skipSection = true; matched = true }
+      else if (/^\d{4}s?$/.test(h.trim())) { skipSection = inSinglesSection; matched = true }
+      else if (depth >= 3 && inSinglesSection) { skipSection = true; matched = true }
+      // Unknown depth=3 section (e.g. 'Mixtapes', 'Reissues') under Albums
+      // root — neturim mapping'o, NESKAIČIUOJAM kaip ankstesnis tipas, nes
+      // tai duotų klaidingą klasifikaciją.
+      if (!matched && depth >= 3) { skipSection = true }
       yearMode = false; currentYear = null; yearRowspan = 0; continue
     }
     if (skipSection || inSinglesSection) continue
