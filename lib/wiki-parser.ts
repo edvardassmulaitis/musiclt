@@ -622,8 +622,16 @@ export function parseSinglesFromInfobox(wikitext: string): { names: Set<string>;
       }
     }
     const clean = dateStr.replace(/\([^)]*\)/g, '').replace(/\{\{[^}]*\}\}/g, '').replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '').replace(/<ref[^/]*\/>/gi, '').trim()
+    // UK format: "14 October 2003" — day month year
     const full = clean.match(/(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})/i)
     if (full) return { day: parseInt(full[1]), month: MONTHS[full[2].toLowerCase()] || null, year: parseInt(full[3]) }
+    // US format: "October 14, 2003" / "January 12, 2004" — month day, year.
+    // Wikipedia infobox'uose US artistams (Britney Spears, 2Pac, etc.)
+    // single{N}date dažnai būna US formatu. Anksčiau parseDate negaudavo
+    // pilnos datos — month_year regex match'indavo TIK month+year, paliekant
+    // day=null. Coldplay UK formatas veikė, Britney US ne.
+    const us = clean.match(/(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s*(\d{4})/i)
+    if (us) return { day: parseInt(us[2]), month: MONTHS[us[1].toLowerCase()] || null, year: parseInt(us[3]) }
     const monthYear = clean.match(/(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})/i)
     if (monthYear) return { day: null, month: MONTHS[monthYear[1].toLowerCase()] || null, year: parseInt(monthYear[2]) }
     const yearOnly = clean.match(/(\d{4})/)
