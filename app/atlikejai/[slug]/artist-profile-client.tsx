@@ -1392,30 +1392,20 @@ function TrackInfoModal({
   // instead of duplicating.
 
   return (
-    // Backdrop is intentionally subtle + click-through-friendly: we don't
-    // want to block the hero/player behind the drawer. Clicking anywhere
-    // outside the panel dismisses.
     <div
       className={[
         'fixed inset-0 z-[9999]',
-        // Kai dock aktyvus — modal'as eina fullscreen, grid layout:
-        // top bar (visa eilutė) / [modal panel 860px | video flex-1].
-        // bg-surface PILNAI uždengia hero/page'ą už nugaros — naudojam
-        // tą patį background'ą kaip modal aside, kad atrodytų kaip
-        // vienas tęstinis paviršius (nesimato page'o turinio jokiose
-        // vietose).
-        dockedActive ? 'grid grid-cols-[860px_minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)] bg-[var(--bg-surface)]' : '',
+        dockedActive
+          // Dock režime: fullscreen grid (top bar + modal+video columns)
+          ? 'grid grid-cols-[860px_minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)] bg-[var(--bg-surface)]'
+          // Standard modal (mobile + non-docked desktop):
+          //  - Mobile: flex items-end → bottom sheet
+          //  - Desktop (≥sm): flex items-center justify-center → centered card
+          //  - Dark backdrop (bg-black/60) clearly indicates overlay (ne page)
+          : 'flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center',
       ].join(' ')}
       onClick={(e) => { if (!dockedActive && e.target === e.currentTarget) handleClose() }}
     >
-      {/* Click-outside scrim — tik kai NE dock režime. Dock'e fullscreen,
-          click outside neturi reikšmės (X mygtukas top bar'e). */}
-      {!dockedActive && (
-        <div
-          className="absolute inset-0"
-          onClick={handleClose}
-        />
-      )}
 
       {/* Top bar — pilnu ilgiu kai dock aktyvus. Artist thumb + title +
           dainos pavadinimas + X mygtukas dešinėj. Nereikia rodyti antro
@@ -1533,20 +1523,37 @@ function TrackInfoModal({
       <aside
         role="dialog"
         aria-label={`Apie dainą ${track.title}`}
+        onClick={(e) => e.stopPropagation()}
         className={[
           dockedActive
             // Fullscreen layout: aside fix'uotas plotis kairėje (860px),
             // dock'as užims likusią vietą dešinėje (žemiau).
             ? 'relative flex w-[860px] shrink-0 flex-col border-r border-[var(--border-default)] bg-[var(--bg-surface)]'
-            // Drawer layout: kaip anksčiau, slankioja iš kairės.
+            // Standard modal:
+            //  - Mobile: bottom sheet (full width, rounded top, slide up,
+            //    max-h 90vh — page'o virsus matosi virsuje)
+            //  - Desktop (≥sm): centered card (max-w 640px or 860px su
+            //    lyrics, rounded all corners, max-h 85vh)
+            //  - Transition: mobile slide from bottom (translate-y-full),
+            //    desktop scale fade-in (scale-95 → scale-100)
             : [
-                'absolute left-0 top-0 flex h-full w-full flex-col border-r border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[24px_0_60px_-10px_rgba(0,0,0,0.5)]',
-                lyricsText ? 'max-w-[860px]' : 'max-w-[440px]',
-                'transition-transform duration-200 ease-out',
-                mounted ? 'translate-x-0' : '-translate-x-full',
+                'flex w-full flex-col bg-[var(--bg-surface)] shadow-[0_24px_60px_-10px_rgba(0,0,0,0.5)]',
+                'max-h-[90vh] rounded-t-2xl sm:max-h-[85vh] sm:rounded-2xl sm:mx-4',
+                lyricsText ? 'sm:max-w-[860px]' : 'sm:max-w-[640px]',
+                'transition-all duration-300 ease-out',
+                mounted
+                  ? 'translate-y-0 opacity-100 sm:scale-100'
+                  : 'translate-y-full opacity-0 sm:translate-y-0 sm:scale-95',
               ].join(' '),
         ].filter(Boolean).join(' ')}
       >
+        {/* Mobile handle bar — vizualinis swipe-down indikatorius. Tik
+            mobile (sm:hidden), nes desktop'e modal'as centruotas, ne sheet. */}
+        {!dockedActive && (
+          <div className="flex shrink-0 justify-center pt-2 pb-1 sm:hidden">
+            <div className="h-1 w-10 rounded-full bg-[var(--border-default)]" />
+          </div>
+        )}
         {/* Header — artist'o thumb + title + name + action icons (play/pause,
             external link to full track page, close).
             Profile thumb yra rounded-xl (ne circle) kad nebūtų nukerpamų
