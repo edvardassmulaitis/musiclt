@@ -965,11 +965,15 @@ function PlayerCard({
                           const showAsNew = newTrackIds.has(t.id)
                           if (!showAlways && !showAsNew) return null
                           const pad = (n: number) => String(n).padStart(2, '0')
-                          const dateLabel = mo && dy
-                            ? `${yr}-${pad(mo)}-${pad(dy)}`
-                            : mo
-                              ? `${yr}-${pad(mo)}`
-                              : String(yr)
+                          // Singles filter → tik metai (kompaktiškiau, exact dates
+                          // čia ne tiek svarbu). Naujausios filter → pilna data.
+                          const dateLabel = showAlways
+                            ? String(yr)
+                            : mo && dy
+                              ? `${yr}-${pad(mo)}-${pad(dy)}`
+                              : mo
+                                ? `${yr}-${pad(mo)}`
+                                : String(yr)
                           return (
                             <span
                               className="shrink-0 rounded bg-[rgba(59,130,246,0.16)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9.5px] font-extrabold tabular-nums tracking-wider text-[#60a5fa]"
@@ -990,12 +994,17 @@ function PlayerCard({
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); onOpenTrackInfo(t) }}
-                      aria-label={`${t.title} — žodžiai ir komentarai`}
-                      title="Žodžiai, komentarai ir daugiau"
+                      aria-label={`${t.title} — daugiau informacijos`}
+                      title="Daugiau: žodžiai, komentarai, video"
                       className="flex shrink-0 items-center gap-1 rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[10.5px] font-bold text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.1)] hover:text-[var(--accent-orange)]"
                     >
-                      <span className="text-[12px] leading-none" aria-hidden>♪</span>
-                      <span className="hidden sm:inline">Žodžiai</span>
+                      {/* Burger/text-lines icon — universal "open details" */}
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden>
+                        <line x1="4" y1="7" x2="20" y2="7" />
+                        <line x1="4" y1="12" x2="20" y2="12" />
+                        <line x1="4" y1="17" x2="14" y2="17" />
+                      </svg>
+                      <span className="hidden sm:inline">Daugiau</span>
                     </button>
 
                     {/* Play / pause — explicit target (taip pat veikia row click).
@@ -1138,24 +1147,41 @@ function trackPopValue(t: any, signal: PopSignal): number {
   return 0
 }
 
-/** Pop level su pilnu fallback'u: signalų hierarchy, paskui pozicija
- *  (kuo aukščiau sąraše, tuo daugiau dashes). Niekada nerodom tuščio bar'o
- *  jei sąrašas nėra tuščias — tikrai-šviežiam intl atlikėjui be jokių
- *  signalų position-based estimate'as bent rodo, kad tracks egzistuoja
- *  ir tvarkomi pagal tvarką. */
+/** PopBar level — PERCENTILE-based (rank tarp esamo list'o). Sąrašas
+ *  jau atrūšiuotas pagal composite score desc (trackSortVal), todėl idx
+ *  yra rank'as: idx=0 → top track, idx=N-1 → bottom track.
+ *  Kvintiliais (20% kiekvienam level'iui):
+ *    • Top 20%   → 5/5
+ *    • 20–40%    → 4/5
+ *    • 40–60%    → 3/5
+ *    • 60–80%    → 2/5
+ *    • Bottom 20%→ 1/5
+ *  Tai garantuoja UNIFORM dashes distribuciją per visą list'ą — anksčiau
+ *  value/max ratio versija sukurdavo skewed bias kai top track turėjo
+ *  daug daugiau composite nei vidurys (everyone got 1-2/5).
+ *
+ *  popInfo paliktas signature'oj (legacy callers), bet jo signal'as
+ *  naudojamas TIK tam, kad nutart, ar yra bent kokia data:
+ *    • 'none' → grąžinam 0 (tuščias bar, "neturime info")
+ *    • bet kas kita → percentile'as iš idx/total.
+ */
 function popLevelWithFallback(
-  t: any,
+  _t: any,
   idx: number,
   total: number,
   popInfo: { signal: PopSignal; max: number }
 ): number {
-  if (popInfo.signal !== 'none') {
-    return popLevelRelative(trackPopValue(t, popInfo.signal), popInfo.max)
+  if (popInfo.signal === 'none' || total <= 0) {
+    if (total <= 1) return 3
+    const ratio = (total - idx) / total
+    return Math.max(1, Math.min(5, Math.ceil(ratio * 5)))
   }
-  // Position-based fallback: 5 dash top, 1 dash bottom
-  if (total <= 1) return 3
-  const ratio = (total - idx) / total
-  return Math.max(1, Math.min(5, Math.ceil(ratio * 5)))
+  const p = idx / total
+  if (p < 0.20) return 5
+  if (p < 0.40) return 4
+  if (p < 0.60) return 3
+  if (p < 0.80) return 2
+  return 1
 }
 
 /** Active-track indicator — 3 bars that bounce independently. We use this in
@@ -1569,14 +1595,14 @@ function TrackInfoModal({
             Video visada matomas (mažas), useris gali click'inti native play
             arba YouTube fullscreen'inti. Meta — popbar (reactions) +
             likes + data + albums vertikaliai dešinėj. */}
-        <div className="grid shrink-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] border-b border-[var(--border-subtle)]">
+        <div className="grid shrink-0 grid-cols-[minmax(0,3fr)_minmax(0,2fr)] border-b border-[var(--border-subtle)]">
           {/* Left: video.
               ARCHITEKTURA: iframe always-mounted (background) su enablejsapi=1.
               Overlay (thumbnail + orange play button) covers iframe kol
               user'is nepaspaudė. Click → postMessage('playVideo') → iframe
               start'uoja groti + overlay fade out. User gesture preserved.
               max-h apsaugo nuo per-tall video kai grid leidžia per-wide. */}
-          <div className="relative aspect-video max-h-[180px] w-full overflow-hidden bg-black sm:max-h-[260px]">
+          <div className="relative aspect-video max-h-[220px] w-full overflow-hidden bg-black sm:max-h-[340px]">
             {trackVid ? (
               <>
                 {/* Background iframe — always loaded so postMessage veiks be delay. */}
@@ -1643,7 +1669,7 @@ function TrackInfoModal({
               variant="surface"
             />
             {dateLabel && (
-              <span className="mt-2 truncate font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--text-primary)]">
+              <span className="mt-2 font-['Outfit',sans-serif] text-[11px] font-extrabold leading-tight text-[var(--text-primary)]">
                 {dateLabel}
               </span>
             )}
@@ -1667,7 +1693,7 @@ function TrackInfoModal({
                     <img src={proxyImg(al.cover_image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
                   ) : null}
                 </span>
-                <span className="truncate font-['Outfit',sans-serif] text-[10.5px] font-extrabold text-[var(--text-secondary)]">
+                <span className="line-clamp-2 font-['Outfit',sans-serif] text-[10.5px] font-extrabold leading-tight text-[var(--text-secondary)]">
                   {al.title}
                 </span>
               </Link>

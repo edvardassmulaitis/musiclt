@@ -210,14 +210,17 @@ function detectPopSignal(tracks: TrackRow[]): { signal: PopSignal; max: number }
   return { signal: 'none', max: 0 }
 }
 
-function popLevel(value: number, max: number): number {
-  if (!max || max <= 0) return 0
-  if (value <= 0) return 1
-  const pct = value / max
-  if (pct >= 0.80) return 5
-  if (pct >= 0.55) return 4
-  if (pct >= 0.30) return 3
-  if (pct >= 0.10) return 2
+function popLevel(idx: number, total: number, hasSignal: boolean): number {
+  // Percentile-based (rank): sąrašas atrūšiuotas pagal composite desc,
+  // idx yra rank'as. Top 20% → 5/5, kvintiliai po 20% kiekvienam level'iui.
+  // Garantuoja uniform distribuciją (anksčiau value/max → bias top'ui).
+  if (!hasSignal || total <= 0) return 0
+  if (total <= 1) return 3
+  const p = idx / total
+  if (p < 0.20) return 5
+  if (p < 0.40) return 4
+  if (p < 0.60) return 3
+  if (p < 0.80) return 2
   return 1
 }
 
@@ -384,8 +387,8 @@ export default async function TracksDebugPage({ params }: Props) {
           <tbody className="divide-y divide-[var(--border-subtle)]">
             {sorted.map((t, i) => {
               const bd = trackScoreBreakdown(t)
-              const popVal = trackPopValue(t, popInfo.signal)
-              const level = popLevel(popVal, popInfo.max)
+              const popVal = trackPopValue(t, popInfo.signal) // displayed in table
+              const level = popLevel(i, sorted.length, popInfo.signal !== 'none')
               const hasVideo = yt(t.video_url)
               const ytDate = t.video_uploaded_at ? new Date(t.video_uploaded_at).toISOString().slice(0, 10) : '—'
               const hasLyrics = !!(t.lyrics && t.lyrics.trim().length > 10)
