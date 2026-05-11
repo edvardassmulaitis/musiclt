@@ -192,6 +192,20 @@ export default async function AlbumsDebugPage({ params }: Props) {
         </h1>
       </div>
 
+      {/* Pending warning — jei yra music.lt-only albumų be Wiki canonical layer'io */}
+      {albums.some(a => a.source === 'legacy_scrape_pending') && (
+        <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 text-[13px]">
+          <div className="font-extrabold text-amber-600 mb-1">⚠ Pending review albumai</div>
+          <p className="text-[var(--text-secondary)]">
+            Albumai su <code className="rounded bg-amber-500/15 px-1 text-amber-600">legacy_scrape_pending</code> šaltinį atėjo iš music.lt scrape, bet
+            Wiki nepateikė canonical track listing'o. Šie albumai <strong>nematomi viešai</strong>. Pasirinkimai:
+          </p>
+          <ul className="ml-4 list-disc text-[12px] text-[var(--text-muted)] space-y-0.5 mt-1.5">
+            <li><strong>Aktyvuoti</strong>: per /admin/albums/[id] atviro album'ą, pridėti tracks rankiniu būdu / iš Wikipedia (jei yra atskiras albumo Wiki page'as) → pakeisti source į <code>legacy+wikipedia</code></li>
+            <li><strong>Ištrinti</strong>: jei tai dublikatas (pvz. remix'ų albumas to paties pavadinimo) — /admin/albums/[id] → Trinti</li>
+          </ul>
+        </div>
+      )}
       <div className="mb-4 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 text-[13px]">
         <div className="mb-1.5 font-extrabold uppercase tracking-wide text-[var(--text-primary)]">Data quality:</div>
         <div className="grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-3 text-[12px]">
@@ -234,12 +248,13 @@ export default async function AlbumsDebugPage({ params }: Props) {
             {albums.map((a, i) => {
               const hasCover = !!a.cover_image_url
               const hasSpotify = !!a.spotify_id
+              const isPending = a.source === 'legacy_scrape_pending'
               const sourceLabel = (a.source || 'unknown')
                 .replace('legacy+wikipedia', 'wiki+lt')
                 .replace('legacy_scrape_v1', 'lt')
                 .replace('wikipedia', 'wiki')
               return (
-                <tr key={a.id} className="hover:bg-[var(--bg-hover)]">
+                <tr key={a.id} className={`${isPending ? 'bg-amber-500/5 hover:bg-amber-500/10 border-l-2 border-l-amber-500' : 'hover:bg-[var(--bg-hover)]'}`}>
                   <td className="px-3 py-2 tabular-nums text-[var(--text-faint)]">{i + 1}</td>
                   <td className="px-3 py-2 font-bold text-[var(--text-primary)]">
                     <Link href={`/admin/albums/${a.id}`} className="hover:text-[var(--accent-orange)]">
@@ -273,7 +288,15 @@ export default async function AlbumsDebugPage({ params }: Props) {
                   <td className="px-3 py-2 text-center text-[10px] tabular-nums" title={a.legacy_id ? `music.lt legacy_id=${a.legacy_id}` : 'no music.lt mapping'}>
                     {a.legacy_id ? <span className="text-amber-500">#{a.legacy_id}</span> : <span className="text-[var(--text-faint)]">—</span>}
                   </td>
-                  <td className="px-3 py-2 text-center text-[10px] text-[var(--text-muted)]">{sourceLabel}</td>
+                  <td className="px-3 py-2 text-center text-[10px]">
+                    {isPending ? (
+                      <span className="rounded bg-amber-500/20 px-1.5 py-0.5 font-bold text-amber-600" title="Music.lt only — nematomas viešai. Aktyvuoti per /admin/albums/[id] arba trinti.">
+                        pending
+                      </span>
+                    ) : (
+                      <span className="text-[var(--text-muted)]">{sourceLabel}</span>
+                    )}
+                  </td>
                   <td className="px-3 py-2 text-right tabular-nums text-[var(--text-muted)]" title={a.peak_chart_position ? `Peak chart #${a.peak_chart_position}` : 'no chart data'}>
                     {a.peak_chart_position ? `#${a.peak_chart_position}` : '—'}
                   </td>

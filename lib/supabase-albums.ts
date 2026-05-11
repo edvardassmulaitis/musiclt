@@ -302,9 +302,15 @@ async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackI
 
       const baseSlug = slugify(cleanTitle)
 
-      // Rasti jau egzistuojantį pagal slug arba title
-      const { data: existing } = await supabase
-        .from('tracks').select('id').eq('artist_id', artistId).eq('slug', baseSlug).maybeSingle()
+      // Remix tracks (iš remix albumų — pvz "B in the Mix: The Remixes") TURI
+      // visada būti NAUJI record'ai, ne match'inami su canonical track'u
+      // (kaip 'Toxic' iš In the Zone). Tas pats slug → unique suffix vis
+      // tiek vyks. Skip'inam egzistavimo paiešką — tikrai naujas record.
+      const isRemix = t.type === 'remix'
+      const { data: existing } = isRemix
+        ? { data: null as { id: number } | null }
+        : await supabase
+            .from('tracks').select('id').eq('artist_id', artistId).eq('slug', baseSlug).maybeSingle()
 
       if (existing) {
         trackId = existing.id

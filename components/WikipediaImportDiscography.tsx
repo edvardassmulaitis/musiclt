@@ -1084,10 +1084,20 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               const trackMonth = tAny.release_month ?? null
               const trackDay = tAny.release_day ?? null
               const songMatch = t.is_single ? songs.find(s => s.title.toLowerCase() === t.title.toLowerCase()) : null
+              // Remix album'o pattern — VISI track'ai turi būti type='remix'
+              // (originalas nesveikiną į remix versiją). Pvz. Britney "B in the
+              // Mix: The Remixes" — "Toxic (Peter Rauhofer Mix)" yra atskira
+              // remix versija, ne canonical "Toxic" track. parseTracklist
+              // gauna type='normal' nes note nepateikia 'remix' — fix čia
+              // post-processing'e per item.type.
+              const isRemixAlbum = item.type === 'remix'
+              const finalType = isRemixAlbum ? 'remix' : (t.type || 'normal')
               return {
                 title: t.title, sort_order: i+1, duration: t.duration||null,
-                type: t.type||'normal', disc_number: t.disc_number||1,
-                is_single: t.is_single||false, featuring: t.featuring||[],
+                type: finalType, disc_number: t.disc_number||1,
+                // Remix album'e tracks niekada nėra singles (jie yra alt versija)
+                is_single: isRemixAlbum ? false : (t.is_single||false),
+                featuring: t.featuring||[],
                 release_year: trackYear ?? songMatch?.year ?? item.year ?? null,
                 release_month: trackMonth ?? songMatch?.month ?? null,
                 release_day: trackDay ?? songMatch?.day ?? null,
