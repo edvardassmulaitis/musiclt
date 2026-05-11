@@ -814,7 +814,13 @@ export function parseTracklist(wikitext: string): TrackEntry[] {
       if (/\bdvd\b/i.test(hlLow)) return false
       const sectionBefore = getSectionBeforePos(wikitext, pos)
       if (/reissue|remaster|anniversary|box.?set|collector|deluxe|expanded|bonus|demo|outtake/i.test(sectionBefore)) return false
-      if (/\b(documentary|dvd\s*[2-9]|film|behind[- ]the[- ]scenes|making[- ]of|featurette)\b/i.test(sectionBefore)) return false
+      // DVD/video/tour-edition extra sections — bare \bdvd\b (ne tik dvd2+)
+      // ir tour\s+edition. Anksčiau Coldplay X&Y „Tour edition DVD ⟶ Audio
+      // only section" praeidavo: sectionBefore = „track listing | tour
+      // edition dvd | audio only section", o regex'as ieškojo tik dvd[2-9]
+      // → match'o nerasdavo → 6 bonus track'us (Things I Don't Understand,
+      // Pour Me Live, etc.) prilipdydavo prie main X&Y track listing'o.
+      if (/\b(documentary|dvd|film|movie|featurette|trailer|interview|behind[- ]the[- ]scenes|making[- ]of|music\s+video|video\s+album|video\s+edition|photo\s+gallery|tour\s+edition)\b/i.test(sectionBefore)) return false
       return true
     }).map(({ block }) => block)
 
