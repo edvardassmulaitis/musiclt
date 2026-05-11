@@ -837,10 +837,10 @@ function PlayerCard({
         )}
       </div>
 
-      {/* Filter — segmented pill stilius (kaip LikePill), right-aligned.
+      {/* Filter — segmented pill stilius (kaip LikePill), CENTERED.
           Order: Visos | Singlai | Naujausios. Visos/Naujausios feminine
           plural (matches „dainos"), Singlai masculine (atskira reikšmė). */}
-      <div className="flex justify-end border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2">
+      <div className="flex justify-center border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2">
         <div className="inline-flex overflow-hidden rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] font-['Outfit',sans-serif] text-[11.5px] font-bold">
           <button
             onClick={() => setFilter('all')}
@@ -1111,38 +1111,30 @@ function popLevelRelative(value: number, max: number): number {
  *  popValue(t): išversta į max-comparable skalę
  *  maxValue:    didžiausia value tarp visų artist trekų
  */
-type PopSignal = 'likes' | 'score' | 'views' | 'none'
+type PopSignal = 'composite' | 'none'
+
+/** Composite popularity score — identiškas tracksAllTime sort formule.
+ *  Vienas šaltinis truth tiek sortinimui, tiek PopBar level'iui →
+ *  visada konsistentinga: kuo aukščiau sąraše, tuo daugiau dashes. */
+export function trackCompositeScore(t: any): number {
+  const viewsLog = Math.log10((t?.video_views || 0) + 1) * 50
+  const likesLog = Math.log10((t?.like_count || 0) + 1) * 10
+  const single = t?.is_single ? 10 : 0
+  const video = t?.video_url ? 5 : 0
+  return viewsLog + likesLog + single + video
+}
 
 function detectPopSignal(allTracks: any[]): { signal: PopSignal; max: number } {
-  let maxLikes = 0, maxScore = 0, maxViews = 0
-  let likesPresent = 0
-  const total = allTracks.length
+  let max = 0
   for (const t of allTracks) {
-    const lk = t?.like_count
-    const sc = t?.score
-    const vv = t?.video_views
-    if (typeof lk === 'number' && lk > 0) likesPresent++
-    if (typeof lk === 'number' && lk > maxLikes) maxLikes = lk
-    if (typeof sc === 'number' && sc > maxScore) maxScore = sc
-    if (typeof vv === 'number' && vv > maxViews) maxViews = vv
+    const c = trackCompositeScore(t)
+    if (c > max) max = c
   }
-  // Coverage-based: if <50% of tracks have likes (typical INTL atlikėjams
-  // kur music.lt community likes sparse), naudojam composite score —
-  // anksčiau "Something Just Like This" (2.5B views, 0 likes) gaudavo 1/5
-  // popbar tik todėl, kad Coldplay'us 14% have likes. Composite score
-  // pats inkorporiuoja ir likes ir views, todėl tinkamas fallback'as.
-  const likesCoverage = total > 0 ? likesPresent / total : 0
-  if (maxLikes > 0 && likesCoverage >= 0.5) return { signal: 'likes', max: maxLikes }
-  if (maxScore > 0) return { signal: 'score', max: maxScore }
-  if (maxLikes > 0) return { signal: 'likes', max: maxLikes }
-  if (maxViews > 0) return { signal: 'views', max: Math.log10(maxViews + 1) }
-  return { signal: 'none', max: 0 }
+  return { signal: max > 0 ? 'composite' : 'none', max }
 }
 
 function trackPopValue(t: any, signal: PopSignal): number {
-  if (signal === 'likes') return t?.like_count || 0
-  if (signal === 'score') return t?.score || 0
-  if (signal === 'views') return Math.log10((t?.video_views || 0) + 1)
+  if (signal === 'composite') return trackCompositeScore(t)
   return 0
 }
 
@@ -1577,7 +1569,7 @@ function TrackInfoModal({
             Video visada matomas (mažas), useris gali click'inti native play
             arba YouTube fullscreen'inti. Meta — popbar (reactions) +
             likes + data + albums vertikaliai dešinėj. */}
-        <div className="grid shrink-0 grid-cols-[minmax(0,7fr)_minmax(0,3fr)] border-b border-[var(--border-subtle)]">
+        <div className="grid shrink-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] border-b border-[var(--border-subtle)]">
           {/* Left: video.
               ARCHITEKTURA: iframe always-mounted (background) su enablejsapi=1.
               Overlay (thumbnail + orange play button) covers iframe kol
@@ -4196,13 +4188,9 @@ export default function ArtistProfileClient({
   // YT views — globalus, all-time, geriausias TIKRAS-populiarumo rodiklis.
   // Music.lt likes — sparse, skewed (deklinuojanti platforma); naudojam tik
   // kaip subtle tiebreaker kai data prieinama.
-  const trackSortVal = (t: any): number => {
-    const viewsLog = Math.log10((t.video_views || 0) + 1) * 50
-    const likesLog = Math.log10((t.like_count || 0) + 1) * 10
-    const single = t.is_single ? 10 : 0
-    const video = t.video_url ? 5 : 0
-    return viewsLog + likesLog + single + video
-  }
+  // Use shared trackCompositeScore (defined module-level) — identiška
+  // formulė PopBar level'iui (popLevelWithFallback). Vienas šaltinis truth.
+  const trackSortVal = trackCompositeScore
 
   const tracksAllTime = useMemo(() => {
     // With-video tracks pirmiau (UX — instant play), bet kiekvienoje
