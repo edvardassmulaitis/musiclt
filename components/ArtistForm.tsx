@@ -99,6 +99,9 @@ export type ArtistFormData = {
   gender: 'male'|'female'|''
   facebook: string; youtube: string; tiktok: string
   spotify: string; soundcloud: string; bandcamp: string; twitter: string
+  // Solo atlikėjų infobox laukai — užpildomi WikipediaImport, saugomi į
+  // artists.roles / artists.instruments (text[] DB tipai).
+  roles?: string[]; instruments?: string[]
 }
 
 export const emptyArtistForm: ArtistFormData = {
@@ -109,6 +112,7 @@ export const emptyArtistForm: ArtistFormData = {
   deathYear:'', deathMonth:'', deathDay:'', gender:'',
   facebook:'', youtube:'', tiktok:'',
   spotify:'', soundcloud:'', bandcamp:'', twitter:'',
+  roles: [], instruments: [],
 }
 
 type Props = {
@@ -1419,7 +1423,22 @@ export default function ArtistForm({ initialData, artistId, onSubmit, backHref, 
       ...(initialData.yearStart !== prev.yearStart ? { yearStart: initialData.yearStart } : {}),
       ...(initialData.yearEnd !== prev.yearEnd ? { yearEnd: initialData.yearEnd } : {}),
       ...(initialData.avatar !== prev.avatar ? { avatar: initialData.avatar } : {}),
+      ...(initialData.avatarWide !== prev.avatarWide ? { avatarWide: initialData.avatarWide } : {}),
+      ...(initialData.avatarPosition !== prev.avatarPosition ? { avatarPosition: initialData.avatarPosition } : {}),
       ...(initialData.website !== prev.website ? { website: initialData.website } : {}),
+      ...(initialData.subdomain !== prev.subdomain ? { subdomain: initialData.subdomain } : {}),
+      // Solo atlikėjų laukai — Wiki/Wikidata import'as juos populiarina, bet
+      // anksčiau nebuvo merge'inami atgal į form state'ą → Christina Aguilera
+      // po Wiki import'o turėdavo tuščius Lytis/Gimė/Mirė laukus.
+      ...(initialData.birthYear !== prev.birthYear ? { birthYear: initialData.birthYear } : {}),
+      ...(initialData.birthMonth !== prev.birthMonth ? { birthMonth: initialData.birthMonth } : {}),
+      ...(initialData.birthDay !== prev.birthDay ? { birthDay: initialData.birthDay } : {}),
+      ...(initialData.deathYear !== prev.deathYear ? { deathYear: initialData.deathYear } : {}),
+      ...(initialData.deathMonth !== prev.deathMonth ? { deathMonth: initialData.deathMonth } : {}),
+      ...(initialData.deathDay !== prev.deathDay ? { deathDay: initialData.deathDay } : {}),
+      ...(initialData.gender !== prev.gender ? { gender: initialData.gender } : {}),
+      ...(initialData.roles !== prev.roles ? { roles: initialData.roles } : {}),
+      ...(initialData.instruments !== prev.instruments ? { instruments: initialData.instruments } : {}),
       ...(initialData.facebook !== prev.facebook ? { facebook: initialData.facebook } : {}),
       ...(initialData.youtube !== prev.youtube ? { youtube: initialData.youtube } : {}),
       ...(initialData.tiktok !== prev.tiktok ? { tiktok: initialData.tiktok } : {}),

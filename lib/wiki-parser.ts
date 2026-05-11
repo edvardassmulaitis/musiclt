@@ -758,13 +758,20 @@ export function parseTracklist(wikitext: string): TrackEntry[] {
           })
         ) : undefined
         const noteStr = (noteM?.[1] || '').toLowerCase()
+        // Strip featuring/feat/with clauses prieš type-check — kad band'o
+        // pavadinimas (pvz "Live Squad", "Cover Girls") nematchin'tų į
+        // track type "live"/"covers". Anksčiau "(featuring Live Squad)"
+        // → \blive\b match'ino → klaidingai pažymėdavo kaip live recording.
+        const noteForType = noteStr
+          .replace(/\(?\s*feat(?:uring)?[.\s][^)]*\)?/gi, '')
+          .replace(/\(?\s*with\s[^)]*\)?/gi, '')
         const titleLower = finalTitle.toLowerCase()
         let trackType: TrackEntry['type'] = 'normal'
-        if (/\binstrumental\b/.test(noteStr) || /\binstrumental\b/.test(titleLower)) trackType = 'instrumental'
-        else if (/\blive\b/.test(noteStr) || /\b(live at|live from|concert|recorded live)\b/.test(noteStr)) trackType = 'live'
-        else if (/\bremix\b/.test(noteStr) || /\bremix\b/.test(titleLower)) trackType = 'remix'
-        else if (/\bcover\b/.test(noteStr) || /\bcovers?\b/.test(noteStr)) trackType = 'covers'
-        else if (/\bmashup\b/.test(noteStr) || /\bmashup\b/.test(titleLower)) trackType = 'mashup'
+        if (/\binstrumental\b/.test(noteForType) || /\binstrumental\b/.test(titleLower)) trackType = 'instrumental'
+        else if (/\blive\b/.test(noteForType) || /\b(live at|live from|concert|recorded live)\b/.test(noteForType)) trackType = 'live'
+        else if (/\bremix\b/.test(noteForType) || /\bremix\b/.test(titleLower)) trackType = 'remix'
+        else if (/\bcover\b/.test(noteForType) || /\bcovers?\b/.test(noteForType)) trackType = 'covers'
+        else if (/\bmashup\b/.test(noteForType) || /\bmashup\b/.test(titleLower)) trackType = 'mashup'
         tracks.push({ title: finalTitle, duration: lenM?.[1]?.trim(), sort_order: order++, is_single, featuring: featuring.length ? featuring : undefined, type: trackType })
       }
     }
