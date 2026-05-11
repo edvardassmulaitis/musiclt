@@ -1315,6 +1315,10 @@ function TrackInfoModal({
 
   // Ref body scroll container'ui — scroll position reset'ui kai tab keičiasi.
   const bodyScrollRef = useRef<HTMLDivElement>(null)
+  // videoStarted — false default, rodom YouTube thumbnail + play button.
+  // Tik kai user'is paspaudžia → load'inam iframe su autoplay. Taupom mobile
+  // data + greitesnis modal open (jokio YouTube SDK load'o pradžioj).
+  const [videoStarted, setVideoStarted] = useState(false)
 
   // Reset scroll position kai user perjungia tab — naujas tab visada start'uoja viršuje.
   useEffect(() => {
@@ -1347,6 +1351,7 @@ function TrackInfoModal({
     // Per-track state reset.
     setSelfLiked(false)
     setMobileTab('lyrics')
+    setVideoStarted(false)
     return () => {
       window.removeEventListener('keydown', h)
       // Atstatom body į normalų state ir grąžinam į prieš tai buvusią scroll poziciją.
@@ -1471,7 +1476,15 @@ function TrackInfoModal({
   // ════════════════════════════════════════════════════════════════════
   return createPortal(
     <div
-      className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center"
+      className={[
+        'fixed inset-0 z-[9999] flex items-end justify-center backdrop-blur-sm sm:items-center',
+        // Backdrop dimming: stiprus mobile (focus modal), švelnesnis desktop'e
+        // (kad user'is matytų artist'o page'ą + hero player'į pro modal'ą).
+        'bg-black/60 sm:bg-black/30',
+        // Wide desktop (≥lg) — modal'as align'inamas kairėj su mažu padding'u,
+        // kad hero player'is dešinėj liktų matomas ir leistų groti.
+        'lg:justify-start lg:pl-[4%]',
+      ].join(' ')}
       onClick={(e) => { if (e.target === e.currentTarget) handleClose() }}
     >
       {/* ════════════════════════════════════════════════════════════════
@@ -1559,18 +1572,46 @@ function TrackInfoModal({
             arba YouTube fullscreen'inti. Meta — popbar (reactions) +
             likes + data + albums vertikaliai dešinėj. */}
         <div className="grid shrink-0 grid-cols-[7fr_3fr] border-b border-[var(--border-subtle)]">
-          {/* Left: small video */}
-          <div className="aspect-video w-full overflow-hidden bg-black">
+          {/* Left: video. Default — thumbnail + native play button (lighter:
+              no iframe SDK load). Click → swap to iframe su autoplay.
+              max-h apsaugo nuo neproporcingo expand'imo kai grid render'ina
+              keisai (kartais matėm video > pusės screen). */}
+          <div className="aspect-video max-h-[180px] w-full overflow-hidden bg-black sm:max-h-[260px]">
             {trackVid ? (
-              <iframe
-                key={`modal-video-${trackVid}`}
-                src={`https://www.youtube.com/embed/${trackVid}?playsinline=1&rel=0&modestbranding=1&iv_load_policy=3`}
-                title={`${track.title} — ${artistName}`}
-                className="h-full w-full"
-                referrerPolicy="strict-origin-when-cross-origin"
-                allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-                allowFullScreen
-              />
+              videoStarted ? (
+                <iframe
+                  key={`modal-video-${trackVid}`}
+                  src={`https://www.youtube.com/embed/${trackVid}?playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&autoplay=1`}
+                  title={`${track.title} — ${artistName}`}
+                  className="h-full w-full"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                  allowFullScreen
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setVideoStarted(true)}
+                  aria-label={`Leisti ${track.title} vaizdo įrašą`}
+                  className="group relative block h-full w-full overflow-hidden bg-black"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`https://i.ytimg.com/vi/${trackVid}/hqdefault.jpg`}
+                    alt=""
+                    className="absolute inset-0 h-full w-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                  {/* Dark overlay for play button contrast */}
+                  <div className="absolute inset-0 bg-black/20 transition-colors group-hover:bg-black/35" />
+                  {/* YouTube-style red play button */}
+                  <span className="absolute left-1/2 top-1/2 flex h-9 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-md bg-[#FF0000] shadow-[0_4px_12px_rgba(0,0,0,0.4)] transition-transform group-hover:scale-110 sm:h-11 sm:w-14">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  </span>
+                </button>
+              )
             ) : (
               <div className="flex h-full w-full items-center justify-center text-[10px] uppercase tracking-wider text-[var(--text-faint)]">
                 Vaizdo įrašo nėra
@@ -1578,9 +1619,10 @@ function TrackInfoModal({
             )}
           </div>
 
-          {/* Right: meta stack — popbar, likes, date, albums */}
-          <div className="flex flex-col gap-1.5 border-l border-[var(--border-subtle)] px-2.5 py-2 text-[11px]">
-            {/* DropBar (emoji reactions) paslėpta — re-enable kai prieš user'iui jis taps relevant. */}
+          {/* Right: meta stack — likes (fixed width), tarpas, data + albumai.
+              items-start kad LikePill nesistretchintų per visą col plotį. */}
+          <div className="flex flex-col items-start gap-1 border-l border-[var(--border-subtle)] px-2.5 py-2 text-[11px]">
+            {/* DropBar (emoji reactions) paslėpta — re-enable kai user'iui jis taps relevant. */}
             <LikePill
               likes={likes}
               selfLiked={selfLiked}
@@ -1589,7 +1631,7 @@ function TrackInfoModal({
               variant="surface"
             />
             {dateLabel && (
-              <span className="truncate font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--text-primary)]">
+              <span className="mt-2 truncate font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--text-primary)]">
                 {dateLabel}
               </span>
             )}
