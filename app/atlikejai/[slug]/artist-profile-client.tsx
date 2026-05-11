@@ -1315,20 +1315,19 @@ function TrackInfoModal({
 
   // Ref body scroll container'ui — scroll position reset'ui kai tab keičiasi.
   const bodyScrollRef = useRef<HTMLDivElement>(null)
-  // Show/hide video iframe toggle — default false, kad lyrics turėtų daugiau
-  // vietos. User'is gali expand'inti per "▶ Video" mygtuką header'yje.
-  const [showVideo, setShowVideo] = useState(false)
 
   // Reset scroll position kai user perjungia tab — naujas tab visada start'uoja viršuje.
   useEffect(() => {
     bodyScrollRef.current?.scrollTo({ top: 0 })
   }, [mobileTab])
 
-  // Notify parent kad modal'as turi savo aktyvų video — suppress hero player'į.
+  // Notify parent kad modal'as turi savo iframe'ą — suppress hero player'į.
+  // Anksčiau buvo showVideo state — dabar video visada renderinasi (mažas),
+  // suppress'inam visada kai modal open + track turi video.
   useEffect(() => {
-    onMobileInlineChange?.(!!(trackVid && showVideo))
+    onMobileInlineChange?.(!!trackVid)
     return () => onMobileInlineChange?.(false)
-  }, [trackVid, showVideo, onMobileInlineChange])
+  }, [trackVid, onMobileInlineChange])
 
   useEffect(() => {
     if (!track) return
@@ -1348,7 +1347,6 @@ function TrackInfoModal({
     // Per-track state reset.
     setSelfLiked(false)
     setMobileTab('lyrics')
-    setShowVideo(false)
     return () => {
       window.removeEventListener('keydown', h)
       // Atstatom body į normalų state ir grąžinam į prieš tai buvusią scroll poziciją.
@@ -1499,9 +1497,10 @@ function TrackInfoModal({
         onClick={(e) => e.stopPropagation()}
         className={[
           'flex w-full flex-col overflow-hidden bg-[var(--bg-surface)] shadow-[0_24px_60px_-10px_rgba(0,0,0,0.5)]',
-          'max-h-[90vh] rounded-t-2xl',
-          // Desktop card: max 720px (vidutinis-platus, aiškiai modalas, ne page).
-          'sm:max-h-[85vh] sm:rounded-2xl sm:mx-4 sm:max-w-[720px]',
+          // FIXED height (NE max-h) — kad content swap (tab perjungimas)
+          // neresize'intų modal'o. User'is mato stabilią modal box dimension'ą.
+          'h-[90vh] rounded-t-2xl',
+          'sm:h-[85vh] sm:rounded-2xl sm:mx-4 sm:max-w-[720px]',
         ].join(' ')}
       >
         {/* Mobile handle bar */}
@@ -1509,8 +1508,7 @@ function TrackInfoModal({
           <div className="h-1 w-10 rounded-full bg-[var(--border-default)]" />
         </div>
 
-        {/* Header — compact: thumb (9x9, ne 11) + title (15px) + atlikėjai
-            inline (ne sub-line) + close. Sumažintas vertical space. */}
+        {/* Header — thumb + title + artist + external link + close. */}
         <div className="flex shrink-0 items-center gap-2.5 border-b border-[var(--border-subtle)] px-4 py-2">
           {artistThumbUrl && (
             // eslint-disable-next-line @next/next/no-img-element
@@ -1533,6 +1531,18 @@ function TrackInfoModal({
               )}
             </div>
           </div>
+          <Link
+            href={trackHref}
+            target="_blank"
+            rel="noopener"
+            title="Atidaryti dainos puslapį naujame lange"
+            aria-label="Atidaryti dainos puslapį"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+          >
+            <svg viewBox="0 0 24 24" width={11} height={11} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 3h7v7M21 3l-9 9M5 5h6M5 5v14h14v-6" />
+            </svg>
+          </Link>
           <button
             onClick={handleClose}
             aria-label="Uždaryti"
@@ -1544,73 +1554,72 @@ function TrackInfoModal({
           </button>
         </div>
 
-        {/* Meta chips — LikePill, data, dur, Video toggle, external link.
-            Compact padding (px-4 py-2), single-line wrap'ina chips. */}
-        <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-[var(--border-subtle)] px-4 py-2">
-          <LikePill
-            likes={likes}
-            selfLiked={selfLiked}
-            onToggle={() => setSelfLiked(v => !v)}
-            onOpenModal={() => setLikersOpen(true)}
-            variant="surface"
-          />
-          {dateLabel && (
-            <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--text-primary)]">
-              {dateLabel}
-            </span>
-          )}
-          {dur && (
-            <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[11px] font-extrabold tabular-nums text-[var(--text-primary)]">
-              {dur}
-            </span>
-          )}
-          {trackVid && (
-            <button
-              type="button"
-              onClick={() => setShowVideo(v => !v)}
-              aria-pressed={showVideo}
-              className={[
-                "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 font-['Outfit',sans-serif] text-[11px] font-extrabold transition-colors",
-                showVideo
-                  ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white'
-                  : 'border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]',
-              ].join(' ')}
-            >
-              <span aria-hidden>▶</span>
-              <span>Video</span>
-            </button>
-          )}
-          <Link
-            href={trackHref}
-            target="_blank"
-            rel="noopener"
-            title="Atidaryti dainos puslapį naujame lange"
-            aria-label="Atidaryti dainos puslapį"
-            className="ml-auto inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
-          >
-            <svg viewBox="0 0 24 24" width={11} height={11} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M14 3h7v7M21 3l-9 9M5 5h6M5 5v14h14v-6" />
-            </svg>
-          </Link>
-        </div>
-
-        {/* Inline video — rodom TIK kai user'is paspaudžia "▶ Video" toggle.
-            Default false — taupo vertical space, lyrics gauna daugiau vietos.
-            Veikia visiems viewport'ams (desktop'e taip pat). aspect-video
-            normaliam grojimui. */}
-        {trackVid && showVideo && (
-          <div className="aspect-video w-full shrink-0 overflow-hidden bg-black">
-            <iframe
-              key={`modal-video-${trackVid}`}
-              src={`https://www.youtube.com/embed/${trackVid}?playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&autoplay=1`}
-              title={`${track.title} — ${artistName}`}
-              className="h-full w-full"
-              referrerPolicy="strict-origin-when-cross-origin"
-              allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-              allowFullScreen
-            />
+        {/* Row 2: 2-col split — video LEFT (60%), meta stack RIGHT (40%).
+            Video visada matomas (mažas), useris gali click'inti native play
+            arba YouTube fullscreen'inti. Meta — popbar (reactions) +
+            likes + data + albums vertikaliai dešinėj. */}
+        <div className="grid shrink-0 grid-cols-[3fr_2fr] border-b border-[var(--border-subtle)]">
+          {/* Left: small video */}
+          <div className="aspect-video w-full overflow-hidden bg-black">
+            {trackVid ? (
+              <iframe
+                key={`modal-video-${trackVid}`}
+                src={`https://www.youtube.com/embed/${trackVid}?playsinline=1&rel=0&modestbranding=1&iv_load_policy=3`}
+                title={`${track.title} — ${artistName}`}
+                className="h-full w-full"
+                referrerPolicy="strict-origin-when-cross-origin"
+                allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                allowFullScreen
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-[10px] uppercase tracking-wider text-[var(--text-faint)]">
+                Vaizdo įrašo nėra
+              </div>
+            )}
           </div>
-        )}
+
+          {/* Right: meta stack — popbar, likes, date, albums */}
+          <div className="flex flex-col gap-1.5 border-l border-[var(--border-subtle)] px-2.5 py-2 text-[11px]">
+            <DropBar trackId={track.id} compact />
+            <LikePill
+              likes={likes}
+              selfLiked={selfLiked}
+              onToggle={() => setSelfLiked(v => !v)}
+              onOpenModal={() => setLikersOpen(true)}
+              variant="surface"
+            />
+            {dateLabel && (
+              <span className="truncate font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--text-primary)]">
+                {dateLabel}
+              </span>
+            )}
+            {dur && (
+              <span className="truncate font-['Outfit',sans-serif] text-[11px] font-bold tabular-nums text-[var(--text-muted)]">
+                {dur}
+              </span>
+            )}
+            {(track.albums || []).slice(0, 2).map((al) => (
+              <Link
+                key={al.id}
+                href={`/lt/albumas/${al.slug}/${al.id}`}
+                target="_blank"
+                rel="noopener"
+                title={al.title}
+                className="flex min-w-0 items-center gap-1.5 no-underline"
+              >
+                <span className="h-5 w-5 shrink-0 overflow-hidden rounded bg-[var(--cover-placeholder)]">
+                  {al.cover_image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={proxyImg(al.cover_image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                  ) : null}
+                </span>
+                <span className="truncate font-['Outfit',sans-serif] text-[10.5px] font-extrabold text-[var(--text-secondary)]">
+                  {al.title}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
 
         {/* Tabs — tik kai lyrics yra. Visiems viewport'ams. */}
         {lyricsText && (
