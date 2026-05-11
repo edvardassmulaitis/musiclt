@@ -700,8 +700,13 @@ function ScrapeCommandFullRow({ artistId, artistName, onOpenChange }: { artistId
         <FullscreenModal onClose={() => setOpen(false)} title={`Music.lt scrape: ${artistName}`} maxWidth="max-w-xl">
           <div className="p-4 space-y-3 text-sm">
             <p className="text-[var(--text-secondary)]">
-              Sandbox negali pasiekti music.lt (region/agent block'ai), todėl scrape paleidžiamas iš tavo Mac'o terminalu. Komanda apima visus žingsnius (group_deep_scrape + news + events + lyrics + YT enrich).
+              Sandbox negali pasiekti music.lt (region/agent block'ai), todėl scrape paleidžiamas iš tavo Mac'o terminalu. Viena komanda apima visus žingsnius — auto detekcija pagal artist country:
             </p>
+            <ul className="ml-4 list-disc text-[12px] text-[var(--text-muted)] space-y-0.5">
+              <li><strong>LT atlikėjai</strong>: pilnas <code>group_deep_scrape</code> (artist meta + photos + albums + tracks + threads)</li>
+              <li><strong>INTL atlikėjai</strong> (country ≠ Lietuva): Wiki canonical lieka, tik <code>match_legacy_overlay</code> + artist likes/discussions/news</li>
+              <li>+ news bodies, events, members, lyrics, YT enrich — abiem atvejais</li>
+            </ul>
             <div className="rounded-xl bg-[var(--bg-elevated)] border border-[var(--border-subtle)] p-3 font-mono text-[12px] text-[var(--text-primary)] whitespace-pre-wrap break-all">
               {cmd}
             </div>
