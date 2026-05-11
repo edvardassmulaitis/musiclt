@@ -216,7 +216,9 @@ export function cleanWikiText(raw: string): string {
  */
 export function extractFeaturing(raw: string): string[] {
   const names: string[] = []
-  const m1 = raw.match(/\((?:feat(?:uring)?\.?|ft\.?)\s+([^)]+)\)/i)
+  // Match: (feat/featuring/ft/with X) — su paren'ais. 'with' įtraukta dėl
+  // Coldplay-style "(with Rihanna)" formatuotės kuri dažna duet'uose.
+  const m1 = raw.match(/\((?:feat(?:uring)?\.?|ft\.?|with)\s+([^)]+)\)/i)
   if (m1) {
     for (const p of m1[1].split(/\s+and\s+|[,&]/i)) {
       const lm = p.match(/\[\[(?:[^\]|]+\|)?([^\]|]+)\]\]/)
@@ -241,8 +243,11 @@ export function extractFeaturing(raw: string): string[] {
  */
 export function parseFeaturing(raw: string): { cleanTitle: string; featuring: string[] } {
   const featuring = extractFeaturing(raw)
+  // Strip (feat|featuring|ft|with X) iš title kad cleanTitle nebūtų "Princess
+  // of China (with Rihanna)" — title turi būti "Princess of China", o
+  // featuring atskirai per track_artists junction'į.
   const cleanTitle = cleanWikiText(
-    raw.replace(/\s*\((?:feat(?:uring)?\.?|ft\.?)\s+[^)]+\)/gi, '')
+    raw.replace(/\s*\((?:feat(?:uring)?\.?|ft\.?|with)\s+[^)]+\)/gi, '')
        .replace(/\s*\{\{(?:feat(?:uring)?\.?|ft\.?)[\s|][^}]+\}\}/gi, '').trim()
   )
   return { cleanTitle, featuring }
@@ -713,10 +718,16 @@ export function parseTracklist(wikitext: string): TrackEntry[] {
       }
       let featuring: string[] = []
       if (noteM) {
-        const fm = noteM[1].match(/feat(?:uring)?[.\s]+(.+)/i)
+        // Patikrinam featuring artist'us per kelis pattern'us:
+        // 1) feat/featuring/ft anywhere — "(featuring [[X]])" ar "featuring [[X]]"
+        // 2) "with [[X]]" — Coldplay-style note10="with [[Rihanna]]" (be paren'ų)
+        // 3) "(with [[X]])" — alt forma su paren'ais
+        let fm = noteM[1].match(/\b(?:feat(?:uring)?|ft)\.?\s+(.+)/i)
+        if (!fm) fm = noteM[1].match(/^\s*with\s+(.+)/i)
+        if (!fm) fm = noteM[1].match(/\(\s*with\s+([^)]+)\)/i)
         if (fm) for (const p of fm[1].split(/\s+and\s+|[,&]/i)) {
           const lm = p.match(/\[\[(?:[^\]|]+\|)?([^\]|]+)\]\]/)
-          const n = (lm ? lm[1] : p).replace(/['[\]]/g, '').trim()
+          const n = (lm ? lm[1] : p).replace(/['[\]]/g, '').replace(/^\s*\)/, '').trim()
           if (n.length > 1) featuring.push(n)
         }
       }
