@@ -38,6 +38,7 @@ type TrackRow = {
   imported_at: string | null
   score_updated_at: string | null
   like_count: number
+  comment_count: number
   album_titles: string  // joined album titles
 }
 
@@ -64,15 +65,19 @@ async function getTracks(id: number): Promise<TrackRow[]> {
 
   const ids = tracks.map(t => t.id)
 
-  // Like counts iš likes lentelės
+  // Like counts iš likes lentelės — PostgREST default limit 1000, todėl
+  // didelėms grupėms (Coldplay 3000+ likes) reikia padalinti į mažus chunk'us
+  // ir kiekvienam pridėti .range(0, 9999) kad nebūtų truncated'as
+  // į pirmus 1000.
   const likeMap = new Map<number, number>()
-  for (let i = 0; i < ids.length; i += 200) {
-    const chunk = ids.slice(i, i + 200)
+  for (let i = 0; i < ids.length; i += 50) {
+    const chunk = ids.slice(i, i + 50)
     const { data: likes } = await sb
       .from('likes')
       .select('entity_id')
       .eq('entity_type', 'track')
       .in('entity_id', chunk)
+      .range(0, 49999)
     for (const l of (likes || []) as any[]) {
       likeMap.set(l.entity_id, (likeMap.get(l.entity_id) || 0) + 1)
     }
@@ -96,11 +101,45 @@ async function getTracks(id: number): Promise<TrackRow[]> {
     }
   }
 
+  // Comment counts iš comments lentelės (entity_type='track') — tas pats
+  // chunking pattern kaip likes, kad PostgREST 1000-row default'as
+  // netruncate'intų rezultato.
+  const commentMap = new Map<number, number>()
+  for (let i = 0; i < ids.length; i += 50) {
+    const chunk = ids.slice(i, i + 50)
+    const { data: comments } = await sb
+      .from('comments')
+      .select('entity_id')
+      .eq('entity_type', 'track')
+      .in('entity_id', chunk)
+      .range(0, 49999)
+    for (const c of (comments || []) as any[]) {
+      commentMap.set(c.entity_id, (commentMap.get(c.entity_id) || 0) + 1)
+    }
+  }
+
   for (const t of tracks) {
     t.like_count = likeMap.get(t.id) || 0
+    t.comment_count = commentMap.get(t.id) || 0
     t.album_titles = (albumMap.get(t.id) || []).join(', ')
   }
   return tracks
+}
+
+async function getArtistStats(id: number) {
+  const sb = createAdminClient()
+  const [artistRow, artistLikes, artistComments, discussions] = await Promise.all([
+    sb.from('artists').select('id, slug, name, country, active_from, active_until, gender, birth_date, death_date, description, source').eq('id', id).single(),
+    sb.from('likes').select('id', { count: 'exact', head: true }).eq('entity_type', 'artist').eq('entity_id', id),
+    sb.from('comments').select('id', { count: 'exact', head: true }).eq('entity_type', 'artist').eq('entity_id', id),
+    sb.from('discussions').select('id', { count: 'exact', head: true }).eq('artist_id', id),
+  ])
+  return {
+    artist: artistRow.data,
+    artistLikes: artistLikes.count || 0,
+    artistComments: artistComments.count || 0,
+    discussionCount: discussions.count || 0,
+  }
 }
 
 // Composite formulė — VIEWS-DOMINANT v2 (data-resilient, atitinka
@@ -184,7 +223,7 @@ export default async function TracksDebugPage({ params }: Props) {
   if (!Number.isFinite(id)) notFound()
   const artist = await getArtist(id)
   if (!artist) notFound()
-  const tracks = await getTracks(id)
+  const [tracks, stats] = await Promise.all([getTracks(id), getArtistStats(id)])
 
   // Sort like public artist page (with-video first, then rest, each by trackSortVal desc)
   const yt = (url: string | null) => !!url && /youtu/.test(url)
@@ -194,6 +233,21 @@ export default async function TracksDebugPage({ params }: Props) {
 
   const popInfo = detectPopSignal(sorted)
   const totalSingles = tracks.filter(t => t.is_single).length
+  const totalComments = tracks.reduce((s, t) => s + (t.comment_count || 0), 0)
+  const totalTrackLikes = tracks.reduce((s, t) => s + (t.like_count || 0), 0)
+
+  const a = stats.artist
+  const fmtArtistDates = (() => {
+    if (a?.active_from || a?.active_until) {
+      return `${a.active_from ?? '?'}–${a.active_until ?? 'dabar'}`
+    }
+    if (a?.birth_date) {
+      const bd = String(a.birth_date).slice(0, 10)
+      const dd = a.death_date ? String(a.death_date).slice(0, 10) : null
+      return dd ? `${bd} → ${dd}` : `Gimė: ${bd}`
+    }
+    return '—'
+  })()
 
   return (
     <div className="mx-auto max-w-[1800px] px-4 py-8">
@@ -204,6 +258,33 @@ export default async function TracksDebugPage({ params }: Props) {
         <h1 className="text-2xl font-black text-[var(--text-primary)]">
           Track scoring debug — {artist.name}
         </h1>
+      </div>
+
+      {/* ARTIST-LEVEL INFO — bendra grupės/atlikėjo info: aktyvumo metai,
+          likes/komentarai/diskusijos prie pačio artist'o, source. Padeda
+          debug'inti ar Wiki + scrape importavimas pilnai užfilling'ino
+          visą metadatos sluoksnį. */}
+      <div className="mb-4 grid grid-cols-2 gap-3 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 text-[12px] md:grid-cols-4">
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-[var(--text-faint)]">Aktyvumas</div>
+          <div className="font-bold text-[var(--text-primary)]">{fmtArtistDates}</div>
+          {a?.country && <div className="text-[var(--text-muted)]">{a.country}</div>}
+        </div>
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-[var(--text-faint)]">Artist likes</div>
+          <div className={`font-bold ${stats.artistLikes > 0 ? 'text-emerald-400' : 'text-red-400'}`}>{stats.artistLikes}</div>
+          <div className="text-[var(--text-muted)]">Track likes total: {totalTrackLikes}</div>
+        </div>
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-[var(--text-faint)]">Komentarai</div>
+          <div className={`font-bold ${stats.artistComments > 0 ? 'text-emerald-400' : 'text-red-400'}`}>{stats.artistComments} artist</div>
+          <div className="text-[var(--text-muted)]">{totalComments} track</div>
+        </div>
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-[var(--text-faint)]">Diskusijos</div>
+          <div className={`font-bold ${stats.discussionCount > 0 ? 'text-emerald-400' : 'text-red-400'}`}>{stats.discussionCount}</div>
+          <div className="text-[var(--text-muted)]">source: {a?.source || '—'}</div>
+        </div>
       </div>
 
       <div className="mb-6 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 text-[13px] text-[var(--text-muted)]">
@@ -227,11 +308,14 @@ export default async function TracksDebugPage({ params }: Props) {
         {(() => {
           const totalTracks = tracks.length
           const withLikes = tracks.filter(t => t.like_count > 0).length
+          const withComments = tracks.filter(t => t.comment_count > 0).length
           const withYear = tracks.filter(t => t.release_year).length
           const withFullDate = tracks.filter(t => t.release_year && t.release_month && t.release_day).length
           const withScore = tracks.filter(t => (t.score || 0) > 0).length
           const withVideo = tracks.filter(t => yt(t.video_url)).length
           const withViews = tracks.filter(t => (t.video_views || 0) > 0).length
+          const withLyrics = tracks.filter(t => t.lyrics && t.lyrics.trim().length > 10).length
+          const withLegacy = tracks.filter(t => !!t.legacy_id).length
           const stat = (n: number) => {
             const pct = totalTracks ? Math.round((n / totalTracks) * 100) : 0
             const color = pct >= 70 ? 'text-emerald-400' : pct >= 40 ? 'text-yellow-400' : 'text-red-400'
@@ -242,11 +326,14 @@ export default async function TracksDebugPage({ params }: Props) {
               <div className="mb-1.5 font-extrabold uppercase tracking-wide text-[var(--text-primary)]">Data quality:</div>
               <div className="grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-3">
                 <div>Su likes: {stat(withLikes)}</div>
+                <div>Su komentarais: {stat(withComments)}</div>
                 <div>Su YT views: {stat(withViews)}</div>
                 <div>Su video: {stat(withVideo)}</div>
                 <div>Su year: {stat(withYear)}</div>
                 <div>Su pilna data (Y-M-D): {stat(withFullDate)}</div>
                 <div>Singlai pažymėti: {stat(totalSingles)}</div>
+                <div>Su lyrics: {stat(withLyrics)}</div>
+                <div>Su music.lt legacy_id: {stat(withLegacy)}</div>
                 <div>Su Wiki score: {stat(withScore)}</div>
               </div>
             </div>
@@ -272,6 +359,7 @@ export default async function TracksDebugPage({ params }: Props) {
               <th className="px-3 py-2.5 text-right" title="log10(views+1) × 50">+views×50</th>
               <th className="px-3 py-2.5 text-right">Likes</th>
               <th className="px-3 py-2.5 text-right" title="log10(likes+1) × 10">+likes×10</th>
+              <th className="px-3 py-2.5 text-right" title="Komentarų kiekis prie track'o (iš music.lt scrape arba native)">Kom.</th>
               <th className="px-3 py-2.5 text-center" title="is_single ? +10 : 0">+Single</th>
               <th className="px-3 py-2.5 text-center" title="video_url ? +5 : 0">+Video</th>
               <th className="px-3 py-2.5 text-center" title="Release date (Y-M-D arba tik Y jei tik metai)">Date</th>
@@ -315,6 +403,9 @@ export default async function TracksDebugPage({ params }: Props) {
                   <td className="px-3 py-2 text-right tabular-nums">{t.like_count}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-[var(--text-muted)]">
                     {bd.likesLog.toFixed(1)}
+                  </td>
+                  <td className={`px-3 py-2 text-right tabular-nums ${t.comment_count > 0 ? 'text-[var(--text-secondary)]' : 'text-[var(--text-faint)]'}`}>
+                    {t.comment_count || '—'}
                   </td>
                   <td className="px-3 py-2 text-center tabular-nums">
                     {t.is_single ? (
