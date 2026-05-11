@@ -2262,7 +2262,10 @@ function SideInfo({
             </div>
           )}
           {hasSocials && (
-            <div className="ml-auto flex items-center gap-1.5">
+            // MOBILE: leidžiam socials/website wrap'intis į kitą eilutę
+            // (visa eilutė 6 icons + website chip dažnai > 400px → mobile'e
+            // horizontal scroll). DESKTOP (sm+): ml-auto right-align + nowrap.
+            <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-1.5 sm:ml-auto sm:w-auto sm:flex-nowrap">
               {links.filter(l => SOC[l.platform]).map(l => {
                 const p = SOC[l.platform]
                 return (
