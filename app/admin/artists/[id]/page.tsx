@@ -619,6 +619,11 @@ function MobileBreadcrumb({ artistName, artistId, artistSlug, albumCount, trackC
                   Žiūrėti viešai
                 </a>
               )}
+              <Link href={`/admin/artists/${artistId}/tracks-debug`} onClick={() => setOpen(false)}
+                className="flex items-center gap-2 px-3 py-2 text-sm text-amber-700 hover:bg-[var(--bg-hover)]">
+                <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
+                Debug lentelė
+              </Link>
               {/* Migracijos veiksmai — pilnos eilutės pločio touch targets, ne side-by-side. */}
               <div className="border-t border-[var(--border-subtle)]">
                 <WikipediaImportFullRow artistName={artistName} onImport={(data) => { onWikiImport(data); setOpen(false) }} />
@@ -646,59 +651,6 @@ function MobileBreadcrumb({ artistName, artistId, artistSlug, albumCount, trackC
 
 function WikipediaImportWithHint({ artistName, onImport }: { artistName?: string; onImport: (data: any) => void }) {
   return <WikipediaImport onImport={onImport} initialSearch={artistName} />
-}
-
-/** ScrapeCommandModal — rodo CLI komandą music.lt scrape pilnam atlikėjo
- *  importui. Komanda paleidžiama iš Mac'o terminalu (sandbox'as nepanaudoja
- *  music.lt'o tiesiogiai dėl lokaciinio block'ų). Plus copy-to-clipboard. */
-function ScrapeCommandButton({ artistId, artistName }: { artistId: string; artistName: string }) {
-  const [open, setOpen] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const cmd = `cd "/Users/edvardas_s/Documents/Claude/Projects/Music.lt rebuild/scraper" && \\\nsource .venv/bin/activate && \\\npython3 import_artist.py ${artistId}`
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(cmd)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch { /* clipboard API gali būti neavailable iframes */ }
-  }
-  return (
-    <>
-      <button type="button" onClick={() => setOpen(true)}
-        className="flex items-center gap-1.5 px-2 py-1 text-xs text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded-lg transition-colors font-medium"
-        title="Music.lt scrape — komanda paleidimui ant Mac'o terminalo">
-        <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
-          <polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" />
-        </svg>
-        Music.lt scrape
-      </button>
-      {open && (
-        <FullscreenModal onClose={() => setOpen(false)} title={`Music.lt scrape: ${artistName}`} maxWidth="max-w-xl">
-          <div className="p-4 space-y-3 text-sm">
-            <p className="text-[var(--text-secondary)]">
-              Sandbox negali pasiekti music.lt (region/agent block'ai), todėl scrape paleidžiamas iš tavo Mac'o terminalu. Komanda apima visus žingsnius (group_deep_scrape + news + events + lyrics + YT enrich).
-            </p>
-            <div className="rounded-xl bg-[var(--bg-elevated)] border border-[var(--border-subtle)] p-3 font-mono text-[12px] text-[var(--text-primary)] whitespace-pre-wrap break-all">
-              {cmd}
-            </div>
-            <div className="flex gap-2">
-              <button type="button" onClick={copy}
-                className={`flex-1 min-h-[44px] px-4 rounded-xl font-bold text-sm transition-colors ${copied ? 'bg-green-500 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}>
-                {copied ? '✓ Nukopijuota' : '📋 Kopijuoti komandą'}
-              </button>
-              <button type="button" onClick={() => setOpen(false)}
-                className="min-h-[44px] px-4 rounded-xl bg-[var(--bg-surface)] border border-[var(--input-border)] text-[var(--text-secondary)] font-medium hover:bg-[var(--bg-hover)]">
-                Uždaryti
-              </button>
-            </div>
-            <p className="text-[11px] text-[var(--text-muted)]">
-              Trunka 5–15 min priklausomai nuo content kiekio. Po to admin'e nieko spausti nereikia — duomenys + YT enrich automatiškai.
-            </p>
-          </div>
-        </FullscreenModal>
-      )}
-    </>
-  )
 }
 
 /** WikipediaImportFullRow — full-width dropdown row varianta WikipediaImportCompact'ui.
@@ -786,6 +738,25 @@ function PublicProfileLink({ slug }: { slug: string }) {
       </svg>
       Žiūrėti viešai
     </a>
+  )
+}
+
+/** TracksDebugLink — admin'o lentelė su track score breakdown'ais, pop bars,
+ *  YT views, likes, dates. Naudinga debug'inant scoring/single detection. */
+function TracksDebugLink({ artistId }: { artistId: string }) {
+  return (
+    <Link href={`/admin/artists/${artistId}/tracks-debug`}
+      className="flex items-center gap-1.5 px-2 py-1 text-xs text-amber-700 hover:text-amber-900 hover:bg-amber-50 rounded-lg transition-colors font-medium"
+      title="Tracks debug lentelė — score breakdown, singles, datos">
+      <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <line x1="9" y1="3" x2="9" y2="21" />
+        <line x1="15" y1="3" x2="15" y2="21" />
+        <line x1="3" y1="9" x2="21" y2="9" />
+        <line x1="3" y1="15" x2="21" y2="15" />
+      </svg>
+      Debug
+    </Link>
   )
 }
 
@@ -1395,16 +1366,19 @@ export default function EditArtist() {
                   })
                 }}
               />
-              <ScrapeCommandButton artistId={artistId} artistName={artistName} />
+              <TracksDebugLink artistId={artistId} />
             </div>
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
             <ScoreBadge artistId={artistId} score={artistScore} />
             {/* Advanced fix actions — tik desktop. Mobile gauna juos per
-                MobileBreadcrumb hamburger meniu (kad nesimaišytų du 3-dot menus). */}
+                MobileBreadcrumb hamburger meniu (kad nesimaišytų du 3-dot menus).
+                Music.lt scrape čia, kad nesimaišytų su pirmaeiliais veiksmais
+                viršuje — paslėpta, kad nepaspaustų atsitiktinai. */}
             <div className="hidden lg:block">
               <ActionsOverflowMenu>
+                <ScrapeCommandFullRow artistId={artistId} artistName={artistName} />
                 <PhotosFixButton artistId={artistId} onDone={() => {
                   fetch(`/api/artists/${artistId}`).then(r => r.json()).then(data => {
                     if (!data?.error) setInitialData(dbToForm(data))
