@@ -54,11 +54,13 @@ async function getArtist(id: number) {
 
 async function getTracks(id: number): Promise<TrackRow[]> {
   const sb = createAdminClient()
+  // Įtraukiam visus tracks įskaitant pending — debug page'ui svarbu matyti
+  // ką music.lt scrape rado bet Wiki canonical sąraše neturi. Pending row'ai
+  // bus amber-highlighted view'e.
   const { data } = await sb
     .from('tracks')
     .select('id, slug, title, type, is_single, release_year, release_month, release_day, video_url, video_views, video_uploaded_at, spotify_id, lyrics, score, source, legacy_id, imported_at, score_updated_at')
     .eq('artist_id', id)
-    .or('source.is.null,source.neq.legacy_scrape_pending')
     .range(0, 9999)
   const tracks = (data || []) as any[]
   if (tracks.length === 0) return []
@@ -249,6 +251,8 @@ export default async function TracksDebugPage({ params }: Props) {
   const totalSingles = tracks.filter(t => t.is_single).length
   const totalComments = tracks.reduce((s, t) => s + (t.comment_count || 0), 0)
   const totalTrackLikes = tracks.reduce((s, t) => s + (t.like_count || 0), 0)
+  const pendingTracks = tracks.filter(t => t.source === 'legacy_scrape_pending')
+  const unassignedTracks = tracks.filter(t => !t.album_titles)
 
   const a = stats.artist
   const fmtArtistDates = (() => {
@@ -273,6 +277,26 @@ export default async function TracksDebugPage({ params }: Props) {
           Track scoring debug — {artist.name}
         </h1>
       </div>
+
+      {/* Pending + unassigned dainų warning panel — leidžia greit pamatyti
+          kurie tracks neateina iš pilno Wiki canonical sąrašo arba neturi
+          albumo priskirimo. */}
+      {(pendingTracks.length > 0 || unassignedTracks.length > 0) && (
+        <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 text-[13px]">
+          <div className="font-extrabold text-amber-600 mb-1">⚠ Po scrape neimportuoti / neaprašyti dainos</div>
+          {pendingTracks.length > 0 && (
+            <div className="text-[var(--text-secondary)] mb-1">
+              <strong className="text-amber-600">{pendingTracks.length}</strong> dainos su <code className="rounded bg-amber-500/15 px-1 text-amber-600">legacy_scrape_pending</code> — music.lt scrape rado, bet Wiki canonical sąraše nėra.
+              <span className="text-[var(--text-muted)] text-[11px] ml-2">Aktyvuoti per <Link href="/admin/pending" className="text-blue-500 hover:underline">/admin/pending</Link> arba priskirti albumui per <Link href={`/admin/artists/${id}/orphans`} className="text-blue-500 hover:underline">orphan tracks</Link>.</span>
+            </div>
+          )}
+          {unassignedTracks.length > 0 && (
+            <div className="text-[var(--text-secondary)]">
+              <strong className="text-amber-600">{unassignedTracks.length}</strong> dainos be priskirimo albumui (album_tracks JOIN'as tuščias). Reikia rankiniu būdu pridėti prie albumo per album page'ą.
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ARTIST-LEVEL INFO — bendra grupės/atlikėjo info: aktyvumo metai,
           likes/komentarai/diskusijos prie pačio artist'o, source. Padeda
@@ -395,12 +419,14 @@ export default async function TracksDebugPage({ params }: Props) {
               const ytDate = t.video_uploaded_at ? new Date(t.video_uploaded_at).toISOString().slice(0, 10) : '—'
               const hasLyrics = !!(t.lyrics && t.lyrics.trim().length > 10)
               const hasSpotify = !!t.spotify_id
+              const isPending = t.source === 'legacy_scrape_pending'
+              const isUnassigned = !t.album_titles
               const sourceLabel = (t.source || 'unknown')
                 .replace('legacy+wikipedia', 'wiki+lt')
                 .replace('legacy_scrape_v1', 'lt')
                 .replace('wikipedia', 'wiki')
               return (
-                <tr key={t.id} className="hover:bg-[var(--bg-hover)]">
+                <tr key={t.id} className={`${isPending ? 'bg-amber-500/5 hover:bg-amber-500/10 border-l-2 border-l-amber-500' : isUnassigned ? 'bg-blue-500/5 hover:bg-blue-500/10 border-l-2 border-l-blue-500' : 'hover:bg-[var(--bg-hover)]'}`}>
                   <td className="px-3 py-2 tabular-nums text-[var(--text-faint)]">{i + 1}</td>
                   <td className="px-3 py-2 font-bold text-[var(--text-primary)]">
                     <Link href={`/admin/tracks/${t.id}`} className="hover:text-[var(--accent-orange)]">
@@ -468,8 +494,12 @@ export default async function TracksDebugPage({ params }: Props) {
                       <span className="text-[var(--text-faint)]">—</span>
                     )}
                   </td>
-                  <td className="px-3 py-2 text-center text-[10px] text-[var(--text-muted)]" title={`source=${t.source || 'null'}, imported_at=${t.imported_at || 'null'}`}>
-                    {sourceLabel}
+                  <td className="px-3 py-2 text-center text-[10px]" title={`source=${t.source || 'null'}, imported_at=${t.imported_at || 'null'}`}>
+                    {isPending ? (
+                      <span className="rounded bg-amber-500/20 px-1.5 py-0.5 font-bold text-amber-600" title="legacy_scrape_pending — Wiki neturi, music.lt rado. Reikia aktyvuoti per /admin/pending arba priskirti albumui.">pending</span>
+                    ) : (
+                      <span className="text-[var(--text-muted)]">{sourceLabel}</span>
+                    )}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums font-extrabold text-[var(--accent-orange)]">
                     {bd.total.toFixed(1)}
