@@ -539,7 +539,11 @@ export function parseDiscographyPage(wikitext: string): DiscographyItem[] {
  */
 export function extractTrackListingsWithPos(wikitext: string): { block: string; pos: number }[] {
   const results: { block: string; pos: number }[] = []
-  const pattern = /\{\{\s*[Tt]rack\s*[Ll]isting/g
+  // Apima abu pavadinimo variantai: {{Track listing}} (kanoninis su tarpu) ir
+  // {{Tracklist}} (alias / be tarpo). The Beatles 'With the Beatles' atveju
+  // naudojama {{tracklist|...}} — anksčiau regex'as match'indavo tik
+  // 'Track Listing' su tarpu → 0 tracks paimama.
+  const pattern = /\{\{\s*[Tt]rack\s*[Ll]ist(?:ing)?\b/g
   let m: RegExpExecArray | null
   while ((m = pattern.exec(wikitext)) !== null) {
     let depth = 0, i = m.index
@@ -550,6 +554,62 @@ export function extractTrackListingsWithPos(wikitext: string): { block: string; 
     }
   }
   return results
+}
+
+/**
+ * Fallback parser for #-numbered list tracklists under ==Track listing== section.
+ * Many older Wikipedia albums (Wumpscut etc.) don't use {{Track listing}} template,
+ * just plain markdown numbered lists:
+ *   ==Track listing==
+ *   # "Track 1" – 3:59
+ *   # "Track 2" – 4:04
+ *
+ * Strict matching: requires quoted title AND duration to avoid false positives
+ * (citations, bullet lists with similar formatting).
+ */
+export function parseHashListTracks(wikitext: string): TrackEntry[] {
+  const tracks: TrackEntry[] = []
+  // Find ==Track listing== section (case-insensitive, allow "Track list", "Tracks")
+  const secMatch = wikitext.match(/^(==+)\s*(?:Track\s*list(?:ing)?|Tracks)\s*\1\s*$/im)
+  if (!secMatch || secMatch.index === undefined) return []
+  const sectionStart = secMatch.index + secMatch[0].length
+  // Find next == section header to bound scope
+  const nextSec = wikitext.slice(sectionStart).match(/^==+[^=]/m)
+  const sectionEnd = nextSec && nextSec.index !== undefined
+    ? sectionStart + nextSec.index : Math.min(sectionStart + 8000, wikitext.length)
+  const body = wikitext.slice(sectionStart, sectionEnd)
+
+  // Strict pattern: `# "Title" – duration` (en/em/regular dash, optional)
+  // Also accepts `# "Title" (note)` with duration appended later
+  // Skip lines that look like references/citations
+  const lineRe = /^#\s*"([^"\n]+?)"\s*(?:\(([^)]+)\))?\s*[–—-]\s*(\d{1,2}:\d{2}(?::\d{2})?)/gm
+  let lm: RegExpExecArray | null
+  let order = 1
+  while ((lm = lineRe.exec(body)) !== null) {
+    const title = lm[1].trim()
+    const noteRaw = lm[2] || ''
+    const duration = lm[3]
+    if (title.length < 2) continue
+    // Determine track type from optional note
+    const noteLow = noteRaw.toLowerCase()
+    let type: TrackEntry['type'] = 'normal'
+    if (/\bremix\b/.test(noteLow)) type = 'remix'
+    else if (/\binstrumental\b/.test(noteLow)) type = 'instrumental'
+    else if (/\blive\b/.test(noteLow)) type = 'live'
+    else if (/\bcover\b/.test(noteLow)) type = 'covers'
+    // featuring extraction
+    let featuring: string[] | undefined
+    const featM = noteRaw.match(/(?:feat(?:uring)?\.?|with)\s+(.+)/i)
+    if (featM) {
+      featuring = featM[1].split(/\s+and\s+|[,&]/i).map(s => s.trim().replace(/^["']|["']$/g, '')).filter(s => s.length > 1)
+    }
+    tracks.push({
+      title, duration, sort_order: order++,
+      type,
+      featuring: featuring && featuring.length ? featuring : undefined,
+    })
+  }
+  return tracks
 }
 
 /**
@@ -732,11 +792,11 @@ export function parseTracklist(wikitext: string): TrackEntry[] {
   const tlBlocks = tlWithPos.map(t => t.block)
 
   if (!tlBlocks.length) {
-    // No {{Track listing}} template — many live/compilation articles fall here.
-    // The old fallback parsed every `#numbered` line as a track; that picked up
-    // citations and bullet lists, producing 800+ false positives on pages like
-    // "Recording the Angel". Return [] instead — UI/admin can fill manually.
-    return []
+    // No {{Track listing}} / {{Tracklist}} template — bandom fallback per
+    // hash-list parser (Wumpscut, senesni indie albums dažnai turi `# "Title" – 3:45`
+    // formatte po ==Track listing== headeryje). Strict patternas (quoted title +
+    // duration) saugo nuo false positives (citations, bullet lists).
+    return parseHashListTracks(wikitext)
   }
 
   const parseBlock = (tl: string, startOrder: number): TrackEntry[] => {
