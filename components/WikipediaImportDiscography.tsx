@@ -1076,15 +1076,21 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
             type_soundtrack: item.type==='soundtrack' || item.extraTypes?.includes('soundtrack') || false,
             type_demo: item.type==='demo',
             tracks: (item.tracks||[]).map((t,i) => {
-              // Singlui bandyti gauti tikslią datą iš songs state'o
+              // Priority: 1) parseTracklist'e prikabinta date iš albumo
+              // {{Singles}} infobox'o (single1date / ...); 2) songs state
+              // (jei user importavo Singles tab); 3) album year fallback.
+              const tAny = t as any
+              const trackYear = tAny.release_year ?? null
+              const trackMonth = tAny.release_month ?? null
+              const trackDay = tAny.release_day ?? null
               const songMatch = t.is_single ? songs.find(s => s.title.toLowerCase() === t.title.toLowerCase()) : null
               return {
                 title: t.title, sort_order: i+1, duration: t.duration||null,
                 type: t.type||'normal', disc_number: t.disc_number||1,
                 is_single: t.is_single||false, featuring: t.featuring||[],
-                release_year: songMatch?.year ?? item.year ?? null,
-                release_month: songMatch?.month ?? null,
-                release_day: songMatch?.day ?? null,
+                release_year: trackYear ?? songMatch?.year ?? item.year ?? null,
+                release_month: trackMonth ?? songMatch?.month ?? null,
+                release_day: trackDay ?? songMatch?.day ?? null,
               }
             }),
           }),

@@ -53,6 +53,13 @@ export type TrackEntry = {
   featuring?: string[]
   disc_number?: number
   type?: 'normal' | 'instrumental' | 'live' | 'remix' | 'mashup' | 'covers'
+  // Singles release date — prikabinama parseTracklist'e iš to paties albumo
+  // {{Singles}} infobox'o (single1date / single2date / ...). Anksčiau
+  // dates tik prikabintos jei user'is atskirai importuodavo per Singles tab
+  // → album import'as neperduodavo release_year tracks lentelei.
+  release_year?: number | null
+  release_month?: number | null
+  release_day?: number | null
 }
 
 export type SingleInfoboxData = { month: number | null; day: number | null; year: number | null }
@@ -646,7 +653,7 @@ export function parseSinglesFromInfobox(wikitext: string): { names: Set<string>;
  * Parse tracklist from Wikipedia album article or TrackListing templates.
  */
 export function parseTracklist(wikitext: string): TrackEntry[] {
-  const { names: singles } = parseSinglesFromInfobox(wikitext)
+  const { names: singles, dates: singleDates } = parseSinglesFromInfobox(wikitext)
   const tlWithPos = extractTrackListingsWithPos(wikitext)
   const tlBlocks = tlWithPos.map(t => t.block)
 
@@ -784,7 +791,22 @@ export function parseTracklist(wikitext: string): TrackEntry[] {
         else if (REMIX_RE.test(stripped) || REMIX_RE.test(titleLower)) trackType = 'remix'
         else if (COVER_RE.test(stripped)) trackType = 'covers'
         else if (/\bmashup\b/.test(stripped) || /\bmashup\b/.test(titleLower)) trackType = 'mashup'
-        tracks.push({ title: finalTitle, duration: lenM?.[1]?.trim(), sort_order: order++, is_single, featuring: featuring.length ? featuring : undefined, type: trackType })
+        // Singles release date — jei šis track yra single, pakabinam datą iš
+        // albumo {{Singles}} infobox'o (single1date / single2date / ...). Tai
+        // leidžia album import flow'ui automatiškai užpildyti tracks.release_*
+        // be reikalavimo user'iui atskirai importuoti per Singles tab.
+        const dateInfo = is_single ? singleDates.get(normalizedTitle) : undefined
+        tracks.push({
+          title: finalTitle,
+          duration: lenM?.[1]?.trim(),
+          sort_order: order++,
+          is_single,
+          featuring: featuring.length ? featuring : undefined,
+          type: trackType,
+          release_year: dateInfo?.year ?? null,
+          release_month: dateInfo?.month ?? null,
+          release_day: dateInfo?.day ?? null,
+        })
       }
     }
     return tracks
