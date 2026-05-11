@@ -1354,6 +1354,8 @@ function TrackInfoModal({
   }
 
   if (!track) return null
+  // createPortal lower down needs document.body — bail on SSR.
+  if (typeof document === 'undefined') return null
 
   const dur = fmtDur(track.duration)
   const year = track.release_year || (track.release_date ? new Date(track.release_date).getFullYear() : null)
@@ -1435,7 +1437,7 @@ function TrackInfoModal({
   if (dockedActive) {
     const candidates = (artistTracks || [])
       .filter(t => t.id !== track.id && yt(t.video_url))
-    return (
+    return createPortal(
       <div className="fixed inset-0 z-[9999] grid grid-cols-[860px_minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)] bg-[var(--bg-surface)]">
         {/* Top bar — visiškai per visą plotį */}
         <div className="col-span-2 flex shrink-0 items-center gap-3 border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-5 py-3">
@@ -1686,7 +1688,8 @@ function TrackInfoModal({
         )}
 
         {LikersOverlay}
-      </div>
+      </div>,
+      document.body,
     )
   }
 
@@ -1703,7 +1706,7 @@ function TrackInfoModal({
   //   • body vaikai (lyrics/comments cols) — overflow-y-auto kiekvienas
   // Mobile useris paskrolint gali lyrics text'ą lengvai.
   // ════════════════════════════════════════════════════════════════════
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center"
       onClick={(e) => { if (e.target === e.currentTarget) handleClose() }}
@@ -1894,7 +1897,8 @@ function TrackInfoModal({
       </aside>
 
       {LikersOverlay}
-    </div>
+    </div>,
+    document.body,
   )
   // artistSlug is kept for future deep-links (e.g. "More from artist")
   void artistSlug
