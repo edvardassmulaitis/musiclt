@@ -112,13 +112,19 @@ function fmtReleaseDate(t: TrackRow): string {
 type PopSignal = 'likes' | 'score' | 'views' | 'none'
 function detectPopSignal(tracks: TrackRow[]): { signal: PopSignal; max: number } {
   let maxLikes = 0, maxScore = 0, maxViews = 0
+  let likesPresent = 0
+  const total = tracks.length
   for (const t of tracks) {
+    if ((t.like_count || 0) > 0) likesPresent++
     if ((t.like_count || 0) > maxLikes) maxLikes = t.like_count || 0
     if ((t.score || 0) > maxScore) maxScore = t.score || 0
     if ((t.video_views || 0) > maxViews) maxViews = t.video_views || 0
   }
-  if (maxLikes > 0) return { signal: 'likes', max: maxLikes }
+  // Sparse likes (<50%) → use composite score (matches public client logic).
+  const likesCoverage = total > 0 ? likesPresent / total : 0
+  if (maxLikes > 0 && likesCoverage >= 0.5) return { signal: 'likes', max: maxLikes }
   if (maxScore > 0) return { signal: 'score', max: maxScore }
+  if (maxLikes > 0) return { signal: 'likes', max: maxLikes }
   if (maxViews > 0) return { signal: 'views', max: Math.log10(maxViews + 1) }
   return { signal: 'none', max: 0 }
 }

@@ -1117,16 +1117,26 @@ type PopSignal = 'likes' | 'score' | 'views' | 'none'
 
 function detectPopSignal(allTracks: any[]): { signal: PopSignal; max: number } {
   let maxLikes = 0, maxScore = 0, maxViews = 0
+  let likesPresent = 0
+  const total = allTracks.length
   for (const t of allTracks) {
     const lk = t?.like_count
     const sc = t?.score
     const vv = t?.video_views
+    if (typeof lk === 'number' && lk > 0) likesPresent++
     if (typeof lk === 'number' && lk > maxLikes) maxLikes = lk
     if (typeof sc === 'number' && sc > maxScore) maxScore = sc
     if (typeof vv === 'number' && vv > maxViews) maxViews = vv
   }
-  if (maxLikes > 0) return { signal: 'likes', max: maxLikes }
+  // Coverage-based: if <50% of tracks have likes (typical INTL atlikėjams
+  // kur music.lt community likes sparse), naudojam composite score —
+  // anksčiau "Something Just Like This" (2.5B views, 0 likes) gaudavo 1/5
+  // popbar tik todėl, kad Coldplay'us 14% have likes. Composite score
+  // pats inkorporiuoja ir likes ir views, todėl tinkamas fallback'as.
+  const likesCoverage = total > 0 ? likesPresent / total : 0
+  if (maxLikes > 0 && likesCoverage >= 0.5) return { signal: 'likes', max: maxLikes }
   if (maxScore > 0) return { signal: 'score', max: maxScore }
+  if (maxLikes > 0) return { signal: 'likes', max: maxLikes }
   if (maxViews > 0) return { signal: 'views', max: Math.log10(maxViews + 1) }
   return { signal: 'none', max: 0 }
 }
