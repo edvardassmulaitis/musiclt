@@ -1556,7 +1556,12 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                       {t.is_single && <span className="w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0" title="Singlas" />}
                       <span className="text-[10px] text-gray-300 tabular-nums">{t.sort_order}</span>
                     </div>
-                    <span className="text-xs text-gray-700 truncate flex-1">{t.title}</span>
+                    <span className="text-xs text-gray-700 truncate flex-1">
+                      {t.title}
+                      {t.featuring && t.featuring.length > 0 && (
+                        <span className="text-violet-500 ml-1">feat. {t.featuring.join(', ')}</span>
+                      )}
+                    </span>
                     {t.type === 'instrumental' && <span className="text-[9px] text-gray-400 shrink-0 font-medium">instr.</span>}
                     {t.type === 'live' && <span className="text-[9px] text-blue-400 shrink-0 font-medium">live</span>}
                     {t.type === 'remix' && <span className="text-[9px] text-purple-400 shrink-0 font-medium">remix</span>}
