@@ -188,6 +188,9 @@ export async function createAlbum(data: AlbumFull): Promise<number> {
     video_url: data.video_url || null,
     show_artist_name: data.show_artist_name ?? false,
     show_player: data.show_player ?? false,
+    // source = 'wikipedia' kai per UI Discography importas. match_legacy_overlay
+    // promote'ins į 'legacy+wikipedia' jei music.lt rasi tą patį album'ą.
+    source: 'wikipedia',
     is_upcoming: data.is_upcoming ?? false,
     description: data.description || null,
   }).select('id').single()
@@ -338,6 +341,11 @@ async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackI
           release_year: t.release_year || null,
           release_month: t.release_month || null,
           release_day: t.release_day || null,
+          // Source žymėjimas — Wiki UI importas → 'wikipedia'. Vėliau
+          // match_legacy_overlay.py prijungs music.lt likes/comments ir
+          // promote'ins source į 'legacy+wikipedia'. Anksčiau source likdavo
+          // null → debug page rodė 'unknown'.
+          source: 'wikipedia',
         }).select('id').single()
 
         if (trackError) { console.error('[syncAlbumTracks] Failed to insert track:', cleanTitle, trackError.message, trackError.details); continue }

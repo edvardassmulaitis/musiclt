@@ -101,20 +101,20 @@ async function getTracks(id: number): Promise<TrackRow[]> {
     }
   }
 
-  // Comment counts iš comments lentelės (entity_type='track') — tas pats
-  // chunking pattern kaip likes, kad PostgREST 1000-row default'as
-  // netruncate'intų rezultato.
+  // Comment counts iš comments lentelės. Schema turi atskirus FK stulpelius
+  // per entity tipą (track_id / album_id / news_id / event_id / discussion_id),
+  // NE polymorphic entity_type+entity_id pattern'ą. Filtruojam per track_id.
   const commentMap = new Map<number, number>()
   for (let i = 0; i < ids.length; i += 50) {
     const chunk = ids.slice(i, i + 50)
     const { data: comments } = await sb
       .from('comments')
-      .select('entity_id')
-      .eq('entity_type', 'track')
-      .in('entity_id', chunk)
+      .select('track_id')
+      .in('track_id', chunk)
+      .eq('is_deleted', false)
       .range(0, 49999)
     for (const c of (comments || []) as any[]) {
-      commentMap.set(c.entity_id, (commentMap.get(c.entity_id) || 0) + 1)
+      if (c.track_id) commentMap.set(c.track_id, (commentMap.get(c.track_id) || 0) + 1)
     }
   }
 
@@ -128,17 +128,28 @@ async function getTracks(id: number): Promise<TrackRow[]> {
 
 async function getArtistStats(id: number) {
   const sb = createAdminClient()
-  const [artistRow, artistLikes, artistComments, discussions] = await Promise.all([
+  // discussions atstovauja artist'o forum threads (discussions.artist_id).
+  // Artist-level komentarai = visi comments per artist'o discussions thread'us.
+  const [artistRow, artistLikes, discussionRows] = await Promise.all([
     sb.from('artists').select('id, slug, name, country, active_from, active_until, gender, birth_date, death_date, description, source').eq('id', id).single(),
     sb.from('likes').select('id', { count: 'exact', head: true }).eq('entity_type', 'artist').eq('entity_id', id),
-    sb.from('comments').select('id', { count: 'exact', head: true }).eq('entity_type', 'artist').eq('entity_id', id),
-    sb.from('discussions').select('id', { count: 'exact', head: true }).eq('artist_id', id),
+    sb.from('discussions').select('id').eq('artist_id', id),
   ])
+  const discussionIds = (discussionRows.data || []).map((d: any) => d.id)
+  let artistCommentsCount = 0
+  if (discussionIds.length > 0) {
+    const { count } = await sb
+      .from('comments')
+      .select('id', { count: 'exact', head: true })
+      .in('discussion_id', discussionIds)
+      .eq('is_deleted', false)
+    artistCommentsCount = count || 0
+  }
   return {
     artist: artistRow.data,
     artistLikes: artistLikes.count || 0,
-    artistComments: artistComments.count || 0,
-    discussionCount: discussions.count || 0,
+    artistComments: artistCommentsCount,
+    discussionCount: discussionIds.length,
   }
 }
 
