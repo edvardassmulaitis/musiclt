@@ -811,8 +811,11 @@ function PlayerCard({
                     backgroundRepeat: 'no-repeat',
                   }} />
                 )}
-                <span className="absolute left-1/2 top-1/2 flex h-[72px] w-[72px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_10px_40px_rgba(249,115,22,0.5)] ring-[6px] ring-white/10 transition-transform duration-200 group-hover:scale-110">
-                  <svg viewBox="0 0 24 24" width="26" height="26" fill="#fff" aria-hidden>
+                {/* Play overlay — kampe (bottom-right), kad neuždengtų
+                    video thumbnail kompozicijos. Anksčiau buvo centre per
+                    `left-1/2 top-1/2 -translate`, blokuodavo veidus/scenos. */}
+                <span className="absolute bottom-3 right-3 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_8px_24px_rgba(249,115,22,0.5)] ring-[3px] ring-white/15 transition-transform duration-200 group-hover:scale-110 sm:h-14 sm:w-14">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="#fff" aria-hidden className="ml-0.5">
                     <path d="M8 5v14l11-7z" />
                   </svg>
                 </span>
