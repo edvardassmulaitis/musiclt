@@ -13,6 +13,7 @@
 // Likes/komentarai/tracklist play logic'a — kaip standalone album page'e.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { proxyImg } from '@/lib/img-proxy'
 import { LikePill } from '@/components/LikePill'
@@ -84,10 +85,16 @@ function popLevelByPosition(index: number, total: number): number {
 }
 function PopBar({ level }: { level: number }) {
   return (
-    <div className="mt-1 flex items-center gap-[3px]">
+    <div
+      className="mt-1 flex items-center gap-[3px]"
+      title={level > 0 ? `Populiarumas ${level}/5` : 'Populiarumas — duomenų dar nėra'}
+      role="img"
+      aria-label={level > 0 ? `Populiarumas ${level} iš 5` : 'Populiarumo duomenų nėra'}
+    >
       {Array.from({ length: 5 }).map((_, i) => (
         <span
           key={i}
+          aria-hidden
           className={[
             'h-[3px] w-[10px] rounded-full transition-colors',
             i < level ? 'bg-[var(--accent-orange)]' : 'bg-[var(--popup-bg)]',
@@ -178,16 +185,28 @@ export default function AlbumInfoModal({
     return () => { cancelled = true }
   }, [albumId])
 
-  // ESC key + body scroll lock
+  // ESC key + body scroll lock (position:fixed pattern — iOS-safe).
+  // body.overflow=hidden neveikia patikimai kai modal'as portaled į body
+  // (modal pats sukuria scrollable region aukščiau body limit'o).
+  // position:fixed pin'ina body į dabartinę scrollY poziciją.
   useEffect(() => {
     if (albumId === null) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose() }
     window.addEventListener('keydown', onKey)
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    const scrollY = window.scrollY
+    document.body.style.position = 'fixed'
+    document.body.style.top = `-${scrollY}px`
+    document.body.style.left = '0'
+    document.body.style.right = '0'
+    document.body.style.width = '100%'
     return () => {
       window.removeEventListener('keydown', onKey)
-      document.body.style.overflow = prevOverflow
+      document.body.style.position = ''
+      document.body.style.top = ''
+      document.body.style.left = ''
+      document.body.style.right = ''
+      document.body.style.width = ''
+      window.scrollTo(0, scrollY)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [albumId])
@@ -256,6 +275,8 @@ export default function AlbumInfoModal({
 
   // Don't render anything if no album active
   if (albumId === null) return null
+  // createPortal žemiau reikalingas document.body — bail on SSR.
+  if (typeof document === 'undefined') return null
 
   // Slide animation classes — drawer'is iš dešinės. mounted=false kviečia
   // slide-out per CSS transition (200ms), o tada onClose paleidžia state cleanup.
@@ -266,52 +287,31 @@ export default function AlbumInfoModal({
   const titleNow = album?.title || preview?.title || ''
   const coverNow = album?.cover_image_url || preview?.cover_image_url || null
 
-  return (
+  // Root — portaled į document.body. Kitaip .route-enter wrapper'io
+  // transform: translateY(0) end-state laužia fixed inset-0 pozicionavimą.
+  return createPortal(
     <div
-      className={[
-        'fixed inset-0 z-[9999]',
-        // Wide-desktop (≥1280px): flex row layout — drawer kairėj (fix 860px),
-        // dock dešinėj (flex-1, fills rest). Solid bg-surface'as dengia visą
-        // viewport'ą, todėl page'o turinio iš apačios nesimato.
-        // Anksčiau buvo `grid grid-cols-[860px_minmax(0,1fr)]` su `h-full` ant
-        // vidinių aside'ų — bet vidiniai elementai collaps'indavosi į natural
-        // height ir likdavo apačioj/viršuj su juodu plotu. Flex layout su
-        // explicit width/height ant aside'ų pasitvarko patikimai.
-        isWideDesktop
-          ? 'flex bg-[var(--bg-surface)]'
-          : '',
-      ].filter(Boolean).join(' ')}
+      className="fixed inset-0 z-[9999]"
       role="dialog"
       aria-modal="true"
       aria-label={titleNow ? `${titleNow} albumo informacija` : 'Albumo informacija'}
       style={{ fontFamily: "'DM Sans',system-ui,sans-serif" }}
     >
-      {/* Backdrop — click-outside closes (only outside the wide-desktop dock).
-          Dock'e (xl) backdrop'as nereikalingas, nes modal'as fullscreen ir
-          jokio page'o turinio nematyti. */}
-      {!isWideDesktop && (
-        <div
-          onClick={(e) => { if (e.target === e.currentTarget) handleClose() }}
-          className={[
-            'absolute inset-0 transition-opacity duration-200',
-            mounted ? 'bg-black/65 opacity-100' : 'bg-black/65 opacity-0',
-          ].join(' ')}
-        />
-      )}
+      {/* Backdrop — click-outside closes (only outside the wide-desktop dock) */}
+      <div
+        onClick={(e) => { if (!isWideDesktop && e.target === e.currentTarget) handleClose() }}
+        className={[
+          'absolute inset-0 transition-opacity duration-200',
+          mounted ? 'bg-black/65 opacity-100' : 'bg-black/65 opacity-0',
+        ].join(' ')}
+      />
 
-      {/* Wide desktop dock player + Daugiau strip — sėdi grid'o kolonoje 2
-          (dešinėj nuo drawer'io). Anksčiau buvo `absolute right-0`, kuris
-          overlap'avo su drawer'iu (irgi `right-0`) ir todėl dock'as buvo
-          pridengtas. Dabar grid layout'as patikimai padalina viewport'ą:
-          [DRAWER 860px][DOCK fills rest]. */}
+      {/* Wide desktop dock player + Daugiau strip — fixed right side, narrower
+          than modal so they sit side-by-side on ≥1280px. */}
       {isWideDesktop && (
         <aside
           className={[
-            // Dock'as — flex item su flex-1 (užpildo likusią vietą po drawer'io
-            // 860px). order-2 ant abu drawer'į ir dock'ą NEREIKIA, nes JSX
-            // render order'is teisingas (dock pirmas, drawer antras), bet
-            // kelias renderiosis FLEX-row tvarka be order'io.
-            'relative order-2 flex h-full flex-1 min-w-[420px] flex-col gap-4 overflow-y-auto border-l border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-5',
+            'absolute right-0 top-0 hidden h-full w-[calc(100vw-860px)] min-w-[420px] flex-col gap-4 overflow-y-auto border-l border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-5 shadow-[-12px_0_40px_-20px_rgba(0,0,0,0.6)] xl:flex',
             'transition-opacity duration-200',
             mounted ? 'opacity-100' : 'opacity-0',
           ].join(' ')}
@@ -414,28 +414,13 @@ export default function AlbumInfoModal({
         </aside>
       )}
 
-      {/* Drawer (modal panel).
-          - Mobile (default): fullscreen drawer, slide-in iš dešinės via
-            translate-x-full → translate-x-0.
-          - lg (≥1024): max-width 860, drawer sėdi dešiniame krašte, slide
-            animacija iš dešinės.
-          - xl (≥1280): drawer sėdi grid'o kolonoje 1 (kairėj), be slide
-            animacijos. Dock'as toliau dešinėj. Tai dengia viewport'ą iki
-            galo ir pašalina overlap'ą tarp drawer'io + dock'o, kuris
-            sukėlė juodą plotą rodant.
-          - bg-surface — solid, kad page'o turinio iš apačios nesimatytų. */}
+      {/* Drawer (modal panel). Mobile = fullscreen, lg = max-width 860, xl =
+          fixed 860 with dock to the right (handled above). */}
       <aside
         className={[
-          isWideDesktop
-            // Docked (xl): flex item, fix 860px, in row order before dock.
-            // order-1 garantuoja kairę poziciją net jei JSX dock pirmas.
-            ? 'relative order-1 flex h-full w-[860px] shrink-0 flex-col overflow-hidden bg-[var(--bg-surface)]'
-            // Drawer (mobile / lg): absolute right-aligned su slide
-            : [
-                'absolute right-0 top-0 flex h-full w-full flex-col overflow-hidden bg-[var(--bg-surface)] shadow-2xl transition-transform duration-200 ease-out lg:max-w-[860px]',
-                drawerTransform,
-              ].join(' '),
-        ].filter(Boolean).join(' ')}
+          'absolute right-0 top-0 flex h-full w-full flex-col overflow-hidden bg-[var(--bg-surface)] shadow-2xl transition-transform duration-200 ease-out lg:max-w-[860px]',
+          drawerTransform,
+        ].join(' ')}
       >
         {/* Top bar */}
         <div className="flex items-center gap-3 border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-3 sm:gap-4 sm:px-5">
@@ -757,6 +742,7 @@ export default function AlbumInfoModal({
           </div>
         </div>
       </aside>
-    </div>
+    </div>,
+    document.body,
   )
 }
