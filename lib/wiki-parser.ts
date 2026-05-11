@@ -447,7 +447,11 @@ export function parseDiscographyPage(wikitext: string): DiscographyItem[] {
       continue
     }
 
-    if (/!.*rowspan.*Year|!rowspan.*Year/i.test(line)) { yearMode = true; continue }
+    // yearMode aktivuojama, kai pamatom `! Year` table header (su ar be
+    // rowspan). Anksčiau buvo reikalingas rowspan eksplicit'as → table'ai be
+    // jo (pvz Wumpscut: `! Year` plain) neaktivuodavo yearMode → albumai
+    // nesurandami. Dabar bet kuris ! Year header trigger'ina.
+    if (/^!\s*Year\s*$/i.test(line) || /!.*rowspan.*Year|!rowspan.*Year/i.test(line)) { yearMode = true; continue }
 
     const yearM = line.match(/^\|\s*(?:rowspan\s*=\s*["']?(\d+)["']?\s*\|)?\s*((?:19|20)\d{2})\s*$/)
     if (yearM) {
