@@ -1263,10 +1263,10 @@ function TrackInfoModal({
    *  dock'o "panašios dainos" sąrašo įrašą. */
   onSelectTrack?: (t: Track) => void
 }) {
-  // We use an internal `mounted` flag so the slide-out animation gets a chance
-  // to run before the component unmounts. When a new track replaces the
-  // previous one, we re-use the mounted drawer.
-  const [mounted, setMounted] = useState(false)
+  // (removed: `mounted` state + rAF entrance animation — replaced with
+  //  always-visible aside. Reason: opacity-0 + translate-y-full initial state
+  //  could get stuck on iOS Safari if rAF/setMounted didn't propagate, leaving
+  //  user with backdrop-blur but invisible aside.)
   // Local "self liked" toggle for the LikePill — track page'as pats turi pilną
   // optimistic-update logiką. Drawer'is paprastesnis: vizualus toggle, kad
   // user'is matytų reakciją; pilnas like persist'inimas vyksta track puslapyje.
@@ -1324,28 +1324,18 @@ function TrackInfoModal({
   useEffect(() => { if (!track) setUserNavigated(false) }, [track])
 
   useEffect(() => {
-    if (track) {
-      // Defer to next frame so the element can transition in.
-      const r = requestAnimationFrame(() => setMounted(true))
-      const h = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose() }
-      window.addEventListener('keydown', h)
-      // Body scroll lock — atidarius drawer'į, fonas neturi scroll'intis. Be
-      // šito atrodydavo kaip bug: prabraukus pelę over the modal, pagrindinis
-      // puslapis sukasi po juo. Atstatom prie unmount.
-      const prevOverflow = document.body.style.overflow
-      document.body.style.overflow = 'hidden'
-      // Reset like state + mobile tab per naują track'ą — komentarus dabar
-      // fetch'ina pats EntityCommentsBlock'as, drawer'is jais nesidomi.
-      setSelfLiked(false)
-      setMobileTab('lyrics')
-      return () => {
-        cancelAnimationFrame(r)
-        window.removeEventListener('keydown', h)
-        document.body.style.overflow = prevOverflow
-      }
+    if (!track) return
+    // Escape key + body scroll lock + reset per-track state.
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose() }
+    window.addEventListener('keydown', h)
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    setSelfLiked(false)
+    setMobileTab('lyrics')
+    return () => {
+      window.removeEventListener('keydown', h)
+      document.body.style.overflow = prevOverflow
     }
-    setMounted(false)
-    return
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [track?.id])
 
@@ -1360,9 +1350,7 @@ function TrackInfoModal({
   }, [likersOpen, track?.id])
 
   const handleClose = () => {
-    setMounted(false)
-    // Let the transition play before actually clearing the track.
-    window.setTimeout(onClose, 200)
+    onClose()
   }
 
   if (!track) return null
@@ -1590,7 +1578,7 @@ function TrackInfoModal({
         </aside>
 
         {/* Docked player — dešinė kolona */}
-        {mounted && (
+        {(
           <div className="row-start-2 col-start-2 flex flex-col overflow-hidden bg-[var(--bg-surface)] px-5 py-5">
             <div className="flex shrink-0 items-center gap-2.5">
               <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
@@ -1745,10 +1733,6 @@ function TrackInfoModal({
           'flex w-full flex-col overflow-hidden bg-[var(--bg-surface)] shadow-[0_24px_60px_-10px_rgba(0,0,0,0.5)]',
           'max-h-[90vh] rounded-t-2xl',
           'sm:max-h-[85vh] sm:rounded-2xl sm:mx-4 sm:max-w-[640px]',
-          'transition-all duration-300 ease-out',
-          mounted
-            ? 'translate-y-0 opacity-100 sm:scale-100'
-            : 'translate-y-full opacity-0 sm:translate-y-0 sm:scale-95',
         ].join(' ')}
       >
         {/* Mobile handle bar */}
