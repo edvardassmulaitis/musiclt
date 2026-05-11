@@ -1315,9 +1315,13 @@ function TrackInfoModal({
 
   // Ref body scroll container'ui — scroll position reset'ui kai tab keičiasi.
   const bodyScrollRef = useRef<HTMLDivElement>(null)
-  // videoStarted — false default, rodom YouTube thumbnail + play button.
-  // Tik kai user'is paspaudžia → load'inam iframe su autoplay. Taupom mobile
-  // data + greitesnis modal open (jokio YouTube SDK load'o pradžioj).
+  // Ref iframe'ui — naudojam postMessage'ą trigger'inti playVideo iš user gesture.
+  // Anksčiau iframe key=trackVid + autoplay=1 — bet kai kuriose Safari versijose
+  // autoplay neveikia despite user gesture. postMessage('playVideo') via
+  // YouTube IFrame API yra patikimas būdas — iframe jau load'inta, click → play.
+  const videoIframeRef = useRef<HTMLIFrameElement>(null)
+  // videoStarted — false default, rodom thumbnail + orange play overlay.
+  // Click → postMessage play + hide overlay. Iframe always-mounted (background).
   const [videoStarted, setVideoStarted] = useState(false)
 
   // Reset scroll position kai user perjungia tab — naujas tab visada start'uoja viršuje.
@@ -1325,13 +1329,15 @@ function TrackInfoModal({
     bodyScrollRef.current?.scrollTo({ top: 0 })
   }, [mobileTab])
 
-  // Notify parent kad modal'as turi savo iframe'ą — suppress hero player'į.
-  // Anksčiau buvo showVideo state — dabar video visada renderinasi (mažas),
-  // suppress'inam visada kai modal open + track turi video.
+  // Notify parent SUPPRESS hero player tik kai modal video AKTYVIAI groja.
+  // Default modal open + thumbnail showing → hero gali toliau groti (audio +
+  // matosi pro lighter desktop backdrop). Tik kai user paspaudžia modal'o
+  // orange play → setVideoStarted(true) → onMobileInlineChange(true) →
+  // hero pause'inamas (kad audio nedvigubėtų).
   useEffect(() => {
-    onMobileInlineChange?.(!!trackVid)
+    onMobileInlineChange?.(!!(trackVid && videoStarted))
     return () => onMobileInlineChange?.(false)
-  }, [trackVid, onMobileInlineChange])
+  }, [trackVid, videoStarted, onMobileInlineChange])
 
   useEffect(() => {
     if (!track) return
@@ -1481,9 +1487,9 @@ function TrackInfoModal({
         // Backdrop dimming: stiprus mobile (focus modal), švelnesnis desktop'e
         // (kad user'is matytų artist'o page'ą + hero player'į pro modal'ą).
         'bg-black/60 sm:bg-black/30',
-        // Wide desktop (≥lg) — modal'as align'inamas kairėj su mažu padding'u,
-        // kad hero player'is dešinėj liktų matomas ir leistų groti.
-        'lg:justify-start lg:pl-[4%]',
+        // Wide desktop (≥lg) — modal'as align'inamas kairiau nei center, bet
+        // ne į kraštą — kad hero player'is dešinėj liktų aiškiai matomas.
+        'lg:justify-start lg:pl-[10%]',
       ].join(' ')}
       onClick={(e) => { if (e.target === e.currentTarget) handleClose() }}
     >
@@ -1571,47 +1577,61 @@ function TrackInfoModal({
             Video visada matomas (mažas), useris gali click'inti native play
             arba YouTube fullscreen'inti. Meta — popbar (reactions) +
             likes + data + albums vertikaliai dešinėj. */}
-        <div className="grid shrink-0 grid-cols-[7fr_3fr] border-b border-[var(--border-subtle)]">
-          {/* Left: video. Default — thumbnail + native play button (lighter:
-              no iframe SDK load). Click → swap to iframe su autoplay.
-              max-h apsaugo nuo neproporcingo expand'imo kai grid render'ina
-              keisai (kartais matėm video > pusės screen). */}
-          <div className="aspect-video max-h-[180px] w-full overflow-hidden bg-black sm:max-h-[260px]">
+        <div className="grid shrink-0 grid-cols-[minmax(0,7fr)_minmax(0,3fr)] border-b border-[var(--border-subtle)]">
+          {/* Left: video.
+              ARCHITEKTURA: iframe always-mounted (background) su enablejsapi=1.
+              Overlay (thumbnail + orange play button) covers iframe kol
+              user'is nepaspaudė. Click → postMessage('playVideo') → iframe
+              start'uoja groti + overlay fade out. User gesture preserved.
+              max-h apsaugo nuo per-tall video kai grid leidžia per-wide. */}
+          <div className="relative aspect-video max-h-[180px] w-full overflow-hidden bg-black sm:max-h-[260px]">
             {trackVid ? (
-              videoStarted ? (
+              <>
+                {/* Background iframe — always loaded so postMessage veiks be delay. */}
                 <iframe
+                  ref={videoIframeRef}
                   key={`modal-video-${trackVid}`}
-                  src={`https://www.youtube.com/embed/${trackVid}?playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&autoplay=1`}
+                  src={`https://www.youtube.com/embed/${trackVid}?playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1&origin=${typeof window !== 'undefined' ? encodeURIComponent(window.location.origin) : ''}`}
                   title={`${track.title} — ${artistName}`}
-                  className="h-full w-full"
+                  className="absolute inset-0 h-full w-full"
                   referrerPolicy="strict-origin-when-cross-origin"
                   allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
                   allowFullScreen
                 />
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setVideoStarted(true)}
-                  aria-label={`Leisti ${track.title} vaizdo įrašą`}
-                  className="group relative block h-full w-full overflow-hidden bg-black"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={`https://i.ytimg.com/vi/${trackVid}/hqdefault.jpg`}
-                    alt=""
-                    className="absolute inset-0 h-full w-full object-cover"
-                    referrerPolicy="no-referrer"
-                  />
-                  {/* Dark overlay for play button contrast */}
-                  <div className="absolute inset-0 bg-black/20 transition-colors group-hover:bg-black/35" />
-                  {/* YouTube-style red play button */}
-                  <span className="absolute left-1/2 top-1/2 flex h-9 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-md bg-[#FF0000] shadow-[0_4px_12px_rgba(0,0,0,0.4)] transition-transform group-hover:scale-110 sm:h-11 sm:w-14">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
-                  </span>
-                </button>
-              )
+                {/* Overlay — thumbnail + orange play button. Click → postMessage play. */}
+                {!videoStarted && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVideoStarted(true)
+                      // postMessage YouTube IFrame API: trigger play. Source/target
+                      // origin '*' yra OK čia, nes komandą siunčiam į mūsų pačių
+                      // embed'intą iframe'ą (saugumas iframe leidžia/blokuoja).
+                      videoIframeRef.current?.contentWindow?.postMessage(
+                        JSON.stringify({ event: 'command', func: 'playVideo', args: [] }),
+                        '*',
+                      )
+                    }}
+                    aria-label={`Leisti ${track.title} vaizdo įrašą`}
+                    className="group absolute inset-0 block h-full w-full overflow-hidden"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`https://i.ytimg.com/vi/${trackVid}/hqdefault.jpg`}
+                      alt=""
+                      className="absolute inset-0 h-full w-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute inset-0 bg-black/25 transition-colors group-hover:bg-black/40" />
+                    {/* Site orange play button — matchina artist page hero stilių. */}
+                    <span className="absolute left-1/2 top-1/2 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_8px_24px_rgba(249,115,22,0.5)] ring-[3px] ring-white/15 transition-transform group-hover:scale-110 sm:h-14 sm:w-14">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    </span>
+                  </button>
+                )}
+              </>
             ) : (
               <div className="flex h-full w-full items-center justify-center text-[10px] uppercase tracking-wider text-[var(--text-faint)]">
                 Vaizdo įrašo nėra
