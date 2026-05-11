@@ -259,16 +259,23 @@ async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackI
     let trackId = t.track_id
 
     if (trackId) {
-      // Track egzistuoja — atnaujinkime
+      // Track egzistuoja — atnaujinkime.
+      // is_single PROMOTE-ONLY: jei parser šitam album'e detected single, set true;
+      // jei NE — neperrašom į false, nes track gali būti single per kitą albumą
+      // (release as single, paskui įtrauktas į compilation/studio albume kur Wiki
+      // singles infobox neminin). Anksčiau "Hymn for the Weekend" prarado
+      // is_single=true kai user importavo "Music of the Spheres" albume tame
+      // pačiame track-id, bet to albumo {{Singles}} template'e nebuvo Hymn.
       const cleanTitle = t.title.trim()
       const newSlug = slugify(cleanTitle)
-      await supabase.from('tracks').update({
+      const updateBody: any = {
         title: cleanTitle,
         slug: newSlug,
         video_url: t.video_url || null,
         spotify_id: t.spotify_id || null,
-        is_single: t.is_single || false,
-      }).eq('id', trackId)
+      }
+      if (t.is_single) updateBody.is_single = true
+      await supabase.from('tracks').update(updateBody).eq('id', trackId)
     } else {
       // Naujas track
       const cleanTitle = t.title
@@ -284,12 +291,14 @@ async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackI
 
       if (existing) {
         trackId = existing.id
-        await supabase.from('tracks').update({
+        // Tas pats promote-only paterns kaip aukščiau
+        const updateBody: any = {
           title: cleanTitle,
           video_url: t.video_url || null,
           spotify_id: t.spotify_id || null,
-          is_single: t.is_single || false,
-        }).eq('id', trackId)
+        }
+        if (t.is_single) updateBody.is_single = true
+        await supabase.from('tracks').update(updateBody).eq('id', trackId)
       } else {
         // Unikalus slug jei reikia
         let slug = baseSlug
