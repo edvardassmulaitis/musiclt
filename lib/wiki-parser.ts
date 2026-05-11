@@ -604,6 +604,23 @@ export function parseSinglesFromInfobox(wikitext: string): { names: Set<string>;
   }
 
   function parseDate(dateStr: string): SingleInfoboxData {
+    // {{Start date|df=yes|2019|10|24}} arba {{Start date|2019|10|24}} —
+    // Wikipedia infobox'uose dažnai naudojama vietoj plain "24 October 2019".
+    // Anksčiau parseDate strip'indavo VISUS {{...}} templates → date'a buvo
+    // tuščia (Coldplay 'Everyday Life' / 'Orphans' atveju).
+    const sd = dateStr.match(/\{\{[Ss]tart[\s_]?date(?:\|[^|}]+)?\|(\d{4})(?:\|(\d{1,2})(?:\|(\d{1,2}))?)?[\s\S]*?\}\}/)
+    if (sd) {
+      const y = parseInt(sd[1])
+      // Start date'o pirmas pozicinis arg gali būti df=yes/mf=yes, tada (\d{4}) match'inasi prie YYYY.
+      // Pasitikrinam ar sd[1] yra "df", jei taip — skipinam.
+      if (!isNaN(y)) {
+        return {
+          year: y,
+          month: sd[2] ? parseInt(sd[2]) : null,
+          day: sd[3] ? parseInt(sd[3]) : null,
+        }
+      }
+    }
     const clean = dateStr.replace(/\([^)]*\)/g, '').replace(/\{\{[^}]*\}\}/g, '').replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '').replace(/<ref[^/]*\/>/gi, '').trim()
     const full = clean.match(/(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})/i)
     if (full) return { day: parseInt(full[1]), month: MONTHS[full[2].toLowerCase()] || null, year: parseInt(full[3]) }
@@ -623,6 +640,10 @@ export function parseSinglesFromInfobox(wikitext: string): { names: Set<string>;
     const sRe = /\|\s*single(\d+)\s*=\s*((?:\[\[[^\]]*\]\]|[^|\n])+)/g
     let sm: RegExpExecArray | null
     const singlesByNum: Record<string, string> = {}
+    // Double A-side track'ai (pvz "Orphans" / "Arabesque" Coldplay) \u2014 abu turi
+    // gauti t\u0105 pa\u010di\u0105 release dat\u0105 i\u0161 to paties single{n}date. slashAltsByNum
+    // saugo visus alternate'us pagal single number.
+    const slashAltsByNum: Record<string, string[]> = {}
     while ((sm = sRe.exec(chunk)) !== null) {
       let name = extractName(sm[2])
       if (!name) {
@@ -637,17 +658,30 @@ export function parseSinglesFromInfobox(wikitext: string): { names: Set<string>;
       const rawVal = sm[2].replace(/\[\[[^\]|]+\|([^\]]+)\]\]/g, '$1').replace(/\[\[([^\]]+)\]\]/g, '$1')
         .replace(disambigRe, '')
       if (rawVal.includes('/')) {
+        const alts: string[] = []
         for (const part of rawVal.split('/')) {
           const clean = normalizeSingleKey(part.replace(/['""\u201c\u201d\u2018\u2019]+/g, ''))
-          if (clean.length > 1) names.add(clean)
+          if (clean.length > 1) {
+            names.add(clean)
+            alts.push(clean)
+          }
         }
+        if (alts.length) slashAltsByNum[sm[1]] = alts
       }
     }
-    const dRe = /\|\s*single(\d+)date\s*=\s*([^\n|]+)/g
+    // [^\n]+ vietoj [^\n|]+ — {{Start date|df=yes|2019|10|24}} turi pipes
+    // viduje template'o, kurie anksčiau nutraukdavo capture'ą prie pirmojo |.
+    const dRe = /\|\s*single(\d+)date\s*=\s*([^\n]+)/g
     let dm: RegExpExecArray | null
     while ((dm = dRe.exec(chunk)) !== null) {
       const singleName = singlesByNum[dm[1]]
-      if (singleName) dates.set(singleName, parseDate(dm[2]))
+      const date = parseDate(dm[2])
+      if (singleName) dates.set(singleName, date)
+      // Propaguojam t\u0105 pa\u010di\u0105 dat\u0105 visiems slash-alternate'ams kad
+      // "Arabesque" (antras dvigubo A-side track'as) gaut\u0173 t\u0105 pa\u010di\u0105
+      // 2019-10-24 dat\u0105 kaip "Orphans".
+      const alts = slashAltsByNum[dm[1]] || []
+      for (const alt of alts) dates.set(alt, date)
     }
   }
 
