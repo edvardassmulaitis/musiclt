@@ -1478,7 +1478,33 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                 </span>
               )}
               {it.duplicate && it.duplicateId && (
-                <a href={`/admin/albums/${it.duplicateId}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="text-[10px] text-blue-500 hover:underline">atidaryti →</a>
+                <>
+                  <a href={`/admin/albums/${it.duplicateId}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="text-[10px] text-blue-500 hover:underline">atidaryti →</a>
+                  <button
+                    type="button"
+                    onClick={async e => {
+                      e.stopPropagation()
+                      if (!it.duplicateId) return
+                      if (!window.confirm(`Trinti "${it.title}" + visas šio albumo dainas (jei jos nepriklauso kitiems albumams)? Šis veiksmas leis iš naujo importuoti su naujausiu parser'iu.`)) return
+                      try {
+                        const res = await fetch(`/api/albums/${it.duplicateId}?deleteTracks=true`, { method: 'DELETE' })
+                        if (!res.ok) {
+                          alert(`Trynimas nepavyko: ${res.status}`)
+                          return
+                        }
+                        // Mark not-duplicate, clear cached tracks so fetchDetails refetches
+                        setItems(p => p.map((x, idx) => idx === i ? { ...x, duplicate: false, duplicateId: undefined, fetched: false, tracks: undefined, imported: false } : x))
+                        addLog(`🗑 ${it.title} ištrintas — galima re-importuoti`)
+                      } catch (err: any) {
+                        alert(`Klaida: ${err?.message || err}`)
+                      }
+                    }}
+                    className="text-[10px] text-rose-500 hover:underline hover:text-rose-700"
+                    title="Ištrinti DB ir leisti re-importuoti su naujausiu parser'iu"
+                  >
+                    atnaujinti ↻
+                  </button>
+                </>
               )}
             </div>
           </div>
