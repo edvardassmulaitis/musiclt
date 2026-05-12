@@ -209,8 +209,12 @@ export default function WikimediaSearch({
     setError('')
     const uploaded: Photo[] = []
     for (const img of toAdd) {
-      const authorParts = [img.author, img.license].filter(Boolean)
-      const authorStr = authorParts.join(' · ') || undefined
+      // Author + license as SEPARATE fields — anksciau buvo combined kaip
+      // 'Drew · CC BY 2.0' (one string), bet admin UI dabar turi atskirus
+      // input fields license'ui. Plus separation leidžia filter'inti pagal
+      // license type (Commons photos, all-rights-reserved, etc).
+      const authorStr: string | undefined = img.author || undefined
+      const licenseStr: string | undefined = img.license || undefined
       try {
         // Use a web-optimised size (1200px wide) — good quality, not 50MB originals
         const uploadUrl = img.fullUrl.includes('?') 
@@ -224,13 +228,13 @@ export default function WikimediaSearch({
         if (res.ok) {
           const d = await res.json()
           if (d.url && (d.url.includes('supabase') || d.url.startsWith('/'))) {
-            uploaded.push({ url: d.url, author: authorStr, authorUrl: img.descriptionUrl, takenAt: img.takenAt, sourceUrl: img.descriptionUrl } as any)
+            uploaded.push({ url: d.url, author: authorStr, license: licenseStr, authorUrl: img.descriptionUrl, takenAt: img.takenAt, sourceUrl: img.descriptionUrl } as any)
             continue
           }
         }
       } catch {}
       // Fallback to direct wikimedia URL
-      uploaded.push({ url: img.fullUrl, author: authorStr, authorUrl: img.descriptionUrl, takenAt: img.takenAt, sourceUrl: img.descriptionUrl } as any)
+      uploaded.push({ url: img.fullUrl, author: authorStr, license: licenseStr, authorUrl: img.descriptionUrl, takenAt: img.takenAt, sourceUrl: img.descriptionUrl } as any)
     }
     setLoading(false)
     onAddMultiple(uploaded)

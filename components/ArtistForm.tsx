@@ -1261,8 +1261,12 @@ function InlineGallery({ photos, onChange, artistName, artistId, onSetAvatar, cu
               .filter(p => !existingUrls.has(p.url))
               .map(p => ({
                 url: p.url,
+                // VISI metadata fields'ai preserve'inami (anksciau buvo
+                // tik url+author+sourceUrl — takenAt ir license dingdavo).
                 author: (p as any).author || undefined,
+                license: (p as any).license || undefined,
                 sourceUrl: (p as any).authorUrl || (p as any).sourceUrl || undefined,
+                takenAt: (p as any).takenAt || undefined,
               }))
             if (fresh.length) { const next = [...fresh, ...photos]; onChange(next); saveToDb(next) }
             setShowWikimedia(false)

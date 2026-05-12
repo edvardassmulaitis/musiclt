@@ -103,12 +103,23 @@ export async function GET(
           caption = ''
         } catch {}
       }
+      // Legacy split: kai author saugotas kaip 'Name · License' (one string),
+      // perskirti į name + license atskirai. Tik jei p.license dar tuščia
+      // (kitaip DB license imama tiesiogiai).
+      let license = p.license || ''
+      if (!license && author) {
+        const m = author.match(/^(.+?)\s*[·•|]\s*(.+)$/)
+        if (m) {
+          author = m[1].trim()
+          license = m[2].trim()
+        }
+      }
       return {
         id: p.id,
         url: p.url,
         author,
         sourceUrl,
-        license: p.license || '',
+        license,
         takenAt: p.taken_at || '',
         place: p.place || '',
         caption,
