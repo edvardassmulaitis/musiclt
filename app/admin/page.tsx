@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import AdminMigrationProgress from '@/components/AdminMigrationProgress'
 
 type Counts = {
   artists: number; albums: number; tracks: number
@@ -200,6 +201,11 @@ export default function AdminDashboardPage() {
             Migracijos workflow + content management. Optimizuotas mobile'ui.
           </p>
         </div>
+
+        {/* Migracijos progresas — visų atlikėjų sutvarkymo % + priority list */}
+        <section className="mb-6">
+          <AdminMigrationProgress />
+        </section>
 
         {/* Migracija — top priority section, paskutiniai veiksmai */}
         <section className="mb-8">
