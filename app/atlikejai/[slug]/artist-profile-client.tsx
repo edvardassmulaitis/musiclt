@@ -15,6 +15,8 @@ import { proxyImg, proxyImgResized } from '@/lib/img-proxy'
 import { formatArtistList } from '@/lib/format-artists'
 import DropBar from '@/components/DropBar'
 import AlbumInfoModal from '@/components/AlbumInfoModal'
+import EventInfoModal, { type EventPreview } from '@/components/EventInfoModal'
+import NewsInfoModal, { type NewsPreview } from '@/components/NewsInfoModal'
 
 /* ═══════════════════════════════════════════════════════════════════
    Artist profile — v10.
@@ -1835,7 +1837,7 @@ function Hero({
   artist, heroImage, loaded, likes, selfLiked, onToggleLike, onOpenLikersModal, selfLikePending,
   tracksAllTime, tracksTrending, activeTrackId, onSelectTrack,
   playing, onRequestPlay, onOpenTrackInfo, hasAnyVideo,
-  upcomingEvents, onOpenEventsModal, onOpenHeroLightbox,
+  upcomingEvents, onOpenEventsModal, onOpenHeroLightbox, onOpenEvent,
 }: {
   artist: any; heroImage: string | null; loaded: boolean
   likes: number; selfLiked?: boolean
@@ -1849,6 +1851,8 @@ function Hero({
   onOpenEventsModal: () => void
   /** Open photo lightbox at index 0. Optional — kai gallery nėra, hero click nieko nedaro. */
   onOpenHeroLightbox?: () => void
+  /** Open EventInfoModal for given event. Forwarded to EventCard variants. */
+  onOpenEvent?: (e: any) => void
 }) {
   const coverPos = parseCoverPos(artist.cover_image_position || 'center 30%')
   // Hero foto FIXED width 600px desktop'e — be JS-based dimension detection.
@@ -2024,7 +2028,7 @@ function Hero({
                   parent'o stretch dydžio (lygiavimas su player'iu). */}
               {desktopVisible.map((e: any) => (
                 <div key={e.id} className="flex min-h-[260px] flex-1 flex-col">
-                  <EventCard e={e} variant="vertical" />
+                  <EventCard e={e} variant="vertical" onOpen={onOpenEvent} />
                 </div>
               ))}
               {hasOverflow && (
@@ -2095,7 +2099,7 @@ function Hero({
                 className="flex w-[86%] shrink-0"
                 style={{ scrollSnapAlign: 'start' }}
               >
-                <EventCard e={e} variant="upcoming" />
+                <EventCard e={e} variant="upcoming" onOpen={onOpenEvent} />
               </div>
             ))}
           </div>
@@ -2902,7 +2906,7 @@ function EventVerticalCard({ e, href, hasCover, setCoverFailed, d, venue }: {
   )
 }
 
-function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' | 'past' | 'compact' | 'vertical' }) {
+function EventCard({ e, variant = 'upcoming', onOpen }: { e: any; variant?: 'upcoming' | 'past' | 'compact' | 'vertical'; onOpen?: (e: any) => void }) {
   const d = new Date(e.start_date)
   const venue = [e.venue_name, e.city].filter(Boolean).join(', ')
   const href = `/renginiai/${e.slug}`
@@ -2920,6 +2924,7 @@ function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' |
     return (
       <Link
         href={href}
+        onClick={onOpen ? (ev) => { ev.preventDefault(); onOpen(e) } : undefined}
         className="flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3 no-underline transition-all hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
       >
         <div className="flex min-w-[64px] flex-col items-center justify-center rounded-lg bg-[var(--card-bg)] px-2 py-1.5 text-center">
@@ -2966,6 +2971,7 @@ function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' |
     return (
       <Link
         href={href}
+        onClick={onOpen ? (ev) => { ev.preventDefault(); onOpen(e) } : undefined}
         className="group flex items-stretch gap-3 overflow-hidden rounded-2xl border border-[rgba(249,115,22,0.3)] p-3 no-underline transition-all hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.55)] hover:shadow-[0_10px_28px_rgba(249,115,22,0.15)]"
         style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.18), rgba(249,115,22,0.04) 70%), var(--bg-elevated)' }}
       >
@@ -2996,6 +3002,7 @@ function EventCard({ e, variant = 'upcoming' }: { e: any; variant?: 'upcoming' |
   return (
     <Link
       href={href}
+        onClick={onOpen ? (ev) => { ev.preventDefault(); onOpen(e) } : undefined}
       className="group flex min-h-[130px] w-full items-stretch gap-0 overflow-hidden rounded-2xl border border-[var(--border-subtle)] no-underline transition-all hover:-translate-y-0.5 hover:border-[var(--border-default)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.2)]"
       style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.16), rgba(249,115,22,0.04) 70%), var(--bg-elevated)' }}
     >
@@ -3082,8 +3089,8 @@ function MoreEventsTile({ count, onClick }: { count: number; onClick: () => void
 }
 
 function EventsModal({
-  open, events, onClose,
-}: { open: boolean; events: any[]; onClose: () => void }) {
+  open, events, onClose, onOpenEvent,
+}: { open: boolean; events: any[]; onClose: () => void; onOpenEvent?: (e: any) => void }) {
   useEffect(() => {
     if (!open) return
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -3125,7 +3132,7 @@ function EventsModal({
         </div>
         <div className="overflow-y-auto px-5 py-5">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {events.map((e: any) => <EventBigCard key={e.id} e={e} />)}
+            {events.map((e: any) => <EventBigCard key={e.id} e={e} onOpen={onOpenEvent} />)}
           </div>
         </div>
       </div>
@@ -3136,7 +3143,7 @@ function EventsModal({
 
 /** Larger hero-style event card used inside EventsModal so the full list
  *  showcases each event with cover art + more visual weight. */
-function EventBigCard({ e }: { e: any }) {
+function EventBigCard({ e, onOpen }: { e: any; onOpen?: (e: any) => void }) {
   const d = new Date(e.start_date)
   const venue = [e.venue_name, e.city].filter(Boolean).join(', ')
   const href = `/renginiai/${e.slug}`
@@ -4074,6 +4081,8 @@ export default function ArtistProfileClient({
   // atidaro DiscussionThreadModal artist page'e (user'is pageidavo, kad
   // visi linkai atsidarytų modaluose, nereiktų išeit iš main page).
   const [activeThread, setActiveThread] = useState<LegacyThread | null>(null)
+  const [activeEvent, setActiveEvent] = useState<EventPreview | null>(null)
+  const [activeNews, setActiveNews] = useState<NewsPreview | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [likesModalOpen, setLikesModalOpen] = useState(false)
   const [bioModalOpen, setBioModalOpen] = useState(false)
@@ -4373,12 +4382,14 @@ export default function ArtistProfileClient({
         upcomingEvents={upcomingEvents}
         onOpenEventsModal={() => setEventsModalOpen(true)}
         onOpenHeroLightbox={() => { if (galleryPhotos.length > 0) setLightboxIndex(0) }}
+        onOpenEvent={setActiveEvent}
       />
 
       <EventsModal
         open={eventsModalOpen}
         events={upcomingEvents}
         onClose={() => setEventsModalOpen(false)}
+        onOpenEvent={(e) => { setEventsModalOpen(false); setActiveEvent(e) }}
       />
 
       <DiscussionsModal
@@ -4392,6 +4403,18 @@ export default function ArtistProfileClient({
       <DiscussionThreadModal
         thread={activeThread}
         onClose={() => setActiveThread(null)}
+      />
+
+      {/* EventInfoModal — pilnas renginys (data, vieta, dalyviai, source). */}
+      <EventInfoModal
+        event={activeEvent}
+        onClose={() => setActiveEvent(null)}
+      />
+
+      {/* NewsInfoModal — naujiena su tekstu + komentarais. */}
+      <NewsInfoModal
+        news={activeNews}
+        onClose={() => setActiveNews(null)}
       />
 
       <LikesModal
@@ -4829,7 +4852,7 @@ export default function ArtistProfileClient({
               )}
             </div>
             <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-              {(showArchive ? [...pastEvents, ...archivedPastEvents] : pastEvents).map((e: any) => <EventCard key={e.id} e={e} variant="past" />)}
+              {(showArchive ? [...pastEvents, ...archivedPastEvents] : pastEvents).map((e: any) => <EventCard key={e.id} e={e} variant="past" onOpen={setActiveEvent} />)}
             </div>
           </section>
         )}
@@ -4893,6 +4916,15 @@ export default function ArtistProfileClient({
                   <Link
                     key={n.legacy_id}
                     href={newsHref}
+                    onClick={(ev) => {
+                      ev.preventDefault()
+                      setActiveNews({
+                        id: (n as any).id || n.legacy_id,
+                        slug: n.canonical_slug || undefined,
+                        title,
+                        legacy_id: n.legacy_id,
+                      })
+                    }}
                     className="group flex flex-col gap-3 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5 no-underline transition-all hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.2)]"
                   >
                     <div className="flex items-center gap-2">
