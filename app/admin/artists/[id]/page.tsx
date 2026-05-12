@@ -429,19 +429,35 @@ function DiscographyPanel({ artistId, artistName, artistType, refreshKey, onImpo
   const [singles, setSingles] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
+  const [pendingCount, setPendingCount] = useState(0)
+  const [showPending, setShowPending] = useState(false)
   const loadData = useCallback(() => {
     setLoading(true)
     Promise.all([
-      fetch(`/api/albums?artist_id=${artistId}&limit=100`).then(r => r.json()),
-      fetch(`/api/tracks?artist_id=${artistId}&limit=200`).then(r => r.json()),
+      fetch(`/api/albums?artist_id=${artistId}&limit=500`).then(r => r.json()),
+      fetch(`/api/tracks?artist_id=${artistId}&limit=2000`).then(r => r.json()),
     ]).then(([albumData, trackData]) => {
-      const sorted = (albumData.albums || []).sort((a: any, b: any) => (b.year || 0) - (a.year || 0))
-      setAlbums(sorted)
+      // Atskirti canonical (Wiki + LT match'inta) nuo legacy_scrape_pending
+      // (music.lt rado bet Wiki neturi). Pending NESIRODO default'e — UI'us
+      // turi 'mismatch' toggle apačioje (showPending), kad user'is
+      // explicit'ai nuspręstų review'inti. Anksčiau Metallica 14 studio
+      // tapo 63 įrašai diskografijos panel'yje dėl pending'ų.
+      const allAlbums = (albumData.albums || [])
+      const canonical = allAlbums.filter((a: any) => a.source !== 'legacy_scrape_pending')
+      const pending = allAlbums.filter((a: any) => a.source === 'legacy_scrape_pending')
+      const sorted = canonical.sort((a: any, b: any) => (b.year || 0) - (a.year || 0))
+      const pendingSorted = pending.sort((a: any, b: any) => (b.year || 0) - (a.year || 0))
+      setAlbums(showPending ? [...sorted, ...pendingSorted] : sorted)
+      setPendingCount(pending.length)
       const allTracks = (trackData.tracks || [])
-      const singlesOnly = allTracks.filter((t: any) => t.album_count === 0)
+      // Singles only — be albumo priskirimo. Filter'inam ir source pending,
+      // kad nemaišytume su canonical singles.
+      const singlesOnly = allTracks
+        .filter((t: any) => t.album_count === 0)
+        .filter((t: any) => showPending || t.source !== 'legacy_scrape_pending')
       setSingles(singlesOnly.sort((a: any, b: any) => (b.release_year || 0) - (a.release_year || 0)))
     }).finally(() => setLoading(false))
-  }, [artistId])
+  }, [artistId, showPending])
 
   useEffect(() => { loadData() }, [artistId, refreshKey, loadData])
 
@@ -498,6 +514,24 @@ function DiscographyPanel({ artistId, artistName, artistType, refreshKey, onImpo
         </div>
       </div>
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
+        {/* Pending toggle — jei music.lt scrape rado albumų/dainų, kurių
+            Wiki canonical sąraše neturi, jie default'e slepiami. User'is
+            gali įjungti toggle, kad pamatyti review'ui. */}
+        {pendingCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowPending(p => !p)}
+            className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${
+              showPending
+                ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                : 'bg-amber-50 text-amber-600 hover:bg-amber-100'
+            }`}
+            title="Music.lt scrape rado šiuos įrašus, bet Wiki canonical sąraše jų nėra. Reikia review/aktyvavimo."
+          >
+            <span>⚠ {pendingCount} pending iš music.lt (nesutampa su Wiki)</span>
+            <span className="font-bold">{showPending ? 'slėpti' : 'rodyti'}</span>
+          </button>
+        )}
         {loading ? (
           <div className="flex justify-center py-8">
             <div className="w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />

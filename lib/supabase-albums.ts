@@ -307,10 +307,22 @@ async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackI
       // (kaip 'Toxic' iš In the Zone). Tas pats slug → unique suffix vis
       // tiek vyks. Skip'inam egzistavimo paiešką — tikrai naujas record.
       const isRemix = t.type === 'remix'
-      const { data: existing } = isRemix
-        ? { data: null as { id: number } | null }
-        : await supabase
-            .from('tracks').select('id').eq('artist_id', artistId).eq('slug', baseSlug).maybeSingle()
+      // Egzistavimo paieška dviem etapais (kad netyčia ne kūrtume duplicate'o):
+      //   1. Exact slug match (greitas)
+      //   2. Title ilike match (case-insensitive, apima trailing spaces ar
+      //      apostrophe variantus kuriuose slugify gali skirtis)
+      let existing: { id: number } | null = null
+      if (!isRemix) {
+        const bySlug = await supabase
+          .from('tracks').select('id').eq('artist_id', artistId).eq('slug', baseSlug).maybeSingle()
+        if (bySlug.data) {
+          existing = bySlug.data
+        } else {
+          const byTitle = await supabase
+            .from('tracks').select('id').eq('artist_id', artistId).ilike('title', cleanTitle).maybeSingle()
+          if (byTitle.data) existing = byTitle.data
+        }
+      }
 
       if (existing) {
         trackId = existing.id
