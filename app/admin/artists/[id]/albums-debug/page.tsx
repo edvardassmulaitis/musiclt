@@ -71,36 +71,52 @@ async function getAlbums(id: number): Promise<AlbumRow[]> {
 
   const ids = albums.map(a => a.id)
 
-  // Track counts + singles + lyrics coverage per album, via album_tracks JOIN
+  // Track counts + singles + lyrics coverage per album, via album_tracks JOIN.
+  // PostgREST'as db-max-rows default'inai 1000, ir .range(0, 49999) NEPRADURIA
+  // šito limito — server'is grąžins tik 1000. Paginuojam tikrą while loop'ą,
+  // kad nebūtų silent truncation.
+  const PAGE = 1000
   const tcMap = new Map<number, { tracks: number; singles: number; lyrics: number }>()
   for (let i = 0; i < ids.length; i += 50) {
     const chunk = ids.slice(i, i + 50)
-    const { data: at } = await sb
-      .from('album_tracks')
-      .select('album_id, tracks(is_single, lyrics)')
-      .in('album_id', chunk)
-      .range(0, 49999)
-    for (const r of (at || []) as any[]) {
-      const m = tcMap.get(r.album_id) || { tracks: 0, singles: 0, lyrics: 0 }
-      m.tracks++
-      if (r.tracks?.is_single) m.singles++
-      if (r.tracks?.lyrics && r.tracks.lyrics.trim().length > 10) m.lyrics++
-      tcMap.set(r.album_id, m)
+    let offset = 0
+    while (true) {
+      const { data: at } = await sb
+        .from('album_tracks')
+        .select('album_id, tracks(is_single, lyrics)')
+        .in('album_id', chunk)
+        .range(offset, offset + PAGE - 1)
+      const rows = (at || []) as any[]
+      for (const r of rows) {
+        const m = tcMap.get(r.album_id) || { tracks: 0, singles: 0, lyrics: 0 }
+        m.tracks++
+        if (r.tracks?.is_single) m.singles++
+        if (r.tracks?.lyrics && r.tracks.lyrics.trim().length > 10) m.lyrics++
+        tcMap.set(r.album_id, m)
+      }
+      if (rows.length < PAGE) break
+      offset += PAGE
     }
   }
 
-  // Album likes
+  // Album likes — tas pats db-max-rows pagination'as
   const likeMap = new Map<number, number>()
   for (let i = 0; i < ids.length; i += 50) {
     const chunk = ids.slice(i, i + 50)
-    const { data: likes } = await sb
-      .from('likes')
-      .select('entity_id')
-      .eq('entity_type', 'album')
-      .in('entity_id', chunk)
-      .range(0, 49999)
-    for (const l of (likes || []) as any[]) {
-      likeMap.set(l.entity_id, (likeMap.get(l.entity_id) || 0) + 1)
+    let offset = 0
+    while (true) {
+      const { data: likes } = await sb
+        .from('likes')
+        .select('entity_id')
+        .eq('entity_type', 'album')
+        .in('entity_id', chunk)
+        .range(offset, offset + PAGE - 1)
+      const rows = (likes || []) as any[]
+      for (const l of rows) {
+        likeMap.set(l.entity_id, (likeMap.get(l.entity_id) || 0) + 1)
+      }
+      if (rows.length < PAGE) break
+      offset += PAGE
     }
   }
 
@@ -108,14 +124,20 @@ async function getAlbums(id: number): Promise<AlbumRow[]> {
   const commentMap = new Map<number, number>()
   for (let i = 0; i < ids.length; i += 50) {
     const chunk = ids.slice(i, i + 50)
-    const { data: comments } = await sb
-      .from('comments')
-      .select('album_id')
-      .in('album_id', chunk)
-      .eq('is_deleted', false)
-      .range(0, 49999)
-    for (const c of (comments || []) as any[]) {
-      if (c.album_id) commentMap.set(c.album_id, (commentMap.get(c.album_id) || 0) + 1)
+    let offset = 0
+    while (true) {
+      const { data: comments } = await sb
+        .from('comments')
+        .select('album_id')
+        .in('album_id', chunk)
+        .eq('is_deleted', false)
+        .range(offset, offset + PAGE - 1)
+      const rows = (comments || []) as any[]
+      for (const c of rows) {
+        if (c.album_id) commentMap.set(c.album_id, (commentMap.get(c.album_id) || 0) + 1)
+      }
+      if (rows.length < PAGE) break
+      offset += PAGE
     }
   }
 

@@ -67,56 +67,81 @@ async function getTracks(id: number): Promise<TrackRow[]> {
 
   const ids = tracks.map(t => t.id)
 
-  // Like counts iš likes lentelės — PostgREST default limit 1000, todėl
-  // didelėms grupėms (Coldplay 3000+ likes) reikia padalinti į mažus chunk'us
-  // ir kiekvienam pridėti .range(0, 9999) kad nebūtų truncated'as
-  // į pirmus 1000.
+  // Like counts iš likes lentelės. Supabase PostgREST'as turi db-max-rows
+  // setting'ą (default'inai 1000), kuris CAP'ina .range(0, X) net jei X
+  // didelis. Anksčiau Metallica 'Nothing Else Matters' 490 likes rodydavosi
+  // kaip 247 — chunk'as su 50 tracks grąžindavo tik 1000 likes total, ir
+  // populiariausio track'o likes buvo dalinai cut off.
+  // Fix: paginate'inam vidinį range loop'ą kiekvienam chunk'ui, kol gaunam
+  // mažiau nei page size — tada žinom, kad nubaigėm tam chunk'ui.
   const likeMap = new Map<number, number>()
+  const PAGE = 1000
   for (let i = 0; i < ids.length; i += 50) {
     const chunk = ids.slice(i, i + 50)
-    const { data: likes } = await sb
-      .from('likes')
-      .select('entity_id')
-      .eq('entity_type', 'track')
-      .in('entity_id', chunk)
-      .range(0, 49999)
-    for (const l of (likes || []) as any[]) {
-      likeMap.set(l.entity_id, (likeMap.get(l.entity_id) || 0) + 1)
+    let offset = 0
+    while (true) {
+      const { data: likes } = await sb
+        .from('likes')
+        .select('entity_id')
+        .eq('entity_type', 'track')
+        .in('entity_id', chunk)
+        .range(offset, offset + PAGE - 1)
+      const rows = (likes || []) as any[]
+      for (const l of rows) {
+        likeMap.set(l.entity_id, (likeMap.get(l.entity_id) || 0) + 1)
+      }
+      if (rows.length < PAGE) break
+      offset += PAGE
     }
   }
 
   // Album titles per track — JOIN per album_tracks → albums. Vienam track'ui
   // gali būti keli albumai (compilation, soundtrack); rodom comma-separated.
+  // Tas pats db-max-rows pagination'as kaip likes loop'e.
   const albumMap = new Map<number, string[]>()
   for (let i = 0; i < ids.length; i += 200) {
     const chunk = ids.slice(i, i + 200)
-    const { data: at } = await sb
-      .from('album_tracks')
-      .select('track_id, albums(title, year)')
-      .in('track_id', chunk)
-    for (const r of (at || []) as any[]) {
-      const title = r.albums?.title
-      if (!title) continue
-      const arr = albumMap.get(r.track_id) || []
-      if (!arr.includes(title)) arr.push(title)
-      albumMap.set(r.track_id, arr)
+    let offset = 0
+    while (true) {
+      const { data: at } = await sb
+        .from('album_tracks')
+        .select('track_id, albums(title, year)')
+        .in('track_id', chunk)
+        .range(offset, offset + PAGE - 1)
+      const rows = (at || []) as any[]
+      for (const r of rows) {
+        const title = r.albums?.title
+        if (!title) continue
+        const arr = albumMap.get(r.track_id) || []
+        if (!arr.includes(title)) arr.push(title)
+        albumMap.set(r.track_id, arr)
+      }
+      if (rows.length < PAGE) break
+      offset += PAGE
     }
   }
 
   // Comment counts iš comments lentelės. Schema turi atskirus FK stulpelius
   // per entity tipą (track_id / album_id / news_id / event_id / discussion_id),
   // NE polymorphic entity_type+entity_id pattern'ą. Filtruojam per track_id.
+  // Tas pats PostgREST db-max-rows pagination'as kaip likes loop'e.
   const commentMap = new Map<number, number>()
   for (let i = 0; i < ids.length; i += 50) {
     const chunk = ids.slice(i, i + 50)
-    const { data: comments } = await sb
-      .from('comments')
-      .select('track_id')
-      .in('track_id', chunk)
-      .eq('is_deleted', false)
-      .range(0, 49999)
-    for (const c of (comments || []) as any[]) {
-      if (c.track_id) commentMap.set(c.track_id, (commentMap.get(c.track_id) || 0) + 1)
+    let offset = 0
+    while (true) {
+      const { data: comments } = await sb
+        .from('comments')
+        .select('track_id')
+        .in('track_id', chunk)
+        .eq('is_deleted', false)
+        .range(offset, offset + PAGE - 1)
+      const rows = (comments || []) as any[]
+      for (const c of rows) {
+        if (c.track_id) commentMap.set(c.track_id, (commentMap.get(c.track_id) || 0) + 1)
+      }
+      if (rows.length < PAGE) break
+      offset += PAGE
     }
   }
 
