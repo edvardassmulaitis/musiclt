@@ -752,7 +752,35 @@ type Props = {
 
 // ─── Tab tipai ────────────────────────────────────────────────────────────────
 
-type ActiveTab = 'studio' | 'other' | 'singles' | 'songs'
+type ActiveTab = 'studio' | 'other' | 'singles' | 'songs' | 'pending'
+
+// Pending record = music.lt-only įrašas (legacy_scrape_pending source). Šie
+// jau yra DB'oje, bet nematomi viešai. User'is gali "Patvirtinti" (pakeisti
+// source į legacy_scrape_v1) arba "Trinti" iš modal'o.
+type PendingAlbum = {
+  id: number  // DB id
+  title: string
+  year: number | null
+  type: string  // type_studio etc — type_remix/type_live etc., gauname iš API
+  legacy_id: number | null
+  cover_image_url?: string | null
+  tracksCount?: number
+  importing?: boolean
+  imported?: boolean
+  deleted?: boolean
+  error?: string
+}
+type PendingTrack = {
+  id: number
+  title: string
+  release_year: number | null
+  type: string | null
+  legacy_id: number | null
+  importing?: boolean
+  imported?: boolean
+  deleted?: boolean
+  error?: string
+}
 
 // Albumų grupės pagal tabs
 const STUDIO_TYPES: AlbumType[] = ['studio']
@@ -773,6 +801,10 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
   const [artistGroups, setArtistGroups] = useState<string[]>([])
   const [songs, setSongs] = useState<SingleSongItem[]>([])
   const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set())
+  // Pending music.lt-only records — gauti iš DB, ne iš Wiki. Rodom kaip
+  // 4-tą tab'ą su Patvirtinti/Trinti action'ais.
+  const [pendingAlbums, setPendingAlbums] = useState<PendingAlbum[]>([])
+  const [pendingTracks, setPendingTracks] = useState<PendingTrack[]>([])
 
   const [log, setLog] = useState<string[]>([])
   const [importing, setImporting] = useState(false)
@@ -786,9 +818,101 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
 
   // ── Paieška ────────────────────────────────────────────────────────────────
 
+  // ── Pending DB records fetch ─────────────────────────────────────────────
+  // Atskiras fetch nuo Wiki — gaunam visus artist'o legacy_scrape_pending
+  // record'us iš DB. Paleidžiamas kartu su search() arba savaime kai
+  // modal'as atsidaro.
+  const fetchPending = useCallback(async () => {
+    try {
+      const [albRes, trkRes] = await Promise.all([
+        fetch(`/api/albums?artist_id=${artistId}&limit=500`),
+        fetch(`/api/tracks?artist_id=${artistId}&limit=2000`),
+      ])
+      const albData = albRes.ok ? await albRes.json() : { albums: [] }
+      const trkData = trkRes.ok ? await trkRes.json() : { tracks: [] }
+      const albs: any[] = albData.albums || []
+      const trks: any[] = trkData.tracks || []
+      const pAlb: PendingAlbum[] = albs
+        .filter(a => a.source === 'legacy_scrape_pending')
+        .map(a => {
+          const types = ['type_studio', 'type_ep', 'type_compilation', 'type_live', 'type_remix', 'type_covers', 'type_soundtrack']
+          const matchedType = types.find(k => a[k]) || 'type_studio'
+          return {
+            id: a.id,
+            title: a.title,
+            year: a.year || null,
+            type: matchedType.replace('type_', ''),
+            legacy_id: a.legacy_id || null,
+            cover_image_url: a.cover_image_url || null,
+          }
+        })
+      const pTrk: PendingTrack[] = trks
+        .filter(t => t.source === 'legacy_scrape_pending')
+        .map(t => ({
+          id: t.id,
+          title: t.title,
+          release_year: t.release_year || null,
+          type: t.type || null,
+          legacy_id: t.legacy_id || null,
+        }))
+      setPendingAlbums(pAlb)
+      setPendingTracks(pTrk)
+      if (pAlb.length || pTrk.length) {
+        addLog(`📋 Music.lt rasta: ${pAlb.length} albumų + ${pTrk.length} dainų — žiūrėk "Music.lt rasta" tab'e`)
+      }
+    } catch (e) {
+      console.error('[pending fetch]', e)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [artistId])
+
+  // Patvirtinti pending album — pakeičia source iš legacy_scrape_pending
+  // į legacy_scrape_v1, kad būtų matomas viešai. Nereikia kurti naujo
+  // record'o, tik aktyvuoti egzistuojantį.
+  const approvePending = async (kind: 'album' | 'track', id: number) => {
+    const setter = kind === 'album' ? setPendingAlbums : setPendingTracks
+    setter(prev => prev.map(p => p.id === id ? { ...p, importing: true, error: undefined } : p) as any)
+    try {
+      const endpoint = kind === 'album' ? `/api/albums/${id}` : `/api/tracks/${id}`
+      const r = await fetch(endpoint, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source: 'legacy_scrape_v1' }),
+      })
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}))
+        throw new Error(err.error || `${r.status}`)
+      }
+      setter(prev => prev.map(p => p.id === id ? { ...p, importing: false, imported: true } : p) as any)
+      addLog(`✓ ${kind === 'album' ? 'Albumas' : 'Daina'} #${id} aktyvuotas`)
+      window.dispatchEvent(new CustomEvent('discography-updated'))
+    } catch (e: any) {
+      setter(prev => prev.map(p => p.id === id ? { ...p, importing: false, error: e.message } : p) as any)
+      addLog(`✗ Klaida aktyvuojant #${id}: ${e.message}`)
+    }
+  }
+
+  const deletePending = async (kind: 'album' | 'track', id: number) => {
+    if (!confirm(`Trinti pending ${kind === 'album' ? 'albumą' : 'dainą'} (#${id})? Šio veiksmo negalima atšaukti.`)) return
+    const setter = kind === 'album' ? setPendingAlbums : setPendingTracks
+    setter(prev => prev.map(p => p.id === id ? { ...p, importing: true, error: undefined } : p) as any)
+    try {
+      const endpoint = kind === 'album' ? `/api/albums/${id}?deleteTracks=true` : `/api/tracks/${id}`
+      const r = await fetch(endpoint, { method: 'DELETE' })
+      if (!r.ok) throw new Error(`${r.status}`)
+      setter(prev => prev.filter(p => p.id !== id) as any)
+      addLog(`🗑 ${kind === 'album' ? 'Albumas' : 'Daina'} #${id} ištrintas`)
+      window.dispatchEvent(new CustomEvent('discography-updated'))
+    } catch (e: any) {
+      setter(prev => prev.map(p => p.id === id ? { ...p, importing: false, error: e.message } : p) as any)
+    }
+  }
+
   const search = async (groupFilter?: string) => {
     setLoading(true); setItems([]); setSongs([]); setLog([]); setSelected(new Set())
     addLog(`🔍 ${artistName}...`)
+    // Pending fetch'as paralel — nepriklausomas nuo Wiki
+    fetchPending()
 
     const wikiBase = wikiUrl.trim() ? extractWikiTitle(wikiUrl) : artistName.replace(/ /g, '_')
     addLog(`📖 ${wikiBase}`)
@@ -1403,7 +1527,13 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
     setMinimized(false)
     window.dispatchEvent(new CustomEvent('discography-minimized', { detail: { open: false } }))
   }
-  const handleOpen = () => { setOpen(true); if (!searched) { setSearched(true); setTimeout(() => search(), 100) } }
+  const handleOpen = () => {
+    setOpen(true)
+    // Pending fetch'as visada paleidžiamas atidarius — kad user'is matytų
+    // music.lt pasiūlymus net jei nedaro Wiki search'o.
+    fetchPending()
+    if (!searched) { setSearched(true); setTimeout(() => search(), 100) }
+  }
 
   // Klausyti header'io "atidaryti" signalo
   useEffect(() => {
@@ -1607,10 +1737,15 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
     singles: songs.filter(s => !s.duplicate && !s.imported).length,
   }
 
+  const pendingActive = pendingAlbums.filter(p => !p.imported && !p.deleted).length
+                       + pendingTracks.filter(p => !p.imported && !p.deleted).length
   const tabDef: { id: ActiveTab; label: string; count: number; newCount: number; imported: number; hasNew: boolean; showAlways?: boolean }[] = [
     { id: 'studio', label: 'Studijiniai', count: tabCounts.studio, newCount: tabNew.studio, imported: tabImported.studio, hasNew: tabHasNew.studio },
     { id: 'other', label: 'Kiti albumai', count: tabCounts.other, newCount: tabNew.other, imported: tabImported.other, hasNew: tabHasNew.other },
     { id: 'singles', label: 'Singlai', count: tabCounts.singles, newCount: tabNew.singles, imported: tabImported.singles, hasNew: tabHasNew.singles, showAlways: true },
+    // Music.lt only — pending DB record'ai (legacy_scrape_pending). Wiki canonical
+    // sąraše jų nėra, bet music.lt scrape rado. Patvirtinti = aktyvuoti, Trinti = pašalinti.
+    { id: 'pending' as ActiveTab, label: 'Music.lt rasta', count: pendingAlbums.length + pendingTracks.length, newCount: pendingActive, imported: 0, hasNew: pendingActive > 0, showAlways: pendingAlbums.length + pendingTracks.length > 0 },
   ]
 
   const hasContent = items.length > 0 || songs.length > 0
@@ -1864,6 +1999,108 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                 </>
               )}
 
+              {/* ── Music.lt rasta (pending) ── */}
+              {activeTab === 'pending' && !loading && (
+                <>
+                  {(pendingAlbums.length === 0 && pendingTracks.length === 0) ? (
+                    <div className="text-center py-12">
+                      <p className="text-sm text-gray-500 font-medium mb-1">Pending nieko nerasta</p>
+                      <p className="text-[11px] text-gray-400">Visi music.lt scrape įrašai jau aktyvuoti arba ištrinti</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-[12px] text-amber-700 mb-2">
+                        <strong>Music.lt-only įrašai</strong> — atėjo iš music.lt scrape, bet Wiki canonical sąraše jų nėra. Patvirtinti = aktyvuoti (matomas viešai). Trinti = pašalinti iš DB.
+                      </div>
+
+                      {pendingAlbums.length > 0 && (
+                        <div>
+                          <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1 mt-2.5">Albumai · {pendingAlbums.length}</div>
+                          <div className="space-y-1">
+                            {pendingAlbums.map(p => (
+                              <div key={`pa-${p.id}`} className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${
+                                p.imported ? 'border-emerald-200 bg-emerald-50/50' :
+                                p.error ? 'border-red-200 bg-red-50/50' :
+                                'border-amber-200 bg-amber-50/30'
+                              }`}>
+                                {p.cover_image_url && (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={p.cover_image_url} alt="" referrerPolicy="no-referrer" className="w-9 h-9 rounded object-cover shrink-0" />
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-baseline gap-1.5 flex-wrap">
+                                    <span className="text-sm font-medium text-gray-900 truncate">{p.title}</span>
+                                    <span className="text-[10px] text-gray-400">{p.year || '—'}</span>
+                                    <span className="text-[10px] text-violet-400">{p.type}</span>
+                                    {p.legacy_id && <span className="text-[10px] text-amber-500">#{p.legacy_id}</span>}
+                                    {p.importing && <span className="text-[10px] text-violet-400 animate-pulse">vykdoma...</span>}
+                                    {p.imported && <span className="text-[10px] text-emerald-500">✓ aktyvuotas</span>}
+                                    {p.error && <span className="text-[10px] text-red-400" title={p.error}>✗ {p.error}</span>}
+                                  </div>
+                                  <a href={`/admin/albums/${p.id}`} target="_blank" rel="noreferrer" className="text-[10px] text-blue-500 hover:underline">atidaryti admin →</a>
+                                </div>
+                                {!p.imported && !p.deleted && (
+                                  <div className="flex gap-1 shrink-0">
+                                    <button onClick={() => approvePending('album', p.id)} disabled={p.importing}
+                                      className="px-2 py-1 rounded-md bg-emerald-100 text-emerald-700 text-[11px] font-medium hover:bg-emerald-200 disabled:opacity-50">
+                                      ✓ Patvirtinti
+                                    </button>
+                                    <button onClick={() => deletePending('album', p.id)} disabled={p.importing}
+                                      className="px-2 py-1 rounded-md bg-red-50 text-red-600 text-[11px] font-medium hover:bg-red-100 disabled:opacity-50">
+                                      ✕ Trinti
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {pendingTracks.length > 0 && (
+                        <div>
+                          <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1 mt-3">Dainos · {pendingTracks.length}</div>
+                          <div className="space-y-1">
+                            {pendingTracks.map(p => (
+                              <div key={`pt-${p.id}`} className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${
+                                p.imported ? 'border-emerald-200 bg-emerald-50/50' :
+                                p.error ? 'border-red-200 bg-red-50/50' :
+                                'border-amber-200 bg-amber-50/30'
+                              }`}>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-baseline gap-1.5 flex-wrap">
+                                    <span className="text-sm font-medium text-gray-900 truncate">{p.title}</span>
+                                    <span className="text-[10px] text-gray-400">{p.release_year || '—'}</span>
+                                    {p.type && p.type !== 'normal' && <span className="text-[10px] text-violet-400">{p.type}</span>}
+                                    {p.legacy_id && <span className="text-[10px] text-amber-500">#{p.legacy_id}</span>}
+                                    {p.importing && <span className="text-[10px] text-violet-400 animate-pulse">vykdoma...</span>}
+                                    {p.imported && <span className="text-[10px] text-emerald-500">✓ aktyvuota</span>}
+                                    {p.error && <span className="text-[10px] text-red-400" title={p.error}>✗ {p.error}</span>}
+                                  </div>
+                                  <a href={`/admin/tracks/${p.id}`} target="_blank" rel="noreferrer" className="text-[10px] text-blue-500 hover:underline">atidaryti admin →</a>
+                                </div>
+                                {!p.imported && !p.deleted && (
+                                  <div className="flex gap-1 shrink-0">
+                                    <button onClick={() => approvePending('track', p.id)} disabled={p.importing}
+                                      className="px-2 py-1 rounded-md bg-emerald-100 text-emerald-700 text-[11px] font-medium hover:bg-emerald-200 disabled:opacity-50">
+                                      ✓ Patvirtinti
+                                    </button>
+                                    <button onClick={() => deletePending('track', p.id)} disabled={p.importing}
+                                      className="px-2 py-1 rounded-md bg-red-50 text-red-600 text-[11px] font-medium hover:bg-red-100 disabled:opacity-50">
+                                      ✕ Trinti
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+
               {/* Log */}
               {log.length > 0 && (
                 <div ref={logRef} className="bg-gray-950 rounded-xl p-3 font-mono text-[11px] text-emerald-400 max-h-24 overflow-y-auto leading-relaxed">
@@ -1875,7 +2112,11 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
             {/* Footer — sticky ant apačios */}
             <div className="shrink-0 px-3 sm:px-5 pt-2.5 sm:pt-3 border-t border-gray-100 flex items-center gap-1.5 sm:gap-2 bg-white"
               style={{ paddingBottom: 'max(0.625rem, env(safe-area-inset-bottom))' }}>
-              {activeTab === 'singles' ? (
+              {activeTab === 'pending' ? (
+                <div className="flex-1 py-2 sm:py-2.5 text-center text-xs text-gray-500">
+                  Patvirtink / trink iš sąrašo aukščiau
+                </div>
+              ) : activeTab === 'singles' ? (
                 <button onClick={importSongs} disabled={importing || songSelectedCount === 0}
                   className="flex-1 py-2 sm:py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl disabled:opacity-40 transition-colors text-sm">
                   {importing ? 'Importuojama...' : `Importuoti ${getLithuanianPlural(songSelectedCount, 'singlą', 'singlus', 'singlų')}`}
