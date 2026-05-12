@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useBackgroundTasks } from '@/components/BackgroundTaskContext'
 import { COUNTRIES, SUBSTYLES } from '@/lib/constants'
@@ -870,8 +870,13 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
   // į legacy_scrape_v1, kad būtų matomas viešai. Nereikia kurti naujo
   // record'o, tik aktyvuoti egzistuojantį.
   const approvePending = async (kind: 'album' | 'track', id: number) => {
-    const setter = kind === 'album' ? setPendingAlbums : setPendingTracks
-    setter(prev => prev.map(p => p.id === id ? { ...p, importing: true, error: undefined } : p) as any)
+    const updater = <T extends { id: number; importing?: boolean; imported?: boolean; error?: string }>(
+      patch: (p: T) => T
+    ) => {
+      if (kind === 'album') setPendingAlbums(prev => prev.map(p => p.id === id ? patch(p as any) as any : p))
+      else setPendingTracks(prev => prev.map(p => p.id === id ? patch(p as any) as any : p))
+    }
+    updater(p => ({ ...p, importing: true, error: undefined }))
     try {
       const endpoint = kind === 'album' ? `/api/albums/${id}` : `/api/tracks/${id}`
       const r = await fetch(endpoint, {
@@ -883,28 +888,36 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
         const err = await r.json().catch(() => ({}))
         throw new Error(err.error || `${r.status}`)
       }
-      setter(prev => prev.map(p => p.id === id ? { ...p, importing: false, imported: true } : p) as any)
+      updater(p => ({ ...p, importing: false, imported: true }))
       addLog(`✓ ${kind === 'album' ? 'Albumas' : 'Daina'} #${id} aktyvuotas`)
       window.dispatchEvent(new CustomEvent('discography-updated'))
     } catch (e: any) {
-      setter(prev => prev.map(p => p.id === id ? { ...p, importing: false, error: e.message } : p) as any)
+      updater(p => ({ ...p, importing: false, error: e.message }))
       addLog(`✗ Klaida aktyvuojant #${id}: ${e.message}`)
     }
   }
 
   const deletePending = async (kind: 'album' | 'track', id: number) => {
     if (!confirm(`Trinti pending ${kind === 'album' ? 'albumą' : 'dainą'} (#${id})? Šio veiksmo negalima atšaukti.`)) return
-    const setter = kind === 'album' ? setPendingAlbums : setPendingTracks
-    setter(prev => prev.map(p => p.id === id ? { ...p, importing: true, error: undefined } : p) as any)
+    if (kind === 'album') {
+      setPendingAlbums(prev => prev.map(p => p.id === id ? { ...p, importing: true, error: undefined } : p))
+    } else {
+      setPendingTracks(prev => prev.map(p => p.id === id ? { ...p, importing: true, error: undefined } : p))
+    }
     try {
       const endpoint = kind === 'album' ? `/api/albums/${id}?deleteTracks=true` : `/api/tracks/${id}`
       const r = await fetch(endpoint, { method: 'DELETE' })
       if (!r.ok) throw new Error(`${r.status}`)
-      setter(prev => prev.filter(p => p.id !== id) as any)
+      if (kind === 'album') setPendingAlbums(prev => prev.filter(p => p.id !== id))
+      else setPendingTracks(prev => prev.filter(p => p.id !== id))
       addLog(`🗑 ${kind === 'album' ? 'Albumas' : 'Daina'} #${id} ištrintas`)
       window.dispatchEvent(new CustomEvent('discography-updated'))
     } catch (e: any) {
-      setter(prev => prev.map(p => p.id === id ? { ...p, importing: false, error: e.message } : p) as any)
+      if (kind === 'album') {
+        setPendingAlbums(prev => prev.map(p => p.id === id ? { ...p, importing: false, error: e.message } : p))
+      } else {
+        setPendingTracks(prev => prev.map(p => p.id === id ? { ...p, importing: false, error: e.message } : p))
+      }
     }
   }
 
