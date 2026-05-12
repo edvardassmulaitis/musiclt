@@ -34,7 +34,7 @@ COMMENT ON COLUMN public.artists.legacy_comments IS
   'Preview komentarų skaičius iš music.lt artist page (Komentarai (N) label).';
 
 COMMENT ON COLUMN public.artists.legacy_stats_at IS
-  'Paskutinis quick_artist_stats.py paleidimas atlikėjui. NULL = niekada nescan'inta.';
+  'Paskutinis quick_artist_stats.py paleidimas atlikejui. NULL = niekada nescaninta.';
 
 CREATE INDEX IF NOT EXISTS idx_artists_legacy_likes
   ON public.artists (legacy_likes DESC NULLS LAST);
@@ -99,7 +99,7 @@ LEFT JOIN track_stats t ON t.artist_id = a.id
 LEFT JOIN album_stats al ON al.artist_id = a.id;
 
 COMMENT ON VIEW public.v_artist_migration_status IS
-  'Per-artist migration progress: scrape_done + wiki_done flags + counts. Naudojama /admin/api/migration/stats. Refresh'as nereikalingas — tai non-materialized view, kiekvienas SELECT iš naujo skaičiuoja.';
+  'Per-artist migration progress: scrape_done + wiki_done flags + counts. Naudojama /admin/api/migration/stats. Refreshas nereikalingas — tai non-materialized view, kiekvienas SELECT iš naujo skaiciuoja.';
 
 -- RLS: pasitikim, kad endpoint'as eis per service role / admin auth check'ą
 -- API route'e (visi /admin/api/* už NextAuth admin role gate'o), tad viewui
