@@ -149,13 +149,25 @@ export default function AlbumInfoModal({
   const [selfLikePending, setSelfLikePending] = useState(false)
   const [likeCount, setLikeCount] = useState<number>(0)
 
-  // Slide-in animation. Re-mounted=true on prop change (kai albumId pasikeičia
-  // be unmount'o — useris navigates between albums). Slide-out only on close.
+  // Per-album state reset — kai albumId keičiasi (user'is navigates tarp albumų),
+  // reset'inam visus state'us, kad nebūtų state-leak'inimo iš ankstesnio.
+  // PRIES: anksciau details/likeCount/mobileTab/etc. likdavo persistuoti iš
+  // ankstesnio albumo — user'is matydavo seną content'ą trumpai prieš naujam
+  // load'antis. Plius jei buvo pasirinkęs Komentarų tab'ą, naujam albume taip
+  // pat atsidarydavo Komentarai, ne Dainos (kas yra main UX).
   useEffect(() => {
     if (albumId === null) return
     setMounted(true)
     setActiveIdx(-1)
     setPlaying(false)
+    // Reset visus per-album state'us iš karto — TSC saugu nes ALL setters'as
+    // declar'inta aukščiau.
+    setDetails(null)
+    setMobileTab('tracks')
+    setVideoStarted(false)
+    setCommentTotal(0)
+    setSelfLiked(false)
+    setLikeCount(0)
   }, [albumId])
 
   // Fetch details when albumId changes
@@ -526,8 +538,16 @@ export default function AlbumInfoModal({
         <div ref={bodyScrollRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4">
           <div className={mobileTab === 'tracks' ? 'block' : 'hidden'}>
             {loading && tracks.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-10 text-center text-[12px] text-[var(--text-faint)]">
-                Kraunama…
+              <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-10 text-center">
+                {/* Equalizer loader — visa platforma turi vienodą animation
+                    (matosi loading.tsx + track player active state). */}
+                <span className="relative inline-flex h-5 w-6 items-end justify-center gap-[3px]" aria-hidden>
+                  <span className="w-[3px] origin-bottom rounded-[1px] bg-[var(--accent-orange)]" style={{ animation: 'eqBar 1.0s ease-in-out -0.20s infinite' }} />
+                  <span className="w-[3px] origin-bottom rounded-[1px] bg-[var(--accent-orange)]" style={{ animation: 'eqBar 1.0s ease-in-out -0.45s infinite' }} />
+                  <span className="w-[3px] origin-bottom rounded-[1px] bg-[var(--accent-orange)]" style={{ animation: 'eqBar 1.0s ease-in-out -0.10s infinite' }} />
+                </span>
+                <div className="text-[11px] uppercase tracking-wider text-[var(--text-muted)]">Kraunama…</div>
+                <style>{`@keyframes eqBar { 0%,100% { height: 30%; } 50% { height: 100%; } }`}</style>
               </div>
             ) : tracks.length === 0 ? (
               <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-10 text-center text-[12px] text-[var(--text-faint)]">

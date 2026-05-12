@@ -85,6 +85,10 @@ type LegacyPost = {
   created_at: string | null
 }
 type LegacyThread = {
+  /** Modern discussions.id — leidžia EntityCommentsBlock entityType='discussion'
+   *  vienodai veikti kaip canonical /diskusijos/[slug] page'e. Jei null,
+   *  thread'as dar nebuvo migrated į canonical discussions table'ą. */
+  id?: number
   legacy_id: number; slug: string; source_url: string
   title?: string | null; post_count?: number | null
   first_post_at?: string | null; last_post_at?: string | null
@@ -3731,13 +3735,13 @@ function DiscussionThreadModal({
         {/* Scrollable hero + posts area. Hero atvaizdavimas atitinka kanoninę
             /diskusijos/[slug]: didelis H1, comment count subline, sort row;
             tada — posts list (visa scroll'ina kartu, kaip kanoninej page'e). */}
-        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6">
           {/* Hero — title + count */}
-          <div className="border-b border-[var(--border-subtle)] px-6 pb-5 pt-6">
+          <div className="mb-4 border-b border-[var(--border-subtle)] pb-4">
             <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
               Diskusija
             </div>
-            <h1 className="mt-2 font-['Outfit',sans-serif] text-[24px] font-black leading-[1.15] text-[var(--text-primary)]">
+            <h1 className="mt-2 font-['Outfit',sans-serif] text-[20px] font-black leading-[1.15] text-[var(--text-primary)] sm:text-[24px]">
               {title}
             </h1>
             {pc > 0 && (
@@ -3748,250 +3752,29 @@ function DiscussionThreadModal({
             )}
           </div>
 
-          {/* Sort row — sticky top, kad nebeb dingtų skrolinant */}
-          <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] px-6 py-3">
-            <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">Rūšiuoti</span>
-            <SortChip k="oldest" label="Seniausi" />
-            <SortChip k="newest" label="Naujausi" />
-            <SortChip k="popular" label="Populiariausi" />
-          </div>
-
-          {/* Posts list (no longer separately scrollable — visa hero+sort+posts
-              kartu scroll'ina, kaip kanoninej /diskusijos/[slug] page'e). */}
-          <div className="px-6 py-4">
-          {sortedPosts === null && (
-            <div className="space-y-3">
-              {[0, 1, 2].map((i) => (
-                <div key={i} className="h-16 w-full animate-pulse rounded-lg bg-[var(--bg-elevated)]" />
-              ))}
-            </div>
-          )}
-          {sortedPosts !== null && sortedPosts.length === 0 && (
-            <div className="py-12 text-center text-[12px] text-[var(--text-faint)]">Komentarų nėra.</div>
-          )}
-          {sortedPosts && sortedPosts.length > 0 && (
-            <ul className="flex flex-col gap-3">
-              {sortedPosts.map((p) => {
-                const author = p.author_username || 'Anonimas'
-                const html = (p.content_html && p.content_html.trim()) || ''
-                const plainText = (p.content_text && String(p.content_text).trim()) || (html ? stripHtml(html) : '')
-                // Naudojam relative timeAgo formatą kaip kanoninej page'ai
-                // (pvz "prieš 19 metų" vs "2005-03-07 21:35"). Hover'uojant
-                // per `title` rodom pilną datą.
-                const dateRel = p.created_at ? timeAgoLT(p.created_at) : null
-                const dateAbs = p.created_at ? formatPostDate(p.created_at) : null
-                const likeCount = p.like_count || 0
-                const hasLikers = (postLikers[p.legacy_id]?.length || 0) > 0
-                return (
-                  <li key={p.legacy_id} className="flex items-start gap-2.5 border-b border-[var(--border-subtle)] pb-3 last:border-b-0 last:pb-0">
-                    <UserAvatar name={author} avatarUrl={p.author_avatar_url} size={28} />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                        <span className="font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-secondary)]">
-                          {author}
-                        </span>
-                        {dateRel && (
-                          <span
-                            className="font-['Outfit',sans-serif] text-[10.5px] font-medium text-[var(--text-faint)]"
-                            title={dateAbs || ''}
-                          >
-                            {dateRel}
-                          </span>
-                        )}
-                      </div>
-                      {/* Body — render HTML if present (quotes, emojis from
-                          music.lt). Stripped of dangerous tags via sanitize.
-                          Plain text fallback when no HTML. */}
-                      {html ? (
-                        <div
-                          className="forum-html mt-1 break-words text-[13px] leading-relaxed text-[var(--text-primary)]"
-                          dangerouslySetInnerHTML={{ __html: sanitizeForumHtml(html) }}
-                        />
-                      ) : (
-                        <div className="mt-1 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-[var(--text-primary)]">
-                          {plainText}
-                        </div>
-                      )}
-                      {/* Footer — like count (clickable kai yra likers) + reply button */}
-                      <div className="mt-2 flex items-center gap-3">
-                        {hasLikers ? (
-                          <button
-                            type="button"
-                            onClick={() => setLikesModalPostId(p.legacy_id)}
-                            aria-label={`${likeCount} patiko — peržiūrėti`}
-                            className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--accent-orange)] transition-colors hover:bg-[rgba(249,115,22,0.12)]"
-                          >
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
-                            {likeCount}
-                          </button>
-                        ) : (
-                          <span
-                            className={[
-                              'inline-flex items-center gap-1 px-1.5 py-0.5 font-["Outfit",sans-serif] text-[11px] font-extrabold',
-                              likeCount > 0 ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]',
-                            ].join(' ')}
-                            aria-label={`${likeCount} patiko`}
-                          >
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
-                            {likeCount}
-                          </span>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setReplyTo({ author, text: plainText.slice(0, 200) })
-                            requestAnimationFrame(() => draftRef.current?.focus())
-                          }}
-                          className="inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--text-muted)] transition-colors hover:text-[var(--accent-orange)]"
-                        >
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="9 14 4 9 9 4" /><path d="M20 20v-7a4 4 0 0 0-4-4H4" /></svg>
-                          Atsakyti
-                        </button>
-                      </div>
-                    </div>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-          </div>
-        </div>
-
-        {/* Forum HTML styles — quote nesting, emoji image sizing, paragraph
-            spacing. Scoped to .forum-html via :global() pattern below. */}
-        <style jsx global>{`
-          .forum-html p { margin: 0 0 0.6em 0; }
-          .forum-html p:last-child { margin-bottom: 0; }
-          .forum-html br + br { display: none; }
-          .forum-html img { display: inline-block; vertical-align: middle; max-height: 18px; width: auto; }
-          .forum-html .quote1 {
-            padding-left: 10px;
-            border-left: 3px solid var(--accent-orange) !important;
-            margin: 6px 0 8px 0 !important;
-            background: var(--bg-elevated);
-            border-radius: 4px;
-            padding: 6px 10px;
-            color: var(--text-muted);
-            font-size: 12px;
-          }
-          .forum-html .quote1 b { color: var(--text-secondary); }
-          .forum-html em { font-style: italic; }
-          .forum-html a { color: var(--accent-orange); text-decoration: none; }
-          .forum-html a:hover { text-decoration: underline; }
-        `}</style>
-
-        {/* Sticky comment composer. Reply pill rodom virš textarea kai
-            replyTo set'as — paspaudus X grįžtam į paprastą composer'į. */}
-        <div className="border-t border-[var(--border-subtle)] bg-[var(--bg-surface)] px-5 py-3">
-          {replyTo && (
-            <div className="mb-2 flex items-start gap-2 rounded-lg border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.06)] px-3 py-2">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="mt-0.5 shrink-0 text-[var(--accent-orange)]"><polyline points="9 14 4 9 9 4" /><path d="M20 20v-7a4 4 0 0 0-4-4H4" /></svg>
-              <div className="min-w-0 flex-1">
-                <div className="font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-[var(--accent-orange)]">
-                  Atsakant: {replyTo.author}
-                </div>
-                <div className="mt-0.5 line-clamp-2 text-[11.5px] text-[var(--text-muted)]">
-                  {replyTo.text}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setReplyTo(null)}
-                aria-label="Atšaukti atsakymą"
-                className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-[var(--text-faint)] transition-colors hover:text-[var(--text-primary)]"
-              >
-                <svg viewBox="0 0 16 16" width={11} height={11} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-                  <path d="M3 3l10 10M13 3L3 13" />
-                </svg>
-              </button>
-            </div>
-          )}
-          {/* Music attachment chips, jei kažką jau pridėjom */}
-          {attached.length > 0 && (
-            <div className="mb-2">
-              <AttachmentChips
-                items={attached}
-                onRemove={(idx) => setAttached(a => a.filter((_, i) => i !== idx))}
-                compact
-              />
-            </div>
-          )}
-          {/* Toggle'inamas search picker'is — atskira eilutė virš textarea */}
-          {showPicker && (
-            <div className="mb-2">
-              <MusicSearchPicker
-                attached={attached}
-                onAdd={(hit) => setAttached(a => [...a, hit])}
-                placeholder="Surask atlikėją, albumą ar dainą..."
-                compact
-              />
-            </div>
-          )}
-          <div className="flex items-end gap-2">
-            <textarea
-              ref={draftRef}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder={replyTo ? `Atsakyti @${replyTo.author}...` : 'Rašyk komentarą...'}
-              rows={2}
-              className="flex-1 resize-none rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-2 text-[13px] leading-snug text-[var(--text-primary)] outline-none transition-colors placeholder:text-[var(--text-faint)] focus:border-[var(--accent-orange)]"
+          {/* Comments — naudojam tą patį EntityCommentsBlock'ą kaip canonical
+              /diskusijos/[slug] page'ai. Vienas šaltinis truth: same composer,
+              same comment cards, same like UI. Reikalauja modern discussion.id,
+              kurį page.tsx server-side load'as įdeda į LegacyThread'ą. */}
+          {thread.id ? (
+            <EntityCommentsBlock
+              entityType="discussion"
+              entityId={thread.id}
+              title=""
             />
-            <div className="flex flex-col gap-1">
-              {/* Music attach toggle — natural place šalia textarea, kad
-                  vartotojas iš karto matytų galimybę pridėti dainą. */}
-              <button
-                type="button"
-                onClick={() => setShowPicker(v => !v)}
-                aria-label={showPicker ? 'Slėpti muzikos paiešką' : 'Pridėti muzikos'}
-                title={showPicker ? 'Slėpti' : 'Pridėti muzikos'}
-                className={[
-                  'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors',
-                  showPicker
-                    ? 'border-[var(--accent-orange)] bg-[rgba(249,115,22,0.12)] text-[var(--accent-orange)]'
-                    : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-muted)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]',
-                ].join(' ')}
+          ) : (
+            <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-8 text-center text-[12px] text-[var(--text-faint)]">
+              Diskusija dar nemigracinta į naują formatą.{' '}
+              <a
+                href={`/diskusijos/tema/${thread.legacy_id}`}
+                target="_blank"
+                rel="noopener"
+                className="text-[var(--accent-orange)] underline"
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z" /></svg>
-              </button>
-              <button
-                type="button"
-                onClick={async () => {
-                  const text = draft.trim()
-                  if (!text && attached.length === 0) return
-                  const finalText = replyTo
-                    ? `${replyTo.author} rašė:\n${replyTo.text}\n\n${text}`
-                    : text
-                  try {
-                    const res = await fetch('/api/forum-posts', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        thread_legacy_id: thread.legacy_id,
-                        text: finalText || ' ',
-                        attachments: attached,
-                      }),
-                    })
-                    if (res.ok) {
-                      setDraft('')
-                      setReplyTo(null)
-                      setAttached([])
-                      setShowPicker(false)
-                      fetch(`/api/threads/${thread.legacy_id}/posts`)
-                        .then(r => r.json())
-                        .then(d => setPosts(d.posts || []))
-                        .catch(() => {})
-                    }
-                  } catch { /* silent */ }
-                }}
-                disabled={!draft.trim() && attached.length === 0}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-orange)] text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-                aria-label="Siųsti"
-                title="Siųsti"
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M2 21l21-9L2 3v7l15 2-15 2z" /></svg>
-              </button>
+                Atidaryti pilname puslapyje
+              </a>
             </div>
-          </div>
+          )}
         </div>
       </aside>
 

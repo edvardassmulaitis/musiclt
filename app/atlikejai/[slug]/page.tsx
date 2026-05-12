@@ -483,6 +483,7 @@ async function getLegacyForumThreads(artistId: number, limit = 200) {
   // Map į UI-expected shape: kortelės jau turi `slug` (canonical) tiesiogiai,
   // bet pridedam `canonical_slug` field'ą backward-compat su DiscussionRow.
   return ((data || []) as any[]).map((d: any) => ({
+    id: d.id,  // Modern discussions.id — naudojamas EntityCommentsBlock entityId
     legacy_id: d.legacy_id,
     slug: d.slug,
     source_url: d.source_url,
