@@ -1835,7 +1835,7 @@ function Hero({
   artist, heroImage, loaded, likes, selfLiked, onToggleLike, onOpenLikersModal, selfLikePending,
   tracksAllTime, tracksTrending, activeTrackId, onSelectTrack,
   playing, onRequestPlay, onOpenTrackInfo, hasAnyVideo,
-  upcomingEvents, onOpenEventsModal,
+  upcomingEvents, onOpenEventsModal, onOpenHeroLightbox,
 }: {
   artist: any; heroImage: string | null; loaded: boolean
   likes: number; selfLiked?: boolean
@@ -1847,6 +1847,8 @@ function Hero({
   hasAnyVideo: boolean
   upcomingEvents: any[]
   onOpenEventsModal: () => void
+  /** Open photo lightbox at index 0. Optional — kai gallery nėra, hero click nieko nedaro. */
+  onOpenHeroLightbox?: () => void
 }) {
   const coverPos = parseCoverPos(artist.cover_image_position || 'center 30%')
   // Hero foto FIXED width 600px desktop'e — be JS-based dimension detection.
@@ -1909,10 +1911,11 @@ function Hero({
               loading="eager"
               fetchPriority="high"
               onClick={() => {
-                if (typeof window === 'undefined') return
-                if (window.innerWidth < 1024) return
-                const el = document.getElementById('galerija')
-                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                // Open Lightbox at photo[0] (cursor-zoom-in expectation match).
+                // Anksčiau buvo desktop-only scrollIntoView('#galerija') — mobile
+                // useris nieko negaudavo, o desktop cursor:zoom-in painiojo
+                // semantiką (zoom != scroll). Dabar zoom = lightbox visur.
+                onOpenHeroLightbox?.()
               }}
               className="relative block h-full w-full animate-[apHeroZoom_36s_ease-in-out_infinite_alternate] cursor-zoom-in object-cover"
               style={{
@@ -2275,7 +2278,7 @@ function SideInfo({
                     target="_blank"
                     rel="noopener"
                     title={p.l}
-                    className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+                    className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
                   >
                     <svg viewBox="0 0 24 24" fill={p.c || 'currentColor'} width="14" height="14" className={p.c ? '' : 'text-[var(--text-primary)]'}><path d={p.d} /></svg>
                   </a>
@@ -2290,7 +2293,7 @@ function SideInfo({
                     target="_blank"
                     rel="noopener"
                     title="Oficiali svetainė"
-                    className="flex h-9 items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-3 text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+                    className="flex h-10 items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-3 text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
                   >
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
                     <span className="max-w-[160px] truncate font-['Outfit',sans-serif] text-[12.5px] font-bold tracking-tight sm:max-w-none">{domain}</span>
@@ -3295,7 +3298,7 @@ function AlbumCard({ a, popularity, artistSlug, maxPop, onOpen }: { a: Album; po
 
 // ── TrackRow: compact row for orphan tracks (no big placeholder square) ─
 
-function TrackRow({ t, popularity, artistSlug }: { t: Track; popularity?: number; artistSlug?: string }) {
+function TrackRow({ t, popularity, artistSlug, onOpen }: { t: Track; popularity?: number; artistSlug?: string; onOpen?: (t: Track) => void }) {
   const v = yt(t.video_url)
   // YT video availability — dead video grąžina 120x90 placeholder PNG.
   // Naudojam tos pačios cover img'os onLoad — be papildomų request'ų.
@@ -3311,11 +3314,9 @@ function TrackRow({ t, popularity, artistSlug }: { t: Track; popularity?: number
   const href = artistSlug
     ? `/dainos/${artistSlug}-${t.slug}-${t.id}`
     : `/dainos/${t.slug}-${t.id}`
-  return (
-    <Link
-      href={href}
-      className="group flex items-center gap-2.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-2 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
-    >
+  const sharedClass = 'group flex items-center gap-2.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-2 text-left no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]'
+  const inner = (
+    <>
       <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md bg-[var(--cover-placeholder)]">
         {cover ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -3349,8 +3350,12 @@ function TrackRow({ t, popularity, artistSlug }: { t: Track; popularity?: number
         </div>
         {typeof popularity === 'number' && <PopBar level={popularity} />}
       </div>
-    </Link>
+    </>
   )
+  if (onOpen) {
+    return <button type="button" onClick={() => onOpen(t)} className={sharedClass}>{inner}</button>
+  }
+  return <Link href={href} className={sharedClass}>{inner}</Link>
 }
 
 // ── DiscussionRow: title + last post preview on the right ──────────
@@ -4021,9 +4026,10 @@ export default function ArtistProfileClient({
   const [albumModalOpen, setAlbumModalOpen] = useState<Album | null>(null)
   const [eventsModalOpen, setEventsModalOpen] = useState(false)
   const [discussionsModalOpen, setDiscussionsModalOpen] = useState(false)
-  // activeThread state pašalintas — diskusijų kortelės dabar Link'ai į
-  // canonical /diskusijos/tema/{legacy_id} (rodantis pilną thread-page-client'ą
-  // su composer'iu, replies, sort), o ne open custom modal'ą.
+  // activeThread — wired back (2026-05-12): visi diskusijų click'ai dabar
+  // atidaro DiscussionThreadModal artist page'e (user'is pageidavo, kad
+  // visi linkai atsidarytų modaluose, nereiktų išeit iš main page).
+  const [activeThread, setActiveThread] = useState<LegacyThread | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [likesModalOpen, setLikesModalOpen] = useState(false)
   const [bioModalOpen, setBioModalOpen] = useState(false)
@@ -4322,6 +4328,7 @@ export default function ArtistProfileClient({
         hasAnyVideo={hasAnyVideo}
         upcomingEvents={upcomingEvents}
         onOpenEventsModal={() => setEventsModalOpen(true)}
+        onOpenHeroLightbox={() => { if (galleryPhotos.length > 0) setLightboxIndex(0) }}
       />
 
       <EventsModal
@@ -4334,9 +4341,13 @@ export default function ArtistProfileClient({
         open={discussionsModalOpen}
         threads={legacyThreads}
         onClose={() => setDiscussionsModalOpen(false)}
-        // Be onOpenThread — DiscussionRow be `onOpen` props automatiškai
-        // tampa <Link href="/diskusijos/tema/{legacy_id}">, kuris atidaro
-        // canonical thread page'ą.
+        onOpenThread={(t) => { setDiscussionsModalOpen(false); setActiveThread(t) }}
+      />
+
+      {/* DiscussionThreadModal — pilnas thread'as artist page'e (nebereikia exit'inti). */}
+      <DiscussionThreadModal
+        thread={activeThread}
+        onClose={() => setActiveThread(null)}
       />
 
       <LikesModal
@@ -4699,6 +4710,7 @@ export default function ArtistProfileClient({
                         t={t}
                         artistSlug={artist.slug}
                         popularity={popLevelWithFallback(t, i, orphanTracks.length, popInfoTracks)}
+                        onOpen={setTrackInfoOpen}
                       />
                     ))}
                   </div>
@@ -4741,17 +4753,13 @@ export default function ArtistProfileClient({
                       limited UI — user'is teisingai pastebėjo, kad geriau
                       naudoti vieną komponentą visur. */}
                   {previewThreads.map((t) => (
-                    <DiscussionRow key={t.legacy_id} t={t} />
+                    <DiscussionRow key={t.legacy_id} t={t} onOpen={setActiveThread} />
                   ))}
                 </div>
               ) : (
                 <div className="rounded-2xl border border-dashed border-[var(--border-default)] p-8 text-center">
-                  <div className="mb-2 text-[14px] font-bold text-[var(--text-muted)]">Dar nėra diskusijų apie {artist.name}</div>
-                  <div className="mb-4 text-[12px] text-[var(--text-faint)]">Būk pirmas — pradėk diskusiją!</div>
-                  <button className="inline-flex items-center gap-2 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-4 py-2 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14" /></svg>
-                    Nauja diskusija
-                  </button>
+                  <div className="mb-1 text-[14px] font-bold text-[var(--text-muted)]">Dar nėra diskusijų apie {artist.name}</div>
+                  <div className="text-[12px] text-[var(--text-faint)]">Diskusijų kūrimo funkcija ruošiama.</div>
                 </div>
               )}
             </section>

@@ -30,11 +30,14 @@ export type AwardRow = {
   participants_in_event: number
 }
 
-const RESULT_META: Record<string, { label: string; bg: string; fg: string; icon: string }> = {
-  won:        { label: 'Laimėjo',     bg: '#dcfce7', fg: '#166534', icon: '🏆' },
-  nominated:  { label: 'Nominuotas',  bg: '#dbeafe', fg: '#1e40af', icon: '🎯' },
-  inducted:   { label: 'Įtrauktas',   bg: '#f3e8ff', fg: '#6b21a8', icon: '⭐' },
-  other:      { label: '?',           bg: '#f1f5f9', fg: '#64748b', icon: '·' },
+// Theme-aware result meta — naudojam rgba CSS spalvas su accent variations
+// vietoj hard-code'intų hex'ų. Anksčiau #dcfce7/#166534 atrodė broken ant
+// dark theme (low contrast bright pastel ant dark bg).
+const RESULT_META: Record<string, { label: string; bg: string; fg: string }> = {
+  won:        { label: 'Laimėjo',     bg: 'rgba(34,197,94,0.18)',  fg: '#4ade80' },  // green-400
+  nominated:  { label: 'Nominuotas',  bg: 'rgba(59,130,246,0.18)', fg: '#60a5fa' },  // blue-400
+  inducted:   { label: 'Įtrauktas',   bg: 'rgba(168,85,247,0.18)', fg: '#c084fc' },  // purple-400
+  other:      { label: '?',           bg: 'var(--card-bg)',         fg: 'var(--text-muted)' },
 }
 
 export default function ArtistAwards({ awards }: { awards: AwardRow[] }) {
@@ -61,15 +64,16 @@ export default function ArtistAwards({ awards }: { awards: AwardRow[] }) {
   }
 
   return (
-    <section className="mt-8">
-      <div className="flex items-baseline justify-between mb-3 gap-3 flex-wrap">
-        <h2 className="font-['Outfit',sans-serif] text-[18px] font-black tracking-[-0.01em] text-[var(--text-primary)] sm:text-[20px]">
+    <section>
+      <div className="flex items-baseline justify-between mb-4 gap-3 flex-wrap">
+        {/* Match SectionTitle styling iš artist page'o (sizing + tracking). */}
+        <h2 className="font-['Outfit',sans-serif] text-[22px] font-black tracking-[-0.01em] text-[var(--text-primary)] sm:text-[26px] lg:text-[28px]">
           Apdovanojimai
         </h2>
         <div className="text-xs text-[var(--text-muted)] flex gap-2 items-center">
-          {totals.wins > 0 && <span className="text-green-700 font-bold">{totals.wins} laimėjo</span>}
-          {totals.noms > 0 && <span className="text-blue-700 font-bold">{totals.noms} nominacij{totals.noms === 1 ? 'a' : 'os'}</span>}
-          {totals.inducted > 0 && <span className="text-purple-700 font-bold">{totals.inducted} įtrauktas</span>}
+          {totals.wins > 0 && <span className="text-[#4ade80] font-bold">{totals.wins} laimėjo</span>}
+          {totals.noms > 0 && <span className="text-[#60a5fa] font-bold">{totals.noms} nominacij{totals.noms === 1 ? 'a' : 'os'}</span>}
+          {totals.inducted > 0 && <span className="text-[#c084fc] font-bold">{totals.inducted} įtrauktas</span>}
           <span className="text-[var(--text-faint)]">· {totals.channels} kanalai</span>
         </div>
       </div>
@@ -89,13 +93,21 @@ export default function ArtistAwards({ awards }: { awards: AwardRow[] }) {
                 className="w-full px-4 py-3 flex items-center justify-between hover:bg-[var(--bg-hover)] transition-colors text-left"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <span className="text-base">🏆</span>
+                  {/* Trophy SVG (monochrome, matches site icon language). */}
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-[var(--accent-orange)]" aria-hidden>
+                    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+                    <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+                    <path d="M4 22h16" />
+                    <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+                    <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+                    <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+                  </svg>
                   <div className="min-w-0">
                     <div className="font-bold text-sm text-[var(--text-primary)] truncate">{channelName}</div>
                     <div className="text-xs text-[var(--text-faint)] mt-0.5">
                       {items.length} {items.length === 1 ? 'įrašas' : 'įrašai'}
-                      {wins > 0 && <> · <span className="text-green-700">{wins} laimėjo</span></>}
-                      {noms > 0 && <> · <span className="text-blue-700">{noms} nominacij{noms === 1 ? 'a' : 'os'}</span></>}
+                      {wins > 0 && <> · <span className="text-[#4ade80]">{wins} laimėjo</span></>}
+                      {noms > 0 && <> · <span className="text-[#60a5fa]">{noms} nominacij{noms === 1 ? 'a' : 'os'}</span></>}
                     </div>
                   </div>
                 </div>
@@ -120,14 +132,20 @@ export default function ArtistAwards({ awards }: { awards: AwardRow[] }) {
                           <span className="text-[var(--text-faint)] italic truncate max-w-[160px] hidden sm:block">{item.work}</span>
                         )}
                         <span
-                          className="text-[10px] font-bold px-2 py-0.5 rounded shrink-0 inline-flex items-center gap-1"
+                          className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded shrink-0 inline-flex items-center font-['Outfit',sans-serif]"
                           style={{ background: meta.bg, color: meta.fg }}
                         >
-                          <span className="text-[10px]">{meta.icon}</span>{meta.label}
+                          {meta.label}
                         </span>
                         {partial && (
                           <span title="Ceremonija pilnai neaprašyta — tik šis atlikėjas importuotas. Co-nominees gali būti pridėti vėliau."
-                            className="text-amber-600 text-[10px] font-bold shrink-0">⚠</span>
+                            className="text-[#f59e0b] shrink-0 inline-flex items-center" aria-label="Ceremonija pilnai neaprašyta">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                              <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+                              <line x1="12" y1="9" x2="12" y2="13" />
+                              <line x1="12" y1="17" x2="12.01" y2="17" />
+                            </svg>
+                          </span>
                         )}
                       </div>
                     )
