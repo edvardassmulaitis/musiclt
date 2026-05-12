@@ -13,6 +13,10 @@ type WikiImage = {
   width: number
   height: number
   descriptionUrl: string
+  /** ISO date string (`YYYY-MM-DD`) jei DateTimeOriginal yra extmetadata.
+   *  Naudojama galerijos sortinimui (naujausios viršuje) + display ant
+   *  korteles. */
+  takenAt?: string | null
 }
 
 function parseAuthor(raw: string): string {
@@ -63,7 +67,7 @@ async function searchImages(query: string, offset = 0): Promise<{ images: WikiIm
   const infoParams = new URLSearchParams({
     action: 'query', titles,
     prop: 'imageinfo|revisions',
-    iiprop: 'url|size|extmetadata',
+    iiprop: 'url|size|extmetadata|timestamp',
     iiurlwidth: '400',  // thumbnail for preview grid
     rvprop: 'content',
     format: 'json', origin: '*',
@@ -82,15 +86,61 @@ async function searchImages(query: string, offset = 0): Promise<{ images: WikiIm
       const license = licenseTemplates.includes('CC') || licenseTemplates.includes('Public')
         ? licenseTemplates
         : parseLicense(meta.Templates?.value || [])
+      // Date extraction — bandom kelis Commons extmetadata fields'us
+      // hierarchijoje, nes DateTimeOriginal dažnai būna NULL (EXIF data
+      // stripped during upload). Fallback'ai:
+      //   1. DateTimeOriginal — EXIF "kada nuotrauka padaryta"
+      //   2. DateTime — file modification date (kartais = upload date)
+      //   3. DateTimeDigitized — EXIF "kada digitalizuota"
+      //   4. Britney case: Wiki Summary table'oje matėsi "Date: 27 Sept
+      //      2016, 20:18" → ši reikšmė turbūt yra DateTime, bet jei ne —
+      //      info.timestamp tampa absolute last fallback'as (upload time).
+      const tryParse = (raw: string): string | null => {
+        if (!raw) return null
+        const clean = raw.replace(/<[^>]+>/g, '').trim()
+        // ISO/EXIF format: YYYY:MM:DD or YYYY-MM-DD
+        const m1 = clean.match(/^(\d{4})[-:](\d{1,2})[-:](\d{1,2})/)
+        if (m1) {
+          const y = m1[1]
+          const mo = String(parseInt(m1[2], 10)).padStart(2, '0')
+          const d = String(parseInt(m1[3], 10)).padStart(2, '0')
+          return `${y}-${mo}-${d}`
+        }
+        // English long date: "27 September 2016" arba "September 27, 2016"
+        const MONTHS = ['january','february','march','april','may','june','july','august','september','october','november','december']
+        const lower = clean.toLowerCase()
+        const m2 = lower.match(/(\d{1,2})\s+(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{4})/)
+        if (m2) {
+          const d = String(parseInt(m2[1], 10)).padStart(2, '0')
+          const mo = String(MONTHS.indexOf(m2[2]) + 1).padStart(2, '0')
+          return `${m2[3]}-${mo}-${d}`
+        }
+        const m3 = lower.match(/(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2}),?\s+(\d{4})/)
+        if (m3) {
+          const d = String(parseInt(m3[2], 10)).padStart(2, '0')
+          const mo = String(MONTHS.indexOf(m3[1]) + 1).padStart(2, '0')
+          return `${m3[3]}-${mo}-${d}`
+        }
+        // Bare year fallback (least precise)
+        const ym = clean.match(/(\d{4})/)
+        if (ym) return `${ym[1]}-01-01`
+        return null
+      }
+      let takenAt: string | null =
+        tryParse(meta.DateTimeOriginal?.value || '') ||
+        tryParse(meta.DateTime?.value || '') ||
+        tryParse(meta.DateTimeDigitized?.value || '') ||
+        tryParse(info.timestamp || '')
       return {
         title: p.title,
         thumb: info.thumburl || info.url,
-        fullUrl: info.url,  // original full resolution
+        fullUrl: info.url,
         author,
         license: license || licenseTemplates || '',
         width: info.width || 0,
         height: info.height || 0,
         descriptionUrl: info.descriptionurl || '',
+        takenAt,
       }
     })
     .filter(img =>
@@ -174,13 +224,13 @@ export default function WikimediaSearch({
         if (res.ok) {
           const d = await res.json()
           if (d.url && (d.url.includes('supabase') || d.url.startsWith('/'))) {
-            uploaded.push({ url: d.url, author: authorStr, authorUrl: img.descriptionUrl } as any)
+            uploaded.push({ url: d.url, author: authorStr, authorUrl: img.descriptionUrl, takenAt: img.takenAt, sourceUrl: img.descriptionUrl } as any)
             continue
           }
         }
       } catch {}
       // Fallback to direct wikimedia URL
-      uploaded.push({ url: img.fullUrl, author: authorStr, authorUrl: img.descriptionUrl } as any)
+      uploaded.push({ url: img.fullUrl, author: authorStr, authorUrl: img.descriptionUrl, takenAt: img.takenAt, sourceUrl: img.descriptionUrl } as any)
     }
     setLoading(false)
     onAddMultiple(uploaded)
